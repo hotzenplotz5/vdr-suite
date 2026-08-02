@@ -4,6 +4,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_STATUS = ROOT / "docs/development/current-status.md"
+AGENT_RULES = ROOT / "AGENTS.md"
 
 # GitHub update safety rules for future assistants:
 #
@@ -15,10 +16,14 @@ CURRENT_STATUS = ROOT / "docs/development/current-status.md"
 #   updating the file or use a smaller safe edit strategy.
 # - After every GitHub file update, inspect the commit diff before treating
 #   the change as correct.
-# - Do not wait for GitHub Actions before returning a completed repository
-#   change to the user. Run the relevant focused/local tests, commit and push.
-# - GitHub Actions may be inspected later as additional evidence, but must not
-#   block deployment instructions, runtime verification or the user response.
+# - Prefer GitHub-first execution when the connector can perform the complete
+#   bounded operation safely.
+# - Continue through already-approved steps without artificial confirmation
+#   pauses.
+# - Create and push coherent commits consecutively with fast-forward-only
+#   semantics.
+# - Do not wait for GitHub Actions after every commit. Evaluate CI at the final
+#   stabilization head or before a gated runtime/review/merge operation.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
 
@@ -29,6 +34,16 @@ REQUIRED_CURRENT_STATUS_RULES = [
     "a workaround because the GitHub connector blocks a file operation",
 ]
 
+REQUIRED_AGENT_RULES = [
+    "## GitHub-first execution",
+    "Continue through all already-approved steps of a bounded workstream",
+    "Push each completed",
+    "Do not wait for GitHub Actions after every commit.",
+    "Evaluate CI at the end of the bounded workstream",
+    "Keep updates fast-forward-only.",
+    "Do not mark a Draft pull request Ready",
+]
+
 REQUIRED_GUARDRAIL_RULES = [
     "Never replace a complete existing file through GitHub update_file from a",
     "truncated or partial fetch.",
@@ -36,29 +51,45 @@ REQUIRED_GUARDRAIL_RULES = [
     "small diff.",
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
-    "Do not wait for GitHub Actions before returning a completed repository",
+    "Prefer GitHub-first execution when the connector can perform",
+    "Continue through already-approved steps without artificial confirmation",
+    "Do not wait for GitHub Actions after every commit.",
+    "Evaluate CI at the final",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
 ]
 
 
 def main() -> int:
-    if not CURRENT_STATUS.exists():
-        print("GitHub update safety handoff check failed:")
-        print("- docs/development/current-status.md is missing")
-        return 1
-
-    current_status_text = CURRENT_STATUS.read_text(encoding="utf-8")
-    own_text = Path(__file__).read_text(encoding="utf-8")
-
     missing = []
+
+    if not CURRENT_STATUS.exists():
+        missing.append("docs/development/current-status.md is missing")
+    if not AGENT_RULES.exists():
+        missing.append("AGENTS.md is missing")
+
+    current_status_text = (
+        CURRENT_STATUS.read_text(encoding="utf-8")
+        if CURRENT_STATUS.exists()
+        else ""
+    )
+    agent_rules_text = (
+        AGENT_RULES.read_text(encoding="utf-8")
+        if AGENT_RULES.exists()
+        else ""
+    )
+    own_text = Path(__file__).read_text(encoding="utf-8")
 
     for item in REQUIRED_CURRENT_STATUS_RULES:
         if item not in current_status_text:
             missing.append("current-status.md missing rule: " + item)
 
+    for item in REQUIRED_AGENT_RULES:
+        if item not in agent_rules_text:
+            missing.append("AGENTS.md missing rule: " + item)
+
     for item in REQUIRED_GUARDRAIL_RULES:
         if item not in own_text:
-            missing.append("guardrail missing anti-truncation rule: " + item)
+            missing.append("guardrail missing workflow rule: " + item)
 
     if missing:
         print("GitHub update safety handoff check failed:")

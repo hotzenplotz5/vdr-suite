@@ -99,6 +99,7 @@ SearchTimer:
 - `fetchClientSearchTimers`
 - `fetchClientSearchTimerDiscovery`
 - `fetchClientSearchTimerPreview`
+- `fetchClientSearchTimerPreviewCacheRefresh`
 - `fetchClientSearchTimerPlan`
 - `fetchClientSearchTimerValidate`
 - `fetchClientSearchTimerExecute`

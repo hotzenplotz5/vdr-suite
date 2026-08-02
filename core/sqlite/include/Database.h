@@ -21,6 +21,7 @@ public:
     void close();
 
     bool isOpen() const;
+    std::string filename() const;
 
     bool execute(const std::string& sql);
     bool tableExists(const std::string& tableName);

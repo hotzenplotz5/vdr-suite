@@ -9,10 +9,6 @@ function installSearchTimerPreviewCacheWarmup() {
     '/api/vdr/searchtimers/preview',
     '/api/searchtimers/preview'
   ];
-  const refreshPaths = [
-    '/api/vdr/searchtimers/preview/cache/refresh',
-    '/api/searchtimers/preview/cache/refresh'
-  ];
 
   function requestUrl(input) {
     if (typeof input === 'string') return input;
@@ -43,49 +39,35 @@ function installSearchTimerPreviewCacheWarmup() {
     }
   }
 
-  function refreshUrl(path, backendId) {
-    const params = new URLSearchParams({
-      backend: backendId,
-      from: '-1',
-      timespan: String(14 * 24 * 60 * 60),
-      limit: '0',
-      channelEventLimit: '96',
-      _: String(Date.now())
-    });
-    return path + '?' + params.toString();
-  }
-
   function refreshCache(backendId) {
-    function attempt(index) {
-      if (index >= refreshPaths.length) {
-        return Promise.reject(new Error('SearchTimer-Preview-Cache konnte nicht aktualisiert werden.'));
-      }
-
-      return originalFetch(refreshUrl(refreshPaths[index], backendId), {
-        method: 'POST',
-        cache: 'no-store',
-        credentials: 'same-origin',
-        headers: {Accept: 'application/json'}
-      }).then(response => {
-        if (!response.ok) {
-          return attempt(index + 1);
-        }
-        return response.json().then(result => {
-          const ready = result && String(result.status || '') === 'ready';
-          const available = result && result.available === true;
-          const eventCount = Number(result && result.eventCount || 0);
-          if (!ready || !available || eventCount <= 0) {
-            throw new Error('SearchTimer-Preview-Cache ist nicht bereit oder leer.');
-          }
-          return result;
-        });
-      }).catch(error => {
-        if (index + 1 < refreshPaths.length) return attempt(index + 1);
-        throw error;
-      });
+    const client = window.VdrSuiteClientApi;
+    if (!client ||
+        typeof client.fetchClientSearchTimerPreviewCacheRefresh !== 'function') {
+      return Promise.reject(new Error(
+        'SearchTimer-Preview-Cache konnte nicht aktualisiert werden: Client API fehlt.'
+      ));
     }
 
-    return attempt(0);
+    return client.fetchClientSearchTimerPreviewCacheRefresh({
+      backendId: backendId,
+      query: {
+        from: -1,
+        timespan: 14 * 24 * 60 * 60,
+        limit: 0,
+        channelEventLimit: 96,
+        _: Date.now()
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(result => {
+      const ready = result && String(result.status || '') === 'ready';
+      const available = result && result.available === true;
+      const eventCount = Number(result && result.eventCount || 0);
+      if (!ready || !available || eventCount <= 0) {
+        throw new Error('SearchTimer-Preview-Cache ist nicht bereit oder leer.');
+      }
+      return result;
+    });
   }
 
   window.fetch = function (input, init) {
@@ -100,6 +82,211 @@ function installSearchTimerPreviewCacheWarmup() {
   };
 
   window.__vdrSuiteSearchTimerPreviewFetchWrapped = true;
+}
+
+function installSecurityRoleErrorMessages() {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  if (window.__vdrSuiteSecurityRoleErrorMessagesWrapped === true) return;
+
+  const originalFetch = window.fetch.bind(window);
+
+  function readOnlyMessage() {
+    const language = document && document.documentElement
+      ? String(document.documentElement.lang || '').toLowerCase()
+      : '';
+    return language.startsWith('en')
+      ? 'This account has read-only access to this backend.'
+      : 'Dieses Konto hat für dieses Backend nur Lesezugriff.';
+  }
+
+  window.fetch = function (input, init) {
+    return originalFetch(input, init).then(response => {
+      if (!response || response.status !== 403 ||
+          typeof response.clone !== 'function' ||
+          typeof window.Response !== 'function') {
+        return response;
+      }
+
+      let inspectionResponse;
+      try {
+        inspectionResponse = response.clone();
+      } catch (error) {
+        return response;
+      }
+
+      return inspectionResponse.text().then(text => {
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch (error) {
+          return response;
+        }
+
+        if (!payload || !payload.error || typeof payload.error !== 'object' ||
+            String(payload.error.code || '') !== 'role_read_only') {
+          return response;
+        }
+
+        payload.error.message = readOnlyMessage();
+        const headers = typeof window.Headers === 'function'
+          ? new window.Headers(response.headers)
+          : response.headers;
+        return new window.Response(JSON.stringify(payload), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers
+        });
+      }).catch(() => response);
+    });
+  };
+
+  window.__vdrSuiteSecurityRoleErrorMessagesWrapped = true;
+}
+
+function installMutationCsrfForPaths(wrapperMarker, mutationPaths) {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  if (window[wrapperMarker] === true) return;
+
+  const originalFetch = window.fetch.bind(window);
+  const protectedMutationPaths = Object.freeze(mutationPaths.slice());
+
+  function requestUrl(input) {
+    if (typeof input === 'string') return input;
+    if (input && typeof input.url === 'string') return input.url;
+    return '';
+  }
+
+  function requestMethod(input, init) {
+    if (init && init.method) return String(init.method).toUpperCase();
+    if (input && typeof input.method === 'string') return String(input.method).toUpperCase();
+    return 'GET';
+  }
+
+  function requestPath(url) {
+    try {
+      return new URL(url, window.location.href).pathname;
+    } catch (error) {
+      const query = url.indexOf('?');
+      return query === -1 ? url : url.slice(0, query);
+    }
+  }
+
+  function isProtectedMutation(input, init) {
+    return requestMethod(input, init) === 'POST' &&
+      protectedMutationPaths.includes(requestPath(requestUrl(input)));
+  }
+
+  function csrfHeaders() {
+    const session = window.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
+
+  function mergedInit(input, init) {
+    const securityHeaders = csrfHeaders();
+    if (!Object.prototype.hasOwnProperty.call(securityHeaders, 'X-CSRF-Token')) {
+      return init;
+    }
+
+    const next = Object.assign({}, init || {});
+    const requestHeaders = input && typeof input !== 'string' && input.headers
+      ? input.headers
+      : {};
+
+    if (typeof window.Headers === 'function') {
+      const headers = new window.Headers(requestHeaders);
+      new window.Headers(next.headers || {}).forEach((value, name) => {
+        headers.set(name, value);
+      });
+      Object.keys(securityHeaders).forEach(name => {
+        headers.set(name, securityHeaders[name]);
+      });
+      next.headers = headers;
+      return next;
+    }
+
+    next.headers = Object.assign(
+      {},
+      requestHeaders,
+      next.headers || {},
+      securityHeaders
+    );
+    return next;
+  }
+
+  window.fetch = function (input, init) {
+    return isProtectedMutation(input, init)
+      ? originalFetch(input, mergedInit(input, init))
+      : originalFetch(input, init);
+  };
+
+  window[wrapperMarker] = true;
+}
+
+function installTimerMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteTimerMutationCsrfWrapped',
+    [
+      '/api/vdr/timers/actions/create',
+      '/api/vdr/timers/actions/update',
+      '/api/vdr/timers/actions/delete'
+    ]
+  );
+}
+
+function installChannelMoveMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteChannelMoveMutationCsrfWrapped',
+    [
+      '/api/vdr/channels/move',
+      '/api/vdr/channels/actions/move'
+    ]
+  );
+}
+
+function installRecordingExecutionMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteRecordingExecutionMutationCsrfWrapped',
+    [
+      '/api/recordings/actions/execute',
+      '/api/vdr/recordings/actions/execute'
+    ]
+  );
+}
+
+function installSearchTimerCreateMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteSearchTimerCreateMutationCsrfWrapped',
+    [
+      '/api/searchtimers',
+      '/api/vdr/searchtimers'
+    ]
+  );
+}
+
+function installSearchTimerMaintenanceMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteSearchTimerMaintenanceMutationCsrfWrapped',
+    [
+      '/api/searchtimers/update',
+      '/api/vdr/searchtimers/update',
+      '/api/searchtimers/delete',
+      '/api/vdr/searchtimers/delete'
+    ]
+  );
+}
+
+function installSearchTimerExecutionMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteSearchTimerExecutionMutationCsrfWrapped',
+    [
+      '/api/searchtimers/execute',
+      '/api/vdr/searchtimers/execute',
+      '/api/searchtimers/real-test',
+      '/api/vdr/searchtimers/real-test'
+    ]
+  );
 }
 
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
@@ -266,6 +453,13 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 }
 
 if (typeof window !== 'undefined') {
+  installSecurityRoleErrorMessages();
+  installTimerMutationCsrf();
+  installChannelMoveMutationCsrf();
+  installRecordingExecutionMutationCsrf();
+  installSearchTimerCreateMutationCsrf();
+  installSearchTimerMaintenanceMutationCsrf();
+  installSearchTimerExecutionMutationCsrf();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({

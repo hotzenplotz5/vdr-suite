@@ -14,7 +14,13 @@ A target diagram or accepted ADR is not evidence that its runtime is complete.
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [ADR Index](../adr/index.md)
 
-The accepted target package defines the Control Plane, Agent, lifecycle, trust, mutation, jobs, TimerIntent, provenance, streaming, OSD, API and audit boundaries. Runtime status remains tracked separately.
+## Active security and identity architecture
+
+- [Security and Identity Foundation](security-identity-foundation.md)
+- [Phase 62 Security and Identity Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
+- [Phase 62 Slice 1](../development/phase-62-security-identity-foundation-slice-1.md)
+
+The first Phase 62 slice establishes request identity, centralized backend-scoped permission decisions and append-only pre-dispatch accountability for the Remote mutation. Production identity lifecycle, complete route migration, revision/idempotency and outbox work remain open.
 
 ## Implemented metadata and discovery architecture
 
@@ -26,9 +32,7 @@ The accepted target package defines the Control Plane, Agent, lifecycle, trust, 
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 - [Post-Phase-61 Provider Strategy](../planning/tvscraper-recording-metadata-roadmap.md)
 
-Phase 61 is completed. It established Suite-owned backend-scoped target bindings, people relations, provider/derived evidence, canonical Genre assignments, query-only browse paths and frontend integration. Global search is a later completed cross-cutting read model over the same persistent Recording, EPG and people data.
-
-Optional providers, imports, broader artwork processing and diagnostics are post-Phase-61 backlog or deferred strategy. They do not remain active Phase 61 slices.
+Phase 61 is completed. Optional providers, imports, broader artwork processing and diagnostics are post-Phase-61 backlog or deferred strategy.
 
 ## Backend and control architecture
 
@@ -71,15 +75,11 @@ Recordings 2 is the delivered Recording browser and detail/action owner. Histori
 - [Suite Components](suite-components.md)
 - [Media Platform Comparison](media-platform-comparison.md)
 
-Older conceptual documents remain useful context. Where they conflict with current main, active ADRs or the target platform architecture, the newer evidence takes precedence.
-
 ## Historical notes
 
 - [Architecture History](history/README.md)
 - [Phase 8.94 Snapshot Cache Integration Plan](phase-8.94-snapshot-cache-integration-plan.md)
 - [Phase 8.94 Runtime Wiring Notes](phase-8.94-runtime-wiring-notes.md)
-
-These are historical records, not current status sources.
 
 ## Related current documents
 

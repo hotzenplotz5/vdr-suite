@@ -2,68 +2,30 @@
 
 ## Purpose
 
-This file is the fixed entry point for a new VDR-Suite chat. It records current repository truth, the required verification order and the next strict runtime boundary. Historical phase instructions belong in completed or historical documents, not here.
+This is the canonical entry point for every new VDR-Suite chat. A new chat alone is not a changed repository or runtime fingerprint. Do not repeat accepted Phase-62 analysis, CI or real-runtime acceptance without a directly relevant change.
 
-## Start procedure
+## Canonical reading
 
-Always begin with:
+- [Current State](CURRENT.md)
+- [Current Project Status](development/current-status.md)
+- [Phase 62 Final Closeout](development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
+- [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Decision Records](adr/index.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Completed Phases](development/completed-phases.md)
+- [Agent Workflow Rules](../AGENTS.md)
 
-```bash
-cd /home/yavdr/vdr-suite
-git fetch origin
-git status --short --branch
-git rev-parse origin/main
-git log -1 --oneline origin/main
-git switch --create <new-branch> origin/main
-```
-
-Do not work directly on `main`. Do not assume that the commit recorded below is still current.
-
-## Time-bound repository baseline
-
-Verified on 2026-07-27:
-
-```text
-origin/main
-44ae3102ab202ee0dfc974ee0bc9624b9219ad2d
-feat(search): add backend-scoped global search (#111)
-```
-
-The next chat must fetch and verify `origin/main` independently.
-
-## Required reading order
-
-1. [Current State](CURRENT.md)
-2. [Strict Roadmap](planning/roadmap.md)
-3. [Phase Map](planning/phase-map.md)
-4. [Current Architecture State](development/current-architecture-state.md)
-5. [Implementation Dependency Map](planning/implementation-dependency-map.md)
-6. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-7. [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
-8. [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
-9. [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
-10. [ADR Index](adr/index.md)
-11. [Completed Phases](development/completed-phases.md)
-
-## Trust order
-
-Use evidence in this order:
-
-1. current code on `origin/main`;
-2. merged PRs and merge commits;
-3. tests, architecture checks and packaging guards;
-4. recorded real-system acceptance and production measurements;
-5. accepted ADRs;
-6. current status and roadmap documents;
-7. open or old PRs;
-8. old handoffs and historical phase plans.
-
-An accepted ADR is a target contract, not proof that its runtime exists. Conversely, an implemented main-code path must not remain labelled Missing or Planned.
-
-## Current position
+## Stable project position
 
 ```text
 Latest completed numbered runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
+
+Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Completed operational hardening:
@@ -72,187 +34,77 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
+
+Current active runtime phase:
+none; Phase 63 is planned but not started
+
+Phase 63-67 runtime:
+not advanced
 ```
 
-Phase 61 is merged, accepted and closed for its defined scope. Do not resurrect `feature/phase61-metadata-genre-browser`, pending repository acceptance or pending real-system acceptance as current work.
-
-## Implemented foundation
-
-Do not describe these areas as wholly missing:
-
-- daemon-owned SQLite and migrations;
-- backend registry, backend scope and server-enforced read-only mode;
-- snapshots, partial refresh, change feed and SSE foundations;
-- status, channels, EPG, Recordings and Timer read paths;
-- Recordings 2 as the sole delivered Recording browser;
-- guarded Recording rename, move and VDR-trash actions;
-- SearchTimer list, discovery, preview, validation and controlled mutation foundations;
-- persistent Recording/EPG metadata, people, artwork and Genre read models;
-- TVScraper-backed EPG details behind Suite-owned boundaries;
-- backend-neutral remote actions and live-overlay snapshots;
-- backend-scoped global search;
-- modular frontend ownership through `VdrSuiteClientApi`;
-- packaging, install staging and real-system acceptance workflows.
-
-## Phase 61 closeout
-
-PR #100 delivered:
-
-- persistent backend-scoped Recording and EPG metadata target bindings;
-- persistent people relations;
-- canonical and unknown Genre identities;
-- provider and derived evidence with active, missing, unknown, stale and conflict states;
-- persistent TVScraper media-type and EPG browse-class evidence;
-- EPG main classes Film, Serie, Dokumentation and Sport;
-- result-backed Film subgenres;
-- indexed backend-scoped counts and pages;
-- dedicated query-only SQLite read paths;
-- asynchronous provider acquisition and provider-failure isolation;
-- reuse of Recordings 2 and the existing EPG detail owner;
-- unchanged EPG timeline and preserved LiveRemote ownership;
-- restart persistence and real-system acceptance.
-
-Normal Genre GET requests and frontend rendering perform no provider resolution.
-
-## Performance closeout
-
-PRs #102 through #108 completed the post-Phase-61 hardening:
-
-- #102: EPG candidate-selection fast path, measured 3.24× on the recorded production fixture;
-- #103: architecture guard aligned with strict DVB Film fallback;
-- #104: one atomic EPG Genre write transaction per candidate;
-- #105: no write transaction for unchanged Recording Genre synchronization;
-- #106: selected integer-epoch EPG window index, measured about 19.6× on the recorded production query;
-- #107: identical EPG upserts cause no row update or timestamp rewrite;
-- #108: completed ETYPES cycles pause 15 minutes, incomplete cursors continue every ten seconds.
-
-Use the exact fixture sizes and qualifications in the closeout. Do not turn a single startup comparison into a general benchmark.
-
-## Recordings 2 ownership
-
-The legacy recording browser is not the delivered runtime owner. Recordings 2 owns:
-
-- folder and recording state;
-- cards and details;
-- metadata, people, artwork and Genre integration;
-- rename, move and trash actions;
-- Genre and global-search navigation.
-
-Do not reintroduce the removed legacy scripts or create a second Recording detail owner.
-
-## Remote and live overlay
-
-PR #99 established the backend-neutral RemoteAction and LiveOverlay path. PR #110 established the current mobile key behaviour:
-
-- only the pressed key moves;
-- other keys are not disabled during dispatch;
-- internal `actionInFlight`/busy state prevents duplicate dispatch;
-- the browser uses `VdrSuiteClientApi` only;
-- backend protocols remain private.
-
-Current `main` still uses an SVG that embeds a JPEG. Draft PRs #112 and #113 are competing fixes from an older base:
-
-- #112: pure self-contained SVG;
-- #113: direct 360×1220 JPEG.
-
-Do not merge both. Rebase the selected approach onto current main and require real-device mobile acceptance while preserving all 35 hotspots, pressed-state, duplicate-dispatch guard and scrolling.
-
-## Global search
-
-PR #111 added the completed backend-scoped first slice:
+## Active workstream
 
 ```text
-Frontend
-  -> VdrSuiteClientApi
-  -> GET /api/search
-  -> GlobalSearchApiRuntime
-  -> GlobalSearchController
-  -> GlobalSearchService
-  -> GlobalSearchRepository
-  -> existing VDR-Suite SQLite database
+Repository: hotzenplotz5/vdr-suite
+Checkout: /home/yavdr/vdr-suite-phase62
+Local branch: phase62-pr117
+Remote branch: phase-62-security-identity-foundation
+Pull request: #117
+Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
+PR state: open, Draft, unmerged, mergeable
 ```
 
-Implemented behaviour includes:
+PR #117 must not be marked Ready, merged, auto-merged, rebased, force-pushed or have Base, title, body, reviewers or other review/merge metadata changed without explicit repository-owner approval.
 
-- Recording title/subtitle and persisted person search;
-- EPG title/subtitle and persisted person search;
-- backend isolation;
-- German umlaut/ß folding and Unicode-safe input handling;
-- pagination and deterministic ordering;
-- Recordings 2 and existing EPG detail navigation;
-- retained query, result and scroll state;
-- 280 ms debounce, abort/generation stale-response protection and 12-second mobile timeout;
-- visible too-short, loading, error and no-result states;
-- query-only SQLite reads;
-- no provider resolution during a search GET;
-- regression coverage with 174,164 synthetic EPG events.
+PR #118 is the separate paused TVScraper workstream.
 
-The first slice deliberately searches one selected backend. A future authorized multi-backend aggregator must retain per-backend isolation and bounded pages.
+## Final installed Phase 62 runtime
 
-## Recording-person contract
-
-Current main is consistent at:
+**VERIFIED on 2026-08-02:**
 
 ```text
-128 people
-65,535 payload bytes
+PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
+accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
+source_ci_run_number=6884
+source_ci_run_id=30752351218
+installed_daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
+evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-The regression model retains all 52 modelled `Pulp Fiction` people, including John Travolta beyond the former twelve-person cutoff. It does not promise that every real provider payload can never exceed 128 people.
+The temporary Slice-2X systemd override was removed and the normal service was active. Do not rerun this acceptance without a relevant daemon, outcome-accountability, routing-order, database-isolation, systemd-entrypoint or harness change.
 
-Draft PR #101 raises only plugin-side bounds to 256 people and 256 KiB. It conflicts with current SVDRP transport/backend parsing and must not be merged piecemeal. Treat it as superseded/obsolete unless a new versioned end-to-end contract is justified.
+## Completed Phase 62 result
 
-## PR status at the recorded baseline
+Phase 62 provides persistent identity, exact scoped authorization, fixed roles, browser-session lifecycle and CSRF policy, complete central POST classification, append-only allow/deny accountability, lifecycle outcomes and protected mutation success/failure outcomes.
 
-| PR | Classification |
-| ---: | --- |
-| #88 | Old conflicting metadata-image responsiveness draft; re-audit against current code. |
-| #101 | Conflicting partial bounds increase; do not merge as-is. |
-| #109 | Closed on 2026-07-27 as superseded by PR #114; retained only as historical source material. |
-| #112 | Competing pure-SVG remote asset draft from old main. |
-| #113 | Competing direct-JPEG remote asset draft from old main. |
-| #114 | Current repository-truth refresh; ready for review and fully green in CI at the recorded branch head. |
+The runtime acceptance proves exact HTTP 200 `operation.succeeded` and HTTP 500 `operation.failed` event pairs with actor, decision, operation, request and correlation continuity and no secret persistence.
 
-Always inspect the current PR state again before acting.
+## Compatibility-retirement decision
 
-## Current architecture rules
+Legacy Basic compatibility remains transitional and is intentionally retained. Immediate removal is not ready because `legacy-basic` remains the code default and packaged deployments do not yet require migration to `enforced`.
 
-- VDR remains native runtime authority.
-- VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
-- RESTfulAPI, SVDRP, Streamdev, TVScraper and SuiteBridge stay private adapters/providers.
-- Browser modules communicate through Suite Client API wrappers.
-- Stable Suite identities remain separate from backend-native identities.
-- Provider evidence is persisted with provenance and state; providers do not become hidden Suite authority.
-- Normal GET paths must remain query-only/provider-free where documented.
-- Read-only policy and mutation safety are enforced server-side.
-- Target ADRs and current implementation status must remain separate.
+This is the explicit Phase-62 retirement decision. Removal requires a separate future deployment-migration contract and is not an unclosed Phase-62 slice.
 
-Active canonical ADRs run through ADR-0050. ADR-0038 covers metadata/provider strategy; ADR-0039 through ADR-0049 define later control-plane, lifecycle, trust, mutation, job, TimerIntent, provenance, streaming, OSD, API and audit contracts; ADR-0050 defines the domain-repository SQLite boundary.
+## Rejected and deferred work
 
-## Main remaining gaps
+Do not reopen Phase 62 merely to add audit products, generic security administration, native/service credential lifecycle without a concrete consumer, universal revision/idempotency infrastructure, transactional Outbox, Android, Android TV or Phase 63-67 runtime.
 
-- actor identities, authentication sessions, scoped RBAC and centralized authorization;
-- append-only accountability and transactional outbox;
-- secure Backend Agent enrollment, protected transport, generation, lease and reconnect;
-- universal revisions, durable idempotency and verification;
-- job claim/retry/compensation/reconciliation;
-- TimerIntent, TimerAssignment, scheduler and reconciler;
-- authenticated Streaming Gateway;
-- isolated legacy OSD compatibility bridge;
-- stable `/api/v1`, common errors, ETags and compatibility metadata;
-- exact remaining epgsearch edge semantics and broader Live workflow polish;
-- later recommendation and knowledge graph.
+## Exact next action
 
-## Next runtime work
+1. Verify all five jobs green on the final Phase-62 closeout documentation head.
+2. Ask for explicit approval before changing PR #117 metadata, marking Ready for Review or merging.
+3. Begin Phase 63 only with a new bounded contract after PR #117 disposition.
 
-```text
-Phase 62 - Identity, RBAC and Accountability Foundation
-```
+## Credential and secret restrictions
 
-Begin with actor identity and server-side authorization, then request/correlation context, append-only AccountabilityEvent persistence and a transactional outbox. Do not introduce new remote privileged dispatch before those gates exist.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, secret-bearing login responses or process environments.

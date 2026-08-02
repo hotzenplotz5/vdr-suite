@@ -22,14 +22,16 @@ This file is the canonical compact phase-number map. Detailed history belongs in
 | Phase 59.00-59.15e | Completed | Frontend Client API and Modules | Client API consolidation and ownership guards. |
 | Phase 60.1-60.15 | Completed | Frontend Platform and Metadata Preparation | Recordings 2, lazy cache, metadata and authenticated artwork preparation. |
 | Phase 61 | Completed | Suite Metadata and Genre Platform | Persistent Recording/EPG metadata, people and Genre assignments, query-only browse paths and frontend integration. |
+| Phase 62 | Completed | Identity, RBAC and Accountability | Persistent identities, scoped authorization, browser-session security, protected central mutations and append-only decision/outcome evidence. |
 
 ## Completed non-numbered blocks
 
 | Block | Status | Result |
 | --- | --- | --- |
-| Post-Phase 61 Performance Hardening (B1-B4) | Completed | PRs #102-#108: query, transaction, no-op and snapshot-cadence hardening. |
-| VDR Remote and Live Overlay hardening (#110) | Completed | Isolated pressed-state and duplicate-dispatch guard while preserving backend-neutral routing. |
-| Backend-scoped Global Search (#111) | Completed | Persisted Recording/EPG title, subtitle and people search with query-only reads. |
+| Post-Phase 61 Performance Hardening (B1-B4) | Completed | Query, transaction, no-op and snapshot-cadence hardening. |
+| VDR Remote and Live Overlay hardening (#110) | Completed | Isolated pressed-state and duplicate-dispatch guard. |
+| Backend-scoped Global Search (#111) | Completed | Persisted Recording/EPG title, subtitle and people search. |
+| Configurable photorealistic VDR Remote (#115) | Completed | Backend-neutral configurable remote asset and interaction path. |
 
 These blocks do not consume or invent a phase number.
 
@@ -37,42 +39,43 @@ These blocks do not consume or invent a phase number.
 
 ```text
 Latest completed numbered runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
+
+Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Latest completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Latest completed cross-cutting features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
+
+Current active runtime phase:
+none; Phase 63 is planned but not started
 ```
 
 ## Planned phase sequence
 
 | Order | Phase | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 62 | Next | Identity, RBAC and Accountability | Actor identities, scoped authorization and append-only accountability. |
-| 2 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Enrollment, protected transport, generation, lease, health and fenced commands. |
-| 3 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
-| 4 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
-| 5 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
-| 6 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions and compatibility. |
-| 7 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after platform foundations mature. |
+| 1 | Phase 63 | Next | Backend Agent and Secure Multi-Site Runtime | Enrollment, protected transport, generation, lease, health and fenced commands. |
+| 2 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
+| 3 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
+| 4 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
+| 5 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions and compatibility. |
+| 6 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after platform foundations mature. |
 
 ## Numbering rules
 
 - Completed history is never renumbered.
 - Phase 58 remains a historical umbrella label only.
 - Phase 61 is closed for its accepted metadata/Genre runtime scope.
-- Optional providers and diagnostics do not silently reopen Phase 61.
-- Cross-cutting completed PRs may be recorded without inventing a phase.
-- The next available runtime phase in this sequence is Phase 62.
+- Phase 62 is closed for its accepted identity, authorization and accountability scope.
+- Optional providers, diagnostics and administration products do not silently reopen completed phases.
+- The next available runtime phase in this sequence is Phase 63.
 
 ## Verification
 
@@ -87,5 +90,5 @@ make test-phase
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
 - [Completed Phases](../development/completed-phases.md)
-- [Phase 61 Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Closeout](../development/post-phase-61-platform-runtime-closeout.md)
+- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)

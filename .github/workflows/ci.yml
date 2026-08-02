@@ -2,6 +2,8 @@ name: VDR-Suite CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 concurrency:
@@ -11,6 +13,7 @@ concurrency:
 jobs:
   docs-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -32,10 +35,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          { make test-docs && make test-phase; } 2>&1 | tee docs-check.log
+          make -j2 --output-sync=target test-docs test-phase 2>&1 | tee docs-check.log
 
       - name: Upload documentation check log
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: docs-check-log
@@ -45,8 +48,7 @@ jobs:
 
   make-test-audit:
     runs-on: ubuntu-latest
-    needs:
-      - docs-check
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -64,7 +66,7 @@ jobs:
           make -n test-all 2>&1 | tee make-test-dry-run.txt
 
       - name: Upload Make test audit bundle
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: make-test-audit-bundle
@@ -79,17 +81,16 @@ jobs:
 
   frontend-regression-test:
     runs-on: ubuntu-latest
-    needs:
-      - docs-check
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install frontend test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nodejs
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
       - name: Run frontend contract tests
         shell: bash
@@ -98,7 +99,7 @@ jobs:
           make test-ci-frontend 2>&1 | tee frontend-test.log
 
       - name: Upload frontend test log
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-test-log
@@ -108,9 +109,7 @@ jobs:
 
   fast-regression-test:
     runs-on: ubuntu-latest
-    needs:
-      - docs-check
-      - make-test-audit
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -119,13 +118,13 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev
 
       - name: Run fast CI regression test
         shell: bash
         run: |
           set -o pipefail
-          make test-ci-fast 2>&1 | tee fast-regression-test.log
+          make -j2 --output-sync=target test-ci-fast 2>&1 | tee fast-regression-test.log
 
       - name: Build daemon
         shell: bash
@@ -134,7 +133,7 @@ jobs:
           make daemon 2>&1 | tee daemon-build.log
 
       - name: Upload fast regression diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: fast-regression-diagnostics
@@ -146,9 +145,7 @@ jobs:
 
   packaging-regression-test:
     runs-on: ubuntu-latest
-    needs:
-      - frontend-regression-test
-      - fast-regression-test
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -157,7 +154,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev
 
       - name: Run packaging and install staging tests
-        run: make test-ci-packaging
+        run: make -j2 --output-sync=target test-ci-packaging

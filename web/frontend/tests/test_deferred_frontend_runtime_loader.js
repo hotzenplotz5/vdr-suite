@@ -141,3 +141,5 @@ verifyRuntimeApi().then(() => {
   console.error(error);
   process.exitCode = 1;
 });
+
+require('./test_query_cache_refresh_security_runtime.js');

@@ -76,6 +76,7 @@ DAEMON_SRC := \
         api/rest/src/ApiRouter.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
+        core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/TestHttpServer.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
@@ -90,3 +91,5 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerUpdateRequestParser.cpp \
         api/rest/src/SearchTimerDeleteRequestParser.cpp \
         api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp
+
+DAEMON_SRC += $(SECURITY_SRC)

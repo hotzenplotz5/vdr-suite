@@ -1,5 +1,13 @@
 include mk/test-groups.mk
 
+# Dedicated CI jobs already own these checks. Keep the fast regression group
+# focused on executable regression coverage instead of repeating inventory and
+# packaging contracts in the same workflow run.
+CI_FAST_TESTS := $(filter-out \
+	test-make-inventory \
+	test-systemd-unit-contract, \
+	$(CI_FAST_TESTS))
+
 .PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-modularity test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-http-listener-image-write-isolation test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
 
 
@@ -156,11 +164,15 @@ test-frontend-contracts: test-frontend-i18n
 	python3 tools/check_frontend_platform_runtime_context.py
 
 
+# Transitive runtime test source loaded by test_deferred_frontend_runtime_loader.js:
+# web/frontend/tests/test_query_cache_refresh_security_runtime.js
 test-frontend-i18n:
 	python3 tools/check_frontend_i18n_contracts.py
 	node web/frontend/tests/test_i18n_runtime.js
 	node web/frontend/tests/test_timer_workflows_runtime.js
 	node web/frontend/tests/test_searchtimer_workflows_runtime.js
+	node web/frontend/tests/test_searchtimer_maintenance_security_runtime.js
+	node web/frontend/tests/test_searchtimer_execution_security_runtime.js
 	node web/frontend/tests/test_channel_day_program_runtime.js
 	node web/frontend/tests/test_channel_day_navigation_runtime.js
 	node web/frontend/tests/test_channel_day_program_compat_runtime.js

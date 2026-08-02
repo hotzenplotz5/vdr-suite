@@ -25,6 +25,9 @@ NEXT_MARKERS = [
     "Next implementation focus",
 ]
 
+EXPECTED_COMPLETED_PHASE = "62"
+EXPECTED_NEXT_PHASE = "63"
+
 
 def phase_key(value):
     match = re.match(r"(\d+)(?:\.(\d+))?([a-z]?)", value, re.I)
@@ -95,10 +98,12 @@ def main():
         if not finding or finding["value"] != planned_value:
             errors.append(name + " next phase differs")
 
-    if completed_value != "61":
-        errors.append("latest completed phase is not Phase 61")
-    if planned_value != "62":
-        errors.append("next runtime phase is not Phase 62")
+    if completed_value != EXPECTED_COMPLETED_PHASE:
+        errors.append(
+            "latest completed phase is not Phase " + EXPECTED_COMPLETED_PHASE
+        )
+    if planned_value != EXPECTED_NEXT_PHASE:
+        errors.append("next runtime phase is not Phase " + EXPECTED_NEXT_PHASE)
 
     if errors:
         print("Phase consistency check failed:")

@@ -29,6 +29,52 @@
     return query;
   }
 
+  function copyHeaders(source) {
+    const headers = {};
+
+    if (!source) {
+      return headers;
+    }
+
+    if (typeof Headers === 'function' && source instanceof Headers) {
+      source.forEach(function (value, name) {
+        headers[name] = value;
+      });
+      return headers;
+    }
+
+    Object.keys(source).forEach(function (name) {
+      headers[name] = source[name];
+    });
+    return headers;
+  }
+
+  function activeSessionCsrfHeaders() {
+    const session = window.VdrSuiteBrowserSession;
+
+    if (!session || typeof session.csrfHeaders !== 'function') {
+      return {};
+    }
+
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object'
+      ? copyHeaders(headers)
+      : {};
+  }
+
+  function queryMutationOptions(options) {
+    const normalized = normalizeOptions(options);
+
+    return Object.assign({}, normalized, {
+      method: normalized.method || 'POST',
+      headers: Object.assign(
+        {},
+        copyHeaders(normalized.headers),
+        activeSessionCsrfHeaders()
+      )
+    });
+  }
+
   function buildQueryString(query) {
     const params = new URLSearchParams();
 
@@ -129,7 +175,17 @@
   function errorMessage(path, status, payload) {
     if (payload && typeof payload === 'object') {
       if (payload.error) {
-        return String(payload.error);
+        if (typeof payload.error === 'object') {
+          if (payload.error.message) {
+            return String(payload.error.message);
+          }
+
+          if (payload.error.code) {
+            return String(payload.error.code);
+          }
+        } else {
+          return String(payload.error);
+        }
       }
 
       if (payload.message) {
@@ -290,11 +346,9 @@
   }
 
   function fetchClientEpgCacheRefresh(options) {
-    const normalized = normalizeOptions(options);
-
-    return requestJson('/api/epg/cache/refresh', Object.assign({}, normalized, {
-      method: normalized.method || 'POST'
-    }));
+    return requestJson('/api/epg/cache/refresh',
+      backendQueryOptions(queryMutationOptions(options))
+    );
   }
 
   function fetchClientEpgNowNext(options) {
@@ -379,6 +433,14 @@
       '/api/vdr/searchtimers/preview',
       '/api/searchtimers/preview',
       backendQueryOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerPreviewCacheRefresh(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/preview/cache/refresh',
+      '/api/searchtimers/preview/cache/refresh',
+      backendQueryOptions(queryMutationOptions(options))
     );
   }
 
@@ -476,6 +538,7 @@
     fetchClientSearchTimers: fetchClientSearchTimers,
     fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
     fetchClientSearchTimerPreview: fetchClientSearchTimerPreview,
+    fetchClientSearchTimerPreviewCacheRefresh: fetchClientSearchTimerPreviewCacheRefresh,
     fetchClientSearchTimerPlan: fetchClientSearchTimerPlan,
     fetchClientSearchTimerValidate: fetchClientSearchTimerValidate,
     fetchClientSearchTimerExecute: fetchClientSearchTimerExecute,

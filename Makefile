@@ -1,4 +1,5 @@
 include mk/common.mk
+include mk/security-sources.mk
 include mk/agent-sources.mk
 
 include mk/recording-sources.mk
@@ -12,6 +13,7 @@ include mk/http-sources.mk
 include mk/runtime-sources.mk
 include mk/daemon-sources.mk
 include mk/install.mk
+include mk/public-origin.mk
 include mk/live-remote.mk
 include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
@@ -21,6 +23,10 @@ include mk/recordings2.mk
 
 
 include mk/smoke-targets.mk
+include mk/phase62-runtime-acceptance.mk
+include mk/phase62-outcome-runtime-acceptance.mk
+include mk/phase62-idle-runtime-acceptance.mk
+include mk/phase62-retention-runtime-acceptance.mk
 include mk/agent-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk

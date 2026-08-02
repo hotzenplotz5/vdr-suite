@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2m-safe-post",
+  "title": "Phase 62 Slice 2M Explicit Safe POST Classification",
+  "routes": [
+    "/api/recordings/actions/validate",
+    "/api/vdr/recordings/actions/validate",
+    "/api/recordings/actions/preview",
+    "/api/vdr/recordings/actions/preview",
+    "/api/searchtimers/validate",
+    "/api/vdr/searchtimers/validate",
+    "/api/searchtimers/plan",
+    "/api/vdr/searchtimers/plan"
+  ],
+  "representativeUnauthenticatedRoutes": [
+    "/api/vdr/recordings/actions/validate",
+    "/api/vdr/searchtimers/validate"
+  ],
+  "representativeBasicRoutes": [
+    "/api/vdr/recordings/actions/preview",
+    "/api/vdr/searchtimers/plan"
+  ],
+  "queryRoutes": [
+    "/api/vdr/recordings/actions/validate?source=browser",
+    "/api/vdr/searchtimers/validate?source=browser"
+  ],
+  "trailingSlashRoutes": [
+    "/api/vdr/recordings/actions/validate/",
+    "/api/vdr/searchtimers/validate/"
+  ],
+  "excludedRoutes": [
+    "/api/vdr/searchtimers/preview/cache/refresh",
+    "/api/epg/cache/refresh"
+  ],
+  "safeBody": {},
+  "expectedStatus": 200,
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/searchtimers?backend=default&limit=1000&offset=0"
+  }
+}

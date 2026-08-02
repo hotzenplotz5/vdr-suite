@@ -2,166 +2,147 @@
 
 ## Purpose
 
-This document describes implemented architecture on current `main`. Target contracts that are accepted but not implemented remain in ADRs and the target architecture; open gaps remain in the Architecture Audit Gap Matrix.
+This document describes implemented architecture. Accepted target contracts that are not connected to runtime remain in ADRs and planning documents.
 
-Baseline: `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d` on 2026-07-27.
+Baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` plus completed Phase 62 on PR #117.
 
 ## Ownership model
 
 ```text
 VDR
-  -> native devices, schedules, timers, recordings, replay, OSD and plugin execution
+  -> native devices, schedules, timers, recordings, replay, OSD and plugins
 
 VDR-Suite
   -> backend identity and scope
-  -> domain services and policy
-  -> persistent read models
-  -> guarded operations
-  -> client-facing REST and VdrSuiteClientApi contracts
+  -> credential verification and browser-session issuance
+  -> actor/device/credential/session/request context
+  -> persistent identity lifecycle
+  -> server-side authorization and CSRF policy
+  -> guarded operations and append-only accountability
+  -> client-facing REST and Client API contracts
 
 Private adapters/providers
   -> RESTfulAPI, SVDRP, Streamdev, TVScraper, SuiteBridge
 ```
 
-Frontend modules do not call private backend protocols or provider databases directly.
+Frontend modules do not call private backend protocols directly and do not own authentication, lifecycle, CSRF or authorization decisions.
 
-## Backend and snapshot foundation
-
-```text
-BackendNode
-  -> BackendRegistry
-  -> BackendRegistryService
-  -> backend-scoped adapter/service calls
-  -> backend-scoped snapshots and caches
-  -> change detection and change feed
-  -> Suite REST / Client API
-```
-
-Implemented properties include stable backend IDs, backend-scoped reads, capability reporting, server-enforced read-only access mode, snapshot/change sequencing and SSE/live-update foundations. Secure remote Agent identity, generation, lease and command fencing remain Phase 63 work.
-
-## Recordings 2 architecture
-
-Recordings are a lazy, on-demand domain and are not synchronously loaded for every backend at daemon startup.
+## Completed Phase 62 security boundary
 
 ```text
-backend-scoped Recording fetch
-  -> Recording cache worker
-  -> vdr_recording_cache and native metadata/person relations
-  -> Recording repositories/services/controllers
-  -> VdrSuiteClientApi
-  -> Recordings 2 browser/cards/details/actions
+HttpServerRequest
+  -> BrowserSessionHttpGate for exact issue/logout routes
+  -> SecurityHttpGate for ordinary requests and protected mutations
+       -> strict presented-browser-cookie precedence
+       -> otherwise Legacy Basic compatibility or optional Managed Basic
+       -> persistent actor/device/session/credential lifecycle resolution
+       -> browser-session absolute/idle/issuer/concurrency effectiveness
+       -> exact route and backend-scope extraction
+       -> cookie-bound CSRF for browser mutations
+       -> exact actor grant and fixed-role authorization
+       -> append-only pre-dispatch accountability
+  -> ApiRouter
+  -> protected operation implementation
+  -> append-only operation.succeeded or operation.failed outcome
+  -> response
 ```
 
-Recordings 2 is the sole delivered Recording browser and owns folder state, cards, detail navigation, metadata, people, artwork, Genre integration and guarded rename/move/trash workflows. Legacy Recording browser scripts are historical and must not be reintroduced as a second owner.
+Every registered central POST is either a protected mutation or an explicitly classified Safe POST. Unknown browser and enforced-mode mutation paths fail closed.
 
-## Metadata and Genre architecture
+## Implemented identity and authentication
+
+- canonical persistent actor, device, session and credential identities;
+- explicit authentication state, request ID and optional correlation ID;
+- Legacy Basic compatibility using a separate transitional identity;
+- optional Managed Basic with one-way modular password verifier;
+- browser-session credentials with independent session and CSRF secrets;
+- strict cookie parsing and no fallback from a presented invalid browser credential;
+- persistent lifecycle checks for actor, device, session, credential and issuing credential;
+- service and agent actor types representable for Phase 63 without implementing Agent runtime.
+
+No Authorization header, plaintext password, complete cookie, raw session secret or raw CSRF token is persisted.
+
+## Browser-session lifecycle
+
+The runtime supports:
+
+- atomic Basic-to-browser-session issuance;
+- hardened `Secure`, `HttpOnly`, `SameSite=Strict` cookie;
+- independent one-time CSRF token delivered through no-store JSON;
+- atomic logout revoking verifier, canonical session and browser credential;
+- immutable absolute lifetime;
+- optional per-actor active-session limit with deny-new semantics;
+- optional idle expiry with throttled `last_seen_at` persistence;
+- request-time issuing-credential lifecycle binding;
+- bounded startup cleanup of terminal browser-session lifecycles.
+
+Browser lifecycle and retention accountability is append-only and secret-free.
+
+## Authorization model
+
+`PermissionGrant` combines an exact permission with an exact backend scope or wildcard where explicitly allowed. Fixed roles expand only to their defined exact permissions; Read-only precedence prevents mutation rights.
+
+Protected central mutation families include Remote, Timer, Channel Move, Recording, SearchTimer, Native Fuzzy and query-scoped cache refresh operations. Backend read-only, capability and domain validation remain independent cumulative safety decisions after actor authorization.
+
+## Accountability model
+
+Pre-dispatch events record actor, device, session, authentication state, permission, backend scope, action, operation ID, request ID, correlation ID, decision and reason. Required append failure prevents dispatch.
+
+For each already-protected authorized mutation reaching the router:
 
 ```text
-Recording cache worker / EPG cache worker
-  -> backend-scoped metadata target bindings
-  -> native, provider and derived evidence
-  -> canonical Genre identities and assignment states
-  -> indexed Genre read model
-
-Genre GET
-  -> GenreBrowserApiRuntime
-  -> controller/service/repository
-  -> dedicated query-only SQLite connection
-  -> VdrSuiteClientApi
-  -> Genre frontend
-  -> existing Recordings 2 / EPG detail owner
+HTTP 200..299  -> operation.succeeded / succeeded
+all other HTTP -> operation.failed    / failed
+reason_code    -> http_status_<decimal status>
 ```
 
-Phase 61 implemented persistence, people relations, Genre aliases, unknown/unclassified values, multiple Genres, explicit active/missing/unknown/stale/conflict states, EPG browse classes and backend isolation. Provider acquisition is asynchronous. Normal Genre reads do not call TVScraper, TMDB, IMDb, RESTfulAPI, SVDRP or SuiteBridge.
+The post-router event reuses the successful authorization context. Outcome append failure changes the response to `503 accountability_unavailable`; it does not claim domain rollback, transactional Outbox coupling or safe automatic replay.
 
-## EPG architecture
+## Persistence boundaries
 
-The EPG runtime separates authoritative backend cache refresh from metadata enrichment:
-
-- backend/channel/time-scoped event cache;
-- bounded authoritative reconciliation of disappeared native event IDs;
-- persistent TVScraper public metadata and normalized people relations;
-- persistent Genre/media-type/browse-class evidence;
-- existing EPG timeline and detail owner;
-- query-only Genre and global-search reads.
-
-Suite-owned cache identity remains backend-native and backend-scoped. Similar title/time values are not silently promoted to canonical cross-provider event identity. A richer canonical ProgramEvent/provenance model remains partial and is required for later TimerIntent orchestration.
-
-## Global search architecture
-
-```text
-Frontend search dialog
-  -> VdrSuiteClientApi.fetchClientGlobalSearch()
-  -> GET /api/search
-  -> GlobalSearchApiRuntime
-  -> GlobalSearchController
-  -> GlobalSearchService
-  -> GlobalSearchRepository
-  -> existing SQLite database with PRAGMA query_only=ON
-```
-
-The implemented first slice searches one selected backend across persisted Recording and EPG titles, subtitles and people. It uses bounded EPG time windows, independent set-based title/person candidates, deterministic pagination and no provider resolution. Recordings 2 and the existing EPG detail owner remain the destination owners.
-
-## Remote and live-overlay architecture
-
-```text
-Frontend remote module
-  -> VdrSuiteClientApi
-  -> LiveRemoteApiRuntime
-  -> backend-neutral RemoteAction / LiveOverlay service contracts
-  -> private backend adapter
-```
-
-Read-only/capability checks remain server-backed. PR #110 isolates pressed-state to one button and uses an internal in-flight guard rather than globally disabling keys. Streaming and legacy OSD are separate future domains and are not implied by the existing live overlay.
-
-## SearchTimer and Timer architecture
-
-Implemented foundations include SearchTimer domain values, discovery, preview cache, validation, RESTfulAPI command mapping, native capability handling and controlled mutation/readback paths. These do not yet constitute central multi-backend Timer intent orchestration.
-
-Phase 64 must introduce durable `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduler and reconciler semantics after identity/accountability and Agent prerequisites.
-
-## Current persistence boundaries
-
-- SQLite remains the central Suite-owned metadata/read-model database.
+- Suite-owned SQLite remains the central metadata and security store.
 - Domain repositories own SQL; controllers and frontend modules do not.
-- Dedicated query-only connections serve Genre and global-search GET paths where configured.
-- Provider databases and filesystem paths are not public Suite identities.
-- Provider JSON may be normalized during asynchronous persistence, not repeatedly parsed from normal search GET paths.
-- ADR-0050 defines the domain-repository SQLite boundary for future work.
+- security identity, verifier, grant, browser-session, retention and accountability repositories own their exact tables and transactions;
+- database triggers reject accountability update/delete;
+- browser issue/logout and retention cleanup use bounded explicit transactions;
+- runtime acceptance uses an isolated database copy and verifies production logical state remains unchanged.
 
-## Implemented safety boundaries
+## Final runtime evidence
 
-- backend scope on persisted/query paths;
-- server-enforced read-only backend mode;
-- guarded Recording validation/preview/execution/readback;
-- allowlisted remote actions;
-- operation IDs and duplicate-dispatch prevention in the current remote flow;
-- no frontend-owned authorization;
-- no provider lookup during documented query-only reads;
-- bounded native/plugin work before asynchronous database/network processing.
+```text
+PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
+accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
+daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
+evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
+```
 
-## Important incomplete architecture
+## Compatibility boundary
 
-| Area | Current state | Roadmap owner |
-| --- | --- | --- |
-| Actor identities and scoped RBAC | Missing production model | Phase 62 |
-| Append-only accountability/outbox | Missing | Phase 62 |
-| Secure Backend Agent lifecycle | Contract/foundation only | Phase 63 |
-| Universal revision/idempotency | Partial | Phase 62/63 mutation gates |
-| Durable job claims/retry/sagas | Partial | Phase 62/63 foundations |
-| TimerIntent orchestration | Missing | Phase 64 |
-| Streaming Gateway | Missing | Phase 65 |
-| Legacy OSD bridge | Missing | Phase 66 |
-| Stable `/api/v1` and compatibility | Partial | Phase 67 |
-| Recommendations / knowledge graph | Not implemented | Phase 68 |
+Legacy Basic compatibility remains explicitly transitional. Immediate removal is not deployment-ready because `legacy-basic` remains the code default and packaged deployments do not yet mandate migration to `enforced`.
+
+This is the final Phase-62 retirement decision. A future removal requires a deployment-migration contract covering rollout, recovery and compatibility impact.
+
+## Later architecture owners
+
+| Area | Current state | Later owner |
+|---|---|---|
+| Backend Agent | actor representation only; no enrollment, transport, lease or command runtime | Phase 63 |
+| TimerIntent orchestration | not implemented | Phase 64 |
+| Streaming Gateway | not implemented | Phase 65 |
+| Legacy OSD bridge | not implemented | Phase 66 |
+| Stable public API/SDK hardening | partial internal contracts only | Phase 67 |
+| Audit product | append-only persistence exists; HTTP read/export product deferred | separate necessity proof |
+| Generic security administration | not required for Phase 62 | concrete operator workflow |
+| Universal revisions/idempotency/Outbox | not accepted as generic infrastructure | resource-specific proof |
 
 ## Related documents
 
 - [Current State](../CURRENT.md)
-- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Architecture Index](../architecture/index.md)
-- [Metadata-Backed Genre Browser](../architecture/metadata-genre-browser.md)
-- [Backend-Scoped Global Search](../architecture/global-search.md)
-- [Live Remote and OSD Contract](../architecture/live-remote-osd-contract.md)
-- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
+- [Security and Identity Foundation](../architecture/security-identity-foundation.md)
+- [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](../planning/roadmap.md)

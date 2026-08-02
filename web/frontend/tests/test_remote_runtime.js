@@ -16,6 +16,10 @@ const source = fs.readFileSync(
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 const deSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'de.js'), 'utf8');
 const enSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'en.js'), 'utf8');
+const deferredSource = fs.readFileSync(
+  path.join(__dirname, '..', 'platform', 'deferred-runtime-loader.js'),
+  'utf8'
+);
 
 const remotePng = fs.readFileSync(
   path.join(__dirname, '..', 'assets', 'vdr-remote-photorealistic.png')
@@ -38,6 +42,11 @@ assert(!source.includes('/api/vdr/live/overlay'));
 assert(clientSource.includes("'/api/vdr/remote/actions'"));
 assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
+assert(clientSource.includes('if (!sessionApi.isAuthenticated())'));
+assert(deferredSource.includes("String(payload.error.code || '') !== 'role_read_only'"));
+assert(deferredSource.includes('Dieses Konto hat für dieses Backend nur Lesezugriff.'));
+assert(deferredSource.includes('This account has read-only access to this backend.'));
+assert(deferredSource.includes('installSecurityRoleErrorMessages();'));
 
 assert(source.includes("P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png'"));
 assert(source.includes("el('section','rst')"));
@@ -51,6 +60,13 @@ assert(source.includes("x.classList.remove('down')"));
 assert(source.includes("x.classList.add('send')"));
 assert(source.includes("x.classList.remove('send')"));
 assert(source.includes("x.getAttribute('aria-disabled')==='true'||busy"));
+assert(source.includes('function signedIn()'));
+assert(source.includes('function signInMessage()'));
+assert(source.includes('function refreshControl()'));
+assert(source.includes("if(!signedIn())return Promise.reject(Error(signInMessage()))"));
+assert(source.includes("if(!signedIn()){enabled(false);status(signInMessage(),'warning');release(x);return}"));
+assert(source.includes("if(signedIn()){refresh();subscribe()}else stop()"));
+assert(source.includes("auth.subscribe(v=>{if(!d)return;refreshControl()"));
 assert(!source.includes('lockControls(true)'));
 assert(!source.includes('button.disabled = locked'));
 assert(source.includes('.rpk.down::before'));
@@ -70,7 +86,7 @@ assert(source.includes('function preloadRemoteImage()'));
 assert(source.includes("l.rel='preload'"));
 assert(source.includes("l.as='image'"));
 assert(source.includes('l.href=P'));
-assert(source.includes('preloadRemoteImage();const nav='));
+assert(source.includes('preloadRemoteImage();const auth=session();'));
 assert(source.includes("i.fetchPriority='high'"));
 assert(source.includes("i.decoding='async'"));
 assert(source.includes('function epgTimelineKey()'));
@@ -229,12 +245,8 @@ assert.strictEqual(
   true
 );
 
-context.VdrSuiteClientApi.fetchClientRemoteAction({
-  payload: {backendId: 'default', operationId: 'remote-1', action: 'ok'}
-});
 context.VdrSuiteClientApi.fetchClientLiveOverlay({backendId: 'default'});
-assert.strictEqual(requests[0].url, '/api/vdr/remote/actions');
-assert.strictEqual(requests[0].options.method, 'POST');
-assert.strictEqual(requests[1].url, '/api/vdr/live/overlay');
+assert.strictEqual(requests.length, 1);
+assert.strictEqual(requests[0].url, '/api/vdr/live/overlay');
 
 console.log('remote frontend contract ok');

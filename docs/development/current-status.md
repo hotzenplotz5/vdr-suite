@@ -2,81 +2,110 @@
 
 ## Current verified position
 
-Baseline reconciled on 2026-07-27 against `origin/main` commit `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d`.
-
 ```text
+Repository: hotzenplotz5/vdr-suite
+Base: origin/main @ cb77ff66e11dca7db2eafa36525762dcde35102d
+Active pull request: #117
+PR state: open, Draft, unmerged, mergeable
+Remote branch: phase-62-security-identity-foundation
+Local yaVDR branch: phase62-pr117
+Local checkout: /home/yavdr/vdr-suite-phase62
+
 Latest completed numbered runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
+
+Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
 Next strict runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
+
+Current active runtime phase:
+none; Phase 63 has not started
+
+Phase 63-67 runtime:
+not advanced
 ```
 
-## Stable implemented scope
+Phase 62 is completed. Phase 61 and Post-Phase-61 Performance Hardening remain completed and are not reopened.
 
-- daemon-owned SQLite, migrations, repositories and backend registry;
-- backend-scoped snapshots, change feed, SSE foundation and server-enforced read-only mode;
-- channels, EPG timeline, channel-day view, Recording and Timer read paths;
-- Recordings 2 as the sole delivered Recording browser with metadata, people, artwork, Genres and guarded actions;
-- SearchTimer list, preview, validation and controlled mutation foundations;
-- persistent Recording/EPG metadata, people and Genre read models;
-- Phase 61 EPG taxonomy and Film subgenres;
-- query-only provider-free Genre and global-search GET paths;
-- backend-neutral RemoteAction and LiveOverlay paths;
-- isolated remote pressed-state and duplicate-dispatch guard from PR #110;
-- backend-scoped global search from PR #111, including the 174,164-event regression fixture;
-- modular frontend Client API ownership and install/runtime staging.
-
-## Completed evidence
-
-- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
-- [Completed Phases](completed-phases.md)
-
-## Open limitations
-
-The platform is not yet complete for production user identity/RBAC, append-only accountability, secure remote Backend Agents, universal revision/idempotency, TimerIntent orchestration, streaming, legacy OSD compatibility, stable `/api/v1` contracts or exact full epgsearch/Live parity.
-
-The current remote asset itself remains under competing Draft PRs #112 and #113; the merged interaction contract from #110 is complete and must remain stable while one asset approach is separately selected and mobile-tested.
-
-The recording-person contract remains 128 people and 65,535 bytes. Draft PR #101 is a conflicting plugin-only increase and is not current runtime truth.
-
-## Immediate implementation focus
+## Final accepted Phase 62 runtime
 
 ```text
-Phase 62 - Identity, RBAC and Accountability Foundation
+PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
+accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
+source_ci_run_number=6884
+source_ci_run_id=30752351218
+daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
+evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-Phase 62 must establish actor identity, scoped server-side authorization, request/correlation context, append-only accountability and a transactional outbox before later Agent-backed privileged dispatch.
+The temporary runtime override was removed and the normal daemon service was active after acceptance. The documentation-only runbook correction head `ad618246fa221157bab549c17b3931ef607bc387` passed CI #6885, Run ID `30753115011`, with all five jobs successful.
+
+## Completed Phase 62 scope
+
+- persistent actor, device, session and credential identity;
+- Legacy Basic compatibility, optional Managed Basic and browser sessions;
+- strict credential precedence and lifecycle resolution;
+- exact actor permission/backend grants and fixed exact-scope roles;
+- protected central mutations and explicit Safe POST classification;
+- browser-session issue/logout, CSRF, lifetime, issuer binding, concurrency, idle expiry and terminal cleanup;
+- append-only pre-dispatch accountability;
+- browser lifecycle outcomes;
+- protected mutation success/failure outcomes with full non-secret context continuity;
+- guarded CI and real-yaVDR acceptance evidence.
+
+## Compatibility-retirement decision
+
+Legacy Basic remains an explicitly transitional deployment mode. It is not removed in PR #117 because it remains the code default and packaged deployments do not yet have a mandatory migration to `enforced`.
+
+This decision satisfies the Phase-62 closeout criterion. Actual retirement requires a future migration contract; it is not another Phase-62 feature slice.
+
+## Deferred work
+
+No current Phase-62 requirement proves a need for an audit HTTP product, generic security administration, native/service credential lifecycle, universal revision/idempotency infrastructure or transactional Outbox.
+
+Phase 63 begins only after its own approved contract and must not silently inherit these optional themes.
+
+## Pull request truth
+
+PR #117 remains open, Draft and unmerged. Do not mark it Ready, merge it, enable auto-merge, rebase, force-push or mutate Base, title, body, reviewers or other review/merge metadata without explicit approval.
+
+PR #118 remains separate paused TVScraper work.
 
 ### Preferred edit path for new chats
 
-Prefer direct GitHub repository updates for existing files when the complete current file has been fetched and the edit can be reviewed as a bounded diff.
+Prefer direct GitHub repository updates for existing files when the connector can perform the edit safely and the complete current file content is available.
 
 Use local edits first only when the change requires:
 
-- broad generated-file or binary work;
-- local compilation, formatting or repository-wide transformations that cannot be expressed safely as bounded connector edits;
+- compilation or generated artifacts;
+- focused local runtime tests;
+- access to the installed yaVDR runtime;
+- a capability not exposed by the GitHub connector;
 - a workaround because the GitHub connector blocks a file operation.
 
-Never replace a complete existing file from a truncated fetch. Fetch missing ranges first, preserve historical detail through explicit archives when appropriate, and inspect the resulting commit diff before treating an update as correct.
+Create small coherent commits with fast-forward-only semantics. Evaluate CI on the final stabilization head rather than stopping after every intermediate commit.
+
+## Exact next action
+
+1. Require all five jobs green on the final Phase-62 closeout documentation head.
+2. After green CI, obtain explicit approval for any PR-body update, Ready-for-Review transition and merge.
+3. Start Phase 63 only under a separate bounded contract.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
+- [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](../planning/roadmap.md)
-- [Phase Map](../planning/phase-map.md)
-- [Current Architecture State](current-architecture-state.md)
-- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Completed Phases](completed-phases.md)
+- [Agent Workflow Rules](../../AGENTS.md)

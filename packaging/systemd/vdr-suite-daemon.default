@@ -17,3 +17,26 @@ VDR_SUITE_SUITE_BRIDGE_STALE_AFTER_MS=15000
 VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS=60000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS=1000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS=30000
+
+# Absolute browser-session lifetime in seconds. Values must be strict decimal
+# integers from 300 through 86400. This is not an idle timeout or refresh
+# interval. The same value controls the persisted expiry and cookie Max-Age.
+VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS=28800
+
+# Maximum effective active browser sessions per actor. Values must be strict
+# decimal integers from 0 through 64. Zero preserves unlimited compatibility
+# behaviour. Reaching a non-zero limit rejects a new session and never evicts an
+# existing one.
+VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR=0
+
+# Optional server-side browser-session idle timeout in seconds. Zero preserves
+# compatibility by disabling idle expiry. Enabled values must be strict decimal
+# integers from 300 through 86400. Activity updates are server-owned and
+# throttled; they never extend the absolute browser-session lifetime.
+VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS=0
+
+# Optional terminal browser-session retention delay in seconds. Zero preserves
+# compatibility by disabling physical cleanup. Enabled values must be strict
+# decimal integers from 86400 through 31536000. Startup performs one deterministic
+# fixed startup batch of at most 256 terminal browser-session lifecycles.
+VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS=0

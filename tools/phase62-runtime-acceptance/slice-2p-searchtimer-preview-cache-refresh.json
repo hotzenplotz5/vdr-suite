@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2p-searchtimer-preview-cache-refresh",
+  "title": "Phase 62 Slice 2P SearchTimer preview cache refresh runtime acceptance",
+  "permission": "searchtimers.preview-cache.refresh",
+  "action": "searchtimers.preview-cache.refresh",
+  "backendId": "phase62-slice2p-missing-backend",
+  "alternateBackendId": "phase62-slice2p-other-backend",
+  "routes": [
+    "/api/searchtimers/preview/cache/refresh",
+    "/api/vdr/searchtimers/preview/cache/refresh"
+  ],
+  "safeBody": {
+    "backendId": "phase62-slice2p-missing-backend"
+  },
+  "queryScopedRoutes": true,
+  "querySuffix": "?backend=phase62-slice2p-missing-backend&source=phase62-runtime-acceptance",
+  "expectedValidation": {
+    "status": 404,
+    "json": {
+      "backendId": "phase62-slice2p-missing-backend",
+      "status": "backend-not-found",
+      "available": false,
+      "eventCount": 0
+    }
+  },
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/backends"
+  }
+}
