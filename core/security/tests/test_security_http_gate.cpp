@@ -188,6 +188,25 @@ int main()
         "phase62-test-request");
     assert(remoteAllowed.context.correlationId ==
         "phase62-test-correlation");
+    assert(remoteAllowed.authorizationDecision.allowed);
+    assert(remoteAllowed.authorizationDecision.permission ==
+        "remote.control");
+    assert(remoteAllowed.authorizationDecision.backendId ==
+        "default");
+    assert(remoteAllowed.authorizationDecision.action ==
+        "remote.control");
+    assert(remoteAllowed.operationId ==
+        "phase62-test-operation");
+
+    assert(!enforcedGate.appendProtectedMutationOutcome(
+        legacyAllowed,
+        200));
+    assert(enforcedGate.appendProtectedMutationOutcome(
+        remoteAllowed,
+        204));
+    assert(enforcedGate.appendProtectedMutationOutcome(
+        remoteAllowed,
+        503));
 
     HttpServerRequest wrongScope =
         fixture.mutationRequest(
@@ -221,6 +240,8 @@ int main()
 
     bool sawRemoteAllowed = false;
     bool sawUnmigratedDenied = false;
+    bool sawRemoteSucceeded = false;
+    bool sawRemoteFailed = false;
 
     for (const AccountabilityEvent& event :
          fixture.accountabilityRepository.listAll())
@@ -232,6 +253,26 @@ int main()
             (event.reasonCode ==
                  "security_policy_not_migrated" &&
              event.outcome == "dispatch_denied");
+        sawRemoteSucceeded = sawRemoteSucceeded ||
+            (event.eventType == "operation.succeeded" &&
+             event.permission == "remote.control" &&
+             event.backendId == "default" &&
+             event.action == "remote.control" &&
+             event.operationId == "phase62-test-operation" &&
+             event.requestId == "phase62-test-request" &&
+             event.correlationId == "phase62-test-correlation" &&
+             event.reasonCode == "http_status_204" &&
+             event.outcome == "succeeded");
+        sawRemoteFailed = sawRemoteFailed ||
+            (event.eventType == "operation.failed" &&
+             event.permission == "remote.control" &&
+             event.backendId == "default" &&
+             event.action == "remote.control" &&
+             event.operationId == "phase62-test-operation" &&
+             event.requestId == "phase62-test-request" &&
+             event.correlationId == "phase62-test-correlation" &&
+             event.reasonCode == "http_status_503" &&
+             event.outcome == "failed");
 
         assert(event.permission.find("Basic ") ==
             std::string::npos);
@@ -247,6 +288,8 @@ int main()
 
     assert(sawRemoteAllowed);
     assert(sawUnmigratedDenied);
+    assert(sawRemoteSucceeded);
+    assert(sawRemoteFailed);
 
     Database closedAuditDatabase;
     AccountabilityEventRepository unavailableAudit(
@@ -263,6 +306,21 @@ int main()
     assert(auditFailure.rejection.body.find(
         "accountability_unavailable") !=
         std::string::npos);
+
+    assert(!unavailableAuditGate.appendProtectedMutationOutcome(
+        remoteAllowed,
+        200));
+    const HttpServerResponse outcomeAuditFailure =
+        unavailableAuditGate.outcomeAccountabilityUnavailableResponse(
+            remoteAllowed.context);
+    assert(outcomeAuditFailure.statusCode == 503);
+    assert(outcomeAuditFailure.body.find(
+        "accountability_unavailable") !=
+        std::string::npos);
+    assert(outcomeAuditFailure.headers.at("X-Request-ID") ==
+        "phase62-test-request");
+    assert(outcomeAuditFailure.headers.at("X-Correlation-ID") ==
+        "phase62-test-correlation");
 
     assert(fixture.browserRepository.revokeBySessionId(
         fixture.sessionId));
