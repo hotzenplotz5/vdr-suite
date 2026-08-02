@@ -186,15 +186,50 @@ def prepare_enabled_database(path: Path) -> dict[str, object]:
             verifier_expires_at="2020-01-01 00:00:00",
             last_seen_at=timestamp(0),
         )
-        shared_active = create_lifecycle(
-            database,
-            identity,
-            "phase62-s2w-enabled-shared-active",
-            verifier_expires_at=timestamp(7200),
-            last_seen_at=timestamp(0),
-            session_id=shared_terminal["session_id"],
-            credential_id=shared_terminal["credential_id"],
-            create_canonical=False,
+        shared_active = {
+            "token_id": "phase62-s2w-enabled-shared-active-token",
+            "session_id": shared_terminal["session_id"],
+            "credential_id": shared_terminal["credential_id"],
+        }
+        database.execute(
+            """
+            CREATE TRIGGER phase62_s2w_replace_shared_verifier
+            AFTER DELETE ON security_browser_session_credentials
+            WHEN OLD.token_id =
+                'phase62-s2w-enabled-shared-terminal-token'
+            BEGIN
+                INSERT INTO security_browser_session_credentials
+                    (
+                        token_id,
+                        session_id,
+                        actor_id,
+                        device_id,
+                        credential_id,
+                        issued_from_credential_id,
+                        session_secret_hash,
+                        csrf_secret_hash,
+                        active,
+                        expires_at,
+                        last_seen_at,
+                        revoked_at
+                    )
+                VALUES
+                    (
+                        'phase62-s2w-enabled-shared-active-token',
+                        OLD.session_id,
+                        OLD.actor_id,
+                        OLD.device_id,
+                        OLD.credential_id,
+                        OLD.issued_from_credential_id,
+                        '$6$phase62-s2w-runtime-session-replacement',
+                        '$6$phase62-s2w-runtime-csrf-replacement',
+                        1,
+                        datetime(CURRENT_TIMESTAMP, '+7200 seconds'),
+                        CURRENT_TIMESTAMP,
+                        ''
+                    );
+            END
+            """
         )
         revoke_issuer(database, identity["issuer_id"])
         verify_database(database)
