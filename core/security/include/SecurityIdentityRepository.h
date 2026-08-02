@@ -87,6 +87,13 @@ public:
     bool setCredentialExpiry(
         const std::string& credentialId,
         const std::string& expiresAt);
+    bool deleteSessionIfUnreferenced(
+        const std::string& sessionId,
+        const std::string& actorId,
+        const std::string& deviceId);
+    bool deleteBrowserSessionCredentialIfUnreferenced(
+        const std::string& credentialId,
+        const std::string& actorId);
 
 private:
     bool insertActorIfMissing(
