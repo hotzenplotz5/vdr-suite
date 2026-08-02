@@ -16,47 +16,41 @@ Phase 61 - Suite Metadata and Genre Platform
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Next strict runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
-Repository, source CI, real-runtime and closeout accepted through:
-Slice 2V - Browser-Session Idle Expiry and throttled last_seen
-
-Accepted implementation/runtime head:
-e84415fadb2587ff744ff8927f1f0113920ece2f
-
-Accepted Slice-2V source GitHub Actions:
-VDR-Suite CI #6779
-Run ID: 30741293079
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
-
-Accepted Slice-2V closeout head:
-cf31b2b67f73f12718601ced5468a59a1183adcb
-
-Accepted Slice-2V closeout GitHub Actions:
-VDR-Suite CI #6799
-Run ID: 30742295881
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
-
-Selected next bounded slice:
+Repository, source CI and real-runtime acceptance complete through:
 Slice 2W - Browser-Session Terminal Retention Cleanup
 
-Slice-2W state:
-selection and contract documented; implementation not started
+Accepted Slice-2W source/runtime head:
+bb8609151313c613d403b88b1b4c3f55453a93e2
+
+Accepted Slice-2W source GitHub Actions:
+VDR-Suite CI #6834
+Run ID: 30745952119
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
+
+Runtime acceptance:
+PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
 
 Installed/running daemon SHA-256:
-e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 
-Restored daemon configuration SHA-256:
+Daemon configuration SHA-256:
 8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Runtime report SHA-256:
+e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
+
+Durable evidence:
+/var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
+
+Next bounded implementation slice:
+not yet selected
 ```
 
 Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
@@ -90,102 +84,70 @@ The accepted branch and installed runtime include:
   semantics;
 - strict optional browser-session idle expiry with additive `last_seen_at` and
   a fixed 60-second activity-write throttle;
-- idle-expired sessions excluded from the effective concurrency count;
+- bounded terminal browser-session retention cleanup with exact accountability,
+  atomic deletion and a fixed 256-lifecycle startup limit;
 - guarded real-runtime acceptance and rollback tooling.
 
-## Fully accepted Slice 2V
+## Fully accepted Slice 2W
 
-Slice 2V introduced:
+Configuration:
 
 ```text
-VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
-0          disabled compatibility default
-300..86400 enabled idle timeout in seconds
-
-security_browser_session_credentials.last_seen_at
-60-second minimum activity-write interval
+VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
+0                 disabled compatibility default
+86400..31536000   enabled retention delay in seconds
+fixed batch size  256
 ```
 
-The repository owns one idle calculation for ordinary cookie authentication and
-CSRF verification. Absolute `expires_at` remains the immutable hard upper bound.
-Idle-expired rows do not consume a Slice-2U concurrency slot and are not
-physically deleted, revoked or evicted by Slice 2V.
+One cleanup pass runs during Security Runtime initialization after schema and
+configuration validation and before `securityReady`.
+
+Eligibility is limited to explicit revocation, absolute expiry and idle expiry
+beyond the retention delay. The deterministic order is oldest terminal time
+first, then token ID.
+
+Inside one `BEGIN IMMEDIATE` transaction, eligibility is rechecked, one exact
+secret-free `browser.session.cleanup` event is appended for each deleted
+verifier, the verifier is removed and only its unreferenced canonical session
+and exact-type `browser-session` credential are removed. Actor, device, issuer,
+grants, roles and accountability history are preserved. Any enabled cleanup
+failure rolls back the whole batch and leaves the Security Runtime fail closed.
 
 The guarded real-yaVDR acceptance proved:
 
 ```text
-PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
-ordinary_get_before_idle=HTTP 200
-ordinary_get_after_idle=HTTP 401 session_expired
-mutation_after_idle=HTTP 401 session_expired
-last_seen_write_interval_seconds=60
-absolute_expiry_unchanged=yes
-replacement_logout=HTTP 204
-revoked_cookie_replay=HTTP 401 credential_revoked
-test_lifecycle_active_rows=0
-sqlite_quick_check=ok
-sqlite_foreign_key_check=empty
-accountability_secret_free=yes
-vdr_domain_mutations=0
-final_service_state=active
-runtime_dropin=removed
-idle_test_environment=not-set
+PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
+source_runtime_head=bb8609151313c613d403b88b1b4c3f55453a93e2
+source_ci_run=6834
+source_ci_run_id=30745952119
+daemon_sha256=7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 ```
+
+The pass used isolated SQLite scenario databases and proved fresh schema
+initialization, disabled no-op, fail-closed rollback after forced accountability
+failure, all enabled preservation/deletion boundaries, exact audit events, 258
+eligible lifecycles with exactly 256 deterministic deletions, SQLite integrity,
+unchanged production database/configuration/loader, removed systemd override,
+final active accepted daemon and zero VDR domain mutations.
 
 Durable evidence:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+/var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 ```
 
-Runtime report SHA-256:
+Do not repeat this acceptance solely because a chat changes. Repeat only when a
+directly relevant daemon, cleanup, schema, configuration, systemd execution or
+acceptance-harness fingerprint changes.
 
-```text
-0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
-```
+## Remaining Phase 62 gaps
 
-## Selected Slice 2W
+Still open after Slice 2W:
 
-The fresh post-2V analysis selected exactly one bounded next slice:
-
-```text
-Phase 62 Slice 2W
-Browser-Session Terminal Retention Cleanup
-```
-
-The selection document is:
-
-- [Slice 2W contract](phase-62-slice-2w-browser-session-retention-cleanup.md)
-
-Selected boundary:
-
-- configuration `VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS`;
-- compatibility default `0`;
-- enabled range `86400..31536000` seconds;
-- one bounded startup cleanup pass;
-- fixed maximum batch of 256 terminal browser lifecycles;
-- atomic eligibility recheck, secret-free accountability and deletion;
-- delete only the terminal browser verifier and its own unreferenced canonical
-  browser session and `browser-session` credential;
-- preserve actors, devices, issuing credentials, grants and accountability;
-- fail closed before `securityReady` when enabled cleanup fails.
-
-Explicitly excluded:
-
-- periodic scheduler or request-path cleanup;
-- session listing, logout-all or administration API/UI;
-- issuer-revocation cascade cleanup;
-- automatic eviction for the concurrency limit;
-- generic security administration or generic credential cleanup;
-- Outbox, Android, Android TV or Phase 63-67 runtime.
-
-No Slice-2W implementation or runtime mutation has occurred.
-
-## Remaining Phase 62 gaps after the selected slice
-
-Beyond the selected Slice 2W, still open are:
-
-- operation outcomes beyond browser lifecycle operations;
+- operation outcomes beyond browser lifecycle and cleanup operations;
 - stronger transaction coupling or Outbox semantics;
 - common revisions, idempotency and durable operation lifecycle;
 - protected actor, identity, credential, grant and role administration;
@@ -193,56 +155,48 @@ Beyond the selected Slice 2W, still open are:
 - protected audit reads, export, redaction and retention;
 - compatibility retirement and final Phase 62 closeout.
 
+No next implementation slice is selected yet.
+
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready, merge it,
 enable auto-merge, rebase, force-push or rewrite branch history without explicit
-approval.
+approval. Do not mutate Base, title, body, reviewers or other review/merge
+metadata without explicit approval.
 
-### Preferred edit path for new chats
+PR #118 remains the separate paused TVScraper workstream and must not be mixed
+with Phase 62.
 
-Prefer direct GitHub repository updates for existing files when the connector can
-perform the requested edit safely and the complete current file content is
-available.
+## Preferred edit path
 
-Continue through already-approved bounded work without artificial confirmation
-pauses. Create small coherent commits and push them consecutively with
-fast-forward-only semantics. Evaluate required CI on the final stabilization
-head rather than stopping after each intermediate commit.
+Prefer direct GitHub repository updates when the connector can perform the edit
+safely and the complete current file content is available. Use local edits only
+for compilation, generated artifacts, focused local runtime tests or capabilities
+not exposed by the connector.
 
-Use local edits first only when the change requires:
-
-- compilation, generated artifacts or focused local runtime tests;
-- access to the installed real yaVDR runtime;
-- coordinated tooling unavailable through the connector;
-- a workaround because the GitHub connector blocks a file operation.
-
-Never replace a complete file from a truncated fetch. Recheck branch and PR state
-before every write.
+Create small coherent commits with fast-forward-only semantics. Evaluate CI on
+the final stabilization head rather than stopping after every intermediate
+commit.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs for the documentation-only Slice-2W
-selection head.
+Perform one fresh post-Slice-2W gap analysis. Compare the remaining bounded gaps,
+select exactly one smallest coherent next Phase-62 slice, document its contract,
+tests, architecture guard, runtime boundary and exclusions, update the handoff
+and require all five CI jobs before implementation.
 
-After that selection CI is fully green, implement only the bounded Slice-2W
-configuration, repository/service cleanup transaction, startup integration,
-focused tests, architecture guard and Make-test registration.
-
-Do not combine Slice 2W with a periodic scheduler, administration API, issuer
-cascade, automatic eviction, broader security administration, Outbox, Android or
-Phase 63-67 work.
+Do not combine multiple remaining security themes or advance Android, Android TV
+or Phase 63-67 runtime.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Agent Workflow Rules](../../AGENTS.md)
-- [Slice 2W Selection](phase-62-slice-2w-browser-session-retention-cleanup.md)
-- [Slice 2V Closeout](phase-62-slice-2v-browser-session-idle-expiry.md)
-- [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
+- [Post-Slice-2W New Chat Prompt](phase-62-post-slice-2w-new-chat-prompt.md)
+- [Slice 2W Runtime Closeout](phase-62-slice-2w-runtime-closeout.md)
+- [Slice 2W Contract](phase-62-slice-2w-browser-session-retention-cleanup.md)
+- [Phase 62 Runtime Evidence through Slice 2V](phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Strict Roadmap](../planning/roadmap.md)
-- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
+- [Agent Workflow Rules](../../AGENTS.md)
