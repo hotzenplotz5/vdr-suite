@@ -18,7 +18,12 @@ bool executeGenreSchema(Database& database)
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=10);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(10,'Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5');");
+        "(10,'Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=11);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(11,'Add generic Nachrichten title guard to epg-browse-taxonomy-v6');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
@@ -60,6 +65,7 @@ bool liveParityStrongNewsTitle(
     normalized = normalized.substr(first, last - first + 1);
 
     static const std::vector<std::string> brands = {
+        "nachrichten",
         "tagesschau",
         "tagesschau24",
         "tagesthemen",
@@ -136,7 +142,7 @@ bool insertLiveParityEpgBrowseClassification(
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,"
         "normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v5',"
+        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v6',"
         "'epg-browse-content-class','active',?,0,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
     {
