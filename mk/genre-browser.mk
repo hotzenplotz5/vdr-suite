@@ -92,6 +92,7 @@ test-genre-browser-pagination:
 test-genre-browser-architecture:
 	python3 tools/check_genre_browser_architecture_contracts.py
 	python3 tools/check_epg_type_snapshot_architecture_contracts.py
+	python3 tools/check_epg_genre_continuation_latency.py
 	python3 tools/check_phase61_live_tvscraper_comparison_contracts.py
 
 test-genre-browser-frontend:
