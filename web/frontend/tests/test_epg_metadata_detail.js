@@ -274,6 +274,11 @@ async function run() {
   );
 
   const detail = new MockElement('article');
+  detail.className = 'channels2-detail has-artwork';
+  const existingArtwork = new MockElement('div');
+  existingArtwork.className = 'channels2-artwork epg-detail-artwork';
+  existingArtwork.style.backgroundImage =
+    'url("/api/epg/cache/artwork?backend=default&channelId=C-1-1079-11110&eventId=37059")';
   const hero = new MockElement('div');
   hero.className = 'epg-detail-hero';
   const metaGrid = new MockElement('div');
@@ -282,6 +287,7 @@ async function run() {
   description.className = 'epg-detail-description';
   const actions = new MockElement('div');
   actions.className = 'epg-detail-actions';
+  detail.appendChild(existingArtwork);
   detail.appendChild(hero);
   detail.appendChild(metaGrid);
   detail.appendChild(description);
@@ -316,10 +322,12 @@ async function run() {
   assert.ok(detail.textContent === '' || typeof detail.textContent === 'string');
 
   const metadataArtwork = detail.querySelector('.epg-detail-artwork');
+  assert.strictEqual(metadataArtwork, existingArtwork);
   assert.strictEqual(
     metadataArtwork.style.backgroundImage,
     'url("/vdr-suite/api/epg/cache/metadata/image?kind=preferred&index=0")'
   );
+  assert.ok(detail.classList.contains('epg-has-artwork'));
   assert.strictEqual(
     resolvedPublicPaths[0],
     '/api/epg/cache/metadata/image?kind=preferred&index=0'
@@ -370,6 +378,7 @@ async function run() {
   assert.ok(source.includes("addTab('images', 'Bilder', true)"));
   assert.ok(source.includes("'/api/epg/cache/metadata'"));
   assert.ok(source.includes('resolvePublicImageUrl'));
+  assert.ok(!source.includes("if (detail.querySelector('.epg-detail-artwork')) return;"));
   assert.ok(ownerSource.includes('resolvePublicUrl'));
   assert.ok(source.includes('fetchClientRecordingPersons'));
   assert.ok(!source.includes('/var/cache/vdr/plugins/tvscraper/'));
