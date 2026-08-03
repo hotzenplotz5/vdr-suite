@@ -1,8 +1,10 @@
 #pragma once
 
+#include "CurlExternalArtworkHttpTransport.h"
 #include "EpgArtworkEnrichmentService.h"
 #include "EpgCacheService.h"
 #include "EpgSeriesArtworkFallbackRepository.h"
+#include "EpgSeriesArtworkProviderCacheRepository.h"
 #include "FilesystemSeriesArtworkFallbackMaterializer.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
@@ -19,6 +21,7 @@
 #include "SuiteBridgeEpgMetadataResolver.h"
 #include "SuiteBridgeRecordingMetadataResolver.h"
 #include "SuiteBridgeSvdrpTransport.h"
+#include "TmdbSeriesArtworkProvider.h"
 #include "VdrRecordingNativeMetadataEnrichmentService.h"
 #include "VdrRecordingNativeMetadataRepository.h"
 #include "VdrService.h"
@@ -41,6 +44,9 @@ struct BackendRuntimeContext
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport;
+    std::unique_ptr<EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository;
+    std::unique_ptr<TmdbSeriesArtworkProvider> epgTmdbSeriesArtworkProvider;
     std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
     std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
     std::unique_ptr<SeriesArtworkFallbackMaterializingResolver> epgSeriesArtworkFallbackMaterializingResolver;
