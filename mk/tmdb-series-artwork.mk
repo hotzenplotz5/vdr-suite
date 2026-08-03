@@ -12,3 +12,12 @@ VDR_SRC += \
 DAEMON_SRC += \
         core/http/src/CurlExternalArtworkHttpTransport.cpp \
         core/daemon/src/TmdbSeriesArtworkRuntimeConfig.cpp
+
+.PHONY: install-tmdb-series-artwork-runtime
+
+install-runtime: install-tmdb-series-artwork-runtime
+
+install-tmdb-series-artwork-runtime:
+	$(INSTALL) -d -m 0750 $(DESTDIR)$(CACHEDIR)/epg-artwork
+	$(INSTALL) -d -m 0750 $(DESTDIR)$(CACHEDIR)/epg-artwork/incoming
+	$(INSTALL) -d -m 0750 $(DESTDIR)$(CACHEDIR)/epg-artwork/external
