@@ -7,11 +7,14 @@ LDFLAGS += $(CURL_LDFLAGS)
 VDR_SRC += \
         core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp \
         core/vdr/src/TmdbSeriesArtworkJson.cpp \
-        core/vdr/src/TmdbSeriesArtworkProvider.cpp
+        core/vdr/src/TmdbSeriesArtworkProvider.cpp \
+        core/vdr/src/TvmazeSeriesArtworkJson.cpp \
+        core/vdr/src/TvmazeSeriesArtworkProvider.cpp
 
 DAEMON_SRC += \
         core/http/src/CurlExternalArtworkHttpTransport.cpp \
-        core/daemon/src/TmdbSeriesArtworkRuntimeConfig.cpp
+        core/daemon/src/TmdbSeriesArtworkRuntimeConfig.cpp \
+        core/daemon/src/TvmazeSeriesArtworkRuntimeConfig.cpp
 
 .PHONY: install-tmdb-series-artwork-runtime
 
