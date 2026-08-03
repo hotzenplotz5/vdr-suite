@@ -407,6 +407,19 @@ RuntimeSeriesArtworkFallbackConfig parseSeriesArtworkFallbackConfig()
         value.orphanCleanupMaximumFiles,
         1,
         1024);
+    value.incomingCleanupEnabled = environmentBoolean(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_ENABLED",
+        value.incomingCleanupEnabled);
+    value.incomingCleanupMinimumAgeSeconds = environmentInteger(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MIN_AGE_SECONDS",
+        value.incomingCleanupMinimumAgeSeconds,
+        60 * 60,
+        365 * 24 * 60 * 60);
+    value.incomingCleanupMaximumFiles = environmentInteger(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MAX_FILES",
+        value.incomingCleanupMaximumFiles,
+        1,
+        1024);
     return value;
 }
 
