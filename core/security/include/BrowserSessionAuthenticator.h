@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BrowserSessionCredentialRepository.h"
+#include "BrowserSessionCsrfToken.h"
 #include "SecurityIdentity.h"
 #include "SecurityPermissionGrantRepository.h"
 
@@ -206,8 +207,17 @@ public:
             return false;
         }
 
-        const bool csrfAccepted =
+        bool csrfAccepted =
             verifySecret(csrfSecret, record->csrfSecretHash);
+        if (!csrfAccepted)
+        {
+            std::string recoveredCsrf =
+                BrowserSessionCsrfToken::derive(record->csrfSecretHash);
+            csrfAccepted = constantTimeEqual(
+                csrfSecret,
+                recoveredCsrf);
+            wipe(recoveredCsrf);
+        }
         wipe(csrfSecret);
         return csrfAccepted;
     }
