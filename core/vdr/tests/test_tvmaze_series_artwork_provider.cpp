@@ -463,7 +463,7 @@ int main()
         assert(result.attempted && !result.found);
         assert(std::filesystem::is_empty(realRoot));
         assert(cache.entries["tvmaze:imdb:tt1234567"].outcome ==
-               SeriesArtworkProviderCacheOutcome::TemporarilyUnavaile);
+               SeriesArtworkProviderCacheOutcome::TemporarilyUnavailable);
     }
 
     return 0;
