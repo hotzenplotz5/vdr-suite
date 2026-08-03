@@ -109,6 +109,25 @@ bool validProviderName(const std::string& provider)
         });
 }
 
+bool safeAbsolutePath(const std::string& path)
+{
+    const std::filesystem::path candidate(path);
+    if (!candidate.is_absolute() || candidate.empty())
+    {
+        return false;
+    }
+
+    for (const auto& component : candidate)
+    {
+        if (component == "." || component == "..")
+        {
+            return false;
+        }
+    }
+
+    return candidate.lexically_normal() == candidate;
+}
+
 const char* originName(EpgArtworkReferenceOrigin origin)
 {
     return origin == EpgArtworkReferenceOrigin::ExternalFallback
@@ -128,7 +147,7 @@ bool validFallbackReference(const EpgArtworkReference& artwork)
     return artwork.valid() &&
         artwork.origin == EpgArtworkReferenceOrigin::ExternalFallback &&
         validProviderName(artwork.provider) &&
-        std::filesystem::path(artwork.path).is_absolute() &&
+        safeAbsolutePath(artwork.path) &&
         artwork.resolvedAt > 0;
 }
 }
