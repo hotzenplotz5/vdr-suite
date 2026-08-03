@@ -585,7 +585,6 @@
   }
 
   function ensurePreferredArtwork(detail, metadata) {
-    if (detail.querySelector('.epg-detail-artwork')) return;
     const artwork = metadata && metadata.preferredArtwork;
     const hero = detail.querySelector('.epg-detail-hero');
     if (!hero || !artwork || artwork.available !== true || !isPublicImageUrl(artwork.url)) return;
@@ -593,13 +592,16 @@
     const url = resolvePublicImageUrl(artwork.url);
     if (!url) return;
 
-    const image = document.createElement('div');
-    image.className = 'epg-detail-artwork';
+    let image = detail.querySelector('.epg-detail-artwork');
+    if (!image) {
+      image = document.createElement('div');
+      image.className = 'epg-detail-artwork';
+      detail.insertBefore(image, hero);
+    }
     image.setAttribute('role', 'img');
     image.setAttribute('aria-label', 'Bild zu ' + (metadata.episodeName || metadata.title || 'Sendung'));
     image.style.backgroundImage = 'url("' + url.replace(/["\\\r\n]/g, '') + '")';
     detail.classList.add('epg-has-artwork');
-    detail.insertBefore(image, hero);
   }
 
   function enhance(detail, event, channel) {
