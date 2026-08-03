@@ -9,6 +9,7 @@
 #include "RestfulApiSearchTimerAdapter.h"
 #include "RestfulApiVdrAdapter.h"
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
+#include "TmdbSeriesArtworkRuntimeConfig.h"
 
 #include <chrono>
 #include <iostream>
@@ -194,13 +195,67 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
 
             const RuntimeSeriesArtworkFallbackConfig& runtimeFallbackConfig =
                 config_.seriesArtworkFallback();
+            const TmdbSeriesArtworkRuntimeConfig tmdbRuntimeConfig =
+                TmdbSeriesArtworkRuntimeConfig::fromEnvironment(
+                    runtimeFallbackConfig);
+
+            ISeriesArtworkFallbackProvider* fallbackProvider = nullptr;
+            if (runtimeFallbackConfig.enabled && tmdbRuntimeConfig.usable()) {
+                context->epgSeriesArtworkProviderCacheRepository =
+                    std::make_unique<
+                        EpgSeriesArtworkProviderCacheRepository>(database_);
+                if (!context->epgSeriesArtworkProviderCacheRepository->ensureSchema()) {
+                    std::cerr
+                        << "failed to initialize EPG series artwork provider cache: backend="
+                        << context->backendId
+                        << std::endl;
+                    context->epgSeriesArtworkProviderCacheRepository.reset();
+                }
+                else {
+                    context->epgExternalArtworkHttpTransport =
+                        std::make_unique<CurlExternalArtworkHttpTransport>();
+
+                    TmdbSeriesArtworkProviderConfig providerConfig;
+                    providerConfig.readAccessToken =
+                        tmdbRuntimeConfig.readAccessToken;
+                    providerConfig.language = tmdbRuntimeConfig.language;
+                    providerConfig.includeImageLanguages =
+                        tmdbRuntimeConfig.includeImageLanguages;
+                    providerConfig.incomingRoot =
+                        tmdbRuntimeConfig.incomingRoot;
+                    providerConfig.connectTimeoutMs =
+                        tmdbRuntimeConfig.connectTimeoutMs;
+                    providerConfig.totalTimeoutMs =
+                        tmdbRuntimeConfig.totalTimeoutMs;
+                    providerConfig.maximumRetries =
+                        tmdbRuntimeConfig.maximumRetries;
+                    providerConfig.retryBackoffMs =
+                        tmdbRuntimeConfig.retryBackoffMs;
+                    providerConfig.negativeCacheTtlSeconds =
+                        tmdbRuntimeConfig.negativeCacheTtlSeconds;
+                    providerConfig.transientCacheTtlSeconds =
+                        tmdbRuntimeConfig.transientCacheTtlSeconds;
+                    providerConfig.maximumJsonBytes =
+                        tmdbRuntimeConfig.maximumJsonBytes;
+                    providerConfig.maximumImageBytes =
+                        tmdbRuntimeConfig.maximumImageBytes;
+
+                    context->epgTmdbSeriesArtworkProvider =
+                        std::make_unique<TmdbSeriesArtworkProvider>(
+                            *context->epgExternalArtworkHttpTransport,
+                            *context->epgSeriesArtworkProviderCacheRepository,
+                            std::move(providerConfig));
+                    fallbackProvider =
+                        context->epgTmdbSeriesArtworkProvider.get();
+                }
+            }
 
             SeriesArtworkFallbackResolverConfig fallbackConfig;
             fallbackConfig.enabled = runtimeFallbackConfig.enabled;
             context->epgSeriesArtworkFallbackResolver =
                 std::make_unique<SeriesArtworkFallbackResolver>(
                     *context->epgScraperMetadataDelegate,
-                    nullptr,
+                    fallbackProvider,
                     fallbackConfig);
 
             ISeriesArtworkFallbackMaterializer* fallbackMaterializer = nullptr;
