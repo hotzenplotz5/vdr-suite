@@ -15,6 +15,7 @@ install-live-remote-frontend:
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand
 	$(INSTALL) -m 0644 web/frontend/api/live-remote-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/live-remote-client-api.js
+	$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js
 	$(INSTALL) -m 0644 web/frontend/modules/remote.js $(DESTDIR)$(DATADIR)/web/frontend/modules/remote.js
 	$(RM) $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg
 	$(INSTALL) -m 0644 web/frontend/assets/vdr-remote-photorealistic.png $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
@@ -128,10 +129,12 @@ test-live-remote-api-runtime:
 
 test-live-remote-frontend:
 	node --check web/frontend/api/live-remote-client-api.js
+	node --check web/frontend/api/session-frontend-sync.js
 	node --check web/frontend/platform/deferred-runtime-loader.js
 	node --check web/frontend/modules/remote.js
 	node web/frontend/tests/test_remote_runtime.js
 	node web/frontend/tests/test_browser_session_runtime.js
+	node web/frontend/tests/test_session_frontend_sync.js
 	node web/frontend/tests/test_timer_security_runtime.js
 	node web/frontend/tests/test_channel_move_security_runtime.js
 	node web/frontend/tests/test_recording_execution_security_runtime.js
