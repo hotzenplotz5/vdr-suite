@@ -109,6 +109,35 @@ SuiteBridgeEpgImageOrientation ToImageOrientation(
   return SuiteBridgeEpgImageOrientation::Unknown;
 }
 
+cTvMedia PreferredArtwork(cScraperVideo &video)
+{
+  if (video.getVideoType() == tSeries) {
+    return video.getImage(
+        cImageLevels(
+            eImageLevel::seasonMovie,
+            eImageLevel::tvShowCollection,
+            eImageLevel::anySeasonCollection,
+            eImageLevel::episodeMovie),
+        cOrientations(
+            eOrientation::portrait,
+            eOrientation::landscape,
+            eOrientation::banner),
+        true);
+  }
+
+  return video.getImage(
+      cImageLevels(
+          eImageLevel::episodeMovie,
+          eImageLevel::seasonMovie,
+          eImageLevel::tvShowCollection,
+          eImageLevel::anySeasonCollection),
+      cOrientations(
+          eOrientation::landscape,
+          eOrientation::banner,
+          eOrientation::portrait),
+      true);
+}
+
 template <typename T>
 void LimitVector(std::vector<T> &values, std::size_t limit)
 {
@@ -241,17 +270,7 @@ SuiteBridgeTvScraperAdapter::ResolvePreferredArtwork(
     return {};
   }
 
-  const cTvMedia media = request.m_scraperVideo->getImage(
-      cImageLevels(
-          eImageLevel::episodeMovie,
-          eImageLevel::seasonMovie,
-          eImageLevel::tvShowCollection,
-          eImageLevel::anySeasonCollection),
-      cOrientations(
-          eOrientation::landscape,
-          eOrientation::banner,
-          eOrientation::portrait),
-      true);
+  const cTvMedia media = PreferredArtwork(*request.m_scraperVideo);
 
   const SuiteBridgeArtworkReference reference = ToArtworkReference(media);
   if (!reference.Valid()) {
@@ -478,17 +497,7 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
       SuiteBridgeEpgMetadata::kMaxCountries);
   LimitVector(metadata.networks, SuiteBridgeEpgMetadata::kMaxNetworks);
 
-  metadata.preferredArtwork = ToArtworkReference(video.getImage(
-      cImageLevels(
-          eImageLevel::episodeMovie,
-          eImageLevel::seasonMovie,
-          eImageLevel::tvShowCollection,
-          eImageLevel::anySeasonCollection),
-      cOrientations(
-          eOrientation::landscape,
-          eOrientation::banner,
-          eOrientation::portrait),
-      true));
+  metadata.preferredArtwork = ToArtworkReference(PreferredArtwork(video));
 
   std::vector<std::unique_ptr<cCharacter>> characters =
       video.getCharacters(true);
