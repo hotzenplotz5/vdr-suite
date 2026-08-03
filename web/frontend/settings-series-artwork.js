@@ -131,6 +131,9 @@
     const tokenInput = card.querySelector('[data-series-artwork-token]');
     const clearToken = card.querySelector('[data-series-artwork-clear-token]');
 
+    card.dataset.tmdbTokenConfigured = snapshot.tmdbTokenConfigured
+      ? 'true'
+      : 'false';
     provider.value = String(snapshot.provider || 'none');
     tokenState.textContent = snapshot.tmdbTokenConfigured
       ? text('TMDB-Token ist sicher hinterlegt.', 'TMDB token is stored securely.')
@@ -146,12 +149,12 @@
   }
 
   function createCard(id) {
-    const card = element('section', {
+    const card = element('article', {
       id: CARD_ID,
-      className: 'settings-card series-artwork-settings-grid'
+      className: 'module-placeholder settings-card series-artwork-settings-grid'
     });
 
-    card.appendChild(element('h2', {}, text(
+    card.appendChild(element('h3', {}, text(
       'Serienbilder',
       'Series artwork'
     )));
@@ -173,8 +176,7 @@
       ['tvmaze', 'TVmaze'],
       ['tmdb', 'TMDB']
     ].forEach(function (entry) {
-      const option = element('option', {value: entry[0]}, entry[1]);
-      provider.appendChild(option);
+      provider.appendChild(element('option', {value: entry[0]}, entry[1]));
     });
     providerLabel.appendChild(provider);
     card.appendChild(providerLabel);
@@ -232,12 +234,11 @@
       steps.appendChild(element('li', {}, step));
     });
     help.appendChild(steps);
-    const link = element('a', {
+    help.appendChild(element('a', {
       href: 'https://www.themoviedb.org/settings/api',
       target: '_blank',
       rel: 'noopener noreferrer'
-    }, text('TMDB-API-Einstellungen öffnen', 'Open TMDB API settings'));
-    help.appendChild(link);
+    }, text('TMDB-API-Einstellungen öffnen', 'Open TMDB API settings')));
     help.appendChild(element('p', {}, text(
       'Der Token wird nicht im Browser zurückgegeben und nur in einer root-lesbaren Secret-Datei gespeichert. TMDB-Daten unterliegen den TMDB-Nutzungsbedingungen und der erforderlichen Quellenangabe.',
       'The token is never returned to the browser and is stored only in a root-readable secret file. TMDB data remains subject to TMDB terms and attribution requirements.'
@@ -264,8 +265,7 @@
       const clear = clearToken.checked;
 
       if (selectedProvider === 'tmdb' && !token && !clear &&
-          clearToken.disabled === false &&
-          !card.dataset.tmdbTokenConfigured) {
+          card.dataset.tmdbTokenConfigured !== 'true') {
         setStatus(card, text(
           'Für TMDB wird ein API Read Access Token benötigt.',
           'TMDB requires an API Read Access Token.'
@@ -282,14 +282,12 @@
       const payload = {
         backendId: id,
         provider: selectedProvider,
-        clearTmdbReadAccessToken: clear
+        clearTmdbReadAccessToken: clear,
+        operationId: 'series-artwork-settings-' + Date.now()
       };
       if (token) payload.tmdbReadAccessToken = token;
 
       updateSettings(id, payload).then(function (snapshot) {
-        card.dataset.tmdbTokenConfigured = snapshot.tmdbTokenConfigured
-          ? 'true'
-          : '';
         applySnapshot(card, snapshot);
         setStatus(card, text(
           'Gespeichert. Die Einstellung ist sofort aktiv.',
@@ -307,8 +305,7 @@
 
   function settingsMount() {
     return document.querySelector('.settings-panel') ||
-      document.querySelector('[data-settings-panel]') ||
-      document.querySelector('main');
+      document.querySelector('[data-settings-panel]');
   }
 
   function mount() {
@@ -329,9 +326,6 @@
     loadingBackendId = id;
 
     requestSettings(id).then(function (snapshot) {
-      card.dataset.tmdbTokenConfigured = snapshot.tmdbTokenConfigured
-        ? 'true'
-        : '';
       applySnapshot(card, snapshot);
       setStatus(card, '');
     }).catch(function (error) {
@@ -343,9 +337,7 @@
 
   function start() {
     mount();
-    const observer = new MutationObserver(function () {
-      mount();
-    });
+    const observer = new MutationObserver(mount);
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,

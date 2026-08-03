@@ -44,6 +44,39 @@ bool tokenSyntaxValid(const std::string& token)
             });
 }
 
+bool hasSeriesTmdbIdentity(const EpgScraperMetadata& metadata)
+{
+    return std::any_of(
+        metadata.externalIds.begin(),
+        metadata.externalIds.end(),
+        [](const EpgScraperExternalId& identity)
+        {
+            return identity.provider == EpgScraperExternalIdProvider::Tmdb &&
+                identity.scope == EpgScraperExternalIdScope::Series &&
+                !identity.value.empty();
+        });
+}
+
+EpgScraperMetadata qualifyTvScraperTmdbIdentity(
+    const EpgScraperMetadata& metadata)
+{
+    EpgScraperMetadata qualified = metadata;
+    if (metadata.provider != "tvscraper" ||
+        metadata.mediaType != EpgScraperMediaType::Series ||
+        metadata.providerId <= 0 ||
+        hasSeriesTmdbIdentity(metadata))
+    {
+        return qualified;
+    }
+
+    EpgScraperExternalId identity;
+    identity.provider = EpgScraperExternalIdProvider::Tmdb;
+    identity.scope = EpgScraperExternalIdScope::Series;
+    identity.value = std::to_string(metadata.providerId);
+    qualified.externalIds.push_back(std::move(identity));
+    return qualified;
+}
+
 int openDirectoryNoFollow(const std::filesystem::path& path)
 {
     const std::filesystem::path normalized = path.lexically_normal();
@@ -634,7 +667,9 @@ SeriesArtworkBackendSettingsService::resolve(
             transport_,
             cache_,
             std::move(providerConfig));
-        return provider.resolve(backendId, event, metadata);
+        const EpgScraperMetadata qualified =
+            qualifyTvScraperTmdbIdentity(metadata);
+        return provider.resolve(backendId, event, qualified);
     }
 
     return {};

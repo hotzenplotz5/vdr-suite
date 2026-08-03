@@ -106,6 +106,17 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
 	$(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
 	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/TmdbSeriesArtworkJson.cpp \
+		core/vdr/src/TmdbSeriesArtworkProvider.cpp \
+		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
+		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
+		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
+		core/daemon/tests/test_series_artwork_backend_settings_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_series_artwork_backend_settings_service
+	$(BUILD_DIR)/test_series_artwork_backend_settings_service
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
 		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
 		core/vdr/tests/test_tvmaze_series_artwork_provider.cpp \

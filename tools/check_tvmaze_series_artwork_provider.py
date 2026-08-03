@@ -12,6 +12,7 @@ RUNTIME_HEADER = ROOT / "core/daemon/include/TvmazeSeriesArtworkRuntimeConfig.h"
 RUNTIME_SOURCE = ROOT / "core/daemon/src/TvmazeSeriesArtworkRuntimeConfig.cpp"
 CONTEXT_HEADER = ROOT / "core/daemon/include/BackendRuntimeContext.h"
 CONTEXT_SOURCE = ROOT / "core/daemon/src/DaemonRuntimeBackendContext.cpp"
+SETTINGS_SERVICE = ROOT / "core/daemon/src/SeriesArtworkBackendSettingsService.cpp"
 TRANSPORT_HEADER = ROOT / "core/http/include/CurlExternalArtworkHttpTransport.h"
 TRANSPORT_SOURCE = ROOT / "core/http/src/CurlExternalArtworkHttpTransport.cpp"
 DEFAULTS = ROOT / "packaging/systemd/vdr-suite-daemon.default"
@@ -27,6 +28,7 @@ paths = (
     RUNTIME_SOURCE,
     CONTEXT_HEADER,
     CONTEXT_SOURCE,
+    SETTINGS_SERVICE,
     TRANSPORT_HEADER,
     TRANSPORT_SOURCE,
     DEFAULTS,
@@ -50,6 +52,7 @@ runtime_header = RUNTIME_HEADER.read_text(encoding="utf-8")
 runtime_source = RUNTIME_SOURCE.read_text(encoding="utf-8")
 context_header = CONTEXT_HEADER.read_text(encoding="utf-8")
 context_source = CONTEXT_SOURCE.read_text(encoding="utf-8")
+settings_service = SETTINGS_SERVICE.read_text(encoding="utf-8")
 transport_header = TRANSPORT_HEADER.read_text(encoding="utf-8")
 transport_source = TRANSPORT_SOURCE.read_text(encoding="utf-8")
 defaults = DEFAULTS.read_text(encoding="utf-8")
@@ -142,17 +145,26 @@ for fragment in (
     if fragment not in runtime_source:
         errors.append(f"missing TVmaze runtime parsing: {fragment}")
 
-if "TvmazeSeriesArtworkProvider> epgTvmazeSeriesArtworkProvider" not in context_header:
-    errors.append("missing TVmaze daemon ownership")
+if "SeriesArtworkBackendSettingsService> epgSeriesArtworkSettingsService" not in context_header:
+    errors.append("missing dynamic series artwork settings ownership")
 
 for fragment in (
     "TvmazeSeriesArtworkRuntimeConfig::fromEnvironment(",
-    "tvmazeRuntimeConfig.usable()",
-    "std::make_unique<TvmazeSeriesArtworkProvider>(",
-    "epgTvmazeSeriesArtworkProvider.get()",
+    "settingsConfig.tvmaze.incomingRoot",
+    "std::make_unique<SeriesArtworkBackendSettingsService>(",
+    "fallbackProvider =",
+    "epgSeriesArtworkSettingsService.get()",
 ):
     if fragment not in context_source:
-        errors.append(f"missing TVmaze daemon wiring: {fragment}")
+        errors.append(f"missing dynamic TVmaze daemon wiring: {fragment}")
+
+for fragment in (
+    'settings.provider == "tvmaze"',
+    "TvmazeSeriesArtworkProvider provider(",
+    "provider.resolve(backendId, event, metadata)",
+):
+    if fragment not in settings_service:
+        errors.append(f"missing backend-selected TVmaze dispatch: {fragment}")
 
 active_defaults = {
     line.strip()

@@ -143,13 +143,13 @@ config_position = runtime_context.find(
     "TmdbSeriesArtworkRuntimeConfig::fromEnvironment(")
 cleanup_position = runtime_context.find(
     "TmdbSeriesArtworkIncomingCleaner incomingCleaner(")
-provider_position = runtime_context.find(
-    "std::make_unique<TmdbSeriesArtworkProvider>(")
-if min(config_position, cleanup_position, provider_position) < 0:
+provider_boundary_position = runtime_context.find(
+    "std::make_unique<SeriesArtworkBackendSettingsService>(")
+if min(config_position, cleanup_position, provider_boundary_position) < 0:
     errors.append("incoming startup cleanup ordering cannot be checked")
-elif not config_position < cleanup_position < provider_position:
+elif not config_position < cleanup_position < provider_boundary_position:
     errors.append(
-        "incoming cleanup must run after root resolution and before provider construction"
+        "incoming cleanup must run after root resolution and before dynamic provider construction"
     )
 
 context_creation = initialization.find("createBackendRuntimeContext(")
