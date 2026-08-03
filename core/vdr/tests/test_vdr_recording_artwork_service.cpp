@@ -184,10 +184,25 @@ int main()
             localRecording,
             poster);
 
+    VdrRecording snapshotRecording = localRecording;
+    snapshotRecording.backendId.clear();
+    const VdrRecordingArtworkRef& snapshotPoster =
+        snapshotRecording.metadata.artwork.at(0);
+    const std::string snapshotPosterId =
+        VdrRecordingArtworkIdentity::assetId(
+            snapshotRecording,
+            snapshotPoster);
+    const std::string snapshotPosterUrl =
+        VdrRecordingArtworkIdentity::publicUrl(
+            snapshotRecording,
+            snapshotPoster);
+
     assert(VdrRecordingArtworkIdentity::isValidAssetId(posterId));
     assert(posterId.size() == 32);
     assert(posterUrl ==
            "/recording-artwork/default/" + posterId);
+    assert(snapshotPosterId == posterId);
+    assert(snapshotPosterUrl == posterUrl);
     assert(posterUrl.find("movies") == std::string::npos);
     assert(posterUrl.find("poster.jpg") == std::string::npos);
     assert(VdrRecordingArtworkIdentity::preferredArtwork(localRecording) ==
@@ -206,6 +221,13 @@ int main()
     assert(asset.statusCode == 200);
     assert(asset.contentType == "image/jpeg");
     assert(asset.content == localJpegBytes);
+
+    const VdrRecordingArtworkAsset snapshotAsset =
+        localService.loadPath(snapshotPosterUrl);
+    assert(snapshotAsset.found());
+    assert(snapshotAsset.statusCode == 200);
+    assert(snapshotAsset.contentType == "image/jpeg");
+    assert(snapshotAsset.content == localJpegBytes);
 
     const std::string rootPrefixedUrl =
         VdrRecordingArtworkIdentity::publicUrl(

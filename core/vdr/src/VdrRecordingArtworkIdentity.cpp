@@ -27,6 +27,14 @@ std::string artworkKindName(
     return "unknown";
 }
 
+std::string normalizedBackendId(
+    const VdrRecording& recording)
+{
+    return recording.backendId.empty()
+        ? "default"
+        : recording.backendId;
+}
+
 std::uint64_t fnv1a64(
     const std::string& value,
     std::uint64_t hash)
@@ -47,7 +55,7 @@ std::string stableArtworkInput(
     std::ostringstream value;
     value
         << "vdr-suite-recording-artwork-v1\n"
-        << recording.backendId << '\n'
+        << normalizedBackendId(recording) << '\n'
         << recording.id << '\n'
         << recording.backendNativeId << '\n'
         << recording.path << '\n'
@@ -174,14 +182,9 @@ std::string VdrRecordingArtworkIdentity::publicUrl(
         return {};
     }
 
-    const std::string backendId =
-        recording.backendId.empty()
-            ? "default"
-            : recording.backendId;
-
     return
         "/recording-artwork/" +
-        percentEncodePathSegment(backendId) +
+        percentEncodePathSegment(normalizedBackendId(recording)) +
         "/" +
         id;
 }
