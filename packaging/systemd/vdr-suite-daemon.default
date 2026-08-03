@@ -35,6 +35,14 @@ VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED=false
 VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS=604800
 VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES=64
 
+# Optional one-pass startup cleanup for stale files in the TMDB incoming root.
+# Only the provider-owned tmdb-<id>-<hash>.candidate namespace and its exact
+# atomic .tmp form are eligible. Foreign entries remain untouched. The default
+# performs no deletion.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_ENABLED=false
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MIN_AGE_SECONDS=86400
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MAX_FILES=64
+
 # TMDB is selected only with provider=tmdb and a valid API Read Access Token.
 # Store the token in an operator-owned mode-0600 systemd environment file or
 # drop-in; do not commit it and do not place it in this packaged example.
