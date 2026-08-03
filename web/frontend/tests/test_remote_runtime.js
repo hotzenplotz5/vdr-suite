@@ -146,6 +146,21 @@ assert(source.includes('["menu",43.611,36.311,12.778,4.754,"50%"]'));
 assert(source.includes('["channelUp",67.5,69.59,18.333,5.738,"34%"]'));
 assert(source.includes('["channelDown",67.5,75.246,18.333,5.574,"34%"]'));
 
+function response(status, payload) {
+  const text = payload === null || payload === undefined
+    ? ''
+    : JSON.stringify(payload);
+  function build() {
+    return {
+      status,
+      ok: status >= 200 && status < 300,
+      text() { return Promise.resolve(text); },
+      clone() { return build(); }
+    };
+  }
+  return build();
+}
+
 const document = {
   head: {appendChild() {}},
   body: {append() {}},
@@ -193,6 +208,14 @@ const context = {
   URLSearchParams,
   setTimeout,
   clearTimeout,
+  fetch() {
+    return Promise.resolve(response(401, {
+      error: {
+        code: 'authentication_required',
+        message: 'Authentication is required'
+      }
+    }));
+  },
   VdrSuiteClientApi: baseApi
 };
 context.window = context;

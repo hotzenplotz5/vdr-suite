@@ -3,6 +3,7 @@
 
   const LOGIN_PATH = '/api/security/browser-sessions';
   const LOGOUT_PATH = '/api/security/browser-sessions/logout';
+  const RESTORE_PATH = '/api/security/browser-sessions/current';
   const CSRF_HEADER = 'X-CSRF-Token';
   const SECURITY_REASONS = Object.freeze({
     authentication_required: true,
@@ -19,6 +20,8 @@
   let authenticated = false;
   let lastReason = '';
   let expiryTimer = null;
+  let restorePromise = null;
+  let sessionRevision = 0;
   const listeners = [];
 
   function languageIsEnglish() {
@@ -98,6 +101,7 @@
   }
 
   function clear(reason) {
+    sessionRevision += 1;
     cancelExpiryTimer();
     csrfToken = '';
     expiresAt = '';
@@ -208,6 +212,25 @@
     return SECURITY_REASONS[details.code] ? details.code : '';
   }
 
+  function acceptSessionPayload(payload, fallbackMessage) {
+    const nextCsrfToken = payload && String(payload.csrfToken || '');
+    const nextExpiresAt = payload && String(payload.expiresAt || '');
+
+    if (nextCsrfToken.length < 32 ||
+        nextCsrfToken.length > 256 ||
+        !nextExpiresAt) {
+      throw new Error(fallbackMessage);
+    }
+
+    csrfToken = nextCsrfToken;
+    expiresAt = nextExpiresAt;
+    authenticated = true;
+    lastReason = '';
+    scheduleExpiry();
+    notify();
+    return snapshot();
+  }
+
   function inspectSecurityResponse(response) {
     if (!response || (response.status !== 401 && response.status !== 403) ||
         typeof response.clone !== 'function') {
@@ -245,6 +268,58 @@
     global.fetch = observedFetch;
   }
 
+  function restore() {
+    if (authenticated && csrfToken) {
+      return Promise.resolve(snapshot());
+    }
+    if (restorePromise) {
+      return restorePromise;
+    }
+
+    const revision = sessionRevision;
+    restorePromise = global.fetch(RESTORE_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok) {
+          const details = errorDetails(
+            payload,
+            translated(
+              'Browser-Sitzung konnte nicht wiederhergestellt werden.',
+              'The browser session could not be restored.'
+            )
+          );
+          if (response.status === 401) {
+            if (revision === sessionRevision) {
+              clear(details.code || 'authentication_required');
+            }
+            return snapshot();
+          }
+          throw responseError(response, payload, details.message);
+        }
+
+        if (revision !== sessionRevision) {
+          return snapshot();
+        }
+
+        return acceptSessionPayload(
+          payload,
+          translated(
+            'Die wiederhergestellte Browser-Sitzung ist ungültig.',
+            'The restored browser session is invalid.'
+          )
+        );
+      });
+    }).finally(function () {
+      restorePromise = null;
+    });
+
+    return restorePromise;
+  }
+
   function login(username, password) {
     const normalizedUsername = String(username || '').trim();
     let submittedPassword = String(password || '');
@@ -260,6 +335,8 @@
       )));
     }
 
+    const revision = sessionRevision + 1;
+    sessionRevision = revision;
     let authorization;
     try {
       authorization = 'Basic ' + utf8Base64(
@@ -287,24 +364,17 @@
             translated('Anmeldung fehlgeschlagen.', 'Sign-in failed.')
           );
         }
-
-        const nextCsrfToken = payload && String(payload.csrfToken || '');
-        const nextExpiresAt = payload && String(payload.expiresAt || '');
-
-        if (nextCsrfToken.length < 32 || nextCsrfToken.length > 256 || !nextExpiresAt) {
-          throw new Error(translated(
-            'Die Anmeldung lieferte keine gültige Browser-Sitzung.',
-            'The sign-in did not return a valid browser session.'
-          ));
+        if (revision !== sessionRevision) {
+          return snapshot();
         }
 
-        csrfToken = nextCsrfToken;
-        expiresAt = nextExpiresAt;
-        authenticated = true;
-        lastReason = '';
-        scheduleExpiry();
-        notify();
-        return snapshot();
+        return acceptSessionPayload(
+          payload,
+          translated(
+            'Die Anmeldung lieferte keine gültige Browser-Sitzung.',
+            'The sign-in did not return a valid browser session.'
+          )
+        );
       });
     }, function (error) {
       authorization = '';
@@ -318,6 +388,7 @@
       return Promise.resolve(null);
     }
 
+    sessionRevision += 1;
     const submittedCsrf = csrfToken;
     return global.fetch(LOGOUT_PATH, {
       method: 'POST',
@@ -561,6 +632,7 @@
   const sessionApi = Object.freeze({
     login: login,
     logout: logout,
+    restore: restore,
     clear: clear,
     subscribe: subscribe,
     snapshot: snapshot,
@@ -585,9 +657,21 @@
     }
   }
 
+  function startRestore() {
+    restore().catch(function (error) {
+      if (global.console && typeof global.console.warn === 'function') {
+        global.console.warn('VDR-Suite browser session restore failed', error);
+      }
+    });
+  }
+
+  startRestore();
+
   if (typeof global.addEventListener === 'function') {
-    global.addEventListener('pagehide', function () {
-      clear('authentication_required');
+    global.addEventListener('pageshow', function (event) {
+      if (event && event.persisted && !isAuthenticated()) {
+        startRestore();
+      }
     });
   }
 

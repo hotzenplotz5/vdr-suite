@@ -1,6 +1,7 @@
 #include "TestHttpServer.h"
 
 #include "ApiRouter.h"
+#include "BrowserSessionCsrfRecoveryService.h"
 #include "SecurityConfiguration.h"
 
 #include <cstdlib>
@@ -16,6 +17,17 @@ namespace
 #include "TestHttpServerPaths.inc"
 #include "TestHttpServerAssets.inc"
 #include "TestHttpServerRoutes.inc"
+
+constexpr const char* BrowserSessionCurrentPath =
+    "/api/security/browser-sessions/current";
+
+std::string pathWithoutQuery(const std::string& target)
+{
+    const std::size_t query = target.find('?');
+    return query == std::string::npos
+        ? target
+        : target.substr(0, query);
+}
 
 std::string securityDatabasePath()
 {
@@ -293,6 +305,16 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (!gate.allowed)
     {
         return gate.rejection;
+    }
+
+    if (request.method == "GET" &&
+        pathWithoutQuery(request.path) == BrowserSessionCurrentPath)
+    {
+        BrowserSessionCsrfRecoveryService recovery(
+            *browserSessionCredentialRepository_);
+        return finalizeResponse(
+            gate.context,
+            recovery.recover(gate.context));
     }
 
     ApiResponse apiResponse;

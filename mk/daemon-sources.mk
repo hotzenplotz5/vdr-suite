@@ -76,6 +76,7 @@ DAEMON_SRC := \
         api/rest/src/ApiRouter.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
+        core/http/src/BrowserSessionCsrfRecoveryService.cpp \
         core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/TestHttpServer.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
