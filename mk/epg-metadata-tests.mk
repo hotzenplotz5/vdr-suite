@@ -45,6 +45,34 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
 	$(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/http/src/CurlExternalArtworkHttpTransport.cpp \
+		core/http/tests/test_curl_external_artwork_http_transport.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_curl_external_artwork_http_transport
+	$(BUILD_DIR)/test_curl_external_artwork_http_transport
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp \
+		core/vdr/tests/test_epg_series_artwork_provider_cache_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_series_artwork_provider_cache_repository
+	$(BUILD_DIR)/test_epg_series_artwork_provider_cache_repository
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/TmdbSeriesArtworkJson.cpp \
+		core/vdr/src/TmdbSeriesArtworkProvider.cpp \
+		core/vdr/tests/test_tmdb_series_artwork_provider.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_tmdb_series_artwork_provider
+	$(BUILD_DIR)/test_tmdb_series_artwork_provider
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/TmdbSeriesArtworkJson.cpp \
+		core/vdr/src/TmdbSeriesArtworkProvider.cpp \
+		core/daemon/src/TmdbSeriesArtworkRuntimeConfig.cpp \
+		core/daemon/tests/test_tmdb_series_artwork_runtime_config.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
+	$(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_metadata_resolver.cpp \
 		$(LDFLAGS) \
