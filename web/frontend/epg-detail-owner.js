@@ -37,6 +37,20 @@
     return String(value || '').trim().startsWith('/api/epg/cache/artwork?');
   }
 
+  function resolvePublicUrl(value) {
+    const url = String(value || '').trim();
+    if (!url) return '';
+
+    const publicUrl = global.VdrSuitePublicUrl;
+    if (!publicUrl || typeof publicUrl.resolvePath !== 'function') return url;
+
+    try {
+      return publicUrl.resolvePath(url);
+    } catch (error) {
+      return '';
+    }
+  }
+
   function persistentArtworkUrl(event, channel) {
     const artwork = event && event.artwork && typeof event.artwork === 'object'
       ? event.artwork
@@ -58,7 +72,7 @@
 
   function attachPersistentArtwork(detail, event, channel) {
     if (!detail || detail.querySelector('.epg-detail-artwork')) return;
-    const url = persistentArtworkUrl(event, channel);
+    const url = resolvePublicUrl(persistentArtworkUrl(event, channel));
     if (!url || typeof global.Image !== 'function') return;
 
     const probe = new global.Image();

@@ -9,6 +9,10 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '..', 'epg-metadata-detail.js'),
   'utf8'
 );
+const ownerSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'epg-detail-owner.js'),
+  'utf8'
+);
 
 class MockElement {
   constructor(tagName) {
@@ -112,6 +116,22 @@ class MockElement {
   }
 }
 
+class MockImage {
+  constructor() {
+    this.onload = null;
+    this._src = '';
+  }
+
+  set src(value) {
+    this._src = String(value || '');
+    if (typeof this.onload === 'function') this.onload();
+  }
+
+  get src() {
+    return this._src;
+  }
+}
+
 const document = {
   head: new MockElement('head'),
   documentElement: new MockElement('html'),
@@ -126,6 +146,7 @@ const document = {
 let metadataRequest = null;
 let metadataRequestCount = 0;
 const scheduledTimeouts = [];
+const resolvedPublicPaths = [];
 let recordingSearch = null;
 const metadata = {
   available: true,
@@ -185,6 +206,7 @@ const metadata = {
 };
 
 const window = {
+  Image: MockImage,
   setTimeout(callback) {
     scheduledTimeouts.push(callback);
     return scheduledTimeouts.length;
@@ -192,6 +214,13 @@ const window = {
   VdrSuitePlatform: {
     getSelectedBackendId() {
       return 'default';
+    }
+  },
+  VdrSuitePublicUrl: {
+    resolvePath(pathName) {
+      const value = String(pathName || '');
+      resolvedPublicPaths.push(value);
+      return '/vdr-suite' + value;
     }
   },
   VdrSuiteClientApi: {
@@ -225,6 +254,7 @@ const context = vm.createContext({
   Promise,
   Set,
   String,
+  URLSearchParams,
   console,
   document,
   encodeURIComponent,
@@ -244,8 +274,11 @@ async function run() {
   );
 
   const detail = new MockElement('article');
-  const artwork = new MockElement('div');
-  artwork.className = 'epg-detail-artwork';
+  detail.className = 'channels2-detail has-artwork';
+  const existingArtwork = new MockElement('div');
+  existingArtwork.className = 'channels2-artwork epg-detail-artwork';
+  existingArtwork.style.backgroundImage =
+    'url("/api/epg/cache/artwork?backend=default&channelId=C-1-1079-11110&eventId=37059")';
   const hero = new MockElement('div');
   hero.className = 'epg-detail-hero';
   const metaGrid = new MockElement('div');
@@ -254,7 +287,7 @@ async function run() {
   description.className = 'epg-detail-description';
   const actions = new MockElement('div');
   actions.className = 'epg-detail-actions';
-  detail.appendChild(artwork);
+  detail.appendChild(existingArtwork);
   detail.appendChild(hero);
   detail.appendChild(metaGrid);
   detail.appendChild(description);
@@ -288,6 +321,18 @@ async function run() {
   assert.strictEqual(detail.querySelectorAll('.epg-detail-artwork').length, 1);
   assert.ok(detail.textContent === '' || typeof detail.textContent === 'string');
 
+  const metadataArtwork = detail.querySelector('.epg-detail-artwork');
+  assert.strictEqual(metadataArtwork, existingArtwork);
+  assert.strictEqual(
+    metadataArtwork.style.backgroundImage,
+    'url("/vdr-suite/api/epg/cache/metadata/image?kind=preferred&index=0")'
+  );
+  assert.ok(detail.classList.contains('epg-has-artwork'));
+  assert.strictEqual(
+    resolvedPublicPaths[0],
+    '/api/epg/cache/metadata/image?kind=preferred&index=0'
+  );
+
   const castButtons = detail.querySelectorAll('.epg-person-card');
   castButtons[0].click();
   await Promise.resolve();
@@ -297,11 +342,44 @@ async function run() {
   assert.strictEqual(recordingSearch.backendId, 'default');
   assert.strictEqual(recordingSearch.query.name, 'Klaus J. Behrendt');
 
+  vm.runInContext(`
+    function createEpgEventDetailCard(event, channel) {
+      const detail = document.createElement('article');
+      const hero = document.createElement('div');
+      hero.className = 'epg-detail-hero';
+      detail.appendChild(hero);
+      return detail;
+    }
+  `, context);
+  vm.runInContext(ownerSource, context, {filename: 'epg-detail-owner.js'});
+
+  const persistentPath =
+    '/api/epg/cache/artwork?backend=default&channelId=C-1-1051-10301&eventId=10580';
+  const ownerDetail = window.VdrSuiteEpgDetailOwner.createCard(
+    {
+      id: '10580',
+      channelId: 'C-1-1051-10301',
+      title: 'ZDF-Morgenmagazin',
+      artwork: {available: true, url: persistentPath}
+    },
+    {id: 'C-1-1051-10301'}
+  );
+  const ownerArtwork = ownerDetail.querySelector('.epg-detail-artwork');
+  assert.ok(ownerArtwork);
+  assert.strictEqual(
+    ownerArtwork.style.backgroundImage,
+    'url("/vdr-suite' + persistentPath + '")'
+  );
+  assert.ok(resolvedPublicPaths.includes(persistentPath));
+
   assert.ok(source.includes("addTab('epg', 'EPG', false)"));
   assert.ok(source.includes("addTab('scraper', 'Scraper', true)"));
   assert.ok(source.includes("addTab('cast', 'Besetzung', true)"));
   assert.ok(source.includes("addTab('images', 'Bilder', true)"));
   assert.ok(source.includes("'/api/epg/cache/metadata'"));
+  assert.ok(source.includes('resolvePublicImageUrl'));
+  assert.ok(!source.includes("if (detail.querySelector('.epg-detail-artwork')) return;"));
+  assert.ok(ownerSource.includes('resolvePublicUrl'));
   assert.ok(source.includes('fetchClientRecordingPersons'));
   assert.ok(!source.includes('/var/cache/vdr/plugins/tvscraper/'));
 
