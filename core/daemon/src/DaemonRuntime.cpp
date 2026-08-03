@@ -4,6 +4,7 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "SeriesArtworkSettingsApiRuntime.h"
 #include "SimpleHttpListener.h"
 
 #include <csignal>
@@ -67,6 +68,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    SeriesArtworkSettingsApiRuntime::instance().reset();
     GlobalSearchApiRuntime::instance().reset();
     GenreBrowserApiRuntime::instance().reset();
     LiveRemoteApiRuntime::instance().reset();
