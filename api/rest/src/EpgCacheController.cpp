@@ -6,6 +6,8 @@
 #include "EpgCacheService.h"
 #include "EpgCacheServiceRegistry.h"
 #include "EpgMetadataMaterializationQueue.h"
+#include "IEpgScraperMetadataResolver.h"
+#include "IEpgSeriesArtworkFallbackDeliveryProvider.h"
 
 #include <iomanip>
 #include <sstream>
@@ -210,6 +212,22 @@ EpgCacheController::EpgCacheController(
 {
 }
 
+void EpgCacheController::registerScraperMetadataResolver(
+    const std::string& backendId,
+    IEpgScraperMetadataResolver& resolver)
+{
+    const std::string normalizedBackend = normalizeBackendId(backendId);
+    IEpgSeriesArtworkFallbackDeliveryProvider* provider =
+        dynamic_cast<IEpgSeriesArtworkFallbackDeliveryProvider*>(&resolver);
+    if (provider == nullptr)
+    {
+        fallbackDeliveryProviders_.erase(normalizedBackend);
+        return;
+    }
+
+    fallbackDeliveryProviders_[normalizedBackend] = provider;
+}
+
 void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
@@ -394,12 +412,40 @@ ApiResponse EpgCacheController::getMetadataImage(
             channelId,
             eventId);
     }
-    if (!cached.valid())
+
+    if (cached.valid())
     {
-        return jsonError(404, "epg scraper metadata image not found");
+        const ApiResponse primary = EpgArtworkController::serveValidatedPath(
+            cached.path,
+            scraperMetadataAllowedRoots_);
+        if (primary.statusCode == 200)
+        {
+            return primary;
+        }
     }
 
-    return EpgArtworkController::serveValidatedPath(
-        cached.path,
-        scraperMetadataAllowedRoots_);
+    if (kind == "preferred" && index == 0)
+    {
+        const auto provider = fallbackDeliveryProviders_.find(
+            normalizedBackendId);
+        if (provider != fallbackDeliveryProviders_.end() &&
+            provider->second != nullptr)
+        {
+            const EpgSeriesArtworkFallbackAsset fallback =
+                provider->second->loadSeriesArtworkFallback(
+                    normalizedBackendId,
+                    channelId,
+                    eventId);
+            if (fallback.valid())
+            {
+                ApiResponse response;
+                response.statusCode = 200;
+                response.contentType = fallback.contentType;
+                response.body = fallback.content;
+                return response;
+            }
+        }
+    }
+
+    return jsonError(404, "epg scraper metadata image not found");
 }
