@@ -22,7 +22,7 @@ std::string normalizedBackendId(const std::string& backendId)
 EpgScraperArtwork scraperArtwork(const EpgArtworkReference& reference)
 {
     EpgScraperArtwork artwork;
-    if (!reference.valid()) return artwork;
+    if (!reference.valid() || reference.provider != "tvscraper") return artwork;
     artwork.available = true;
     artwork.provider = reference.provider;
     artwork.origin = EpgScraperArtworkOrigin::PrimaryMetadata;
