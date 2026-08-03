@@ -37,6 +37,7 @@ EpgScraperMetadataResolution resolutionFor(
     resolution.metadata.seriesArtworkFallback.provider = "provider";
     resolution.metadata.seriesArtworkFallback.origin =
         EpgScraperArtworkOrigin::ExternalFallback;
+    resolution.metadata.seriesArtworkFallback.managed = true;
     resolution.metadata.seriesArtworkFallback.path = path.string();
     resolution.metadata.seriesArtworkFallback.width = 640;
     resolution.metadata.seriesArtworkFallback.height = 360;
@@ -72,7 +73,13 @@ int main()
 
     auto resolution = resolver.resolve("backend", event);
     assert(resolution.metadata.seriesArtworkFallback.available);
-    assert(repository.find("backend", "channel", "event").valid());
+    assert(resolution.metadata.seriesArtworkFallback.managed);
+    const EpgArtworkReference persisted = repository.find(
+        "backend",
+        "channel",
+        "event");
+    assert(persisted.valid());
+    assert(persisted.origin == EpgArtworkReferenceOrigin::ExternalFallback);
 
     delegate.value = resolutionFor(cached);
     delegate.value.metadata.seriesArtworkFallback = EpgScraperArtwork{};
@@ -81,6 +88,7 @@ int main()
     assert(resolution.metadata.seriesArtworkFallback.provider == "provider");
     assert(resolution.metadata.seriesArtworkFallback.origin ==
            EpgScraperArtworkOrigin::ExternalFallback);
+    assert(resolution.metadata.seriesArtworkFallback.managed);
     assert(resolution.metadata.seriesArtworkFallback.path == cached.string());
 
     const std::filesystem::path outside = root / "outside.png";
@@ -89,9 +97,16 @@ int main()
     assert(repository.removeForEvent("backend", "channel", "event"));
     resolution = resolver.resolve("backend", event);
     assert(!resolution.metadata.seriesArtworkFallback.available);
+    assert(!resolution.metadata.seriesArtworkFallback.managed);
 
     delegate.value = resolutionFor(cached);
     delegate.value.metadata.seriesArtworkFallback.provider = "tvscraper";
+    resolution = resolver.resolve("backend", event);
+    assert(!resolution.metadata.seriesArtworkFallback.available);
+
+    delegate.value = resolutionFor(cached);
+    delegate.value.metadata.seriesArtworkFallback.origin =
+        EpgScraperArtworkOrigin::Unknown;
     resolution = resolver.resolve("backend", event);
     assert(!resolution.metadata.seriesArtworkFallback.available);
 
