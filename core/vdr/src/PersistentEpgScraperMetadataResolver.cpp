@@ -51,6 +51,39 @@ EpgArtworkReference referenceFor(
     reference.resolvedAt = resolvedAt;
     return reference;
 }
+
+bool publicFallbackArtwork(const EpgScraperArtwork& artwork)
+{
+    return artwork.available &&
+        artwork.managed &&
+        artwork.origin == EpgScraperArtworkOrigin::ExternalFallback &&
+        !artwork.provider.empty() &&
+        artwork.provider != "none" &&
+        artwork.provider != "tvscraper" &&
+        !artwork.path.empty() &&
+        artwork.width > 0 &&
+        artwork.height > 0;
+}
+
+EpgArtworkReference fallbackReferenceFor(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId,
+    const EpgScraperArtwork& artwork,
+    long long resolvedAt)
+{
+    EpgArtworkReference reference;
+    reference.backendId = backendId;
+    reference.channelId = channelId;
+    reference.eventId = eventId;
+    reference.provider = artwork.provider;
+    reference.origin = EpgArtworkReferenceOrigin::ExternalFallback;
+    reference.path = artwork.path;
+    reference.width = artwork.width;
+    reference.height = artwork.height;
+    reference.resolvedAt = resolvedAt;
+    return reference;
+}
 }
 
 PersistentEpgScraperMetadataResolver::PersistentEpgScraperMetadataResolver(
@@ -149,6 +182,20 @@ EpgScraperMetadataResolution PersistentEpgScraperMetadataResolver::resolve(
         "preferred",
         0,
         true);
+
+    if (!persisted.metadata.preferredArtwork.valid() &&
+        publicFallbackArtwork(persisted.metadata.seriesArtworkFallback) &&
+        EpgArtworkPathPolicy::isAllowedPath(
+            persisted.metadata.seriesArtworkFallback.path,
+            allowedRoots_))
+    {
+        artworkRepository_.upsert(fallbackReferenceFor(
+            normalizedBackend,
+            channelId,
+            eventId,
+            persisted.metadata.seriesArtworkFallback,
+            resolvedAt));
+    }
 
     for (std::size_t index = 0;
          index < persisted.metadata.people.size();
