@@ -18,6 +18,17 @@ SuiteBridgeArtworkReference artwork(
   return value;
 }
 
+SuiteBridgeEpgExternalId externalId(
+    SuiteBridgeEpgExternalIdScope scope,
+    const std::string &value)
+{
+  SuiteBridgeEpgExternalId externalId;
+  externalId.provider = SuiteBridgeEpgExternalIdProvider::Imdb;
+  externalId.scope = scope;
+  externalId.value = value;
+  return externalId;
+}
+
 } // namespace
 
 int main()
@@ -80,7 +91,14 @@ int main()
     metadata.overview = "Ausführliche Beschreibung";
     metadata.releaseDate = "2026-07-20";
     metadata.firstAired = "2026-07-19";
-    metadata.imdbId = "tt1234567";
+    // Preserve the legacy episode-level value while transmitting qualified IDs.
+    metadata.imdbId = "tt7654321";
+    metadata.externalIds.push_back(externalId(
+        SuiteBridgeEpgExternalIdScope::Series,
+        "tt1234567"));
+    metadata.externalIds.push_back(externalId(
+        SuiteBridgeEpgExternalIdScope::Episode,
+        "tt7654321"));
     metadata.status = "Returning Series";
     metadata.collectionName = "Nord Collection";
     metadata.genres = {"Drama", "Mystery"};
@@ -124,10 +142,14 @@ int main()
     assert(json.find("\"scraperLanguage\":2") != std::string::npos);
     assert(json.find("Serie \\\"Nord\\\"") != std::string::npos);
     assert(json.find("Eine Zeile\\nmit Umbruch") != std::string::npos);
+    assert(json.find("\"imdbId\":\"tt7654321\"") != std::string::npos);
+    assert(json.find(
+        "\"externalIds\":[{\"provider\":\"imdb\",\"scope\":\"series\",\"value\":\"tt1234567\"},{\"provider\":\"imdb\",\"scope\":\"episode\",\"value\":\"tt7654321\"}]") != std::string::npos);
     assert(json.find("\"genres\":[\"Drama\",\"Mystery\"]") != std::string::npos);
     assert(json.find("\"role\":\"actor\"") != std::string::npos);
     assert(json.find("Kommissarin Nord") != std::string::npos);
     assert(json.find("\"orientation\":\"portrait\"") != std::string::npos);
+    assert(json.find("\"origin\":\"primary-metadata\"") != std::string::npos);
     assert(json.find("preferred.jpg") != std::string::npos);
     assert(json.find("poster.jpg") != std::string::npos);
   }
@@ -139,6 +161,8 @@ int main()
     assert(json.find("\"found\":false") != std::string::npos);
     assert(json.find("\"provider\":\"none\"") != std::string::npos);
     assert(json.find("\"mediaType\":\"none\"") != std::string::npos);
+    assert(json.find("\"externalIds\":[]") != std::string::npos);
+    assert(json.find("\"origin\":\"none\"") != std::string::npos);
   }
 
   {
@@ -159,6 +183,22 @@ int main()
     assert(json.find("\"genres\":[]") != std::string::npos);
     assert(json.find("Sentinel") == std::string::npos);
     assert(json.find("Drama") == std::string::npos);
+  }
+
+  {
+    SuiteBridgeEpgMetadata invalidIdentity;
+    invalidIdentity.found = true;
+    invalidIdentity.mediaType = SuiteBridgeEpgMediaType::Series;
+    invalidIdentity.externalIds.push_back(externalId(
+        SuiteBridgeEpgExternalIdScope::Series,
+        "tt1234567"));
+    invalidIdentity.externalIds.push_back(invalidIdentity.externalIds.front());
+
+    SuiteBridgeEpgMetadataPayload payload(invalidIdentity);
+    assert(payload.Complete());
+    const std::string json(payload.Data(), payload.Size());
+    assert(json.find("\"found\":false") != std::string::npos);
+    assert(json.find("tt1234567") == std::string::npos);
   }
 
   {
