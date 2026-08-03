@@ -17,14 +17,16 @@ const baseClientSource = fs.readFileSync(
 
 assert(source.includes("const LOGIN_PATH = '/api/security/browser-sessions'"));
 assert(source.includes("const LOGOUT_PATH = '/api/security/browser-sessions/logout'"));
+assert(source.includes("const RESTORE_PATH = '/api/security/browser-sessions/current'"));
 assert(source.includes("const CSRF_HEADER = 'X-CSRF-Token'"));
 assert(source.includes('sessionApi.csrfHeaders()'));
+assert(source.includes('restore: restore'));
 assert(!source.includes('localStorage'));
 assert(!source.includes('sessionStorage'));
 assert(!source.includes('indexedDB'));
 assert(!source.includes('document.cookie'));
-assert(source.includes("global.addEventListener('pagehide'"));
-assert(source.includes("clear('authentication_required')"));
+assert(!source.includes("global.addEventListener('pagehide'"));
+assert(source.includes("global.addEventListener('pageshow'"));
 assert(source.includes("button.id = 'vdr-suite-session-button'"));
 assert(source.includes("password.type = 'password'"));
 
@@ -118,90 +120,64 @@ const context = {
 };
 context.window = context;
 
+const recoveredToken = 'r'.repeat(86);
+fetchQueue.push(response(200, {
+  csrfToken: recoveredToken,
+  expiresAt: '2099-01-01T00:00:00Z',
+  requestId: 'req-restore'
+}));
+
 vm.createContext(context);
 vm.runInContext(source, context);
 
 assert(context.VdrSuiteBrowserSession);
-assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), false);
+assert.strictEqual(typeof context.VdrSuiteBrowserSession.restore, 'function');
 assert.deepStrictEqual(
   JSON.parse(JSON.stringify(context.VdrSuiteBrowserSession.snapshot())),
   {authenticated: false, expiresAt: '', reason: ''}
 );
-assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(context.VdrSuiteBrowserSession.csrfHeaders())),
-  {}
-);
 
 (async function () {
-  await assert.rejects(
-    context.VdrSuiteClientApi.fetchClientRemoteAction({
-      payload: {
-        backendId: 'default',
-        operationId: 'slice-2e-anonymous-remote',
-        action: 'ok'
-      }
-    }),
-    function (error) {
-      return error.message.includes('Bitte anmelden');
-    }
-  );
-  assert.strictEqual(apiRequests.length, 0);
-
-  const firstToken = 'c'.repeat(48);
-  fetchQueue.push(response(200, {
-    csrfToken: firstToken,
-    expiresAt: '2099-01-01T00:00:00Z',
-    requestId: 'req-login'
-  }));
-
-  const signedIn = await context.VdrSuiteBrowserSession.login(
-    'vdr-suite',
-    'secret-password'
-  );
-
-  assert.strictEqual(signedIn.authenticated, true);
-  assert.strictEqual(
-    Object.prototype.hasOwnProperty.call(signedIn, 'csrfToken'),
-    false
-  );
-  assert.strictEqual(fetchRequests[0].input, '/api/security/browser-sessions');
-  assert.strictEqual(fetchRequests[0].init.method, 'POST');
+  const restored = await context.VdrSuiteBrowserSession.restore();
+  assert.strictEqual(restored.authenticated, true);
+  assert.strictEqual(fetchRequests[0].input, '/api/security/browser-sessions/current');
+  assert.strictEqual(fetchRequests[0].init.method, 'GET');
   assert.strictEqual(fetchRequests[0].init.cache, 'no-store');
   assert.strictEqual(fetchRequests[0].init.credentials, 'same-origin');
-  assert.strictEqual(
-    Buffer.from(
-      fetchRequests[0].init.headers.Authorization.slice('Basic '.length),
-      'base64'
-    ).toString('utf8'),
-    'vdr-suite:secret-password'
-  );
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(context.VdrSuiteBrowserSession.csrfHeaders())),
-    {'X-CSRF-Token': firstToken}
+    {'X-CSRF-Token': recoveredToken}
   );
 
   await context.VdrSuiteClientApi.fetchClientRemoteAction({
     payload: {
       backendId: 'default',
-      operationId: 'slice-2e-remote',
+      operationId: 'restored-session-remote',
       action: 'ok'
     },
     headers: {'X-CSRF-Token': 'caller-must-not-override'}
   });
-
   assert.strictEqual(apiRequests.length, 1);
   assert.strictEqual(apiRequests[0].url, '/api/vdr/remote/actions');
-  assert.strictEqual(apiRequests[0].options.method, 'POST');
   assert.strictEqual(
     apiRequests[0].options.headers['X-CSRF-Token'],
-    firstToken
+    recoveredToken
   );
+
+  assert.strictEqual(globalListeners.pagehide, undefined);
+  assert.strictEqual(typeof globalListeners.pageshow, 'function');
+  const requestCountBeforePageShow = fetchRequests.length;
+  globalListeners.pageshow({persisted: true});
+  assert.strictEqual(fetchRequests.length, requestCountBeforePageShow);
+  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), true);
 
   fetchQueue.push(response(204, null));
   await context.VdrSuiteBrowserSession.logout();
-
   assert.strictEqual(fetchRequests[1].input, '/api/security/browser-sessions/logout');
-  assert.strictEqual(fetchRequests[1].init.headers['X-CSRF-Token'], firstToken);
+  assert.strictEqual(
+    fetchRequests[1].init.headers['X-CSRF-Token'],
+    recoveredToken
+  );
   assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), false);
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(context.VdrSuiteBrowserSession.csrfHeaders())),
@@ -212,7 +188,7 @@ assert.deepStrictEqual(
     context.VdrSuiteClientApi.fetchClientRemoteAction({
       payload: {
         backendId: 'default',
-        operationId: 'slice-2e-logged-out-remote',
+        operationId: 'logged-out-remote',
         action: 'ok'
       }
     }),
@@ -221,6 +197,31 @@ assert.deepStrictEqual(
     }
   );
   assert.strictEqual(apiRequests.length, 1);
+
+  const firstToken = 'c'.repeat(48);
+  fetchQueue.push(response(200, {
+    csrfToken: firstToken,
+    expiresAt: '2099-01-01T00:00:00Z',
+    requestId: 'req-login'
+  }));
+  const signedIn = await context.VdrSuiteBrowserSession.login(
+    'vdr-suite',
+    'secret-password'
+  );
+  assert.strictEqual(signedIn.authenticated, true);
+  assert.strictEqual(
+    Object.prototype.hasOwnProperty.call(signedIn, 'csrfToken'),
+    false
+  );
+  assert.strictEqual(fetchRequests[2].input, '/api/security/browser-sessions');
+  assert.strictEqual(fetchRequests[2].init.method, 'POST');
+  assert.strictEqual(
+    Buffer.from(
+      fetchRequests[2].init.headers.Authorization.slice('Basic '.length),
+      'base64'
+    ).toString('utf8'),
+    'vdr-suite:secret-password'
+  );
 
   const structuredErrorContext = {
     window: null,
@@ -245,14 +246,6 @@ assert.deepStrictEqual(
     }
   );
 
-  const secondToken = 'd'.repeat(48);
-  fetchQueue.push(response(200, {
-    csrfToken: secondToken,
-    expiresAt: '2099-01-01T00:00:00Z'
-  }));
-  await context.VdrSuiteBrowserSession.login('vdr-suite', 'another-password');
-  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), true);
-
   fetchQueue.push(response(401, {
     error: {
       code: 'credential_revoked',
@@ -272,40 +265,20 @@ assert.deepStrictEqual(
     context.VdrSuiteBrowserSession.lastSecurityMessage().includes('widerrufen')
   );
 
-  const thirdToken = 'e'.repeat(48);
+  const secondRecoveredToken = 's'.repeat(86);
   fetchQueue.push(response(200, {
-    csrfToken: thirdToken,
+    csrfToken: secondRecoveredToken,
     expiresAt: '2099-01-01T00:00:00Z'
   }));
-  await context.VdrSuiteBrowserSession.login(
-    'vdr-suite',
-    'pagehide-password'
-  );
-  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), true);
-  assert.strictEqual(typeof globalListeners.pagehide, 'function');
-
-  globalListeners.pagehide();
-
-  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), false);
-  assert.strictEqual(
-    context.VdrSuiteBrowserSession.snapshot().reason,
-    'authentication_required'
+  const recoveredAgain = await context.VdrSuiteBrowserSession.restore();
+  assert.strictEqual(recoveredAgain.authenticated, true);
+  assert.strictEqual(fetchRequests[4].input, '/api/security/browser-sessions/current');
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(context.VdrSuiteBrowserSession.csrfHeaders())),
+    {'X-CSRF-Token': secondRecoveredToken}
   );
 
-  await assert.rejects(
-    context.VdrSuiteClientApi.fetchClientRemoteAction({
-      payload: {
-        backendId: 'default',
-        operationId: 'slice-2e-pagehide-remote',
-        action: 'ok'
-      }
-    }),
-    function (error) {
-      return error.message.includes('Bitte anmelden');
-    }
-  );
-  assert.strictEqual(apiRequests.length, 1);
-
+  context.VdrSuiteBrowserSession.clear('test_complete');
   console.log('browser session frontend runtime ok');
 }()).catch(function (error) {
   console.error(error);
