@@ -603,6 +603,36 @@ EpgScraperImageOrientation imageOrientation(const std::string& value)
     return EpgScraperImageOrientation::Unknown;
 }
 
+EpgScraperArtworkOrigin artworkOrigin(const std::string& value)
+{
+    if (value == "primary-metadata")
+    {
+        return EpgScraperArtworkOrigin::PrimaryMetadata;
+    }
+    if (value == "external-fallback")
+    {
+        return EpgScraperArtworkOrigin::ExternalFallback;
+    }
+    return EpgScraperArtworkOrigin::Unknown;
+}
+
+EpgScraperExternalIdProvider externalIdProvider(const std::string& value)
+{
+    if (value == "imdb") return EpgScraperExternalIdProvider::Imdb;
+    if (value == "tmdb") return EpgScraperExternalIdProvider::Tmdb;
+    if (value == "tvdb") return EpgScraperExternalIdProvider::Tvdb;
+    return EpgScraperExternalIdProvider::Unknown;
+}
+
+EpgScraperExternalIdScope externalIdScope(const std::string& value)
+{
+    if (value == "series") return EpgScraperExternalIdScope::Series;
+    if (value == "season") return EpgScraperExternalIdScope::Season;
+    if (value == "episode") return EpgScraperExternalIdScope::Episode;
+    if (value == "movie") return EpgScraperExternalIdScope::Movie;
+    return EpgScraperExternalIdScope::Unknown;
+}
+
 bool parseArtwork(const JsonValue& value, EpgScraperArtwork& artwork)
 {
     if (value.type() != JsonValue::Type::Object ||
@@ -615,12 +645,97 @@ bool parseArtwork(const JsonValue& value, EpgScraperArtwork& artwork)
         return false;
     }
 
+    const JsonValue* origin = value.member("origin");
+    if (origin)
+    {
+        if (origin->type() != JsonValue::Type::String)
+        {
+            return false;
+        }
+        artwork.origin = artworkOrigin(origin->string());
+        if (origin->string() != "none" &&
+            artwork.origin == EpgScraperArtworkOrigin::Unknown)
+        {
+            return false;
+        }
+    }
+    else
+    {
+        // Schema-1 payloads created before artwork provenance existed remain
+        // valid and are unambiguously primary TVScraper metadata.
+        artwork.origin = artwork.available
+            ? EpgScraperArtworkOrigin::PrimaryMetadata
+            : EpgScraperArtworkOrigin::Unknown;
+    }
+
     if (!artwork.available)
     {
-        return artwork.provider == "none" && artwork.path.empty() &&
-            artwork.width == 0 && artwork.height == 0;
+        return artwork.provider == "none" &&
+            artwork.origin == EpgScraperArtworkOrigin::Unknown &&
+            artwork.path.empty() && artwork.width == 0 && artwork.height == 0;
     }
-    return artwork.valid();
+
+    // The bridge remains a TVScraper-only trust boundary. External fallback
+    // artwork is introduced later behind a separate daemon-side validator.
+    return artwork.origin == EpgScraperArtworkOrigin::PrimaryMetadata &&
+        artwork.valid();
+}
+
+bool parseExternalIds(
+    const JsonValue& root,
+    std::vector<EpgScraperExternalId>& externalIds)
+{
+    const JsonValue* member = root.member("externalIds");
+    externalIds.clear();
+    if (!member)
+    {
+        // Optional schema-1 extension for rolling plugin/daemon upgrades.
+        return true;
+    }
+    if (member->type() != JsonValue::Type::Array ||
+        member->array().size() > 8)
+    {
+        return false;
+    }
+
+    for (const JsonValue& item : member->array())
+    {
+        if (item.type() != JsonValue::Type::Object)
+        {
+            return false;
+        }
+
+        std::string provider;
+        std::string scope;
+        EpgScraperExternalId externalId;
+        if (!requiredString(item, "provider", provider) ||
+            !requiredString(item, "scope", scope) ||
+            !requiredString(item, "value", externalId.value) ||
+            externalId.value.size() > 128)
+        {
+            return false;
+        }
+
+        externalId.provider = externalIdProvider(provider);
+        externalId.scope = externalIdScope(scope);
+        if (!externalId.valid())
+        {
+            return false;
+        }
+
+        for (const EpgScraperExternalId& existing : externalIds)
+        {
+            if (existing.provider == externalId.provider &&
+                existing.scope == externalId.scope &&
+                existing.value == externalId.value)
+            {
+                return false;
+            }
+        }
+        externalIds.push_back(std::move(externalId));
+    }
+
+    return true;
 }
 
 bool parsePeople(const JsonValue& root, std::vector<EpgScraperPerson>& people)
@@ -760,6 +875,7 @@ bool parseMetadata(
         !requiredString(root, "releaseDate", metadata.releaseDate) ||
         !requiredString(root, "firstAired", metadata.firstAired) ||
         !requiredString(root, "imdbId", metadata.imdbId) ||
+        !parseExternalIds(root, metadata.externalIds) ||
         !requiredString(root, "status", metadata.status) ||
         !requiredString(root, "collectionName", metadata.collectionName) ||
         !stringArray(root, "genres", 12, metadata.genres) ||
