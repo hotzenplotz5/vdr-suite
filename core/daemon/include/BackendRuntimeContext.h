@@ -14,6 +14,7 @@
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SeriesArtworkBackendSettingsService.h"
 #include "SeriesArtworkFallbackMaterializingResolver.h"
 #include "SeriesArtworkFallbackResolver.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
@@ -49,6 +50,7 @@ struct BackendRuntimeContext
     std::unique_ptr<EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository;
     std::unique_ptr<TvmazeSeriesArtworkProvider> epgTvmazeSeriesArtworkProvider;
     std::unique_ptr<TmdbSeriesArtworkProvider> epgTmdbSeriesArtworkProvider;
+    std::unique_ptr<SeriesArtworkBackendSettingsService> epgSeriesArtworkSettingsService;
     std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
     std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
     std::unique_ptr<SeriesArtworkFallbackMaterializingResolver> epgSeriesArtworkFallbackMaterializingResolver;

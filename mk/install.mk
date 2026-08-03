@@ -25,6 +25,8 @@ install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand
 	$(INSTALL) -d $(DESTDIR)$(STATEDIR)
+	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets
+	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets/series-artwork
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/platform
@@ -43,6 +45,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/platform/i18n.js $(DESTDIR)$(DATADIR)/web/frontend/platform/i18n.js
 	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
 	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
+	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
 	$(INSTALL) -m 0644 web/frontend/locales/de.js $(DESTDIR)$(DATADIR)/web/frontend/locales/de.js
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
@@ -120,17 +123,21 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
 	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
+	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite/secrets/series-artwork
+	test "$$(stat -c '%a' /tmp/vdr-suite-pkgroot/var/lib/vdr-suite/secrets/series-artwork)" = 700
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/genre-client-api.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-series-artwork.js
 	! grep -F '/frontend/channel-day-program.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/channel-day-program-compat.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/epg-searchtimer-actions.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/epg-detail-owner.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/modules/genres.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	grep -F '/frontend/settings-series-artwork.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/epg-metadata-detail.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/epg-metadata-detail-hook.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/epg-detail-desktop-focus.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
@@ -145,10 +152,12 @@ test-install-staging:
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-detail-owner.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/genres.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/global-search.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-series-artwork.js
 	grep -F 'global.VdrSuiteEpgMetadataDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgSearchTimerActions = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgMetadataDetailHook = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgDetailDesktopFocus = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteSeriesArtworkSettings = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-series-artwork.js >/dev/null
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform

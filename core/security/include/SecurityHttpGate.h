@@ -150,6 +150,16 @@ public:
                  "/api/epgsearch/native-fuzzy/stale-probes/delete" ||
              path ==
                  "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete");
+        const bool isSeriesArtworkSettingsAction =
+            isPost &&
+            path.size() > std::string("/api/backends/").size() +
+                std::string("/settings/series-artwork").size() &&
+            path.compare(0, std::string("/api/backends/").size(),
+                         "/api/backends/") == 0 &&
+            path.compare(
+                path.size() - std::string("/settings/series-artwork").size(),
+                std::string("/settings/series-artwork").size(),
+                "/settings/series-artwork") == 0;
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -175,7 +185,8 @@ public:
             isSearchTimerPreviewCacheRefreshAction ||
             isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction ||
-            isNativeFuzzyStaleProbeDeleteAction;
+            isNativeFuzzyStaleProbeDeleteAction ||
+            isSeriesArtworkSettingsAction;
 
         if (isSafePost)
         {
@@ -315,6 +326,13 @@ public:
             requestToAuthorize.action =
                 "epgsearch.native-fuzzy.refresh";
             defaultBackend(requestToAuthorize);
+        }
+        else if (isSeriesArtworkSettingsAction)
+        {
+            requestToAuthorize.permission =
+                "backend.settings.series-artwork.modify";
+            requestToAuthorize.action =
+                "backend.settings.series-artwork.modify";
         }
         else
         {

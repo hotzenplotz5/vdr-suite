@@ -438,6 +438,14 @@ function loadVdrSuiteGenresRuntime() {
     ));
 }
 
+function loadVdrSuiteSeriesArtworkSettingsRuntime() {
+  return loadVdrSuiteDeferredRuntime(
+    'vdr-suite-series-artwork-settings-runtime',
+    '/frontend/settings-series-artwork.js',
+    () => Boolean(window.VdrSuiteSeriesArtworkSettings)
+  );
+}
+
 function startVdrSuiteDeferredFrontendRuntimes() {
   loadVdrSuiteEpgDetailRuntime().catch(error => {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
@@ -449,6 +457,10 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 
   loadVdrSuiteGenresRuntime().catch(error => {
     console.error('VDR-Suite genres runtime failed', error);
+  });
+
+  loadVdrSuiteSeriesArtworkSettingsRuntime().catch(error => {
+    console.error('VDR-Suite series artwork settings runtime failed', error);
   });
 }
 
@@ -466,7 +478,8 @@ if (typeof window !== 'undefined') {
     start: startVdrSuiteDeferredFrontendRuntimes,
     loadEpgDetail: loadVdrSuiteEpgDetailRuntime,
     loadRecordings2: loadVdrSuiteRecordings2Runtime,
-    loadGenres: loadVdrSuiteGenresRuntime
+    loadGenres: loadVdrSuiteGenresRuntime,
+    loadSeriesArtworkSettings: loadVdrSuiteSeriesArtworkSettingsRuntime
   });
 
   if (document.readyState === 'loading') {
