@@ -74,6 +74,10 @@ struct EpgScraperArtwork
     bool available = false;
     std::string provider;
     EpgScraperArtworkOrigin origin = EpgScraperArtworkOrigin::Unknown;
+    // Internal delivery eligibility. External providers and the materializer
+    // cannot set this boundary; it is asserted only after managed persistence
+    // succeeds or a persisted managed record is rehydrated.
+    bool managed = false;
     std::string path;
     int width = 0;
     int height = 0;
@@ -153,8 +157,8 @@ struct EpgScraperMetadata
     std::vector<EpgScraperExternalId> externalIds;
     EpgScraperArtwork preferredArtwork;
     // A provider-neutral, daemon-side candidate. It remains separate from the
-    // primary TVScraper artwork until a later secure materialization layer
-    // validates, persists, and deliberately selects it for public delivery.
+    // primary TVScraper artwork until secure materialization, persistence, and
+    // deliberate public selection have all succeeded.
     EpgScraperArtwork seriesArtworkFallback;
     std::vector<EpgScraperPerson> people;
     std::vector<EpgScraperImage> images;
