@@ -25,6 +25,7 @@ EpgScraperArtwork scraperArtwork(const EpgArtworkReference& reference)
     if (!reference.valid()) return artwork;
     artwork.available = true;
     artwork.provider = reference.provider;
+    artwork.origin = EpgScraperArtworkOrigin::PrimaryMetadata;
     artwork.path = reference.path;
     artwork.width = reference.width;
     artwork.height = reference.height;
