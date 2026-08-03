@@ -20,6 +20,7 @@ struct ExternalArtworkHttpResponse
     long statusCode = 0;
     long retryAfterSeconds = 0;
     std::string contentType;
+    std::string location;
     std::string body;
 };
 
