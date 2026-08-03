@@ -67,6 +67,21 @@ std::vector<unsigned char> png(int width, int height)
     return bytes;
 }
 
+std::vector<unsigned char> jpeg(int width, int height)
+{
+    assert(width > 0 && width <= 65535);
+    assert(height > 0 && height <= 65535);
+    return {
+        0xff, 0xd8,
+        0xff, 0xc0, 0x00, 0x07, 0x08,
+        static_cast<unsigned char>((height >> 8) & 0xff),
+        static_cast<unsigned char>(height & 0xff),
+        static_cast<unsigned char>((width >> 8) & 0xff),
+        static_cast<unsigned char>(width & 0xff),
+        0xff, 0xd9
+    };
+}
+
 void writeBytes(
     const std::filesystem::path& path,
     const std::vector<unsigned char>& bytes)
@@ -140,6 +155,20 @@ int main()
     assert(std::filesystem::exists(stored.artwork.path));
     assert(readBytes(stored.artwork.path) == validPng);
 
+    const std::filesystem::path jpegSource = incoming / "spoofed.png";
+    const std::vector<unsigned char> validJpeg = jpeg(640, 360);
+    writeBytes(jpegSource, validJpeg);
+    const auto storedJpeg = materializer.materialize(requestFor(jpegSource));
+    assert(storedJpeg.valid());
+    assert(std::filesystem::path(storedJpeg.artwork.path).extension() == ".jpg");
+    assert(readBytes(storedJpeg.artwork.path) == validJpeg);
+    assert(!std::filesystem::exists(stored.artwork.path));
+
+    const auto restoredPng = materializer.materialize(requestFor(validSource));
+    assert(restoredPng.valid());
+    assert(std::filesystem::path(restoredPng.artwork.path).extension() == ".png");
+    assert(!std::filesystem::exists(storedJpeg.artwork.path));
+
     const std::filesystem::path outside = root / "outside.png";
     writeBytes(outside, validPng);
     const auto outsideResult = materializer.materialize(requestFor(outside));
@@ -192,6 +221,13 @@ int main()
     const auto tooWide = dimensionMaterializer.materialize(
         requestFor(validSource));
     assert(!tooWide.stored);
+
+    FilesystemSeriesArtworkFallbackMaterializerConfig pixelConfig = config;
+    pixelConfig.maximumPixels = 100U;
+    FilesystemSeriesArtworkFallbackMaterializer pixelMaterializer(pixelConfig);
+    const auto tooManyPixels = pixelMaterializer.materialize(
+        requestFor(validSource));
+    assert(!tooManyPixels.stored);
 
     const std::filesystem::path cacheSymlinkTarget = root / "cache-target";
     std::filesystem::create_directories(cacheSymlinkTarget);
