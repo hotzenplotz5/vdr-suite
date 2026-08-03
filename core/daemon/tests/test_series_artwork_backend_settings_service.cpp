@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <sqlite3.h>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
@@ -71,7 +72,7 @@ ExternalArtworkHttpResponse jsonResponse(const std::string& body)
     ExternalArtworkHttpResponse response;
     response.attempted = true;
     response.statusCode = 200;
-    response.contentType = "application/json";
+    response.contentType = "application/json; charset=utf-8";
     response.body = body;
     return response;
 }
@@ -108,6 +109,17 @@ mode_t fileMode(const std::filesystem::path& path)
     assert(::stat(path.c_str(), &metadata) == 0);
     return metadata.st_mode & 0777;
 }
+
+int scalar(Database& database, const std::string& sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(), sql.c_str(), -1, &statement, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const int value = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return value;
+}
 }
 
 int main()
@@ -116,6 +128,29 @@ int main()
 
     Database database;
     assert(database.open((root / "settings.db").string()));
+
+    assert(database.execute(
+        "CREATE TABLE epg_scraper_metadata_cache ("
+        "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
+        "public_json TEXT NOT NULL,resolved_at INTEGER NOT NULL DEFAULT 0,"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "PRIMARY KEY(backend_id,channel_id,event_id));"
+        "INSERT INTO epg_scraper_metadata_cache VALUES("
+        "'default','channel','missing-series',"
+        "'{\"mediaType\":\"series\",\"preferredArtwork\":{\"available\":false}}',"
+        "1,CURRENT_TIMESTAMP);"
+        "INSERT INTO epg_scraper_metadata_cache VALUES("
+        "'default','channel','pictured-series',"
+        "'{\"mediaType\":\"series\",\"preferredArtwork\":{\"available\":true}}',"
+        "1,CURRENT_TIMESTAMP);"
+        "INSERT INTO epg_scraper_metadata_cache VALUES("
+        "'default','channel','missing-movie',"
+        "'{\"mediaType\":\"movie\",\"preferredArtwork\":{\"available\":false}}',"
+        "1,CURRENT_TIMESTAMP);"
+        "INSERT INTO epg_scraper_metadata_cache VALUES("
+        "'house-b','channel','missing-series',"
+        "'{\"mediaType\":\"series\",\"preferredArtwork\":{\"available\":false}}',"
+        "1,CURRENT_TIMESTAMP);"));
 
     FakeTransport transport;
     FakeCache cache;
@@ -159,6 +194,23 @@ int main()
            "https://api.themoviedb.org/3/configuration");
     assert(transport.requests.front().bearerToken ==
            "test.token_value-123");
+
+    assert(scalar(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_cache "
+        "WHERE backend_id='default' AND event_id='missing-series';") == 0);
+    assert(scalar(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_cache "
+        "WHERE backend_id='default' AND event_id='pictured-series';") == 1);
+    assert(scalar(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_cache "
+        "WHERE backend_id='default' AND event_id='missing-movie';") == 1);
+    assert(scalar(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_cache "
+        "WHERE backend_id='house-b' AND event_id='missing-series';") == 1);
 
     const std::filesystem::path tokenPath =
         root / "secrets" / "default.tmdb-token";
@@ -233,6 +285,13 @@ int main()
     assert(!rejected.success);
     assert(rejected.statusCode == 400);
     assert(rejected.errorCode == "invalid_backend_id");
+
+    SeriesArtworkBackendSettingsUpdate nonAscii;
+    nonAscii.backendId = "d\xc3\xa9fault";
+    nonAscii.provider = "tvmaze";
+    const auto nonAsciiRejected = service.update(nonAscii);
+    assert(!nonAsciiRejected.success);
+    assert(nonAsciiRejected.errorCode == "invalid_backend_id");
 
     std::error_code error;
     std::filesystem::remove_all(root, error);

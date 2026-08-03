@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <cctype>
 #include <fcntl.h>
 #include <filesystem>
 #include <limits>
@@ -44,6 +43,12 @@ bool tokenSyntaxValid(const std::string& token)
             });
 }
 
+bool jsonContentType(const std::string& contentType)
+{
+    return contentType == "application/json" ||
+        contentType.compare(0, 17U, "application/json;") == 0;
+}
+
 bool hasSeriesTmdbIdentity(const EpgScraperMetadata& metadata)
 {
     return std::any_of(
@@ -75,6 +80,40 @@ EpgScraperMetadata qualifyTvScraperTmdbIdentity(
     identity.value = std::to_string(metadata.providerId);
     qualified.externalIds.push_back(std::move(identity));
     return qualified;
+}
+
+bool invalidateUnresolvedSeriesMetadata(
+    Database& database,
+    const std::string& backendId)
+{
+    if (!database.tableExists("epg_scraper_metadata_cache"))
+    {
+        return true;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM epg_scraper_metadata_cache "
+        "WHERE backend_id=? "
+        "AND json_valid(public_json)=1 "
+        "AND json_extract(public_json,'$.mediaType')='series' "
+        "AND COALESCE("
+        "json_extract(public_json,'$.preferredArtwork.available'),0)=0;";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool removed =
+        bindText(statement, 1, backendId) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    return removed;
 }
 
 int openDirectoryNoFollow(const std::filesystem::path& path)
@@ -181,7 +220,9 @@ bool SeriesArtworkBackendSettingsService::validBackendId(
             backendId.end(),
             [](unsigned char character)
             {
-                return std::isalnum(character) ||
+                return (character >= 'a' && character <= 'z') ||
+                    (character >= 'A' && character <= 'Z') ||
+                    (character >= '0' && character <= '9') ||
                     character == '-' || character == '_' || character == '.';
             });
 }
@@ -498,7 +539,7 @@ SeriesArtworkBackendSettingsService::validateTmdbToken(
         return TokenValidation::Unavailable;
     }
     if (response.statusCode != 200L ||
-        response.contentType != "application/json" ||
+        !jsonContentType(response.contentType) ||
         response.body.empty() || response.body.front() != '{')
     {
         return TokenValidation::Invalid;
@@ -616,6 +657,14 @@ SeriesArtworkBackendSettingsService::update(
         result.statusCode = 400;
         result.errorCode = "tmdb_token_required";
         result.message = "TMDB requires an API Read Access Token";
+        return result;
+    }
+
+    if (!invalidateUnresolvedSeriesMetadata(database_, request.backendId))
+    {
+        result.statusCode = 503;
+        result.errorCode = "metadata_cache_invalidation_failed";
+        result.message = "Cached series metadata could not be invalidated";
         return result;
     }
 
