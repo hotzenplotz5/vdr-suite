@@ -351,8 +351,124 @@ bool acceptableDimensions(
     return pixels > 0U && pixels <= config.maximumPixels;
 }
 
+bool isPathWithinRoot(
+    const std::filesystem::path& path,
+    const std::filesystem::path& root)
+{
+    auto pathIterator = path.begin();
+    auto rootIterator = root.begin();
+
+    for (; rootIterator != root.end(); ++rootIterator, ++pathIterator)
+    {
+        if (pathIterator == path.end() || *pathIterator != *rootIterator)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool openSourceBelowAllowedRoot(
+    const std::string& sourcePath,
+    const std::vector<std::string>& allowedRoots,
+    FileDescriptor& source)
+{
+    source.reset();
+    std::error_code error;
+    const std::filesystem::path canonicalSource =
+        std::filesystem::weakly_canonical(sourcePath, error);
+    if (error || canonicalSource.empty() || !canonicalSource.is_absolute())
+    {
+        return false;
+    }
+
+    for (const std::string& configuredRoot : allowedRoots)
+    {
+        error.clear();
+        const std::filesystem::path canonicalRoot =
+            std::filesystem::weakly_canonical(configuredRoot, error);
+        if (error ||
+            canonicalRoot.empty() ||
+            !canonicalRoot.is_absolute() ||
+            canonicalSource == canonicalRoot ||
+            !isPathWithinRoot(canonicalSource, canonicalRoot))
+        {
+            continue;
+        }
+
+        const std::filesystem::path relative =
+            canonicalSource.lexically_relative(canonicalRoot);
+        if (relative.empty() || relative.is_absolute())
+        {
+            continue;
+        }
+
+        FileDescriptor directory(::open(
+            canonicalRoot.c_str(),
+            O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+        if (!directory.valid())
+        {
+            continue;
+        }
+
+        std::vector<std::filesystem::path> components(
+            relative.begin(),
+            relative.end());
+        if (components.empty())
+        {
+            continue;
+        }
+
+        bool valid = true;
+        for (std::size_t index = 0; index + 1U < components.size(); ++index)
+        {
+            const std::string component = components[index].string();
+            if (component.empty() || component == "." || component == "..")
+            {
+                valid = false;
+                break;
+            }
+
+            FileDescriptor child(::openat(
+                directory.get(),
+                component.c_str(),
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+            if (!child.valid())
+            {
+                valid = false;
+                break;
+            }
+            directory = std::move(child);
+        }
+        if (!valid)
+        {
+            continue;
+        }
+
+        const std::string filename = components.back().string();
+        if (filename.empty() || filename == "." || filename == "..")
+        {
+            continue;
+        }
+
+        FileDescriptor candidate(::openat(
+            directory.get(),
+            filename.c_str(),
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        if (candidate.valid())
+        {
+            source = std::move(candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool readSource(
     const std::string& path,
+    const std::vector<std::string>& allowedRoots,
     std::uintmax_t maximumBytes,
     std::vector<unsigned char>& bytes)
 {
@@ -364,10 +480,8 @@ bool readSource(
         return false;
     }
 
-    FileDescriptor file(::open(
-        path.c_str(),
-        O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
-    if (!file.valid())
+    FileDescriptor file;
+    if (!openSourceBelowAllowedRoot(path, allowedRoots, file))
     {
         return false;
     }
@@ -447,10 +561,15 @@ FileDescriptor openOrCreateDirectoryAt(int parent, const std::string& name)
         return FileDescriptor();
     }
 
-    return FileDescriptor(::openat(
+    FileDescriptor directory(::openat(
         parent,
         name.c_str(),
         O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+    if (!directory.valid() || ::fchmod(directory.get(), 0750) != 0)
+    {
+        return FileDescriptor();
+    }
+    return directory;
 }
 
 bool writeAll(int file, const std::vector<unsigned char>& bytes)
@@ -487,8 +606,10 @@ bool atomicallyStore(
     std::string& destinationPath)
 {
     destinationPath.clear();
-    const std::filesystem::path configuredRoot(cacheRoot);
-    if (!configuredRoot.is_absolute() || configuredRoot == configuredRoot.root_path())
+    const std::filesystem::path configuredRoot =
+        std::filesystem::path(cacheRoot).lexically_normal();
+    if (!configuredRoot.is_absolute() ||
+        configuredRoot == configuredRoot.root_path())
     {
         return false;
     }
@@ -500,15 +621,10 @@ bool atomicallyStore(
         return false;
     }
 
-    if (::chmod(configuredRoot.c_str(), 0750) != 0)
-    {
-        return false;
-    }
-
     FileDescriptor directory(::open(
         configuredRoot.c_str(),
         O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!directory.valid())
+    if (!directory.valid() || ::fchmod(directory.get(), 0750) != 0)
     {
         return false;
     }
@@ -621,7 +737,11 @@ FilesystemSeriesArtworkFallbackMaterializer::materialize(
     }
 
     std::vector<unsigned char> bytes;
-    if (!readSource(sourcePath, config_.maximumSourceBytes, bytes))
+    if (!readSource(
+            sourcePath,
+            config_.allowedSourceRoots,
+            config_.maximumSourceBytes,
+            bytes))
     {
         return result;
     }
