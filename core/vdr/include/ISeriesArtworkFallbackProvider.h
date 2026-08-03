@@ -3,6 +3,7 @@
 #include "EpgScraperMetadata.h"
 #include "VdrEvent.h"
 
+#include <filesystem>
 #include <string>
 
 struct SeriesArtworkFallbackResolution
@@ -17,6 +18,7 @@ struct SeriesArtworkFallbackResolution
             artwork.origin == EpgScraperArtworkOrigin::ExternalFallback &&
             !artwork.provider.empty() && artwork.provider != "none" &&
             artwork.provider != "tvscraper" && !artwork.path.empty() &&
+            std::filesystem::path(artwork.path).is_absolute() &&
             artwork.width > 0 && artwork.height > 0;
     }
 };
