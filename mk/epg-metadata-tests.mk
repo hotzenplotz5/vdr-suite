@@ -2,6 +2,11 @@
 
 test-suite-bridge-epg-metadata-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_epg_scraper_metadata_identity.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_scraper_metadata_identity
+	$(BUILD_DIR)/test_epg_scraper_metadata_identity
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_metadata_resolver.cpp \
 		$(LDFLAGS) \
