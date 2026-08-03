@@ -15,6 +15,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/platform/i18n.js", "platform/i18n.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/helpers.js", "platform/helpers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/deferred-runtime-loader.js", "platform/deferred-runtime-loader.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/settings-series-artwork.js", "settings-series-artwork.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/de.js", "locales/de.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/en.js", "locales/en.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-logos.js", "channel-logos.js", "application/javascript; charset=utf-8", "epg-cache.js"},
