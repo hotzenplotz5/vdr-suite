@@ -2,6 +2,7 @@
 
 #include "BasicHttpClient.h"
 #include "EpgEventRepository.h"
+#include "EpgSeriesArtworkFallbackOrphanCleaner.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
@@ -272,6 +273,65 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                     context->epgSeriesArtworkFallbackRepository.reset();
                 }
                 else {
+                    if (runtimeFallbackConfig.orphanCleanupEnabled) {
+                        EpgSeriesArtworkFallbackOrphanCleanupConfig
+                            orphanCleanupConfig;
+                        orphanCleanupConfig.enabled = true;
+                        orphanCleanupConfig.cacheRoot =
+                            runtimeFallbackConfig.cacheRoot;
+                        orphanCleanupConfig.minimumAgeSeconds =
+                            runtimeFallbackConfig
+                                .orphanCleanupMinimumAgeSeconds;
+                        orphanCleanupConfig.maximumFilesPerRun =
+                            static_cast<std::size_t>(
+                                runtimeFallbackConfig
+                                    .orphanCleanupMaximumFiles);
+
+                        EpgSeriesArtworkFallbackOrphanCleaner orphanCleaner(
+                            *context->epgSeriesArtworkFallbackRepository,
+                            std::move(orphanCleanupConfig));
+                        const std::int64_t nowEpochSeconds =
+                            std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                        const auto orphanCleanupResult =
+                            orphanCleaner.cleanup(nowEpochSeconds);
+
+                        std::ostream& cleanupLog =
+                            orphanCleanupResult.succeeded()
+                                ? std::cout
+                                : std::cerr;
+                        cleanupLog
+                            << "EPG series artwork orphan cleanup: backend="
+                            << context->backendId
+                            << ", attempted="
+                            << (orphanCleanupResult.attempted
+                                ? "true"
+                                : "false")
+                            << ", rootAvailable="
+                            << (orphanCleanupResult.rootAvailable
+                                ? "true"
+                                : "false")
+                            << ", examined="
+                            << orphanCleanupResult.examinedFiles
+                            << ", referenced="
+                            << orphanCleanupResult.referencedFiles
+                            << ", young="
+                            << orphanCleanupResult.youngFiles
+                            << ", removed="
+                            << orphanCleanupResult.removedFiles
+                            << ", skippedUnsafe="
+                            << orphanCleanupResult.skippedUnsafeEntries
+                            << ", errors="
+                            << orphanCleanupResult.errors
+                            << ", limitReached="
+                            << (orphanCleanupResult.limitReached
+                                ? "true"
+                                : "false")
+                            << std::endl;
+                    }
+
                     FilesystemSeriesArtworkFallbackMaterializerConfig
                         materializerConfig;
                     materializerConfig.allowedSourceRoots =
