@@ -10,6 +10,7 @@
 #include "RestfulApiSearchTimerAdapter.h"
 #include "RestfulApiVdrAdapter.h"
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
+#include "TmdbSeriesArtworkIncomingCleaner.h"
 #include "TmdbSeriesArtworkRuntimeConfig.h"
 
 #include <chrono>
@@ -199,6 +200,58 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             const TmdbSeriesArtworkRuntimeConfig tmdbRuntimeConfig =
                 TmdbSeriesArtworkRuntimeConfig::fromEnvironment(
                     runtimeFallbackConfig);
+
+            if (runtimeFallbackConfig.incomingCleanupEnabled) {
+                TmdbSeriesArtworkIncomingCleanupConfig incomingCleanupConfig;
+                incomingCleanupConfig.enabled = true;
+                incomingCleanupConfig.incomingRoot =
+                    tmdbRuntimeConfig.incomingRoot;
+                incomingCleanupConfig.minimumAgeSeconds =
+                    runtimeFallbackConfig.incomingCleanupMinimumAgeSeconds;
+                incomingCleanupConfig.maximumFilesPerRun =
+                    static_cast<std::size_t>(
+                        runtimeFallbackConfig.incomingCleanupMaximumFiles);
+
+                TmdbSeriesArtworkIncomingCleaner incomingCleaner(
+                    std::move(incomingCleanupConfig));
+                const std::int64_t nowEpochSeconds =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                const auto incomingCleanupResult =
+                    incomingCleaner.cleanup(nowEpochSeconds);
+
+                std::ostream& cleanupLog =
+                    incomingCleanupResult.succeeded()
+                        ? std::cout
+                        : std::cerr;
+                cleanupLog
+                    << "EPG series artwork incoming cleanup: backend="
+                    << context->backendId
+                    << ", attempted="
+                    << (incomingCleanupResult.attempted ? "true" : "false")
+                    << ", rootAvailable="
+                    << (incomingCleanupResult.rootAvailable ? "true" : "false")
+                    << ", examined="
+                    << incomingCleanupResult.examinedEntries
+                    << ", recognized="
+                    << incomingCleanupResult.recognizedFiles
+                    << ", young="
+                    << incomingCleanupResult.youngFiles
+                    << ", removedCandidates="
+                    << incomingCleanupResult.removedCandidateFiles
+                    << ", removedTemporary="
+                    << incomingCleanupResult.removedTemporaryFiles
+                    << ", skippedForeign="
+                    << incomingCleanupResult.skippedForeignEntries
+                    << ", skippedUnsafe="
+                    << incomingCleanupResult.skippedUnsafeEntries
+                    << ", errors="
+                    << incomingCleanupResult.errors
+                    << ", limitReached="
+                    << (incomingCleanupResult.limitReached ? "true" : "false")
+                    << std::endl;
+            }
 
             ISeriesArtworkFallbackProvider* fallbackProvider = nullptr;
             if (runtimeFallbackConfig.enabled && tmdbRuntimeConfig.usable()) {
