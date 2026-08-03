@@ -19,6 +19,11 @@ struct RuntimeSuiteBridgeConfig
     int reconnectMaximumMs = 30000;
 };
 
+struct RuntimeSeriesArtworkFallbackConfig
+{
+    bool enabled = false;
+};
+
 class RuntimeConfig
 {
 public:
@@ -32,6 +37,7 @@ public:
     int httpListenPort() const;
     const std::map<std::string, std::string>& recordingArtworkRoots() const;
     const RuntimeSuiteBridgeConfig& suiteBridge() const;
+    const RuntimeSeriesArtworkFallbackConfig& seriesArtworkFallback() const;
 
 private:
     std::string databasePath_;
@@ -42,4 +48,5 @@ private:
     int httpListenPort_;
     std::map<std::string, std::string> recordingArtworkRoots_;
     RuntimeSuiteBridgeConfig suiteBridge_;
+    RuntimeSeriesArtworkFallbackConfig seriesArtworkFallback_;
 };
