@@ -68,6 +68,25 @@ bool validImdbId(const std::string& value)
 
 SelectedIdentity selectIdentity(const EpgScraperMetadata& metadata)
 {
+    // TVScraper's public service contract qualifies a negative database ID
+    // as TheTVDB. Prefer that exact series identity because TVmaze coverage
+    // for regional shows is often better by TheTVDB ID than by IMDb ID.
+    if (metadata.provider == "tvscraper" &&
+        metadata.mediaType == EpgScraperMediaType::Series &&
+        metadata.providerId < 0)
+    {
+        const long long tvdbId =
+            -static_cast<long long>(metadata.providerId);
+        if (tvdbId > 0 &&
+            tvdbId <= std::numeric_limits<int>::max())
+        {
+            return {
+                {"tvmaze", "tvdb", std::to_string(tvdbId)},
+                "thetvdb"
+            };
+        }
+    }
+
     for (const auto& identity : metadata.externalIds)
     {
         if (identity.scope == EpgScraperExternalIdScope::Series &&
@@ -357,7 +376,9 @@ SeriesArtworkFallbackResolution TvmazeSeriesArtworkProvider::resolve(
 
     const auto lookupResponse =
         requestWithRetry(transport_, lookup, config_, sleeper_);
-    if (lookupResponse.transportError || lookupResponse.statusCode != 301L)
+    if (lookupResponse.transportError ||
+        (lookupResponse.statusCode != 301L &&
+         lookupResponse.statusCode != 302L))
     {
         cacheFailure(
             cache_,
