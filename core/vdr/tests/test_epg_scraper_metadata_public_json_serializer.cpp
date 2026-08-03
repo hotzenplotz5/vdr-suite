@@ -25,6 +25,21 @@ EpgScraperArtwork artwork(
     return value;
 }
 
+EpgScraperArtwork fallbackArtwork(
+    const std::string& path,
+    int width,
+    int height)
+{
+    EpgScraperArtwork value;
+    value.available = true;
+    value.provider = "example-provider";
+    value.origin = EpgScraperArtworkOrigin::ExternalFallback;
+    value.path = path;
+    value.width = width;
+    value.height = height;
+    return value;
+}
+
 }
 
 int main()
@@ -87,6 +102,10 @@ int main()
             "/var/cache/vdr/plugins/tvscraper/private/preferred.jpg",
             1280,
             720);
+        metadata.seriesArtworkFallback = fallbackArtwork(
+            "/var/cache/vdr-suite/epg-artwork/private/fallback.jpg",
+            600,
+            900);
 
         EpgScraperPerson person;
         person.role = EpgScraperPersonRole::Actor;
@@ -129,6 +148,9 @@ int main()
         assert(!contains(json, "preferred.jpg"));
         assert(!contains(json, "person.jpg"));
         assert(!contains(json, "poster.jpg"));
+        assert(!contains(json, "fallback.jpg"));
+        assert(!contains(json, "example-provider"));
+        assert(!contains(json, "seriesArtworkFallback"));
         assert(!contains(json, "scraperHd"));
         assert(!contains(json, "scraperLanguage"));
     }
