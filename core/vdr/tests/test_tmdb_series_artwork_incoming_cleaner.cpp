@@ -95,6 +95,8 @@ int main()
             root / "tmdb-10-ABCDEF0123456789.candidate";
         const std::filesystem::path leadingZero =
             root / "tmdb-01-1111111111111111.candidate";
+        const std::filesystem::path leadingZeroSequence =
+            root / ".tmdb-777-dddddddddddddddd.candidate.123.00.tmp";
         const std::filesystem::path foreignTemporary =
             root / ".download.123.tmp";
         const std::filesystem::path external = root.parent_path() /
@@ -109,6 +111,7 @@ int main()
         writeFile(youngCandidate);
         writeFile(uppercaseHash);
         writeFile(leadingZero);
+        writeFile(leadingZeroSequence);
         writeFile(foreignTemporary);
         writeFile(external);
         std::filesystem::create_symlink(external, candidateSymlink);
@@ -119,6 +122,7 @@ int main()
         setModificationTime(youngCandidate, Young);
         setModificationTime(uppercaseHash, Old);
         setModificationTime(leadingZero, Old);
+        setModificationTime(leadingZeroSequence, Old);
         setModificationTime(foreignTemporary, Old);
         setModificationTime(candidateSymlink, Old);
         setModificationTime(candidateDirectory, Old);
@@ -131,13 +135,14 @@ int main()
         assert(result.removedCandidateFiles == 1U);
         assert(result.removedTemporaryFiles == 1U);
         assert(result.youngFiles == 1U);
-        assert(result.skippedForeignEntries >= 3U);
+        assert(result.skippedForeignEntries >= 4U);
         assert(result.skippedUnsafeEntries == 2U);
         assert(!std::filesystem::exists(oldCandidate));
         assert(!std::filesystem::exists(oldTemporary));
         assert(std::filesystem::exists(youngCandidate));
         assert(std::filesystem::exists(uppercaseHash));
         assert(std::filesystem::exists(leadingZero));
+        assert(std::filesystem::exists(leadingZeroSequence));
         assert(std::filesystem::exists(foreignTemporary));
         assert(std::filesystem::is_symlink(candidateSymlink));
         assert(std::filesystem::is_directory(candidateDirectory));
