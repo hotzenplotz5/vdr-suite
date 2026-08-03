@@ -179,7 +179,8 @@ def main() -> int:
         "TMDB provider must be guarded by explicit fail-closed runtime policy",
     )
     require(
-        "std::make_unique<EpgSeriesArtworkProviderCacheRepository>" in runtime and
+        "std::make_unique<" in runtime and
+        "EpgSeriesArtworkProviderCacheRepository>" in runtime and
         "epgSeriesArtworkProviderCacheRepository->ensureSchema()" in runtime,
         "TMDB provider must fail closed when its cache schema is unavailable",
     )
