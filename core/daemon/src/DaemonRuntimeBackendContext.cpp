@@ -191,9 +191,19 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->epgScraperMetadataDelegate =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
                     *context->suiteBridgeTransport);
+
+            SeriesArtworkFallbackResolverConfig fallbackConfig;
+            fallbackConfig.enabled =
+                config_.seriesArtworkFallback().enabled;
+            context->epgSeriesArtworkFallbackResolver =
+                std::make_unique<SeriesArtworkFallbackResolver>(
+                    *context->epgScraperMetadataDelegate,
+                    nullptr,
+                    fallbackConfig);
+
             context->epgScraperMetadataResolver =
                 std::make_unique<PersistentEpgScraperMetadataResolver>(
-                    *context->epgScraperMetadataDelegate,
+                    *context->epgSeriesArtworkFallbackResolver,
                     *epgArtworkRepository_);
             GenreBrowserApiRuntime::instance()
                 .registerEpgScraperMetadataResolver(
