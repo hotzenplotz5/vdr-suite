@@ -84,6 +84,53 @@ void AppendStringArray(
   stream << ']';
 }
 
+bool ExternalIdsValid(
+    const std::vector<SuiteBridgeEpgExternalId> &externalIds)
+{
+  if (externalIds.size() > SuiteBridgeEpgMetadata::kMaxExternalIds) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < externalIds.size(); ++index) {
+    const SuiteBridgeEpgExternalId &externalId = externalIds[index];
+    if (!externalId.Valid() || externalId.value.size() > 128) {
+      return false;
+    }
+
+    for (std::size_t other = 0; other < index; ++other) {
+      const SuiteBridgeEpgExternalId &candidate = externalIds[other];
+      if (candidate.provider == externalId.provider &&
+          candidate.scope == externalId.scope &&
+          candidate.value == externalId.value) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+void AppendExternalIds(
+    std::ostringstream &stream,
+    const std::vector<SuiteBridgeEpgExternalId> &externalIds)
+{
+  stream << '[';
+  bool first = true;
+  for (const SuiteBridgeEpgExternalId &externalId : externalIds) {
+    if (!first) {
+      stream << ',';
+    }
+    first = false;
+    stream << "{\"provider\":\""
+           << SuiteBridgeEpgExternalIdProviderName(externalId.provider)
+           << "\",\"scope\":\""
+           << SuiteBridgeEpgExternalIdScopeName(externalId.scope)
+           << "\",\"value\":\"" << EscapeJson(externalId.value)
+           << "\"}";
+  }
+  stream << ']';
+}
+
 void AppendArtwork(
     std::ostringstream &stream,
     const SuiteBridgeArtworkReference &artwork)
@@ -92,6 +139,8 @@ void AppendArtwork(
          << (artwork.Valid() ? "true" : "false")
          << ",\"provider\":\""
          << (artwork.Valid() ? "tvscraper" : "none")
+         << "\",\"origin\":\""
+         << (artwork.Valid() ? "primary-metadata" : "none")
          << "\",\"path\":\"" << EscapeJson(artwork.path)
          << "\",\"width\":" << (artwork.Valid() ? artwork.width : 0)
          << ",\"height\":" << (artwork.Valid() ? artwork.height : 0)
@@ -177,7 +226,8 @@ SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
     const SuiteBridgeEpgMetadata &metadata)
 {
   const bool resolved = SuiteBridgeEpgMediaTypeIsResolved(metadata.mediaType);
-  if (metadata.found != resolved) {
+  if (metadata.found != resolved ||
+      (resolved && !ExternalIdsValid(metadata.externalIds))) {
     *this = SuiteBridgeEpgMetadataPayload(SuiteBridgeEpgMetadata{});
     return;
   }
@@ -217,7 +267,10 @@ SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
          << "\",\"firstAired\":\""
          << EscapeJson(metadata.firstAired)
          << "\",\"imdbId\":\"" << EscapeJson(metadata.imdbId)
-         << "\",\"status\":\"" << EscapeJson(metadata.status)
+         << "\",\"externalIds\":";
+
+  AppendExternalIds(stream, metadata.externalIds);
+  stream << ",\"status\":\"" << EscapeJson(metadata.status)
          << "\",\"collectionName\":\""
          << EscapeJson(metadata.collectionName)
          << "\",\"genres\":";
