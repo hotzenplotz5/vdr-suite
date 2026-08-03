@@ -1,4 +1,4 @@
-.PHONY: test-suite-bridge-epg-metadata-resolver test-series-artwork-fallback-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
+.PHONY: test-suite-bridge-epg-metadata-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
 
 test-suite-bridge-epg-metadata-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -7,18 +7,16 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_epg_scraper_metadata_identity
 	$(BUILD_DIR)/test_epg_scraper_metadata_identity
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_series_artwork_fallback_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_series_artwork_fallback_resolver
+	$(BUILD_DIR)/test_series_artwork_fallback_resolver
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_metadata_resolver.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_epg_metadata_resolver
 	$(BUILD_DIR)/test_suite_bridge_epg_metadata_resolver
-
-test-series-artwork-fallback-resolver:
-	$(BUILD_CXX) $(CXXFLAGS) \
-		core/vdr/tests/test_series_artwork_fallback_resolver.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_series_artwork_fallback_resolver
-	$(BUILD_DIR)/test_series_artwork_fallback_resolver
 
 test-epg-scraper-metadata-public-json:
 	$(BUILD_CXX) $(CXXFLAGS) \
