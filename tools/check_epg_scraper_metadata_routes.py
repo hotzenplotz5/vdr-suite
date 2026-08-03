@@ -138,10 +138,8 @@ for fragment in required_repository:
         errors.append(f"missing fallback persistence contract: {fragment}")
 
 for fragment in (
-    '"X-Content-Type-Options"',
-    '"nosniff"',
-    '"Cache-Control"',
-    '"no-cache"',
+    'stream << "Cache-Control: no-cache\\r\\n";',
+    'stream << "X-Content-Type-Options: nosniff\\r\\n";',
 ):
     if fragment not in http_listener:
         errors.append(f"missing HTTP response security header contract: {fragment}")
