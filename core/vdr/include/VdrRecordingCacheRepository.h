@@ -2,6 +2,7 @@
 
 #include "VdrRecording.h"
 
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -23,6 +24,8 @@ struct VdrRecordingFolderEntry
     std::string name;
     std::string path;
     int recordingCount = 0;
+    bool singleRecordingLeaf = false;
+    VdrRecording singleRecording;
 };
 
 struct VdrRecordingFolderPage
@@ -77,6 +80,9 @@ public:
     VdrRecordingCacheStatus statusForBackend(
         const std::string& backendId) const;
 
+    bool warmBrowseSnapshotForBackend(
+        const std::string& backendId) const;
+
     VdrRecordingFolderPage folderPageForBackend(
         const std::string& backendId,
         const std::string& folderPath,
@@ -84,8 +90,21 @@ public:
         int offset) const;
 
 private:
+    struct BrowseFolderSnapshot
+    {
+        std::vector<VdrRecordingFolderEntry> folders;
+        std::vector<VdrRecording> recordings;
+    };
+
+    struct BrowseBackendSnapshot
+    {
+        int totalCount = 0;
+        std::map<std::string, BrowseFolderSnapshot> folders;
+    };
+
     Database& database_;
     mutable std::recursive_mutex mutex_;
+    mutable std::map<std::string, BrowseBackendSnapshot> browseSnapshots_;
 
     static std::string normalizeBackendId(
         const std::string& backendId);
@@ -105,4 +124,11 @@ private:
     bool upsertRecordingsForBackendLocked(
         const std::string& normalizedBackendId,
         const std::vector<VdrRecording>& recordings);
+
+    void storeBrowseSnapshotLocked(
+        const std::string& normalizedBackendId,
+        const std::vector<VdrRecording>& recordings) const;
+
+    bool rebuildBrowseSnapshotFromPersistentCacheLocked(
+        const std::string& normalizedBackendId) const;
 };
