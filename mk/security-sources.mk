@@ -26,7 +26,7 @@ BROWSER_SESSION_HTTP_SRC := \
 	core/http/src/BrowserSessionCsrfRecoveryService.cpp \
 	core/http/src/BrowserSessionHttpService.cpp
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-http-gate test-security-http-gate test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -169,6 +169,17 @@ test-security-browser-session-http-service:
 	$(BUILD_DIR)/test_browser_session_http_service
 
 
+test-security-browser-session-csrf-recovery:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		$(BROWSER_SESSION_HTTP_SRC) \
+		core/http/tests/test_browser_session_csrf_recovery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_csrf_recovery_service
+	$(BUILD_DIR)/test_browser_session_csrf_recovery_service
+
+
 test-security-browser-session-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -244,6 +255,7 @@ test-security: \
 	test-security-browser-session-idle-expiry \
 	test-security-browser-session-retention-cleanup \
 	test-security-browser-session-http-service \
+	test-security-browser-session-csrf-recovery \
 	test-security-browser-session-http-gate \
 	test-security-http-gate \
 	test-security-searchtimer-maintenance \
