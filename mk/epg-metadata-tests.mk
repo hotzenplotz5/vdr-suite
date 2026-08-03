@@ -96,6 +96,21 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
 	$(BUILD_DIR)/test_tmdb_series_artwork_runtime_config
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
+		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
+		core/vdr/tests/test_tvmaze_series_artwork_provider.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_tvmaze_series_artwork_provider
+	$(BUILD_DIR)/test_tvmaze_series_artwork_provider
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
+		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
+		core/daemon/src/TvmazeSeriesArtworkRuntimeConfig.cpp \
+		core/daemon/tests/test_tvmaze_series_artwork_runtime_config.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_tvmaze_series_artwork_runtime_config
+	$(BUILD_DIR)/test_tvmaze_series_artwork_runtime_config
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_metadata_resolver.cpp \
 		$(LDFLAGS) \
@@ -131,3 +146,4 @@ test-epg-scraper-metadata-routes-contract:
 	python3 tools/check_epg_scraper_metadata_routes.py
 	python3 tools/check_epg_series_artwork_orphan_cleanup.py
 	python3 tools/check_tmdb_series_artwork_incoming_cleanup.py
+	python3 tools/check_tvmaze_series_artwork_provider.py
