@@ -17,6 +17,34 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_series_artwork_fallback_resolver
 	$(BUILD_DIR)/test_series_artwork_fallback_resolver
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_series_artwork_fallback_materializing_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_series_artwork_fallback_materializing_resolver
+	$(BUILD_DIR)/test_series_artwork_fallback_materializing_resolver
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
+		core/vdr/src/FilesystemSeriesArtworkFallbackMaterializer.cpp \
+		core/vdr/tests/test_filesystem_series_artwork_fallback_materializer.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_filesystem_series_artwork_fallback_materializer
+	$(BUILD_DIR)/test_filesystem_series_artwork_fallback_materializer
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/tests/test_epg_series_artwork_fallback_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_series_artwork_fallback_repository
+	$(BUILD_DIR)/test_epg_series_artwork_fallback_repository
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
+		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/src/PersistentSeriesArtworkFallbackResolver.cpp \
+		core/vdr/tests/test_persistent_series_artwork_fallback_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
+	$(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_metadata_resolver.cpp \
 		$(LDFLAGS) \
