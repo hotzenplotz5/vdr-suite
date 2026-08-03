@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 struct RuntimeSuiteBridgeConfig
 {
@@ -22,6 +23,13 @@ struct RuntimeSuiteBridgeConfig
 struct RuntimeSeriesArtworkFallbackConfig
 {
     bool enabled = false;
+    std::vector<std::string> sourceRoots = {
+        "/var/cache/vdr-suite/epg-artwork/incoming"
+    };
+    std::string cacheRoot =
+        "/var/cache/vdr-suite/epg-artwork/external";
+    int maximumSourceBytes = 16 * 1024 * 1024;
+    int maximumDimension = 16384;
 };
 
 class RuntimeConfig
