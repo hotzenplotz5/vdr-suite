@@ -218,7 +218,7 @@ int main()
     const std::filesystem::path traversalPath =
         cache / "subdirectory" / ".." / "series.png";
     std::filesystem::create_directories(cache / "subdirectory");
-    assert(repository.upsert(referenceFor("traversal", traversalPath)));
+    assert(!repository.upsert(referenceFor("traversal", traversalPath)));
     assert(!delivery.loadSeriesArtworkFallback(
         "backend", "channel", "traversal").valid());
 
