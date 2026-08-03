@@ -58,14 +58,18 @@ copied under VDR's schedule read lock; the TVScraper service call and image
 inspection happen after that global lock has been released.
 
 The response contains only a validated provider, file path and actual image
-dimensions. Selection remains:
+dimensions. Series prefer a cover-oriented primary image in this order:
 
-1. episode or movie;
-2. season;
-3. series or collection;
-4. landscape;
-5. banner;
-6. portrait.
+1. current-season artwork;
+2. series artwork;
+3. any-season artwork;
+4. episode artwork;
+5. portrait orientation;
+6. landscape orientation;
+7. banner orientation.
+
+Movies preserve the event/movie-first and landscape-first selection used by
+the existing contract.
 
 ### `META`
 
