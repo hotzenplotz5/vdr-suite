@@ -68,6 +68,16 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
 	$(BUILD_DIR)/test_persistent_series_artwork_fallback_resolver
 	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
+		core/vdr/src/PersistentEpgScraperMetadataResolver.cpp \
+		core/vdr/tests/test_persistent_epg_scraper_metadata_fallback_artwork.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_persistent_epg_scraper_metadata_fallback_artwork
+	$(BUILD_DIR)/test_persistent_epg_scraper_metadata_fallback_artwork
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/http/src/CurlExternalArtworkHttpTransport.cpp \
 		core/http/tests/test_curl_external_artwork_http_transport.cpp \
 		$(LDFLAGS) \
