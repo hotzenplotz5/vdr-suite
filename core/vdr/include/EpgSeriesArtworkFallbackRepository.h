@@ -7,6 +7,13 @@
 
 class Database;
 
+enum class EpgSeriesArtworkFallbackPathReferenceState
+{
+    Error,
+    Unreferenced,
+    Referenced
+};
+
 class EpgSeriesArtworkFallbackRepository
 {
 public:
@@ -18,6 +25,8 @@ public:
         const std::string& backendId,
         const std::string& channelId,
         const std::string& eventId) const;
+    EpgSeriesArtworkFallbackPathReferenceState referenceStateForPath(
+        const std::string& path) const;
     bool removeForEvent(
         const std::string& backendId,
         const std::string& channelId,
