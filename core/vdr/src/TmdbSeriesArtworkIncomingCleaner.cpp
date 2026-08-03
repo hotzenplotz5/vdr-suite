@@ -147,7 +147,8 @@ bool positivePid(const std::string& value)
 
 bool sequenceNumber(const std::string& value)
 {
-    return !value.empty() && value.size() <= 20U && decimalDigits(value);
+    return !value.empty() && value.size() <= 20U && decimalDigits(value) &&
+        (value == "0" || value.front() != '0');
 }
 
 IncomingFileKind incomingFileKind(const std::string& name)
