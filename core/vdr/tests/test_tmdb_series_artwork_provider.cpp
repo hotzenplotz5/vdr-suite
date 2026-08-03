@@ -145,9 +145,11 @@ int main()
         FakeTransport transport;
         transport.responses = {
             jsonResponse(
-                "{\"backdrops\":["
-                "{\"file_path\":\"/neutral.jpg\",\"width\":3840,\"height\":2160,\"vote_average\":9.0,\"iso_639_1\":null},"
-                "{\"file_path\":\"/german.jpg\",\"width\":1280,\"height\":720,\"vote_average\":7.0,\"iso_639_1\":\"de\"}]}"),
+                "{\"posters\":["
+                "{\"file_path\":\"/neutral-poster.jpg\",\"width\":2000,\"height\":3000,\"vote_average\":9.0,\"iso_639_1\":null},"
+                "{\"file_path\":\"/german-poster.jpg\",\"width\":1000,\"height\":1500,\"vote_average\":7.0,\"iso_639_1\":\"de\"}],"
+                "\"backdrops\":["
+                "{\"file_path\":\"/german-backdrop.jpg\",\"width\":3840,\"height\":2160,\"vote_average\":10.0,\"iso_639_1\":\"de\"}]}"),
             imageResponse("jpeg bytes")
         };
         FakeCache cache;
@@ -170,8 +172,8 @@ int main()
         const auto result = provider.resolve("default", event, value);
         assert(result.valid());
         assert(result.artwork.provider == "tmdb");
-        assert(result.artwork.width == 1280);
-        assert(result.artwork.height == 720);
+        assert(result.artwork.width == 1000);
+        assert(result.artwork.height == 1500);
         assert(std::filesystem::path(result.artwork.path).parent_path() == root);
         std::ifstream stored(result.artwork.path, std::ios::binary);
         std::string body((std::istreambuf_iterator<char>(stored)), {});
@@ -179,7 +181,7 @@ int main()
         assert(transport.requests.size() == 2);
         assert(transport.requests[0].url.find("/tv/42/images?") != std::string::npos);
         assert(transport.requests[0].bearerToken == "test.token_value-123");
-        assert(transport.requests[1].url.find("/german.jpg") != std::string::npos);
+        assert(transport.requests[1].url.find("/german-poster.jpg") != std::string::npos);
         assert(transport.requests[1].bearerToken.empty());
         assert(sleeps.empty());
         assert(cache.removeCalls == 1);
@@ -204,10 +206,13 @@ int main()
             [](std::chrono::milliseconds) {});
         const auto result = provider.resolve("default", event, value);
         assert(result.valid());
+        assert(result.artwork.width == 1920);
+        assert(result.artwork.height == 1080);
         assert(transport.requests.size() == 3);
         assert(transport.requests[0].url.find("/find/tt7654321?") != std::string::npos);
         assert(transport.requests[0].url.find("external_source=imdb_id") != std::string::npos);
         assert(transport.requests[1].url.find("/tv/77/images?") != std::string::npos);
+        assert(transport.requests[2].url.find("/series.png") != std::string::npos);
     }
 
     {
@@ -264,7 +269,9 @@ int main()
     {
         const auto root = tempRoot("empty");
         FakeTransport transport;
-        transport.responses = {jsonResponse("{\"backdrops\":[]}")};
+        transport.responses = {
+            jsonResponse("{\"posters\":[],\"backdrops\":[]}")
+        };
         FakeCache cache;
         EpgScraperMetadata value = metadata();
         value.externalIds = {
