@@ -271,6 +271,15 @@ RuntimeSuiteBridgeConfig parseSuiteBridgeConfig()
     return value;
 }
 
+RuntimeSeriesArtworkFallbackConfig parseSeriesArtworkFallbackConfig()
+{
+    RuntimeSeriesArtworkFallbackConfig value;
+    value.enabled = environmentBoolean(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED",
+        value.enabled);
+    return value;
+}
+
 }
 
 RuntimeConfig::RuntimeConfig()
@@ -285,7 +294,8 @@ RuntimeConfig::RuntimeConfig()
       recordingArtworkRoots_(parseArtworkRoots(
           environmentOrEmpty(
               "VDR_SUITE_RECORDING_ARTWORK_ROOTS"))),
-      suiteBridge_(parseSuiteBridgeConfig())
+      suiteBridge_(parseSuiteBridgeConfig()),
+      seriesArtworkFallback_(parseSeriesArtworkFallbackConfig())
 {
 }
 
@@ -327,4 +337,9 @@ const std::map<std::string, std::string>& RuntimeConfig::recordingArtworkRoots()
 const RuntimeSuiteBridgeConfig& RuntimeConfig::suiteBridge() const
 {
     return suiteBridge_;
+}
+
+const RuntimeSeriesArtworkFallbackConfig& RuntimeConfig::seriesArtworkFallback() const
+{
+    return seriesArtworkFallback_;
 }
