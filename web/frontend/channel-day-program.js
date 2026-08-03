@@ -91,13 +91,27 @@
   };
   const channelIsEnabled = channel => channelBoolean(channel, ['enabled', 'active'], true);
 
+  function resolvePublicArtworkUrl(value) {
+    const url = text(value);
+    if (!url || !url.startsWith('/api/epg/cache/')) return url;
+
+    const publicUrl = global.VdrSuitePublicUrl;
+    if (!publicUrl || typeof publicUrl.resolvePath !== 'function') return url;
+
+    try {
+      return publicUrl.resolvePath(url);
+    } catch (error) {
+      return '';
+    }
+  }
+
   function eventArtwork(event) {
     const artwork = event && event.artwork;
     if (artwork && artwork.available === true) {
       const url = text(artwork.url);
-      if (url) return url;
+      if (url) return resolvePublicArtworkUrl(url);
     }
-    return text(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner']));
+    return resolvePublicArtworkUrl(text(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'])));
   }
 
   const addText = (element, value) => { element.textContent = String(value); return element; };
