@@ -7,6 +7,11 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_epg_scraper_metadata_identity
 	$(BUILD_DIR)/test_epg_scraper_metadata_identity
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_series_artwork_fallback_provider_contract.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_series_artwork_fallback_provider_contract
+	$(BUILD_DIR)/test_series_artwork_fallback_provider_contract
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_series_artwork_fallback_resolver.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_series_artwork_fallback_resolver
