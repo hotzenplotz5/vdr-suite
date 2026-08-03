@@ -72,8 +72,15 @@ ExternalArtworkHttpResponse jsonResponse(const std::string& body)
     ExternalArtworkHttpResponse response;
     response.attempted = true;
     response.statusCode = 200;
-    response.contentType = "application/json; charset=utf-8";
+    response.contentType = "application/json";
     response.body = body;
+    return response;
+}
+
+ExternalArtworkHttpResponse tokenValidationResponse(const std::string& body)
+{
+    ExternalArtworkHttpResponse response = jsonResponse(body);
+    response.contentType = "application/json; charset=utf-8";
     return response;
 }
 
@@ -175,7 +182,7 @@ int main()
     assert(initial.configurationSource == "environment");
     assert(!initial.tmdbTokenConfigured);
 
-    transport.responses = {jsonResponse("{}")};
+    transport.responses = {tokenValidationResponse("{}")};
     SeriesArtworkBackendSettingsUpdate enableTmdb;
     enableTmdb.backendId = "default";
     enableTmdb.provider = "tmdb";
@@ -287,7 +294,7 @@ int main()
     assert(rejected.errorCode == "invalid_backend_id");
 
     SeriesArtworkBackendSettingsUpdate nonAscii;
-    nonAscii.backendId = "d\xc3\xa9fault";
+    nonAscii.backendId = "d\303\251" "fault";
     nonAscii.provider = "tvmaze";
     const auto nonAsciiRejected = service.update(nonAscii);
     assert(!nonAsciiRejected.success);
