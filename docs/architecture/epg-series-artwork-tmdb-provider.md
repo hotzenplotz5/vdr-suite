@@ -64,16 +64,21 @@ TMDB JSON is parsed by a bounded parser with maximum size, nesting depth, array
 count, and string-length limits. Image paths must be single safe TMDB file
 components with PNG or JPEG suffixes.
 
-Backdrop selection is deterministic:
+Series cover selection is deterministic. Valid posters are preferred over all
+backdrops and are ranked by:
 
 1. configured language base, for example `de` from `de-DE`;
 2. language-neutral image;
 3. English image;
 4. any other valid language;
-5. smallest deviation from 16:9;
+5. smallest deviation from the 2:3 cover ratio;
 6. highest pixel count;
 7. highest vote average;
 8. lexical file path as a stable tie-breaker.
+
+Only when no valid poster exists does selection fall back to a backdrop. The
+same language, pixel-count, vote, and stable-path order applies, but aspect
+ratio is ranked against 16:9.
 
 The downloaded bytes are written atomically to the configured incoming root.
 The existing materializer remains responsible for content signature, image
