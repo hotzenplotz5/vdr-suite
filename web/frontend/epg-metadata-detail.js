@@ -59,6 +59,20 @@
       url.startsWith('/api/epg/cache/artwork?');
   }
 
+  function resolvePublicImageUrl(value) {
+    const url = String(value || '').trim();
+    if (!isPublicImageUrl(url)) return '';
+
+    const publicUrl = global.VdrSuitePublicUrl;
+    if (!publicUrl || typeof publicUrl.resolvePath !== 'function') return url;
+
+    try {
+      return publicUrl.resolvePath(url);
+    } catch (error) {
+      return '';
+    }
+  }
+
   function isPublicRecordingImageUrl(value) {
     const url = String(value || '').trim();
     return url.startsWith('/recording-artwork/') ||
@@ -576,11 +590,14 @@
     const hero = detail.querySelector('.epg-detail-hero');
     if (!hero || !artwork || artwork.available !== true || !isPublicImageUrl(artwork.url)) return;
 
+    const url = resolvePublicImageUrl(artwork.url);
+    if (!url) return;
+
     const image = document.createElement('div');
     image.className = 'epg-detail-artwork';
     image.setAttribute('role', 'img');
     image.setAttribute('aria-label', 'Bild zu ' + (metadata.episodeName || metadata.title || 'Sendung'));
-    image.style.backgroundImage = 'url("' + String(artwork.url).replace(/["\\\r\n]/g, '') + '")';
+    image.style.backgroundImage = 'url("' + url.replace(/["\\\r\n]/g, '') + '")';
     detail.classList.add('epg-has-artwork');
     detail.insertBefore(image, hero);
   }
