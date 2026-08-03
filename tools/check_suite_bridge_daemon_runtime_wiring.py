@@ -45,6 +45,10 @@ def main() -> int:
         "RuntimeSuiteBridgeConfig" in config_header,
         "RuntimeConfig must expose Suite Bridge configuration",
     )
+    require(
+        "RuntimeSeriesArtworkFallbackConfig" in config_header,
+        "RuntimeConfig must expose series artwork fallback configuration",
+    )
 
     required_environment = (
         "VDR_SUITE_SUITE_BRIDGE_ENABLED",
@@ -59,6 +63,7 @@ def main() -> int:
         "VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS",
         "VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS",
         "VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS",
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED",
     )
     for name in required_environment:
         require(name in config_source, f"missing runtime configuration: {name}")
@@ -70,6 +75,10 @@ def main() -> int:
     require(
         "SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate" in context,
         "backend context must own its typed EPG scraper metadata delegate",
+    )
+    require(
+        "SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver" in context,
+        "backend context must own its series artwork fallback decorator",
     )
     require(
         "PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver" in context,
@@ -86,6 +95,18 @@ def main() -> int:
     require(
         "std::make_unique<SuiteBridgeEpgMetadataResolver>" in runtime,
         "DaemonRuntime must construct the backend EPG scraper metadata delegate",
+    )
+    require(
+        "std::make_unique<SeriesArtworkFallbackResolver>" in runtime,
+        "DaemonRuntime must construct the series artwork fallback decorator",
+    )
+    require(
+        "config_.seriesArtworkFallback().enabled" in runtime,
+        "fallback decorator must use the explicit disabled-by-default runtime switch",
+    )
+    require(
+        "*context->epgSeriesArtworkFallbackResolver" in runtime,
+        "persistent metadata resolver must wrap the fallback decorator",
     )
     require(
         "std::make_unique<PersistentEpgScraperMetadataResolver>" in runtime,
@@ -110,12 +131,16 @@ def main() -> int:
     metadata_delegate_index = runtime.index(
         "context->epgScraperMetadataDelegate ="
     )
+    fallback_resolver_index = runtime.index(
+        "context->epgSeriesArtworkFallbackResolver ="
+    )
     metadata_resolver_index = runtime.index(
         "context->epgScraperMetadataResolver ="
     )
     require(
-        metadata_transport_index < metadata_delegate_index < metadata_resolver_index,
-        "persistent EPG metadata resolver must wrap the bounded Suite Bridge delegate",
+        metadata_transport_index < metadata_delegate_index <
+        fallback_resolver_index < metadata_resolver_index,
+        "runtime order must be transport, Bridge metadata, fallback decorator, persistence",
     )
 
     start_index = runtime.index("suiteBridgeAgentRuntime->start()")
