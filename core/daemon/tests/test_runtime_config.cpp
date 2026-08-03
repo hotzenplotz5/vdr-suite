@@ -8,7 +8,7 @@
 namespace
 {
 
-const std::vector<const char*> SuiteBridgeVariables = {
+const std::vector<const char*> RuntimeVariables = {
     "VDR_SUITE_SUITE_BRIDGE_ENABLED",
     "VDR_SUITE_SUITE_BRIDGE_BACKEND_ID",
     "VDR_SUITE_SUITE_BRIDGE_HOST",
@@ -20,12 +20,13 @@ const std::vector<const char*> SuiteBridgeVariables = {
     "VDR_SUITE_SUITE_BRIDGE_STALE_AFTER_MS",
     "VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS",
     "VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS",
-    "VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS"
+    "VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED"
 };
 
-void clearSuiteBridgeEnvironment()
+void clearRuntimeEnvironment()
 {
-    for (const char* name : SuiteBridgeVariables)
+    for (const char* name : RuntimeVariables)
     {
         unsetenv(name);
     }
@@ -37,7 +38,7 @@ int main()
 {
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
-    clearSuiteBridgeEnvironment();
+    clearRuntimeEnvironment();
 
     RuntimeConfig defaultConfig;
     assert(defaultConfig.databasePath() == "/tmp/vdr-suite-test.db");
@@ -54,6 +55,7 @@ int main()
     assert(defaultConfig.suiteBridge().offlineAfterMs == 60000);
     assert(defaultConfig.suiteBridge().reconnectInitialMs == 1000);
     assert(defaultConfig.suiteBridge().reconnectMaximumMs == 30000);
+    assert(!defaultConfig.seriesArtworkFallback().enabled);
 
     setenv(
         "VDR_SUITE_DATABASE_PATH",
@@ -75,6 +77,7 @@ int main()
     setenv("VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS", "72000", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS", "1500", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS", "45000", 1);
+    setenv("VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED", "ON", 1);
 
     RuntimeConfig overriddenConfig;
     assert(overriddenConfig.databasePath() ==
@@ -96,6 +99,7 @@ int main()
     assert(overriddenConfig.suiteBridge().offlineAfterMs == 72000);
     assert(overriddenConfig.suiteBridge().reconnectInitialMs == 1500);
     assert(overriddenConfig.suiteBridge().reconnectMaximumMs == 45000);
+    assert(overriddenConfig.seriesArtworkFallback().enabled);
 
     setenv(
         "VDR_SUITE_RECORDING_ARTWORK_ROOTS",
@@ -130,6 +134,7 @@ int main()
     setenv("VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS", "1000", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS", "40000", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS", "1000", 1);
+    setenv("VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED", "invalid", 1);
 
     RuntimeConfig invalidSuiteBridgeConfig;
     assert(!invalidSuiteBridgeConfig.suiteBridge().enabled);
@@ -144,20 +149,22 @@ int main()
     assert(invalidSuiteBridgeConfig.suiteBridge().offlineAfterMs == 20000);
     assert(invalidSuiteBridgeConfig.suiteBridge().reconnectInitialMs == 40000);
     assert(invalidSuiteBridgeConfig.suiteBridge().reconnectMaximumMs == 40000);
+    assert(!invalidSuiteBridgeConfig.seriesArtworkFallback().enabled);
 
     setenv("VDR_SUITE_DATABASE_PATH", "", 1);
     setenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS", "", 1);
-    clearSuiteBridgeEnvironment();
+    clearRuntimeEnvironment();
 
     RuntimeConfig emptyOverrideConfig;
     assert(emptyOverrideConfig.databasePath() ==
            "/tmp/vdr-suite-test.db");
     assert(emptyOverrideConfig.recordingArtworkRoots().empty());
     assert(!emptyOverrideConfig.suiteBridge().enabled);
+    assert(!emptyOverrideConfig.seriesArtworkFallback().enabled);
 
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
-    clearSuiteBridgeEnvironment();
+    clearRuntimeEnvironment();
 
     return 0;
 }
