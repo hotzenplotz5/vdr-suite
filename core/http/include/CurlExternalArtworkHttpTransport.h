@@ -9,7 +9,9 @@ struct CurlExternalArtworkHttpTransportConfig
 {
     std::set<std::string> allowedHosts = {
         "api.themoviedb.org",
-        "image.tmdb.org"
+        "api.tvmaze.com",
+        "image.tmdb.org",
+        "static.tvmaze.com"
     };
     std::string userAgent = "vdr-suite/epg-series-artwork";
 };
