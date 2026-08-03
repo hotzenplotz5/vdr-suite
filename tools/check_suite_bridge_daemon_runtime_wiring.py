@@ -166,8 +166,9 @@ def main() -> int:
         "DaemonRuntime must retain only materialized fallback artwork",
     )
     require(
-        "config_.seriesArtworkFallback().enabled" in runtime,
-        "fallback decorator must use the explicit disabled-by-default runtime switch",
+        "config_.seriesArtworkFallback()" in runtime and
+        "runtimeFallbackConfig.enabled" in runtime,
+        "fallback runtime must use the explicit disabled-by-default switch",
     )
     require(
         "nullptr" in runtime and
