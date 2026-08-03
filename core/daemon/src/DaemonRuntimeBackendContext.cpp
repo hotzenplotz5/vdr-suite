@@ -336,7 +336,6 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->epgCacheService = std::make_unique<EpgCacheService>(
             *epgEventRepository_,
             *context->service,
-            context->backendId,
             context->epgArtworkEnrichmentService.get());
     }
 
