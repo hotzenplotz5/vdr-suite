@@ -9,6 +9,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -249,20 +250,6 @@ std::vector<VdrRecording> uniqueRecordingsByNormalizedPath(
     return result;
 }
 
-std::string firstSegment(
-    const std::string& path)
-{
-    const std::size_t separator =
-        path.find('/');
-
-    if (separator == std::string::npos)
-    {
-        return path;
-    }
-
-    return path.substr(0, separator);
-}
-
 std::string lastSegment(
     const std::string& path)
 {
@@ -375,6 +362,9 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackend(
         return true;
     }
 
+    const std::string normalizedBackendId =
+        normalizeBackendId(backendId);
+
     auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
@@ -383,7 +373,7 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackend(
 
     const bool ok =
         upsertRecordingsForBackendLocked(
-            normalizeBackendId(backendId),
+            normalizedBackendId,
             recordings);
 
     if (!ok)
@@ -398,7 +388,8 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackend(
         return false;
     }
 
-    return true;
+    return rebuildBrowseSnapshotFromPersistentCacheLocked(
+        normalizedBackendId);
 }
 
 bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
@@ -464,6 +455,10 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
         database_.execute("ROLLBACK;");
         return false;
     }
+
+    storeBrowseSnapshotLocked(
+        normalizedBackendId,
+        recordings);
 
     return true;
 }
@@ -812,6 +807,20 @@ VdrRecordingCacheStatus VdrRecordingCacheRepository::statusForBackend(
     return status;
 }
 
+bool VdrRecordingCacheRepository::warmBrowseSnapshotForBackend(
+    const std::string& backendId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (!const_cast<VdrRecordingCacheRepository*>(this)->ensureSchema())
+    {
+        return false;
+    }
+
+    return rebuildBrowseSnapshotFromPersistentCacheLocked(
+        normalizeBackendId(backendId));
+}
+
 VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     const std::string& backendId,
     const std::string& folderPath,
@@ -834,101 +843,74 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     page.path = normalizedFolderPath;
     page.parentPath = parentFolderPath(normalizedFolderPath);
     page.cacheState = status.state;
-    page.cacheReady = status.totalCount > 0;
     page.totalCount = status.totalCount;
     page.limit = limit <= 0 ? 50 : std::min(limit, 200);
     page.offset = std::max(0, offset);
 
-    const std::vector<VdrRecording> allRecordings =
-        uniqueRecordingsByNormalizedPath(
-            findAllForBackend(normalizedBackendId));
+    auto snapshot = browseSnapshots_.find(normalizedBackendId);
 
-    std::map<std::string, int> folderCounts;
-    std::vector<VdrRecording> directRecordings;
-
-    for (const VdrRecording& recording : allRecordings)
+    if (snapshot == browseSnapshots_.end())
     {
-        const std::string recordingFolder =
-            folderPathForRecording(recording);
-
-        std::string remaining;
-
-        if (normalizedFolderPath.empty())
+        if (!rebuildBrowseSnapshotFromPersistentCacheLocked(
+                normalizedBackendId))
         {
-            remaining = recordingFolder;
-        }
-        else if (recordingFolder == normalizedFolderPath)
-        {
-            directRecordings.push_back(recording);
-            continue;
-        }
-        else
-        {
-            const std::string prefix =
-                normalizedFolderPath + "/";
-
-            if (!startsWith(recordingFolder, prefix))
-            {
-                continue;
-            }
-
-            remaining = recordingFolder.substr(prefix.size());
+            page.cacheReady = page.totalCount > 0;
+            return page;
         }
 
-        if (remaining.empty())
-        {
-            directRecordings.push_back(recording);
-            continue;
-        }
-
-        const std::string childName =
-            firstSegment(remaining);
-
-        const std::string childPath =
-            normalizedFolderPath.empty()
-                ? childName
-                : normalizedFolderPath + "/" + childName;
-
-        folderCounts[childPath] += 1;
+        snapshot = browseSnapshots_.find(normalizedBackendId);
     }
 
-    for (const auto& entry : folderCounts)
+    if (snapshot == browseSnapshots_.end())
     {
-        VdrRecordingFolderEntry folder;
-        folder.path = entry.first;
-        folder.name = lastSegment(entry.first);
-        folder.recordingCount = entry.second;
-        page.folders.push_back(folder);
+        page.cacheReady = page.totalCount > 0;
+        return page;
     }
 
-    std::sort(
-        page.folders.begin(),
-        page.folders.end(),
-        [](const VdrRecordingFolderEntry& left,
-           const VdrRecordingFolderEntry& right)
-        {
-            return left.name < right.name;
-        });
+    if (page.totalCount <= 0)
+    {
+        page.totalCount = snapshot->second.totalCount;
+    }
 
-    std::sort(
-        directRecordings.begin(),
-        directRecordings.end(),
-        [](const VdrRecording& left,
-           const VdrRecording& right)
-        {
-            if (left.title != right.title)
-            {
-                return left.title < right.title;
-            }
+    if (page.cacheState == "empty" && page.totalCount > 0)
+    {
+        page.cacheState = "ready";
+    }
 
-            return left.path < right.path;
-        });
+    page.cacheReady = page.totalCount > 0;
+
+    const auto folder =
+        snapshot->second.folders.find(normalizedFolderPath);
+
+    if (folder == snapshot->second.folders.end())
+    {
+        return page;
+    }
+
+    page.folders = folder->second.folders;
+
+    for (auto& child : page.folders)
+    {
+        const auto childFolder =
+            snapshot->second.folders.find(child.path);
+
+        if (childFolder == snapshot->second.folders.end() ||
+            !childFolder->second.folders.empty() ||
+            childFolder->second.recordings.size() != 1)
+        {
+            continue;
+        }
+
+        child.singleRecordingLeaf = true;
+        child.singleRecording =
+            childFolder->second.recordings.front();
+    }
 
     page.folderCount =
         static_cast<int>(page.folders.size());
 
     page.recordingCount =
-        static_cast<int>(directRecordings.size());
+        static_cast<int>(folder->second.recordings.size());
 
     const int end =
         std::min(
@@ -940,12 +922,118 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
         for (int index = page.offset; index < end; ++index)
         {
             page.recordings.push_back(
-                directRecordings.at(
+                folder->second.recordings.at(
                     static_cast<std::size_t>(index)));
         }
     }
 
     return page;
+}
+
+void VdrRecordingCacheRepository::storeBrowseSnapshotLocked(
+    const std::string& normalizedBackendId,
+    const std::vector<VdrRecording>& recordings) const
+{
+    BrowseBackendSnapshot snapshot;
+    snapshot.folders[""] = BrowseFolderSnapshot{};
+
+    const std::vector<VdrRecording> uniqueRecordings =
+        uniqueRecordingsByNormalizedPath(recordings);
+
+    snapshot.totalCount =
+        static_cast<int>(uniqueRecordings.size());
+
+    std::map<std::string, std::map<std::string, int>> folderCounts;
+
+    for (const VdrRecording& recording : uniqueRecordings)
+    {
+        const std::string recordingFolder =
+            folderPathForRecording(recording);
+
+        snapshot.folders[recordingFolder]
+            .recordings.push_back(recording);
+
+        std::vector<std::string> parentSegments;
+
+        for (const std::string& segment : splitPath(recordingFolder))
+        {
+            const std::string parentPath =
+                joinPath(parentSegments);
+
+            parentSegments.push_back(segment);
+
+            const std::string childPath =
+                joinPath(parentSegments);
+
+            snapshot.folders[parentPath];
+            snapshot.folders[childPath];
+            folderCounts[parentPath][childPath] += 1;
+        }
+    }
+
+    for (const auto& parent : folderCounts)
+    {
+        auto& folder = snapshot.folders[parent.first];
+
+        for (const auto& child : parent.second)
+        {
+            VdrRecordingFolderEntry entry;
+            entry.path = child.first;
+            entry.name = lastSegment(child.first);
+            entry.recordingCount = child.second;
+            folder.folders.push_back(entry);
+        }
+    }
+
+    for (auto& folder : snapshot.folders)
+    {
+        std::sort(
+            folder.second.folders.begin(),
+            folder.second.folders.end(),
+            [](const VdrRecordingFolderEntry& left,
+               const VdrRecordingFolderEntry& right)
+            {
+                return left.name < right.name;
+            });
+
+        std::sort(
+            folder.second.recordings.begin(),
+            folder.second.recordings.end(),
+            [](const VdrRecording& left,
+               const VdrRecording& right)
+            {
+                if (left.title != right.title)
+                {
+                    return left.title < right.title;
+                }
+
+                return left.path < right.path;
+            });
+    }
+
+    browseSnapshots_[normalizedBackendId] =
+        std::move(snapshot);
+}
+
+bool VdrRecordingCacheRepository::rebuildBrowseSnapshotFromPersistentCacheLocked(
+    const std::string& normalizedBackendId) const
+{
+    const int expectedCount =
+        countForBackend(normalizedBackendId);
+
+    const std::vector<VdrRecording> recordings =
+        findAllForBackend(normalizedBackendId);
+
+    if (expectedCount > 0 && recordings.empty())
+    {
+        return false;
+    }
+
+    storeBrowseSnapshotLocked(
+        normalizedBackendId,
+        recordings);
+
+    return true;
 }
 
 std::string VdrRecordingCacheRepository::normalizeBackendId(

@@ -2,8 +2,11 @@
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingFolderController.h"
 
+#include <sqlite3.h>
+
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <string>
 
@@ -15,6 +18,7 @@ static VdrRecording makeRecording(
     VdrRecording recording;
 
     recording.id = id;
+    recording.backendId = "default";
     recording.backendNativeId = "/srv/vdr/video" + path;
     recording.title = title;
     recording.path = path;
@@ -30,6 +34,37 @@ static bool contains(
     const std::string& needle)
 {
     return text.find(needle) != std::string::npos;
+}
+
+struct SqlTraceState
+{
+    int recordingInventoryReads = 0;
+};
+
+static int traceSql(
+    unsigned int traceKind,
+    void* context,
+    void* statement,
+    void*)
+{
+    if (traceKind != SQLITE_TRACE_STMT ||
+        context == nullptr || statement == nullptr)
+    {
+        return 0;
+    }
+
+    const char* sql =
+        sqlite3_sql(static_cast<sqlite3_stmt*>(statement));
+
+    if (sql != nullptr &&
+        std::strstr(sql, "SELECT recording_id, backend_id") != nullptr &&
+        std::strstr(sql, "FROM vdr_recording_cache") != nullptr)
+    {
+        static_cast<SqlTraceState*>(context)
+            ->recordingInventoryReads += 1;
+    }
+
+    return 0;
 }
 
 int main()
@@ -55,10 +90,15 @@ int main()
             makeRecording(
                 "root-1",
                 "Root Recording",
-                "/2026-07-03.20.15.1-0.rec")
+                "/2026-07-03.20.15.1-0.rec"),
+            makeRecording(
+                "drama-1",
+                "Drama Recording",
+                "/Drama/2026-07-04.20.15.1-0.rec")
         }));
 
-    assert(repository.markRefreshFinished("default", 3));
+    assert(repository.markRefreshFinished("default", 4));
+    assert(repository.warmBrowseSnapshotForBackend("default"));
 
     VdrRecordingFolderController controller(
         repository,
@@ -96,7 +136,14 @@ int main()
 
     assert(status.statusCode == 200);
     assert(contains(status.body, "\"state\":\"ready\""));
-    assert(contains(status.body, "\"totalCount\":3"));
+    assert(contains(status.body, "\"totalCount\":4"));
+
+    SqlTraceState traceState;
+    assert(sqlite3_trace_v2(
+        database.handle(),
+        SQLITE_TRACE_STMT,
+        traceSql,
+        &traceState) == SQLITE_OK);
 
     const ApiResponse root =
         controller.getFolder("default", "", 20, 0);
@@ -105,11 +152,14 @@ int main()
     assert(contains(root.body, "\"recordingFolder\":true"));
     assert(contains(root.body, "\"Series\""));
     assert(contains(root.body, "\"Movies\""));
+    assert(contains(root.body, "\"Drama\""));
     assert(contains(root.body, "\"Root Recording\""));
     assert(contains(root.body, "\"metadata\":{"));
     assert(contains(root.body, "\"providerAvailable\":false"));
     assert(contains(root.body, "\"artworkPrepared\":false"));
     assert(contains(root.body, "\"placeholderVariant\":"));
+    assert(contains(root.body, "\"singleRecordingLeaf\":true"));
+    assert(contains(root.body, "\"singleRecording\":{\"id\":\"drama-1\""));
 
     const ApiResponse series =
         controller.getFolder("default", "Series", 20, 0);
@@ -118,6 +168,18 @@ int main()
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
     assert(contains(series.body, "\"metadata\":{"));
+
+    const ApiResponse rootAgain =
+        controller.getFolder("default", "", 20, 0);
+
+    assert(rootAgain.statusCode == 200);
+    assert(traceState.recordingInventoryReads == 0);
+
+    sqlite3_trace_v2(
+        database.handle(),
+        0,
+        nullptr,
+        nullptr);
 
     const ApiResponse nativeMetadata = controller.getMetadata(
         "default",
