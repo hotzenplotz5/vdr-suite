@@ -28,16 +28,32 @@ EpgScraperArtwork artwork(
 EpgScraperArtwork fallbackArtwork(
     const std::string& path,
     int width,
-    int height)
+    int height,
+    bool managed = false)
 {
     EpgScraperArtwork value;
     value.available = true;
-    value.provider = "example-provider";
+    value.provider = "tmdb";
     value.origin = EpgScraperArtworkOrigin::ExternalFallback;
+    value.managed = managed;
     value.path = path;
     value.width = width;
     value.height = height;
     return value;
+}
+
+EpgScraperMetadataResolution seriesResolution()
+{
+    EpgScraperMetadataResolution resolution;
+    resolution.attempted = true;
+    resolution.found = true;
+    resolution.metadata.backendId = "default";
+    resolution.metadata.channelId = "channel";
+    resolution.metadata.eventId = "event";
+    resolution.metadata.provider = "tvscraper";
+    resolution.metadata.mediaType = EpgScraperMediaType::Series;
+    resolution.metadata.title = "Testserie";
+    return resolution;
 }
 
 }
@@ -103,9 +119,10 @@ int main()
             1280,
             720);
         metadata.seriesArtworkFallback = fallbackArtwork(
-            "/var/cache/vdr-suite/epg-artwork/private/fallback.jpg",
+            "/var/cache/vdr-suite/epg-artwork/external/fallback.jpg",
             600,
-            900);
+            900,
+            true);
 
         EpgScraperPerson person;
         person.role = EpgScraperPersonRole::Actor;
@@ -143,16 +160,67 @@ int main()
         assert(contains(json, "kind=preferred&index=0"));
         assert(contains(json, "kind=person&index=0"));
         assert(contains(json, "kind=gallery&index=0"));
+        assert(contains(json,
+            "\"preferredArtwork\":{\"available\":true,\"url\":"));
+        assert(contains(json, "\"width\":1280,\"height\":720"));
 
         assert(!contains(json, "/var/cache/"));
         assert(!contains(json, "preferred.jpg"));
         assert(!contains(json, "person.jpg"));
         assert(!contains(json, "poster.jpg"));
         assert(!contains(json, "fallback.jpg"));
-        assert(!contains(json, "example-provider"));
+        assert(!contains(json, "tmdb"));
         assert(!contains(json, "seriesArtworkFallback"));
+        assert(!contains(json, "managed"));
         assert(!contains(json, "scraperHd"));
         assert(!contains(json, "scraperLanguage"));
+    }
+
+    {
+        EpgScraperMetadataResolution resolution = seriesResolution();
+        resolution.metadata.seriesArtworkFallback = fallbackArtwork(
+            "/var/cache/vdr-suite/epg-artwork/external/series.png",
+            1920,
+            1080,
+            true);
+
+        const std::string json = serializer.serialize(resolution);
+        assert(contains(json,
+            "\"preferredArtwork\":{\"available\":true,\"url\":"));
+        assert(contains(json, "kind=preferred&index=0"));
+        assert(contains(json, "\"width\":1920,\"height\":1080"));
+        assert(!contains(json, "/var/cache/"));
+        assert(!contains(json, "series.png"));
+        assert(!contains(json, "tmdb"));
+        assert(!contains(json, "ExternalFallback"));
+    }
+
+    {
+        EpgScraperMetadataResolution resolution = seriesResolution();
+        resolution.metadata.seriesArtworkFallback = fallbackArtwork(
+            "/var/cache/vdr-suite/epg-artwork/external/unpersisted.jpg",
+            1280,
+            720,
+            false);
+
+        const std::string json = serializer.serialize(resolution);
+        assert(contains(json,
+            "\"preferredArtwork\":{\"available\":false}"));
+        assert(!contains(json, "kind=preferred&index=0"));
+        assert(!contains(json, "unpersisted.jpg"));
+    }
+
+    {
+        EpgScraperMetadataResolution resolution = seriesResolution();
+        resolution.metadata.seriesArtworkFallback = fallbackArtwork(
+            "relative/fallback.jpg",
+            1280,
+            720,
+            true);
+
+        const std::string json = serializer.serialize(resolution);
+        assert(contains(json,
+            "\"preferredArtwork\":{\"available\":false}"));
     }
 
     return 0;
