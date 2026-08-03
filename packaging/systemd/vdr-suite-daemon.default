@@ -18,6 +18,29 @@ VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS=60000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS=1000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS=30000
 
+# Optional external series-artwork fallback. Both the global switch and the
+# explicit provider selection are required. The default remains fully offline.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=none
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS=/var/cache/vdr-suite/epg-artwork/incoming
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT=/var/cache/vdr-suite/epg-artwork/external
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES=16777216
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION=16384
+
+# TMDB is selected only with provider=tmdb and a valid API Read Access Token.
+# Store the token in an operator-owned mode-0600 systemd environment file or
+# drop-in; do not commit it and do not place it in this packaged example.
+# VDR_SUITE_TMDB_READ_ACCESS_TOKEN=
+VDR_SUITE_TMDB_LANGUAGE=de-DE
+VDR_SUITE_TMDB_INCLUDE_IMAGE_LANGUAGES=de,en,null
+VDR_SUITE_TMDB_CONNECT_TIMEOUT_MS=2000
+VDR_SUITE_TMDB_TOTAL_TIMEOUT_MS=8000
+VDR_SUITE_TMDB_MAX_RETRIES=1
+VDR_SUITE_TMDB_RETRY_BACKOFF_MS=250
+VDR_SUITE_TMDB_NEGATIVE_CACHE_TTL_SECONDS=21600
+VDR_SUITE_TMDB_TRANSIENT_CACHE_TTL_SECONDS=300
+VDR_SUITE_TMDB_MAX_JSON_BYTES=524288
+
 # Absolute browser-session lifetime in seconds. Values must be strict decimal
 # integers from 300 through 86400. This is not an idle timeout or refresh
 # interval. The same value controls the persisted expiry and cookie Max-Age.
