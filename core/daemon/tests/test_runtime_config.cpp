@@ -25,7 +25,10 @@ const std::vector<const char*> RuntimeVariables = {
     "VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS",
     "VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT",
     "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES",
-    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION"
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES"
 };
 
 void clearRuntimeEnvironment()
@@ -68,6 +71,12 @@ int main()
     assert(defaultConfig.seriesArtworkFallback().maximumSourceBytes ==
            16 * 1024 * 1024);
     assert(defaultConfig.seriesArtworkFallback().maximumDimension == 16384);
+    assert(!defaultConfig.seriesArtworkFallback().orphanCleanupEnabled);
+    assert(defaultConfig.seriesArtworkFallback()
+               .orphanCleanupMinimumAgeSeconds ==
+           7 * 24 * 60 * 60);
+    assert(defaultConfig.seriesArtworkFallback().orphanCleanupMaximumFiles ==
+           64);
 
     setenv(
         "VDR_SUITE_DATABASE_PATH",
@@ -106,6 +115,18 @@ int main()
         "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
         "8192",
         1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED",
+        "yes",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS",
+        "172800",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES",
+        "12",
+        1);
 
     RuntimeConfig overriddenConfig;
     assert(overriddenConfig.databasePath() ==
@@ -137,6 +158,11 @@ int main()
     assert(overriddenConfig.seriesArtworkFallback().maximumSourceBytes ==
            8388608);
     assert(overriddenConfig.seriesArtworkFallback().maximumDimension == 8192);
+    assert(overriddenConfig.seriesArtworkFallback().orphanCleanupEnabled);
+    assert(overriddenConfig.seriesArtworkFallback()
+               .orphanCleanupMinimumAgeSeconds == 172800);
+    assert(overriddenConfig.seriesArtworkFallback()
+               .orphanCleanupMaximumFiles == 12);
 
     setenv(
         "VDR_SUITE_RECORDING_ARTWORK_ROOTS",
@@ -188,6 +214,18 @@ int main()
         "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
         "99999",
         1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED",
+        "invalid",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS",
+        "12",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES",
+        "0",
+        1);
 
     RuntimeConfig invalidSuiteBridgeConfig;
     assert(!invalidSuiteBridgeConfig.suiteBridge().enabled);
@@ -212,6 +250,13 @@ int main()
            16 * 1024 * 1024);
     assert(invalidSuiteBridgeConfig.seriesArtworkFallback().maximumDimension ==
            16384);
+    assert(!invalidSuiteBridgeConfig.seriesArtworkFallback()
+                .orphanCleanupEnabled);
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback()
+               .orphanCleanupMinimumAgeSeconds ==
+           7 * 24 * 60 * 60);
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback()
+               .orphanCleanupMaximumFiles == 64);
 
     setenv("VDR_SUITE_DATABASE_PATH", "", 1);
     setenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS", "", 1);
@@ -226,6 +271,7 @@ int main()
     assert(emptyOverrideConfig.seriesArtworkFallback().sourceRoots ==
            std::vector<std::string>{
                "/var/cache/vdr-suite/epg-artwork/incoming"});
+    assert(!emptyOverrideConfig.seriesArtworkFallback().orphanCleanupEnabled);
 
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
