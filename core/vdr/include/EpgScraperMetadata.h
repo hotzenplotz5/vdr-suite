@@ -152,6 +152,10 @@ struct EpgScraperMetadata
     std::vector<std::string> networks;
     std::vector<EpgScraperExternalId> externalIds;
     EpgScraperArtwork preferredArtwork;
+    // A provider-neutral, daemon-side candidate. It remains separate from the
+    // primary TVScraper artwork until a later secure materialization layer
+    // validates, persists, and deliberately selects it for public delivery.
+    EpgScraperArtwork seriesArtworkFallback;
     std::vector<EpgScraperPerson> people;
     std::vector<EpgScraperImage> images;
 
