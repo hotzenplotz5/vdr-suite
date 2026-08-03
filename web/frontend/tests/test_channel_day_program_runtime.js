@@ -11,7 +11,7 @@ const testHookMarker = 'global.VdrSuiteChannels2 = moduleApi;';
 const instrumentedSource = source.replace(
   testHookMarker,
   'global.__VdrSuiteChannelDayProgramTest=Object.freeze({' +
-    'eventArtwork,renderEventDetail,visibleEventsForDay,booleanValue,channelIsRadio,' +
+    'eventArtwork,resolvePublicArtworkUrl,renderEventDetail,visibleEventsForDay,booleanValue,channelIsRadio,' +
     'channelIsEncrypted,channelIsEnabled,channelMatchesFilters,' +
     'filterChannels,state});' + testHookMarker
 );
@@ -101,11 +101,19 @@ class MockElement {
 
 let metadataEnhancements = [];
 let deferredLoads = 0;
+const resolvedPublicPaths = [];
 const window = {
   VdrSuitePlatform: {
     getSelectedBackendId() { return 'living-room'; },
     getClientApi() { return null; },
     getMountTarget() { return null; }
+  },
+  VdrSuitePublicUrl: {
+    resolvePath(pathName) {
+      const value = String(pathName || '');
+      resolvedPublicPaths.push(value);
+      return '/vdr-suite' + value;
+    }
   },
   VdrSuiteEpgMetadataDetail: {
     enhance(detail, event, channel) {
@@ -244,9 +252,15 @@ async function run() {
   );
 
   const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
-  assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}), publicArtworkUrl);
+  const resolvedArtworkUrl = '/vdr-suite' + publicArtworkUrl;
+  assert.strictEqual(
+    testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}),
+    resolvedArtworkUrl
+  );
+  assert.strictEqual(testApi.resolvePublicArtworkUrl('/fallback.jpg'), '/fallback.jpg');
   assert.strictEqual(testApi.eventArtwork({artwork: {available: false, url: '/unavailable.jpg'}, imageUrl: '/fallback.jpg'}), '/fallback.jpg');
   assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: '   '}, posterUrl: '/empty-fallback.jpg'}), '/empty-fallback.jpg');
+  assert.ok(resolvedPublicPaths.includes(publicArtworkUrl));
 
   const event = {
     id: '13483',
@@ -260,7 +274,7 @@ async function run() {
   const channel = {id: 'C-1-1079-10351', name: 'Testsender'};
   const detail = testApi.renderEventDetail(event, channel);
   assert.ok(detail.classList.contains('has-artwork'));
-  assert.strictEqual(detail.querySelector('.channels2-artwork').style.backgroundImage, `url("${publicArtworkUrl}")`);
+  assert.strictEqual(detail.querySelector('.channels2-artwork').style.backgroundImage, `url("${resolvedArtworkUrl}")`);
   assert.ok(detail.querySelector('.channels2-artwork').classList.contains('epg-detail-artwork'));
   assert.strictEqual(detail.querySelector('.channels2-artwork').parentNode, detail);
   assert.ok(detail.querySelector('.channels2-detail-copy').classList.contains('epg-detail-hero'));
@@ -365,6 +379,7 @@ async function run() {
   assert.ok(source.includes('fetchClientEpgChannelWindow'));
   assert.ok(source.includes('fetchClientTimerCreateAction'));
   assert.ok(source.includes('visibleEventsForDay'));
+  assert.ok(source.includes('resolvePublicArtworkUrl'));
   assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));
   assert.ok(source.includes("[['all', 'Alle'], ['free', 'Frei'], ['encrypted', 'Verschlüsselt']]"));
   assert.ok(source.includes("[['all', 'Alle'], ['enabled', 'Aktiv'], ['disabled', 'Deaktiviert']]"));
