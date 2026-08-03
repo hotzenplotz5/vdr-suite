@@ -27,6 +27,14 @@ VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT=/var/cache/vdr-suite/epg-artwork/ex
 VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES=16777216
 VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION=16384
 
+# Optional one-pass startup cleanup for old, unreferenced managed fallback
+# files. It is independently opt-in and examines only the materializer-owned
+# hex directory layout and exact series.png/series.jpg filenames. The default
+# keeps all files and performs no deletion.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED=false
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS=604800
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES=64
+
 # TMDB is selected only with provider=tmdb and a valid API Read Access Token.
 # Store the token in an operator-owned mode-0600 systemd environment file or
 # drop-in; do not commit it and do not place it in this packaged example.
