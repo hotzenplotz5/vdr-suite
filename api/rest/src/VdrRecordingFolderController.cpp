@@ -242,6 +242,15 @@ ApiResponse VdrRecordingFolderController::getFolder(
         json << ",\"path\":";
         appendJsonString(json, folder.path);
         json << ",\"recordingCount\":" << folder.recordingCount;
+        json << ",\"singleRecordingLeaf\":"
+             << (folder.singleRecordingLeaf ? "true" : "false");
+
+        if (folder.singleRecordingLeaf)
+        {
+            json << ",\"singleRecording\":";
+            appendRecordingJson(json, folder.singleRecording);
+        }
+
         json << "}";
     }
     json << "]";
