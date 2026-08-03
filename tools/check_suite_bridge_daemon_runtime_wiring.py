@@ -6,6 +6,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_HEADER = ROOT / "core/daemon/include/RuntimeConfig.h"
 CONFIG_SOURCE = ROOT / "core/daemon/src/RuntimeConfig.cpp"
+TMDB_CONFIG_SOURCE = ROOT / "core/daemon/src/TmdbSeriesArtworkRuntimeConfig.cpp"
 CONTEXT = ROOT / "core/daemon/include/BackendRuntimeContext.h"
 RUNTIME_SOURCE_ROOT = ROOT / "core/daemon/src"
 RUNTIME_SOURCES = (
@@ -17,9 +18,14 @@ RUNTIME_SOURCES = (
     "DaemonRuntime.cpp",
 )
 RUNTIME_TESTS = ROOT / "mk/runtime-api-tests.mk"
+TMDB_MAKE = ROOT / "mk/tmdb-series-artwork.mk"
+PACKAGED_DEFAULTS = ROOT / "packaging/systemd/vdr-suite-daemon.default"
 ARCHITECTURE = ROOT / "docs/architecture/suite-bridge-embedded-agent-runtime.md"
 MATERIALIZATION_ARCHITECTURE = (
     ROOT / "docs/architecture/epg-series-artwork-materialization.md"
+)
+TMDB_ARCHITECTURE = (
+    ROOT / "docs/architecture/epg-series-artwork-tmdb-provider.md"
 )
 
 
@@ -39,14 +45,21 @@ def read_runtime_sources() -> str:
 def main() -> int:
     config_header = CONFIG_HEADER.read_text(encoding="utf-8")
     config_source = CONFIG_SOURCE.read_text(encoding="utf-8")
+    tmdb_config_source = TMDB_CONFIG_SOURCE.read_text(encoding="utf-8")
     context = CONTEXT.read_text(encoding="utf-8")
     runtime = read_runtime_sources()
     runtime_tests = RUNTIME_TESTS.read_text(encoding="utf-8")
+    tmdb_make = TMDB_MAKE.read_text(encoding="utf-8")
+    packaged_defaults = PACKAGED_DEFAULTS.read_text(encoding="utf-8")
 
     require(ARCHITECTURE.exists(), "SB.10d architecture contract must exist")
     require(
         MATERIALIZATION_ARCHITECTURE.exists(),
         "series artwork materialization architecture contract must exist",
+    )
+    require(
+        TMDB_ARCHITECTURE.exists(),
+        "TMDB series artwork provider architecture contract must exist",
     )
     require(
         "RuntimeSuiteBridgeConfig" in config_header,
@@ -79,6 +92,22 @@ def main() -> int:
     for name in required_environment:
         require(name in config_source, f"missing runtime configuration: {name}")
 
+    required_tmdb_environment = (
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER",
+        "VDR_SUITE_TMDB_READ_ACCESS_TOKEN",
+        "VDR_SUITE_TMDB_LANGUAGE",
+        "VDR_SUITE_TMDB_INCLUDE_IMAGE_LANGUAGES",
+        "VDR_SUITE_TMDB_CONNECT_TIMEOUT_MS",
+        "VDR_SUITE_TMDB_TOTAL_TIMEOUT_MS",
+        "VDR_SUITE_TMDB_MAX_RETRIES",
+        "VDR_SUITE_TMDB_RETRY_BACKOFF_MS",
+        "VDR_SUITE_TMDB_NEGATIVE_CACHE_TTL_SECONDS",
+        "VDR_SUITE_TMDB_TRANSIENT_CACHE_TTL_SECONDS",
+        "VDR_SUITE_TMDB_MAX_JSON_BYTES",
+    )
+    for name in required_tmdb_environment:
+        require(name in tmdb_config_source, f"missing TMDB runtime configuration: {name}")
+
     require(
         "/var/cache/vdr-suite/epg-artwork" in config_source,
         "fallback cache root must remain below the managed EPG artwork cache",
@@ -95,6 +124,18 @@ def main() -> int:
     require(
         "SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate" in context,
         "backend context must own its typed EPG scraper metadata delegate",
+    )
+    require(
+        "CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport" in context,
+        "backend context must own its bounded external HTTPS transport",
+    )
+    require(
+        "EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository" in context,
+        "backend context must own its persistent provider cache",
+    )
+    require(
+        "TmdbSeriesArtworkProvider> epgTmdbSeriesArtworkProvider" in context,
+        "backend context must own the optional TMDB provider",
     )
     require(
         "SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver" in context,
@@ -133,8 +174,28 @@ def main() -> int:
         "DaemonRuntime must construct the backend EPG scraper metadata delegate",
     )
     require(
-        "std::make_unique<SeriesArtworkFallbackResolver>" in runtime,
-        "DaemonRuntime must construct the series artwork fallback decorator",
+        "TmdbSeriesArtworkRuntimeConfig::fromEnvironment" in runtime and
+        "tmdbRuntimeConfig.usable()" in runtime,
+        "TMDB provider must be guarded by explicit fail-closed runtime policy",
+    )
+    require(
+        "std::make_unique<EpgSeriesArtworkProviderCacheRepository>" in runtime and
+        "epgSeriesArtworkProviderCacheRepository->ensureSchema()" in runtime,
+        "TMDB provider must fail closed when its cache schema is unavailable",
+    )
+    require(
+        "std::make_unique<CurlExternalArtworkHttpTransport>" in runtime,
+        "DaemonRuntime must construct the bounded external HTTPS transport",
+    )
+    require(
+        "std::make_unique<TmdbSeriesArtworkProvider>" in runtime and
+        "fallbackProvider =" in runtime,
+        "DaemonRuntime must inject the qualified TMDB provider boundary",
+    )
+    require(
+        "std::make_unique<SeriesArtworkFallbackResolver>" in runtime and
+        "fallbackProvider" in runtime,
+        "fallback resolver must receive only the guarded provider pointer",
     )
     require(
         "std::make_unique<EpgSeriesArtworkFallbackRepository>" in runtime,
@@ -171,11 +232,6 @@ def main() -> int:
         "fallback runtime must use the explicit disabled-by-default switch",
     )
     require(
-        "nullptr" in runtime and
-        "*context->epgScraperMetadataDelegate" in runtime,
-        "the provider boundary must remain unimplemented in this slice",
-    )
-    require(
         "*context->epgSeriesArtworkFallbackMaterializingResolver" in runtime or
         "persistentDelegate" in runtime,
         "persistent fallback retention must wrap the materializing decorator",
@@ -197,12 +253,15 @@ def main() -> int:
         "DaemonRuntime must stop the embedded Agent runtime",
     )
 
-    metadata_transport_index = runtime.index(
-        "context->suiteBridgeTransport ="
+    metadata_transport_index = runtime.index("context->suiteBridgeTransport =")
+    metadata_delegate_index = runtime.index("context->epgScraperMetadataDelegate =")
+    provider_cache_index = runtime.index(
+        "context->epgSeriesArtworkProviderCacheRepository ="
     )
-    metadata_delegate_index = runtime.index(
-        "context->epgScraperMetadataDelegate ="
+    external_transport_index = runtime.index(
+        "context->epgExternalArtworkHttpTransport ="
     )
+    tmdb_provider_index = runtime.index("context->epgTmdbSeriesArtworkProvider =")
     fallback_resolver_index = runtime.index(
         "context->epgSeriesArtworkFallbackResolver ="
     )
@@ -223,12 +282,13 @@ def main() -> int:
     )
     require(
         metadata_transport_index < metadata_delegate_index <
+        provider_cache_index < external_transport_index < tmdb_provider_index <
         fallback_resolver_index < fallback_repository_index <
         fallback_materializer_index < materializing_resolver_index <
         persistent_fallback_index < metadata_resolver_index,
-        "runtime order must be transport, Bridge metadata, candidate fallback, "
-        "repository, materializer, fail-closed decorator, fallback retention, "
-        "then primary persistence",
+        "runtime order must be Bridge metadata, provider cache, external "
+        "transport, qualified provider, candidate fallback, materializer, "
+        "fallback retention, then primary persistence",
     )
 
     start_index = runtime.index("suiteBridgeAgentRuntime->start()")
@@ -250,12 +310,38 @@ def main() -> int:
         "daemon and backend-context targets must link the embedded Agent sources",
     )
     require(
+        "pkg-config --libs libcurl" in tmdb_make and
+        "CurlExternalArtworkHttpTransport.cpp" in tmdb_make,
+        "TMDB runtime must link its explicit libcurl transport",
+    )
+    require(
+        "epg-artwork/incoming" in tmdb_make and
+        "epg-artwork/external" in tmdb_make,
+        "install staging must create both artwork trust-boundary roots",
+    )
+    require(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false" in packaged_defaults and
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=none" in packaged_defaults,
+        "packaged TMDB runtime must remain offline by default",
+    )
+    require(
+        "# VDR_SUITE_TMDB_READ_ACCESS_TOKEN=" in packaged_defaults and
+        "\nVDR_SUITE_TMDB_READ_ACCESS_TOKEN=" not in packaged_defaults,
+        "packaged defaults must not define or ship a TMDB token",
+    )
+    require(
         "RestfulApiVdrAdapter" in runtime,
         "SB.10d must preserve the existing RESTfulAPI domain adapter",
     )
     require(
-        "ApiRouter(" not in config_source,
+        "ApiRouter(" not in config_source and "ApiRouter(" not in tmdb_config_source,
         "fallback configuration must not create a public route",
+    )
+    require(
+        "readAccessToken" not in "\n".join(
+            line for line in runtime.splitlines() if "std::cerr" in line
+        ),
+        "TMDB token must not be written to runtime error logs",
     )
 
     print("check_suite_bridge_daemon_runtime_wiring passed")
