@@ -230,6 +230,13 @@ std::size_t headerCallback(
         state->response->contentType = lowerAscii(trimAscii(
             value.substr(0, parameter)));
     }
+    else if (name == "location")
+    {
+        if (value.size() <= 8192U && !containsControl(value))
+        {
+            state->response->location = value;
+        }
+    }
     else if (name == "retry-after")
     {
         errno = 0;
@@ -418,6 +425,7 @@ ExternalArtworkHttpResponse CurlExternalArtworkHttpTransport::perform(
     {
         response.body.clear();
         response.contentType.clear();
+        response.location.clear();
     }
 
     curl_slist_free_all(headers);
