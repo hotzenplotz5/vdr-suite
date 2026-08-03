@@ -21,7 +21,11 @@ const std::vector<const char*> RuntimeVariables = {
     "VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS",
     "VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS",
     "VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS",
-    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED"
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION"
 };
 
 void clearRuntimeEnvironment()
@@ -56,6 +60,14 @@ int main()
     assert(defaultConfig.suiteBridge().reconnectInitialMs == 1000);
     assert(defaultConfig.suiteBridge().reconnectMaximumMs == 30000);
     assert(!defaultConfig.seriesArtworkFallback().enabled);
+    assert(defaultConfig.seriesArtworkFallback().sourceRoots ==
+           std::vector<std::string>{
+               "/var/cache/vdr-suite/epg-artwork/incoming"});
+    assert(defaultConfig.seriesArtworkFallback().cacheRoot ==
+           "/var/cache/vdr-suite/epg-artwork/external");
+    assert(defaultConfig.seriesArtworkFallback().maximumSourceBytes ==
+           16 * 1024 * 1024);
+    assert(defaultConfig.seriesArtworkFallback().maximumDimension == 16384);
 
     setenv(
         "VDR_SUITE_DATABASE_PATH",
@@ -78,6 +90,22 @@ int main()
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS", "1500", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS", "45000", 1);
     setenv("VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED", "ON", 1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS",
+        "/srv/provider-one;/srv/provider two",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT",
+        "/var/cache/vdr-suite/epg-artwork/custom",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES",
+        "8388608",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
+        "8192",
+        1);
 
     RuntimeConfig overriddenConfig;
     assert(overriddenConfig.databasePath() ==
@@ -100,6 +128,15 @@ int main()
     assert(overriddenConfig.suiteBridge().reconnectInitialMs == 1500);
     assert(overriddenConfig.suiteBridge().reconnectMaximumMs == 45000);
     assert(overriddenConfig.seriesArtworkFallback().enabled);
+    assert(overriddenConfig.seriesArtworkFallback().sourceRoots ==
+           (std::vector<std::string>{
+               "/srv/provider-one",
+               "/srv/provider two"}));
+    assert(overriddenConfig.seriesArtworkFallback().cacheRoot ==
+           "/var/cache/vdr-suite/epg-artwork/custom");
+    assert(overriddenConfig.seriesArtworkFallback().maximumSourceBytes ==
+           8388608);
+    assert(overriddenConfig.seriesArtworkFallback().maximumDimension == 8192);
 
     setenv(
         "VDR_SUITE_RECORDING_ARTWORK_ROOTS",
@@ -135,6 +172,22 @@ int main()
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS", "40000", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS", "1000", 1);
     setenv("VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED", "invalid", 1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS",
+        "relative;/srv/provider",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT",
+        "/tmp/escape",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES",
+        "33",
+        1);
+    setenv(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
+        "99999",
+        1);
 
     RuntimeConfig invalidSuiteBridgeConfig;
     assert(!invalidSuiteBridgeConfig.suiteBridge().enabled);
@@ -150,6 +203,15 @@ int main()
     assert(invalidSuiteBridgeConfig.suiteBridge().reconnectInitialMs == 40000);
     assert(invalidSuiteBridgeConfig.suiteBridge().reconnectMaximumMs == 40000);
     assert(!invalidSuiteBridgeConfig.seriesArtworkFallback().enabled);
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback().sourceRoots ==
+           std::vector<std::string>{
+               "/var/cache/vdr-suite/epg-artwork/incoming"});
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback().cacheRoot ==
+           "/var/cache/vdr-suite/epg-artwork/external");
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback().maximumSourceBytes ==
+           16 * 1024 * 1024);
+    assert(invalidSuiteBridgeConfig.seriesArtworkFallback().maximumDimension ==
+           16384);
 
     setenv("VDR_SUITE_DATABASE_PATH", "", 1);
     setenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS", "", 1);
@@ -161,6 +223,9 @@ int main()
     assert(emptyOverrideConfig.recordingArtworkRoots().empty());
     assert(!emptyOverrideConfig.suiteBridge().enabled);
     assert(!emptyOverrideConfig.seriesArtworkFallback().enabled);
+    assert(emptyOverrideConfig.seriesArtworkFallback().sourceRoots ==
+           std::vector<std::string>{
+               "/var/cache/vdr-suite/epg-artwork/incoming"});
 
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
