@@ -2,6 +2,8 @@
 
 #include "Database.h"
 
+#include <algorithm>
+#include <filesystem>
 #include <sqlite3.h>
 
 namespace
@@ -58,11 +60,76 @@ bool eventCacheAllowsWrite(
     return found;
 }
 
+bool hasColumn(
+    Database& database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
+bool validProviderName(const std::string& provider)
+{
+    if (provider.empty() || provider.size() > 64U ||
+        provider == "none" || provider == "tvscraper")
+    {
+        return false;
+    }
+
+    return std::all_of(
+        provider.begin(),
+        provider.end(),
+        [](unsigned char character)
+        {
+            return (character >= 'a' && character <= 'z') ||
+                (character >= '0' && character <= '9') ||
+                character == '-' || character == '_' || character == '.';
+        });
+}
+
+const char* originName(EpgArtworkReferenceOrigin origin)
+{
+    return origin == EpgArtworkReferenceOrigin::ExternalFallback
+        ? "external-fallback"
+        : "unknown";
+}
+
+EpgArtworkReferenceOrigin parseOrigin(const std::string& origin)
+{
+    return origin == "external-fallback"
+        ? EpgArtworkReferenceOrigin::ExternalFallback
+        : EpgArtworkReferenceOrigin::Unknown;
+}
+
 bool validFallbackReference(const EpgArtworkReference& artwork)
 {
     return artwork.valid() &&
-        artwork.provider != "none" &&
-        artwork.provider != "tvscraper";
+        artwork.origin == EpgArtworkReferenceOrigin::ExternalFallback &&
+        validProviderName(artwork.provider) &&
+        std::filesystem::path(artwork.path).is_absolute() &&
+        artwork.resolvedAt > 0;
 }
 }
 
@@ -80,22 +147,39 @@ bool EpgSeriesArtworkFallbackRepository::ensureSchema()
 
 bool EpgSeriesArtworkFallbackRepository::ensureSchemaLocked() const
 {
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS epg_series_artwork_fallback ("
+            "backend_id TEXT NOT NULL,"
+            "channel_id TEXT NOT NULL,"
+            "event_id TEXT NOT NULL,"
+            "provider TEXT NOT NULL,"
+            "origin TEXT NOT NULL DEFAULT 'external-fallback',"
+            "path TEXT NOT NULL,"
+            "width INTEGER NOT NULL,"
+            "height INTEGER NOT NULL,"
+            "resolved_at INTEGER NOT NULL DEFAULT 0,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "PRIMARY KEY (backend_id, channel_id, event_id),"
+            "CHECK (provider <> '' AND provider <> 'none' AND provider <> 'tvscraper'),"
+            "CHECK (origin = 'external-fallback'),"
+            "CHECK (path <> ''),"
+            "CHECK (width > 0 AND height > 0),"
+            "CHECK (resolved_at > 0)"
+            ");"))
+    {
+        return false;
+    }
+
+    if (!hasColumn(database_, "epg_series_artwork_fallback", "origin") &&
+        !database_.execute(
+            "ALTER TABLE epg_series_artwork_fallback "
+            "ADD COLUMN origin TEXT NOT NULL DEFAULT 'external-fallback' "
+            "CHECK (origin = 'external-fallback');"))
+    {
+        return false;
+    }
+
     return database_.execute(
-        "CREATE TABLE IF NOT EXISTS epg_series_artwork_fallback ("
-        "backend_id TEXT NOT NULL,"
-        "channel_id TEXT NOT NULL,"
-        "event_id TEXT NOT NULL,"
-        "provider TEXT NOT NULL,"
-        "path TEXT NOT NULL,"
-        "width INTEGER NOT NULL,"
-        "height INTEGER NOT NULL,"
-        "resolved_at INTEGER NOT NULL DEFAULT 0,"
-        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-        "PRIMARY KEY (backend_id, channel_id, event_id),"
-        "CHECK (provider <> '' AND provider <> 'none' AND provider <> 'tvscraper'),"
-        "CHECK (path <> ''),"
-        "CHECK (width > 0 AND height > 0)"
-        ");"
         "CREATE INDEX IF NOT EXISTS idx_epg_series_artwork_fallback_provider "
         "ON epg_series_artwork_fallback (backend_id, provider);"
     );
@@ -119,12 +203,12 @@ bool EpgSeriesArtworkFallbackRepository::upsert(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO epg_series_artwork_fallback ("
-        "backend_id,channel_id,event_id,provider,path,width,height,resolved_at,updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) "
+        "backend_id,channel_id,event_id,provider,origin,path,width,height,resolved_at,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) "
         "ON CONFLICT(backend_id,channel_id,event_id) DO UPDATE SET "
-        "provider=excluded.provider,path=excluded.path,width=excluded.width,"
-        "height=excluded.height,resolved_at=excluded.resolved_at,"
-        "updated_at=CURRENT_TIMESTAMP;";
+        "provider=excluded.provider,origin=excluded.origin,path=excluded.path,"
+        "width=excluded.width,height=excluded.height,"
+        "resolved_at=excluded.resolved_at,updated_at=CURRENT_TIMESTAMP;";
     if (sqlite3_prepare_v2(
             database_.handle(),
             sql,
@@ -140,10 +224,11 @@ bool EpgSeriesArtworkFallbackRepository::upsert(
         bindText(statement, 2, artwork.channelId) &&
         bindText(statement, 3, artwork.eventId) &&
         bindText(statement, 4, artwork.provider) &&
-        bindText(statement, 5, artwork.path) &&
-        sqlite3_bind_int(statement, 6, artwork.width) == SQLITE_OK &&
-        sqlite3_bind_int(statement, 7, artwork.height) == SQLITE_OK &&
-        sqlite3_bind_int64(statement, 8, artwork.resolvedAt) == SQLITE_OK;
+        bindText(statement, 5, originName(artwork.origin)) &&
+        bindText(statement, 6, artwork.path) &&
+        sqlite3_bind_int(statement, 7, artwork.width) == SQLITE_OK &&
+        sqlite3_bind_int(statement, 8, artwork.height) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 9, artwork.resolvedAt) == SQLITE_OK;
     const bool stored = bound && sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return stored;
@@ -163,7 +248,7 @@ EpgArtworkReference EpgSeriesArtworkFallbackRepository::find(
 
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT provider,path,width,height,resolved_at "
+        "SELECT provider,origin,path,width,height,resolved_at "
         "FROM epg_series_artwork_fallback "
         "WHERE backend_id=? AND channel_id=? AND event_id=?;";
     if (sqlite3_prepare_v2(
@@ -186,10 +271,11 @@ EpgArtworkReference EpgSeriesArtworkFallbackRepository::find(
     if (bound && sqlite3_step(statement) == SQLITE_ROW)
     {
         artwork.provider = columnText(statement, 0);
-        artwork.path = columnText(statement, 1);
-        artwork.width = sqlite3_column_int(statement, 2);
-        artwork.height = sqlite3_column_int(statement, 3);
-        artwork.resolvedAt = sqlite3_column_int64(statement, 4);
+        artwork.origin = parseOrigin(columnText(statement, 1));
+        artwork.path = columnText(statement, 2);
+        artwork.width = sqlite3_column_int(statement, 3);
+        artwork.height = sqlite3_column_int(statement, 4);
+        artwork.resolvedAt = sqlite3_column_int64(statement, 5);
     }
     sqlite3_finalize(statement);
 
