@@ -22,6 +22,7 @@
 #include "SuiteBridgeRecordingMetadataResolver.h"
 #include "SuiteBridgeSvdrpTransport.h"
 #include "TmdbSeriesArtworkProvider.h"
+#include "TvmazeSeriesArtworkProvider.h"
 #include "VdrRecordingNativeMetadataEnrichmentService.h"
 #include "VdrRecordingNativeMetadataRepository.h"
 #include "VdrService.h"
@@ -46,6 +47,7 @@ struct BackendRuntimeContext
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
     std::unique_ptr<CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport;
     std::unique_ptr<EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository;
+    std::unique_ptr<TvmazeSeriesArtworkProvider> epgTvmazeSeriesArtworkProvider;
     std::unique_ptr<TmdbSeriesArtworkProvider> epgTmdbSeriesArtworkProvider;
     std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
     std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
