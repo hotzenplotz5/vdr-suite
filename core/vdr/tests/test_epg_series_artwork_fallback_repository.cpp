@@ -22,6 +22,13 @@ int main()
     artwork.height = 360;
     artwork.resolvedAt = 123;
     assert(repository.upsert(artwork));
+    assert(repository.referenceStateForPath(artwork.path) ==
+           EpgSeriesArtworkFallbackPathReferenceState::Referenced);
+    assert(repository.referenceStateForPath(
+               "/var/cache/vdr-suite/epg-artwork/external/missing.png") ==
+           EpgSeriesArtworkFallbackPathReferenceState::Unreferenced);
+    assert(repository.referenceStateForPath("relative/series.png") ==
+           EpgSeriesArtworkFallbackPathReferenceState::Error);
 
     EpgArtworkReference found = repository.find(
         "backend",
@@ -35,11 +42,16 @@ int main()
     assert(found.height == 360);
     assert(found.resolvedAt == 123);
 
+    const std::string previousPath = artwork.path;
     artwork.path = "/var/cache/vdr-suite/epg-artwork/external/new.jpg";
     artwork.width = 1280;
     artwork.height = 720;
     artwork.resolvedAt = 456;
     assert(repository.upsert(artwork));
+    assert(repository.referenceStateForPath(previousPath) ==
+           EpgSeriesArtworkFallbackPathReferenceState::Unreferenced);
+    assert(repository.referenceStateForPath(artwork.path) ==
+           EpgSeriesArtworkFallbackPathReferenceState::Referenced);
     found = repository.find("backend", "channel", "event");
     assert(found.path == artwork.path);
     assert(found.width == 1280);
@@ -70,6 +82,8 @@ int main()
     assert(!repository.upsert(unresolved));
 
     assert(repository.removeForEvent("backend", "channel", "event"));
+    assert(repository.referenceStateForPath(artwork.path) ==
+           EpgSeriesArtworkFallbackPathReferenceState::Unreferenced);
     assert(!repository.find("backend", "channel", "event").valid());
 
     assert(database.execute(
@@ -109,6 +123,8 @@ int main()
     assert(migrated.valid());
     assert(migrated.origin == EpgArtworkReferenceOrigin::ExternalFallback);
     assert(migrated.provider == "tmdb");
+    assert(legacyRepository.referenceStateForPath(migrated.path) ==
+           EpgSeriesArtworkFallbackPathReferenceState::Referenced);
 
     return 0;
 }
