@@ -144,7 +144,11 @@ int main()
     assert(json.find("Eine Zeile\\nmit Umbruch") != std::string::npos);
     assert(json.find("\"imdbId\":\"tt7654321\"") != std::string::npos);
     assert(json.find(
-        "\"externalIds\":[{\"provider\":\"imdb\",\"scope\":\"series\",\"value\":\"tt1234567\"},{\"provider\":\"imdb\",\"scope\":\"episode\",\"value\":\"tt7654321\"}]") != std::string::npos);
+        "{\"provider\":\"imdb\",\"scope\":\"series\",\"value\":\"tt1234567\"}") != std::string::npos);
+    assert(json.find(
+        "{\"provider\":\"imdb\",\"scope\":\"episode\",\"value\":\"tt7654321\"}") != std::string::npos);
+    assert(json.find(
+        "{\"provider\":\"tmdb\",\"scope\":\"series\",\"value\":\"123\"}") != std::string::npos);
     assert(json.find("\"genres\":[\"Drama\",\"Mystery\"]") != std::string::npos);
     assert(json.find("\"role\":\"actor\"") != std::string::npos);
     assert(json.find("Kommissarin Nord") != std::string::npos);
@@ -152,6 +156,26 @@ int main()
     assert(json.find("\"origin\":\"primary-metadata\"") != std::string::npos);
     assert(json.find("preferred.jpg") != std::string::npos);
     assert(json.find("poster.jpg") != std::string::npos);
+  }
+
+  {
+    // TVScraper documents negative getDbId() values as TheTVDB IDs.
+    // Preserve that provider identity explicitly while keeping the schema-1
+    // unqualified providerId non-negative for existing daemon parsers.
+    SuiteBridgeEpgMetadata metadata;
+    metadata.found = true;
+    metadata.mediaType = SuiteBridgeEpgMediaType::Series;
+    metadata.providerId = -80379;
+    metadata.title = "The Big Bang Theory";
+
+    SuiteBridgeEpgMetadataPayload payload(metadata);
+    assert(payload.Complete());
+    const std::string json(payload.Data(), payload.Size());
+
+    assert(json.find("\"providerId\":0") != std::string::npos);
+    assert(json.find(
+        "{\"provider\":\"tvdb\",\"scope\":\"series\",\"value\":\"80379\"}") != std::string::npos);
+    assert(json.find("\"value\":\"-80379\"") == std::string::npos);
   }
 
   {
