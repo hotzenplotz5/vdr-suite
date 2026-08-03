@@ -44,6 +44,7 @@ EpgArtworkReference referenceFor(
     reference.channelId = channelId;
     reference.eventId = eventId;
     reference.provider = artwork.provider;
+    reference.origin = EpgArtworkReferenceOrigin::PrimaryMetadata;
     reference.path = artwork.path;
     reference.width = artwork.width;
     reference.height = artwork.height;
@@ -57,6 +58,8 @@ PersistentEpgScraperMetadataResolver::PersistentEpgScraperMetadataResolver(
     EpgArtworkRepository& artworkRepository,
     std::vector<std::string> allowedRoots)
     : delegate_(delegate),
+      fallbackDeliveryProvider_(
+          dynamic_cast<IEpgSeriesArtworkFallbackDeliveryProvider*>(&delegate)),
       artworkRepository_(artworkRepository),
       allowedRoots_(std::move(allowedRoots))
 {
@@ -185,4 +188,21 @@ EpgScraperMetadataResolution PersistentEpgScraperMetadataResolver::resolve(
     }
 
     return persisted;
+}
+
+EpgSeriesArtworkFallbackAsset
+PersistentEpgScraperMetadataResolver::loadSeriesArtworkFallback(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    if (fallbackDeliveryProvider_ == nullptr)
+    {
+        return {};
+    }
+
+    return fallbackDeliveryProvider_->loadSeriesArtworkFallback(
+        backendId,
+        channelId,
+        eventId);
 }
