@@ -6,8 +6,8 @@
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <unistd.h>
 #include <vector>
+#include <unistd.h>
 
 namespace
 {
@@ -151,6 +151,17 @@ int main()
     const auto symlinkResult = materializer.materialize(requestFor(symlink));
     assert(!symlinkResult.stored);
 
+    const std::filesystem::path outsideDirectory = root / "outside-directory";
+    const std::filesystem::path outsideNested = outsideDirectory / "nested.png";
+    writeBytes(outsideNested, validPng);
+    const std::filesystem::path directorySymlink = incoming / "linked-directory";
+    std::filesystem::create_directory_symlink(
+        outsideDirectory,
+        directorySymlink);
+    const auto directorySymlinkResult = materializer.materialize(
+        requestFor(directorySymlink / "nested.png"));
+    assert(!directorySymlinkResult.stored);
+
     const auto mismatched = materializer.materialize(
         requestFor(validSource, 1280, 720));
     assert(!mismatched.stored);
@@ -181,6 +192,27 @@ int main()
     const auto tooWide = dimensionMaterializer.materialize(
         requestFor(validSource));
     assert(!tooWide.stored);
+
+    const std::filesystem::path cacheSymlinkTarget = root / "cache-target";
+    std::filesystem::create_directories(cacheSymlinkTarget);
+    std::filesystem::permissions(
+        cacheSymlinkTarget,
+        std::filesystem::perms::owner_all,
+        std::filesystem::perm_options::replace);
+    const std::filesystem::path cacheSymlink = root / "cache-symlink";
+    std::filesystem::create_directory_symlink(
+        cacheSymlinkTarget,
+        cacheSymlink);
+    FilesystemSeriesArtworkFallbackMaterializerConfig cacheSymlinkConfig = config;
+    cacheSymlinkConfig.cacheRoot = cacheSymlink.string();
+    FilesystemSeriesArtworkFallbackMaterializer cacheSymlinkMaterializer(
+        cacheSymlinkConfig);
+    const auto cacheSymlinkResult = cacheSymlinkMaterializer.materialize(
+        requestFor(validSource));
+    assert(!cacheSymlinkResult.stored);
+    assert((std::filesystem::status(cacheSymlinkTarget).permissions() &
+            std::filesystem::perms::all) ==
+           std::filesystem::perms::owner_all);
 
     const std::filesystem::path hostileCache = root / "hostile-cache";
     std::filesystem::create_directories(hostileCache);
