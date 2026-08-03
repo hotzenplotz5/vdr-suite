@@ -99,30 +99,59 @@
       shared.folderList(data).length === 0 && recordings.length === 1;
   }
 
+  function embeddedLeafRecording(folder) {
+    if (!folder || folder.singleRecordingLeaf !== true) return null;
+    const recording = folder.singleRecording;
+    return recording && typeof recording === 'object' ? recording : null;
+  }
+
   function resolveLeaves(data, loader) {
     const folders = shared.folderList(data).slice();
-    const candidates = folders.filter(function (folder) {
-      return shared.number(folder.recordingCount, 0) === 1 &&
-        shared.normalizePath(shared.first(folder, ['path'], ''));
+    const resolved = new Array(folders.length);
+    const candidates = [];
+
+    folders.forEach(function (folder, folderIndex) {
+      const path = shared.normalizePath(shared.first(folder, ['path'], ''));
+      const embedded = embeddedLeafRecording(folder);
+
+      if (path && embedded) {
+        resolved[folderIndex] = {path: path, recording: embedded};
+        return;
+      }
+
+      if (shared.number(folder.recordingCount, 0) === 1 && path) {
+        candidates.push({folder: folder, folderIndex: folderIndex, path: path});
+      }
     });
+
     if (!candidates.length || typeof loader !== 'function') {
-      return Promise.resolve({folders: folders, recordings: []});
+      const matches = resolved.filter(Boolean);
+      const paths = new Set(matches.map(function (entry) { return entry.path; }));
+      return Promise.resolve({
+        folders: folders.filter(function (folder) {
+          return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
+        }),
+        recordings: matches.map(function (entry) { return entry.recording; })
+      });
     }
-    const resolved = new Array(candidates.length);
+
     let cursor = 0;
     function worker() {
-      const index = cursor++;
-      if (index >= candidates.length) return Promise.resolve();
-      const folder = candidates[index];
-      const path = shared.normalizePath(shared.first(folder, ['path'], ''));
-      return Promise.resolve(loader(path, 0)).then(function (page) {
+      const candidateIndex = cursor++;
+      if (candidateIndex >= candidates.length) return Promise.resolve();
+      const candidate = candidates[candidateIndex];
+      return Promise.resolve(loader(candidate.path, 0)).then(function (page) {
         if (isSingleRecordingLeaf(page)) {
-          resolved[index] = {path: path, recording: shared.recordingList(page)[0]};
+          resolved[candidate.folderIndex] = {
+            path: candidate.path,
+            recording: shared.recordingList(page)[0]
+          };
         }
       }).catch(function (error) {
-        console.warn('Recordings 2 leaf could not be resolved:', path, error);
+        console.warn('Recordings 2 leaf could not be resolved:', candidate.path, error);
       }).then(worker);
     }
+
     const workers = Array.from({length: Math.min(LEAF_CONCURRENCY, candidates.length)}, worker);
     return Promise.all(workers).then(function () {
       const matches = resolved.filter(Boolean);
@@ -142,6 +171,7 @@
     installStyles,
     create,
     isSingleRecordingLeaf,
+    embeddedLeafRecording,
     resolveLeaves
   });
 }(window));
