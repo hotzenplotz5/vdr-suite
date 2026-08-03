@@ -303,6 +303,49 @@ EpgArtworkReference EpgSeriesArtworkFallbackRepository::find(
         : EpgArtworkReference{};
 }
 
+EpgSeriesArtworkFallbackPathReferenceState
+EpgSeriesArtworkFallbackRepository::referenceStateForPath(
+    const std::string& path) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!safeAbsolutePath(path) || !ensureSchemaLocked())
+    {
+        return EpgSeriesArtworkFallbackPathReferenceState::Error;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT 1 FROM epg_series_artwork_fallback "
+        "WHERE path=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return EpgSeriesArtworkFallbackPathReferenceState::Error;
+    }
+
+    if (!bindText(statement, 1, path))
+    {
+        sqlite3_finalize(statement);
+        return EpgSeriesArtworkFallbackPathReferenceState::Error;
+    }
+
+    const int step = sqlite3_step(statement);
+    sqlite3_finalize(statement);
+    if (step == SQLITE_ROW)
+    {
+        return EpgSeriesArtworkFallbackPathReferenceState::Referenced;
+    }
+    if (step == SQLITE_DONE)
+    {
+        return EpgSeriesArtworkFallbackPathReferenceState::Unreferenced;
+    }
+    return EpgSeriesArtworkFallbackPathReferenceState::Error;
+}
+
 bool EpgSeriesArtworkFallbackRepository::removeForEvent(
     const std::string& backendId,
     const std::string& channelId,
