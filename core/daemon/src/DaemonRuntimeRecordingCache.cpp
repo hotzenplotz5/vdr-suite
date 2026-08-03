@@ -103,6 +103,34 @@ void DaemonRuntime::startRecordingCacheWarmupWorker()
     recordingCacheDirtyHint_.store(false);
     recordingCacheActionRefreshAttempts_.store(0);
 
+    if (vdrRecordingCacheRepository_) {
+        for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+            if (!backendRuntimeContext) {
+                continue;
+            }
+
+            const auto startedAt =
+                std::chrono::steady_clock::now();
+
+            const bool warmed =
+                vdrRecordingCacheRepository_->warmBrowseSnapshotForBackend(
+                    backendRuntimeContext->backendId);
+
+            const auto elapsedMilliseconds =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - startedAt).count();
+
+            std::cout
+                << "Recording browse snapshot startup warmup: backend="
+                << backendRuntimeContext->backendId
+                << ", warmed="
+                << (warmed ? "true" : "false")
+                << ", elapsedMs="
+                << elapsedMilliseconds
+                << std::endl;
+        }
+    }
+
     recordingCacheWarmupThread_ = std::thread([this]() {
         runRecordingCacheWarmupWorker();
     });
