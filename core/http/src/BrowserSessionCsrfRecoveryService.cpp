@@ -3,6 +3,7 @@
 #include "BrowserSessionCredentialRepository.h"
 #include "BrowserSessionCsrfToken.h"
 
+#include <algorithm>
 #include <string>
 
 namespace
