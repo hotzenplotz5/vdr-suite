@@ -9,6 +9,7 @@
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SeriesArtworkFallbackResolver.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
 #include "SuiteBridgeEpgMetadataResolver.h"
@@ -36,6 +37,7 @@ struct BackendRuntimeContext
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
     std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;
