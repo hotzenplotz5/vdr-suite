@@ -52,6 +52,12 @@ test-suite-bridge-epg-metadata-resolver:
 		-o $(BUILD_DIR)/test_epg_series_artwork_fallback_orphan_cleaner
 	$(BUILD_DIR)/test_epg_series_artwork_fallback_orphan_cleaner
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/TmdbSeriesArtworkIncomingCleaner.cpp \
+		core/vdr/tests/test_tmdb_series_artwork_incoming_cleaner.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_tmdb_series_artwork_incoming_cleaner
+	$(BUILD_DIR)/test_tmdb_series_artwork_incoming_cleaner
+	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgArtworkPathPolicy.cpp \
 		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
@@ -124,3 +130,4 @@ test-epg-scraper-metadata-controller:
 test-epg-scraper-metadata-routes-contract:
 	python3 tools/check_epg_scraper_metadata_routes.py
 	python3 tools/check_epg_series_artwork_orphan_cleanup.py
+	python3 tools/check_tmdb_series_artwork_incoming_cleanup.py
