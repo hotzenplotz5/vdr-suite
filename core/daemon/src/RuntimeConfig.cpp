@@ -6,7 +6,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -135,6 +137,97 @@ bool isValidBackendId(
     }
 
     return true;
+}
+
+bool isUsableAbsolutePath(const std::string& value)
+{
+    if (value.empty() || value.size() > 4096U)
+    {
+        return false;
+    }
+
+    const std::filesystem::path path =
+        std::filesystem::path(value).lexically_normal();
+    return path.is_absolute() && path != path.root_path();
+}
+
+bool isPathWithinRoot(
+    const std::filesystem::path& path,
+    const std::filesystem::path& root)
+{
+    auto pathIterator = path.begin();
+    auto rootIterator = root.begin();
+
+    for (; rootIterator != root.end(); ++rootIterator, ++pathIterator)
+    {
+        if (pathIterator == path.end() || *pathIterator != *rootIterator)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool isManagedSeriesArtworkCacheRoot(const std::string& value)
+{
+    if (!isUsableAbsolutePath(value))
+    {
+        return false;
+    }
+
+    const std::filesystem::path managedRoot =
+        std::filesystem::path(
+            "/var/cache/vdr-suite/epg-artwork").lexically_normal();
+    const std::filesystem::path candidate =
+        std::filesystem::path(value).lexically_normal();
+    return candidate != managedRoot &&
+        isPathWithinRoot(candidate, managedRoot);
+}
+
+std::vector<std::string> parseAbsolutePathList(
+    const std::string& value,
+    const std::vector<std::string>& fallback)
+{
+    if (value.empty())
+    {
+        return fallback;
+    }
+
+    std::vector<std::string> roots;
+    std::set<std::string> seen;
+    std::size_t start = 0;
+
+    while (start <= value.size())
+    {
+        const std::size_t end = value.find(';', start);
+        const std::string entry = value.substr(
+            start,
+            end == std::string::npos
+                ? std::string::npos
+                : end - start);
+        if (!isUsableAbsolutePath(entry) || roots.size() >= 8U)
+        {
+            return fallback;
+        }
+
+        const std::string normalized =
+            std::filesystem::path(entry).lexically_normal().string();
+        if (!seen.emplace(normalized).second)
+        {
+            return fallback;
+        }
+        roots.push_back(normalized);
+
+        if (end == std::string::npos)
+        {
+            break;
+        }
+
+        start = end + 1;
+    }
+
+    return roots.empty() ? fallback : roots;
 }
 
 std::map<std::string, std::string> parseArtworkRoots(
@@ -277,6 +370,30 @@ RuntimeSeriesArtworkFallbackConfig parseSeriesArtworkFallbackConfig()
     value.enabled = environmentBoolean(
         "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED",
         value.enabled);
+    value.sourceRoots = parseAbsolutePathList(
+        environmentOrEmpty(
+            "VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS"),
+        value.sourceRoots);
+
+    const std::string cacheRoot = environmentOrDefault(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT",
+        value.cacheRoot);
+    if (isManagedSeriesArtworkCacheRoot(cacheRoot))
+    {
+        value.cacheRoot =
+            std::filesystem::path(cacheRoot).lexically_normal().string();
+    }
+
+    value.maximumSourceBytes = environmentInteger(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES",
+        value.maximumSourceBytes,
+        1024,
+        32 * 1024 * 1024);
+    value.maximumDimension = environmentInteger(
+        "VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION",
+        value.maximumDimension,
+        64,
+        32768);
     return value;
 }
 
