@@ -37,8 +37,17 @@ test-suite-bridge-epg-metadata-resolver:
 	$(BUILD_DIR)/test_epg_series_artwork_fallback_repository
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkFallbackDeliveryService.cpp \
+		core/vdr/tests/test_epg_series_artwork_fallback_delivery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_series_artwork_fallback_delivery_service
+	$(BUILD_DIR)/test_epg_series_artwork_fallback_delivery_service
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/EpgArtworkPathPolicy.cpp \
 		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkFallbackDeliveryService.cpp \
 		core/vdr/src/PersistentSeriesArtworkFallbackResolver.cpp \
 		core/vdr/tests/test_persistent_series_artwork_fallback_resolver.cpp \
 		$(LDFLAGS) \
