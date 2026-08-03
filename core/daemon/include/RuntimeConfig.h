@@ -30,6 +30,9 @@ struct RuntimeSeriesArtworkFallbackConfig
         "/var/cache/vdr-suite/epg-artwork/external";
     int maximumSourceBytes = 16 * 1024 * 1024;
     int maximumDimension = 16384;
+    bool orphanCleanupEnabled = false;
+    int orphanCleanupMinimumAgeSeconds = 7 * 24 * 60 * 60;
+    int orphanCleanupMaximumFiles = 64;
 };
 
 class RuntimeConfig
