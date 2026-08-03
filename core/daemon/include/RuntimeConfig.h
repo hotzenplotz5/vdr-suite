@@ -33,6 +33,9 @@ struct RuntimeSeriesArtworkFallbackConfig
     bool orphanCleanupEnabled = false;
     int orphanCleanupMinimumAgeSeconds = 7 * 24 * 60 * 60;
     int orphanCleanupMaximumFiles = 64;
+    bool incomingCleanupEnabled = false;
+    int incomingCleanupMinimumAgeSeconds = 24 * 60 * 60;
+    int incomingCleanupMaximumFiles = 64;
 };
 
 class RuntimeConfig
