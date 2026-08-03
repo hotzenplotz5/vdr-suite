@@ -4,6 +4,7 @@
 #include "EpgCacheController.h"
 #include "EpgCacheServiceRegistry.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "IEpgSeriesArtworkFallbackDeliveryProvider.h"
 #include "PersistentEpgScraperMetadataResolver.h"
 
 #include <cassert>
@@ -33,7 +34,9 @@ EpgScraperArtwork artwork(
     return value;
 }
 
-class FakeResolver final : public IEpgScraperMetadataResolver
+class FakeResolver final
+    : public IEpgScraperMetadataResolver,
+      public IEpgSeriesArtworkFallbackDeliveryProvider
 {
 public:
     EpgScraperMetadataResolution resolve(
@@ -55,11 +58,28 @@ public:
         return result;
     }
 
+    EpgSeriesArtworkFallbackAsset loadSeriesArtworkFallback(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const override
+    {
+        ++fallbackCalls;
+        fallbackBackendId = backendId;
+        fallbackChannelId = channelId;
+        fallbackEventId = eventId;
+        return fallbackAsset;
+    }
+
     EpgScraperMetadataResolution resolution;
+    EpgSeriesArtworkFallbackAsset fallbackAsset;
     int calls = 0;
+    mutable int fallbackCalls = 0;
     std::string lastBackendId;
     std::string lastChannelId;
     std::string lastEventId;
+    mutable std::string fallbackBackendId;
+    mutable std::string fallbackChannelId;
+    mutable std::string fallbackEventId;
 };
 
 EpgScraperMetadataResolution readyResolution(
@@ -205,12 +225,18 @@ int main()
     assert(cachedMetadata.body == first.body);
     assert(delegate.calls == 1);
 
+    delegate.fallbackAsset.contentType = "image/png";
+    delegate.fallbackAsset.content = "fallback-image";
+    delegate.fallbackAsset.width = 1920;
+    delegate.fallbackAsset.height = 1080;
+
     const ApiResponse preferredImage = controller.getMetadataImage(
         "default", "channel-1", "event-1", "preferred", 0);
     assert(preferredImage.statusCode == 200);
     assert(preferredImage.contentType == "image/jpeg");
     assert(preferredImage.body == "preferred-image");
     assert(delegate.calls == 1);
+    assert(delegate.fallbackCalls == 0);
 
     const ApiResponse personImage = controller.getMetadataImage(
         "default", "channel-1", "event-1", "person", 0);
@@ -229,11 +255,32 @@ int main()
     assert(controller.getMetadataImage(
         "default", "channel-1", "event-1", "unsupported", 0).statusCode == 400);
 
+    const ApiResponse fallbackImage = controller.getMetadataImage(
+        "default", "channel-1", "event-fallback", "preferred", 0);
+    assert(fallbackImage.statusCode == 200);
+    assert(fallbackImage.contentType == "image/png");
+    assert(fallbackImage.body == "fallback-image");
+    assert(delegate.fallbackCalls == 1);
+    assert(delegate.fallbackBackendId == "default");
+    assert(delegate.fallbackChannelId == "channel-1");
+    assert(delegate.fallbackEventId == "event-fallback");
+
+    const int callsBeforeNonPreferred = delegate.fallbackCalls;
+    assert(controller.getMetadataImage(
+        "default", "channel-1", "event-fallback", "person", 0).statusCode == 404);
+    assert(delegate.fallbackCalls == callsBeforeNonPreferred);
+
+    delegate.fallbackAsset.contentType = "text/plain";
+    assert(controller.getMetadataImage(
+        "default", "channel-1", "event-invalid", "preferred", 0).statusCode == 404);
+    assert(delegate.fallbackCalls == callsBeforeNonPreferred + 1);
+
     EpgCacheController restartedController(
         cacheRegistry,
         artworkRepository,
         artworkJsonSerializer);
     restartedController.setScraperMetadataAllowedRoots({root.string()});
+    restartedController.registerScraperMetadataResolver("default", resolver);
 
     const ApiResponse afterRestart = restartedController.getMetadata(
         "default", "channel-1", "event-1");
@@ -252,6 +299,7 @@ int main()
     assert(unknownEvent.statusCode == 200);
     assert(contains(unknownEvent.body, "\"status\":\"pending\""));
     assert(delegate.calls == 1);
+    delegate.fallbackAsset = EpgSeriesArtworkFallbackAsset{};
     assert(restartedController.getMetadataImage(
         "default", "channel-1", "event-2", "preferred", 0).statusCode == 404);
 
