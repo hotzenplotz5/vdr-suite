@@ -2,13 +2,17 @@
 
 #include "EpgArtworkEnrichmentService.h"
 #include "EpgCacheService.h"
+#include "EpgSeriesArtworkFallbackRepository.h"
+#include "FilesystemSeriesArtworkFallbackMaterializer.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
 #include "PersistentEpgScraperMetadataResolver.h"
+#include "PersistentSeriesArtworkFallbackResolver.h"
 #include "PollingService.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SeriesArtworkFallbackMaterializingResolver.h"
 #include "SeriesArtworkFallbackResolver.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
@@ -38,6 +42,10 @@ struct BackendRuntimeContext
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
     std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
+    std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
+    std::unique_ptr<SeriesArtworkFallbackMaterializingResolver> epgSeriesArtworkFallbackMaterializingResolver;
+    std::unique_ptr<EpgSeriesArtworkFallbackRepository> epgSeriesArtworkFallbackRepository;
+    std::unique_ptr<PersistentSeriesArtworkFallbackResolver> epgPersistentSeriesArtworkFallbackResolver;
     std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;
