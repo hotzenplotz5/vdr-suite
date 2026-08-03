@@ -69,11 +69,13 @@ public:
     }
 };
 
-ExternalArtworkHttpResponse redirectResponse(const std::string& location)
+ExternalArtworkHttpResponse redirectResponse(
+    const std::string& location,
+    long statusCode = 301)
 {
     ExternalArtworkHttpResponse response;
     response.attempted = true;
-    response.statusCode = 301;
+    response.statusCode = statusCode;
     response.location = location;
     return response;
 }
@@ -271,6 +273,38 @@ int main()
     }
 
     {
+        const auto root = tempRoot("signed-tvdb");
+        FakeTransport transport;
+        transport.responses = {
+            redirectResponse("/shows/56", 302),
+            jsonResponse(Images),
+            imageResponse("signed tvdb bytes")
+        };
+        FakeCache cache;
+        EpgScraperMetadata value = metadata();
+        value.providerId = -1234;
+        value.externalIds = {
+            identity(
+                EpgScraperExternalIdProvider::Imdb,
+                EpgScraperExternalIdScope::Series,
+                "tt7654321")
+        };
+
+        TvmazeSeriesArtworkProvider provider(
+            transport,
+            cache,
+            config(root),
+            [] { return 2500LL; },
+            [](std::chrono::milliseconds) {});
+        const auto result = provider.resolve("default", event, value);
+        assert(result.valid());
+        assert(transport.requests.front().url ==
+               "https://api.tvmaze.com/lookup/shows?thetvdb=1234");
+        assert(std::filesystem::path(result.artwork.path)
+                   .filename().string().find("tvmaze-56-") == 0U);
+    }
+
+    {
         const auto root = tempRoot("negative-cache");
         FakeTransport transport;
         FakeCache cache;
@@ -367,6 +401,7 @@ int main()
         FakeTransport transport;
         FakeCache cache;
         EpgScraperMetadata value = metadata();
+        value.providerId = 42;
         value.externalIds = {
             identity(
                 EpgScraperExternalIdProvider::Imdb,
@@ -428,7 +463,7 @@ int main()
         assert(result.attempted && !result.found);
         assert(std::filesystem::is_empty(realRoot));
         assert(cache.entries["tvmaze:imdb:tt1234567"].outcome ==
-               SeriesArtworkProviderCacheOutcome::TemporarilyUnavailable);
+               SeriesArtworkProviderCacheOutcome::TemporarilyUnavaile);
     }
 
     return 0;
