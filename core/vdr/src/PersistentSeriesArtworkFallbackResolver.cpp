@@ -43,6 +43,7 @@ EpgArtworkReference referenceFor(
     reference.channelId = channelId;
     reference.eventId = eventId;
     reference.provider = artwork.provider;
+    reference.origin = EpgArtworkReferenceOrigin::ExternalFallback;
     reference.path = artwork.path;
     reference.width = artwork.width;
     reference.height = artwork.height;
@@ -54,6 +55,7 @@ EpgScraperArtwork fallbackArtwork(const EpgArtworkReference& reference)
 {
     EpgScraperArtwork artwork;
     if (!reference.valid() ||
+        reference.origin != EpgArtworkReferenceOrigin::ExternalFallback ||
         reference.provider == "none" ||
         reference.provider == "tvscraper")
     {
@@ -63,10 +65,19 @@ EpgScraperArtwork fallbackArtwork(const EpgArtworkReference& reference)
     artwork.available = true;
     artwork.provider = reference.provider;
     artwork.origin = EpgScraperArtworkOrigin::ExternalFallback;
+    artwork.managed = true;
     artwork.path = reference.path;
     artwork.width = reference.width;
     artwork.height = reference.height;
     return artwork;
+}
+
+EpgSeriesArtworkFallbackDeliveryConfig deliveryConfig(
+    std::vector<std::string> managedRoots)
+{
+    EpgSeriesArtworkFallbackDeliveryConfig config;
+    config.managedRoots = std::move(managedRoots);
+    return config;
 }
 }
 
@@ -77,7 +88,10 @@ PersistentSeriesArtworkFallbackResolver(
     std::vector<std::string> allowedRoots)
     : delegate_(delegate),
       repository_(repository),
-      allowedRoots_(std::move(allowedRoots))
+      allowedRoots_(allowedRoots),
+      deliveryService_(
+          repository,
+          deliveryConfig(std::move(allowedRoots)))
 {
 }
 
@@ -109,6 +123,10 @@ EpgScraperMetadataResolution PersistentSeriesArtworkFallbackResolver::resolve(
     EpgScraperArtwork& fallback =
         resolution.metadata.seriesArtworkFallback;
 
+    // Provider and materializer output is never public-delivery eligible by
+    // itself. Only this persisted boundary may assert managed eligibility.
+    fallback.managed = false;
+
     if (validFallbackArtwork(fallback) &&
         EpgArtworkPathPolicy::isAllowedPath(fallback.path, allowedRoots_))
     {
@@ -120,6 +138,7 @@ EpgScraperMetadataResolution PersistentSeriesArtworkFallbackResolver::resolve(
             epochSeconds());
         if (repository_.upsert(reference))
         {
+            fallback.managed = true;
             return resolution;
         }
     }
@@ -129,6 +148,7 @@ EpgScraperMetadataResolution PersistentSeriesArtworkFallbackResolver::resolve(
         channelId,
         eventId);
     if (retained.valid() &&
+        retained.origin == EpgArtworkReferenceOrigin::ExternalFallback &&
         EpgArtworkPathPolicy::isAllowedPath(retained.path, allowedRoots_))
     {
         fallback = fallbackArtwork(retained);
@@ -137,4 +157,16 @@ EpgScraperMetadataResolution PersistentSeriesArtworkFallbackResolver::resolve(
 
     fallback = EpgScraperArtwork{};
     return resolution;
+}
+
+EpgSeriesArtworkFallbackAsset
+PersistentSeriesArtworkFallbackResolver::loadSeriesArtworkFallback(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    return deliveryService_.loadSeriesArtworkFallback(
+        backendId,
+        channelId,
+        eventId);
 }
