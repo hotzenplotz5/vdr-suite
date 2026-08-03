@@ -192,18 +192,79 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
                     *context->suiteBridgeTransport);
 
+            const RuntimeSeriesArtworkFallbackConfig& runtimeFallbackConfig =
+                config_.seriesArtworkFallback();
+
             SeriesArtworkFallbackResolverConfig fallbackConfig;
-            fallbackConfig.enabled =
-                config_.seriesArtworkFallback().enabled;
+            fallbackConfig.enabled = runtimeFallbackConfig.enabled;
             context->epgSeriesArtworkFallbackResolver =
                 std::make_unique<SeriesArtworkFallbackResolver>(
                     *context->epgScraperMetadataDelegate,
                     nullptr,
                     fallbackConfig);
 
+            ISeriesArtworkFallbackMaterializer* fallbackMaterializer = nullptr;
+            if (runtimeFallbackConfig.enabled) {
+                context->epgSeriesArtworkFallbackRepository =
+                    std::make_unique<EpgSeriesArtworkFallbackRepository>(
+                        database_);
+
+                if (!context->epgSeriesArtworkFallbackRepository->ensureSchema()) {
+                    std::cerr
+                        << "failed to initialize EPG series artwork fallback schema: backend="
+                        << context->backendId
+                        << std::endl;
+                    context->epgSeriesArtworkFallbackRepository.reset();
+                }
+                else {
+                    FilesystemSeriesArtworkFallbackMaterializerConfig
+                        materializerConfig;
+                    materializerConfig.allowedSourceRoots =
+                        runtimeFallbackConfig.sourceRoots;
+                    materializerConfig.cacheRoot =
+                        runtimeFallbackConfig.cacheRoot;
+                    materializerConfig.maximumSourceBytes =
+                        static_cast<std::uintmax_t>(
+                            runtimeFallbackConfig.maximumSourceBytes);
+                    materializerConfig.maximumDimension =
+                        runtimeFallbackConfig.maximumDimension;
+
+                    context->epgSeriesArtworkFallbackMaterializer =
+                        std::make_unique<
+                            FilesystemSeriesArtworkFallbackMaterializer>(
+                                std::move(materializerConfig));
+                    fallbackMaterializer =
+                        context->epgSeriesArtworkFallbackMaterializer.get();
+                }
+            }
+
+            SeriesArtworkFallbackMaterializingResolverConfig
+                materializingConfig;
+            materializingConfig.enabled =
+                runtimeFallbackConfig.enabled &&
+                fallbackMaterializer != nullptr;
+            context->epgSeriesArtworkFallbackMaterializingResolver =
+                std::make_unique<SeriesArtworkFallbackMaterializingResolver>(
+                    *context->epgSeriesArtworkFallbackResolver,
+                    fallbackMaterializer,
+                    materializingConfig);
+
+            IEpgScraperMetadataResolver* persistentDelegate =
+                context->epgSeriesArtworkFallbackMaterializingResolver.get();
+            if (context->epgSeriesArtworkFallbackRepository) {
+                context->epgPersistentSeriesArtworkFallbackResolver =
+                    std::make_unique<PersistentSeriesArtworkFallbackResolver>(
+                        *persistentDelegate,
+                        *context->epgSeriesArtworkFallbackRepository,
+                        std::vector<std::string>{
+                            runtimeFallbackConfig.cacheRoot});
+                persistentDelegate =
+                    context->epgPersistentSeriesArtworkFallbackResolver.get();
+            }
+
             context->epgScraperMetadataResolver =
                 std::make_unique<PersistentEpgScraperMetadataResolver>(
-                    *context->epgSeriesArtworkFallbackResolver,
+                    *persistentDelegate,
                     *epgArtworkRepository_);
             GenreBrowserApiRuntime::instance()
                 .registerEpgScraperMetadataResolver(
@@ -275,6 +336,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->epgCacheService = std::make_unique<EpgCacheService>(
             *epgEventRepository_,
             *context->service,
+            context->backendId,
             context->epgArtworkEnrichmentService.get());
     }
 
