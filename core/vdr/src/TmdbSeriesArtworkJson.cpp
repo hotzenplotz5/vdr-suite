@@ -289,6 +289,63 @@ int languageRank(const TmdbSeriesBackdrop& image, const std::string& preferred)
     if (image.language == "en") return 2;
     return 3;
 }
+
+bool collectCandidates(
+    const Value* images,
+    std::vector<TmdbSeriesBackdrop>& candidates)
+{
+    candidates.clear();
+    if (images == nullptr) return true;
+    if (images->type != Value::Type::Array) return false;
+
+    for (const Value& item : images->array)
+    {
+        if (item.type != Value::Type::Object) continue;
+        const Value* path = item.member("file_path");
+        if (path == nullptr || path->type != Value::Type::String ||
+            !safeFilePath(path->string)) continue;
+        TmdbSeriesBackdrop image;
+        image.filePath = path->string;
+        if (!positiveInteger(item.member("width"), image.width) ||
+            !positiveInteger(item.member("height"), image.height)) continue;
+        const Value* vote = item.member("vote_average");
+        if (vote != nullptr && vote->type == Value::Type::Number &&
+            std::isfinite(vote->number)) image.voteAverage = vote->number;
+        const Value* language = item.member("iso_639_1");
+        if (language == nullptr || language->type == Value::Type::Null)
+            image.languageIsNull = true;
+        else if (language->type == Value::Type::String &&
+                 language->string.size() == 2U)
+            image.language = language->string;
+        else continue;
+        candidates.push_back(std::move(image));
+    }
+    return true;
+}
+
+void sortCandidates(
+    std::vector<TmdbSeriesBackdrop>& candidates,
+    const std::string& preferredLanguage,
+    double targetAspectRatio)
+{
+    std::sort(candidates.begin(), candidates.end(), [&](const auto& left, const auto& right) {
+        const int leftLanguage = languageRank(left, preferredLanguage);
+        const int rightLanguage = languageRank(right, preferredLanguage);
+        if (leftLanguage != rightLanguage) return leftLanguage < rightLanguage;
+        const double leftDeviation =
+            std::abs(static_cast<double>(left.width) / left.height - targetAspectRatio);
+        const double rightDeviation =
+            std::abs(static_cast<double>(right.width) / right.height - targetAspectRatio);
+        if (std::abs(leftDeviation - rightDeviation) > 0.000001)
+            return leftDeviation < rightDeviation;
+        const long long leftPixels = static_cast<long long>(left.width) * left.height;
+        const long long rightPixels = static_cast<long long>(right.width) * right.height;
+        if (leftPixels != rightPixels) return leftPixels > rightPixels;
+        if (left.voteAverage != right.voteAverage)
+            return left.voteAverage > right.voteAverage;
+        return left.filePath < right.filePath;
+    });
+}
 }
 
 bool parseTmdbFindSeriesId(
@@ -319,48 +376,24 @@ bool parseTmdbSeriesBackdrop(
     Value root;
     if (!Parser(body, maximumBytes).parse(root) || root.type != Value::Type::Object)
         return false;
+
+    const Value* posters = root.member("posters");
     const Value* backdrops = root.member("backdrops");
-    if (backdrops == nullptr || backdrops->type != Value::Type::Array) return false;
+    if (posters == nullptr && backdrops == nullptr) return false;
 
     std::vector<TmdbSeriesBackdrop> candidates;
-    for (const Value& item : backdrops->array)
+    if (!collectCandidates(posters, candidates)) return false;
+    if (!candidates.empty())
     {
-        if (item.type != Value::Type::Object) continue;
-        const Value* path = item.member("file_path");
-        if (path == nullptr || path->type != Value::Type::String ||
-            !safeFilePath(path->string)) continue;
-        TmdbSeriesBackdrop image;
-        image.filePath = path->string;
-        if (!positiveInteger(item.member("width"), image.width) ||
-            !positiveInteger(item.member("height"), image.height)) continue;
-        const Value* vote = item.member("vote_average");
-        if (vote != nullptr && vote->type == Value::Type::Number &&
-            std::isfinite(vote->number)) image.voteAverage = vote->number;
-        const Value* language = item.member("iso_639_1");
-        if (language == nullptr || language->type == Value::Type::Null)
-            image.languageIsNull = true;
-        else if (language->type == Value::Type::String && language->string.size() == 2U)
-            image.language = language->string;
-        else continue;
-        candidates.push_back(std::move(image));
+        sortCandidates(candidates, preferredLanguage, 2.0 / 3.0);
+        backdrop = candidates.front();
+        return true;
     }
+
+    if (!collectCandidates(backdrops, candidates)) return false;
     if (candidates.empty()) return true;
 
-    const double target = 16.0 / 9.0;
-    std::sort(candidates.begin(), candidates.end(), [&](const auto& left, const auto& right) {
-        const int leftLanguage = languageRank(left, preferredLanguage);
-        const int rightLanguage = languageRank(right, preferredLanguage);
-        if (leftLanguage != rightLanguage) return leftLanguage < rightLanguage;
-        const double leftDeviation = std::abs(static_cast<double>(left.width) / left.height - target);
-        const double rightDeviation = std::abs(static_cast<double>(right.width) / right.height - target);
-        if (std::abs(leftDeviation - rightDeviation) > 0.000001)
-            return leftDeviation < rightDeviation;
-        const long long leftPixels = static_cast<long long>(left.width) * left.height;
-        const long long rightPixels = static_cast<long long>(right.width) * right.height;
-        if (leftPixels != rightPixels) return leftPixels > rightPixels;
-        if (left.voteAverage != right.voteAverage) return left.voteAverage > right.voteAverage;
-        return left.filePath < right.filePath;
-    });
+    sortCandidates(candidates, preferredLanguage, 16.0 / 9.0);
     backdrop = candidates.front();
     return true;
 }
