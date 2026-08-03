@@ -122,6 +122,45 @@ async function main() {
   assert.strictEqual(resolved.recordings.length, 1);
   assert.strictEqual(resolved.recordings[0].recordingId, 'default:1340');
 
+  let embeddedLoaderCalls = 0;
+  const embeddedRecording = {
+    recordingId: 'default:4712',
+    title: 'Inline_Leaf',
+    backendNativeId: '/srv/vdr/video/Inline_Leaf/2026-07-20.20.15.1-0.rec'
+  };
+  const embeddedResolved = await genre.resolveLeaves({
+    recordingFolder: true,
+    folders: [
+      {name: 'Action', path: 'Action', recordingCount: 48},
+      {
+        name: 'Inline_Leaf',
+        path: 'Inline_Leaf',
+        recordingCount: 1,
+        singleRecordingLeaf: true,
+        singleRecording: embeddedRecording
+      }
+    ],
+    recordings: []
+  }, () => {
+    embeddedLoaderCalls += 1;
+    return Promise.reject(new Error('inline leaf must not trigger a request'));
+  });
+  assert.strictEqual(embeddedLoaderCalls, 0);
+  assert.deepStrictEqual(
+    Array.from(embeddedResolved.folders).map(folder => folder.name),
+    ['Action']
+  );
+  assert.strictEqual(embeddedResolved.recordings.length, 1);
+  assert.strictEqual(embeddedResolved.recordings[0].recordingId, 'default:4712');
+  assert.strictEqual(genre.embeddedLeafRecording({singleRecordingLeaf: false}), null);
+  assert.strictEqual(
+    genre.embeddedLeafRecording({
+      singleRecordingLeaf: true,
+      singleRecording: embeddedRecording
+    }).recordingId,
+    'default:4712'
+  );
+
   const test = window.VdrSuiteRecordings2Actions.__test;
   assert.strictEqual(test.normalizeFolderPath(' Filme\\Archiv '), 'Filme/Archiv');
   assert.strictEqual(test.targetFolderPath('/'), '');
