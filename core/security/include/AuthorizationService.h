@@ -132,10 +132,7 @@ public:
             const bool permissionMatches =
                 grant.permission == "*" ||
                 grant.permission == request.permission;
-            if (!permissionMatches)
-            {
-                continue;
-            }
+            if (!permissionMatches) continue;
             permissionPresent = true;
             const bool backendMatches =
                 grant.backendId.empty() ||
@@ -167,6 +164,7 @@ private:
             permission == "recordings.rename" ||
             permission == "recordings.move" ||
             permission == "recordings.delete" ||
+            permission == "metadata.recording.assign" ||
             permission == "searchtimers.create" ||
             permission == "searchtimers.modify" ||
             permission == "searchtimers.delete" ||
@@ -192,10 +190,7 @@ private:
         const RequestSecurityContext& context,
         const AuthorizationRequest& request)
     {
-        if (!mutatingPermission(request.permission))
-        {
-            return false;
-        }
+        if (!mutatingPermission(request.permission)) return false;
         for (const PermissionGrant& grant : context.grants)
         {
             if (grant.permission == "role.read-only" &&

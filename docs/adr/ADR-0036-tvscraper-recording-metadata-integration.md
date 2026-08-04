@@ -8,12 +8,19 @@
 - [ADR Index](index.md)
 - [Roadmap](../planning/roadmap.md)
 - [TVScraper and Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
+- [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 
 ---
 
 ## Status
 
 Accepted
+
+### Later write clarification
+
+[ADR-0051](ADR-0051-manual-recording-metadata-assignment.md) opens a bounded Suite-owned manual assignment workflow for Recording metadata.
+
+This does not open writes into TVScraper. TVScraper-owned databases, caches, assignments and update logic remain read-only and outside VDR-Suite ownership. Manual search, evidence, relationship locking, replacement and withdrawal are persisted only in the Suite-owned metadata platform.
 
 ---
 
@@ -81,7 +88,8 @@ If a backend does not advertise a capability, VDR-Suite must not assume the feat
 - EPG-only installations remain supported.
 - TVScraper-specific storage and payload quirks stay behind provider boundaries.
 - API and frontend layers consume normalized metadata contracts, not TVScraper-specific records.
-- Recording metadata must remain read-only until a later dedicated metadata-write ADR or phase explicitly opens mutation.
+- TVScraper-owned Recording metadata remains read-only.
+- Suite-owned metadata mutation requires a later dedicated metadata-write ADR; ADR-0051 is that bounded decision for manual Recording assignments only.
 
 ---
 
@@ -97,6 +105,8 @@ The capability matrix becomes the deciding layer for cross-backend feature avail
 
 This also supports future recommendation and content graph work because metadata origin, evidence and backend support remain explicit.
 
+ADR-0051 permits an active relationship-locked Suite assignment to outrank automatic TVScraper evidence without altering or deleting that provider evidence. Withdrawal restores normal automatic resolution.
+
 ---
 
 ## Related Documents
@@ -104,6 +114,8 @@ This also supports future recommendation and content graph work because metadata
 - [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
 - [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-and-external-filmography.md)
+- [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
+- [Manual Recording Metadata Runtime](../development/manual-recording-metadata-assignment.md)
 - [Roadmap](../planning/roadmap.md)
 - [TVScraper and Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
 

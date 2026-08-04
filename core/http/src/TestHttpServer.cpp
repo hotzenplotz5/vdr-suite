@@ -329,7 +329,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         apiResponse =
             apiRouter_.handleClientPost(
                 request.path,
-                request.body);
+                request.body,
+                gate.context.actor.actorId);
     }
     else
     {

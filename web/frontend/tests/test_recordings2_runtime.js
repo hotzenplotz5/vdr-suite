@@ -33,6 +33,13 @@ const document = {
 
 const window = {
   setTimeout(callback) { callback(); },
+  VdrSuitePublicUrl: {
+    resolvePath(path) {
+      const value = String(path || '');
+      if (value === '/vdr-suite' || value.startsWith('/vdr-suite/')) return value;
+      return '/vdr-suite' + value;
+    }
+  },
   VdrSuitePlatform: {
     registerModule(name, api) { modules.set(name, api); },
     hasModule(name) { return modules.has(name); },
@@ -77,6 +84,7 @@ assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
 assert.strictEqual(window.VdrSuiteRecordingBrowser, undefined);
 
 const test = window.VdrSuiteRecordings2.__test;
+const shared = window.VdrSuiteRecordings2Shared;
 assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
 assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
 assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
@@ -118,6 +126,45 @@ assert.strictEqual(test.recordingTitle({
 assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
 assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
 assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
+
+const poster = shared.createPoster(recording);
+assert.strictEqual(poster.children.length, 1);
+assert.strictEqual(
+  poster.children[0].src,
+  '/vdr-suite/api/recordings/artwork?id=poster'
+);
+
+const manualRecording = {
+  title: 'Technischer_Titel',
+  path: '/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
+  backendNativeId: '/srv/vdr/video/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
+  metadata: {
+    provider: {
+      source: 'manual',
+      title: 'Face/Off – Im Körper des Feindes',
+      overview: 'Manuell ausgewählte Beschreibung'
+    },
+    presentation: {
+      title: 'Face/Off – Im Körper des Feindes',
+      summary: 'Manuell ausgewählte Beschreibung',
+      posterUrl: '/api/vdr/recordings/metadata/image?backend=default',
+      placeholderVariant: 2
+    },
+    manualAssignment: {
+      active: true,
+      relationshipLocked: true,
+      revision: 1
+    }
+  }
+};
+assert.strictEqual(
+  test.recordingTitle(manualRecording),
+  'Face/Off – Im Körper des Feindes'
+);
+assert.strictEqual(
+  shared.createPoster(manualRecording).children[0].src,
+  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default'
+);
 
 const normalized = test.normalizeRecording(recording);
 assert.strictEqual(normalized.title, 'Tigeren Club gggg');

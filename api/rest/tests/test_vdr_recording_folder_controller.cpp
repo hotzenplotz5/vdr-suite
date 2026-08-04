@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <string>
 
 static VdrRecording makeRecording(
@@ -27,6 +28,27 @@ static VdrRecording makeRecording(
     recording.sizeMb = 1024;
 
     return recording;
+}
+
+static ManualRecordingMetadataAssignment rootManualAssignment()
+{
+    ManualRecordingMetadataAssignment assignment;
+    assignment.found = true;
+    assignment.backendId = "default";
+    assignment.resourceKey = "root-key";
+    assignment.providerId = "tmdb";
+    assignment.externalNamespace = "movie";
+    assignment.externalId = "754";
+    assignment.mediaType = "movie";
+    assignment.title = "Face/Off - Im Körper des Feindes";
+    assignment.originalTitle = "Face/Off";
+    assignment.overview = "Manuell ausgewählte Beschreibung";
+    assignment.releaseDate = "1997-06-27";
+    assignment.posterReference =
+        "/var/cache/vdr-suite/recording-metadata/posters/manual.webp";
+    assignment.revision = 3;
+    assignment.relationshipLocked = true;
+    return assignment;
 }
 
 static bool contains(
@@ -100,6 +122,8 @@ int main()
     assert(repository.markRefreshFinished("default", 4));
     assert(repository.warmBrowseSnapshotForBackend("default"));
 
+    int manualLookupCalls = 0;
+    int manualBatchLookupCalls = 0;
     VdrRecordingFolderController controller(
         repository,
         [](
@@ -129,7 +153,32 @@ int main()
             record.metadata.people.push_back(person);
 
             return record;
-        });
+        },
+        [&manualLookupCalls](
+            const std::string& backendId,
+            const std::string& backendNativeId)
+        {
+            ++manualLookupCalls;
+            if (backendId != "default" ||
+                backendNativeId.find("2026-07-03") == std::string::npos)
+            {
+                return ManualRecordingMetadataAssignment{};
+            }
+            return rootManualAssignment();
+        },
+        [&manualBatchLookupCalls](const std::string& backendId)
+        {
+            ++manualBatchLookupCalls;
+            std::map<std::string, ManualRecordingMetadataAssignment> assignments;
+            if (backendId == "default")
+            {
+                assignments.emplace(
+                    "/srv/vdr/video/2026-07-03.20.15.1-0.rec",
+                    rootManualAssignment());
+            }
+            return assignments;
+        },
+        {});
 
     const ApiResponse status =
         controller.getStatus("default");
@@ -149,6 +198,8 @@ int main()
         controller.getFolder("default", "", 20, 0);
 
     assert(root.statusCode == 200);
+    assert(manualBatchLookupCalls == 1);
+    assert(manualLookupCalls == 0);
     assert(contains(root.body, "\"recordingFolder\":true"));
     assert(contains(root.body, "\"Series\""));
     assert(contains(root.body, "\"Movies\""));
@@ -160,11 +211,29 @@ int main()
     assert(contains(root.body, "\"placeholderVariant\":"));
     assert(contains(root.body, "\"singleRecordingLeaf\":true"));
     assert(contains(root.body, "\"singleRecording\":{\"id\":\"drama-1\""));
+    assert(contains(root.body, "\"source\":\"manual\""));
+    assert(contains(
+        root.body,
+        "\"title\":\"Face/Off - Im Körper des Feindes\""));
+    assert(contains(
+        root.body,
+        "\"summary\":\"Manuell ausgewählte Beschreibung\""));
+    assert(contains(
+        root.body,
+        "\"manualAssignment\":{\"active\":true,\"revision\":3"));
+    assert(contains(
+        root.body,
+        "\"posterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2F2026-07-03.20.15.1-0.rec&kind=preferred&index=0\""));
+    assert(!contains(
+        root.body,
+        "/var/cache/vdr-suite/recording-metadata/posters/manual.webp"));
 
     const ApiResponse series =
         controller.getFolder("default", "Series", 20, 0);
 
     assert(series.statusCode == 200);
+    assert(manualBatchLookupCalls == 2);
+    assert(manualLookupCalls == 0);
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
     assert(contains(series.body, "\"metadata\":{"));
@@ -173,6 +242,8 @@ int main()
         controller.getFolder("default", "", 20, 0);
 
     assert(rootAgain.statusCode == 200);
+    assert(manualBatchLookupCalls == 3);
+    assert(manualLookupCalls == 0);
     assert(traceState.recordingInventoryReads == 0);
 
     sqlite3_trace_v2(
@@ -184,6 +255,7 @@ int main()
     const ApiResponse nativeMetadata = controller.getMetadata(
         "default",
         "/srv/vdr/video/Movies/Movie/2026-07-02.20.15.1-0.rec");
+    assert(manualLookupCalls == 1);
     assert(nativeMetadata.statusCode == 200);
     assert(contains(nativeMetadata.body, "\"available\":true"));
     assert(contains(nativeMetadata.body, "\"provider\":\"tvscraper\""));
@@ -193,6 +265,7 @@ int main()
     const ApiResponse missingMetadata = controller.getMetadata(
         "default",
         "/srv/vdr/video/Movies/Missing.rec");
+    assert(manualLookupCalls == 2);
     assert(missingMetadata.statusCode == 200);
     assert(contains(missingMetadata.body, "\"available\":false"));
 

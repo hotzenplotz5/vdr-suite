@@ -5,6 +5,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_STATUS = ROOT / "docs/development/current-status.md"
 AGENT_RULES = ROOT / "AGENTS.md"
+NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 
 # GitHub update safety rules for future assistants:
 #
@@ -26,6 +27,14 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   stabilization head or before a gated runtime/review/merge operation.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
+# - Every executable command supplied to the user must remain inside an
+#   ordinary fenced Markdown code block, preferably tagged bash.
+# - A daemon build-and-install request must produce one concise ordinary bash
+#   block containing only the verified checkout, build, install and service
+#   commands unless the user explicitly requests additional scope.
+# - Established-host instructions must use git pull --ff-only and must not add
+#   package-management commands unless the user requests them or a real build
+#   failure proves a missing dependency.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
@@ -44,6 +53,23 @@ REQUIRED_AGENT_RULES = [
     "Do not mark a Draft pull request Ready",
 ]
 
+REQUIRED_NEW_CHAT_HANDOFF_RULES = [
+    "## Command presentation contract",
+    "Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block",
+    "Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats",
+    "the final answer must contain those commands in ordinary copyable Markdown code blocks",
+    "## Binding daemon build and installation manifest",
+    "Use the heading `## Lokaler Bau, Test und Installation`.",
+    "provide exactly one ordinary fenced Markdown `bash` code block",
+    "The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.",
+    "For the established development or yaVDR host, the required sequence is:",
+    "`git pull --ff-only` is mandatory in this established-checkout workflow.",
+    "Never include `apt-get update`, `apt update`, `apt-get install`, `apt install`",
+    "Do not clone a second checkout when the user is updating the established repository checkout.",
+    "Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.",
+    "Supply the shortest complete sequence that safely performs the requested daemon build and installation.",
+]
+
 REQUIRED_GUARDRAIL_RULES = [
     "Never replace a complete existing file through GitHub update_file from a",
     "truncated or partial fetch.",
@@ -56,6 +82,12 @@ REQUIRED_GUARDRAIL_RULES = [
     "Do not wait for GitHub Actions after every commit.",
     "Evaluate CI at the final",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
+    "Every executable command supplied to the user must remain inside an",
+    "ordinary fenced Markdown code block, preferably tagged bash.",
+    "A daemon build-and-install request must produce one concise ordinary bash",
+    "block containing only the verified checkout, build, install and service",
+    "Established-host instructions must use git pull --ff-only",
+    "package-management commands unless the user requests them",
 ]
 
 
@@ -66,6 +98,8 @@ def main() -> int:
         missing.append("docs/development/current-status.md is missing")
     if not AGENT_RULES.exists():
         missing.append("AGENTS.md is missing")
+    if not NEW_CHAT_HANDOFF.exists():
+        missing.append("docs/NEW-CHAT-HANDOFF.md is missing")
 
     current_status_text = (
         CURRENT_STATUS.read_text(encoding="utf-8")
@@ -77,6 +111,11 @@ def main() -> int:
         if AGENT_RULES.exists()
         else ""
     )
+    new_chat_handoff_text = (
+        NEW_CHAT_HANDOFF.read_text(encoding="utf-8")
+        if NEW_CHAT_HANDOFF.exists()
+        else ""
+    )
     own_text = Path(__file__).read_text(encoding="utf-8")
 
     for item in REQUIRED_CURRENT_STATUS_RULES:
@@ -86,6 +125,10 @@ def main() -> int:
     for item in REQUIRED_AGENT_RULES:
         if item not in agent_rules_text:
             missing.append("AGENTS.md missing rule: " + item)
+
+    for item in REQUIRED_NEW_CHAT_HANDOFF_RULES:
+        if item not in new_chat_handoff_text:
+            missing.append("NEW-CHAT-HANDOFF.md missing rule: " + item)
 
     for item in REQUIRED_GUARDRAIL_RULES:
         if item not in own_text:

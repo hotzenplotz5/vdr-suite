@@ -25,79 +25,55 @@ public:
         const std::string& capability) const override
     {
         if (capability == "snapshot.read")
-        {
             return fromSupportedFlag(capability, capabilities_.snapshotRead);
-        }
-
         if (capability == "status.read")
-        {
             return fromSupportedFlag(capability, capabilities_.statusRead);
-        }
-
         if (capability == "health.read")
-        {
             return fromSupportedFlag(capability, capabilities_.healthRead);
-        }
-
         if (capability == "recordings.read")
-        {
             return fromSupportedFlag(capability, capabilities_.recordingsRead);
-        }
-
         if (capability == "timers.read")
-        {
             return fromSupportedFlag(capability, capabilities_.timersRead);
-        }
-
         if (capability == "channels.read")
-        {
             return fromSupportedFlag(capability, capabilities_.channelsRead);
-        }
-
         if (capability == "events.read")
-        {
             return fromSupportedFlag(capability, capabilities_.eventsRead);
-        }
-
         if (capability == "events.read.selective")
-        {
             return fromSupportedFlag(capability, capabilities_.eventsSelectiveRead);
-        }
-
         if (capability == "epg.search.fuzzy.fallback")
-        {
             return fromSupportedFlag(capability, capabilities_.epgSearchFuzzyFallback);
-        }
-
         if (capability == "epg.search.fuzzy.native")
-        {
             return fromSupportedFlag(capability, capabilities_.epgSearchFuzzyNative);
-        }
-
         if (capability == "searchtimer.preview.native")
-        {
             return fromSupportedFlag(capability, capabilities_.searchTimerPreviewNative);
-        }
-
         if (capability == "remote.control")
-        {
             return fromSupportedFlag(capability, capabilities_.remoteControl);
-        }
-
         if (capability == "live.overlay.read")
-        {
             return fromSupportedFlag(capability, capabilities_.liveOverlayRead);
-        }
-
         if (capability == "osd.view")
-        {
             return fromSupportedFlag(capability, capabilities_.osdView);
-        }
-
         if (capability == "osd.control")
-        {
             return fromSupportedFlag(capability, capabilities_.osdControl);
-        }
+        if (capability == "metadata.recording.manualSearch")
+            return fromSupportedFlag(
+                capability,
+                capabilities_.recordingMetadataManualSearch);
+        if (capability == "metadata.recording.manualAssignment")
+            return fromSupportedFlag(
+                capability,
+                capabilities_.recordingMetadataManualAssignment);
+        if (capability == "metadata.recording.manualAssignment.movie")
+            return fromSupportedFlag(
+                capability,
+                capabilities_.recordingMetadataManualMovie);
+        if (capability == "metadata.recording.manualAssignment.series")
+            return fromSupportedFlag(
+                capability,
+                capabilities_.recordingMetadataManualSeries);
+        if (capability == "metadata.recording.manualAssignment.episode")
+            return fromSupportedFlag(
+                capability,
+                capabilities_.recordingMetadataManualEpisode);
 
         return CapabilityState::unsupported(
             capability,
@@ -109,11 +85,7 @@ private:
         const std::string& capability,
         bool supported)
     {
-        if (supported)
-        {
-            return CapabilityState::available(capability);
-        }
-
+        if (supported) return CapabilityState::available(capability);
         return CapabilityState::unsupported(
             capability,
             "capability unsupported by backend");

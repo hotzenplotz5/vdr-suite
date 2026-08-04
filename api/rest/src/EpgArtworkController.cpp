@@ -47,6 +47,11 @@ std::string contentTypeForPath(const std::filesystem::path& path)
         return "image/png";
     }
 
+    if (extension == ".webp")
+    {
+        return "image/webp";
+    }
+
     return "";
 }
 

@@ -91,6 +91,18 @@ Legacy Basic remains an explicitly transitional deployment mode. `enforced` is t
 - Do not start Phase 63 without a separate bounded contract.
 - Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can complete the bounded operation safely and the complete current file has been read.
+
+Use local edits first only when the change requires:
+
+- compilation or generated-output inspection before committing;
+- a multi-file transformation that cannot be represented safely through bounded GitHub updates;
+- a workaround because the GitHub connector blocks a file operation.
+
+Never infer a local checkout path. Repository-relative commands require a verified checkout path and verified repository identity.
+
 ## Exact next action
 
 1. Complete route-derived authorization/audit scope for the series-artwork settings POST.

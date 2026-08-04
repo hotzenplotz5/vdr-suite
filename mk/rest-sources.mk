@@ -34,10 +34,18 @@ REST_LIVE_REMOTE_SRC := \
         api/rest/src/LiveOverlayController.cpp \
         api/rest/src/LiveRemoteApiRuntime.cpp
 
+REST_MANUAL_RECORDING_METADATA_SRC := \
+        $(METADATA_PLATFORM_SRC) \
+        $(MANUAL_RECORDING_METADATA_SRC) \
+        core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp \
+        core/http/src/CurlExternalArtworkHttpTransport.cpp \
+        api/rest/src/ManualRecordingMetadataApiRuntime.cpp
+
 REST_ROUTER_SRC := \
         $(GLOBAL_SEARCH_SRC) \
         $(GENRE_BROWSER_REST_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
+        $(REST_MANUAL_RECORDING_METADATA_SRC) \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \

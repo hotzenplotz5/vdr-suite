@@ -117,6 +117,38 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 Keep `main` stable, finish the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, then refresh the post-Phase-62 security evidence. Start Phase 63 only after a separate approved contract.
 
+## Command presentation contract
+
+Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block, preferably tagged `bash`.
+
+- Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats with IDs or metadata.
+- Keep explanations outside the code block.
+- Put complete, directly executable command sequences inside the code block.
+- Use separate code blocks for logically separate steps when that improves safe execution.
+- Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
+- When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
+
+## Binding daemon build and installation manifest
+
+When the user asks for the commands to build and install the VDR-Suite daemon, every new chat must use the following response contract as the authoritative default:
+
+- Use the heading `## Lokaler Bau, Test und Installation`.
+- Write at most one short introductory sentence, then provide exactly one ordinary fenced Markdown `bash` code block.
+- The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.
+- Put the complete directly executable command sequence in that one block; do not fragment it into a prose tutorial or many small code blocks.
+- For the established development or yaVDR host, the required sequence is: enter the verified existing checkout, verify repository identity and a clean worktree, `git switch` to the requested branch, `git pull --ff-only origin <branch>`, verify the exact expected commit, `make clean`, build the daemon, stop `vdr-suite-daemon`, run `sudo make install PREFIX=/usr`, run `sudo systemctl daemon-reload`, then enable/start or restart the service and verify the installed daemon and service state.
+- `git pull --ff-only` is mandatory in this established-checkout workflow. Do not silently replace it with a custom `git fetch` plus merge sequence when giving the user installation commands.
+- Never include `apt-get update`, `apt update`, `apt-get install`, `apt install` or any other package-management command in the ordinary branch build-and-install instructions for the established host.
+- Add package-management commands only when the user explicitly requests dependency installation or an actual build failure has demonstrated a missing dependency. Do not assume a fresh system and do not proactively refresh package lists.
+- Do not clone a second checkout when the user is updating the established repository checkout. Use the verified existing checkout and pull the requested branch.
+- Keep the requested scope narrow. Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
+- Do not turn the answer into a giant all-purpose shell script. Supply the shortest complete sequence that safely performs the requested daemon build and installation.
+- Do not repeat the same commands in explanatory prose. The copyable Bash block is the primary deliverable.
+
+The canonical established-host flow is therefore exactly: `git switch`, `git pull --ff-only`, `make clean`, daemon build, service stop, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, and service start or restart. No package installation and no `apt-get update` belong in that answer unless explicitly requested or proven necessary by a real dependency failure.
+
+This manifest overrides any tendency to provide a fresh-system setup, dependency bootstrap, long step-by-step installation essay or generalized deployment script when the user asked only for the existing checkout to be updated, built and installed.
+
 ## Credential and secret restrictions
 
 Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.

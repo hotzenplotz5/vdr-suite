@@ -57,11 +57,14 @@ int main()
     const std::filesystem::path databasePath = root / "artwork.sqlite";
     const std::filesystem::path allowedRoot = root / "allowed";
     const std::filesystem::path jpegPath = allowedRoot / "still.jpg";
+    const std::filesystem::path webpPath = allowedRoot / "poster.webp";
     const std::filesystem::path textPath = allowedRoot / "still.txt";
     const std::filesystem::path outsidePath = root / "outside.jpg";
 
     const std::string jpegBytes("\xff\xd8\xff\xe0test-jpeg", 13);
+    const std::string webpBytes("RIFF\x0c\x00\x00\x00WEBPVP8 ", 16);
     writeBinaryFile(jpegPath, jpegBytes);
+    writeBinaryFile(webpPath, webpBytes);
     writeBinaryFile(textPath, "not-an-image");
     writeBinaryFile(outsidePath, jpegBytes);
 
@@ -73,6 +76,7 @@ int main()
     assert(repository.upsert(makeArtwork("1001", jpegPath)));
     assert(repository.upsert(makeArtwork("1002", outsidePath)));
     assert(repository.upsert(makeArtwork("1003", textPath)));
+    assert(repository.upsert(makeArtwork("1004", webpPath)));
 
     EpgArtworkController controller(
         repository,
@@ -86,6 +90,15 @@ int main()
     assert(found.contentType == "image/jpeg");
     assert(found.body == jpegBytes);
     assert(found.body.find(jpegPath.string()) == std::string::npos);
+
+    const ApiResponse webp = controller.getArtwork(
+        "default",
+        "S19.2E-1-1019-10301",
+        "1004");
+    assert(webp.statusCode == 200);
+    assert(webp.contentType == "image/webp");
+    assert(webp.body == webpBytes);
+    assert(webp.body.find(webpPath.string()) == std::string::npos);
 
     const ApiResponse missing = controller.getArtwork(
         "default",

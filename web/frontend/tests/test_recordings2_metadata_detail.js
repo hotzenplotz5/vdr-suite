@@ -16,6 +16,7 @@ const document = {
       dataset: {},
       hidden: false,
       children: [],
+      textContent: '',
       classList: { add() {} },
       setAttribute() {},
       addEventListener() {},
@@ -35,6 +36,13 @@ const window = {
       requestedPath = path;
       requestedOptions = options;
       return Promise.resolve({available: false});
+    }
+  },
+  VdrSuitePublicUrl: {
+    resolvePath(path) {
+      const value = String(path || '');
+      if (value === '/vdr-suite' || value.startsWith('/vdr-suite/')) return value;
+      return '/vdr-suite' + value;
     }
   }
 };
@@ -76,6 +84,90 @@ assert.strictEqual(
   true
 );
 assert.strictEqual(api.isPublicMetadataImageUrl('https://image.tmdb.org/example.jpg'), false);
+assert.strictEqual(
+  api.assignmentRuntimePath(),
+  '/vdr-suite/frontend/recordings2-metadata-assignment.js'
+);
+
+const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
+const metadataImage = {
+  src: '',
+  getAttribute(name) { return name === 'src' ? metadataImagePath : null; }
+};
+api.repairMetadataImagePaths({
+  querySelectorAll(selector) {
+    assert.strictEqual(
+      selector,
+      '.recordings2-metadata-image img,.recordings2-person-image'
+    );
+    return [metadataImage];
+  }
+});
+assert.strictEqual(metadataImage.src, '/vdr-suite' + metadataImagePath);
+
+const heading = {textContent: 'Alter technischer Titel'};
+const summary = {textContent: 'Alte Beschreibung'};
+const detailPoster = {
+  children: [],
+  textContent: '▶',
+  replaceChildren() { this.children = Array.from(arguments); this.textContent = ''; }
+};
+const detailRoot = {
+  querySelector(selector) {
+    if (selector === '.recordings2-detail-copy h3') return heading;
+    if (selector === '.recordings2-detail-description') return summary;
+    if (selector === '.recordings2-detail-poster') return detailPoster;
+    return null;
+  }
+};
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Face/Off – Im Körper des Feindes',
+  overview: 'Manuell ausgewählte Beschreibung',
+  preferredArtwork: {
+    available: true,
+    url: metadataImagePath
+  },
+  manualAssignment: {
+    active: true,
+    relationshipLocked: true
+  }
+});
+assert.strictEqual(heading.textContent, 'Face/Off – Im Körper des Feindes');
+assert.strictEqual(summary.textContent, 'Manuell ausgewählte Beschreibung');
+assert.strictEqual(detailPoster.children.length, 1);
+assert.strictEqual(detailPoster.children[0].src, '/vdr-suite' + metadataImagePath);
+assert.strictEqual(
+  detailPoster.children[0].alt,
+  'Poster zu Face/Off – Im Körper des Feindes'
+);
+
+heading.textContent = 'Pfadtitel bleibt';
+summary.textContent = 'Fallback bleibt';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Automatischer Titel',
+  overview: 'Automatische Beschreibung',
+  preferredArtwork: {
+    available: true,
+    url: '/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+  }
+});
+assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
+assert.strictEqual(summary.textContent, 'Fallback bleibt');
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+);
+
+window.VdrSuitePublicUrl = null;
+assert.strictEqual(
+  api.assignmentRuntimePath(),
+  '/frontend/recordings2-metadata-assignment.js'
+);
+metadataImage.src = 'unchanged';
+api.repairMetadataImagePaths({querySelectorAll() { return [metadataImage]; }});
+assert.strictEqual(metadataImage.src, 'unchanged');
 
 api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote').then(() => {
   assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');

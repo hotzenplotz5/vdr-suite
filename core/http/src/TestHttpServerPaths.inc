@@ -29,6 +29,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2-metadata-view.js", "recordings2-metadata-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2.js", "recordings2.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-metadata-detail.js", "recordings2-metadata-detail.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/recordings2-metadata-assignment.js", "recordings2-metadata-assignment.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/epg-searchtimer-actions.js", "epg-searchtimer-actions.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/epg-detail-owner.js", "epg-detail-owner.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-browser.js", "channel-browser.js", "application/javascript; charset=utf-8", nullptr},

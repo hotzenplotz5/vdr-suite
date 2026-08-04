@@ -35,12 +35,17 @@ int main()
 
     assert(report.backendId() == "mock-backend");
     assert(!report.empty());
-    assert(report.size() == 15);
+    assert(report.size() == 20);
 
     bool sawRemoteControl = false;
     bool sawLiveOverlayRead = false;
     bool sawOsdView = false;
     bool sawOsdControl = false;
+    bool sawManualSearch = false;
+    bool sawManualAssignment = false;
+    bool sawManualMovie = false;
+    bool sawManualSeries = false;
+    bool sawManualEpisode = false;
 
     for (const auto& state : report.capabilities())
     {
@@ -59,12 +64,27 @@ int main()
             state.capabilityName() == "live.overlay.read";
         sawOsdView = sawOsdView || state.capabilityName() == "osd.view";
         sawOsdControl = sawOsdControl || state.capabilityName() == "osd.control";
+        sawManualSearch = sawManualSearch ||
+            state.capabilityName() == "metadata.recording.manualSearch";
+        sawManualAssignment = sawManualAssignment ||
+            state.capabilityName() == "metadata.recording.manualAssignment";
+        sawManualMovie = sawManualMovie ||
+            state.capabilityName() == "metadata.recording.manualAssignment.movie";
+        sawManualSeries = sawManualSeries ||
+            state.capabilityName() == "metadata.recording.manualAssignment.series";
+        sawManualEpisode = sawManualEpisode ||
+            state.capabilityName() == "metadata.recording.manualAssignment.episode";
     }
 
     assert(sawRemoteControl);
     assert(sawLiveOverlayRead);
     assert(sawOsdView);
     assert(sawOsdControl);
+    assert(sawManualSearch);
+    assert(sawManualAssignment);
+    assert(sawManualMovie);
+    assert(sawManualSeries);
+    assert(sawManualEpisode);
 
     VdrCapabilitySet enabledCapabilities =
         VdrCapabilitySet::snapshotReadOnly();
@@ -80,6 +100,10 @@ int main()
     assert(enabledResolver.state("live.overlay.read").availableNow());
     assert(enabledResolver.state("osd.view").availableNow());
     assert(!enabledResolver.state("osd.control").availableNow());
+    assert(enabledResolver.state(
+        "metadata.recording.manualSearch").availableNow());
+    assert(enabledResolver.state(
+        "metadata.recording.manualAssignment.episode").availableNow());
 
     VdrCapabilitySet emptyCapabilities;
     CapabilityResolver emptyResolver(emptyCapabilities);
@@ -93,7 +117,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 15);
+    assert(emptyReport.size() == 20);
 
     for (const auto& state : emptyReport.capabilities())
     {
