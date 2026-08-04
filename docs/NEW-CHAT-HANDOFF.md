@@ -2,21 +2,21 @@
 
 ## Purpose
 
-This is the canonical entry point for every new VDR-Suite chat. A new chat alone is not a changed repository or runtime fingerprint. Do not repeat accepted Phase-62 analysis, CI or real-runtime acceptance without a directly relevant change.
+This is the canonical entry point for every new VDR-Suite chat. Repository, pull-request and runtime facts must be checked against the current `main` branch; do not repeat historical acceptance work without a directly relevant runtime change.
 
 ## Canonical reading
 
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
+- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
-- [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Completed Phases](development/completed-phases.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Decision Records](adr/index.md)
-- [Strict Roadmap](planning/roadmap.md)
-- [Phase Map](planning/phase-map.md)
-- [Completed Phases](development/completed-phases.md)
 - [Agent Workflow Rules](../AGENTS.md)
 
 ## Stable project position
@@ -25,49 +25,53 @@ This is the canonical entry point for every new VDR-Suite chat. A new chat alone
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Phase 62 repository state:
+completed and merged through PR #117
+
 Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
+Current active numbered runtime phase:
 none; Phase 63 is planned but not started
 
 Phase 63-67 runtime:
 not advanced
 ```
 
-## Active workstream
+There is no active Phase-62 PR or Phase-62 branch workflow. PR #117 was merged as `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`.
+
+## Current post-Phase-62 baseline
+
+The latest runtime/frontend baseline before this documentation refresh is:
 
 ```text
-Repository: hotzenplotz5/vdr-suite
-Checkout: /home/yavdr/vdr-suite-phase62
-Local branch: phase62-pr117
-Remote branch: phase-62-security-identity-foundation
-Pull request: #117
-Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-PR state: open, Draft, unmerged, mergeable
+main @ 2d04a963054e9925f6b8cb12392b188a89e11f07
 ```
 
-PR #117 must not be marked Ready, merged, auto-merged, rebased, force-pushed or have Base, title, body, reviewers or other review/merge metadata changed without explicit repository-owner approval.
+Relevant completed post-Phase-62 work:
 
-PR #118 is the separate paused TVScraper workstream.
+- PR #118: TVScraper classification and refresh corrections;
+- PR #123: public-base-path-safe EPG artwork resolution;
+- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure per-backend settings, TVScraper identity preservation and poster/cover preference;
+- direct channel-detail layout correction `96b97378` plus regression test `2d04a963`.
 
-## Final installed Phase 62 runtime
+PR #132 was merged as:
 
-**VERIFIED on 2026-08-02:**
+```text
+441e5febf7d3ab0121a585ce1176a8e5a7c67ce0
+```
+
+Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation additionally proved persisted `provider=tmdb` fallback assets and successful frontend delivery. The channel-detail text-layout correction was installed and confirmed in the browser.
+
+## Phase 62 completion evidence
+
+The historical Phase-62 runtime acceptance remains the durable completion evidence for its accepted candidate:
 
 ```text
 PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
@@ -81,30 +85,30 @@ runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-The temporary Slice-2X systemd override was removed and the normal service was active. Do not rerun this acceptance without a relevant daemon, outcome-accountability, routing-order, database-isolation, systemd-entrypoint or harness change.
+This evidence closes Phase 62. It is historical evidence for that accepted runtime fingerprint, not a claim that every later daemon build is byte-identical.
 
-## Completed Phase 62 result
+## Current security position
 
-Phase 62 provides persistent identity, exact scoped authorization, fixed roles, browser-session lifecycle and CSRF policy, complete central POST classification, append-only allow/deny accountability, lifecycle outcomes and protected mutation success/failure outcomes.
+The post-Phase-62 series-artwork settings POST is integrated into the Phase-62 protected-mutation model: scoped permission, Read-only denial, browser CSRF, pre-dispatch accountability and success/failure outcomes remain active. Managed TMDB tokens are stored in a private secret directory and are not returned by the API or copied into accountability events.
 
-The runtime acceptance proves exact HTTP 200 `operation.succeeded` and HTTP 500 `operation.failed` event pairs with actor, decision, operation, request and correlation continuity and no secret persistence.
+No known authentication, authorization, CSRF, Read-only-role or cross-backend write bypass was introduced by PRs #118, #123 or #132. See the dedicated [Post-Phase-62 Security Review](development/post-phase-62-security-review.md) for the evidence boundary and the small remaining audit-scope hardening recommendation.
 
 ## Compatibility-retirement decision
 
-Legacy Basic compatibility remains transitional and is intentionally retained. Immediate removal is not ready because `legacy-basic` remains the code default and packaged deployments do not yet require migration to `enforced`.
+Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase-62 work.
 
-This is the explicit Phase-62 retirement decision. Removal requires a separate future deployment-migration contract and is not an unclosed Phase-62 slice.
+## Current work boundary
 
-## Rejected and deferred work
-
-Do not reopen Phase 62 merely to add audit products, generic security administration, native/service credential lifecycle without a concrete consumer, universal revision/idempotency infrastructure, transactional Outbox, Android, Android TV or Phase 63-67 runtime.
+- Phase 62 is completed and must not be reopened merely to add optional security administration, audit products, universal idempotency, generic Outbox infrastructure or speculative credential lifecycle.
+- Phase 63 begins only with a new bounded contract.
+- TVScraper remains upstream and unchanged; VDR-Suite integrates through `vdr-plugin-suite-bridge`.
+- External series-artwork fallback requires a deterministic series identity and does not perform title/fuzzy search.
+- Unknown central POST routes remain subject to the Phase-62 fail-closed policy outside explicit Legacy Basic compatibility.
 
 ## Exact next action
 
-1. Verify all five jobs green on the final Phase-62 closeout documentation head.
-2. Ask for explicit approval before changing PR #117 metadata, marking Ready for Review or merging.
-3. Begin Phase 63 only with a new bounded contract after PR #117 disposition.
+Keep `main` stable, finish the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, then refresh the post-Phase-62 security evidence. Start Phase 63 only after a separate approved contract.
 
 ## Credential and secret restrictions
 
-Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, secret-bearing login responses or process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.
