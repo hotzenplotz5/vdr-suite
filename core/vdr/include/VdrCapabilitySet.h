@@ -18,6 +18,11 @@ public:
     bool liveOverlayRead = false;
     bool osdView = false;
     bool osdControl = false;
+    bool recordingMetadataManualSearch = false;
+    bool recordingMetadataManualAssignment = false;
+    bool recordingMetadataManualMovie = false;
+    bool recordingMetadataManualSeries = false;
+    bool recordingMetadataManualEpisode = false;
 
     static VdrCapabilitySet snapshotReadOnly()
     {
@@ -34,6 +39,11 @@ public:
         capabilities.epgSearchFuzzyFallback = true;
         capabilities.epgSearchFuzzyNative = false;
         capabilities.searchTimerPreviewNative = false;
+        capabilities.recordingMetadataManualSearch = true;
+        capabilities.recordingMetadataManualAssignment = true;
+        capabilities.recordingMetadataManualMovie = true;
+        capabilities.recordingMetadataManualSeries = true;
+        capabilities.recordingMetadataManualEpisode = true;
 
         return capabilities;
     }
