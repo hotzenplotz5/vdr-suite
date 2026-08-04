@@ -2,59 +2,60 @@
 
 ## Navigation
 
-- [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
-- [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Architecture Decision Records](adr/index.md)
+- [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
-- [Completed Phases](development/completed-phases.md)
+- [Documentation Index](index.md)
 
 ## Current verified position
 
 ```text
 Repository: hotzenplotz5/vdr-suite
-Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-Active PR: #117
-PR state: open, Draft, unmerged, mergeable
-Remote branch: phase-62-security-identity-foundation
-Local yaVDR branch: phase62-pr117
-Local checkout: /home/yavdr/vdr-suite-phase62
+Current branch authority: main
+Post-Phase-62 runtime/frontend baseline before this documentation refresh:
+2d04a963054e9925f6b8cb12392b188a89e11f07
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Phase 62 state:
+completed and merged through PR #117
+
 Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
-
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
+Current active numbered runtime phase:
 none; Phase 63 is planned but not started
-
-Phase 62 state:
-completed
 
 Phase 63-67 runtime:
 not advanced
 ```
+
+PR #117 is merged, not open or Draft. Its merge commit is `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`.
+
+## Completed post-Phase-62 work
+
+The current platform additionally includes:
+
+- TVScraper genre-classification and refresh corrections from PR #118;
+- EPG artwork resolution under public base paths from PR #123;
+- guarded series-artwork fallback from PR #132;
+- TVmaze and TMDB provider integration without browser access to provider credentials;
+- secure per-backend series-artwork settings and managed TMDB-token storage;
+- deterministic TVDB/TMDB series identity preservation through SuiteBridge;
+- series/season cover preference before episode images;
+- poster-first TMDB selection with deterministic backdrop fallback;
+- frontend correction keeping channel-detail text beside artwork on wide layouts.
+
+PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation proved multiple persisted `provider=tmdb` fallback rows, valid cached image files and browser delivery.
 
 ## Final Phase 62 runtime evidence
 
@@ -63,7 +64,6 @@ PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
 accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
 source_ci_run_number=6884
 source_ci_run_id=30752351218
-source_ci_url=https://github.com/hotzenplotz5/vdr-suite/actions/runs/30752351218
 daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
 loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
@@ -71,43 +71,28 @@ runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-The accepted candidate remains installed, the temporary Slice-2X systemd override was removed and `vdr-suite-daemon.service` was active after acceptance.
+This remains the durable completion evidence for the accepted Phase-62 runtime. Later daemon changes do not reopen the phase, but they are not covered byte-for-byte by this historical fingerprint.
 
-Do not repeat Slice 2X without a directly relevant changed daemon, outcome-accountability, routing-order, database-isolation, systemd-entrypoint or harness fingerprint.
+## Current security position
 
-## Completed Phase 62 result
+Phase-62 identity, exact backend-scoped authorization, fixed Admin/Read-only roles, browser-session lifecycle, CSRF, fail-closed central POST classification and append-only allow/deny/outcome accountability remain present.
 
-The completed runtime includes:
+The series-artwork settings POST added after Phase 62 is classified as a protected mutation and uses a dedicated backend-scoped permission. Browser callers require CSRF; Read-only actors are denied; successful and failed authorized responses receive operation outcomes. Managed TMDB tokens are kept beneath the private secret root and are not returned to the browser or written to accountability events.
 
-- canonical persistent actor, device, session and credential identity;
-- Legacy Basic compatibility, optional Managed Basic and browser sessions;
-- strict browser-cookie precedence and cookie-bound CSRF;
-- exact actor permissions, backend scopes and fixed Admin/Read-only roles;
-- server-side protection or explicit Safe POST classification for every central POST;
-- protected Remote, Timer, Channel Move, Recording, SearchTimer, Native Fuzzy and query-scoped cache-refresh mutations;
-- immutable browser-session lifetime, optional concurrency and idle policy, issuing-credential binding and bounded terminal cleanup;
-- append-only pre-dispatch accountability and browser lifecycle outcomes;
-- protected mutation `operation.succeeded` and `operation.failed` outcomes with actor, decision, operation, request and correlation continuity;
-- guarded real-yaVDR acceptance and rollback-safe evidence tooling.
+No known Phase-62 security guarantee is bypassed by the completed post-phase work. The old runtime acceptance is historical; a dedicated current-runtime settings-mutation security acceptance remains useful strengthening. See [Post-Phase-62 Security Review](development/post-phase-62-security-review.md).
 
 ## Compatibility-retirement decision
 
-Legacy Basic compatibility remains transitional and is intentionally retained at Phase-62 closeout. Immediate removal is not deployment-ready because `legacy-basic` remains the code default and packaged configuration does not yet enforce an operator migration.
+Legacy Basic compatibility remains explicitly transitional. `enforced` mode is the fail-closed target. Retirement requires a separate deployment-migration contract and is not unfinished Phase-62 work.
 
-`enforced` mode is the target fail-closed behaviour. Actual retirement requires a separate migration contract and is not an unclosed Phase-62 implementation slice.
+## Current work boundary
 
-## Deferred, not required for Phase 62
-
-No new implementation is selected for audit HTTP reads/export, generic security administration, native/service credential lifecycle, universal revisions/idempotency, transactional Outbox, Android, Android TV or Phase 63-67 runtime.
-
-## Operating rules
-
-- Root-level `AGENTS.md` remains binding.
-- PR #117 remains open, Draft and unmerged.
-- Do not mark it Ready, merge, auto-merge, rebase, force-push or mutate Base, title, body, reviewers or review state without explicit approval.
-- PR #118 remains a separate TVScraper workstream.
-- Documentation-only closeout does not invalidate the accepted runtime fingerprint.
+- Phase 62 is complete.
+- Phase 63 has not started.
+- TVScraper remains an unchanged upstream dependency.
+- External series-artwork fallback uses deterministic provider identities only; no title/fuzzy lookup is introduced.
+- Optional audit products, generic security administration and universal Outbox/idempotency infrastructure remain outside the completed Phase-62 scope.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs green on the final Phase-62 closeout documentation head. After that, obtain explicit repository-owner approval before updating PR metadata, marking Ready for Review or merging PR #117.
+Complete the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, refresh the post-Phase-62 evidence, and begin Phase 63 only under a separate approved contract.
