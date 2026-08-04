@@ -1,5 +1,6 @@
 .PHONY: \
 	test-metadata-make-boundary \
+	test-metadata-manual-recording-architecture \
 	test-metadata-identity \
 	test-metadata-schema-contract \
 	test-metadata-manual-recording-assignment \
@@ -12,6 +13,9 @@
 
 test-metadata-make-boundary:
 	python3 tools/check_metadata_make_boundary.py
+
+test-metadata-manual-recording-architecture:
+	python3 tools/check_manual_recording_metadata_architecture.py
 
 test-metadata-identity: CXXFLAGS += -Icore/metadata/include
 test-metadata-identity:
@@ -117,6 +121,7 @@ test-metadata-genre-conflicts:
 
 test-metadata-foundation: \
 	test-metadata-make-boundary \
+	test-metadata-manual-recording-architecture \
 	test-metadata-service \
 	test-metadata-identity \
 	test-metadata-schema-contract \
