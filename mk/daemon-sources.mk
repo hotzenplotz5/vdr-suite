@@ -32,6 +32,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
+        api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         $(GENRE_BROWSER_REST_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
@@ -96,3 +97,6 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp
 
 DAEMON_SRC += $(SECURITY_SRC)
+DAEMON_SRC += $(METADATA_PLATFORM_SRC)
+DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
+DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
