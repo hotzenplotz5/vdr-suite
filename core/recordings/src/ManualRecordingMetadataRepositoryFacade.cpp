@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <map>
+#include <memory>
 #include <sqlite3.h>
 
 namespace
@@ -123,6 +124,18 @@ std::string materializePosterIfConfigured(
 }
 }
 
+ManualRecordingMetadataAssignmentRepository&
+MetadataRepository::manualRepository()
+{
+    std::lock_guard<std::mutex> lock(manualMetadataRepositoryMutex_);
+    if (!manualMetadataRepository_)
+    {
+        manualMetadataRepository_ =
+            std::make_unique<ManualRecordingMetadataAssignmentRepository>(database_);
+    }
+    return *manualMetadataRepository_;
+}
+
 bool MetadataRepository::assignManualRecordingMetadata(
     const ManualRecordingMetadataSelection& selection,
     ManualRecordingMetadataAssignment& assigned)
@@ -141,7 +154,7 @@ bool MetadataRepository::assignManualRecordingMetadata(
         resolved.providerId == "tmdb" && materializedPoster.empty())
         return false;
     resolved.posterReference = materializedPoster;
-    return manualMetadataRepository_.assign(resolved, assigned);
+    return manualRepository().assign(resolved, assigned);
 }
 
 bool MetadataRepository::withdrawManualRecordingMetadata(
@@ -152,7 +165,7 @@ bool MetadataRepository::withdrawManualRecordingMetadata(
     ManualRecordingMetadataAssignment& withdrawn)
 {
     const std::string backend = normalizedBackendId(backendId);
-    return manualMetadataRepository_.withdraw(
+    return manualRepository().withdraw(
         backend,
         resolveResourceKey(database_, backend, resourceKey),
         actorRef,
@@ -166,7 +179,7 @@ MetadataRepository::getManualRecordingMetadata(
     const std::string& resourceKey)
 {
     const std::string backend = normalizedBackendId(backendId);
-    return manualMetadataRepository_.findSelected(
+    return manualRepository().findSelected(
         backend,
         resolveResourceKey(database_, backend, resourceKey));
 }
@@ -177,7 +190,9 @@ MetadataRepository::getManualRecordingMetadataForBackend(
 {
     std::map<std::string, ManualRecordingMetadataAssignment> result;
     const std::string backend = normalizedBackendId(backendId);
-    if (!manualMetadataRepository_.ensureSchema()) return result;
+    ManualRecordingMetadataAssignmentRepository& repository =
+        manualRepository();
+    if (!repository.ensureSchema()) return result;
 
     const bool cacheAvailable = database_.tableExists("vdr_recording_cache");
     const char* sqlWithCache =
