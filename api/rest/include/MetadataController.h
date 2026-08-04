@@ -19,18 +19,55 @@ public:
     ApiResponse getMetadata();
 
     ApiResponse searchRecordingMetadataCandidates(
+        const std::string& backendId,
         const std::string& query,
         RecordingMetadataCandidateKind kind,
         int limit);
 
+    ApiResponse searchRecordingMetadataCandidates(
+        const std::string& query,
+        RecordingMetadataCandidateKind kind,
+        int limit)
+    {
+        return searchRecordingMetadataCandidates(
+            "default",
+            query,
+            kind,
+            limit);
+    }
+
+    ApiResponse getRecordingMetadataSeasons(
+        const std::string& backendId,
+        const std::string& seriesExternalId,
+        int limit);
+
     ApiResponse getRecordingMetadataSeasons(
         const std::string& seriesExternalId,
+        int limit)
+    {
+        return getRecordingMetadataSeasons(
+            "default",
+            seriesExternalId,
+            limit);
+    }
+
+    ApiResponse getRecordingMetadataEpisodes(
+        const std::string& backendId,
+        const std::string& seriesExternalId,
+        int seasonNumber,
         int limit);
 
     ApiResponse getRecordingMetadataEpisodes(
         const std::string& seriesExternalId,
         int seasonNumber,
-        int limit);
+        int limit)
+    {
+        return getRecordingMetadataEpisodes(
+            "default",
+            seriesExternalId,
+            seasonNumber,
+            limit);
+    }
 
     ManualRecordingMetadataAssignment findManualRecordingMetadata(
         const std::string& backendId,
@@ -56,8 +93,6 @@ public:
         const std::string& actorRef);
 
 private:
-    IRecordingMetadataCandidateProvider& candidateProvider();
-
     MetadataRepository& metadataRepository_;
     IRecordingMetadataCandidateProvider* candidateProvider_;
 };
