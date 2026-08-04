@@ -3,6 +3,7 @@
 #include "ApiRouter.h"
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "SecurityConfiguration.h"
+#include "SeriesArtworkSettingsSecurityRequest.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -299,8 +300,10 @@ HttpServerResponse TestHttpServer::handleRequest(
             std::move(response));
     }
 
+    const HttpServerRequest securityRequest =
+        SeriesArtworkSettingsSecurityRequest::forAuthorization(request);
     const SecurityGateDecision gate =
-        securityHttpGate_->evaluate(request);
+        securityHttpGate_->evaluate(securityRequest);
 
     if (!gate.allowed)
     {
