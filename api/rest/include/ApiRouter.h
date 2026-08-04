@@ -5,6 +5,7 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "ManualRecordingMetadataApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
@@ -179,6 +180,15 @@ public:
     {
         ApiResponse response;
 
+        ManualRecordingMetadataApiRuntime::instance().registerController(
+            metadataController_);
+        if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         if (SeriesArtworkSettingsApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
@@ -212,9 +222,21 @@ public:
 
     ApiResponse handleClientPost(
         const std::string& requestTarget,
-        const std::string& body)
+        const std::string& body,
+        const std::string& actorRef = "")
     {
         ApiResponse response;
+
+        ManualRecordingMetadataApiRuntime::instance().registerController(
+            metadataController_);
+        if (ManualRecordingMetadataApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                actorRef,
+                response))
+        {
+            return response;
+        }
 
         if (SeriesArtworkSettingsApiRuntime::instance().tryHandlePost(
                 requestTarget,
