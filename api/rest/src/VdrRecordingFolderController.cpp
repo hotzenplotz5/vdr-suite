@@ -46,30 +46,6 @@ void appendJsonString(
     json << '"';
 }
 
-void appendRecordingJson(
-    std::ostringstream& json,
-    const VdrRecording& recording)
-{
-    json << "{";
-    json << "\"id\":";
-    appendJsonString(json, recording.id);
-    json << ",\"backendId\":";
-    appendJsonString(json, recording.backendId);
-    json << ",\"backendNativeId\":";
-    appendJsonString(json, recording.backendNativeId);
-    json << ",\"title\":";
-    appendJsonString(json, recording.title);
-    json << ",\"path\":";
-    appendJsonString(json, recording.path);
-    json << ",\"startTime\":";
-    appendJsonString(json, recording.startTime);
-    json << ",\"durationSeconds\":" << recording.durationSeconds;
-    json << ",\"sizeMb\":" << recording.sizeMb;
-    json << ",\"metadata\":"
-         << VdrRecordingMetadataJsonSerializer::serialize(recording);
-    json << "}";
-}
-
 ApiResponse jsonResponse(const std::string& body)
 {
     ApiResponse response;
@@ -155,6 +131,162 @@ std::string manualImageUrl(
     return "/api/vdr/recordings/metadata/image?backend=" + encode(backendId) +
         "&backendNativeId=" + encode(backendNativeId) +
         "&kind=preferred&index=0";
+}
+
+std::string manualContentKind(
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    if (assignment.mediaType == "movie") return "movie";
+    if (assignment.mediaType == "series") return "series";
+    if (assignment.mediaType == "episode") return "series-episode";
+    return "unknown";
+}
+
+std::string manualSeasonEpisodeLabel(
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    std::ostringstream label;
+    if (assignment.seasonNumber > 0)
+    {
+        label << 'S';
+        if (assignment.seasonNumber < 10) label << '0';
+        label << assignment.seasonNumber;
+    }
+    if (assignment.episodeNumber > 0)
+    {
+        label << 'E';
+        if (assignment.episodeNumber < 10) label << '0';
+        label << assignment.episodeNumber;
+    }
+    return label.str();
+}
+
+unsigned int manualPlaceholderVariant(const std::string& value)
+{
+    unsigned int hash = 2166136261u;
+    for (const unsigned char character : value)
+    {
+        hash ^= character;
+        hash *= 16777619u;
+    }
+    return hash % 6u;
+}
+
+std::string serializeManualFolderMetadata(
+    const ManualRecordingMetadataAssignment& assignment,
+    const std::string& backendNativeId)
+{
+    const bool posterAvailable = localManualPoster(assignment.posterReference);
+    const std::string posterUrl = posterAvailable
+        ? manualImageUrl(assignment.backendId, backendNativeId)
+        : std::string{};
+    const std::string contentKind = manualContentKind(assignment);
+    const std::string seasonEpisode = manualSeasonEpisodeLabel(assignment);
+
+    std::ostringstream json;
+    json << "{\"native\":{\"eventTitle\":\"\","
+         << "\"shortText\":\"\",\"description\":\"\"},"
+         << "\"provider\":{\"available\":true,\"source\":\"manual\","
+         << "\"contentKind\":";
+    appendJsonString(json, contentKind);
+    json << ",\"movieId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "movie" ? assignment.externalId : std::string{});
+    json << ",\"seriesId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "series" ? assignment.externalId : std::string{});
+    json << ",\"episodeId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.externalId : std::string{});
+    json << ",\"title\":";
+    appendJsonString(json, assignment.title);
+    json << ",\"originalTitle\":";
+    appendJsonString(json, assignment.originalTitle);
+    json << ",\"tagline\":\"\",\"overview\":";
+    appendJsonString(json, assignment.overview);
+    json << ",\"genreText\":\"\",\"releaseDate\":";
+    appendJsonString(json, assignment.releaseDate);
+    json << ",\"seriesTitle\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "series" ? assignment.title : std::string{});
+    json << ",\"episodeTitle\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.title : std::string{});
+    json << ",\"seasonNumber\":" << assignment.seasonNumber
+         << ",\"episodeNumber\":" << assignment.episodeNumber
+         << ",\"runtimeMinutes\":0,\"rating\":0}"
+         << ",\"artwork\":{\"available\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"count\":" << (posterAvailable ? 1 : 0)
+         << ",\"posterAvailable\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"fanartAvailable\":false,\"bannerAvailable\":false,"
+         << "\"stillAvailable\":false,\"preferredAssetId\":\"\","
+         << "\"preferredUrl\":";
+    appendJsonString(json, posterUrl);
+    json << "}"
+         << ",\"presentation\":{\"title\":";
+    appendJsonString(json, assignment.title);
+    json << ",\"subtitle\":";
+    appendJsonString(json, seasonEpisode);
+    json << ",\"summary\":";
+    appendJsonString(json, assignment.overview);
+    json << ",\"contentKind\":";
+    appendJsonString(json, contentKind);
+    json << ",\"seasonEpisode\":";
+    appendJsonString(json, seasonEpisode);
+    json << ",\"posterAssetId\":\"\",\"posterUrl\":";
+    appendJsonString(json, posterUrl);
+    json << ",\"providerAvailable\":true,\"artworkPrepared\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"placeholderVariant\":"
+         << manualPlaceholderVariant(assignment.title)
+         << "}"
+         << ",\"manualAssignment\":{\"active\":true,\"revision\":"
+         << assignment.revision
+         << ",\"relationshipLocked\":"
+         << (assignment.relationshipLocked ? "true" : "false")
+         << ",\"providerId\":";
+    appendJsonString(json, assignment.providerId);
+    json << ",\"externalNamespace\":";
+    appendJsonString(json, assignment.externalNamespace);
+    json << ",\"externalId\":";
+    appendJsonString(json, assignment.externalId);
+    json << "}}";
+    return json.str();
+}
+
+void appendRecordingJson(
+    std::ostringstream& json,
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual)
+{
+    json << "{";
+    json << "\"id\":";
+    appendJsonString(json, recording.id);
+    json << ",\"backendId\":";
+    appendJsonString(json, recording.backendId);
+    json << ",\"backendNativeId\":";
+    appendJsonString(json, recording.backendNativeId);
+    json << ",\"title\":";
+    appendJsonString(json, recording.title);
+    json << ",\"path\":";
+    appendJsonString(json, recording.path);
+    json << ",\"startTime\":";
+    appendJsonString(json, recording.startTime);
+    json << ",\"durationSeconds\":" << recording.durationSeconds;
+    json << ",\"sizeMb\":" << recording.sizeMb;
+    json << ",\"metadata\":";
+    if (manual.found && manual.relationshipLocked)
+        json << serializeManualFolderMetadata(manual, recording.backendNativeId);
+    else
+        json << VdrRecordingMetadataJsonSerializer::serialize(recording);
+    json << "}";
 }
 
 std::string serializeManualMetadata(
@@ -278,6 +410,14 @@ ApiResponse VdrRecordingFolderController::getFolder(
 {
     const VdrRecordingFolderPage page = repository_.folderPageForBackend(
         backendId, path, limit, offset);
+    auto manualFor = [this, &page](const VdrRecording& recording)
+    {
+        if (!manualMetadataLookup_) return ManualRecordingMetadataAssignment{};
+        return manualMetadataLookup_(
+            recording.backendId.empty() ? page.backendId : recording.backendId,
+            recording.backendNativeId);
+    };
+
     std::ostringstream json;
     json << "{\"recordingFolder\":true,\"backendId\":";
     appendJsonString(json, page.backendId);
@@ -309,7 +449,10 @@ ApiResponse VdrRecordingFolderController::getFolder(
         if (folder.singleRecordingLeaf)
         {
             json << ",\"singleRecording\":";
-            appendRecordingJson(json, folder.singleRecording);
+            appendRecordingJson(
+                json,
+                folder.singleRecording,
+                manualFor(folder.singleRecording));
         }
         json << "}";
     }
@@ -317,7 +460,8 @@ ApiResponse VdrRecordingFolderController::getFolder(
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
     {
         if (index > 0) json << ",";
-        appendRecordingJson(json, page.recordings.at(index));
+        const VdrRecording& recording = page.recordings.at(index);
+        appendRecordingJson(json, recording, manualFor(recording));
     }
     json << "]}";
     return jsonResponse(json.str());
