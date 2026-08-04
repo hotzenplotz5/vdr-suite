@@ -125,7 +125,7 @@ PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
 accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
 source_ci_run_number=6884
 source_ci_run_id=30752351218
-installed_daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+installed_daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5cdfd3265e2b15bab6aadfbe7ef5f5
 loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
 runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
@@ -186,26 +186,66 @@ Every shell command intended for the user to copy or execute must be presented i
 - Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
 - When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
 
-## Binding daemon build and installation manifest
+## Binding branch- and PR-specific build and installation manifest
 
-When the user asks for the commands to build and install the VDR-Suite daemon, every new chat must use the following response contract as the authoritative default:
+Every installation answer must be generated for the exact requested branch or pull request. Generic installation instructions and commands copied from another PR are forbidden.
 
-- Use the heading `## Lokaler Bau, Test und Installation`.
-- Write at most one short introductory sentence, then provide exactly one ordinary fenced Markdown `bash` code block.
-- The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.
-- Put the complete directly executable command sequence in that one block; do not fragment it into a prose tutorial or many small code blocks.
-- For the established development or yaVDR host, the required sequence is: enter the verified existing checkout, verify repository identity and a clean worktree, `git switch` to the requested branch, `git pull --ff-only origin <branch>`, verify the exact expected commit, `make clean`, build the daemon, stop `vdr-suite-daemon`, run `sudo make install PREFIX=/usr`, run `sudo systemctl daemon-reload`, then enable/start or restart the service and verify the installed daemon and service state.
-- `git pull --ff-only` is mandatory in this established-checkout workflow. Do not silently replace it with a custom `git fetch` plus merge sequence when giving the user installation commands.
-- Never include `apt-get update`, `apt update`, `apt-get install`, `apt install` or any other package-management command in the ordinary branch build-and-install instructions for the established host.
-- Add package-management commands only when the user explicitly requests dependency installation or an actual build failure has demonstrated a missing dependency. Do not assume a fresh system and do not proactively refresh package lists.
-- Do not clone a second checkout when the user is updating the established repository checkout. Use the verified existing checkout and pull the requested branch.
-- Keep the requested scope narrow. Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
-- Do not turn the answer into a giant all-purpose shell script. Supply the shortest complete sequence that safely performs the requested daemon build and installation.
-- Do not repeat the same commands in explanatory prose. The copyable Bash block is the primary deliverable.
+Before producing the command block, the agent must:
 
-The canonical established-host flow is therefore exactly: `git switch`, `git pull --ff-only`, `make clean`, daemon build, service stop, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, and service start or restart. No package installation and no `apt-get update` belong in that answer unless explicitly requested or proven necessary by a real dependency failure.
+- resolve the exact requested PR and branch from GitHub;
+- resolve the exact current PR head SHA immediately before presenting the commands;
+- inspect the root `Makefile`, all included install/build makefiles such as `mk/install.mk`, relevant packaging and systemd files, and any component-specific Makefile changed or required by that exact head;
+- determine the exact build targets and whether `vdr-plugin-suite-bridge` must be rebuilt and installed;
+- never infer installation options, target names, plugin paths or service names from an older branch, older PR, README excerpt or previous chat.
 
-This manifest overrides any tendency to provide a fresh-system setup, dependency bootstrap, long step-by-step installation essay or generalized deployment script when the user asked only for the existing checkout to be updated, built and installed.
+The answer must use the heading `## Lokaler Bau, Test und Installation`, followed by at most one short sentence and exactly one ordinary fenced Markdown `bash` block without IDs, attributes or metadata.
+
+For the established yaVDR checkout, the mandatory daemon flow has this shape:
+
+```bash
+cd /home/yavdr/vdr-suite
+
+git switch <exact-branch>
+git pull --ff-only origin <exact-branch>
+
+git rev-parse HEAD
+test "$(git rev-parse HEAD)" = "<exact-head-sha>" || exit 1
+
+make clean
+make -j2 --output-sync=target <exact-required-build-targets>
+
+systemctl stop vdr-suite-daemon
+make install PREFIX=/usr
+systemctl daemon-reload
+systemctl restart vdr-suite-daemon
+
+systemctl is-active vdr-suite-daemon
+systemctl --no-pager --full status vdr-suite-daemon
+```
+
+The placeholders above define the required structure only. In a user-facing answer they must always be replaced with the exact branch, exact current head SHA and exact build targets for the requested branch or PR. Never leave placeholders in executable instructions.
+
+Additional binding rules:
+
+- `git pull --ff-only origin <exact-branch>` is mandatory for the established checkout.
+- The exact SHA guard is mandatory and must abort before build or installation when the checkout does not match the verified PR head.
+- Use `make clean` followed by `make -j2 --output-sync=target` with only the targets actually required by that branch or PR.
+- Do not add `sudo` merely as a style preference; preserve the established host execution context unless the user explicitly requests a non-root form.
+- Stop the daemon before `make install PREFIX=/usr`, then reload systemd, restart the daemon and show both `is-active` and the full service status.
+- Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.
+- Keep the answer branch-/PR-specific and as short as the complete safe flow permits.
+
+### Conditional SuiteBridge plugin installation
+
+The plugin must not be rebuilt merely because it exists in the repository.
+
+- First inspect the exact PR diff and component dependency contract.
+- When the PR does not change `vdr-plugin-suite-bridge` and the runtime change does not require a new plugin binary or contract, omit all plugin build and installation commands.
+- When the plugin is required, inspect the exact-head `vdr-plugin-suite-bridge/Makefile`, VDR `pkg-config` values and the established yaVDR service layout before writing commands.
+- Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
+- Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
+
+This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
 
 ## Credential and secret restrictions
 
