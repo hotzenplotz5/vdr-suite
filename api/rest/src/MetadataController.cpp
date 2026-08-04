@@ -12,6 +12,8 @@
 
 namespace
 {
+constexpr int MaximumManualMovieCast = 128;
+
 std::string environmentOrEmpty(const char* name)
 {
     const char* value = std::getenv(name);
@@ -157,6 +159,25 @@ ApiResponse candidateResponse(const RecordingMetadataCandidatePage& page)
     return response;
 }
 
+std::string serializePerson(const ManualRecordingMetadataPerson& person)
+{
+    std::ostringstream json;
+    json << "{\"metadataEntityId\":\""
+         << jsonEscape(person.metadataEntityId) << "\",";
+    json << "\"providerId\":\"" << jsonEscape(person.providerId) << "\",";
+    json << "\"externalNamespace\":\""
+         << jsonEscape(person.externalNamespace) << "\",";
+    json << "\"externalId\":\"" << jsonEscape(person.externalId) << "\",";
+    json << "\"name\":\"" << jsonEscape(person.name) << "\",";
+    json << "\"normalizedName\":\""
+         << jsonEscape(person.normalizedName) << "\",";
+    json << "\"role\":\"" << jsonEscape(person.role) << "\",";
+    json << "\"characterName\":\""
+         << jsonEscape(person.characterName) << "\",";
+    json << "\"order\":" << person.ordinal << "}";
+    return json.str();
+}
+
 std::string serializeAssignment(
     const ManualRecordingMetadataAssignment& assignment)
 {
@@ -191,9 +212,58 @@ std::string serializeAssignment(
         json << ",\"manual\":true";
         json << ",\"relationshipLocked\":"
              << (assignment.relationshipLocked ? "true" : "false");
+        json << ",\"castComplete\":"
+             << (assignment.castComplete ? "true" : "false");
+        json << ",\"people\":[";
+        for (std::size_t index = 0; index < assignment.people.size(); ++index)
+        {
+            if (index > 0U) json << ',';
+            json << serializePerson(assignment.people[index]);
+        }
+        json << ']';
     }
     json << "}";
     return json.str();
+}
+
+ApiResponse enrichMovieCast(
+    ManualRecordingMetadataSelection& selection,
+    IRecordingMetadataCandidateProvider& provider)
+{
+    const RecordingMetadataCastPage page = provider.movieCredits(
+        selection.externalId,
+        MaximumManualMovieCast);
+    if (!page.error.empty())
+    {
+        return errorResponse(
+            page.providerAvailable ? 502 : 503,
+            "metadata_cast_enrichment_failed",
+            page.error);
+    }
+
+    selection.people.clear();
+    selection.people.reserve(page.cast.size());
+    for (const RecordingMetadataCastMember& member : page.cast)
+    {
+        if (!member.valid())
+        {
+            return errorResponse(
+                502,
+                "metadata_cast_enrichment_failed",
+                "The provider returned an invalid cast entry");
+        }
+        ManualRecordingMetadataPerson person;
+        person.providerId = member.providerId;
+        person.externalNamespace = member.externalNamespace;
+        person.externalId = member.externalId;
+        person.name = member.name;
+        person.role = "actor";
+        person.characterName = member.characterName;
+        person.ordinal = member.order;
+        selection.people.push_back(std::move(person));
+    }
+    selection.castComplete = true;
+    return ApiResponse{};
 }
 }
 
@@ -309,6 +379,25 @@ ApiResponse MetadataController::assignManualRecordingMetadata(
     ManualRecordingMetadataSelection selection,
     const std::string& actorRef)
 {
+    if (selection.providerId == "tmdb" &&
+        selection.externalNamespace == "movie" &&
+        selection.mediaType == "movie")
+    {
+        ApiResponse enrichment;
+        if (candidateProvider_ != nullptr)
+        {
+            enrichment = enrichMovieCast(selection, *candidateProvider_);
+        }
+        else
+        {
+            TmdbRecordingMetadataCandidateProvider provider(
+                defaultTransport(),
+                providerConfig(selection.backendId));
+            enrichment = enrichMovieCast(selection, provider);
+        }
+        if (enrichment.statusCode != 0) return enrichment;
+    }
+
     selection.actorRef = actorRef;
     ManualRecordingMetadataAssignment assigned;
     if (!metadataRepository_.assignManualRecordingMetadata(selection, assigned))
