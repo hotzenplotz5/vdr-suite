@@ -25,6 +25,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-metadata-detail.js
 	node --check web/frontend/recordings2.js
 	node web/frontend/tests/test_recordings2_runtime.js
+	node web/frontend/tests/test_recordings2_folder_artwork_public_url.js
 	node web/frontend/tests/test_recordings2_actions_genre.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	python3 tools/check_recordings2_runtime_wiring.py
