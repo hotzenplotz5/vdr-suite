@@ -16,6 +16,7 @@ const document = {
       dataset: {},
       hidden: false,
       children: [],
+      textContent: '',
       classList: { add() {} },
       setAttribute() {},
       addEventListener() {},
@@ -35,6 +36,11 @@ const window = {
       requestedPath = path;
       requestedOptions = options;
       return Promise.resolve({available: false});
+    }
+  },
+  VdrSuitePublicUrl: {
+    resolvePath(path) {
+      return '/vdr-suite' + path;
     }
   }
 };
@@ -76,6 +82,15 @@ assert.strictEqual(
   true
 );
 assert.strictEqual(api.isPublicMetadataImageUrl('https://image.tmdb.org/example.jpg'), false);
+assert.strictEqual(
+  api.assignmentRuntimePath(),
+  '/vdr-suite/frontend/recordings2-metadata-assignment.js'
+);
+window.VdrSuitePublicUrl = null;
+assert.strictEqual(
+  api.assignmentRuntimePath(),
+  '/frontend/recordings2-metadata-assignment.js'
+);
 
 api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote').then(() => {
   assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
