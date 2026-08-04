@@ -54,6 +54,14 @@
     return selected && selected.dataset.backendId ? String(selected.dataset.backendId) : 'default';
   }
 
+  function publicPath(path) {
+    const value = text(path);
+    const resolver = global.VdrSuitePublicUrl;
+    return value && resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(value)
+      : value;
+  }
+
   function text(value) {
     return String(value === undefined || value === null ? '' : value).trim();
   }
@@ -116,6 +124,7 @@
   function provider(recording) { return nestedMetadata(recording, 'provider'); }
   function nativeMetadata(recording) { return nestedMetadata(recording, 'native'); }
   function artwork(recording) { return nestedMetadata(recording, 'artwork'); }
+  function manualAssignment(recording) { return nestedMetadata(recording, 'manualAssignment'); }
 
   function recordingPathTitle(recording) {
     const raw = text(first(
@@ -145,7 +154,11 @@
   }
 
   function recordingTitle(recording) {
-    return recordingPathTitle(recording) ||
+    const manualTitle = manualAssignment(recording).active === true
+      ? recordingMetadataTitle(recording)
+      : '';
+    return manualTitle ||
+      recordingPathTitle(recording) ||
       recordingNativeTitle(recording) ||
       recordingMetadataTitle(recording) ||
       'Aufnahme';
@@ -244,7 +257,7 @@
       return poster;
     }
     const image = document.createElement('img');
-    image.src = url;
+    image.src = publicPath(url);
     image.alt = 'Poster zu ' + recordingTitle(recording);
     image.loading = 'lazy';
     image.addEventListener('error', function () {
@@ -261,6 +274,7 @@
     clientApi,
     mountTarget,
     selectedBackendId,
+    publicPath,
     text,
     number,
     first,
@@ -273,6 +287,7 @@
     provider,
     nativeMetadata,
     artwork,
+    manualAssignment,
     recordingPathTitle,
     recordingNativeTitle,
     recordingMetadataTitle,
