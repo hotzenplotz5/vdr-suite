@@ -111,47 +111,105 @@ bool prepare(sqlite3* database, const std::string& sql, sqlite3_stmt** statement
         nullptr) == SQLITE_OK;
 }
 
-std::string recordingTitlePredicate()
+std::string automaticTitlePredicate()
 {
-    return "(instr(vdr_suite_fold(c.title), :q) > 0 "
-        "OR instr(vdr_suite_fold(COALESCE(m.title,'')), :q) > 0 "
-        "OR instr(vdr_suite_fold(COALESCE(m.original_title,'')), :q) > 0 "
-        "OR instr(vdr_suite_fold(COALESCE(m.episode_name,'')), :q) > 0 "
-        "OR instr(vdr_suite_recording_metadata_text(c.metadata_payload), :q) > 0)";
+    return "(instr(vdr_suite_fold(c.title),:q)>0 "
+        "OR instr(vdr_suite_fold(COALESCE(m.title,'')),:q)>0 "
+        "OR instr(vdr_suite_fold(COALESCE(m.original_title,'')),:q)>0 "
+        "OR instr(vdr_suite_fold(COALESCE(m.episode_name,'')),:q)>0 "
+        "OR instr(vdr_suite_recording_metadata_text(c.metadata_payload),:q)>0)";
 }
 
-std::string recordingPersonNameExpression()
+std::string recordingBaseSql(bool manualAvailable)
 {
-    return "COALESCE((SELECT p.name FROM vdr_recording_native_person p "
-        "WHERE p.backend_id=c.backend_id AND p.recording_key=m.recording_key "
-        "AND instr(p.name_folded,:q)>0 "
-        "ORDER BY p.name_folded,p.ordinal LIMIT 1),'')";
-}
+    const std::string nativePeople =
+        "native_person_ranked AS ("
+        "SELECT p.backend_id,p.recording_key,p.name,p.role,"
+        "ROW_NUMBER() OVER(PARTITION BY p.backend_id,p.recording_key "
+        "ORDER BY p.name_folded,p.ordinal) AS person_rank "
+        "FROM vdr_recording_native_person p "
+        "WHERE p.backend_id=:backend AND instr(p.name_folded,:q)>0)";
 
-std::string recordingPersonRoleExpression()
-{
-    return "COALESCE((SELECT p.role FROM vdr_recording_native_person p "
-        "WHERE p.backend_id=c.backend_id AND p.recording_key=m.recording_key "
-        "AND instr(p.name_folded,:q)>0 "
-        "ORDER BY p.name_folded,p.ordinal LIMIT 1),'')";
-}
+    if (!manualAvailable)
+    {
+        return
+            " WITH " + nativePeople + ","
+            "search_base AS (SELECT c.recording_id,c.backend_id,"
+            "c.backend_native_id,c.title,c.path,c.start_time,c.duration_seconds,"
+            "c.size_mb,c.metadata_payload,COALESCE(m.episode_name,'') AS episode_name,"
+            "COALESCE(m.preferred_artwork_path,'') AS preferred_artwork_path,"
+            "CASE WHEN " + automaticTitlePredicate() +
+            " THEN 1 ELSE 0 END AS title_hit,"
+            "COALESCE(np.name,'') AS matched_person,"
+            "COALESCE(np.role,'') AS matched_role "
+            "FROM vdr_recording_cache c "
+            "LEFT JOIN vdr_recording_native_metadata m "
+            "ON m.backend_id=c.backend_id "
+            "AND m.backend_native_id=c.backend_native_id "
+            "AND m.content_state='found' "
+            "LEFT JOIN native_person_ranked np "
+            "ON np.backend_id=c.backend_id AND np.recording_key=c.cache_key "
+            "AND np.person_rank=1 WHERE c.backend_id=:backend) ";
+    }
 
-std::string recordingBaseSql()
-{
-    const std::string titleHit = recordingTitlePredicate();
-    const std::string personName = recordingPersonNameExpression();
-    const std::string personRole = recordingPersonRoleExpression();
+    const std::string manualTitlePredicate =
+        "(instr(vdr_suite_fold(c.title),:q)>0 "
+        "OR instr(vdr_suite_fold(COALESCE(am.title,'')),:q)>0 "
+        "OR instr(vdr_suite_fold(COALESCE(am.original_title,'')),:q)>0)";
+
     return
-        " WITH search_base AS (SELECT c.recording_id,c.backend_id,"
-        "c.backend_native_id,c.title,c.path,c.start_time,c.duration_seconds,"
-        "c.size_mb,c.metadata_payload,COALESCE(m.episode_name,'') AS episode_name,"
-        "COALESCE(m.preferred_artwork_path,'') AS preferred_artwork_path,"
-        "CASE WHEN " + titleHit + " THEN 1 ELSE 0 END AS title_hit," +
-        personName + " AS matched_person," +
-        personRole + " AS matched_role "
-        "FROM vdr_recording_cache c LEFT JOIN vdr_recording_native_metadata m "
-        "ON m.backend_id=c.backend_id AND m.backend_native_id=c.backend_native_id "
-        "AND m.content_state='found' WHERE c.backend_id=:backend) ";
+        " WITH active_manual AS ("
+        "SELECT v.backend_id,v.resource_key,v.metadata_assignment_id,v.media_type,"
+        "v.title,v.original_title,v.poster_reference "
+        "FROM suite_metadata_manual_assignment_values v "
+        "JOIN suite_metadata_assignments a "
+        "ON a.metadata_assignment_id=v.metadata_assignment_id "
+        "WHERE v.backend_id=:backend AND a.assignment_state='selected' "
+        "AND a.manual_assignment=1 AND a.relationship_locked=1),"
+        "manual_person_ranked AS ("
+        "SELECT v.backend_id,v.resource_key,p.display_name AS name,r.role,"
+        "ROW_NUMBER() OVER(PARTITION BY v.backend_id,v.resource_key "
+        "ORDER BY p.name_folded,r.ordinal,p.external_id) AS person_rank "
+        "FROM suite_metadata_recording_person_relations r "
+        "JOIN suite_metadata_assignments a "
+        "ON a.metadata_assignment_id=r.metadata_assignment_id "
+        "JOIN suite_metadata_manual_assignment_values v "
+        "ON v.metadata_assignment_id=a.metadata_assignment_id "
+        "JOIN suite_metadata_person_values p "
+        "ON p.metadata_entity_id=r.person_entity_id "
+        "WHERE v.backend_id=:backend AND a.assignment_state='selected' "
+        "AND a.manual_assignment=1 AND a.relationship_locked=1 "
+        "AND instr(p.name_folded,:q)>0)," +
+        nativePeople + ","
+        "search_base AS (SELECT c.recording_id,c.backend_id,c.backend_native_id,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL "
+        "THEN COALESCE(NULLIF(am.title,''),c.title) ELSE c.title END AS title,"
+        "c.path,c.start_time,c.duration_seconds,c.size_mb,c.metadata_payload,"
+        "CASE WHEN am.media_type='episode' THEN am.title "
+        "ELSE COALESCE(m.episode_name,'') END AS episode_name,"
+        "CASE WHEN COALESCE(am.poster_reference,'')<>'' THEN am.poster_reference "
+        "ELSE COALESCE(m.preferred_artwork_path,'') END AS preferred_artwork_path,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL THEN CASE WHEN " +
+        manualTitlePredicate + " THEN 1 ELSE 0 END "
+        "ELSE CASE WHEN " + automaticTitlePredicate() +
+        " THEN 1 ELSE 0 END END AS title_hit,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL "
+        "THEN COALESCE(mp.name,'') ELSE COALESCE(np.name,'') END AS matched_person,"
+        "CASE WHEN am.metadata_assignment_id IS NOT NULL "
+        "THEN COALESCE(mp.role,'') ELSE COALESCE(np.role,'') END AS matched_role "
+        "FROM vdr_recording_cache c "
+        "LEFT JOIN vdr_recording_native_metadata m "
+        "ON m.backend_id=c.backend_id "
+        "AND m.backend_native_id=c.backend_native_id "
+        "AND m.content_state='found' "
+        "LEFT JOIN active_manual am "
+        "ON am.backend_id=c.backend_id AND am.resource_key=c.cache_key "
+        "LEFT JOIN manual_person_ranked mp "
+        "ON mp.backend_id=c.backend_id AND mp.resource_key=c.cache_key "
+        "AND mp.person_rank=1 "
+        "LEFT JOIN native_person_ranked np "
+        "ON np.backend_id=c.backend_id AND np.recording_key=c.cache_key "
+        "AND np.person_rank=1 WHERE c.backend_id=:backend) ";
 }
 
 std::string epgCandidateSql()
@@ -266,9 +324,6 @@ bool GlobalSearchRepository::backfillEpgPeople() const
         "WHERE json_valid(c.public_json) AND COALESCE(json_extract(j.value,'$.name'),'')<>'';";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
     {
-        // JSON1 is part of supported production SQLite builds. Keep the runtime
-        // available if an unusually small test build omits it; new writes still
-        // populate the normalized relation directly.
         return true;
     }
     const bool ok = sqlite3_step(statement) == SQLITE_DONE;
@@ -337,7 +392,12 @@ GlobalSearchResult GlobalSearchRepository::search(
 void GlobalSearchRepository::searchRecordings(GlobalSearchResult& result) const
 {
     const std::string foldedQuery = foldText(result.query);
-    const std::string base = recordingBaseSql();
+    const bool manualAvailable =
+        database_.tableExists("suite_metadata_manual_assignment_values") &&
+        database_.tableExists("suite_metadata_recording_person_relations") &&
+        database_.tableExists("suite_metadata_person_values") &&
+        database_.tableExists("suite_metadata_assignments");
+    const std::string base = recordingBaseSql(manualAvailable);
 
     sqlite3_stmt* count = nullptr;
     const std::string countSql = base +
