@@ -15,9 +15,24 @@ These rules are mandatory for every assistant continuing VDR-Suite work:
 - create and push small coherent commits at meaningful checkpoints, using fast-forward-only history and never force-pushing or rewriting published history without explicit approval;
 - use GitHub Actions as the normal repository validation path and do not invent a blanket prohibition on commits before tests; local compilation or focused local tests are only required when GitHub cannot establish the needed fact;
 - do not stop until there is a usable, tested Draft PR for the approved workstream, unless a real project-rule, safety, compatibility or decision boundary is reached;
+- end every final VDR-Suite repository response with a copyable `Lokaler Bau, Test und Installation` command block tailored to the exact active branch and change; include branch synchronization, build, focused tests, full tests, documentation/install-staging validation and repository-supported installation plus service reload/restart/status commands, and never claim that local commands were executed unless they actually were;
 - never mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit user approval.
 
 These requirements reinforce [Agent Workflow Rules](../AGENTS.md). They are not optional chat preferences and must not be replaced by assistant-invented process gates.
+
+## Required final local command block
+
+Every final VDR-Suite repository response must end with a ready-to-copy shell block under the heading `Lokaler Bau, Test und Installation`.
+
+The block must be derived from the current branch and current repository targets rather than copied blindly from an old chat. It must include:
+
+- `git fetch origin`, switching to the exact active branch and a fast-forward-only pull;
+- the applicable build target, normally `make clean` followed by `make daemon`;
+- every focused test target added or materially affected by the current work;
+- `make test`, `make test-docs` and `make test-install-staging` for complete local validation;
+- `sudo make install PREFIX=/usr`, followed by `systemctl daemon-reload`, restart and status checks for `vdr-suite-daemon`.
+
+Commands that were only supplied for the user to run must be described as such. A GitHub Actions result must never be presented as proof that these local commands were executed on the user's machine.
 
 ## Canonical reading
 
