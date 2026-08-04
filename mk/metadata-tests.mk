@@ -3,6 +3,7 @@
 	test-metadata-identity \
 	test-metadata-schema-contract \
 	test-metadata-manual-recording-assignment \
+	test-metadata-recording-candidate-provider \
 	test-metadata-genres \
 	test-metadata-genre-conflicts \
 	test-metadata-foundation
@@ -31,11 +32,22 @@ test-metadata-manual-recording-assignment:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(METADATA_PLATFORM_SRC) \
+		core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp \
 		$(METADATA_GENRE_SRC) \
 		core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_manual_recording_metadata_assignment_repository
 	$(BUILD_DIR)/test_manual_recording_metadata_assignment_repository
+
+test-metadata-recording-candidate-provider: CXXFLAGS += -Icore/metadata/include -Icore/http/include
+test-metadata-recording-candidate-provider:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/metadata/src/RecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateJson.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateProvider.cpp \
+		core/metadata/tests/test_tmdb_recording_metadata_candidate_provider.cpp \
+		-o $(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
+	$(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
 
 test-metadata-genres: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
 test-metadata-genres:
@@ -63,6 +75,7 @@ test-metadata-foundation: \
 	test-metadata-identity \
 	test-metadata-schema-contract \
 	test-metadata-manual-recording-assignment \
+	test-metadata-recording-candidate-provider \
 	test-metadata-genres \
 	test-metadata-genre-conflicts
 
