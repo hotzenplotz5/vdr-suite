@@ -263,7 +263,10 @@ ApiResponse enrichMovieCast(
         selection.people.push_back(std::move(person));
     }
     selection.castComplete = true;
-    return ApiResponse{};
+    ApiResponse success;
+    success.statusCode = 0;
+    success.contentType.clear();
+    return success;
 }
 }
 
