@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the compact authoritative entry point for completed implementation. Detailed historical records remain in [the completed-phase archive](completed-phases/README.md); future work belongs in the strict roadmap.
+This is the compact authoritative entry point for completed implementation. Detailed historical records remain in [the completed-phase archive](completed-phases/README.md); future numbered work belongs in the strict roadmap.
 
 ## Latest completed markers
 
@@ -10,16 +10,11 @@ This is the compact authoritative entry point for completed implementation. Deta
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Phase 62 repository state:
+completed and merged through PR #117
+
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
-
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
@@ -39,11 +34,15 @@ Phase 63 - Backend Agent and Secure Multi-Site Runtime
 | Phase 59.00-59.15e | Completed | Frontend Client API and module ownership. | [Phase 59](completed-phases/phase-59.md) |
 | Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recordings 2, metadata and authenticated artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
 | Phase 61 | Completed | Persistent Recording/EPG metadata, people and Genre platform, query-only browse paths and frontend integration. | [Phase 61 archive](completed-phases/phase-61.md) / [closeout](phase-61-metadata-genre-performance-closeout.md) |
-| Phase 62 | Completed | Persistent identity, scoped RBAC, browser-session lifecycle/CSRF, protected central mutations and append-only authorization/outcome evidence. | [Phase 62 closeout](phase-62-closeout.md) / [Slice 2X runtime closeout](phase-62-slice-2x-runtime-closeout.md) |
+| Phase 62 | Completed and merged | Persistent identity, scoped RBAC, browser-session lifecycle/CSRF, protected central mutations and append-only authorization/outcome evidence. | [Phase 62 closeout](phase-62-closeout.md) / [Slice 2X runtime closeout](phase-62-slice-2x-runtime-closeout.md) |
 | B1-B4 | Completed, non-numbered | EPG/metadata query, transaction, no-op and snapshot-cadence hardening. | [Performance closeout](phase-61-metadata-genre-performance-closeout.md#post-phase-61-performance-hardening) |
-| PR #110 | Completed cross-cutting feature | Current mobile Remote pressed-state and duplicate-dispatch behaviour. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
+| PR #110 | Completed cross-cutting feature | Mobile Remote pressed-state and duplicate-dispatch behaviour. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
 | PR #111 | Completed cross-cutting feature | Backend-scoped global search over persisted Recording/EPG titles, subtitles and people. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
 | PR #115 | Completed cross-cutting feature | Configurable photorealistic VDR Remote asset and interaction path. | Repository history |
+| PR #118 | Completed post-Phase-62 correction | TVScraper genre classification, overview/detail consistency and low-latency continuation. | Repository history |
+| PR #123 | Completed post-Phase-62 correction | EPG artwork resolution beneath configured public base paths. | Repository history |
+| PR #132 | Completed post-Phase-62 platform feature | Guarded external series-artwork fallback, TVmaze/TMDB providers, secure backend settings, deterministic provider identity and poster/cover preference. | [Post-Phase-62 Security Review](post-phase-62-security-review.md) / artwork architecture docs |
+| `96b97378` + `2d04a963` | Completed frontend correction | Channel-detail text remains beside artwork on wide layouts with mobile reset and regression coverage. | Repository history |
 
 ## Phase 62 durable completion marker
 
@@ -57,13 +56,19 @@ runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-Legacy Basic retirement was evaluated and explicitly deferred to a future deployment-migration contract. The transitional mode does not silently reopen Phase 62.
+PR #117 was merged as `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`. Legacy Basic retirement was evaluated and explicitly deferred to a future deployment-migration contract. The transitional mode does not silently reopen Phase 62.
+
+## Post-Phase-62 evidence boundary
+
+The Phase-62 acceptance is historical evidence for its accepted runtime candidate. Later daemon work has its own CI and functional evidence and must not claim byte identity with the Phase-62 fingerprint.
+
+PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final feature head passed VDR-Suite CI #6982 with all five jobs successful, and real yaVDR operation proved persisted TMDB fallback assets and browser delivery. The security impact and remaining focused hardening recommendation are documented in [Post-Phase-62 Security Review](post-phase-62-security-review.md).
 
 ## Completion boundaries
 
-- Phase 61 is not reopened by optional provider adapters, diagnostics or recommendation work.
-- Phase 62 is not reopened by optional audit-product, administration, generic Outbox or credential-management ideas without a new necessity proof.
-- PR #110 interaction behaviour and PR #111 global search remain completed cross-cutting features.
+- Phase 61 is not reopened by provider adapters, diagnostics or recommendation work.
+- Phase 62 is not reopened by later protected feature routes that continue to use its identity, authorization, CSRF and accountability model.
+- Historical runtime fingerprints must remain distinguishable from later daemon evidence.
 - ADR acceptance remains separate from runtime completion.
 - Phase 63-67 runtime has not been advanced.
 
@@ -73,7 +78,7 @@ Legacy Basic retirement was evaluated and explicitly deferred to a future deploy
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 ```
 
-Phase 63 requires a new bounded contract after PR #117 disposition.
+Phase 63 requires a separate bounded contract. Before starting it, complete any selected post-Phase-62 hardening as an explicit, independently tested maintenance change.
 
 ## Verification
 
@@ -87,6 +92,8 @@ make test-phase-map-coverage
 
 - [Current State](../CURRENT.md)
 - [Latest Completed Marker](completed-phases-latest.md)
+- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
