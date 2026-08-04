@@ -26,6 +26,33 @@ public:
     }
 };
 
+class UnsupportedCreditsProvider final : public IRecordingMetadataCandidateProvider
+{
+public:
+    RecordingMetadataCandidatePage search(
+        const std::string&,
+        RecordingMetadataCandidateKind,
+        int) override
+    {
+        return {};
+    }
+
+    RecordingMetadataCandidatePage seasons(
+        const std::string&,
+        int) override
+    {
+        return {};
+    }
+
+    RecordingMetadataCandidatePage episodes(
+        const std::string&,
+        int,
+        int) override
+    {
+        return {};
+    }
+};
+
 ExternalArtworkHttpResponse jsonResponse(const std::string& body)
 {
     ExternalArtworkHttpResponse response;
@@ -57,6 +84,15 @@ TmdbRecordingMetadataCandidateProviderConfig config()
 
 int main()
 {
+    {
+        UnsupportedCreditsProvider provider;
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.attempted);
+        assert(!page.providerAvailable);
+        assert(page.cast.empty());
+        assert(page.error == "movie credits are not supported");
+    }
+
     {
         FakeTransport transport;
         transport.responses.push_back(jsonResponse(R"json({
