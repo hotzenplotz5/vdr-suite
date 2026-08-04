@@ -160,7 +160,8 @@ assert.throws(
   () => prefixed.publicUrl.resolvePath(
     '/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-action.svg'
   ),
-  TypeError
+  error => error && error.name === 'TypeError' &&
+    /outside the canonical roots|already prefixed/.test(error.message)
 );
 
 const fallback = createFixture('', false);
