@@ -46,6 +46,7 @@ test-metadata-recording-candidate-provider:
 		core/metadata/src/RecordingMetadataCandidateProvider.cpp \
 		core/metadata/src/TmdbRecordingMetadataCandidateJson.cpp \
 		core/metadata/src/TmdbRecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataPosterMaterializer.cpp \
 		core/metadata/tests/test_tmdb_recording_metadata_candidate_provider.cpp \
 		-o $(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
 	$(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
