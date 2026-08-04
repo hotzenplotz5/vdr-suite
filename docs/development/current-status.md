@@ -4,15 +4,15 @@
 
 ```text
 Repository: hotzenplotz5/vdr-suite
-Base: origin/main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-Active pull request: #117
-PR state: open, Draft, unmerged, mergeable
-Remote branch: phase-62-security-identity-foundation
-Local yaVDR branch: phase62-pr117
-Local checkout: /home/yavdr/vdr-suite-phase62
+Branch authority: main
+Post-Phase-62 runtime/frontend baseline before this documentation refresh:
+2d04a963054e9925f6b8cb12392b188a89e11f07
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
+
+Phase 62 state:
+completed and merged through PR #117
 
 Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
@@ -23,14 +23,14 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
+Current active numbered runtime phase:
 none; Phase 63 has not started
 
 Phase 63-67 runtime:
 not advanced
 ```
 
-Phase 62 is completed. Phase 61 and Post-Phase-61 Performance Hardening remain completed and are not reopened.
+PR #117 was merged as `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`. There is no active Phase-62 PR, Draft or local branch requirement.
 
 ## Final accepted Phase 62 runtime
 
@@ -46,7 +46,7 @@ runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-The temporary runtime override was removed and the normal daemon service was active after acceptance. The documentation-only runbook correction head `ad618246fa221157bab549c17b3931ef607bc387` passed CI #6885, Run ID `30753115011`, with all five jobs successful.
+This is the durable Phase-62 completion evidence for its accepted candidate. It is not a byte-for-byte acceptance of later daemon builds.
 
 ## Completed Phase 62 scope
 
@@ -58,54 +58,53 @@ The temporary runtime override was removed and the normal daemon service was act
 - browser-session issue/logout, CSRF, lifetime, issuer binding, concurrency, idle expiry and terminal cleanup;
 - append-only pre-dispatch accountability;
 - browser lifecycle outcomes;
-- protected mutation success/failure outcomes with full non-secret context continuity;
+- protected mutation success/failure outcomes with non-secret context continuity;
 - guarded CI and real-yaVDR acceptance evidence.
+
+## Completed post-Phase-62 work
+
+- PR #118 corrected TVScraper genre classification, snapshot consistency and low-latency continuation.
+- PR #123 corrected EPG artwork resolution beneath public base paths.
+- PR #132 added guarded series-artwork fallback, TVmaze/TMDB providers, secure backend settings, provider cache/materialization/cleanup, TVScraper series identity preservation and cover/poster preference.
+- Direct commits `96b97378` and `2d04a963` corrected and tested channel-detail text layout beside artwork.
+
+PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR evidence includes multiple persisted TMDB fallback assets and successful browser rendering.
+
+## Security review
+
+No known authentication, authorization, CSRF, fixed Read-only-role or cross-backend-write bypass was introduced by the post-Phase-62 work.
+
+The new series-artwork settings POST is a protected mutation using `backend.settings.series-artwork.modify`, backend scope, browser CSRF, append-only pre-dispatch accountability and post-dispatch success/failure outcomes. The managed TMDB token is stored privately and is not returned by the API or included in accountability events.
+
+Because PR #132 changed daemon routing and protected-mutation handling, the old Phase-62 runtime fingerprint remains historical rather than current. A focused route-derived audit-scope hardening and dedicated current-runtime settings-mutation security acceptance are recommended strengthening steps. See [Post-Phase-62 Security Review](post-phase-62-security-review.md).
 
 ## Compatibility-retirement decision
 
-Legacy Basic remains an explicitly transitional deployment mode. It is not removed in PR #117 because it remains the code default and packaged deployments do not yet have a mandatory migration to `enforced`.
+Legacy Basic remains an explicitly transitional deployment mode. `enforced` is the fail-closed target. Removal requires a future deployment-migration contract and is not unfinished Phase-62 work.
 
-This decision satisfies the Phase-62 closeout criterion. Actual retirement requires a future migration contract; it is not another Phase-62 feature slice.
+## Development rules
 
-## Deferred work
-
-No current Phase-62 requirement proves a need for an audit HTTP product, generic security administration, native/service credential lifecycle, universal revision/idempotency infrastructure or transactional Outbox.
-
-Phase 63 begins only after its own approved contract and must not silently inherit these optional themes.
-
-## Pull request truth
-
-PR #117 remains open, Draft and unmerged. Do not mark it Ready, merge it, enable auto-merge, rebase, force-push or mutate Base, title, body, reviewers or other review/merge metadata without explicit approval.
-
-PR #118 remains separate paused TVScraper work.
-
-### Preferred edit path for new chats
-
-Prefer direct GitHub repository updates for existing files when the connector can perform the edit safely and the complete current file content is available.
-
-Use local edits first only when the change requires:
-
-- compilation or generated artifacts;
-- focused local runtime tests;
-- access to the installed yaVDR runtime;
-- a capability not exposed by the GitHub connector;
-- a workaround because the GitHub connector blocks a file operation.
-
-Create small coherent commits with fast-forward-only semantics. Evaluate CI on the final stabilization head rather than stopping after every intermediate commit.
+- Root-level `AGENTS.md` remains binding.
+- Verify the current `main` head before repository changes.
+- Prefer small coherent commits and evaluate CI on the final stabilization head.
+- Do not treat historical acceptance hashes as proof for changed daemon fingerprints.
+- Do not start Phase 63 without a separate bounded contract.
+- Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
 
 ## Exact next action
 
-1. Require all five jobs green on the final Phase-62 closeout documentation head.
-2. After green CI, obtain explicit approval for any PR-body update, Ready-for-Review transition and merge.
-3. Start Phase 63 only under a separate bounded contract.
+1. Complete route-derived authorization/audit scope for the series-artwork settings POST.
+2. Add focused Admin, Read-only, backend-scope, CSRF, mismatch and outcome tests.
+3. Refresh post-Phase-62 security evidence.
+4. Start Phase 63 only under a separate approved contract.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
-- [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Completed Phases](completed-phases.md)
 - [Agent Workflow Rules](../../AGENTS.md)
