@@ -91,6 +91,21 @@ Legacy Basic remains an explicitly transitional deployment mode. `enforced` is t
 - Do not start Phase 63 without a separate bounded contract.
 - Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files whenever the connected GitHub tools can perform the complete bounded operation safely.
+
+Do not hand the user downloadable patches, replacement files or shell-command workflows for work that can be completed directly on GitHub. Continue through all already-approved steps without artificial confirmation pauses, publish short regular status updates and stop only at a real project-rule, safety, compatibility or decision boundary. For an approved implementation workstream, continue until a usable, tested Draft PR exists.
+
+Use local edits first only when the change requires:
+
+- compilation or a focused local test that GitHub Actions cannot establish;
+- generated or binary artifacts unavailable through the connector;
+- controlled access to the installed yaVDR runtime; or
+- a workaround because the GitHub connector blocks a file operation.
+
+Never invent a blanket prohibition on commits before tests. Create and push small coherent commits with fast-forward-only history, then evaluate the final stabilization head through GitHub Actions. Never force-push, rewrite published history, mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit approval.
+
 ## Exact next action
 
 1. Complete route-derived authorization/audit scope for the series-artwork settings POST.
