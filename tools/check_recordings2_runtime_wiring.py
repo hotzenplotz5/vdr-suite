@@ -11,6 +11,7 @@ runtime_paths = {
     'person_view': ROOT / 'web/frontend/recordings2-person-search-view.js',
     'metadata_view': ROOT / 'web/frontend/recordings2-metadata-view.js',
     'metadata_detail': ROOT / 'web/frontend/recordings2-metadata-detail.js',
+    'metadata_assignment': ROOT / 'web/frontend/recordings2-metadata-assignment.js',
     'runtime': ROOT / 'web/frontend/recordings2.js',
 }
 runtimes = {
@@ -95,7 +96,17 @@ required_tokens = {
         'global.VdrSuiteRecordings2MetadataDetail',
         "'/api/vdr/recordings/metadata'",
         'metadataView.mount',
+        'assignmentRuntimePath',
+        'loadAssignmentRuntime',
+        'VdrSuiteRecordings2MetadataAssignment',
         'refreshDetailAddon',
+    ),
+    'metadata_assignment': (
+        'global.VdrSuiteRecordings2MetadataAssignment',
+        "'/recordings/metadata/'",
+        'csrfHeaders',
+        'Metadaten suchen',
+        'Manuelle Zuordnung entfernen',
     ),
     'runtime': (
         'global.VdrSuiteRecordings2 = moduleApi;',
@@ -129,9 +140,26 @@ for token in (
             f'Recordings 2 Action genre artwork installation contract missing: {token}'
         )
 
+compact_folder_style_tokens = (
+    'repeat(auto-fit,minmax(18rem,1fr))',
+    'grid-template-columns:5.2rem minmax(0,1fr) auto;min-height:0',
+    '.recordings2-folder-artwork{width:5.2rem}',
+)
+for token in compact_folder_style_tokens:
+    if token not in runtimes['folder_artwork']:
+        raise SystemExit(
+            f'Recordings 2 compact desktop folder style missing: {token}'
+        )
+for forbidden in ('minmax(26rem,1fr)', 'width:8.9rem', 'min-height:13.7rem'):
+    if forbidden in runtimes['folder_artwork']:
+        raise SystemExit(
+            f'Recordings 2 oversized desktop folder style returned: {forbidden}'
+        )
+
 line_limits = {
     'runtime': 330,
-    'metadata_detail': 120,
+    'metadata_detail': 140,
+    'metadata_assignment': 360,
     'shared': 320,
     'folder_artwork': 220,
     'actions': 620,
@@ -155,7 +183,7 @@ for forbidden in (
         if forbidden in source:
             raise SystemExit(f'Recordings 2 {owner} depends on legacy recording browser: {forbidden}')
 
-for owner in ('folder_artwork', 'actions', 'browser_view', 'runtime'):
+for owner in ('folder_artwork', 'actions', 'browser_view', 'metadata_assignment', 'runtime'):
     if 'fetch(' in runtimes[owner]:
         raise SystemExit(
             f'Recordings 2 {owner} must use the Client API and not call fetch() directly'
@@ -227,6 +255,19 @@ for filename, global_name in runtime_assets:
         raise SystemExit(f'HTTP server does not serve {filename}')
     if f'web/frontend/{filename}' not in module_makefile:
         raise SystemExit(f'Recordings 2 install rule is missing {filename}')
+
+assignment_asset = 'recordings2-metadata-assignment.js'
+assignment_path = f"'/frontend/{assignment_asset}'"
+if assignment_path not in runtimes['metadata_detail']:
+    raise SystemExit(f'missing dynamic assignment runtime path: {assignment_path}')
+if f'"/frontend/{assignment_asset}"' not in server:
+    raise SystemExit(
+        f'HTTP server does not allow dynamic assignment runtime /frontend/{assignment_asset}'
+    )
+if f'"{assignment_asset}"' not in server:
+    raise SystemExit(f'HTTP server does not serve dynamic assignment runtime {assignment_asset}')
+if f'web/frontend/{assignment_asset}' not in module_makefile:
+    raise SystemExit(f'Recordings 2 install rule is missing {assignment_asset}')
 
 folder_artwork_runtime = loader.index('const folderArtworkRuntime =')
 actions_runtime = loader.index('const actionsRuntime =')
