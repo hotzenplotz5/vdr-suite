@@ -29,6 +29,49 @@
     });
   }
 
+  function preferredArtworkUrl(metadata) {
+    const artwork = metadata && metadata.preferredArtwork;
+    return artwork && artwork.available === true
+      ? shared.text(artwork.url)
+      : '';
+  }
+
+  function applyMetadataToDetail(root, metadata) {
+    if (!root || !metadata || metadata.available !== true ||
+        typeof root.querySelector !== 'function') return;
+
+    const manual = metadata.manualAssignment &&
+      metadata.manualAssignment.active === true;
+    const title = shared.text(metadata.title || metadata.episodeName);
+    const description = shared.text(metadata.overview || metadata.tagline);
+
+    if (manual && title) {
+      const heading = root.querySelector('.recordings2-detail-copy h3');
+      if (heading) heading.textContent = title;
+    }
+
+    if (manual && description) {
+      const summary = root.querySelector('.recordings2-detail-description');
+      if (summary) summary.textContent = description;
+    }
+
+    const posterUrl = preferredArtworkUrl(metadata);
+    const poster = root.querySelector('.recordings2-detail-poster');
+    if (!posterUrl || !poster || typeof poster.replaceChildren !== 'function') return;
+
+    const image = document.createElement('img');
+    image.src = typeof shared.publicPath === 'function'
+      ? shared.publicPath(posterUrl)
+      : posterUrl;
+    image.alt = 'Poster zu ' + (title || 'Aufnahme');
+    image.loading = 'lazy';
+    image.addEventListener('error', function () {
+      image.remove();
+      if (!poster.children || poster.children.length === 0) poster.textContent = '▶';
+    });
+    poster.replaceChildren(image);
+  }
+
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
     if (!backendNativeId) return Promise.reject(new Error('Die Aufnahme besitzt keine stabile Backend-Identität.'));
@@ -102,6 +145,7 @@
     fetchMetadata(recording, backendId).then(function (metadata) {
       mounted.setMetadata(metadata);
       repairMetadataImagePaths(root);
+      applyMetadataToDetail(root, metadata);
       loadAssignmentRuntime().then(function (runtime) {
         runtime.mount(root, recording, backendId, metadata);
       }).catch(function (error) {
@@ -117,6 +161,8 @@
     loadAssignmentRuntime,
     assignmentRuntimePath,
     repairMetadataImagePaths,
+    preferredArtworkUrl,
+    applyMetadataToDetail,
     formatDate: metadataView.formatDate,
     isPublicMetadataImageUrl: metadataView.isPublicMetadataImageUrl,
     mediaTypeLabel: metadataView.mediaTypeLabel,
