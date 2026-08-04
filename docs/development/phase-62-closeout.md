@@ -2,13 +2,19 @@
 
 ## Status
 
-**Phase 62 is completed.**
+**Phase 62 is completed and merged.**
+
+PR #117 was merged into `main` as:
+
+```text
+f9e5f88bc223a2ce8a30fdbf4596893b34bc1551
+```
 
 Phase 62 established production-grade Suite actor identity, scoped server-side authorization, browser-session lifecycle policy, CSRF enforcement and append-only accountability for protected mutations. Phase 63-67 runtime was not advanced.
 
-## Final accepted runtime
+## Final accepted Phase-62 runtime
 
-The final runtime-changing slice is [Slice 2X — Protected Mutation Response Outcomes](phase-62-slice-2x-runtime-closeout.md).
+The final runtime-changing Phase-62 slice is [Slice 2X — Protected Mutation Response Outcomes](phase-62-slice-2x-runtime-closeout.md).
 
 ```text
 PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
@@ -22,11 +28,13 @@ runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-The later documentation-only runbook correction head `ad618246fa221157bab549c17b3931ef607bc387` passed VDR-Suite CI #6885, Run ID `30753115011`, with all five jobs successful. It changed no accepted runtime fingerprint.
+The final closeout head `75787cf61cc123f111b421a261ecd535068a6789` passed VDR-Suite CI #6920, Run ID `30755925693`, with all five jobs successful before merge.
+
+This acceptance is the durable completion evidence for the accepted Phase-62 candidate. It is intentionally historical: later daemon changes require their own regression and runtime evidence and do not rewrite this fingerprint.
 
 ## Completed exit criteria
 
-Phase 62 now proves:
+Phase 62 proves:
 
 - persistent canonical actor, device, session and credential identity;
 - request and correlation context across authentication, authorization and accountability;
@@ -49,17 +57,17 @@ Phase 62 now proves:
 
 Compatibility retirement was explicitly evaluated after the mandatory Slice-2X pass.
 
-**Decision: retain Legacy Basic compatibility as a transitional deployment mode at Phase-62 closeout; do not remove it in this PR.**
+**Decision: retain Legacy Basic compatibility as a transitional deployment mode at Phase-62 closeout.**
 
-Immediate removal is not ready because:
+Immediate removal was not ready because:
 
-- `legacy-basic` remains the code default when `VDR_SUITE_SECURITY_MODE` is not explicitly configured;
-- the packaged daemon defaults do not yet require an operator migration to `enforced`;
-- removing compatibility without a deployment migration would change existing installation authentication behaviour rather than merely delete dead code.
+- `legacy-basic` remained the code default when `VDR_SUITE_SECURITY_MODE` was not explicitly configured;
+- packaged daemon defaults did not yet require an operator migration to `enforced`;
+- removal without a deployment migration would change existing installation authentication behaviour rather than merely delete dead code.
 
-This does not leave an unclosed Phase-62 security gap. Managed Basic and browser sessions use the common persistent identity and authorization model, and `enforced` mode already provides the fail-closed target behaviour. Legacy compatibility remains explicitly marked transitional and must not be treated as final authentication architecture.
+This does not leave an unclosed Phase-62 security gap. Managed Basic and browser sessions use the common persistent identity and authorization model, and `enforced` mode provides the fail-closed target behaviour.
 
-Retirement requires a separate future migration contract proving configuration rollout, operator recovery and compatibility impact. It must not be smuggled into Phase 63 or performed as an unreviewed cleanup.
+Retirement requires a separate future migration contract proving configuration rollout, operator recovery and compatibility impact. It must not be smuggled into Phase 63 or performed as unreviewed cleanup.
 
 ## Explicitly deferred work
 
@@ -74,11 +82,13 @@ The following were evaluated and are not required to close Phase 62:
 
 Each requires its own binding requirement, accepted-code gap, concrete failure and smallest closing change.
 
-## Pull-request boundary
+## Post-closeout changes
 
-PR #117 contains the cumulative Phase-62 implementation and remains open, Draft and unmerged until the repository owner explicitly approves PR-body update, Ready for Review and merge.
+Later completed PRs and direct commits do not reopen Phase 62 merely because they use its security framework.
 
-Closing Phase 62 in repository documentation does not itself authorize those PR metadata or merge actions.
+The most security-relevant later change is PR #132, which added a protected per-backend series-artwork settings POST. It uses a dedicated scoped permission, fixed Admin/Read-only semantics, browser CSRF, pre-dispatch accountability and post-dispatch outcome evidence. Managed provider tokens are stored privately and are not returned by the API or written to accountability events.
+
+No known Phase-62 guarantee was bypassed by PRs #118, #123 or #132. Because PR #132 changed daemon routing and protected-mutation handling, the historical acceptance above must not be described as a byte-for-byte acceptance of the later daemon. The evidence boundary and recommended focused hardening are recorded in [Post-Phase-62 Security Review](post-phase-62-security-review.md).
 
 ## Next strict runtime phase
 
@@ -86,12 +96,14 @@ Closing Phase 62 in repository documentation does not itself authorize those PR 
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 ```
 
-Phase 63 remains planned and must begin with its own bounded contract. No Phase-63 runtime is implemented by this closeout.
+Phase 63 remains planned and must begin with its own bounded contract. No Phase-63 runtime is implemented by this closeout or the completed post-Phase-62 artwork work.
 
 ## Related documents
 
 - [Current State](../CURRENT.md)
+- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](current-status.md)
+- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](../planning/roadmap.md)
