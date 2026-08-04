@@ -3,10 +3,9 @@
 ## Current implementation truth
 
 - [Current Project Status](current-status.md)
+- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
-- [Slice 2X Accepted Contract](phase-62-slice-2x-protected-mutation-response-outcomes.md)
-- [Slice 2X yaVDR Runbook](phase-62-slice-2x-runtime-acceptance-runbook.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
@@ -17,16 +16,19 @@
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Phase 62 repository state:
+completed and merged through PR #117
+
 Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
+Current active numbered runtime phase:
 none; Phase 63 is planned but not started
 
-Final Phase 62 runtime acceptance:
+Final historical Phase 62 runtime acceptance:
 PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
 
 Accepted runtime head:
@@ -34,7 +36,6 @@ Accepted runtime head:
 
 Accepted source CI:
 #6884 / run 30752351218 / all five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30752351218
 
 Installed/running daemon SHA-256:
 488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
@@ -46,7 +47,7 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-Phase 62 is completed. Phase 63-67 runtime has not been advanced. PR #117 remains open, Draft and unmerged.
+PR #117 is merged as `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`. Phase 62 is completed. Phase 63-67 runtime has not been advanced.
 
 ## Completed Phase 62 result
 
@@ -54,9 +55,20 @@ Phase 62 delivered persistent identity, exact actor/backend authorization, fixed
 
 Legacy Basic remains explicitly transitional. Removal requires a separate future deployment-migration contract and does not reopen Phase 62.
 
+## Completed post-Phase-62 work
+
+- PR #118: TVScraper classification and refresh corrections.
+- PR #123: public-base-path-safe EPG artwork resolution.
+- PR #132: guarded external series-artwork fallback, TVmaze/TMDB providers, secure backend settings, deterministic provider identity and poster/cover preference.
+- `96b97378` and `2d04a963`: channel-detail artwork/text layout correction and regression coverage.
+
+PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation proved persisted TMDB fallback assets and browser delivery.
+
+The security impact and evidence boundary are recorded in [Post-Phase-62 Security Review](post-phase-62-security-review.md). The historical Phase-62 acceptance remains the completion evidence for its accepted candidate, not a byte-for-byte acceptance of later daemon builds.
+
 ## Historical Phase 62 contract index
 
-These completed contracts remain linked as architecture and test traceability anchors. They are not active implementation prompts.
+These completed contracts remain architecture and test traceability anchors. They are not active implementation prompts.
 
 - [Slice 1 — Security Identity Foundation](phase-62-security-identity-foundation-slice-1.md)
 - [Slice 2 — Persistent Identity Foundation](phase-62-security-identity-foundation-slice-2.md)
@@ -100,8 +112,9 @@ These completed contracts remain linked as architecture and test traceability an
 
 ## Documentation placement rules
 
-- Current verified state belongs in `docs/CURRENT.md` and current-status documents.
-- Accepted runtime closeouts belong in `docs/development/`.
+- Current verified state belongs in `docs/CURRENT.md`, the Handoff and current-status documents.
+- Historical runtime hashes stay in their accepted closeouts.
+- Post-closeout security impact belongs in `post-phase-62-security-review.md` until superseded by newer evidence.
 - Stable architecture belongs in `docs/architecture/`.
 - Future dependency order and open gaps belong in `docs/planning/`.
 - Accepted ADRs remain separate from runtime completion.
@@ -109,7 +122,7 @@ These completed contracts remain linked as architecture and test traceability an
 
 ## Exact next action
 
-Require final all-green documentation CI, then obtain explicit repository-owner approval before updating PR #117 metadata, marking it Ready for Review or merging it. Define Phase 63 in a new bounded contract only after PR #117 disposition.
+Complete the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, refresh post-Phase-62 evidence, and define Phase 63 only under a separate approved contract.
 
 ## Related navigation
 
