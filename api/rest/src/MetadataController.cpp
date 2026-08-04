@@ -3,6 +3,7 @@
 #include "CurlExternalArtworkHttpTransport.h"
 #include "MetadataRepository.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
+#include "TmdbRecordingMetadataCredentialResolver.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -25,18 +26,20 @@ std::string environmentOrDefault(
     return value.empty() ? fallback : value;
 }
 
-TmdbRecordingMetadataCandidateProviderConfig providerConfig()
+TmdbRecordingMetadataCandidateProviderConfig providerConfig(
+    const std::string& backendId)
 {
     TmdbRecordingMetadataCandidateProviderConfig config;
-    config.readAccessToken = environmentOrEmpty(
-        "VDR_SUITE_TMDB_READ_ACCESS_TOKEN");
+    config.readAccessToken =
+        TmdbRecordingMetadataCredentialResolver::resolveReadAccessToken(
+            backendId);
     config.language = environmentOrDefault(
         "VDR_SUITE_TMDB_LANGUAGE",
         config.language);
     return config;
 }
 
-IRecordingMetadataCandidateProvider& defaultCandidateProvider()
+CurlExternalArtworkHttpTransport& defaultTransport()
 {
     static CurlExternalArtworkHttpTransport transport(
         CurlExternalArtworkHttpTransportConfig{
@@ -46,10 +49,7 @@ IRecordingMetadataCandidateProvider& defaultCandidateProvider()
             },
             "vdr-suite/manual-recording-metadata"
         });
-    static TmdbRecordingMetadataCandidateProvider provider(
-        transport,
-        providerConfig());
-    return provider;
+    return transport;
 }
 
 std::string jsonEscape(const std::string& value)
@@ -205,13 +205,6 @@ MetadataController::MetadataController(
 {
 }
 
-IRecordingMetadataCandidateProvider& MetadataController::candidateProvider()
-{
-    return candidateProvider_ == nullptr
-        ? defaultCandidateProvider()
-        : *candidateProvider_;
-}
-
 ApiResponse MetadataController::getMetadata()
 {
     ApiResponse response;
@@ -249,26 +242,52 @@ ApiResponse MetadataController::getMetadata()
 }
 
 ApiResponse MetadataController::searchRecordingMetadataCandidates(
+    const std::string& backendId,
     const std::string& query,
     RecordingMetadataCandidateKind kind,
     int limit)
 {
-    return candidateResponse(candidateProvider().search(query, kind, limit));
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->search(query, kind, limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.search(query, kind, limit));
 }
 
 ApiResponse MetadataController::getRecordingMetadataSeasons(
+    const std::string& backendId,
     const std::string& seriesExternalId,
     int limit)
 {
-    return candidateResponse(candidateProvider().seasons(seriesExternalId, limit));
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->seasons(
+            seriesExternalId,
+            limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.seasons(seriesExternalId, limit));
 }
 
 ApiResponse MetadataController::getRecordingMetadataEpisodes(
+    const std::string& backendId,
     const std::string& seriesExternalId,
     int seasonNumber,
     int limit)
 {
-    return candidateResponse(candidateProvider().episodes(
+    if (candidateProvider_ != nullptr)
+        return candidateResponse(candidateProvider_->episodes(
+            seriesExternalId,
+            seasonNumber,
+            limit));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return candidateResponse(provider.episodes(
         seriesExternalId,
         seasonNumber,
         limit));
