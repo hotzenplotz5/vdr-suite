@@ -20,8 +20,8 @@
 ```text
 Repository: hotzenplotz5/vdr-suite
 Current branch authority: main
-Post-Phase-62 runtime/frontend baseline before this documentation refresh:
-2d04a963054e9925f6b8cb12392b188a89e11f07
+Current main baseline before Draft PR #133:
+ebc9d8ebb35c12b24a27e831b8f7872c610c7354
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -71,6 +71,14 @@ The current platform additionally includes:
 
 PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation proved multiple persisted `provider=tmdb` fallback rows, valid cached image files and browser delivery.
 
+## Active bounded hardening
+
+Draft PR #133 derives the series-artwork settings authorization and accountability backend from the authoritative route. The API handler still receives the original request and independently rejects a route/body backend mismatch. Malformed nested or percent-encoded backend route segments fail closed instead of falling back to a body-selected scope.
+
+The dedicated security regression covers Admin allow, fixed Read-only denial, wrong backend-scope denial, missing and invalid CSRF, route/body mismatch scope, query strings, malformed segments and route-scoped success/failure outcomes. It is part of the full `test-security` graph.
+
+This is post-Phase-62 hardening. It does not reopen Phase 62, retire Legacy Basic, change TVScraper or start Phase 63.
+
 ## Final Phase 62 runtime evidence
 
 ```text
@@ -91,9 +99,9 @@ This remains the durable completion evidence for the accepted Phase-62 runtime. 
 
 Phase-62 identity, exact backend-scoped authorization, fixed Admin/Read-only roles, browser-session lifecycle, CSRF, fail-closed central POST classification and append-only allow/deny/outcome accountability remain present.
 
-The series-artwork settings POST added after Phase 62 is classified as a protected mutation and uses a dedicated backend-scoped permission. Browser callers require CSRF; Read-only actors are denied; successful and failed authorized responses receive operation outcomes. Managed TMDB tokens are kept beneath the private secret root and are not returned to the browser or written to accountability events.
+The series-artwork settings POST is a protected mutation using a dedicated backend-scoped permission. Draft PR #133 makes the route authoritative for authorization and accountability while preserving the handler's route/body mismatch rejection. Browser callers require CSRF; Read-only actors are denied; successful and failed authorized responses receive route-scoped operation outcomes. Managed TMDB tokens are kept beneath the private secret root and are not returned to the browser or written to accountability events.
 
-No known Phase-62 security guarantee is bypassed by the completed post-phase work. The old runtime acceptance is historical; a dedicated current-runtime settings-mutation security acceptance remains useful strengthening. See [Post-Phase-62 Security Review](development/post-phase-62-security-review.md).
+No known Phase-62 security guarantee is bypassed by the completed post-phase work or this bounded hardening. See [Post-Phase-62 Security Review](development/post-phase-62-security-review.md).
 
 ## Compatibility-retirement decision
 
@@ -109,4 +117,4 @@ Legacy Basic compatibility remains explicitly transitional. `enforced` mode is t
 
 ## Exact next action
 
-Complete the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, refresh the post-Phase-62 evidence, and begin Phase 63 only under a separate approved contract.
+Stabilize Draft PR #133 on its final GitHub Actions head and keep it Draft until an explicit review-state or merge decision. Start Phase 63 only under a separate approved contract.
