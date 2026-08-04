@@ -268,7 +268,6 @@ int main()
         ExternalArtworkHttpResponse timeout;
         timeout.attempted = true;
         timeout.transportError = true;
-        timeout.error = "timeout test-token";
         transport.responses.push_back(timeout);
         transport.responses.push_back(timeout);
         TmdbRecordingMetadataCandidateProvider provider(
