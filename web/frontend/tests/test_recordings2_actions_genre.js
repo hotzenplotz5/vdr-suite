@@ -38,6 +38,14 @@ const document = {
   createElement() { return element(); }
 };
 
+let publicBasePath = '';
+function resolvePublicPath(path) {
+  const value = String(path || '');
+  if (!publicBasePath) return value;
+  if (value === publicBasePath || value.startsWith(publicBasePath + '/')) return value;
+  return publicBasePath + (value.startsWith('/') ? value : '/' + value);
+}
+
 const shared = {
   first,
   number(value, fallback) {
@@ -61,6 +69,7 @@ const shared = {
 
 const window = {
   VdrSuiteRecordings2Shared: shared,
+  VdrSuitePublicUrl: {resolvePath: resolvePublicPath},
   setTimeout() {},
   confirm() { return true; }
 };
@@ -93,9 +102,35 @@ async function main() {
   assert.strictEqual(genre.forFolderName('Action').slug, 'action');
   assert.strictEqual(genre.forFolderName('Fantasy').sprite, '100% 0%');
   assert.strictEqual(genre.forFolderName('Unsortiert'), null);
-  const actionArtwork = genre.create({name: 'Action'});
-  assert.strictEqual(actionArtwork.dataset.genre, 'action');
-  assert.ok(actionArtwork.style.backgroundImage.includes('recording-genre-action.svg'));
+
+  publicBasePath = '';
+  const rootActionArtwork = genre.create({name: 'Action'});
+  const rootFantasyArtwork = genre.create({name: 'Fantasy'});
+  assert.strictEqual(rootActionArtwork.dataset.genre, 'action');
+  assert.strictEqual(
+    rootActionArtwork.style.backgroundImage,
+    'url("/channel-logos/vdr-suite-brand/recording-genre-action.svg")'
+  );
+  assert.strictEqual(
+    rootFantasyArtwork.style.backgroundImage,
+    'url("/channel-logos/vdr-suite-brand/recording-genre-sprite.svg")'
+  );
+  assert.strictEqual(rootFantasyArtwork.style.backgroundPosition, '100% 0%');
+
+  publicBasePath = '/vdr-suite';
+  const prefixedActionArtwork = genre.create({name: 'Action'});
+  const prefixedFantasyArtwork = genre.create({name: 'Fantasy'});
+  assert.strictEqual(
+    prefixedActionArtwork.style.backgroundImage,
+    'url("/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-action.svg")'
+  );
+  assert.strictEqual(
+    prefixedFantasyArtwork.style.backgroundImage,
+    'url("/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-sprite.svg")'
+  );
+  assert.ok(!prefixedActionArtwork.style.backgroundImage.includes('/vdr-suite/vdr-suite/'));
+  assert.ok(!prefixedFantasyArtwork.style.backgroundImage.includes('/vdr-suite/vdr-suite/'));
+  publicBasePath = '';
 
   const promotedRecording = {
     recordingId: 'default:1340',
