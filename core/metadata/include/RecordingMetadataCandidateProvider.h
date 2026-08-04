@@ -91,8 +91,8 @@ public:
     {
         RecordingMetadataCastPage page;
         page.attempted = true;
-        page.providerAvailable = true;
-        page.providerId = "tmdb";
+        page.providerAvailable = false;
+        page.error = "movie credits are not supported";
         return page;
     }
 
