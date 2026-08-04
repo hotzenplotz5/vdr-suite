@@ -32,6 +32,9 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 # - A daemon build-and-install request must produce one concise ordinary bash
 #   block containing only the verified checkout, build, install and service
 #   commands unless the user explicitly requests additional scope.
+# - Established-host instructions must use git pull --ff-only and must not add
+#   package-management commands unless the user requests them or a real build
+#   failure proves a missing dependency.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
@@ -59,7 +62,10 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "Use the heading `## Lokaler Bau, Test und Installation`.",
     "provide exactly one ordinary fenced Markdown `bash` code block",
     "The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.",
-    "repository checkout/update and identity verification, a clean daemon build, stopping the service, `sudo make install PREFIX=/usr`",
+    "For the established development or yaVDR host, the required sequence is:",
+    "`git pull --ff-only` is mandatory in this established-checkout workflow.",
+    "Never include `apt-get update`, `apt update`, `apt-get install`, `apt install`",
+    "Do not clone a second checkout when the user is updating the established repository checkout.",
     "Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.",
     "Supply the shortest complete sequence that safely performs the requested daemon build and installation.",
 ]
@@ -80,6 +86,8 @@ REQUIRED_GUARDRAIL_RULES = [
     "ordinary fenced Markdown code block, preferably tagged bash.",
     "A daemon build-and-install request must produce one concise ordinary bash",
     "block containing only the verified checkout, build, install and service",
+    "Established-host instructions must use git pull --ff-only",
+    "package-management commands unless the user requests them",
 ]
 
 
