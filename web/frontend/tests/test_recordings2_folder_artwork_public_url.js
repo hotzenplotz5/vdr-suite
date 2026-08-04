@@ -5,7 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const source = fs.readFileSync(
+const publicUrlSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'platform', 'public-url.js'),
+  'utf8'
+);
+const artworkSource = fs.readFileSync(
   path.resolve(__dirname, '..', 'recordings2-folder-artwork.js'),
   'utf8'
 );
@@ -26,68 +30,57 @@ function createElement(tagName) {
   };
 }
 
+function sharedRuntime() {
+  return {
+    first(value, names, fallback) {
+      for (const name of names) {
+        if (value && value[name] !== undefined && value[name] !== null) {
+          return value[name];
+        }
+      }
+      return fallback;
+    },
+    decodeDisplayText(value) { return String(value || ''); },
+    recordingList(value) { return Array.isArray(value && value.recordings) ? value.recordings : []; },
+    folderList(value) { return Array.isArray(value && value.folders) ? value.folders : []; },
+    normalizePath(value) { return String(value || '').replace(/^\/+|\/+$/g, ''); },
+    number(value, fallback) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+  };
+}
+
 function createFixture(basePath, includeResolver = true) {
   const appendedStyles = [];
-  const resolvedPaths = [];
+  const scriptPath = basePath + '/frontend/platform/public-url.js';
   const document = {
+    currentScript: {src: 'https://yavdr' + scriptPath},
     getElementById() { return null; },
     createElement,
     head: {
       appendChild(element) { appendedStyles.push(element); }
     }
   };
-  const window = {
-    VdrSuiteRecordings2Shared: {
-      first(value, names, fallback) {
-        for (const name of names) {
-          if (value && value[name] !== undefined && value[name] !== null) {
-            return value[name];
-          }
-        }
-        return fallback;
-      },
-      decodeDisplayText(value) { return String(value || ''); },
-      recordingList(value) { return Array.isArray(value && value.recordings) ? value.recordings : []; },
-      folderList(value) { return Array.isArray(value && value.folders) ? value.folders : []; },
-      normalizePath(value) { return String(value || '').replace(/^\/+|\/+$/g, ''); },
-      number(value, fallback) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : fallback;
-      }
-    }
-  };
-
-  if (includeResolver) {
-    window.VdrSuitePublicUrl = {
-      resolvePath(pathName) {
-        const value = String(pathName || '');
-        resolvedPaths.push(value);
-        assert.ok(value.startsWith('/channel-logos/'));
-        if (basePath) assert.ok(!value.startsWith(basePath + basePath + '/'));
-        return basePath + value;
-      }
-    };
-  }
-
-  const context = vm.createContext({
-    window,
+  const context = {
+    URL,
+    location: new URL('https://yavdr' + basePath + '/frontend/'),
     document,
     console,
-    Array,
-    Boolean,
-    Math,
-    Number,
-    Object,
-    Promise,
-    Set,
-    String
-  });
-  vm.runInContext(source, context, {filename: 'recordings2-folder-artwork.js'});
+    VdrSuiteRecordings2Shared: sharedRuntime()
+  };
+  context.window = context;
+  vm.createContext(context);
+
+  if (includeResolver) {
+    vm.runInContext(publicUrlSource, context, {filename: 'public-url.js'});
+  }
+  vm.runInContext(artworkSource, context, {filename: 'recordings2-folder-artwork.js'});
 
   return {
-    api: window.VdrSuiteRecordings2FolderArtwork,
+    api: context.VdrSuiteRecordings2FolderArtwork,
+    publicUrl: context.VdrSuitePublicUrl,
     appendedStyles,
-    resolvedPaths,
     cssStyleDeclarationAvailable: typeof context.CSSStyleDeclaration === 'function'
   };
 }
@@ -132,6 +125,7 @@ function assertGenreMapping(api) {
 
 const direct = createFixture('');
 assert.strictEqual(direct.cssStyleDeclarationAvailable, false);
+assert.strictEqual(direct.publicUrl.basePath, '');
 assertGenreMapping(direct.api);
 assertArtwork(
   direct,
@@ -144,12 +138,10 @@ assertArtwork(
   'Action',
   '/channel-logos/vdr-suite-brand/recording-genre-action.svg'
 );
-assert.deepStrictEqual(direct.resolvedPaths, [
-  '/channel-logos/vdr-suite-brand/recording-genre-sprite.svg',
-  '/channel-logos/vdr-suite-brand/recording-genre-action.svg'
-]);
 
 const prefixed = createFixture('/vdr-suite');
+assert.strictEqual(prefixed.cssStyleDeclarationAvailable, false);
+assert.strictEqual(prefixed.publicUrl.basePath, '/vdr-suite');
 assertGenreMapping(prefixed.api);
 assertArtwork(
   prefixed,
@@ -162,12 +154,17 @@ assertArtwork(
   'Action',
   '/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-action.svg'
 );
-prefixed.resolvedPaths.forEach(value => {
-  assert.ok(!value.startsWith('/vdr-suite/'));
-});
-assert.ok(!prefixed.api.create({name: 'Drama'}).style.backgroundImage.includes('/vdr-suite/vdr-suite/'));
+const prefixedDrama = prefixed.api.create({name: 'Drama'});
+assert.ok(!prefixedDrama.style.backgroundImage.includes('/vdr-suite/vdr-suite/'));
+assert.throws(
+  () => prefixed.publicUrl.resolvePath(
+    '/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-action.svg'
+  ),
+  TypeError
+);
 
 const fallback = createFixture('', false);
+assert.strictEqual(fallback.publicUrl, undefined);
 assertArtwork(
   fallback,
   'Horror',
