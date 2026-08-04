@@ -4,6 +4,21 @@
 
 This is the canonical entry point for every new VDR-Suite chat. Repository, pull-request and runtime facts must be checked against the current `main` branch; do not repeat historical acceptance work without a directly relevant runtime change.
 
+## Binding execution rules for every new chat
+
+These rules are mandatory for every assistant continuing VDR-Suite work:
+
+- work GitHub-first and perform repository reads, edits, commits, pushes, pull-request work and CI inspection through the connected GitHub tools whenever they can do so safely;
+- do not hand the user downloadable patches, replacement files or shell-command workflows for work that can be completed directly on GitHub;
+- continue autonomously through all already-approved steps of the active bounded workstream and do not stop after analysis, after an individual edit or after an intermediate commit;
+- provide short, regular status updates throughout longer work, including the current finding, change, test or CI state;
+- create and push small coherent commits at meaningful checkpoints, using fast-forward-only history and never force-pushing or rewriting published history without explicit approval;
+- use GitHub Actions as the normal repository validation path and do not invent a blanket prohibition on commits before tests; local compilation or focused local tests are only required when GitHub cannot establish the needed fact;
+- do not stop until there is a usable, tested Draft PR for the approved workstream, unless a real project-rule, safety, compatibility or decision boundary is reached;
+- never mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit user approval.
+
+These requirements reinforce [Agent Workflow Rules](../AGENTS.md). They are not optional chat preferences and must not be replaced by assistant-invented process gates.
+
 ## Canonical reading
 
 - [Current State](CURRENT.md)
