@@ -2,12 +2,12 @@
 
 #include "DashboardController.h"
 #include "ManualRecordingMetadataAssignmentRepository.h"
+#include "MetadataRepository.h"
 #include "RecordingMetadataCandidateProvider.h"
 
 #include <string>
 
 class IRecordingMetadataCandidateProvider;
-class MetadataRepository;
 
 class MetadataController
 {
@@ -34,7 +34,12 @@ public:
 
     ManualRecordingMetadataAssignment findManualRecordingMetadata(
         const std::string& backendId,
-        const std::string& resourceKey);
+        const std::string& resourceKey)
+    {
+        return metadataRepository_.getManualRecordingMetadata(
+            backendId,
+            resourceKey);
+    }
 
     ApiResponse getManualRecordingMetadata(
         const std::string& backendId,
