@@ -128,6 +128,25 @@ Every shell command intended for the user to copy or execute must be presented i
 - Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
 - When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
 
+## Binding daemon build and installation manifest
+
+When the user asks for the commands to build and install the VDR-Suite daemon, every new chat must use the following response contract as the authoritative default:
+
+- Use the heading `## Lokaler Bau, Test und Installation`.
+- Write at most one short introductory sentence, then provide exactly one ordinary fenced Markdown `bash` code block.
+- The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.
+- Put the complete directly executable command sequence in that one block; do not fragment it into a prose tutorial or many small code blocks.
+- Keep the requested scope narrow. A daemon build-and-install request requires repository checkout/update and identity verification, a clean daemon build, stopping the service, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, service activation/start or restart, and final binary/service checks.
+- Use an explicit checkout path. If no local checkout has been verified, define a new explicit path in the commands; never assume the current working directory is the repository.
+- Resolve the current repository, branch and expected commit from GitHub before composing the commands. Verify origin, clean worktree and exact commit in the command block.
+- For normal production installation, use a clean current `main`. For an explicitly approved pull-request acceptance test, use the exact reviewed PR branch and commit.
+- Include dependency installation only when it is needed for the requested build or the target host is not known to have the dependencies.
+- Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
+- Do not turn the answer into a giant all-purpose shell script. Supply the shortest complete sequence that safely performs the requested daemon build and installation.
+- Do not repeat the same commands in explanatory prose. The copyable Bash block is the primary deliverable.
+
+This manifest overrides any tendency to provide a long step-by-step installation essay when the user asked only for the build and installation commands.
+
 ## Credential and secret restrictions
 
 Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.
