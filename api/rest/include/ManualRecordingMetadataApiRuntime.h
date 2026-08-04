@@ -3,6 +3,7 @@
 #include "DashboardController.h"
 #include "MetadataController.h"
 
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -22,6 +23,16 @@ public:
         return metadata == nullptr
             ? ManualRecordingMetadataAssignment{}
             : metadata->findManualRecordingMetadata(backendId, resourceKey);
+    }
+
+    std::map<std::string, ManualRecordingMetadataAssignment>
+    findSelectedForBackend(
+        const std::string& backendId) const
+    {
+        MetadataController* metadata = controller();
+        return metadata == nullptr
+            ? std::map<std::string, ManualRecordingMetadataAssignment>{}
+            : metadata->findManualRecordingMetadataForBackend(backendId);
     }
 
     bool tryHandleGet(
