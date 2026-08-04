@@ -16,6 +16,19 @@
     return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
   }
 
+  function repairMetadataImagePaths(root) {
+    const resolver = global.VdrSuitePublicUrl;
+    if (!root || typeof root.querySelectorAll !== 'function' ||
+        !resolver || typeof resolver.resolvePath !== 'function') return;
+    Array.from(root.querySelectorAll(
+      '.recordings2-metadata-image img,.recordings2-person-image'
+    )).forEach(function (image) {
+      const path = image && typeof image.getAttribute === 'function'
+        ? image.getAttribute('src') : '';
+      if (metadataView.isPublicMetadataImageUrl(path)) image.src = resolver.resolvePath(path);
+    });
+  }
+
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
     if (!backendNativeId) return Promise.reject(new Error('Die Aufnahme besitzt keine stabile Backend-Identität.'));
@@ -88,6 +101,7 @@
     if (!mounted) return root;
     fetchMetadata(recording, backendId).then(function (metadata) {
       mounted.setMetadata(metadata);
+      repairMetadataImagePaths(root);
       loadAssignmentRuntime().then(function (runtime) {
         runtime.mount(root, recording, backendId, metadata);
       }).catch(function (error) {
@@ -102,6 +116,7 @@
     fetchMetadata,
     loadAssignmentRuntime,
     assignmentRuntimePath,
+    repairMetadataImagePaths,
     formatDate: metadataView.formatDate,
     isPublicMetadataImageUrl: metadataView.isPublicMetadataImageUrl,
     mediaTypeLabel: metadataView.mediaTypeLabel,
