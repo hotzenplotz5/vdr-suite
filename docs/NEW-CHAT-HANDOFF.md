@@ -99,7 +99,7 @@ Relevant completed post-Phase-62 work:
 
 - PR #118: TVScraper classification and refresh corrections;
 - PR #123: public-base-path-safe EPG artwork resolution;
-- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure backend settings, TVScraper series identity preservation and poster/cover preference;
+- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure per-backend settings, TVScraper series identity preservation and poster/cover preference;
 - direct channel-detail layout correction `96b97378` plus regression test `2d04a963`.
 
 PR #132 was merged as:
