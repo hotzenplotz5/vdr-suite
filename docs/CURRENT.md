@@ -41,6 +41,12 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
+
 Phase 62 state:
 completed and merged through PR #117
 
