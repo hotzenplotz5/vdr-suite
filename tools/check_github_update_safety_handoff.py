@@ -29,6 +29,9 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 #   unless the user explicitly requests that workflow.
 # - Every executable command supplied to the user must remain inside an
 #   ordinary fenced Markdown code block, preferably tagged bash.
+# - A daemon build-and-install request must produce one concise ordinary bash
+#   block containing only the verified checkout, build, install and service
+#   commands unless the user explicitly requests additional scope.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
@@ -52,6 +55,13 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block",
     "Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats",
     "the final answer must contain those commands in ordinary copyable Markdown code blocks",
+    "## Binding daemon build and installation manifest",
+    "Use the heading `## Lokaler Bau, Test und Installation`.",
+    "provide exactly one ordinary fenced Markdown `bash` code block",
+    "The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.",
+    "repository checkout/update and identity verification, a clean daemon build, stopping the service, `sudo make install PREFIX=/usr`",
+    "Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.",
+    "Supply the shortest complete sequence that safely performs the requested daemon build and installation.",
 ]
 
 REQUIRED_GUARDRAIL_RULES = [
@@ -68,6 +78,8 @@ REQUIRED_GUARDRAIL_RULES = [
     "Do not create a temporary pull request solely to wait for GitHub Actions",
     "Every executable command supplied to the user must remain inside an",
     "ordinary fenced Markdown code block, preferably tagged bash.",
+    "A daemon build-and-install request must produce one concise ordinary bash",
+    "block containing only the verified checkout, build, install and service",
 ]
 
 
