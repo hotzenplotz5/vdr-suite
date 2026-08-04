@@ -36,6 +36,14 @@ ExternalArtworkHttpResponse jsonResponse(const std::string& body)
     return response;
 }
 
+ExternalArtworkHttpResponse httpResponse(long statusCode)
+{
+    ExternalArtworkHttpResponse response;
+    response.attempted = true;
+    response.statusCode = statusCode;
+    return response;
+}
+
 TmdbRecordingMetadataCandidateProviderConfig config()
 {
     TmdbRecordingMetadataCandidateProviderConfig result;
@@ -187,6 +195,126 @@ int main()
         assert(episode.episodeNumber == 1);
         assert(transport.requests.front().url.find(
             "/tv/19885/season/1?") != std::string::npos);
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse(R"json({
+          "id": 13,
+          "cast": [
+            {"id":31,"name":"Tom Hanks","character":"Forrest Gump","order":0},
+            {"id":32,"name":"Robin Wright","character":"Jenny Curran","order":1}
+          ]
+        })json"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.attempted);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(!page.truncated);
+        assert(page.cast.size() == 2U);
+        assert(page.cast[0].valid());
+        assert(page.cast[0].externalNamespace == "person");
+        assert(page.cast[0].externalId == "31");
+        assert(page.cast[0].name == "Tom Hanks");
+        assert(page.cast[0].characterName == "Forrest Gump");
+        assert(page.cast[0].order == 0);
+        assert(page.cast[1].externalId == "32");
+        assert(page.cast[1].order == 1);
+        assert(transport.requests.size() == 1U);
+        assert(transport.requests[0].url.find(
+            "/movie/13/credits?language=de-DE") != std::string::npos);
+        assert(transport.requests[0].bearerToken == "test-token");
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse("{\"id\":13,\"cast\":[]}"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.attempted);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(page.cast.empty());
+        assert(!page.truncated);
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse("{broken"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.providerAvailable);
+        assert(page.cast.empty());
+        assert(page.error == "provider returned invalid JSON");
+        assert(page.error.find("test-token") == std::string::npos);
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(httpResponse(500));
+        transport.responses.push_back(httpResponse(500));
+        TmdbRecordingMetadataCandidateProvider provider(
+            transport, config(), [](std::chrono::milliseconds) {});
+        const auto page = provider.movieCredits("13", 128);
+        assert(!page.providerAvailable);
+        assert(page.error == "provider temporarily unavailable");
+        assert(transport.requests.size() == 2U);
+        assert(page.error.find("test-token") == std::string::npos);
+    }
+
+    {
+        FakeTransport transport;
+        ExternalArtworkHttpResponse timeout;
+        timeout.attempted = true;
+        timeout.transportError = true;
+        timeout.error = "timeout test-token";
+        transport.responses.push_back(timeout);
+        transport.responses.push_back(timeout);
+        TmdbRecordingMetadataCandidateProvider provider(
+            transport, config(), [](std::chrono::milliseconds) {});
+        const auto page = provider.movieCredits("13", 128);
+        assert(!page.providerAvailable);
+        assert(page.error == "provider transport failed");
+        assert(page.error.find("test-token") == std::string::npos);
+    }
+
+    {
+        FakeTransport transport;
+        ExternalArtworkHttpResponse rateLimited;
+        rateLimited.attempted = true;
+        rateLimited.statusCode = 429;
+        rateLimited.retryAfterSeconds = 1;
+        transport.responses.push_back(rateLimited);
+        transport.responses.push_back(jsonResponse("{\"cast\":[]}"));
+        int sleeps = 0;
+        TmdbRecordingMetadataCandidateProvider provider(
+            transport,
+            config(),
+            [&](std::chrono::milliseconds delay) {
+                ++sleeps;
+                assert(delay.count() == 1000);
+            });
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(page.cast.empty());
+        assert(transport.requests.size() == 2U);
+        assert(sleeps == 1);
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse(
+            std::string("{\"cast\":[],\"padding\":\"") +
+            std::string(2048U, 'x') + "\"}"));
+        auto limited = config();
+        limited.maximumJsonBytes = 1024U;
+        TmdbRecordingMetadataCandidateProvider provider(transport, limited);
+        const auto page = provider.movieCredits("13", 128);
+        assert(page.providerAvailable);
+        assert(page.cast.empty());
+        assert(page.error == "provider returned invalid JSON");
     }
 
     {
