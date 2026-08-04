@@ -3,6 +3,7 @@
 #include "CurlExternalArtworkHttpTransport.h"
 #include "Database.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
+#include "TmdbRecordingMetadataCredentialResolver.h"
 
 #include <cstdlib>
 #include <sqlite3.h>
@@ -54,7 +55,8 @@ std::string resolveResourceKey(
 }
 
 std::string materializePosterIfConfigured(
-    const ManualRecordingMetadataSelection& selection)
+    const ManualRecordingMetadataSelection& selection,
+    const std::string& token)
 {
     if (selection.posterReference.empty() ||
         selection.posterReference.compare(
@@ -63,8 +65,6 @@ std::string materializePosterIfConfigured(
             "/var/cache/vdr-suite/recording-metadata/posters/") == 0)
         return selection.posterReference;
 
-    const std::string token = environmentOrEmpty(
-        "VDR_SUITE_TMDB_READ_ACCESS_TOKEN");
     if (selection.providerId != "tmdb" || token.empty())
         return selection.posterReference;
 
@@ -93,9 +93,13 @@ bool MetadataRepository::assignManualRecordingMetadata(
     resolved.backendId = normalizedBackendId(selection.backendId);
     resolved.resourceKey = resolveResourceKey(
         database_, resolved.backendId, selection.resourceKey);
-    const std::string materializedPoster = materializePosterIfConfigured(resolved);
+    const std::string token =
+        TmdbRecordingMetadataCredentialResolver::resolveReadAccessToken(
+            resolved.backendId);
+    const std::string materializedPoster =
+        materializePosterIfConfigured(resolved, token);
     if (!resolved.posterReference.empty() &&
-        !environmentOrEmpty("VDR_SUITE_TMDB_READ_ACCESS_TOKEN").empty() &&
+        !token.empty() &&
         resolved.providerId == "tmdb" && materializedPoster.empty())
         return false;
     resolved.posterReference = materializedPoster;
