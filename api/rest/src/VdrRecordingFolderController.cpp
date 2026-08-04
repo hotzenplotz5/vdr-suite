@@ -6,6 +6,7 @@
 #include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
 #include <filesystem>
+#include <map>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -367,10 +368,12 @@ VdrRecordingFolderController::VdrRecordingFolderController(
     VdrRecordingCacheRepository& repository,
     NativeMetadataLookup nativeMetadataLookup,
     ManualMetadataLookup manualMetadataLookup,
+    ManualMetadataBatchLookup manualMetadataBatchLookup,
     std::vector<std::string> metadataImageAllowedRoots)
     : repository_(repository),
       nativeMetadataLookup_(std::move(nativeMetadataLookup)),
       manualMetadataLookup_(std::move(manualMetadataLookup)),
+      manualMetadataBatchLookup_(std::move(manualMetadataBatchLookup)),
       metadataImageAllowedRoots_(std::move(metadataImageAllowedRoots))
 {
     if (metadataImageAllowedRoots_.empty())
@@ -410,8 +413,27 @@ ApiResponse VdrRecordingFolderController::getFolder(
 {
     const VdrRecordingFolderPage page = repository_.folderPageForBackend(
         backendId, path, limit, offset);
-    auto manualFor = [this, &page](const VdrRecording& recording)
+    const std::map<std::string, ManualRecordingMetadataAssignment>
+        manualAssignments = manualMetadataBatchLookup_
+            ? manualMetadataBatchLookup_(page.backendId)
+            : std::map<std::string, ManualRecordingMetadataAssignment>{};
+    auto manualFor = [this, &page, &manualAssignments](
+        const VdrRecording& recording)
     {
+        if (manualMetadataBatchLookup_)
+        {
+            for (const std::string* key : {
+                     &recording.backendNativeId,
+                     &recording.path,
+                     &recording.id})
+            {
+                if (key->empty()) continue;
+                const auto match = manualAssignments.find(*key);
+                if (match != manualAssignments.end()) return match->second;
+            }
+            return ManualRecordingMetadataAssignment{};
+        }
+
         if (!manualMetadataLookup_) return ManualRecordingMetadataAssignment{};
         return manualMetadataLookup_(
             recording.backendId.empty() ? page.backendId : recording.backendId,
