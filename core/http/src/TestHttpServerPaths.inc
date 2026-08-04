@@ -70,7 +70,7 @@ bool endsWith(
     const std::string& suffix)
 {
     return value.size() >= suffix.size() &&
-        value.compare(value.size() - suffix.size(), suffix.size()) == 0;
+        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 int hexValue(const char character)
