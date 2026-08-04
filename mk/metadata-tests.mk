@@ -5,6 +5,7 @@
 	test-metadata-manual-recording-assignment \
 	test-metadata-recording-candidate-provider \
 	test-metadata-manual-recording-api \
+	test-metadata-manual-recording-read-model \
 	test-metadata-genres \
 	test-metadata-genre-conflicts \
 	test-metadata-foundation
@@ -76,6 +77,24 @@ test-metadata-manual-recording-api:
 		-o $(BUILD_DIR)/test_manual_recording_metadata_api_runtime
 	$(BUILD_DIR)/test_manual_recording_metadata_api_runtime
 
+test-metadata-manual-recording-read-model: CXXFLAGS += -Icore/metadata/include -Icore/recordings/include -Icore/http/include -Icore/vdr/include -Iapi/rest/include
+test-metadata-manual-recording-read-model:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
+		core/vdr/src/VdrRecordingMetadataJsonSerializer.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataPublicJsonSerializer.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		api/rest/src/EpgArtworkController.cpp \
+		api/rest/src/VdrRecordingFolderController.cpp \
+		api/rest/tests/test_vdr_recording_folder_manual_metadata.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_vdr_recording_folder_manual_metadata
+	$(BUILD_DIR)/test_vdr_recording_folder_manual_metadata
+
 test-metadata-genres: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
 test-metadata-genres:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -104,6 +123,7 @@ test-metadata-foundation: \
 	test-metadata-manual-recording-assignment \
 	test-metadata-recording-candidate-provider \
 	test-metadata-manual-recording-api \
+	test-metadata-manual-recording-read-model \
 	test-metadata-genres \
 	test-metadata-genre-conflicts
 
