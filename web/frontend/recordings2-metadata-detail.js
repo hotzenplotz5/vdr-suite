@@ -13,7 +13,9 @@
   function assignmentRuntimePath() {
     const path = '/frontend/recordings2-metadata-assignment.js';
     const resolver = global.VdrSuitePublicUrl;
-    return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
+    return resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(path)
+      : path;
   }
 
   function repairMetadataImagePaths(root) {
@@ -25,56 +27,17 @@
     )).forEach(function (image) {
       const path = image && typeof image.getAttribute === 'function'
         ? image.getAttribute('src') : '';
-      if (metadataView.isPublicMetadataImageUrl(path)) image.src = resolver.resolvePath(path);
+      if (metadataView.isPublicMetadataImageUrl(path)) {
+        image.src = resolver.resolvePath(path);
+      }
     });
-  }
-
-  function preferredArtworkUrl(metadata) {
-    const artwork = metadata && metadata.preferredArtwork;
-    return artwork && artwork.available === true
-      ? shared.text(artwork.url)
-      : '';
-  }
-
-  function applyMetadataToDetail(root, metadata) {
-    if (!root || !metadata || metadata.available !== true ||
-        typeof root.querySelector !== 'function') return;
-
-    const manual = metadata.manualAssignment &&
-      metadata.manualAssignment.active === true;
-    const title = shared.text(metadata.title || metadata.episodeName);
-    const description = shared.text(metadata.overview || metadata.tagline);
-
-    if (manual && title) {
-      const heading = root.querySelector('.recordings2-detail-copy h3');
-      if (heading) heading.textContent = title;
-    }
-
-    if (manual && description) {
-      const summary = root.querySelector('.recordings2-detail-description');
-      if (summary) summary.textContent = description;
-    }
-
-    const posterUrl = preferredArtworkUrl(metadata);
-    const poster = root.querySelector('.recordings2-detail-poster');
-    if (!posterUrl || !poster || typeof poster.replaceChildren !== 'function') return;
-
-    const image = document.createElement('img');
-    image.src = typeof shared.publicPath === 'function'
-      ? shared.publicPath(posterUrl)
-      : posterUrl;
-    image.alt = 'Poster zu ' + (title || 'Aufnahme');
-    image.loading = 'lazy';
-    image.addEventListener('error', function () {
-      image.remove();
-      if (!poster.children || poster.children.length === 0) poster.textContent = '▶';
-    });
-    poster.replaceChildren(image);
   }
 
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
-    if (!backendNativeId) return Promise.reject(new Error('Die Aufnahme besitzt keine stabile Backend-Identität.'));
+    if (!backendNativeId) {
+      return Promise.reject(new Error('Die Aufnahme besitzt keine stabile Backend-Identität.'));
+    }
     const api = shared.clientApi();
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Metadaten ist nicht verfügbar.'));
@@ -132,7 +95,9 @@
     box.setAttribute('data-recordings2-metadata-assignment-error', 'true');
     box.setAttribute('role', 'alert');
     title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
-    message.textContent = error && error.message ? error.message : String(error || 'Unbekannter Fehler');
+    message.textContent = error && error.message
+      ? error.message
+      : String(error || 'Unbekannter Fehler');
     box.append(title, message);
     root.appendChild(box);
   }
@@ -145,7 +110,7 @@
     fetchMetadata(recording, backendId).then(function (metadata) {
       mounted.setMetadata(metadata);
       repairMetadataImagePaths(root);
-      applyMetadataToDetail(root, metadata);
+      metadataView.applyToDetail(root, metadata);
       loadAssignmentRuntime().then(function (runtime) {
         runtime.mount(root, recording, backendId, metadata);
       }).catch(function (error) {
@@ -161,8 +126,8 @@
     loadAssignmentRuntime,
     assignmentRuntimePath,
     repairMetadataImagePaths,
-    preferredArtworkUrl,
-    applyMetadataToDetail,
+    preferredArtworkUrl: metadataView.preferredArtworkUrl,
+    applyMetadataToDetail: metadataView.applyToDetail,
     formatDate: metadataView.formatDate,
     isPublicMetadataImageUrl: metadataView.isPublicMetadataImageUrl,
     mediaTypeLabel: metadataView.mediaTypeLabel,
