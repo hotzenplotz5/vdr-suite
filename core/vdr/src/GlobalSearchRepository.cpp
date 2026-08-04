@@ -124,11 +124,14 @@ std::string recordingBaseSql(bool manualAvailable)
 {
     const std::string nativePeople =
         "native_person_ranked AS ("
-        "SELECT p.backend_id,p.recording_key,p.name,p.role,"
-        "ROW_NUMBER() OVER(PARTITION BY p.backend_id,p.recording_key "
+        "SELECT m.backend_id,m.backend_native_id,p.name,p.role,"
+        "ROW_NUMBER() OVER(PARTITION BY m.backend_id,m.backend_native_id "
         "ORDER BY p.name_folded,p.ordinal) AS person_rank "
         "FROM vdr_recording_native_person p "
-        "WHERE p.backend_id=:backend AND instr(p.name_folded,:q)>0)";
+        "JOIN vdr_recording_native_metadata m "
+        "ON m.backend_id=p.backend_id AND m.recording_key=p.recording_key "
+        "WHERE p.backend_id=:backend AND m.content_state='found' "
+        "AND instr(p.name_folded,:q)>0)";
 
     if (!manualAvailable)
     {
@@ -148,7 +151,8 @@ std::string recordingBaseSql(bool manualAvailable)
             "AND m.backend_native_id=c.backend_native_id "
             "AND m.content_state='found' "
             "LEFT JOIN native_person_ranked np "
-            "ON np.backend_id=c.backend_id AND np.recording_key=c.cache_key "
+            "ON np.backend_id=c.backend_id "
+            "AND np.backend_native_id=c.backend_native_id "
             "AND np.person_rank=1 WHERE c.backend_id=:backend) ";
     }
 
@@ -208,7 +212,8 @@ std::string recordingBaseSql(bool manualAvailable)
         "ON mp.backend_id=c.backend_id AND mp.resource_key=c.cache_key "
         "AND mp.person_rank=1 "
         "LEFT JOIN native_person_ranked np "
-        "ON np.backend_id=c.backend_id AND np.recording_key=c.cache_key "
+        "ON np.backend_id=c.backend_id "
+        "AND np.backend_native_id=c.backend_native_id "
         "AND np.person_rank=1 WHERE c.backend_id=:backend) ";
 }
 
