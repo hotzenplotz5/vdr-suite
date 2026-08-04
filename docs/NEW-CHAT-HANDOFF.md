@@ -11,7 +11,7 @@ These rules are mandatory for every assistant continuing VDR-Suite work:
 - work GitHub-first and perform repository reads, edits, commits, pushes, pull-request work and CI inspection through the connected GitHub tools whenever they can do so safely;
 - do not hand the user downloadable patches, replacement files or shell-command workflows for work that can be completed directly on GitHub;
 - continue autonomously through all already-approved steps of the active bounded workstream and do not stop after analysis, after an individual edit or after an intermediate commit;
-- provide short, regular status updates throughout longer work, including the current finding, change, test or CI state;
+- always provide visible status updates during every multi-step repository task: send one before substantive work begins and further short updates after each meaningful finding, edit, commit, test or CI-state transition; never work silently through multiple repository operations;
 - create and push small coherent commits at meaningful checkpoints, using fast-forward-only history and never force-pushing or rewriting published history without explicit approval;
 - use GitHub Actions as the normal repository validation path and do not invent a blanket prohibition on commits before tests; local compilation or focused local tests are only required when GitHub cannot establish the needed fact;
 - do not stop until there is a usable, tested Draft PR for the approved workstream, unless a real project-rule, safety, compatibility or decision boundary is reached;
@@ -29,6 +29,7 @@ These requirements reinforce [Agent Workflow Rules](../AGENTS.md). They are not 
 
 These exact operational safety invariants are append-only and must not be removed, shortened, weakened or overridden by a later handoff refresh, status rewrite, documentation cleanup or assistant preference. A change is permitted only when the user explicitly orders the named rule to be changed.
 
+- Always provide visible status updates during repository work; never work silently through multiple repository operations or wait until the final response to report progress.
 - Never invent or infer a local checkout path, host, branch, user, installation target or runtime state.
 - Never promote a temporary test directory, historical phase checkout or example path to the canonical checkout.
 - Never use `set -e`, `set -o errexit`, `bash -e` or `sh -e` in user-facing shell blocks and never mutate the user's interactive shell options.
