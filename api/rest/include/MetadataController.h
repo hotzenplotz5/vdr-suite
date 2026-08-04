@@ -5,6 +5,7 @@
 #include "MetadataRepository.h"
 #include "RecordingMetadataCandidateProvider.h"
 
+#include <map>
 #include <string>
 
 class IRecordingMetadataCandidateProvider;
@@ -76,6 +77,14 @@ public:
         return metadataRepository_.getManualRecordingMetadata(
             backendId,
             resourceKey);
+    }
+
+    std::map<std::string, ManualRecordingMetadataAssignment>
+    findManualRecordingMetadataForBackend(
+        const std::string& backendId)
+    {
+        return metadataRepository_.getManualRecordingMetadataForBackend(
+            backendId);
     }
 
     ApiResponse getManualRecordingMetadata(
