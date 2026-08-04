@@ -4,6 +4,7 @@
 	test-metadata-schema-contract \
 	test-metadata-manual-recording-assignment \
 	test-metadata-recording-candidate-provider \
+	test-metadata-manual-recording-api \
 	test-metadata-genres \
 	test-metadata-genre-conflicts \
 	test-metadata-foundation
@@ -49,6 +50,23 @@ test-metadata-recording-candidate-provider:
 		-o $(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
 	$(BUILD_DIR)/test_tmdb_recording_metadata_candidate_provider
 
+test-metadata-manual-recording-api: CXXFLAGS += -Icore/metadata/include -Icore/recordings/include -Icore/http/include -Iapi/rest/include
+test-metadata-manual-recording-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_PLATFORM_SRC) \
+		$(METADATA_GENRE_SRC) \
+		$(MANUAL_RECORDING_METADATA_SRC) \
+		core/recordings/src/MetadataRepository.cpp \
+		core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp \
+		core/http/src/CurlExternalArtworkHttpTransport.cpp \
+		api/rest/src/MetadataController.cpp \
+		api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
+		api/rest/tests/test_manual_recording_metadata_api_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_manual_recording_metadata_api_runtime
+	$(BUILD_DIR)/test_manual_recording_metadata_api_runtime
+
 test-metadata-genres: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
 test-metadata-genres:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -76,6 +94,7 @@ test-metadata-foundation: \
 	test-metadata-schema-contract \
 	test-metadata-manual-recording-assignment \
 	test-metadata-recording-candidate-provider \
+	test-metadata-manual-recording-api \
 	test-metadata-genres \
 	test-metadata-genre-conflicts
 
