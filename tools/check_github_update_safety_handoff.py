@@ -64,7 +64,7 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "For the established yaVDR checkout, the mandatory daemon flow has this shape:",
     "`git pull --ff-only origin <exact-branch>` is mandatory for the established checkout.",
     "Do not add package-manager commands, dependency bootstrapping, a second clone",
-    "Do not add CI test suites, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.",
+    "Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.",
     "Keep the answer branch-/PR-specific and as short as the complete safe flow permits.",
     "## Binding branch- and PR-specific installed-result acceptance manifest",
     "## Prüfung des installierten Ergebnisses",
