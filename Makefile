@@ -13,6 +13,7 @@ include mk/http-sources.mk
 include mk/runtime-sources.mk
 include mk/daemon-sources.mk
 include mk/tmdb-series-artwork.mk
+include mk/manual-recording-metadata.mk
 include mk/install.mk
 include mk/public-origin.mk
 include mk/live-remote.mk
