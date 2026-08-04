@@ -39,6 +39,9 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
+
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
