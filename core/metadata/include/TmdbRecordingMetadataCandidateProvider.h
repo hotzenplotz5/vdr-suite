@@ -48,6 +48,10 @@ public:
         int seasonNumber,
         int limit) override;
 
+    RecordingMetadataCastPage movieCredits(
+        const std::string& movieExternalId,
+        int limit) override;
+
     std::string materializePoster(
         const std::string& externalNamespace,
         const std::string& externalId,
@@ -66,5 +70,9 @@ private:
         RecordingMetadataCandidateKind kind,
         const std::string& parentExternalId,
         int seasonNumber,
+        int limit);
+
+    RecordingMetadataCastPage requestMovieCredits(
+        const std::string& url,
         int limit);
 };
