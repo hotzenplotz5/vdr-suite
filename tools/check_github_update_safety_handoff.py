@@ -23,34 +23,48 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   pauses.
 # - Create and push coherent commits consecutively with fast-forward-only
 #   semantics.
-# - Do not wait for GitHub Actions after every commit. Evaluate CI at the final
-#   stabilization head or before a gated runtime/review/merge operation.
+# - Do not wait for GitHub Actions after every commit. Evaluate only the jobs
+#   that can validate components changed by the current diff.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
 # - End every final VDR-Suite repository response with current local build,
-#   test and installation commands tailored to the active branch and change.
+#   test and installation guidance tailored to the active branch and change.
 # - Never invent or infer local operational context, including checkout paths.
-# - Wait only for CI jobs that validate components changed by the current diff.
+# - Never use set -e, set -o errexit, bash -e or sh -e in user shell blocks.
+# - Do not prescribe installation or service restart when installable content
+#   did not change and the user did not explicitly request it.
+# - The protected operational safety invariants are append-only and must not
+#   be removed, shortened, weakened or overridden without explicit user order.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
     "Prefer direct GitHub repository updates for existing files",
     "Use local edits first only when the change requires:",
     "a workaround because the GitHub connector blocks a file operation",
+    "### Permanent operational safety invariants",
+    "append-only and must not be removed, shortened, weakened or overridden",
+    "Never invent, guess or silently infer local paths",
+    "Never use `set -e`, `set -o errexit`, `bash -e` or `sh -e`",
+    "Wait only for GitHub Actions jobs that can validate components changed by the current diff",
+    "Do not prescribe installation or service restart when installable content did not change",
     "### Required final local command block",
     "Every final VDR-Suite repository response must end with a copyable",
-    "make test-install-staging",
-    "sudo make install PREFIX=/usr",
 ]
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "## Binding execution rules for every new chat",
-    "## Required final local command block",
-    "Every final VDR-Suite repository response must end with a ready-to-copy shell block",
+    "## Permanent operational safety invariants",
+    "These exact operational safety invariants are append-only",
+    "must not be removed, shortened, weakened or overridden",
     "never invent, guess or silently infer local paths",
     "canonical checkout path must be explicitly verified before emitting `cd`",
+    "Never use `set -e`, `set -o errexit`, `bash -e` or `sh -e`",
     "select GitHub Actions evidence by change impact",
     "do not wait for daemon build, packaging, frontend or other unrelated jobs",
+    "Do not prescribe installation, daemon replacement or service restart",
+    "## Required final local command block",
+    "Every final VDR-Suite repository response must end with a ready-to-copy shell block",
+    "Do not use `set -e`, `set -o errexit`, `bash -e` or `sh -e`",
     "Do not require `make daemon`, daemon installation or service restart",
     "Do not require waiting for every GitHub Actions job",
 ]
@@ -75,11 +89,13 @@ REQUIRED_GUARDRAIL_RULES = [
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
     "Do not wait for GitHub Actions after every commit.",
-    "Evaluate CI at the final",
+    "Evaluate only the jobs",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
     "End every final VDR-Suite repository response with current local build,",
     "Never invent or infer local operational context",
-    "Wait only for CI jobs that validate components changed",
+    "Never use set -e, set -o errexit, bash -e or sh -e",
+    "Do not prescribe installation or service restart when installable content",
+    "protected operational safety invariants are append-only",
 ]
 
 
