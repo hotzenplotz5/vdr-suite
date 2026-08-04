@@ -81,3 +81,13 @@ bool RecordingMetadataCandidate::valid() const
     }
     return false;
 }
+
+bool RecordingMetadataCastMember::valid() const
+{
+    return providerId == "tmdb" &&
+        externalNamespace == "person" &&
+        digits(externalId) &&
+        safeText(name, 512U, false) &&
+        safeText(characterName, 512U, true) &&
+        order >= 0 && order < 100000;
+}
