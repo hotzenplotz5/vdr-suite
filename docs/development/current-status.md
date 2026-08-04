@@ -134,6 +134,18 @@ Legacy Basic remains an explicitly transitional deployment mode. `enforced` is t
 - Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
 - Keep PR #136 Draft until the user explicitly approves readiness after real-system testing.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded operation safely.
+
+Use local edits first only when the change requires:
+
+- a workaround because the GitHub connector blocks a file operation;
+- repository-local generation, compilation or tests that cannot be performed through the connector;
+- a coherent multi-file patch that must be validated locally before publication.
+
+Never replace a complete repository file from a truncated fetch. After each GitHub file update, inspect the resulting commit diff before treating the change as correct.
+
 ## Exact next action
 
 1. Complete focused code, SQL, REST, security, detail, frontend and documentation validation for Draft PR #136.
