@@ -64,7 +64,10 @@ public:
         int limit) = 0;
 
     virtual std::string materializePoster(
-        const std::string& externalNamespace,
-        const std::string& externalId,
-        const std::string& posterReference) = 0;
+        const std::string&,
+        const std::string&,
+        const std::string&)
+    {
+        return {};
+    }
 };
