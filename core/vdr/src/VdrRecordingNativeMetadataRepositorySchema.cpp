@@ -17,7 +17,9 @@ bool VdrRecordingNativeMetadataRepository::ensureSchema()
 
 bool VdrRecordingNativeMetadataRepository::ensureSchemaLocked() const
 {
-    return database_.execute(
+    if (schemaReady_) return true;
+
+    const bool ready = database_.execute(
         "CREATE TABLE IF NOT EXISTS vdr_recording_native_metadata ("
         "backend_id TEXT NOT NULL,"
         "recording_key TEXT NOT NULL,"
@@ -87,6 +89,9 @@ bool VdrRecordingNativeMetadataRepository::ensureSchemaLocked() const
         "backend_id TEXT NOT NULL, recording_key TEXT NOT NULL, ordinal INTEGER NOT NULL, orientation TEXT NOT NULL, provider TEXT NOT NULL,"
         "path TEXT NOT NULL, width INTEGER NOT NULL DEFAULT 0, height INTEGER NOT NULL DEFAULT 0,"
         "PRIMARY KEY (backend_id, recording_key, ordinal));");
+
+    if (ready) schemaReady_ = true;
+    return ready;
 }
 
 std::string VdrRecordingNativeMetadataRepository::normalizeBackendId(
