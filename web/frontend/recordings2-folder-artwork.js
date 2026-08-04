@@ -64,7 +64,7 @@
 .recordings2-folder-artwork.is-sprite{background-size:300% 200%}
 @media(max-width:720px){.recordings2-folder.has-genre-artwork{grid-template-columns:4.65rem minmax(0,1fr) auto}.recordings2-folder-artwork{width:4.65rem}}
 @media(max-width:390px){.recordings2-folder.has-genre-artwork{grid-template-columns:4.1rem minmax(0,1fr) auto}.recordings2-folder-artwork{width:4.1rem}}
-@media(min-width:72rem){.recordings2-folder-list{grid-template-columns:repeat(auto-fit,minmax(26rem,1fr));gap:.85rem}.recordings2-folder.has-genre-artwork{grid-template-columns:8.9rem minmax(0,1fr) auto;min-height:13.7rem}.recordings2-folder-artwork{width:8.9rem}}
+@media(min-width:72rem){.recordings2-folder-list{grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.7rem}.recordings2-folder.has-genre-artwork{grid-template-columns:5.2rem minmax(0,1fr) auto;min-height:0}.recordings2-folder-artwork{width:5.2rem}}
 `;
     document.head.appendChild(style);
   }
