@@ -4,6 +4,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_STATUS = ROOT / "docs/development/current-status.md"
+NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 AGENT_RULES = ROOT / "AGENTS.md"
 
 # GitHub update safety rules for future assistants:
@@ -26,12 +27,27 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   stabilization head or before a gated runtime/review/merge operation.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
+# - End every final VDR-Suite repository response with current local build,
+#   test and installation commands tailored to the active branch and change.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
     "Prefer direct GitHub repository updates for existing files",
     "Use local edits first only when the change requires:",
     "a workaround because the GitHub connector blocks a file operation",
+    "### Required final local command block",
+    "Every final VDR-Suite repository response must end with a copyable",
+    "make test-install-staging",
+    "sudo make install PREFIX=/usr",
+]
+
+REQUIRED_NEW_CHAT_HANDOFF_RULES = [
+    "## Binding execution rules for every new chat",
+    "## Required final local command block",
+    "Every final VDR-Suite repository response must end with a ready-to-copy shell block",
+    "make test-install-staging",
+    "sudo make install PREFIX=/usr",
+    "systemctl daemon-reload",
 ]
 
 REQUIRED_AGENT_RULES = [
@@ -56,6 +72,7 @@ REQUIRED_GUARDRAIL_RULES = [
     "Do not wait for GitHub Actions after every commit.",
     "Evaluate CI at the final",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
+    "End every final VDR-Suite repository response with current local build,",
 ]
 
 
@@ -64,12 +81,19 @@ def main() -> int:
 
     if not CURRENT_STATUS.exists():
         missing.append("docs/development/current-status.md is missing")
+    if not NEW_CHAT_HANDOFF.exists():
+        missing.append("docs/NEW-CHAT-HANDOFF.md is missing")
     if not AGENT_RULES.exists():
         missing.append("AGENTS.md is missing")
 
     current_status_text = (
         CURRENT_STATUS.read_text(encoding="utf-8")
         if CURRENT_STATUS.exists()
+        else ""
+    )
+    new_chat_handoff_text = (
+        NEW_CHAT_HANDOFF.read_text(encoding="utf-8")
+        if NEW_CHAT_HANDOFF.exists()
         else ""
     )
     agent_rules_text = (
@@ -82,6 +106,10 @@ def main() -> int:
     for item in REQUIRED_CURRENT_STATUS_RULES:
         if item not in current_status_text:
             missing.append("current-status.md missing rule: " + item)
+
+    for item in REQUIRED_NEW_CHAT_HANDOFF_RULES:
+        if item not in new_chat_handoff_text:
+            missing.append("NEW-CHAT-HANDOFF.md missing rule: " + item)
 
     for item in REQUIRED_AGENT_RULES:
         if item not in agent_rules_text:
