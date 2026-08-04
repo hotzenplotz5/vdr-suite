@@ -10,6 +10,14 @@
     return;
   }
 
+  function assignmentRuntimePath() {
+    const path = '/frontend/recordings2-metadata-assignment.js';
+    const resolver = global.VdrSuitePublicUrl;
+    return resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(path)
+      : path;
+  }
+
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
     if (!backendNativeId) {
@@ -57,7 +65,7 @@
         reject(new Error('Manuelle Metadaten-Runtime konnte nicht geladen werden.'));
       }, {once: true});
       if (!existing) {
-        script.src = '/frontend/recordings2-metadata-assignment.js';
+        script.src = assignmentRuntimePath();
         document.head.appendChild(script);
       }
     }).catch(function (error) {
@@ -65,6 +73,23 @@
       throw error;
     });
     return assignmentRuntimePromise;
+  }
+
+  function renderAssignmentLoadError(root, error) {
+    if (!root || root.querySelector('[data-recordings2-metadata-assignment-error]')) return;
+    const box = document.createElement('section');
+    box.className = 'recordings2-status error';
+    box.dataset.recordings2MetadataAssignmentError = 'true';
+    box.setAttribute('data-recordings2-metadata-assignment-error', 'true');
+    box.setAttribute('role', 'alert');
+    const title = document.createElement('strong');
+    title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
+    const message = document.createElement('p');
+    message.textContent = error && error.message
+      ? error.message
+      : String(error || 'Unbekannter Fehler');
+    box.append(title, message);
+    root.appendChild(box);
   }
 
   function enhance(root, recording, backendId) {
@@ -75,9 +100,13 @@
     fetchMetadata(recording, backendId)
       .then(function (metadata) {
         mounted.setMetadata(metadata);
-        return loadAssignmentRuntime().then(function (assignmentRuntime) {
-          assignmentRuntime.mount(root, recording, backendId, metadata);
-        });
+        loadAssignmentRuntime()
+          .then(function (assignmentRuntime) {
+            assignmentRuntime.mount(root, recording, backendId, metadata);
+          })
+          .catch(function (error) {
+            renderAssignmentLoadError(root, error);
+          });
       })
       .catch(mounted.setError);
     return root;
@@ -87,6 +116,7 @@
     enhance,
     fetchMetadata,
     loadAssignmentRuntime,
+    assignmentRuntimePath,
     formatDate: metadataView.formatDate,
     isPublicMetadataImageUrl: metadataView.isPublicMetadataImageUrl,
     mediaTypeLabel: metadataView.mediaTypeLabel,
