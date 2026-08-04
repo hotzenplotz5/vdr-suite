@@ -97,16 +97,31 @@ The browser sends the existing backend-native Recording identity. The server res
 
 ---
 
-## Provider and artwork contract
+## Provider, credentials and artwork contract
 
 The initial provider is TMDB.
 
-Runtime configuration uses the existing managed environment variables:
+Every provider operation is scoped by the authoritative backend route. Credential resolution uses this order:
+
+1. the existing managed backend token:
+
+   ```text
+   /var/lib/vdr-suite/secrets/series-artwork/{backendId}.tmdb-token
+   ```
+
+2. the existing environment fallback:
+
+   ```text
+   VDR_SUITE_TMDB_READ_ACCESS_TOKEN
+   ```
+
+The language remains configurable through:
 
 ```text
-VDR_SUITE_TMDB_READ_ACCESS_TOKEN
 VDR_SUITE_TMDB_LANGUAGE
 ```
+
+Managed tokens therefore work for manual Recording metadata without duplicating credentials or requiring a new browser-visible setting. The resolver validates the backend ID, traverses the private secret directory without following symlinks, accepts only private regular files and never returns a token through an API response or accountability event.
 
 Candidate search supports:
 
@@ -133,7 +148,7 @@ The materializer enforces:
 - exclusive temporary creation, fsync and atomic rename;
 - no TMDB credential on the image-host request.
 
-If TMDB search credentials are not configured, the search API reports provider unavailability. Existing automatic Recording metadata remains unaffected.
+If neither a managed backend token nor the environment fallback is configured, the search API reports provider unavailability. Existing automatic Recording metadata remains unaffected.
 
 ---
 
@@ -148,7 +163,7 @@ POST /api/backends/{backendId}/recordings/metadata/assign
 POST /api/backends/{backendId}/recordings/metadata/withdraw
 ```
 
-The backend route segment is authoritative. A body field cannot change the authorization or accountability scope.
+The backend route segment is authoritative. A body field cannot change the authorization, provider credential or accountability scope.
 
 The assignment and withdrawal contracts use an expected revision. Stale browser state fails with a conflict and must not overwrite a newer decision.
 
@@ -189,7 +204,7 @@ metadata.recording.manualAssignment.series
 metadata.recording.manualAssignment.episode
 ```
 
-Capability advertisement describes the supported Suite workflow. Each provider request still validates its current runtime configuration.
+Capability advertisement describes the supported Suite workflow. Each provider request still validates its current backend-scoped runtime configuration.
 
 ---
 
@@ -203,9 +218,10 @@ The feature is covered through the existing test graph by:
 - season and episode parsing;
 - query encoding, rate-limit retry and provider failure behavior;
 - selected-poster validation, cache reuse and atomic publication;
+- backend-scoped managed credential reuse with environment fallback;
 - route and payload validation;
 - API search, assignment, readback and withdrawal;
-- route-authoritative authorization;
+- route-authoritative authorization and provider scope;
 - Admin, Read-only, wrong-backend and CSRF behavior;
 - authorization decision and protected-operation outcome events;
 - manual Recording read-model priority;
@@ -237,7 +253,7 @@ Perform this once, after the complete reviewed source head has been built and in
 ### Preconditions
 
 - the installed daemon and web assets come from the same source head;
-- TMDB credentials used by the existing series-artwork integration are available to the daemon;
+- the existing managed TMDB token is configured for the selected backend, or the environment fallback is configured for the daemon;
 - an Admin browser session has the exact backend scope;
 - a Read-only browser session is available for the denial check;
 - at least one unmatched or deliberately incorrect Recording is available;
