@@ -6,6 +6,7 @@ MANUAL_RECORDING_METADATA_SRC := \
 	core/metadata/src/RecordingMetadataCandidateProvider.cpp \
 	core/metadata/src/TmdbRecordingMetadataCandidateJson.cpp \
 	core/metadata/src/TmdbRecordingMetadataCandidateProvider.cpp \
+	core/metadata/src/TmdbRecordingMetadataCredentialResolver.cpp \
 	core/metadata/src/TmdbRecordingMetadataPosterMaterializer.cpp
 
 METADATA_GENRE_SRC := \
