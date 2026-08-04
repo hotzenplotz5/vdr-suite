@@ -32,6 +32,35 @@ enum class SuiteBridgeEpgImageOrientation {
   Portrait,
 };
 
+enum class SuiteBridgeEpgExternalIdProvider {
+  Unknown,
+  Imdb,
+  Tmdb,
+  Tvdb,
+};
+
+enum class SuiteBridgeEpgExternalIdScope {
+  Unknown,
+  Series,
+  Season,
+  Episode,
+  Movie,
+};
+
+struct SuiteBridgeEpgExternalId final {
+  SuiteBridgeEpgExternalIdProvider provider =
+      SuiteBridgeEpgExternalIdProvider::Unknown;
+  SuiteBridgeEpgExternalIdScope scope =
+      SuiteBridgeEpgExternalIdScope::Unknown;
+  std::string value;
+
+  bool Valid() const noexcept
+  {
+    return provider != SuiteBridgeEpgExternalIdProvider::Unknown &&
+        scope != SuiteBridgeEpgExternalIdScope::Unknown && !value.empty();
+  }
+};
+
 struct SuiteBridgeEpgPerson final {
   SuiteBridgeEpgPersonRole role = SuiteBridgeEpgPersonRole::Unknown;
   std::string name;
@@ -50,6 +79,7 @@ struct SuiteBridgeEpgMetadata final {
   static constexpr std::size_t kMaxGenres = 12;
   static constexpr std::size_t kMaxCountries = 8;
   static constexpr std::size_t kMaxNetworks = 8;
+  static constexpr std::size_t kMaxExternalIds = 8;
   static constexpr std::size_t kMaxPeople = 12;
   static constexpr std::size_t kMaxImages = 8;
 
@@ -77,6 +107,8 @@ struct SuiteBridgeEpgMetadata final {
   std::string overview;
   std::string releaseDate;
   std::string firstAired;
+  // Transitional compatibility field. Qualified identities are carried in
+  // externalIds without changing the schema-1 legacy field.
   std::string imdbId;
   std::string status;
   std::string collectionName;
@@ -84,6 +116,7 @@ struct SuiteBridgeEpgMetadata final {
   std::vector<std::string> genres;
   std::vector<std::string> productionCountries;
   std::vector<std::string> networks;
+  std::vector<SuiteBridgeEpgExternalId> externalIds;
   std::vector<SuiteBridgeEpgPerson> people;
   SuiteBridgeArtworkReference preferredArtwork;
   std::vector<SuiteBridgeEpgImage> images;
@@ -149,6 +182,42 @@ inline const char *SuiteBridgeEpgImageOrientationName(
   case SuiteBridgeEpgImageOrientation::Portrait:
     return "portrait";
   case SuiteBridgeEpgImageOrientation::Unknown:
+    return "unknown";
+  }
+
+  return "unknown";
+}
+
+inline const char *SuiteBridgeEpgExternalIdProviderName(
+    SuiteBridgeEpgExternalIdProvider provider) noexcept
+{
+  switch (provider) {
+  case SuiteBridgeEpgExternalIdProvider::Imdb:
+    return "imdb";
+  case SuiteBridgeEpgExternalIdProvider::Tmdb:
+    return "tmdb";
+  case SuiteBridgeEpgExternalIdProvider::Tvdb:
+    return "tvdb";
+  case SuiteBridgeEpgExternalIdProvider::Unknown:
+    return "unknown";
+  }
+
+  return "unknown";
+}
+
+inline const char *SuiteBridgeEpgExternalIdScopeName(
+    SuiteBridgeEpgExternalIdScope scope) noexcept
+{
+  switch (scope) {
+  case SuiteBridgeEpgExternalIdScope::Series:
+    return "series";
+  case SuiteBridgeEpgExternalIdScope::Season:
+    return "season";
+  case SuiteBridgeEpgExternalIdScope::Episode:
+    return "episode";
+  case SuiteBridgeEpgExternalIdScope::Movie:
+    return "movie";
+  case SuiteBridgeEpgExternalIdScope::Unknown:
     return "unknown";
   }
 

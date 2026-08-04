@@ -174,7 +174,8 @@ private:
             permission == "searchtimers.preview-cache.refresh" ||
             permission == "epg.cache.refresh" ||
             permission == "epgsearch.native-fuzzy.refresh" ||
-            permission == "epgsearch.native-fuzzy.stale-probes.delete";
+            permission == "epgsearch.native-fuzzy.stale-probes.delete" ||
+            permission == "backend.settings.series-artwork.modify";
     }
 
     static bool adminRoleGrants(const std::string& permission)

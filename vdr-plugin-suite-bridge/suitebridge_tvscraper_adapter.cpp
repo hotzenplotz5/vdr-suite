@@ -46,6 +46,21 @@ SuiteBridgeEpgMediaType ToMediaType(tvType type) noexcept
   return SuiteBridgeEpgMediaType::None;
 }
 
+SuiteBridgeEpgExternalIdScope ToExternalIdScope(
+    SuiteBridgeEpgMediaType mediaType) noexcept
+{
+  switch (mediaType) {
+  case SuiteBridgeEpgMediaType::Series:
+    return SuiteBridgeEpgExternalIdScope::Series;
+  case SuiteBridgeEpgMediaType::Movie:
+    return SuiteBridgeEpgExternalIdScope::Movie;
+  case SuiteBridgeEpgMediaType::None:
+    return SuiteBridgeEpgExternalIdScope::Unknown;
+  }
+
+  return SuiteBridgeEpgExternalIdScope::Unknown;
+}
+
 SuiteBridgeEpgPersonRole ToPersonRole(
     eCharacterType type) noexcept
 {
@@ -94,6 +109,35 @@ SuiteBridgeEpgImageOrientation ToImageOrientation(
   return SuiteBridgeEpgImageOrientation::Unknown;
 }
 
+cTvMedia PreferredArtwork(cScraperVideo &video)
+{
+  if (video.getVideoType() == tSeries) {
+    return video.getImage(
+        cImageLevels(
+            eImageLevel::seasonMovie,
+            eImageLevel::tvShowCollection,
+            eImageLevel::anySeasonCollection,
+            eImageLevel::episodeMovie),
+        cOrientations(
+            eOrientation::portrait,
+            eOrientation::landscape,
+            eOrientation::banner),
+        true);
+  }
+
+  return video.getImage(
+      cImageLevels(
+          eImageLevel::episodeMovie,
+          eImageLevel::seasonMovie,
+          eImageLevel::tvShowCollection,
+          eImageLevel::anySeasonCollection),
+      cOrientations(
+          eOrientation::landscape,
+          eOrientation::banner,
+          eOrientation::portrait),
+      true);
+}
+
 template <typename T>
 void LimitVector(std::vector<T> &values, std::size_t limit)
 {
@@ -109,6 +153,36 @@ void AssignIfNotEmpty(
   if (!value.empty()) {
     target = value;
   }
+}
+
+void AppendExternalId(
+    SuiteBridgeEpgMetadata &metadata,
+    SuiteBridgeEpgExternalIdProvider provider,
+    SuiteBridgeEpgExternalIdScope scope,
+    const std::string &value)
+{
+  if (value.empty() ||
+      metadata.externalIds.size() >= SuiteBridgeEpgMetadata::kMaxExternalIds) {
+    return;
+  }
+
+  SuiteBridgeEpgExternalId externalId;
+  externalId.provider = provider;
+  externalId.scope = scope;
+  externalId.value = value;
+  if (!externalId.Valid()) {
+    return;
+  }
+
+  for (const SuiteBridgeEpgExternalId &existing : metadata.externalIds) {
+    if (existing.provider == externalId.provider &&
+        existing.scope == externalId.scope &&
+        existing.value == externalId.value) {
+      return;
+    }
+  }
+
+  metadata.externalIds.push_back(std::move(externalId));
 }
 
 bool HasArtworkPath(
@@ -196,17 +270,7 @@ SuiteBridgeTvScraperAdapter::ResolvePreferredArtwork(
     return {};
   }
 
-  const cTvMedia media = request.m_scraperVideo->getImage(
-      cImageLevels(
-          eImageLevel::episodeMovie,
-          eImageLevel::seasonMovie,
-          eImageLevel::tvShowCollection,
-          eImageLevel::anySeasonCollection),
-      cOrientations(
-          eOrientation::landscape,
-          eOrientation::banner,
-          eOrientation::portrait),
-      true);
+  const cTvMedia media = PreferredArtwork(*request.m_scraperVideo);
 
   const SuiteBridgeArtworkReference reference = ToArtworkReference(media);
   if (!reference.Valid()) {
@@ -297,6 +361,13 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
     AssignIfNotEmpty(metadata.episodeName, overviewEpisodeName);
     AssignIfNotEmpty(metadata.releaseDate, overviewReleaseDate);
     AssignIfNotEmpty(metadata.imdbId, overviewImdbId);
+    if (metadata.mediaType == SuiteBridgeEpgMediaType::Movie) {
+      AppendExternalId(
+          metadata,
+          SuiteBridgeEpgExternalIdProvider::Imdb,
+          SuiteBridgeEpgExternalIdScope::Movie,
+          overviewImdbId);
+    }
     AssignIfNotEmpty(metadata.collectionName, overviewCollectionName);
     if (overviewRuntime > 0) {
       metadata.runtimeMinutes = overviewRuntime;
@@ -356,6 +427,11 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
     AssignIfNotEmpty(metadata.overview, detailedOverview);
     AssignIfNotEmpty(metadata.releaseDate, detailedReleaseDate);
     AssignIfNotEmpty(metadata.imdbId, detailedImdbId);
+    AppendExternalId(
+        metadata,
+        SuiteBridgeEpgExternalIdProvider::Imdb,
+        ToExternalIdScope(metadata.mediaType),
+        detailedImdbId);
     AssignIfNotEmpty(metadata.collectionName, collectionName);
     AssignIfNotEmpty(metadata.status, status);
     metadata.genres = std::move(detailedGenres);
@@ -397,6 +473,11 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
       AssignIfNotEmpty(metadata.overview, episodeOverview);
       AssignIfNotEmpty(metadata.firstAired, firstAired);
       AssignIfNotEmpty(metadata.imdbId, episodeImdbId);
+      AppendExternalId(
+          metadata,
+          SuiteBridgeEpgExternalIdProvider::Imdb,
+          SuiteBridgeEpgExternalIdScope::Episode,
+          episodeImdbId);
       metadata.absoluteEpisodeNumber = absoluteEpisodeNumber;
       if (episodeRuntime > 0) {
         metadata.runtimeMinutes = episodeRuntime;
@@ -416,17 +497,7 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
       SuiteBridgeEpgMetadata::kMaxCountries);
   LimitVector(metadata.networks, SuiteBridgeEpgMetadata::kMaxNetworks);
 
-  metadata.preferredArtwork = ToArtworkReference(video.getImage(
-      cImageLevels(
-          eImageLevel::episodeMovie,
-          eImageLevel::seasonMovie,
-          eImageLevel::tvShowCollection,
-          eImageLevel::anySeasonCollection),
-      cOrientations(
-          eOrientation::landscape,
-          eOrientation::banner,
-          eOrientation::portrait),
-      true));
+  metadata.preferredArtwork = ToArtworkReference(PreferredArtwork(video));
 
   std::vector<std::unique_ptr<cCharacter>> characters =
       video.getCharacters(true);

@@ -31,10 +31,53 @@ enum class EpgScraperImageOrientation
     Portrait
 };
 
+enum class EpgScraperArtworkOrigin
+{
+    Unknown,
+    PrimaryMetadata,
+    ExternalFallback
+};
+
+enum class EpgScraperExternalIdProvider
+{
+    Unknown,
+    Imdb,
+    Tmdb,
+    Tvdb
+};
+
+enum class EpgScraperExternalIdScope
+{
+    Unknown,
+    Series,
+    Season,
+    Episode,
+    Movie
+};
+
+struct EpgScraperExternalId
+{
+    EpgScraperExternalIdProvider provider =
+        EpgScraperExternalIdProvider::Unknown;
+    EpgScraperExternalIdScope scope = EpgScraperExternalIdScope::Unknown;
+    std::string value;
+
+    bool valid() const
+    {
+        return provider != EpgScraperExternalIdProvider::Unknown &&
+            scope != EpgScraperExternalIdScope::Unknown && !value.empty();
+    }
+};
+
 struct EpgScraperArtwork
 {
     bool available = false;
     std::string provider;
+    EpgScraperArtworkOrigin origin = EpgScraperArtworkOrigin::Unknown;
+    // Internal delivery eligibility. External providers and the materializer
+    // cannot set this boundary; it is asserted only after managed persistence
+    // succeeds or a persisted managed record is rehydrated.
+    bool managed = false;
     std::string path;
     int width = 0;
     int height = 0;
@@ -102,6 +145,8 @@ struct EpgScraperMetadata
     std::string overview;
     std::string releaseDate;
     std::string firstAired;
+    // Transitional compatibility field. Consumers that need stable matching
+    // must prefer the provider- and scope-qualified externalIds entries.
     std::string imdbId;
     std::string status;
     std::string collectionName;
@@ -109,7 +154,12 @@ struct EpgScraperMetadata
     std::vector<std::string> genres;
     std::vector<std::string> productionCountries;
     std::vector<std::string> networks;
+    std::vector<EpgScraperExternalId> externalIds;
     EpgScraperArtwork preferredArtwork;
+    // A provider-neutral, daemon-side candidate. It remains separate from the
+    // primary TVScraper artwork until secure materialization, persistence, and
+    // deliberate public selection have all succeeded.
+    EpgScraperArtwork seriesArtworkFallback;
     std::vector<EpgScraperPerson> people;
     std::vector<EpgScraperImage> images;
 

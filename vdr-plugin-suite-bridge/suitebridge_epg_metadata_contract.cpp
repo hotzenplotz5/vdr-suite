@@ -84,6 +84,83 @@ void AppendStringArray(
   stream << ']';
 }
 
+bool ExternalIdsValid(
+    const std::vector<SuiteBridgeEpgExternalId> &externalIds)
+{
+  if (externalIds.size() > SuiteBridgeEpgMetadata::kMaxExternalIds) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < externalIds.size(); ++index) {
+    const SuiteBridgeEpgExternalId &externalId = externalIds[index];
+    if (!externalId.Valid() || externalId.value.size() > 128) {
+      return false;
+    }
+
+    for (std::size_t other = 0; other < index; ++other) {
+      const SuiteBridgeEpgExternalId &candidate = externalIds[other];
+      if (candidate.provider == externalId.provider &&
+          candidate.scope == externalId.scope &&
+          candidate.value == externalId.value) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool AppendExternalIdIfMissing(
+    std::vector<SuiteBridgeEpgExternalId> &externalIds,
+    SuiteBridgeEpgExternalIdProvider provider,
+    SuiteBridgeEpgExternalIdScope scope,
+    const std::string &value)
+{
+  for (const SuiteBridgeEpgExternalId &externalId : externalIds) {
+    if (externalId.provider == provider &&
+        externalId.scope == scope &&
+        externalId.value == value) {
+      return true;
+    }
+  }
+
+  if (externalIds.size() >= SuiteBridgeEpgMetadata::kMaxExternalIds) {
+    return false;
+  }
+
+  SuiteBridgeEpgExternalId externalId;
+  externalId.provider = provider;
+  externalId.scope = scope;
+  externalId.value = value;
+  if (!externalId.Valid()) {
+    return false;
+  }
+
+  externalIds.push_back(std::move(externalId));
+  return true;
+}
+
+void AppendExternalIds(
+    std::ostringstream &stream,
+    const std::vector<SuiteBridgeEpgExternalId> &externalIds)
+{
+  stream << '[';
+  bool first = true;
+  for (const SuiteBridgeEpgExternalId &externalId : externalIds) {
+    if (!first) {
+      stream << ',';
+    }
+    first = false;
+    stream << "{\"provider\":\""
+           << SuiteBridgeEpgExternalIdProviderName(externalId.provider)
+           << "\",\"scope\":\""
+           << SuiteBridgeEpgExternalIdScopeName(externalId.scope)
+           << "\",\"value\":\"" << EscapeJson(externalId.value)
+           << "\"}";
+  }
+  stream << ']';
+}
+
 void AppendArtwork(
     std::ostringstream &stream,
     const SuiteBridgeArtworkReference &artwork)
@@ -92,6 +169,8 @@ void AppendArtwork(
          << (artwork.Valid() ? "true" : "false")
          << ",\"provider\":\""
          << (artwork.Valid() ? "tvscraper" : "none")
+         << "\",\"origin\":\""
+         << (artwork.Valid() ? "primary-metadata" : "none")
          << "\",\"path\":\"" << EscapeJson(artwork.path)
          << "\",\"width\":" << (artwork.Valid() ? artwork.width : 0)
          << ",\"height\":" << (artwork.Valid() ? artwork.height : 0)
@@ -177,7 +256,33 @@ SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
     const SuiteBridgeEpgMetadata &metadata)
 {
   const bool resolved = SuiteBridgeEpgMediaTypeIsResolved(metadata.mediaType);
-  if (metadata.found != resolved) {
+  std::vector<SuiteBridgeEpgExternalId> externalIds = metadata.externalIds;
+  int providerId = metadata.providerId;
+  bool providerIdentityValid = true;
+
+  if (metadata.mediaType == SuiteBridgeEpgMediaType::Series &&
+      metadata.providerId > 0) {
+    providerIdentityValid = AppendExternalIdIfMissing(
+        externalIds,
+        SuiteBridgeEpgExternalIdProvider::Tmdb,
+        SuiteBridgeEpgExternalIdScope::Series,
+        std::to_string(metadata.providerId));
+  } else if (metadata.mediaType == SuiteBridgeEpgMediaType::Series &&
+             metadata.providerId < 0) {
+    const long long tvdbId = -static_cast<long long>(metadata.providerId);
+    providerIdentityValid = AppendExternalIdIfMissing(
+        externalIds,
+        SuiteBridgeEpgExternalIdProvider::Tvdb,
+        SuiteBridgeEpgExternalIdScope::Series,
+        std::to_string(tvdbId));
+    // Schema 1 historically exposed only a non-negative unqualified ID.
+    // The qualified TVDB identity is authoritative for series fallback lookup.
+    providerId = 0;
+  }
+
+  if (metadata.found != resolved ||
+      (resolved &&
+       (!providerIdentityValid || !ExternalIdsValid(externalIds)))) {
     *this = SuiteBridgeEpgMetadataPayload(SuiteBridgeEpgMetadata{});
     return;
   }
@@ -189,7 +294,7 @@ SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
          << (metadata.found ? "tvscraper" : "none")
          << "\",\"mediaType\":\""
          << SuiteBridgeEpgMediaTypeName(metadata.mediaType)
-         << "\",\"providerId\":" << metadata.providerId
+         << "\",\"providerId\":" << providerId
          << ",\"seasonNumber\":" << metadata.seasonNumber
          << ",\"episodeNumber\":" << metadata.episodeNumber
          << ",\"absoluteEpisodeNumber\":"
@@ -217,7 +322,10 @@ SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
          << "\",\"firstAired\":\""
          << EscapeJson(metadata.firstAired)
          << "\",\"imdbId\":\"" << EscapeJson(metadata.imdbId)
-         << "\",\"status\":\"" << EscapeJson(metadata.status)
+         << "\",\"externalIds\":";
+
+  AppendExternalIds(stream, externalIds);
+  stream << ",\"status\":\"" << EscapeJson(metadata.status)
          << "\",\"collectionName\":\""
          << EscapeJson(metadata.collectionName)
          << "\",\"genres\":";

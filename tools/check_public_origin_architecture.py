@@ -103,6 +103,15 @@ def check_http_asset_table(paths_source: str) -> None:
         "public-url.js must precede platform/bootstrap.js in the explicit asset table",
     )
 
+    settings_entry = (
+        '{"/frontend/settings-series-artwork.js", "settings-series-artwork.js", '
+        '"application/javascript; charset=utf-8", nullptr}'
+    )
+    require(
+        settings_entry in paths_source,
+        "daemon frontend asset table must expose settings-series-artwork.js",
+    )
+
 
 def check_make_integration(makefile: str, make_fragment: str) -> None:
     require("include mk/public-origin.mk" in makefile, "Makefile must include mk/public-origin.mk")

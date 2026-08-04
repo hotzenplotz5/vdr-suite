@@ -1,14 +1,22 @@
 #pragma once
 
+#include "CurlExternalArtworkHttpTransport.h"
 #include "EpgArtworkEnrichmentService.h"
 #include "EpgCacheService.h"
+#include "EpgSeriesArtworkFallbackRepository.h"
+#include "EpgSeriesArtworkProviderCacheRepository.h"
+#include "FilesystemSeriesArtworkFallbackMaterializer.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
 #include "PersistentEpgScraperMetadataResolver.h"
+#include "PersistentSeriesArtworkFallbackResolver.h"
 #include "PollingService.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SeriesArtworkBackendSettingsService.h"
+#include "SeriesArtworkFallbackMaterializingResolver.h"
+#include "SeriesArtworkFallbackResolver.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
 #include "SuiteBridgeEpgMetadataResolver.h"
@@ -36,6 +44,14 @@ struct BackendRuntimeContext
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport;
+    std::unique_ptr<EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository;
+    std::unique_ptr<SeriesArtworkBackendSettingsService> epgSeriesArtworkSettingsService;
+    std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
+    std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
+    std::unique_ptr<SeriesArtworkFallbackMaterializingResolver> epgSeriesArtworkFallbackMaterializingResolver;
+    std::unique_ptr<EpgSeriesArtworkFallbackRepository> epgSeriesArtworkFallbackRepository;
+    std::unique_ptr<PersistentSeriesArtworkFallbackResolver> epgPersistentSeriesArtworkFallbackResolver;
     std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;

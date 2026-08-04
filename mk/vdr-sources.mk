@@ -6,7 +6,13 @@ EPG_SCRAPER_METADATA_CONTROLLER_SRC := \
 
 EPG_SCRAPER_METADATA_RUNTIME_SRC := \
         $(EPG_SCRAPER_METADATA_CONTROLLER_SRC) \
-        core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp
+        core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
+        core/vdr/src/FilesystemSeriesArtworkFallbackMaterializer.cpp \
+        core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+        core/vdr/src/EpgSeriesArtworkFallbackDeliveryService.cpp \
+        core/vdr/src/EpgSeriesArtworkFallbackOrphanCleaner.cpp \
+        core/vdr/src/TmdbSeriesArtworkIncomingCleaner.cpp \
+        core/vdr/src/PersistentSeriesArtworkFallbackResolver.cpp
 
 VDR_SRC := \
         core/vdr/src/RemoteActionDomain.cpp \

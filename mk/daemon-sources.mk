@@ -31,6 +31,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerDiscoveryController.cpp \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
+        api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
         $(GENRE_BROWSER_REST_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
@@ -79,6 +80,7 @@ DAEMON_SRC := \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
         core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/TestHttpServer.cpp \
+        core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \

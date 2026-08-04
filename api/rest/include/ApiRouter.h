@@ -7,6 +7,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
+#include "SeriesArtworkSettingsApiRuntime.h"
 #include "VdrSnapshotReadService.h"
 
 #include <string>
@@ -178,6 +179,13 @@ public:
     {
         ApiResponse response;
 
+        if (SeriesArtworkSettingsApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         if (LiveRemoteApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
@@ -207,6 +215,14 @@ public:
         const std::string& body)
     {
         ApiResponse response;
+
+        if (SeriesArtworkSettingsApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
 
         if (LiveRemoteApiRuntime::instance().tryHandlePost(
                 requestTarget,

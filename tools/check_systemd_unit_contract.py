@@ -17,15 +17,34 @@ REQUIRED_LINES = [
 ]
 
 REQUIRED_DEFAULTS = [
-    "VDR_SUITE_SUITE_BRIDGE_ENABLED=false",
+    "VDR_SUITE_SUITE_BRIDGE_ENABLED=true",
     "VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default",
     "VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1",
     "VDR_SUITE_SUITE_BRIDGE_PORT=6419",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=true",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=tvmaze",
+    "VDR_SUITE_TVMAZE_CONNECT_TIMEOUT_MS=2000",
+    "VDR_SUITE_TVMAZE_TOTAL_TIMEOUT_MS=8000",
+    "VDR_SUITE_TVMAZE_MAX_RETRIES=1",
+]
+
+FORBIDDEN_DEFAULTS = [
+    "VDR_SUITE_SUITE_BRIDGE_ENABLED=false",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false",
+    "VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=none",
 ]
 
 FORBIDDEN_PREFIXES = [
     "Requires=vdr.service",
 ]
+
+
+def active_lines(path: Path) -> set[str]:
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
 
 
 def main() -> int:
@@ -56,16 +75,23 @@ def main() -> int:
                 print(f"forbidden hard dependency in systemd unit: {line}", file=sys.stderr)
                 failed = True
 
-    defaults = DEFAULTS_PATH.read_text(encoding="utf-8").splitlines()
-    defaults_set = set(defaults)
+    defaults_set = active_lines(DEFAULTS_PATH)
 
     for required in REQUIRED_DEFAULTS:
         if required not in defaults_set:
-            print(f"missing required daemon default: {required}", file=sys.stderr)
+            print(f"missing required active daemon default: {required}", file=sys.stderr)
             failed = True
 
-    if "VDR_SUITE_SUITE_BRIDGE_ENABLED=true" in defaults_set:
-        print("Suite Bridge must remain disabled in packaged defaults", file=sys.stderr)
+    for forbidden in FORBIDDEN_DEFAULTS:
+        if forbidden in defaults_set:
+            print(f"forbidden obsolete active daemon default: {forbidden}", file=sys.stderr)
+            failed = True
+
+    if any(
+        line.startswith("VDR_SUITE_TMDB_READ_ACCESS_TOKEN=")
+        for line in defaults_set
+    ):
+        print("packaged defaults must not define a TMDB token", file=sys.stderr)
         failed = True
 
     return 1 if failed else 0

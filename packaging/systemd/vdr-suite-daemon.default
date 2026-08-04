@@ -1,9 +1,12 @@
 # Runtime overrides for vdr-suite-daemon.
 #
-# Suite Bridge is an optional, read-only local VDR integration and remains
-# disabled until explicitly enabled by the operator.
+# The local Suite Bridge and token-free TVmaze series-artwork fallback are
+# enabled as usable package defaults. Operators can opt out by setting
+# VDR_SUITE_SUITE_BRIDGE_ENABLED=false,
+# VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false or
+# VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=none.
 
-VDR_SUITE_SUITE_BRIDGE_ENABLED=false
+VDR_SUITE_SUITE_BRIDGE_ENABLED=true
 VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default
 VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1
 VDR_SUITE_SUITE_BRIDGE_PORT=6419
@@ -17,6 +20,54 @@ VDR_SUITE_SUITE_BRIDGE_STALE_AFTER_MS=15000
 VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS=60000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS=1000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS=30000
+
+# Series artwork remains TVScraper-first. The external fallback runs only for
+# correctly classified series with no usable preferred artwork. TVmaze is the
+# token-free default provider and uses only exact IMDb or TheTVDB series IDs.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=true
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=tvmaze
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_SOURCE_ROOTS=/var/cache/vdr-suite/epg-artwork/incoming
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_CACHE_ROOT=/var/cache/vdr-suite/epg-artwork/external
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_BYTES=16777216
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_MAX_DIMENSION=16384
+
+# Token-free TVmaze transport and provider-cache limits.
+VDR_SUITE_TVMAZE_CONNECT_TIMEOUT_MS=2000
+VDR_SUITE_TVMAZE_TOTAL_TIMEOUT_MS=8000
+VDR_SUITE_TVMAZE_MAX_RETRIES=1
+VDR_SUITE_TVMAZE_RETRY_BACKOFF_MS=500
+VDR_SUITE_TVMAZE_NEGATIVE_CACHE_TTL_SECONDS=21600
+VDR_SUITE_TVMAZE_TRANSIENT_CACHE_TTL_SECONDS=300
+VDR_SUITE_TVMAZE_MAX_JSON_BYTES=2097152
+
+# Optional one-pass startup cleanup for old, unreferenced managed fallback
+# files. It is independently opt-in and examines only the materializer-owned
+# hex directory layout and exact series.png/series.jpg filenames. The default
+# keeps all files and performs no deletion.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_ENABLED=false
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MIN_AGE_SECONDS=604800
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_ORPHAN_CLEANUP_MAX_FILES=64
+
+# Optional one-pass startup cleanup for stale files in the TMDB incoming root.
+# It intentionally does not claim ownership of the TVmaze namespace. Only the
+# exact TMDB candidate and atomic temporary names are eligible when enabled.
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_ENABLED=false
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MIN_AGE_SECONDS=86400
+VDR_SUITE_SERIES_ARTWORK_FALLBACK_INCOMING_CLEANUP_MAX_FILES=64
+
+# TMDB remains an optional alternative. Select provider=tmdb and supply a valid
+# API Read Access Token through an operator-owned secret source. No token is
+# shipped by VDR-Suite and normal TVmaze operation needs none.
+# VDR_SUITE_TMDB_READ_ACCESS_TOKEN=
+VDR_SUITE_TMDB_LANGUAGE=de-DE
+VDR_SUITE_TMDB_INCLUDE_IMAGE_LANGUAGES=de,en,null
+VDR_SUITE_TMDB_CONNECT_TIMEOUT_MS=2000
+VDR_SUITE_TMDB_TOTAL_TIMEOUT_MS=8000
+VDR_SUITE_TMDB_MAX_RETRIES=1
+VDR_SUITE_TMDB_RETRY_BACKOFF_MS=250
+VDR_SUITE_TMDB_NEGATIVE_CACHE_TTL_SECONDS=21600
+VDR_SUITE_TMDB_TRANSIENT_CACHE_TTL_SECONDS=300
+VDR_SUITE_TMDB_MAX_JSON_BYTES=524288
 
 # Absolute browser-session lifetime in seconds. Values must be strict decimal
 # integers from 300 through 86400. This is not an idle timeout or refresh

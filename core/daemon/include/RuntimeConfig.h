@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 struct RuntimeSuiteBridgeConfig
 {
@@ -19,6 +20,24 @@ struct RuntimeSuiteBridgeConfig
     int reconnectMaximumMs = 30000;
 };
 
+struct RuntimeSeriesArtworkFallbackConfig
+{
+    bool enabled = false;
+    std::vector<std::string> sourceRoots = {
+        "/var/cache/vdr-suite/epg-artwork/incoming"
+    };
+    std::string cacheRoot =
+        "/var/cache/vdr-suite/epg-artwork/external";
+    int maximumSourceBytes = 16 * 1024 * 1024;
+    int maximumDimension = 16384;
+    bool orphanCleanupEnabled = false;
+    int orphanCleanupMinimumAgeSeconds = 7 * 24 * 60 * 60;
+    int orphanCleanupMaximumFiles = 64;
+    bool incomingCleanupEnabled = false;
+    int incomingCleanupMinimumAgeSeconds = 24 * 60 * 60;
+    int incomingCleanupMaximumFiles = 64;
+};
+
 class RuntimeConfig
 {
 public:
@@ -32,6 +51,7 @@ public:
     int httpListenPort() const;
     const std::map<std::string, std::string>& recordingArtworkRoots() const;
     const RuntimeSuiteBridgeConfig& suiteBridge() const;
+    const RuntimeSeriesArtworkFallbackConfig& seriesArtworkFallback() const;
 
 private:
     std::string databasePath_;
@@ -42,4 +62,5 @@ private:
     int httpListenPort_;
     std::map<std::string, std::string> recordingArtworkRoots_;
     RuntimeSuiteBridgeConfig suiteBridge_;
+    RuntimeSeriesArtworkFallbackConfig seriesArtworkFallback_;
 };

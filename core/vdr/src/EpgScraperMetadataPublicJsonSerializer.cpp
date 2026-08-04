@@ -1,6 +1,8 @@
 #include "EpgScraperMetadataPublicJsonSerializer.h"
 
+#include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <iomanip>
 #include <sstream>
 
@@ -112,13 +114,42 @@ void appendStringArray(
     json << ']';
 }
 
+bool validFallbackProvider(const std::string& provider)
+{
+    if (provider.empty() || provider.size() > 64U ||
+        provider == "none" || provider == "tvscraper")
+    {
+        return false;
+    }
+
+    return std::all_of(
+        provider.begin(),
+        provider.end(),
+        [](unsigned char character)
+        {
+            return (character >= 'a' && character <= 'z') ||
+                (character >= '0' && character <= '9') ||
+                character == '-' || character == '_' || character == '.';
+        });
+}
+
+bool publicFallbackAvailable(const EpgScraperArtwork& artwork)
+{
+    return artwork.available && artwork.managed &&
+        artwork.origin == EpgScraperArtworkOrigin::ExternalFallback &&
+        validFallbackProvider(artwork.provider) &&
+        std::filesystem::path(artwork.path).is_absolute() &&
+        artwork.width > 0 && artwork.height > 0;
+}
+
 void appendPublicArtwork(
     std::ostringstream& json,
     const EpgScraperArtwork& artwork,
-    const std::string& url)
+    const std::string& url,
+    bool available)
 {
-    json << "{\"available\":" << (artwork.valid() ? "true" : "false");
-    if (artwork.valid())
+    json << "{\"available\":" << (available ? "true" : "false");
+    if (available)
     {
         json << ",\"url\":\"" << escapeJson(url) << "\""
              << ",\"width\":" << artwork.width
@@ -197,11 +228,21 @@ std::string EpgScraperMetadataPublicJsonSerializer::serialize(
          << "\"language\":" << metadata.scraperLanguage
          << "}";
 
+    const bool primaryArtworkAvailable = metadata.preferredArtwork.valid();
+    const bool fallbackArtworkAvailable =
+        !primaryArtworkAvailable &&
+        publicFallbackAvailable(metadata.seriesArtworkFallback);
+    const EpgScraperArtwork& selectedPreferredArtwork =
+        primaryArtworkAvailable
+            ? metadata.preferredArtwork
+            : metadata.seriesArtworkFallback;
+
     json << ",\"preferredArtwork\":";
     appendPublicArtwork(
         json,
-        metadata.preferredArtwork,
-        imageUrl(metadata, "preferred", 0));
+        selectedPreferredArtwork,
+        imageUrl(metadata, "preferred", 0),
+        primaryArtworkAvailable || fallbackArtworkAvailable);
 
     json << ",\"people\":[";
     for (std::size_t index = 0; index < metadata.people.size(); ++index)
@@ -215,7 +256,8 @@ std::string EpgScraperMetadataPublicJsonSerializer::serialize(
         appendPublicArtwork(
             json,
             person.image,
-            imageUrl(metadata, "person", static_cast<int>(index)));
+            imageUrl(metadata, "person", static_cast<int>(index)),
+            person.image.valid());
         json << '}';
     }
     json << ']';
@@ -231,7 +273,8 @@ std::string EpgScraperMetadataPublicJsonSerializer::serialize(
         appendPublicArtwork(
             json,
             image.artwork,
-            imageUrl(metadata, "gallery", static_cast<int>(index)));
+            imageUrl(metadata, "gallery", static_cast<int>(index)),
+            image.artwork.valid());
         json << '}';
     }
     json << "]}";
