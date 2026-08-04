@@ -21,6 +21,8 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   bounded operation safely.
 # - Continue through already-approved steps without artificial confirmation
 #   pauses.
+# - Always provide visible status updates throughout multi-step repository work.
+#   Never work silently through multiple repository operations.
 # - Create and push coherent commits consecutively with fast-forward-only
 #   semantics.
 # - Do not wait for GitHub Actions after every commit. Evaluate only the jobs
@@ -53,6 +55,8 @@ REQUIRED_CURRENT_STATUS_RULES = [
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "## Binding execution rules for every new chat",
+    "always provide visible status updates during every multi-step repository task",
+    "Always provide visible status updates during repository work",
     "## Permanent operational safety invariants",
     "These exact operational safety invariants are append-only",
     "must not be removed, shortened, weakened or overridden",
@@ -88,6 +92,7 @@ REQUIRED_GUARDRAIL_RULES = [
     "After every GitHub file update, inspect the commit diff",
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
+    "Always provide visible status updates throughout multi-step repository work.",
     "Do not wait for GitHub Actions after every commit.",
     "Evaluate only the jobs",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
