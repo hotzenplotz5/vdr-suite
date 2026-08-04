@@ -138,7 +138,9 @@ std::filesystem::path tempRoot(const std::string& name)
 
 int main()
 {
-    const VdrEvent event{"event", "channel"};
+    VdrEvent event{};
+    event.id = "event";
+    event.channelId = "channel";
 
     {
         const auto root = tempRoot("direct");

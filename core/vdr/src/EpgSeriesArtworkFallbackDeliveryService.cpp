@@ -410,7 +410,7 @@ FileDescriptor openAbsoluteDirectoryNoFollow(
 {
     if (!directory.is_absolute())
     {
-        return {};
+        return FileDescriptor{};
     }
 
     FileDescriptor current(::open(
@@ -418,14 +418,14 @@ FileDescriptor openAbsoluteDirectoryNoFollow(
         O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!current.valid())
     {
-        return {};
+        return FileDescriptor{};
     }
 
     for (const auto& component : directory.relative_path())
     {
         if (!safeComponent(component))
         {
-            return {};
+            return FileDescriptor{};
         }
 
         FileDescriptor child(::openat(
@@ -434,7 +434,7 @@ FileDescriptor openAbsoluteDirectoryNoFollow(
             O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
         if (!child.valid())
         {
-            return {};
+            return FileDescriptor{};
         }
         current = std::move(child);
     }
