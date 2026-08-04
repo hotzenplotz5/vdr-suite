@@ -49,6 +49,21 @@ def main() -> int:
         require(runtime, f'route.operation == "{operation}"', "manual metadata API runtime")
     require(runtime, "MaximumBodyBytes", "manual metadata API runtime")
     require(runtime, "actorRef.empty()", "manual metadata API runtime")
+    require(
+        runtime,
+        "searchRecordingMetadataCandidates(\n            route.backendId,",
+        "backend-scoped candidate search",
+    )
+    require(
+        runtime,
+        "getRecordingMetadataSeasons(\n            route.backendId,",
+        "backend-scoped season lookup",
+    )
+    require(
+        runtime,
+        "getRecordingMetadataEpisodes(\n            route.backendId,",
+        "backend-scoped episode lookup",
+    )
 
     security = read("core/security/include/SecurityHttpGate.h")
     require(security, "metadata.recording.assign", "security gate")
@@ -82,6 +97,28 @@ def main() -> int:
     require(facade, "vdr_recording_cache", "recording identity facade")
     require(facade, "backend_native_id", "recording identity facade")
     require(facade, "cache_key", "recording identity facade")
+    require(
+        facade,
+        "TmdbRecordingMetadataCredentialResolver::resolveReadAccessToken",
+        "selected poster credential scope",
+    )
+
+    credential = read(
+        "core/metadata/src/TmdbRecordingMetadataCredentialResolver.cpp"
+    )
+    require(
+        credential,
+        "/var/lib/vdr-suite/secrets/series-artwork",
+        "managed TMDB credential source",
+    )
+    require(credential, ".tmdb-token", "managed TMDB credential source")
+    require(credential, "O_NOFOLLOW", "managed TMDB credential source")
+    require(credential, "(metadata.st_mode & 0077) != 0", "managed TMDB credential source")
+    require(
+        credential,
+        "managed.empty() ? environmentToken() : managed",
+        "managed TMDB credential precedence",
+    )
 
     read_model = read("api/rest/src/VdrRecordingFolderController.cpp")
     require(
