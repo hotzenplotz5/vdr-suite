@@ -15,6 +15,9 @@ These rules are mandatory for every assistant continuing VDR-Suite work:
 - create and push small coherent commits at meaningful checkpoints, using fast-forward-only history and never force-pushing or rewriting published history without explicit approval;
 - use GitHub Actions as the normal repository validation path and do not invent a blanket prohibition on commits before tests; local compilation or focused local tests are only required when GitHub cannot establish the needed fact;
 - do not stop until there is a usable, tested Draft PR for the approved workstream, unless a real project-rule, safety, compatibility or decision boundary is reached;
+- never invent, guess or silently infer local paths, checkout locations, branches, hosts, users, installation targets, runtime state, test results or command prerequisites; use only values explicitly established by the user, the current repository, connected tools or this binding handoff;
+- do not treat a temporary shell prompt, test directory, historical phase checkout or example path as the canonical local repository; the canonical checkout path must be explicitly verified before emitting `cd`, and when it is not verified the command block must start from the user's already-open repository without naming a path;
+- select GitHub Actions evidence by change impact rather than waiting mechanically for every job: wait only for jobs that can validate files or behavior changed by the current diff, and do not wait for daemon build, packaging, frontend or other unrelated jobs when those components were not changed;
 - end every final VDR-Suite repository response with a copyable `Lokaler Bau, Test und Installation` command block tailored to the exact active branch and change; include branch synchronization, build, focused tests, full tests, documentation/install-staging validation and repository-supported installation plus service reload/restart/status commands, and never claim that local commands were executed unless they actually were;
 - never mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit user approval.
 
@@ -24,13 +27,13 @@ These requirements reinforce [Agent Workflow Rules](../AGENTS.md). They are not 
 
 Every final VDR-Suite repository response must end with a ready-to-copy shell block under the heading `Lokaler Bau, Test und Installation`.
 
-The block must be derived from the current branch and current repository targets rather than copied blindly from an old chat. It must include:
+The block must be derived from verified current facts and the current repository targets rather than copied blindly from an old chat.
 
-- `git fetch origin`, switching to the exact active branch and a fast-forward-only pull;
-- the applicable build target, normally `make clean` followed by `make daemon`;
-- every focused test target added or materially affected by the current work;
-- `make test`, `make test-docs` and `make test-install-staging` for complete local validation;
-- `sudo make install PREFIX=/usr`, followed by `systemctl daemon-reload`, restart and status checks for `vdr-suite-daemon`.
+- Include `cd` only when the canonical checkout path is explicitly verified. Never copy a temporary test directory or historical phase path from a shell prompt. When the path is not verified, start with repository-identity checks in the directory the user already opened.
+- Include `git fetch origin`, switching to the exact active branch and a fast-forward-only pull.
+- Include only build, focused test, full test, install-staging, installation and service commands that are relevant to the current diff and requested local validation.
+- Do not require `make daemon`, daemon installation or service restart when daemon/runtime/installable content did not change.
+- Do not require waiting for every GitHub Actions job. Record which jobs are relevant to the changed files and stop waiting once the required jobs are conclusively successful or failed.
 
 Commands that were only supplied for the user to run must be described as such. A GitHub Actions result must never be presented as proof that these local commands were executed on the user's machine.
 
@@ -96,7 +99,7 @@ Relevant completed post-Phase-62 work:
 
 - PR #118: TVScraper classification and refresh corrections;
 - PR #123: public-base-path-safe EPG artwork resolution;
-- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure per-backend settings, TVScraper identity preservation and poster/cover preference;
+- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure backend settings, TVScraper series identity preservation and poster/cover preference;
 - direct channel-detail layout correction `96b97378` plus regression test `2d04a963`.
 
 PR #132 was merged as:
