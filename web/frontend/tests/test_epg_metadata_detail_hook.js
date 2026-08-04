@@ -121,6 +121,18 @@ assert.ok(headChildren[0].textContent.includes(
 assert.ok(headChildren[0].textContent.includes('.epg-metadata-tab{min-width:0;width:100%'));
 assert.ok(!headChildren[0].textContent.includes('width:max-content'));
 assert.ok(!headChildren[0].textContent.includes('overflow-x:auto'));
+assert.ok(headChildren[0].textContent.includes(
+  '#detail-data.channels2-mount .channels2-detail.has-artwork>.channels2-artwork,#detail-data.channels2-mount .channels2-detail.epg-has-artwork>.epg-detail-artwork{grid-column:1;grid-row:1}'
+));
+assert.ok(headChildren[0].textContent.includes(
+  '#detail-data.channels2-mount .channels2-detail.has-artwork>.epg-detail-hero,#detail-data.channels2-mount .channels2-detail.epg-has-artwork>.epg-detail-hero{grid-column:2;grid-row:1;min-width:0}'
+));
+assert.ok(headChildren[0].textContent.includes(
+  '@media(max-width:720px){#detail-data.channels2-mount .channels2-detail.has-artwork>.channels2-artwork'
+));
+assert.ok(headChildren[0].textContent.includes(
+  '.channels2-detail.epg-has-artwork>.epg-detail-hero{grid-column:1;grid-row:auto}}'
+));
 assert.ok(headChildren[0].textContent.includes('.epg-detail-sidebar{position:relative;z-index:3;min-width:0}'));
 assert.ok(headChildren[0].textContent.includes(
   '.epg-workbench.epg-detail-expanded .epg-side-detail{position:absolute!important;right:0!important;left:auto!important;top:0!important;'
