@@ -32,6 +32,10 @@ public:
         int seasonNumber,
         int limit);
 
+    ManualRecordingMetadataAssignment findManualRecordingMetadata(
+        const std::string& backendId,
+        const std::string& resourceKey);
+
     ApiResponse getManualRecordingMetadata(
         const std::string& backendId,
         const std::string& resourceKey);
