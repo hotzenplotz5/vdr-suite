@@ -114,11 +114,21 @@ Use local edits first only when the change requires:
 
 Never invent a blanket prohibition on commits before tests. Create and push small coherent commits with fast-forward-only history, then evaluate the final stabilization head through GitHub Actions. Never force-push, rewrite published history, mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit approval.
 
+### Permanent operational safety invariants
+
+These rules mirror the canonical handoff. They are append-only and must not be removed, shortened, weakened or overridden unless the user explicitly orders the named rule to be changed.
+
+- Never invent, guess or silently infer local paths, checkout locations, branches, hosts, users, installation targets, runtime state, test results or command prerequisites.
+- Never use `set -e`, `set -o errexit`, `bash -e` or `sh -e` in user-facing shell blocks and never modify the user's interactive shell options.
+- Wait only for GitHub Actions jobs that can validate components changed by the current diff; unrelated jobs are not gates.
+- Do not prescribe installation or service restart when installable content did not change and deployment was not explicitly requested.
+- Never treat GitHub Actions as proof that commands ran locally.
+
 ### Required final local command block
 
 Every final VDR-Suite repository response must end with a copyable `Lokaler Bau, Test und Installation` shell block tailored to the exact active branch and current change.
 
-The block must include fast-forward-only branch synchronization, the applicable build target, every focused affected test, `make test`, `make test-docs`, `make test-install-staging`, `sudo make install PREFIX=/usr` and the `systemctl` daemon-reload, restart and status commands. Supplied commands must not be described as locally executed unless they actually were.
+The block must use only verified paths and branches, must not use `set -e` or any errexit variant, and must contain only synchronization, build, test, installation and service commands relevant to the actual diff. When daemon/runtime/installable content did not change, do not include daemon build, installation or service restart commands. When installation is not relevant, state that no installation or restart is required. Supplied commands must not be described as locally executed unless they actually were.
 
 ## Exact next action
 
