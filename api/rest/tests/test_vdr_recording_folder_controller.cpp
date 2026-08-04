@@ -129,7 +129,36 @@ int main()
             record.metadata.people.push_back(person);
 
             return record;
-        });
+        },
+        [](
+            const std::string& backendId,
+            const std::string& backendNativeId)
+        {
+            ManualRecordingMetadataAssignment assignment;
+            if (backendId != "default" ||
+                backendNativeId.find("2026-07-03") == std::string::npos)
+            {
+                return assignment;
+            }
+
+            assignment.found = true;
+            assignment.backendId = backendId;
+            assignment.resourceKey = "root-key";
+            assignment.providerId = "tmdb";
+            assignment.externalNamespace = "movie";
+            assignment.externalId = "754";
+            assignment.mediaType = "movie";
+            assignment.title = "Face/Off - Im Körper des Feindes";
+            assignment.originalTitle = "Face/Off";
+            assignment.overview = "Manuell ausgewählte Beschreibung";
+            assignment.releaseDate = "1997-06-27";
+            assignment.posterReference =
+                "/var/cache/vdr-suite/recording-metadata/posters/manual.webp";
+            assignment.revision = 3;
+            assignment.relationshipLocked = true;
+            return assignment;
+        },
+        {});
 
     const ApiResponse status =
         controller.getStatus("default");
@@ -160,6 +189,22 @@ int main()
     assert(contains(root.body, "\"placeholderVariant\":"));
     assert(contains(root.body, "\"singleRecordingLeaf\":true"));
     assert(contains(root.body, "\"singleRecording\":{\"id\":\"drama-1\""));
+    assert(contains(root.body, "\"source\":\"manual\""));
+    assert(contains(
+        root.body,
+        "\"title\":\"Face/Off - Im Körper des Feindes\""));
+    assert(contains(
+        root.body,
+        "\"summary\":\"Manuell ausgewählte Beschreibung\""));
+    assert(contains(
+        root.body,
+        "\"manualAssignment\":{\"active\":true,\"revision\":3"));
+    assert(contains(
+        root.body,
+        "\"posterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2F2026-07-03.20.15.1-0.rec&kind=preferred&index=0\""));
+    assert(!contains(
+        root.body,
+        "/var/cache/vdr-suite/recording-metadata/posters/manual.webp"));
 
     const ApiResponse series =
         controller.getFolder("default", "Series", 20, 0);
