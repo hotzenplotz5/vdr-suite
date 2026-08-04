@@ -247,6 +247,46 @@ The plugin must not be rebuilt merely because it exists in the repository.
 
 This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
 
+## Binding branch- and PR-specific installed-result acceptance manifest
+
+A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
+
+Before writing the acceptance steps, the agent must inspect:
+
+- the exact PR diff and changed components;
+- the current feature, ADR and runtime-acceptance documents;
+- changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
+- the closest existing regression behavior that the PR could unintentionally break.
+
+The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block. Do not merge functional checks into the installation block when that would hide required user actions.
+
+Every acceptance plan must cover the layers that are relevant to that exact PR:
+
+1. **Installed identity and startup:** verify the checked-out exact head, installed binary or asset identity where the repository provides a reliable method, service state and absence of new startup errors.
+2. **Positive feature path:** exercise the behavior introduced or changed by the PR using a real representative resource.
+3. **Readback and persistence:** reload the UI or API, restart the affected service, and confirm the result survives without repeating the mutation or requiring an external provider read.
+4. **Search and presentation:** verify every changed read model, detail view, search path or frontend rendering affected by the PR.
+5. **Replacement and withdrawal semantics:** when the feature supports reassignment, deletion, withdrawal, rollback or fallback, verify the old active result disappears and the documented fallback becomes effective.
+6. **Authorization and failure boundaries:** verify the relevant Read-only, wrong-scope, CSRF, provider-failure or invalid-input denial paths without exposing secrets.
+7. **Adjacent regression:** repeat the nearest established workflow whose performance or correctness could be affected, such as folder navigation, restart behavior or automatic metadata fallback.
+8. **Evidence:** record the exact source head, CI run, installed build identity when available, redacted test resource and observed result.
+
+Only include layers that the exact PR can affect, but never omit persistence/restart or the primary regression boundary merely to shorten the answer. When a test requires credentials, cookies, CSRF values, tokens or private paths, instruct the user through the normal UI or a redacted safe procedure; never request or print those values.
+
+For PR #136, the authoritative real-system checklist is [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md#real-yavdr-acceptance-checklist). At minimum it requires:
+
+- repeated recording-folder/subfolder/back navigation remains fast;
+- candidate search remains fast before selecting a movie;
+- assigning a known TMDB movie displays actor and character names;
+- reload and `vdr-suite-daemon` restart preserve title, cast and character data;
+- manual title, original title and actor are found through the existing global and person searches;
+- reassignment removes the former movie's active actors;
+- withdrawal restores automatic TVScraper/native title and people;
+- Read-only and wrong-backend assignment attempts are denied;
+- responses and accountability evidence expose no token, provider URL, local artwork path or actor reference.
+
+Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result. Keep the PR Draft until all required real-system acceptance items are complete and the user explicitly approves readiness.
+
 ## Credential and secret restrictions
 
 Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.
