@@ -43,7 +43,12 @@ private:
             "remote.control",
             "live.overlay.read",
             "osd.view",
-            "osd.control"
+            "osd.control",
+            "metadata.recording.manualSearch",
+            "metadata.recording.manualAssignment",
+            "metadata.recording.manualAssignment.movie",
+            "metadata.recording.manualAssignment.series",
+            "metadata.recording.manualAssignment.episode"
         };
 
         return capabilities;
