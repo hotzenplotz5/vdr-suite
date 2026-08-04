@@ -54,6 +54,13 @@
     return genre ? Object.freeze(Object.assign({}, genre)) : null;
   }
 
+  function publicPath(path) {
+    const resolver = global.VdrSuitePublicUrl;
+    return resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(path)
+      : path;
+  }
+
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement('style');
@@ -82,12 +89,12 @@
 
     if (genre.sprite) {
       artwork.classList.add('is-sprite');
-      artwork.style.backgroundImage = 'url("' + SPRITE + '")';
+      artwork.style.backgroundImage = 'url("' + publicPath(SPRITE) + '")';
       artwork.style.backgroundPosition = genre.sprite;
     } else {
-      artwork.style.backgroundImage =
-        'url("/channel-logos/vdr-suite-brand/recording-genre-' +
-        genre.slug + '.svg")';
+      artwork.style.backgroundImage = 'url("' + publicPath(
+        '/channel-logos/vdr-suite-brand/recording-genre-' + genre.slug + '.svg'
+      ) + '")';
     }
 
     return artwork;
