@@ -279,6 +279,11 @@ bool validLimit(int limit)
     return limit >= 1 && limit <= 20;
 }
 
+bool validCastLimit(int limit)
+{
+    return limit >= 1 && limit <= 128;
+}
+
 bool appendCandidate(
     const Value& item,
     RecordingMetadataCandidateKind kind,
@@ -422,4 +427,46 @@ bool parseTmdbRecordingCandidateEpisodes(
         body, maximumBytes, "episodes",
         RecordingMetadataCandidateKind::Episode,
         seriesExternalId, seasonNumber, limit, candidates, truncated);
+}
+
+bool parseTmdbRecordingMovieCredits(
+    const std::string& body,
+    std::size_t maximumBytes,
+    int limit,
+    std::vector<RecordingMetadataCastMember>& cast,
+    bool& truncated)
+{
+    cast.clear();
+    truncated = false;
+    if (!validCastLimit(limit)) return false;
+
+    Value root;
+    if (!Parser(body, maximumBytes).parse(root) || root.type != Value::Type::Object)
+        return false;
+    const Value* items = root.member("cast");
+    if (items == nullptr || items->type != Value::Type::Array) return false;
+
+    for (const Value& item : items->array)
+    {
+        if (static_cast<int>(cast.size()) >= limit)
+        {
+            truncated = true;
+            break;
+        }
+        if (item.type != Value::Type::Object) continue;
+        const int identifier = integer(item, "id");
+        if (identifier <= 0) continue;
+
+        RecordingMetadataCastMember member;
+        member.providerId = "tmdb";
+        member.externalNamespace = "person";
+        member.externalId = std::to_string(identifier);
+        member.name = text(item, "name");
+        member.characterName = text(item, "character");
+        member.order = integer(item, "order");
+        if (member.valid()) cast.push_back(std::move(member));
+    }
+
+    if (items->array.size() > cast.size()) truncated = true;
+    return true;
 }
