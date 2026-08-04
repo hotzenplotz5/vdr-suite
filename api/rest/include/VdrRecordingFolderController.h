@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "ManualRecordingMetadataAssignmentRepository.h"
 #include "VdrRecordingNativeMetadataRepository.h"
 
 #include <functional>
@@ -17,9 +18,15 @@ public:
             const std::string& backendId,
             const std::string& backendNativeId)>;
 
+    using ManualMetadataLookup = std::function<
+        ManualRecordingMetadataAssignment(
+            const std::string& backendId,
+            const std::string& backendNativeId)>;
+
     explicit VdrRecordingFolderController(
         VdrRecordingCacheRepository& repository,
         NativeMetadataLookup nativeMetadataLookup = {},
+        ManualMetadataLookup manualMetadataLookup = {},
         std::vector<std::string> metadataImageAllowedRoots = {});
 
     ApiResponse getStatus(
@@ -44,5 +51,6 @@ public:
 private:
     VdrRecordingCacheRepository& repository_;
     NativeMetadataLookup nativeMetadataLookup_;
+    ManualMetadataLookup manualMetadataLookup_;
     std::vector<std::string> metadataImageAllowedRoots_;
 };
