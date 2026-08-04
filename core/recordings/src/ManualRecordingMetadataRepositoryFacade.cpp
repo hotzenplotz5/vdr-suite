@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <sqlite3.h>
+#include <utility>
 
 namespace
 {
@@ -51,7 +52,26 @@ ManualRecordingMetadataAssignment readManualAssignment(
     assignment.revision = sqlite3_column_int(statement, offset + 17);
     assignment.relationshipLocked =
         sqlite3_column_int(statement, offset + 18) != 0;
+    assignment.castComplete =
+        sqlite3_column_int(statement, offset + 19) != 0;
     return assignment;
+}
+
+ManualRecordingMetadataPerson readManualPerson(
+    sqlite3_stmt* statement,
+    int offset)
+{
+    ManualRecordingMetadataPerson person;
+    person.metadataEntityId = columnText(statement, offset + 0);
+    person.providerId = columnText(statement, offset + 1);
+    person.externalNamespace = columnText(statement, offset + 2);
+    person.externalId = columnText(statement, offset + 3);
+    person.name = columnText(statement, offset + 4);
+    person.normalizedName = columnText(statement, offset + 5);
+    person.role = columnText(statement, offset + 6);
+    person.characterName = columnText(statement, offset + 7);
+    person.ordinal = sqlite3_column_int(statement, offset + 8);
+    return person;
 }
 
 std::string environmentOrEmpty(const char* name)
@@ -195,37 +215,37 @@ MetadataRepository::getManualRecordingMetadataForBackend(
     if (!repository.ensureSchema()) return result;
 
     const bool cacheAvailable = database_.tableExists("vdr_recording_cache");
-    const char* sqlWithCache =
-        "SELECT COALESCE(NULLIF(c.backend_native_id,''),v.resource_key),"
+    const std::string lookup = cacheAvailable
+        ? "COALESCE(NULLIF(c.backend_native_id,''),v.resource_key)"
+        : "v.resource_key";
+    const std::string cacheJoin = cacheAvailable
+        ? "LEFT JOIN vdr_recording_cache c "
+          "ON c.backend_id=v.backend_id AND c.cache_key=v.resource_key "
+        : "";
+    const std::string sql =
+        "SELECT " + lookup + ","
         "v.backend_id,v.resource_key,v.metadata_target_id,v.metadata_assignment_id,"
         "a.metadata_entity_id,v.provider_id,v.external_namespace,v.external_id,"
         "v.media_type,v.title,v.original_title,v.overview,v.release_date,"
         "v.poster_reference,v.season_number,v.episode_number,v.actor_ref,"
-        "v.revision,a.relationship_locked "
+        "v.revision,a.relationship_locked,v.cast_complete,"
+        "r.person_entity_id,p.provider_id,p.external_namespace,p.external_id,"
+        "p.display_name,p.normalized_name,r.role,r.character_name,r.ordinal "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
-        "ON a.metadata_assignment_id=v.metadata_assignment_id "
-        "LEFT JOIN vdr_recording_cache c "
-        "ON c.backend_id=v.backend_id AND c.cache_key=v.resource_key "
+        "ON a.metadata_assignment_id=v.metadata_assignment_id " + cacheJoin +
+        "LEFT JOIN suite_metadata_recording_person_relations r "
+        "ON r.metadata_assignment_id=v.metadata_assignment_id "
+        "LEFT JOIN suite_metadata_person_values p "
+        "ON p.metadata_entity_id=r.person_entity_id "
         "WHERE v.backend_id=? AND a.assignment_state='selected' "
-        "AND a.manual_assignment=1;";
-    const char* sqlWithoutCache =
-        "SELECT v.resource_key,"
-        "v.backend_id,v.resource_key,v.metadata_target_id,v.metadata_assignment_id,"
-        "a.metadata_entity_id,v.provider_id,v.external_namespace,v.external_id,"
-        "v.media_type,v.title,v.original_title,v.overview,v.release_date,"
-        "v.poster_reference,v.season_number,v.episode_number,v.actor_ref,"
-        "v.revision,a.relationship_locked "
-        "FROM suite_metadata_manual_assignment_values v "
-        "JOIN suite_metadata_assignments a "
-        "ON a.metadata_assignment_id=v.metadata_assignment_id "
-        "WHERE v.backend_id=? AND a.assignment_state='selected' "
-        "AND a.manual_assignment=1;";
+        "AND a.manual_assignment=1 "
+        "ORDER BY v.metadata_assignment_id,r.ordinal,p.name_folded,p.external_id;";
 
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(
             database_.handle(),
-            cacheAvailable ? sqlWithCache : sqlWithoutCache,
+            sql.c_str(),
             -1,
             &statement,
             nullptr) != SQLITE_OK)
@@ -238,16 +258,33 @@ MetadataRepository::getManualRecordingMetadataForBackend(
         static_cast<int>(backend.size()),
         SQLITE_TRANSIENT);
 
+    std::map<std::string, ManualRecordingMetadataAssignment> assignments;
+    std::map<std::string, std::string> aliases;
     while (sqlite3_step(statement) == SQLITE_ROW)
     {
         const std::string lookupKey = columnText(statement, 0);
-        const ManualRecordingMetadataAssignment assignment =
+        const ManualRecordingMetadataAssignment row =
             readManualAssignment(statement, 1);
-        if (!lookupKey.empty()) result[lookupKey] = assignment;
-        if (!assignment.resourceKey.empty())
-            result[assignment.resourceKey] = assignment;
-    }
+        auto insertion = assignments.emplace(
+            row.metadataAssignmentId,
+            row);
+        ManualRecordingMetadataAssignment& assignment = insertion.first->second;
+        const ManualRecordingMetadataPerson person =
+            readManualPerson(statement, 21);
+        if (!person.metadataEntityId.empty())
+            assignment.people.push_back(person);
 
+        if (!lookupKey.empty()) aliases[lookupKey] = row.metadataAssignmentId;
+        if (!row.resourceKey.empty())
+            aliases[row.resourceKey] = row.metadataAssignmentId;
+    }
     sqlite3_finalize(statement);
+
+    for (const auto& alias : aliases)
+    {
+        const auto assignment = assignments.find(alias.second);
+        if (assignment != assignments.end())
+            result[alias.first] = assignment->second;
+    }
     return result;
 }
