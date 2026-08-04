@@ -13,11 +13,14 @@ struct TmdbRecordingMetadataCandidateProviderConfig
 {
     std::string readAccessToken;
     std::string language = "de-DE";
+    std::string posterCacheRoot =
+        "/var/cache/vdr-suite/recording-metadata/posters";
     int connectTimeoutMs = 2000;
     int totalTimeoutMs = 8000;
     int maximumRetries = 1;
     int retryBackoffMs = 250;
     std::size_t maximumJsonBytes = 512U * 1024U;
+    std::size_t maximumImageBytes = 8U * 1024U * 1024U;
 };
 
 class TmdbRecordingMetadataCandidateProvider final
@@ -44,6 +47,11 @@ public:
         const std::string& seriesExternalId,
         int seasonNumber,
         int limit) override;
+
+    std::string materializePoster(
+        const std::string& externalNamespace,
+        const std::string& externalId,
+        const std::string& posterReference) override;
 
     static bool configurationValid(
         const TmdbRecordingMetadataCandidateProviderConfig& config);
