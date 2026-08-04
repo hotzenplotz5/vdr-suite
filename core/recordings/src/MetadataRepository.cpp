@@ -39,8 +39,7 @@ namespace
 }
 
 MetadataRepository::MetadataRepository(Database& database)
-    : database_(database),
-      manualMetadataRepository_(database)
+    : database_(database)
 {
 }
 
