@@ -160,6 +160,13 @@ public:
                 path.size() - std::string("/settings/series-artwork").size(),
                 std::string("/settings/series-artwork").size(),
                 "/settings/series-artwork") == 0;
+        std::string manualMetadataBackendId;
+        std::string manualMetadataOperation;
+        const bool isManualRecordingMetadataAction =
+            isPost && manualRecordingMetadataRoute(
+                path,
+                manualMetadataBackendId,
+                manualMetadataOperation);
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -186,7 +193,8 @@ public:
             isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction ||
             isNativeFuzzyStaleProbeDeleteAction ||
-            isSeriesArtworkSettingsAction;
+            isSeriesArtworkSettingsAction ||
+            isManualRecordingMetadataAction;
 
         if (isSafePost)
         {
@@ -326,6 +334,13 @@ public:
             requestToAuthorize.action =
                 "epgsearch.native-fuzzy.refresh";
             defaultBackend(requestToAuthorize);
+        }
+        else if (isManualRecordingMetadataAction)
+        {
+            requestToAuthorize.permission = "metadata.recording.assign";
+            requestToAuthorize.action =
+                "metadata.recording." + manualMetadataOperation;
+            requestToAuthorize.backendId = manualMetadataBackendId;
         }
         else if (isSeriesArtworkSettingsAction)
         {
@@ -524,6 +539,40 @@ private:
     {
         const std::size_t query = target.find('?');
         return query == std::string::npos ? target : target.substr(0, query);
+    }
+
+    static bool manualRecordingMetadataRoute(
+        const std::string& path,
+        std::string& backendId,
+        std::string& operation)
+    {
+        backendId.clear();
+        operation.clear();
+        const std::string prefix = "/api/backends/";
+        const std::string segment = "/recordings/metadata/";
+        if (path.compare(0, prefix.size(), prefix) != 0) return false;
+        const std::size_t separator = path.find(segment, prefix.size());
+        if (separator == std::string::npos) return false;
+        backendId = path.substr(prefix.size(), separator - prefix.size());
+        operation = path.substr(separator + segment.size());
+        const bool validBackend =
+            !backendId.empty() && backendId.size() <= 128U &&
+            std::all_of(
+                backendId.begin(),
+                backendId.end(),
+                [](unsigned char character)
+                {
+                    return std::isalnum(character) ||
+                        character == '.' || character == '_' || character == '-';
+                });
+        if (!validBackend || operation.empty() ||
+            operation.find('/') != std::string::npos)
+            return false;
+        return operation == "search" ||
+            operation == "seasons" ||
+            operation == "episodes" ||
+            operation == "assign" ||
+            operation == "withdraw";
     }
 
     static int hexValue(char value)
