@@ -36,6 +36,8 @@ struct VdrRecordingNativePersonSearchQuery
     std::string normalizedName;
     std::string characterName;
     std::string role;
+    std::string source;
+    std::string providerReference;
     int limit = 0;
     int offset = 0;
 };
@@ -50,6 +52,8 @@ struct VdrRecordingNativePersonIndexEntry
     std::string name;
     std::string normalizedName;
     std::string characterName;
+    std::string source = "tvscraper";
+    std::string providerReference;
     VdrRecordingNativeArtwork image;
 };
 
