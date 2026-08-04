@@ -127,9 +127,7 @@ ApiResponse candidateResponse(const RecordingMetadataCandidatePage& page)
 {
     if (!page.error.empty())
     {
-        const int status = page.providerAvailable
-            ? 502
-            : (page.attempted ? 503 : 503);
+        const int status = page.providerAvailable ? 502 : 503;
         return errorResponse(
             status,
             page.attempted
@@ -168,7 +166,6 @@ std::string serializeAssignment(
     if (assignment.found)
     {
         json << ",\"backendId\":\"" << jsonEscape(assignment.backendId) << "\"";
-        json << ",\"resourceKey\":\"" << jsonEscape(assignment.resourceKey) << "\"";
         json << ",\"metadataTargetId\":\""
              << jsonEscape(assignment.metadataTargetId) << "\"";
         json << ",\"metadataAssignmentId\":\""
@@ -186,8 +183,8 @@ std::string serializeAssignment(
         json << ",\"overview\":\"" << jsonEscape(assignment.overview) << "\"";
         json << ",\"releaseDate\":\""
              << jsonEscape(assignment.releaseDate) << "\"";
-        json << ",\"posterReference\":\""
-             << jsonEscape(assignment.posterReference) << "\"";
+        json << ",\"posterAvailable\":"
+             << (!assignment.posterReference.empty() ? "true" : "false");
         json << ",\"seasonNumber\":" << assignment.seasonNumber;
         json << ",\"episodeNumber\":" << assignment.episodeNumber;
         json << ",\"revision\":" << assignment.revision;
