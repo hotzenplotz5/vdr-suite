@@ -38,6 +38,9 @@ State: open Draft; not approved for Ready or merge
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Previous completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
 Phase 62 state:
 completed and merged through PR #117
 
@@ -57,6 +60,8 @@ PR #136 is a limited continuation of the manual recording metadata workflow and 
 
 The current platform additionally includes:
 
+- VDR Remote and Live Overlay hardening (#110);
+- Backend-scoped Global Search (#111);
 - TVScraper genre-classification and refresh corrections from PR #118;
 - EPG artwork resolution under public base paths from PR #123;
 - guarded series-artwork fallback from PR #132;
