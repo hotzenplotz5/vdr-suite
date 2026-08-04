@@ -90,12 +90,16 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(payload)), {
   expectedRevision: 3
 });
 
+function hasPostOperation(operation) {
+  return new RegExp("post\\(\\s*backendId\\s*,\\s*'" + operation + "'").test(source);
+}
+
 assert(source.includes('VdrSuiteBrowserSession'));
-assert(source.includes("post(backendId, 'search'"));
-assert(source.includes("post(backendId, 'seasons'"));
-assert(source.includes("post(backendId, 'episodes'"));
-assert(source.includes("post(backendId, 'assign'"));
-assert(source.includes("post(backendId, 'withdraw'"));
+assert(hasPostOperation('search'));
+assert(hasPostOperation('seasons'));
+assert(hasPostOperation('episodes'));
+assert(hasPostOperation('assign'));
+assert(hasPostOperation('withdraw'));
 assert(!source.includes('api.themoviedb.org'));
 assert(!source.includes('image.tmdb.org'));
 assert(!source.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'));
