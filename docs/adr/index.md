@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0050
+ADR-0051
 ```
 
-Current active `ADR-0050`:
+Current active `ADR-0051`:
 
-- [ADR-0050: Domain Repository SQLite Boundary](ADR-0050-domain-repository-sqlite-boundary.md)
+- [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0051
+ADR-0052
 ```
 
 Rules:
@@ -101,6 +101,7 @@ Rules:
 - [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
+- [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 
 ### Packaging and Install Boundary
 
