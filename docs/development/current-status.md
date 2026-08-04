@@ -114,6 +114,12 @@ Use local edits first only when the change requires:
 
 Never invent a blanket prohibition on commits before tests. Create and push small coherent commits with fast-forward-only history, then evaluate the final stabilization head through GitHub Actions. Never force-push, rewrite published history, mark a Draft PR ready, merge it, close it, change its base or alter review state without explicit approval.
 
+### Required final local command block
+
+Every final VDR-Suite repository response must end with a copyable `Lokaler Bau, Test und Installation` shell block tailored to the exact active branch and current change.
+
+The block must include fast-forward-only branch synchronization, the applicable build target, every focused affected test, `make test`, `make test-docs`, `make test-install-staging`, `sudo make install PREFIX=/usr` and the `systemctl` daemon-reload, restart and status commands. Supplied commands must not be described as locally executed unless they actually were.
+
 ## Exact next action
 
 1. Stabilize Draft PR #133 on its final GitHub Actions head.
