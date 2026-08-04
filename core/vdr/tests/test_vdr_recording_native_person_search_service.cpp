@@ -337,7 +337,8 @@ int main()
             20,
             0);
     assert(manualCharacter.totalCount() == 1);
-    assert(manualCharacter.matches()[0].person().name() == "Audrey Tautou");
+    assert(manualCharacter.matches()[0].person().originalName() ==
+        "Audrey Tautou");
 
     assert(service.search(
         "remote",
