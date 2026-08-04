@@ -4,6 +4,7 @@
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Manual Recording Cast Feature](development/manual-recording-cast-search.md)
 - [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
@@ -20,28 +21,25 @@
 ```text
 Repository: hotzenplotz5/vdr-suite
 Current branch authority: main
-Post-Phase-62 runtime/frontend baseline before this documentation refresh:
-2d04a963054e9925f6b8cb12392b188a89e11f07
+Current merged main baseline:
+89b023ca6758f7ba8f08f75831c2ccdba77a0b08
+
+Merged foundation:
+PR #135 - Add manual recording metadata search and assignment
+Final head: 37b06f6e97ee00cefd8b6704f6cd6ed1cf9d2be7
+CI: #7144 / 30941248988, all five jobs successful
+Real yaVDR repeated-folder-navigation acceptance: successful
+
+Active bounded post-Phase-62 feature:
+PR #136 - Add manual recording cast ingestion and search integration
+Branch: agent/manual-recording-cast-search
+State: open Draft; not approved for Ready or merge
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Phase 62 state:
 completed and merged through PR #117
-
-Previous completed numbered runtime phase:
-Phase 61 - Suite Metadata and Genre Platform
-
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Completed cross-cutting platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
@@ -53,7 +51,7 @@ Phase 63-67 runtime:
 not advanced
 ```
 
-PR #117 is merged, not open or Draft. Its merge commit is `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`.
+PR #136 is a limited continuation of the manual recording metadata workflow and is not Phase 63.
 
 ## Completed post-Phase-62 work
 
@@ -67,9 +65,35 @@ The current platform additionally includes:
 - deterministic TVDB/TMDB series identity preservation through SuiteBridge;
 - series/season cover preference before episode images;
 - poster-first TMDB selection with deterministic backdrop fallback;
-- frontend correction keeping channel-detail text beside artwork on wide layouts.
+- frontend correction keeping channel-detail text beside artwork on wide layouts;
+- merged PR #135 with backend-only manual movie/series/season/episode candidate selection, immutable evidence, revision-safe relationship-locked assignments and withdrawal;
+- bundled manual-assignment folder readback that removed the N+1/schema-loop navigation regression.
 
-PR #132 was merged as `441e5febf7d3ab0121a585ce1176a8e5a7c67ce0`. Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation proved multiple persisted `provider=tmdb` fallback rows, valid cached image files and browser delivery.
+PR #135 was merged as `89b023ca6758f7ba8f08f75831c2ccdba77a0b08`. Its exact final feature head passed all five jobs in VDR-Suite CI #7144. Real yaVDR operation confirmed fast repeated recording-folder navigation.
+
+## Active manual cast feature
+
+Draft PR #136 adds selected-movie cast ingestion and local search integration:
+
+- credits are acquired only after one exact TMDB movie is selected;
+- candidate search, folder navigation, recording detail and search never fetch credits;
+- movie assignment and cast persistence share one transaction;
+- valid empty cast and technical provider failure are distinct outcomes;
+- canonical Suite-owned person entities deduplicate through provider-qualified TMDB person IDs;
+- actor role, character and cast order remain assignment-scoped evidence;
+- active manual title, original title and actors participate in existing global and person search;
+- active manual people override automatic people only for the affected recording;
+- reassignment and withdrawal preserve history;
+- withdrawal restores automatic TVScraper/native title and people;
+- constant set-based SQL reads and trace tests protect navigation and search from per-record/per-person queries.
+
+Authoritative feature documents:
+
+- [ADR-0052](adr/ADR-0052-manual-recording-cast-ingestion-search.md)
+- [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md)
+- [Backend-Scoped Global Search](architecture/global-search.md)
+
+The feature is not complete until one exact final PR head has all five CI jobs successful and the real yaVDR assignment, detail, title search, actor search, restart, reassignment and withdrawal checklist has passed.
 
 ## Final Phase 62 runtime evidence
 
@@ -91,9 +115,9 @@ This remains the durable completion evidence for the accepted Phase-62 runtime. 
 
 Phase-62 identity, exact backend-scoped authorization, fixed Admin/Read-only roles, browser-session lifecycle, CSRF, fail-closed central POST classification and append-only allow/deny/outcome accountability remain present.
 
-The series-artwork settings POST added after Phase 62 is classified as a protected mutation and uses a dedicated backend-scoped permission. Browser callers require CSRF; Read-only actors are denied; successful and failed authorized responses receive operation outcomes. Managed TMDB tokens are kept beneath the private secret root and are not returned to the browser or written to accountability events.
+The manual selected-movie mutation continues to use `metadata.recording.assign`, route-authoritative backend scope, browser CSRF and protected-operation accountability. The existing backend-scoped managed TMDB credential resolver is reused. Read-only, wrong-backend and invalid-CSRF requests are denied before provider access. Tokens, actor references, provider URLs and private paths are excluded from public recording-detail and search payloads.
 
-No known Phase-62 security guarantee is bypassed by the completed post-phase work. The old runtime acceptance is historical; a dedicated current-runtime settings-mutation security acceptance remains useful strengthening. See [Post-Phase-62 Security Review](development/post-phase-62-security-review.md).
+No known Phase-62 security guarantee is intentionally bypassed by the completed or active post-phase work. The old runtime acceptance is historical. See [Post-Phase-62 Security Review](development/post-phase-62-security-review.md).
 
 ## Compatibility-retirement decision
 
@@ -102,11 +126,14 @@ Legacy Basic compatibility remains explicitly transitional. `enforced` mode is t
 ## Current work boundary
 
 - Phase 62 is complete.
+- PR #135 is the merged basis.
+- PR #136 is the only active approved feature block.
+- PR #136 must remain Draft until explicit real-system approval.
 - Phase 63 has not started.
 - TVScraper remains an unchanged upstream dependency.
-- External series-artwork fallback uses deterministic provider identities only; no title/fuzzy lookup is introduced.
-- Optional audit products, generic security administration and universal Outbox/idempotency infrastructure remain outside the completed Phase-62 scope.
+- No writes are made to TVScraper-owned databases or caches.
+- No Phase-63 runtime contract is changed by PR #136.
 
 ## Exact next action
 
-Complete the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, refresh the post-Phase-62 evidence, and begin Phase 63 only under a separate approved contract.
+Complete and stabilize Draft PR #136, obtain all five successful CI jobs on one exact final head, update its evidence, then execute the documented real yaVDR cast/title/person/restart/reassignment/withdrawal checklist. Do not start Phase 63 while this approved feature block remains active.
