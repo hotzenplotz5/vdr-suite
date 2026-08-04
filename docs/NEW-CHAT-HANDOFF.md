@@ -117,6 +117,17 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 Keep `main` stable, finish the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, then refresh the post-Phase-62 security evidence. Start Phase 63 only after a separate approved contract.
 
+## Command presentation contract
+
+Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block, preferably tagged `bash`.
+
+- Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats with IDs or metadata.
+- Keep explanations outside the code block.
+- Put complete, directly executable command sequences inside the code block.
+- Use separate code blocks for logically separate steps when that improves safe execution.
+- Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
+- When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
+
 ## Credential and secret restrictions
 
 Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.
