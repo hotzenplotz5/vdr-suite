@@ -18,6 +18,10 @@ public:
         RecordingMetadataCandidateKind::Movie;
     int lastSeason = 0;
     int lastLimit = 0;
+    int creditCalls = 0;
+    bool emptyCredits = false;
+    std::string creditError;
+    bool creditProviderAvailable = true;
 
     RecordingMetadataCandidatePage search(
         const std::string& query,
@@ -101,6 +105,40 @@ public:
         page.candidates.push_back(candidate);
         return page;
     }
+
+    RecordingMetadataCastPage movieCredits(
+        const std::string& movieExternalId,
+        int limit) override
+    {
+        ++creditCalls;
+        assert(movieExternalId == "13");
+        assert(limit == 128);
+        RecordingMetadataCastPage page;
+        page.attempted = true;
+        page.providerAvailable = creditProviderAvailable;
+        page.providerId = "tmdb";
+        page.error = creditError;
+        if (!page.error.empty() || emptyCredits) return page;
+
+        RecordingMetadataCastMember first;
+        first.providerId = "tmdb";
+        first.externalNamespace = "person";
+        first.externalId = "31";
+        first.name = "Tom Hanks";
+        first.characterName = "Forrest Gump";
+        first.order = 0;
+        page.cast.push_back(first);
+
+        RecordingMetadataCastMember second;
+        second.providerId = "tmdb";
+        second.externalNamespace = "person";
+        second.externalId = "32";
+        second.name = "Robin Wright";
+        second.characterName = "Jenny Curran";
+        second.order = 1;
+        page.cast.push_back(second);
+        return page;
+    }
 };
 
 ApiResponse post(
@@ -112,6 +150,26 @@ ApiResponse post(
     ApiResponse response;
     assert(runtime.tryHandlePost(route, body, actor, response));
     return response;
+}
+
+std::string assignmentBody(const std::string& resourceKey)
+{
+    return
+        "{"
+        "\"resourceKey\":\"" + resourceKey + "\","
+        "\"providerId\":\"tmdb\","
+        "\"externalNamespace\":\"movie\","
+        "\"externalId\":\"13\","
+        "\"mediaType\":\"movie\","
+        "\"title\":\"Forrest Gump\","
+        "\"originalTitle\":\"Forrest Gump\","
+        "\"overview\":\"Selected candidate\","
+        "\"releaseDate\":\"1994-07-06\","
+        "\"posterReference\":\"/candidate.jpg\","
+        "\"seasonNumber\":0,"
+        "\"episodeNumber\":0,"
+        "\"expectedRevision\":0"
+        "}";
 }
 }
 
@@ -139,6 +197,7 @@ int main()
         assert(provider.lastQuery == "Forrest Gump");
         assert(provider.lastKind == RecordingMetadataCandidateKind::Movie);
         assert(provider.lastLimit == 5);
+        assert(provider.creditCalls == 0);
     }
 
     {
@@ -149,6 +208,7 @@ int main()
         assert(response.statusCode == 200);
         assert(response.body.find("Staffel 1") != std::string::npos);
         assert(provider.lastSeriesId == "19885");
+        assert(provider.creditCalls == 0);
     }
 
     {
@@ -160,35 +220,60 @@ int main()
         assert(response.body.find("Ein Fall von Pink") != std::string::npos);
         assert(provider.lastSeriesId == "19885");
         assert(provider.lastSeason == 1);
+        assert(provider.creditCalls == 0);
     }
 
-    const std::string assignmentBody =
-        "{"
-        "\"resourceKey\":\"cache/key\","
-        "\"providerId\":\"tmdb\","
-        "\"externalNamespace\":\"movie\","
-        "\"externalId\":\"13\","
-        "\"mediaType\":\"movie\","
-        "\"title\":\"Forrest Gump\","
-        "\"originalTitle\":\"Forrest Gump\","
-        "\"overview\":\"Selected candidate\","
-        "\"releaseDate\":\"1994-07-06\","
-        "\"posterReference\":\"/candidate.jpg\","
-        "\"seasonNumber\":0,"
-        "\"episodeNumber\":0,"
-        "\"expectedRevision\":0"
-        "}";
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/manual?resourceKey=missing",
+            response));
+        assert(response.statusCode == 200);
+        assert(response.body == "{\"found\":false}");
+        assert(provider.creditCalls == 0);
+    }
 
+    provider.creditError = "provider temporarily unavailable";
+    provider.creditProviderAvailable = false;
     {
         const ApiResponse response = post(
             runtime,
             "/api/backends/living-room/recordings/metadata/assign",
-            assignmentBody,
+            assignmentBody("failed/key"),
+            "user:real-admin");
+        assert(response.statusCode == 503);
+        assert(response.body.find("metadata_cast_enrichment_failed") !=
+            std::string::npos);
+        assert(response.body.find("test-token") == std::string::npos);
+        assert(provider.creditCalls == 1);
+
+        ApiResponse readback;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/manual?resourceKey=failed%2Fkey",
+            readback));
+        assert(readback.body == "{\"found\":false}");
+        assert(provider.creditCalls == 1);
+    }
+
+    provider.creditError.clear();
+    provider.creditProviderAvailable = true;
+    {
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/assign",
+            assignmentBody("cache/key"),
             "user:real-admin");
         assert(response.statusCode == 200);
         assert(response.body.find("\"manual\":true") != std::string::npos);
         assert(response.body.find("\"revision\":1") != std::string::npos);
+        assert(response.body.find("\"castComplete\":true") != std::string::npos);
+        assert(response.body.find("Tom Hanks") != std::string::npos);
+        assert(response.body.find("Forrest Gump") != std::string::npos);
+        assert(response.body.find("Robin Wright") != std::string::npos);
+        assert(response.body.find("Jenny Curran") != std::string::npos);
         assert(response.body.find("user:real-admin") == std::string::npos);
+        assert(response.body.find("/candidate.jpg") == std::string::npos);
+        assert(provider.creditCalls == 2);
     }
 
     {
@@ -198,16 +283,34 @@ int main()
             response));
         assert(response.statusCode == 200);
         assert(response.body.find("\"found\":true") != std::string::npos);
-        assert(response.body.find("Forrest Gump") != std::string::npos);
+        assert(response.body.find("Tom Hanks") != std::string::npos);
+        assert(response.body.find("\"characterName\":\"Forrest Gump\"") !=
+            std::string::npos);
+        assert(provider.creditCalls == 2);
     }
+
+    provider.emptyCredits = true;
+    {
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/assign",
+            assignmentBody("empty/key"),
+            "user:real-admin");
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"castComplete\":true") != std::string::npos);
+        assert(response.body.find("\"people\":[]") != std::string::npos);
+        assert(provider.creditCalls == 3);
+    }
+    provider.emptyCredits = false;
 
     {
         const ApiResponse response = post(
             runtime,
             "/api/backends/living-room/recordings/metadata/assign",
-            assignmentBody,
+            assignmentBody("cache/key"),
             "");
         assert(response.statusCode == 401);
+        assert(provider.creditCalls == 3);
     }
 
     {
@@ -234,18 +337,19 @@ int main()
             response));
         assert(response.statusCode == 200);
         assert(response.body == "{\"found\":false}");
+        assert(provider.creditCalls == 3);
     }
 
     {
         ApiResponse response;
         assert(!runtime.tryHandlePost(
             "/api/backends/living%2Froom/recordings/metadata/assign",
-            assignmentBody,
+            assignmentBody("cache/key"),
             "user:test-admin",
             response));
         assert(!runtime.tryHandlePost(
             "/api/backends/living-room/recordings/metadata/manual",
-            assignmentBody,
+            assignmentBody("cache/key"),
             "user:test-admin",
             response));
     }
