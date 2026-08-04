@@ -80,6 +80,35 @@
     return shared.text(value).startsWith('/api/vdr/recordings/metadata/image?');
   }
 
+  function preferredArtworkUrl(value) {
+    const artwork = value && value.preferredArtwork;
+    return artwork && artwork.available === true ? shared.text(artwork.url) : '';
+  }
+
+  function applyToDetail(root, value) {
+    if (!root || !value || value.available !== true ||
+        typeof root.querySelector !== 'function') return;
+    const manual = value.manualAssignment && value.manualAssignment.active === true;
+    const title = shared.text(value.title || value.episodeName);
+    const description = shared.text(value.overview || value.tagline);
+    const heading = manual ? root.querySelector('.recordings2-detail-copy h3') : null;
+    const summary = manual ? root.querySelector('.recordings2-detail-description') : null;
+    if (heading && title) heading.textContent = title;
+    if (summary && description) summary.textContent = description;
+    const url = preferredArtworkUrl(value);
+    const poster = root.querySelector('.recordings2-detail-poster');
+    if (!url || !poster || typeof poster.replaceChildren !== 'function') return;
+    const image = document.createElement('img');
+    image.src = typeof shared.publicPath === 'function' ? shared.publicPath(url) : url;
+    image.alt = 'Poster zu ' + (title || 'Aufnahme');
+    image.loading = 'lazy';
+    image.addEventListener('error', function () {
+      image.remove();
+      if (!poster.children || poster.children.length === 0) poster.textContent = '▶';
+    });
+    poster.replaceChildren(image);
+  }
+
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement('style');
@@ -289,6 +318,8 @@
     mount,
     formatDate,
     isPublicMetadataImageUrl,
+    preferredArtworkUrl,
+    applyToDetail,
     mediaTypeLabel,
     orientationLabel,
     roleLabel: personView.roleLabel
