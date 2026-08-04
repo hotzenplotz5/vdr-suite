@@ -86,11 +86,31 @@ assert.strictEqual(
   api.assignmentRuntimePath(),
   '/vdr-suite/frontend/recordings2-metadata-assignment.js'
 );
+
+const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
+const metadataImage = {
+  src: '',
+  getAttribute(name) { return name === 'src' ? metadataImagePath : null; }
+};
+api.repairMetadataImagePaths({
+  querySelectorAll(selector) {
+    assert.strictEqual(
+      selector,
+      '.recordings2-metadata-image img,.recordings2-person-image'
+    );
+    return [metadataImage];
+  }
+});
+assert.strictEqual(metadataImage.src, '/vdr-suite' + metadataImagePath);
+
 window.VdrSuitePublicUrl = null;
 assert.strictEqual(
   api.assignmentRuntimePath(),
   '/frontend/recordings2-metadata-assignment.js'
 );
+metadataImage.src = 'unchanged';
+api.repairMetadataImagePaths({querySelectorAll() { return [metadataImage]; }});
+assert.strictEqual(metadataImage.src, 'unchanged');
 
 api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote').then(() => {
   assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
