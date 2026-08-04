@@ -173,6 +173,26 @@ unsigned int manualPlaceholderVariant(const std::string& value)
     return hash % 6u;
 }
 
+void appendManualPeople(
+    std::ostringstream& json,
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    json << '[';
+    for (std::size_t index = 0; index < assignment.people.size(); ++index)
+    {
+        if (index > 0U) json << ',';
+        const ManualRecordingMetadataPerson& person = assignment.people[index];
+        json << "{\"role\":";
+        appendJsonString(json, person.role);
+        json << ",\"name\":";
+        appendJsonString(json, person.name);
+        json << ",\"characterName\":";
+        appendJsonString(json, person.characterName);
+        json << ",\"image\":{\"available\":false}}";
+    }
+    json << ']';
+}
+
 std::string serializeManualFolderMetadata(
     const ManualRecordingMetadataAssignment& assignment,
     const std::string& backendNativeId)
@@ -346,8 +366,9 @@ std::string serializeManualMetadata(
         json << ",\"width\":0,\"height\":0";
     }
     json << "}"
-         << ",\"people\":[]"
-         << ",\"images\":[]"
+         << ",\"people\":";
+    appendManualPeople(json, assignment);
+    json << ",\"images\":[]"
          << ",\"manualAssignment\":{"
          << "\"active\":true,\"revision\":" << assignment.revision
          << ",\"relationshipLocked\":"
