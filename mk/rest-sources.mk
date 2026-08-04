@@ -36,7 +36,6 @@ REST_LIVE_REMOTE_SRC := \
 
 REST_MANUAL_RECORDING_METADATA_SRC := \
         $(METADATA_PLATFORM_SRC) \
-        $(METADATA_GENRE_SRC) \
         $(MANUAL_RECORDING_METADATA_SRC) \
         core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp \
         core/http/src/CurlExternalArtworkHttpTransport.cpp \
