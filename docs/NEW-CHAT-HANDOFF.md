@@ -186,7 +186,7 @@ Every shell command intended for the user to copy or execute must be presented i
 - Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
 - When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
 
-## Binding branch- and PR-specific build and installation manifest
+## Binding daemon build and installation manifest
 
 Every installation answer must be generated for the exact requested branch or pull request. Generic installation instructions and commands copied from another PR are forbidden.
 
