@@ -27,10 +27,10 @@ void createExistingSchemas(Database& database)
         "CREATE TABLE epg_scraper_metadata_cache(backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE vdr_channel_cache(backend_id TEXT,channel_id TEXT,name TEXT,PRIMARY KEY(backend_id,channel_id));"
-        "CREATE TABLE suite_metadata_assignments(metadata_assignment_id TEXT PRIMARY KEY,assignment_state TEXT,manual_assignment INTEGER,relationship_locked INTEGER);"
-        "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT PRIMARY KEY,backend_id TEXT,resource_key TEXT,media_type TEXT,title TEXT,original_title TEXT,poster_reference TEXT);"
-        "CREATE TABLE suite_metadata_person_values(metadata_entity_id TEXT PRIMARY KEY,display_name TEXT,name_folded TEXT,external_id TEXT);"
-        "CREATE TABLE suite_metadata_recording_person_relations(metadata_assignment_id TEXT,person_entity_id TEXT,role TEXT,ordinal INTEGER);");
+        "CREATE TABLE suite_metadata_assignments(metadata_assignment_id TEXT PRIMARY KEY,metadata_target_id TEXT,metadata_entity_id TEXT,assignment_state TEXT,confidence REAL,manual_assignment INTEGER,relationship_locked INTEGER,supersedes_assignment_id TEXT,created_by_ref TEXT,revision INTEGER);"
+        "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT PRIMARY KEY,metadata_target_id TEXT,backend_id TEXT,resource_key TEXT,provider_id TEXT,external_namespace TEXT,external_id TEXT,media_type TEXT,title TEXT,original_title TEXT,overview TEXT,release_date TEXT,poster_reference TEXT,season_number INTEGER,episode_number INTEGER,actor_ref TEXT,revision INTEGER,cast_complete INTEGER);"
+        "CREATE TABLE suite_metadata_person_values(metadata_entity_id TEXT PRIMARY KEY,provider_id TEXT,external_namespace TEXT,external_id TEXT,display_name TEXT,name_folded TEXT,normalized_name TEXT);"
+        "CREATE TABLE suite_metadata_recording_person_relations(metadata_assignment_id TEXT,metadata_target_id TEXT,person_entity_id TEXT,metadata_evidence_id TEXT,role TEXT,character_name TEXT,character_name_folded TEXT,ordinal INTEGER);");
 }
 
 std::string recordingPayload(const std::string& subtitle)
@@ -84,10 +84,10 @@ void insertFixtures(Database& database)
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','channel-2','event-2','{\"available\":true,\"title\":\"Saturday Night Fever\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Tony Manero\"}]}',1780000000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','channel-3','event-3','{\"available\":true,\"title\":\"München heute\",\"people\":[]}',1780000000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('second','channel-4','event-4','{\"available\":true,\"title\":\"Pulp Fiction\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Vincent Vega\"}]}',1780000000);"
-        "INSERT INTO suite_metadata_assignments VALUES('manual-1','selected',1,1);"
-        "INSERT INTO suite_metadata_manual_assignment_values VALUES('manual-1','default','r1','movie','Forrest Gump','The Forrest Original','');"
-        "INSERT INTO suite_metadata_person_values VALUES('person-31','Tom Hanks','tom hanks','31');"
-        "INSERT INTO suite_metadata_recording_person_relations VALUES('manual-1','person-31','actor',0);");
+        "INSERT INTO suite_metadata_assignments VALUES('manual-1','target-1','movie-13','selected',1.0,1,1,NULL,'user:test',1);"
+        "INSERT INTO suite_metadata_manual_assignment_values VALUES('manual-1','target-1','default','r1','tmdb','movie','13','movie','Forrest Gump','The Forrest Original','','','','0','0','user:test',1,1);"
+        "INSERT INTO suite_metadata_person_values VALUES('person-31','tmdb','person','31','Tom Hanks','tom hanks','tom-hanks');"
+        "INSERT INTO suite_metadata_recording_person_relations VALUES('manual-1','target-1','person-31','evidence-1','actor','Forrest Gump','forrest gump',0);");
 }
 
 struct TraceState
