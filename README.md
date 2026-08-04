@@ -13,6 +13,7 @@ VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, deskto
 - [Phase Map](docs/planning/phase-map.md)
 - [Completed History](docs/development/completed-phases.md)
 - [Phase 62 Final Closeout](docs/development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](docs/development/phase-62-slice-2x-runtime-closeout.md)
 - [Architecture Decision Records](docs/adr/index.md)
 
 ## Current verified position
@@ -29,6 +30,14 @@ Phase 61 - Suite Metadata and Genre Platform
 
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed cross-cutting platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
