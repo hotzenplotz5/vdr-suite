@@ -4,6 +4,8 @@
 #include "Metadata.h"
 
 #include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +40,10 @@ public:
         const std::string& backendId);
 
 private:
+    ManualRecordingMetadataAssignmentRepository& manualRepository();
+
     Database& database_;
-    ManualRecordingMetadataAssignmentRepository manualMetadataRepository_;
+    std::unique_ptr<ManualRecordingMetadataAssignmentRepository>
+        manualMetadataRepository_;
+    std::mutex manualMetadataRepositoryMutex_;
 };
