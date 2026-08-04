@@ -29,6 +29,8 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   unless the user explicitly requests that workflow.
 # - End every final VDR-Suite repository response with current local build,
 #   test and installation commands tailored to the active branch and change.
+# - Never invent or infer local operational context, including checkout paths.
+# - Wait only for CI jobs that validate components changed by the current diff.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
@@ -45,9 +47,12 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "## Binding execution rules for every new chat",
     "## Required final local command block",
     "Every final VDR-Suite repository response must end with a ready-to-copy shell block",
-    "make test-install-staging",
-    "sudo make install PREFIX=/usr",
-    "systemctl daemon-reload",
+    "never invent, guess or silently infer local paths",
+    "canonical checkout path must be explicitly verified before emitting `cd`",
+    "select GitHub Actions evidence by change impact",
+    "do not wait for daemon build, packaging, frontend or other unrelated jobs",
+    "Do not require `make daemon`, daemon installation or service restart",
+    "Do not require waiting for every GitHub Actions job",
 ]
 
 REQUIRED_AGENT_RULES = [
@@ -73,6 +78,8 @@ REQUIRED_GUARDRAIL_RULES = [
     "Evaluate CI at the final",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
     "End every final VDR-Suite repository response with current local build,",
+    "Never invent or infer local operational context",
+    "Wait only for CI jobs that validate components changed",
 ]
 
 
