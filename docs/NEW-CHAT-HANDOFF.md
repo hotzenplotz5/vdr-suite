@@ -34,6 +34,11 @@ Phase 61 - Suite Metadata and Genre Platform
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
+Completed cross-cutting platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
