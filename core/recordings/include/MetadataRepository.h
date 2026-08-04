@@ -3,6 +3,7 @@
 #include "ManualRecordingMetadataAssignmentRepository.h"
 #include "Metadata.h"
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -32,6 +33,11 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
 
+    std::map<std::string, ManualRecordingMetadataAssignment>
+    getManualRecordingMetadataForBackend(
+        const std::string& backendId);
+
 private:
     Database& database_;
+    ManualRecordingMetadataAssignmentRepository manualMetadataRepository_;
 };
