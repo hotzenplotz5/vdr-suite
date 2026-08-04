@@ -434,6 +434,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             return true;
         }
         response = metadata->searchRecordingMetadataCandidates(
+            route.backendId,
             stringValue(strings, "query"),
             kind,
             limit);
@@ -443,6 +444,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     if (route.operation == "seasons")
     {
         response = metadata->getRecordingMetadataSeasons(
+            route.backendId,
             stringValue(strings, "seriesExternalId"),
             limit);
         return true;
@@ -451,6 +453,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     if (route.operation == "episodes")
     {
         response = metadata->getRecordingMetadataEpisodes(
+            route.backendId,
             stringValue(strings, "seriesExternalId"),
             intValue(integers, "seasonNumber", 0),
             limit);
