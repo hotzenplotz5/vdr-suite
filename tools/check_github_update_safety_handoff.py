@@ -19,6 +19,11 @@ AGENT_RULES = ROOT / "AGENTS.md"
 #   the change as correct.
 # - Prefer GitHub-first execution when the connector can perform the complete
 #   bounded operation safely.
+# - At the start of every new chat, inspect the complete current GitHub
+#   repository structure and read the full handoff, AGENTS.md and every file
+#   listed under Canonical reading before substantive repository work.
+# - Never emit repository-relative local commands until the canonical checkout
+#   path and repository identity are explicitly verified.
 # - Continue through already-approved steps without artificial confirmation
 #   pauses.
 # - Always provide visible status updates throughout multi-step repository work.
@@ -54,9 +59,17 @@ REQUIRED_CURRENT_STATUS_RULES = [
 ]
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
+    "## Mandatory repository orientation at the start of every new chat",
+    "inspect the complete current repository tree and file structure at least once",
+    "read every file currently listed under `Canonical reading` completely",
+    "read the complete contents of every source, build, test and documentation file",
+    "No repository command block may be emitted until the canonical local checkout path",
+    "This orientation is mandatory once at the beginning of every new chat",
     "## Binding execution rules for every new chat",
     "always provide visible status updates during every multi-step repository task",
     "Always provide visible status updates during repository work",
+    "At the start of every new chat, complete the full GitHub-backed repository orientation",
+    "Never emit repository-relative local commands until the canonical checkout path",
     "## Permanent operational safety invariants",
     "These exact operational safety invariants are append-only",
     "must not be removed, shortened, weakened or overridden",
@@ -68,6 +81,7 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "Do not prescribe installation, daemon replacement or service restart",
     "## Required final local command block",
     "Every final VDR-Suite repository response must end with a ready-to-copy shell block",
+    "When the canonical checkout path is not verified, do not emit `git`, `make`, repository-relative `python3`",
     "Do not use `set -e`, `set -o errexit`, `bash -e` or `sh -e`",
     "Do not require `make daemon`, daemon installation or service restart",
     "Do not require waiting for every GitHub Actions job",
@@ -91,6 +105,9 @@ REQUIRED_GUARDRAIL_RULES = [
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
     "Prefer GitHub-first execution when the connector can perform",
+    "At the start of every new chat, inspect the complete current GitHub",
+    "listed under Canonical reading before substantive repository work.",
+    "Never emit repository-relative local commands until the canonical checkout",
     "Continue through already-approved steps without artificial confirmation",
     "Always provide visible status updates throughout multi-step repository work.",
     "Do not wait for GitHub Actions after every commit.",
