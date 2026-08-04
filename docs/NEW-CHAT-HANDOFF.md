@@ -136,16 +136,18 @@ When the user asks for the commands to build and install the VDR-Suite daemon, e
 - Write at most one short introductory sentence, then provide exactly one ordinary fenced Markdown `bash` code block.
 - The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.
 - Put the complete directly executable command sequence in that one block; do not fragment it into a prose tutorial or many small code blocks.
-- Keep the requested scope narrow. A daemon build-and-install request requires repository checkout/update and identity verification, a clean daemon build, stopping the service, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, service activation/start or restart, and final binary/service checks.
-- Use an explicit checkout path. If no local checkout has been verified, define a new explicit path in the commands; never assume the current working directory is the repository.
-- Resolve the current repository, branch and expected commit from GitHub before composing the commands. Verify origin, clean worktree and exact commit in the command block.
-- For normal production installation, use a clean current `main`. For an explicitly approved pull-request acceptance test, use the exact reviewed PR branch and commit.
-- Include dependency installation only when it is needed for the requested build or the target host is not known to have the dependencies.
-- Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
+- For the established development or yaVDR host, the required sequence is: enter the verified existing checkout, verify repository identity and a clean worktree, `git switch` to the requested branch, `git pull --ff-only origin <branch>`, verify the exact expected commit, `make clean`, build the daemon, stop `vdr-suite-daemon`, run `sudo make install PREFIX=/usr`, run `sudo systemctl daemon-reload`, then enable/start or restart the service and verify the installed daemon and service state.
+- `git pull --ff-only` is mandatory in this established-checkout workflow. Do not silently replace it with a custom `git fetch` plus merge sequence when giving the user installation commands.
+- Never include `apt-get update`, `apt update`, `apt-get install`, `apt install` or any other package-management command in the ordinary branch build-and-install instructions for the established host.
+- Add package-management commands only when the user explicitly requests dependency installation or an actual build failure has demonstrated a missing dependency. Do not assume a fresh system and do not proactively refresh package lists.
+- Do not clone a second checkout when the user is updating the established repository checkout. Use the verified existing checkout and pull the requested branch.
+- Keep the requested scope narrow. Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
 - Do not turn the answer into a giant all-purpose shell script. Supply the shortest complete sequence that safely performs the requested daemon build and installation.
 - Do not repeat the same commands in explanatory prose. The copyable Bash block is the primary deliverable.
 
-This manifest overrides any tendency to provide a long step-by-step installation essay when the user asked only for the build and installation commands.
+The canonical established-host flow is therefore exactly: `git switch`, `git pull --ff-only`, `make clean`, daemon build, service stop, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, and service start or restart. No package installation and no `apt-get update` belong in that answer unless explicitly requested or proven necessary by a real dependency failure.
+
+This manifest overrides any tendency to provide a fresh-system setup, dependency bootstrap, long step-by-step installation essay or generalized deployment script when the user asked only for the existing checkout to be updated, built and installed.
 
 ## Credential and secret restrictions
 
