@@ -111,17 +111,17 @@ Rules:
 
 ### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration, Provenance, Media, Legacy Compatibility, Public API and Audit
 
-- [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-and-control-plane-boundary.md)
-- [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-and-health.md)
-- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-and-multi-site-transport.md)
-- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](ADR-0042-safe-mutation-revision-and-idempotency-contract.md)
-- [ADR-0043: Job Claim, Retry and Saga Execution Model](ADR-0043-job-claim-retry-and-saga-execution-model.md)
-- [ADR-0044: Timer Intent, Assignment and Native Timer Model](ADR-0044-timer-intent-assignment-and-native-timer-model.md)
-- [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-and-provenance.md)
-- [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-and-media-session-boundary.md)
+- [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
+- [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
+- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
+- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](ADR-0042-safe-mutation-revision-idempotency-contract.md)
+- [ADR-0043: Job Claim, Retry and Saga Execution Model](ADR-0043-job-claim-retry-saga-execution-model.md)
+- [ADR-0044: Timer Intent, Assignment and Native Timer Model](ADR-0044-timer-intent-assignment-native-timer-model.md)
+- [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-provenance.md)
+- [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
-- [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-and-compatibility-contract.md)
-- [ADR-0049: Audit and Security Event Model](ADR-0049-audit-and-security-event-model.md)
+- [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
 
 ---
 
@@ -138,7 +138,7 @@ Historical lowercase and numeric ADRs are retained for repository history and co
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
-- [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md), superseded in direction by [ADR-0040](ADR-0040-backend-lifecycle-generation-lease-and-health.md)
+- [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md), superseded in direction by [ADR-0040](ADR-0040-backend-lifecycle-generation-lease-health.md)
 - [ADR-005 Stream Provider Strategy](adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
 - [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
