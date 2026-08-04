@@ -40,7 +40,9 @@ const window = {
   },
   VdrSuitePublicUrl: {
     resolvePath(path) {
-      return '/vdr-suite' + path;
+      const value = String(path || '');
+      if (value === '/vdr-suite' || value.startsWith('/vdr-suite/')) return value;
+      return '/vdr-suite' + value;
     }
   }
 };
@@ -102,6 +104,61 @@ api.repairMetadataImagePaths({
   }
 });
 assert.strictEqual(metadataImage.src, '/vdr-suite' + metadataImagePath);
+
+const heading = {textContent: 'Alter technischer Titel'};
+const summary = {textContent: 'Alte Beschreibung'};
+const detailPoster = {
+  children: [],
+  textContent: '▶',
+  replaceChildren() { this.children = Array.from(arguments); this.textContent = ''; }
+};
+const detailRoot = {
+  querySelector(selector) {
+    if (selector === '.recordings2-detail-copy h3') return heading;
+    if (selector === '.recordings2-detail-description') return summary;
+    if (selector === '.recordings2-detail-poster') return detailPoster;
+    return null;
+  }
+};
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Face/Off – Im Körper des Feindes',
+  overview: 'Manuell ausgewählte Beschreibung',
+  preferredArtwork: {
+    available: true,
+    url: metadataImagePath
+  },
+  manualAssignment: {
+    active: true,
+    relationshipLocked: true
+  }
+});
+assert.strictEqual(heading.textContent, 'Face/Off – Im Körper des Feindes');
+assert.strictEqual(summary.textContent, 'Manuell ausgewählte Beschreibung');
+assert.strictEqual(detailPoster.children.length, 1);
+assert.strictEqual(detailPoster.children[0].src, '/vdr-suite' + metadataImagePath);
+assert.strictEqual(
+  detailPoster.children[0].alt,
+  'Poster zu Face/Off – Im Körper des Feindes'
+);
+
+heading.textContent = 'Pfadtitel bleibt';
+summary.textContent = 'Fallback bleibt';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Automatischer Titel',
+  overview: 'Automatische Beschreibung',
+  preferredArtwork: {
+    available: true,
+    url: '/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+  }
+});
+assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
+assert.strictEqual(summary.textContent, 'Fallback bleibt');
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+);
 
 window.VdrSuitePublicUrl = null;
 assert.strictEqual(
