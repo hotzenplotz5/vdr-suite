@@ -36,10 +36,10 @@ struct VdrRecordingNativePersonSearchQuery
     std::string normalizedName;
     std::string characterName;
     std::string role;
-    std::string source;
-    std::string providerReference;
     int limit = 0;
     int offset = 0;
+    std::string source;
+    std::string providerReference;
 };
 
 struct VdrRecordingNativePersonIndexEntry
