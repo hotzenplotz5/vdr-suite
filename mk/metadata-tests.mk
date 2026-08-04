@@ -2,6 +2,7 @@
 	test-metadata-make-boundary \
 	test-metadata-identity \
 	test-metadata-schema-contract \
+	test-metadata-manual-recording-assignment \
 	test-metadata-genres \
 	test-metadata-genre-conflicts \
 	test-metadata-foundation
@@ -24,6 +25,17 @@ test-metadata-schema-contract:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_metadata_schema_contract
 	$(BUILD_DIR)/test_metadata_schema_contract
+
+test-metadata-manual-recording-assignment: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
+test-metadata-manual-recording-assignment:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_PLATFORM_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_manual_recording_metadata_assignment_repository
+	$(BUILD_DIR)/test_manual_recording_metadata_assignment_repository
 
 test-metadata-genres: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
 test-metadata-genres:
@@ -50,6 +62,7 @@ test-metadata-foundation: \
 	test-metadata-service \
 	test-metadata-identity \
 	test-metadata-schema-contract \
+	test-metadata-manual-recording-assignment \
 	test-metadata-genres \
 	test-metadata-genre-conflicts
 
