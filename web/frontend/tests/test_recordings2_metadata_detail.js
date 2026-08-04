@@ -69,8 +69,9 @@ const context = vm.createContext({
   vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 });
 
+const personView = window.VdrSuiteRecordings2PersonSearchView;
 const api = window.VdrSuiteRecordings2MetadataDetail;
-assert.ok(window.VdrSuiteRecordings2PersonSearchView);
+assert.ok(personView);
 assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
 assert.strictEqual(api.roleLabel('actor'), 'Schauspiel');
@@ -88,6 +89,41 @@ assert.strictEqual(
   api.assignmentRuntimePath(),
   '/vdr-suite/frontend/recordings2-metadata-assignment.js'
 );
+
+const manualCastPanel = document.createElement('section');
+personView.renderCast(
+  manualCastPanel,
+  {
+    available: true,
+    provider: 'manual',
+    people: [
+      {
+        role: 'actor',
+        name: 'Tom Hanks',
+        characterName: 'Forrest Gump',
+        image: {available: false}
+      }
+    ],
+    manualAssignment: {
+      active: true,
+      relationshipLocked: true
+    }
+  },
+  'default',
+  api.isPublicMetadataImageUrl
+);
+assert.strictEqual(manualCastPanel.children.length, 1);
+const manualCastGrid = manualCastPanel.children[0];
+assert.strictEqual(manualCastGrid.className, 'recordings2-metadata-cast');
+assert.strictEqual(manualCastGrid.children.length, 1);
+const manualCastCard = manualCastGrid.children[0].children[0];
+assert.strictEqual(manualCastCard.className, 'recordings2-person-card');
+assert.strictEqual(manualCastCard.title, 'Tom Hanks in vorhandenen Aufnahmen suchen');
+assert.strictEqual(manualCastCard.children[0].className, 'recordings2-person-placeholder');
+const manualCastCopy = manualCastCard.children[1];
+assert.strictEqual(manualCastCopy.children[0].textContent, 'Tom Hanks');
+assert.strictEqual(manualCastCopy.children[1].textContent, 'Forrest Gump');
+assert.strictEqual(manualCastCopy.children[2].textContent, 'Schauspiel');
 
 const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
 const metadataImage = {
