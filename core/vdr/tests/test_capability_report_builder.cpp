@@ -33,7 +33,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 15);
+    assert(emptyReport.size() == 20);
 
     for (const auto& state : emptyReport.capabilities())
     {
@@ -54,7 +54,7 @@ int main()
 
     assert(readOnlyReport.backendId() == "mock-backend");
     assert(!readOnlyReport.empty());
-    assert(readOnlyReport.size() == 15);
+    assert(readOnlyReport.size() == 20);
 
     for (const auto& state : readOnlyReport.capabilities())
     {
@@ -82,6 +82,16 @@ int main()
     assert(readOnlyReport.capabilities().at(12).capabilityName() == "live.overlay.read");
     assert(readOnlyReport.capabilities().at(13).capabilityName() == "osd.view");
     assert(readOnlyReport.capabilities().at(14).capabilityName() == "osd.control");
+    assert(readOnlyReport.capabilities().at(15).capabilityName() ==
+        "metadata.recording.manualSearch");
+    assert(readOnlyReport.capabilities().at(16).capabilityName() ==
+        "metadata.recording.manualAssignment");
+    assert(readOnlyReport.capabilities().at(17).capabilityName() ==
+        "metadata.recording.manualAssignment.movie");
+    assert(readOnlyReport.capabilities().at(18).capabilityName() ==
+        "metadata.recording.manualAssignment.series");
+    assert(readOnlyReport.capabilities().at(19).capabilityName() ==
+        "metadata.recording.manualAssignment.episode");
 
     std::cout
         << "test_capability_report_builder passed"
