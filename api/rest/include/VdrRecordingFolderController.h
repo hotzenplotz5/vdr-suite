@@ -6,6 +6,7 @@
 #include "VdrRecordingNativeMetadataRepository.h"
 
 #include <functional>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,6 +26,10 @@ public:
             const std::string& backendId,
             const std::string& backendNativeId)>;
 
+    using ManualMetadataBatchLookup = std::function<
+        std::map<std::string, ManualRecordingMetadataAssignment>(
+            const std::string& backendId)>;
+
     explicit VdrRecordingFolderController(
         VdrRecordingCacheRepository& repository,
         NativeMetadataLookup nativeMetadataLookup = {},
@@ -38,6 +43,11 @@ public:
                   return ManualRecordingMetadataApiRuntime::instance()
                       .findSelected(backendId, backendNativeId);
               },
+              [](const std::string& backendId)
+              {
+                  return ManualRecordingMetadataApiRuntime::instance()
+                      .findSelectedForBackend(backendId);
+              },
               std::move(metadataImageAllowedRoots))
     {
     }
@@ -46,6 +56,21 @@ public:
         VdrRecordingCacheRepository& repository,
         NativeMetadataLookup nativeMetadataLookup,
         ManualMetadataLookup manualMetadataLookup,
+        std::vector<std::string> metadataImageAllowedRoots)
+        : VdrRecordingFolderController(
+              repository,
+              std::move(nativeMetadataLookup),
+              std::move(manualMetadataLookup),
+              {},
+              std::move(metadataImageAllowedRoots))
+    {
+    }
+
+    VdrRecordingFolderController(
+        VdrRecordingCacheRepository& repository,
+        NativeMetadataLookup nativeMetadataLookup,
+        ManualMetadataLookup manualMetadataLookup,
+        ManualMetadataBatchLookup manualMetadataBatchLookup,
         std::vector<std::string> metadataImageAllowedRoots);
 
     ApiResponse getStatus(
@@ -71,5 +96,6 @@ private:
     VdrRecordingCacheRepository& repository_;
     NativeMetadataLookup nativeMetadataLookup_;
     ManualMetadataLookup manualMetadataLookup_;
+    ManualMetadataBatchLookup manualMetadataBatchLookup_;
     std::vector<std::string> metadataImageAllowedRoots_;
 };
