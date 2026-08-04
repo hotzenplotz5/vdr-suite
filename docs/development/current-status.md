@@ -23,6 +23,9 @@ State: open Draft; implementation and validation in progress
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
 Phase 62 state:
 completed and merged through PR #117
 
