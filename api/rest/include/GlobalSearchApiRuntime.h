@@ -9,6 +9,7 @@
 
 class BackendRegistryService;
 class Database;
+class GlobalSearchPersonPortraitRepository;
 class GlobalSearchRepository;
 class GlobalSearchService;
 
@@ -39,6 +40,7 @@ private:
     std::unique_ptr<GlobalSearchRepository> writerRepository_;
     std::unique_ptr<Database> readDatabase_;
     std::unique_ptr<GlobalSearchRepository> readRepository_;
+    std::unique_ptr<GlobalSearchPersonPortraitRepository> portraitRepository_;
     std::unique_ptr<GlobalSearchService> service_;
     std::unique_ptr<GlobalSearchController> controller_;
 };
