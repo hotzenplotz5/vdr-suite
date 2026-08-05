@@ -2,6 +2,8 @@
 
 #include "ApiRouter.h"
 #include "BackendAccessPolicy.h"
+#include "BackendAgentHttpServer.h"
+#include "BackendAgentLifecycle.h"
 #include "BackendRuntimeContext.h"
 #include "BackendPollingCoordinator.h"
 #include "BackendRegistry.h"
@@ -36,6 +38,8 @@
 #include "EpgSearchNativeFuzzyOperatorRefreshController.h"
 #include "EpgSearchNativeFuzzyOperatorRefreshService.h"
 #include "ConsoleRuntimeLogger.h"
+#include "AccountabilityEventRepository.h"
+#include "CredentialVerifierRepository.h"
 #include "Database.h"
 #include "IHttpClient.h"
 #include "ISearchTimerDiscoveryProvider.h"
@@ -97,6 +101,8 @@
 #include "SearchTimerUpdateService.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
+#include "SecurityIdentityProvisioningRepository.h"
+#include "SecurityIdentityRepository.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotChangeFeed.h"
 #include "SnapshotChangeFeedController.h"
@@ -192,6 +198,12 @@ private:
 
     BackendRegistry backendRegistry_;
     std::unique_ptr<BackendRegistryService> backendRegistryService_;
+    std::unique_ptr<SecurityIdentityRepository> backendAgentIdentityRepository_;
+    std::unique_ptr<SecurityIdentityProvisioningRepository> backendAgentProvisioningRepository_;
+    std::unique_ptr<CredentialVerifierRepository> backendAgentCredentialVerifierRepository_;
+    std::unique_ptr<AccountabilityEventRepository> backendAgentAccountabilityRepository_;
+    std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
+    std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;

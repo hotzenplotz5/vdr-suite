@@ -173,7 +173,10 @@ private:
             permission == "epg.cache.refresh" ||
             permission == "epgsearch.native-fuzzy.refresh" ||
             permission == "epgsearch.native-fuzzy.stale-probes.delete" ||
-            permission == "backend.settings.series-artwork.modify";
+            permission == "backend.settings.series-artwork.modify" ||
+            permission == "backend.agent.enroll" ||
+            permission == "backend.agent.revoke" ||
+            permission == "backend.agent.credential.rotate";
     }
 
     static bool adminRoleGrants(const std::string& permission)

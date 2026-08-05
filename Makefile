@@ -1,6 +1,7 @@
 include mk/common.mk
 include mk/security-sources.mk
 include mk/agent-sources.mk
+include mk/backend-agent-runtime.mk
 
 include mk/recording-sources.mk
 include mk/metadata-sources.mk

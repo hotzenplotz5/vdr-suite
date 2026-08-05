@@ -97,6 +97,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp
 
 DAEMON_SRC += $(SECURITY_SRC)
+DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp

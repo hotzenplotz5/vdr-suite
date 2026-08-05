@@ -1,0 +1,40 @@
+.TH VDR-SUITE-BACKEND-AGENT-ENROLL 8 "August 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-backend-agent-enroll \- create a controlled VDR-Suite Backend Agent enrollment package
+.SH SYNOPSIS
+.B vdr-suite-backend-agent-enroll
+.RI [ --database " PATH" ]
+.RI [ --backend " ID" ]
+.B --output
+.I PATH
+.RI [ --ttl-seconds " 300..86400" ]
+.SH DESCRIPTION
+Creates a one-time enrollment identity bound by the Control Plane to one
+existing Backend and writes the bootstrap package atomically with mode 0600.
+The raw enrollment token is never printed, placed in process arguments, or
+stored in the SQLite database.  Only its verifier is persisted.
+.PP
+If the protected output package cannot be finalized, the newly created
+enrollment is revoked before the command exits.
+.SH OPTIONS
+.TP
+.BI --database " PATH"
+Suite SQLite database.  The default is
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.TP
+.BI --backend " ID"
+Backend binding.  The default is
+.BR default .
+.TP
+.BI --output " PATH"
+Required path for the one-time mode-0600 enrollment package.
+.TP
+.BI --ttl-seconds " SECONDS"
+Validity between 300 and 86400 seconds.  The default is 900.
+.SH SECURITY
+Run this utility only through an administrator-controlled local path.  Transfer
+the package through a protected channel and remove every extra copy after the
+Agent consumes it.  Enrollment does not grant VDR write permission.
+.SH SEE ALSO
+.BR vdr-suite-backend-agent (8),
+.BR vdr-suite-daemon (8)

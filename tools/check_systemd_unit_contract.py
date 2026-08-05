@@ -4,6 +4,8 @@ import sys
 
 UNIT_PATH = Path("packaging/systemd/vdr-suite-daemon.service")
 DEFAULTS_PATH = Path("packaging/systemd/vdr-suite-daemon.default")
+AGENT_UNIT_PATH = Path("packaging/systemd/vdr-suite-backend-agent.service")
+AGENT_CONFIG_PATH = Path("packaging/systemd/backend-agent.conf")
 
 REQUIRED_LINES = [
     "After=network-online.target vdr.service",
@@ -38,6 +40,31 @@ FORBIDDEN_PREFIXES = [
     "Requires=vdr.service",
 ]
 
+REQUIRED_AGENT_LINES = [
+    "After=network-online.target",
+    "Wants=network-online.target",
+    "ConditionPathExists=/etc/vdr-suite/backend-agent.conf",
+    "User=vdr",
+    "Group=vdr",
+    "ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf",
+    "Restart=on-failure",
+    "NoNewPrivileges=true",
+    "UMask=0077",
+    "ProtectSystem=strict",
+    "ProtectHome=true",
+    "CapabilityBoundingSet=",
+    "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6",
+    "ReadWritePaths=/var/lib/vdr-suite/backend-agent",
+]
+
+REQUIRED_AGENT_CONFIG = [
+    "CONTROL_PLANE_URL=https://control-plane.example.invalid",
+    "BACKEND_ID=default",
+    "IDENTITY_PATH=/var/lib/vdr-suite/backend-agent/identity",
+    "ENROLLMENT_PATH=/var/lib/vdr-suite/backend-agent/enrollment",
+    "OBSERVATION_DOMAINS=backend-health",
+]
+
 
 def active_lines(path: Path) -> set[str]:
     return {
@@ -57,6 +84,14 @@ def main() -> int:
     if not DEFAULTS_PATH.exists():
         print(f"missing systemd defaults: {DEFAULTS_PATH}", file=sys.stderr)
         failed = True
+
+    for path, label in [
+        (AGENT_UNIT_PATH, "Backend Agent systemd unit"),
+        (AGENT_CONFIG_PATH, "Backend Agent configuration"),
+    ]:
+        if not path.exists():
+            print(f"missing {label}: {path}", file=sys.stderr)
+            failed = True
 
     if failed:
         return 1
@@ -93,6 +128,33 @@ def main() -> int:
     ):
         print("packaged defaults must not define a TMDB token", file=sys.stderr)
         failed = True
+
+    agent_lines = AGENT_UNIT_PATH.read_text(encoding="utf-8").splitlines()
+    for required in REQUIRED_AGENT_LINES:
+        if required not in agent_lines:
+            print(f"missing required Backend Agent unit line: {required}", file=sys.stderr)
+            failed = True
+    for line in agent_lines:
+        normalized = line.strip().lower()
+        if normalized.startswith("environment=") or normalized.startswith("environmentfile="):
+            print("Backend Agent unit must not source credentials from the environment", file=sys.stderr)
+            failed = True
+        if "--token" in normalized or "--password" in normalized or "--secret" in normalized:
+            print("Backend Agent credentials must not be process arguments", file=sys.stderr)
+            failed = True
+
+    agent_config = active_lines(AGENT_CONFIG_PATH)
+    for required in REQUIRED_AGENT_CONFIG:
+        if required not in agent_config:
+            print(f"missing required Backend Agent configuration: {required}", file=sys.stderr)
+            failed = True
+    for line in agent_config:
+        name = line.split("=", 1)[0].strip().lower()
+        if any(secret in name for secret in [
+            "token", "password", "credential_secret", "authorization", "cookie", "csrf"
+        ]):
+            print(f"packaged Backend Agent configuration contains secret field: {name}", file=sys.stderr)
+            failed = True
 
     return 1 if failed else 0
 

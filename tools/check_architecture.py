@@ -27,6 +27,7 @@ SQLITE_DOMAIN_REPOSITORY_PREFIXES = [
     "core/vdr/src/",
     "core/metadata/src/",
     "core/security/src/",
+    "core/agent/src/",
 ]
 
 SQLITE_SPLIT_REPOSITORY_FAMILIES = [
@@ -49,6 +50,7 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     "core/vdr/tests/test_epg_artwork_repository.cpp",
     "core/vdr/tests/test_epg_event_repository.cpp",
     "core/vdr/tests/test_global_search_repository.cpp",
+    "core/agent/tests/test_backend_agent_lifecycle.cpp",
 }
 
 

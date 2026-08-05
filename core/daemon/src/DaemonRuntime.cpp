@@ -146,6 +146,12 @@ void DaemonRuntime::shutdown()
     capabilitySet_.reset();
     backendRegistryController_.reset();
     backendRegistryJsonSerializer_.reset();
+    backendAgentLifecycleService_.reset();
+    backendAgentRepository_.reset();
+    backendAgentAccountabilityRepository_.reset();
+    backendAgentCredentialVerifierRepository_.reset();
+    backendAgentProvisioningRepository_.reset();
+    backendAgentIdentityRepository_.reset();
     backendRegistryService_.reset();
     vdrRecordingQueryController_.reset();
     vdrRecordingFolderController_.reset();

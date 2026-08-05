@@ -97,6 +97,33 @@ bool CredentialVerifierRepository::ensureVerifier(
         stored->passwordHash == passwordHash;
 }
 
+bool CredentialVerifierRepository::updateVerifier(
+    const std::string& credentialId,
+    const std::string& loginName,
+    const std::string& passwordHash)
+{
+    if (credentialId.empty() || loginName.empty() || passwordHash.empty())
+    {
+        return false;
+    }
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_basic_credential_verifiers SET password_hash = ? "
+        "WHERE credential_id = ? AND login_name = ?;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+    const bool bound =
+        bindText(statement, 1, passwordHash) &&
+        bindText(statement, 2, credentialId) &&
+        bindText(statement, 3, loginName);
+    const int result = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    sqlite3_finalize(statement);
+    return result == SQLITE_DONE && sqlite3_changes(database_.handle()) == 1;
+}
+
 std::optional<StoredBasicCredentialVerifier>
 CredentialVerifierRepository::findByLogin(
     const std::string& loginName) const

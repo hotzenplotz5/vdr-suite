@@ -1,0 +1,67 @@
+.TH VDR-SUITE-BACKEND-AGENT 8 "August 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-backend-agent \- outbound read-only Backend Agent for VDR-Suite
+.SH SYNOPSIS
+.B vdr-suite-backend-agent
+.B --config
+.I PATH
+.RI [ --once " | " --rotate-credential ]
+.SH DESCRIPTION
+The Backend Agent establishes an outbound HTTPS connection to the VDR-Suite
+Control Plane.  The Phase-63 foundation supports controlled enrollment,
+protocol negotiation, backend-generation fencing, read-only capability
+publication, heartbeat renewal and reconnect reconciliation.
+.PP
+It does not execute VDR mutations, expose local provider URLs, or accept an
+inbound connection at the VDR site.
+.SH CONFIGURATION
+The packaged service reads
+.IR /etc/vdr-suite/backend-agent.conf .
+The file contains the Control-Plane HTTPS origin, stable Backend ID, protected
+identity and enrollment paths, optional CA certificate, read-only capabilities,
+timeouts and bounded reconnect delays.  It must not contain an enrollment
+token or runtime credential.  Those values live only in files below
+.IR /var/lib/vdr-suite/backend-agent
+with mode 0600.
+.SH OPTIONS
+.TP
+.BI --config " PATH"
+Read the non-secret key/value configuration from PATH.
+.TP
+.B --once
+Perform one connect/capability/heartbeat cycle and exit.  Intended for bounded
+acceptance tests.
+.TP
+.B --rotate-credential
+Synchronize with the Control Plane, rotate the technical Agent credential,
+persist the replacement atomically, reconnect with the new credential and
+exit.  An interrupted rotation is reconciled from the protected identity file
+without restoring the old credential after the Control Plane has committed.
+.SH SECURITY
+TLS peer and host verification are mandatory.  Redirects, proxy inheritance,
+netrc credentials, URL user information and non-HTTPS origins are rejected.
+The Agent authenticates only as its persisted technical Agent identity and is
+scoped to its enrolled Backend and current backend generation.
+Credential rotation is also fenced by the current Agent instance, backend
+generation and credential generation.  A pending replacement is stored with
+mode 0600 before dispatch so a lost response can be recovered safely.
+.SH FILES
+.TP
+.I /etc/vdr-suite/backend-agent.conf
+Non-secret service configuration.
+.TP
+.I /var/lib/vdr-suite/backend-agent/identity
+Mode-0600 Agent identity and runtime credential.
+.TP
+.I /var/lib/vdr-suite/backend-agent/enrollment
+Mode-0600 one-time enrollment package, removed after successful enrollment.
+.SH SYSTEMD
+The packaged unit is
+.BR vdr-suite-backend-agent.service (5).
+It runs as user and group
+.B vdr
+with a read-only system view and write access limited to the Agent state
+directory.
+.SH SEE ALSO
+.BR vdr-suite-backend-agent-enroll (8),
+.BR vdr-suite-daemon (8)
