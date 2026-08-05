@@ -71,3 +71,5 @@ jobs:
           git add -A
           git commit -m "Fix command runtime source linkage"
           git push origin HEAD:agent/phase63-command-delivery-runtime
+
+# retry after static guard repair
