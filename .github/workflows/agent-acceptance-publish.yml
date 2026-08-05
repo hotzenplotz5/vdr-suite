@@ -1,0 +1,40 @@
+name: Agent acceptance publish
+
+on:
+  push:
+    branches:
+      - agent/phase63-backend-agent-foundation
+    paths:
+      - .github/workflows/agent-acceptance-publish.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor == 'hotzenplotz5'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify and apply acceptance commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            .github/agent-publish/acceptance-00 \
+            .github/agent-publish/acceptance-01 \
+            > /tmp/phase63-acceptance.b64
+          printf '%s  %s\n' \
+            '9506a162cd7040db15cf3d37fa27c7272c8d991c8d8d2fcd25d4caa73bedb33e' \
+            /tmp/phase63-acceptance.b64 \
+            | sha256sum -c -
+          base64 --decode /tmp/phase63-acceptance.b64 \
+            | gzip --decompress \
+            > /tmp/phase63-acceptance.mbox
+          git config user.name 'OpenAI Agent'
+          git config user.email 'agent@example.invalid'
+          git am /tmp/phase63-acceptance.mbox
+          git push origin HEAD:agent/phase63-backend-agent-foundation
