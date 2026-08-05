@@ -144,6 +144,7 @@ Legacy Basic remains transitional. `enforced` is the fail-closed target. Removal
 - [Phase 63 Backend Agent Runtime Acceptance](phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
 - [Agent Workflow Rules](../../AGENTS.md)
