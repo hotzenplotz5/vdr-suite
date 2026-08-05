@@ -4,11 +4,14 @@
 #include "GlobalSearchRepository.h"
 #include "GlobalSearchResult.h"
 #include "GlobalSearchService.h"
+#include "ManualRecordingMetadataApiRuntime.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
+#include <map>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -20,6 +23,15 @@ constexpr int MaximumLimit = 50;
 constexpr std::int64_t EpgHistorySeconds = 6 * 60 * 60;
 constexpr std::int64_t DefaultEpgFutureSeconds = 14 * 24 * 60 * 60;
 constexpr std::int64_t MaximumEpgWindowSeconds = 31 * 24 * 60 * 60;
+
+struct PersonPortraitHandle
+{
+    std::string backendNativeId;
+    int index = -1;
+    int assignmentRevision = 0;
+};
+
+using PersonPortraitMap = std::map<std::string, PersonPortraitHandle>;
 
 std::string trimQuery(const std::string& value)
 {
@@ -124,6 +136,19 @@ std::string recordingArtworkUrl(const GlobalSearchRecording& item)
         "&kind=preferred&index=0";
 }
 
+std::string personPortraitUrl(
+    const std::string& backendId,
+    const PersonPortraitHandle& handle)
+{
+    if (handle.backendNativeId.empty() || handle.index < 0 ||
+        handle.assignmentRevision <= 0)
+        return {};
+    return "/api/recordings/metadata/image?backend=" + percentEncode(backendId) +
+        "&backendNativeId=" + percentEncode(handle.backendNativeId) +
+        "&kind=person&index=" + std::to_string(handle.index) +
+        "&assignmentRevision=" + std::to_string(handle.assignmentRevision);
+}
+
 std::string epgArtworkUrl(const GlobalSearchEpgEvent& item)
 {
     if (!item.artworkAvailable) return {};
@@ -152,7 +177,45 @@ void appendRecordingMetadataArtwork(
     json << "}}";
 }
 
-std::string serialize(const GlobalSearchResult& result)
+std::string personKey(const std::string& name, const std::string& role)
+{
+    return GlobalSearchRepository::foldText(name) + "\n" + role;
+}
+
+PersonPortraitMap manualPersonPortraits(const std::string& backendId)
+{
+    PersonPortraitMap portraits;
+    const auto assignments = ManualRecordingMetadataApiRuntime::instance()
+        .findSelectedForBackend(backendId);
+    std::set<std::string> visitedAssignments;
+
+    for (const auto& entry : assignments)
+    {
+        const ManualRecordingMetadataAssignment& assignment = entry.second;
+        if (!assignment.found || !assignment.relationshipLocked ||
+            assignment.metadataAssignmentId.empty() || assignment.revision <= 0 ||
+            !visitedAssignments.insert(assignment.metadataAssignmentId).second)
+            continue;
+
+        for (std::size_t index = 0; index < assignment.people.size(); ++index)
+        {
+            const ManualRecordingMetadataPerson& person = assignment.people[index];
+            if (person.profilePath.empty() || person.name.empty()) continue;
+            const std::string key = personKey(person.name, person.role);
+            if (portraits.find(key) != portraits.end()) continue;
+            PersonPortraitHandle handle;
+            handle.backendNativeId = entry.first;
+            handle.index = static_cast<int>(index);
+            handle.assignmentRevision = assignment.revision;
+            portraits.emplace(key, std::move(handle));
+        }
+    }
+    return portraits;
+}
+
+std::string serialize(
+    const GlobalSearchResult& result,
+    const PersonPortraitMap& portraits)
 {
     std::ostringstream json;
     json << "{\"query\":";
@@ -225,10 +288,20 @@ std::string serialize(const GlobalSearchResult& result)
     {
         if (index > 0) json << ',';
         const auto& item = result.people[index];
+        const auto portrait = portraits.find(personKey(item.name, item.role));
+        const bool imageAvailable = portrait != portraits.end();
         json << "{\"name\":"; appendJsonString(json, item.name);
         json << ",\"role\":"; appendJsonString(json, item.role);
         json << ",\"recordingCount\":" << item.recordingCount
-             << ",\"epgCount\":" << item.epgCount << '}';
+             << ",\"epgCount\":" << item.epgCount
+             << ",\"image\":";
+        appendArtwork(
+            json,
+            imageAvailable,
+            imageAvailable
+                ? personPortraitUrl(result.backendId, portrait->second)
+                : std::string{});
+        json << '}';
     }
     json << "],\"hasMore\":"
          << ((result.recordingHasMore || result.epgHasMore) ? "true" : "false")
@@ -278,13 +351,13 @@ ApiResponse GlobalSearchController::search(
     if (normalizedQuery.empty())
     {
         result.status = "empty";
-        return jsonResponse(200, serialize(result));
+        return jsonResponse(200, serialize(result, PersonPortraitMap{}));
     }
     if (utf8CodePointCount(
             GlobalSearchRepository::foldText(normalizedQuery)) < MinimumQueryLength)
     {
         result.status = "too-short";
-        return jsonResponse(200, serialize(result));
+        return jsonResponse(200, serialize(result, PersonPortraitMap{}));
     }
 
     result = service_.search(
@@ -299,5 +372,7 @@ ApiResponse GlobalSearchController::search(
     {
         return jsonError(503, "search index unavailable");
     }
-    return jsonResponse(200, serialize(result));
+    return jsonResponse(
+        200,
+        serialize(result, manualPersonPortraits(normalizedBackendId)));
 }
