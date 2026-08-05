@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -82,10 +83,17 @@ bool GlobalSearchApiRuntime::configure(
         }
     }
 
+    GlobalSearchController::PersonPortraitLookup personPortraitLookup;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        personPortraitLookup = personPortraitLookup_;
+    }
+
     auto service = std::make_unique<GlobalSearchService>(*controllerRepository);
     auto controller = std::make_unique<GlobalSearchController>(
         *service,
-        backendRegistryService);
+        backendRegistryService,
+        std::move(personPortraitLookup));
 
     std::lock_guard<std::mutex> lock(mutex_);
     controller_.reset();
@@ -99,6 +107,15 @@ bool GlobalSearchApiRuntime::configure(
     service_ = std::move(service);
     controller_ = std::move(controller);
     return true;
+}
+
+void GlobalSearchApiRuntime::setPersonPortraitLookup(
+    GlobalSearchController::PersonPortraitLookup personPortraitLookup)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    personPortraitLookup_ = std::move(personPortraitLookup);
+    if (controller_)
+        controller_->setPersonPortraitLookup(personPortraitLookup_);
 }
 
 bool GlobalSearchApiRuntime::tryHandleGet(
@@ -144,4 +161,5 @@ void GlobalSearchApiRuntime::reset()
     readRepository_.reset();
     readDatabase_.reset();
     writerRepository_.reset();
+    personPortraitLookup_ = {};
 }
