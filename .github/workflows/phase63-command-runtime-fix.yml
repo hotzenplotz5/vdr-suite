@@ -32,6 +32,16 @@ jobs:
               "\t\t$(AGENT_CLIENT_SRC) \\\n\t\t$(AGENT_CHANNEL_DOMAIN_SRC) \\\n\t\t$(AGENT_COMMAND_DOMAIN_SRC) \\\n\t\tcore/agent/tests/test_backend_agent_client.cpp \\\n",
           )
           replace_once(
+              "mk/agent-tests.mk",
+              "test-phase63-command-delivery-runtime:\n\tpython3 tools/check_phase63_command_delivery_runtime.py\n\t$(BUILD_CXX) $(CXXFLAGS) \\\n\t\t$(SQLITE_SRC) \\\n\t\tcore/security/src/AccountabilityEventRepository.cpp \\\n\t\tcore/vdr/src/VdrConfig.cpp \\\n",
+              "test-phase63-command-delivery-runtime:\n\tpython3 tools/check_phase63_command_delivery_runtime.py\n\t$(BUILD_CXX) $(CXXFLAGS) \\\n\t\t$(SQLITE_SRC) \\\n\t\tcore/security/src/AccountabilityEventRepository.cpp \\\n\t\tcore/security/src/CredentialVerifierRepository.cpp \\\n\t\tcore/security/src/SecurityIdentityRepository.cpp \\\n\t\tcore/security/src/SecurityIdentityProvisioningRepository.cpp \\\n\t\tcore/vdr/src/VdrConfig.cpp \\\n",
+          )
+          replace_once(
+              "mk/backend-agent-runtime.mk",
+              "backend-agent-command-admin:\n\t$(BUILD_CXX) $(CXXFLAGS) \\\n\t\t$(SQLITE_SRC) \\\n\t\tcore/security/src/AccountabilityEventRepository.cpp \\\n\t\tcore/vdr/src/VdrConfig.cpp \\\n",
+              "backend-agent-command-admin:\n\t$(BUILD_CXX) $(CXXFLAGS) \\\n\t\t$(SQLITE_SRC) \\\n\t\tcore/security/src/AccountabilityEventRepository.cpp \\\n\t\tcore/security/src/CredentialVerifierRepository.cpp \\\n\t\tcore/security/src/SecurityIdentityRepository.cpp \\\n\t\tcore/security/src/SecurityIdentityProvisioningRepository.cpp \\\n\t\tcore/vdr/src/VdrConfig.cpp \\\n",
+          )
+          replace_once(
               "core/agent/src/BackendAgentCommandDelivery.cpp",
               "    if(kind!=\"receipt\"&&kind!=\"result\")return false; const std::string column=kind==\"receipt\"?\"drop_next_receipt\":\"drop_next_result\";\n",
               "    if (kind != \"receipt\" && kind != \"result\") return false;\n    const std::string column = kind == \"receipt\"\n        ? \"drop_next_receipt\"\n        : \"drop_next_result\";\n",
@@ -71,5 +81,3 @@ jobs:
           git add -A
           git commit -m "Fix command runtime source linkage"
           git push origin HEAD:agent/phase63-command-delivery-runtime
-
-# retry after static guard repair
