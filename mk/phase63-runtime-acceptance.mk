@@ -1,4 +1,4 @@
-.PHONY: test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance
+.PHONY: test-phase63-observation-ingestion-contract test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance
 
 PHASE63_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/backend-agent-foundation.sh
 
@@ -11,7 +11,10 @@ PHASE63_BACKEND_ID ?= default
 PHASE63_DATABASE ?= /var/lib/vdr-suite/vdr-suite.db
 PHASE63_VDR_VIDEO_DIR ?= /srv/vdr/video.00
 
-test-phase63-runtime-acceptance-harness:
+test-phase63-observation-ingestion-contract:
+	python3 tools/check_phase63_observation_ingestion_contract.py
+
+test-phase63-runtime-acceptance-harness: test-phase63-observation-ingestion-contract
 	bash -n "$(PHASE63_ACCEPTANCE_RUNNER)"
 	python3 tools/check_phase63_runtime_acceptance.py
 
