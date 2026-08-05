@@ -11,10 +11,12 @@
 - [Manual Recording Cast Feature](development/manual-recording-cast-search.md)
 - [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Decision Records](adr/index.md)
 
