@@ -1,4 +1,4 @@
-.PHONY: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance phase63-backend-health-ingestion-runtime-acceptance phase63-channel-observation-runtime-acceptance
+.PHONY: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime test-phase63-command-delivery-contract test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance phase63-backend-health-ingestion-runtime-acceptance phase63-channel-observation-runtime-acceptance
 
 PHASE63_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/backend-agent-foundation.sh
 PHASE63_INGESTION_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/backend-health-ingestion.sh
@@ -25,7 +25,10 @@ test-phase63-channel-observation-contract:
 test-phase63-channel-observation-runtime:
 	python3 tools/check_phase63_channel_observation_runtime.py
 
-test-phase63-runtime-acceptance-harness: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime
+test-phase63-command-delivery-contract:
+	python3 tools/check_phase63_command_delivery_contract.py
+
+test-phase63-runtime-acceptance-harness: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime test-phase63-command-delivery-contract
 	bash -n "$(PHASE63_ACCEPTANCE_RUNNER)"
 	bash -n "$(PHASE63_INGESTION_ACCEPTANCE_RUNNER)"
 	bash -n "$(PHASE63_CHANNEL_ACCEPTANCE_RUNNER)"
