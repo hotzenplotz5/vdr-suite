@@ -15,7 +15,7 @@ The previous full target-diagram snapshot is retained as [historical architectur
 
 ## Current implementation overlay
 
-Implemented on the verified 2026-08-05 main baseline plus the active Draft PR #137 overlay:
+Implemented on merged `main @ a9620179a442155f0860ef3182ca39186ac46a57`:
 
 - backend registry, backend-scoped snapshots/caches/change feed and server-enforced read-only mode;
 - Recordings 2 and guarded Recording actions;
@@ -25,17 +25,29 @@ Implemented on the verified 2026-08-05 main baseline plus the active Draft PR #1
 - backend-neutral RemoteAction and LiveOverlay contracts;
 - modular browser Client API boundaries;
 - completed Phase-62 production actor identity, scoped RBAC, browser-session security and append-only accountability;
-- active Phase-63 Slice-1 Agent enrollment, protected outbound transport, technical identity, generation, heartbeat/lease, read-only capabilities, reconnect and credential lifecycle foundation.
+- completed Phase-63 Slice-1 Agent enrollment, protected outbound transport, technical identity, protocol/generation/instance fencing, heartbeat/lease, read-only capabilities, reconnect and credential lifecycle foundation.
+
+Active contract work in Draft PR #138:
+
+- Phase 63 Slice 2 — Read-only Observation and Snapshot Ingestion Foundation;
+- independent backend generation, Agent instance, observation domain, snapshot generation, producer sequence and resource revision;
+- complete baseline, exact-next sequence, idempotent replay and explicit `resync-required`;
+- Suite-owned transactional receipt/fact and ingestion-cursor persistence;
+- initial bounded `backend-health` domain;
+- no command/result or VDR-native mutation runtime.
 
 Not yet implemented as complete target runtime:
 
-- Phase-63 snapshot/change ingestion, durable command/results, native execution and provider selection;
+- Phase-63 observation/snapshot runtime implementation beyond the contract;
+- durable command/results, native execution and provider selection;
 - universal revision/idempotency/job reconciliation;
 - TimerIntent orchestration;
 - Streaming Gateway;
 - legacy OSD bridge;
 - stable public `/api/v1`;
 - recommendation/knowledge graph.
+
+Phase 63 is not complete.
 
 ## Platform and trust boundary
 
@@ -47,20 +59,22 @@ Web / Desktop / Mobile / TV / Automation clients
 +---------------------------------------------------------------+
 | VDR-Suite Control Plane                                       |
 |                                                               |
-| actor identity, sessions, RBAC and policy       [implemented]    |
+| actor identity, sessions, RBAC and policy       [implemented] |
 | Suite-owned domain services and repositories    [foundation]  |
+| Agent observation ingestion                      [Slice 2]     |
 | operations, jobs and reconciliation             [partial]     |
 | metadata, people, Genres and search              [implemented] |
 | Timer scheduler and assignments                  [Phase 64]    |
 | media/OSD session policy                         [65 / 66]     |
-| accountability event store                      [implemented]    |
+| accountability event store                      [implemented] |
 +--------------------------+----------------------+-------------+
                            | protected Agent protocol [Phase 63]
                            v
 +---------------------------------------------------------------+
 | Backend Agent                                                 |
 | enrolled identity, generation, heartbeat, lease, capabilities |
-| reconnect/credential lifecycle [Slice 1]; snapshots/commands future |
+| lifecycle [Slice 1]; read-only observations [Slice 2 target]  |
+| commands/results and native execution [later Phase 63]        |
 +--------------------------+------------------------------------+
                            | local/private adapter contracts
                            v
@@ -76,6 +90,7 @@ Rules:
 - VDR remains authoritative for VDR-native runtime state and execution.
 - The Control Plane owns external identity, policy, orchestration and client contracts.
 - Agents own bounded site-local transport and execution, not global policy.
+- Agent observations are evidence with explicit provenance, not hidden authority over direct-adapter facts.
 - Private plugins/providers are never the public security boundary.
 - Clients receive no permanent VDR/plugin/Agent/provider credentials or private URLs.
 
@@ -114,6 +129,8 @@ publicApiVersion
   != serverVersion
   != resourceRevision
   != backendGeneration
+  != snapshotGeneration
+  != producerSequence
 ```
 
 ## Read and observation flow
@@ -123,8 +140,11 @@ VDR Core or local provider
   -> bounded native fact
   -> plugin/local adapter
   -> immutable observation
-  -> Backend Agent [future for remote sites]
+  -> Backend Agent [remote sites]
+  -> authenticated generation/instance-fenced envelope
+  -> complete snapshot or exact-next change batch
   -> Control Plane ingestion
+  -> atomic receipt/fact plus ingestion cursor
   -> Suite-owned persistent read models
   -> authorized Suite API
   -> VdrSuiteClientApi
@@ -138,9 +158,38 @@ Read invariants:
 - backend-native IDs remain backend scoped;
 - producer sequence, snapshot generation, backend generation and resource revision are distinct;
 - title, time, channel name and filesystem path are evidence, not universal identity;
-- sequence gaps trigger resynchronization rather than guessed continuity;
+- sequence gaps trigger `resync-required` rather than guessed continuity;
+- changes require an accepted complete baseline;
+- equivalent replay is idempotent and conflicting replay is rejected;
+- stale Agent instances and stale backend generations cannot advance current ingestion;
 - partial multi-backend reads declare their partial nature;
 - normal documented Genre/Search GETs remain query-only and provider-free.
+
+## Observation ingestion target
+
+```text
+authenticated Agent observation
+  -> request/correlation/technical actor context
+  -> backend + Agent + instance + generation fencing
+  -> capability-declared observation domain
+  -> payload and item-count bounds
+  -> complete baseline OR exact-next change sequence
+  -> idempotent replay / conflict / gap classification
+  -> immutable receipt/fact + cursor transaction
+  -> accepted | replayed | rejected | resync-required
+  -> Suite-owned read-model projection
+```
+
+Observation invariants:
+
+- `backendGeneration` fences replacement or resynchronized backend state;
+- `agentInstanceId` fences stale processes in one backend generation;
+- `snapshotGeneration` identifies one complete domain lineage;
+- `producerSequence` is monotone within that lineage;
+- `resourceRevision` remains resource/domain evidence, not transport continuity;
+- database failure cannot advance the cursor;
+- repository code owns SQLite; HTTP and Agent client code do not issue direct SQLite statements;
+- no manual SQLite inspection is required for acceptance.
 
 ## Safe mutation and durable execution target
 
@@ -159,7 +208,7 @@ client command
   -> reconciliation when outcome is uncertain
 ```
 
-Current Recording actions, selected Timer/SearchTimer paths and Phase-62 policy/accountability provide strong bounded foundations. Phase-63 Slice 1 adds lifecycle fencing only; the universal mutation target still requires later Phase-63 command/result runtime.
+Current Recording actions, selected Timer/SearchTimer paths and Phase-62 policy/accountability provide strong bounded foundations. Phase-63 Slice 1 adds lifecycle fencing. Phase-63 Slice 2 precedes command delivery by establishing trustworthy read-only observation continuity. The universal mutation target still requires later Phase-63 command/result runtime.
 
 Mutation invariants:
 
@@ -264,7 +313,9 @@ The current transition API and `VdrSuiteClientApi` are strong foundations, not a
 ```text
 Completed Phase 61 and post-phase hardening/features
   -> Phase 62 Identity, RBAC and Accountability
-  -> Phase 63 Backend Agent and Secure Multi-Site Runtime
+  -> Phase 63 Slice 1 Agent lifecycle
+  -> Phase 63 Slice 2 Observation and Snapshot Ingestion
+  -> later Phase 63 command/result and provider ownership slices
   -> Phase 64 Timer Intent and Orchestration
   -> Phase 65 Streaming Gateway
   -> Phase 66 Legacy OSD Bridge
@@ -274,6 +325,8 @@ Completed Phase 61 and post-phase hardening/features
 
 ## Related documents
 
+- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
+- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
 - [Domain Dependency Map](../planning/domain-dependency-map.md)
 - [Implementation Dependency Map](../planning/implementation-dependency-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
