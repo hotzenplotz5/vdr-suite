@@ -4,16 +4,15 @@
 #include "GlobalSearchRepository.h"
 #include "GlobalSearchResult.h"
 #include "GlobalSearchService.h"
-#include "ManualRecordingMetadataApiRuntime.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
 #include <map>
-#include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -182,33 +181,22 @@ std::string personKey(const std::string& name, const std::string& role)
     return GlobalSearchRepository::foldText(name) + "\n" + role;
 }
 
-PersonPortraitMap manualPersonPortraits(const std::string& backendId)
+PersonPortraitMap personPortraits(
+    const std::vector<GlobalSearchPersonPortrait>& values)
 {
     PersonPortraitMap portraits;
-    const auto assignments = ManualRecordingMetadataApiRuntime::instance()
-        .findSelectedForBackend(backendId);
-    std::set<std::string> visitedAssignments;
-
-    for (const auto& entry : assignments)
+    for (const GlobalSearchPersonPortrait& value : values)
     {
-        const ManualRecordingMetadataAssignment& assignment = entry.second;
-        if (!assignment.found || !assignment.relationshipLocked ||
-            assignment.metadataAssignmentId.empty() || assignment.revision <= 0 ||
-            !visitedAssignments.insert(assignment.metadataAssignmentId).second)
+        if (value.name.empty() || value.backendNativeId.empty() ||
+            value.index < 0 || value.assignmentRevision <= 0)
             continue;
-
-        for (std::size_t index = 0; index < assignment.people.size(); ++index)
-        {
-            const ManualRecordingMetadataPerson& person = assignment.people[index];
-            if (person.profilePath.empty() || person.name.empty()) continue;
-            const std::string key = personKey(person.name, person.role);
-            if (portraits.find(key) != portraits.end()) continue;
-            PersonPortraitHandle handle;
-            handle.backendNativeId = entry.first;
-            handle.index = static_cast<int>(index);
-            handle.assignmentRevision = assignment.revision;
-            portraits.emplace(key, std::move(handle));
-        }
+        const std::string key = personKey(value.name, value.role);
+        if (portraits.find(key) != portraits.end()) continue;
+        PersonPortraitHandle handle;
+        handle.backendNativeId = value.backendNativeId;
+        handle.index = value.index;
+        handle.assignmentRevision = value.assignmentRevision;
+        portraits.emplace(key, std::move(handle));
     }
     return portraits;
 }
@@ -312,10 +300,18 @@ std::string serialize(
 
 GlobalSearchController::GlobalSearchController(
     GlobalSearchService& service,
-    BackendRegistryService& backendRegistryService)
+    BackendRegistryService& backendRegistryService,
+    PersonPortraitLookup personPortraitLookup)
     : service_(service),
-      backendRegistryService_(backendRegistryService)
+      backendRegistryService_(backendRegistryService),
+      personPortraitLookup_(std::move(personPortraitLookup))
 {
+}
+
+void GlobalSearchController::setPersonPortraitLookup(
+    PersonPortraitLookup personPortraitLookup)
+{
+    personPortraitLookup_ = std::move(personPortraitLookup);
 }
 
 ApiResponse GlobalSearchController::search(
@@ -372,7 +368,9 @@ ApiResponse GlobalSearchController::search(
     {
         return jsonError(503, "search index unavailable");
     }
-    return jsonResponse(
-        200,
-        serialize(result, manualPersonPortraits(normalizedBackendId)));
+
+    const PersonPortraitMap portraits = personPortraitLookup_
+        ? personPortraits(personPortraitLookup_(normalizedBackendId))
+        : PersonPortraitMap{};
+    return jsonResponse(200, serialize(result, portraits));
 }
