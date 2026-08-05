@@ -20,6 +20,7 @@ This is the canonical entry point for every new VDR-Suite chat. Repository, pull
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Decision Records](adr/index.md)
 - [Agent Workflow Rules](../AGENTS.md)
 
@@ -208,25 +209,18 @@ Every shell command intended for the user to copy or execute must be presented i
 - Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats with IDs or metadata.
 - Keep explanations outside the code block.
 - Put complete, directly executable command sequences inside the code block.
-- Use separate code blocks for logically separate steps when that improves safe execution.
-- Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
-- When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
+- Preserve explicit checkout-path and repository-identity verification.
+- Do not use `set -e` or another user-facing errexit wrapper; use explicit error handling.
 
 ## Binding daemon build and installation manifest
 
 Every installation answer must be generated for the exact requested branch or pull request. Generic installation instructions and commands copied from another PR are forbidden.
 
-Before producing the command block, the agent must:
-
-- resolve the exact requested PR and branch from GitHub;
-- resolve the exact current PR head SHA immediately before presenting the commands;
-- inspect the root `Makefile`, all included install/build makefiles such as `mk/install.mk`, relevant packaging and systemd files, and any component-specific Makefile changed or required by that exact head;
-- determine the exact build targets and whether `vdr-plugin-suite-bridge` must be rebuilt and installed;
-- never infer installation options, target names, plugin paths or service names from an older branch, older PR, README excerpt or previous chat.
+Before producing the command block, resolve the exact PR head and inspect the root `Makefile`, relevant included makefiles, packaging/systemd files and changed component contracts. Determine whether the daemon, standalone Agent or SuiteBridge plugin actually needs rebuilding. Never infer target names or paths from an older PR.
 
 The answer must use the heading `## Lokaler Bau, Test und Installation`, followed by at most one short sentence and exactly one ordinary fenced Markdown `bash` block without IDs, attributes or metadata.
 
-For the established yaVDR checkout, the mandatory daemon flow has this shape:
+For the established yaVDR checkout, preserve this structure while replacing every placeholder with exact branch/head/targets:
 
 ```bash
 cd /home/yavdr/vdr-suite
@@ -249,42 +243,15 @@ systemctl is-active vdr-suite-daemon
 systemctl --no-pager --full status vdr-suite-daemon
 ```
 
-The placeholders above define the required structure only. In a user-facing answer they must always be replaced with the exact branch, exact current head SHA and exact build targets for the requested branch or PR. Never leave placeholders in executable instructions.
-
-Additional binding rules:
-
-- `git pull --ff-only origin <exact-branch>` is mandatory for the established checkout.
-- The exact SHA guard is mandatory and must abort before build or installation when the checkout does not match the verified PR head.
-- Use `make clean` followed by `make -j2 --output-sync=target` with only the targets actually required by that branch or PR.
-- Do not add `sudo` merely as a style preference; preserve the established host execution context unless the user explicitly requests a non-root form.
-- Stop the daemon before `make install PREFIX=/usr`, then reload systemd, restart the daemon and show both `is-active` and the full service status.
-- Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.
-- Keep the answer branch-/PR-specific and as short as the complete safe flow permits.
+The placeholders define required structure only and must never remain in user-facing executable instructions.
 
 ### Conditional SuiteBridge plugin installation
 
-The plugin must not be rebuilt merely because it exists in the repository.
+The plugin must not be rebuilt merely because it exists in the repository. Inspect the exact PR diff and dependency contract. Add plugin build/install and VDR service commands only when the exact head requires a changed plugin binary or local contract. Never guess VDR paths, API version or service unit.
 
-- First inspect the exact PR diff and component dependency contract.
-- When the PR does not change `vdr-plugin-suite-bridge` and the runtime change does not require a new plugin binary or contract, omit all plugin build and installation commands.
-- When the plugin is required, inspect the exact-head `vdr-plugin-suite-bridge/Makefile`, VDR `pkg-config` values and the established yaVDR service layout before writing commands.
-- Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
-- Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
+## Binding installed-result acceptance manifest
 
-## Binding branch- and PR-specific installed-result acceptance manifest
-
-A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
-
-Before writing the acceptance steps, inspect:
-
-- the exact PR diff and changed components;
-- the current feature, ADR and runtime-acceptance documents;
-- changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
-- the closest existing regression behavior that the PR could unintentionally break.
-
-The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block.
-
-Every acceptance plan must cover the relevant layers:
+A successful build, installation and active service prove deployment only. Every installation answer must include `## Prüfung des installierten Ergebnisses` with exact-PR checks for:
 
 1. installed identity and startup;
 2. positive feature path;
@@ -295,7 +262,7 @@ Every acceptance plan must cover the relevant layers:
 7. adjacent regression;
 8. exact-head redacted evidence.
 
-Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result.
+Never describe acceptance as passed merely because CI is green or a service started. Mark it passed only after the exact-head runtime test was actually executed and its result supplied or confirmed.
 
 ## Credential and secret restrictions
 
