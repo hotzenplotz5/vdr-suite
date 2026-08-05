@@ -1,4 +1,4 @@
-name: Agent source export
+name: Apply Phase 63 backend-health runtime
 
 on:
   push:
@@ -6,21 +6,28 @@ on:
       - agent/phase63-backend-health-ingestion-runtime
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export-source:
+  apply-runtime:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Remove Git metadata
-        run: rm -rf .git
-      - name: Upload source tree
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase63-backend-health-source-${{ github.sha }}
-          path: .
-          include-hidden-files: true
-          retention-days: 1
+      - name: Apply verified runtime patch
+        shell: bash
+        run: |
+          base64 -d .github/phase63-backend-health-runtime.patch.gz.b64 | gzip -d > /tmp/phase63-backend-health-runtime.patch
+          echo "ca54f8f66bd32441a92fc66d500c190d13563b7cb403b2e9374cb8d087664c73  /tmp/phase63-backend-health-runtime.patch" | sha256sum --check --strict
+          git apply --index /tmp/phase63-backend-health-runtime.patch
+          git rm .github/workflows/agent-source-export.yml
+          git rm .github/phase63-backend-health-runtime.patch.gz.b64
+          git diff --cached --check
+      - name: Commit durable implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add backend health observation ingestion runtime"
+          git push origin HEAD:agent/phase63-backend-health-ingestion-runtime
