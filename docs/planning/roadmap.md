@@ -174,6 +174,8 @@ Stabilize Draft PR #138 on one exact head with the Slice-1 closeout, Slice-2 Obs
 - [Current State](../CURRENT.md)
 - [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
 - [Phase Map](phase-map.md)
+- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
 - [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
 - [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
