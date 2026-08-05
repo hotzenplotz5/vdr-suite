@@ -54,14 +54,14 @@ Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
 Current active runtime phase:
-none; Phase 63 is planned but not started
+Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
 ```
 
 ## Planned phase sequence
 
 | Order | Phase | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 63 | Next | Backend Agent and Secure Multi-Site Runtime | Enrollment, protected transport, generation, lease, health and fenced commands. |
+| 1 | Phase 63 | Active Slice 1 | Backend Agent and Secure Multi-Site Runtime | Enrollment, protected outbound transport, generation, lease, read-only capabilities and credential lifecycle; snapshots/commands remain later slices. |
 | 2 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
 | 3 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
 | 4 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
@@ -75,7 +75,7 @@ none; Phase 63 is planned but not started
 - Phase 61 is closed for its accepted metadata/Genre runtime scope.
 - Phase 62 is closed for its accepted identity, authorization and accountability scope.
 - Optional providers, diagnostics and administration products do not silently reopen completed phases.
-- The next available runtime phase in this sequence is Phase 63.
+- Phase 63 is the active numbered runtime phase; only bounded Slice 1 is in progress and the phase remains incomplete.
 
 ## Verification
 

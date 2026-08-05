@@ -13,8 +13,8 @@ Completed architecture contracts and dependency maps
   -> Completed Post-Phase 61 Performance Hardening (B1-B4)
   -> Completed Remote/Live Overlay hardening (#110)
   -> Completed Backend-scoped Global Search (#111)
-  -> Next Phase 62 Identity, RBAC and Accountability
-  -> Phase 63 Backend Agent and Secure Multi-Site Runtime
+  -> Completed Phase 62 Identity, RBAC and Accountability
+  -> Active Phase 63 Backend Agent and Secure Multi-Site Runtime
   -> Phase 64 Timer Intent and Orchestration
   -> Phase 65 Streaming Gateway
   -> Phase 66 Legacy OSD Bridge
@@ -142,22 +142,28 @@ append-only accountability/outbox before new remote dispatch
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
-Prerequisites: completed Phase 62; ADR-0039 through ADR-0043; accountability producer evidence.
+Status: active through bounded Slice 1 in Draft PR #137. Prerequisites are completed Phase 62, ADR-0039 through ADR-0043 and the existing accountability producer.
 
 ```text
+Slice 1 active:
 Agent identity/enrollment
-  -> credential rotation/revocation
+  -> credential rotation/revocation and local recovery
   -> protected outbound transport
-  -> protocol compatibility
+  -> exact protocol compatibility
   -> backend generation
-  -> heartbeat/lease/health
-  -> capability/snapshot/change publication
-  -> durable command inbox/result outbox
-  -> fenced read-only operations
+  -> heartbeat/lease and derived health
+  -> bounded read-only capabilities
   -> reconnect reconciliation
+
+Later Phase-63 slices, not implemented here:
+snapshot/change publication
+  -> durable command inbox/result outbox
+  -> fenced native operations
   -> local provider/SuiteBridge selection
   -> protected writes only after all gates
 ```
+
+[Binding Slice-1 contract](../development/phase-63-backend-agent-foundation.md)
 
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
