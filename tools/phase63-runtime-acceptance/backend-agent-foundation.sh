@@ -170,6 +170,7 @@ DAEMON_BINARY="/usr/sbin/vdr-suite-daemon"
 AGENT_BINARY="/usr/sbin/vdr-suite-backend-agent"
 ENROLL_BINARY="/usr/sbin/vdr-suite-backend-agent-enroll"
 ADMIN_BINARY="/usr/sbin/vdr-suite-backend-agent-admin"
+SECRET_SCANNER="tools/check_phase63_runtime_evidence_secrets.py"
 
 [[ -n "$EXPECTED_BRANCH" ]] || fail "expected_branch_required"
 [[ -n "$EXPECTED_HEAD" ]] || fail "expected_head_required"
@@ -183,6 +184,7 @@ ADMIN_BINARY="/usr/sbin/vdr-suite-backend-agent-admin"
 for command in git systemctl curl python3 sha256sum runuser install cmp journalctl; do
     require_command "$command"
 done
+[[ -f "$SECRET_SCANNER" ]] || fail "evidence_secret_scanner_missing"
 
 CURRENT_BRANCH="$(git branch --show-current)"
 CURRENT_HEAD="$(git rev-parse HEAD)"
@@ -233,14 +235,19 @@ fi
 [[ ! -e "$IDENTITY_PATH" ]] || fail "agent_identity_already_present"
 [[ ! -e "$ENROLLMENT_PATH" ]] || fail "agent_enrollment_already_present"
 
-ACCEPTANCE_STARTED=1
-
 curl_arguments=(--silent --show-error --output /dev/null --max-time 15)
 if [[ -n "$CA_CERTIFICATE_PATH" ]]; then
     curl_arguments+=(--cacert "$CA_CERTIFICATE_PATH")
 fi
 http_code="$(curl "${curl_arguments[@]}" --write-out '%{http_code}' "$CONTROL_PLANE_URL/api/backends")" || fail "control_plane_tls_probe_failed"
-[[ "$http_code" != 000 ]] || fail "control_plane_tls_probe_failed"
+case "$http_code" in
+    200|401|403|405) ;;
+    000) fail "control_plane_tls_probe_failed" ;;
+    404) fail "control_plane_api_route_not_found" ;;
+    *) fail "control_plane_api_route_unexpected_http_${http_code}" ;;
+esac
+
+ACCEPTANCE_STARTED=1
 
 install -d -m 0700 -o vdr -g vdr "$STATE_DIR"
 install -d -m 0755 "$(dirname "$CONFIG_PATH")"
@@ -351,9 +358,18 @@ cmp -s "$EVIDENCE_DIR/vdr-state.before" "$EVIDENCE_DIR/vdr-state.after" || fail 
 
 journalctl -u "$AGENT_SERVICE" --since "10 minutes ago" --no-pager \
     > "$EVIDENCE_DIR/backend-agent.journal.log"
-if grep -E -i '(enrollment_token|credential_secret|authorization:|ent_[A-Za-z0-9_-]{16,})' \
-    "$EVIDENCE_DIR"/*.log >/dev/null; then
-    fail "secret_like_material_found_in_evidence_logs"
+SECRET_SCAN_REPORT="$EVIDENCE_DIR/evidence-secret-scan.txt"
+if python3 "$SECRET_SCANNER" "$EVIDENCE_DIR" > "$SECRET_SCAN_REPORT"; then
+    secret_scan_status=0
+else
+    secret_scan_status=$?
+fi
+if [[ "$secret_scan_status" -ne 0 ]]; then
+    cat "$SECRET_SCAN_REPORT" >&2
+    if [[ "$secret_scan_status" -eq 1 ]]; then
+        fail "secret_like_material_found_in_evidence_logs"
+    fi
+    fail "evidence_secret_scan_failed"
 fi
 systemctl --no-pager --full status "$DAEMON_SERVICE" "$AGENT_SERVICE" \
     > "$EVIDENCE_DIR/service-status.txt"
