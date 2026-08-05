@@ -6,22 +6,21 @@
 Repository: hotzenplotz5/vdr-suite
 Branch authority: main
 Current merged main baseline:
-a9620179a442155f0860ef3182ca39186ac46a57
+24b1d7938ddaa15834a8da6323a270761868f4ba
 
-Latest merged bounded runtime slice:
-Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
-PR #137 - Add backend agent enrollment and lease foundation
-Accepted source head: bba51455552bab0f1a06c680369c508858b2384b
-Accepted tree: 575f49a197cda9ad02da4035b437ee1c32bed2d6
-Merge commit: a9620179a442155f0860ef3182ca39186ac46a57
-Source CI: VDR-Suite CI #7256, run 31001478896, all five jobs successful
-Real yaVDR acceptance: PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+Latest merged bounded contract slice:
+Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
+PR #138 - Define read-only agent observation ingestion contract
+Accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
+Merge commit: 24b1d7938ddaa15834a8da6323a270761868f4ba
+Source CI: VDR-Suite CI #7275, run 31006387349, all five jobs successful
+Runtime change: none; contract and guards only
 
 Active numbered runtime slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-Draft PR #138 - Define read-only agent observation ingestion contract
-Branch: agent/phase63-observation-ingestion-contract
-State: Draft contract/closeout; runtime implementation not yet included
+Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
+Draft PR #139 - Add backend health observation ingestion runtime
+Branch: agent/phase63-backend-health-ingestion-runtime
+State: Draft runtime implementation; exact-head CI and real yaVDR acceptance pending
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -86,25 +85,23 @@ Completed scope:
 
 Slice 1 did not implement domain observations, snapshots, commands, results, native execution, provider selection, public provider URLs, streaming, OSD or Phase-64 work. Agent lifecycle state does not replace existing direct-adapter availability authority.
 
-## Active Phase 63 Slice 2
+## Active Phase 63 Slice 2 runtime
 
 The binding contract is [Phase 63 Observation and Snapshot Ingestion](phase-63-observation-ingestion.md).
 
-Draft PR #138 establishes the smallest safe read-only ingestion boundary:
+Draft PR #139 implements the first bounded `backend-health` domain:
 
-- existing `vdr-suite-agent/1` technical authentication;
+- existing `vdr-suite-agent/1` technical authentication only;
 - backend, Agent, Agent-instance and backend-generation fencing;
-- bounded observation domains declared by accepted read-only capabilities;
-- independent snapshot generation, producer sequence and resource revision;
-- complete baseline before changes;
-- exact-next sequence acceptance;
-- equivalent replay idempotency;
-- conflicting replay and stale-generation rejection;
-- explicit `resync-required` on gaps or missing baseline;
-- atomic immutable receipt/fact plus ingestion-cursor persistence;
-- repository-owned SQLite;
-- redacted accountability and diagnostics;
-- initial bounded `backend-health` implementation domain.
+- complete snapshot baseline and exact-next change sequencing;
+- equivalent replay idempotency, conflicting replay rejection and explicit `resync-required`;
+- atomic immutable receipt plus ingestion-cursor persistence in Suite-owned SQLite repositories;
+- protected Agent-side observation lineage and pending-envelope retry after ambiguous transport results;
+- backward-compatible migration of protected Agent identity state;
+- redacted administrative observation cursor readback;
+- upgrade-safe real-system acceptance that preserves the existing active Agent identity.
+
+The runtime remains read-only and does not replace direct-adapter `BackendNode.online` authority.
 
 ## Security review
 
@@ -122,7 +119,7 @@ Legacy Basic remains transitional. `enforced` is the fail-closed target. Removal
 - Verify current `main`, branch, PR and CI state before repository writes.
 - Evaluate CI only for the exact final feature head.
 - Do not treat historical acceptance hashes as proof for changed daemon fingerprints.
-- Keep PR #138 Draft until its exact-head CI is green and the user explicitly approves readiness.
+- Keep PR #139 Draft until exact-head CI and real yaVDR acceptance are green and the user explicitly approves readiness.
 - Do not cross the documented Slice-2 exclusions.
 - Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
 - No manual SQLite inspection is part of runtime acceptance.
@@ -141,10 +138,11 @@ Never replace a complete repository file from a truncated fetch. After each GitH
 
 ## Exact next action
 
-1. Complete and validate the Slice-1 closeout, Slice-2 contract, status/architecture updates and static contract guard in Draft PR #138.
+1. Complete the upgrade-safe `backend-health` runtime acceptance harness and authoritative status updates in Draft PR #139.
 2. Obtain all required CI jobs on one exact final head.
-3. Keep PR #138 Draft until explicit approval.
-4. After this contract PR is accepted, begin the smallest runtime implementation with `backend-health` complete-snapshot and exact-next sequence ingestion only.
+3. Build and install that exact head on yaVDR, preserving the existing Agent identity.
+4. Execute the guarded upgrade-safe acceptance and retain redacted evidence.
+5. Keep PR #139 Draft until exact-head acceptance and explicit approval.
 
 ## Authoritative links
 

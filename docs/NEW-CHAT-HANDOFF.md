@@ -54,8 +54,8 @@ Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
 PR #137 merged and exact-head real yaVDR acceptance passed
 
 Current active numbered runtime phase:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-Draft PR #138 defines the binding contract
+Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
+Draft PR #139 implements the first bounded read-only observation domain
 
 Phase 63 is not complete
 
@@ -68,22 +68,21 @@ Phase 62 remains completed and must not be reopened. Its historical runtime evid
 ## Current merged baseline
 
 ```text
-main @ a9620179a442155f0860ef3182ca39186ac46a57
+main @ 24b1d7938ddaa15834a8da6323a270761868f4ba
 ```
 
 This is the squash merge of:
 
 ```text
-PR #137 - Add backend agent enrollment and lease foundation
-accepted source head: bba51455552bab0f1a06c680369c508858b2384b
-accepted tree: 575f49a197cda9ad02da4035b437ee1c32bed2d6
-CI: VDR-Suite CI #7256
-run ID: 31001478896
+PR #138 - Define read-only agent observation ingestion contract
+accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
+CI: VDR-Suite CI #7275
+run ID: 31006387349
 result: all five jobs successful
-real yaVDR acceptance: PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+runtime change: none; contract and guards only
 ```
 
-The merged main baseline also includes completed PR #135 manual Recording metadata assignment and PR #136 manual selected-movie cast/title/person search integration.
+The merged baseline includes PR #137 and its accepted real yaVDR Agent lifecycle runtime, plus completed PR #135 manual Recording metadata assignment and PR #136 manual selected-movie cast/title/person search integration.
 
 ## Completed Phase 63 Slice 1
 
@@ -117,44 +116,38 @@ EVIDENCE=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
 
 Slice 1 implemented no domain observations, snapshots, commands, results, VDR-native execution or provider selection. Agent lifecycle state does not replace existing direct-adapter `BackendNode.online` authority.
 
-## Active Phase 63 Slice 2 contract
+## Active Phase 63 Slice 2 runtime
 
 ```text
-PR #138 - Define read-only agent observation ingestion contract
-branch: agent/phase63-observation-ingestion-contract
-base: main @ a9620179a442155f0860ef3182ca39186ac46a57
+PR #139 - Add backend health observation ingestion runtime
+branch: agent/phase63-backend-health-ingestion-runtime
+base: main @ 24b1d7938ddaa15834a8da6323a270761868f4ba
 state: open Draft
 ```
 
 The exact current PR head, diff, mergeability and CI must always be read from GitHub before work resumes. Do not copy a head SHA from this Handoff as current proof after later commits.
 
-PR #138 is intentionally a contract/closeout PR. It contains no observation runtime yet. It must remain Draft until one exact final head has complete green CI and the user explicitly approves readiness.
+PR #138 merged the binding Slice-2 contract. PR #139 is the first bounded runtime implementation and must remain Draft until one exact final head has complete green CI, has been installed and accepted on yaVDR, and the user explicitly approves readiness.
 
-### Slice-2 architecture
+### Runtime architecture
 
 - Existing Agent technical authentication remains the only Agent HTTP authentication.
-- Every accepted observation is bound to Backend ID, Agent ID, Agent process instance and backend generation.
-- `snapshotGeneration`, `producerSequence` and `resourceRevision` are independent axes.
-- A `completeSnapshot` establishes the bounded baseline for one observation domain.
-- A `changeBatch` advances only at the exact next producer sequence.
-- Equivalent replay is idempotently acknowledged; conflicting replay is rejected.
-- Missing baseline or sequence gaps return `resync-required`; continuity is never guessed.
-- Immutable receipt/fact evidence and the current ingestion cursor commit atomically through Suite-owned repositories.
-- Repository code owns SQLite; HTTP handlers and Agent client code do not issue direct SQLite statements.
-- The first bounded runtime domain is `backend-health`.
-- Observation evidence retains provenance without credentials, Authorization headers, private provider addresses or secret-bearing diagnostics.
-- Existing direct-adapter state remains authoritative until provider ownership/selection receives a separate contract.
+- Every observation is fenced by Backend, Agent, Agent instance and backend generation.
+- `completeSnapshot` establishes the `backend-health` baseline; `changeBatch` advances only at the exact next producer sequence.
+- Equivalent replay is idempotent; conflicting replay is rejected; gaps return `resync-required`.
+- Immutable receipt and current cursor persist atomically through Suite-owned repositories.
+- The Agent persists lineage and a pending envelope before transport and retries the exact same envelope after ambiguous results.
+- Protected identity state migrates from version 1 to version 2 without changing the Agent identity.
+- Admin status exposes redacted `backendHealthObservation` cursor facts.
+- Upgrade-safe acceptance preserves the existing active yaVDR Agent and never revokes, replaces or re-enrolls it.
 
-Hard exclusions are command inbox/results, VDR-native mutation, provider ownership/selection, public Agent/provider URLs, TimerIntent/Phase-64 runtime, Streaming Gateway and OSD work.
+Hard exclusions remain command/result flow, VDR-native mutation, provider ownership/selection, public Agent/provider URLs, TimerIntent/Phase-64 runtime, Streaming Gateway and OSD work.
 
-Authoritative contract:
+Authoritative contract and acceptance:
 
 - [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
-- [Phase 63 Slice-1 Closeout](development/phase-63-slice-1-closeout.md)
+- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
-- [ADR-0039 Backend Agent and Control Plane Boundary](adr/ADR-0039-backend-agent-control-plane-boundary.md)
-- [ADR-0040 Backend Lifecycle, Generation, Lease and Health](adr/ADR-0040-backend-lifecycle-generation-lease-health.md)
-- [ADR-0041 Authentication, Agent Trust and Multi-Site Transport](adr/ADR-0041-authentication-agent-trust-multi-site-transport.md)
 
 ## Phase 62 completion evidence
 
@@ -186,8 +179,8 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 - Phase 62 is completed and must not be rewritten.
 - Phase 63 Slice 1 is merged and accepted.
-- PR #138 is the only active approved Phase-63 contract slice.
-- Keep PR #138 Draft until exact-head CI and explicit user approval.
+- PR #139 is the only active Phase-63 runtime slice.
+- Keep PR #139 Draft until exact-head CI, upgrade-safe real yaVDR acceptance and explicit user approval.
 - Do not add command/result flow, VDR-native mutation, provider ownership/selection or later-phase runtime to Slice 2.
 - Do not create a second BackendRegistry, authorization service, accountability store or job system.
 - Do not require manual SQLite inspection for acceptance.
@@ -196,13 +189,13 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 ## Exact next action
 
-1. Read PR #138 and its exact current head from GitHub.
-2. Inspect the complete current diff and CI jobs for that exact head.
-3. Fix only evidence-backed contract, sequencing, persistence-boundary, security, architecture or documentation defects.
-4. Run and observe the Phase-63 observation contract guard, existing Phase-63 harness guard, documentation checks, Make inventory and all required PR CI jobs on one exact final head.
-5. Update the Draft PR body with exact-head validation and retained hard exclusions.
-6. Keep PR #138 Draft until explicit approval.
-7. After the contract PR is accepted, start a separate bounded runtime implementation with `backend-health` complete-snapshot and exact-next change ingestion only.
+1. Read PR #139 and its exact current head from GitHub.
+2. Inspect the complete diff and CI jobs for that exact head.
+3. Fix only evidence-backed `backend-health` sequencing, persistence, retry, security, packaging or acceptance defects.
+4. Run focused Agent tests, contract/harness guards, documentation, Make inventory, packaging and all required PR CI jobs on one exact final head.
+5. Install that exact head on yaVDR and execute `phase63-backend-health-ingestion-runtime-acceptance`; do not revoke or replace the existing Agent and do not inspect SQLite manually.
+6. Update the Draft PR body with exact-head CI and redacted real-system evidence.
+7. Keep PR #139 Draft until explicit approval.
 
 ## Command presentation contract
 

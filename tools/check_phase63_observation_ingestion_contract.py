@@ -74,10 +74,13 @@ for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
     require(
         path,
         [
-            "a9620179a442155f0860ef3182ca39186ac46a57",
+            "24b1d7938ddaa15834a8da6323a270761868f4ba",
+            "PR #138",
+            "PR #139",
             "Phase 63 Slice 1",
             "Phase 63 Slice 2",
             "Observation and Snapshot Ingestion",
+            "backend-health",
             "Phase 63 is not complete",
         ],
     )
@@ -93,6 +96,10 @@ for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
         "State: Draft; implementation and stabilization in progress",
         "Keep PR #137 Draft",
         "Stabilize Draft PR #137",
+        "Draft PR #138 - Define read-only agent observation ingestion contract",
+        "State: Draft contract/closeout; runtime implementation not yet included",
+        "Keep PR #138 Draft",
+        "Stabilize Draft PR #138",
     ]:
         if stale in text:
             failures.append(
@@ -117,4 +124,5 @@ if failures:
 
 print("Phase-63 observation ingestion contract check passed")
 print("Accepted Slice-1 merge: a9620179a442155f0860ef3182ca39186ac46a57")
-print("Active bounded slice: Phase 63 Slice 2 - Observation and Snapshot Ingestion")
+print("Merged Slice-2 contract: 24b1d7938ddaa15834a8da6323a270761868f4ba")
+print("Active bounded runtime: PR #139 backend-health Observation Ingestion")
