@@ -1,0 +1,53 @@
+name: Agent publish
+
+on:
+  push:
+    branches:
+      - agent/phase63-backend-agent-foundation
+    paths:
+      - .github/workflows/agent-publish.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor == 'hotzenplotz5'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify and apply commit series
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat \
+            .github/agent-publish/part-00 \
+            .github/agent-publish/part-01 \
+            .github/agent-publish/part-02 \
+            .github/agent-publish/part-03 \
+            .github/agent-publish/part-04 \
+            .github/agent-publish/tail-00 \
+            .github/agent-publish/tail-01 \
+            .github/agent-publish/tail-02 \
+            .github/agent-publish/tail-03 \
+            .github/agent-publish/tail-04 \
+            .github/agent-publish/tail-05 \
+            > /tmp/phase63-series.b64
+
+          printf '%s  %s\n' \
+            '0c796fafbf763b941a82ffb8210838e75228afa3b292a334d7d18375d6928c87' \
+            /tmp/phase63-series.b64 \
+            | sha256sum -c -
+
+          base64 --decode /tmp/phase63-series.b64 \
+            | gzip --decompress \
+            > /tmp/phase63-series.mbox
+
+          git config user.name 'OpenAI Agent'
+          git config user.email 'agent@example.invalid'
+          git am /tmp/phase63-series.mbox
+          git push origin HEAD:agent/phase63-backend-agent-foundation
