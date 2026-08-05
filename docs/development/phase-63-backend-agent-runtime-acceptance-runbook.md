@@ -101,7 +101,9 @@ active Agent.
 
 The harness:
 
-- verifies the branch, full commit and installed candidate binaries;
+- verifies the branch and full commit, rebuilds daemon, Agent, enrollment and
+  administration candidates from that exact checkout, and only then byte-compares
+  them with the installed binaries before any runtime configuration change;
 - preserves the existing Agent ID, credential ID and credential generation;
 - copies the native `channels.conf` to a temporary root-controlled fixture under
   the Agent state directory;

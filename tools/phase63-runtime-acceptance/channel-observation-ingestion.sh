@@ -136,7 +136,7 @@ raise SystemExit(0 if (
         fi
         sleep 1
     done
-    fail "initial_channel_observation_not_observed"
+    return 1
 }
 
 wait_for_changed_channel_snapshot() {
@@ -175,7 +175,7 @@ raise SystemExit(0 if (
         fi
         sleep 1
     done
-    fail "changed_channel_snapshot_not_observed"
+    return 1
 }
 
 wait_for_new_channel_lineage() {
@@ -214,7 +214,7 @@ raise SystemExit(0 if (
         fi
         sleep 1
     done
-    fail "new_channel_observation_lineage_not_observed"
+    return 1
 }
 
 vdr_fingerprint() {
@@ -400,6 +400,9 @@ CURRENT_HEAD="$(git rev-parse HEAD)" || fail "head_read_failed"
 [[ "$CURRENT_HEAD" == "$EXPECTED_HEAD" ]] || fail "head_mismatch"
 [[ -z "$(git status --porcelain)" ]] || fail "worktree_not_clean"
 
+make daemon backend-agent backend-agent-enrollment backend-agent-admin >/dev/null ||
+    fail "candidate_binary_build_failed"
+
 for binary in "$DAEMON_BINARY" "$AGENT_BINARY" "$ENROLL_BINARY" "$ADMIN_BINARY"; do
     [[ -x "$binary" ]] || fail "installed_binary_missing_$(basename "$binary")"
 done
@@ -457,14 +460,14 @@ configure_channel_observation || fail "channel_observation_config_failed"
 
 systemctl restart "$AGENT_SERVICE" || fail "agent_restart_for_channel_opt_in_failed"
 wait_for_service_active "$AGENT_SERVICE" 30
-INITIAL_STATUS="$(wait_for_initial_channel_observation "$AGENT_ID" 90)"
+INITIAL_STATUS="$(wait_for_initial_channel_observation "$AGENT_ID" 90)" || fail "initial_channel_observation_not_observed"
 printf '%s\n' "$INITIAL_STATUS" > "$EVIDENCE_DIR/status.channel-initial.json" || fail "channel_initial_status_write_failed"
 INITIAL_FACT_COUNT="$(printf '%s\n' "$INITIAL_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channelObservation"]["factCount"])')" || fail "initial_fact_count_read_failed"
 INITIAL_SNAPSHOT="$(printf '%s\n' "$INITIAL_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channelObservation"]["snapshotGeneration"])')" || fail "initial_snapshot_read_failed"
 INITIAL_REVISION="$(printf '%s\n' "$INITIAL_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channelObservation"]["resourceRevision"])')" || fail "initial_revision_read_failed"
 
 mutate_channel_fixture || fail "channel_fixture_mutation_failed"
-CHANGED_STATUS="$(wait_for_changed_channel_snapshot "$AGENT_ID" "$INITIAL_SNAPSHOT" "$INITIAL_REVISION" "$INITIAL_FACT_COUNT" 90)"
+CHANGED_STATUS="$(wait_for_changed_channel_snapshot "$AGENT_ID" "$INITIAL_SNAPSHOT" "$INITIAL_REVISION" "$INITIAL_FACT_COUNT" 90)" || fail "changed_channel_snapshot_not_observed"
 printf '%s\n' "$CHANGED_STATUS" > "$EVIDENCE_DIR/status.channel-changed.json" || fail "channel_changed_status_write_failed"
 CHANGED_BACKEND_GENERATION="$(printf '%s\n' "$CHANGED_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backendGeneration"])')" || fail "changed_backend_generation_read_failed"
 CHANGED_SNAPSHOT="$(printf '%s\n' "$CHANGED_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channelObservation"]["snapshotGeneration"])')" || fail "changed_snapshot_read_failed"
@@ -485,7 +488,7 @@ assert before.get("channelObservation") == after.get("channelObservation")
 ' || fail "channel_cursor_not_persisted_across_daemon_restart"
 
 systemctl start "$AGENT_SERVICE" || fail "agent_start_after_daemon_restart_failed"
-POST_RESTART_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$CHANGED_BACKEND_GENERATION" "$CHANGED_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)"
+POST_RESTART_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$CHANGED_BACKEND_GENERATION" "$CHANGED_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)" || fail "new_channel_observation_lineage_not_observed"
 printf '%s\n' "$POST_RESTART_STATUS" > "$EVIDENCE_DIR/status.after-agent-reconnect.json" || fail "post_restart_status_write_failed"
 POST_RESTART_BACKEND_GENERATION="$(printf '%s\n' "$POST_RESTART_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backendGeneration"])')" || fail "post_restart_backend_generation_read_failed"
 POST_RESTART_SNAPSHOT="$(printf '%s\n' "$POST_RESTART_STATUS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channelObservation"]["snapshotGeneration"])')" || fail "post_restart_snapshot_read_failed"
@@ -514,7 +517,7 @@ assert before.get("channelObservation") == after.get("channelObservation")
 ' || fail "channel_state_changed_after_replay_gap"
 
 systemctl start "$AGENT_SERVICE" || fail "agent_start_after_replay_gap_failed"
-RECOVERED_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$POST_RESTART_BACKEND_GENERATION" "$POST_RESTART_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)"
+RECOVERED_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$POST_RESTART_BACKEND_GENERATION" "$POST_RESTART_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)" || fail "channel_recovery_after_resync_not_observed"
 printf '%s\n' "$RECOVERED_STATUS" > "$EVIDENCE_DIR/status.channel-recovered.json" || fail "recovered_status_write_failed"
 
 vdr_fingerprint "$EVIDENCE_DIR/vdr-state.after" || fail "vdr_fingerprint_after_failed"

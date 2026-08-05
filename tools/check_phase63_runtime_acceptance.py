@@ -137,6 +137,12 @@ required_channel_runner = [
     "vdr-readonly.after.log",
     "evidence-secret-scan.txt",
     "installed_candidate_mismatch_",
+    "candidate_binary_build_failed",
+    "make daemon backend-agent backend-agent-enrollment backend-agent-admin",
+    '|| fail "initial_channel_observation_not_observed"',
+    '|| fail "changed_channel_snapshot_not_observed"',
+    '|| fail "new_channel_observation_lineage_not_observed"',
+    '|| fail "channel_recovery_after_resync_not_observed"',
     "channel-replay-gap.log",
     'systemctl restart "$DAEMON_SERVICE"',
 ]
