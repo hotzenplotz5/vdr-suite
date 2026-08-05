@@ -7,6 +7,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 namespace
@@ -25,7 +26,11 @@ void createExistingSchemas(Database& database)
         "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_scraper_metadata_cache(backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
-        "CREATE TABLE vdr_channel_cache(backend_id TEXT,channel_id TEXT,name TEXT,PRIMARY KEY(backend_id,channel_id));");
+        "CREATE TABLE vdr_channel_cache(backend_id TEXT,channel_id TEXT,name TEXT,PRIMARY KEY(backend_id,channel_id));"
+        "CREATE TABLE suite_metadata_assignments(metadata_assignment_id TEXT PRIMARY KEY,metadata_target_id TEXT,metadata_entity_id TEXT,assignment_state TEXT,confidence REAL,manual_assignment INTEGER,relationship_locked INTEGER,supersedes_assignment_id TEXT,created_by_ref TEXT,revision INTEGER);"
+        "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT PRIMARY KEY,metadata_target_id TEXT,backend_id TEXT,resource_key TEXT,provider_id TEXT,external_namespace TEXT,external_id TEXT,media_type TEXT,title TEXT,original_title TEXT,overview TEXT,release_date TEXT,poster_reference TEXT,season_number INTEGER,episode_number INTEGER,actor_ref TEXT,revision INTEGER,cast_complete INTEGER);"
+        "CREATE TABLE suite_metadata_person_values(metadata_entity_id TEXT PRIMARY KEY,provider_id TEXT,external_namespace TEXT,external_id TEXT,display_name TEXT,name_folded TEXT,normalized_name TEXT);"
+        "CREATE TABLE suite_metadata_recording_person_relations(metadata_assignment_id TEXT,metadata_target_id TEXT,person_entity_id TEXT,metadata_evidence_id TEXT,role TEXT,character_name TEXT,character_name_folded TEXT,ordinal INTEGER);");
 }
 
 std::string recordingPayload(const std::string& subtitle)
@@ -78,7 +83,29 @@ void insertFixtures(Database& database)
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','channel-1','event-1','{\"available\":true,\"title\":\"Pulp Fiction\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Vincent Vega\"}]}',1780000000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','channel-2','event-2','{\"available\":true,\"title\":\"Saturday Night Fever\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Tony Manero\"}]}',1780000000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','channel-3','event-3','{\"available\":true,\"title\":\"München heute\",\"people\":[]}',1780000000);"
-        "INSERT INTO epg_scraper_metadata_cache VALUES('second','channel-4','event-4','{\"available\":true,\"title\":\"Pulp Fiction\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Vincent Vega\"}]}',1780000000);");
+        "INSERT INTO epg_scraper_metadata_cache VALUES('second','channel-4','event-4','{\"available\":true,\"title\":\"Pulp Fiction\",\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"Vincent Vega\"}]}',1780000000);"
+        "INSERT INTO suite_metadata_assignments VALUES('manual-1','target-1','movie-13','selected',1.0,1,1,NULL,'user:test',1);"
+        "INSERT INTO suite_metadata_manual_assignment_values VALUES('manual-1','target-1','default','r1','tmdb','movie','13','movie','Forrest Gump','The Forrest Original','','','','0','0','user:test',1,1);"
+        "INSERT INTO suite_metadata_person_values VALUES('person-31','tmdb','person','31','Tom Hanks','tom hanks','tom-hanks');"
+        "INSERT INTO suite_metadata_recording_person_relations VALUES('manual-1','target-1','person-31','evidence-1','actor','Forrest Gump','forrest gump',0);");
+}
+
+struct TraceState
+{
+    int manualSearchReads = 0;
+    int schemaStatements = 0;
+};
+
+int traceSql(unsigned int kind, void* context, void* statement, void*)
+{
+    if (kind != SQLITE_TRACE_STMT || context == nullptr || statement == nullptr)
+        return 0;
+    const char* sql = sqlite3_sql(static_cast<sqlite3_stmt*>(statement));
+    if (sql == nullptr) return 0;
+    TraceState& state = *static_cast<TraceState*>(context);
+    if (std::strstr(sql, "WITH active_manual AS")) ++state.manualSearchReads;
+    if (std::strstr(sql, "CREATE TABLE")) ++state.schemaStatements;
+    return 0;
 }
 }
 
@@ -98,35 +125,46 @@ int main()
     assert(GlobalSearchRepository::foldText("MÜNCHEN") == "muenchen");
 
     const int writesBefore = sqlite3_total_changes(database.handle());
-    const GlobalSearchResult title = repository.search(
+    const GlobalSearchResult legacyTitle = repository.search(
         "default", "Pulp Fiction", 1785000000, 1785400000, 20, 0);
     const int writesAfter = sqlite3_total_changes(database.handle());
     assert(writesBefore == writesAfter);
-    assert(title.recordingTotal == 1);
-    assert(title.epgTotal == 1);
-    assert(title.recordings.size() == 1);
-    assert(title.epg.size() == 1);
-    assert(title.recordings[0].title == "Pulp Fiction");
-    assert(title.recordings[0].subtitle == "Director's Cut");
-    assert(title.recordings[0].artworkAvailable);
-    assert(title.epg[0].channelName == "Arte");
-    assert(title.epg[0].artworkAvailable);
+    assert(legacyTitle.recordingTotal == 1);
+    assert(legacyTitle.epgTotal == 1);
+    assert(legacyTitle.recordings[0].title == "Forrest Gump");
+    assert(legacyTitle.epg[0].channelName == "Arte");
 
-    const GlobalSearchResult recordingSubtitle = repository.search(
-        "default", "Director's Cut", 1785000000, 1785400000, 20, 0);
-    assert(recordingSubtitle.recordingTotal == 1);
-    assert(recordingSubtitle.recordings[0].subtitle == "Director's Cut");
+    TraceState traceState;
+    assert(sqlite3_trace_v2(
+        database.handle(), SQLITE_TRACE_STMT, traceSql, &traceState) == SQLITE_OK);
+    const GlobalSearchResult manualTitle = repository.search(
+        "default", "Forrest Gump", 1785000000, 1785400000, 20, 0);
+    assert(manualTitle.recordingTotal == 1);
+    assert(manualTitle.recordings[0].title == "Forrest Gump");
+    assert(manualTitle.recordings[0].matchReason == "title");
+    assert(traceState.manualSearchReads == 2);
+    assert(traceState.schemaStatements == 0);
+    sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
 
-    const GlobalSearchResult person = repository.search(
+    const GlobalSearchResult manualOriginal = repository.search(
+        "default", "The Forrest Original", 1785000000, 1785400000, 20, 0);
+    assert(manualOriginal.recordingTotal == 1);
+    assert(manualOriginal.recordings[0].title == "Forrest Gump");
+
+    const GlobalSearchResult manualPerson = repository.search(
+        "default", "Tom Hanks", 1785000000, 1785400000, 20, 0);
+    assert(manualPerson.recordingTotal == 1);
+    assert(manualPerson.recordings[0].matchedPerson == "Tom Hanks");
+    assert(manualPerson.recordings[0].matchReason == "person");
+    assert(manualPerson.people.size() == 1U);
+    assert(manualPerson.people[0].recordingCount == 1);
+
+    const GlobalSearchResult suppressedAutomaticPerson = repository.search(
         "default", "John Travolta", 1785000000, 1785400000, 20, 0);
-    assert(person.recordingTotal == 1);
-    assert(person.epgTotal == 2);
-    assert(person.recordings[0].matchedPerson == "John Travolta");
-    assert(person.recordings[0].matchReason == "person");
-    assert(person.epg[0].matchedPerson == "John Travolta");
-    assert(!person.people.empty());
-    assert(person.people[0].recordingCount == 1);
-    assert(person.people[0].epgCount == 2);
+    assert(suppressedAutomaticPerson.recordingTotal == 0);
+    assert(suppressedAutomaticPerson.epgTotal == 2);
+    assert(suppressedAutomaticPerson.people[0].recordingCount == 0);
+    assert(suppressedAutomaticPerson.people[0].epgCount == 2);
 
     const GlobalSearchResult unicode = repository.search(
         "default", "MÜNCHEN", 1785000000, 1785400000, 20, 0);
@@ -134,11 +172,36 @@ int main()
     assert(unicode.epgTotal == 1);
 
     const GlobalSearchResult isolated = repository.search(
+        "second", "Forrest Gump", 1785000000, 1785400000, 20, 0);
+    assert(isolated.recordingTotal == 0);
+    assert(isolated.epgTotal == 0);
+
+    execute(database,
+        "UPDATE suite_metadata_assignments SET assignment_state='withdrawn' "
+        "WHERE metadata_assignment_id='manual-1';");
+
+    const GlobalSearchResult withdrawnManual = repository.search(
+        "default", "Forrest Gump", 1785000000, 1785400000, 20, 0);
+    assert(withdrawnManual.recordingTotal == 0);
+
+    const GlobalSearchResult automaticPerson = repository.search(
+        "default", "John Travolta", 1785000000, 1785400000, 20, 0);
+    assert(automaticPerson.recordingTotal == 1);
+    assert(automaticPerson.epgTotal == 2);
+    assert(automaticPerson.recordings[0].matchedPerson == "John Travolta");
+    assert(automaticPerson.people[0].recordingCount == 1);
+
+    const GlobalSearchResult recordingSubtitle = repository.search(
+        "default", "Director's Cut", 1785000000, 1785400000, 20, 0);
+    assert(recordingSubtitle.recordingTotal == 1);
+    assert(recordingSubtitle.recordings[0].subtitle == "Director's Cut");
+
+    const GlobalSearchResult isolatedAutomatic = repository.search(
         "second", "Pulp Fiction", 1785000000, 1785400000, 20, 0);
-    assert(isolated.recordingTotal == 1);
-    assert(isolated.epgTotal == 1);
-    assert(isolated.recordings[0].backendId == "second");
-    assert(isolated.epg[0].backendId == "second");
+    assert(isolatedAutomatic.recordingTotal == 1);
+    assert(isolatedAutomatic.epgTotal == 1);
+    assert(isolatedAutomatic.recordings[0].backendId == "second");
+    assert(isolatedAutomatic.epg[0].backendId == "second");
 
     const GlobalSearchResult firstPage = repository.search(
         "default", "John Travolta", 1785000000, 1785400000, 1, 0);
@@ -153,8 +216,6 @@ int main()
         "default", "Kein Treffer", 1785000000, 1785400000, 20, 0);
     assert(none.recordingTotal == 0);
     assert(none.epgTotal == 0);
-
-
 
     Database performanceDatabase;
     assert(performanceDatabase.open(":memory:"));

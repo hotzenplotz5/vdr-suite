@@ -1,9 +1,12 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "GlobalSearchResult.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
+#include <vector>
 
 class BackendRegistryService;
 class GlobalSearchService;
@@ -11,9 +14,16 @@ class GlobalSearchService;
 class GlobalSearchController
 {
 public:
+    using PersonPortraitLookup = std::function<
+        std::vector<GlobalSearchPersonPortrait>(const std::string&)>;
+
     GlobalSearchController(
         GlobalSearchService& service,
-        BackendRegistryService& backendRegistryService);
+        BackendRegistryService& backendRegistryService,
+        PersonPortraitLookup personPortraitLookup = {});
+
+    void setPersonPortraitLookup(
+        PersonPortraitLookup personPortraitLookup);
 
     ApiResponse search(
         const std::string& backendId,
@@ -26,4 +36,5 @@ public:
 private:
     GlobalSearchService& service_;
     BackendRegistryService& backendRegistryService_;
+    PersonPortraitLookup personPortraitLookup_;
 };

@@ -41,9 +41,13 @@ public:
 
 private:
     ManualRecordingMetadataAssignmentRepository& manualRepository();
+    bool ensureManualPersonProfileSchema();
 
     Database& database_;
     std::unique_ptr<ManualRecordingMetadataAssignmentRepository>
         manualMetadataRepository_;
     std::mutex manualMetadataRepositoryMutex_;
+    std::mutex manualPersonProfileSchemaMutex_;
+    bool manualPersonProfileSchemaAttempted_ = false;
+    bool manualPersonProfileSchemaReady_ = false;
 };

@@ -69,8 +69,9 @@ const context = vm.createContext({
   vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 });
 
+const personView = window.VdrSuiteRecordings2PersonSearchView;
 const api = window.VdrSuiteRecordings2MetadataDetail;
-assert.ok(window.VdrSuiteRecordings2PersonSearchView);
+assert.ok(personView);
 assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
 assert.strictEqual(api.roleLabel('actor'), 'Schauspiel');
@@ -89,7 +90,60 @@ assert.strictEqual(
   '/vdr-suite/frontend/recordings2-metadata-assignment.js'
 );
 
+const manualCastPanel = document.createElement('section');
+personView.renderCast(
+  manualCastPanel,
+  {
+    available: true,
+    provider: 'manual',
+    people: [
+      {
+        role: 'actor',
+        name: 'Tom Hanks',
+        characterName: 'Forrest Gump',
+        image: {available: false}
+      }
+    ],
+    manualAssignment: {
+      active: true,
+      relationshipLocked: true
+    }
+  },
+  'default',
+  api.isPublicMetadataImageUrl
+);
+assert.strictEqual(manualCastPanel.children.length, 1);
+const manualCastGrid = manualCastPanel.children[0];
+assert.strictEqual(manualCastGrid.className, 'recordings2-metadata-cast');
+assert.strictEqual(manualCastGrid.children.length, 1);
+const manualCastCard = manualCastGrid.children[0].children[0];
+assert.strictEqual(manualCastCard.className, 'recordings2-person-card');
+assert.strictEqual(manualCastCard.title, 'Tom Hanks in vorhandenen Aufnahmen suchen');
+assert.strictEqual(manualCastCard.children[0].className, 'recordings2-person-placeholder');
+const manualCastCopy = manualCastCard.children[1];
+assert.strictEqual(manualCastCopy.children[0].textContent, 'Tom Hanks');
+assert.strictEqual(manualCastCopy.children[1].textContent, 'Forrest Gump');
+assert.strictEqual(manualCastCopy.children[2].textContent, 'Schauspiel');
+
 const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
+const versionedMetadata = api.versionManualMetadataArtwork({
+  available: true,
+  preferredArtwork: {available: true, url: metadataImagePath},
+  manualAssignment: {active: true, revision: 7}
+});
+assert.strictEqual(
+  versionedMetadata.preferredArtwork.url,
+  metadataImagePath + '&assignmentRevision=7'
+);
+assert.strictEqual(
+  api.versionManualMetadataArtwork(versionedMetadata).preferredArtwork.url,
+  metadataImagePath + '&assignmentRevision=7'
+);
+const automaticMetadata = {
+  preferredArtwork: {available: true, url: metadataImagePath}
+};
+assert.strictEqual(api.versionManualMetadataArtwork(automaticMetadata), automaticMetadata);
+
 const metadataImage = {
   src: '',
   getAttribute(name) { return name === 'src' ? metadataImagePath : null; }
@@ -117,6 +171,7 @@ const detailRoot = {
     if (selector === '.recordings2-detail-copy h3') return heading;
     if (selector === '.recordings2-detail-description') return summary;
     if (selector === '.recordings2-detail-poster') return detailPoster;
+    if (selector === '.recordings2-detail-poster img') return detailPoster.children[0] || null;
     return null;
   }
 };
@@ -126,7 +181,7 @@ api.applyMetadataToDetail(detailRoot, {
   overview: 'Manuell ausgewählte Beschreibung',
   preferredArtwork: {
     available: true,
-    url: metadataImagePath
+    url: versionedMetadata.preferredArtwork.url
   },
   manualAssignment: {
     active: true,
@@ -136,11 +191,18 @@ api.applyMetadataToDetail(detailRoot, {
 assert.strictEqual(heading.textContent, 'Face/Off – Im Körper des Feindes');
 assert.strictEqual(summary.textContent, 'Manuell ausgewählte Beschreibung');
 assert.strictEqual(detailPoster.children.length, 1);
-assert.strictEqual(detailPoster.children[0].src, '/vdr-suite' + metadataImagePath);
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite' + metadataImagePath + '&assignmentRevision=7'
+);
 assert.strictEqual(
   detailPoster.children[0].alt,
   'Poster zu Face/Off – Im Körper des Feindes'
 );
+api.prioritizeDetailPoster(detailRoot);
+assert.strictEqual(detailPoster.children[0].loading, 'eager');
+assert.strictEqual(detailPoster.children[0].decoding, 'async');
+assert.strictEqual(detailPoster.children[0].fetchPriority, 'high');
 
 heading.textContent = 'Pfadtitel bleibt';
 summary.textContent = 'Fallback bleibt';

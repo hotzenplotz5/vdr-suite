@@ -47,6 +47,15 @@ struct GlobalSearchPersonSummary
     int epgCount = 0;
 };
 
+struct GlobalSearchPersonPortrait
+{
+    std::string name;
+    std::string role;
+    std::string backendNativeId;
+    int index = -1;
+    int assignmentRevision = 0;
+};
+
 struct GlobalSearchResult
 {
     std::string query;

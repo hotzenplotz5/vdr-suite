@@ -4,8 +4,11 @@
 #include "VdrRecordingNativeMetadataRepository.h"
 #include "VdrRecordingNativePersonSearchService.h"
 
+#include <sqlite3.h>
+
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -71,6 +74,77 @@ bool containsTitle(
     }
 
     return false;
+}
+
+struct TraceState
+{
+    int effectivePersonReads = 0;
+    int schemaStatements = 0;
+};
+
+int traceSql(unsigned int kind, void* context, void* statement, void*)
+{
+    if (kind != SQLITE_TRACE_STMT || context == nullptr || statement == nullptr)
+        return 0;
+    const char* sql = sqlite3_sql(static_cast<sqlite3_stmt*>(statement));
+    if (sql == nullptr) return 0;
+    TraceState& state = *static_cast<TraceState*>(context);
+    if (std::strstr(sql, "WITH effective_people AS"))
+        ++state.effectivePersonReads;
+    if (std::strstr(sql, "CREATE TABLE") || std::strstr(sql, "CREATE INDEX"))
+        ++state.schemaStatements;
+    return 0;
+}
+
+void createManualPersonFixtures(
+    Database& database,
+    const std::string& infernoNativeId)
+{
+    assert(database.execute(
+        "CREATE TABLE suite_metadata_assignments("
+        "metadata_assignment_id TEXT PRIMARY KEY,assignment_state TEXT,"
+        "manual_assignment INTEGER,relationship_locked INTEGER);"
+        "CREATE TABLE suite_metadata_manual_assignment_values("
+        "metadata_assignment_id TEXT PRIMARY KEY,backend_id TEXT,"
+        "resource_key TEXT,media_type TEXT,title TEXT,original_title TEXT,"
+        "poster_reference TEXT);"
+        "CREATE TABLE suite_metadata_person_values("
+        "metadata_entity_id TEXT PRIMARY KEY,provider_id TEXT,"
+        "external_namespace TEXT,external_id TEXT,display_name TEXT,"
+        "name_folded TEXT,normalized_name TEXT);"
+        "CREATE TABLE suite_metadata_recording_person_relations("
+        "metadata_assignment_id TEXT,metadata_target_id TEXT,"
+        "person_entity_id TEXT,metadata_evidence_id TEXT,role TEXT,"
+        "character_name TEXT,character_name_folded TEXT,ordinal INTEGER);"
+        "INSERT INTO suite_metadata_assignments VALUES("
+        "'manual-inferno','selected',1,1);"
+        "INSERT INTO suite_metadata_person_values VALUES("
+        "'tmdb-person-35','tmdb','person','35','Audrey Tautou',"
+        "'audrey tautou','audrey-tautou');"
+        "INSERT INTO suite_metadata_recording_person_relations VALUES("
+        "'manual-inferno','target-inferno','tmdb-person-35','evidence-inferno',"
+        "'actor','Sophie Neveu','sophie neveu',0);"));
+
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(),
+        "INSERT INTO suite_metadata_manual_assignment_values "
+        "SELECT 'manual-inferno','default',cache_key,'movie',"
+        "'The Da Vinci Code','The Da Vinci Code','' "
+        "FROM vdr_recording_cache WHERE backend_id='default' "
+        "AND backend_native_id=?;",
+        -1,
+        &statement,
+        nullptr) == SQLITE_OK);
+    assert(sqlite3_bind_text(
+        statement,
+        1,
+        infernoNativeId.c_str(),
+        -1,
+        SQLITE_TRANSIENT) == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_DONE);
+    assert(sqlite3_changes(database.handle()) == 1);
+    sqlite3_finalize(statement);
 }
 
 }
@@ -229,6 +303,76 @@ int main()
         PersonQuery::byProviderReference("tmdb:31"),
         20,
         0).empty());
+
+    createManualPersonFixtures(database, infernoNativeId);
+
+    TraceState traceState;
+    assert(sqlite3_trace_v2(
+        database.handle(),
+        SQLITE_TRACE_STMT,
+        traceSql,
+        &traceState) == SQLITE_OK);
+
+    PersonQuery manualQuery = PersonQuery::byName("Audrey Tautou");
+    manualQuery.withSource(ContentClassificationSource::Tmdb);
+    const RecordingPersonSearchResult manual =
+        service.search("default", manualQuery, 20, 0);
+    assert(manual.totalCount() == 1);
+    assert(manual.returnedCount() == 1);
+    assert(manual.matches()[0].recording().title == "Thriller/Inferno");
+    assert(manual.matches()[0].person().source() ==
+        ContentClassificationSource::Tmdb);
+    assert(manual.matches()[0].person().characterName() == "Sophie Neveu");
+    assert(manual.matches()[0].person().providerReference() ==
+        "tmdb:person:35");
+    assert(traceState.effectivePersonReads == 2);
+    assert(traceState.schemaStatements == 0);
+
+    sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
+
+    const RecordingPersonSearchResult manualCharacter =
+        service.search(
+            "default",
+            PersonQuery::byCharacterName("Sophie"),
+            20,
+            0);
+    assert(manualCharacter.totalCount() == 1);
+    assert(manualCharacter.matches()[0].person().originalName() ==
+        "Audrey Tautou");
+
+    assert(service.search(
+        "remote",
+        PersonQuery::byName("Audrey Tautou"),
+        20,
+        0).empty());
+
+    const RecordingPersonSearchResult automaticSuppressed =
+        service.search(
+            "default",
+            PersonQuery::byName("Tom Hanks"),
+            20,
+            0);
+    assert(automaticSuppressed.totalCount() == 1);
+    assert(automaticSuppressed.matches()[0].recording().title == "Drama/Sully");
+
+    assert(database.execute(
+        "UPDATE suite_metadata_assignments SET assignment_state='withdrawn' "
+        "WHERE metadata_assignment_id='manual-inferno';"));
+
+    assert(service.search(
+        "default",
+        PersonQuery::byName("Audrey Tautou"),
+        20,
+        0).empty());
+    const RecordingPersonSearchResult automaticRestored =
+        service.search(
+            "default",
+            PersonQuery::byName("Tom Hanks"),
+            20,
+            0);
+    assert(automaticRestored.totalCount() == 2);
+    assert(containsTitle(automaticRestored, "Thriller/Inferno"));
+    assert(containsTitle(automaticRestored, "Drama/Sully"));
 
     database.close();
     std::remove(databasePath);

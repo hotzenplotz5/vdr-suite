@@ -47,6 +47,30 @@ bool hasEvent(
 
 int main()
 {
+    {
+        SecurityHttpGateBrowserTestFixture readOnlyFixture;
+        HttpServerRequest request = requestFor(
+            readOnlyFixture,
+            "living-room",
+            "assign",
+            true);
+        const SecurityGateDecision decision =
+            readOnlyFixture.gate.evaluate(request);
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(decision.rejection.body.find("permission_denied") !=
+            std::string::npos);
+        const std::vector<AccountabilityEvent> events =
+            readOnlyFixture.accountabilityRepository.listAll();
+        assert(hasEvent(
+            events,
+            "authorization.denied",
+            "metadata.recording.assign",
+            "living-room",
+            "metadata.recording.assign",
+            "dispatch_denied"));
+    }
+
     SecurityHttpGateBrowserTestFixture fixture;
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId,

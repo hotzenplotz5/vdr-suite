@@ -2,12 +2,14 @@
 
 ## Purpose
 
-This is the canonical entry point for every new VDR-Suite chat. Repository, pull-request and runtime facts must be checked against the current `main` branch; do not repeat historical acceptance work without a directly relevant runtime change.
+This is the canonical entry point for every new VDR-Suite chat. Repository, pull-request and runtime facts must be checked against the current `main` branch and the exact active PR head; do not repeat historical acceptance work without a directly relevant runtime change.
 
 ## Canonical reading
 
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
+- [Manual Recording Metadata Assignment](development/manual-recording-metadata-assignment.md)
+- [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md)
 - [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
@@ -54,28 +56,65 @@ not advanced
 
 There is no active Phase-62 PR or Phase-62 branch workflow. PR #117 was merged as `f9e5f88bc223a2ce8a30fdbf4596893b34bc1551`.
 
-## Current post-Phase-62 baseline
+## Current merged baseline
 
-The latest runtime/frontend baseline before this documentation refresh is:
-
-```text
-main @ 2d04a963054e9925f6b8cb12392b188a89e11f07
-```
-
-Relevant completed post-Phase-62 work:
-
-- PR #118: TVScraper classification and refresh corrections;
-- PR #123: public-base-path-safe EPG artwork resolution;
-- PR #132: guarded series-artwork fallback with TVmaze/TMDB, secure per-backend settings, TVScraper identity preservation and poster/cover preference;
-- direct channel-detail layout correction `96b97378` plus regression test `2d04a963`.
-
-PR #132 was merged as:
+The current verified merged basis for the active feature is:
 
 ```text
-441e5febf7d3ab0121a585ce1176a8e5a7c67ce0
+main @ 89b023ca6758f7ba8f08f75831c2ccdba77a0b08
 ```
 
-Its final feature head passed VDR-Suite CI #6982 with all five jobs successful. Real yaVDR operation additionally proved persisted `provider=tmdb` fallback assets and successful frontend delivery. The channel-detail text-layout correction was installed and confirmed in the browser.
+This is the squash merge of:
+
+```text
+PR #135 - Add manual recording metadata search and assignment
+final source head: 37b06f6e97ee00cefd8b6704f6cd6ed1cf9d2be7
+CI: VDR-Suite CI #7144
+run ID: 30941248988
+result: all five jobs successful
+```
+
+The exact final PR #135 head was installed on the real yaVDR system. Repeated recording-folder, subfolder, back and reopen navigation was confirmed fast after the bundled manual-assignment readback removed the N+1/schema-loop regression.
+
+The old `agent/manual-recording-metadata-assignment` branch is historical and must not be used as the base for new work.
+
+## Active bounded post-Phase-62 feature
+
+```text
+PR #136 - Add manual recording cast ingestion and search integration
+branch: agent/manual-recording-cast-search
+base: main @ 89b023ca6758f7ba8f08f75831c2ccdba77a0b08
+state: open Draft
+```
+
+The exact current PR head, diff, mergeability and CI must always be read from GitHub before work resumes. Do not copy a head SHA from this Handoff as current proof after later commits.
+
+PR #136 is an explicitly approved, limited continuation of PR #135. It is not Phase 63. It must remain Draft and must not be marked Ready or merged until the exact final head has complete green CI, has been installed and tested on yaVDR, and the user explicitly approves readiness.
+
+### Feature architecture
+
+- TMDB credits are loaded backend-side only after the user selects one exact movie candidate.
+- Candidate search, folder navigation, recording detail, global search and dedicated person search never load credits.
+- A maximum of 128 cast members is parsed and persisted, matching the existing recording-person contract.
+- Technical provider failure aborts the whole assignment.
+- A valid provider response with an empty cast is persisted as complete and is not treated as failure.
+- Movie assignment, immutable evidence, canonical people, provider-qualified person IDs and recording-person relations are written in one `BEGIN IMMEDIATE` transaction.
+- People reuse `suite_metadata_entities(media_type='person')` and `suite_metadata_entity_external_ids` with provider `tmdb`, namespace `person` and the TMDB person ID.
+- The same TMDB person is deduplicated across recordings.
+- Recording-person relations belong to the concrete manual assignment revision and retain actor role, character and cast order.
+- Reassignment supersedes the old assignment without deleting its evidence or relations.
+- Withdrawal removes manual title and people from the active read model without deleting history.
+- Active relationship-locked manual title, original title and cast extend the existing global and person search paths.
+- Automatic TVScraper people are suppressed only for a recording with an active manual assignment and become effective again after withdrawal.
+- Recording detail reuses the existing public person shape and does not expose internal entity IDs, provider URLs, local paths or actor references.
+- Folder readback uses one backend-scoped assignment-and-cast query.
+- Person search and global recording search use constant count/page query contracts, not one query per recording or person.
+
+Authoritative design and validation documents:
+
+- [ADR-0052](adr/ADR-0052-manual-recording-cast-ingestion-search.md)
+- [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md)
+- [Backend-Scoped Global Search](architecture/global-search.md)
 
 ## Phase 62 completion evidence
 
@@ -97,9 +136,18 @@ This evidence closes Phase 62. It is historical evidence for that accepted runti
 
 ## Current security position
 
-The post-Phase-62 series-artwork settings POST is integrated into the Phase-62 protected-mutation model: scoped permission, Read-only denial, browser CSRF, pre-dispatch accountability and success/failure outcomes remain active. Managed TMDB tokens are stored in a private secret directory and are not returned by the API or copied into accountability events.
+The active manual selected-movie workflow remains inside the Phase-62 protected-mutation model:
 
-No known authentication, authorization, CSRF, Read-only-role or cross-backend write bypass was introduced by PRs #118, #123 or #132. See the dedicated [Post-Phase-62 Security Review](development/post-phase-62-security-review.md) for the evidence boundary and the small remaining audit-scope hardening recommendation.
+- permission `metadata.recording.assign`;
+- route-authoritative exact backend scope;
+- Admin grant and fixed Read-only denial;
+- browser CSRF;
+- pre-dispatch accountability and post-dispatch outcomes;
+- existing backend-scoped managed TMDB credential resolver.
+
+Read-only, wrong-backend and invalid-CSRF requests must be denied before provider access. Tokens, Authorization headers, cookies, CSRF values, actor references, provider URLs, local paths and secret-bearing process environments must not be printed, committed or copied into public responses or accountability events.
+
+TVScraper remains unchanged upstream. Do not fork it and do not write to TVScraper-owned databases or caches.
 
 ## Compatibility-retirement decision
 
@@ -107,15 +155,25 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 ## Current work boundary
 
-- Phase 62 is completed and must not be reopened merely to add optional security administration, audit products, universal idempotency, generic Outbox infrastructure or speculative credential lifecycle.
-- Phase 63 begins only with a new bounded contract.
-- TVScraper remains upstream and unchanged; VDR-Suite integrates through `vdr-plugin-suite-bridge`.
-- External series-artwork fallback requires a deterministic series identity and does not perform title/fuzzy search.
+- Phase 62 is completed and must not be rewritten.
+- PR #135 is merged and is the only valid foundation for PR #136.
+- PR #136 is the active approved post-Phase-62 feature block.
+- Phase 63 has not started and must not start while this feature block remains active.
+- The feature must not alter Phase-63 runtime contracts.
+- TVScraper remains upstream and unchanged; VDR-Suite integrates through its existing boundaries.
 - Unknown central POST routes remain subject to the Phase-62 fail-closed policy outside explicit Legacy Basic compatibility.
+- Do not add unrelated refactors, cosmetic rewrites or a parallel manual-search/index architecture.
 
 ## Exact next action
 
-Keep `main` stable, finish the bounded route-derived audit-scope hardening and dedicated settings-mutation security tests, then refresh the post-Phase-62 security evidence. Start Phase 63 only after a separate approved contract.
+1. Read PR #136 and its exact current head from GitHub.
+2. Inspect the complete current diff and CI jobs for that exact head.
+3. Fix only evidence-backed code, SQL, security, performance, frontend or documentation defects.
+4. Run and observe the complete relevant repository tests, production daemon build, packaging/install staging, frontend tests, documentation checks and Make audit on one exact final head.
+5. Update the Draft PR body with that exact head, CI run, architecture, security, performance and real yaVDR checklist.
+6. Keep PR #136 Draft.
+7. Install the exact final head and execute the real yaVDR cast/title/person/restart/reassignment/withdrawal acceptance checklist in [the feature document](development/manual-recording-cast-search.md).
+8. Do not begin Phase 63 until this approved feature block has been explicitly accepted and completed or otherwise closed.
 
 ## Command presentation contract
 
@@ -130,24 +188,104 @@ Every shell command intended for the user to copy or execute must be presented i
 
 ## Binding daemon build and installation manifest
 
-When the user asks for the commands to build and install the VDR-Suite daemon, every new chat must use the following response contract as the authoritative default:
+Every installation answer must be generated for the exact requested branch or pull request. Generic installation instructions and commands copied from another PR are forbidden.
 
-- Use the heading `## Lokaler Bau, Test und Installation`.
-- Write at most one short introductory sentence, then provide exactly one ordinary fenced Markdown `bash` code block.
-- The Bash fence must have no IDs, attributes, metadata or custom wrapper syntax.
-- Put the complete directly executable command sequence in that one block; do not fragment it into a prose tutorial or many small code blocks.
-- For the established development or yaVDR host, the required sequence is: enter the verified existing checkout, verify repository identity and a clean worktree, `git switch` to the requested branch, `git pull --ff-only origin <branch>`, verify the exact expected commit, `make clean`, build the daemon, stop `vdr-suite-daemon`, run `sudo make install PREFIX=/usr`, run `sudo systemctl daemon-reload`, then enable/start or restart the service and verify the installed daemon and service state.
-- `git pull --ff-only` is mandatory in this established-checkout workflow. Do not silently replace it with a custom `git fetch` plus merge sequence when giving the user installation commands.
-- Never include `apt-get update`, `apt update`, `apt-get install`, `apt install` or any other package-management command in the ordinary branch build-and-install instructions for the established host.
-- Add package-management commands only when the user explicitly requests dependency installation or an actual build failure has demonstrated a missing dependency. Do not assume a fresh system and do not proactively refresh package lists.
-- Do not clone a second checkout when the user is updating the established repository checkout. Use the verified existing checkout and pull the requested branch.
-- Keep the requested scope narrow. Do not add CI test suites, backups, rollback procedures, HTTP checks, browser acceptance, TMDB checks, token handling or unrelated diagnostics unless the user explicitly asks for them.
-- Do not turn the answer into a giant all-purpose shell script. Supply the shortest complete sequence that safely performs the requested daemon build and installation.
-- Do not repeat the same commands in explanatory prose. The copyable Bash block is the primary deliverable.
+Before producing the command block, the agent must:
 
-The canonical established-host flow is therefore exactly: `git switch`, `git pull --ff-only`, `make clean`, daemon build, service stop, `sudo make install PREFIX=/usr`, `systemctl daemon-reload`, and service start or restart. No package installation and no `apt-get update` belong in that answer unless explicitly requested or proven necessary by a real dependency failure.
+- resolve the exact requested PR and branch from GitHub;
+- resolve the exact current PR head SHA immediately before presenting the commands;
+- inspect the root `Makefile`, all included install/build makefiles such as `mk/install.mk`, relevant packaging and systemd files, and any component-specific Makefile changed or required by that exact head;
+- determine the exact build targets and whether `vdr-plugin-suite-bridge` must be rebuilt and installed;
+- never infer installation options, target names, plugin paths or service names from an older branch, older PR, README excerpt or previous chat.
 
-This manifest overrides any tendency to provide a fresh-system setup, dependency bootstrap, long step-by-step installation essay or generalized deployment script when the user asked only for the existing checkout to be updated, built and installed.
+The answer must use the heading `## Lokaler Bau, Test und Installation`, followed by at most one short sentence and exactly one ordinary fenced Markdown `bash` block without IDs, attributes or metadata.
+
+For the established yaVDR checkout, the mandatory daemon flow has this shape:
+
+```bash
+cd /home/yavdr/vdr-suite
+
+git switch <exact-branch>
+git pull --ff-only origin <exact-branch>
+
+git rev-parse HEAD
+test "$(git rev-parse HEAD)" = "<exact-head-sha>" || exit 1
+
+make clean
+make -j2 --output-sync=target <exact-required-build-targets>
+
+systemctl stop vdr-suite-daemon
+make install PREFIX=/usr
+systemctl daemon-reload
+systemctl restart vdr-suite-daemon
+
+systemctl is-active vdr-suite-daemon
+systemctl --no-pager --full status vdr-suite-daemon
+```
+
+The placeholders above define the required structure only. In a user-facing answer they must always be replaced with the exact branch, exact current head SHA and exact build targets for the requested branch or PR. Never leave placeholders in executable instructions.
+
+Additional binding rules:
+
+- `git pull --ff-only origin <exact-branch>` is mandatory for the established checkout.
+- The exact SHA guard is mandatory and must abort before build or installation when the checkout does not match the verified PR head.
+- Use `make clean` followed by `make -j2 --output-sync=target` with only the targets actually required by that branch or PR.
+- Do not add `sudo` merely as a style preference; preserve the established host execution context unless the user explicitly requests a non-root form.
+- Stop the daemon before `make install PREFIX=/usr`, then reload systemd, restart the daemon and show both `is-active` and the full service status.
+- Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.
+- Keep the answer branch-/PR-specific and as short as the complete safe flow permits.
+
+### Conditional SuiteBridge plugin installation
+
+The plugin must not be rebuilt merely because it exists in the repository.
+
+- First inspect the exact PR diff and component dependency contract.
+- When the PR does not change `vdr-plugin-suite-bridge` and the runtime change does not require a new plugin binary or contract, omit all plugin build and installation commands.
+- When the plugin is required, inspect the exact-head `vdr-plugin-suite-bridge/Makefile`, VDR `pkg-config` values and the established yaVDR service layout before writing commands.
+- Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
+- Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
+
+This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
+
+## Binding branch- and PR-specific installed-result acceptance manifest
+
+A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
+
+Before writing the acceptance steps, the agent must inspect:
+
+- the exact PR diff and changed components;
+- the current feature, ADR and runtime-acceptance documents;
+- changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
+- the closest existing regression behavior that the PR could unintentionally break.
+
+The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block. Do not merge functional checks into the installation block when that would hide required user actions.
+
+Every acceptance plan must cover the layers that are relevant to that exact PR:
+
+1. **Installed identity and startup:** verify the checked-out exact head, installed binary or asset identity where the repository provides a reliable method, service state and absence of new startup errors.
+2. **Positive feature path:** exercise the behavior introduced or changed by the PR using a real representative resource.
+3. **Readback and persistence:** reload the UI or API, restart the affected service, and confirm the result survives without repeating the mutation or requiring an external provider read.
+4. **Search and presentation:** verify every changed read model, detail view, search path or frontend rendering affected by the PR.
+5. **Replacement and withdrawal semantics:** when the feature supports reassignment, deletion, withdrawal, rollback or fallback, verify the old active result disappears and the documented fallback becomes effective.
+6. **Authorization and failure boundaries:** verify the relevant Read-only, wrong-scope, CSRF, provider-failure or invalid-input denial paths without exposing secrets.
+7. **Adjacent regression:** repeat the nearest established workflow whose performance or correctness could be affected, such as folder navigation, restart behavior or automatic metadata fallback.
+8. **Evidence:** record the exact source head, CI run, installed build identity when available, redacted test resource and observed result.
+
+Only include layers that the exact PR can affect, but never omit persistence/restart or the primary regression boundary merely to shorten the answer. When a test requires credentials, cookies, CSRF values, tokens or private paths, instruct the user through the normal UI or a redacted safe procedure; never request or print those values.
+
+For PR #136, the authoritative real-system checklist is [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md#real-yavdr-acceptance-checklist). At minimum it requires:
+
+- repeated recording-folder/subfolder/back navigation remains fast;
+- candidate search remains fast before selecting a movie;
+- assigning a known TMDB movie displays actor and character names;
+- reload and `vdr-suite-daemon` restart preserve title, cast and character data;
+- manual title, original title and actor are found through the existing global and person searches;
+- reassignment removes the former movie's active actors;
+- withdrawal restores automatic TVScraper/native title and people;
+- Read-only and wrong-backend assignment attempts are denied;
+- responses and accountability evidence expose no token, provider URL, local artwork path or actor reference.
+
+Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result. Keep the PR Draft until all required real-system acceptance items are complete and the user explicitly approves readiness.
 
 ## Credential and secret restrictions
 

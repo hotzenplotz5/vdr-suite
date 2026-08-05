@@ -3,6 +3,7 @@
 #include "BackendRegistryService.h"
 #include "Database.h"
 #include "GlobalSearchController.h"
+#include "GlobalSearchPersonPortraitRepository.h"
 #include "GlobalSearchRepository.h"
 #include "GlobalSearchService.h"
 #include "RestQueryParameters.h"
@@ -10,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -82,23 +84,57 @@ bool GlobalSearchApiRuntime::configure(
         }
     }
 
+    Database* portraitDatabase = readDatabase
+        ? readDatabase.get()
+        : &database;
+    auto portraitRepository =
+        std::make_unique<GlobalSearchPersonPortraitRepository>(
+            *portraitDatabase);
+
+    GlobalSearchController::PersonPortraitLookup personPortraitLookup;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        personPortraitLookup = personPortraitLookup_;
+    }
+    if (!personPortraitLookup)
+    {
+        GlobalSearchPersonPortraitRepository* repository =
+            portraitRepository.get();
+        personPortraitLookup = [repository](const std::string& backendId)
+        {
+            return repository->findForBackend(backendId);
+        };
+    }
+
     auto service = std::make_unique<GlobalSearchService>(*controllerRepository);
     auto controller = std::make_unique<GlobalSearchController>(
         *service,
-        backendRegistryService);
+        backendRegistryService,
+        std::move(personPortraitLookup));
 
     std::lock_guard<std::mutex> lock(mutex_);
     controller_.reset();
     service_.reset();
+    portraitRepository_.reset();
     readRepository_.reset();
     readDatabase_.reset();
     writerRepository_.reset();
     writerRepository_ = std::move(writerRepository);
     readDatabase_ = std::move(readDatabase);
     readRepository_ = std::move(readRepository);
+    portraitRepository_ = std::move(portraitRepository);
     service_ = std::move(service);
     controller_ = std::move(controller);
     return true;
+}
+
+void GlobalSearchApiRuntime::setPersonPortraitLookup(
+    GlobalSearchController::PersonPortraitLookup personPortraitLookup)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    personPortraitLookup_ = std::move(personPortraitLookup);
+    if (controller_)
+        controller_->setPersonPortraitLookup(personPortraitLookup_);
 }
 
 bool GlobalSearchApiRuntime::tryHandleGet(
@@ -133,7 +169,10 @@ bool GlobalSearchApiRuntime::tryHandleGet(
 bool GlobalSearchApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    return writerRepository_ != nullptr && service_ != nullptr && controller_ != nullptr;
+    return writerRepository_ != nullptr &&
+        portraitRepository_ != nullptr &&
+        service_ != nullptr &&
+        controller_ != nullptr;
 }
 
 void GlobalSearchApiRuntime::reset()
@@ -141,7 +180,9 @@ void GlobalSearchApiRuntime::reset()
     std::lock_guard<std::mutex> lock(mutex_);
     controller_.reset();
     service_.reset();
+    portraitRepository_.reset();
     readRepository_.reset();
     readDatabase_.reset();
     writerRepository_.reset();
+    personPortraitLookup_ = {};
 }

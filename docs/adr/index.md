@@ -30,17 +30,18 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0051
+ADR-0052
 ```
 
-Current active `ADR-0051`:
+Current active ADRs at the end of the sequence:
 
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
+- [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0052
+ADR-0053
 ```
 
 Rules:
@@ -102,6 +103,7 @@ Rules:
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
+- [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 
 ### Packaging and Install Boundary
 
@@ -132,6 +134,7 @@ Rules:
 ## Historical ADRs
 
 Historical lowercase and numeric ADRs are retained for repository history and compatibility:
+
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)

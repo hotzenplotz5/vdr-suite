@@ -29,6 +29,12 @@ std::string normalizeBackendId(const std::string& backendId)
 {
     return backendId.empty() ? "default" : backendId;
 }
+
+bool metadataImagePath(const std::string& path)
+{
+    return path == "/api/vdr/recordings/metadata/image" ||
+        path == "/api/recordings/metadata/image";
+}
 }
 
 RecordingArtworkHttpServer::RecordingArtworkHttpServer(
@@ -47,8 +53,26 @@ RecordingArtworkHttpServer::RecordingArtworkHttpServer(
 HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
-    const HttpServerResponse delegated =
+    HttpServerResponse delegated =
         delegate_->handleRequest(request);
+    const std::string path = requestPath(request.path);
+
+    if (request.method == "GET" &&
+        metadataImagePath(path) &&
+        delegated.statusCode != 401)
+    {
+        const RestQueryParameters queryParameters =
+            RestQueryParameters::parse(requestQueryString(request.path));
+        const bool revisioned =
+            !queryParameters.get("assignmentRevision").empty();
+        delegated.headers["X-Content-Type-Options"] = "nosniff";
+        delegated.headers["Cache-Control"] = delegated.statusCode == 200
+            ? (revisioned
+                ? "private, max-age=31536000, immutable"
+                : "private, max-age=300")
+            : "no-store";
+        return delegated;
+    }
 
     if (request.method != "GET" ||
         delegated.statusCode == 401 ||
@@ -57,7 +81,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         return delegated;
     }
 
-    if (requestPath(request.path) == "/api/epg/cache/artwork" &&
+    if (path == "/api/epg/cache/artwork" &&
         epgArtworkProvider_ != nullptr)
     {
         const RestQueryParameters queryParameters =

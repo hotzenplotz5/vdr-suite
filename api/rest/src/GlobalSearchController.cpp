@@ -9,8 +9,10 @@
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
+#include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -20,6 +22,15 @@ constexpr int MaximumLimit = 50;
 constexpr std::int64_t EpgHistorySeconds = 6 * 60 * 60;
 constexpr std::int64_t DefaultEpgFutureSeconds = 14 * 24 * 60 * 60;
 constexpr std::int64_t MaximumEpgWindowSeconds = 31 * 24 * 60 * 60;
+
+struct PersonPortraitHandle
+{
+    std::string backendNativeId;
+    int index = -1;
+    int assignmentRevision = 0;
+};
+
+using PersonPortraitMap = std::map<std::string, PersonPortraitHandle>;
 
 std::string trimQuery(const std::string& value)
 {
@@ -124,6 +135,19 @@ std::string recordingArtworkUrl(const GlobalSearchRecording& item)
         "&kind=preferred&index=0";
 }
 
+std::string personPortraitUrl(
+    const std::string& backendId,
+    const PersonPortraitHandle& handle)
+{
+    if (handle.backendNativeId.empty() || handle.index < 0 ||
+        handle.assignmentRevision <= 0)
+        return {};
+    return "/api/recordings/metadata/image?backend=" + percentEncode(backendId) +
+        "&backendNativeId=" + percentEncode(handle.backendNativeId) +
+        "&kind=person&index=" + std::to_string(handle.index) +
+        "&assignmentRevision=" + std::to_string(handle.assignmentRevision);
+}
+
 std::string epgArtworkUrl(const GlobalSearchEpgEvent& item)
 {
     if (!item.artworkAvailable) return {};
@@ -139,7 +163,47 @@ void appendArtwork(std::ostringstream& json, bool available, const std::string& 
     json << '}';
 }
 
-std::string serialize(const GlobalSearchResult& result)
+void appendRecordingMetadataArtwork(
+    std::ostringstream& json,
+    bool available,
+    const std::string& url)
+{
+    const std::string exposedUrl = available ? url : std::string();
+    json << "{\"presentation\":{\"posterUrl\":";
+    appendJsonString(json, exposedUrl);
+    json << "},\"artwork\":{\"preferredUrl\":";
+    appendJsonString(json, exposedUrl);
+    json << "}}";
+}
+
+std::string personKey(const std::string& name, const std::string& role)
+{
+    return GlobalSearchRepository::foldText(name) + "\n" + role;
+}
+
+PersonPortraitMap personPortraits(
+    const std::vector<GlobalSearchPersonPortrait>& values)
+{
+    PersonPortraitMap portraits;
+    for (const GlobalSearchPersonPortrait& value : values)
+    {
+        if (value.name.empty() || value.backendNativeId.empty() ||
+            value.index < 0 || value.assignmentRevision <= 0)
+            continue;
+        const std::string key = personKey(value.name, value.role);
+        if (portraits.find(key) != portraits.end()) continue;
+        PersonPortraitHandle handle;
+        handle.backendNativeId = value.backendNativeId;
+        handle.index = value.index;
+        handle.assignmentRevision = value.assignmentRevision;
+        portraits.emplace(key, std::move(handle));
+    }
+    return portraits;
+}
+
+std::string serialize(
+    const GlobalSearchResult& result,
+    const PersonPortraitMap& portraits)
 {
     std::ostringstream json;
     json << "{\"query\":";
@@ -159,6 +223,7 @@ std::string serialize(const GlobalSearchResult& result)
     {
         if (index > 0) json << ',';
         const auto& item = result.recordings[index];
+        const std::string artworkUrl = recordingArtworkUrl(item);
         json << "{\"id\":"; appendJsonString(json, item.id);
         json << ",\"backendId\":"; appendJsonString(json, item.backendId);
         json << ",\"backendNativeId\":"; appendJsonString(json, item.backendNativeId);
@@ -169,7 +234,9 @@ std::string serialize(const GlobalSearchResult& result)
         json << ",\"durationSeconds\":" << item.durationSeconds
              << ",\"sizeMb\":" << item.sizeMb
              << ",\"artwork\":";
-        appendArtwork(json, item.artworkAvailable, recordingArtworkUrl(item));
+        appendArtwork(json, item.artworkAvailable, artworkUrl);
+        json << ",\"metadata\":";
+        appendRecordingMetadataArtwork(json, item.artworkAvailable, artworkUrl);
         json << ",\"matchedPerson\":"; appendJsonString(json, item.matchedPerson);
         json << ",\"matchedRole\":"; appendJsonString(json, item.matchedRole);
         json << ",\"matchReason\":"; appendJsonString(json, item.matchReason);
@@ -209,10 +276,20 @@ std::string serialize(const GlobalSearchResult& result)
     {
         if (index > 0) json << ',';
         const auto& item = result.people[index];
+        const auto portrait = portraits.find(personKey(item.name, item.role));
+        const bool imageAvailable = portrait != portraits.end();
         json << "{\"name\":"; appendJsonString(json, item.name);
         json << ",\"role\":"; appendJsonString(json, item.role);
         json << ",\"recordingCount\":" << item.recordingCount
-             << ",\"epgCount\":" << item.epgCount << '}';
+             << ",\"epgCount\":" << item.epgCount
+             << ",\"image\":";
+        appendArtwork(
+            json,
+            imageAvailable,
+            imageAvailable
+                ? personPortraitUrl(result.backendId, portrait->second)
+                : std::string{});
+        json << '}';
     }
     json << "],\"hasMore\":"
          << ((result.recordingHasMore || result.epgHasMore) ? "true" : "false")
@@ -223,10 +300,18 @@ std::string serialize(const GlobalSearchResult& result)
 
 GlobalSearchController::GlobalSearchController(
     GlobalSearchService& service,
-    BackendRegistryService& backendRegistryService)
+    BackendRegistryService& backendRegistryService,
+    PersonPortraitLookup personPortraitLookup)
     : service_(service),
-      backendRegistryService_(backendRegistryService)
+      backendRegistryService_(backendRegistryService),
+      personPortraitLookup_(std::move(personPortraitLookup))
 {
+}
+
+void GlobalSearchController::setPersonPortraitLookup(
+    PersonPortraitLookup personPortraitLookup)
+{
+    personPortraitLookup_ = std::move(personPortraitLookup);
 }
 
 ApiResponse GlobalSearchController::search(
@@ -262,13 +347,13 @@ ApiResponse GlobalSearchController::search(
     if (normalizedQuery.empty())
     {
         result.status = "empty";
-        return jsonResponse(200, serialize(result));
+        return jsonResponse(200, serialize(result, PersonPortraitMap{}));
     }
     if (utf8CodePointCount(
             GlobalSearchRepository::foldText(normalizedQuery)) < MinimumQueryLength)
     {
         result.status = "too-short";
-        return jsonResponse(200, serialize(result));
+        return jsonResponse(200, serialize(result, PersonPortraitMap{}));
     }
 
     result = service_.search(
@@ -283,5 +368,9 @@ ApiResponse GlobalSearchController::search(
     {
         return jsonError(503, "search index unavailable");
     }
-    return jsonResponse(200, serialize(result));
+
+    const PersonPortraitMap portraits = personPortraitLookup_
+        ? personPortraits(personPortraitLookup_(normalizedBackendId))
+        : PersonPortraitMap{};
+    return jsonResponse(200, serialize(result, portraits));
 }

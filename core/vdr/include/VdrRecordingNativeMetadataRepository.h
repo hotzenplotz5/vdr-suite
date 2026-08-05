@@ -38,6 +38,8 @@ struct VdrRecordingNativePersonSearchQuery
     std::string role;
     int limit = 0;
     int offset = 0;
+    std::string source;
+    std::string providerReference;
 };
 
 struct VdrRecordingNativePersonIndexEntry
@@ -50,6 +52,8 @@ struct VdrRecordingNativePersonIndexEntry
     std::string name;
     std::string normalizedName;
     std::string characterName;
+    std::string source = "tvscraper";
+    std::string providerReference;
     VdrRecordingNativeArtwork image;
 };
 
@@ -109,6 +113,7 @@ public:
 private:
     Database& database_;
     mutable std::recursive_mutex mutex_;
+    mutable bool schemaReady_ = false;
 
     bool ensureSchemaLocked() const;
     static std::string normalizeBackendId(const std::string& backendId);

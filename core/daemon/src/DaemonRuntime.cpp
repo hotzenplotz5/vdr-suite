@@ -9,6 +9,7 @@
 
 #include <csignal>
 #include <iostream>
+#include <utility>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 

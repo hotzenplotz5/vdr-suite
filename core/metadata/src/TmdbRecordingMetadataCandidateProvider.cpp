@@ -95,6 +95,33 @@ std::string responseError(const ExternalArtworkHttpResponse& response)
     if (response.statusCode != 200L) return "provider request failed";
     return "provider returned invalid JSON";
 }
+
+ExternalArtworkHttpResponse performJsonRequest(
+    IExternalArtworkHttpTransport& transport,
+    const TmdbRecordingMetadataCandidateProviderConfig& config,
+    const TmdbRecordingMetadataCandidateProvider::Sleeper& sleeper,
+    const std::string& url)
+{
+    ExternalArtworkHttpResponse response;
+    for (int attempt = 0; attempt <= config.maximumRetries; ++attempt)
+    {
+        ExternalArtworkHttpRequest request;
+        request.url = url;
+        request.bearerToken = config.readAccessToken;
+        request.accept = "application/json";
+        request.connectTimeoutMs = config.connectTimeoutMs;
+        request.totalTimeoutMs = config.totalTimeoutMs;
+        request.maximumResponseBytes = config.maximumJsonBytes;
+        response = transport.perform(request);
+        if (!retryable(response) || attempt == config.maximumRetries) break;
+
+        long long delay = static_cast<long long>(config.retryBackoffMs) << attempt;
+        if (response.retryAfterSeconds > 0)
+            delay = std::max(delay, response.retryAfterSeconds * 1000LL);
+        sleeper(std::chrono::milliseconds(std::min(delay, 2000LL)));
+    }
+    return response;
+}
 }
 
 TmdbRecordingMetadataCandidateProvider::
@@ -206,6 +233,26 @@ TmdbRecordingMetadataCandidateProvider::episodes(
         limit);
 }
 
+RecordingMetadataCastPage
+TmdbRecordingMetadataCandidateProvider::movieCredits(
+    const std::string& movieExternalId,
+    int limit)
+{
+    RecordingMetadataCastPage invalid;
+    invalid.providerId = "tmdb";
+    if (!configurationValid(config_) || !digits(movieExternalId) ||
+        limit < 1 || limit > 128)
+    {
+        invalid.error = "invalid movie credits request";
+        return invalid;
+    }
+
+    return requestMovieCredits(
+        std::string(ApiBase) + "/movie/" + movieExternalId +
+            "/credits?language=" + encodeQuery(config_.language),
+        limit);
+}
+
 RecordingMetadataCandidatePage
 TmdbRecordingMetadataCandidateProvider::request(
     const std::string& url,
@@ -218,25 +265,8 @@ TmdbRecordingMetadataCandidateProvider::request(
     page.attempted = true;
     page.providerId = "tmdb";
 
-    ExternalArtworkHttpResponse response;
-    for (int attempt = 0; attempt <= config_.maximumRetries; ++attempt)
-    {
-        ExternalArtworkHttpRequest request;
-        request.url = url;
-        request.bearerToken = config_.readAccessToken;
-        request.accept = "application/json";
-        request.connectTimeoutMs = config_.connectTimeoutMs;
-        request.totalTimeoutMs = config_.totalTimeoutMs;
-        request.maximumResponseBytes = config_.maximumJsonBytes;
-        response = transport_.perform(request);
-        if (!retryable(response) || attempt == config_.maximumRetries) break;
-
-        long long delay = static_cast<long long>(config_.retryBackoffMs) << attempt;
-        if (response.retryAfterSeconds > 0)
-            delay = std::max(delay, response.retryAfterSeconds * 1000LL);
-        sleeper_(std::chrono::milliseconds(std::min(delay, 2000LL)));
-    }
-
+    const ExternalArtworkHttpResponse response =
+        performJsonRequest(transport_, config_, sleeper_, url);
     if (!jsonReady(response))
     {
         page.providerAvailable =
@@ -265,6 +295,40 @@ TmdbRecordingMetadataCandidateProvider::request(
     if (!parsed)
     {
         page.candidates.clear();
+        page.error = "provider returned invalid JSON";
+    }
+    return page;
+}
+
+RecordingMetadataCastPage
+TmdbRecordingMetadataCandidateProvider::requestMovieCredits(
+    const std::string& url,
+    int limit)
+{
+    RecordingMetadataCastPage page;
+    page.attempted = true;
+    page.providerId = "tmdb";
+
+    const ExternalArtworkHttpResponse response =
+        performJsonRequest(transport_, config_, sleeper_, url);
+    if (!jsonReady(response))
+    {
+        page.providerAvailable =
+            !response.transportError && response.statusCode < 500L &&
+            response.statusCode != 429L;
+        page.error = responseError(response);
+        return page;
+    }
+
+    page.providerAvailable = true;
+    if (!parseTmdbRecordingMovieCredits(
+            response.body,
+            config_.maximumJsonBytes,
+            limit,
+            page.cast,
+            page.truncated))
+    {
+        page.cast.clear();
         page.error = "provider returned invalid JSON";
     }
     return page;

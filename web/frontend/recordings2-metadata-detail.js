@@ -1,7 +1,6 @@
 // Async metadata adapter for the Recordings 2 detail view.
 (function (global) {
   'use strict';
-
   const shared = global.VdrSuiteRecordings2Shared;
   const metadataView = global.VdrSuiteRecordings2MetadataView;
   let assignmentRuntimePromise;
@@ -9,15 +8,11 @@
     console.error('VDR-Suite Recordings 2 metadata runtime dependencies are unavailable');
     return;
   }
-
   function assignmentRuntimePath() {
     const path = '/frontend/recordings2-metadata-assignment.js';
     const resolver = global.VdrSuitePublicUrl;
-    return resolver && typeof resolver.resolvePath === 'function'
-      ? resolver.resolvePath(path)
-      : path;
+    return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
   }
-
   function repairMetadataImagePaths(root) {
     const resolver = global.VdrSuitePublicUrl;
     if (!root || typeof root.querySelectorAll !== 'function' ||
@@ -25,34 +20,42 @@
     Array.from(root.querySelectorAll(
       '.recordings2-metadata-image img,.recordings2-person-image'
     )).forEach(function (image) {
-      const path = image && typeof image.getAttribute === 'function'
-        ? image.getAttribute('src') : '';
-      if (metadataView.isPublicMetadataImageUrl(path)) {
-        image.src = resolver.resolvePath(path);
-      }
+      const path = image && typeof image.getAttribute === 'function' ? image.getAttribute('src') : '';
+      if (metadataView.isPublicMetadataImageUrl(path)) image.src = resolver.resolvePath(path);
     });
   }
-
+  function presentMetadata(value) {
+    const manual = value && value.manualAssignment;
+    const revision = manual && manual.active === true ? Math.max(0, Number(manual.revision) || 0) : 0;
+    const artwork = value && value.preferredArtwork;
+    const url = shared.text(artwork && artwork.url);
+    if (revision <= 0 || !url || !metadataView.isPublicMetadataImageUrl(url) ||
+        /[?&]assignmentRevision=/.test(url)) return value;
+    return Object.assign({}, value, {preferredArtwork: Object.assign({}, artwork, {
+      url: url + (url.indexOf('?') >= 0 ? '&' : '?') + 'assignmentRevision=' + String(revision)
+    })});
+  }
+  function prioritizeDetailPoster(root) {
+    const image = root && typeof root.querySelector === 'function'
+      ? root.querySelector('.recordings2-detail-poster img') : null;
+    if (!image) return;
+    image.loading = 'eager'; image.decoding = 'async'; image.fetchPriority = 'high';
+    if (typeof image.setAttribute === 'function') image.setAttribute('fetchpriority', 'high');
+  }
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
-    if (!backendNativeId) {
-      return Promise.reject(new Error('Die Aufnahme besitzt keine stabile Backend-Identität.'));
-    }
+    if (!backendNativeId) return Promise.reject(
+      new Error('Die Aufnahme besitzt keine stabile Backend-Identität.')
+    );
     const api = shared.clientApi();
-    if (!api || typeof api.requestJson !== 'function') {
-      return Promise.reject(new Error('Client API für Aufnahme-Metadaten ist nicht verfügbar.'));
-    }
+    if (!api || typeof api.requestJson !== 'function') return Promise.reject(
+      new Error('Client API für Aufnahme-Metadaten ist nicht verfügbar.')
+    );
     return api.requestJson('/api/vdr/recordings/metadata', {
-      query: {
-        backend: shared.text(backendId) || 'default',
-        backendNativeId: backendNativeId,
-        _: String(Date.now())
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
+      query: {backend: shared.text(backendId) || 'default', backendNativeId, _: String(Date.now())},
+      cache: 'no-store', credentials: 'same-origin'
     });
   }
-
   function loadAssignmentRuntime() {
     if (global.VdrSuiteRecordings2MetadataAssignment) {
       return Promise.resolve(global.VdrSuiteRecordings2MetadataAssignment);
@@ -68,8 +71,7 @@
         else reject(new Error('Manuelle Metadaten-Runtime wurde nicht initialisiert.'));
       }
       if (existing && global.VdrSuiteRecordings2MetadataAssignment) return ready();
-      script.id = id;
-      script.async = false;
+      script.id = id; script.async = false;
       script.addEventListener('load', ready, {once: true});
       script.addEventListener('error', function () {
         reject(new Error('Manuelle Metadaten-Runtime konnte nicht geladen werden.'));
@@ -84,7 +86,6 @@
     });
     return assignmentRuntimePromise;
   }
-
   function renderAssignmentLoadError(root, error) {
     if (!root || root.querySelector('[data-recordings2-metadata-assignment-error]')) return;
     const box = document.createElement('section');
@@ -95,46 +96,36 @@
     box.setAttribute('data-recordings2-metadata-assignment-error', 'true');
     box.setAttribute('role', 'alert');
     title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
-    message.textContent = error && error.message
-      ? error.message
-      : String(error || 'Unbekannter Fehler');
+    message.textContent = error && error.message ? error.message : String(error || 'Unbekannter Fehler');
     box.append(title, message);
     root.appendChild(box);
   }
-
   function enhance(root, recording, backendId) {
     if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root;
     root.dataset.recordings2MetadataDetail = 'true';
     const mounted = metadataView.mount(root, recording, backendId);
     if (!mounted) return root;
     fetchMetadata(recording, backendId).then(function (metadata) {
-      mounted.setMetadata(metadata);
+      const presented = presentMetadata(metadata);
+      mounted.setMetadata(presented);
       repairMetadataImagePaths(root);
-      metadataView.applyToDetail(root, metadata);
+      metadataView.applyToDetail(root, presented);
+      prioritizeDetailPoster(root);
       loadAssignmentRuntime().then(function (runtime) {
-        runtime.mount(root, recording, backendId, metadata);
-      }).catch(function (error) {
-        renderAssignmentLoadError(root, error);
-      });
+        runtime.mount(root, recording, backendId, presented);
+      }).catch(function (error) { renderAssignmentLoadError(root, error); });
     }).catch(mounted.setError);
     return root;
   }
-
   global.VdrSuiteRecordings2MetadataDetail = Object.freeze({
-    enhance,
-    fetchMetadata,
-    loadAssignmentRuntime,
-    assignmentRuntimePath,
-    repairMetadataImagePaths,
-    preferredArtworkUrl: metadataView.preferredArtworkUrl,
-    applyMetadataToDetail: metadataView.applyToDetail,
-    formatDate: metadataView.formatDate,
+    enhance, fetchMetadata, loadAssignmentRuntime, assignmentRuntimePath,
+    repairMetadataImagePaths, versionManualMetadataArtwork: presentMetadata,
+    prioritizeDetailPoster, preferredArtworkUrl: metadataView.preferredArtworkUrl,
+    applyMetadataToDetail: metadataView.applyToDetail, formatDate: metadataView.formatDate,
     isPublicMetadataImageUrl: metadataView.isPublicMetadataImageUrl,
     mediaTypeLabel: metadataView.mediaTypeLabel,
-    orientationLabel: metadataView.orientationLabel,
-    roleLabel: metadataView.roleLabel
+    orientationLabel: metadataView.orientationLabel, roleLabel: metadataView.roleLabel
   });
-
   const runtime = global.VdrSuiteRecordings2;
   if (runtime && typeof runtime.refreshDetailAddon === 'function') runtime.refreshDetailAddon();
 }(window));

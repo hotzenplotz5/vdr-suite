@@ -44,6 +44,29 @@ struct RecordingMetadataCandidatePage
     std::vector<RecordingMetadataCandidate> candidates;
 };
 
+struct RecordingMetadataCastMember
+{
+    std::string providerId;
+    std::string externalNamespace;
+    std::string externalId;
+    std::string name;
+    std::string characterName;
+    std::string profileReference;
+    int order = 0;
+
+    bool valid() const;
+};
+
+struct RecordingMetadataCastPage
+{
+    bool attempted = false;
+    bool providerAvailable = false;
+    bool truncated = false;
+    std::string providerId;
+    std::string error;
+    std::vector<RecordingMetadataCastMember> cast;
+};
+
 class IRecordingMetadataCandidateProvider
 {
 public:
@@ -62,6 +85,17 @@ public:
         const std::string& seriesExternalId,
         int seasonNumber,
         int limit) = 0;
+
+    virtual RecordingMetadataCastPage movieCredits(
+        const std::string&,
+        int)
+    {
+        RecordingMetadataCastPage page;
+        page.attempted = true;
+        page.providerAvailable = false;
+        page.error = "movie credits are not supported";
+        return page;
+    }
 
     virtual std::string materializePoster(
         const std::string&,

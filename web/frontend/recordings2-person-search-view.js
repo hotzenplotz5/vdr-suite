@@ -28,7 +28,9 @@
     const url = shared.text(value);
     return url.startsWith('/recording-artwork/') ||
       url.startsWith('/api/vdr/recordings/artwork') ||
-      url.startsWith('/api/recordings/artwork');
+      url.startsWith('/api/recordings/artwork') ||
+      url.startsWith('/api/vdr/recordings/metadata/image?') ||
+      url.startsWith('/api/recordings/metadata/image?');
   }
 
   function status(message, error) {
@@ -48,10 +50,11 @@
     image.src = url;
     image.alt = 'Poster zu ' + shared.recordingTitle(recording);
     image.loading = 'lazy';
+    image.decoding = 'async';
     image.addEventListener('error', function () {
       image.remove();
       poster.textContent = '▶';
-    });
+    }, {once: true});
     poster.appendChild(image);
     return poster;
   }
@@ -128,6 +131,10 @@
     });
   }
 
+  function personPlaceholder() {
+    return shared.node('span', 'recordings2-person-placeholder', '•');
+  }
+
   function renderCast(panel, value, backendId, isPublicMetadataImageUrl) {
     panel.replaceChildren();
     const people = Array.isArray(value.people) ? value.people : [];
@@ -137,7 +144,7 @@
     }
 
     const grid = shared.node('div', 'recordings2-metadata-cast');
-    people.forEach(function (person) {
+    people.forEach(function (person, index) {
       const entry = shared.node('article', 'recordings2-person-entry');
       const card = shared.node('button', 'recordings2-person-card');
       card.type = 'button';
@@ -148,10 +155,15 @@
         image.className = 'recordings2-person-image';
         image.src = person.image.url;
         image.alt = person.name;
-        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.loading = index < 6 ? 'eager' : 'lazy';
+        if (index < 2) image.fetchPriority = 'high';
+        image.addEventListener('error', function () {
+          image.replaceWith(personPlaceholder());
+        }, {once: true});
         card.appendChild(image);
       } else {
-        card.appendChild(shared.node('span', 'recordings2-person-placeholder', '•'));
+        card.appendChild(personPlaceholder());
       }
 
       const copy = shared.node('span', 'recordings2-person-copy');
@@ -175,6 +187,10 @@
 
   global.VdrSuiteRecordings2PersonSearchView = Object.freeze({
     renderCast,
-    roleLabel
+    roleLabel,
+    __test: Object.freeze({
+      isPublicRecordingImageUrl: isPublicRecordingImageUrl,
+      createRecordingPoster: createRecordingPoster
+    })
   });
 }(window));

@@ -139,7 +139,7 @@
       .global-search-epg-card{display:grid;grid-template-columns:6.5rem minmax(0,1fr);min-height:9rem;padding:0;overflow:hidden;border:1px solid #334155;border-radius:.9rem;background:#0f172a;color:#e2e8f0;text-align:left;cursor:pointer}
       .global-search-epg-image,.global-search-epg-fallback{display:block;width:100%;height:100%;min-height:9rem;object-fit:cover;background:#020617}.global-search-epg-fallback{display:grid;place-items:center;color:#38bdf8;font-size:2rem}
       .global-search-epg-copy{display:grid;align-content:start;gap:.32rem;padding:.7rem}.global-search-epg-title{color:#f8fafc;font-weight:850}.global-search-epg-subtitle{color:#cbd5e1;font-size:.82rem}.global-search-epg-meta{color:#93c5fd;font-size:.78rem}.global-search-epg-reason{color:#bae6fd;font-size:.74rem}
-      .global-search-people{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.25rem}.global-search-person{flex:0 0 auto;padding:.45rem .65rem;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#dbeafe;font-size:.78rem}
+      .global-search-people{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.25rem}.global-search-person{display:grid;grid-template-columns:2.5rem minmax(0,1fr);align-items:center;gap:.5rem;flex:0 0 auto;min-width:13rem;padding:.4rem .6rem .4rem .4rem;border:1px solid #334155;border-radius:.85rem;background:#0f172a;color:#dbeafe;font-size:.78rem}.global-search-person-image,.global-search-person-placeholder{display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:.7rem;background:#172554;object-fit:cover;color:#7dd3fc;font-size:1.15rem}.global-search-person-copy{display:grid;gap:.12rem;min-width:0}.global-search-person-name{overflow:hidden;color:#f8fafc;font-weight:850;text-overflow:ellipsis;white-space:nowrap}.global-search-person-meta{color:#93c5fd;font-size:.7rem}
       @media(max-width:720px){.global-search-dialog{width:calc(100vw - .5rem);max-height:96dvh;border-radius:.85rem}.global-search-shell{max-height:96dvh}.global-search-header{padding:.8rem}.global-search-form{padding:.65rem .8rem}.global-search-scroll{padding:.7rem .8rem 1rem}.global-search-recordings,.global-search-epg{grid-template-columns:1fr}.global-search-epg-card{grid-template-columns:5.6rem minmax(0,1fr)}.global-search-header p{display:none}}
     `;
     document.head.appendChild(style);
@@ -224,6 +224,16 @@
     render();
   }
 
+  function publicPersonImageUrl(value) {
+    const url = text(value);
+    return url.startsWith('/api/vdr/recordings/metadata/image?') ||
+      url.startsWith('/api/recordings/metadata/image?');
+  }
+
+  function personPlaceholder() {
+    return node('span', 'global-search-person-placeholder', '●');
+  }
+
   function renderPeople(root, people) {
     if (!Array.isArray(people) || !people.length) return;
     const group = node('section', 'global-search-group');
@@ -231,13 +241,39 @@
     header.append(node('h3', '', 'Personen'), node('span', 'global-search-group-count', people.length + ' Treffergründe'));
     group.appendChild(header);
     const list = node('div', 'global-search-people');
-    people.forEach(function (person) {
-      list.appendChild(node(
+    people.forEach(function (person, index) {
+      const entry = node('article', 'global-search-person');
+      const imageUrl = person && person.image && person.image.available === true
+        ? text(person.image.url)
+        : '';
+      if (publicPersonImageUrl(imageUrl)) {
+        const image = node('img', 'global-search-person-image');
+        image.src = imageUrl;
+        image.alt = text(person.name, 'Person');
+        image.decoding = 'async';
+        image.loading = index < 4 ? 'eager' : 'lazy';
+        if (index < 2) image.fetchPriority = 'high';
+        image.addEventListener('error', function () {
+          image.replaceWith(personPlaceholder());
+        }, {once: true});
+        entry.appendChild(image);
+      } else {
+        entry.appendChild(personPlaceholder());
+      }
+      const copy = node('span', 'global-search-person-copy');
+      copy.appendChild(node(
         'span',
-        'global-search-person',
-        person.name + (person.role ? ' · ' + person.role : '') +
-          ' · ' + Number(person.recordingCount || 0) + ' Aufn. / ' + Number(person.epgCount || 0) + ' EPG'
+        'global-search-person-name',
+        person.name + (person.role ? ' · ' + person.role : '')
       ));
+      copy.appendChild(node(
+        'span',
+        'global-search-person-meta',
+        Number(person.recordingCount || 0) + ' Aufn. / ' +
+          Number(person.epgCount || 0) + ' EPG'
+      ));
+      entry.appendChild(copy);
+      list.appendChild(entry);
     });
     group.appendChild(list);
     root.appendChild(group);
@@ -290,6 +326,7 @@
         image.src = artwork;
         image.alt = '';
         image.loading = 'lazy';
+        image.decoding = 'async';
         image.addEventListener('error', function () {
           image.replaceWith(node('span', 'global-search-epg-fallback', '◉'));
         }, {once: true});
@@ -492,6 +529,8 @@
     search: performSearch,
     __test: Object.freeze({
       createRequestCoordinator: createRequestCoordinator,
+      publicPersonImageUrl: publicPersonImageUrl,
+      renderPeople: renderPeople,
       minimumQueryLength: MINIMUM_QUERY_LENGTH,
       debounceMs: DEBOUNCE_MS,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,

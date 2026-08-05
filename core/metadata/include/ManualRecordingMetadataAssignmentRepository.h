@@ -2,8 +2,24 @@
 
 #include <mutex>
 #include <string>
+#include <vector>
 
 class Database;
+
+struct ManualRecordingMetadataPerson
+{
+    std::string metadataEntityId;
+    std::string providerId;
+    std::string externalNamespace;
+    std::string externalId;
+    std::string name;
+    std::string normalizedName;
+    std::string role = "actor";
+    std::string characterName;
+    std::string profileReference;
+    std::string profilePath;
+    int ordinal = 0;
+};
 
 struct ManualRecordingMetadataSelection
 {
@@ -22,6 +38,8 @@ struct ManualRecordingMetadataSelection
     int episodeNumber = 0;
     std::string actorRef;
     int expectedRevision = 0;
+    bool castComplete = false;
+    std::vector<ManualRecordingMetadataPerson> people;
 };
 
 struct ManualRecordingMetadataAssignment
@@ -46,6 +64,8 @@ struct ManualRecordingMetadataAssignment
     std::string actorRef;
     int revision = 0;
     bool relationshipLocked = false;
+    bool castComplete = false;
+    std::vector<ManualRecordingMetadataPerson> people;
 };
 
 class ManualRecordingMetadataAssignmentRepository
