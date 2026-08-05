@@ -285,8 +285,8 @@ The separate runtime PR must cover at least:
 
 ## Real yaVDR acceptance direction
 
-Because this contract-only slice changes no runtime, it requires no real-system
-installation or yaVDR acceptance.
+Because this contract-only slice changes no runtime, no real-system installation
+or yaVDR acceptance is required.
 
 The later runtime PR must execute guarded exact-head acceptance that proves:
 
