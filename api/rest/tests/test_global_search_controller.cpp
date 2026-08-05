@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -38,6 +39,19 @@ BackendNode backend(const std::string& id, bool enabled)
     value.online = true;
     return value;
 }
+
+std::vector<GlobalSearchPersonPortrait> portraits(
+    const std::string& backendId)
+{
+    if (backendId != "default") return {};
+    GlobalSearchPersonPortrait portrait;
+    portrait.name = "John Travolta";
+    portrait.role = "actor";
+    portrait.backendNativeId = "native-1";
+    portrait.index = 0;
+    portrait.assignmentRevision = 7;
+    return {portrait};
+}
 }
 
 int main()
@@ -55,7 +69,7 @@ int main()
     registry.addBackend(backend("default", true));
     registry.addBackend(backend("disabled", false));
     BackendRegistryService registryService(registry);
-    GlobalSearchController controller(service, registryService);
+    GlobalSearchController controller(service, registryService, portraits);
 
     ApiResponse response = controller.search("default", "", 1785000000, 1785400000, 20, 0);
     assert(response.statusCode == 200);
@@ -87,6 +101,13 @@ int main()
         recordingArtworkUrl +
         "\"},\"artwork\":{\"preferredUrl\":\"" +
         recordingArtworkUrl + "\"}}") != std::string::npos);
+    const std::string portraitUrl =
+        "/api/recordings/metadata/image?backend=default&backendNativeId=native-1&kind=person&index=0&assignmentRevision=7";
+    assert(response.body.find(
+        "\"image\":{\"available\":true,\"url\":\"" +
+        portraitUrl + "\"}") != std::string::npos);
+    assert(response.body.find("/var/cache/") == std::string::npos);
+    assert(response.body.find("image.tmdb.org") == std::string::npos);
 
     response = controller.search("default", "Kein Treffer", 1785000000, 1785400000, 20, 0);
     assert(response.statusCode == 200);
@@ -102,6 +123,7 @@ int main()
 
     GlobalSearchApiRuntime& runtime = GlobalSearchApiRuntime::instance();
     runtime.reset();
+    runtime.setPersonPortraitLookup(portraits);
     assert(runtime.configure(database, registryService));
     ApiResponse routed;
     assert(runtime.tryHandleGet(
@@ -110,6 +132,7 @@ int main()
     assert(routed.statusCode == 200);
     assert(routed.body.find("\"recordingTotal\":1") != std::string::npos);
     assert(routed.body.find("\"epgTotal\":1") != std::string::npos);
+    assert(routed.body.find(portraitUrl) != std::string::npos);
     assert(!runtime.tryHandleGet("/api/other", routed));
     runtime.reset();
 
