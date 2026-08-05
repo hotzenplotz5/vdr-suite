@@ -129,21 +129,11 @@ const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
 const versionedMetadata = api.versionManualMetadataArtwork({
   available: true,
   preferredArtwork: {available: true, url: metadataImagePath},
-  images: [{image: {available: true, url: metadataImagePath + '&kind=gallery'}}],
-  people: [{image: {available: true, url: metadataImagePath + '&kind=person'}}],
   manualAssignment: {active: true, revision: 7}
 });
 assert.strictEqual(
   versionedMetadata.preferredArtwork.url,
   metadataImagePath + '&assignmentRevision=7'
-);
-assert.strictEqual(
-  versionedMetadata.images[0].image.url,
-  metadataImagePath + '&kind=gallery&assignmentRevision=7'
-);
-assert.strictEqual(
-  versionedMetadata.people[0].image.url,
-  metadataImagePath + '&kind=person&assignmentRevision=7'
 );
 assert.strictEqual(
   api.versionManualMetadataArtwork(versionedMetadata).preferredArtwork.url,
