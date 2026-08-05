@@ -150,3 +150,22 @@ test-backend-agent-client: test-backend-agent-foundation-architecture
 
 test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool
 test-architecture: test-backend-agent-foundation-architecture
+
+
+.PHONY: test-phase63-command-delivery-runtime
+
+test-phase63-command-delivery-runtime:
+	python3 tools/check_phase63_command_delivery_runtime.py
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/tests/test_backend_agent_command_delivery.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_command_delivery
+	$(BUILD_DIR)/test_backend_agent_command_delivery
+
+test-fast: test-phase63-command-delivery-runtime

@@ -1,6 +1,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
+#include "BackendAgentCommandClient.h"
 #include "BackendAgentLifecycle.h"
 
 #include <curl/curl.h>
@@ -670,8 +671,8 @@ bool BackendAgentClientRuntime::loadConfig(
     if (!readProtectedKeyValueFile(path, values, reasonCode, false)) return false;
     static const std::vector<std::string> Allowed = {
         "CONTROL_PLANE_URL", "BACKEND_ID", "IDENTITY_PATH", "ENROLLMENT_PATH",
-        "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "SOFTWARE_VERSION", "ADAPTERS",
-        "OBSERVATION_DOMAINS",
+        "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "COMMAND_STATE_PATH", "SOFTWARE_VERSION", "ADAPTERS",
+        "OBSERVATION_DOMAINS", "COMMAND_TYPES",
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
         "REQUEST_TIMEOUT_MILLISECONDS"};
@@ -690,10 +691,13 @@ bool BackendAgentClientRuntime::loadConfig(
     config.caCertificatePath = values["CA_CERTIFICATE_PATH"];
     if (!values["CHANNELS_CONF_PATH"].empty())
         config.channelsConfPath = values["CHANNELS_CONF_PATH"];
+    if (!values["COMMAND_STATE_PATH"].empty())
+        config.commandStatePath = values["COMMAND_STATE_PATH"];
     if (!values["SOFTWARE_VERSION"].empty()) config.softwareVersion = values["SOFTWARE_VERSION"];
     config.adapters = splitCsv(values["ADAPTERS"]);
     if (!values["OBSERVATION_DOMAINS"].empty())
         config.observationDomains = splitCsv(values["OBSERVATION_DOMAINS"]);
+    config.commandTypes = splitCsv(values["COMMAND_TYPES"]);
     if ((!values["HEARTBEAT_INTERVAL_SECONDS"].empty() &&
          !strictInt(values["HEARTBEAT_INTERVAL_SECONDS"], 10, 60,
                     config.heartbeatIntervalSeconds)) ||
@@ -733,6 +737,8 @@ bool BackendAgentClientRuntime::loadConfig(
         config.channelsConfPath.empty() || config.channelsConfPath.front() != '/' ||
         config.channelsConfPath.size() > 4096 ||
         containsControl(config.channelsConfPath) ||
+        config.commandStatePath.empty() || config.commandStatePath.front() != '/' ||
+        config.commandStatePath.size() > 4096 || containsControl(config.commandStatePath) ||
         !safeSoftwareVersion(config.softwareVersion) ||
         config.reconnectInitialSeconds > config.reconnectMaximumSeconds ||
         config.requestTimeoutMilliseconds < config.connectTimeoutMilliseconds)
@@ -743,6 +749,12 @@ bool BackendAgentClientRuntime::loadConfig(
     if (!validCapabilities(config.adapters, config.observationDomains))
     {
         reasonCode = "invalid_capability_configuration";
+        return false;
+    }
+    if (config.commandTypes.size() > 1 ||
+        (!config.commandTypes.empty() && config.commandTypes.front() != "probe.noop"))
+    {
+        reasonCode = "invalid_command_type_configuration";
         return false;
     }
     const bool channelsAdapter = std::find(
@@ -1871,6 +1883,13 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "agent_not_synchronized";
         return false;
     }
+    BackendAgentCommandClientConfig commandConfig{config_.commandStatePath, config_.commandTypes};
+    BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
+    if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
     if (!state_.pendingObservationKind.empty() &&
         !publishBackendHealthObservation(reasonCode))
     {
@@ -1934,7 +1953,12 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         synchronized_ = false;
         return false;
     }
-    reasonCode = "lease_and_observations_renewed";
+    if (!pollBackendAgentCommand(commandConfig, commandContext, transport_, reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
+    reasonCode = "lease_observations_and_commands_renewed";
     return true;
 }
 

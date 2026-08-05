@@ -1,0 +1,101 @@
+#pragma once
+
+#include "BackendAgentCommand.h"
+#include "SecurityIdentity.h"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+
+class AccountabilityEventRepository;
+class BackendAgentRepository;
+class Database;
+
+class BackendAgentCommandRepository
+{
+public:
+    explicit BackendAgentCommandRepository(Database& database);
+    bool ensureSchema();
+    bool insertAssignment(const BackendAgentCommandAssignment& assignment);
+    BackendAgentCommandPollResult poll(
+        const BackendAgentCommandPollRequest& request,
+        const std::string& agentId,
+        std::int64_t now);
+    BackendAgentCommandReceiptResult acceptReceipt(
+        const BackendAgentCommandReceipt& receipt);
+    BackendAgentCommandResultAck acceptResult(
+        const BackendAgentCommandResult& result);
+    bool requestReplay(const std::string& backendId, const std::string& commandId);
+    bool armFault(const std::string& backendId, const std::string& kind);
+    bool consumeFault(const std::string& backendId, const std::string& kind);
+    BackendAgentCommandSummary summaryForBackend(const std::string& backendId) const;
+private:
+    Database& database_;
+};
+
+class BackendAgentCommandDeliveryService
+{
+public:
+    BackendAgentCommandDeliveryService(
+        BackendAgentCommandRepository& commandRepository,
+        BackendAgentRepository& agentRepository,
+        AccountabilityEventRepository& accountabilityRepository);
+
+    BackendAgentCommandPollResult poll(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandPollRequest& request,
+        std::int64_t now);
+    BackendAgentCommandReceiptResult receipt(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandReceipt& receipt,
+        std::int64_t now);
+    BackendAgentCommandResultAck result(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandResult& result,
+        std::int64_t now);
+
+    std::optional<BackendAgentCommandAssignment> assignProbe(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        std::int64_t now,
+        std::int64_t deadline,
+        std::string& reasonCode);
+    bool requestReplay(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& commandId,
+        std::int64_t now,
+        std::string& reasonCode);
+    bool armFault(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& kind,
+        std::int64_t now,
+        std::string& reasonCode);
+    BackendAgentCommandSummary summaryForBackend(const std::string& backendId) const;
+
+private:
+    bool agentContextMatches(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& agentId,
+        const std::string& agentInstanceId,
+        std::uint64_t backendGeneration,
+        bool requireLease,
+        std::int64_t now,
+        std::string& reasonCode) const;
+    bool appendEvent(
+        const RequestSecurityContext& context,
+        const std::string& eventType,
+        const std::string& backendId,
+        const std::string& operationId,
+        const std::string& action,
+        const std::string& decision,
+        const std::string& reasonCode,
+        const std::string& outcome,
+        std::int64_t now) const;
+
+    BackendAgentCommandRepository& commandRepository_;
+    BackendAgentRepository& agentRepository_;
+    AccountabilityEventRepository& accountabilityRepository_;
+};

@@ -14,9 +14,11 @@ struct BackendAgentClientConfig
     std::string enrollmentPath;
     std::string caCertificatePath;
     std::string channelsConfPath = "/var/lib/vdr/channels.conf";
+    std::string commandStatePath = "/var/lib/vdr-suite/backend-agent/commands.state";
     std::string softwareVersion = "vdr-suite-backend-agent/1";
     std::vector<std::string> adapters;
     std::vector<std::string> observationDomains = {"backend-health"};
+    std::vector<std::string> commandTypes;
     int heartbeatIntervalSeconds = 30;
     int reconnectInitialSeconds = 1;
     int reconnectMaximumSeconds = 30;

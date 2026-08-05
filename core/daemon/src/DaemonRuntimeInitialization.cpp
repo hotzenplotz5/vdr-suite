@@ -70,11 +70,14 @@ bool DaemonRuntime::initialize()
         std::make_unique<AccountabilityEventRepository>(database_);
     backendAgentRepository_ =
         std::make_unique<BackendAgentRepository>(database_);
+    backendAgentCommandRepository_ =
+        std::make_unique<BackendAgentCommandRepository>(database_);
 
     if (!backendAgentIdentityRepository_->ensureSchema() ||
         !backendAgentCredentialVerifierRepository_->ensureSchema() ||
         !backendAgentAccountabilityRepository_->ensureSchema() ||
-        !backendAgentRepository_->ensureSchema()) {
+        !backendAgentRepository_->ensureSchema() ||
+        !backendAgentCommandRepository_->ensureSchema()) {
         std::cerr << "failed to initialize Backend Agent control-plane schema" << std::endl;
         return false;
     }
@@ -88,7 +91,12 @@ bool DaemonRuntime::initialize()
             *backendAgentIdentityRepository_,
             *backendAgentCredentialVerifierRepository_,
             *backendAgentAccountabilityRepository_);
-    std::cout << "Backend Agent enrollment and lease runtime initialized" << std::endl;
+    backendAgentCommandDeliveryService_ =
+        std::make_unique<BackendAgentCommandDeliveryService>(
+            *backendAgentCommandRepository_,
+            *backendAgentRepository_,
+            *backendAgentAccountabilityRepository_);
+    std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
     epgSearchNativeFuzzyCapabilityRepository_ =
         std::make_unique<EpgSearchNativeFuzzyCapabilityRepository>(
@@ -758,6 +766,7 @@ bool DaemonRuntime::initialize()
     httpServer_ = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,
+        *backendAgentCommandDeliveryService_,
         *backendAgentRepository_,
         *backendAgentCredentialVerifierRepository_,
         *backendAgentIdentityRepository_);

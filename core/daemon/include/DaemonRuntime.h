@@ -4,6 +4,7 @@
 #include "BackendAccessPolicy.h"
 #include "BackendAgentHttpServer.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentCommandDelivery.h"
 #include "BackendRuntimeContext.h"
 #include "BackendPollingCoordinator.h"
 #include "BackendRegistry.h"
@@ -203,7 +204,9 @@ private:
     std::unique_ptr<CredentialVerifierRepository> backendAgentCredentialVerifierRepository_;
     std::unique_ptr<AccountabilityEventRepository> backendAgentAccountabilityRepository_;
     std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
+    std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;
     std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
+    std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
