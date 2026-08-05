@@ -51,6 +51,7 @@ struct RecordingMetadataCastMember
     std::string externalId;
     std::string name;
     std::string characterName;
+    std::string profileReference;
     int order = 0;
 
     bool valid() const;
