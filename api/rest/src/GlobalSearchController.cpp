@@ -139,6 +139,19 @@ void appendArtwork(std::ostringstream& json, bool available, const std::string& 
     json << '}';
 }
 
+void appendRecordingMetadataArtwork(
+    std::ostringstream& json,
+    bool available,
+    const std::string& url)
+{
+    const std::string exposedUrl = available ? url : std::string();
+    json << "{\"presentation\":{\"posterUrl\":";
+    appendJsonString(json, exposedUrl);
+    json << "},\"artwork\":{\"preferredUrl\":";
+    appendJsonString(json, exposedUrl);
+    json << "}}";
+}
+
 std::string serialize(const GlobalSearchResult& result)
 {
     std::ostringstream json;
@@ -159,6 +172,7 @@ std::string serialize(const GlobalSearchResult& result)
     {
         if (index > 0) json << ',';
         const auto& item = result.recordings[index];
+        const std::string artworkUrl = recordingArtworkUrl(item);
         json << "{\"id\":"; appendJsonString(json, item.id);
         json << ",\"backendId\":"; appendJsonString(json, item.backendId);
         json << ",\"backendNativeId\":"; appendJsonString(json, item.backendNativeId);
@@ -169,7 +183,9 @@ std::string serialize(const GlobalSearchResult& result)
         json << ",\"durationSeconds\":" << item.durationSeconds
              << ",\"sizeMb\":" << item.sizeMb
              << ",\"artwork\":";
-        appendArtwork(json, item.artworkAvailable, recordingArtworkUrl(item));
+        appendArtwork(json, item.artworkAvailable, artworkUrl);
+        json << ",\"metadata\":";
+        appendRecordingMetadataArtwork(json, item.artworkAvailable, artworkUrl);
         json << ",\"matchedPerson\":"; appendJsonString(json, item.matchedPerson);
         json << ",\"matchedRole\":"; appendJsonString(json, item.matchedRole);
         json << ",\"matchReason\":"; appendJsonString(json, item.matchReason);
