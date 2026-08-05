@@ -14,7 +14,8 @@
 
 namespace
 {
-constexpr const char* ImageBase = "https://image.tmdb.org/t/p/w500";
+constexpr const char* PosterImageBase = "https://image.tmdb.org/t/p/w500";
+constexpr const char* PersonImageBase = "https://image.tmdb.org/t/p/w185";
 std::atomic<unsigned long long> TemporaryCounter{0};
 
 bool digits(const std::string& value)
@@ -28,7 +29,8 @@ bool digits(const std::string& value)
 bool validNamespace(const std::string& value)
 {
     return value == "movie" || value == "tv" ||
-        value == "tv-season" || value == "tv-episode";
+        value == "tv-season" || value == "tv-episode" ||
+        value == "person";
 }
 
 bool validPosterReference(const std::string& value)
@@ -160,7 +162,9 @@ std::string TmdbRecordingMetadataCandidateProvider::materializePoster(
     if (!existing.empty()) return existing;
 
     ExternalArtworkHttpRequest request;
-    request.url = std::string(ImageBase) + posterReference;
+    request.url = std::string(
+        externalNamespace == "person" ? PersonImageBase : PosterImageBase) +
+        posterReference;
     request.accept = "image/jpeg,image/png,image/webp";
     request.connectTimeoutMs = config_.connectTimeoutMs;
     request.totalTimeoutMs = config_.totalTimeoutMs;
