@@ -297,3 +297,28 @@ CREATE TABLE IF NOT EXISTS backend_agent_observation_cursors (
     accepted_at INTEGER NOT NULL,
     PRIMARY KEY (backend_id, observation_domain)
 );
+
+-- Phase 63 Channel observations remain Agent-owned and intentionally separate
+-- from the direct-adapter vdr_channel_cache authority.
+CREATE TABLE IF NOT EXISTS backend_agent_channel_facts (
+    backend_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    channel_number INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    group_name TEXT NOT NULL,
+    radio INTEGER NOT NULL,
+    encrypted INTEGER NOT NULL,
+    enabled INTEGER NOT NULL,
+    agent_id TEXT NOT NULL,
+    agent_instance_id TEXT NOT NULL,
+    backend_generation INTEGER NOT NULL,
+    snapshot_generation INTEGER NOT NULL,
+    producer_sequence INTEGER NOT NULL,
+    captured_at INTEGER NOT NULL,
+    resource_revision TEXT NOT NULL,
+    PRIMARY KEY (backend_id, channel_id),
+    CHECK (radio IN (0,1)),
+    CHECK (encrypted IN (0,1)),
+    CHECK (enabled IN (0,1))
+);

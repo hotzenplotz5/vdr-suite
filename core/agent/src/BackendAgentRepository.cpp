@@ -245,6 +245,29 @@ bool BackendAgentRepository::ensureSchema()
                "captured_at INTEGER NOT NULL,"
                "accepted_at INTEGER NOT NULL,"
                "PRIMARY KEY(backend_id, observation_domain)"
+               ");") &&
+        database_.execute(
+               "CREATE TABLE IF NOT EXISTS backend_agent_channel_facts ("
+               "backend_id TEXT NOT NULL,"
+               "channel_id TEXT NOT NULL,"
+               "channel_number INTEGER NOT NULL,"
+               "name TEXT NOT NULL,"
+               "provider TEXT NOT NULL,"
+               "group_name TEXT NOT NULL,"
+               "radio INTEGER NOT NULL,"
+               "encrypted INTEGER NOT NULL,"
+               "enabled INTEGER NOT NULL,"
+               "agent_id TEXT NOT NULL,"
+               "agent_instance_id TEXT NOT NULL,"
+               "backend_generation INTEGER NOT NULL,"
+               "snapshot_generation INTEGER NOT NULL,"
+               "producer_sequence INTEGER NOT NULL,"
+               "captured_at INTEGER NOT NULL,"
+               "resource_revision TEXT NOT NULL,"
+               "PRIMARY KEY(backend_id, channel_id),"
+               "CHECK(radio IN (0,1)),"
+               "CHECK(encrypted IN (0,1)),"
+               "CHECK(enabled IN (0,1))"
                ");");
 }
 
@@ -921,6 +944,44 @@ BackendAgentObservationCursor BackendAgentRepository::observationCursorForBacken
     return cursor;
 }
 
+std::vector<BackendAgentChannelFact> BackendAgentRepository::channelFactsForBackend(
+    const std::string& backendId) const
+{
+    std::vector<BackendAgentChannelFact> facts;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT channel_id, channel_number, name, provider, group_name, "
+        "radio, encrypted, enabled FROM backend_agent_channel_facts "
+        "WHERE backend_id = ? ORDER BY channel_id;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, backendId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return facts;
+    }
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        const std::int64_t channelNumber = sqlite3_column_int64(statement, 1);
+        if (channelNumber <= 0)
+        {
+            facts.clear();
+            break;
+        }
+        BackendAgentChannelFact fact;
+        fact.channelId = columnText(statement, 0);
+        fact.channelNumber = static_cast<std::uint64_t>(channelNumber);
+        fact.name = columnText(statement, 2);
+        fact.provider = columnText(statement, 3);
+        fact.groupName = columnText(statement, 4);
+        fact.radio = sqlite3_column_int(statement, 5) != 0;
+        fact.encrypted = sqlite3_column_int(statement, 6) != 0;
+        fact.enabled = sqlite3_column_int(statement, 7) != 0;
+        facts.push_back(std::move(fact));
+    }
+    sqlite3_finalize(statement);
+    return facts;
+}
+
 bool BackendAgentRepository::ingestObservation(
     const std::string& agentId,
     const BackendAgentObservationRequest& request,
@@ -1070,6 +1131,35 @@ bool BackendAgentRepository::ingestObservation(
     else if (result.reasonCode.empty())
         classify("invalid_observation_kind");
 
+    if (result.accepted && advanceCursor &&
+        request.observationDomain == "channels" && request.kind == "changeBatch")
+    {
+        for (const std::string& channelId : request.removedChannelIds)
+        {
+            sqlite3_stmt* lookupChannel = nullptr;
+            const char* lookupChannelSql =
+                "SELECT 1 FROM backend_agent_channel_facts "
+                "WHERE backend_id = ? AND channel_id = ? LIMIT 1;";
+            if (sqlite3_prepare_v2(
+                    database_.handle(), lookupChannelSql, -1, &lookupChannel, nullptr) !=
+                    SQLITE_OK ||
+                !bindText(lookupChannel, 1, request.backendId) ||
+                !bindText(lookupChannel, 2, channelId))
+            {
+                if (lookupChannel != nullptr) sqlite3_finalize(lookupChannel);
+                return false;
+            }
+            const bool present = sqlite3_step(lookupChannel) == SQLITE_ROW;
+            sqlite3_finalize(lookupChannel);
+            if (!present)
+            {
+                classify("unknown_channel_removal");
+                advanceCursor = false;
+                break;
+            }
+        }
+    }
+
     result.snapshotGeneration = request.snapshotGeneration;
     result.producerSequence = request.producerSequence;
     result.lastAcceptedSequence = cursor.present ? cursor.producerSequence : 0;
@@ -1103,6 +1193,101 @@ bool BackendAgentRepository::ingestObservation(
         bindText(receipt, 14, result.reasonCode) &&
         bindInt64(receipt, 15, acceptedAt);
     if (!receiptBound || !executeStatement(receipt)) return false;
+
+    if (advanceCursor && request.observationDomain == "channels")
+    {
+        auto insertChannel = [&](const BackendAgentChannelFact& fact) {
+            sqlite3_stmt* insert = nullptr;
+            const char* insertSql =
+                "INSERT INTO backend_agent_channel_facts "
+                "(backend_id, channel_id, channel_number, name, provider, group_name, "
+                "radio, encrypted, enabled, agent_id, agent_instance_id, "
+                "backend_generation, snapshot_generation, producer_sequence, captured_at, "
+                "resource_revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(backend_id, channel_id) DO UPDATE SET "
+                "channel_number=excluded.channel_number, name=excluded.name, "
+                "provider=excluded.provider, group_name=excluded.group_name, "
+                "radio=excluded.radio, encrypted=excluded.encrypted, enabled=excluded.enabled, "
+                "agent_id=excluded.agent_id, agent_instance_id=excluded.agent_instance_id, "
+                "backend_generation=excluded.backend_generation, "
+                "snapshot_generation=excluded.snapshot_generation, "
+                "producer_sequence=excluded.producer_sequence, "
+                "captured_at=excluded.captured_at, "
+                "resource_revision=excluded.resource_revision;";
+            if (sqlite3_prepare_v2(database_.handle(), insertSql, -1, &insert, nullptr) !=
+                SQLITE_OK)
+            {
+                return false;
+            }
+            const bool bound =
+                bindText(insert, 1, request.backendId) &&
+                bindText(insert, 2, fact.channelId) &&
+                bindInt64(insert, 3, static_cast<std::int64_t>(fact.channelNumber)) &&
+                bindText(insert, 4, fact.name) &&
+                bindText(insert, 5, fact.provider) &&
+                bindText(insert, 6, fact.groupName) &&
+                sqlite3_bind_int(insert, 7, fact.radio ? 1 : 0) == SQLITE_OK &&
+                sqlite3_bind_int(insert, 8, fact.encrypted ? 1 : 0) == SQLITE_OK &&
+                sqlite3_bind_int(insert, 9, fact.enabled ? 1 : 0) == SQLITE_OK &&
+                bindText(insert, 10, agentId) &&
+                bindText(insert, 11, request.agentInstanceId) &&
+                bindInt64(insert, 12, static_cast<std::int64_t>(request.backendGeneration)) &&
+                bindInt64(insert, 13, static_cast<std::int64_t>(request.snapshotGeneration)) &&
+                bindInt64(insert, 14, static_cast<std::int64_t>(request.producerSequence)) &&
+                bindInt64(insert, 15, request.capturedAt) &&
+                bindText(insert, 16, request.resourceRevision);
+            return bound && executeStatement(insert);
+        };
+
+        if (request.kind == "completeSnapshot")
+        {
+            sqlite3_stmt* clear = nullptr;
+            if (sqlite3_prepare_v2(
+                    database_.handle(),
+                    "DELETE FROM backend_agent_channel_facts WHERE backend_id = ?;",
+                    -1, &clear, nullptr) != SQLITE_OK)
+            {
+                return false;
+            }
+            if (!bindText(clear, 1, request.backendId))
+            {
+                sqlite3_finalize(clear);
+                return false;
+            }
+            if (!executeStatement(clear)) return false;
+            for (const auto& fact : request.channels)
+            {
+                if (!insertChannel(fact)) return false;
+            }
+        }
+        else
+        {
+            for (const std::string& channelId : request.removedChannelIds)
+            {
+                sqlite3_stmt* remove = nullptr;
+                if (sqlite3_prepare_v2(
+                        database_.handle(),
+                        "DELETE FROM backend_agent_channel_facts "
+                        "WHERE backend_id = ? AND channel_id = ?;",
+                        -1, &remove, nullptr) != SQLITE_OK)
+                {
+                    return false;
+                }
+                if (!bindText(remove, 1, request.backendId) ||
+                    !bindText(remove, 2, channelId))
+                {
+                    sqlite3_finalize(remove);
+                    return false;
+                }
+                if (!executeStatement(remove) || sqlite3_changes(database_.handle()) != 1)
+                    return false;
+            }
+            for (const auto& fact : request.upserts)
+            {
+                if (!insertChannel(fact)) return false;
+            }
+        }
+    }
 
     if (advanceCursor)
     {

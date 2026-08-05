@@ -1,4 +1,7 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentChannelObservation.h"
+#include "BackendAgentChannelObservationJson.h"
+#include "BackendAgentLifecycle.h"
 
 #include <curl/curl.h>
 
@@ -11,6 +14,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <mutex>
@@ -24,6 +28,7 @@
 namespace
 {
 constexpr std::size_t MaximumResponseBytes = 16U * 1024U;
+constexpr std::size_t MaximumObservationRequestBytes = 512U * 1024U;
 constexpr std::size_t MaximumLocalFileBytes = 16U * 1024U;
 std::once_flag CurlInitialization;
 bool CurlInitialized = false;
@@ -80,7 +85,7 @@ bool validCapabilities(
     const std::vector<std::string>& domains)
 {
     static const std::vector<std::string> AllowedAdapters = {
-        "suitebridge", "restfulapi", "svdrp"};
+        "suitebridge", "restfulapi", "svdrp", "channels-conf"};
     static const std::vector<std::string> AllowedDomains = {
         "backend-health", "channels", "epg", "recordings", "timers",
         "searchtimers", "metadata"};
@@ -263,9 +268,10 @@ bool writeAll(int descriptor, const std::string& content)
 bool writeProtectedFileAtomically(
     const std::string& path,
     const std::string& content,
-    std::string& reasonCode)
+    std::string& reasonCode,
+    std::size_t maximumBytes = MaximumLocalFileBytes)
 {
-    if (path.empty() || content.empty() || content.size() > MaximumLocalFileBytes)
+    if (path.empty() || content.empty() || content.size() > maximumBytes)
     {
         reasonCode = "local_file_invalid_content";
         return false;
@@ -291,6 +297,69 @@ bool writeProtectedFileAtomically(
         reasonCode = "local_file_permission_failed";
         return false;
     }
+    return true;
+}
+
+bool readProtectedFile(
+    const std::string& path,
+    std::string& content,
+    std::string& reasonCode,
+    std::size_t maximumBytes)
+{
+    content.clear();
+    struct stat status{};
+    if (lstat(path.c_str(), &status) != 0)
+    {
+        reasonCode = errno == ENOENT ? "local_file_not_found" : "local_file_stat_failed";
+        return false;
+    }
+    if (!S_ISREG(status.st_mode))
+    {
+        reasonCode = "local_file_not_regular";
+        return false;
+    }
+    if ((status.st_mode & (S_IRWXG | S_IRWXO)) != 0)
+    {
+        reasonCode = "local_file_permissions_too_open";
+        return false;
+    }
+    if (status.st_size <= 0 || static_cast<std::size_t>(status.st_size) > maximumBytes)
+    {
+        reasonCode = "local_file_too_large";
+        return false;
+    }
+    std::ifstream input(path, std::ios::binary);
+    if (!input)
+    {
+        reasonCode = "local_file_open_failed";
+        return false;
+    }
+    content.assign(
+        std::istreambuf_iterator<char>(input),
+        std::istreambuf_iterator<char>());
+    if (input.bad() || content.empty() || content.size() > maximumBytes)
+    {
+        content.clear();
+        reasonCode = "local_file_read_failed";
+        return false;
+    }
+    reasonCode = "local_file_loaded";
+    return true;
+}
+
+bool removeProtectedFile(const std::string& path, std::string& reasonCode)
+{
+    if (unlink(path.c_str()) != 0 && errno != ENOENT)
+    {
+        reasonCode = "local_file_remove_failed";
+        return false;
+    }
+    if (!syncParentDirectory(path))
+    {
+        reasonCode = "local_file_parent_sync_failed";
+        return false;
+    }
+    reasonCode = "local_file_removed";
     return true;
 }
 
@@ -465,8 +534,12 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     const std::string& basicSecret)
 {
     BackendAgentTransportResponse response;
+    const std::size_t maximumRequestBytes =
+        path == "/api/agent/v1/observations/channels"
+            ? MaximumObservationRequestBytes
+            : MaximumResponseBytes;
     if (!validProtectedControlPlaneUrl(config_.controlPlaneUrl) ||
-        !safeProtocolPath(path) || body.size() > MaximumResponseBytes ||
+        !safeProtocolPath(path) || body.size() > maximumRequestBytes ||
         containsControl(enrollmentAuthorization) || containsControl(basicLogin) ||
         containsControl(basicSecret) ||
         config_.connectTimeoutMilliseconds < 100 ||
@@ -597,7 +670,8 @@ bool BackendAgentClientRuntime::loadConfig(
     if (!readProtectedKeyValueFile(path, values, reasonCode, false)) return false;
     static const std::vector<std::string> Allowed = {
         "CONTROL_PLANE_URL", "BACKEND_ID", "IDENTITY_PATH", "ENROLLMENT_PATH",
-        "CA_CERTIFICATE_PATH", "SOFTWARE_VERSION", "ADAPTERS", "OBSERVATION_DOMAINS",
+        "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "SOFTWARE_VERSION", "ADAPTERS",
+        "OBSERVATION_DOMAINS",
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
         "REQUEST_TIMEOUT_MILLISECONDS"};
@@ -614,6 +688,8 @@ bool BackendAgentClientRuntime::loadConfig(
     config.identityPath = values["IDENTITY_PATH"];
     config.enrollmentPath = values["ENROLLMENT_PATH"];
     config.caCertificatePath = values["CA_CERTIFICATE_PATH"];
+    if (!values["CHANNELS_CONF_PATH"].empty())
+        config.channelsConfPath = values["CHANNELS_CONF_PATH"];
     if (!values["SOFTWARE_VERSION"].empty()) config.softwareVersion = values["SOFTWARE_VERSION"];
     config.adapters = splitCsv(values["ADAPTERS"]);
     if (!values["OBSERVATION_DOMAINS"].empty())
@@ -654,6 +730,9 @@ bool BackendAgentClientRuntime::loadConfig(
             config.controlPlaneUrl) ||
         !safeIdentifier(config.backendId) ||
         config.identityPath.empty() || config.enrollmentPath.empty() ||
+        config.channelsConfPath.empty() || config.channelsConfPath.front() != '/' ||
+        config.channelsConfPath.size() > 4096 ||
+        containsControl(config.channelsConfPath) ||
         !safeSoftwareVersion(config.softwareVersion) ||
         config.reconnectInitialSeconds > config.reconnectMaximumSeconds ||
         config.requestTimeoutMilliseconds < config.connectTimeoutMilliseconds)
@@ -664,6 +743,17 @@ bool BackendAgentClientRuntime::loadConfig(
     if (!validCapabilities(config.adapters, config.observationDomains))
     {
         reasonCode = "invalid_capability_configuration";
+        return false;
+    }
+    const bool channelsAdapter = std::find(
+        config.adapters.begin(), config.adapters.end(), "channels-conf") !=
+        config.adapters.end();
+    const bool channelsDomain = std::find(
+        config.observationDomains.begin(), config.observationDomains.end(), "channels") !=
+        config.observationDomains.end();
+    if (channelsAdapter != channelsDomain)
+    {
+        reasonCode = "invalid_channel_source_configuration";
         return false;
     }
     reasonCode = "configuration_loaded";
@@ -688,7 +778,11 @@ bool BackendAgentClientRuntime::loadIdentity(
         "pending_observation_snapshot_generation",
         "pending_observation_producer_sequence", "pending_observation_captured_at",
         "pending_observation_resource_revision",
-        "pending_observation_heartbeat_sequence"};
+        "pending_observation_heartbeat_sequence",
+        "channel_observation_backend_generation",
+        "channel_observation_snapshot_generation",
+        "channel_observation_producer_sequence",
+        "channel_observation_resource_revision"};
     if (!onlyAllowedKeys(values, Allowed))
     {
         reasonCode = "unknown_identity_key";
@@ -706,8 +800,13 @@ bool BackendAgentClientRuntime::loadIdentity(
     std::uint64_t pendingObservationProducerSequence = 0;
     std::uint64_t pendingObservationCapturedAt = 0;
     std::uint64_t pendingObservationHeartbeatSequence = 0;
+    std::uint64_t channelObservationBackendGeneration = 0;
+    std::uint64_t channelObservationSnapshotGeneration = 0;
+    std::uint64_t channelObservationProducerSequence = 0;
     const bool legacyVersion = values["version"] == "1";
-    if ((!legacyVersion && values["version"] != "2") ||
+    const bool versionTwo = values["version"] == "2";
+    const bool currentVersion = values["version"] == "3";
+    if ((!legacyVersion && !versionTwo && !currentVersion) ||
         !safeIdentifier(values["agent_id"]) ||
         !safeIdentifier(values["backend_id"]) ||
         !safeIdentifier(values["credential_id"]) ||
@@ -753,6 +852,35 @@ bool BackendAgentClientRuntime::loadIdentity(
             return false;
         }
     }
+    if (currentVersion)
+    {
+        if (!strictUnsigned(
+                values["channel_observation_backend_generation"],
+                channelObservationBackendGeneration) ||
+            !strictUnsigned(
+                values["channel_observation_snapshot_generation"],
+                channelObservationSnapshotGeneration) ||
+            !strictUnsigned(
+                values["channel_observation_producer_sequence"],
+                channelObservationProducerSequence) ||
+            channelObservationBackendGeneration > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            channelObservationSnapshotGeneration > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            channelObservationProducerSequence > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            (channelObservationProducerSequence != 0 &&
+             (channelObservationBackendGeneration == 0 ||
+              channelObservationSnapshotGeneration == 0 ||
+              !safeIdentifier(values["channel_observation_resource_revision"]))) ||
+            (channelObservationProducerSequence == 0 &&
+             !values["channel_observation_resource_revision"].empty()))
+        {
+            reasonCode = "invalid_channel_observation_identity_state";
+            return false;
+        }
+    }
+
     const bool hasPendingObservation = !values["pending_observation_kind"].empty();
     if (hasPendingObservation &&
         ((values["pending_observation_kind"] != "completeSnapshot" &&
@@ -824,6 +952,14 @@ bool BackendAgentClientRuntime::loadIdentity(
     state.observationBackendGeneration = observationBackendGeneration;
     state.observationSnapshotGeneration = observationSnapshotGeneration;
     state.observationProducerSequence = observationProducerSequence;
+    state.channelObservationBackendGeneration =
+        channelObservationBackendGeneration;
+    state.channelObservationSnapshotGeneration =
+        channelObservationSnapshotGeneration;
+    state.channelObservationProducerSequence =
+        channelObservationProducerSequence;
+    state.channelObservationResourceRevision =
+        values["channel_observation_resource_revision"];
     if (hasPendingObservation)
     {
         state.pendingObservationKind = values["pending_observation_kind"];
@@ -910,6 +1046,18 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
             std::numeric_limits<std::int64_t>::max()) ||
         state.observationProducerSequence > static_cast<std::uint64_t>(
             std::numeric_limits<std::int64_t>::max()) ||
+        state.channelObservationBackendGeneration > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        state.channelObservationSnapshotGeneration > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        state.channelObservationProducerSequence > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        (state.channelObservationProducerSequence != 0 &&
+         (state.channelObservationBackendGeneration == 0 ||
+          state.channelObservationSnapshotGeneration == 0 ||
+          !safeIdentifier(state.channelObservationResourceRevision))) ||
+        (state.channelObservationProducerSequence == 0 &&
+         !state.channelObservationResourceRevision.empty()) ||
         (state.observationProducerSequence != 0 &&
          (state.observationBackendGeneration == 0 ||
           state.observationSnapshotGeneration == 0)) ||
@@ -927,7 +1075,7 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
         return false;
     }
     std::ostringstream content;
-    content << "version=2\n"
+    content << "version=3\n"
             << "agent_id=" << state.agentId << "\n"
             << "backend_id=" << state.backendId << "\n"
             << "credential_id=" << state.credentialId << "\n"
@@ -941,7 +1089,15 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
             << "observation_snapshot_generation="
             << state.observationSnapshotGeneration << "\n"
             << "observation_producer_sequence="
-            << state.observationProducerSequence << "\n";
+            << state.observationProducerSequence << "\n"
+            << "channel_observation_backend_generation="
+            << state.channelObservationBackendGeneration << "\n"
+            << "channel_observation_snapshot_generation="
+            << state.channelObservationSnapshotGeneration << "\n"
+            << "channel_observation_producer_sequence="
+            << state.channelObservationProducerSequence << "\n"
+            << "channel_observation_resource_revision="
+            << state.channelObservationResourceRevision << "\n";
     if (hasPendingRotation)
     {
         content << "pending_rotation_id=" << state.pendingRotationId << "\n"
@@ -1123,6 +1279,24 @@ bool BackendAgentClientRuntime::connectWithCredential(
         state_.pendingObservationCapturedAt = 0;
         state_.pendingObservationResourceRevision.clear();
         state_.pendingObservationHeartbeatSequence = 0;
+    }
+    if (state_.channelObservationBackendGeneration != backendGeneration ||
+        disposition == "resync-required")
+    {
+        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()))
+        {
+            reasonCode = "channel_observation_snapshot_generation_exhausted";
+            return false;
+        }
+        state_.channelObservationBackendGeneration = backendGeneration;
+        state_.channelObservationSnapshotGeneration =
+            state_.channelObservationSnapshotGeneration == 0
+                ? 1
+                : state_.channelObservationSnapshotGeneration + 1;
+        state_.channelObservationProducerSequence = 0;
+        state_.channelObservationResourceRevision.clear();
+        if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
     }
     reasonCode = disposition;
     return true;
@@ -1484,6 +1658,212 @@ bool BackendAgentClientRuntime::publishBackendHealthObservation(
     return submitPendingBackendHealthObservation(reasonCode);
 }
 
+std::string BackendAgentClientRuntime::pendingChannelObservationPath() const
+{
+    return config_.identityPath + ".channels.pending.json";
+}
+
+bool BackendAgentClientRuntime::resetChannelObservationLineage(
+    std::string& reasonCode)
+{
+    if (state_.backendGeneration == 0 ||
+        state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+    {
+        reasonCode = state_.backendGeneration == 0
+            ? "agent_not_synchronized"
+            : "channel_observation_snapshot_generation_exhausted";
+        return false;
+    }
+    state_.channelObservationBackendGeneration = state_.backendGeneration;
+    state_.channelObservationSnapshotGeneration =
+        state_.channelObservationSnapshotGeneration == 0
+            ? 1
+            : state_.channelObservationSnapshotGeneration + 1;
+    state_.channelObservationProducerSequence = 0;
+    state_.channelObservationResourceRevision.clear();
+    if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
+    return persist(reasonCode);
+}
+
+bool BackendAgentClientRuntime::preparePendingChannelObservation(
+    std::string& reasonCode)
+{
+    struct stat pendingStatus{};
+    if (lstat(pendingChannelObservationPath().c_str(), &pendingStatus) == 0)
+    {
+        reasonCode = "channel_observation_already_pending";
+        return true;
+    }
+    if (errno != ENOENT)
+    {
+        reasonCode = "channel_observation_pending_stat_failed";
+        return false;
+    }
+    if (state_.backendGeneration == 0 || state_.heartbeatSequence == 0)
+    {
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (state_.channelObservationBackendGeneration != state_.backendGeneration ||
+        state_.channelObservationSnapshotGeneration == 0)
+    {
+        if (!resetChannelObservationLineage(reasonCode)) return false;
+    }
+
+    BackendAgentChannelSnapshot snapshot;
+    if (!readBackendAgentChannelsConfSnapshot(
+            config_.channelsConfPath, snapshot, reasonCode))
+    {
+        return false;
+    }
+    if (state_.channelObservationProducerSequence != 0 &&
+        snapshot.resourceRevision == state_.channelObservationResourceRevision)
+    {
+        reasonCode = "channel_observation_unchanged";
+        return true;
+    }
+    if (state_.channelObservationProducerSequence != 0)
+    {
+        if (state_.channelObservationSnapshotGeneration >= static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()))
+        {
+            reasonCode = "channel_observation_snapshot_generation_exhausted";
+            return false;
+        }
+        ++state_.channelObservationSnapshotGeneration;
+        state_.channelObservationProducerSequence = 0;
+        state_.channelObservationResourceRevision.clear();
+        if (!persist(reasonCode)) return false;
+    }
+
+    BackendAgentObservationRequest request;
+    request.protocolVersion = "vdr-suite-agent/1";
+    request.backendId = state_.backendId;
+    request.agentInstanceId = agentInstanceId_;
+    request.backendGeneration = state_.backendGeneration;
+    request.observationDomain = "channels";
+    request.snapshotGeneration = state_.channelObservationSnapshotGeneration;
+    request.producerSequence = 1;
+    request.kind = "completeSnapshot";
+    request.capturedAt = unixNow();
+    request.resourceRevision = snapshot.resourceRevision;
+    request.observedHeartbeatSequence = state_.heartbeatSequence;
+    request.channels = std::move(snapshot.channels);
+    const std::string body = serializeBackendAgentChannelObservationJson(request);
+    if (body.empty() || body.size() > MaximumObservationRequestBytes ||
+        !writeProtectedFileAtomically(
+            pendingChannelObservationPath(), body, reasonCode,
+            MaximumObservationRequestBytes))
+    {
+        if (reasonCode.empty()) reasonCode = "channel_observation_serialization_failed";
+        return false;
+    }
+    reasonCode = "channel_observation_prepared";
+    return true;
+}
+
+bool BackendAgentClientRuntime::submitPendingChannelObservation(
+    std::string& reasonCode)
+{
+    std::string body;
+    if (!readProtectedFile(
+            pendingChannelObservationPath(), body, reasonCode,
+            MaximumObservationRequestBytes))
+    {
+        return false;
+    }
+    BackendAgentObservationRequest request;
+    if (!parseBackendAgentChannelObservationJson(body, request, reasonCode) ||
+        request.backendId != state_.backendId ||
+        request.agentInstanceId != agentInstanceId_ ||
+        request.backendGeneration != state_.backendGeneration ||
+        request.observedHeartbeatSequence != state_.heartbeatSequence ||
+        request.observationDomain != "channels" ||
+        request.kind != "completeSnapshot" ||
+        request.producerSequence != 1)
+    {
+        reasonCode = "invalid_pending_channel_observation";
+        return false;
+    }
+
+    const BackendAgentTransportResponse response = transport_.postAuthenticated(
+        state_.agentId, state_.credentialSecret,
+        "/api/agent/v1/observations/channels", body);
+    if (!response.transportSucceeded)
+    {
+        reasonCode = response.errorCode.empty()
+            ? "channel_observation_transport_failed"
+            : response.errorCode;
+        return false;
+    }
+    if (response.statusCode == 409)
+    {
+        const std::string code = responseErrorCode(response);
+        if (code == "observation_resync_required" ||
+            code == "observation_baseline_required")
+        {
+            if (!resetChannelObservationLineage(reasonCode)) return false;
+            reasonCode = "channel_observation_resync_required";
+            return false;
+        }
+        reasonCode = code;
+        return false;
+    }
+    std::string outcome;
+    std::uint64_t snapshotGeneration = 0;
+    std::uint64_t producerSequence = 0;
+    if (response.statusCode != 200 ||
+        !jsonString(response.body, "outcome", outcome) ||
+        !jsonUnsigned(response.body, "snapshotGeneration", snapshotGeneration) ||
+        !jsonUnsigned(response.body, "producerSequence", producerSequence) ||
+        (outcome != "accepted" && outcome != "replayed") ||
+        snapshotGeneration != request.snapshotGeneration ||
+        producerSequence != request.producerSequence)
+    {
+        reasonCode = response.statusCode >= 400
+            ? responseErrorCode(response)
+            : "invalid_channel_observation_response";
+        return false;
+    }
+
+    state_.channelObservationBackendGeneration = request.backendGeneration;
+    state_.channelObservationSnapshotGeneration = request.snapshotGeneration;
+    state_.channelObservationProducerSequence = request.producerSequence;
+    state_.channelObservationResourceRevision = request.resourceRevision;
+    if (!persist(reasonCode)) return false;
+    if (!removeProtectedFile(pendingChannelObservationPath(), reasonCode)) return false;
+    reasonCode = outcome == "replayed"
+        ? "channel_observation_replayed"
+        : "channel_observation_promoted";
+    return true;
+}
+
+bool BackendAgentClientRuntime::publishChannelObservation(
+    std::string& reasonCode)
+{
+    const bool enabled = std::find(
+        config_.observationDomains.begin(), config_.observationDomains.end(),
+        "channels") != config_.observationDomains.end();
+    if (!enabled)
+    {
+        reasonCode = "channel_observation_disabled";
+        return true;
+    }
+    if (!preparePendingChannelObservation(reasonCode)) return false;
+    struct stat pendingStatus{};
+    if (lstat(pendingChannelObservationPath().c_str(), &pendingStatus) != 0)
+    {
+        if (errno == ENOENT && reasonCode == "channel_observation_unchanged") return true;
+        reasonCode = "channel_observation_pending_stat_failed";
+        return false;
+    }
+    if (submitPendingChannelObservation(reasonCode)) return true;
+    if (reasonCode != "channel_observation_resync_required") return false;
+    if (!preparePendingChannelObservation(reasonCode)) return false;
+    return submitPendingChannelObservation(reasonCode);
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -1495,6 +1875,23 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         !publishBackendHealthObservation(reasonCode))
     {
         synchronized_ = false;
+        return false;
+    }
+    struct stat pendingChannelStatus{};
+    const int pendingChannelStat =
+        lstat(pendingChannelObservationPath().c_str(), &pendingChannelStatus);
+    if (pendingChannelStat == 0)
+    {
+        if (!submitPendingChannelObservation(reasonCode))
+        {
+            synchronized_ = false;
+            return false;
+        }
+    }
+    else if (errno != ENOENT)
+    {
+        synchronized_ = false;
+        reasonCode = "channel_observation_pending_stat_failed";
         return false;
     }
     if (state_.heartbeatSequence >= static_cast<std::uint64_t>(
@@ -1532,7 +1929,12 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         synchronized_ = false;
         return false;
     }
-    reasonCode = "lease_and_backend_health_observation_renewed";
+    if (!publishChannelObservation(reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
+    reasonCode = "lease_and_observations_renewed";
     return true;
 }
 

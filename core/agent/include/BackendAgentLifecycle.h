@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SecurityIdentity.h"
+#include "BackendAgentChannelObservation.h"
 
 #include <cstdint>
 #include <optional>
@@ -155,6 +156,9 @@ struct BackendAgentObservationRequest
     std::string resourceRevision;
     std::string agentState;
     std::uint64_t observedHeartbeatSequence = 0;
+    std::vector<BackendAgentChannelFact> channels;
+    std::vector<BackendAgentChannelFact> upserts;
+    std::vector<std::string> removedChannelIds;
 };
 
 struct BackendAgentObservationResult
@@ -269,6 +273,8 @@ public:
     BackendAgentObservationCursor observationCursorForBackend(
         const std::string& backendId,
         const std::string& observationDomain) const;
+    std::vector<BackendAgentChannelFact> channelFactsForBackend(
+        const std::string& backendId) const;
     bool revokeAgent(
         const std::string& agentId,
         const std::string& reason,

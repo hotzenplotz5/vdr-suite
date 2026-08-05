@@ -201,7 +201,7 @@ bool BackendAgentLifecycleService::validCapabilities(
     const BackendAgentCapabilityFacts& facts)
 {
     static const std::set<std::string> Adapters = {
-        "suitebridge", "restfulapi", "svdrp"};
+        "suitebridge", "restfulapi", "svdrp", "channels-conf"};
     static const std::set<std::string> Domains = {
         "backend-health", "channels", "epg", "recordings", "timers",
         "searchtimers", "metadata"};
@@ -857,28 +857,113 @@ BackendAgentObservationResult BackendAgentLifecycleService::ingestObservation(
         result.reasonCode = "agent_authentication_required";
         return result;
     }
-    if (!supportedProtocol(request.protocolVersion) ||
-        !safeIdentifier(request.backendId) ||
-        !safeIdentifier(request.agentInstanceId) ||
-        request.observationDomain != "backend-health" ||
-        request.snapshotGeneration == 0 ||
-        request.producerSequence == 0 ||
-        (request.kind != "completeSnapshot" && request.kind != "changeBatch") ||
-        now < 0 || now > std::numeric_limits<std::int64_t>::max() - 300 ||
-        request.capturedAt < 0 || request.capturedAt > now + 300 ||
-        !safeIdentifier(request.resourceRevision) ||
-        request.agentState != "online")
+    const bool validEnvelope =
+        supportedProtocol(request.protocolVersion) &&
+        safeIdentifier(request.backendId) &&
+        safeIdentifier(request.agentInstanceId) &&
+        (request.observationDomain == "backend-health" ||
+         request.observationDomain == "channels") &&
+        request.snapshotGeneration != 0 &&
+        request.producerSequence != 0 &&
+        (request.kind == "completeSnapshot" || request.kind == "changeBatch") &&
+        now >= 0 && now <= std::numeric_limits<std::int64_t>::max() - 300 &&
+        request.capturedAt >= 0 && request.capturedAt <= now + 300 &&
+        safeIdentifier(request.resourceRevision) &&
+        request.observedHeartbeatSequence != 0;
+    if (!validEnvelope)
     {
-        result.reasonCode = "invalid_backend_health_observation";
+        result.reasonCode = "invalid_observation_envelope";
         appendEvent(context, "agent.observation.result", request.backendId,
                     "backend.agent.observation.ingest", "deny", result.reasonCode,
                     "denied", now);
         return result;
     }
-    const std::string canonicalPayload =
-        "agentState=" + request.agentState +
-        ";heartbeatSequence=" + std::to_string(request.observedHeartbeatSequence);
-    const std::string payloadIdentity = observationPayloadIdentity(canonicalPayload);
+
+    std::string canonicalPayload;
+    std::string payloadIdentity;
+    if (request.observationDomain == "backend-health")
+    {
+        if (request.agentState != "online" || !request.channels.empty() ||
+            !request.upserts.empty() || !request.removedChannelIds.empty())
+        {
+            result.reasonCode = "invalid_backend_health_observation";
+            appendEvent(context, "agent.observation.result", request.backendId,
+                        "backend.agent.observation.ingest", "deny", result.reasonCode,
+                        "denied", now);
+            return result;
+        }
+        canonicalPayload =
+            "agentState=" + request.agentState +
+            ";heartbeatSequence=" + std::to_string(request.observedHeartbeatSequence);
+        payloadIdentity = observationPayloadIdentity(canonicalPayload);
+    }
+    else
+    {
+        constexpr std::size_t MaximumChannels = 4096U;
+        std::set<std::string> channelIds;
+        auto validateFacts = [&](const std::vector<BackendAgentChannelFact>& facts) {
+            for (const auto& fact : facts)
+            {
+                std::string validationReason;
+                if (!backendAgentValidChannelFact(fact, validationReason) ||
+                    !channelIds.insert(fact.channelId).second)
+                {
+                    result.reasonCode = validationReason == "channel_fact_valid"
+                        ? "duplicate_channel_id"
+                        : validationReason;
+                    return false;
+                }
+            }
+            return true;
+        };
+        bool validPayload = request.agentState.empty();
+        if (request.kind == "completeSnapshot")
+        {
+            validPayload = validPayload && request.channels.size() <= MaximumChannels &&
+                request.upserts.empty() && request.removedChannelIds.empty() &&
+                validateFacts(request.channels);
+        }
+        else
+        {
+            validPayload = validPayload && request.channels.empty() &&
+                request.upserts.size() <= MaximumChannels &&
+                request.removedChannelIds.size() <= MaximumChannels &&
+                request.upserts.size() + request.removedChannelIds.size() <= MaximumChannels &&
+                (!request.upserts.empty() || !request.removedChannelIds.empty()) &&
+                validateFacts(request.upserts);
+            std::set<std::string> removed;
+            for (const std::string& channelId : request.removedChannelIds)
+            {
+                if (!safeIdentifier(channelId) || !removed.insert(channelId).second ||
+                    channelIds.find(channelId) != channelIds.end())
+                {
+                    result.reasonCode = "invalid_removed_channel_id";
+                    validPayload = false;
+                    break;
+                }
+            }
+        }
+        if (!validPayload)
+        {
+            if (result.reasonCode.empty()) result.reasonCode = "invalid_channel_observation";
+            appendEvent(context, "agent.observation.result", request.backendId,
+                        "backend.agent.observation.ingest", "deny", result.reasonCode,
+                        "denied", now);
+            return result;
+        }
+        canonicalPayload = backendAgentCanonicalChannelPayload(
+            request.kind, request.channels, request.upserts, request.removedChannelIds);
+        if (canonicalPayload.empty() || canonicalPayload.size() > 512U * 1024U)
+        {
+            result.reasonCode = "invalid_channel_observation_size";
+            appendEvent(context, "agent.observation.result", request.backendId,
+                        "backend.agent.observation.ingest", "deny", result.reasonCode,
+                        "denied", now);
+            return result;
+        }
+        payloadIdentity = backendAgentChannelPayloadIdentity(canonicalPayload);
+    }
+
     if (!appendEvent(context, "agent.observation.requested", request.backendId,
                      "backend.agent.observation.ingest", "allow",
                      "observation_ingestion_requested", "pending", now))
