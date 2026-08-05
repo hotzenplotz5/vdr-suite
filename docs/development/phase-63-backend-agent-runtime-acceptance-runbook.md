@@ -1,8 +1,9 @@
 # Phase 63 Backend Agent runtime acceptance runbook
 
 This runbook is the binding real-yaVDR acceptance path for the bounded Phase-63
-Backend Agent foundation.  It is intentionally fail-closed and must be run
-only after all required GitHub Actions jobs are green for the exact PR head.
+Backend Agent lifecycle and `backend-health` observation-ingestion runtime. It is
+intentionally fail-closed and must be run only after all required GitHub Actions
+jobs are green for the exact PR head.
 
 ## Coverage
 
@@ -16,6 +17,11 @@ The harness proves:
   heartbeat establish the derived `online` state;
 - stopping the Agent produces deterministic `stale` and then `offline` state;
 - restart reconnects the same Agent;
+- a `backend-health` complete snapshot and later exact-next change are accepted;
+- an equivalent replay is acknowledged idempotently without advancing the cursor;
+- a deliberate sequence gap returns `resync-required` without advancing the cursor;
+- the committed observation cursor survives a daemon restart;
+- the Agent recovers after the deliberate gap with a fresh fenced lineage;
 - credential rotation advances the persisted credential generation;
 - a revoked Agent cannot reconnect;
 - a replacement Agent receives a distinct identity while revoked history is
@@ -27,9 +33,12 @@ The harness proves:
   Authorization material; the deterministic scanner reports only redacted
   file/line/category evidence if it rejects a log.
 
-The lost-response credential-rotation branch remains covered by focused
-automated tests because deliberately dropping a committed HTTPS response on a
-production yaVDR host is not a safe live acceptance action.
+The lost-response credential-rotation and observation-delivery branches remain
+covered by focused automated tests because deliberately dropping a committed
+HTTPS response on a production yaVDR host is not a safe live acceptance action.
+The live harness nevertheless exercises an equivalent replay and a deliberate
+sequence gap through a root-only helper that reads protected identity material
+internally, never prints it and verifies that the cursor remains unchanged.
 
 ## Preconditions
 
@@ -63,10 +72,16 @@ A successful run ends with:
 
 ```text
 PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+PHASE_63_BACKEND_HEALTH_INGESTION_RUNTIME_ACCEPTANCE=PASS
 HEAD=<exact accepted head>
 FIRST_AGENT_ID=<revoked Agent identifier>
 REPLACEMENT_AGENT_ID=<active replacement identifier>
 CREDENTIAL_GENERATION=<rotated generation>
+BACKEND_HEALTH_OBSERVATION_INGESTED=yes
+BACKEND_HEALTH_OBSERVATION_REPLAY=yes
+BACKEND_HEALTH_OBSERVATION_GAP_RESYNC=yes
+OBSERVATION_CURSOR_RESTART_PERSISTED=yes
+OBSERVATION_REPLACEMENT_CURSOR=yes
 VDR_NATIVE_STATE_UNCHANGED=yes
 DAEMON_ACTIVE=yes
 AGENT_ACTIVE=yes
@@ -79,6 +94,8 @@ The harness rejects a non-root shell, branch/head mismatch, dirty worktree,
 binary mismatch, unavailable production database, inactive VDR/daemon,
 pre-existing Agent state, insecure/non-HTTPS origin, TLS verification failure,
 a missing or unexpected public Backend API route, missing state transitions,
-failed rotation/revocation/replacement, changed VDR-native fingerprints or
-secret-like log evidence.  It never enables
+missing observation baseline, replay mismatch, cursor movement after replay or
+sequence gap, cursor loss after daemon restart, failed
+rotation/revocation/replacement, changed VDR-native fingerprints or secret-like
+log evidence. It never enables
 `curl --insecure`, prints the Agent identity file or dumps process environment.

@@ -15,7 +15,9 @@ Backend Agent lifecycle.  It never prints credential or enrollment secrets.
 .PP
 .B --status
 prints one JSON object containing the derived Agent state, generations,
-heartbeat/capability revisions and the bounded read-only capability facts.
+heartbeat/capability revisions, bounded read-only capability facts and the
+redacted current backend-health observation cursor.  Observation payloads,
+credentials and Authorization material are never printed.
 .PP
 .B --revoke
 revokes the currently active Agent bound to the selected Backend, including

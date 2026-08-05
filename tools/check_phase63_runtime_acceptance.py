@@ -10,9 +10,12 @@ RUNNER = ROOT / "tools/phase63-runtime-acceptance/backend-agent-foundation.sh"
 MAKEFILE = ROOT / "mk/phase63-runtime-acceptance.mk"
 RUNBOOK = ROOT / "docs/development/phase-63-backend-agent-runtime-acceptance-runbook.md"
 SECRET_SCANNER = ROOT / "tools/check_phase63_runtime_evidence_secrets.py"
+OBSERVATION_EXERCISER = (
+    ROOT / "tools/phase63-runtime-acceptance/exercise_backend_health_observation.py"
+)
 
 failures: list[str] = []
-for path in (RUNNER, MAKEFILE, RUNBOOK, SECRET_SCANNER):
+for path in (RUNNER, MAKEFILE, RUNBOOK, SECRET_SCANNER, OBSERVATION_EXERCISER):
     if not path.is_file():
         failures.append(f"missing Phase-63 runtime acceptance file: {path.relative_to(ROOT)}")
 
@@ -29,6 +32,8 @@ required_runner = [
     "set -euo pipefail",
     "cleanup_failed_acceptance",
     "DELETE FROM backend_agents WHERE backend_id",
+    "DELETE FROM backend_agent_observation_receipts WHERE backend_id",
+    "DELETE FROM backend_agent_observation_cursors WHERE backend_id",
     "root_required",
     "expected_branch_required",
     "expected_head_required",
@@ -49,6 +54,14 @@ required_runner = [
     "evidence-secret-scan.txt",
     "secret_like_material_found_in_evidence_logs",
     "PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS",
+    "PHASE_63_BACKEND_HEALTH_INGESTION_RUNTIME_ACCEPTANCE=PASS",
+    "backendHealthObservation",
+    "OBSERVATION_REPLACEMENT_CURSOR=yes",
+    "BACKEND_HEALTH_OBSERVATION_REPLAY=yes",
+    "BACKEND_HEALTH_OBSERVATION_GAP_RESYNC=yes",
+    "OBSERVATION_CURSOR_RESTART_PERSISTED=yes",
+    "observation-replay-gap.log",
+    'systemctl restart "$DAEMON_SERVICE"',
 ]
 for marker in required_runner:
     if marker not in runner:
@@ -65,11 +78,26 @@ required_make = [
     "PHASE63_EXPECTED_HEAD",
     "PHASE63_CONTROL_PLANE_URL",
     "PHASE63_EVIDENCE_DIR",
+    "PHASE63_OBSERVATION_EXERCISER",
+    "--self-test",
 ]
 for marker in required_make:
     if marker not in makefile:
         failures.append(f"runtime acceptance Make contract missing: {marker}")
 
+
+helper_test = subprocess.run(
+    [sys.executable, str(OBSERVATION_EXERCISER), "--self-test"],
+    cwd=ROOT,
+    text=True,
+    capture_output=True,
+    check=False,
+)
+if helper_test.returncode != 0:
+    failures.append(
+        "backend-health observation acceptance helper self-test failed: "
+        + (helper_test.stderr.strip() or helper_test.stdout.strip() or "unknown error")
+    )
 
 scanner_test = subprocess.run(
     [sys.executable, str(SECRET_SCANNER), "--self-test"],
@@ -90,6 +118,9 @@ for marker in [
     "revoked Agent",
     "replacement Agent",
     "PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS",
+    "equivalent replay",
+    "sequence gap",
+    "daemon restart",
 ]:
     if marker not in runbook:
         failures.append(f"runtime acceptance runbook missing: {marker}")

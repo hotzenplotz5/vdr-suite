@@ -529,6 +529,52 @@ HttpServerResponse BackendAgentHttpServer::handleCapabilities(
     return jsonResponse(200, body.str());
 }
 
+
+HttpServerResponse BackendAgentHttpServer::handleBackendHealthObservation(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentObservationRequest observation;
+    std::uint64_t capturedAt = 0;
+    if (!jsonString(request.body, "protocolVersion", observation.protocolVersion) ||
+        !jsonString(request.body, "backendId", observation.backendId) ||
+        !jsonString(request.body, "agentInstanceId", observation.agentInstanceId) ||
+        !jsonUnsigned(request.body, "backendGeneration", observation.backendGeneration) ||
+        !jsonString(request.body, "observationDomain", observation.observationDomain) ||
+        !jsonUnsigned(request.body, "snapshotGeneration", observation.snapshotGeneration) ||
+        !jsonUnsigned(request.body, "producerSequence", observation.producerSequence) ||
+        !jsonString(request.body, "kind", observation.kind) ||
+        !jsonUnsigned(request.body, "capturedAt", capturedAt) ||
+        !jsonString(request.body, "resourceRevision", observation.resourceRevision) ||
+        !jsonString(request.body, "agentState", observation.agentState) ||
+        !jsonUnsigned(
+            request.body, "observedHeartbeatSequence",
+            observation.observedHeartbeatSequence))
+    {
+        return errorResponse(400, "invalid_backend_health_observation_payload");
+    }
+    if (capturedAt > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+    {
+        return errorResponse(400, "invalid_backend_health_observation_payload");
+    }
+    observation.capturedAt = static_cast<std::int64_t>(capturedAt);
+    const BackendAgentObservationResult result =
+        lifecycleService_.ingestObservation(context, observation, unixNow());
+    if (!result.accepted)
+    {
+        return errorResponse(result.resyncRequired ? 409 : 422, result.reasonCode);
+    }
+    std::ostringstream body;
+    body << "{\"outcome\":\"" << (result.replayed ? "replayed" : "accepted")
+         << "\",\"reasonCode\":\"" << jsonEscape(result.reasonCode)
+         << "\",\"snapshotGeneration\":" << result.snapshotGeneration
+         << ",\"producerSequence\":" << result.producerSequence
+         << ",\"lastAcceptedSequence\":" << result.lastAcceptedSequence
+         << "}";
+    return jsonResponse(200, body.str());
+}
+
 HttpServerResponse BackendAgentHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
@@ -545,5 +591,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.path == "/api/agent/v1/connect") return handleConnect(request, context);
     if (request.path == "/api/agent/v1/heartbeat") return handleHeartbeat(request, context);
     if (request.path == "/api/agent/v1/capabilities") return handleCapabilities(request, context);
+    if (request.path == "/api/agent/v1/observations/backend-health")
+        return handleBackendHealthObservation(request, context);
     return errorResponse(404, "agent_route_not_found");
 }

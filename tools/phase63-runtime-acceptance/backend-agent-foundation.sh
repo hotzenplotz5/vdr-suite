@@ -23,6 +23,14 @@ device_ids = [row[1] for row in rows]
 actor_ids = [row[0] for row in rows]
 with connection:
     connection.execute(
+        "DELETE FROM backend_agent_observation_receipts WHERE backend_id = ?",
+        (backend,),
+    )
+    connection.execute(
+        "DELETE FROM backend_agent_observation_cursors WHERE backend_id = ?",
+        (backend,),
+    )
+    connection.execute(
         "DELETE FROM backend_agent_capabilities WHERE agent_id IN "
         "(SELECT agent_id FROM backend_agents WHERE backend_id = ?)",
         (backend,),
@@ -50,7 +58,8 @@ with connection:
 connection.close()
 PY_CLEANUP
     fi
-    rm -f "${IDENTITY_PATH:-}" "${IDENTITY_PATH:-}.pending"         "${ENROLLMENT_PATH:-}" "${ENROLLMENT_PATH:-}.pending" 2>/dev/null || true
+    rm -f "${IDENTITY_PATH:-}" "${IDENTITY_PATH:-}.pending" \
+        "${ENROLLMENT_PATH:-}" "${ENROLLMENT_PATH:-}.pending" 2>/dev/null || true
     if [[ -n "${CONFIG_PATH:-}" && -n "${EVIDENCE_DIR:-}" ]]; then
         if [[ -f "$EVIDENCE_DIR/backend-agent.conf.before" ]]; then
             cp -a "$EVIDENCE_DIR/backend-agent.conf.before" "$CONFIG_PATH" 2>/dev/null || true
@@ -99,6 +108,18 @@ wait_for_state() {
         sleep 1
     done
     fail "agent_state_${expected}_not_observed_last_${current}"
+}
+
+wait_for_service_active() {
+    local service="$1"
+    local attempts="$2"
+    for ((attempt=0; attempt<attempts; ++attempt)); do
+        if [[ "$(systemctl is-active "$service" || true)" == active ]]; then
+            return 0
+        fi
+        sleep 1
+    done
+    fail "service_not_active_${service}"
 }
 
 credential_generation() {
@@ -171,6 +192,7 @@ AGENT_BINARY="/usr/sbin/vdr-suite-backend-agent"
 ENROLL_BINARY="/usr/sbin/vdr-suite-backend-agent-enroll"
 ADMIN_BINARY="/usr/sbin/vdr-suite-backend-agent-admin"
 SECRET_SCANNER="tools/check_phase63_runtime_evidence_secrets.py"
+OBSERVATION_EXERCISER="tools/phase63-runtime-acceptance/exercise_backend_health_observation.py"
 
 [[ -n "$EXPECTED_BRANCH" ]] || fail "expected_branch_required"
 [[ -n "$EXPECTED_HEAD" ]] || fail "expected_head_required"
@@ -181,10 +203,11 @@ SECRET_SCANNER="tools/check_phase63_runtime_evidence_secrets.py"
 [[ ! -e "$EVIDENCE_DIR" ]] || fail "evidence_directory_already_exists"
 [[ -z "$CA_CERTIFICATE_PATH" || -f "$CA_CERTIFICATE_PATH" ]] || fail "ca_certificate_missing"
 
-for command in git systemctl curl python3 sha256sum runuser install cmp journalctl; do
+for command in git systemctl curl python3 sha256sum runuser install cmp journalctl grep; do
     require_command "$command"
 done
 [[ -f "$SECRET_SCANNER" ]] || fail "evidence_secret_scanner_missing"
+[[ -f "$OBSERVATION_EXERCISER" ]] || fail "observation_acceptance_helper_missing"
 
 CURRENT_BRANCH="$(git branch --show-current)"
 CURRENT_HEAD="$(git rev-parse HEAD)"
@@ -288,7 +311,17 @@ assert value["capabilityRevision"] > 0
 assert value["readOnly"] is True
 assert value["adapters"] == []
 assert value["observationDomains"] == ["backend-health"]
+observation=value["backendHealthObservation"]
+assert observation["present"] is True
+assert observation["backendGeneration"] == value["backendGeneration"]
+assert observation["snapshotGeneration"] > 0
+assert observation["producerSequence"] > 0
+assert observation["resourceRevision"].startswith("heartbeat-")
 '
+FIRST_OBSERVATION_SEQUENCE="$(printf '%s\n' "$FIRST_STATUS" | python3 -c '
+import json,sys
+print(json.load(sys.stdin)["backendHealthObservation"]["producerSequence"])
+')"
 FIRST_AGENT_ID="$(printf '%s\n' "$FIRST_STATUS" | json_field agentId)"
 [[ -n "$FIRST_AGENT_ID" ]] || fail "first_agent_id_missing"
 
@@ -300,7 +333,15 @@ agent_status > "$EVIDENCE_DIR/status.offline.json"
 
 systemctl start "$AGENT_SERVICE"
 wait_for_state online 45
-agent_status > "$EVIDENCE_DIR/status.reconnected.json"
+RECONNECTED_STATUS="$(agent_status)"
+printf '%s\n' "$RECONNECTED_STATUS" > "$EVIDENCE_DIR/status.reconnected.json"
+printf '%s\n' "$RECONNECTED_STATUS" | python3 -c '
+import json,sys
+value=json.load(sys.stdin)
+observation=value["backendHealthObservation"]
+assert observation["present"] is True
+assert observation["producerSequence"] > int(sys.argv[1])
+' "$FIRST_OBSERVATION_SEQUENCE"
 
 systemctl stop "$AGENT_SERVICE"
 GENERATION_BEFORE="$(credential_generation)"
@@ -310,7 +351,59 @@ GENERATION_AFTER="$(credential_generation)"
 [[ "$GENERATION_AFTER" -eq $((GENERATION_BEFORE + 1)) ]] || fail "credential_generation_not_advanced"
 systemctl start "$AGENT_SERVICE"
 wait_for_state online 45
-agent_status > "$EVIDENCE_DIR/status.rotated.json"
+ROTATED_STATUS="$(agent_status)"
+printf '%s\n' "$ROTATED_STATUS" > "$EVIDENCE_DIR/status.rotated.json"
+
+systemctl stop "$AGENT_SERVICE"
+systemctl restart "$DAEMON_SERVICE"
+wait_for_service_active "$DAEMON_SERVICE" 30
+DAEMON_RESTARTED_STATUS="$(agent_status)"
+printf '%s\n' "$DAEMON_RESTARTED_STATUS" \
+    > "$EVIDENCE_DIR/status.daemon-restarted.json"
+printf '%s\n%s\n' "$ROTATED_STATUS" "$DAEMON_RESTARTED_STATUS" | python3 -c '
+import json,sys
+before=json.loads(sys.stdin.readline())
+after=json.loads(sys.stdin.readline())
+assert before["agentId"] == after["agentId"]
+assert before["backendHealthObservation"] == after["backendHealthObservation"]
+'
+
+python3 "$OBSERVATION_EXERCISER" \
+    --database "$DATABASE" \
+    --identity "$IDENTITY_PATH" \
+    --backend "$BACKEND_ID" \
+    --control-plane-url "$CONTROL_PLANE_URL" \
+    --ca-certificate-path "$CA_CERTIFICATE_PATH" \
+    > "$EVIDENCE_DIR/observation-replay-gap.log" 2>&1
+grep -qx 'BACKEND_HEALTH_OBSERVATION_REPLAY=PASS' \
+    "$EVIDENCE_DIR/observation-replay-gap.log" \
+    || fail "backend_health_observation_replay_not_proven"
+grep -qx 'BACKEND_HEALTH_OBSERVATION_GAP_RESYNC=PASS' \
+    "$EVIDENCE_DIR/observation-replay-gap.log" \
+    || fail "backend_health_observation_gap_resync_not_proven"
+AFTER_GAP_STATUS="$(agent_status)"
+printf '%s\n' "$AFTER_GAP_STATUS" > "$EVIDENCE_DIR/status.after-gap.json"
+printf '%s\n%s\n' "$DAEMON_RESTARTED_STATUS" "$AFTER_GAP_STATUS" | python3 -c '
+import json,sys
+before=json.loads(sys.stdin.readline())
+after=json.loads(sys.stdin.readline())
+assert before["backendHealthObservation"] == after["backendHealthObservation"]
+'
+
+systemctl start "$AGENT_SERVICE"
+wait_for_state online 45
+RECOVERED_STATUS="$(agent_status)"
+printf '%s\n' "$RECOVERED_STATUS" > "$EVIDENCE_DIR/status.observation-recovered.json"
+printf '%s\n%s\n' "$AFTER_GAP_STATUS" "$RECOVERED_STATUS" | python3 -c '
+import json,sys
+before=json.loads(sys.stdin.readline())
+after=json.loads(sys.stdin.readline())
+observation=after["backendHealthObservation"]
+assert observation["present"] is True
+assert observation["backendGeneration"] == after["backendGeneration"]
+assert observation["producerSequence"] > 0
+assert observation != before["backendHealthObservation"]
+'
 
 systemctl stop "$AGENT_SERVICE"
 "$ADMIN_BINARY" --database "$DATABASE" --backend "$BACKEND_ID" \
@@ -335,6 +428,15 @@ REPLACEMENT_STATUS="$(agent_status)"
 printf '%s\n' "$REPLACEMENT_STATUS" > "$EVIDENCE_DIR/status.replacement.json"
 REPLACEMENT_AGENT_ID="$(printf '%s\n' "$REPLACEMENT_STATUS" | json_field agentId)"
 [[ -n "$REPLACEMENT_AGENT_ID" && "$REPLACEMENT_AGENT_ID" != "$FIRST_AGENT_ID" ]] || fail "replacement_agent_identity_not_distinct"
+printf '%s\n' "$REPLACEMENT_STATUS" | python3 -c '
+import json,sys
+value=json.load(sys.stdin)
+observation=value["backendHealthObservation"]
+assert observation["present"] is True
+assert observation["backendGeneration"] == value["backendGeneration"]
+assert observation["snapshotGeneration"] > 0
+assert observation["producerSequence"] > 0
+'
 
 python3 - "$DATABASE" "$BACKEND_ID" "$FIRST_AGENT_ID" "$REPLACEMENT_AGENT_ID" <<'PY'
 import sqlite3, sys
@@ -343,11 +445,28 @@ rows = connection.execute(
     "SELECT agent_id, revoked_at FROM backend_agents WHERE backend_id = ? ORDER BY created_at",
     (sys.argv[2],),
 ).fetchall()
+receipt_agents = {
+    row[0]
+    for row in connection.execute(
+        "SELECT DISTINCT agent_id FROM backend_agent_observation_receipts "
+        "WHERE backend_id = ? AND observation_domain = 'backend-health' "
+        "AND outcome = 'accepted'",
+        (sys.argv[2],),
+    ).fetchall()
+}
+cursor = connection.execute(
+    "SELECT agent_id, producer_sequence FROM backend_agent_observation_cursors "
+    "WHERE backend_id = ? AND observation_domain = 'backend-health'",
+    (sys.argv[2],),
+).fetchone()
 connection.close()
 by_id = {agent_id: revoked_at for agent_id, revoked_at in rows}
 assert by_id.get(sys.argv[3], 0) > 0, rows
 assert by_id.get(sys.argv[4], -1) == 0, rows
 assert sum(1 for _, revoked_at in rows if revoked_at == 0) == 1, rows
+assert sys.argv[3] in receipt_agents, receipt_agents
+assert sys.argv[4] in receipt_agents, receipt_agents
+assert cursor is not None and cursor[0] == sys.argv[4] and cursor[1] > 0, cursor
 PY
 
 vdr_fingerprint "$EVIDENCE_DIR/vdr-state.after"
@@ -377,11 +496,17 @@ sha256sum "$EVIDENCE_DIR"/* > "$EVIDENCE_DIR/SHA256SUMS"
 
 SUCCESS=1
 printf 'PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS\n'
+printf 'PHASE_63_BACKEND_HEALTH_INGESTION_RUNTIME_ACCEPTANCE=PASS\n'
 printf 'HEAD=%s\n' "$CURRENT_HEAD"
 printf 'CONTROL_PLANE_URL=%s\n' "$CONTROL_PLANE_URL"
 printf 'FIRST_AGENT_ID=%s\n' "$FIRST_AGENT_ID"
 printf 'REPLACEMENT_AGENT_ID=%s\n' "$REPLACEMENT_AGENT_ID"
 printf 'CREDENTIAL_GENERATION=%s\n' "$GENERATION_AFTER"
+printf 'BACKEND_HEALTH_OBSERVATION_INGESTED=yes\n'
+printf 'BACKEND_HEALTH_OBSERVATION_REPLAY=yes\n'
+printf 'BACKEND_HEALTH_OBSERVATION_GAP_RESYNC=yes\n'
+printf 'OBSERVATION_CURSOR_RESTART_PERSISTED=yes\n'
+printf 'OBSERVATION_REPLACEMENT_CURSOR=yes\n'
 printf 'VDR_NATIVE_STATE_UNCHANGED=yes\n'
 printf 'DAEMON_ACTIVE=yes\n'
 printf 'AGENT_ACTIVE=yes\n'

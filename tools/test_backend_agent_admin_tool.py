@@ -96,6 +96,17 @@ def main() -> int:
             "VALUES (?, 1, 'observation', 'backend-health', 'true')",
             ("agt_test",),
         )
+        connection.execute(
+            "INSERT INTO backend_agent_observation_cursors "
+            "(backend_id, observation_domain, agent_id, agent_instance_id, "
+            "backend_generation, snapshot_generation, producer_sequence, "
+            "resource_revision, payload_identity, captured_at, accepted_at) "
+            "VALUES (?, ?, ?, ?, 1, 2, 7, ?, ?, ?, ?)",
+            (
+                "default", "backend-health", "agt_test", "instance-test",
+                "heartbeat-3", "payload-test", now, now,
+            ),
+        )
         connection.commit()
         connection.close()
 
@@ -114,6 +125,15 @@ def main() -> int:
             "readOnly": True,
             "adapters": [],
             "observationDomains": ["backend-health"],
+            "backendHealthObservation": {
+                "present": True,
+                "backendGeneration": 1,
+                "snapshotGeneration": 2,
+                "producerSequence": 7,
+                "resourceRevision": "heartbeat-3",
+                "capturedAt": now,
+                "acceptedAt": now,
+            },
         }
         for key, value in expected.items():
             if status.get(key) != value:

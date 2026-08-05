@@ -389,6 +389,196 @@ void test_capabilities_heartbeat_lease_and_restart_persistence()
     assert(leaseResult && capabilityResult);
 }
 
+
+void test_backend_health_observation_ingestion_and_atomicity()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    auto agent = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(agent.has_value());
+    const BackendAgentConnectResult connected = connectAgent(fixture, *agent);
+
+    BackendAgentCapabilityFacts facts;
+    facts.observationDomains = {"backend-health"};
+    BackendAgentCapabilityResult capabilities = fixture.service.publishCapabilities(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        1, facts, Now + 3);
+    assert(capabilities.accepted);
+    BackendAgentHeartbeatResult heartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        1, Now + 4);
+    assert(heartbeat.accepted);
+
+    BackendAgentObservationRequest baseline;
+    baseline.protocolVersion = "vdr-suite-agent/1";
+    baseline.backendId = "default";
+    baseline.agentInstanceId = "instance-1";
+    baseline.backendGeneration = connected.backendGeneration;
+    baseline.observationDomain = "backend-health";
+    baseline.snapshotGeneration = 1;
+    baseline.producerSequence = 1;
+    baseline.kind = "completeSnapshot";
+    baseline.capturedAt = Now + 4;
+    baseline.resourceRevision = "heartbeat-1";
+    baseline.agentState = "online";
+    baseline.observedHeartbeatSequence = 1;
+
+    BackendAgentObservationRequest changeBeforeBaseline = baseline;
+    changeBeforeBaseline.kind = "changeBatch";
+    BackendAgentObservationResult missingBaseline = fixture.service.ingestObservation(
+        agentContext(*agent), changeBeforeBaseline, Now + 5);
+    assert(!missingBaseline.accepted);
+    assert(missingBaseline.resyncRequired);
+    assert(missingBaseline.reasonCode == "observation_baseline_required");
+    assert(!fixture.service.observationCursorForBackend(
+        "default", "backend-health").present);
+
+    BackendAgentObservationResult accepted = fixture.service.ingestObservation(
+        agentContext(*agent), baseline, Now + 5);
+    assert(accepted.accepted);
+    assert(!accepted.replayed);
+    assert(accepted.reasonCode == "complete_snapshot_accepted");
+    assert(accepted.lastAcceptedSequence == 1);
+
+    BackendAgentObservationCursor cursor = fixture.service.observationCursorForBackend(
+        "default", "backend-health");
+    assert(cursor.present);
+    assert(cursor.snapshotGeneration == 1);
+    assert(cursor.producerSequence == 1);
+    assert(cursor.backendGeneration == connected.backendGeneration);
+
+    BackendAgentObservationResult replay = fixture.service.ingestObservation(
+        agentContext(*agent), baseline, Now + 6);
+    assert(replay.accepted);
+    assert(replay.replayed);
+    assert(replay.reasonCode == "observation_replayed");
+
+    BackendAgentObservationRequest conflict = baseline;
+    conflict.resourceRevision = "heartbeat-one-conflict";
+    BackendAgentObservationResult conflicting = fixture.service.ingestObservation(
+        agentContext(*agent), conflict, Now + 7);
+    assert(!conflicting.accepted);
+    assert(conflicting.reasonCode == "observation_replay_conflict");
+
+    BackendAgentHeartbeatResult secondHeartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        2, Now + 8);
+    assert(secondHeartbeat.accepted);
+    BackendAgentObservationRequest change = baseline;
+    change.kind = "changeBatch";
+    change.producerSequence = 2;
+    change.capturedAt = Now + 8;
+    change.resourceRevision = "heartbeat-2";
+    change.observedHeartbeatSequence = 2;
+    BackendAgentObservationResult changed = fixture.service.ingestObservation(
+        agentContext(*agent), change, Now + 9);
+    assert(changed.accepted);
+    assert(changed.reasonCode == "change_batch_accepted");
+    assert(changed.lastAcceptedSequence == 2);
+
+    BackendAgentHeartbeatResult thirdHeartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        3, Now + 10);
+    assert(thirdHeartbeat.accepted);
+    BackendAgentObservationRequest gap = change;
+    gap.producerSequence = 4;
+    gap.capturedAt = Now + 10;
+    gap.resourceRevision = "heartbeat-3-gap";
+    gap.observedHeartbeatSequence = 3;
+    BackendAgentObservationResult gapResult = fixture.service.ingestObservation(
+        agentContext(*agent), gap, Now + 11);
+    assert(!gapResult.accepted);
+    assert(gapResult.resyncRequired);
+    assert(gapResult.reasonCode == "observation_resync_required");
+    assert(fixture.service.observationCursorForBackend(
+        "default", "backend-health").producerSequence == 2);
+
+    BackendAgentObservationRequest replacement = baseline;
+    replacement.snapshotGeneration = 2;
+    replacement.capturedAt = Now + 10;
+    replacement.resourceRevision = "heartbeat-3-resync";
+    replacement.observedHeartbeatSequence = 3;
+    BackendAgentObservationResult replaced = fixture.service.ingestObservation(
+        agentContext(*agent), replacement, Now + 12);
+    assert(replaced.accepted);
+    assert(replaced.reasonCode == "complete_snapshot_accepted");
+    cursor = fixture.service.observationCursorForBackend("default", "backend-health");
+    assert(cursor.snapshotGeneration == 2);
+    assert(cursor.producerSequence == 1);
+
+    BackendAgentObservationRequest staleInstance = replacement;
+    staleInstance.agentInstanceId = "obsolete-instance";
+    BackendAgentObservationResult fenced = fixture.service.ingestObservation(
+        agentContext(*agent), staleInstance, Now + 13);
+    assert(!fenced.accepted);
+    assert(fenced.reasonCode == "stale_agent_instance");
+
+    BackendAgentObservationRequest staleGeneration = replacement;
+    staleGeneration.backendGeneration = connected.backendGeneration + 1;
+    BackendAgentObservationResult generationFenced = fixture.service.ingestObservation(
+        agentContext(*agent), staleGeneration, Now + 13);
+    assert(!generationFenced.accepted);
+    assert(generationFenced.reasonCode == "stale_backend_generation");
+
+    BackendAgentCapabilityFacts noObservationDomains;
+    BackendAgentCapabilityResult domainsRemoved = fixture.service.publishCapabilities(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        2, noObservationDomains, Now + 13);
+    assert(domainsRemoved.accepted);
+    BackendAgentObservationResult undeclaredResult = fixture.service.ingestObservation(
+        agentContext(*agent), replacement, Now + 13);
+    assert(!undeclaredResult.accepted);
+    assert(undeclaredResult.reasonCode == "undeclared_observation_domain");
+    BackendAgentCapabilityResult domainsRestored = fixture.service.publishCapabilities(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        3, facts, Now + 13);
+    assert(domainsRestored.accepted);
+
+    BackendAgentObservationRequest invalidDomain = replacement;
+    invalidDomain.observationDomain = "recordings";
+    BackendAgentObservationResult invalidDomainResult = fixture.service.ingestObservation(
+        agentContext(*agent), invalidDomain, Now + 13);
+    assert(!invalidDomainResult.accepted);
+    assert(invalidDomainResult.reasonCode == "invalid_backend_health_observation");
+
+    BackendAgentHeartbeatResult fourthHeartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        4, Now + 14);
+    assert(fourthHeartbeat.accepted);
+    assert(fixture.database.execute(
+        "CREATE TRIGGER fail_observation_cursor BEFORE UPDATE ON "
+        "backend_agent_observation_cursors BEGIN "
+        "SELECT RAISE(ABORT, 'forced cursor failure'); END;"));
+    const std::int64_t receiptCount = rowCount(
+        fixture.database, "backend_agent_observation_receipts");
+    BackendAgentObservationRequest atomicChange = replacement;
+    atomicChange.kind = "changeBatch";
+    atomicChange.producerSequence = 2;
+    atomicChange.capturedAt = Now + 14;
+    atomicChange.resourceRevision = "heartbeat-4";
+    atomicChange.observedHeartbeatSequence = 4;
+    BackendAgentObservationResult failed = fixture.service.ingestObservation(
+        agentContext(*agent), atomicChange, Now + 15);
+    assert(!failed.accepted);
+    assert(failed.reasonCode == "observation_persistence_failed");
+    assert(rowCount(fixture.database, "backend_agent_observation_receipts") == receiptCount);
+    cursor = fixture.service.observationCursorForBackend("default", "backend-health");
+    assert(cursor.snapshotGeneration == 2);
+    assert(cursor.producerSequence == 1);
+    assert(fixture.database.execute("DROP TRIGGER fail_observation_cursor;"));
+
+    std::string revokeReason;
+    assert(fixture.service.revoke(
+        adminContext(), agent->agentId, "observation-revocation-test",
+        Now + 16, revokeReason));
+    BackendAgentObservationResult revoked = fixture.service.ingestObservation(
+        agentContext(*agent), atomicChange, Now + 17);
+    assert(!revoked.accepted);
+    assert(revoked.reasonCode == "agent_revoked_or_unknown");
+    assert(fixture.service.observationCursorForBackend(
+        "default", "backend-health").producerSequence == 1);
+}
+
 void test_generation_fencing_revocation_and_accountability()
 {
     Fixture fixture;
@@ -675,6 +865,65 @@ void test_http_protocol_and_redaction()
     assert(rotatedCredentialAccepted.body.find("\"credentialGeneration\":2") !=
         std::string::npos);
 
+    HttpServerRequest capabilities;
+    capabilities.method = "POST";
+    capabilities.path = "/api/agent/v1/capabilities";
+    capabilities.headers = connect.headers;
+    capabilities.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"capabilityRevision\":1,"
+        "\"readOnly\":true,\"adapters\":[],"
+        "\"observationDomains\":[\"backend-health\"]}";
+    assert(server.handleRequest(capabilities).statusCode == 200);
+
+    HttpServerRequest heartbeat;
+    heartbeat.method = "POST";
+    heartbeat.path = "/api/agent/v1/heartbeat";
+    heartbeat.headers = connect.headers;
+    heartbeat.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"heartbeatSequence\":1}";
+    assert(server.handleRequest(heartbeat).statusCode == 200);
+
+    HttpServerRequest observation;
+    observation.method = "POST";
+    observation.path = "/api/agent/v1/observations/backend-health";
+    observation.headers = connect.headers;
+    observation.body =
+        "{\"protocolVersion\":\"vdr-suite-agent/1\","
+        "\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"observationDomain\":\"backend-health\","
+        "\"snapshotGeneration\":1,\"producerSequence\":1,"
+        "\"kind\":\"completeSnapshot\",\"capturedAt\":" +
+        std::to_string(realNow) +
+        ",\"resourceRevision\":\"heartbeat-1\","
+        "\"agentState\":\"online\",\"observedHeartbeatSequence\":1}";
+    const HttpServerResponse observed = server.handleRequest(observation);
+    assert(observed.statusCode == 200);
+    assert(observed.body.find("\"outcome\":\"accepted\"") != std::string::npos);
+    assert(observed.body.find(AgentSecret) == std::string::npos);
+    assert(observed.body.find(RotatedAgentSecret) == std::string::npos);
+
+    HttpServerRequest malformedObservation = observation;
+    malformedObservation.body = "{\"protocolVersion\":\"vdr-suite-agent/1\"}";
+    assert(server.handleRequest(malformedObservation).statusCode == 400);
+
+    HttpServerRequest overflowObservation = observation;
+    overflowObservation.body =
+        "{\"protocolVersion\":\"vdr-suite-agent/1\","
+        "\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"observationDomain\":\"backend-health\","
+        "\"snapshotGeneration\":9223372036854775808,\"producerSequence\":1,"
+        "\"kind\":\"completeSnapshot\",\"capturedAt\":" +
+        std::to_string(realNow) +
+        ",\"resourceRevision\":\"heartbeat-1\","
+        "\"agentState\":\"online\",\"observedHeartbeatSequence\":1}";
+    assert(server.handleRequest(overflowObservation).statusCode == 400);
+
+    HttpServerRequest oversizedObservation = observation;
+    oversizedObservation.body.assign(17U * 1024U, 'x');
+    assert(server.handleRequest(oversizedObservation).statusCode == 413);
+
     HttpServerRequest malformedNumber = connect;
     malformedNumber.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
@@ -784,6 +1033,7 @@ int main()
     test_enrollment_authorization_idempotency_and_binding();
     test_protocol_generation_reconnect_and_backend_isolation();
     test_capabilities_heartbeat_lease_and_restart_persistence();
+    test_backend_health_observation_ingestion_and_atomicity();
     test_generation_fencing_revocation_and_accountability();
     test_credential_rotation_fencing_idempotency_and_lease_invalidation();
     test_revoked_agent_can_be_replaced_without_losing_history();

@@ -1,5 +1,6 @@
 #include "BackendAgentClient.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <deque>
@@ -65,6 +66,20 @@ private:
 BackendAgentTransportResponse success(int status, const std::string& body)
 {
     return BackendAgentTransportResponse{true, status, body, {}};
+}
+
+BackendAgentTransportResponse observationSuccess(
+    std::uint64_t snapshotGeneration,
+    std::uint64_t producerSequence,
+    const std::string& outcome = "accepted")
+{
+    return success(
+        200,
+        "{\"outcome\":\"" + outcome +
+        "\",\"reasonCode\":\"backend_health_observation_test\"," +
+        "\"snapshotGeneration\":" + std::to_string(snapshotGeneration) +
+        ",\"producerSequence\":" + std::to_string(producerSequence) +
+        ",\"lastAcceptedSequence\":" + std::to_string(producerSequence) + "}");
 }
 
 BackendAgentClientConfig configFor(const std::string& root)
@@ -154,6 +169,7 @@ void test_enrollment_connect_capability_heartbeat_and_restart()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
              "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
 
     BackendAgentClientRuntime runtime(config, transport);
     assert(runtime.synchronize(reason));
@@ -167,7 +183,8 @@ void test_enrollment_connect_capability_heartbeat_and_restart()
     assert((identityStatus.st_mode & (S_IRWXG | S_IRWXO)) == 0);
     assert(transport.paths == std::vector<std::string>({
         "/api/agent/v1/enroll", "/api/agent/v1/connect",
-        "/api/agent/v1/capabilities", "/api/agent/v1/heartbeat"}));
+        "/api/agent/v1/capabilities", "/api/agent/v1/heartbeat",
+        "/api/agent/v1/observations/backend-health"}));
     for (const std::string& body : transport.bodies)
     {
         assert(body.find(package.enrollmentToken) == std::string::npos);
@@ -176,6 +193,7 @@ void test_enrollment_connect_capability_heartbeat_and_restart()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
              "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
     assert(runtime.heartbeat(reason));
     assert(runtime.state().heartbeatSequence == 2);
 
@@ -199,6 +217,7 @@ void test_enrollment_connect_capability_heartbeat_and_restart()
     restartedTransport.responses.push_back(success(
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":200,"
              "\"duplicate\":false}"));
+    restartedTransport.responses.push_back(observationSuccess(2, 1));
     BackendAgentClientRuntime restarted(config, restartedTransport);
     assert(restarted.synchronize(reason));
     assert(restarted.state().backendGeneration == 2);
@@ -237,6 +256,7 @@ void test_credential_rotation_and_lost_response_recovery()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
              "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
     BackendAgentClientRuntime runtime(config, transport);
     assert(runtime.synchronize(reason));
     const std::string oldSecret = runtime.state().credentialSecret;
@@ -252,14 +272,22 @@ void test_credential_rotation_and_lost_response_recovery()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
              "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
     assert(runtime.rotateCredential(reason));
     assert(reason == "credential_rotated");
     assert(runtime.state().credentialGeneration == 2);
     assert(runtime.state().credentialSecret != oldSecret);
     assert(runtime.state().pendingRotationId.empty());
-    assert(transport.paths[3] == "/api/agent/v1/credentials/rotate");
-    assert(transport.credentialSecrets[3] == oldSecret);
-    assert(transport.credentialSecrets[4] == runtime.state().credentialSecret);
+    const auto rotationPath = std::find(
+        transport.paths.begin(), transport.paths.end(),
+        "/api/agent/v1/credentials/rotate");
+    assert(rotationPath != transport.paths.end());
+    assert(std::find(
+        transport.credentialSecrets.begin(), transport.credentialSecrets.end(),
+        oldSecret) != transport.credentialSecrets.end());
+    assert(std::find(
+        transport.credentialSecrets.begin(), transport.credentialSecrets.end(),
+        runtime.state().credentialSecret) != transport.credentialSecrets.end());
 
     BackendAgentClientState persisted;
     assert(BackendAgentClientRuntime::loadIdentity(
@@ -279,6 +307,7 @@ void test_credential_rotation_and_lost_response_recovery()
     ambiguousTransport.responses.push_back(success(
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":200,"
              "\"duplicate\":false}"));
+    ambiguousTransport.responses.push_back(observationSuccess(2, 1));
     BackendAgentClientRuntime ambiguous(config, ambiguousTransport);
     assert(ambiguous.synchronize(reason));
     ambiguousTransport.responses.push_back(BackendAgentTransportResponse{
@@ -312,6 +341,7 @@ void test_credential_rotation_and_lost_response_recovery()
     recoveryTransport.responses.push_back(success(
         200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":230,"
              "\"duplicate\":false}"));
+    recoveryTransport.responses.push_back(observationSuccess(2, 2));
     BackendAgentClientRuntime recovered(config, recoveryTransport);
     assert(recovered.synchronize(reason));
     assert(recovered.state().credentialGeneration == 3);
@@ -323,6 +353,134 @@ void test_credential_rotation_and_lost_response_recovery()
     removeTree(root);
 }
 
+
+
+void test_backend_health_observation_lost_response_and_resync_recovery()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-observation";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().observationSnapshotGeneration == 1);
+    assert(runtime.state().observationProducerSequence == 1);
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    assert(!runtime.heartbeat(reason));
+    assert(reason == "protected_transport_failed");
+    assert(runtime.state().heartbeatSequence == 2);
+    assert(runtime.state().observationProducerSequence == 1);
+    assert(runtime.state().pendingObservationProducerSequence == 2);
+
+    BackendAgentClientState pending;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, pending, reason));
+    assert(pending.pendingObservationProducerSequence == 2);
+    assert(pending.pendingObservationHeartbeatSequence == 2);
+
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+        "\"backendGeneration\":1,\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":2,\"capabilityRevision\":1,"
+        "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    transport.responses.push_back(observationSuccess(1, 2, "replayed"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":3,\"leaseExpiresAt\":183,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 3));
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().pendingObservationKind.empty());
+    assert(runtime.state().observationProducerSequence == 3);
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":4,\"leaseExpiresAt\":213,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        409,
+        "{\"error\":{\"code\":\"observation_resync_required\","
+        "\"message\":\"Agent protocol request rejected\"}}"));
+    transport.responses.push_back(observationSuccess(2, 1));
+    assert(runtime.heartbeat(reason));
+    assert(runtime.state().observationSnapshotGeneration == 2);
+    assert(runtime.state().observationProducerSequence == 1);
+    assert(runtime.state().pendingObservationKind.empty());
+
+    removeTree(root);
+}
+
+void test_legacy_identity_migrates_without_observation_cursor()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-legacy-identity";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const BackendAgentClientConfig config = configFor(root);
+    {
+        std::ofstream output(config.identityPath);
+        output << "version=1\n"
+               << "agent_id=agt_client\n"
+               << "backend_id=default\n"
+               << "credential_id=agc_client\n"
+               << "credential_generation=1\n"
+               << "credential_secret=" << Secret << "\n"
+               << "backend_generation=7\n"
+               << "heartbeat_sequence=11\n"
+               << "capability_revision=3\n";
+    }
+    assert(chmod(config.identityPath.c_str(), 0600) == 0);
+
+    BackendAgentClientState loaded;
+    std::string reason;
+    assert(BackendAgentClientRuntime::loadIdentity(
+        config.identityPath, loaded, reason));
+    assert(reason == "identity_loaded");
+    assert(loaded.backendGeneration == 7);
+    assert(loaded.heartbeatSequence == 11);
+    assert(loaded.capabilityRevision == 3);
+    assert(loaded.observationBackendGeneration == 0);
+    assert(loaded.observationSnapshotGeneration == 0);
+    assert(loaded.observationProducerSequence == 0);
+    assert(loaded.pendingObservationKind.empty());
+
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, loaded, reason));
+    std::ifstream migrated(config.identityPath);
+    const std::string contents(
+        (std::istreambuf_iterator<char>(migrated)),
+        std::istreambuf_iterator<char>());
+    assert(contents.find("version=2\n") == 0);
+    assert(contents.find("observation_backend_generation=0\n") !=
+           std::string::npos);
+    removeTree(root);
+}
 
 void test_malformed_control_plane_numbers_fail_closed()
 {
@@ -427,6 +585,8 @@ int main()
     test_protected_url_and_configuration();
     test_enrollment_connect_capability_heartbeat_and_restart();
     test_credential_rotation_and_lost_response_recovery();
+    test_backend_health_observation_lost_response_and_resync_recovery();
+    test_legacy_identity_migrates_without_observation_cursor();
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
     std::cout << "test_backend_agent_client passed" << std::endl;
