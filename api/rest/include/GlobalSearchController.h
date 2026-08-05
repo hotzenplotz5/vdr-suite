@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "GlobalSearchResult.h"
 
 #include <cstdint>
 #include <functional>
@@ -9,15 +10,6 @@
 
 class BackendRegistryService;
 class GlobalSearchService;
-
-struct GlobalSearchPersonPortrait
-{
-    std::string name;
-    std::string role;
-    std::string backendNativeId;
-    int index = -1;
-    int assignmentRevision = 0;
-};
 
 class GlobalSearchController
 {
