@@ -174,6 +174,8 @@ std::string serializePerson(const ManualRecordingMetadataPerson& person)
     json << "\"role\":\"" << jsonEscape(person.role) << "\",";
     json << "\"characterName\":\""
          << jsonEscape(person.characterName) << "\",";
+    json << "\"profileAvailable\":"
+         << (!person.profilePath.empty() ? "true" : "false") << ",";
     json << "\"order\":" << person.ordinal << "}";
     return json.str();
 }
@@ -259,6 +261,7 @@ ApiResponse enrichMovieCast(
         person.name = member.name;
         person.role = "actor";
         person.characterName = member.characterName;
+        person.profileReference = member.profileReference;
         person.ordinal = member.order;
         selection.people.push_back(std::move(person));
     }
