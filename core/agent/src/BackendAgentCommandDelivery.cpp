@@ -211,11 +211,16 @@ bool BackendAgentCommandRepository::armFault(const std::string& backendId,const 
 }
 bool BackendAgentCommandRepository::consumeFault(const std::string& backendId,const std::string& kind)
 {
-    if(kind!="receipt"&&kind!="result")return false; const std::string column=kind=="receipt"?"drop_next_receipt":"drop_next_result";
+    if (kind != "receipt" && kind != "result") return false;
+    const std::string column = kind == "receipt"
+        ? "drop_next_receipt"
+        : "drop_next_result";
     if(!database_.execute("BEGIN IMMEDIATE;"))return false;
     sqlite3_stmt* q=nullptr; const std::string select="SELECT "+column+" FROM backend_agent_command_faults WHERE backend_id=?;";
     bool armed=false,ok=sqlite3_prepare_v2(database_.handle(),select.c_str(),-1,&q,nullptr)==SQLITE_OK&&bindText(q,1,backendId);
-    if(ok&&sqlite3_step(q)==SQLITE_ROW)armed=sqlite3_column_int(q,0)!=0; if(q)sqlite3_finalize(q);
+    if (ok && sqlite3_step(q) == SQLITE_ROW)
+        armed = sqlite3_column_int(q, 0) != 0;
+    if (q != nullptr) sqlite3_finalize(q);
     if(ok&&armed){sqlite3_stmt* u=nullptr;const std::string update="UPDATE backend_agent_command_faults SET "+column+"=0 WHERE backend_id=?;";ok=sqlite3_prepare_v2(database_.handle(),update.c_str(),-1,&u,nullptr)==SQLITE_OK&&bindText(u,1,backendId)&&done(u);}
     if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;} return armed;
 }

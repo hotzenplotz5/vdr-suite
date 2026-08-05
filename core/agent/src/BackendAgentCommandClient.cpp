@@ -64,7 +64,6 @@ bool persist(const std::string& path,const LocalState& state,std::string& reason
     out<<"version=1\nprotocol_version="<<a.protocolVersion<<"\nrequest_id="<<a.requestId<<"\ncorrelation_id="<<a.correlationId<<"\noperation_id="<<a.operationId<<"\njob_id="<<a.jobId<<"\nattempt_id="<<a.attemptId<<"\nclaim_epoch="<<a.claimEpoch<<"\ncommand_id="<<a.commandId<<"\nbackend_id="<<a.backendId<<"\nagent_id="<<a.agentId<<"\nagent_instance_id="<<a.agentInstanceId<<"\nbackend_generation="<<a.backendGeneration<<"\ncommand_type="<<a.commandType<<"\npayload_version="<<a.payloadVersion<<"\npayload="<<a.payload<<"\nrequest_fingerprint="<<a.requestFingerprint<<"\nverification_policy="<<a.verificationPolicy<<"\nassigned_at="<<a.assignedAt<<"\ndeadline="<<a.deadline<<"\nreceipt_category="<<r.receiptCategory<<"\nreceived_at="<<r.receivedAt<<"\nreceipt_reason="<<r.reasonCode<<"\nreceipt_acknowledged="<<boolText(state.receiptAcknowledged)<<"\ndispatch_state="<<state.dispatchState<<"\nresult_present="<<boolText(state.resultPresent)<<"\nresult_acknowledged="<<boolText(state.resultAcknowledged)<<"\nverification_state="<<(state.resultPresent?x.verificationState:"")<<"\nresult_category="<<(state.resultPresent?x.resultCategory:"")<<"\nerror_category="<<(state.resultPresent?x.errorCategory:"")<<"\nretry_classification="<<(state.resultPresent?x.retryClassification:"")<<"\nbounded_diagnostics="<<(state.resultPresent?x.boundedDiagnostics:"")<<"\ncompleted_at="<<(state.resultPresent?x.completedAt:0)<<"\n";
     return writeProtected(path,out.str(),reason);
 }
-BackendAgentCommandClientContext normalized(const BackendAgentCommandClientContext& c){return c;}
 bool sameContext(const BackendAgentCommandAssignment& a,const BackendAgentCommandClientContext& c){return a.backendId==c.backendId&&a.agentId==c.agentId&&a.agentInstanceId==c.agentInstanceId&&a.backendGeneration==c.backendGeneration;}
 std::string responseCode(const BackendAgentTransportResponse& response){return response.errorCode.empty()?"command_transport_failed":response.errorCode;}
 
@@ -114,5 +113,6 @@ bool pollBackendAgentCommand(const BackendAgentCommandClientConfig& config,const
     }
     else if(loadReason!="command_state_not_found"){reason=loadReason;return false;}
     LocalState state;state.assignment=result.assignment;auto& receipt=state.receipt;receipt.commandId=result.assignment.commandId;receipt.requestFingerprint=result.assignment.requestFingerprint;receipt.jobId=result.assignment.jobId;receipt.attemptId=result.assignment.attemptId;receipt.claimEpoch=result.assignment.claimEpoch;receipt.backendId=result.assignment.backendId;receipt.agentId=result.assignment.agentId;receipt.agentInstanceId=result.assignment.agentInstanceId;receipt.backendGeneration=result.assignment.backendGeneration;receipt.receiptCategory="accepted";receipt.receivedAt=nowSeconds();receipt.reasonCode="durably_recorded";
-    if(!persist(config.statePath,state,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);
+    if (!persist(config.statePath, state, reason)) return false;
+    return reconcileBackendAgentCommandState(config, context, transport, reason);
 }
