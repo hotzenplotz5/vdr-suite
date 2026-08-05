@@ -8,16 +8,18 @@ This is the canonical entry point for every new VDR-Suite chat. Repository, pull
 
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 63 Slice-1 Closeout](development/phase-63-slice-1-closeout.md)
+- [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
+- [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
+- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [Manual Recording Metadata Assignment](development/manual-recording-metadata-assignment.md)
 - [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md)
 - [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Architecture Decision Records](adr/index.md)
 - [Agent Workflow Rules](../AGENTS.md)
 
@@ -44,8 +46,15 @@ Phase 58 - Frontend and Live Parity
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
+Completed Phase-63 slice:
+Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
+PR #137 merged and exact-head real yaVDR acceptance passed
+
 Current active numbered runtime phase:
-Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
+Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
+Draft PR #138 defines the binding contract
+
+Phase 63 is not complete
 
 Phase 64-67 runtime:
 not advanced
@@ -56,56 +65,90 @@ Phase 62 remains completed and must not be reopened. Its historical runtime evid
 ## Current merged baseline
 
 ```text
-main @ a125b702a6d3a7fe510a94c84dc1930d3b17a4c5
+main @ a9620179a442155f0860ef3182ca39186ac46a57
 ```
 
-This is the merge of:
-
-```text
-PR #136 - Add manual recording cast ingestion and search integration
-final source head: eb7afa4e6cc5998614ae28b06a1c0c75e85bea41
-CI: VDR-Suite CI #7228
-run ID: 30981621649
-result: all five jobs successful
-real yaVDR acceptance: completed before merge
-```
-
-PR #136 completed the bounded manual selected-movie cast/title/person search workflow. It is historical merged foundation, not active work.
-
-## Active Phase 63 Slice 1
+This is the squash merge of:
 
 ```text
 PR #137 - Add backend agent enrollment and lease foundation
-branch: agent/phase63-backend-agent-foundation
-base: main @ a125b702a6d3a7fe510a94c84dc1930d3b17a4c5
+accepted source head: bba51455552bab0f1a06c680369c508858b2384b
+accepted tree: 575f49a197cda9ad02da4035b437ee1c32bed2d6
+CI: VDR-Suite CI #7256
+run ID: 31001478896
+result: all five jobs successful
+real yaVDR acceptance: PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+```
+
+The merged main baseline also includes completed PR #135 manual Recording metadata assignment and PR #136 manual selected-movie cast/title/person search integration.
+
+## Completed Phase 63 Slice 1
+
+Slice 1 established and accepted:
+
+- administrator-authorized one-time Agent enrollment into an existing Backend;
+- persistent technical Agent actor/device/credential identity;
+- exact `vdr-suite-agent/1` protocol compatibility;
+- Agent-process-instance and backend-generation fencing;
+- heartbeat, lease and online/stale/offline state;
+- bounded read-only capabilities;
+- reconnect and restart reconciliation;
+- credential rotation, revocation and replacement enrollment;
+- protected outbound HTTPS transport and protected local state;
+- hardened systemd/package/install contracts;
+- redacted status/revocation administration;
+- guarded exact-head real yaVDR acceptance without manual SQLite inspection.
+
+Final accepted evidence:
+
+```text
+PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+HEAD=bba51455552bab0f1a06c680369c508858b2384b
+CONTROL_PLANE_URL=https://192.168.178.38/vdr-suite
+CREDENTIAL_GENERATION=2
+VDR_NATIVE_STATE_UNCHANGED=yes
+DAEMON_ACTIVE=yes
+AGENT_ACTIVE=yes
+EVIDENCE=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
+```
+
+Slice 1 implemented no domain observations, snapshots, commands, results, VDR-native execution or provider selection. Agent lifecycle state does not replace existing direct-adapter `BackendNode.online` authority.
+
+## Active Phase 63 Slice 2 contract
+
+```text
+PR #138 - Define read-only agent observation ingestion contract
+branch: agent/phase63-observation-ingestion-contract
+base: main @ a9620179a442155f0860ef3182ca39186ac46a57
 state: open Draft
 ```
 
 The exact current PR head, diff, mergeability and CI must always be read from GitHub before work resumes. Do not copy a head SHA from this Handoff as current proof after later commits.
 
-PR #137 is the first bounded runtime slice of Phase 63. It must remain Draft and must not be marked Ready or merged until the exact final head has complete green CI, has been installed and tested on yaVDR, and the user explicitly approves readiness.
+PR #138 is intentionally a contract/closeout PR. It contains no observation runtime yet. It must remain Draft until one exact final head has complete green CI and the user explicitly approves readiness.
 
-### Slice architecture
+### Slice-2 architecture
 
-- Administrator-authorized one-time enrollment binds a technical Agent identity to one existing Backend.
-- Runtime Agent actor/device/credential identities reuse the Phase-62 security repositories and remain distinct from browser/user credentials.
-- The first machine protocol accepts exactly `vdr-suite-agent/1` over protected outbound HTTPS.
-- A newly accepted process instance receives a monotonically increasing backend generation; obsolete instances and generations are fenced.
-- Heartbeats renew only a Control-Plane-clock lease. Online/stale/offline Agent status is derived from persisted lease facts.
-- Read-only capabilities are allowlisted, bounded, revisioned and contain no endpoint, URL, path or credential.
-- Agent-initiated credential rotation is self-scoped, generation-fenced, transactional and restart-safe after ambiguous transport results.
-- Revocation invalidates the lease and permits a replacement Agent enrollment while retaining revoked history.
-- Existing append-only accountability and central authorization are reused; no parallel security/audit system is introduced.
-- The packaged Agent stores identity/recovery state as 0600 under a systemd-owned 0700 state directory and runs under a hardened systemd unit.
-- A local administration utility exposes redacted status and accountable revocation; the guarded runtime harness performs the complete yaVDR acceptance without manual SQLite inspection.
-- Agent lease state does not overwrite existing direct-adapter `BackendNode.online`; provider ownership/selection is deferred.
+- Existing Agent technical authentication remains the only Agent HTTP authentication.
+- Every accepted observation is bound to Backend ID, Agent ID, Agent process instance and backend generation.
+- `snapshotGeneration`, `producerSequence` and `resourceRevision` are independent axes.
+- A `completeSnapshot` establishes the bounded baseline for one observation domain.
+- A `changeBatch` advances only at the exact next producer sequence.
+- Equivalent replay is idempotently acknowledged; conflicting replay is rejected.
+- Missing baseline or sequence gaps return `resync-required`; continuity is never guessed.
+- Immutable receipt/fact evidence and the current ingestion cursor commit atomically through Suite-owned repositories.
+- Repository code owns SQLite; HTTP handlers and Agent client code do not issue direct SQLite statements.
+- The first bounded runtime domain is `backend-health`.
+- Observation evidence retains provenance without credentials, Authorization headers, private provider addresses or secret-bearing diagnostics.
+- Existing direct-adapter state remains authoritative until provider ownership/selection receives a separate contract.
 
-Hard exclusions are VDR-native writes, snapshot/change ingestion, command/result queues, provider selection, public provider URLs, streaming, OSD and Phase-64-or-later runtime.
+Hard exclusions are command inbox/results, VDR-native mutation, provider ownership/selection, public Agent/provider URLs, TimerIntent/Phase-64 runtime, Streaming Gateway and OSD work.
 
 Authoritative contract:
 
-- [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
-- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
+- [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
+- [Phase 63 Slice-1 Closeout](development/phase-63-slice-1-closeout.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0039 Backend Agent and Control Plane Boundary](adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040 Backend Lifecycle, Generation, Lease and Health](adr/ADR-0040-backend-lifecycle-generation-lease-health.md)
 - [ADR-0041 Authentication, Agent Trust and Multi-Site Transport](adr/ADR-0041-authentication-agent-trust-multi-site-transport.md)
@@ -117,10 +160,6 @@ PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
 accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
 source_ci_run_number=6884
 source_ci_run_id=30752351218
-installed_daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
-loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
@@ -128,40 +167,39 @@ This evidence closes Phase 62. It is historical evidence for that accepted runti
 
 ## Current security position
 
-- Enrollment creation is a centrally authorized and accountable Control-Plane transition.
-- Enrollment consumption can create only the pre-bound technical Agent identity.
 - Runtime Agent credentials cannot act as browser users or unrestricted administrators.
 - Backend binding, credential generation, Agent instance and backend generation are enforced server-side.
-- Rotation is limited to the Agent's own bound Backend and invalidates the lease atomically.
-- Read-only capabilities are observations, never grants.
+- Observation domains are read-only capability declarations, never grants.
+- Snapshot generation, producer sequence and resource revision are validated independently.
+- Revoked or stale-generation Agents cannot advance current ingestion.
 - Bootstrap/runtime secrets, hashes/verifiers, Authorization headers, cookies, CSRF values, provider URLs, local secret paths and secret-bearing process environments must not be printed, committed or copied into public responses/accountability events.
 - TVScraper remains unchanged upstream; do not write to TVScraper-owned databases or caches.
 
 ## Compatibility-retirement decision
 
-Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62.
+Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62 or Phase 63.
 
 ## Current work boundary
 
 - Phase 62 is completed and must not be rewritten.
-- PR #136 is merged into the current `main` baseline.
-- PR #137 is the only active approved Phase-63 slice.
-- Keep PR #137 Draft until exact-head CI, real yaVDR acceptance and explicit user approval.
-- Do not add VDR-native mutation, command/result flow, snapshot ingestion, provider selection or later-phase runtime to Slice 1.
+- Phase 63 Slice 1 is merged and accepted.
+- PR #138 is the only active approved Phase-63 contract slice.
+- Keep PR #138 Draft until exact-head CI and explicit user approval.
+- Do not add command/result flow, VDR-native mutation, provider ownership/selection or later-phase runtime to Slice 2.
 - Do not create a second BackendRegistry, authorization service, accountability store or job system.
+- Do not require manual SQLite inspection for acceptance.
 - Unknown central POST routes remain subject to the Phase-62 fail-closed policy outside explicit Legacy Basic compatibility.
 - Do not add unrelated refactors or cosmetic rewrites.
 
 ## Exact next action
 
-1. Read PR #137 and its exact current head from GitHub.
+1. Read PR #138 and its exact current head from GitHub.
 2. Inspect the complete current diff and CI jobs for that exact head.
-3. Fix only evidence-backed lifecycle, persistence, security, transport, packaging or documentation defects inside the binding Slice-1 contract.
-4. Run and observe focused tests, architecture guards, production daemon/Agent builds, packaging/install staging, documentation checks and Make inventory on one exact final head.
-5. Update the Draft PR body with exact-head CI, architecture/security boundaries and real yaVDR checklist.
-6. Keep PR #137 Draft.
-7. Install the exact final head and execute `phase63-backend-agent-runtime-acceptance` from the guarded runbook; do not replace it with manual SQLite inspection.
-8. Do not advance into another Phase-63 slice without a new bounded contract.
+3. Fix only evidence-backed contract, sequencing, persistence-boundary, security, architecture or documentation defects.
+4. Run and observe the Phase-63 observation contract guard, existing Phase-63 harness guard, documentation checks, Make inventory and all required PR CI jobs on one exact final head.
+5. Update the Draft PR body with exact-head validation and retained hard exclusions.
+6. Keep PR #138 Draft until explicit approval.
+7. After the contract PR is accepted, start a separate bounded runtime implementation with `backend-health` complete-snapshot and exact-next change ingestion only.
 
 ## Command presentation contract
 
@@ -233,48 +271,32 @@ The plugin must not be rebuilt merely because it exists in the repository.
 - Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
 - Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
 
-This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
-
 ## Binding branch- and PR-specific installed-result acceptance manifest
 
 A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
 
-Before writing the acceptance steps, the agent must inspect:
+Before writing the acceptance steps, inspect:
 
 - the exact PR diff and changed components;
 - the current feature, ADR and runtime-acceptance documents;
 - changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
 - the closest existing regression behavior that the PR could unintentionally break.
 
-The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block. Do not merge functional checks into the installation block when that would hide required user actions.
+The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block.
 
-Every acceptance plan must cover the layers that are relevant to that exact PR:
+Every acceptance plan must cover the relevant layers:
 
-1. **Installed identity and startup:** verify the checked-out exact head, installed binary or asset identity where the repository provides a reliable method, service state and absence of new startup errors.
-2. **Positive feature path:** exercise the behavior introduced or changed by the PR using a real representative resource.
-3. **Readback and persistence:** reload the UI or API, restart the affected service, and confirm the result survives without repeating the mutation or requiring an external provider read.
-4. **Search and presentation:** verify every changed read model, detail view, search path or frontend rendering affected by the PR.
-5. **Replacement and withdrawal semantics:** when the feature supports reassignment, deletion, withdrawal, rollback or fallback, verify the old active result disappears and the documented fallback becomes effective.
-6. **Authorization and failure boundaries:** verify the relevant Read-only, wrong-scope, CSRF, provider-failure or invalid-input denial paths without exposing secrets.
-7. **Adjacent regression:** repeat the nearest established workflow whose performance or correctness could be affected, such as folder navigation, restart behavior or automatic metadata fallback.
-8. **Evidence:** record the exact source head, CI run, installed build identity when available, redacted test resource and observed result.
+1. installed identity and startup;
+2. positive feature path;
+3. readback, persistence and restart;
+4. changed search/presentation paths;
+5. replacement, withdrawal or resynchronization semantics where applicable;
+6. authorization and failure boundaries;
+7. adjacent regression;
+8. exact-head redacted evidence.
 
-Only include layers that the exact PR can affect, but never omit persistence/restart or the primary regression boundary merely to shorten the answer. When a test requires credentials, cookies, CSRF values, tokens or private paths, instruct the user through the normal UI or a redacted safe procedure; never request or print those values.
-
-For PR #136, the authoritative real-system checklist is [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md#real-yavdr-acceptance-checklist). At minimum it requires:
-
-- repeated recording-folder/subfolder/back navigation remains fast;
-- candidate search remains fast before selecting a movie;
-- assigning a known TMDB movie displays actor and character names;
-- reload and `vdr-suite-daemon` restart preserve title, cast and character data;
-- manual title, original title and actor are found through the existing global and person searches;
-- reassignment removes the former movie's active actors;
-- withdrawal restores automatic TVScraper/native title and people;
-- Read-only and wrong-backend assignment attempts are denied;
-- responses and accountability evidence expose no token, provider URL, local artwork path or actor reference.
-
-Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result. Keep the PR Draft until all required real-system acceptance items are complete and the user explicitly approves readiness.
+Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result.
 
 ## Credential and secret restrictions
 
-Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, secret-bearing login responses or process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
