@@ -200,6 +200,51 @@ bool BackendAgentRepository::ensureSchema()
                "capability_value TEXT NOT NULL,"
                "PRIMARY KEY(agent_id, capability_kind, capability_name),"
                "FOREIGN KEY(agent_id) REFERENCES backend_agents(agent_id)"
+               ");") &&
+        database_.execute(
+               "CREATE TABLE IF NOT EXISTS backend_agent_observation_receipts ("
+               "receipt_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+               "backend_id TEXT NOT NULL,"
+               "observation_domain TEXT NOT NULL,"
+               "agent_id TEXT NOT NULL,"
+               "agent_instance_id TEXT NOT NULL,"
+               "backend_generation INTEGER NOT NULL,"
+               "snapshot_generation INTEGER NOT NULL,"
+               "producer_sequence INTEGER NOT NULL,"
+               "kind TEXT NOT NULL,"
+               "captured_at INTEGER NOT NULL,"
+               "resource_revision TEXT NOT NULL,"
+               "payload_identity TEXT NOT NULL,"
+               "canonical_payload TEXT NOT NULL,"
+               "outcome TEXT NOT NULL,"
+               "reason_code TEXT NOT NULL,"
+               "accepted_at INTEGER NOT NULL,"
+               "CHECK(kind IN ('completeSnapshot','changeBatch')),"
+               "CHECK(outcome IN ('accepted','replayed','rejected','resync-required'))"
+               ");") &&
+        database_.execute(
+               "CREATE UNIQUE INDEX IF NOT EXISTS idx_backend_agent_observation_accepted_key "
+               "ON backend_agent_observation_receipts(backend_id, observation_domain, "
+               "agent_id, agent_instance_id, backend_generation, snapshot_generation, "
+               "producer_sequence) WHERE outcome = 'accepted';") &&
+        database_.execute(
+               "CREATE INDEX IF NOT EXISTS idx_backend_agent_observation_receipt_lookup "
+               "ON backend_agent_observation_receipts(backend_id, observation_domain, "
+               "snapshot_generation, producer_sequence, outcome); ") &&
+        database_.execute(
+               "CREATE TABLE IF NOT EXISTS backend_agent_observation_cursors ("
+               "backend_id TEXT NOT NULL,"
+               "observation_domain TEXT NOT NULL,"
+               "agent_id TEXT NOT NULL,"
+               "agent_instance_id TEXT NOT NULL,"
+               "backend_generation INTEGER NOT NULL,"
+               "snapshot_generation INTEGER NOT NULL,"
+               "producer_sequence INTEGER NOT NULL,"
+               "resource_revision TEXT NOT NULL,"
+               "payload_identity TEXT NOT NULL,"
+               "captured_at INTEGER NOT NULL,"
+               "accepted_at INTEGER NOT NULL,"
+               "PRIMARY KEY(backend_id, observation_domain)"
                ");");
 }
 
@@ -829,4 +874,268 @@ bool BackendAgentRepository::revokeAgent(
         bindInt64(statement, 3, revokedAt) &&
         bindText(statement, 4, agentId);
     return bound && executeStatement(statement) && sqlite3_changes(database_.handle()) == 1;
+}
+
+
+BackendAgentObservationCursor BackendAgentRepository::observationCursorForBackend(
+    const std::string& backendId,
+    const std::string& observationDomain) const
+{
+    BackendAgentObservationCursor cursor;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT backend_id, observation_domain, agent_id, agent_instance_id, "
+        "backend_generation, snapshot_generation, producer_sequence, resource_revision, "
+        "payload_identity, captured_at, accepted_at "
+        "FROM backend_agent_observation_cursors "
+        "WHERE backend_id = ? AND observation_domain = ?;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, backendId) ||
+        !bindText(statement, 2, observationDomain))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return cursor;
+    }
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        const std::int64_t backendGeneration = sqlite3_column_int64(statement, 4);
+        const std::int64_t snapshotGeneration = sqlite3_column_int64(statement, 5);
+        const std::int64_t producerSequence = sqlite3_column_int64(statement, 6);
+        if (backendGeneration >= 0 && snapshotGeneration >= 0 && producerSequence >= 0)
+        {
+            cursor.present = true;
+            cursor.backendId = columnText(statement, 0);
+            cursor.observationDomain = columnText(statement, 1);
+            cursor.agentId = columnText(statement, 2);
+            cursor.agentInstanceId = columnText(statement, 3);
+            cursor.backendGeneration = static_cast<std::uint64_t>(backendGeneration);
+            cursor.snapshotGeneration = static_cast<std::uint64_t>(snapshotGeneration);
+            cursor.producerSequence = static_cast<std::uint64_t>(producerSequence);
+            cursor.resourceRevision = columnText(statement, 7);
+            cursor.payloadIdentity = columnText(statement, 8);
+            cursor.capturedAt = sqlite3_column_int64(statement, 9);
+            cursor.acceptedAt = sqlite3_column_int64(statement, 10);
+        }
+    }
+    sqlite3_finalize(statement);
+    return cursor;
+}
+
+bool BackendAgentRepository::ingestObservation(
+    const std::string& agentId,
+    const BackendAgentObservationRequest& request,
+    const std::string& payloadIdentity,
+    const std::string& canonicalPayload,
+    std::int64_t acceptedAt,
+    BackendAgentObservationResult& result)
+{
+    if (!fitsDatabaseInteger(request.backendGeneration) ||
+        !fitsDatabaseInteger(request.snapshotGeneration) ||
+        !fitsDatabaseInteger(request.producerSequence) ||
+        !fitsDatabaseInteger(request.observedHeartbeatSequence))
+    {
+        result.reasonCode = "observation_sequence_out_of_range";
+        return true;
+    }
+    Transaction transaction(database_);
+    if (!transaction.active()) return false;
+
+    const auto agent = findAgent(agentId);
+    auto classify = [&](const std::string& reason, bool resync = false) {
+        result.accepted = false;
+        result.replayed = false;
+        result.resyncRequired = resync;
+        result.reasonCode = reason;
+    };
+    if (!agent.has_value() || agent->revoked || agent->incompatible)
+        classify("agent_revoked_or_unknown");
+    else if (agent->backendId != request.backendId)
+        classify("agent_binding_mismatch");
+    else if (agent->agentInstanceId != request.agentInstanceId)
+        classify("stale_agent_instance");
+    else if (agent->backendGeneration != request.backendGeneration)
+        classify("stale_backend_generation");
+    else if (agent->leaseExpiresAt <= acceptedAt)
+        classify("agent_lease_expired");
+    else if (request.observedHeartbeatSequence != agent->heartbeatSequence)
+        classify("stale_backend_health_revision");
+    else
+    {
+        const BackendAgentCapabilityFacts capabilities = capabilitiesForAgent(agentId);
+        const bool declared = std::find(
+            capabilities.observationDomains.begin(),
+            capabilities.observationDomains.end(),
+            request.observationDomain) != capabilities.observationDomains.end();
+        if (!capabilities.readOnly || !declared)
+            classify("undeclared_observation_domain");
+    }
+
+    BackendAgentObservationCursor cursor;
+    if (result.reasonCode.empty())
+        cursor = observationCursorForBackend(request.backendId, request.observationDomain);
+
+    std::string existingKind;
+    std::int64_t existingCapturedAt = 0;
+    std::string existingResourceRevision;
+    std::string existingIdentity;
+    std::string existingPayload;
+    bool existingAccepted = false;
+    if (result.reasonCode.empty())
+    {
+        sqlite3_stmt* lookup = nullptr;
+        const char* lookupSql =
+            "SELECT kind, captured_at, resource_revision, payload_identity, canonical_payload "
+            "FROM backend_agent_observation_receipts "
+            "WHERE backend_id = ? AND observation_domain = ? AND agent_id = ? "
+            "AND agent_instance_id = ? AND backend_generation = ? "
+            "AND snapshot_generation = ? AND producer_sequence = ? "
+            "AND outcome = 'accepted' LIMIT 1;";
+        if (sqlite3_prepare_v2(database_.handle(), lookupSql, -1, &lookup, nullptr) != SQLITE_OK ||
+            !bindText(lookup, 1, request.backendId) ||
+            !bindText(lookup, 2, request.observationDomain) ||
+            !bindText(lookup, 3, agentId) ||
+            !bindText(lookup, 4, request.agentInstanceId) ||
+            !bindInt64(lookup, 5, static_cast<std::int64_t>(request.backendGeneration)) ||
+            !bindInt64(lookup, 6, static_cast<std::int64_t>(request.snapshotGeneration)) ||
+            !bindInt64(lookup, 7, static_cast<std::int64_t>(request.producerSequence)))
+        {
+            if (lookup != nullptr) sqlite3_finalize(lookup);
+            return false;
+        }
+        if (sqlite3_step(lookup) == SQLITE_ROW)
+        {
+            existingAccepted = true;
+            existingKind = columnText(lookup, 0);
+            existingCapturedAt = sqlite3_column_int64(lookup, 1);
+            existingResourceRevision = columnText(lookup, 2);
+            existingIdentity = columnText(lookup, 3);
+            existingPayload = columnText(lookup, 4);
+        }
+        sqlite3_finalize(lookup);
+    }
+
+    bool advanceCursor = false;
+    if (result.reasonCode.empty() && existingAccepted)
+    {
+        if (existingKind == request.kind &&
+            existingCapturedAt == request.capturedAt &&
+            existingResourceRevision == request.resourceRevision &&
+            existingIdentity == payloadIdentity && existingPayload == canonicalPayload)
+        {
+            result.accepted = true;
+            result.replayed = true;
+            result.reasonCode = "observation_replayed";
+        }
+        else classify("observation_replay_conflict");
+    }
+    else if (result.reasonCode.empty() && request.kind == "completeSnapshot")
+    {
+        if (request.producerSequence != 1)
+            classify("invalid_snapshot_sequence");
+        else if (cursor.present && cursor.agentId == agentId &&
+                 cursor.agentInstanceId == request.agentInstanceId &&
+                 cursor.backendGeneration == request.backendGeneration &&
+                 request.snapshotGeneration <= cursor.snapshotGeneration)
+            classify("stale_snapshot_generation");
+        else
+        {
+            result.accepted = true;
+            result.reasonCode = "complete_snapshot_accepted";
+            advanceCursor = true;
+        }
+    }
+    else if (result.reasonCode.empty() && request.kind == "changeBatch")
+    {
+        if (!cursor.present || cursor.agentId != agentId ||
+            cursor.agentInstanceId != request.agentInstanceId ||
+            cursor.backendGeneration != request.backendGeneration)
+            classify("observation_baseline_required", true);
+        else if (request.snapshotGeneration < cursor.snapshotGeneration)
+            classify("stale_snapshot_generation");
+        else if (request.snapshotGeneration > cursor.snapshotGeneration)
+            classify("observation_resync_required", true);
+        else if (request.producerSequence <= cursor.producerSequence)
+            classify("stale_observation_sequence");
+        else if (cursor.producerSequence == static_cast<std::uint64_t>(
+                     std::numeric_limits<std::int64_t>::max()) ||
+                 request.producerSequence != cursor.producerSequence + 1)
+            classify("observation_resync_required", true);
+        else
+        {
+            result.accepted = true;
+            result.reasonCode = "change_batch_accepted";
+            advanceCursor = true;
+        }
+    }
+    else if (result.reasonCode.empty())
+        classify("invalid_observation_kind");
+
+    result.snapshotGeneration = request.snapshotGeneration;
+    result.producerSequence = request.producerSequence;
+    result.lastAcceptedSequence = cursor.present ? cursor.producerSequence : 0;
+
+    const std::string outcome = result.replayed ? "replayed" :
+        result.accepted ? "accepted" :
+        result.resyncRequired ? "resync-required" : "rejected";
+    sqlite3_stmt* receipt = nullptr;
+    const char* receiptSql =
+        "INSERT INTO backend_agent_observation_receipts "
+        "(backend_id, observation_domain, agent_id, agent_instance_id, backend_generation, "
+        "snapshot_generation, producer_sequence, kind, captured_at, resource_revision, "
+        "payload_identity, canonical_payload, outcome, reason_code, accepted_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    if (sqlite3_prepare_v2(database_.handle(), receiptSql, -1, &receipt, nullptr) != SQLITE_OK)
+        return false;
+    const bool receiptBound =
+        bindText(receipt, 1, request.backendId) &&
+        bindText(receipt, 2, request.observationDomain) &&
+        bindText(receipt, 3, agentId) &&
+        bindText(receipt, 4, request.agentInstanceId) &&
+        bindInt64(receipt, 5, static_cast<std::int64_t>(request.backendGeneration)) &&
+        bindInt64(receipt, 6, static_cast<std::int64_t>(request.snapshotGeneration)) &&
+        bindInt64(receipt, 7, static_cast<std::int64_t>(request.producerSequence)) &&
+        bindText(receipt, 8, request.kind) &&
+        bindInt64(receipt, 9, request.capturedAt) &&
+        bindText(receipt, 10, request.resourceRevision) &&
+        bindText(receipt, 11, payloadIdentity) &&
+        bindText(receipt, 12, canonicalPayload) &&
+        bindText(receipt, 13, outcome) &&
+        bindText(receipt, 14, result.reasonCode) &&
+        bindInt64(receipt, 15, acceptedAt);
+    if (!receiptBound || !executeStatement(receipt)) return false;
+
+    if (advanceCursor)
+    {
+        sqlite3_stmt* update = nullptr;
+        const char* updateSql =
+            "INSERT INTO backend_agent_observation_cursors "
+            "(backend_id, observation_domain, agent_id, agent_instance_id, backend_generation, "
+            "snapshot_generation, producer_sequence, resource_revision, payload_identity, "
+            "captured_at, accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(backend_id, observation_domain) DO UPDATE SET "
+            "agent_id=excluded.agent_id, agent_instance_id=excluded.agent_instance_id, "
+            "backend_generation=excluded.backend_generation, "
+            "snapshot_generation=excluded.snapshot_generation, "
+            "producer_sequence=excluded.producer_sequence, "
+            "resource_revision=excluded.resource_revision, "
+            "payload_identity=excluded.payload_identity, captured_at=excluded.captured_at, "
+            "accepted_at=excluded.accepted_at;";
+        if (sqlite3_prepare_v2(database_.handle(), updateSql, -1, &update, nullptr) != SQLITE_OK)
+            return false;
+        const bool updateBound =
+            bindText(update, 1, request.backendId) &&
+            bindText(update, 2, request.observationDomain) &&
+            bindText(update, 3, agentId) &&
+            bindText(update, 4, request.agentInstanceId) &&
+            bindInt64(update, 5, static_cast<std::int64_t>(request.backendGeneration)) &&
+            bindInt64(update, 6, static_cast<std::int64_t>(request.snapshotGeneration)) &&
+            bindInt64(update, 7, static_cast<std::int64_t>(request.producerSequence)) &&
+            bindText(update, 8, request.resourceRevision) &&
+            bindText(update, 9, payloadIdentity) &&
+            bindInt64(update, 10, request.capturedAt) &&
+            bindInt64(update, 11, acceptedAt);
+        if (!updateBound || !executeStatement(update)) return false;
+        result.lastAcceptedSequence = request.producerSequence;
+    }
+    return transaction.commit();
 }

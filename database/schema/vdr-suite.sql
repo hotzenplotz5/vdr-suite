@@ -236,3 +236,64 @@ CREATE TABLE IF NOT EXISTS backend_agent_capabilities (
     PRIMARY KEY (agent_id, capability_kind, capability_name),
     FOREIGN KEY (agent_id) REFERENCES backend_agents(agent_id)
 );
+
+
+-- Phase 63 Slice 2: immutable Agent observation receipts and one current
+-- ingestion cursor per Backend/domain. These facts never replace direct-adapter
+-- availability authority and contain no credentials or private provider URLs.
+CREATE TABLE IF NOT EXISTS backend_agent_observation_receipts (
+    receipt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    backend_id TEXT NOT NULL,
+    observation_domain TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    agent_instance_id TEXT NOT NULL,
+    backend_generation INTEGER NOT NULL,
+    snapshot_generation INTEGER NOT NULL,
+    producer_sequence INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    captured_at INTEGER NOT NULL,
+    resource_revision TEXT NOT NULL,
+    payload_identity TEXT NOT NULL,
+    canonical_payload TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    reason_code TEXT NOT NULL,
+    accepted_at INTEGER NOT NULL,
+    CHECK (kind IN ('completeSnapshot','changeBatch')),
+    CHECK (outcome IN ('accepted','replayed','rejected','resync-required'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_backend_agent_observation_accepted_key
+    ON backend_agent_observation_receipts (
+        backend_id,
+        observation_domain,
+        agent_id,
+        agent_instance_id,
+        backend_generation,
+        snapshot_generation,
+        producer_sequence
+    )
+    WHERE outcome = 'accepted';
+
+CREATE INDEX IF NOT EXISTS idx_backend_agent_observation_receipt_lookup
+    ON backend_agent_observation_receipts (
+        backend_id,
+        observation_domain,
+        snapshot_generation,
+        producer_sequence,
+        outcome
+    );
+
+CREATE TABLE IF NOT EXISTS backend_agent_observation_cursors (
+    backend_id TEXT NOT NULL,
+    observation_domain TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    agent_instance_id TEXT NOT NULL,
+    backend_generation INTEGER NOT NULL,
+    snapshot_generation INTEGER NOT NULL,
+    producer_sequence INTEGER NOT NULL,
+    resource_revision TEXT NOT NULL,
+    payload_identity TEXT NOT NULL,
+    captured_at INTEGER NOT NULL,
+    accepted_at INTEGER NOT NULL,
+    PRIMARY KEY (backend_id, observation_domain)
+);

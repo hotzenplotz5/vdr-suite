@@ -36,6 +36,15 @@ struct BackendAgentClientState
     std::uint64_t backendGeneration = 0;
     std::uint64_t heartbeatSequence = 0;
     std::uint64_t capabilityRevision = 0;
+    std::uint64_t observationBackendGeneration = 0;
+    std::uint64_t observationSnapshotGeneration = 0;
+    std::uint64_t observationProducerSequence = 0;
+    std::string pendingObservationKind;
+    std::uint64_t pendingObservationSnapshotGeneration = 0;
+    std::uint64_t pendingObservationProducerSequence = 0;
+    std::int64_t pendingObservationCapturedAt = 0;
+    std::string pendingObservationResourceRevision;
+    std::uint64_t pendingObservationHeartbeatSequence = 0;
 };
 
 struct BackendAgentEnrollmentPackage
@@ -153,6 +162,11 @@ private:
         std::string& reasonCode);
     bool promotePendingCredential(std::string& reasonCode);
     bool publishCapabilities(std::string& reasonCode);
+    bool publishBackendHealthObservation(std::string& reasonCode);
+    bool submitPendingBackendHealthObservation(std::string& reasonCode);
+    bool preparePendingBackendHealthObservation(std::string& reasonCode);
+    bool promotePendingBackendHealthObservation(std::string& reasonCode);
+    bool resetObservationLineage(std::string& reasonCode);
     bool persist(std::string& reasonCode);
     void log(const std::string& message) const;
 

@@ -140,6 +140,50 @@ struct BackendAgentCapabilityResult
     std::uint64_t capabilityRevision = 0;
 };
 
+
+struct BackendAgentObservationRequest
+{
+    std::string protocolVersion;
+    std::string backendId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::string observationDomain;
+    std::uint64_t snapshotGeneration = 0;
+    std::uint64_t producerSequence = 0;
+    std::string kind;
+    std::int64_t capturedAt = 0;
+    std::string resourceRevision;
+    std::string agentState;
+    std::uint64_t observedHeartbeatSequence = 0;
+};
+
+struct BackendAgentObservationResult
+{
+    bool accepted = false;
+    bool replayed = false;
+    bool resyncRequired = false;
+    std::string reasonCode;
+    std::uint64_t snapshotGeneration = 0;
+    std::uint64_t producerSequence = 0;
+    std::uint64_t lastAcceptedSequence = 0;
+};
+
+struct BackendAgentObservationCursor
+{
+    bool present = false;
+    std::string backendId;
+    std::string observationDomain;
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::uint64_t snapshotGeneration = 0;
+    std::uint64_t producerSequence = 0;
+    std::string resourceRevision;
+    std::string payloadIdentity;
+    std::int64_t capturedAt = 0;
+    std::int64_t acceptedAt = 0;
+};
+
 struct BackendAgentStatus
 {
     bool present = false;
@@ -215,6 +259,16 @@ public:
         const BackendAgentCapabilityFacts& facts,
         std::int64_t publishedAt,
         BackendAgentCapabilityResult& result);
+    bool ingestObservation(
+        const std::string& agentId,
+        const BackendAgentObservationRequest& request,
+        const std::string& payloadIdentity,
+        const std::string& canonicalPayload,
+        std::int64_t acceptedAt,
+        BackendAgentObservationResult& result);
+    BackendAgentObservationCursor observationCursorForBackend(
+        const std::string& backendId,
+        const std::string& observationDomain) const;
     bool revokeAgent(
         const std::string& agentId,
         const std::string& reason,
@@ -289,6 +343,14 @@ public:
         std::uint64_t capabilityRevision,
         const BackendAgentCapabilityFacts& facts,
         std::int64_t now);
+    BackendAgentObservationResult ingestObservation(
+        const RequestSecurityContext& context,
+        const BackendAgentObservationRequest& request,
+        std::int64_t now);
+
+    BackendAgentObservationCursor observationCursorForBackend(
+        const std::string& backendId,
+        const std::string& observationDomain) const;
 
     bool revoke(
         const RequestSecurityContext& context,

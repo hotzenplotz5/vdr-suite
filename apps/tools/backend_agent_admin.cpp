@@ -83,7 +83,9 @@ std::string jsonArray(const std::vector<std::string>& values)
     return output.str();
 }
 
-void printStatus(const BackendAgentStatus& status)
+void printStatus(
+    const BackendAgentStatus& status,
+    const BackendAgentObservationCursor& observation)
 {
     std::cout << "{\"present\":" << (status.present ? "true" : "false");
     if (status.present)
@@ -101,7 +103,23 @@ void printStatus(const BackendAgentStatus& status)
                   << (status.capabilities.readOnly ? "true" : "false")
                   << ",\"adapters\":" << jsonArray(status.capabilities.adapters)
                   << ",\"observationDomains\":"
-                  << jsonArray(status.capabilities.observationDomains);
+                  << jsonArray(status.capabilities.observationDomains)
+                  << ",\"backendHealthObservation\":{\"present\":"
+                  << (observation.present ? "true" : "false");
+        if (observation.present)
+        {
+            std::cout << ",\"backendGeneration\":"
+                      << observation.backendGeneration
+                      << ",\"snapshotGeneration\":"
+                      << observation.snapshotGeneration
+                      << ",\"producerSequence\":"
+                      << observation.producerSequence
+                      << ",\"resourceRevision\":\""
+                      << jsonEscape(observation.resourceRevision)
+                      << "\",\"capturedAt\":" << observation.capturedAt
+                      << ",\"acceptedAt\":" << observation.acceptedAt;
+        }
+        std::cout << "}";
     }
     std::cout << "}" << std::endl;
 }
@@ -180,7 +198,9 @@ int main(int argc, char** argv)
         std::chrono::system_clock::now().time_since_epoch()).count();
     if (statusAction)
     {
-        printStatus(service.statusForBackend(backendId, now));
+        printStatus(
+            service.statusForBackend(backendId, now),
+            service.observationCursorForBackend(backendId, "backend-health"));
         return 0;
     }
 

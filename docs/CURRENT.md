@@ -26,22 +26,21 @@
 Repository: hotzenplotz5/vdr-suite
 Current branch authority: main
 Current merged main baseline:
-a9620179a442155f0860ef3182ca39186ac46a57
+24b1d7938ddaa15834a8da6323a270761868f4ba
 
-Latest merged bounded runtime slice:
-Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
-PR #137 - Add backend agent enrollment and lease foundation
-Accepted source head: bba51455552bab0f1a06c680369c508858b2384b
-Accepted tree: 575f49a197cda9ad02da4035b437ee1c32bed2d6
-Merge commit: a9620179a442155f0860ef3182ca39186ac46a57
-CI: VDR-Suite CI #7256 / 31001478896, all five jobs successful
-Real yaVDR acceptance: PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+Latest merged bounded contract slice:
+Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
+PR #138 - Define read-only agent observation ingestion contract
+Accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
+Merge commit: 24b1d7938ddaa15834a8da6323a270761868f4ba
+CI: VDR-Suite CI #7275 / 31006387349, all five jobs successful
+Runtime change: none; contract and guards only
 
 Active numbered runtime slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-Draft PR #138 - Define read-only agent observation ingestion contract
-Branch: agent/phase63-observation-ingestion-contract
-State: Draft contract/closeout; runtime implementation not yet included
+Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
+Draft PR #139 - Add backend health observation ingestion runtime
+Branch: agent/phase63-backend-health-ingestion-runtime
+State: Draft runtime implementation; exact-head CI and real yaVDR acceptance pending
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -104,11 +103,11 @@ EVIDENCE=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
 
 The merged Agent remains read-only. Slice 1 implemented no snapshots, commands, VDR-native execution or provider selection.
 
-## Active Phase 63 Slice 2
+## Active Phase 63 Slice 2 runtime
 
-Draft PR #138 defines the binding contract for read-only Observation and Snapshot Ingestion before runtime implementation begins.
+PR #138 merged the binding read-only Observation and Snapshot Ingestion contract. Draft PR #139 implements its first bounded runtime domain, `backend-health`, without command or VDR mutation paths.
 
-The contract separates and fences:
+The runtime separates and fences:
 
 - authenticated Backend and Agent identity;
 - Agent process instance;
@@ -120,7 +119,9 @@ The contract separates and fences:
 
 It requires a complete baseline, exact-next change sequencing, idempotent equivalent replay, conflicting replay rejection and explicit `resync-required` on gaps or missing baselines. Accepted receipt/fact evidence and the ingestion cursor must commit atomically through Suite-owned repositories.
 
-The initial implementation domain is deliberately bounded to `backend-health`. Adding recordings, timers, EPG or channels requires explicit identity and complete-snapshot semantics and is not automatic scope.
+The implementation persists immutable receipts and one atomic ingestion cursor, accepts complete baseline plus exact-next changes, acknowledges equivalent replay idempotently, rejects conflicting replay and returns `resync-required` on gaps or missing baselines. The Agent persists protected lineage and a pending envelope before transport so an ambiguous response retries the exact same observation.
+
+Adding recordings, timers, EPG or channels requires explicit identity and complete-snapshot semantics and is not automatic scope.
 
 ## Current security position
 
@@ -132,7 +133,7 @@ Agent credentials remain distinct technical identities. Observation endpoints ac
 
 - Phase 62 is complete.
 - Phase 63 Slice 1 is merged and accepted.
-- Phase 63 Slice 2 is the active bounded contract and next runtime implementation target.
+- Phase 63 Slice 2 runtime is active in Draft PR #139.
 - Phase 63 is not complete.
 - No command inbox/results, VDR-native mutation, provider ownership/selection, public provider URLs, TimerIntent/Phase-64, Streaming Gateway or OSD runtime belongs in Slice 2.
 - Existing direct-adapter `BackendNode.online` authority is not replaced by Agent lifecycle or observations.
@@ -140,4 +141,4 @@ Agent credentials remain distinct technical identities. Observation endpoints ac
 
 ## Exact next action
 
-Stabilize Draft PR #138 on one exact head with the Slice-1 closeout, Slice-2 Observation and Snapshot Ingestion contract, fail-closed contract checker and updated architecture/status documentation. Obtain all required CI jobs before considering the subsequent bounded runtime-implementation PR.
+Stabilize Draft PR #139 on one exact head with full CI and the upgrade-safe real yaVDR acceptance path. Preserve the existing active Agent identity, prove `backend-health` baseline/change/replay/gap/restart semantics and keep the PR Draft until explicit approval.

@@ -201,7 +201,7 @@ The implementation PR must cover at least:
 
 ## Real-system acceptance direction
 
-A later runtime-implementation PR must provide a guarded exact-head yaVDR acceptance path that proves:
+Draft PR #139 provides a guarded exact-head, upgrade-safe yaVDR acceptance path that proves:
 
 - existing Slice-1 Agent stays online;
 - one bounded read-only observation domain establishes a complete baseline;
@@ -209,12 +209,12 @@ A later runtime-implementation PR must provide a guarded exact-head yaVDR accept
 - duplicate replay is idempotent;
 - a deliberate gap returns `resync-required` without corrupting the cursor;
 - restart preserves the committed cursor;
-- revocation stops ingestion;
+- the existing accepted Agent identity is preserved across daemon/Agent restart and rejected-gap recovery;
 - VDR-native fingerprints remain unchanged;
 - VDR, daemon and Agent services remain active;
 - evidence is root-only and secret-free.
 
-No manual SQLite inspection is part of acceptance. A redacted administration/report tool or guarded harness must expose the required state.
+No manual SQLite inspection is part of acceptance. The redacted administration tool and guarded harness expose the required cursor state while a root-only helper reads protected identity material internally without printing it.
 
 ## Exit criterion
 

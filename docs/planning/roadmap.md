@@ -8,7 +8,7 @@ A roadmap item is not automatically an implementation requirement. New runtime w
 
 ## Current verified position
 
-Baseline: `main @ a9620179a442155f0860ef3182ca39186ac46a57`.
+Baseline: `main @ 24b1d7938ddaa15834a8da6323a270761868f4ba`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -31,8 +31,8 @@ Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
 PR #137 merged with exact-head CI and real yaVDR acceptance
 
 Current active runtime slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-Draft PR #138 defines the binding contract
+Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
+Draft PR #139 implements the first bounded read-only observation domain
 
 Phase 63 is not complete
 ```
@@ -80,7 +80,7 @@ Removal requires a separate future migration contract. This explicit decision sa
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
-Status: **Active; Slice 1 completed and Slice 2 contract active.**
+Status: **Active; Slice 1 completed, Slice 2 contract merged and `backend-health` runtime active.**
 
 ### Phase 63 Slice 1 — Backend Agent Enrollment and Lease Foundation
 
@@ -101,13 +101,13 @@ Binding closeout: [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-cl
 
 ### Phase 63 Slice 2 — Read-only Observation and Snapshot Ingestion Foundation
 
-Status: **Active contract in Draft PR #138. Runtime implementation not yet included.**
+Status: **Active runtime in Draft PR #139; contract merged in PR #138.**
 
 Binding contract: [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md).
 
-The next accepted-code gap is remote read-state ingestion. Slice 1 can prove Agent identity and liveness but cannot yet deliver bounded domain state into Suite-owned read models. Without explicit generation, baseline and sequence semantics, retry or reconnect could create stale overwrite, conflicting replay or guessed continuity.
+Draft PR #139 closes the first accepted-code gap for remote read-state ingestion by implementing the bounded `backend-health` domain on the merged contract. Explicit generation, baseline and sequence semantics prevent stale overwrite, conflicting replay and guessed continuity.
 
-The smallest closing slice therefore requires:
+The active implementation provides:
 
 - existing `vdr-suite-agent/1` technical authentication;
 - backend, Agent, Agent instance and backend-generation fencing;
@@ -167,7 +167,7 @@ No command inbox, command dispatch, receipts or results; no Timer, Recording, Se
 
 ## Exact next action
 
-Stabilize Draft PR #138 on one exact head with the Slice-1 closeout, Slice-2 Observation and Snapshot Ingestion contract, fail-closed contract checker and current-state/architecture updates. Obtain all required CI jobs. Keep the PR Draft until explicit approval. Only after that contract is accepted should the smallest runtime implementation begin with `backend-health` complete-snapshot and exact-next change ingestion.
+Stabilize Draft PR #139 on one exact head, obtain all required CI jobs, install that exact head on yaVDR and execute the upgrade-safe `backend-health` acceptance while preserving the existing Agent identity. Keep the PR Draft until explicit approval.
 
 ## Related documents
 

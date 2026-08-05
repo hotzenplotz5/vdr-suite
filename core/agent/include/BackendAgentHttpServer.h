@@ -39,6 +39,9 @@ private:
     HttpServerResponse handleCapabilities(
         const HttpServerRequest& request,
         const RequestSecurityContext& context) const;
+    HttpServerResponse handleBackendHealthObservation(
+        const HttpServerRequest& request,
+        const RequestSecurityContext& context) const;
 
     std::unique_ptr<IHttpServer> clientServer_;
     BackendAgentLifecycleService& lifecycleService_;

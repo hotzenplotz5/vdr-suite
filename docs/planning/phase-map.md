@@ -39,7 +39,7 @@ These blocks do not consume or invent a phase number.
 
 ```text
 Current merged main baseline:
-a9620179a442155f0860ef3182ca39186ac46a57
+24b1d7938ddaa15834a8da6323a270761868f4ba
 
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -61,8 +61,8 @@ Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
 PR #137 merged and exact-head real yaVDR acceptance passed
 
 Current active runtime slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-Draft PR #138 defines the binding contract
+Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
+Draft PR #139 implements the first bounded read-only observation domain
 
 Phase 63 is not complete
 ```
@@ -83,7 +83,7 @@ Phase 63 is not complete
 | Slice | Status | Result / Goal |
 | --- | --- | --- |
 | Phase 63 Slice 1 | Completed and merged | Controlled Agent enrollment, technical identity, protected HTTPS transport, protocol/generation/instance fencing, heartbeat/lease, read-only capabilities, credential rotation/revocation/replacement and guarded real-system acceptance. |
-| Phase 63 Slice 2 | Active contract | Complete baseline plus exact-next change ingestion, idempotent replay, gap-driven `resync-required`, atomic receipt/cursor persistence and read-only `backend-health` foundation. |
+| Phase 63 Slice 2 | Active runtime | PR #138 merged the contract; Draft PR #139 implements complete baseline plus exact-next change ingestion, idempotent replay, gap-driven `resync-required`, atomic receipt/cursor persistence and protected Agent retry for `backend-health`. |
 | Later Phase 63 slices | Not started | Durable command/receipt/result flow, native execution and provider ownership/selection require separate contracts after read-only ingestion. |
 
 ## Numbering rules

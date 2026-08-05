@@ -33,6 +33,12 @@ void initializeCurl()
     CurlInitialized = curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK;
 }
 
+std::int64_t unixNow()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 std::string generateOpaqueId(const std::string& prefix, std::size_t bytes)
 {
     if (prefix.empty() || bytes < 8 || bytes > 32) return {};
@@ -676,7 +682,13 @@ bool BackendAgentClientRuntime::loadIdentity(
         "version", "agent_id", "backend_id", "credential_id",
         "credential_generation", "credential_secret", "backend_generation",
         "heartbeat_sequence", "capability_revision", "pending_rotation_id",
-        "pending_credential_generation", "pending_credential_secret"};
+        "pending_credential_generation", "pending_credential_secret",
+        "observation_backend_generation", "observation_snapshot_generation",
+        "observation_producer_sequence", "pending_observation_kind",
+        "pending_observation_snapshot_generation",
+        "pending_observation_producer_sequence", "pending_observation_captured_at",
+        "pending_observation_resource_revision",
+        "pending_observation_heartbeat_sequence"};
     if (!onlyAllowedKeys(values, Allowed))
     {
         reasonCode = "unknown_identity_key";
@@ -687,7 +699,15 @@ bool BackendAgentClientRuntime::loadIdentity(
     std::uint64_t heartbeatSequence = 0;
     std::uint64_t capabilityRevision = 0;
     std::uint64_t pendingCredentialGeneration = 0;
-    if (values["version"] != "1" ||
+    std::uint64_t observationBackendGeneration = 0;
+    std::uint64_t observationSnapshotGeneration = 0;
+    std::uint64_t observationProducerSequence = 0;
+    std::uint64_t pendingObservationSnapshotGeneration = 0;
+    std::uint64_t pendingObservationProducerSequence = 0;
+    std::uint64_t pendingObservationCapturedAt = 0;
+    std::uint64_t pendingObservationHeartbeatSequence = 0;
+    const bool legacyVersion = values["version"] == "1";
+    if ((!legacyVersion && values["version"] != "2") ||
         !safeIdentifier(values["agent_id"]) ||
         !safeIdentifier(values["backend_id"]) ||
         !safeIdentifier(values["credential_id"]) ||
@@ -708,6 +728,69 @@ bool BackendAgentClientRuntime::loadIdentity(
         reasonCode = "invalid_identity_file";
         return false;
     }
+    if (!legacyVersion)
+    {
+        if (!strictUnsigned(
+                values["observation_backend_generation"],
+                observationBackendGeneration) ||
+            !strictUnsigned(
+                values["observation_snapshot_generation"],
+                observationSnapshotGeneration) ||
+            !strictUnsigned(
+                values["observation_producer_sequence"],
+                observationProducerSequence) ||
+            observationBackendGeneration > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            observationSnapshotGeneration > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            observationProducerSequence > static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) ||
+            (observationProducerSequence != 0 &&
+             (observationBackendGeneration == 0 ||
+              observationSnapshotGeneration == 0)))
+        {
+            reasonCode = "invalid_observation_identity_state";
+            return false;
+        }
+    }
+    const bool hasPendingObservation = !values["pending_observation_kind"].empty();
+    if (hasPendingObservation &&
+        ((values["pending_observation_kind"] != "completeSnapshot" &&
+          values["pending_observation_kind"] != "changeBatch") ||
+         !strictUnsigned(
+             values["pending_observation_snapshot_generation"],
+             pendingObservationSnapshotGeneration) ||
+         !strictUnsigned(
+             values["pending_observation_producer_sequence"],
+             pendingObservationProducerSequence) ||
+         !strictUnsigned(
+             values["pending_observation_captured_at"],
+             pendingObservationCapturedAt) ||
+         !strictUnsigned(
+             values["pending_observation_heartbeat_sequence"],
+             pendingObservationHeartbeatSequence) ||
+         pendingObservationSnapshotGeneration == 0 ||
+         pendingObservationProducerSequence == 0 ||
+         pendingObservationCapturedAt > static_cast<std::uint64_t>(
+             std::numeric_limits<std::int64_t>::max()) ||
+         pendingObservationHeartbeatSequence > static_cast<std::uint64_t>(
+             std::numeric_limits<std::int64_t>::max()) ||
+         !safeIdentifier(values["pending_observation_resource_revision"])))
+    {
+        reasonCode = "invalid_pending_observation";
+        return false;
+    }
+    if (!hasPendingObservation &&
+        (!values["pending_observation_snapshot_generation"].empty() ||
+         !values["pending_observation_producer_sequence"].empty() ||
+         !values["pending_observation_captured_at"].empty() ||
+         !values["pending_observation_resource_revision"].empty() ||
+         !values["pending_observation_heartbeat_sequence"].empty()))
+    {
+        reasonCode = "invalid_pending_observation";
+        return false;
+    }
+
     const bool hasPendingRotation = !values["pending_rotation_id"].empty();
     if (hasPendingRotation &&
         (!safeIdentifier(values["pending_rotation_id"]) ||
@@ -738,6 +821,23 @@ bool BackendAgentClientRuntime::loadIdentity(
     state.backendGeneration = backendGeneration;
     state.heartbeatSequence = heartbeatSequence;
     state.capabilityRevision = capabilityRevision;
+    state.observationBackendGeneration = observationBackendGeneration;
+    state.observationSnapshotGeneration = observationSnapshotGeneration;
+    state.observationProducerSequence = observationProducerSequence;
+    if (hasPendingObservation)
+    {
+        state.pendingObservationKind = values["pending_observation_kind"];
+        state.pendingObservationSnapshotGeneration =
+            pendingObservationSnapshotGeneration;
+        state.pendingObservationProducerSequence =
+            pendingObservationProducerSequence;
+        state.pendingObservationCapturedAt = static_cast<std::int64_t>(
+            pendingObservationCapturedAt);
+        state.pendingObservationResourceRevision =
+            values["pending_observation_resource_revision"];
+        state.pendingObservationHeartbeatSequence =
+            pendingObservationHeartbeatSequence;
+    }
     if (hasPendingRotation)
     {
         state.pendingRotationId = values["pending_rotation_id"];
@@ -784,6 +884,14 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
     std::string& reasonCode)
 {
     const bool hasPendingRotation = !state.pendingRotationId.empty();
+    const bool hasPendingObservation = !state.pendingObservationKind.empty();
+    const bool validPendingObservation = !hasPendingObservation ||
+        ((state.pendingObservationKind == "completeSnapshot" ||
+          state.pendingObservationKind == "changeBatch") &&
+         state.pendingObservationSnapshotGeneration > 0 &&
+         state.pendingObservationProducerSequence > 0 &&
+         state.pendingObservationCapturedAt >= 0 &&
+         safeIdentifier(state.pendingObservationResourceRevision));
     const bool validPendingRotation = !hasPendingRotation ||
         (safeIdentifier(state.pendingRotationId) &&
          state.pendingCredentialSecret.size() >= 32 &&
@@ -795,16 +903,31 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
         !safeIdentifier(state.credentialId) ||
         state.credentialSecret.size() < 32 || state.credentialSecret.size() > 1024 ||
         state.credentialGeneration == 0 ||
-        !validPendingRotation ||
+        !validPendingRotation || !validPendingObservation ||
+        state.observationBackendGeneration > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        state.observationSnapshotGeneration > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        state.observationProducerSequence > static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) ||
+        (state.observationProducerSequence != 0 &&
+         (state.observationBackendGeneration == 0 ||
+          state.observationSnapshotGeneration == 0)) ||
         (!hasPendingRotation &&
          (!state.pendingCredentialSecret.empty() ||
-          state.pendingCredentialGeneration != 0)))
+          state.pendingCredentialGeneration != 0)) ||
+        (!hasPendingObservation &&
+         (state.pendingObservationSnapshotGeneration != 0 ||
+          state.pendingObservationProducerSequence != 0 ||
+          state.pendingObservationCapturedAt != 0 ||
+          !state.pendingObservationResourceRevision.empty() ||
+          state.pendingObservationHeartbeatSequence != 0)))
     {
         reasonCode = "invalid_identity_state";
         return false;
     }
     std::ostringstream content;
-    content << "version=1\n"
+    content << "version=2\n"
             << "agent_id=" << state.agentId << "\n"
             << "backend_id=" << state.backendId << "\n"
             << "credential_id=" << state.credentialId << "\n"
@@ -812,7 +935,13 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
             << "credential_secret=" << state.credentialSecret << "\n"
             << "backend_generation=" << state.backendGeneration << "\n"
             << "heartbeat_sequence=" << state.heartbeatSequence << "\n"
-            << "capability_revision=" << state.capabilityRevision << "\n";
+            << "capability_revision=" << state.capabilityRevision << "\n"
+            << "observation_backend_generation="
+            << state.observationBackendGeneration << "\n"
+            << "observation_snapshot_generation="
+            << state.observationSnapshotGeneration << "\n"
+            << "observation_producer_sequence="
+            << state.observationProducerSequence << "\n";
     if (hasPendingRotation)
     {
         content << "pending_rotation_id=" << state.pendingRotationId << "\n"
@@ -820,6 +949,20 @@ bool BackendAgentClientRuntime::writeIdentityAtomically(
                 << state.pendingCredentialGeneration << "\n"
                 << "pending_credential_secret="
                 << state.pendingCredentialSecret << "\n";
+    }
+    if (hasPendingObservation)
+    {
+        content << "pending_observation_kind=" << state.pendingObservationKind << "\n"
+                << "pending_observation_snapshot_generation="
+                << state.pendingObservationSnapshotGeneration << "\n"
+                << "pending_observation_producer_sequence="
+                << state.pendingObservationProducerSequence << "\n"
+                << "pending_observation_captured_at="
+                << state.pendingObservationCapturedAt << "\n"
+                << "pending_observation_resource_revision="
+                << state.pendingObservationResourceRevision << "\n"
+                << "pending_observation_heartbeat_sequence="
+                << state.pendingObservationHeartbeatSequence << "\n";
     }
     if (!writeProtectedFileAtomically(path, content.str(), reasonCode)) return false;
     reasonCode = "identity_persisted";
@@ -959,6 +1102,28 @@ bool BackendAgentClientRuntime::connectWithCredential(
     state_.backendGeneration = backendGeneration;
     state_.heartbeatSequence = heartbeatSequence;
     state_.capabilityRevision = capabilityRevision;
+    if (state_.observationBackendGeneration != backendGeneration ||
+        disposition == "resync-required")
+    {
+        if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()))
+        {
+            reasonCode = "observation_snapshot_generation_exhausted";
+            return false;
+        }
+        state_.observationBackendGeneration = backendGeneration;
+        state_.observationSnapshotGeneration =
+            state_.observationSnapshotGeneration == 0
+                ? 1
+                : state_.observationSnapshotGeneration + 1;
+        state_.observationProducerSequence = 0;
+        state_.pendingObservationKind.clear();
+        state_.pendingObservationSnapshotGeneration = 0;
+        state_.pendingObservationProducerSequence = 0;
+        state_.pendingObservationCapturedAt = 0;
+        state_.pendingObservationResourceRevision.clear();
+        state_.pendingObservationHeartbeatSequence = 0;
+    }
     reasonCode = disposition;
     return true;
 }
@@ -1140,11 +1305,196 @@ bool BackendAgentClientRuntime::publishCapabilities(std::string& reasonCode)
     return true;
 }
 
+
+bool BackendAgentClientRuntime::resetObservationLineage(std::string& reasonCode)
+{
+    if (state_.observationSnapshotGeneration >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+    {
+        reasonCode = "observation_snapshot_generation_exhausted";
+        return false;
+    }
+    state_.observationBackendGeneration = state_.backendGeneration;
+    state_.observationSnapshotGeneration =
+        state_.observationSnapshotGeneration == 0
+            ? 1
+            : state_.observationSnapshotGeneration + 1;
+    state_.observationProducerSequence = 0;
+    state_.pendingObservationKind.clear();
+    state_.pendingObservationSnapshotGeneration = 0;
+    state_.pendingObservationProducerSequence = 0;
+    state_.pendingObservationCapturedAt = 0;
+    state_.pendingObservationResourceRevision.clear();
+    state_.pendingObservationHeartbeatSequence = 0;
+    return persist(reasonCode);
+}
+
+bool BackendAgentClientRuntime::preparePendingBackendHealthObservation(
+    std::string& reasonCode)
+{
+    if (!state_.pendingObservationKind.empty())
+    {
+        reasonCode = "backend_health_observation_already_pending";
+        return true;
+    }
+    if (state_.backendGeneration == 0 || state_.heartbeatSequence == 0)
+    {
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (state_.observationBackendGeneration != state_.backendGeneration ||
+        state_.observationSnapshotGeneration == 0)
+    {
+        if (!resetObservationLineage(reasonCode)) return false;
+    }
+    if (state_.observationProducerSequence >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+    {
+        reasonCode = "observation_producer_sequence_exhausted";
+        return false;
+    }
+    state_.pendingObservationKind = state_.observationProducerSequence == 0
+        ? "completeSnapshot"
+        : "changeBatch";
+    state_.pendingObservationSnapshotGeneration =
+        state_.observationSnapshotGeneration;
+    state_.pendingObservationProducerSequence =
+        state_.observationProducerSequence + 1;
+    state_.pendingObservationCapturedAt = unixNow();
+    state_.pendingObservationResourceRevision =
+        "heartbeat-" + std::to_string(state_.heartbeatSequence);
+    state_.pendingObservationHeartbeatSequence = state_.heartbeatSequence;
+    if (!persist(reasonCode)) return false;
+    reasonCode = "backend_health_observation_prepared";
+    return true;
+}
+
+bool BackendAgentClientRuntime::promotePendingBackendHealthObservation(
+    std::string& reasonCode)
+{
+    if (state_.pendingObservationKind.empty() ||
+        state_.pendingObservationSnapshotGeneration == 0 ||
+        state_.pendingObservationProducerSequence == 0)
+    {
+        reasonCode = "invalid_pending_observation";
+        return false;
+    }
+    state_.observationBackendGeneration = state_.backendGeneration;
+    state_.observationSnapshotGeneration =
+        state_.pendingObservationSnapshotGeneration;
+    state_.observationProducerSequence =
+        state_.pendingObservationProducerSequence;
+    state_.pendingObservationKind.clear();
+    state_.pendingObservationSnapshotGeneration = 0;
+    state_.pendingObservationProducerSequence = 0;
+    state_.pendingObservationCapturedAt = 0;
+    state_.pendingObservationResourceRevision.clear();
+    state_.pendingObservationHeartbeatSequence = 0;
+    if (!persist(reasonCode)) return false;
+    reasonCode = "backend_health_observation_promoted";
+    return true;
+}
+
+bool BackendAgentClientRuntime::submitPendingBackendHealthObservation(
+    std::string& reasonCode)
+{
+    if (state_.pendingObservationKind.empty())
+    {
+        reasonCode = "backend_health_observation_not_pending";
+        return false;
+    }
+    std::ostringstream body;
+    body << "{\"protocolVersion\":\"vdr-suite-agent/1\""
+         << ",\"backendId\":\"" << jsonEscape(state_.backendId)
+         << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
+         << "\",\"backendGeneration\":" << state_.backendGeneration
+         << ",\"observationDomain\":\"backend-health\""
+         << ",\"snapshotGeneration\":"
+         << state_.pendingObservationSnapshotGeneration
+         << ",\"producerSequence\":"
+         << state_.pendingObservationProducerSequence
+         << ",\"kind\":\"" << state_.pendingObservationKind
+         << "\",\"capturedAt\":" << state_.pendingObservationCapturedAt
+         << ",\"resourceRevision\":\""
+         << jsonEscape(state_.pendingObservationResourceRevision)
+         << "\",\"agentState\":\"online\""
+         << ",\"observedHeartbeatSequence\":"
+         << state_.pendingObservationHeartbeatSequence << '}';
+    const BackendAgentTransportResponse response = transport_.postAuthenticated(
+        state_.agentId, state_.credentialSecret,
+        "/api/agent/v1/observations/backend-health", body.str());
+    if (!response.transportSucceeded)
+    {
+        reasonCode = response.errorCode.empty()
+            ? "backend_health_observation_transport_failed"
+            : response.errorCode;
+        return false;
+    }
+    if (response.statusCode == 409)
+    {
+        const std::string code = responseErrorCode(response);
+        if (code == "observation_resync_required" ||
+            code == "observation_baseline_required")
+        {
+            if (!resetObservationLineage(reasonCode)) return false;
+            reasonCode = "observation_resync_required";
+            return false;
+        }
+        reasonCode = code;
+        return false;
+    }
+    std::string outcome;
+    std::uint64_t snapshotGeneration = 0;
+    std::uint64_t producerSequence = 0;
+    if (response.statusCode != 200 ||
+        !jsonString(response.body, "outcome", outcome) ||
+        !jsonUnsigned(response.body, "snapshotGeneration", snapshotGeneration) ||
+        !jsonUnsigned(response.body, "producerSequence", producerSequence) ||
+        (outcome != "accepted" && outcome != "replayed") ||
+        snapshotGeneration != state_.pendingObservationSnapshotGeneration ||
+        producerSequence != state_.pendingObservationProducerSequence)
+    {
+        reasonCode = response.statusCode >= 400
+            ? responseErrorCode(response)
+            : "invalid_backend_health_observation_response";
+        return false;
+    }
+    return promotePendingBackendHealthObservation(reasonCode);
+}
+
+bool BackendAgentClientRuntime::publishBackendHealthObservation(
+    std::string& reasonCode)
+{
+    if (std::find(
+            config_.observationDomains.begin(),
+            config_.observationDomains.end(),
+            "backend-health") == config_.observationDomains.end())
+    {
+        reasonCode = "backend_health_observation_disabled";
+        return true;
+    }
+    if (state_.pendingObservationKind.empty() &&
+        !preparePendingBackendHealthObservation(reasonCode))
+    {
+        return false;
+    }
+    if (submitPendingBackendHealthObservation(reasonCode)) return true;
+    if (reasonCode != "observation_resync_required") return false;
+    if (!preparePendingBackendHealthObservation(reasonCode)) return false;
+    return submitPendingBackendHealthObservation(reasonCode);
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
     {
         reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (!state_.pendingObservationKind.empty() &&
+        !publishBackendHealthObservation(reasonCode))
+    {
+        synchronized_ = false;
         return false;
     }
     if (state_.heartbeatSequence >= static_cast<std::uint64_t>(
@@ -1177,7 +1527,12 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         synchronized_ = false;
         return false;
     }
-    reasonCode = "lease_renewed";
+    if (!publishBackendHealthObservation(reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
+    reasonCode = "lease_and_backend_health_observation_renewed";
     return true;
 }
 

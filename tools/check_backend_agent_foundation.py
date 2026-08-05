@@ -60,12 +60,16 @@ for symbol in [
 
 for table in [
     "backend_agent_enrollments", "backend_agents",
-    "backend_agent_credential_rotations", "backend_agent_capabilities"
+    "backend_agent_credential_rotations", "backend_agent_capabilities",
+    "backend_agent_observation_receipts", "backend_agent_observation_cursors"
 ]:
     if table not in repository or table not in schema:
         failures.append(f"agent persistence table missing from runtime/schema contract: {table}")
 
-for route in ["enroll", "connect", "heartbeat", "capabilities", "credentials/rotate"]:
+for route in [
+    "enroll", "connect", "heartbeat", "capabilities", "credentials/rotate",
+    "observations/backend-health",
+]:
     if f'/api/agent/v1/{route}' not in http:
         failures.append(f"machine Agent route missing: {route}")
 
@@ -76,6 +80,20 @@ for required in [
 ]:
     if required not in repository or required not in schema:
         failures.append(f"active-Agent replacement/history constraint missing: {required}")
+
+for required in [
+    "pendingObservationKind", "observationSnapshotGeneration",
+    "publishBackendHealthObservation", "observation_resync_required",
+]:
+    if required not in client:
+        failures.append(f"restart-safe observation publication missing: {required}")
+
+for required in [
+    "backend_agent_observation_receipts", "backend_agent_observation_cursors",
+    "BEGIN IMMEDIATE", "canonical_payload", "resync-required",
+]:
+    if required not in repository:
+        failures.append(f"transactional observation repository contract missing: {required}")
 
 for required in [
     "pendingRotationId", "pendingCredentialSecret",
@@ -123,6 +141,10 @@ for secret_field in [
 
 if "readOnly" not in lifecycle or "!facts.readOnly" not in (ROOT / "core/agent/src/BackendAgentLifecycle.cpp").read_text():
     failures.append("read-only capability gate is missing")
+
+for path_name, text in [("HTTP", http), ("Agent client", client)]:
+    if "sqlite3_" in text or "SELECT " in text or "INSERT INTO " in text:
+        failures.append(f"{path_name} crossed repository-owned SQLite boundary")
 
 if "MaximumAgentBodyBytes" not in http or "agent_payload_too_large" not in http:
     failures.append("Agent protocol body-size gate is missing")

@@ -70,6 +70,20 @@ bool uniqueValues(const std::vector<std::string>& values)
     return std::set<std::string>(values.begin(), values.end()).size() == values.size();
 }
 
+
+std::string observationPayloadIdentity(const std::string& canonicalPayload)
+{
+    std::uint64_t value = 1469598103934665603ULL;
+    for (unsigned char character : canonicalPayload)
+    {
+        value ^= character;
+        value *= 1099511628211ULL;
+    }
+    std::ostringstream output;
+    output << std::hex << std::setw(16) << std::setfill('0') << value;
+    return output.str();
+}
+
 class DatabaseTransaction
 {
 public:
@@ -829,6 +843,75 @@ BackendAgentCapabilityResult BackendAgentLifecycleService::publishCapabilities(
                 "backend.agent.capabilities", result.accepted ? "allow" : "deny",
                 result.reasonCode, result.accepted ? "succeeded" : "denied", now);
     return result;
+}
+
+
+BackendAgentObservationResult BackendAgentLifecycleService::ingestObservation(
+    const RequestSecurityContext& context,
+    const BackendAgentObservationRequest& request,
+    std::int64_t now)
+{
+    BackendAgentObservationResult result;
+    if (!context.authenticated() || context.actor.type != ActorType::Agent)
+    {
+        result.reasonCode = "agent_authentication_required";
+        return result;
+    }
+    if (!supportedProtocol(request.protocolVersion) ||
+        !safeIdentifier(request.backendId) ||
+        !safeIdentifier(request.agentInstanceId) ||
+        request.observationDomain != "backend-health" ||
+        request.snapshotGeneration == 0 ||
+        request.producerSequence == 0 ||
+        (request.kind != "completeSnapshot" && request.kind != "changeBatch") ||
+        now < 0 || now > std::numeric_limits<std::int64_t>::max() - 300 ||
+        request.capturedAt < 0 || request.capturedAt > now + 300 ||
+        !safeIdentifier(request.resourceRevision) ||
+        request.agentState != "online")
+    {
+        result.reasonCode = "invalid_backend_health_observation";
+        appendEvent(context, "agent.observation.result", request.backendId,
+                    "backend.agent.observation.ingest", "deny", result.reasonCode,
+                    "denied", now);
+        return result;
+    }
+    const std::string canonicalPayload =
+        "agentState=" + request.agentState +
+        ";heartbeatSequence=" + std::to_string(request.observedHeartbeatSequence);
+    const std::string payloadIdentity = observationPayloadIdentity(canonicalPayload);
+    if (!appendEvent(context, "agent.observation.requested", request.backendId,
+                     "backend.agent.observation.ingest", "allow",
+                     "observation_ingestion_requested", "pending", now))
+    {
+        result.reasonCode = "accountability_unavailable";
+        return result;
+    }
+    if (!repository_.ingestObservation(
+            context.actor.actorId, request, payloadIdentity, canonicalPayload, now, result))
+    {
+        result.accepted = false;
+        result.replayed = false;
+        result.resyncRequired = false;
+        result.reasonCode = "observation_persistence_failed";
+        appendEvent(context, "agent.observation.result", request.backendId,
+                    "backend.agent.observation.ingest", "deny", result.reasonCode,
+                    "failed", now);
+        return result;
+    }
+    appendEvent(context, "agent.observation.result", request.backendId,
+                "backend.agent.observation.ingest",
+                result.accepted ? "allow" : "deny", result.reasonCode,
+                result.accepted ? (result.replayed ? "replayed" : "succeeded") :
+                    result.resyncRequired ? "resync-required" : "denied",
+                now);
+    return result;
+}
+
+BackendAgentObservationCursor BackendAgentLifecycleService::observationCursorForBackend(
+    const std::string& backendId,
+    const std::string& observationDomain) const
+{
+    return repository_.observationCursorForBackend(backendId, observationDomain);
 }
 
 bool BackendAgentLifecycleService::revoke(
