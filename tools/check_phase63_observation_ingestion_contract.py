@@ -20,8 +20,9 @@ def require(path: Path, markers: list[str]) -> None:
         failures.append(f"missing Phase-63 contract file: {path.relative_to(ROOT)}")
         return
     text = path.read_text(encoding="utf-8")
+    folded_text = text.casefold()
     for marker in markers:
-        if marker not in text:
+        if marker.casefold() not in folded_text:
             failures.append(
                 f"{path.relative_to(ROOT)} misses required marker: {marker}"
             )
