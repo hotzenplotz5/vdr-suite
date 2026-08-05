@@ -9,9 +9,7 @@
 
 #include <csignal>
 #include <iostream>
-#include <set>
 #include <utility>
-#include <vector>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -32,47 +30,6 @@ int DaemonRuntime::run()
         std::cerr << "vdr-suite-daemon runtime not initialized" << std::endl;
         return 1;
     }
-
-    GlobalSearchApiRuntime::instance().setPersonPortraitLookup(
-        [this](const std::string& backendId)
-        {
-            std::vector<GlobalSearchPersonPortrait> portraits;
-            if (!metadataRepository_) return portraits;
-
-            const auto assignments =
-                metadataRepository_->getManualRecordingMetadataForBackend(
-                    backendId);
-            std::set<std::string> visitedAssignments;
-            for (const auto& entry : assignments)
-            {
-                const ManualRecordingMetadataAssignment& assignment =
-                    entry.second;
-                if (!assignment.found || !assignment.relationshipLocked ||
-                    assignment.metadataAssignmentId.empty() ||
-                    assignment.revision <= 0 ||
-                    !visitedAssignments.insert(
-                        assignment.metadataAssignmentId).second)
-                    continue;
-
-                for (std::size_t index = 0;
-                     index < assignment.people.size();
-                     ++index)
-                {
-                    const ManualRecordingMetadataPerson& person =
-                        assignment.people[index];
-                    if (person.name.empty() || person.profilePath.empty())
-                        continue;
-                    GlobalSearchPersonPortrait portrait;
-                    portrait.name = person.name;
-                    portrait.role = person.role;
-                    portrait.backendNativeId = entry.first;
-                    portrait.index = static_cast<int>(index);
-                    portrait.assignmentRevision = assignment.revision;
-                    portraits.push_back(std::move(portrait));
-                }
-            }
-            return portraits;
-        });
 
     std::cout << "vdr-suite-daemon runtime running" << std::endl;
     std::cout << "vdr-suite-daemon serving HTTP on " << config_.httpListenHost() << ":" << config_.httpListenPort() << std::endl;
