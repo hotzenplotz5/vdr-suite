@@ -45,10 +45,6 @@ struct GlobalSearchPersonSummary
     std::string role;
     int recordingCount = 0;
     int epgCount = 0;
-    bool imageAvailable = false;
-    std::string imageBackendNativeId;
-    int imageIndex = -1;
-    int imageAssignmentRevision = 0;
 };
 
 struct GlobalSearchResult
