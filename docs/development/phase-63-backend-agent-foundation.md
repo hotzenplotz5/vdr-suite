@@ -17,6 +17,8 @@ The first slice executes no VDR operation and introduces no public provider URL.
 - persistent Agent identity and Backend binding;
 - controlled, idempotent enrollment using an administrator-authorized one-time enrollment identity;
 - separation of enrollment identity from the resulting runtime credential reference;
+- fenced Agent-initiated runtime credential rotation with restart-safe lost-response recovery;
+- replacement enrollment for a Backend after the previous Agent identity is revoked while retaining history;
 - Agent software and Agent protocol version validation;
 - one monotonically increasing `backendGeneration` for each newly accepted runtime instance;
 - authenticated Agent-originated protocol requests;
@@ -37,6 +39,7 @@ The first slice executes no VDR operation and introduces no public provider URL.
 - public RESTfulAPI, SVDRP, SuiteBridge, Streamdev or plugin URLs;
 - browser delivery of Agent credentials, credential references or secret-bearing diagnostics;
 - automatic write enablement after enrollment;
+- changing existing `BackendNode.online` or direct-adapter availability before a later explicit provider/ownership selection slice;
 - a second BackendRegistry, security service, accountability store or job system.
 
 ## Identity and sequencing axes
@@ -74,7 +77,7 @@ An enrollment record binds:
 - target `BackendId` from administrator-authorized Control-Plane state;
 - enrollment-token verifier or existing managed credential reference;
 - creation and expiry timestamps;
-- terminal status: `pending`, `consumed`, `revoked` or `expired`;
+- persisted status: `pending`, `consumed` or `revoked`; expiry is authoritative from `expiresAt` and is treated as an effective terminal `expired` state during consumption;
 - resulting `AgentId` after successful consumption;
 - accountability correlation.
 
@@ -82,11 +85,11 @@ The raw bootstrap secret is never persisted or logged. Enrollment is idempotent 
 
 ### Backend binding
 
-One active Agent identity belongs to exactly one Backend in this slice. A request-supplied Backend ID is only a claimed routing value. Authority comes from the persisted Agent binding plus the existing BackendRegistry record.
+One active Agent identity belongs to exactly one Backend in this slice. A Backend may retain revoked historical Agent identities, but a partial uniqueness constraint permits at most one non-revoked Agent binding at a time. A request-supplied Backend ID is only a claimed routing value. Authority comes from the persisted Agent binding plus the existing BackendRegistry record. Enrollment and lease state do not overwrite the existing direct-adapter `BackendNode.online` flag; provider/ownership selection is a later bounded slice.
 
 ### Protocol compatibility
 
-The first runtime protocol is `vdr-suite-agent/1`. The Control Plane declares an inclusive supported-version range. A request outside that range is recorded as incompatible and receives no generation or lease. Agent software version is descriptive and bounded; it is not authorization.
+The first runtime protocol accepts exactly `vdr-suite-agent/1`. A request with any other version is recorded as incompatible and receives no generation or lease. A future compatible range requires an explicit protocol contract. Agent software version is descriptive and bounded; it is not authorization.
 
 ### Backend generation
 
@@ -123,10 +126,8 @@ Persisted lifecycle facts are combined with the Control-Plane clock:
 
 ## Capability model
 
-Capability publication is a small immutable set of facts for the current generation:
+Capability publication is a small immutable set of facts for the current generation. Protocol and software version are persisted connection facts and remain separate from the capability revision. The published capability set contains:
 
-- Agent protocol version;
-- Agent software version;
 - available local adapter kinds from the allowlist `suitebridge`, `restfulapi`, `svdrp`;
 - `readOnly = true` (mandatory in this slice);
 - supported observation domains from the allowlist `backend-health`, `channels`, `epg`, `recordings`, `timers`, `searchtimers`, `metadata`.
@@ -170,6 +171,14 @@ Reconnect dispositions:
 
 No normal read path performs enrollment, credential creation, rotation or schema DDL.
 
+### Credential rotation and recovery
+
+An authenticated current Agent may rotate only its own persisted runtime credential. The request carries the bound Backend, current `AgentInstanceId`, current `backendGeneration`, current `CredentialGeneration`, a stable rotation ID and a newly generated secret. Central authorization grants only the narrow self-scoped `backend.agent.credential.rotate` action for the persisted Backend.
+
+The verifier update, rotation record, credential-generation increment, lease invalidation and accountability result commit in one transaction. The old credential fails immediately after commit. Repeating the same rotation ID with the same next credential is idempotent; conflicting reuse, stale credential generation or obsolete Agent generation fails closed.
+
+Before sending the request, the local Agent stores a 0600 pending-rotation recovery record. After an ambiguous transport result it first tests the pending credential, then either promotes it or reconnects with the old credential and resubmits the same rotation ID. It never guesses whether the server committed.
+
 ## Authentication and authorization boundaries
 
 - Enrollment creation/approval is a protected Control-Plane transition requiring the existing central authorization decision and accountability precondition.
@@ -191,9 +200,12 @@ Required append-only events use the existing accountability repository and non-s
 - `agent.connection.denied`;
 - `agent.generation.replaced`;
 - `agent.lease.renewed` (rate-limited/no duplicate event for idempotent duplicate heartbeat);
-- `agent.lease.expired`;
 - `agent.capabilities.published`;
+- `agent.credential.rotation.requested`;
+- `agent.credential.rotation.result`;
 - `agent.revoked`.
+
+Lease expiry is a deterministic clock-derived read state in this slice and does not create a speculative write or periodic transition event. A later explicit lifecycle projection may add an expiry event without changing lease authority.
 
 Protected state changes fail closed when required pre-transition accountability cannot be persisted. Outcome events record success/failure without secret material.
 
@@ -218,19 +230,20 @@ The schema records:
 
 - Agent identities and Backend binding;
 - enrollment lifecycle and expiry;
-- credential reference/generation and revocation state;
+- credential reference/generation, idempotent rotation history and revocation state;
 - current Agent instance and backend generation per Backend;
 - protocol/software version and compatibility result;
 - heartbeat sequence, last connection/heartbeat and lease expiry;
-- persisted lifecycle reason;
-- capability revision and normalized allowlisted facts;
-- accountability correlation references.
+- revocation reason and protocol-compatibility result;
+- capability revision and normalized allowlisted facts.
+
+Accountability request/correlation context is stored by the existing append-only accountability repository, not duplicated in Agent lifecycle tables.
 
 Requirements:
 
 - safe idempotent migration for existing installations;
 - foreign keys to existing identity/Backend authorities where repository conventions permit;
-- uniqueness preventing one Agent from binding multiple Backends and one Backend from accepting multiple current instances;
+- uniqueness preventing one Agent from binding multiple Backends and a partial unique index permitting at most one non-revoked Agent per Backend while retaining revoked history;
 - transactionally allocated backend generations;
 - restart persistence of current generation, sequences, capabilities and revocation;
 - no destructive migration or automatic credential issuance during reads;
@@ -252,7 +265,7 @@ Requirements:
 
 ## Test gates
 
-The slice is incomplete until observed tests cover domain validation, controlled/idempotent enrollment, invalid and revoked enrollment, wrong Backend binding, incompatible protocol, generation replacement/fencing, monotone/duplicate/stale/gapped heartbeats, deterministic lease renewal/expiry, restart persistence, reconnect dispositions, capability allowlists/revisions/input limits, redaction, accountability fail-closed behavior, backend isolation and absence of VDR writes.
+The slice is incomplete until observed tests cover domain validation, controlled/idempotent enrollment, invalid/expired/revoked enrollment, replacement enrollment after revocation, wrong Backend binding, incompatible protocol, generation replacement/fencing, monotone/duplicate/stale/gapped heartbeats, deterministic lease renewal/expiry, restart persistence, reconnect dispositions, capability allowlists/revisions/input limits, credential rotation/idempotency/fencing/lost-response recovery, redaction, accountability fail-closed behavior, backend isolation, unchanged direct-adapter online authority and absence of VDR writes.
 
 The complete repository gates remain required: focused tests, architecture guards, fast regression, production daemon build, packaging/install staging, documentation checks and Make inventory audit. Real yaVDR acceptance must prove install/restart, enrollment/connect/capability/heartbeat, lease expiry and reconnect while confirming no VDR-native state changes.
 
@@ -262,12 +275,13 @@ The complete repository gates remain required: focused tests, architecture guard
 2. create one controlled enrollment bound to one existing Backend;
 3. start the Agent with protected local identity storage;
 4. verify accepted protocol, generation and read-only capabilities;
-5. observe online state under heartbeats;
-6. stop the Agent and observe stale then offline deterministically;
+5. verify persisted lease timestamps and the derived Agent `online` state without changing existing direct-adapter `BackendNode.online`;
+6. stop the Agent and verify derived stale then offline state deterministically;
 7. restart it and verify generation/reconciliation rules;
-8. revoke the Agent and prove reconnect/heartbeat denial;
-9. verify Timer, Recording, SearchTimer, Remote and configuration state is unchanged;
-10. retain only redacted logs and exact-head evidence.
+8. rotate the runtime credential and exercise lost-response recovery;
+9. revoke the Agent, prove reconnect/heartbeat denial and enroll a replacement while retaining revoked history;
+10. verify Timer, Recording, SearchTimer, Remote, configuration and existing adapter availability state are unchanged;
+11. retain only redacted logs and exact-head evidence.
 
 ## Rollback
 
