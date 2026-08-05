@@ -1,0 +1,26 @@
+name: Agent source export
+
+on:
+  push:
+    branches:
+      - agent/phase63-backend-health-ingestion-runtime
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove Git metadata
+        run: rm -rf .git
+      - name: Upload source tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase63-backend-health-source-${{ github.sha }}
+          path: .
+          include-hidden-files: true
+          retention-days: 1
