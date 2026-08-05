@@ -5,7 +5,9 @@
 #include "TmdbRecordingMetadataCandidateProvider.h"
 #include "TmdbRecordingMetadataCredentialResolver.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <sqlite3.h>
@@ -13,6 +15,11 @@
 
 namespace
 {
+constexpr std::size_t MaximumMaterializedProfiles = 12U;
+constexpr int MaximumConsecutiveProfileFailures = 2;
+const std::string ManualArtworkRoot =
+    "/var/cache/vdr-suite/recording-metadata/posters/";
+
 std::string normalizedBackendId(const std::string& backendId)
 {
     return backendId.empty() ? "default" : backendId;
@@ -113,6 +120,141 @@ std::string resolveResourceKey(
     return resolved;
 }
 
+bool localProfilePath(const std::string& path)
+{
+    if (path.empty()) return false;
+    const std::filesystem::path normalized =
+        std::filesystem::path(path).lexically_normal();
+    return normalized.is_absolute() &&
+        normalized != normalized.root_path() &&
+        normalized.string().compare(
+            0,
+            ManualArtworkRoot.size(),
+            ManualArtworkRoot) == 0;
+}
+
+std::string personKey(
+    const std::string& providerId,
+    const std::string& externalNamespace,
+    const std::string& externalId)
+{
+    return providerId + "\n" + externalNamespace + "\n" + externalId;
+}
+
+bool ensurePersonProfileSchema(Database& database)
+{
+    return database.execute(
+        "CREATE TABLE IF NOT EXISTS suite_metadata_person_profiles("
+        "provider_id TEXT NOT NULL,"
+        "external_namespace TEXT NOT NULL,"
+        "external_id TEXT NOT NULL,"
+        "profile_reference TEXT NOT NULL DEFAULT '',"
+        "local_path TEXT NOT NULL DEFAULT '',"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "PRIMARY KEY(provider_id,external_namespace,external_id),"
+        "CHECK(external_namespace='person'));"
+        "CREATE INDEX IF NOT EXISTS idx_suite_metadata_person_profiles_path "
+        "ON suite_metadata_person_profiles(local_path,provider_id,external_id);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) "
+        "VALUES(9,'Suite-owned manual person portrait references and local cache paths');");
+}
+
+struct StoredProfile
+{
+    std::string reference;
+    std::string path;
+};
+
+std::map<std::string, StoredProfile> loadStoredProfiles(Database& database)
+{
+    std::map<std::string, StoredProfile> profiles;
+    if (!database.tableExists("suite_metadata_person_profiles")) return profiles;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT provider_id,external_namespace,external_id,"
+        "profile_reference,local_path FROM suite_metadata_person_profiles;";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+        return profiles;
+
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        StoredProfile profile;
+        profile.reference = columnText(statement, 3);
+        profile.path = columnText(statement, 4);
+        if (!localProfilePath(profile.path)) profile.path.clear();
+        profiles.emplace(
+            personKey(
+                columnText(statement, 0),
+                columnText(statement, 1),
+                columnText(statement, 2)),
+            std::move(profile));
+    }
+    sqlite3_finalize(statement);
+    return profiles;
+}
+
+void applyStoredProfiles(
+    ManualRecordingMetadataAssignment& assignment,
+    const std::map<std::string, StoredProfile>& profiles)
+{
+    for (ManualRecordingMetadataPerson& person : assignment.people)
+    {
+        const auto match = profiles.find(personKey(
+            person.providerId,
+            person.externalNamespace,
+            person.externalId));
+        if (match == profiles.end()) continue;
+        person.profileReference = match->second.reference;
+        person.profilePath = match->second.path;
+    }
+}
+
+bool persistPersonProfiles(
+    Database& database,
+    const std::vector<ManualRecordingMetadataPerson>& people)
+{
+    if (!ensurePersonProfileSchema(database)) return false;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO suite_metadata_person_profiles("
+        "provider_id,external_namespace,external_id,profile_reference,local_path,updated_at) "
+        "VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) "
+        "ON CONFLICT(provider_id,external_namespace,external_id) DO UPDATE SET "
+        "profile_reference=CASE WHEN excluded.profile_reference<>'' "
+        "THEN excluded.profile_reference ELSE profile_reference END,"
+        "local_path=CASE WHEN excluded.local_path<>'' "
+        "THEN excluded.local_path ELSE local_path END,"
+        "updated_at=CURRENT_TIMESTAMP;";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+
+    bool ok = true;
+    for (const ManualRecordingMetadataPerson& person : people)
+    {
+        if (person.profileReference.empty() && person.profilePath.empty()) continue;
+        sqlite3_reset(statement);
+        sqlite3_clear_bindings(statement);
+        ok = sqlite3_bind_text(
+                statement, 1, person.providerId.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(
+                statement, 2, person.externalNamespace.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(
+                statement, 3, person.externalId.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(
+                statement, 4, person.profileReference.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(
+                statement, 5, person.profilePath.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_step(statement) == SQLITE_DONE;
+        if (!ok) break;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
 std::string materializePosterIfConfigured(
     const ManualRecordingMetadataSelection& selection,
     const std::string& token)
@@ -120,8 +262,8 @@ std::string materializePosterIfConfigured(
     if (selection.posterReference.empty() ||
         selection.posterReference.compare(
             0,
-            std::string("/var/cache/vdr-suite/recording-metadata/posters/").size(),
-            "/var/cache/vdr-suite/recording-metadata/posters/") == 0)
+            ManualArtworkRoot.size(),
+            ManualArtworkRoot) == 0)
         return selection.posterReference;
 
     if (selection.providerId != "tmdb" || token.empty())
@@ -142,6 +284,47 @@ std::string materializePosterIfConfigured(
         selection.externalId,
         selection.posterReference);
 }
+
+void materializePersonProfilesIfConfigured(
+    ManualRecordingMetadataSelection& selection,
+    const std::string& token)
+{
+    if (selection.providerId != "tmdb" || token.empty() ||
+        selection.people.empty())
+        return;
+
+    static CurlExternalArtworkHttpTransport transport(
+        CurlExternalArtworkHttpTransportConfig{
+            {"api.themoviedb.org", "image.tmdb.org"},
+            "vdr-suite/manual-recording-person-profile"});
+    TmdbRecordingMetadataCandidateProviderConfig config;
+    config.readAccessToken = token;
+    config.connectTimeoutMs = 750;
+    config.totalTimeoutMs = 2000;
+    config.maximumRetries = 0;
+    config.maximumImageBytes = 2U * 1024U * 1024U;
+    const std::string language = environmentOrEmpty(
+        "VDR_SUITE_TMDB_LANGUAGE");
+    if (!language.empty()) config.language = language;
+    TmdbRecordingMetadataCandidateProvider provider(transport, config);
+
+    std::size_t attempts = 0U;
+    int consecutiveFailures = 0;
+    for (ManualRecordingMetadataPerson& person : selection.people)
+    {
+        if (person.profileReference.empty()) continue;
+        if (attempts >= MaximumMaterializedProfiles ||
+            consecutiveFailures >= MaximumConsecutiveProfileFailures)
+            break;
+        ++attempts;
+        person.profilePath = provider.materializePoster(
+            person.externalNamespace,
+            person.externalId,
+            person.profileReference);
+        if (person.profilePath.empty()) ++consecutiveFailures;
+        else consecutiveFailures = 0;
+    }
+}
 }
 
 ManualRecordingMetadataAssignmentRepository&
@@ -160,6 +343,10 @@ bool MetadataRepository::assignManualRecordingMetadata(
     const ManualRecordingMetadataSelection& selection,
     ManualRecordingMetadataAssignment& assigned)
 {
+    ManualRecordingMetadataAssignmentRepository& repository = manualRepository();
+    if (!repository.ensureSchema()) return false;
+    ensurePersonProfileSchema(database_);
+
     ManualRecordingMetadataSelection resolved = selection;
     resolved.backendId = normalizedBackendId(selection.backendId);
     resolved.resourceKey = resolveResourceKey(
@@ -174,7 +361,12 @@ bool MetadataRepository::assignManualRecordingMetadata(
         resolved.providerId == "tmdb" && materializedPoster.empty())
         return false;
     resolved.posterReference = materializedPoster;
-    return manualRepository().assign(resolved, assigned);
+    materializePersonProfilesIfConfigured(resolved, token);
+
+    if (!repository.assign(resolved, assigned)) return false;
+    persistPersonProfiles(database_, resolved.people);
+    applyStoredProfiles(assigned, loadStoredProfiles(database_));
+    return true;
 }
 
 bool MetadataRepository::withdrawManualRecordingMetadata(
@@ -185,12 +377,18 @@ bool MetadataRepository::withdrawManualRecordingMetadata(
     ManualRecordingMetadataAssignment& withdrawn)
 {
     const std::string backend = normalizedBackendId(backendId);
-    return manualRepository().withdraw(
+    const bool ok = manualRepository().withdraw(
         backend,
         resolveResourceKey(database_, backend, resourceKey),
         actorRef,
         expectedRevision,
         withdrawn);
+    if (ok)
+    {
+        ensurePersonProfileSchema(database_);
+        applyStoredProfiles(withdrawn, loadStoredProfiles(database_));
+    }
+    return ok;
 }
 
 ManualRecordingMetadataAssignment
@@ -199,9 +397,12 @@ MetadataRepository::getManualRecordingMetadata(
     const std::string& resourceKey)
 {
     const std::string backend = normalizedBackendId(backendId);
-    return manualRepository().findSelected(
+    ManualRecordingMetadataAssignment result = manualRepository().findSelected(
         backend,
         resolveResourceKey(database_, backend, resourceKey));
+    ensurePersonProfileSchema(database_);
+    applyStoredProfiles(result, loadStoredProfiles(database_));
+    return result;
 }
 
 std::map<std::string, ManualRecordingMetadataAssignment>
@@ -213,6 +414,7 @@ MetadataRepository::getManualRecordingMetadataForBackend(
     ManualRecordingMetadataAssignmentRepository& repository =
         manualRepository();
     if (!repository.ensureSchema()) return result;
+    ensurePersonProfileSchema(database_);
 
     const bool cacheAvailable = database_.tableExists("vdr_recording_cache");
     const std::string lookup = cacheAvailable
@@ -279,6 +481,11 @@ MetadataRepository::getManualRecordingMetadataForBackend(
             aliases[row.resourceKey] = row.metadataAssignmentId;
     }
     sqlite3_finalize(statement);
+
+    const std::map<std::string, StoredProfile> profiles =
+        loadStoredProfiles(database_);
+    for (auto& assignment : assignments)
+        applyStoredProfiles(assignment.second, profiles);
 
     for (const auto& alias : aliases)
     {
