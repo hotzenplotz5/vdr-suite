@@ -90,7 +90,7 @@ const VdrRecordingNativeArtwork* selectMetadataArtwork(
     return nullptr;
 }
 
-bool localManualPoster(const std::string& path)
+bool localManualImage(const std::string& path)
 {
     if (path.empty()) return false;
     const std::filesystem::path normalized =
@@ -103,35 +103,41 @@ bool localManualPoster(const std::string& path)
             "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
 }
 
+std::string percentEncode(const std::string& value)
+{
+    static const char Hex[] = "0123456789ABCDEF";
+    std::string output;
+    for (const unsigned char character : value)
+    {
+        if ((character >= 'A' && character <= 'Z') ||
+            (character >= 'a' && character <= 'z') ||
+            (character >= '0' && character <= '9') ||
+            character == '-' || character == '_' || character == '.' ||
+            character == '~')
+            output.push_back(static_cast<char>(character));
+        else
+        {
+            output.push_back('%');
+            output.push_back(Hex[character >> 4U]);
+            output.push_back(Hex[character & 0x0fU]);
+        }
+    }
+    return output;
+}
+
 std::string manualImageUrl(
     const std::string& backendId,
-    const std::string& backendNativeId)
+    const std::string& backendNativeId,
+    const std::string& kind,
+    int index,
+    int revision)
 {
-    auto encode = [](const std::string& value)
-    {
-        static const char Hex[] = "0123456789ABCDEF";
-        std::string output;
-        for (const unsigned char character : value)
-        {
-            if ((character >= 'A' && character <= 'Z') ||
-                (character >= 'a' && character <= 'z') ||
-                (character >= '0' && character <= '9') ||
-                character == '-' || character == '_' || character == '.' ||
-                character == '~')
-                output.push_back(static_cast<char>(character));
-            else
-            {
-                output.push_back('%');
-                output.push_back(Hex[character >> 4U]);
-                output.push_back(Hex[character & 0x0fU]);
-            }
-        }
-        return output;
-    };
-
-    return "/api/vdr/recordings/metadata/image?backend=" + encode(backendId) +
-        "&backendNativeId=" + encode(backendNativeId) +
-        "&kind=preferred&index=0";
+    return "/api/vdr/recordings/metadata/image?backend=" +
+        percentEncode(backendId) +
+        "&backendNativeId=" + percentEncode(backendNativeId) +
+        "&kind=" + percentEncode(kind) +
+        "&index=" + std::to_string(index) +
+        "&assignmentRevision=" + std::to_string(revision);
 }
 
 std::string manualContentKind(
@@ -175,20 +181,37 @@ unsigned int manualPlaceholderVariant(const std::string& value)
 
 void appendManualPeople(
     std::ostringstream& json,
-    const ManualRecordingMetadataAssignment& assignment)
+    const ManualRecordingMetadataAssignment& assignment,
+    const std::string& backendNativeId)
 {
     json << '[';
     for (std::size_t index = 0; index < assignment.people.size(); ++index)
     {
         if (index > 0U) json << ',';
         const ManualRecordingMetadataPerson& person = assignment.people[index];
+        const bool imageAvailable = localManualImage(person.profilePath);
         json << "{\"role\":";
         appendJsonString(json, person.role);
         json << ",\"name\":";
         appendJsonString(json, person.name);
         json << ",\"characterName\":";
         appendJsonString(json, person.characterName);
-        json << ",\"image\":{\"available\":false}}";
+        json << ",\"image\":{\"available\":"
+             << (imageAvailable ? "true" : "false");
+        if (imageAvailable)
+        {
+            json << ",\"url\":";
+            appendJsonString(
+                json,
+                manualImageUrl(
+                    assignment.backendId,
+                    backendNativeId,
+                    "person",
+                    static_cast<int>(index),
+                    assignment.revision));
+            json << ",\"width\":0,\"height\":0";
+        }
+        json << "}}";
     }
     json << ']';
 }
@@ -197,9 +220,14 @@ std::string serializeManualFolderMetadata(
     const ManualRecordingMetadataAssignment& assignment,
     const std::string& backendNativeId)
 {
-    const bool posterAvailable = localManualPoster(assignment.posterReference);
+    const bool posterAvailable = localManualImage(assignment.posterReference);
     const std::string posterUrl = posterAvailable
-        ? manualImageUrl(assignment.backendId, backendNativeId)
+        ? manualImageUrl(
+            assignment.backendId,
+            backendNativeId,
+            "preferred",
+            0,
+            assignment.revision)
         : std::string{};
     const std::string contentKind = manualContentKind(assignment);
     const std::string seasonEpisode = manualSeasonEpisodeLabel(assignment);
@@ -314,6 +342,7 @@ std::string serializeManualMetadata(
     const ManualRecordingMetadataAssignment& assignment,
     const std::string& backendNativeId)
 {
+    const bool posterAvailable = localManualImage(assignment.posterReference);
     std::ostringstream json;
     json << "{\"available\":true,\"status\":\"ready\","
          << "\"provider\":\"manual\","
@@ -356,18 +385,23 @@ std::string serializeManualMetadata(
          << ",\"networks\":[]"
          << ",\"providerHints\":{\"hd\":0,\"language\":-1}"
          << ",\"preferredArtwork\":{\"available\":"
-         << (localManualPoster(assignment.posterReference) ? "true" : "false");
-    if (localManualPoster(assignment.posterReference))
+         << (posterAvailable ? "true" : "false");
+    if (posterAvailable)
     {
         json << ",\"url\":";
         appendJsonString(
             json,
-            manualImageUrl(assignment.backendId, backendNativeId));
+            manualImageUrl(
+                assignment.backendId,
+                backendNativeId,
+                "preferred",
+                0,
+                assignment.revision));
         json << ",\"width\":0,\"height\":0";
     }
     json << "}"
          << ",\"people\":";
-    appendManualPeople(json, assignment);
+    appendManualPeople(json, assignment, backendNativeId);
     json << ",\"images\":[]"
          << ",\"manualAssignment\":{"
          << "\"active\":true,\"revision\":" << assignment.revision
@@ -548,16 +582,25 @@ ApiResponse VdrRecordingFolderController::getMetadataImage(
     if (kind != "preferred" && kind != "person" && kind != "gallery")
         return jsonError(400, "unsupported recording metadata image kind");
 
-    if (kind == "preferred" && index == 0 && manualMetadataLookup_)
+    if (manualMetadataLookup_)
     {
         const ManualRecordingMetadataAssignment manual =
             manualMetadataLookup_(backendId, backendNativeId);
-        if (manual.found && manual.relationshipLocked &&
-            localManualPoster(manual.posterReference))
+        if (manual.found && manual.relationshipLocked)
         {
-            return EpgArtworkController::serveValidatedPath(
-                manual.posterReference,
-                metadataImageAllowedRoots_);
+            std::string localPath;
+            if (kind == "preferred" && index == 0)
+                localPath = manual.posterReference;
+            else if (kind == "person" &&
+                     static_cast<std::size_t>(index) < manual.people.size())
+                localPath = manual.people[static_cast<std::size_t>(index)].profilePath;
+
+            if (localManualImage(localPath))
+            {
+                return EpgArtworkController::serveValidatedPath(
+                    localPath,
+                    metadataImageAllowedRoots_);
+            }
         }
     }
 
