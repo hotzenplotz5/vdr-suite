@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "GlobalSearchController.h"
 
 #include <memory>
 #include <mutex>
@@ -8,7 +9,6 @@
 
 class BackendRegistryService;
 class Database;
-class GlobalSearchController;
 class GlobalSearchRepository;
 class GlobalSearchService;
 
@@ -21,6 +21,9 @@ public:
         Database& database,
         BackendRegistryService& backendRegistryService);
 
+    void setPersonPortraitLookup(
+        GlobalSearchController::PersonPortraitLookup personPortraitLookup);
+
     bool tryHandleGet(
         const std::string& requestTarget,
         ApiResponse& response) const;
@@ -32,6 +35,7 @@ private:
     GlobalSearchApiRuntime() = default;
 
     mutable std::mutex mutex_;
+    GlobalSearchController::PersonPortraitLookup personPortraitLookup_;
     std::unique_ptr<GlobalSearchRepository> writerRepository_;
     std::unique_ptr<Database> readDatabase_;
     std::unique_ptr<GlobalSearchRepository> readRepository_;
