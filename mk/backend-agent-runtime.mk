@@ -3,6 +3,7 @@
 backend-agent:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(AGENT_CLIENT_SRC) \
+		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		apps/agent/main.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent

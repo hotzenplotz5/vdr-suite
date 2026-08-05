@@ -8,6 +8,7 @@
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -539,7 +540,7 @@ void test_backend_health_observation_ingestion_and_atomicity()
     BackendAgentObservationResult invalidDomainResult = fixture.service.ingestObservation(
         agentContext(*agent), invalidDomain, Now + 13);
     assert(!invalidDomainResult.accepted);
-    assert(invalidDomainResult.reasonCode == "invalid_backend_health_observation");
+    assert(invalidDomainResult.reasonCode == "invalid_observation_envelope");
 
     BackendAgentHeartbeatResult fourthHeartbeat = fixture.service.heartbeat(
         agentContext(*agent), "default", "instance-1", connected.backendGeneration,
@@ -577,6 +578,128 @@ void test_backend_health_observation_ingestion_and_atomicity()
     assert(revoked.reasonCode == "agent_revoked_or_unknown");
     assert(fixture.service.observationCursorForBackend(
         "default", "backend-health").producerSequence == 1);
+}
+
+BackendAgentChannelFact channelFact(
+    const std::string& channelId,
+    std::uint64_t channelNumber,
+    const std::string& name)
+{
+    BackendAgentChannelFact fact;
+    fact.channelId = channelId;
+    fact.channelNumber = channelNumber;
+    fact.name = name;
+    fact.provider = "Provider";
+    fact.groupName = "Group";
+    fact.radio = false;
+    fact.encrypted = false;
+    fact.enabled = true;
+    return fact;
+}
+
+void test_channel_observation_ingestion_and_agent_owned_facts()
+{
+    Fixture fixture;
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+    auto agent = fixture.agentRepository.findAgent(enrollment.agentId);
+    assert(agent.has_value());
+    const BackendAgentConnectResult connected = connectAgent(fixture, *agent);
+
+    BackendAgentCapabilityFacts facts;
+    facts.adapters = {"channels-conf"};
+    facts.observationDomains = {"channels"};
+    BackendAgentCapabilityResult capabilities = fixture.service.publishCapabilities(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        1, facts, Now + 3);
+    assert(capabilities.accepted);
+    BackendAgentHeartbeatResult heartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        1, Now + 4);
+    assert(heartbeat.accepted);
+
+    BackendAgentObservationRequest baseline;
+    baseline.protocolVersion = "vdr-suite-agent/1";
+    baseline.backendId = "default";
+    baseline.agentInstanceId = "instance-1";
+    baseline.backendGeneration = connected.backendGeneration;
+    baseline.observationDomain = "channels";
+    baseline.snapshotGeneration = 1;
+    baseline.producerSequence = 1;
+    baseline.kind = "completeSnapshot";
+    baseline.capturedAt = Now + 4;
+    baseline.resourceRevision = "channels-revision-one";
+    baseline.observedHeartbeatSequence = 1;
+    baseline.channels = {
+        channelFact("S19.2E-1-100-10", 1, "One"),
+        channelFact("S19.2E-1-100-20", 2, "Two")};
+
+    BackendAgentObservationResult accepted = fixture.service.ingestObservation(
+        agentContext(*agent), baseline, Now + 5);
+    assert(accepted.accepted);
+    assert(accepted.reasonCode == "complete_snapshot_accepted");
+    auto stored = fixture.agentRepository.channelFactsForBackend("default");
+    assert(stored.size() == 2);
+    assert(stored[0].channelId == "S19.2E-1-100-10");
+    assert(stored[1].name == "Two");
+
+    BackendAgentObservationRequest reordered = baseline;
+    std::reverse(reordered.channels.begin(), reordered.channels.end());
+    BackendAgentObservationResult replay = fixture.service.ingestObservation(
+        agentContext(*agent), reordered, Now + 6);
+    assert(replay.accepted);
+    assert(replay.replayed);
+
+    heartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        2, Now + 7);
+    assert(heartbeat.accepted);
+    BackendAgentObservationRequest change = baseline;
+    change.channels.clear();
+    change.kind = "changeBatch";
+    change.producerSequence = 2;
+    change.capturedAt = Now + 7;
+    change.resourceRevision = "channels-revision-two";
+    change.observedHeartbeatSequence = 2;
+    change.upserts = {channelFact("S19.2E-1-100-20", 22, "Two Renamed")};
+    change.removedChannelIds = {"S19.2E-1-100-10"};
+    BackendAgentObservationResult changed = fixture.service.ingestObservation(
+        agentContext(*agent), change, Now + 8);
+    assert(changed.accepted);
+    assert(changed.reasonCode == "change_batch_accepted");
+    stored = fixture.agentRepository.channelFactsForBackend("default");
+    assert(stored.size() == 1);
+    assert(stored[0].channelNumber == 22);
+    assert(stored[0].name == "Two Renamed");
+
+    heartbeat = fixture.service.heartbeat(
+        agentContext(*agent), "default", "instance-1", connected.backendGeneration,
+        3, Now + 9);
+    assert(heartbeat.accepted);
+    BackendAgentObservationRequest unknownRemoval = change;
+    unknownRemoval.producerSequence = 3;
+    unknownRemoval.capturedAt = Now + 9;
+    unknownRemoval.resourceRevision = "channels-revision-three";
+    unknownRemoval.observedHeartbeatSequence = 3;
+    unknownRemoval.upserts.clear();
+    unknownRemoval.removedChannelIds = {"S19.2E-1-100-999"};
+    BackendAgentObservationResult rejected = fixture.service.ingestObservation(
+        agentContext(*agent), unknownRemoval, Now + 10);
+    assert(!rejected.accepted);
+    assert(rejected.reasonCode == "unknown_channel_removal");
+    const BackendAgentObservationCursor cursor =
+        fixture.service.observationCursorForBackend("default", "channels");
+    assert(cursor.producerSequence == 2);
+    assert(fixture.agentRepository.channelFactsForBackend("default").size() == 1);
+
+    BackendAgentObservationRequest gap = unknownRemoval;
+    gap.producerSequence = 4;
+    gap.removedChannelIds.clear();
+    gap.upserts = {channelFact("S19.2E-1-100-30", 30, "Thirty")};
+    BackendAgentObservationResult gapResult = fixture.service.ingestObservation(
+        agentContext(*agent), gap, Now + 10);
+    assert(!gapResult.accepted);
+    assert(gapResult.resyncRequired);
+    assert(gapResult.reasonCode == "observation_resync_required");
 }
 
 void test_generation_fencing_revocation_and_accountability()
@@ -872,8 +995,8 @@ void test_http_protocol_and_redaction()
     capabilities.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"capabilityRevision\":1,"
-        "\"readOnly\":true,\"adapters\":[],"
-        "\"observationDomains\":[\"backend-health\"]}";
+        "\"readOnly\":true,\"adapters\":[\"channels-conf\"],"
+        "\"observationDomains\":[\"backend-health\",\"channels\"]}";
     assert(server.handleRequest(capabilities).statusCode == 200);
 
     HttpServerRequest heartbeat;
@@ -903,6 +1026,37 @@ void test_http_protocol_and_redaction()
     assert(observed.body.find("\"outcome\":\"accepted\"") != std::string::npos);
     assert(observed.body.find(AgentSecret) == std::string::npos);
     assert(observed.body.find(RotatedAgentSecret) == std::string::npos);
+
+    HttpServerRequest channelObservation;
+    channelObservation.method = "POST";
+    channelObservation.path = "/api/agent/v1/observations/channels";
+    channelObservation.headers = connect.headers;
+    channelObservation.body =
+        "{\"protocolVersion\":\"vdr-suite-agent/1\","
+        "\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"observationDomain\":\"channels\","
+        "\"snapshotGeneration\":1,\"producerSequence\":1,"
+        "\"kind\":\"completeSnapshot\",\"capturedAt\":" +
+        std::to_string(realNow) +
+        ",\"resourceRevision\":\"channels-http-one\","
+        "\"observedHeartbeatSequence\":1,\"payload\":{\"channels\":[{"
+        "\"channelId\":\"S19.2E-1-100-10\",\"channelNumber\":1,"
+        "\"name\":\"One\",\"provider\":\"Provider\","
+        "\"groupName\":\"Group\",\"radio\":false,"
+        "\"encrypted\":false,\"enabled\":true}]}}";
+    const HttpServerResponse channelObserved = server.handleRequest(channelObservation);
+    assert(channelObserved.statusCode == 200);
+    assert(channelObserved.body.find("\"outcome\":\"accepted\"") !=
+        std::string::npos);
+    assert(fixture.agentRepository.channelFactsForBackend("default").size() == 1);
+
+    HttpServerRequest malformedChannel = channelObservation;
+    malformedChannel.body = channelObservation.body.substr(
+        0, channelObservation.body.size() - 1) + ",\"unknown\":true}";
+    assert(server.handleRequest(malformedChannel).statusCode == 400);
+    HttpServerRequest oversizedChannel = channelObservation;
+    oversizedChannel.body.assign(512U * 1024U + 1U, 'x');
+    assert(server.handleRequest(oversizedChannel).statusCode == 413);
 
     HttpServerRequest malformedObservation = observation;
     malformedObservation.body = "{\"protocolVersion\":\"vdr-suite-agent/1\"}";
@@ -1034,6 +1188,7 @@ int main()
     test_protocol_generation_reconnect_and_backend_isolation();
     test_capabilities_heartbeat_lease_and_restart_persistence();
     test_backend_health_observation_ingestion_and_atomicity();
+    test_channel_observation_ingestion_and_agent_owned_facts();
     test_generation_fencing_revocation_and_accountability();
     test_credential_rotation_fencing_idempotency_and_lease_invalidation();
     test_revoked_agent_can_be_replaced_without_losing_history();

@@ -14,9 +14,16 @@ SECRET_SCANNER = ROOT / "tools/check_phase63_runtime_evidence_secrets.py"
 OBSERVATION_EXERCISER = (
     ROOT / "tools/phase63-runtime-acceptance/exercise_backend_health_observation.py"
 )
+CHANNEL_RUNNER = ROOT / "tools/phase63-runtime-acceptance/channel-observation-ingestion.sh"
+CHANNEL_OBSERVATION_EXERCISER = (
+    ROOT / "tools/phase63-runtime-acceptance/exercise_channel_observation.py"
+)
 
 failures: list[str] = []
-for path in (RUNNER, UPGRADE_RUNNER, MAKEFILE, RUNBOOK, SECRET_SCANNER, OBSERVATION_EXERCISER):
+for path in (
+    RUNNER, UPGRADE_RUNNER, CHANNEL_RUNNER, MAKEFILE, RUNBOOK, SECRET_SCANNER,
+    OBSERVATION_EXERCISER, CHANNEL_OBSERVATION_EXERCISER,
+):
     if not path.is_file():
         failures.append(f"missing Phase-63 runtime acceptance file: {path.relative_to(ROOT)}")
 
@@ -27,6 +34,7 @@ if failures:
 
 runner = RUNNER.read_text(encoding="utf-8")
 upgrade_runner = UPGRADE_RUNNER.read_text(encoding="utf-8")
+channel_runner = CHANNEL_RUNNER.read_text(encoding="utf-8")
 makefile = MAKEFILE.read_text(encoding="utf-8")
 runbook = RUNBOOK.read_text(encoding="utf-8")
 
@@ -107,6 +115,57 @@ for forbidden in [
             f"upgrade runtime acceptance contains destructive or unsafe pattern: {forbidden}"
         )
 
+
+required_channel_runner = [
+    "PHASE_63_CHANNEL_OBSERVATION_UPGRADE_ACCEPTANCE=PASS",
+    "fixture_must_not_be_native_channels_conf",
+    "CHANNELS_CONF_PATH",
+    "channels-conf",
+    "CHANNEL_BASELINE=yes",
+    "CHANNEL_FIXTURE_TRANSITION=yes",
+    "CHANNEL_OBSERVATION_REPLAY=PASS",
+    "CHANNEL_OBSERVATION_GAP_RESYNC=PASS",
+    "CHANNEL_OBSERVATION_FACTS_UNCHANGED=PASS",
+    "CHANNEL_CURSOR_RESTART_PERSISTED=yes",
+    "CHANNEL_RECOVERY_AFTER_RESYNC=yes",
+    "ORIGINAL_CONFIGURATION_RESTORED=yes",
+    "EXISTING_AGENT_IDENTITY_PRESERVED=yes",
+    "CREDENTIAL_GENERATION_PRESERVED=yes",
+    "vdr-state.before",
+    "vdr-state.after",
+    "vdr-readonly.before.log",
+    "vdr-readonly.after.log",
+    "evidence-secret-scan.txt",
+    "installed_candidate_mismatch_",
+    "candidate_binary_build_failed",
+    "make daemon backend-agent backend-agent-enrollment backend-agent-admin",
+    '|| fail "initial_channel_observation_not_observed"',
+    '|| fail "changed_channel_snapshot_not_observed"',
+    '|| fail "new_channel_observation_lineage_not_observed"',
+    '|| fail "channel_recovery_after_resync_not_observed"',
+    "channel-replay-gap.log",
+    'systemctl restart "$DAEMON_SERVICE"',
+]
+for marker in required_channel_runner:
+    if marker not in channel_runner:
+        failures.append(f"Channel runtime acceptance guard missing: {marker}")
+
+for forbidden in [
+    "DELETE FROM backend_agents",
+    "--revoke",
+    '"$ENROLL_BINARY" --database',
+    "curl -k",
+    "--insecure",
+    "set -e",
+    "set -u",
+    "set -o pipefail",
+    'cat "$CONFIG_PATH"',
+]:
+    if forbidden in channel_runner:
+        failures.append(
+            f"Channel runtime acceptance contains destructive or unsafe pattern: {forbidden}"
+        )
+
 required_make = [
     "test-phase63-runtime-acceptance-harness",
     "phase63-backend-agent-runtime-acceptance",
@@ -117,6 +176,10 @@ required_make = [
     "PHASE63_CONTROL_PLANE_URL",
     "PHASE63_EVIDENCE_DIR",
     "PHASE63_OBSERVATION_EXERCISER",
+    "PHASE63_CHANNEL_ACCEPTANCE_RUNNER",
+    "PHASE63_CHANNEL_OBSERVATION_EXERCISER",
+    "phase63-channel-observation-runtime-acceptance",
+    "PHASE63_CHANNELS_CONF_SOURCE",
     "--self-test",
 ]
 for marker in required_make:
@@ -135,6 +198,24 @@ if helper_test.returncode != 0:
     failures.append(
         "backend-health observation acceptance helper self-test failed: "
         + (helper_test.stderr.strip() or helper_test.stdout.strip() or "unknown error")
+    )
+
+
+channel_helper_test = subprocess.run(
+    [sys.executable, str(CHANNEL_OBSERVATION_EXERCISER), "--self-test"],
+    cwd=ROOT,
+    text=True,
+    capture_output=True,
+    check=False,
+)
+if channel_helper_test.returncode != 0:
+    failures.append(
+        "Channel observation acceptance helper self-test failed: "
+        + (
+            channel_helper_test.stderr.strip()
+            or channel_helper_test.stdout.strip()
+            or "unknown error"
+        )
     )
 
 scanner_test = subprocess.run(
@@ -162,6 +243,9 @@ for marker in [
     "upgrade-safe",
     "existing active Agent",
     "PHASE_63_BACKEND_HEALTH_INGESTION_UPGRADE_ACCEPTANCE=PASS",
+    "Channel observation",
+    "root-controlled fixture",
+    "PHASE_63_CHANNEL_OBSERVATION_UPGRADE_ACCEPTANCE=PASS",
 ]:
     if marker not in runbook:
         failures.append(f"runtime acceptance runbook missing: {marker}")

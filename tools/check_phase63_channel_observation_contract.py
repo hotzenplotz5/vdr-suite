@@ -97,27 +97,8 @@ require(
     ],
 )
 
-# This PR is intentionally contract-only. The later runtime PR must update this
-# guard while adding the separately reviewed implementation.
-for path, forbidden in [
-    (LIFECYCLE, ['request.observationDomain == "channels"']),
-    (HTTP_SERVER, ["/api/agent/v1/observations/channels"]),
-    (CLIENT, ["publishChannelObservation", "pendingChannelObservation"]),
-    (
-        SCHEMA,
-        [
-            "backend_agent_channel_observation_facts",
-            "backend_agent_channels",
-        ],
-    ),
-]:
-    text = read(path)
-    for marker in forbidden:
-        if marker in text:
-            failures.append(
-                f"{path.relative_to(ROOT)} contains premature Channel runtime marker: "
-                f"{marker}"
-            )
+# The contract remains binding after the separately reviewed runtime is added.
+# Runtime-specific scope and architecture are guarded independently.
 
 contract_text = read(CONTRACT)
 for forbidden in [
@@ -141,4 +122,4 @@ print("Phase-63 Channel observation contract check passed")
 print(f"Merged backend-health runtime base: {BASE_COMMIT}")
 print(f"Merged backend-health runtime tree: {BASE_TREE}")
 print("Next bounded contract domain: channels")
-print("Runtime implementation: not included")
+print("Runtime implementation: guarded separately when present")

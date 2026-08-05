@@ -13,6 +13,7 @@ struct BackendAgentClientConfig
     std::string identityPath;
     std::string enrollmentPath;
     std::string caCertificatePath;
+    std::string channelsConfPath = "/var/lib/vdr/channels.conf";
     std::string softwareVersion = "vdr-suite-backend-agent/1";
     std::vector<std::string> adapters;
     std::vector<std::string> observationDomains = {"backend-health"};
@@ -45,6 +46,10 @@ struct BackendAgentClientState
     std::int64_t pendingObservationCapturedAt = 0;
     std::string pendingObservationResourceRevision;
     std::uint64_t pendingObservationHeartbeatSequence = 0;
+    std::uint64_t channelObservationBackendGeneration = 0;
+    std::uint64_t channelObservationSnapshotGeneration = 0;
+    std::uint64_t channelObservationProducerSequence = 0;
+    std::string channelObservationResourceRevision;
 };
 
 struct BackendAgentEnrollmentPackage
@@ -163,6 +168,11 @@ private:
     bool promotePendingCredential(std::string& reasonCode);
     bool publishCapabilities(std::string& reasonCode);
     bool publishBackendHealthObservation(std::string& reasonCode);
+    bool publishChannelObservation(std::string& reasonCode);
+    bool submitPendingChannelObservation(std::string& reasonCode);
+    bool preparePendingChannelObservation(std::string& reasonCode);
+    bool resetChannelObservationLineage(std::string& reasonCode);
+    std::string pendingChannelObservationPath() const;
     bool submitPendingBackendHealthObservation(std::string& reasonCode);
     bool preparePendingBackendHealthObservation(std::string& reasonCode);
     bool promotePendingBackendHealthObservation(std::string& reasonCode);

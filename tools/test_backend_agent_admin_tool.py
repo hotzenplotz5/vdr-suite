@@ -134,6 +134,10 @@ def main() -> int:
                 "capturedAt": now,
                 "acceptedAt": now,
             },
+            "channelObservation": {
+                "present": False,
+                "factCount": 0,
+            },
         }
         for key, value in expected.items():
             if status.get(key) != value:

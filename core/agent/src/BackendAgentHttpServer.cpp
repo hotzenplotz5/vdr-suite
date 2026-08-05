@@ -1,4 +1,5 @@
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentChannelObservationJson.h"
 
 #include "CredentialVerifierRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -18,6 +19,7 @@
 namespace
 {
 constexpr std::size_t MaximumAgentBodyBytes = 16U * 1024U;
+constexpr std::size_t MaximumChannelObservationBodyBytes = 512U * 1024U;
 constexpr const char* AgentPathPrefix = "/api/agent/v1/";
 
 std::int64_t unixNow()
@@ -575,12 +577,46 @@ HttpServerResponse BackendAgentHttpServer::handleBackendHealthObservation(
     return jsonResponse(200, body.str());
 }
 
+HttpServerResponse BackendAgentHttpServer::handleChannelObservation(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentObservationRequest observation;
+    std::string parseReason;
+    if (!parseBackendAgentChannelObservationJson(
+            request.body, observation, parseReason))
+    {
+        return errorResponse(400, parseReason);
+    }
+    const BackendAgentObservationResult result =
+        lifecycleService_.ingestObservation(context, observation, unixNow());
+    if (!result.accepted)
+    {
+        return errorResponse(result.resyncRequired ? 409 : 422, result.reasonCode);
+    }
+    std::ostringstream body;
+    body << "{\"outcome\":\"" << (result.replayed ? "replayed" : "accepted")
+         << "\",\"reasonCode\":\"" << jsonEscape(result.reasonCode)
+         << "\",\"snapshotGeneration\":" << result.snapshotGeneration
+         << ",\"producerSequence\":" << result.producerSequence
+         << ",\"lastAcceptedSequence\":" << result.lastAcceptedSequence
+         << "}";
+    return jsonResponse(200, body.str());
+}
+
 HttpServerResponse BackendAgentHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
     if (!isAgentPath(request.path)) return clientServer_->handleRequest(request);
-    if (request.body.size() > MaximumAgentBodyBytes)
-        return errorResponse(413, "agent_payload_too_large");
+    const bool channelObservation =
+        request.path == "/api/agent/v1/observations/channels";
+    const std::size_t maximumBodyBytes = channelObservation
+        ? MaximumChannelObservationBodyBytes
+        : MaximumAgentBodyBytes;
+    if (request.body.size() > maximumBodyBytes)
+        return errorResponse(413, channelObservation
+            ? "channel_observation_payload_too_large"
+            : "agent_payload_too_large");
     if (request.method != "POST") return errorResponse(405, "agent_method_not_allowed");
     if (request.path == "/api/agent/v1/enroll") return handleEnrollment(request);
 
@@ -593,5 +629,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.path == "/api/agent/v1/capabilities") return handleCapabilities(request, context);
     if (request.path == "/api/agent/v1/observations/backend-health")
         return handleBackendHealthObservation(request, context);
+    if (request.path == "/api/agent/v1/observations/channels")
+        return handleChannelObservation(request, context);
     return errorResponse(404, "agent_route_not_found");
 }

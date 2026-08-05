@@ -1,4 +1,7 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentChannelObservation.h"
+#include "BackendAgentChannelObservationJson.h"
+#include "BackendAgentLifecycle.h"
 
 #include <algorithm>
 #include <cassert>
@@ -101,6 +104,8 @@ void removeTree(const std::string& root)
 {
     std::remove((root + "/identity").c_str());
     std::remove((root + "/identity-link").c_str());
+    std::remove((root + "/identity.channels.pending.json").c_str());
+    std::remove((root + "/channels.conf").c_str());
     std::remove((root + "/enrollment").c_str());
     std::remove((root + "/config").c_str());
     rmdir(root.c_str());
@@ -134,6 +139,17 @@ void test_protected_url_and_configuration()
     assert(reason == "configuration_loaded");
     assert(config.backendId == "default");
     assert(config.observationDomains.size() == 1);
+
+    std::ofstream invalid(path);
+    invalid << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+            << "BACKEND_ID=default\n"
+            << "IDENTITY_PATH=" << root << "/identity\n"
+            << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+            << "ADAPTERS=channels-conf\n"
+            << "OBSERVATION_DOMAINS=backend-health\n";
+    invalid.close();
+    assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "invalid_channel_source_configuration");
     removeTree(root);
 }
 
@@ -476,9 +492,169 @@ void test_legacy_identity_migrates_without_observation_cursor()
     const std::string contents(
         (std::istreambuf_iterator<char>(migrated)),
         std::istreambuf_iterator<char>());
-    assert(contents.find("version=2\n") == 0);
+    assert(contents.find("version=3\n") == 0);
     assert(contents.find("observation_backend_generation=0\n") !=
            std::string::npos);
+    assert(contents.find("channel_observation_backend_generation=0\n") !=
+           std::string::npos);
+    removeTree(root);
+}
+
+void writeChannelsFixture(const std::string& path, bool renamed)
+{
+    std::ofstream output(path);
+    output << ":News\n"
+           << (renamed ? "RTL Zwei,RTL2;RTL World" : "RTL Television,RTL;RTL World")
+           << ":12187:hC34M2O0S0:S19.2E:27500:163=2:104=deu;106=deu:105:0:12003:1:1089:0\n"
+           << ":@201 Radio\n"
+           << "Radio One;Provider:11000:V:S19.2E:22000:0:100=deu:0:1702:42:0:0:0\n";
+    output.close();
+}
+
+void test_channel_source_and_strict_json_contract()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-channel-source";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    const std::string path = root + "/channels.conf";
+    writeChannelsFixture(path, false);
+
+    BackendAgentChannelSnapshot snapshot;
+    std::string reason;
+    assert(readBackendAgentChannelsConfSnapshot(path, snapshot, reason));
+    assert(reason == "channels_conf_snapshot_loaded");
+    assert(snapshot.channels.size() == 2);
+    assert(snapshot.channels[0].channelId == "S19.2E-1-1089-12003");
+    assert(snapshot.channels[0].channelNumber == 1);
+    assert(snapshot.channels[0].name == "RTL Television");
+    assert(snapshot.channels[0].provider == "RTL World");
+    assert(snapshot.channels[0].groupName == "News");
+    assert(!snapshot.channels[0].radio);
+    assert(!snapshot.channels[0].encrypted);
+    assert(snapshot.channels[1].channelId == "S19.2E-0-211000-42");
+    assert(snapshot.channels[1].channelNumber == 201);
+    assert(snapshot.channels[1].radio);
+    assert(snapshot.channels[1].encrypted);
+    assert(!snapshot.resourceRevision.empty());
+
+    BackendAgentObservationRequest request;
+    request.protocolVersion = "vdr-suite-agent/1";
+    request.backendId = "default";
+    request.agentInstanceId = "agi_channel_test";
+    request.backendGeneration = 1;
+    request.observationDomain = "channels";
+    request.snapshotGeneration = 1;
+    request.producerSequence = 1;
+    request.kind = "completeSnapshot";
+    request.capturedAt = 100;
+    request.resourceRevision = snapshot.resourceRevision;
+    request.observedHeartbeatSequence = 1;
+    request.channels = snapshot.channels;
+    const std::string body = serializeBackendAgentChannelObservationJson(request);
+    assert(!body.empty());
+    BackendAgentObservationRequest parsed;
+    assert(parseBackendAgentChannelObservationJson(body, parsed, reason));
+    assert(parsed.channels.size() == 2);
+    assert(parsed.channels[1].channelId == snapshot.channels[1].channelId);
+
+    const std::string unknown = body.substr(0, body.size() - 1) + ",\"unknown\":true}";
+    assert(!parseBackendAgentChannelObservationJson(unknown, parsed, reason));
+    assert(reason == "invalid_channel_observation_json");
+    removeTree(root);
+}
+
+void test_channel_observation_publication_change_and_pending_retry()
+{
+    const std::string root = "/tmp/vdr-suite-agent-client-channel-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    BackendAgentClientConfig config = configFor(root);
+    config.adapters = {"channels-conf"};
+    config.observationDomains = {"channels"};
+    config.channelsConfPath = root + "/channels.conf";
+    writeChannelsFixture(config.channelsConfPath, false);
+
+    BackendAgentEnrollmentPackage package;
+    package.enrollmentId = "enr_client";
+    package.backendId = "default";
+    package.enrollmentToken =
+        "enrollment-client-token-material-00000000000000000001";
+    std::string reason;
+    assert(writeBackendAgentEnrollmentPackageAtomically(
+        config.enrollmentPath, package, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"credentialId\":\"agc_client\",\"credentialGeneration\":1}"));
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":1,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+
+    BackendAgentClientRuntime runtime(config, transport);
+    assert(runtime.synchronize(reason));
+    assert(runtime.state().channelObservationSnapshotGeneration == 1);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    assert(!runtime.state().channelObservationResourceRevision.empty());
+    assert(transport.paths.back() == "/api/agent/v1/observations/channels");
+    const std::string firstBody = transport.bodies.back();
+
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    const std::size_t pathsBeforeUnchanged = transport.paths.size();
+    assert(runtime.heartbeat(reason));
+    assert(transport.paths.size() == pathsBeforeUnchanged + 1);
+
+    writeChannelsFixture(config.channelsConfPath, true);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":3,\"leaseExpiresAt\":183,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(2, 1));
+    assert(runtime.heartbeat(reason));
+    assert(runtime.state().channelObservationSnapshotGeneration == 2);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    assert(transport.bodies.back() != firstBody);
+
+    writeChannelsFixture(config.channelsConfPath, false);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":4,\"leaseExpiresAt\":213,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    assert(!runtime.heartbeat(reason));
+    assert(reason == "protected_transport_failed");
+    const std::string pendingPath = config.identityPath + ".channels.pending.json";
+    assert(access(pendingPath.c_str(), F_OK) == 0);
+    std::ifstream pendingInput(pendingPath);
+    const std::string pendingBody(
+        (std::istreambuf_iterator<char>(pendingInput)),
+        std::istreambuf_iterator<char>());
+
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":1,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":4,\"capabilityRevision\":1,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"resume\"}"));
+    transport.responses.push_back(observationSuccess(3, 1, "replayed"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":5,\"leaseExpiresAt\":243,"
+             "\"duplicate\":false}"));
+    assert(runtime.synchronize(reason));
+    assert(access(pendingPath.c_str(), F_OK) != 0);
+    assert(runtime.state().channelObservationSnapshotGeneration == 3);
+    assert(runtime.state().channelObservationProducerSequence == 1);
+    const auto retried = std::find(
+        transport.bodies.begin(), transport.bodies.end(), pendingBody);
+    assert(retried != transport.bodies.end());
     removeTree(root);
 }
 
@@ -587,6 +763,8 @@ int main()
     test_credential_rotation_and_lost_response_recovery();
     test_backend_health_observation_lost_response_and_resync_recovery();
     test_legacy_identity_migrates_without_observation_cursor();
+    test_channel_source_and_strict_json_contract();
+    test_channel_observation_publication_change_and_pending_retry();
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
     std::cout << "test_backend_agent_client passed" << std::endl;

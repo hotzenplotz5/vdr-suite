@@ -18,19 +18,28 @@ AGENT_OBSERVATION_SRC := \
 AGENT_EMBEDDED_RUNTIME_SRC := \
 	core/agent/src/SuiteBridgeEmbeddedAgentRuntime.cpp
 
+AGENT_CHANNEL_DOMAIN_SRC := \
+	core/agent/src/BackendAgentChannelObservation.cpp
+
+AGENT_CHANNEL_JSON_SRC := \
+	core/agent/src/BackendAgentChannelObservationJson.cpp
+
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
 	core/agent/src/BackendAgentRepository.cpp \
-	core/agent/src/BackendAgentLifecycle.cpp
+	core/agent/src/BackendAgentLifecycle.cpp \
+	$(AGENT_CHANNEL_DOMAIN_SRC)
 
 AGENT_CONTROL_PLANE_HTTP_SRC := \
-	core/agent/src/BackendAgentHttpServer.cpp
+	core/agent/src/BackendAgentHttpServer.cpp \
+	$(AGENT_CHANNEL_JSON_SRC)
 
 AGENT_CONTROL_PLANE_SRC := \
 	$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
 	$(AGENT_CONTROL_PLANE_HTTP_SRC)
 
 AGENT_CLIENT_SRC := \
-	core/agent/src/BackendAgentClient.cpp
+	core/agent/src/BackendAgentClient.cpp \
+	$(AGENT_CHANNEL_JSON_SRC)
 
 AGENT_SRC := \
 	$(AGENT_HANDSHAKE_SRC) \

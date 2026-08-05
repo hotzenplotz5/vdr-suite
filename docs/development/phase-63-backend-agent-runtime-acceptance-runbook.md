@@ -1,13 +1,15 @@
 # Phase 63 Backend Agent runtime acceptance runbook
 
-This runbook defines two fail-closed real-yaVDR acceptance paths for Phase 63:
+This runbook defines three fail-closed real-yaVDR acceptance paths for Phase 63:
 
 1. the historical clean-state lifecycle path that proved Slice 1 enrollment,
-   rotation, revocation and replacement; and
+   rotation, revocation and replacement;
 2. the upgrade-safe `backend-health` ingestion path for PR #139 and later
-   ingestion-only changes on a host that already has an enrolled, active Agent.
+   ingestion-only changes on a host that already has an enrolled, active Agent; and
+3. the upgrade-safe Channel observation path for PR #141 and later Channel
+   ingestion changes using a root-controlled fixture copied from native VDR state.
 
-Both paths may run only after all required GitHub Actions jobs are green for the
+All paths may run only after all required GitHub Actions jobs are green for the
 exact PR head. The upgrade-safe path is binding for PR #139 because the real
 yaVDR host already contains the accepted Slice-1 Agent identity and history.
 
@@ -86,6 +88,94 @@ BACKEND_HEALTH_OBSERVATION_GAP_RESYNC=yes
 OBSERVATION_CURSOR_RESTART_PERSISTED=yes
 EXISTING_AGENT_IDENTITY_PRESERVED=yes
 VDR_NATIVE_STATE_UNCHANGED=yes
+DAEMON_ACTIVE=yes
+AGENT_ACTIVE=yes
+EVIDENCE=<root-only evidence directory>
+```
+
+## Upgrade-safe Channel observation coverage
+
+The Channel observation harness is binding for PR #141. It proves the exact PR
+head without mutating VDR-native Channel state and without replacing the existing
+active Agent.
+
+The harness:
+
+- verifies the branch and full commit, rebuilds daemon, Agent, enrollment and
+  administration candidates from that exact checkout, and only then byte-compares
+  them with the installed binaries before any runtime configuration change;
+- preserves the existing Agent ID, credential ID and credential generation;
+- copies the native `channels.conf` to a temporary root-controlled fixture under
+  the Agent state directory;
+- enables only `channels-conf` plus the `channels` observation domain in a
+  temporary Agent configuration;
+- observes the initial complete Channel snapshot and bounded fact count through
+  `vdr-suite-backend-agent-admin --status`;
+- changes only the fixture's display name for one Channel and requires a newer
+  snapshot generation with the same fact count;
+- stops the Agent and proves equivalent replay plus deliberate sequence-gap
+  `resync-required` handling without cursor or fact movement;
+- proves the committed Channel cursor and fact count survive a daemon restart;
+- proves the same Agent creates a newer Channel lineage after reconnect and
+  recovers after the deliberate gap;
+- runs the existing real-VDR read-only RESTfulAPI regression before and after;
+- hashes native `channels.conf`, Timer/configuration files and recording
+  directory identities before and after;
+- restores the original Agent configuration and removes the fixture even on
+  failure;
+- keeps evidence root-only and rejects retained logs containing credentials,
+  enrollment tokens or Authorization material.
+
+It does not enroll, revoke, replace or rotate the Agent. It does not write the
+native `channels.conf`, manually inspect SQLite, call a Channel mutation route or
+retain the original Agent configuration in the evidence directory.
+
+### Channel acceptance preconditions
+
+- Execute from an already opened root shell on the real yaVDR host.
+- Use the established checkout `/home/yavdr/vdr-suite` on the exact PR #141 head.
+- The worktree must be clean.
+- VDR, `vdr-suite-daemon.service` and
+  `vdr-suite-backend-agent.service` must be active.
+- The existing protected Agent identity and configuration must be present.
+- The exact candidate daemon, Agent, enrollment and administration binaries must
+  already be built and installed.
+- `/var/lib/vdr/channels.conf` must be a regular file. A different native source
+  may be supplied explicitly through `PHASE63_CHANNELS_CONF_SOURCE`.
+- The evidence directory and temporary fixture path must not already exist.
+
+### Channel acceptance execution contract
+
+Run the exact candidate through:
+
+```text
+make phase63-channel-observation-runtime-acceptance \
+  PHASE63_EXPECTED_BRANCH=agent/phase63-channel-observation-runtime \
+  PHASE63_EXPECTED_HEAD=<exact PR head> \
+  PHASE63_CONTROL_PLANE_URL=<HTTPS public origin> \
+  PHASE63_CA_CERTIFICATE_PATH=<optional private CA path> \
+  PHASE63_EVIDENCE_DIR=<new root-only evidence directory>
+```
+
+A successful run ends with:
+
+```text
+PHASE_63_CHANNEL_OBSERVATION_UPGRADE_ACCEPTANCE=PASS
+HEAD=<exact accepted head>
+AGENT_ID=<preserved active Agent identifier>
+INITIAL_CHANNEL_FACT_COUNT=<accepted native fixture fact count>
+CHANNEL_BASELINE=yes
+CHANNEL_FIXTURE_TRANSITION=yes
+CHANNEL_OBSERVATION_REPLAY=yes
+CHANNEL_OBSERVATION_GAP_RESYNC=yes
+CHANNEL_CURSOR_RESTART_PERSISTED=yes
+CHANNEL_RECOVERY_AFTER_RESYNC=yes
+EXISTING_AGENT_IDENTITY_PRESERVED=yes
+CREDENTIAL_GENERATION_PRESERVED=yes
+VDR_NATIVE_STATE_UNCHANGED=yes
+VDR_READ_ONLY_REGRESSION=yes
+ORIGINAL_CONFIGURATION_RESTORED=yes
+VDR_ACTIVE=yes
 DAEMON_ACTIVE=yes
 AGENT_ACTIVE=yes
 EVIDENCE=<root-only evidence directory>

@@ -39,7 +39,7 @@ def parse_protected_identity(path: Path) -> dict[str, str]:
         if not separator or not key or key in values:
             raise AcceptanceError("identity_parse_failed")
         values[key] = value
-    if values.get("version") not in {"1", "2"}:
+    if values.get("version") not in {"1", "2", "3"}:
         raise AcceptanceError("identity_version_invalid")
     if not values.get("agent_id") or len(values.get("credential_secret", "")) < 32:
         raise AcceptanceError("identity_material_invalid")

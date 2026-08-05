@@ -10,7 +10,15 @@ vdr-suite-backend-agent \- outbound read-only Backend Agent for VDR-Suite
 The Backend Agent establishes an outbound HTTPS connection to the VDR-Suite
 Control Plane.  The Phase-63 foundation supports controlled enrollment,
 protocol negotiation, backend-generation fencing, read-only capability
-publication, heartbeat renewal and reconnect reconciliation.
+publication, heartbeat renewal and reconnect reconciliation.  When explicitly
+configured with adapter
+.B channels-conf
+and observation domain
+.B channels
+it reads one bounded local
+.I channels.conf
+snapshot and publishes an Agent-owned, generation-fenced Channel observation.
+The packaged default remains backend-health only.
 .PP
 It does not execute VDR mutations, expose local provider URLs, or accept an
 inbound connection at the VDR site.
@@ -19,7 +27,15 @@ The packaged service reads
 .IR /etc/vdr-suite/backend-agent.conf .
 The file contains the Control-Plane HTTPS origin, stable Backend ID, protected
 identity and enrollment paths, optional CA certificate, read-only capabilities,
-timeouts and bounded reconnect delays.  It must not contain an enrollment
+timeouts and bounded reconnect delays.  Channel observation uses only the
+explicit
+.B CHANNELS_CONF_PATH
+source; the Agent never guesses or falls back to RESTfulAPI, SVDRP or
+SuiteBridge.  The
+.B channels-conf
+adapter and
+.B channels
+domain must be enabled together.  It must not contain an enrollment
 token or runtime credential.  Those values live only in files below
 .IR /var/lib/vdr-suite/backend-agent
 with mode 0600.
@@ -51,7 +67,14 @@ mode 0600 before dispatch so a lost response can be recovered safely.
 Non-secret service configuration.
 .TP
 .I /var/lib/vdr-suite/backend-agent/identity
-Mode-0600 Agent identity and runtime credential.
+Mode-0600 Agent identity, runtime credential and independent observation cursors.
+.TP
+.I /var/lib/vdr-suite/backend-agent/identity.channels.pending.json
+Mode-0600 exact Channel observation envelope retained across ambiguous transport
+results until the Control Plane acknowledges acceptance or replay.
+.TP
+.I /var/lib/vdr/channels.conf
+Default explicit local read source when Channel observation is enabled.
 .TP
 .I /var/lib/vdr-suite/backend-agent/enrollment
 Mode-0600 one-time enrollment package, removed after successful enrollment.

@@ -142,6 +142,7 @@ test-backend-agent-admin-tool: backend-agent-admin backend-agent-enrollment test
 test-backend-agent-client: test-backend-agent-foundation-architecture
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(AGENT_CLIENT_SRC) \
+		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		core/agent/tests/test_backend_agent_client.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_backend_agent_client

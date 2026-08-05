@@ -85,7 +85,9 @@ std::string jsonArray(const std::vector<std::string>& values)
 
 void printStatus(
     const BackendAgentStatus& status,
-    const BackendAgentObservationCursor& observation)
+    const BackendAgentObservationCursor& healthObservation,
+    const BackendAgentObservationCursor& channelObservation,
+    std::size_t channelFactCount)
 {
     std::cout << "{\"present\":" << (status.present ? "true" : "false");
     if (status.present)
@@ -105,19 +107,35 @@ void printStatus(
                   << ",\"observationDomains\":"
                   << jsonArray(status.capabilities.observationDomains)
                   << ",\"backendHealthObservation\":{\"present\":"
-                  << (observation.present ? "true" : "false");
-        if (observation.present)
+                  << (healthObservation.present ? "true" : "false");
+        if (healthObservation.present)
         {
             std::cout << ",\"backendGeneration\":"
-                      << observation.backendGeneration
+                      << healthObservation.backendGeneration
                       << ",\"snapshotGeneration\":"
-                      << observation.snapshotGeneration
+                      << healthObservation.snapshotGeneration
                       << ",\"producerSequence\":"
-                      << observation.producerSequence
+                      << healthObservation.producerSequence
                       << ",\"resourceRevision\":\""
-                      << jsonEscape(observation.resourceRevision)
-                      << "\",\"capturedAt\":" << observation.capturedAt
-                      << ",\"acceptedAt\":" << observation.acceptedAt;
+                      << jsonEscape(healthObservation.resourceRevision)
+                      << "\",\"capturedAt\":" << healthObservation.capturedAt
+                      << ",\"acceptedAt\":" << healthObservation.acceptedAt;
+        }
+        std::cout << "},\"channelObservation\":{\"present\":"
+                  << (channelObservation.present ? "true" : "false")
+                  << ",\"factCount\":" << channelFactCount;
+        if (channelObservation.present)
+        {
+            std::cout << ",\"backendGeneration\":"
+                      << channelObservation.backendGeneration
+                      << ",\"snapshotGeneration\":"
+                      << channelObservation.snapshotGeneration
+                      << ",\"producerSequence\":"
+                      << channelObservation.producerSequence
+                      << ",\"resourceRevision\":\""
+                      << jsonEscape(channelObservation.resourceRevision)
+                      << "\",\"capturedAt\":" << channelObservation.capturedAt
+                      << ",\"acceptedAt\":" << channelObservation.acceptedAt;
         }
         std::cout << "}";
     }
@@ -200,7 +218,9 @@ int main(int argc, char** argv)
     {
         printStatus(
             service.statusForBackend(backendId, now),
-            service.observationCursorForBackend(backendId, "backend-health"));
+            service.observationCursorForBackend(backendId, "backend-health"),
+            service.observationCursorForBackend(backendId, "channels"),
+            agents.channelFactsForBackend(backendId).size());
         return 0;
     }
 
