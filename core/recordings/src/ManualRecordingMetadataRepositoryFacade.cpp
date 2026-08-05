@@ -215,8 +215,6 @@ bool persistPersonProfiles(
     Database& database,
     const std::vector<ManualRecordingMetadataPerson>& people)
 {
-    if (!ensurePersonProfileSchema(database)) return false;
-
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO suite_metadata_person_profiles("
@@ -339,13 +337,23 @@ MetadataRepository::manualRepository()
     return *manualMetadataRepository_;
 }
 
+bool MetadataRepository::ensureManualPersonProfileSchema()
+{
+    std::lock_guard<std::mutex> lock(manualPersonProfileSchemaMutex_);
+    if (manualPersonProfileSchemaAttempted_)
+        return manualPersonProfileSchemaReady_;
+    manualPersonProfileSchemaAttempted_ = true;
+    manualPersonProfileSchemaReady_ = ensurePersonProfileSchema(database_);
+    return manualPersonProfileSchemaReady_;
+}
+
 bool MetadataRepository::assignManualRecordingMetadata(
     const ManualRecordingMetadataSelection& selection,
     ManualRecordingMetadataAssignment& assigned)
 {
     ManualRecordingMetadataAssignmentRepository& repository = manualRepository();
     if (!repository.ensureSchema()) return false;
-    ensurePersonProfileSchema(database_);
+    const bool profileSchemaReady = ensureManualPersonProfileSchema();
 
     ManualRecordingMetadataSelection resolved = selection;
     resolved.backendId = normalizedBackendId(selection.backendId);
@@ -361,11 +369,15 @@ bool MetadataRepository::assignManualRecordingMetadata(
         resolved.providerId == "tmdb" && materializedPoster.empty())
         return false;
     resolved.posterReference = materializedPoster;
-    materializePersonProfilesIfConfigured(resolved, token);
+    if (profileSchemaReady)
+        materializePersonProfilesIfConfigured(resolved, token);
 
     if (!repository.assign(resolved, assigned)) return false;
-    persistPersonProfiles(database_, resolved.people);
-    applyStoredProfiles(assigned, loadStoredProfiles(database_));
+    if (profileSchemaReady)
+    {
+        persistPersonProfiles(database_, resolved.people);
+        applyStoredProfiles(assigned, loadStoredProfiles(database_));
+    }
     return true;
 }
 
@@ -383,11 +395,8 @@ bool MetadataRepository::withdrawManualRecordingMetadata(
         actorRef,
         expectedRevision,
         withdrawn);
-    if (ok)
-    {
-        ensurePersonProfileSchema(database_);
+    if (ok && ensureManualPersonProfileSchema())
         applyStoredProfiles(withdrawn, loadStoredProfiles(database_));
-    }
     return ok;
 }
 
@@ -400,8 +409,8 @@ MetadataRepository::getManualRecordingMetadata(
     ManualRecordingMetadataAssignment result = manualRepository().findSelected(
         backend,
         resolveResourceKey(database_, backend, resourceKey));
-    ensurePersonProfileSchema(database_);
-    applyStoredProfiles(result, loadStoredProfiles(database_));
+    if (ensureManualPersonProfileSchema())
+        applyStoredProfiles(result, loadStoredProfiles(database_));
     return result;
 }
 
@@ -414,7 +423,7 @@ MetadataRepository::getManualRecordingMetadataForBackend(
     ManualRecordingMetadataAssignmentRepository& repository =
         manualRepository();
     if (!repository.ensureSchema()) return result;
-    ensurePersonProfileSchema(database_);
+    const bool profileSchemaReady = ensureManualPersonProfileSchema();
 
     const bool cacheAvailable = database_.tableExists("vdr_recording_cache");
     const std::string lookup = cacheAvailable
@@ -482,10 +491,13 @@ MetadataRepository::getManualRecordingMetadataForBackend(
     }
     sqlite3_finalize(statement);
 
-    const std::map<std::string, StoredProfile> profiles =
-        loadStoredProfiles(database_);
-    for (auto& assignment : assignments)
-        applyStoredProfiles(assignment.second, profiles);
+    if (profileSchemaReady)
+    {
+        const std::map<std::string, StoredProfile> profiles =
+            loadStoredProfiles(database_);
+        for (auto& assignment : assignments)
+            applyStoredProfiles(assignment.second, profiles);
+    }
 
     for (const auto& alias : aliases)
     {
