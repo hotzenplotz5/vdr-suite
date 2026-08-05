@@ -126,6 +126,34 @@ assert.strictEqual(manualCastCopy.children[1].textContent, 'Forrest Gump');
 assert.strictEqual(manualCastCopy.children[2].textContent, 'Schauspiel');
 
 const metadataImagePath = '/api/vdr/recordings/metadata/image?backend=default';
+const versionedMetadata = api.versionManualMetadataArtwork({
+  available: true,
+  preferredArtwork: {available: true, url: metadataImagePath},
+  images: [{image: {available: true, url: metadataImagePath + '&kind=gallery'}}],
+  people: [{image: {available: true, url: metadataImagePath + '&kind=person'}}],
+  manualAssignment: {active: true, revision: 7}
+});
+assert.strictEqual(
+  versionedMetadata.preferredArtwork.url,
+  metadataImagePath + '&assignmentRevision=7'
+);
+assert.strictEqual(
+  versionedMetadata.images[0].image.url,
+  metadataImagePath + '&kind=gallery&assignmentRevision=7'
+);
+assert.strictEqual(
+  versionedMetadata.people[0].image.url,
+  metadataImagePath + '&kind=person&assignmentRevision=7'
+);
+assert.strictEqual(
+  api.versionManualMetadataArtwork(versionedMetadata).preferredArtwork.url,
+  metadataImagePath + '&assignmentRevision=7'
+);
+const automaticMetadata = {
+  preferredArtwork: {available: true, url: metadataImagePath}
+};
+assert.strictEqual(api.versionManualMetadataArtwork(automaticMetadata), automaticMetadata);
+
 const metadataImage = {
   src: '',
   getAttribute(name) { return name === 'src' ? metadataImagePath : null; }
@@ -153,6 +181,7 @@ const detailRoot = {
     if (selector === '.recordings2-detail-copy h3') return heading;
     if (selector === '.recordings2-detail-description') return summary;
     if (selector === '.recordings2-detail-poster') return detailPoster;
+    if (selector === '.recordings2-detail-poster img') return detailPoster.children[0] || null;
     return null;
   }
 };
@@ -162,7 +191,7 @@ api.applyMetadataToDetail(detailRoot, {
   overview: 'Manuell ausgewählte Beschreibung',
   preferredArtwork: {
     available: true,
-    url: metadataImagePath
+    url: versionedMetadata.preferredArtwork.url
   },
   manualAssignment: {
     active: true,
@@ -172,11 +201,18 @@ api.applyMetadataToDetail(detailRoot, {
 assert.strictEqual(heading.textContent, 'Face/Off – Im Körper des Feindes');
 assert.strictEqual(summary.textContent, 'Manuell ausgewählte Beschreibung');
 assert.strictEqual(detailPoster.children.length, 1);
-assert.strictEqual(detailPoster.children[0].src, '/vdr-suite' + metadataImagePath);
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite' + metadataImagePath + '&assignmentRevision=7'
+);
 assert.strictEqual(
   detailPoster.children[0].alt,
   'Poster zu Face/Off – Im Körper des Feindes'
 );
+api.prioritizeDetailPoster(detailRoot);
+assert.strictEqual(detailPoster.children[0].loading, 'eager');
+assert.strictEqual(detailPoster.children[0].decoding, 'async');
+assert.strictEqual(detailPoster.children[0].fetchPriority, 'high');
 
 heading.textContent = 'Pfadtitel bleibt';
 summary.textContent = 'Fallback bleibt';
