@@ -1,0 +1,168 @@
+name: Apply Phase 63 acceptance hardening
+
+on:
+  push:
+    branches:
+      - agent/phase63-channel-observation-runtime
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/phase63-channel-observation-runtime
+
+      - name: Guard exact staging parent
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD^)" = "723f673caffa1ab5139942d800e06a06d7cd3722"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/phase63-acceptance-hardening.yml"
+
+      - name: Harden real-system acceptance
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
+
+          runner_path = Path("tools/phase63-runtime-acceptance/channel-observation-ingestion.sh")
+          runner = runner_path.read_text(encoding="utf-8")
+
+          runner = replace_once(
+              runner,
+              '''    fail "initial_channel_observation_not_observed"
+          }
+
+          wait_for_changed_channel_snapshot() {''',
+              '''    return 1
+          }
+
+          wait_for_changed_channel_snapshot() {''',
+              "initial wait return",
+          )
+          runner = replace_once(
+              runner,
+              '''    fail "changed_channel_snapshot_not_observed"
+          }
+
+          wait_for_new_channel_lineage() {''',
+              '''    return 1
+          }
+
+          wait_for_new_channel_lineage() {''',
+              "changed wait return",
+          )
+          runner = replace_once(
+              runner,
+              '''    fail "new_channel_observation_lineage_not_observed"
+          }
+
+          vdr_fingerprint() {''',
+              '''    return 1
+          }
+
+          vdr_fingerprint() {''',
+              "new-lineage wait return",
+          )
+          runner = replace_once(
+              runner,
+              '''[[ -z "$(git status --porcelain)" ]] || fail "worktree_not_clean"
+
+          for binary in "$DAEMON_BINARY" "$AGENT_BINARY" "$ENROLL_BINARY" "$ADMIN_BINARY"; do''',
+              '''[[ -z "$(git status --porcelain)" ]] || fail "worktree_not_clean"
+
+          make daemon backend-agent backend-agent-enrollment backend-agent-admin >/dev/null ||
+              fail "candidate_binary_build_failed"
+
+          for binary in "$DAEMON_BINARY" "$AGENT_BINARY" "$ENROLL_BINARY" "$ADMIN_BINARY"; do''',
+              "exact-head candidate rebuild",
+          )
+          runner = replace_once(
+              runner,
+              'INITIAL_STATUS="$(wait_for_initial_channel_observation "$AGENT_ID" 90)"',
+              'INITIAL_STATUS="$(wait_for_initial_channel_observation "$AGENT_ID" 90)" || fail "initial_channel_observation_not_observed"',
+              "initial wait propagation",
+          )
+          runner = replace_once(
+              runner,
+              'CHANGED_STATUS="$(wait_for_changed_channel_snapshot "$AGENT_ID" "$INITIAL_SNAPSHOT" "$INITIAL_REVISION" "$INITIAL_FACT_COUNT" 90)"',
+              'CHANGED_STATUS="$(wait_for_changed_channel_snapshot "$AGENT_ID" "$INITIAL_SNAPSHOT" "$INITIAL_REVISION" "$INITIAL_FACT_COUNT" 90)" || fail "changed_channel_snapshot_not_observed"',
+              "changed wait propagation",
+          )
+          runner = replace_once(
+              runner,
+              'POST_RESTART_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$CHANGED_BACKEND_GENERATION" "$CHANGED_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)"',
+              'POST_RESTART_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$CHANGED_BACKEND_GENERATION" "$CHANGED_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)" || fail "new_channel_observation_lineage_not_observed"',
+              "post-restart wait propagation",
+          )
+          runner = replace_once(
+              runner,
+              'RECOVERED_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$POST_RESTART_BACKEND_GENERATION" "$POST_RESTART_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)"',
+              'RECOVERED_STATUS="$(wait_for_new_channel_lineage "$AGENT_ID" "$POST_RESTART_BACKEND_GENERATION" "$POST_RESTART_SNAPSHOT" "$INITIAL_FACT_COUNT" 90)" || fail "channel_recovery_after_resync_not_observed"',
+              "recovery wait propagation",
+          )
+          runner_path.write_text(runner, encoding="utf-8")
+
+          checker_path = Path("tools/check_phase63_runtime_acceptance.py")
+          checker = checker_path.read_text(encoding="utf-8")
+          checker = replace_once(
+              checker,
+              '''    "installed_candidate_mismatch_",
+              "channel-replay-gap.log",''',
+              '''    "installed_candidate_mismatch_",
+              "candidate_binary_build_failed",
+              "make daemon backend-agent backend-agent-enrollment backend-agent-admin",
+              '|| fail "initial_channel_observation_not_observed"',
+              '|| fail "changed_channel_snapshot_not_observed"',
+              '|| fail "new_channel_observation_lineage_not_observed"',
+              '|| fail "channel_recovery_after_resync_not_observed"',
+              "channel-replay-gap.log",''',
+              "static hardening markers",
+          )
+          checker_path.write_text(checker, encoding="utf-8")
+
+          runbook_path = Path("docs/development/phase-63-backend-agent-runtime-acceptance-runbook.md")
+          runbook = runbook_path.read_text(encoding="utf-8")
+          runbook = replace_once(
+              runbook,
+              '''- verifies the branch, full commit and installed candidate binaries;
+          - preserves the existing Agent ID, credential ID and credential generation;''',
+              '''- verifies the branch and full commit, rebuilds daemon, Agent, enrollment and
+            administration candidates from that exact checkout, and only then byte-compares
+            them with the installed binaries before any runtime configuration change;
+          - preserves the existing Agent ID, credential ID and credential generation;''',
+              "runbook exact-build gate",
+          )
+          runbook_path.write_text(runbook, encoding="utf-8")
+          PY
+
+      - name: Validate hardening
+        shell: bash
+        run: |
+          bash -n tools/phase63-runtime-acceptance/channel-observation-ingestion.sh
+          python3 tools/check_phase63_runtime_acceptance.py
+          make test-phase63-runtime-acceptance-harness
+          git diff --check
+
+      - name: Commit durable fix
+        shell: bash
+        run: |
+          git rm .github/workflows/phase63-acceptance-hardening.yml
+          git add \
+            tools/phase63-runtime-acceptance/channel-observation-ingestion.sh \
+            tools/check_phase63_runtime_acceptance.py \
+            docs/development/phase-63-backend-agent-runtime-acceptance-runbook.md
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Harden Channel runtime acceptance provenance"
+          git push origin HEAD:agent/phase63-channel-observation-runtime
