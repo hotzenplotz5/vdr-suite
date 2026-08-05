@@ -15,6 +15,7 @@
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Decision Records](adr/index.md)
 
 ## Current verified position
@@ -61,6 +62,14 @@ Phase 63 Slice 2; Phase 63 is not complete
 Phase 64-67 runtime:
 not advanced
 ```
+
+## Completed cross-cutting platform features
+
+- VDR Remote and Live Overlay hardening (#110)
+- Backend-scoped Global Search (#111)
+- Configurable photorealistic VDR Remote (#115)
+- Manual Recording metadata assignment (#135)
+- Manual selected-movie cast ingestion and search integration (#136)
 
 ## Completed Phase 63 Slice 1
 
