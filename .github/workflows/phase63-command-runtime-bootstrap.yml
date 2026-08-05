@@ -1,0 +1,1709 @@
+name: Phase 63 command runtime bootstrap
+
+on:
+  push:
+    branches:
+      - agent/phase63-command-delivery-runtime
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded command runtime
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def write(path: str, content: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content, encoding="utf-8")
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one replacement, found {count}: {old[:80]!r}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          write("core/agent/include/BackendAgentCommand.h", r'''#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+struct BackendAgentCommandAssignment
+{
+    bool present = false;
+    std::string protocolVersion = "vdr-suite-agent/1";
+    std::string requestId;
+    std::string correlationId;
+    std::string operationId;
+    std::string jobId;
+    std::string attemptId;
+    std::uint64_t claimEpoch = 0;
+    std::string commandId;
+    std::string backendId;
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::string commandType;
+    std::uint64_t payloadVersion = 0;
+    std::string payload;
+    std::string requestFingerprint;
+    std::string verificationPolicy;
+    std::int64_t assignedAt = 0;
+    std::int64_t deadline = 0;
+};
+
+struct BackendAgentCommandPollRequest
+{
+    std::string protocolVersion = "vdr-suite-agent/1";
+    std::string backendId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::vector<std::string> supportedCommandTypes;
+};
+
+struct BackendAgentCommandPollResult
+{
+    bool accepted = false;
+    std::string reasonCode;
+    BackendAgentCommandAssignment assignment;
+};
+
+struct BackendAgentCommandReceipt
+{
+    std::string protocolVersion = "vdr-suite-agent/1";
+    std::string commandId;
+    std::string requestFingerprint;
+    std::string jobId;
+    std::string attemptId;
+    std::uint64_t claimEpoch = 0;
+    std::string backendId;
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::string receiptCategory;
+    std::int64_t receivedAt = 0;
+    std::string reasonCode;
+};
+
+struct BackendAgentCommandReceiptResult
+{
+    bool accepted = false;
+    bool replayed = false;
+    bool dropResponse = false;
+    std::string reasonCode;
+};
+
+struct BackendAgentCommandResult
+{
+    std::string protocolVersion = "vdr-suite-agent/1";
+    std::string commandId;
+    std::string requestFingerprint;
+    std::string jobId;
+    std::string attemptId;
+    std::uint64_t claimEpoch = 0;
+    std::string backendId;
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::string dispatchState;
+    std::string verificationState;
+    std::string resultCategory;
+    std::string errorCategory;
+    std::string retryClassification;
+    std::string boundedDiagnostics;
+    std::int64_t completedAt = 0;
+};
+
+struct BackendAgentCommandResultAck
+{
+    bool accepted = false;
+    bool replayed = false;
+    bool dropResponse = false;
+    std::string reasonCode;
+};
+
+struct BackendAgentCommandSummary
+{
+    bool present = false;
+    std::string commandId;
+    std::string commandType;
+    std::string state;
+    std::string receiptCategory;
+    std::string resultCategory;
+    std::string dispatchState;
+    std::string verificationState;
+    std::uint64_t backendGeneration = 0;
+    std::uint64_t claimEpoch = 0;
+    std::int64_t deadline = 0;
+};
+
+bool backendAgentCommandSafeIdentifier(const std::string& value);
+bool backendAgentCommandSafeText(const std::string& value, std::size_t maximumBytes);
+bool backendAgentCommandValidAssignment(const BackendAgentCommandAssignment& assignment);
+bool backendAgentCommandValidReceipt(const BackendAgentCommandReceipt& receipt);
+bool backendAgentCommandValidResult(const BackendAgentCommandResult& result);
+std::string backendAgentCommandFingerprint(const BackendAgentCommandAssignment& assignment);
+std::string backendAgentCommandReceiptIdentity(const BackendAgentCommandReceipt& receipt);
+std::string backendAgentCommandResultIdentity(const BackendAgentCommandResult& result);
+''')
+
+          write("core/agent/src/BackendAgentCommand.cpp", r'''#include "BackendAgentCommand.h"
+
+#include <algorithm>
+#include <cctype>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+
+namespace
+{
+std::string stableIdentity(const std::string& value)
+{
+    std::uint64_t hash = 1469598103934665603ULL;
+    for (unsigned char character : value)
+    {
+        hash ^= character;
+        hash *= 1099511628211ULL;
+    }
+    std::ostringstream output;
+    output << "fp1_" << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return output.str();
+}
+
+void appendField(std::ostringstream& output, const std::string& value)
+{
+    output << value.size() << ':' << value << '|';
+}
+
+void appendField(std::ostringstream& output, std::uint64_t value)
+{
+    output << value << '|';
+}
+
+void appendField(std::ostringstream& output, std::int64_t value)
+{
+    output << value << '|';
+}
+
+bool allowed(const std::string& value, const std::vector<std::string>& values)
+{
+    return std::find(values.begin(), values.end(), value) != values.end();
+}
+}
+
+bool backendAgentCommandSafeIdentifier(const std::string& value)
+{
+    if (value.empty() || value.size() > 128) return false;
+    return std::all_of(value.begin(), value.end(), [](unsigned char character) {
+        return std::isalnum(character) != 0 || character == '-' || character == '_' ||
+            character == '.' || character == ':';
+    });
+}
+
+bool backendAgentCommandSafeText(const std::string& value, std::size_t maximumBytes)
+{
+    return value.size() <= maximumBytes &&
+        std::none_of(value.begin(), value.end(), [](unsigned char character) {
+            return character < 0x20U || character == 0x7fU;
+        });
+}
+
+std::string backendAgentCommandFingerprint(const BackendAgentCommandAssignment& assignment)
+{
+    std::ostringstream canonical;
+    appendField(canonical, assignment.protocolVersion);
+    appendField(canonical, assignment.requestId);
+    appendField(canonical, assignment.correlationId);
+    appendField(canonical, assignment.operationId);
+    appendField(canonical, assignment.jobId);
+    appendField(canonical, assignment.attemptId);
+    appendField(canonical, assignment.claimEpoch);
+    appendField(canonical, assignment.commandId);
+    appendField(canonical, assignment.backendId);
+    appendField(canonical, assignment.agentId);
+    appendField(canonical, assignment.agentInstanceId);
+    appendField(canonical, assignment.backendGeneration);
+    appendField(canonical, assignment.commandType);
+    appendField(canonical, assignment.payloadVersion);
+    appendField(canonical, assignment.payload);
+    appendField(canonical, assignment.verificationPolicy);
+    appendField(canonical, assignment.assignedAt);
+    appendField(canonical, assignment.deadline);
+    return stableIdentity(canonical.str());
+}
+
+std::string backendAgentCommandReceiptIdentity(const BackendAgentCommandReceipt& receipt)
+{
+    std::ostringstream canonical;
+    appendField(canonical, receipt.protocolVersion);
+    appendField(canonical, receipt.commandId);
+    appendField(canonical, receipt.requestFingerprint);
+    appendField(canonical, receipt.jobId);
+    appendField(canonical, receipt.attemptId);
+    appendField(canonical, receipt.claimEpoch);
+    appendField(canonical, receipt.backendId);
+    appendField(canonical, receipt.agentId);
+    appendField(canonical, receipt.agentInstanceId);
+    appendField(canonical, receipt.backendGeneration);
+    appendField(canonical, receipt.receiptCategory);
+    appendField(canonical, receipt.receivedAt);
+    appendField(canonical, receipt.reasonCode);
+    return stableIdentity(canonical.str());
+}
+
+std::string backendAgentCommandResultIdentity(const BackendAgentCommandResult& result)
+{
+    std::ostringstream canonical;
+    appendField(canonical, result.protocolVersion);
+    appendField(canonical, result.commandId);
+    appendField(canonical, result.requestFingerprint);
+    appendField(canonical, result.jobId);
+    appendField(canonical, result.attemptId);
+    appendField(canonical, result.claimEpoch);
+    appendField(canonical, result.backendId);
+    appendField(canonical, result.agentId);
+    appendField(canonical, result.agentInstanceId);
+    appendField(canonical, result.backendGeneration);
+    appendField(canonical, result.dispatchState);
+    appendField(canonical, result.verificationState);
+    appendField(canonical, result.resultCategory);
+    appendField(canonical, result.errorCategory);
+    appendField(canonical, result.retryClassification);
+    appendField(canonical, result.boundedDiagnostics);
+    appendField(canonical, result.completedAt);
+    return stableIdentity(canonical.str());
+}
+
+bool backendAgentCommandValidAssignment(const BackendAgentCommandAssignment& value)
+{
+    return value.protocolVersion == "vdr-suite-agent/1" &&
+        backendAgentCommandSafeIdentifier(value.requestId) &&
+        backendAgentCommandSafeIdentifier(value.correlationId) &&
+        backendAgentCommandSafeIdentifier(value.operationId) &&
+        backendAgentCommandSafeIdentifier(value.jobId) &&
+        backendAgentCommandSafeIdentifier(value.attemptId) &&
+        value.claimEpoch > 0 &&
+        backendAgentCommandSafeIdentifier(value.commandId) &&
+        backendAgentCommandSafeIdentifier(value.backendId) &&
+        backendAgentCommandSafeIdentifier(value.agentId) &&
+        backendAgentCommandSafeIdentifier(value.agentInstanceId) &&
+        value.backendGeneration > 0 &&
+        value.commandType == "probe.noop" && value.payloadVersion == 1 &&
+        value.payload == "{}" &&
+        backendAgentCommandSafeIdentifier(value.requestFingerprint) &&
+        value.verificationPolicy == "none" && value.assignedAt > 0 &&
+        value.deadline > value.assignedAt &&
+        value.requestFingerprint == backendAgentCommandFingerprint(value);
+}
+
+bool backendAgentCommandValidReceipt(const BackendAgentCommandReceipt& value)
+{
+    return value.protocolVersion == "vdr-suite-agent/1" &&
+        backendAgentCommandSafeIdentifier(value.commandId) &&
+        backendAgentCommandSafeIdentifier(value.requestFingerprint) &&
+        backendAgentCommandSafeIdentifier(value.jobId) &&
+        backendAgentCommandSafeIdentifier(value.attemptId) && value.claimEpoch > 0 &&
+        backendAgentCommandSafeIdentifier(value.backendId) &&
+        backendAgentCommandSafeIdentifier(value.agentId) &&
+        backendAgentCommandSafeIdentifier(value.agentInstanceId) &&
+        value.backendGeneration > 0 && value.receivedAt > 0 &&
+        allowed(value.receiptCategory, {"accepted", "duplicate", "rejected", "expired", "stale", "unsupported", "conflict"}) &&
+        backendAgentCommandSafeText(value.reasonCode, 256);
+}
+
+bool backendAgentCommandValidResult(const BackendAgentCommandResult& value)
+{
+    return value.protocolVersion == "vdr-suite-agent/1" &&
+        backendAgentCommandSafeIdentifier(value.commandId) &&
+        backendAgentCommandSafeIdentifier(value.requestFingerprint) &&
+        backendAgentCommandSafeIdentifier(value.jobId) &&
+        backendAgentCommandSafeIdentifier(value.attemptId) && value.claimEpoch > 0 &&
+        backendAgentCommandSafeIdentifier(value.backendId) &&
+        backendAgentCommandSafeIdentifier(value.agentId) &&
+        backendAgentCommandSafeIdentifier(value.agentInstanceId) &&
+        value.backendGeneration > 0 &&
+        allowed(value.dispatchState, {"not_started", "starting", "accepted_by_executor", "effect_reported"}) &&
+        allowed(value.verificationState, {"not_required", "verified", "outcome_unknown"}) &&
+        allowed(value.resultCategory, {"succeeded", "rejected", "outcome_unknown"}) &&
+        allowed(value.errorCategory, {"none", "fenced", "expired", "unsupported", "executor_unknown"}) &&
+        allowed(value.retryClassification, {"none", "reconcile_only"}) &&
+        backendAgentCommandSafeText(value.boundedDiagnostics, 1024) &&
+        value.completedAt > 0;
+}
+''')
+
+          write("core/agent/include/BackendAgentCommandJson.h", r'''#pragma once
+
+#include "BackendAgentCommand.h"
+
+#include <string>
+
+bool parseBackendAgentCommandPollRequestJson(
+    const std::string& body,
+    BackendAgentCommandPollRequest& request,
+    std::string& reasonCode);
+std::string serializeBackendAgentCommandPollRequestJson(
+    const BackendAgentCommandPollRequest& request);
+
+bool parseBackendAgentCommandPollResponseJson(
+    const std::string& body,
+    BackendAgentCommandPollResult& result,
+    std::string& reasonCode);
+std::string serializeBackendAgentCommandPollResponseJson(
+    const BackendAgentCommandPollResult& result);
+
+bool parseBackendAgentCommandReceiptJson(
+    const std::string& body,
+    BackendAgentCommandReceipt& receipt,
+    std::string& reasonCode);
+std::string serializeBackendAgentCommandReceiptJson(
+    const BackendAgentCommandReceipt& receipt);
+
+bool parseBackendAgentCommandResultJson(
+    const std::string& body,
+    BackendAgentCommandResult& result,
+    std::string& reasonCode);
+std::string serializeBackendAgentCommandResultJson(
+    const BackendAgentCommandResult& result);
+''')
+
+          write("core/agent/src/BackendAgentCommandJson.cpp", r'''#include "BackendAgentCommandJson.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <limits>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace
+{
+constexpr std::size_t MaximumBodyBytes = 64U * 1024U;
+constexpr std::size_t MaximumStringBytes = 4096U;
+constexpr std::size_t MaximumArrayItems = 32U;
+constexpr int MaximumDepth = 4;
+
+enum class Kind { String, Unsigned, Boolean, Object, Array };
+struct Value
+{
+    Kind kind = Kind::String;
+    std::string stringValue;
+    std::uint64_t unsignedValue = 0;
+    bool boolValue = false;
+    std::map<std::string, Value> objectValue;
+    std::vector<Value> arrayValue;
+};
+
+bool validUtf8(const std::string& value)
+{
+    std::size_t index = 0;
+    while (index < value.size())
+    {
+        const unsigned char first = static_cast<unsigned char>(value[index]);
+        if (first <= 0x7fU) { ++index; continue; }
+        std::size_t count = 0;
+        std::uint32_t codePoint = 0;
+        if ((first & 0xe0U) == 0xc0U) { count = 2; codePoint = first & 0x1fU; }
+        else if ((first & 0xf0U) == 0xe0U) { count = 3; codePoint = first & 0x0fU; }
+        else if ((first & 0xf8U) == 0xf0U) { count = 4; codePoint = first & 0x07U; }
+        else return false;
+        if (index + count > value.size()) return false;
+        for (std::size_t offset = 1; offset < count; ++offset)
+        {
+            const unsigned char next = static_cast<unsigned char>(value[index + offset]);
+            if ((next & 0xc0U) != 0x80U) return false;
+            codePoint = (codePoint << 6U) | (next & 0x3fU);
+        }
+        if ((count == 2 && codePoint < 0x80U) ||
+            (count == 3 && codePoint < 0x800U) ||
+            (count == 4 && codePoint < 0x10000U) ||
+            codePoint > 0x10ffffU ||
+            (codePoint >= 0xd800U && codePoint <= 0xdfffU)) return false;
+        index += count;
+    }
+    return true;
+}
+
+class Parser
+{
+public:
+    explicit Parser(const std::string& input) : input_(input) {}
+    bool parse(Value& value)
+    {
+        if (input_.empty() || input_.size() > MaximumBodyBytes) return false;
+        position_ = skip(position_);
+        if (!parseValue(value, 0)) return false;
+        position_ = skip(position_);
+        return position_ == input_.size();
+    }
+private:
+    std::size_t skip(std::size_t value) const
+    {
+        while (value < input_.size() && std::isspace(static_cast<unsigned char>(input_[value]))) ++value;
+        return value;
+    }
+    bool parseValue(Value& value, int depth)
+    {
+        if (depth > MaximumDepth || position_ >= input_.size()) return false;
+        if (input_[position_] == '"') { value.kind = Kind::String; return parseString(value.stringValue); }
+        if (input_[position_] == '{') return parseObject(value, depth + 1);
+        if (input_[position_] == '[') return parseArray(value, depth + 1);
+        if (input_.compare(position_, 4, "true") == 0) { value.kind = Kind::Boolean; value.boolValue = true; position_ += 4; return true; }
+        if (input_.compare(position_, 5, "false") == 0) { value.kind = Kind::Boolean; value.boolValue = false; position_ += 5; return true; }
+        return parseUnsigned(value);
+    }
+    bool parseString(std::string& value)
+    {
+        value.clear();
+        if (input_[position_] != '"') return false;
+        ++position_;
+        while (position_ < input_.size())
+        {
+            const unsigned char character = static_cast<unsigned char>(input_[position_++]);
+            if (character == '"') return validUtf8(value);
+            if (character < 0x20U) return false;
+            if (character == '\\')
+            {
+                if (position_ >= input_.size()) return false;
+                const char escaped = input_[position_++];
+                switch (escaped)
+                {
+                    case '"': value.push_back('"'); break;
+                    case '\\': value.push_back('\\'); break;
+                    case '/': value.push_back('/'); break;
+                    case 'b': value.push_back('\b'); break;
+                    case 'f': value.push_back('\f'); break;
+                    case 'n': value.push_back('\n'); break;
+                    case 'r': value.push_back('\r'); break;
+                    case 't': value.push_back('\t'); break;
+                    default: return false;
+                }
+            }
+            else value.push_back(static_cast<char>(character));
+            if (value.size() > MaximumStringBytes) return false;
+        }
+        return false;
+    }
+    bool parseUnsigned(Value& value)
+    {
+        const std::size_t start = position_;
+        while (position_ < input_.size() && std::isdigit(static_cast<unsigned char>(input_[position_]))) ++position_;
+        if (start == position_ || position_ - start > 19 || (position_ - start > 1 && input_[start] == '0')) return false;
+        std::uint64_t number = 0;
+        for (std::size_t index = start; index < position_; ++index)
+        {
+            const unsigned digit = static_cast<unsigned>(input_[index] - '0');
+            if (number > (static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - digit) / 10U) return false;
+            number = number * 10U + digit;
+        }
+        value.kind = Kind::Unsigned;
+        value.unsignedValue = number;
+        return true;
+    }
+    bool parseObject(Value& value, int depth)
+    {
+        value.kind = Kind::Object;
+        value.objectValue.clear();
+        ++position_;
+        position_ = skip(position_);
+        if (position_ < input_.size() && input_[position_] == '}') { ++position_; return true; }
+        while (position_ < input_.size())
+        {
+            std::string key;
+            if (!parseString(key) || key.empty() || key.size() > 128) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size() || input_[position_] != ':') return false;
+            ++position_;
+            position_ = skip(position_);
+            Value child;
+            if (!parseValue(child, depth)) return false;
+            if (!value.objectValue.emplace(key, std::move(child)).second || value.objectValue.size() > 32U) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == '}') { ++position_; return true; }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            position_ = skip(position_);
+        }
+        return false;
+    }
+    bool parseArray(Value& value, int depth)
+    {
+        value.kind = Kind::Array;
+        value.arrayValue.clear();
+        ++position_;
+        position_ = skip(position_);
+        if (position_ < input_.size() && input_[position_] == ']') { ++position_; return true; }
+        while (position_ < input_.size())
+        {
+            Value child;
+            if (!parseValue(child, depth)) return false;
+            value.arrayValue.push_back(std::move(child));
+            if (value.arrayValue.size() > MaximumArrayItems) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == ']') { ++position_; return true; }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            position_ = skip(position_);
+        }
+        return false;
+    }
+    const std::string& input_;
+    std::size_t position_ = 0;
+};
+
+bool exactKeys(const std::map<std::string, Value>& object, const std::vector<std::string>& keys)
+{
+    if (object.size() != keys.size()) return false;
+    return std::all_of(keys.begin(), keys.end(), [&](const std::string& key) { return object.count(key) == 1; });
+}
+const Value* get(const std::map<std::string, Value>& object, const std::string& key, Kind kind)
+{
+    const auto found = object.find(key);
+    return found != object.end() && found->second.kind == kind ? &found->second : nullptr;
+}
+std::string escape(const std::string& value)
+{
+    std::ostringstream out;
+    for (unsigned char character : value)
+    {
+        switch (character)
+        {
+            case '"': out << "\\\""; break;
+            case '\\': out << "\\\\"; break;
+            case '\b': out << "\\b"; break;
+            case '\f': out << "\\f"; break;
+            case '\n': out << "\\n"; break;
+            case '\r': out << "\\r"; break;
+            case '\t': out << "\\t"; break;
+            default: if (character >= 0x20U) out << static_cast<char>(character);
+        }
+    }
+    return out.str();
+}
+std::string stringArray(const std::vector<std::string>& values)
+{
+    std::ostringstream out;
+    out << '[';
+    for (std::size_t index = 0; index < values.size(); ++index)
+    {
+        if (index != 0) out << ',';
+        out << '"' << escape(values[index]) << '"';
+    }
+    out << ']';
+    return out.str();
+}
+bool parseTypes(const Value& value, std::vector<std::string>& types)
+{
+    if (value.kind != Kind::Array || value.arrayValue.size() > 8) return false;
+    types.clear();
+    for (const Value& item : value.arrayValue)
+    {
+        if (item.kind != Kind::String || item.stringValue != "probe.noop" ||
+            std::find(types.begin(), types.end(), item.stringValue) != types.end()) return false;
+        types.push_back(item.stringValue);
+    }
+    return true;
+}
+
+bool readAssignment(const Value& value, BackendAgentCommandAssignment& assignment)
+{
+    if (value.kind != Kind::Object || !exactKeys(value.objectValue, {
+        "protocolVersion", "requestId", "correlationId", "operationId", "jobId",
+        "attemptId", "claimEpoch", "commandId", "backendId", "agentId",
+        "agentInstanceId", "backendGeneration", "commandType", "payloadVersion",
+        "payload", "requestFingerprint", "verificationPolicy", "assignedAt", "deadline"})) return false;
+    const auto s = [&](const char* key) { return get(value.objectValue, key, Kind::String); };
+    const auto u = [&](const char* key) { return get(value.objectValue, key, Kind::Unsigned); };
+    const Value *protocol=s("protocolVersion"), *request=s("requestId"), *correlation=s("correlationId"),
+        *operation=s("operationId"), *job=s("jobId"), *attempt=s("attemptId"), *claim=u("claimEpoch"),
+        *command=s("commandId"), *backend=s("backendId"), *agent=s("agentId"), *instance=s("agentInstanceId"),
+        *generation=u("backendGeneration"), *type=s("commandType"), *payloadVersion=u("payloadVersion"),
+        *payload=s("payload"), *fingerprint=s("requestFingerprint"), *verification=s("verificationPolicy"),
+        *assigned=u("assignedAt"), *deadline=u("deadline");
+    if (!protocol||!request||!correlation||!operation||!job||!attempt||!claim||!command||!backend||!agent||!instance||
+        !generation||!type||!payloadVersion||!payload||!fingerprint||!verification||!assigned||!deadline) return false;
+    assignment.present = true;
+    assignment.protocolVersion=protocol->stringValue; assignment.requestId=request->stringValue;
+    assignment.correlationId=correlation->stringValue; assignment.operationId=operation->stringValue;
+    assignment.jobId=job->stringValue; assignment.attemptId=attempt->stringValue;
+    assignment.claimEpoch=claim->unsignedValue; assignment.commandId=command->stringValue;
+    assignment.backendId=backend->stringValue; assignment.agentId=agent->stringValue;
+    assignment.agentInstanceId=instance->stringValue; assignment.backendGeneration=generation->unsignedValue;
+    assignment.commandType=type->stringValue; assignment.payloadVersion=payloadVersion->unsignedValue;
+    assignment.payload=payload->stringValue; assignment.requestFingerprint=fingerprint->stringValue;
+    assignment.verificationPolicy=verification->stringValue;
+    assignment.assignedAt=static_cast<std::int64_t>(assigned->unsignedValue);
+    assignment.deadline=static_cast<std::int64_t>(deadline->unsignedValue);
+    return backendAgentCommandValidAssignment(assignment);
+}
+
+std::string assignmentJson(const BackendAgentCommandAssignment& a)
+{
+    std::ostringstream out;
+    out << "{\"protocolVersion\":\"" << escape(a.protocolVersion)
+        << "\",\"requestId\":\"" << escape(a.requestId)
+        << "\",\"correlationId\":\"" << escape(a.correlationId)
+        << "\",\"operationId\":\"" << escape(a.operationId)
+        << "\",\"jobId\":\"" << escape(a.jobId)
+        << "\",\"attemptId\":\"" << escape(a.attemptId)
+        << "\",\"claimEpoch\":" << a.claimEpoch
+        << ",\"commandId\":\"" << escape(a.commandId)
+        << "\",\"backendId\":\"" << escape(a.backendId)
+        << "\",\"agentId\":\"" << escape(a.agentId)
+        << "\",\"agentInstanceId\":\"" << escape(a.agentInstanceId)
+        << "\",\"backendGeneration\":" << a.backendGeneration
+        << ",\"commandType\":\"" << escape(a.commandType)
+        << "\",\"payloadVersion\":" << a.payloadVersion
+        << ",\"payload\":\"" << escape(a.payload)
+        << "\",\"requestFingerprint\":\"" << escape(a.requestFingerprint)
+        << "\",\"verificationPolicy\":\"" << escape(a.verificationPolicy)
+        << "\",\"assignedAt\":" << a.assignedAt
+        << ",\"deadline\":" << a.deadline << '}';
+    return out.str();
+}
+}
+
+bool parseBackendAgentCommandPollRequestJson(const std::string& body, BackendAgentCommandPollRequest& request, std::string& reason)
+{
+    Value root;
+    if (!Parser(body).parse(root) || root.kind != Kind::Object || !exactKeys(root.objectValue,
+        {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes"}))
+    { reason="invalid_command_poll_payload"; return false; }
+    const Value* protocol=get(root.objectValue,"protocolVersion",Kind::String);
+    const Value* backend=get(root.objectValue,"backendId",Kind::String);
+    const Value* instance=get(root.objectValue,"agentInstanceId",Kind::String);
+    const Value* generation=get(root.objectValue,"backendGeneration",Kind::Unsigned);
+    const Value* types=get(root.objectValue,"supportedCommandTypes",Kind::Array);
+    if (!protocol||!backend||!instance||!generation||!types||!parseTypes(*types,request.supportedCommandTypes))
+    { reason="invalid_command_poll_payload"; return false; }
+    request.protocolVersion=protocol->stringValue; request.backendId=backend->stringValue;
+    request.agentInstanceId=instance->stringValue; request.backendGeneration=generation->unsignedValue;
+    if (request.protocolVersion!="vdr-suite-agent/1" || !backendAgentCommandSafeIdentifier(request.backendId) ||
+        !backendAgentCommandSafeIdentifier(request.agentInstanceId) || request.backendGeneration==0)
+    { reason="invalid_command_poll_payload"; return false; }
+    reason="command_poll_parsed"; return true;
+}
+
+std::string serializeBackendAgentCommandPollRequestJson(const BackendAgentCommandPollRequest& request)
+{
+    std::ostringstream out;
+    out << "{\"protocolVersion\":\"vdr-suite-agent/1\",\"backendId\":\"" << escape(request.backendId)
+        << "\",\"agentInstanceId\":\"" << escape(request.agentInstanceId)
+        << "\",\"backendGeneration\":" << request.backendGeneration
+        << ",\"supportedCommandTypes\":" << stringArray(request.supportedCommandTypes) << '}';
+    return out.str();
+}
+
+bool parseBackendAgentCommandPollResponseJson(const std::string& body, BackendAgentCommandPollResult& result, std::string& reason)
+{
+    Value root;
+    if (!Parser(body).parse(root) || root.kind!=Kind::Object) { reason="invalid_command_poll_response"; return false; }
+    const Value* has=get(root.objectValue,"hasAssignment",Kind::Boolean);
+    const Value* code=get(root.objectValue,"reasonCode",Kind::String);
+    if (!has||!code) { reason="invalid_command_poll_response"; return false; }
+    if (!has->boolValue)
+    {
+        if (!exactKeys(root.objectValue,{"hasAssignment","reasonCode"})) { reason="invalid_command_poll_response"; return false; }
+        result.accepted=true; result.reasonCode=code->stringValue; result.assignment={}; reason="command_poll_response_parsed"; return true;
+    }
+    if (!exactKeys(root.objectValue,{"hasAssignment","reasonCode","assignment"})) { reason="invalid_command_poll_response"; return false; }
+    const Value* assignment=get(root.objectValue,"assignment",Kind::Object);
+    if (!assignment||!readAssignment(*assignment,result.assignment)) { reason="invalid_command_assignment"; return false; }
+    result.accepted=true; result.reasonCode=code->stringValue; reason="command_poll_response_parsed"; return true;
+}
+
+std::string serializeBackendAgentCommandPollResponseJson(const BackendAgentCommandPollResult& result)
+{
+    std::ostringstream out;
+    out << "{\"hasAssignment\":" << (result.assignment.present?"true":"false")
+        << ",\"reasonCode\":\"" << escape(result.reasonCode) << '"';
+    if (result.assignment.present) out << ",\"assignment\":" << assignmentJson(result.assignment);
+    out << '}';
+    return out.str();
+}
+
+bool parseBackendAgentCommandReceiptJson(const std::string& body, BackendAgentCommandReceipt& receipt, std::string& reason)
+{
+    Value root;
+    if (!Parser(body).parse(root)||root.kind!=Kind::Object||!exactKeys(root.objectValue,
+        {"protocolVersion","commandId","requestFingerprint","jobId","attemptId","claimEpoch","backendId","agentId","agentInstanceId","backendGeneration","receiptCategory","receivedAt","reasonCode"}))
+    { reason="invalid_command_receipt_payload"; return false; }
+    const auto s=[&](const char* key){return get(root.objectValue,key,Kind::String);};
+    const auto u=[&](const char* key){return get(root.objectValue,key,Kind::Unsigned);};
+    const Value *protocol=s("protocolVersion"),*command=s("commandId"),*finger=s("requestFingerprint"),*job=s("jobId"),
+        *attempt=s("attemptId"),*claim=u("claimEpoch"),*backend=s("backendId"),*agent=s("agentId"),*instance=s("agentInstanceId"),
+        *generation=u("backendGeneration"),*category=s("receiptCategory"),*received=u("receivedAt"),*code=s("reasonCode");
+    if (!protocol||!command||!finger||!job||!attempt||!claim||!backend||!agent||!instance||!generation||!category||!received||!code)
+    { reason="invalid_command_receipt_payload"; return false; }
+    receipt.protocolVersion=protocol->stringValue; receipt.commandId=command->stringValue; receipt.requestFingerprint=finger->stringValue;
+    receipt.jobId=job->stringValue; receipt.attemptId=attempt->stringValue; receipt.claimEpoch=claim->unsignedValue;
+    receipt.backendId=backend->stringValue; receipt.agentId=agent->stringValue; receipt.agentInstanceId=instance->stringValue;
+    receipt.backendGeneration=generation->unsignedValue; receipt.receiptCategory=category->stringValue;
+    receipt.receivedAt=static_cast<std::int64_t>(received->unsignedValue); receipt.reasonCode=code->stringValue;
+    if (!backendAgentCommandValidReceipt(receipt)) { reason="invalid_command_receipt_payload"; return false; }
+    reason="command_receipt_parsed"; return true;
+}
+
+std::string serializeBackendAgentCommandReceiptJson(const BackendAgentCommandReceipt& r)
+{
+    std::ostringstream out;
+    out << "{\"protocolVersion\":\"vdr-suite-agent/1\",\"commandId\":\""<<escape(r.commandId)
+        <<"\",\"requestFingerprint\":\""<<escape(r.requestFingerprint)<<"\",\"jobId\":\""<<escape(r.jobId)
+        <<"\",\"attemptId\":\""<<escape(r.attemptId)<<"\",\"claimEpoch\":"<<r.claimEpoch
+        <<",\"backendId\":\""<<escape(r.backendId)<<"\",\"agentId\":\""<<escape(r.agentId)
+        <<"\",\"agentInstanceId\":\""<<escape(r.agentInstanceId)<<"\",\"backendGeneration\":"<<r.backendGeneration
+        <<",\"receiptCategory\":\""<<escape(r.receiptCategory)<<"\",\"receivedAt\":"<<r.receivedAt
+        <<",\"reasonCode\":\""<<escape(r.reasonCode)<<"\"}";
+    return out.str();
+}
+
+bool parseBackendAgentCommandResultJson(const std::string& body, BackendAgentCommandResult& result, std::string& reason)
+{
+    Value root;
+    if (!Parser(body).parse(root)||root.kind!=Kind::Object||!exactKeys(root.objectValue,
+        {"protocolVersion","commandId","requestFingerprint","jobId","attemptId","claimEpoch","backendId","agentId","agentInstanceId","backendGeneration","dispatchState","verificationState","resultCategory","errorCategory","retryClassification","boundedDiagnostics","completedAt"}))
+    { reason="invalid_command_result_payload"; return false; }
+    const auto s=[&](const char* key){return get(root.objectValue,key,Kind::String);};
+    const auto u=[&](const char* key){return get(root.objectValue,key,Kind::Unsigned);};
+    const Value *protocol=s("protocolVersion"),*command=s("commandId"),*finger=s("requestFingerprint"),*job=s("jobId"),
+        *attempt=s("attemptId"),*claim=u("claimEpoch"),*backend=s("backendId"),*agent=s("agentId"),*instance=s("agentInstanceId"),
+        *generation=u("backendGeneration"),*dispatch=s("dispatchState"),*verification=s("verificationState"),*category=s("resultCategory"),
+        *error=s("errorCategory"),*retry=s("retryClassification"),*diagnostics=s("boundedDiagnostics"),*completed=u("completedAt");
+    if (!protocol||!command||!finger||!job||!attempt||!claim||!backend||!agent||!instance||!generation||!dispatch||!verification||!category||!error||!retry||!diagnostics||!completed)
+    { reason="invalid_command_result_payload"; return false; }
+    result.protocolVersion=protocol->stringValue; result.commandId=command->stringValue; result.requestFingerprint=finger->stringValue;
+    result.jobId=job->stringValue; result.attemptId=attempt->stringValue; result.claimEpoch=claim->unsignedValue;
+    result.backendId=backend->stringValue; result.agentId=agent->stringValue; result.agentInstanceId=instance->stringValue;
+    result.backendGeneration=generation->unsignedValue; result.dispatchState=dispatch->stringValue; result.verificationState=verification->stringValue;
+    result.resultCategory=category->stringValue; result.errorCategory=error->stringValue; result.retryClassification=retry->stringValue;
+    result.boundedDiagnostics=diagnostics->stringValue; result.completedAt=static_cast<std::int64_t>(completed->unsignedValue);
+    if (!backendAgentCommandValidResult(result)) { reason="invalid_command_result_payload"; return false; }
+    reason="command_result_parsed"; return true;
+}
+
+std::string serializeBackendAgentCommandResultJson(const BackendAgentCommandResult& r)
+{
+    std::ostringstream out;
+    out << "{\"protocolVersion\":\"vdr-suite-agent/1\",\"commandId\":\""<<escape(r.commandId)
+        <<"\",\"requestFingerprint\":\""<<escape(r.requestFingerprint)<<"\",\"jobId\":\""<<escape(r.jobId)
+        <<"\",\"attemptId\":\""<<escape(r.attemptId)<<"\",\"claimEpoch\":"<<r.claimEpoch
+        <<",\"backendId\":\""<<escape(r.backendId)<<"\",\"agentId\":\""<<escape(r.agentId)
+        <<"\",\"agentInstanceId\":\""<<escape(r.agentInstanceId)<<"\",\"backendGeneration\":"<<r.backendGeneration
+        <<",\"dispatchState\":\""<<escape(r.dispatchState)<<"\",\"verificationState\":\""<<escape(r.verificationState)
+        <<"\",\"resultCategory\":\""<<escape(r.resultCategory)<<"\",\"errorCategory\":\""<<escape(r.errorCategory)
+        <<"\",\"retryClassification\":\""<<escape(r.retryClassification)<<"\",\"boundedDiagnostics\":\""<<escape(r.boundedDiagnostics)
+        <<"\",\"completedAt\":"<<r.completedAt<<'}';
+    return out.str();
+}
+''')
+
+          write("core/agent/include/BackendAgentCommandDelivery.h", r'''#pragma once
+
+#include "BackendAgentCommand.h"
+#include "SecurityIdentity.h"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+
+class AccountabilityEventRepository;
+class BackendAgentRepository;
+class Database;
+
+class BackendAgentCommandRepository
+{
+public:
+    explicit BackendAgentCommandRepository(Database& database);
+    bool ensureSchema();
+    bool insertAssignment(const BackendAgentCommandAssignment& assignment);
+    BackendAgentCommandPollResult poll(
+        const BackendAgentCommandPollRequest& request,
+        const std::string& agentId,
+        std::int64_t now);
+    BackendAgentCommandReceiptResult acceptReceipt(
+        const BackendAgentCommandReceipt& receipt);
+    BackendAgentCommandResultAck acceptResult(
+        const BackendAgentCommandResult& result);
+    bool requestReplay(const std::string& backendId, const std::string& commandId);
+    bool armFault(const std::string& backendId, const std::string& kind);
+    bool consumeFault(const std::string& backendId, const std::string& kind);
+    BackendAgentCommandSummary summaryForBackend(const std::string& backendId) const;
+private:
+    Database& database_;
+};
+
+class BackendAgentCommandDeliveryService
+{
+public:
+    BackendAgentCommandDeliveryService(
+        BackendAgentCommandRepository& commandRepository,
+        BackendAgentRepository& agentRepository,
+        AccountabilityEventRepository& accountabilityRepository);
+
+    BackendAgentCommandPollResult poll(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandPollRequest& request,
+        std::int64_t now);
+    BackendAgentCommandReceiptResult receipt(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandReceipt& receipt,
+        std::int64_t now);
+    BackendAgentCommandResultAck result(
+        const RequestSecurityContext& context,
+        const BackendAgentCommandResult& result,
+        std::int64_t now);
+
+    std::optional<BackendAgentCommandAssignment> assignProbe(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        std::int64_t now,
+        std::int64_t deadline,
+        std::string& reasonCode);
+    bool requestReplay(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& commandId,
+        std::int64_t now,
+        std::string& reasonCode);
+    bool armFault(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& kind,
+        std::int64_t now,
+        std::string& reasonCode);
+    BackendAgentCommandSummary summaryForBackend(const std::string& backendId) const;
+
+private:
+    bool agentContextMatches(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        const std::string& agentId,
+        const std::string& agentInstanceId,
+        std::uint64_t backendGeneration,
+        bool requireLease,
+        std::int64_t now,
+        std::string& reasonCode) const;
+    bool appendEvent(
+        const RequestSecurityContext& context,
+        const std::string& eventType,
+        const std::string& backendId,
+        const std::string& operationId,
+        const std::string& action,
+        const std::string& decision,
+        const std::string& reasonCode,
+        const std::string& outcome,
+        std::int64_t now) const;
+
+    BackendAgentCommandRepository& commandRepository_;
+    BackendAgentRepository& agentRepository_;
+    AccountabilityEventRepository& accountabilityRepository_;
+};
+''')
+
+          write("core/agent/src/BackendAgentCommandDelivery.cpp", r'''#include "BackendAgentCommandDelivery.h"
+
+#include "AccountabilityEvent.h"
+#include "AccountabilityEventRepository.h"
+#include "BackendAgentLifecycle.h"
+#include "Database.h"
+
+#include <sqlite3.h>
+
+#include <algorithm>
+#include <limits>
+#include <sstream>
+#include <string>
+
+namespace
+{
+bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
+{
+    return sqlite3_bind_text(statement,index,value.c_str(),-1,SQLITE_TRANSIENT)==SQLITE_OK;
+}
+bool bindInt(sqlite3_stmt* statement, int index, std::int64_t value)
+{
+    return sqlite3_bind_int64(statement,index,value)==SQLITE_OK;
+}
+std::string text(sqlite3_stmt* statement, int column)
+{
+    const unsigned char* value=sqlite3_column_text(statement,column);
+    return value?std::string(reinterpret_cast<const char*>(value)):std::string();
+}
+bool done(sqlite3_stmt* statement)
+{
+    const int result=sqlite3_step(statement);
+    sqlite3_finalize(statement);
+    return result==SQLITE_DONE;
+}
+BackendAgentCommandAssignment readAssignment(sqlite3_stmt* s)
+{
+    BackendAgentCommandAssignment a;
+    a.present=true; a.protocolVersion=text(s,0); a.requestId=text(s,1); a.correlationId=text(s,2);
+    a.operationId=text(s,3); a.jobId=text(s,4); a.attemptId=text(s,5); a.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,6));
+    a.commandId=text(s,7); a.backendId=text(s,8); a.agentId=text(s,9); a.agentInstanceId=text(s,10);
+    a.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,11)); a.commandType=text(s,12);
+    a.payloadVersion=static_cast<std::uint64_t>(sqlite3_column_int64(s,13)); a.payload=text(s,14);
+    a.requestFingerprint=text(s,15); a.verificationPolicy=text(s,16); a.assignedAt=sqlite3_column_int64(s,17); a.deadline=sqlite3_column_int64(s,18);
+    return a;
+}
+constexpr const char* AssignmentColumns=
+    "protocol_version,request_id,correlation_id,operation_id,job_id,attempt_id,claim_epoch,command_id,backend_id,agent_id,agent_instance_id,backend_generation,command_type,payload_version,payload,request_fingerprint,verification_policy,assigned_at,deadline";
+}
+
+BackendAgentCommandRepository::BackendAgentCommandRepository(Database& database):database_(database){}
+
+bool BackendAgentCommandRepository::ensureSchema()
+{
+    return database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_commands ("
+        "command_id TEXT PRIMARY KEY,protocol_version TEXT NOT NULL,request_id TEXT NOT NULL,correlation_id TEXT NOT NULL,"
+        "operation_id TEXT NOT NULL,job_id TEXT NOT NULL,attempt_id TEXT NOT NULL,claim_epoch INTEGER NOT NULL,"
+        "backend_id TEXT NOT NULL,agent_id TEXT NOT NULL,agent_instance_id TEXT NOT NULL,backend_generation INTEGER NOT NULL,"
+        "command_type TEXT NOT NULL,payload_version INTEGER NOT NULL,payload TEXT NOT NULL,request_fingerprint TEXT NOT NULL,"
+        "verification_policy TEXT NOT NULL,assigned_at INTEGER NOT NULL,deadline INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'assigned',"
+        "replay_requested INTEGER NOT NULL DEFAULT 0,last_delivered_at INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,"
+        "UNIQUE(job_id,attempt_id,claim_epoch),CHECK(state IN ('assigned','received','completed','expired','waiting_reconciliation'))"
+        ");") &&
+        database_.execute("CREATE INDEX IF NOT EXISTS idx_backend_agent_commands_delivery ON backend_agent_commands(backend_id,state,replay_requested,assigned_at);") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_command_capabilities ("
+        "backend_id TEXT NOT NULL,agent_id TEXT NOT NULL,agent_instance_id TEXT NOT NULL,backend_generation INTEGER NOT NULL,"
+        "command_type TEXT NOT NULL,published_at INTEGER NOT NULL,PRIMARY KEY(backend_id,command_type));") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_command_receipts ("
+        "command_id TEXT PRIMARY KEY,receipt_identity TEXT NOT NULL,receipt_category TEXT NOT NULL,reason_code TEXT NOT NULL,received_at INTEGER NOT NULL,"
+        "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_command_results ("
+        "command_id TEXT PRIMARY KEY,result_identity TEXT NOT NULL,dispatch_state TEXT NOT NULL,verification_state TEXT NOT NULL,"
+        "result_category TEXT NOT NULL,error_category TEXT NOT NULL,retry_classification TEXT NOT NULL,bounded_diagnostics TEXT NOT NULL,completed_at INTEGER NOT NULL,"
+        "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_command_faults ("
+        "backend_id TEXT PRIMARY KEY,drop_next_receipt INTEGER NOT NULL DEFAULT 0,drop_next_result INTEGER NOT NULL DEFAULT 0); ");
+}
+
+bool BackendAgentCommandRepository::insertAssignment(const BackendAgentCommandAssignment& a)
+{
+    if (!backendAgentCommandValidAssignment(a)) return false;
+    sqlite3_stmt* s=nullptr;
+    const std::string sql=std::string("INSERT INTO backend_agent_commands (")+AssignmentColumns+",updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+    if (sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&s,nullptr)!=SQLITE_OK) return false;
+    bool ok=bindText(s,1,a.protocolVersion)&&bindText(s,2,a.requestId)&&bindText(s,3,a.correlationId)&&bindText(s,4,a.operationId)&&
+        bindText(s,5,a.jobId)&&bindText(s,6,a.attemptId)&&bindInt(s,7,static_cast<std::int64_t>(a.claimEpoch))&&bindText(s,8,a.commandId)&&
+        bindText(s,9,a.backendId)&&bindText(s,10,a.agentId)&&bindText(s,11,a.agentInstanceId)&&bindInt(s,12,static_cast<std::int64_t>(a.backendGeneration))&&
+        bindText(s,13,a.commandType)&&bindInt(s,14,static_cast<std::int64_t>(a.payloadVersion))&&bindText(s,15,a.payload)&&bindText(s,16,a.requestFingerprint)&&
+        bindText(s,17,a.verificationPolicy)&&bindInt(s,18,a.assignedAt)&&bindInt(s,19,a.deadline)&&bindInt(s,20,a.assignedAt);
+    if (!ok) { sqlite3_finalize(s); return false; }
+    return done(s);
+}
+
+BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
+{
+    BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
+    if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
+    bool ok=database_.execute("DELETE FROM backend_agent_command_capabilities WHERE backend_id='"+request.backendId+"';");
+    for (const std::string& type:request.supportedCommandTypes)
+    {
+        sqlite3_stmt* cap=nullptr;
+        const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
+        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
+            !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
+    }
+    if (ok)
+    {
+        sqlite3_stmt* expire=nullptr;
+        const char* sql="UPDATE backend_agent_commands SET state='expired',updated_at=? WHERE backend_id=? AND state IN('assigned','received') AND deadline<?;";
+        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&expire,nullptr)!=SQLITE_OK||!bindInt(expire,1,now)||!bindText(expire,2,request.backendId)||!bindInt(expire,3,now)||!done(expire)) ok=false;
+    }
+    if (ok)
+    {
+        sqlite3_stmt* select=nullptr;
+        const std::string sql=std::string("SELECT ")+AssignmentColumns+" FROM backend_agent_commands c WHERE c.backend_id=? AND c.agent_id=? AND c.agent_instance_id=? AND c.backend_generation=? AND c.deadline>=? AND ((c.state='assigned' AND NOT EXISTS(SELECT 1 FROM backend_agent_command_receipts r WHERE r.command_id=c.command_id)) OR c.replay_requested=1) AND EXISTS(SELECT 1 FROM backend_agent_command_capabilities x WHERE x.backend_id=c.backend_id AND x.agent_id=c.agent_id AND x.agent_instance_id=c.agent_instance_id AND x.backend_generation=c.backend_generation AND x.command_type=c.command_type) ORDER BY c.assigned_at LIMIT 1;";
+        if (sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&select,nullptr)!=SQLITE_OK||!bindText(select,1,request.backendId)||!bindText(select,2,agentId)||!bindText(select,3,request.agentInstanceId)||!bindInt(select,4,static_cast<std::int64_t>(request.backendGeneration))||!bindInt(select,5,now)) ok=false;
+        else
+        {
+            if (sqlite3_step(select)==SQLITE_ROW) result.assignment=readAssignment(select);
+            sqlite3_finalize(select);
+        }
+    }
+    if (ok && result.assignment.present)
+    {
+        sqlite3_stmt* update=nullptr;
+        const char* sql="UPDATE backend_agent_commands SET replay_requested=0,last_delivered_at=?,updated_at=? WHERE command_id=?;";
+        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&update,nullptr)!=SQLITE_OK||!bindInt(update,1,now)||!bindInt(update,2,now)||!bindText(update,3,result.assignment.commandId)||!done(update)) ok=false;
+        else result.reasonCode="command_assigned";
+    }
+    if (!ok || !database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;"); result.accepted=false; result.assignment={}; result.reasonCode="command_database_unavailable";
+    }
+    return result;
+}
+
+BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(const BackendAgentCommandReceipt& r)
+{
+    BackendAgentCommandReceiptResult result;
+    sqlite3_stmt* query=nullptr;
+    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,deadline,state FROM backend_agent_commands WHERE command_id=?;";
+    if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
+    if (sqlite3_step(query)!=SQLITE_ROW) { sqlite3_finalize(query); result.reasonCode="command_not_found"; return result; }
+    const bool match=text(query,0)==r.jobId&&text(query,1)==r.attemptId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,2))==r.claimEpoch&&
+        text(query,3)==r.backendId&&text(query,4)==r.agentId&&text(query,5)==r.agentInstanceId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,6))==r.backendGeneration&&text(query,7)==r.requestFingerprint;
+    sqlite3_finalize(query);
+    if (!match) { result.reasonCode="command_receipt_fenced"; return result; }
+    const std::string identity=backendAgentCommandReceiptIdentity(r);
+    sqlite3_stmt* existing=nullptr;
+    if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
+    if (sqlite3_step(existing)==SQLITE_ROW)
+    {
+        result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); return result;
+    }
+    sqlite3_finalize(existing);
+    if (!database_.execute("BEGIN IMMEDIATE;")) { result.reasonCode="command_database_unavailable"; return result; }
+    sqlite3_stmt* insert=nullptr;
+    const char* insertSql="INSERT INTO backend_agent_command_receipts(command_id,receipt_identity,receipt_category,reason_code,received_at) VALUES(?,?,?,?,?);";
+    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.receiptCategory)&&bindText(insert,4,r.reasonCode)&&bindInt(insert,5,r.receivedAt)&&done(insert);
+    sqlite3_stmt* update=nullptr;
+    const char* updateSql="UPDATE backend_agent_commands SET state='received',updated_at=? WHERE command_id=? AND state='assigned';";
+    ok=ok&&sqlite3_prepare_v2(database_.handle(),updateSql,-1,&update,nullptr)==SQLITE_OK&&bindInt(update,1,r.receivedAt)&&bindText(update,2,r.commandId)&&done(update);
+    if (!ok||!database_.execute("COMMIT;")) { database_.execute("ROLLBACK;"); result.reasonCode="command_database_unavailable"; return result; }
+    result.accepted=true; result.reasonCode="command_receipt_accepted"; return result;
+}
+
+BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const BackendAgentCommandResult& r)
+{
+    BackendAgentCommandResultAck result;
+    sqlite3_stmt* query=nullptr;
+    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint FROM backend_agent_commands WHERE command_id=?;";
+    if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
+    if (sqlite3_step(query)!=SQLITE_ROW) { sqlite3_finalize(query); result.reasonCode="command_not_found"; return result; }
+    const bool match=text(query,0)==r.jobId&&text(query,1)==r.attemptId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,2))==r.claimEpoch&&text(query,3)==r.backendId&&text(query,4)==r.agentId&&text(query,5)==r.agentInstanceId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,6))==r.backendGeneration&&text(query,7)==r.requestFingerprint;
+    sqlite3_finalize(query); if(!match){result.reasonCode="command_result_fenced";return result;}
+    sqlite3_stmt* receipt=nullptr;
+    if(sqlite3_prepare_v2(database_.handle(),"SELECT 1 FROM backend_agent_command_receipts WHERE command_id=?;",-1,&receipt,nullptr)!=SQLITE_OK||!bindText(receipt,1,r.commandId)){if(receipt)sqlite3_finalize(receipt);result.reasonCode="command_database_unavailable";return result;}
+    const bool hasReceipt=sqlite3_step(receipt)==SQLITE_ROW; sqlite3_finalize(receipt); if(!hasReceipt){result.reasonCode="command_receipt_required";return result;}
+    const std::string identity=backendAgentCommandResultIdentity(r);
+    sqlite3_stmt* existing=nullptr;
+    if(sqlite3_prepare_v2(database_.handle(),"SELECT result_identity FROM backend_agent_command_results WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)){if(existing)sqlite3_finalize(existing);result.reasonCode="command_database_unavailable";return result;}
+    if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);return result;} sqlite3_finalize(existing);
+    if(!database_.execute("BEGIN IMMEDIATE;")){result.reasonCode="command_database_unavailable";return result;}
+    sqlite3_stmt* insert=nullptr;
+    const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,completed_at) VALUES(?,?,?,?,?,?,?,?,?);";
+    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.dispatchState)&&bindText(insert,4,r.verificationState)&&bindText(insert,5,r.resultCategory)&&bindText(insert,6,r.errorCategory)&&bindText(insert,7,r.retryClassification)&&bindText(insert,8,r.boundedDiagnostics)&&bindInt(insert,9,r.completedAt)&&done(insert);
+    sqlite3_stmt* update=nullptr;
+    const char* updateSql="UPDATE backend_agent_commands SET state=?,updated_at=? WHERE command_id=?;";
+    const std::string state=r.resultCategory=="outcome_unknown"?"waiting_reconciliation":"completed";
+    ok=ok&&sqlite3_prepare_v2(database_.handle(),updateSql,-1,&update,nullptr)==SQLITE_OK&&bindText(update,1,state)&&bindInt(update,2,r.completedAt)&&bindText(update,3,r.commandId)&&done(update);
+    if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");result.reasonCode="command_database_unavailable";return result;}
+    result.accepted=true;result.reasonCode="command_result_accepted";return result;
+}
+
+bool BackendAgentCommandRepository::requestReplay(const std::string& backendId,const std::string& commandId)
+{
+    sqlite3_stmt* s=nullptr; const char* sql="UPDATE backend_agent_commands SET replay_requested=1 WHERE backend_id=? AND command_id=?;";
+    return sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)==SQLITE_OK&&bindText(s,1,backendId)&&bindText(s,2,commandId)&&done(s)&&sqlite3_changes(database_.handle())==1;
+}
+bool BackendAgentCommandRepository::armFault(const std::string& backendId,const std::string& kind)
+{
+    if(kind!="receipt"&&kind!="result")return false;
+    const std::string column=kind=="receipt"?"drop_next_receipt":"drop_next_result";
+    const std::string sql="INSERT INTO backend_agent_command_faults(backend_id,"+column+") VALUES(?,1) ON CONFLICT(backend_id) DO UPDATE SET "+column+"=1;";
+    sqlite3_stmt* s=nullptr; return sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&s,nullptr)==SQLITE_OK&&bindText(s,1,backendId)&&done(s);
+}
+bool BackendAgentCommandRepository::consumeFault(const std::string& backendId,const std::string& kind)
+{
+    if(kind!="receipt"&&kind!="result")return false; const std::string column=kind=="receipt"?"drop_next_receipt":"drop_next_result";
+    if(!database_.execute("BEGIN IMMEDIATE;"))return false;
+    sqlite3_stmt* q=nullptr; const std::string select="SELECT "+column+" FROM backend_agent_command_faults WHERE backend_id=?;";
+    bool armed=false,ok=sqlite3_prepare_v2(database_.handle(),select.c_str(),-1,&q,nullptr)==SQLITE_OK&&bindText(q,1,backendId);
+    if(ok&&sqlite3_step(q)==SQLITE_ROW)armed=sqlite3_column_int(q,0)!=0; if(q)sqlite3_finalize(q);
+    if(ok&&armed){sqlite3_stmt* u=nullptr;const std::string update="UPDATE backend_agent_command_faults SET "+column+"=0 WHERE backend_id=?;";ok=sqlite3_prepare_v2(database_.handle(),update.c_str(),-1,&u,nullptr)==SQLITE_OK&&bindText(u,1,backendId)&&done(u);}
+    if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;} return armed;
+}
+BackendAgentCommandSummary BackendAgentCommandRepository::summaryForBackend(const std::string& backendId) const
+{
+    BackendAgentCommandSummary summary; sqlite3_stmt* s=nullptr;
+    const char* sql="SELECT c.command_id,c.command_type,c.state,COALESCE(r.receipt_category,''),COALESCE(x.result_category,''),COALESCE(x.dispatch_state,''),COALESCE(x.verification_state,''),c.backend_generation,c.claim_epoch,c.deadline FROM backend_agent_commands c LEFT JOIN backend_agent_command_receipts r ON r.command_id=c.command_id LEFT JOIN backend_agent_command_results x ON x.command_id=c.command_id WHERE c.backend_id=? ORDER BY c.assigned_at DESC LIMIT 1;";
+    if(sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)!=SQLITE_OK||!bindText(s,1,backendId)){if(s)sqlite3_finalize(s);return summary;}
+    if(sqlite3_step(s)==SQLITE_ROW){summary.present=true;summary.commandId=text(s,0);summary.commandType=text(s,1);summary.state=text(s,2);summary.receiptCategory=text(s,3);summary.resultCategory=text(s,4);summary.dispatchState=text(s,5);summary.verificationState=text(s,6);summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deadline=sqlite3_column_int64(s,9);} sqlite3_finalize(s);return summary;
+}
+
+BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(BackendAgentCommandRepository& c,BackendAgentRepository& a,AccountabilityEventRepository& e):commandRepository_(c),agentRepository_(a),accountabilityRepository_(e){}
+
+bool BackendAgentCommandDeliveryService::appendEvent(const RequestSecurityContext& context,const std::string& eventType,const std::string& backendId,const std::string& operationId,const std::string& action,const std::string& decision,const std::string& reason,const std::string& outcome,std::int64_t now) const
+{
+    AccountabilityEvent event; event.eventId=backendAgentGenerateOpaqueId("evt_",12); event.classes="accountability,backend-agent-command";event.eventType=eventType;event.severity=decision=="allow"?"info":"warning";event.occurredAt=std::to_string(now);event.actorId=context.actor.actorId;event.actorType=actorTypeName(context.actor.type);event.deviceId=context.device.has_value()?context.device->deviceId:"";event.authenticationState=authenticationStateName(context.authenticationState);event.permission="backend.agent.command.deliver";event.backendId=backendId;event.operationId=operationId;event.requestId=context.requestId;event.correlationId=context.correlationId;event.action=action;event.decision=decision;event.reasonCode=reason;event.outcome=outcome;return !event.eventId.empty()&&accountabilityRepository_.append(event);
+}
+
+bool BackendAgentCommandDeliveryService::agentContextMatches(const RequestSecurityContext& context,const std::string& backendId,const std::string& agentId,const std::string& instance,std::uint64_t generation,bool requireLease,std::int64_t now,std::string& reason) const
+{
+    if(!context.authenticated()||context.actor.type!=ActorType::Agent){reason="agent_authentication_failed";return false;}
+    const auto agent=agentRepository_.findAgentForBackend(backendId);
+    if(!agent.has_value()||agent->revoked||agent->incompatible){reason="agent_binding_unavailable";return false;}
+    if(agent->agentId!=agentId||agent->actorId!=context.actor.actorId||agent->agentInstanceId!=instance||agent->backendGeneration!=generation){reason="command_generation_fenced";return false;}
+    if(requireLease&&agent->leaseExpiresAt<now){reason="command_lease_expired";return false;} reason="agent_context_accepted";return true;
+}
+
+BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const RequestSecurityContext& context,const BackendAgentCommandPollRequest& request,std::int64_t now)
+{
+    BackendAgentCommandPollResult result; const auto agent=agentRepository_.findAgentForBackend(request.backendId); std::string reason;
+    if(!agent.has_value()||!agentContextMatches(context,request.backendId,agent->agentId,request.agentInstanceId,request.backendGeneration,true,now,reason)){result.reasonCode=reason.empty()?"agent_binding_unavailable":reason;return result;}
+    result=commandRepository_.poll(request,agent->agentId,now); return result;
+}
+BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(const RequestSecurityContext& context,const BackendAgentCommandReceipt& receipt,std::int64_t now)
+{
+    BackendAgentCommandReceiptResult result; std::string reason;
+    if(!backendAgentCommandValidReceipt(receipt)||!agentContextMatches(context,receipt.backendId,receipt.agentId,receipt.agentInstanceId,receipt.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_receipt":reason;return result;}
+    if(!appendEvent(context,"agent.command.receipt",receipt.backendId,"", "receive-command-receipt","allow","command_receipt_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
+    result=commandRepository_.acceptReceipt(receipt); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(receipt.backendId,"receipt"); return result;
+}
+BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(const RequestSecurityContext& context,const BackendAgentCommandResult& value,std::int64_t now)
+{
+    BackendAgentCommandResultAck result; std::string reason;
+    if(!backendAgentCommandValidResult(value)||!agentContextMatches(context,value.backendId,value.agentId,value.agentInstanceId,value.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_result":reason;return result;}
+    if(!appendEvent(context,"agent.command.result",value.backendId,"", "receive-command-result","allow","command_result_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
+    result=commandRepository_.acceptResult(value); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(value.backendId,"result"); return result;
+}
+
+std::optional<BackendAgentCommandAssignment> BackendAgentCommandDeliveryService::assignProbe(const RequestSecurityContext& context,const std::string& backendId,std::int64_t now,std::int64_t deadline,std::string& reason)
+{
+    if(!context.authenticated()||context.actor.type!=ActorType::System||!backendAgentCommandSafeIdentifier(backendId)||deadline<=now||deadline-now>3600){reason="invalid_command_assignment_request";return std::nullopt;}
+    const auto agent=agentRepository_.findAgentForBackend(backendId); if(!agent.has_value()||agent->revoked||agent->incompatible||agent->agentInstanceId.empty()||agent->backendGeneration==0||agent->leaseExpiresAt<now){reason="active_agent_lease_required";return std::nullopt;}
+    BackendAgentCommandAssignment a; a.present=true;a.requestId=backendAgentGenerateOpaqueId("req_",8);a.correlationId=a.requestId;a.operationId=backendAgentGenerateOpaqueId("op_",12);a.jobId=backendAgentGenerateOpaqueId("job_",12);a.attemptId=backendAgentGenerateOpaqueId("att_",12);a.claimEpoch=1;a.commandId=backendAgentGenerateOpaqueId("cmd_",12);a.backendId=backendId;a.agentId=agent->agentId;a.agentInstanceId=agent->agentInstanceId;a.backendGeneration=agent->backendGeneration;a.commandType="probe.noop";a.payloadVersion=1;a.payload="{}";a.verificationPolicy="none";a.assignedAt=now;a.deadline=deadline;a.requestFingerprint=backendAgentCommandFingerprint(a);
+    if(!backendAgentCommandValidAssignment(a)||!appendEvent(context,"agent.command.assigned",backendId,a.operationId,"assign-probe-command","allow","non_mutating_probe","attempted",now)||!commandRepository_.insertAssignment(a)){reason="command_assignment_persist_failed";return std::nullopt;} reason="command_probe_assigned";return a;
+}
+bool BackendAgentCommandDeliveryService::requestReplay(const RequestSecurityContext& context,const std::string& backendId,const std::string& commandId,std::int64_t now,std::string& reason)
+{
+    if(!context.authenticated()||context.actor.type!=ActorType::System||!backendAgentCommandSafeIdentifier(backendId)||!backendAgentCommandSafeIdentifier(commandId)){reason="invalid_command_replay_request";return false;}
+    if(!appendEvent(context,"agent.command.replay.requested",backendId,"","replay-command","allow","operator_fixture","attempted",now)||!commandRepository_.requestReplay(backendId,commandId)){reason="command_replay_failed";return false;} reason="command_replay_requested";return true;
+}
+bool BackendAgentCommandDeliveryService::armFault(const RequestSecurityContext& context,const std::string& backendId,const std::string& kind,std::int64_t now,std::string& reason)
+{
+    if(!context.authenticated()||context.actor.type!=ActorType::System||!backendAgentCommandSafeIdentifier(backendId)||(kind!="receipt"&&kind!="result")){reason="invalid_command_fault_request";return false;}
+    if(!appendEvent(context,"agent.command.acceptance-fault.armed",backendId,"","arm-lost-response","allow",kind,"attempted",now)||!commandRepository_.armFault(backendId,kind)){reason="command_fault_arm_failed";return false;} reason="command_fault_armed";return true;
+}
+BackendAgentCommandSummary BackendAgentCommandDeliveryService::summaryForBackend(const std::string& backendId) const{return commandRepository_.summaryForBackend(backendId);}
+''')
+
+          write("core/agent/include/BackendAgentCommandClient.h", r'''#pragma once
+
+#include "BackendAgentCommand.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+class IBackendAgentControlPlaneTransport;
+
+struct BackendAgentCommandClientConfig
+{
+    std::string statePath;
+    std::vector<std::string> commandTypes;
+};
+
+struct BackendAgentCommandClientContext
+{
+    std::string agentId;
+    std::string credentialSecret;
+    std::string backendId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+};
+
+bool reconcileBackendAgentCommandState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reasonCode);
+
+bool pollBackendAgentCommand(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reasonCode);
+''')
+
+          write("core/agent/src/BackendAgentCommandClient.cpp", r'''#include "BackendAgentCommandClient.h"
+
+#include "BackendAgentClient.h"
+#include "BackendAgentCommandJson.h"
+
+#include <cerrno>
+#include <chrono>
+#include <fcntl.h>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+
+namespace
+{
+constexpr std::size_t MaximumStateBytes=64U*1024U;
+std::int64_t nowSeconds(){return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();}
+bool syncParent(const std::string& path){const auto p=path.find_last_of('/');const std::string parent=p==std::string::npos?".":p==0?"/":path.substr(0,p);const int fd=open(parent.c_str(),O_RDONLY|O_DIRECTORY|O_CLOEXEC);if(fd<0)return false;const bool ok=fsync(fd)==0;const bool closed=close(fd)==0;return ok&&closed;}
+bool writeAll(int fd,const std::string& value){std::size_t offset=0;while(offset<value.size()){const ssize_t n=write(fd,value.data()+offset,value.size()-offset);if(n<0){if(errno==EINTR)continue;return false;}if(n==0)return false;offset+=static_cast<std::size_t>(n);}return true;}
+bool writeProtected(const std::string& path,const std::string& value,std::string& reason)
+{
+    if(path.empty()||path.front()!='/'||value.size()>MaximumStateBytes){reason="invalid_command_state_path";return false;}
+    const std::string temp=path+".tmp"; const int fd=open(temp.c_str(),O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOFOLLOW,0600);
+    if(fd<0){reason="command_state_open_failed";return false;} const bool ok=fchmod(fd,0600)==0&&writeAll(fd,value)&&fsync(fd)==0&&close(fd)==0&&rename(temp.c_str(),path.c_str())==0&&syncParent(path);
+    if(!ok){close(fd);unlink(temp.c_str());reason="command_state_persist_failed";return false;} reason="command_state_persisted";return true;
+}
+bool readStateFile(const std::string& path,std::map<std::string,std::string>& values,std::string& reason)
+{
+    values.clear();struct stat st{};if(lstat(path.c_str(),&st)!=0){reason=errno==ENOENT?"command_state_not_found":"command_state_stat_failed";return false;}
+    if(!S_ISREG(st.st_mode)||(st.st_mode&(S_IRWXG|S_IRWXO))!=0||st.st_size<0||static_cast<std::size_t>(st.st_size)>MaximumStateBytes){reason="command_state_unprotected";return false;}
+    std::ifstream in(path);if(!in){reason="command_state_open_failed";return false;}std::string line;while(std::getline(in,line)){const auto pos=line.find('=');if(pos==std::string::npos||pos==0||values.count(line.substr(0,pos))){reason="command_state_invalid";return false;}values[line.substr(0,pos)]=line.substr(pos+1);}return true;
+}
+bool number(const std::string& value,std::uint64_t& out){if(value.empty()||value.size()>19)return false;out=0;for(unsigned char c:value){if(c<'0'||c>'9')return false;const unsigned d=c-'0';if(out>(static_cast<std::uint64_t>(INT64_MAX)-d)/10)return false;out=out*10+d;}return true;}
+struct LocalState
+{
+    BackendAgentCommandAssignment assignment;
+    BackendAgentCommandReceipt receipt;
+    BackendAgentCommandResult result;
+    bool receiptAcknowledged=false;
+    bool resultPresent=false;
+    bool resultAcknowledged=false;
+    std::string dispatchState="not_started";
+};
+std::string boolText(bool value){return value?"1":"0";}
+bool load(const std::string& path,LocalState& state,std::string& reason)
+{
+    std::map<std::string,std::string> v;if(!readStateFile(path,v,reason))return false;
+    static const std::vector<std::string> keys={"version","protocol_version","request_id","correlation_id","operation_id","job_id","attempt_id","claim_epoch","command_id","backend_id","agent_id","agent_instance_id","backend_generation","command_type","payload_version","payload","request_fingerprint","verification_policy","assigned_at","deadline","receipt_category","received_at","receipt_reason","receipt_acknowledged","dispatch_state","result_present","result_acknowledged","verification_state","result_category","error_category","retry_classification","bounded_diagnostics","completed_at"};
+    if(v.size()!=keys.size()){reason="command_state_invalid";return false;}for(const auto& key:keys)if(!v.count(key)){reason="command_state_invalid";return false;}
+    std::uint64_t claim=0,generation=0,payloadVersion=0,assigned=0,deadline=0,received=0,completed=0;
+    if(v["version"]!="1"||!number(v["claim_epoch"],claim)||!number(v["backend_generation"],generation)||!number(v["payload_version"],payloadVersion)||!number(v["assigned_at"],assigned)||!number(v["deadline"],deadline)||!number(v["received_at"],received)||!number(v["completed_at"],completed)){reason="command_state_invalid";return false;}
+    auto& a=state.assignment;a.present=true;a.protocolVersion=v["protocol_version"];a.requestId=v["request_id"];a.correlationId=v["correlation_id"];a.operationId=v["operation_id"];a.jobId=v["job_id"];a.attemptId=v["attempt_id"];a.claimEpoch=claim;a.commandId=v["command_id"];a.backendId=v["backend_id"];a.agentId=v["agent_id"];a.agentInstanceId=v["agent_instance_id"];a.backendGeneration=generation;a.commandType=v["command_type"];a.payloadVersion=payloadVersion;a.payload=v["payload"];a.requestFingerprint=v["request_fingerprint"];a.verificationPolicy=v["verification_policy"];a.assignedAt=static_cast<std::int64_t>(assigned);a.deadline=static_cast<std::int64_t>(deadline);
+    if(!backendAgentCommandValidAssignment(a)){reason="command_state_invalid_assignment";return false;}
+    auto& r=state.receipt;r.commandId=a.commandId;r.requestFingerprint=a.requestFingerprint;r.jobId=a.jobId;r.attemptId=a.attemptId;r.claimEpoch=a.claimEpoch;r.backendId=a.backendId;r.agentId=a.agentId;r.agentInstanceId=a.agentInstanceId;r.backendGeneration=a.backendGeneration;r.receiptCategory=v["receipt_category"];r.receivedAt=static_cast<std::int64_t>(received);r.reasonCode=v["receipt_reason"];
+    state.receiptAcknowledged=v["receipt_acknowledged"]=="1";state.dispatchState=v["dispatch_state"];state.resultPresent=v["result_present"]=="1";state.resultAcknowledged=v["result_acknowledged"]=="1";
+    if(state.resultPresent){auto& x=state.result;x.commandId=a.commandId;x.requestFingerprint=a.requestFingerprint;x.jobId=a.jobId;x.attemptId=a.attemptId;x.claimEpoch=a.claimEpoch;x.backendId=a.backendId;x.agentId=a.agentId;x.agentInstanceId=a.agentInstanceId;x.backendGeneration=a.backendGeneration;x.dispatchState=state.dispatchState;x.verificationState=v["verification_state"];x.resultCategory=v["result_category"];x.errorCategory=v["error_category"];x.retryClassification=v["retry_classification"];x.boundedDiagnostics=v["bounded_diagnostics"];x.completedAt=static_cast<std::int64_t>(completed);if(!backendAgentCommandValidResult(x)){reason="command_state_invalid_result";return false;}}
+    reason="command_state_loaded";return true;
+}
+bool persist(const std::string& path,const LocalState& state,std::string& reason)
+{
+    const auto& a=state.assignment;const auto& r=state.receipt;const auto& x=state.result;std::ostringstream out;
+    out<<"version=1\nprotocol_version="<<a.protocolVersion<<"\nrequest_id="<<a.requestId<<"\ncorrelation_id="<<a.correlationId<<"\noperation_id="<<a.operationId<<"\njob_id="<<a.jobId<<"\nattempt_id="<<a.attemptId<<"\nclaim_epoch="<<a.claimEpoch<<"\ncommand_id="<<a.commandId<<"\nbackend_id="<<a.backendId<<"\nagent_id="<<a.agentId<<"\nagent_instance_id="<<a.agentInstanceId<<"\nbackend_generation="<<a.backendGeneration<<"\ncommand_type="<<a.commandType<<"\npayload_version="<<a.payloadVersion<<"\npayload="<<a.payload<<"\nrequest_fingerprint="<<a.requestFingerprint<<"\nverification_policy="<<a.verificationPolicy<<"\nassigned_at="<<a.assignedAt<<"\ndeadline="<<a.deadline<<"\nreceipt_category="<<r.receiptCategory<<"\nreceived_at="<<r.receivedAt<<"\nreceipt_reason="<<r.reasonCode<<"\nreceipt_acknowledged="<<boolText(state.receiptAcknowledged)<<"\ndispatch_state="<<state.dispatchState<<"\nresult_present="<<boolText(state.resultPresent)<<"\nresult_acknowledged="<<boolText(state.resultAcknowledged)<<"\nverification_state="<<(state.resultPresent?x.verificationState:"")<<"\nresult_category="<<(state.resultPresent?x.resultCategory:"")<<"\nerror_category="<<(state.resultPresent?x.errorCategory:"")<<"\nretry_classification="<<(state.resultPresent?x.retryClassification:"")<<"\nbounded_diagnostics="<<(state.resultPresent?x.boundedDiagnostics:"")<<"\ncompleted_at="<<(state.resultPresent?x.completedAt:0)<<"\n";
+    return writeProtected(path,out.str(),reason);
+}
+BackendAgentCommandClientContext normalized(const BackendAgentCommandClientContext& c){return c;}
+bool sameContext(const BackendAgentCommandAssignment& a,const BackendAgentCommandClientContext& c){return a.backendId==c.backendId&&a.agentId==c.agentId&&a.agentInstanceId==c.agentInstanceId&&a.backendGeneration==c.backendGeneration;}
+std::string responseCode(const BackendAgentTransportResponse& response){return response.errorCode.empty()?"command_transport_failed":response.errorCode;}
+
+bool sendReceipt(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,LocalState& state,std::string& reason)
+{
+    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/receipt",serializeBackendAgentCommandReceiptJson(state.receipt));
+    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}state.receiptAcknowledged=true;return persist(config.statePath,state,reason);
+}
+bool sendResult(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,LocalState& state,std::string& reason)
+{
+    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/result",serializeBackendAgentCommandResultJson(state.result));
+    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}state.resultAcknowledged=true;return persist(config.statePath,state,reason);
+}
+void createResult(LocalState& state,const std::string& dispatch,const std::string& verification,const std::string& category,const std::string& error,const std::string& retry,const std::string& diagnostics)
+{
+    state.dispatchState=dispatch;state.resultPresent=true;state.resultAcknowledged=false;auto& x=state.result;const auto& a=state.assignment;x.commandId=a.commandId;x.requestFingerprint=a.requestFingerprint;x.jobId=a.jobId;x.attemptId=a.attemptId;x.claimEpoch=a.claimEpoch;x.backendId=a.backendId;x.agentId=a.agentId;x.agentInstanceId=a.agentInstanceId;x.backendGeneration=a.backendGeneration;x.dispatchState=dispatch;x.verificationState=verification;x.resultCategory=category;x.errorCategory=error;x.retryClassification=retry;x.boundedDiagnostics=diagnostics;x.completedAt=nowSeconds();
+}
+}
+
+bool reconcileBackendAgentCommandState(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,std::string& reason)
+{
+    if(config.commandTypes.empty()){reason="command_delivery_disabled";return true;}LocalState state;if(!load(config.statePath,state,reason)){if(reason=="command_state_not_found"){reason="no_local_command";return true;}return false;}
+    if(!sameContext(state.assignment,context)){reason="local_command_generation_fenced";return false;}
+    if(!state.receiptAcknowledged&&!sendReceipt(config,context,transport,state,reason))return false;
+    if(state.resultPresent){if(!state.resultAcknowledged&&!sendResult(config,context,transport,state,reason))return false;reason="command_result_reconciled";return true;}
+    if(state.dispatchState=="starting"||state.dispatchState=="accepted_by_executor")
+    {
+        createResult(state,state.dispatchState,"outcome_unknown","outcome_unknown","executor_unknown","reconcile_only","probe execution boundary recovered without re-execution");if(!persist(config.statePath,state,reason))return false;return sendResult(config,context,transport,state,reason);
+    }
+    if(state.dispatchState!="not_started"||state.assignment.commandType!="probe.noop"){reason="unsupported_local_command_state";return false;}
+    state.dispatchState="starting";if(!persist(config.statePath,state,reason))return false;
+    state.dispatchState="accepted_by_executor";if(!persist(config.statePath,state,reason))return false;
+    createResult(state,"effect_reported","not_required","succeeded","none","none","probe.noop completed without native side effect");if(!persist(config.statePath,state,reason))return false;return sendResult(config,context,transport,state,reason);
+}
+
+bool pollBackendAgentCommand(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,std::string& reason)
+{
+    if(config.commandTypes.empty()){reason="command_delivery_disabled";return true;}
+    if(!reconcileBackendAgentCommandState(config,context,transport,reason)&&reason!="no_local_command")return false;
+    BackendAgentCommandPollRequest request;request.backendId=context.backendId;request.agentInstanceId=context.agentInstanceId;request.backendGeneration=context.backendGeneration;request.supportedCommandTypes=config.commandTypes;
+    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/poll",serializeBackendAgentCommandPollRequestJson(request));
+    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}BackendAgentCommandPollResult result;if(!parseBackendAgentCommandPollResponseJson(response.body,result,reason))return false;if(!result.assignment.present){reason="no_command_available";return true;}if(!sameContext(result.assignment,context)){reason="command_assignment_context_mismatch";return false;}
+    LocalState current;std::string loadReason;if(load(config.statePath,current,loadReason))
+    {
+        if(current.assignment.commandId==result.assignment.commandId){if(current.assignment.requestFingerprint!=result.assignment.requestFingerprint){reason="conflicting_duplicate_command";return false;}current.receipt.receiptCategory="duplicate";current.receipt.reasonCode="equivalent_assignment_replay";current.receipt.receivedAt=nowSeconds();current.receiptAcknowledged=false;if(current.resultPresent)current.resultAcknowledged=false;if(!persist(config.statePath,current,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);}
+        if(!current.resultAcknowledged){reason="local_command_inbox_busy";return false;}
+    }
+    else if(loadReason!="command_state_not_found"){reason=loadReason;return false;}
+    LocalState state;state.assignment=result.assignment;auto& receipt=state.receipt;receipt.commandId=result.assignment.commandId;receipt.requestFingerprint=result.assignment.requestFingerprint;receipt.jobId=result.assignment.jobId;receipt.attemptId=result.assignment.attemptId;receipt.claimEpoch=result.assignment.claimEpoch;receipt.backendId=result.assignment.backendId;receipt.agentId=result.assignment.agentId;receipt.agentInstanceId=result.assignment.agentInstanceId;receipt.backendGeneration=result.assignment.backendGeneration;receipt.receiptCategory="accepted";receipt.receivedAt=nowSeconds();receipt.reasonCode="durably_recorded";
+    if(!persist(config.statePath,state,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);
+}
+''')
+
+          write("apps/tools/backend_agent_command_admin.cpp", r'''#include "AccountabilityEventRepository.h"
+#include "BackendAgentCommandDelivery.h"
+#include "BackendAgentLifecycle.h"
+#include "Database.h"
+
+#include <chrono>
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+#include <string>
+
+namespace
+{
+RequestSecurityContext administrator(const std::string& backendId)
+{
+    RequestSecurityContext context;context.requestId=backendAgentGenerateOpaqueId("req_",8);context.correlationId=context.requestId;context.authenticationState=AuthenticationState::Authenticated;context.actor=ActorIdentity{"system:backend-agent-command-admin",ActorType::System,"Backend Agent command administration utility",true};context.device=DeviceIdentity{"device:backend-agent-command-admin",true};context.credential=CredentialIdentity{"credential:backend-agent-command-admin",true,false,false};context.grants.push_back(PermissionGrant{"role.admin",backendId});context.permissionGrantResolution=PermissionGrantResolutionState::Resolved;return context;
+}
+std::string escape(const std::string& value){std::ostringstream out;for(unsigned char c:value){if(c=='\\')out<<"\\\\";else if(c=='"')out<<"\\\"";else if(c>=0x20)out<<static_cast<char>(c);}return out.str();}
+void usage(){std::cerr<<"usage: vdr-suite-backend-agent-command-admin [--database PATH] [--backend ID] (--status | --enqueue-probe [--deadline-seconds N] | --replay COMMAND_ID | --arm-lost-receipt-response | --arm-lost-result-response)"<<std::endl;}
+}
+int main(int argc,char** argv)
+{
+    std::string databasePath="/var/lib/vdr-suite/vdr-suite.db",backendId="default",replayId;int deadlineSeconds=300;enum class Action{None,Status,Enqueue,Replay,FaultReceipt,FaultResult};Action action=Action::None;
+    for(int i=1;i<argc;++i){const std::string arg=argv[i];if(arg=="--database"&&i+1<argc)databasePath=argv[++i];else if(arg=="--backend"&&i+1<argc)backendId=argv[++i];else if(arg=="--deadline-seconds"&&i+1<argc)deadlineSeconds=std::atoi(argv[++i]);else if(arg=="--status")action=action==Action::None?Action::Status:Action::None;else if(arg=="--enqueue-probe")action=action==Action::None?Action::Enqueue:Action::None;else if(arg=="--replay"&&i+1<argc){action=action==Action::None?Action::Replay:Action::None;replayId=argv[++i];}else if(arg=="--arm-lost-receipt-response")action=action==Action::None?Action::FaultReceipt:Action::None;else if(arg=="--arm-lost-result-response")action=action==Action::None?Action::FaultResult:Action::None;else{usage();return 64;}}
+    if(action==Action::None||!backendAgentCommandSafeIdentifier(backendId)||deadlineSeconds<30||deadlineSeconds>3600||(action==Action::Replay&&!backendAgentCommandSafeIdentifier(replayId))){usage();return 64;}
+    Database database;if(!database.open(databasePath)){std::cerr<<"failed to open Backend Agent database"<<std::endl;return 74;}AccountabilityEventRepository accountability(database);BackendAgentRepository agents(database);BackendAgentCommandRepository commands(database);if(!accountability.ensureSchema()||!agents.ensureSchema()||!commands.ensureSchema()){std::cerr<<"failed to initialize Backend Agent command repositories"<<std::endl;return 74;}BackendAgentCommandDeliveryService service(commands,agents,accountability);const auto now=std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    if(action==Action::Status){const auto s=service.summaryForBackend(backendId);std::cout<<"{\"present\":"<<(s.present?"true":"false");if(s.present)std::cout<<",\"commandId\":\""<<escape(s.commandId)<<"\",\"commandType\":\""<<escape(s.commandType)<<"\",\"state\":\""<<escape(s.state)<<"\",\"receiptCategory\":\""<<escape(s.receiptCategory)<<"\",\"resultCategory\":\""<<escape(s.resultCategory)<<"\",\"dispatchState\":\""<<escape(s.dispatchState)<<"\",\"verificationState\":\""<<escape(s.verificationState)<<"\",\"backendGeneration\":"<<s.backendGeneration<<",\"claimEpoch\":"<<s.claimEpoch<<",\"deadline\":"<<s.deadline;std::cout<<"}"<<std::endl;return 0;}
+    std::string reason;const auto context=administrator(backendId);
+    if(action==Action::Enqueue){const auto a=service.assignProbe(context,backendId,now,now+deadlineSeconds,reason);if(!a){std::cerr<<reason<<std::endl;return 1;}std::cout<<"{\"commandId\":\""<<escape(a->commandId)<<"\",\"operationId\":\""<<escape(a->operationId)<<"\",\"jobId\":\""<<escape(a->jobId)<<"\",\"attemptId\":\""<<escape(a->attemptId)<<"\",\"claimEpoch\":"<<a->claimEpoch<<",\"requestFingerprint\":\""<<escape(a->requestFingerprint)<<"\"}"<<std::endl;return 0;}
+    const bool ok=action==Action::Replay?service.requestReplay(context,backendId,replayId,now,reason):service.armFault(context,backendId,action==Action::FaultReceipt?"receipt":"result",now,reason);if(!ok){std::cerr<<reason<<std::endl;return 1;}std::cout<<"{\"accepted\":true,\"reasonCode\":\""<<escape(reason)<<"\"}"<<std::endl;return 0;
+}
+''')
+
+          write("core/agent/tests/test_backend_agent_command_delivery.cpp", r'''#include "AccountabilityEventRepository.h"
+#include "BackendAgentCommandDelivery.h"
+#include "BackendAgentLifecycle.h"
+#include "Database.h"
+
+#include <cassert>
+#include <iostream>
+
+namespace
+{
+RequestSecurityContext context(ActorType type,const std::string& actor)
+{
+    RequestSecurityContext c;c.requestId="req_test";c.correlationId="corr_test";c.authenticationState=AuthenticationState::Authenticated;c.actor=ActorIdentity{actor,type,"test",true};c.device=DeviceIdentity{"dev_test",true};c.credential=CredentialIdentity{"cred_test",true,false,false};c.permissionGrantResolution=PermissionGrantResolutionState::Resolved;return c;
+}
+}
+int main()
+{
+    Database db;assert(db.open(":memory:"));AccountabilityEventRepository accountability(db);BackendAgentRepository agents(db);BackendAgentCommandRepository commands(db);assert(accountability.ensureSchema());assert(agents.ensureSchema());assert(commands.ensureSchema());
+    assert(db.execute("INSERT INTO backend_agents(agent_id,backend_id,actor_id,device_id,credential_id,credential_generation,agent_instance_id,backend_generation,protocol_version,software_version,heartbeat_sequence,capability_revision,last_connected_at,last_heartbeat_at,lease_expires_at,created_at,updated_at) VALUES('agt_test','default','actor_agent','dev_agent','cred_agent',1,'inst_test',7,'vdr-suite-agent/1','test',2,1,100,100,1000,1,1);"));
+    BackendAgentCommandDeliveryService service(commands,agents,accountability);std::string reason;auto assignment=service.assignProbe(context(ActorType::System,"system_admin"),"default",100,500,reason);assert(assignment.has_value());assert(assignment->requestFingerprint==backendAgentCommandFingerprint(*assignment));
+    BackendAgentCommandPollRequest poll;poll.backendId="default";poll.agentInstanceId="inst_test";poll.backendGeneration=7;poll.supportedCommandTypes={"probe.noop"};auto polled=service.poll(context(ActorType::Agent,"actor_agent"),poll,101);assert(polled.accepted&&polled.assignment.present&&polled.assignment.commandId==assignment->commandId);
+    auto duplicatePoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,102);assert(duplicatePoll.assignment.present&&duplicatePoll.assignment.commandId==assignment->commandId);
+    BackendAgentCommandReceipt receipt;receipt.commandId=assignment->commandId;receipt.requestFingerprint=assignment->requestFingerprint;receipt.jobId=assignment->jobId;receipt.attemptId=assignment->attemptId;receipt.claimEpoch=1;receipt.backendId="default";receipt.agentId="agt_test";receipt.agentInstanceId="inst_test";receipt.backendGeneration=7;receipt.receiptCategory="accepted";receipt.receivedAt=103;receipt.reasonCode="durably_recorded";auto receiptResult=service.receipt(context(ActorType::Agent,"actor_agent"),receipt,103);assert(receiptResult.accepted&&!receiptResult.replayed);auto receiptReplay=service.receipt(context(ActorType::Agent,"actor_agent"),receipt,104);assert(receiptReplay.accepted&&receiptReplay.replayed);
+    BackendAgentCommandResult result;result.commandId=assignment->commandId;result.requestFingerprint=assignment->requestFingerprint;result.jobId=assignment->jobId;result.attemptId=assignment->attemptId;result.claimEpoch=1;result.backendId="default";result.agentId="agt_test";result.agentInstanceId="inst_test";result.backendGeneration=7;result.dispatchState="effect_reported";result.verificationState="not_required";result.resultCategory="succeeded";result.errorCategory="none";result.retryClassification="none";result.boundedDiagnostics="probe.noop completed without native side effect";result.completedAt=105;auto resultAck=service.result(context(ActorType::Agent,"actor_agent"),result,105);assert(resultAck.accepted&&!resultAck.replayed);auto resultReplay=service.result(context(ActorType::Agent,"actor_agent"),result,106);assert(resultReplay.accepted&&resultReplay.replayed);
+    auto summary=service.summaryForBackend("default");assert(summary.present&&summary.state=="completed"&&summary.resultCategory=="succeeded");
+    assert(service.requestReplay(context(ActorType::System,"system_admin"),"default",assignment->commandId,107,reason));auto replayPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,108);assert(replayPoll.assignment.present&&replayPoll.assignment.commandId==assignment->commandId);
+    BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
+    assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
+    std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
+}
+''')
+
+          write("tools/check_phase63_command_delivery_runtime.py", r'''#!/usr/bin/env python3
+from pathlib import Path
+
+required = {
+    "core/agent/include/BackendAgentCommand.h": ["operationId", "jobId", "attemptId", "claimEpoch", "commandId", "requestFingerprint"],
+    "core/agent/src/BackendAgentCommandDelivery.cpp": ["backend_agent_commands", "backend_agent_command_receipts", "backend_agent_command_results", "waiting_reconciliation", "probe.noop"],
+    "core/agent/src/BackendAgentCommandClient.cpp": ["receiptAcknowledged", "resultAcknowledged", 'dispatchState="starting"', "outcome_unknown", "equivalent_assignment_replay"],
+    "core/agent/src/BackendAgentHttpServer.cpp": ["/api/agent/v1/commands/poll", "/api/agent/v1/commands/receipt", "/api/agent/v1/commands/result"],
+}
+for path, markers in required.items():
+    text = Path(path).read_text(encoding="utf-8")
+    missing = [marker for marker in markers if marker not in text]
+    if missing:
+        raise SystemExit(f"{path}: missing {missing}")
+for forbidden in ["timer.create", "recording.delete", "searchtimer.create", "providerUrl", "/api/v1/agent/"]:
+    for path in ["core/agent/src/BackendAgentCommandDelivery.cpp", "core/agent/src/BackendAgentCommandClient.cpp"]:
+        if forbidden in Path(path).read_text(encoding="utf-8"):
+            raise SystemExit(f"{path}: forbidden runtime marker {forbidden}")
+print("Phase-63 command delivery runtime check passed")
+print("Command type: probe.noop only")
+print("Native VDR mutation: absent")
+''')
+
+          write("docs/development/phase-63-command-delivery-runtime.md", r'''# Phase 63 Slice 3 — Durable Agent Command Delivery Runtime
+
+## Status
+
+Bounded runtime implementation of the merged durable command-delivery contract.
+It adds one explicitly non-mutating `probe.noop` command so delivery, receipt,
+result, replay, restart and reconciliation semantics can be exercised without
+crossing a native VDR execution boundary.
+
+## Runtime boundary
+
+The Control Plane durably records one operation, job attempt, claim epoch and
+Agent assignment before exposing it on authenticated Agent-only routes. The
+Agent stores the assignment in a protected local inbox before acknowledging a
+receipt, persists `starting` before the non-mutating probe executor, and stores
+the result before transport. Identical assignment, receipt and result replay is
+idempotent; conflicting identities fail closed.
+
+The current Backend, Agent actor, Agent instance and backend generation fence
+poll, receipt and result traffic. Poll additionally requires a current lease and
+an explicit `probe.noop` command capability. Expired assignments are not exposed.
+An Agent restart at `starting` or `accepted_by_executor` produces
+`outcome_unknown` and `reconcile_only`; it never re-executes blindly.
+
+## Transport and persistence
+
+Protected routes remain under `/api/agent/v1/commands/*` and use the existing
+technical Agent authentication. There is no public Agent or provider endpoint.
+Suite-owned SQLite tables hold assignments, command capabilities, receipts,
+results and guarded acceptance fault flags. The Agent local state file defaults
+to `/var/lib/vdr-suite/backend-agent/commands.state` with mode 0600.
+
+The local administration utility can enqueue a bounded probe, inspect its
+state, request equivalent replay, and arm one deliberate lost receipt/result
+response for guarded real-system acceptance. These controls do not create a
+native executor and cannot carry arbitrary payloads.
+
+## Hard exclusions
+
+- no Timer, Recording, SearchTimer, Remote, configuration or metadata mutation;
+- no generic command tunnel or executable payload;
+- no provider ownership or provider selection;
+- no Phase 64 TimerIntent runtime;
+- no browser/client command endpoint;
+- no inbound listener on the VDR site;
+- no automatic migration of existing direct adapters.
+''')
+
+          # Source-list wiring.
+          replace_once("mk/agent-sources.mk",
+              "AGENT_CHANNEL_JSON_SRC := \\\n\tcore/agent/src/BackendAgentChannelObservationJson.cpp\n",
+              "AGENT_CHANNEL_JSON_SRC := \\\n\tcore/agent/src/BackendAgentChannelObservationJson.cpp\n\nAGENT_COMMAND_DOMAIN_SRC := \\\n\tcore/agent/src/BackendAgentCommand.cpp\n\nAGENT_COMMAND_JSON_SRC := \\\n\tcore/agent/src/BackendAgentCommandJson.cpp\n\nAGENT_COMMAND_DELIVERY_SRC := \\\n\tcore/agent/src/BackendAgentCommandDelivery.cpp\n\nAGENT_COMMAND_CLIENT_SRC := \\\n\tcore/agent/src/BackendAgentCommandClient.cpp\n")
+          replace_once("mk/agent-sources.mk",
+              "\tcore/agent/src/BackendAgentLifecycle.cpp \\\n\t$(AGENT_CHANNEL_DOMAIN_SRC)\n",
+              "\tcore/agent/src/BackendAgentLifecycle.cpp \\\n\t$(AGENT_CHANNEL_DOMAIN_SRC) \\\n\t$(AGENT_COMMAND_DOMAIN_SRC) \\\n\t$(AGENT_COMMAND_DELIVERY_SRC)\n")
+          replace_once("mk/agent-sources.mk",
+              "\tcore/agent/src/BackendAgentHttpServer.cpp \\\n\t$(AGENT_CHANNEL_JSON_SRC)\n",
+              "\tcore/agent/src/BackendAgentHttpServer.cpp \\\n\t$(AGENT_CHANNEL_JSON_SRC) \\\n\t$(AGENT_COMMAND_JSON_SRC)\n")
+          replace_once("mk/agent-sources.mk",
+              "\tcore/agent/src/BackendAgentClient.cpp \\\n\t$(AGENT_CHANNEL_JSON_SRC)\n",
+              "\tcore/agent/src/BackendAgentClient.cpp \\\n\t$(AGENT_CHANNEL_JSON_SRC) \\\n\t$(AGENT_COMMAND_DOMAIN_SRC) \\\n\t$(AGENT_COMMAND_JSON_SRC) \\\n\t$(AGENT_COMMAND_CLIENT_SRC)\n")
+
+          # Client configuration and loop wiring.
+          replace_once("core/agent/include/BackendAgentClient.h",
+              "    std::string channelsConfPath = \"/var/lib/vdr/channels.conf\";\n",
+              "    std::string channelsConfPath = \"/var/lib/vdr/channels.conf\";\n    std::string commandStatePath = \"/var/lib/vdr-suite/backend-agent/commands.state\";\n")
+          replace_once("core/agent/include/BackendAgentClient.h",
+              "    std::vector<std::string> observationDomains = {\"backend-health\"};\n",
+              "    std::vector<std::string> observationDomains = {\"backend-health\"};\n    std::vector<std::string> commandTypes;\n")
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '#include "BackendAgentChannelObservationJson.h"\n',
+              '#include "BackendAgentChannelObservationJson.h"\n#include "BackendAgentCommandClient.h"\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '        "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "SOFTWARE_VERSION", "ADAPTERS",\n        "OBSERVATION_DOMAINS",\n',
+              '        "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "COMMAND_STATE_PATH", "SOFTWARE_VERSION", "ADAPTERS",\n        "OBSERVATION_DOMAINS", "COMMAND_TYPES",\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '    if (!values["CHANNELS_CONF_PATH"].empty())\n        config.channelsConfPath = values["CHANNELS_CONF_PATH"];\n',
+              '    if (!values["CHANNELS_CONF_PATH"].empty())\n        config.channelsConfPath = values["CHANNELS_CONF_PATH"];\n    if (!values["COMMAND_STATE_PATH"].empty())\n        config.commandStatePath = values["COMMAND_STATE_PATH"];\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '    if (!values["OBSERVATION_DOMAINS"].empty())\n        config.observationDomains = splitCsv(values["OBSERVATION_DOMAINS"]);\n',
+              '    if (!values["OBSERVATION_DOMAINS"].empty())\n        config.observationDomains = splitCsv(values["OBSERVATION_DOMAINS"]);\n    config.commandTypes = splitCsv(values["COMMAND_TYPES"]);\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '        config.channelsConfPath.empty() || config.channelsConfPath.front() != \'/\' ||\n        config.channelsConfPath.size() > 4096 ||\n        containsControl(config.channelsConfPath) ||\n',
+              '        config.channelsConfPath.empty() || config.channelsConfPath.front() != \'/\' ||\n        config.channelsConfPath.size() > 4096 ||\n        containsControl(config.channelsConfPath) ||\n        config.commandStatePath.empty() || config.commandStatePath.front() != \'/\' ||\n        config.commandStatePath.size() > 4096 || containsControl(config.commandStatePath) ||\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '    if (!validCapabilities(config.adapters, config.observationDomains))\n    {\n        reasonCode = "invalid_capability_configuration";\n        return false;\n    }\n',
+              '    if (!validCapabilities(config.adapters, config.observationDomains))\n    {\n        reasonCode = "invalid_capability_configuration";\n        return false;\n    }\n    if (config.commandTypes.size() > 1 ||\n        (!config.commandTypes.empty() && config.commandTypes.front() != "probe.noop"))\n    {\n        reasonCode = "invalid_command_type_configuration";\n        return false;\n    }\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              'bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)\n{\n    if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)\n',
+              'bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)\n{\n    if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '    if (!state_.pendingObservationKind.empty() &&\n        !publishBackendHealthObservation(reasonCode))\n',
+              '    BackendAgentCommandClientConfig commandConfig{config_.commandStatePath, config_.commandTypes};\n    BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};\n    if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))\n    {\n        synchronized_ = false;\n        return false;\n    }\n    if (!state_.pendingObservationKind.empty() &&\n        !publishBackendHealthObservation(reasonCode))\n')
+          replace_once("core/agent/src/BackendAgentClient.cpp",
+              '    if (!publishChannelObservation(reasonCode))\n    {\n        synchronized_ = false;\n        return false;\n    }\n    reasonCode = "lease_and_observations_renewed";\n',
+              '    if (!publishChannelObservation(reasonCode))\n    {\n        synchronized_ = false;\n        return false;\n    }\n    if (!pollBackendAgentCommand(commandConfig, commandContext, transport_, reasonCode))\n    {\n        synchronized_ = false;\n        return false;\n    }\n    reasonCode = "lease_observations_and_commands_renewed";\n')
+
+          # Protected HTTP routes.
+          replace_once("core/agent/include/BackendAgentHttpServer.h",
+              '#include "BackendAgentLifecycle.h"\n',
+              '#include "BackendAgentLifecycle.h"\n#include "BackendAgentCommandDelivery.h"\n')
+          replace_once("core/agent/include/BackendAgentHttpServer.h",
+              '        BackendAgentLifecycleService& lifecycleService,\n        BackendAgentRepository& repository,\n',
+              '        BackendAgentLifecycleService& lifecycleService,\n        BackendAgentCommandDeliveryService& commandDeliveryService,\n        BackendAgentRepository& repository,\n')
+          replace_once("core/agent/include/BackendAgentHttpServer.h",
+              '    HttpServerResponse handleChannelObservation(\n        const HttpServerRequest& request,\n        const RequestSecurityContext& context) const;\n',
+              '    HttpServerResponse handleChannelObservation(\n        const HttpServerRequest& request,\n        const RequestSecurityContext& context) const;\n    HttpServerResponse handleCommandPoll(const HttpServerRequest& request, const RequestSecurityContext& context) const;\n    HttpServerResponse handleCommandReceipt(const HttpServerRequest& request, const RequestSecurityContext& context) const;\n    HttpServerResponse handleCommandResult(const HttpServerRequest& request, const RequestSecurityContext& context) const;\n')
+          replace_once("core/agent/include/BackendAgentHttpServer.h",
+              '    BackendAgentLifecycleService& lifecycleService_;\n',
+              '    BackendAgentLifecycleService& lifecycleService_;\n    BackendAgentCommandDeliveryService& commandDeliveryService_;\n')
+          replace_once("core/agent/src/BackendAgentHttpServer.cpp",
+              '#include "BackendAgentChannelObservationJson.h"\n',
+              '#include "BackendAgentChannelObservationJson.h"\n#include "BackendAgentCommandJson.h"\n')
+          replace_once("core/agent/src/BackendAgentHttpServer.cpp",
+              '    BackendAgentLifecycleService& lifecycleService,\n    BackendAgentRepository& repository,\n',
+              '    BackendAgentLifecycleService& lifecycleService,\n    BackendAgentCommandDeliveryService& commandDeliveryService,\n    BackendAgentRepository& repository,\n')
+          replace_once("core/agent/src/BackendAgentHttpServer.cpp",
+              '      lifecycleService_(lifecycleService),\n      repository_(repository),\n',
+              '      lifecycleService_(lifecycleService),\n      commandDeliveryService_(commandDeliveryService),\n      repository_(repository),\n')
+          handler = r'''
+HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandPollRequest poll;
+    std::string reason;
+    if (!parseBackendAgentCommandPollRequestJson(request.body, poll, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.poll(context, poll, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
+}
+
+HttpServerResponse BackendAgentHttpServer::handleCommandReceipt(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandReceipt receipt;
+    std::string reason;
+    if (!parseBackendAgentCommandReceiptJson(request.body, receipt, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.receipt(context, receipt, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    if (result.dropResponse) return errorResponse(503, "command_receipt_response_deliberately_lost");
+    return jsonResponse(200, std::string("{\"outcome\":\"") +
+        (result.replayed ? "replayed" : "accepted") +
+        "\",\"reasonCode\":\"" + jsonEscape(result.reasonCode) + "\"}");
+}
+
+HttpServerResponse BackendAgentHttpServer::handleCommandResult(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandResult commandResult;
+    std::string reason;
+    if (!parseBackendAgentCommandResultJson(request.body, commandResult, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.result(context, commandResult, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    if (result.dropResponse) return errorResponse(503, "command_result_response_deliberately_lost");
+    return jsonResponse(200, std::string("{\"outcome\":\"") +
+        (result.replayed ? "replayed" : "accepted") +
+        "\",\"reasonCode\":\"" + jsonEscape(result.reasonCode) + "\"}");
+}
+
+'''
+          replace_once("core/agent/src/BackendAgentHttpServer.cpp",
+              'HttpServerResponse BackendAgentHttpServer::handleRequest(\n',
+              handler + 'HttpServerResponse BackendAgentHttpServer::handleRequest(\n')
+          replace_once("core/agent/src/BackendAgentHttpServer.cpp",
+              '    if (request.path == "/api/agent/v1/observations/channels")\n        return handleChannelObservation(request, context);\n',
+              '    if (request.path == "/api/agent/v1/observations/channels")\n        return handleChannelObservation(request, context);\n    if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);\n    if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);\n    if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);\n')
+
+          # Daemon composition.
+          replace_once("core/daemon/include/DaemonRuntime.h",
+              '#include "BackendAgentLifecycle.h"\n',
+              '#include "BackendAgentLifecycle.h"\n#include "BackendAgentCommandDelivery.h"\n')
+          replace_once("core/daemon/include/DaemonRuntime.h",
+              '    std::unique_ptr<BackendAgentRepository> backendAgentRepository_;\n    std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;\n',
+              '    std::unique_ptr<BackendAgentRepository> backendAgentRepository_;\n    std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;\n    std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;\n    std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;\n')
+          replace_once("core/daemon/src/DaemonRuntimeInitialization.cpp",
+              '    backendAgentRepository_ =\n        std::make_unique<BackendAgentRepository>(database_);\n',
+              '    backendAgentRepository_ =\n        std::make_unique<BackendAgentRepository>(database_);\n    backendAgentCommandRepository_ =\n        std::make_unique<BackendAgentCommandRepository>(database_);\n')
+          replace_once("core/daemon/src/DaemonRuntimeInitialization.cpp",
+              '        !backendAgentAccountabilityRepository_->ensureSchema() ||\n        !backendAgentRepository_->ensureSchema()) {\n',
+              '        !backendAgentAccountabilityRepository_->ensureSchema() ||\n        !backendAgentRepository_->ensureSchema() ||\n        !backendAgentCommandRepository_->ensureSchema()) {\n')
+          replace_once("core/daemon/src/DaemonRuntimeInitialization.cpp",
+              '    std::cout << "Backend Agent enrollment and lease runtime initialized" << std::endl;\n',
+              '    backendAgentCommandDeliveryService_ =\n        std::make_unique<BackendAgentCommandDeliveryService>(\n            *backendAgentCommandRepository_,\n            *backendAgentRepository_,\n            *backendAgentAccountabilityRepository_);\n    std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;\n')
+          replace_once("core/daemon/src/DaemonRuntimeInitialization.cpp",
+              '        *backendAgentLifecycleService_,\n        *backendAgentRepository_,\n',
+              '        *backendAgentLifecycleService_,\n        *backendAgentCommandDeliveryService_,\n        *backendAgentRepository_,\n')
+
+          # Build/test/install registration.
+          replace_once("mk/backend-agent-runtime.mk",
+              '.PHONY: backend-agent backend-agent-enrollment backend-agent-admin\n',
+              '.PHONY: backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin\n')
+          write("mk/backend-agent-runtime.mk", Path("mk/backend-agent-runtime.mk").read_text(encoding="utf-8") + r'''
+
+backend-agent-command-admin:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		apps/tools/backend_agent_command_admin.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/vdr-suite-backend-agent-command-admin
+''')
+          write("mk/agent-tests.mk", Path("mk/agent-tests.mk").read_text(encoding="utf-8") + r'''
+
+.PHONY: test-phase63-command-delivery-runtime
+
+test-phase63-command-delivery-runtime:
+	python3 tools/check_phase63_command_delivery_runtime.py
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/tests/test_backend_agent_command_delivery.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_command_delivery
+	$(BUILD_DIR)/test_backend_agent_command_delivery
+
+test-fast: test-phase63-command-delivery-runtime
+''')
+          replace_once("mk/install.mk",
+              'install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin\n',
+              'install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin\n')
+          replace_once("mk/install.mk",
+              '\t$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin\n',
+              '\t$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin\n\t$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-command-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-command-admin\n')
+          replace_once("mk/install.mk",
+              '\ttest -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin\n',
+              '\ttest -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin\n\ttest -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-command-admin\n')
+          replace_once("packaging/systemd/backend-agent.conf",
+              'CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf\n',
+              'CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf\nCOMMAND_STATE_PATH=/var/lib/vdr-suite/backend-agent/commands.state\nCOMMAND_TYPES=\n')
+
+          # Ensure the contract guard now recognizes the separately bounded runtime.
+          replace_once("tools/check_phase63_command_delivery_contract.py",
+              'Runtime implementation: separate Draft PR required',
+              'Runtime implementation: separate bounded Draft PR')
+
+          Path(".github/workflows/phase63-command-runtime-bootstrap.yml").unlink()
+          PY
+      - name: Commit bounded runtime
+        shell: bash
+        run: |
+          git config user.name hotzenplotz5
+          git config user.email hotzenplotz5@gmx.de
+          git add -A
+          git commit -m "Add durable Agent command delivery runtime"
+          git push origin HEAD:agent/phase63-command-delivery-runtime
