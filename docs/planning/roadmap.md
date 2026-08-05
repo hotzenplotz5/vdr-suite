@@ -8,7 +8,7 @@ A roadmap item is not automatically an implementation requirement. New runtime w
 
 ## Current verified position
 
-Baseline: `main @ a125b702a6d3a7fe510a94c84dc1930d3b17a4c5`.
+Baseline: `main @ a9620179a442155f0860ef3182ca39186ac46a57`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -26,8 +26,15 @@ Phase 58 - Frontend and Live Parity
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
-Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
+Completed Phase-63 slice:
+Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
+PR #137 merged with exact-head CI and real yaVDR acceptance
+
+Current active runtime slice:
+Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
+Draft PR #138 defines the binding contract
+
+Phase 63 is not complete
 ```
 
 ## Completed prerequisites
@@ -62,19 +69,8 @@ PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
 accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
 source_ci_run_number=6884
 source_ci_run_id=30752351218
-daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
-runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
 evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
-
-Evidence:
-
-- [Current State](../CURRENT.md)
-- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
-- [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
-- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
-- [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 
 ### Compatibility-retirement decision
 
@@ -82,19 +78,49 @@ Legacy Basic compatibility remains transitional and is retained at closeout. Imm
 
 Removal requires a separate future migration contract. This explicit decision satisfies the Phase-62 exit criterion and does not authorize another Phase-62 slice.
 
-### Deferred work
-
-Audit HTTP products, generic security administration, native/service credential lifecycle without a concrete consumer, universal revision/idempotency infrastructure, transactional Outbox, Android and Android TV work are not required to close Phase 62.
-
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
-Status: **Active; Slice 1 in Draft PR #137.**
+Status: **Active; Slice 1 completed and Slice 2 contract active.**
 
-The first bounded slice implements Agent enrollment/device identity, protected outbound transport, protocol compatibility, backend generation, heartbeat/lease, read-only capability publication, reconnect reconciliation, credential rotation/revocation and persistence/accountability foundations.
+### Phase 63 Slice 1 — Backend Agent Enrollment and Lease Foundation
 
-Binding contract: [Phase 63 Backend Agent Foundation](../development/phase-63-backend-agent-foundation.md). Real-system gate: [Phase 63 Backend Agent Runtime Acceptance](../development/phase-63-backend-agent-runtime-acceptance-runbook.md).
+Status: **Completed, accepted and merged.**
 
-Snapshot/change ingestion, command/result flow, provider selection, VDR-native execution and later-phase work remain explicitly unimplemented. Phase 63 is not complete when Slice 1 closes.
+PR #137 was squash-merged as `a9620179a442155f0860ef3182ca39186ac46a57`. The accepted source head `bba51455552bab0f1a06c680369c508858b2384b` passed VDR-Suite CI #7256 and the guarded real yaVDR acceptance:
+
+```text
+PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
+VDR_NATIVE_STATE_UNCHANGED=yes
+DAEMON_ACTIVE=yes
+AGENT_ACTIVE=yes
+```
+
+Slice 1 established Agent enrollment/device identity, protected outbound transport, protocol compatibility, backend generation, Agent-process-instance fencing, heartbeat/lease, read-only capabilities, reconnect reconciliation and credential rotation/revocation/replacement.
+
+Binding closeout: [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md).
+
+### Phase 63 Slice 2 — Read-only Observation and Snapshot Ingestion Foundation
+
+Status: **Active contract in Draft PR #138. Runtime implementation not yet included.**
+
+Binding contract: [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md).
+
+The next accepted-code gap is remote read-state ingestion. Slice 1 can prove Agent identity and liveness but cannot yet deliver bounded domain state into Suite-owned read models. Without explicit generation, baseline and sequence semantics, retry or reconnect could create stale overwrite, conflicting replay or guessed continuity.
+
+The smallest closing slice therefore requires:
+
+- existing `vdr-suite-agent/1` technical authentication;
+- backend, Agent, Agent instance and backend-generation fencing;
+- bounded read-only observation domains declared by capabilities;
+- complete snapshot generation independent from producer sequence and resource revision;
+- complete baseline before changes;
+- exact-next sequence acceptance;
+- idempotent equivalent replay and conflicting replay rejection;
+- explicit `resync-required` on gaps or missing baselines;
+- atomic immutable receipt/fact and ingestion-cursor persistence through Suite-owned repositories;
+- initial bounded `backend-health` implementation before broader VDR domains.
+
+Snapshot/change ingestion remains read-only. Command/result flow, native execution and provider selection remain later Phase-63 slices with separate contracts.
 
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
@@ -135,6 +161,21 @@ Requires stable metadata/provenance, actor privacy, stable identities, mature ac
 - **Client gate:** clients consume Suite contracts, never private provider details.
 - **Acceptance gate:** focused tests, regressions, build/package validation and real-system proof where runtime behaviour changes.
 
+## Slice-2 hard exclusions
+
+No command inbox, command dispatch, receipts or results; no Timer, Recording, SearchTimer, Remote or configuration mutation; no VDR-native execution; no provider ownership/selection; no public Agent/provider URLs; no TimerIntent or Phase 64; no Streaming Gateway; no OSD runtime; no replacement of direct-adapter `BackendNode.online` authority.
+
 ## Exact next action
 
-Stabilize Draft PR #137 on one exact final head, obtain all required CI jobs and complete the guarded real yaVDR Slice-1 acceptance harness. Keep the PR Draft until the user explicitly approves readiness; do not advance into snapshots, commands or provider selection inside this slice.
+Stabilize Draft PR #138 on one exact head with the Slice-1 closeout, Slice-2 Observation and Snapshot Ingestion contract, fail-closed contract checker and current-state/architecture updates. Obtain all required CI jobs. Keep the PR Draft until explicit approval. Only after that contract is accepted should the smallest runtime implementation begin with `backend-health` complete-snapshot and exact-next change ingestion.
+
+## Related documents
+
+- [Current State](../CURRENT.md)
+- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
+- [Phase Map](phase-map.md)
+- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
+- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
+- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)

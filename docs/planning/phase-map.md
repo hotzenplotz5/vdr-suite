@@ -38,6 +38,9 @@ These blocks do not consume or invent a phase number.
 ## Current position
 
 ```text
+Current merged main baseline:
+a9620179a442155f0860ef3182ca39186ac46a57
+
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
@@ -53,20 +56,35 @@ Phase 58 - Frontend and Live Parity
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Current active runtime phase:
-Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
+Completed Phase-63 slice:
+Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
+PR #137 merged and exact-head real yaVDR acceptance passed
+
+Current active runtime slice:
+Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
+Draft PR #138 defines the binding contract
+
+Phase 63 is not complete
 ```
 
 ## Planned phase sequence
 
 | Order | Phase | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 63 | Active Slice 1 | Backend Agent and Secure Multi-Site Runtime | Enrollment, protected outbound transport, generation, lease, read-only capabilities and credential lifecycle; snapshots/commands remain later slices. |
+| 1 | Phase 63 | Active Slice 2 | Backend Agent and Secure Multi-Site Runtime | Slice 1 completed enrollment, protected transport, generation, lease, capabilities and credential lifecycle. Slice 2 establishes generation-/sequence-fenced read-only Observation and Snapshot Ingestion; commands remain later. |
 | 2 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
 | 3 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
 | 4 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
 | 5 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions and compatibility. |
 | 6 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after platform foundations mature. |
+
+## Phase 63 slice progression
+
+| Slice | Status | Result / Goal |
+| --- | --- | --- |
+| Phase 63 Slice 1 | Completed and merged | Controlled Agent enrollment, technical identity, protected HTTPS transport, protocol/generation/instance fencing, heartbeat/lease, read-only capabilities, credential rotation/revocation/replacement and guarded real-system acceptance. |
+| Phase 63 Slice 2 | Active contract | Complete baseline plus exact-next change ingestion, idempotent replay, gap-driven `resync-required`, atomic receipt/cursor persistence and read-only `backend-health` foundation. |
+| Later Phase 63 slices | Not started | Durable command/receipt/result flow, native execution and provider ownership/selection require separate contracts after read-only ingestion. |
 
 ## Numbering rules
 
@@ -75,12 +93,15 @@ Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
 - Phase 61 is closed for its accepted metadata/Genre runtime scope.
 - Phase 62 is closed for its accepted identity, authorization and accountability scope.
 - Optional providers, diagnostics and administration products do not silently reopen completed phases.
-- Phase 63 is the active numbered runtime phase; only bounded Slice 1 is in progress and the phase remains incomplete.
+- Phase 63 is the active numbered runtime phase.
+- Completion of Phase 63 Slice 1 does not complete Phase 63.
+- Observation and Snapshot Ingestion precedes any command/result or VDR-native execution slice.
 
 ## Verification
 
 ```bash
 make test-phase-map-coverage
+make test-phase63-observation-ingestion-contract
 make test-docs
 make test-phase
 ```
@@ -89,6 +110,8 @@ make test-phase
 
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
+- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
+- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
 - [Completed Phases](../development/completed-phases.md)
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
