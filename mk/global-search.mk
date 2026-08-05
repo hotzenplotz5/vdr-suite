@@ -1,5 +1,6 @@
 GLOBAL_SEARCH_SRC := \
 	core/vdr/src/GlobalSearchRepository.cpp \
+	core/vdr/src/GlobalSearchPersonPortraitRepository.cpp \
 	core/vdr/src/GlobalSearchService.cpp \
 	api/rest/src/GlobalSearchController.cpp \
 	api/rest/src/GlobalSearchApiRuntime.cpp
@@ -9,6 +10,7 @@ GLOBAL_SEARCH_TEST_SUPPORT_SRC := \
 	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 	core/vdr/src/VdrConfig.cpp \
 	core/vdr/src/GlobalSearchRepository.cpp \
+	core/vdr/src/GlobalSearchPersonPortraitRepository.cpp \
 	core/vdr/src/GlobalSearchService.cpp \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp \
