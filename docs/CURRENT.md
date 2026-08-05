@@ -5,6 +5,7 @@
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
 - [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
+- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [Manual Recording Cast Feature](development/manual-recording-cast-search.md)
 - [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
@@ -80,11 +81,12 @@ Draft PR #137 introduces the smallest secure Agent lifecycle foundation:
 - Agent-initiated credential rotation with persisted lost-response recovery;
 - revocation and replacement enrollment while retaining revoked history;
 - append-only Phase-62 accountability and central authorization reuse;
-- outbound HTTPS Agent runtime, protected 0600 identity state, systemd hardening and package/install staging.
+- outbound HTTPS Agent runtime, protected 0600 identity state, systemd-owned 0700 state storage and package/install staging;
+- a local redacted status/revocation utility plus a fail-closed real-yaVDR acceptance harness covering lease transitions, credential rotation, revocation, replacement and VDR-native state fingerprints.
 
 The slice executes no VDR operation. It does not implement commands, results, snapshots, provider selection, streaming, OSD, Timer orchestration or any Phase-64 work. Agent lease state does not overwrite existing direct-adapter `BackendNode.online` authority.
 
-Binding contract: [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md).
+Binding contract: [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md). Real-system execution: [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md).
 
 ## Final Phase 62 runtime evidence
 
@@ -123,4 +125,4 @@ Legacy Basic compatibility remains explicitly transitional. `enforced` mode is t
 
 ## Exact next action
 
-Stabilize Draft PR #137 on one exact final head, obtain all required VDR-Suite CI jobs, then execute the documented real yaVDR enrollment/connect/capability/lease/reconnect/rotation/revocation checklist while proving existing VDR-native and direct-adapter state remains unchanged.
+Publish the guarded administration/runtime-acceptance stabilization for Draft PR #137, obtain all required VDR-Suite CI jobs on the new exact head, then execute the single documented yaVDR harness while proving existing VDR-native and direct-adapter state remains unchanged.

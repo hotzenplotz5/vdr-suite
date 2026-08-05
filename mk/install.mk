@@ -18,11 +18,12 @@ install: install-runtime install-cli install-docs install-manpages install-syste
 test-systemd-unit-contract:
 	python3 tools/check_systemd_unit_contract.py
 
-install-runtime: daemon backend-agent backend-agent-enrollment
+install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-enroll $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-enroll
+	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	test -e $(DESTDIR)$(SYSCONFDIR)/vdr-suite/backend-agent.conf || \
 		$(INSTALL) -m 0644 packaging/systemd/backend-agent.conf $(DESTDIR)$(SYSCONFDIR)/vdr-suite/backend-agent.conf
@@ -106,6 +107,7 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-daemon.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-daemon.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-enroll.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-enroll.8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-admin.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
 	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite.conf.5
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man1
@@ -125,6 +127,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-daemon
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-enroll
+	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
@@ -211,6 +214,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent-enroll.8
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent-admin.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service

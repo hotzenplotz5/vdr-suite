@@ -1,0 +1,56 @@
+.TH VDR-SUITE-BACKEND-AGENT-ADMIN 8 "August 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-backend-agent-admin \- inspect or revoke a local VDR-Suite Backend Agent
+.SH SYNOPSIS
+.B vdr-suite-backend-agent-admin
+.RI [ --database " PATH" ]
+.RI [ --backend " ID" ]
+.RB ( --status |
+.B --revoke
+.RI [ --reason " TEXT" ])
+.SH DESCRIPTION
+.B vdr-suite-backend-agent-admin
+is the local, accountable operational interface for the bounded Phase-63
+Backend Agent lifecycle.  It never prints credential or enrollment secrets.
+.PP
+.B --status
+prints one JSON object containing the derived Agent state, generations,
+heartbeat/capability revisions and the bounded read-only capability facts.
+.PP
+.B --revoke
+revokes the currently active Agent bound to the selected Backend, including
+its device and credential identity.  Revoked history remains persisted so a
+replacement enrollment can be distinguished from the old Agent.
+.SH OPTIONS
+.TP
+.BI --database " PATH"
+SQLite database path.  The default is
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.TP
+.BI --backend " ID"
+Backend binding.  The default is
+.BR default .
+.TP
+.B --status
+Print the current derived Agent state as JSON.
+.TP
+.B --revoke
+Revoke the active Agent for the Backend.
+.TP
+.BI --reason " TEXT"
+Bounded accountability reason used with
+.BR --revoke .
+The default is
+.BR operator-revoked .
+.SH SECURITY
+Run this utility only from the trusted local administrator context.  Output
+contains identifiers and state only; it does not expose enrollment tokens,
+credential secrets, verifiers, cookies or process environment.
+.SH FILES
+.TP
+.I /var/lib/vdr-suite/vdr-suite.db
+Default Control-Plane database.
+.SH SEE ALSO
+.BR vdr-suite-backend-agent (8),
+.BR vdr-suite-backend-agent-enroll (8),
+.BR vdr-suite-daemon (8)

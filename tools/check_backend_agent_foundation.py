@@ -18,8 +18,11 @@ REQUIRED_FILES = [
     "core/agent/tests/test_backend_agent_client.cpp",
     "apps/agent/main.cpp",
     "apps/tools/backend_agent_enrollment_create.cpp",
+    "apps/tools/backend_agent_admin.cpp",
+    "docs/man/man8/vdr-suite-backend-agent-admin.8",
     "packaging/systemd/vdr-suite-backend-agent.service",
     "packaging/systemd/backend-agent.conf",
+    "tools/phase63-runtime-acceptance/backend-agent-foundation.sh",
     "docs/development/phase-63-backend-agent-foundation.md",
 ]
 
@@ -35,6 +38,7 @@ http = (ROOT / "core/agent/src/BackendAgentHttpServer.cpp").read_text()
 client = (ROOT / "core/agent/src/BackendAgentClient.cpp").read_text()
 agent_main = (ROOT / "apps/agent/main.cpp").read_text()
 enrollment_tool = (ROOT / "apps/tools/backend_agent_enrollment_create.cpp").read_text()
+admin_tool = (ROOT / "apps/tools/backend_agent_admin.cpp").read_text()
 agent_unit = (ROOT / "packaging/systemd/vdr-suite-backend-agent.service").read_text()
 agent_config = (ROOT / "packaging/systemd/backend-agent.conf").read_text()
 daemon = (ROOT / "core/daemon/src/DaemonRuntimeInitialization.cpp").read_text()
@@ -82,6 +86,14 @@ for required in [
 
 if "--rotate-credential" not in agent_main:
     failures.append("Backend Agent credential rotation CLI path is missing")
+
+for required in ["--status", "--revoke", "statusForBackend", "service.revoke"]:
+    if required not in admin_tool:
+        failures.append(f"Backend Agent administration path missing: {required}")
+
+for required in ["StateDirectory=vdr-suite/backend-agent", "StateDirectoryMode=0700"]:
+    if required not in agent_unit:
+        failures.append(f"Agent state ownership contract missing: {required}")
 
 for required in ["BackendAgentHttpServer", "BackendAgentLifecycleService"]:
     if required not in daemon:

@@ -75,7 +75,8 @@ Implemented scope under Draft PR #137:
 - atomic credential replacement, immediate lease invalidation and restart-safe lost-response recovery;
 - Agent revocation and replacement enrollment with retained history;
 - existing accountability repository and redacted request/correlation evidence;
-- outbound HTTPS runtime, protected local state, hardened systemd unit, manpages and install staging.
+- outbound HTTPS runtime, protected local state, systemd-owned 0700 storage, hardened unit, manpages and install staging;
+- local status/revocation administration and a guarded yaVDR acceptance harness with failed-run cleanup.
 
 Hard exclusions remain VDR-native writes, command/result queues, snapshot/change ingestion, provider ownership/selection, public provider URLs, streaming, OSD and Phase-64-or-later runtime. Agent lifecycle state does not replace the existing BackendRegistry/direct-adapter availability authority.
 
@@ -114,7 +115,7 @@ Never replace a complete repository file from a truncated fetch. After each GitH
 1. Complete final local focused/build/package/document stabilization for Draft PR #137.
 2. Push coherent commits fast-forward-only and evaluate all required CI jobs on one exact final head.
 3. Update PR #137 with exact-head validation and security/architecture boundaries.
-4. Install that exact head on yaVDR and execute the documented enrollment/connect/capability/lease/reconnect/rotation/revocation checklist.
+4. Install that exact head on yaVDR and execute the guarded [Phase 63 runtime acceptance runbook](phase-63-backend-agent-runtime-acceptance-runbook.md).
 5. Keep the PR Draft until the user explicitly approves readiness after real-system acceptance.
 
 ## Authoritative links
@@ -122,6 +123,7 @@ Never replace a complete repository file from a truncated fetch. After each GitH
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Phase 63 Backend Agent Foundation](phase-63-backend-agent-foundation.md)
+- [Phase 63 Backend Agent Runtime Acceptance](phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)

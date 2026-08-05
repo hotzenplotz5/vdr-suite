@@ -92,7 +92,7 @@ Status: **Active; Slice 1 in Draft PR #137.**
 
 The first bounded slice implements Agent enrollment/device identity, protected outbound transport, protocol compatibility, backend generation, heartbeat/lease, read-only capability publication, reconnect reconciliation, credential rotation/revocation and persistence/accountability foundations.
 
-Binding contract: [Phase 63 Backend Agent Foundation](../development/phase-63-backend-agent-foundation.md).
+Binding contract: [Phase 63 Backend Agent Foundation](../development/phase-63-backend-agent-foundation.md). Real-system gate: [Phase 63 Backend Agent Runtime Acceptance](../development/phase-63-backend-agent-runtime-acceptance-runbook.md).
 
 Snapshot/change ingestion, command/result flow, provider selection, VDR-native execution and later-phase work remain explicitly unimplemented. Phase 63 is not complete when Slice 1 closes.
 
@@ -137,4 +137,4 @@ Requires stable metadata/provenance, actor privacy, stable identities, mature ac
 
 ## Exact next action
 
-Stabilize Draft PR #137 on one exact final head, obtain all required CI jobs and complete the real yaVDR Slice-1 acceptance checklist. Keep the PR Draft until the user explicitly approves readiness; do not advance into snapshots, commands or provider selection inside this slice.
+Stabilize Draft PR #137 on one exact final head, obtain all required CI jobs and complete the guarded real yaVDR Slice-1 acceptance harness. Keep the PR Draft until the user explicitly approves readiness; do not advance into snapshots, commands or provider selection inside this slice.

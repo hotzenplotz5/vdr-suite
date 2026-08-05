@@ -19,6 +19,7 @@ The first slice executes no VDR operation and introduces no public provider URL.
 - separation of enrollment identity from the resulting runtime credential reference;
 - fenced Agent-initiated runtime credential rotation with restart-safe lost-response recovery;
 - replacement enrollment for a Backend after the previous Agent identity is revoked while retaining history;
+- a local accountable status/revocation utility that exposes no Agent secret material;
 - Agent software and Agent protocol version validation;
 - one monotonically increasing `backendGeneration` for each newly accepted runtime instance;
 - authenticated Agent-originated protocol requests;
@@ -267,7 +268,7 @@ Requirements:
 
 The slice is incomplete until observed tests cover domain validation, controlled/idempotent enrollment, invalid/expired/revoked enrollment, replacement enrollment after revocation, wrong Backend binding, incompatible protocol, generation replacement/fencing, monotone/duplicate/stale/gapped heartbeats, deterministic lease renewal/expiry, restart persistence, reconnect dispositions, capability allowlists/revisions/input limits, credential rotation/idempotency/fencing/lost-response recovery, redaction, accountability fail-closed behavior, backend isolation, unchanged direct-adapter online authority and absence of VDR writes.
 
-The complete repository gates remain required: focused tests, architecture guards, fast regression, production daemon build, packaging/install staging, documentation checks and Make inventory audit. Real yaVDR acceptance must prove install/restart, enrollment/connect/capability/heartbeat, lease expiry and reconnect while confirming no VDR-native state changes.
+The complete repository gates remain required: focused tests, architecture guards, fast regression, production daemon build, packaging/install staging, documentation checks and Make inventory audit. Real yaVDR acceptance must use the guarded [Phase 63 Backend Agent runtime acceptance runbook](phase-63-backend-agent-runtime-acceptance-runbook.md) to prove install/restart, enrollment/connect/capability/heartbeat, lease expiry, reconnect, rotation, revocation and replacement while confirming no VDR-native state changes.
 
 ## Real acceptance outline
 
@@ -278,11 +279,11 @@ The complete repository gates remain required: focused tests, architecture guard
 5. verify persisted lease timestamps and the derived Agent `online` state without changing existing direct-adapter `BackendNode.online`;
 6. stop the Agent and verify derived stale then offline state deterministically;
 7. restart it and verify generation/reconciliation rules;
-8. rotate the runtime credential and exercise lost-response recovery;
+8. rotate the runtime credential and retain exact-head automated lost-response recovery evidence; deliberately dropping a committed HTTPS response is not required on the production yaVDR host;
 9. revoke the Agent, prove reconnect/heartbeat denial and enroll a replacement while retaining revoked history;
 10. verify Timer, Recording, SearchTimer, Remote, configuration and existing adapter availability state are unchanged;
 11. retain only redacted logs and exact-head evidence.
 
 ## Rollback
 
-Stopping/removing the Agent runtime leaves existing local Backend adapters and cached Suite data intact. Rolling back the daemon must not expose secrets; additive tables may remain unused. Any future destructive schema cleanup requires a separate migration. Revocation remains the immediate operational containment action.
+Stopping/removing the Agent runtime leaves existing local Backend adapters and cached Suite data intact. The guarded runtime harness removes test-created Agent identities and restores the previous Agent configuration on failed acceptance so a bounded retry does not require manual SQLite surgery. Rolling back the daemon must not expose secrets; additive tables may remain unused. Any future destructive schema cleanup requires a separate migration. Revocation remains the immediate operational containment action.

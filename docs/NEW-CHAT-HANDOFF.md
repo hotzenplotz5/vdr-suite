@@ -96,7 +96,8 @@ PR #137 is the first bounded runtime slice of Phase 63. It must remain Draft and
 - Agent-initiated credential rotation is self-scoped, generation-fenced, transactional and restart-safe after ambiguous transport results.
 - Revocation invalidates the lease and permits a replacement Agent enrollment while retaining revoked history.
 - Existing append-only accountability and central authorization are reused; no parallel security/audit system is introduced.
-- The packaged Agent stores identity/recovery state as 0600 under a 0700 state directory and runs under a hardened systemd unit.
+- The packaged Agent stores identity/recovery state as 0600 under a systemd-owned 0700 state directory and runs under a hardened systemd unit.
+- A local administration utility exposes redacted status and accountable revocation; the guarded runtime harness performs the complete yaVDR acceptance without manual SQLite inspection.
 - Agent lease state does not overwrite existing direct-adapter `BackendNode.online`; provider ownership/selection is deferred.
 
 Hard exclusions are VDR-native writes, snapshot/change ingestion, command/result queues, provider selection, public provider URLs, streaming, OSD and Phase-64-or-later runtime.
@@ -104,6 +105,7 @@ Hard exclusions are VDR-native writes, snapshot/change ingestion, command/result
 Authoritative contract:
 
 - [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
+- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
 - [ADR-0039 Backend Agent and Control Plane Boundary](adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040 Backend Lifecycle, Generation, Lease and Health](adr/ADR-0040-backend-lifecycle-generation-lease-health.md)
 - [ADR-0041 Authentication, Agent Trust and Multi-Site Transport](adr/ADR-0041-authentication-agent-trust-multi-site-transport.md)
@@ -158,7 +160,7 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 4. Run and observe focused tests, architecture guards, production daemon/Agent builds, packaging/install staging, documentation checks and Make inventory on one exact final head.
 5. Update the Draft PR body with exact-head CI, architecture/security boundaries and real yaVDR checklist.
 6. Keep PR #137 Draft.
-7. Install the exact final head and execute enrollment/connect/capability/lease/reconnect/rotation/revocation acceptance while proving existing VDR-native and direct-adapter state is unchanged.
+7. Install the exact final head and execute `phase63-backend-agent-runtime-acceptance` from the guarded runbook; do not replace it with manual SQLite inspection.
 8. Do not advance into another Phase-63 slice without a new bounded contract.
 
 ## Command presentation contract
