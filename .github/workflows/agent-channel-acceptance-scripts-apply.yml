@@ -1,0 +1,34 @@
+name: Apply Phase 63 Channel acceptance scripts
+
+on:
+  push:
+    branches:
+      - agent/phase63-channel-observation-runtime
+
+permissions:
+  contents: write
+
+jobs:
+  apply-acceptance-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply verified acceptance scripts patch
+        shell: bash
+        run: |
+          echo "bb71d762ce84091ed1e2dd8b654c849c86c8a772264f1b478a707267b71e9339  .github/phase63-channel-acceptance-scripts.patch.gz.b64" | sha256sum --check --strict
+          base64 -d .github/phase63-channel-acceptance-scripts.patch.gz.b64 | gzip -d > /tmp/phase63-channel-acceptance-scripts.patch
+          echo "6589c031aa86345b147aeb8b2982c56799da91d28ae4c329d89d4daec4006362  /tmp/phase63-channel-acceptance-scripts.patch" | sha256sum --check --strict
+          git apply --index /tmp/phase63-channel-acceptance-scripts.patch
+          git rm .github/phase63-channel-acceptance-scripts.patch.gz.b64
+          git rm .github/workflows/agent-channel-acceptance-scripts-apply.yml
+          git diff --cached --check
+      - name: Commit guarded acceptance scripts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add Channel runtime acceptance scripts"
+          git push origin HEAD:agent/phase63-channel-observation-runtime
