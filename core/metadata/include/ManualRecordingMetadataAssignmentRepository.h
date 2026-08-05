@@ -16,6 +16,8 @@ struct ManualRecordingMetadataPerson
     std::string normalizedName;
     std::string role = "actor";
     std::string characterName;
+    std::string profileReference;
+    std::string profilePath;
     int ordinal = 0;
 };
 
