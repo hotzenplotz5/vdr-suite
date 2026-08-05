@@ -158,7 +158,7 @@ on the real yaVDR host proves all of the following:
 - the checkout branch and full commit match the approved Draft head;
 - installed daemon, Agent, enrollment and administration binaries match the
   candidate build;
-- the existing Agent ID and credential generation are preserved;
+- the existing Agent ID, credential ID and credential generation are preserved;
 - VDR, daemon and Agent services are active before and after acceptance;
 - the opt-in source is an explicit root-controlled fixture copied from the local
   `channels.conf`, not a mutation of VDR-native state;
@@ -171,7 +171,19 @@ on the real yaVDR host proves all of the following:
 - retained evidence is mode 0700, root-owned and secret-free.
 
 No enrollment, revocation, Agent replacement, VDR Channel mutation, public
-provider URL or manual SQLite inspection is part of acceptance.
+provider URL or manual SQLite inspection is part of acceptance. The guarded
+implementation is registered as:
+
+```text
+make phase63-channel-observation-runtime-acceptance \
+  PHASE63_EXPECTED_BRANCH=agent/phase63-channel-observation-runtime \
+  PHASE63_EXPECTED_HEAD=<exact PR head> \
+  PHASE63_CONTROL_PLANE_URL=<HTTPS public origin> \
+  PHASE63_EVIDENCE_DIR=<new root-only evidence directory>
+```
+
+The harness restores the original Agent configuration and removes its private
+Channel fixture before reporting success.
 
 ## Exclusions
 
