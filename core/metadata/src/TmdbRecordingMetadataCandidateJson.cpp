@@ -463,6 +463,7 @@ bool parseTmdbRecordingMovieCredits(
         member.externalId = std::to_string(identifier);
         member.name = text(item, "name");
         member.characterName = text(item, "character");
+        member.profileReference = text(item, "profile_path");
         member.order = integer(item, "order");
         if (member.valid()) cast.push_back(std::move(member));
     }
