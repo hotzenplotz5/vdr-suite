@@ -89,5 +89,6 @@ bool RecordingMetadataCastMember::valid() const
         digits(externalId) &&
         safeText(name, 512U, false) &&
         safeText(characterName, 512U, true) &&
+        safePoster(profileReference) &&
         order >= 0 && order < 100000;
 }
