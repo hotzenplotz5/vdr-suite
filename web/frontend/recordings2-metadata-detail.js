@@ -33,6 +33,64 @@
     });
   }
 
+  function versionedManualImageUrl(url, revision) {
+    const value = shared.text(url);
+    if (!value || revision <= 0 ||
+        !metadataView.isPublicMetadataImageUrl(value) ||
+        /[?&]assignmentRevision=/.test(value)) return value;
+    return value + (value.indexOf('?') >= 0 ? '&' : '?') +
+      'assignmentRevision=' + String(revision);
+  }
+
+  function versionManualMetadataArtwork(value) {
+    if (!value || typeof value !== 'object') return value;
+    const manual = value.manualAssignment;
+    const revision = manual && manual.active === true
+      ? Math.max(0, Number(manual.revision) || 0)
+      : 0;
+    if (revision <= 0) return value;
+
+    const result = Object.assign({}, value);
+    if (value.preferredArtwork && typeof value.preferredArtwork === 'object') {
+      result.preferredArtwork = Object.assign({}, value.preferredArtwork, {
+        url: versionedManualImageUrl(value.preferredArtwork.url, revision)
+      });
+    }
+    if (Array.isArray(value.images)) {
+      result.images = value.images.map(function (entry) {
+        if (!entry || !entry.image || typeof entry.image !== 'object') return entry;
+        return Object.assign({}, entry, {
+          image: Object.assign({}, entry.image, {
+            url: versionedManualImageUrl(entry.image.url, revision)
+          })
+        });
+      });
+    }
+    if (Array.isArray(value.people)) {
+      result.people = value.people.map(function (person) {
+        if (!person || !person.image || typeof person.image !== 'object') return person;
+        return Object.assign({}, person, {
+          image: Object.assign({}, person.image, {
+            url: versionedManualImageUrl(person.image.url, revision)
+          })
+        });
+      });
+    }
+    return result;
+  }
+
+  function prioritizeDetailPoster(root) {
+    if (!root || typeof root.querySelector !== 'function') return;
+    const image = root.querySelector('.recordings2-detail-poster img');
+    if (!image) return;
+    image.loading = 'eager';
+    image.decoding = 'async';
+    image.fetchPriority = 'high';
+    if (typeof image.setAttribute === 'function') {
+      image.setAttribute('fetchpriority', 'high');
+    }
+  }
+
   function fetchMetadata(recording, backendId) {
     const backendNativeId = shared.text(shared.first(recording, ['backendNativeId'], ''));
     if (!backendNativeId) {
@@ -108,11 +166,13 @@
     const mounted = metadataView.mount(root, recording, backendId);
     if (!mounted) return root;
     fetchMetadata(recording, backendId).then(function (metadata) {
-      mounted.setMetadata(metadata);
+      const presentedMetadata = versionManualMetadataArtwork(metadata);
+      mounted.setMetadata(presentedMetadata);
       repairMetadataImagePaths(root);
-      metadataView.applyToDetail(root, metadata);
+      metadataView.applyToDetail(root, presentedMetadata);
+      prioritizeDetailPoster(root);
       loadAssignmentRuntime().then(function (runtime) {
-        runtime.mount(root, recording, backendId, metadata);
+        runtime.mount(root, recording, backendId, presentedMetadata);
       }).catch(function (error) {
         renderAssignmentLoadError(root, error);
       });
@@ -126,6 +186,8 @@
     loadAssignmentRuntime,
     assignmentRuntimePath,
     repairMetadataImagePaths,
+    versionManualMetadataArtwork,
+    prioritizeDetailPoster,
     preferredArtworkUrl: metadataView.preferredArtworkUrl,
     applyMetadataToDetail: metadataView.applyToDetail,
     formatDate: metadataView.formatDate,
