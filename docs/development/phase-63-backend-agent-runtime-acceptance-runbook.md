@@ -10,8 +10,8 @@ The harness proves:
 
 - installed daemon, Agent, enrollment and administration binaries match the
   exact checked-out candidate;
-- the public Control-Plane origin is HTTPS and certificate verification is not
-  disabled;
+- the public Control-Plane URL is HTTPS, certificate verification is not
+  disabled and its configured public base path reaches the protected Backend API;
 - controlled enrollment, protocol negotiation, capability publication and
   heartbeat establish the derived `online` state;
 - stopping the Agent produces deterministic `stale` and then `offline` state;
@@ -24,7 +24,8 @@ The harness proves:
   SearchTimer configuration and recording-directory identities are unchanged;
 - VDR, daemon and replacement Agent services are active at the end;
 - retained logs contain no enrollment token, credential secret or
-  Authorization material.
+  Authorization material; the deterministic scanner reports only redacted
+  file/line/category evidence if it rejects a log.
 
 The lost-response credential-rotation branch remains covered by focused
 automated tests because deliberately dropping a committed HTTPS response on a
@@ -39,8 +40,11 @@ production yaVDR host is not a safe live acceptance action.
 - No prior Backend Agent history or identity may exist for the selected
   Backend.  The first acceptance run refuses to overwrite or silently reuse
   Agent state.
-- The Control-Plane URL must be the public HTTPS VDR-Suite origin without a
-  trailing slash.  For a private CA, pass its certificate path explicitly.
+- The Control-Plane URL must be the public HTTPS VDR-Suite URL without a
+  trailing slash, including any deployed public base path such as
+  `https://host/vdr-suite`.  The preflight rejects a missing API route before
+  any Agent state is created.  For a private CA, pass its certificate path
+  explicitly.
 
 ## Execution contract
 
@@ -74,6 +78,7 @@ EVIDENCE=<root-only evidence directory>
 The harness rejects a non-root shell, branch/head mismatch, dirty worktree,
 binary mismatch, unavailable production database, inactive VDR/daemon,
 pre-existing Agent state, insecure/non-HTTPS origin, TLS verification failure,
-missing state transitions, failed rotation/revocation/replacement, changed
-VDR-native fingerprints or secret-like log evidence.  It never enables
+a missing or unexpected public Backend API route, missing state transitions,
+failed rotation/revocation/replacement, changed VDR-native fingerprints or
+secret-like log evidence.  It never enables
 `curl --insecure`, prints the Agent identity file or dumps process environment.
