@@ -22,7 +22,7 @@ void createSchemas(Database& database)
         "CREATE TABLE epg_scraper_metadata_cache(backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "INSERT INTO vdr_recording_cache VALUES('default','r1','id-1','native-1','Pulp Fiction','Filme/Pulp','1785000000',9000,2048,'');"
-        "INSERT INTO vdr_recording_native_metadata VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','','');"
+        "INSERT INTO vdr_recording_native_metadata VALUES('default','rk1','native-1','found','Pulp Fiction','Pulp Fiction','','/var/cache/vdr-suite/recording-metadata/posters/pulp.jpg');"
         "INSERT INTO vdr_recording_native_person VALUES('default','rk1',0,'actor','John Travolta','john travolta','john travolta','','');"
         "INSERT INTO epg_events VALUES('default','c1','e1','Pulp Fiction','','','1785100000','1785109000',9000);"
         "INSERT INTO epg_scraper_metadata_cache VALUES('default','c1','e1','{\"available\":true,\"people\":[{\"role\":\"actor\",\"name\":\"John Travolta\",\"characterName\":\"\"}]}',1780000000);"));
@@ -77,6 +77,16 @@ int main()
     assert(response.body.find("\"recordingTotal\":1") != std::string::npos);
     assert(response.body.find("\"epgTotal\":1") != std::string::npos);
     assert(response.body.find("\"matchedPerson\":\"John Travolta\"") != std::string::npos);
+    const std::string recordingArtworkUrl =
+        "/api/recordings/metadata/image?backend=default&backendNativeId=native-1&kind=preferred&index=0";
+    assert(response.body.find(
+        "\"artwork\":{\"available\":true,\"url\":\"" +
+        recordingArtworkUrl + "\"}") != std::string::npos);
+    assert(response.body.find(
+        "\"metadata\":{\"presentation\":{\"posterUrl\":\"" +
+        recordingArtworkUrl +
+        "\"},\"artwork\":{\"preferredUrl\":\"" +
+        recordingArtworkUrl + "\"}}") != std::string::npos);
 
     response = controller.search("default", "Kein Treffer", 1785000000, 1785400000, 20, 0);
     assert(response.statusCode == 200);
