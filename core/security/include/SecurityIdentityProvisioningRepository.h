@@ -18,6 +18,15 @@ public:
     SecurityIdentityProvisioningRepository& operator=(
         const SecurityIdentityProvisioningRepository&) = delete;
 
+    bool ensureTechnicalIdentity(
+        const std::string& actorId,
+        ActorType actorType,
+        const std::string& actorDisplayName,
+        const std::string& deviceId,
+        const std::string& deviceDisplayName,
+        const std::string& credentialId,
+        const std::string& credentialType);
+
     bool ensureIdentity(
         const std::string& actorId,
         ActorType actorType,

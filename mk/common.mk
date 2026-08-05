@@ -223,6 +223,7 @@ test-api-router-searchtimer-preview-refresh-then-preview: prepare-test-db
 	$(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
 
 prepare-test-db:
-	rm -f /tmp/vdr-suite-test.db
-	sqlite3 /tmp/vdr-suite-test.db < database/schema/vdr-suite.sql
-	sqlite3 /tmp/vdr-suite-test.db < database/testdata/sample-data.sql
+	python3 tools/prepare_test_database.py \
+		/tmp/vdr-suite-test.db \
+		database/schema/vdr-suite.sql \
+		database/testdata/sample-data.sql

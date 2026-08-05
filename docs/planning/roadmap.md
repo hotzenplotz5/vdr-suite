@@ -8,7 +8,7 @@ A roadmap item is not automatically an implementation requirement. New runtime w
 
 ## Current verified position
 
-Baseline: `main @ cb77ff66e11dca7db2eafa36525762dcde35102d`.
+Baseline: `main @ a125b702a6d3a7fe510a94c84dc1930d3b17a4c5`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -27,7 +27,7 @@ Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
 Current active runtime phase:
-none; Phase 63 is planned but not started
+Phase 63 Slice 1 in Draft PR #137; Phase 63 is not complete
 ```
 
 ## Completed prerequisites
@@ -88,11 +88,13 @@ Audit HTTP products, generic security administration, native/service credential 
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
-Status: **Next; planned, not started.**
+Status: **Active; Slice 1 in Draft PR #137.**
 
-Scope may include Agent enrollment/device identity, protected transport, generation, heartbeat/lease, capability/snapshot publication, durable command/result flow, fenced read-only operation and private provider selection.
+The first bounded slice implements Agent enrollment/device identity, protected outbound transport, protocol compatibility, backend generation, heartbeat/lease, read-only capability publication, reconnect reconciliation, credential rotation/revocation and persistence/accountability foundations.
 
-Phase 63 must begin with a new bounded contract. Phase-62 preparation and actor representation do not count as Phase-63 runtime implementation.
+Binding contract: [Phase 63 Backend Agent Foundation](../development/phase-63-backend-agent-foundation.md). Real-system gate: [Phase 63 Backend Agent Runtime Acceptance](../development/phase-63-backend-agent-runtime-acceptance-runbook.md).
+
+Snapshot/change ingestion, command/result flow, provider selection, VDR-native execution and later-phase work remain explicitly unimplemented. Phase 63 is not complete when Slice 1 closes.
 
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
@@ -135,4 +137,4 @@ Requires stable metadata/provenance, actor privacy, stable identities, mature ac
 
 ## Exact next action
 
-Complete final documentation CI and PR #117 disposition. Then define a bounded Phase-63 contract before any new runtime implementation.
+Stabilize Draft PR #137 on one exact final head, obtain all required CI jobs and complete the guarded real yaVDR Slice-1 acceptance harness. Keep the PR Draft until the user explicitly approves readiness; do not advance into snapshots, commands or provider selection inside this slice.

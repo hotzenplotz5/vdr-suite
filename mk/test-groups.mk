@@ -1,6 +1,10 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-backend-agent-foundation \
+	test-backend-agent-client \
+	test-backend-agent-enrollment-tool \
+	test-backend-agent-admin-tool \
 	check-vdr-linkage-contracts \
 	test-make-inventory \
 	test-build-artifact-paths \
@@ -56,6 +60,7 @@ CI_FAST_TESTS := \
 	test-http-listener-partial-request-timeout \
 	test-real-vdr-acceptance-manifest \
 	test-phase62-runtime-acceptance-harness \
+	test-phase63-runtime-acceptance-harness \
 	test-phase-map-coverage \
 	test-github-update-safety-handoff \
 	test-recording-mutation-safety-policy \

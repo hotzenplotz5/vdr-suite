@@ -15,7 +15,7 @@ The previous full target-diagram snapshot is retained as [historical architectur
 
 ## Current implementation overlay
 
-Implemented on the recorded 2026-07-27 main baseline:
+Implemented on the verified 2026-08-05 main baseline plus the active Draft PR #137 overlay:
 
 - backend registry, backend-scoped snapshots/caches/change feed and server-enforced read-only mode;
 - Recordings 2 and guarded Recording actions;
@@ -23,12 +23,13 @@ Implemented on the recorded 2026-07-27 main baseline:
 - completed Phase 61 persistent Recording/EPG metadata, people, artwork references and Genre read models;
 - query-only provider-free Genre and Global Search GET paths;
 - backend-neutral RemoteAction and LiveOverlay contracts;
-- modular browser Client API boundaries.
+- modular browser Client API boundaries;
+- completed Phase-62 production actor identity, scoped RBAC, browser-session security and append-only accountability;
+- active Phase-63 Slice-1 Agent enrollment, protected outbound transport, technical identity, generation, heartbeat/lease, read-only capabilities, reconnect and credential lifecycle foundation.
 
 Not yet implemented as complete target runtime:
 
-- production actor identity, scoped RBAC and accountability;
-- secure Backend Agent lifecycle and fenced commands;
+- Phase-63 snapshot/change ingestion, durable command/results, native execution and provider selection;
 - universal revision/idempotency/job reconciliation;
 - TimerIntent orchestration;
 - Streaming Gateway;
@@ -46,20 +47,20 @@ Web / Desktop / Mobile / TV / Automation clients
 +---------------------------------------------------------------+
 | VDR-Suite Control Plane                                       |
 |                                                               |
-| actor identity, sessions, RBAC and policy       [Phase 62]    |
+| actor identity, sessions, RBAC and policy       [implemented]    |
 | Suite-owned domain services and repositories    [foundation]  |
 | operations, jobs and reconciliation             [partial]     |
 | metadata, people, Genres and search              [implemented] |
 | Timer scheduler and assignments                  [Phase 64]    |
 | media/OSD session policy                         [65 / 66]     |
-| accountability event store                      [Phase 62]    |
+| accountability event store                      [implemented]    |
 +--------------------------+----------------------+-------------+
                            | protected Agent protocol [Phase 63]
                            v
 +---------------------------------------------------------------+
 | Backend Agent                                                 |
 | enrolled identity, generation, heartbeat, lease, capabilities |
-| snapshots/events, fenced commands, reconnect reconciliation   |
+| reconnect/credential lifecycle [Slice 1]; snapshots/commands future |
 +--------------------------+------------------------------------+
                            | local/private adapter contracts
                            v
@@ -158,7 +159,7 @@ client command
   -> reconciliation when outcome is uncertain
 ```
 
-Current Recording actions and selected Timer/SearchTimer paths provide strong bounded foundations, but the universal target above requires Phases 62 and 63.
+Current Recording actions, selected Timer/SearchTimer paths and Phase-62 policy/accountability provide strong bounded foundations. Phase-63 Slice 1 adds lifecycle fencing only; the universal mutation target still requires later Phase-63 command/result runtime.
 
 Mutation invariants:
 

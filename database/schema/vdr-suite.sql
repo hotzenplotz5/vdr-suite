@@ -167,3 +167,72 @@ CREATE TABLE IF NOT EXISTS vdr_recording_cache_status (
     last_error TEXT NOT NULL DEFAULT '',
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Phase 63: Backend Agent enrollment and lease foundation.
+-- Runtime bootstrap remains additive and idempotent; normal reads never run DDL.
+CREATE TABLE IF NOT EXISTS backend_agent_enrollments (
+    enrollment_id TEXT PRIMARY KEY,
+    backend_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    expires_at INTEGER NOT NULL,
+    agent_id TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    consumed_at INTEGER NOT NULL DEFAULT 0,
+    revoked_at INTEGER NOT NULL DEFAULT 0,
+    revocation_reason TEXT NOT NULL DEFAULT '',
+    CHECK(status IN ('pending','consumed','revoked','expired'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_backend_agent_enrollment_backend
+    ON backend_agent_enrollments (backend_id, status, expires_at);
+
+CREATE TABLE IF NOT EXISTS backend_agents (
+    agent_id TEXT PRIMARY KEY,
+    backend_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL UNIQUE,
+    device_id TEXT NOT NULL UNIQUE,
+    credential_id TEXT NOT NULL UNIQUE,
+    credential_generation INTEGER NOT NULL DEFAULT 1,
+    agent_instance_id TEXT NOT NULL DEFAULT '',
+    backend_generation INTEGER NOT NULL DEFAULT 0,
+    protocol_version TEXT NOT NULL DEFAULT '',
+    software_version TEXT NOT NULL DEFAULT '',
+    heartbeat_sequence INTEGER NOT NULL DEFAULT 0,
+    capability_revision INTEGER NOT NULL DEFAULT 0,
+    last_connected_at INTEGER NOT NULL DEFAULT 0,
+    last_heartbeat_at INTEGER NOT NULL DEFAULT 0,
+    lease_expires_at INTEGER NOT NULL DEFAULT 0,
+    revoked_at INTEGER NOT NULL DEFAULT 0,
+    revocation_reason TEXT NOT NULL DEFAULT '',
+    incompatible INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_backend_agents_active_backend
+    ON backend_agents (backend_id)
+    WHERE revoked_at = 0;
+
+CREATE INDEX IF NOT EXISTS idx_backend_agents_backend_generation
+    ON backend_agents (backend_id, backend_generation);
+
+CREATE TABLE IF NOT EXISTS backend_agent_credential_rotations (
+    rotation_id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    from_generation INTEGER NOT NULL,
+    to_generation INTEGER NOT NULL,
+    rotated_at INTEGER NOT NULL,
+    UNIQUE (agent_id, to_generation),
+    FOREIGN KEY (agent_id) REFERENCES backend_agents(agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS backend_agent_capabilities (
+    agent_id TEXT NOT NULL,
+    capability_revision INTEGER NOT NULL,
+    capability_kind TEXT NOT NULL,
+    capability_name TEXT NOT NULL,
+    capability_value TEXT NOT NULL,
+    PRIMARY KEY (agent_id, capability_kind, capability_name),
+    FOREIGN KEY (agent_id) REFERENCES backend_agents(agent_id)
+);

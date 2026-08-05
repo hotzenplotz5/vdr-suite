@@ -33,6 +33,42 @@ SecurityIdentityProvisioningRepository::~SecurityIdentityProvisioningRepository(
     delete identityRepository_;
 }
 
+bool SecurityIdentityProvisioningRepository::ensureTechnicalIdentity(
+    const std::string& actorId,
+    ActorType actorType,
+    const std::string& actorDisplayName,
+    const std::string& deviceId,
+    const std::string& deviceDisplayName,
+    const std::string& credentialId,
+    const std::string& credentialType)
+{
+    if (actorId.empty() || actorDisplayName.empty() ||
+        deviceId.empty() || deviceDisplayName.empty() ||
+        credentialId.empty() || credentialType.empty())
+    {
+        return false;
+    }
+
+    if (!insertActorIfMissing(
+            actorId, actorTypeName(actorType), actorDisplayName) ||
+        !insertDeviceIfMissing(deviceId, actorId, deviceDisplayName) ||
+        !insertCredentialIfMissing(credentialId, actorId, credentialType))
+    {
+        return false;
+    }
+
+    const auto actor = identityRepository_->findActor(actorId);
+    const auto device = identityRepository_->findDevice(deviceId);
+    const auto credential = identityRepository_->findCredential(credentialId);
+
+    return actor.has_value() && actor->type == actorType &&
+        actor->displayName == actorDisplayName &&
+        device.has_value() && device->actorId == actorId &&
+        device->displayName == deviceDisplayName &&
+        credential.has_value() && credential->actorId == actorId &&
+        credential->credentialType == credentialType;
+}
+
 bool SecurityIdentityProvisioningRepository::ensureIdentity(
     const std::string& actorId,
     ActorType actorType,

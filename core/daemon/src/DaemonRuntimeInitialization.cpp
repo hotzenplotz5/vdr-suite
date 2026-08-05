@@ -60,6 +60,36 @@ bool DaemonRuntime::initialize()
     backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
     backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
 
+    backendAgentIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(database_);
+    backendAgentProvisioningRepository_ =
+        std::make_unique<SecurityIdentityProvisioningRepository>(database_);
+    backendAgentCredentialVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(database_);
+    backendAgentAccountabilityRepository_ =
+        std::make_unique<AccountabilityEventRepository>(database_);
+    backendAgentRepository_ =
+        std::make_unique<BackendAgentRepository>(database_);
+
+    if (!backendAgentIdentityRepository_->ensureSchema() ||
+        !backendAgentCredentialVerifierRepository_->ensureSchema() ||
+        !backendAgentAccountabilityRepository_->ensureSchema() ||
+        !backendAgentRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize Backend Agent control-plane schema" << std::endl;
+        return false;
+    }
+
+    backendAgentLifecycleService_ =
+        std::make_unique<BackendAgentLifecycleService>(
+            database_,
+            *backendAgentRepository_,
+            *backendRegistryService_,
+            *backendAgentProvisioningRepository_,
+            *backendAgentIdentityRepository_,
+            *backendAgentCredentialVerifierRepository_,
+            *backendAgentAccountabilityRepository_);
+    std::cout << "Backend Agent enrollment and lease runtime initialized" << std::endl;
+
     epgSearchNativeFuzzyCapabilityRepository_ =
         std::make_unique<EpgSearchNativeFuzzyCapabilityRepository>(
             database_);
@@ -721,10 +751,16 @@ bool DaemonRuntime::initialize()
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
-    httpServer_ = std::make_unique<RecordingArtworkHttpServer>(
+    auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(*apiRouter_),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
+    httpServer_ = std::make_unique<BackendAgentHttpServer>(
+        std::move(clientHttpServer),
+        *backendAgentLifecycleService_,
+        *backendAgentRepository_,
+        *backendAgentCredentialVerifierRepository_,
+        *backendAgentIdentityRepository_);
 
     auto lastVdrPoll = std::chrono::steady_clock::now();
 
@@ -737,7 +773,6 @@ bool DaemonRuntime::initialize()
         },
         [this, lastVdrPoll]() mutable {
             const auto now = std::chrono::steady_clock::now();
-
             const bool externalHint = externalVdrChangeHint_.exchange(false);
 
             if (!externalHint &&

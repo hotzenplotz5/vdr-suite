@@ -109,3 +109,43 @@ test-real-suite-bridge-observation-live:
 		core/agent/tests/test_suite_bridge_observation_live.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_observation_live
 	$(BUILD_DIR)/test_suite_bridge_observation_live
+
+.PHONY: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool test-backend-agent-foundation-architecture
+
+test-backend-agent-foundation-architecture:
+	python3 tools/check_backend_agent_foundation.py
+
+test-backend-agent-foundation: test-backend-agent-foundation-architecture
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_SRC) \
+		core/agent/tests/test_backend_agent_lifecycle.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_lifecycle
+	$(BUILD_DIR)/test_backend_agent_lifecycle
+
+test-backend-agent-enrollment-tool: backend-agent-enrollment test-backend-agent-foundation-architecture
+	python3 tools/test_backend_agent_enrollment_tool.py $(BUILD_DIR)/vdr-suite-backend-agent-enroll
+
+test-backend-agent-admin-tool: backend-agent-admin backend-agent-enrollment test-backend-agent-foundation-architecture
+	python3 tools/test_backend_agent_admin_tool.py \
+		$(BUILD_DIR)/vdr-suite-backend-agent-admin \
+		$(BUILD_DIR)/vdr-suite-backend-agent-enroll
+
+test-backend-agent-client: test-backend-agent-foundation-architecture
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(AGENT_CLIENT_SRC) \
+		core/agent/tests/test_backend_agent_client.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_client
+	$(BUILD_DIR)/test_backend_agent_client
+
+test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool
+test-architecture: test-backend-agent-foundation-architecture

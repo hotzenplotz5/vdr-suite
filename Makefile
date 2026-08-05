@@ -1,6 +1,7 @@
 include mk/common.mk
 include mk/security-sources.mk
 include mk/agent-sources.mk
+include mk/backend-agent-runtime.mk
 
 include mk/recording-sources.mk
 include mk/metadata-sources.mk
@@ -29,6 +30,7 @@ include mk/phase62-runtime-acceptance.mk
 include mk/phase62-outcome-runtime-acceptance.mk
 include mk/phase62-idle-runtime-acceptance.mk
 include mk/phase62-retention-runtime-acceptance.mk
+include mk/phase63-runtime-acceptance.mk
 include mk/agent-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
