@@ -48,5 +48,6 @@ private:
         manualMetadataRepository_;
     std::mutex manualMetadataRepositoryMutex_;
     std::mutex manualPersonProfileSchemaMutex_;
+    bool manualPersonProfileSchemaAttempted_ = false;
     bool manualPersonProfileSchemaReady_ = false;
 };
