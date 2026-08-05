@@ -168,3 +168,12 @@ No command inbox, command dispatch, receipts or results; no Timer, Recording, Se
 ## Exact next action
 
 Stabilize Draft PR #138 on one exact head with the Slice-1 closeout, Slice-2 Observation and Snapshot Ingestion contract, fail-closed contract checker and current-state/architecture updates. Obtain all required CI jobs. Keep the PR Draft until explicit approval. Only after that contract is accepted should the smallest runtime implementation begin with `backend-health` complete-snapshot and exact-next change ingestion.
+
+## Related documents
+
+- [Current State](../CURRENT.md)
+- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
+- [Phase Map](phase-map.md)
+- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
+- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
