@@ -152,7 +152,6 @@ test-backend-agent-client: test-backend-agent-foundation-architecture
 test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool
 test-architecture: test-backend-agent-foundation-architecture
 
-
 .PHONY: test-phase63-command-delivery-runtime
 
 test-phase63-command-delivery-runtime:
@@ -180,3 +179,42 @@ test-phase63-command-delivery-runtime:
 	$(BUILD_DIR)/test_backend_agent_command_delivery
 
 test-fast: test-phase63-command-delivery-runtime
+
+.PHONY: test-phase63-fenced-native-operation-runtime
+
+test-phase63-fenced-native-operation-runtime:
+	python3 tools/check_phase63_fenced_native_operation_runtime.py
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		$(AGENT_NATIVE_PROBE_SRC) \
+		core/agent/tests/test_backend_agent_native_probe.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_native_probe
+	$(BUILD_DIR)/test_backend_agent_native_probe
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
+		core/agent/tests/test_backend_agent_native_probe_runtime.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_native_probe_runtime
+	$(BUILD_DIR)/test_backend_agent_native_probe_runtime
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		$(AGENT_NATIVE_PROBE_SRC) \
+		core/agent/tests/test_suite_bridge_svdrp_native_probe_transport.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_svdrp_native_probe_transport
+	$(BUILD_DIR)/test_suite_bridge_svdrp_native_probe_transport
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/tests/test_backend_agent_native_probe_delivery.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_native_probe_delivery
+	$(BUILD_DIR)/test_backend_agent_native_probe_delivery
+
+test-fast: test-phase63-fenced-native-operation-runtime

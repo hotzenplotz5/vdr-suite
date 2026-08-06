@@ -1,4 +1,5 @@
 #include "BackendAgentCommand.h"
+#include "BackendAgentNativeProbe.h"
 
 #include <algorithm>
 #include <cctype>
@@ -40,6 +41,24 @@ bool allowed(const std::string& value, const std::vector<std::string>& values)
 {
     return std::find(values.begin(), values.end(), value) != values.end();
 }
+
+bool validCommandPayload(const BackendAgentCommandAssignment& value)
+{
+    if (value.commandType == "probe.noop")
+    {
+        return value.payloadVersion == 1 && value.payload == "{}" &&
+            value.verificationPolicy == "none";
+    }
+    if (value.commandType == "vdr.native.probe")
+    {
+        std::string probeNonce;
+        return value.payloadVersion == 1 &&
+            value.verificationPolicy == "readback_required" &&
+            vdrsuite::agent::backendAgentNativeProbeParsePayload(
+                value.payload, probeNonce);
+    }
+    return false;
+}
 }
 
 bool backendAgentCommandSafeIdentifier(const std::string& value)
@@ -47,7 +66,7 @@ bool backendAgentCommandSafeIdentifier(const std::string& value)
     if (value.empty() || value.size() > 128) return false;
     return std::all_of(value.begin(), value.end(), [](unsigned char character) {
         return std::isalnum(character) != 0 || character == '-' || character == '_' ||
-  character == '.' || character == ':';
+            character == '.' || character == ':';
     });
 }
 
@@ -55,7 +74,7 @@ bool backendAgentCommandSafeText(const std::string& value, std::size_t maximumBy
 {
     return value.size() <= maximumBytes &&
         std::none_of(value.begin(), value.end(), [](unsigned char character) {
-  return character < 0x20U || character == 0x7fU;
+            return character < 0x20U || character == 0x7fU;
         });
 }
 
@@ -138,12 +157,9 @@ bool backendAgentCommandValidAssignment(const BackendAgentCommandAssignment& val
         backendAgentCommandSafeIdentifier(value.backendId) &&
         backendAgentCommandSafeIdentifier(value.agentId) &&
         backendAgentCommandSafeIdentifier(value.agentInstanceId) &&
-        value.backendGeneration > 0 &&
-        value.commandType == "probe.noop" && value.payloadVersion == 1 &&
-        value.payload == "{}" &&
+        value.backendGeneration > 0 && validCommandPayload(value) &&
         backendAgentCommandSafeIdentifier(value.requestFingerprint) &&
-        value.verificationPolicy == "none" && value.assignedAt > 0 &&
-        value.deadline > value.assignedAt &&
+        value.assignedAt > 0 && value.deadline > value.assignedAt &&
         value.requestFingerprint == backendAgentCommandFingerprint(value);
 }
 

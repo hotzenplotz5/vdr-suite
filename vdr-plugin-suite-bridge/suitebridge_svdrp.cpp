@@ -50,6 +50,16 @@ cString cPluginSuiteBridge::SVDRPCommand(
     const char *Option,
     int &ReplyCode)
 {
+  const SuiteBridgeCommandResult nativeProbe = nativeProbe_.Handle(
+      Command,
+      Option,
+      [this]() {
+        return statusMonitor_.CaptureSnapshot().MonitorActive();
+      });
+  if (nativeProbe.handled) {
+    return ReturnResult(nativeProbe, ReplyCode);
+  }
+
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
       Option,
@@ -74,33 +84,23 @@ cString cPluginSuiteBridge::SVDRPCommand(
 
   const SuiteBridgeCommandResult artwork =
       SuiteBridgeEpgCommandHandler::HandleArtwork(Command, Option);
-  if (artwork.handled) {
-    return ReturnResult(artwork, ReplyCode);
-  }
+  if (artwork.handled) return ReturnResult(artwork, ReplyCode);
 
   const SuiteBridgeCommandResult metadata =
       SuiteBridgeEpgCommandHandler::HandleMetadata(Command, Option);
-  if (metadata.handled) {
-    return ReturnResult(metadata, ReplyCode);
-  }
+  if (metadata.handled) return ReturnResult(metadata, ReplyCode);
 
   const SuiteBridgeCommandResult metadataComparison =
       SuiteBridgeEpgCommandHandler::HandleMetadataComparison(Command, Option);
-  if (metadataComparison.handled) {
-    return ReturnResult(metadataComparison, ReplyCode);
-  }
+  if (metadataComparison.handled) return ReturnResult(metadataComparison, ReplyCode);
 
   const SuiteBridgeCommandResult typeSnapshot =
       SuiteBridgeEpgCommandHandler::HandleTypeSnapshot(Command, Option);
-  if (typeSnapshot.handled) {
-    return ReturnResult(typeSnapshot, ReplyCode);
-  }
+  if (typeSnapshot.handled) return ReturnResult(typeSnapshot, ReplyCode);
 
   const SuiteBridgeCommandResult recordingMetadata =
       SuiteBridgeRecordingMetadataCommand::Handle(Command, Option);
-  if (recordingMetadata.handled) {
-    return ReturnResult(recordingMetadata, ReplyCode);
-  }
+  if (recordingMetadata.handled) return ReturnResult(recordingMetadata, ReplyCode);
 
   const SuiteBridgeSvdrpReply snapshotReply(
       Command,
@@ -108,9 +108,7 @@ cString cPluginSuiteBridge::SVDRPCommand(
       SuiteBridgeCapabilities::SchemaVersion(),
       statusMonitor_.CaptureSnapshot());
 
-  if (!snapshotReply.Handled()) {
-    return nullptr;
-  }
+  if (!snapshotReply.Handled()) return nullptr;
 
   ReplyCode = snapshotReply.ReplyCode();
   if (!snapshotReply.HasPayload()) {

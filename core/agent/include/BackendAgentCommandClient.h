@@ -7,11 +7,13 @@
 #include <vector>
 
 class IBackendAgentControlPlaneTransport;
+namespace vdrsuite::agent { class IBackendAgentNativeProbeTransport; }
 
 struct BackendAgentCommandClientConfig
 {
     std::string statePath;
     std::vector<std::string> commandTypes;
+    vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
 };
 
 struct BackendAgentCommandClientContext
@@ -34,3 +36,6 @@ bool pollBackendAgentCommand(
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
     std::string& reasonCode);
+
+void setBackendAgentNativeProbeTransport(
+    vdrsuite::agent::IBackendAgentNativeProbeTransport* transport);

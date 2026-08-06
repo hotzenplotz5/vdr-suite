@@ -5,7 +5,10 @@
 
 #include <vdr/tools.h>
 
-cPluginSuiteBridge::cPluginSuiteBridge() = default;
+cPluginSuiteBridge::cPluginSuiteBridge()
+    : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch())
+{
+}
 
 cPluginSuiteBridge::~cPluginSuiteBridge() = default;
 
@@ -41,6 +44,8 @@ bool cPluginSuiteBridge::Initialize(void)
         SuiteBridgeCapabilities::StateName(capability.state));
   }
 
+  isyslog(
+      "suitebridge: native-operation=vdr.native.probe schema=1 side-effect=none mutations=disabled provider=suitebridge");
   return true;
 }
 
