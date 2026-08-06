@@ -46,6 +46,16 @@ state, request equivalent replay, and arm one deliberate lost receipt/result
 response for guarded real-system acceptance. These controls do not create a
 native executor and cannot carry arbitrary payloads.
 
+## Regression coverage
+
+The focused runtime suite covers capability publication before assignment,
+parameterized capability replacement, equivalent receipt/result replay,
+delivery and replay counters, acknowledged stale-state retirement, and
+fail-closed handling of unacknowledged stale state. The existing Backend Agent
+lifecycle HTTP fixture constructs the same command-delivery service used by the
+production Agent route wrapper, so constructor and linkage changes are exercised
+by the complete Agent foundation regression rather than only by the new tests.
+
 ## Guarded real-system acceptance
 
 The acceptance target is:
