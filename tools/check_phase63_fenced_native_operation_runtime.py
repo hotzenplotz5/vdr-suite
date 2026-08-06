@@ -23,6 +23,7 @@ REQUIRED = [
     "core/agent/src/BackendAgentNativeProbe.cpp",
     "core/agent/src/BackendAgentNativeProbeDelivery.cpp",
     "core/agent/src/BackendAgentCommandClient.cpp",
+    "core/agent/src/BackendAgentCommandJson.cpp",
     "core/agent/include/SuiteBridgeSvdrpTransport.h",
     "core/agent/tests/test_backend_agent_native_probe.cpp",
     "core/agent/tests/test_backend_agent_native_probe_runtime.cpp",
@@ -51,7 +52,11 @@ for item in REQUIRED:
 
 agent_protocol = text("core/agent/src/BackendAgentNativeProbe.cpp")
 agent_client = text("core/agent/src/BackendAgentCommandClient.cpp")
+agent_command_json = text("core/agent/src/BackendAgentCommandJson.cpp")
 agent_command = text("core/agent/src/BackendAgentCommand.cpp")
+native_runtime_test = text(
+    "core/agent/tests/test_backend_agent_native_probe_runtime.cpp"
+)
 transport_header = text("core/agent/include/SuiteBridgeSvdrpTransport.h")
 agent_main = text("apps/agent/main.cpp")
 plugin_header = text("vdr-plugin-suite-bridge/suitebridge_native_probe.h")
@@ -109,6 +114,25 @@ if 'value.commandType == "probe.noop"' not in agent_command or \
 if 'value.verificationPolicy == "readback_required"' not in agent_command:
     errors.append("native assignment must require readback")
 
+if not re.search(
+    r'item\.stringValue\s*!=\s*"probe\.noop"\s*&&\s*'
+    r'item\.stringValue\s*!=\s*"vdr\.native\.probe"',
+    agent_command_json,
+):
+    errors.append(
+        "command poll parser must accept probe.noop and vdr.native.probe only"
+    )
+
+if (
+    'nativePoll.supportedCommandTypes={"vdr.native.probe"};'
+    not in native_runtime_test
+    or 'unsupportedPoll.supportedCommandTypes={"vdr.native.mutate"};'
+    not in native_runtime_test
+):
+    errors.append(
+        "native command poll protocol requires positive and negative regression coverage"
+    )
+
 execute = agent_client.find("executeNativeProbe(request)")
 starting_matches = list(re.finditer(
     r'state\.dispatchState\s*=\s*"starting"',
@@ -152,6 +176,7 @@ if "COMMAND_TYPES=\n" not in packaged_config:
 scoped_runtime = "\n".join([
     agent_protocol,
     agent_client,
+    agent_command_json,
     transport_header,
     plugin_header,
     plugin_runtime,

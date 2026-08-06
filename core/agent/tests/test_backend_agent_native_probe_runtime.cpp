@@ -86,6 +86,37 @@ int main()
     BackendAgentCommandClientConfig config{path,{"vdr.native.probe"},&native};
     BackendAgentCommandClientContext context{"agt_1","secret-material-at-least-thirty-two-bytes","default","agi_1",7};
     std::string reason;
+
+    // The shared HTTP protocol parser must accept the explicitly negotiated
+    // native probe type while continuing to reject arbitrary command names.
+    BackendAgentCommandPollRequest nativePoll;
+    nativePoll.backendId="default";
+    nativePoll.agentInstanceId="agi_1";
+    nativePoll.backendGeneration=7;
+    nativePoll.supportedCommandTypes={"vdr.native.probe"};
+
+    const std::string nativePollJson=
+        serializeBackendAgentCommandPollRequestJson(nativePoll);
+
+    BackendAgentCommandPollRequest parsedNativePoll;
+    assert(parseBackendAgentCommandPollRequestJson(
+        nativePollJson,parsedNativePoll,reason));
+    assert(reason=="command_poll_parsed");
+    assert(parsedNativePoll.supportedCommandTypes.size()==1);
+    assert(
+        parsedNativePoll.supportedCommandTypes.front()==
+        "vdr.native.probe");
+
+    BackendAgentCommandPollRequest unsupportedPoll=nativePoll;
+    unsupportedPoll.supportedCommandTypes={"vdr.native.mutate"};
+
+    BackendAgentCommandPollRequest rejectedPoll;
+    assert(!parseBackendAgentCommandPollRequestJson(
+        serializeBackendAgentCommandPollRequestJson(unsupportedPoll),
+        rejectedPoll,
+        reason));
+    assert(reason=="invalid_command_poll_payload");
+
     assert(pollBackendAgentCommand(config,context,control,reason));
     assert(control.receiptCalls==1&&control.resultCalls==1);
     assert(native.executeCalls==1&&native.readCalls==1);
