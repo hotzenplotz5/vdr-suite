@@ -399,6 +399,7 @@ VDR_VIDEO_DIR="${PHASE63_VDR_VIDEO_DIR:-/srv/vdr/video.00}"
 VDR_SERVICE="${PHASE63_VDR_SERVICE:-vdr}"
 DAEMON_SERVICE="${PHASE63_DAEMON_SERVICE:-vdr-suite-daemon}"
 AGENT_SERVICE="${PHASE63_AGENT_SERVICE:-vdr-suite-backend-agent}"
+AGENT_UNIT="${AGENT_SERVICE%.service}.service"
 SVDRP_PORT="${PHASE63_SVDRP_PORT:-6419}"
 PROXY_PORT="${PHASE63_PROXY_PORT:-16419}"
 DAEMON_BINARY="/usr/sbin/vdr-suite-daemon"
@@ -406,7 +407,7 @@ AGENT_BINARY="/usr/sbin/vdr-suite-backend-agent"
 ENROLL_BINARY="/usr/sbin/vdr-suite-backend-agent-enroll"
 ADMIN_BINARY="/usr/sbin/vdr-suite-backend-agent-admin"
 COMMAND_ADMIN_BINARY="/usr/sbin/vdr-suite-backend-agent-command-admin"
-DROPIN_DIR="/etc/systemd/system/${AGENT_SERVICE}.d"
+DROPIN_DIR="/etc/systemd/system/${AGENT_UNIT}.d"
 DROPIN_PATH="$DROPIN_DIR/phase63-native-probe.conf"
 
 [[ -n "$EXPECTED_HEAD" ]] || fail expected_head_required
@@ -513,6 +514,19 @@ ExecStart=
 ExecStart=$AGENT_BINARY --config $CONFIG_PATH --native-probe --suitebridge-host 127.0.0.1 --suitebridge-port $PROXY_PORT
 EOF_DROPIN
 systemctl daemon-reload || fail daemon_reload_failed
+
+AGENT_EXEC_START="$(
+    systemctl show "$AGENT_UNIT" --property=ExecStart --value
+)" || fail agent_execstart_read_failed
+
+printf '%s
+' "$AGENT_EXEC_START"     >"$EVIDENCE_DIR/agent.candidate-execstart.txt"     || fail agent_execstart_evidence_write_failed
+
+[[ "$AGENT_EXEC_START" == *"$AGENT_BINARY"* &&
+   "$AGENT_EXEC_START" == *"--config $CONFIG_PATH"* &&
+   "$AGENT_EXEC_START" == *"--native-probe"* &&
+   "$AGENT_EXEC_START" == *"--suitebridge-host 127.0.0.1"* &&
+   "$AGENT_EXEC_START" == *"--suitebridge-port $PROXY_PORT"* ]]     || fail agent_native_probe_dropin_not_loaded
 
 python3 tools/phase63-runtime-acceptance/native-probe-proxy.py \
     --listen-host 127.0.0.1 --listen-port "$PROXY_PORT" \
