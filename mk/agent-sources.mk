@@ -24,6 +24,9 @@ AGENT_CHANNEL_DOMAIN_SRC := \
 AGENT_CHANNEL_JSON_SRC := \
 	core/agent/src/BackendAgentChannelObservationJson.cpp
 
+AGENT_COMMAND_DELIVERY_SRC := \
+	core/agent/src/BackendAgentCommandDelivery.cpp
+
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
 	core/agent/src/BackendAgentRepository.cpp \
 	core/agent/src/BackendAgentLifecycle.cpp \

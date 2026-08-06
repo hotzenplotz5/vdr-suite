@@ -110,10 +110,19 @@ test-real-suite-bridge-observation-live:
 		-o $(BUILD_DIR)/test_suite_bridge_observation_live
 	$(BUILD_DIR)/test_suite_bridge_observation_live
 
-.PHONY: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool test-backend-agent-foundation-architecture
+.PHONY: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool test-backend-agent-foundation-architecture test-backend-agent-command-delivery
 
 test-backend-agent-foundation-architecture:
 	python3 tools/check_backend_agent_foundation.py
+
+test-backend-agent-command-delivery:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		$(SQLITE_SRC) \
+		$(AGENT_COMMAND_DELIVERY_SRC) \
+		core/agent/tests/test_backend_agent_command_delivery.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_command_delivery
+	$(BUILD_DIR)/test_backend_agent_command_delivery
 
 test-backend-agent-foundation: test-backend-agent-foundation-architecture
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -148,5 +157,5 @@ test-backend-agent-client: test-backend-agent-foundation-architecture
 		-o $(BUILD_DIR)/test_backend_agent_client
 	$(BUILD_DIR)/test_backend_agent_client
 
-test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool
+test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool test-backend-agent-command-delivery
 test-architecture: test-backend-agent-foundation-architecture
