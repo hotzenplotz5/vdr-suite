@@ -1,0 +1,83 @@
+name: Phase 63 command lifecycle fixture
+
+on:
+  push:
+    branches:
+      - agent/phase63-command-delivery-runtime
+    paths:
+      - .github/workflows/phase63-command-lifecycle-fixture.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase63-command-delivery-runtime
+          fetch-depth: 0
+      - name: Repair lifecycle HTTP fixture
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("core/agent/tests/test_backend_agent_lifecycle.cpp")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  '#include "BackendAgentHttpServer.h"\n',
+                  '#include "BackendAgentHttpServer.h"\n#include "BackendAgentCommandDelivery.h"\n',
+              ),
+              (
+                  '    AccountabilityEventRepository accountabilityRepository;\n    BackendAgentLifecycleService service;\n',
+                  '    AccountabilityEventRepository accountabilityRepository;\n    BackendAgentCommandRepository commandRepository;\n    BackendAgentLifecycleService service;\n    BackendAgentCommandDeliveryService commandService;\n',
+              ),
+              (
+                  '          accountabilityRepository(database),\n          service(\n',
+                  '          accountabilityRepository(database),\n          commandRepository(database),\n          service(\n',
+              ),
+              (
+                  '              verifierRepository,\n              accountabilityRepository)\n',
+                  '              verifierRepository,\n              accountabilityRepository),\n          commandService(\n              commandRepository,\n              agentRepository,\n              accountabilityRepository)\n',
+              ),
+              (
+                  '        assert(agentRepository.ensureSchema());\n',
+                  '        assert(agentRepository.ensureSchema());\n        assert(commandRepository.ensureSchema());\n',
+              ),
+              (
+                  '        fixture.service,\n        fixture.agentRepository,\n',
+                  '        fixture.service,\n        fixture.commandService,\n        fixture.agentRepository,\n',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one fixture marker, found {count}: {old!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev
+      - name: Run focused regression
+        run: |
+          make test-backend-agent-foundation
+          make test-phase63-command-delivery-runtime
+          python3 tools/audit_make_test_inventory.py --check
+          git diff --check
+      - name: Publish fix and remove workflow
+        run: |
+          rm .github/workflows/phase63-command-lifecycle-fixture.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Update lifecycle fixture for command delivery"
+          git push origin HEAD:agent/phase63-command-delivery-runtime
