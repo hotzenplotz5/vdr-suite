@@ -316,7 +316,7 @@ bool BackendAgentCommandRepository::ensureSchema()
         "error_category TEXT NOT NULL DEFAULT '', retry_classification TEXT NOT NULL DEFAULT '',"
         "bounded_diagnostics TEXT NOT NULL DEFAULT '', completed_at INTEGER NOT NULL DEFAULT 0,"
         "result_acknowledged_at INTEGER NOT NULL DEFAULT 0,"
-        "CHECK(assignment_state IN ('pending','receipted','resulted','reconciliation')),
+        "CHECK(assignment_state IN ('pending','receipted','resulted','reconciliation')),"
         "CHECK(dispatch_state IN ('not_started','starting','accepted_by_executor','effect_reported'))"
         ");") &&
         database_.execute(
