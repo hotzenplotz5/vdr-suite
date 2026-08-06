@@ -643,7 +643,7 @@ bool executeOrRecoverNative(
         state.pluginInstanceEpoch = capability.pluginInstanceEpoch;
         state.nativeCapabilityEvidence =
             backendAgentNativeProbeCapabilityEvidence(capability);
-        state.dispatchState = "starting";
+        state.dispatchState="starting";
         if (!persist(config.statePath, state, reason)) return false;
     }
     else if (capability.pluginInstanceEpoch != state.pluginInstanceEpoch)
@@ -825,7 +825,7 @@ bool reconcileBackendAgentCommandState(
         reason = "unsupported_local_command_state";
         return false;
     }
-    state.dispatchState = "starting";
+    state.dispatchState="starting";
     if (!persist(config.statePath, state, reason)) return false;
     state.dispatchState = "accepted_by_executor";
     if (!persist(config.statePath, state, reason)) return false;
@@ -892,7 +892,7 @@ bool pollBackendAgentCommand(
                 reason = "conflicting_duplicate_command";
                 return false;
             }
-            current.receiptAcknowledged = false;
+            current.receiptAcknowledged=false;
             if (current.resultPresent) current.resultAcknowledged = false;
             if (!persist(config.statePath, current, reason)) return false;
             return reconcileBackendAgentCommandState(
