@@ -204,17 +204,28 @@ agent_status() {
 
 wait_agent_online() {
     local expected_id="$1"
-    local attempts="$2"
+    local minimum_heartbeat_at="$2"
+    local attempts="$3"
     local index status
     for ((index=0; index<attempts; ++index)); do
         status="$(agent_status 2>/dev/null || true)"
         if printf '%s\n' "$status" | python3 -c '
 import json,sys
 expected=sys.argv[1]
-try: value=json.load(sys.stdin)
-except Exception: raise SystemExit(1)
-raise SystemExit(0 if value.get("present") is True and value.get("state")=="online" and value.get("agentId")==expected and value.get("readOnly") is True else 1)
-' "$expected_id"; then
+minimum=int(sys.argv[2])
+try:
+    value=json.load(sys.stdin)
+    last_heartbeat=int(value.get("lastHeartbeatAt",0))
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if (
+ value.get("present") is True
+ and value.get("state")=="online"
+ and value.get("agentId")==expected
+ and value.get("readOnly") is True
+ and last_heartbeat>=minimum
+) else 1)
+' "$expected_id" "$minimum_heartbeat_at"; then
             printf '%s\n' "$status"
             return 0
         fi
@@ -222,27 +233,42 @@ raise SystemExit(0 if value.get("present") is True and value.get("state")=="onli
     done
     return 1
 }
-
 enqueue_native_probe() {
     local attempts="$1"
+    local evidence_path="$2"
     local index output
+
+    : >"$evidence_path" || return 1
+
     for ((index=0; index<attempts; ++index)); do
-        output="$("$COMMAND_ADMIN_BINARY" --database "$DATABASE" --backend "$BACKEND_ID" --enqueue-native-probe --deadline-seconds 600 2>/dev/null || true)"
+        output="$("$COMMAND_ADMIN_BINARY" \
+            --database "$DATABASE" \
+            --backend "$BACKEND_ID" \
+            --enqueue-native-probe \
+            --deadline-seconds 600 2>&1)"
+
+        printf '%s\n' "$output" >"$evidence_path" || return 1
+
         if printf '%s\n' "$output" | python3 -c '
 import json,sys
-try: value=json.load(sys.stdin)
-except Exception: raise SystemExit(1)
+try:
+    value=json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
 command=value.get("commandId","")
-raise SystemExit(0 if isinstance(command,str) and command.startswith("cmd_") else 1)
+raise SystemExit(
+    0 if isinstance(command,str) and command.startswith("cmd_") else 1
+)
 '; then
             printf '%s\n' "$output"
             return 0
         fi
+
         sleep 1
     done
+
     return 1
 }
-
 json_field() {
     python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$1"
 }
@@ -384,7 +410,7 @@ DROPIN_DIR="/etc/systemd/system/${AGENT_SERVICE}.d"
 DROPIN_PATH="$DROPIN_DIR/phase63-native-probe.conf"
 
 [[ -n "$EXPECTED_HEAD" ]] || fail expected_head_required
-for command in git make g++ python3 pkg-config systemctl cmp install sha256sum; do
+for command in git make g++ python3 pkg-config systemctl cmp install sha256sum date; do
     require_command "$command"
 done
 
@@ -505,12 +531,14 @@ systemctl start "$VDR_SERVICE" || fail vdr_candidate_start_failed
 wait_active "$VDR_SERVICE" 30 || fail vdr_candidate_not_active
 systemctl start "$DAEMON_SERVICE" || fail daemon_candidate_start_failed
 wait_active "$DAEMON_SERVICE" 30 || fail daemon_candidate_not_active
+CANDIDATE_STARTED_AT="$(date +%s)" || fail candidate_start_time_failed
+CANDIDATE_HEARTBEAT_AFTER="$((CANDIDATE_STARTED_AT + 1))"
 systemctl start "$AGENT_SERVICE" || fail agent_candidate_start_failed
 wait_active "$AGENT_SERVICE" 30 || fail agent_candidate_not_active
 ORIGINAL_AGENT_ID="$(printf '%s' "$ORIGINAL_IDENTITY" | cut -f1)" || fail agent_id_extract_failed
-wait_agent_online "$ORIGINAL_AGENT_ID" 60 >"$EVIDENCE_DIR/agent.candidate.json" || fail candidate_agent_not_online
+wait_agent_online "$ORIGINAL_AGENT_ID" "$CANDIDATE_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.candidate.json" || fail candidate_agent_not_online
 
-BASELINE_ASSIGNMENT="$(enqueue_native_probe 60)" || fail baseline_native_probe_enqueue_failed
+BASELINE_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/baseline.enqueue.last-output")" || fail baseline_native_probe_enqueue_failed
 printf '%s\n' "$BASELINE_ASSIGNMENT" >"$EVIDENCE_DIR/baseline.assignment.json" || fail baseline_assignment_write_failed
 BASELINE_ID="$(printf '%s\n' "$BASELINE_ASSIGNMENT" | json_field commandId)" || fail baseline_command_id_failed
 BASELINE_STATUS="$(wait_command_state "$BASELINE_ID" completed succeeded verified 1 90)" || fail baseline_native_probe_failed
@@ -523,9 +551,11 @@ verify_separate_evidence "$BASELINE_RECEIPT" "$BASELINE_RESULT" "$BASELINE_READB
 
 systemctl restart "$DAEMON_SERVICE" || fail daemon_restart_failed
 wait_active "$DAEMON_SERVICE" 30 || fail daemon_restart_not_active
+AGENT_RESTARTED_AT="$(date +%s)" || fail agent_restart_time_failed
+AGENT_RESTART_HEARTBEAT_AFTER="$((AGENT_RESTARTED_AT + 1))"
 systemctl restart "$AGENT_SERVICE" || fail agent_restart_failed
 wait_active "$AGENT_SERVICE" 30 || fail agent_restart_not_active
-wait_agent_online "$ORIGINAL_AGENT_ID" 60 >"$EVIDENCE_DIR/agent.after-restart.json" || fail agent_restart_not_online
+wait_agent_online "$ORIGINAL_AGENT_ID" "$AGENT_RESTART_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.after-restart.json" || fail agent_restart_not_online
 BASELINE_EXEC_BEFORE="$(proxy_exec_summary "$BASELINE_ID")" || fail baseline_proxy_summary_failed
 "$COMMAND_ADMIN_BINARY" --database "$DATABASE" --backend "$BACKEND_ID" --replay "$BASELINE_ID" >"$EVIDENCE_DIR/baseline.replay.json" || fail baseline_replay_request_failed
 BASELINE_DELIVERY="$(printf '%s\n' "$BASELINE_STATUS" | json_field deliveryCount)" || fail baseline_delivery_count_failed
@@ -536,7 +566,7 @@ BASELINE_EXEC_AFTER="$(proxy_exec_summary "$BASELINE_ID")" || fail replay_proxy_
 [[ "$BASELINE_EXEC_BEFORE" == "$BASELINE_EXEC_AFTER" ]] || fail control_plane_replay_reexecuted_native_probe
 
 printf '1\n' >"$PROXY_DROP" || fail proxy_drop_arm_failed
-RECOVERY_ASSIGNMENT="$(enqueue_native_probe 60)" || fail recovery_native_probe_enqueue_failed
+RECOVERY_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/recovery.enqueue.last-output")" || fail recovery_native_probe_enqueue_failed
 printf '%s\n' "$RECOVERY_ASSIGNMENT" >"$EVIDENCE_DIR/recovery.assignment.json" || fail recovery_assignment_write_failed
 RECOVERY_ID="$(printf '%s\n' "$RECOVERY_ASSIGNMENT" | json_field commandId)" || fail recovery_command_id_failed
 RECOVERY_STATUS="$(wait_command_state "$RECOVERY_ID" completed succeeded verified 1 120)" || fail lost_response_recovery_failed
@@ -550,7 +580,7 @@ raise SystemExit(0 if len(values)==2 and values[0][0]=="drop" and values[0][1]==
 ' || fail lost_response_not_exact_replay
 
 printf '1\n' >"$PROXY_DROP" || fail epoch_drop_arm_failed
-EPOCH_ASSIGNMENT="$(enqueue_native_probe 60)" || fail epoch_native_probe_enqueue_failed
+EPOCH_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/epoch.enqueue.last-output")" || fail epoch_native_probe_enqueue_failed
 printf '%s\n' "$EPOCH_ASSIGNMENT" >"$EVIDENCE_DIR/epoch.assignment.json" || fail epoch_assignment_write_failed
 EPOCH_ID="$(printf '%s\n' "$EPOCH_ASSIGNMENT" | json_field commandId)" || fail epoch_command_id_failed
 wait_proxy_drop "$EPOCH_ID" 90 || fail epoch_drop_not_observed
@@ -558,15 +588,18 @@ systemctl stop "$AGENT_SERVICE" || fail agent_stop_for_epoch_failed
 OLD_PLUGIN_EPOCH="$(state_value plugin_instance_epoch)" || fail old_plugin_epoch_missing
 systemctl restart "$VDR_SERVICE" || fail vdr_epoch_restart_failed
 wait_active "$VDR_SERVICE" 30 || fail vdr_epoch_restart_not_active
+AGENT_EPOCH_STARTED_AT="$(date +%s)" || fail agent_epoch_restart_time_failed
+AGENT_EPOCH_HEARTBEAT_AFTER="$((AGENT_EPOCH_STARTED_AT + 1))"
 systemctl start "$AGENT_SERVICE" || fail agent_epoch_restart_failed
 wait_active "$AGENT_SERVICE" 30 || fail agent_epoch_restart_not_active
+wait_agent_online "$ORIGINAL_AGENT_ID" "$AGENT_EPOCH_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.after-epoch-restart.json" || fail agent_epoch_restart_not_online
 EPOCH_STATUS="$(wait_command_state "$EPOCH_ID" waiting_reconciliation outcome_unknown outcome_unknown 1 90)" || fail plugin_epoch_fence_failed
 printf '%s\n' "$EPOCH_STATUS" >"$EVIDENCE_DIR/epoch.status.json" || fail epoch_status_write_failed
 EPOCH_SUMMARY="$(proxy_exec_summary "$EPOCH_ID")" || fail epoch_proxy_summary_failed
 printf '%s\n' "$EPOCH_SUMMARY" | python3 -c 'import json,sys; values=json.load(sys.stdin); raise SystemExit(0 if len(values)==1 and values[0][0]=="drop" else 1)' || fail old_epoch_command_replayed
 [[ "$(state_value plugin_instance_epoch)" == "$OLD_PLUGIN_EPOCH" ]] || fail old_epoch_evidence_rewritten
 
-FINAL_ASSIGNMENT="$(enqueue_native_probe 60)" || fail post_epoch_native_probe_enqueue_failed
+FINAL_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/post-epoch.enqueue.last-output")" || fail post_epoch_native_probe_enqueue_failed
 printf '%s\n' "$FINAL_ASSIGNMENT" >"$EVIDENCE_DIR/post-epoch.assignment.json" || fail post_epoch_assignment_write_failed
 FINAL_ID="$(printf '%s\n' "$FINAL_ASSIGNMENT" | json_field commandId)" || fail post_epoch_command_id_failed
 FINAL_STATUS="$(wait_command_state "$FINAL_ID" completed succeeded verified 1 90)" || fail post_epoch_native_probe_failed
