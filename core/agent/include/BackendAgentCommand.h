@@ -110,6 +110,9 @@ struct BackendAgentCommandSummary
     std::string verificationState;
     std::uint64_t backendGeneration = 0;
     std::uint64_t claimEpoch = 0;
+    std::uint64_t deliveryCount = 0;
+    std::uint64_t receiptReplayCount = 0;
+    std::uint64_t resultReplayCount = 0;
     std::int64_t deadline = 0;
 };
 

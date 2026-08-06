@@ -158,6 +158,13 @@ test-architecture: test-backend-agent-foundation-architecture
 test-phase63-command-delivery-runtime:
 	python3 tools/check_phase63_command_delivery_runtime.py
 	$(BUILD_CXX) $(CXXFLAGS) \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
+		core/agent/tests/test_backend_agent_command_client.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_command_client
+	$(BUILD_DIR)/test_backend_agent_command_client
+	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/CredentialVerifierRepository.cpp \

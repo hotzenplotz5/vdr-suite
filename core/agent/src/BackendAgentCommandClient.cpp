@@ -26,6 +26,16 @@ bool writeProtected(const std::string& path,const std::string& value,std::string
     if(fd<0){reason="command_state_open_failed";return false;} const bool ok=fchmod(fd,0600)==0&&writeAll(fd,value)&&fsync(fd)==0&&close(fd)==0&&rename(temp.c_str(),path.c_str())==0&&syncParent(path);
     if(!ok){close(fd);unlink(temp.c_str());reason="command_state_persist_failed";return false;} reason="command_state_persisted";return true;
 }
+bool retireProtectedState(const std::string& path,std::string& reason)
+{
+    if(path.empty()||path.front()!='/'){reason="invalid_command_state_path";return false;}
+    struct stat status{};
+    if(lstat(path.c_str(),&status)!=0){reason=errno==ENOENT?"command_state_not_found":"command_state_stat_failed";return errno==ENOENT;}
+    if(!S_ISREG(status.st_mode)||(status.st_mode&(S_IRWXG|S_IRWXO))!=0){reason="command_state_unprotected";return false;}
+    if(unlink(path.c_str())!=0||!syncParent(path)){reason="command_state_retire_failed";return false;}
+    reason="completed_command_state_retired";
+    return true;
+}
 bool readStateFile(const std::string& path,std::map<std::string,std::string>& values,std::string& reason)
 {
     values.clear();struct stat st{};if(lstat(path.c_str(),&st)!=0){reason=errno==ENOENT?"command_state_not_found":"command_state_stat_failed";return false;}
@@ -86,7 +96,13 @@ void createResult(LocalState& state,const std::string& dispatch,const std::strin
 bool reconcileBackendAgentCommandState(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,std::string& reason)
 {
     if(config.commandTypes.empty()){reason="command_delivery_disabled";return true;}LocalState state;if(!load(config.statePath,state,reason)){if(reason=="command_state_not_found"){reason="no_local_command";return true;}return false;}
-    if(!sameContext(state.assignment,context)){reason="local_command_generation_fenced";return false;}
+    if(!sameContext(state.assignment,context))
+    {
+        if(state.resultPresent&&state.receiptAcknowledged&&state.resultAcknowledged)
+            return retireProtectedState(config.statePath,reason);
+        reason="local_command_generation_fenced";
+        return false;
+    }
     if(!state.receiptAcknowledged&&!sendReceipt(config,context,transport,state,reason))return false;
     if(state.resultPresent){if(!state.resultAcknowledged&&!sendResult(config,context,transport,state,reason))return false;reason="command_result_reconciled";return true;}
     if(state.dispatchState=="starting"||state.dispatchState=="accepted_by_executor")

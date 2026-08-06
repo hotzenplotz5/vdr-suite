@@ -17,6 +17,9 @@ required = {
         "probe.noop",
         "command_capability_required",
         "DELETE FROM backend_agent_command_capabilities WHERE backend_id=?",
+                  "delivery_count=delivery_count+1",
+                  "receipt_replay_count=receipt_replay_count+1",
+                  "result_replay_count=result_replay_count+1",
     ],
     "core/agent/src/BackendAgentCommandClient.cpp": [
         "receiptAcknowledged",
@@ -25,7 +28,11 @@ required = {
         "outcome_unknown",
         "current.receiptAcknowledged=false",
     ],
-    "core/agent/src/BackendAgentHttpServer.cpp": [
+    "core/agent/tests/test_backend_agent_command_client.cpp": [
+                  "completed_command_state_retired",
+                  "local_command_generation_fenced",
+              ],
+              "core/agent/src/BackendAgentHttpServer.cpp": [
         "/api/agent/v1/commands/poll",
         "/api/agent/v1/commands/receipt",
         "/api/agent/v1/commands/result",
@@ -33,6 +40,8 @@ required = {
     "core/agent/tests/test_backend_agent_command_delivery.cpp": [
         "command_capability_required",
         "capabilityPoll.accepted",
+                  "receiptReplayCount==1",
+                  "resultReplayCount==1",
     ],
 }
 
@@ -72,3 +81,5 @@ print("Native VDR mutation: absent")
 print("command_capability_required")
 print("equivalent replay preserves the durable receipt")
 print("parameterized capability cleanup")
+print("replay counters expose durable acceptance evidence")
+print("acknowledged stale generation state retires; pending state stays fenced")

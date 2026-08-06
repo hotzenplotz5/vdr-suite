@@ -59,7 +59,7 @@ bool BackendAgentCommandRepository::ensureSchema()
         "backend_id TEXT NOT NULL,agent_id TEXT NOT NULL,agent_instance_id TEXT NOT NULL,backend_generation INTEGER NOT NULL,"
         "command_type TEXT NOT NULL,payload_version INTEGER NOT NULL,payload TEXT NOT NULL,request_fingerprint TEXT NOT NULL,"
         "verification_policy TEXT NOT NULL,assigned_at INTEGER NOT NULL,deadline INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'assigned',"
-        "replay_requested INTEGER NOT NULL DEFAULT 0,last_delivered_at INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,"
+        "replay_requested INTEGER NOT NULL DEFAULT 0,last_delivered_at INTEGER NOT NULL DEFAULT 0,delivery_count INTEGER NOT NULL DEFAULT 0,receipt_replay_count INTEGER NOT NULL DEFAULT 0,result_replay_count INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,"
         "UNIQUE(job_id,attempt_id,claim_epoch),CHECK(state IN ('assigned','received','completed','expired','waiting_reconciliation'))"
         ");") &&
         database_.execute("CREATE INDEX IF NOT EXISTS idx_backend_agent_commands_delivery ON backend_agent_commands(backend_id,state,replay_requested,assigned_at);") &&
@@ -144,7 +144,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     if (ok && result.assignment.present)
     {
         sqlite3_stmt* update=nullptr;
-        const char* sql="UPDATE backend_agent_commands SET replay_requested=0,last_delivered_at=?,updated_at=? WHERE command_id=?;";
+        const char* sql="UPDATE backend_agent_commands SET replay_requested=0,last_delivered_at=?,delivery_count=delivery_count+1,updated_at=? WHERE command_id=?;";
         if (sqlite3_prepare_v2(database_.handle(),sql,-1,&update,nullptr)!=SQLITE_OK||!bindInt(update,1,now)||!bindInt(update,2,now)||!bindText(update,3,result.assignment.commandId)||!done(update)) ok=false;
         else result.reasonCode="command_assigned";
     }
@@ -171,7 +171,7 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
     if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
     if (sqlite3_step(existing)==SQLITE_ROW)
     {
-        result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); return result;
+        result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;
     }
     sqlite3_finalize(existing);
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.reasonCode="command_database_unavailable"; return result; }
@@ -200,7 +200,7 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     const std::string identity=backendAgentCommandResultIdentity(r);
     sqlite3_stmt* existing=nullptr;
     if(sqlite3_prepare_v2(database_.handle(),"SELECT result_identity FROM backend_agent_command_results WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)){if(existing)sqlite3_finalize(existing);result.reasonCode="command_database_unavailable";return result;}
-    if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);return result;} sqlite3_finalize(existing);
+    if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET result_replay_count=result_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}}return result;} sqlite3_finalize(existing);
     if(!database_.execute("BEGIN IMMEDIATE;")){result.reasonCode="command_database_unavailable";return result;}
     sqlite3_stmt* insert=nullptr;
     const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,completed_at) VALUES(?,?,?,?,?,?,?,?,?);";
@@ -243,9 +243,9 @@ bool BackendAgentCommandRepository::consumeFault(const std::string& backendId,co
 BackendAgentCommandSummary BackendAgentCommandRepository::summaryForBackend(const std::string& backendId) const
 {
     BackendAgentCommandSummary summary; sqlite3_stmt* s=nullptr;
-    const char* sql="SELECT c.command_id,c.command_type,c.state,COALESCE(r.receipt_category,''),COALESCE(x.result_category,''),COALESCE(x.dispatch_state,''),COALESCE(x.verification_state,''),c.backend_generation,c.claim_epoch,c.deadline FROM backend_agent_commands c LEFT JOIN backend_agent_command_receipts r ON r.command_id=c.command_id LEFT JOIN backend_agent_command_results x ON x.command_id=c.command_id WHERE c.backend_id=? ORDER BY c.assigned_at DESC LIMIT 1;";
+    const char* sql="SELECT c.command_id,c.command_type,c.state,COALESCE(r.receipt_category,''),COALESCE(x.result_category,''),COALESCE(x.dispatch_state,''),COALESCE(x.verification_state,''),c.backend_generation,c.claim_epoch,c.delivery_count,c.receipt_replay_count,c.result_replay_count,c.deadline FROM backend_agent_commands c LEFT JOIN backend_agent_command_receipts r ON r.command_id=c.command_id LEFT JOIN backend_agent_command_results x ON x.command_id=c.command_id WHERE c.backend_id=? ORDER BY c.assigned_at DESC LIMIT 1;";
     if(sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)!=SQLITE_OK||!bindText(s,1,backendId)){if(s)sqlite3_finalize(s);return summary;}
-    if(sqlite3_step(s)==SQLITE_ROW){summary.present=true;summary.commandId=text(s,0);summary.commandType=text(s,1);summary.state=text(s,2);summary.receiptCategory=text(s,3);summary.resultCategory=text(s,4);summary.dispatchState=text(s,5);summary.verificationState=text(s,6);summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deadline=sqlite3_column_int64(s,9);} sqlite3_finalize(s);return summary;
+    if(sqlite3_step(s)==SQLITE_ROW){summary.present=true;summary.commandId=text(s,0);summary.commandType=text(s,1);summary.state=text(s,2);summary.receiptCategory=text(s,3);summary.resultCategory=text(s,4);summary.dispatchState=text(s,5);summary.verificationState=text(s,6);summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deliveryCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,9));summary.receiptReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,10));summary.resultReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,11));summary.deadline=sqlite3_column_int64(s,12);} sqlite3_finalize(s);return summary;
 }
 
 BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(BackendAgentCommandRepository& c,BackendAgentRepository& a,AccountabilityEventRepository& e):commandRepository_(c),agentRepository_(a),accountabilityRepository_(e){}
