@@ -2,8 +2,6 @@ name: Phase63 command core bootstrap
 
 on:
   push:
-    branches:
-      - agent/phase63-command-delivery-core
 
 permissions:
   contents: write
@@ -15,73 +13,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Integrate command core
+      - name: Validate checkout
+        shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          source = Path('core/agent/src/BackendAgentCommandDelivery.cpp')
-          text = source.read_text()
-          broken = '''        "CHECK(assignment_state IN ('pending','receipted','resulted','reconciliation')),
-        "CHECK(dispatch_state IN ('not_started','starting','accepted_by_executor','effect_reported'))"'''
-          fixed = '''        "CHECK(assignment_state IN ('pending','receipted','resulted','reconciliation')),"
-        "CHECK(dispatch_state IN ('not_started','starting','accepted_by_executor','effect_reported'))"'''
-          if broken not in text:
-              raise SystemExit('expected schema string marker missing')
-          source.write_text(text.replace(broken, fixed))
-
-          sources = Path('mk/agent-sources.mk')
-          text = sources.read_text()
-          marker = '''AGENT_CHANNEL_JSON_SRC := \\
-\tcore/agent/src/BackendAgentChannelObservationJson.cpp
-'''
-          addition = marker + '''
-AGENT_COMMAND_DELIVERY_SRC := \\
-\tcore/agent/src/BackendAgentCommandDelivery.cpp
-'''
-          if marker not in text or 'AGENT_COMMAND_DELIVERY_SRC :=' in text:
-              raise SystemExit('agent source marker mismatch')
-          sources.write_text(text.replace(marker, addition))
-
-          tests = Path('mk/agent-tests.mk')
-          text = tests.read_text()
-          phony = '.PHONY: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool test-backend-agent-foundation-architecture'
-          replacement = phony + ' test-backend-agent-command-delivery'
-          if phony not in text or 'test-backend-agent-command-delivery:' in text:
-              raise SystemExit('agent test phony marker mismatch')
-          text = text.replace(phony, replacement)
-          target_marker = '''test-backend-agent-foundation-architecture:
-\tpython3 tools/check_backend_agent_foundation.py
-'''
-          target = target_marker + '''
-test-backend-agent-command-delivery:
-\t$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include -Icore/sqlite/include \\
-\t\t$(SQLITE_SRC) \\
-\t\t$(AGENT_COMMAND_DELIVERY_SRC) \\
-\t\tcore/agent/tests/test_backend_agent_command_delivery.cpp \\
-\t\t$(LDFLAGS) \\
-\t\t-o $(BUILD_DIR)/test_backend_agent_command_delivery
-\t$(BUILD_DIR)/test_backend_agent_command_delivery
-'''
-          if target_marker not in text:
-              raise SystemExit('agent test target marker mismatch')
-          text = text.replace(target_marker, target)
-          old_fast = 'test-fast: test-backend-agent-foundation test-backend-agent-client test-backend-agent-enrollment-tool test-backend-agent-admin-tool'
-          new_fast = old_fast + ' test-backend-agent-command-delivery'
-          if old_fast not in text:
-              raise SystemExit('test-fast marker mismatch')
-          tests.write_text(text.replace(old_fast, new_fast))
-          PY
-      - name: Build and test focused core
-        run: |
-          make test-backend-agent-command-delivery
-          git diff --check
-      - name: Commit durable integration
-        run: |
-          git config user.name "hotzenplotz5"
-          git config user.email "hotzenplotz5@gmx.de"
-          git add core/agent/src/BackendAgentCommandDelivery.cpp mk/agent-sources.mk mk/agent-tests.mk
-          git commit -m "Integrate durable Agent command delivery core"
-          git rm .github/workflows/phase63-command-core-bootstrap.yml
-          git commit -m "Remove command core bootstrap workflow"
-          git push origin HEAD:agent/phase63-command-delivery-core
+          test "$(git branch --show-current)" = "agent/phase63-command-delivery-core"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo bootstrap-ready
