@@ -163,7 +163,7 @@ test-phase63-command-delivery-runtime:
 		core/agent/tests/test_backend_agent_command_client.cpp \
 		-o $(BUILD_DIR)/test_backend_agent_command_client
 	$(BUILD_DIR)/test_backend_agent_command_client
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/CredentialVerifierRepository.cpp \

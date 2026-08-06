@@ -54,6 +54,13 @@ agent_protocol = text("core/agent/src/BackendAgentNativeProbe.cpp")
 agent_client = text("core/agent/src/BackendAgentCommandClient.cpp")
 agent_command_json = text("core/agent/src/BackendAgentCommandJson.cpp")
 agent_command = text("core/agent/src/BackendAgentCommand.cpp")
+command_delivery = text(
+    "core/agent/src/BackendAgentCommandDelivery.cpp"
+)
+command_delivery_test = text(
+    "core/agent/tests/test_backend_agent_command_delivery.cpp"
+)
+agent_tests_make = text("mk/agent-tests.mk")
 native_runtime_test = text(
     "core/agent/tests/test_backend_agent_native_probe_runtime.cpp"
 )
@@ -131,6 +138,58 @@ if (
 ):
     errors.append(
         "native command poll protocol requires positive and negative regression coverage"
+    )
+
+command_begin_count = command_delivery.count(
+    'database_.execute("BEGIN IMMEDIATE;")'
+)
+command_lease_count = command_delivery.count(
+    "database_.acquireTransactionLease()"
+)
+
+if command_begin_count != 4:
+    errors.append(
+        "command repository must retain exactly four explicit transactions"
+    )
+
+if command_lease_count != command_begin_count:
+    errors.append(
+        "every command repository transaction must hold the database lease"
+    )
+
+for token in [
+    "std::atomic<bool> pollFinished{false};",
+    'assert(db.execute("BEGIN IMMEDIATE;"));',
+    "const bool pollBlocked=!pollFinished.load();",
+    "transactionLease.unlock();",
+    "pollThread.join();",
+]:
+    if token not in command_delivery_test:
+        errors.append(
+            "command transaction concurrency regression missing token: "
+            + token
+        )
+
+command_target_start = agent_tests_make.find(
+    "test-phase63-command-delivery-runtime:"
+)
+command_target_end = agent_tests_make.find(
+    "\ntest-fast: test-phase63-command-delivery-runtime",
+    command_target_start,
+)
+command_target = (
+    agent_tests_make[command_target_start:command_target_end]
+    if command_target_start >= 0 and command_target_end > command_target_start
+    else ""
+)
+
+if (
+    "$(BUILD_CXX) $(CXXFLAGS) -pthread \\\n"
+    "\t\t$(SQLITE_SRC)"
+    not in command_target
+):
+    errors.append(
+        "command delivery concurrency test compile must use -pthread"
     )
 
 execute = agent_client.find("executeNativeProbe(request)")
