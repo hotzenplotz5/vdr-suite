@@ -52,6 +52,10 @@ for item in REQUIRED:
 
 agent_protocol = text("core/agent/src/BackendAgentNativeProbe.cpp")
 agent_client = text("core/agent/src/BackendAgentCommandClient.cpp")
+backend_agent_client = text("core/agent/src/BackendAgentClient.cpp")
+backend_agent_client_test = text(
+    "core/agent/tests/test_backend_agent_client.cpp"
+)
 agent_command_json = text("core/agent/src/BackendAgentCommandJson.cpp")
 agent_command = text("core/agent/src/BackendAgentCommand.cpp")
 command_delivery = text(
@@ -139,6 +143,36 @@ if (
     errors.append(
         "native command poll protocol requires positive and negative regression coverage"
     )
+
+for token in [
+    "const auto sleepUntilStop",
+    "sleep_(1);",
+    "if (!sleepUntilStop(reconnectDelay)) break;",
+    "if (!sleepUntilStop(config_.heartbeatIntervalSeconds)) break;",
+]:
+    if token not in backend_agent_client:
+        errors.append(
+            "Backend Agent runtime wait is not stop-interruptible: "
+            + token
+        )
+
+if "sleep_(config_.heartbeatIntervalSeconds);" in backend_agent_client:
+    errors.append(
+        "Backend Agent must not sleep for a full heartbeat interval"
+    )
+
+for token in [
+    "test_heartbeat_wait_is_interruptible",
+    "if (sleeps.size() == 7) stopRequested = true;",
+    "assert(sleeps == std::vector<int>(7, 1));",
+    "assert(sleeps == std::vector<int>({1}));",
+    "assert(transport.paths.size() == requestsBeforeWait);",
+]:
+    if token not in backend_agent_client_test:
+        errors.append(
+            "Backend Agent interruptible wait regression missing token: "
+            + token
+        )
 
 command_begin_count = command_delivery.count(
     'database_.execute("BEGIN IMMEDIATE;")'

@@ -2005,6 +2005,15 @@ bool BackendAgentClientRuntime::synchronize(std::string& reasonCode)
 int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
 {
     int reconnectDelay = config_.reconnectInitialSeconds;
+    const auto sleepUntilStop = [&](int seconds) {
+        for (int remaining = seconds; remaining > 0; --remaining)
+        {
+            if (stopRequested()) return false;
+            sleep_(1);
+        }
+        return !stopRequested();
+    };
+
     while (!stopRequested())
     {
         std::string reason;
@@ -2018,7 +2027,7 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
             else
             {
                 log("Backend Agent synchronization failed: " + reason);
-                sleep_(reconnectDelay);
+                if (!sleepUntilStop(reconnectDelay)) break;
                 reconnectDelay = std::min(
                     config_.reconnectMaximumSeconds,
                     reconnectDelay > config_.reconnectMaximumSeconds / 2
@@ -2027,8 +2036,7 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
                 continue;
             }
         }
-        sleep_(config_.heartbeatIntervalSeconds);
-        if (stopRequested()) break;
+        if (!sleepUntilStop(config_.heartbeatIntervalSeconds)) break;
         if (!heartbeat(reason))
         {
             log("Backend Agent heartbeat failed: " + reason);
