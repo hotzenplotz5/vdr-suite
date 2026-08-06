@@ -65,7 +65,7 @@ required_tokens = {
     "agent client": (
         agent_client,
         [
-            'dispatchState = "starting"',
+            "state.dispatchState",
             "native_capability_evidence",
             "native_receipt_evidence",
             "native_result_evidence",
@@ -98,9 +98,14 @@ if 'value.commandType == "probe.noop"' not in agent_command or \
 if 'value.verificationPolicy == "readback_required"' not in agent_command:
     errors.append("native assignment must require readback")
 
-starting = agent_client.find('state.dispatchState = "starting"')
-persist_starting = agent_client.find("persist(config.statePath, state, reason)", starting)
-execute = agent_client.find("executeNativeProbe(request)", persist_starting)
+execute = agent_client.find("executeNativeProbe(request)")
+starting_matches = list(re.finditer(
+    r'state\.dispatchState\s*=\s*"starting"',
+    agent_client[:execute] if execute >= 0 else "",
+))
+starting = starting_matches[-1].start() if starting_matches else -1
+persist_starting = agent_client.find(
+    "persist(config.statePath, state, reason)", starting, execute)
 if min(starting, persist_starting, execute) < 0 or not (starting < persist_starting < execute):
     errors.append("durable starting must precede native dispatch")
 
