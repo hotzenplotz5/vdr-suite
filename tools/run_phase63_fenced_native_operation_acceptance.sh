@@ -3,11 +3,13 @@ umask 077
 
 SUCCESS=0
 RESTORED=0
+RUNTIME_TOUCHED=0
 PROXY_PID=""
 VDR_WAS_ACTIVE=0
 DAEMON_WAS_ACTIVE=0
 AGENT_WAS_ACTIVE=0
 DROPIN_EXISTED=0
+DROPIN_DIR_EXISTED=0
 STATE_EXISTED=0
 
 fail() {
@@ -50,6 +52,10 @@ restore_runtime() {
     if [[ "$RESTORED" -eq 1 ]]; then
         return 0
     fi
+    if [[ "$RUNTIME_TOUCHED" -ne 1 ]]; then
+        RESTORED=1
+        return 0
+    fi
     stop_proxy
     systemctl stop "$AGENT_SERVICE" >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
     systemctl stop "$DAEMON_SERVICE" >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
@@ -60,6 +66,9 @@ restore_runtime() {
         cmp -s "$BACKUP_DIR/agent-dropin.conf" "$DROPIN_PATH" || [[ "$mode" != strict ]] || return 1
     else
         rm -f "$DROPIN_PATH" >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
+        if [[ "$DROPIN_DIR_EXISTED" -eq 0 ]]; then
+            rmdir "$DROPIN_DIR" >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
+        fi
     fi
     systemctl daemon-reload >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
 
@@ -95,7 +104,9 @@ restore_runtime() {
     RESTORED=1
     return 0
 }
-trap restore_runtime EXIT INT TERM
+trap restore_runtime EXIT
+trap 'restore_runtime; exit 130' INT
+trap 'restore_runtime; exit 143' TERM
 
 protected_config_value() {
     python3 - "$1" "$2" <<'PY_CONFIG_VALUE' || return 1
@@ -423,11 +434,15 @@ if [[ -f "$COMMAND_STATE_PATH" ]]; then
     STATE_EXISTED=1
     cp -a "$COMMAND_STATE_PATH" "$BACKUP_DIR/command-state" || fail command_state_backup_failed
 fi
+if [[ -d "$DROPIN_DIR" ]]; then
+    DROPIN_DIR_EXISTED=1
+fi
 if [[ -f "$DROPIN_PATH" ]]; then
     DROPIN_EXISTED=1
     cp -a "$DROPIN_PATH" "$BACKUP_DIR/agent-dropin.conf" || fail dropin_backup_failed
 fi
 
+make clean || fail candidate_clean_failed
 make daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin || fail candidate_binary_build_failed
 make -C vdr-plugin-suite-bridge clean all || fail candidate_plugin_build_failed
 [[ -z "$(git status --porcelain)" ]] || fail build_changed_worktree
@@ -450,7 +465,9 @@ done
 
 printf '%s\n' "$CURRENT_HEAD" >"$EVIDENCE_DIR/HEAD" || fail evidence_head_write_failed
 sha256sum "${CANDIDATES[@]%%:*}" >"$EVIDENCE_DIR/candidates.sha256" || fail candidate_hash_failed
+: >"$EVIDENCE_DIR/installed.sha256" || fail installed_hash_file_create_failed
 
+RUNTIME_TOUCHED=1
 systemctl stop "$AGENT_SERVICE" || fail agent_stop_failed
 systemctl stop "$DAEMON_SERVICE" || fail daemon_stop_failed
 systemctl stop "$VDR_SERVICE" || fail vdr_stop_failed
@@ -460,6 +477,7 @@ for pair in "${CANDIDATES[@]}"; do
     installed="${pair#*:}"
     install -m 0755 "$candidate" "$installed" || fail "candidate_install_failed_$(basename "$installed")"
     cmp -s "$candidate" "$installed" || fail "installed_candidate_mismatch_$(basename "$installed")"
+    sha256sum "$installed" >>"$EVIDENCE_DIR/installed.sha256" || fail "installed_hash_failed_$(basename "$installed")"
 done
 
 mkdir -p "$DROPIN_DIR" || fail dropin_directory_create_failed

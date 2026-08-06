@@ -162,6 +162,28 @@ for forbidden in ["set -e", "set -u", "set -o pipefail"]:
         errors.append(f"acceptance runner contains forbidden shell option: {forbidden}")
 if "|| fail" not in acceptance:
     errors.append("acceptance runner must use explicit failure handling")
+for token in [
+    "RUNTIME_TOUCHED=0",
+    "RUNTIME_TOUCHED=1",
+    "DROPIN_DIR_EXISTED=0",
+    "make clean || fail candidate_clean_failed",
+    "installed.sha256",
+    "trap restore_runtime EXIT",
+    "trap 'restore_runtime; exit 130' INT",
+    "trap 'restore_runtime; exit 143' TERM",
+]:
+    if token not in acceptance:
+        errors.append(f"acceptance runner missing safety token: {token}")
+if "trap restore_runtime EXIT INT TERM" in acceptance:
+    errors.append("acceptance signal traps must restore and terminate")
+clean = acceptance.find("make clean || fail candidate_clean_failed")
+build = acceptance.find("make daemon backend-agent", clean)
+touched = acceptance.find("RUNTIME_TOUCHED=1")
+first_runtime_stop = acceptance.find('systemctl stop "$AGENT_SERVICE"', touched)
+if min(clean, build) < 0 or clean >= build:
+    errors.append("acceptance must clean before building exact candidates")
+if min(touched, first_runtime_stop) < 0 or touched >= first_runtime_stop:
+    errors.append("acceptance must mark runtime touched before first service stop")
 if "sqlite3" in acceptance:
     errors.append("acceptance must not use manual SQLite inspection")
 
