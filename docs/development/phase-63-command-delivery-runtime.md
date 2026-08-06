@@ -22,6 +22,17 @@ an explicit `probe.noop` command capability. Expired assignments are not exposed
 An Agent restart at `starting` or `accepted_by_executor` produces
 `outcome_unknown` and `reconcile_only`; it never re-executes blindly.
 
+Equivalent assignment replay preserves the original durable receipt and result
+payloads. The Control Plane exposes bounded delivery, receipt-replay and
+result-replay counters for acceptance evidence. Capability replacement uses
+parameterized SQLite statements. A probe cannot be assigned until the current
+Agent instance and backend generation have published `probe.noop` explicitly.
+
+A fully acknowledged local command from an older Agent instance or backend
+generation is safely retired after restart. An unacknowledged or in-flight old
+state remains fenced with `local_command_generation_fenced`; it is never silently
+retired or executed under the new generation.
+
 ## Transport and persistence
 
 Protected routes remain under `/api/agent/v1/commands/*` and use the existing
@@ -34,6 +45,40 @@ The local administration utility can enqueue a bounded probe, inspect its
 state, request equivalent replay, and arm one deliberate lost receipt/result
 response for guarded real-system acceptance. These controls do not create a
 native executor and cannot carry arbitrary payloads.
+
+## Guarded real-system acceptance
+
+The acceptance target is:
+
+```text
+make phase63-command-delivery-runtime-acceptance
+```
+
+It requires an exact branch, exact head and fresh evidence directory. Before any
+runtime configuration change, the runner rebuilds daemon, Agent, enrollment,
+Agent-admin and command-admin candidates and byte-compares every installed
+binary with the checkout build.
+
+The runner temporarily enables only `COMMAND_TYPES=probe.noop`, preserves and
+restores the original Agent configuration and protected command-state file, and
+uses repository-owned administration utilities rather than manual SQLite. It
+must prove:
+
+- a baseline command reaches `effect_reported` / `succeeded`;
+- equivalent assignment, receipt and result replay are durable and observable;
+- deliberately lost receipt and result responses recover without re-execution;
+- Control-Plane command state survives a daemon restart;
+- a fully acknowledged old local state retires across an Agent restart while the
+  old generation is not replayed;
+- a fresh command succeeds under the new generation;
+- Agent identity and credential generation remain unchanged;
+- VDR configuration, timers, SearchTimer state and recording directories remain
+  byte/identity stable;
+- original configuration and local state are restored and VDR, daemon and Agent
+  are active at completion.
+
+Evidence logs are scanned for secret-like material. The runner contains no
+native VDR mutation and performs no manual SQLite inspection.
 
 ## Hard exclusions
 
