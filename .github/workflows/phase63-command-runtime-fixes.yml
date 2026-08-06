@@ -1,0 +1,261 @@
+name: Phase 63 command runtime fixes
+
+on:
+  push:
+    branches:
+      - agent/phase63-command-delivery-runtime
+    paths:
+      - .github/workflows/phase63-command-runtime-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase63-command-delivery-runtime
+          fetch-depth: 0
+      - name: Apply bounded fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "core/agent/include/BackendAgentCommandDelivery.h",
+              "    bool insertAssignment(const BackendAgentCommandAssignment& assignment);\n    BackendAgentCommandPollResult poll(\n",
+              "    bool insertAssignment(const BackendAgentCommandAssignment& assignment);\n    bool hasCapability(\n        const std::string& backendId,\n        const std::string& agentId,\n        const std::string& agentInstanceId,\n        std::uint64_t backendGeneration,\n        const std::string& commandType) const;\n    BackendAgentCommandPollResult poll(\n",
+          )
+
+          delivery = Path("core/agent/src/BackendAgentCommandDelivery.cpp")
+          text = delivery.read_text(encoding="utf-8")
+          old_delete = '    bool ok=database_.execute("DELETE FROM backend_agent_command_capabilities WHERE backend_id=\'"+request.backendId+"\';");'
+          new_delete = '''    sqlite3_stmt* clear=nullptr;
+              const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
+              bool ok=sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
+                  bindText(clear,1,request.backendId)&&done(clear);'''
+          if text.count(old_delete) != 1:
+              raise SystemExit("dynamic capability cleanup marker mismatch")
+          text = text.replace(old_delete, new_delete, 1)
+
+          poll_marker = "BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)\n"
+          capability_method = '''bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,const std::string& agentId,const std::string& agentInstanceId,std::uint64_t backendGeneration,const std::string& commandType) const
+          {
+              sqlite3_stmt* statement=nullptr;
+              const char* sql="SELECT 1 FROM backend_agent_command_capabilities WHERE backend_id=? AND agent_id=? AND agent_instance_id=? AND backend_generation=? AND command_type=? LIMIT 1;";
+              const bool prepared=sqlite3_prepare_v2(database_.handle(),sql,-1,&statement,nullptr)==SQLITE_OK&&
+                  bindText(statement,1,backendId)&&bindText(statement,2,agentId)&&bindText(statement,3,agentInstanceId)&&
+                  bindInt(statement,4,static_cast<std::int64_t>(backendGeneration))&&bindText(statement,5,commandType);
+              if(!prepared){if(statement)sqlite3_finalize(statement);return false;}
+              const bool present=sqlite3_step(statement)==SQLITE_ROW;
+              sqlite3_finalize(statement);
+              return present;
+          }
+
+          '''
+          if text.count(poll_marker) != 1:
+              raise SystemExit("poll insertion marker mismatch")
+          text = text.replace(poll_marker, capability_method + poll_marker, 1)
+
+          old_agent = '    const auto agent=agentRepository_.findAgentForBackend(backendId); if(!agent.has_value()||agent->revoked||agent->incompatible||agent->agentInstanceId.empty()||agent->backendGeneration==0||agent->leaseExpiresAt<now){reason="active_agent_lease_required";return std::nullopt;}\n'
+          new_agent = old_agent + '    if(!commandRepository_.hasCapability(backendId,agent->agentId,agent->agentInstanceId,agent->backendGeneration,"probe.noop")){reason="command_capability_required";return std::nullopt;}\n'
+          if text.count(old_agent) != 1:
+              raise SystemExit("assignment capability insertion marker mismatch")
+          text = text.replace(old_agent, new_agent, 1)
+          delivery.write_text(text, encoding="utf-8")
+
+          replace_once(
+              "core/agent/src/BackendAgentCommandClient.cpp",
+              'current.receipt.receiptCategory="duplicate";current.receipt.reasonCode="equivalent_assignment_replay";current.receipt.receivedAt=nowSeconds();',
+              '',
+          )
+
+          replace_once(
+              "core/agent/tests/test_backend_agent_command_delivery.cpp",
+              '    BackendAgentCommandDeliveryService service(commands,agents,accountability);std::string reason;auto assignment=service.assignProbe(context(ActorType::System,"system_admin"),"default",100,500,reason);assert(assignment.has_value());assert(assignment->requestFingerprint==backendAgentCommandFingerprint(*assignment));\n    BackendAgentCommandPollRequest poll;poll.backendId="default";poll.agentInstanceId="inst_test";poll.backendGeneration=7;poll.supportedCommandTypes={"probe.noop"};auto polled=service.poll(context(ActorType::Agent,"actor_agent"),poll,101);assert(polled.accepted&&polled.assignment.present&&polled.assignment.commandId==assignment->commandId);\n',
+              '    BackendAgentCommandDeliveryService service(commands,agents,accountability);std::string reason;\n    auto unsupported=service.assignProbe(context(ActorType::System,"system_admin"),"default",100,500,reason);assert(!unsupported.has_value()&&reason=="command_capability_required");\n    BackendAgentCommandPollRequest poll;poll.backendId="default";poll.agentInstanceId="inst_test";poll.backendGeneration=7;poll.supportedCommandTypes={"probe.noop"};auto capabilityPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,101);assert(capabilityPoll.accepted&&!capabilityPoll.assignment.present);\n    auto assignment=service.assignProbe(context(ActorType::System,"system_admin"),"default",102,500,reason);assert(assignment.has_value());assert(assignment->requestFingerprint==backendAgentCommandFingerprint(*assignment));\n    auto polled=service.poll(context(ActorType::Agent,"actor_agent"),poll,103);assert(polled.accepted&&polled.assignment.present&&polled.assignment.commandId==assignment->commandId);\n',
+          )
+
+          contract = Path("tools/check_phase63_command_delivery_contract.py")
+          text = contract.read_text(encoding="utf-8")
+          text = text.replace(
+              'MAKE_FRAGMENT = ROOT / "mk/phase63-runtime-acceptance.mk"\n',
+              'MAKE_FRAGMENT = ROOT / "mk/phase63-runtime-acceptance.mk"\nRUNTIME_GUARD = ROOT / "tools/check_phase63_command_delivery_runtime.py"\n',
+              1,
+          )
+          start = text.index("for path, forbidden_markers in [")
+          end = text.index("contract_text = read(CONTRACT)")
+          replacement = '''runtime_present = RUNTIME_GUARD.is_file()
+          if runtime_present:
+              require(
+                  RUNTIME_GUARD,
+                  [
+                      "probe.noop only",
+                      "Native VDR mutation: absent",
+                      "command_capability_required",
+                      "equivalent replay preserves the durable receipt",
+                      "parameterized capability cleanup",
+                  ],
+              )
+          else:
+              for path, forbidden_markers in [
+                  (
+                      HTTP_SERVER,
+                      [
+                          "/api/agent/v1/commands",
+                          "handleAgentCommand",
+                          "handleCommandReceipt",
+                          "handleCommandResult",
+                      ],
+                  ),
+                  (
+                      CLIENT_HEADER,
+                      [
+                          "commandInbox",
+                          "resultOutbox",
+                          "pendingCommand",
+                          "publishCommandResult",
+                      ],
+                  ),
+                  (
+                      SCHEMA,
+                      [
+                          "backend_agent_commands",
+                          "backend_agent_command_receipts",
+                          "backend_agent_command_results",
+                          "backend_agent_command_inbox",
+                          "backend_agent_result_outbox",
+                      ],
+                  ),
+                  (
+                      AGENT_CONFIG,
+                      [
+                          "COMMAND_TYPES=",
+                          "COMMAND_POLL_INTERVAL=",
+                      ],
+                  ),
+              ]:
+                  candidate = read(path)
+                  for marker in forbidden_markers:
+                      if marker in candidate:
+                          failures.append(
+                              f"premature command runtime marker in {path.relative_to(ROOT)}: "
+                              f"{marker}"
+                          )
+
+          '''
+          text = text[:start] + replacement + text[end:]
+          text = text.replace(
+              'print("Next bounded slice: durable Agent command delivery")\nprint("Runtime implementation: separate bounded Draft PR")\n',
+              'print("Next bounded slice: durable Agent command delivery")\nprint("Runtime implementation: bounded and guarded" if runtime_present else "Runtime implementation: separate bounded Draft PR")\n',
+              1,
+          )
+          contract.write_text(text, encoding="utf-8")
+
+          Path("tools/check_phase63_command_delivery_runtime.py").write_text('''#!/usr/bin/env python3
+          from pathlib import Path
+
+          required = {
+              "core/agent/include/BackendAgentCommand.h": [
+                  "operationId", "jobId", "attemptId", "claimEpoch",
+                  "commandId", "requestFingerprint",
+              ],
+              "core/agent/include/BackendAgentCommandDelivery.h": [
+                  "hasCapability",
+              ],
+              "core/agent/src/BackendAgentCommandDelivery.cpp": [
+                  "backend_agent_commands",
+                  "backend_agent_command_receipts",
+                  "backend_agent_command_results",
+                  "waiting_reconciliation",
+                  "probe.noop",
+                  "command_capability_required",
+                  "DELETE FROM backend_agent_command_capabilities WHERE backend_id=?",
+              ],
+              "core/agent/src/BackendAgentCommandClient.cpp": [
+                  "receiptAcknowledged",
+                  "resultAcknowledged",
+                  'dispatchState="starting"',
+                  "outcome_unknown",
+                  "current.receiptAcknowledged=false",
+              ],
+              "core/agent/src/BackendAgentHttpServer.cpp": [
+                  "/api/agent/v1/commands/poll",
+                  "/api/agent/v1/commands/receipt",
+                  "/api/agent/v1/commands/result",
+              ],
+              "core/agent/tests/test_backend_agent_command_delivery.cpp": [
+                  "command_capability_required",
+                  "capabilityPoll.accepted",
+              ],
+          }
+
+          for path, markers in required.items():
+              text = Path(path).read_text(encoding="utf-8")
+              missing = [marker for marker in markers if marker not in text]
+              if missing:
+                  raise SystemExit(f"{path}: missing {missing}")
+
+          forbidden_by_path = {
+              "core/agent/src/BackendAgentCommandDelivery.cpp": [
+                  "DELETE FROM backend_agent_command_capabilities WHERE backend_id='",
+                  "timer.create", "recording.delete", "searchtimer.create", "providerUrl",
+              ],
+              "core/agent/src/BackendAgentCommandClient.cpp": [
+                  'receiptCategory="duplicate"',
+                  'reasonCode="equivalent_assignment_replay"',
+                  "timer.create", "recording.delete", "searchtimer.create", "providerUrl",
+              ],
+          }
+          for path, markers in forbidden_by_path.items():
+              text = Path(path).read_text(encoding="utf-8")
+              for marker in markers:
+                  if marker in text:
+                      raise SystemExit(f"{path}: forbidden runtime marker {marker}")
+
+          for path in [
+              "core/agent/src/BackendAgentCommandDelivery.cpp",
+              "core/agent/src/BackendAgentCommandClient.cpp",
+          ]:
+              if "/api/v1/agent/" in Path(path).read_text(encoding="utf-8"):
+                  raise SystemExit(f"{path}: public Agent route marker")
+
+          print("Phase-63 command delivery runtime check passed")
+          print("Command type: probe.noop only")
+          print("Native VDR mutation: absent")
+          print("command_capability_required")
+          print("equivalent replay preserves the durable receipt")
+          print("parameterized capability cleanup")
+          ''', encoding="utf-8")
+          PY
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev
+      - name: Run focused validation
+        run: |
+          make test-phase63-command-delivery-contract
+          make test-phase63-command-delivery-runtime
+          make test-backend-agent-client
+          make backend-agent backend-agent-enrollment backend-agent-command-admin
+          git diff --check
+      - name: Publish fixes and remove workflow
+        run: |
+          rm .github/workflows/phase63-command-runtime-fixes.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Harden command replay and capability fencing"
+          git push origin HEAD:agent/phase63-command-delivery-runtime
