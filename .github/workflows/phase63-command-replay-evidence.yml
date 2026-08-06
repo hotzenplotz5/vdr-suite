@@ -1,0 +1,108 @@
+name: Phase 63 command replay evidence
+
+on:
+  push:
+    branches:
+      - agent/phase63-command-delivery-runtime
+    paths:
+      - .github/workflows/phase63-command-replay-evidence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase63-command-delivery-runtime
+          fetch-depth: 0
+      - name: Add bounded replay counters
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p=Path(path); text=p.read_text(encoding='utf-8')
+              if text.count(old)!=1:
+                  raise SystemExit(f'{path}: expected one match for {old[:60]!r}, got {text.count(old)}')
+              p.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          replace_once(
+              'core/agent/include/BackendAgentCommand.h',
+              '    std::uint64_t claimEpoch = 0;\n    std::int64_t deadline = 0;\n};\n',
+              '    std::uint64_t claimEpoch = 0;\n    std::uint64_t deliveryCount = 0;\n    std::uint64_t receiptReplayCount = 0;\n    std::uint64_t resultReplayCount = 0;\n    std::int64_t deadline = 0;\n};\n')
+
+          p=Path('core/agent/src/BackendAgentCommandDelivery.cpp')
+          text=p.read_text(encoding='utf-8')
+          text=text.replace(
+              '"replay_requested INTEGER NOT NULL DEFAULT 0,last_delivered_at INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,"',
+              '"replay_requested INTEGER NOT NULL DEFAULT 0,last_delivered_at INTEGER NOT NULL DEFAULT 0,delivery_count INTEGER NOT NULL DEFAULT 0,receipt_replay_count INTEGER NOT NULL DEFAULT 0,result_replay_count INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,"',1)
+          text=text.replace(
+              'const char* sql="UPDATE backend_agent_commands SET replay_requested=0,last_delivered_at=?,updated_at=? WHERE command_id=?;";',
+              'const char* sql="UPDATE backend_agent_commands SET replay_requested=0,last_delivered_at=?,delivery_count=delivery_count+1,updated_at=? WHERE command_id=?;";',1)
+          old_receipt='result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); return result;'
+          new_receipt='result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;'
+          if text.count(old_receipt)!=1: raise SystemExit('receipt replay marker mismatch')
+          text=text.replace(old_receipt,new_receipt,1)
+          old_result='if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);return result;} sqlite3_finalize(existing);'
+          new_result='if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET result_replay_count=result_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}}return result;} sqlite3_finalize(existing);'
+          if text.count(old_result)!=1: raise SystemExit('result replay marker mismatch')
+          text=text.replace(old_result,new_result,1)
+          old_summary='c.backend_generation,c.claim_epoch,c.deadline FROM backend_agent_commands c'
+          new_summary='c.backend_generation,c.claim_epoch,c.delivery_count,c.receipt_replay_count,c.result_replay_count,c.deadline FROM backend_agent_commands c'
+          if text.count(old_summary)!=1: raise SystemExit('summary select marker mismatch')
+          text=text.replace(old_summary,new_summary,1)
+          old_assign='summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deadline=sqlite3_column_int64(s,9);'
+          new_assign='summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deliveryCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,9));summary.receiptReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,10));summary.resultReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,11));summary.deadline=sqlite3_column_int64(s,12);'
+          if text.count(old_assign)!=1: raise SystemExit('summary assignment marker mismatch')
+          text=text.replace(old_assign,new_assign,1)
+          p.write_text(text,encoding='utf-8')
+
+          replace_once(
+              'apps/tools/backend_agent_command_admin.cpp',
+              '<<",\\\"backendGeneration\\\":"<<s.backendGeneration<<",\\\"claimEpoch\\\":"<<s.claimEpoch<<",\\\"deadline\\\":"<<s.deadline;',
+              '<<",\\\"backendGeneration\\\":"<<s.backendGeneration<<",\\\"claimEpoch\\\":"<<s.claimEpoch<<",\\\"deliveryCount\\\":"<<s.deliveryCount<<",\\\"receiptReplayCount\\\":"<<s.receiptReplayCount<<",\\\"resultReplayCount\\\":"<<s.resultReplayCount<<",\\\"deadline\\\":"<<s.deadline;')
+
+          replace_once(
+              'core/agent/tests/test_backend_agent_command_delivery.cpp',
+              'auto summary=service.summaryForBackend("default");assert(summary.present&&summary.state=="completed"&&summary.resultCategory=="succeeded");',
+              'auto summary=service.summaryForBackend("default");assert(summary.present&&summary.state=="completed"&&summary.resultCategory=="succeeded"&&summary.deliveryCount==2&&summary.receiptReplayCount==1&&summary.resultReplayCount==1);')
+          replace_once(
+              'core/agent/tests/test_backend_agent_command_delivery.cpp',
+              'auto replayPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,108);assert(replayPoll.assignment.present&&replayPoll.assignment.commandId==assignment->commandId);',
+              'auto replayPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,108);assert(replayPoll.assignment.present&&replayPoll.assignment.commandId==assignment->commandId);summary=service.summaryForBackend("default");assert(summary.deliveryCount==3);')
+
+          guard=Path('tools/check_phase63_command_delivery_runtime.py')
+          text=guard.read_text(encoding='utf-8')
+          text=text.replace(
+              '"DELETE FROM backend_agent_command_capabilities WHERE backend_id=?",\n',
+              '"DELETE FROM backend_agent_command_capabilities WHERE backend_id=?",\n                  "delivery_count=delivery_count+1",\n                  "receipt_replay_count=receipt_replay_count+1",\n                  "result_replay_count=result_replay_count+1",\n',1)
+          text=text.replace(
+              '"capabilityPoll.accepted",\n',
+              '"capabilityPoll.accepted",\n                  "receiptReplayCount==1",\n                  "resultReplayCount==1",\n',1)
+          text=text.replace(
+              'print("parameterized capability cleanup")\n',
+              'print("parameterized capability cleanup")\n          print("replay counters expose durable acceptance evidence")\n',1)
+          guard.write_text(text,encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev
+      - name: Validate
+        run: |
+          make test-phase63-command-delivery-contract
+          make test-phase63-command-delivery-runtime
+          make backend-agent-command-admin backend-agent
+          git diff --check
+      - name: Publish and remove workflow
+        run: |
+          rm .github/workflows/phase63-command-replay-evidence.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Expose durable command replay evidence"
+          git push origin HEAD:agent/phase63-command-delivery-runtime
