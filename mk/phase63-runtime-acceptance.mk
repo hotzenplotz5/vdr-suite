@@ -42,6 +42,7 @@ test-phase63-runtime-acceptance-harness: test-phase63-observation-ingestion-cont
 	python3 "$(PHASE63_OBSERVATION_EXERCISER)" --self-test
 	python3 "$(PHASE63_CHANNEL_OBSERVATION_EXERCISER)" --self-test
 	python3 tools/check_phase63_runtime_acceptance.py
+	python3 tools/check_phase63_command_delivery_acceptance.py
 
 phase63-backend-agent-runtime-acceptance: test-phase63-runtime-acceptance-harness
 	@test -n "$(PHASE63_EXPECTED_BRANCH)" || { echo "PHASE63_EXPECTED_BRANCH is required"; exit 2; }
