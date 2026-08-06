@@ -362,6 +362,97 @@ if (
         "baseline replay must complete before agent generation replacement"
     )
 
+epoch_start = acceptance.find("EPOCH_ASSIGNMENT=")
+epoch_end = acceptance.find("FINAL_ASSIGNMENT=", epoch_start)
+epoch_section = (
+    acceptance[epoch_start:epoch_end]
+    if epoch_start >= 0 and epoch_end > epoch_start
+    else ""
+)
+
+for token in [
+    "AGENT_PAUSED=0",
+    "--signal=SIGSTOP",
+    "--signal=SIGCONT",
+    "agent.after-epoch-resume.json",
+    "agent.epoch-process.txt",
+    "agent_epoch_process_changed",
+    "agent_epoch_generation_changed",
+]:
+    if token not in acceptance:
+        errors.append(
+            "epoch acceptance context preservation missing token: "
+            + token
+        )
+
+if (
+    'systemctl stop "$AGENT_SERVICE"' in epoch_section
+    or 'systemctl start "$AGENT_SERVICE"' in epoch_section
+):
+    errors.append(
+        "epoch acceptance must preserve the existing Agent process"
+    )
+
+epoch_drop = epoch_section.find(
+    'wait_proxy_drop "$EPOCH_ID" 90'
+)
+epoch_pause = epoch_section.find(
+    "--signal=SIGSTOP",
+    epoch_drop,
+)
+epoch_vdr_restart = epoch_section.find(
+    'systemctl restart "$VDR_SERVICE"',
+    epoch_pause,
+)
+epoch_resume = epoch_section.find(
+    "--signal=SIGCONT",
+    epoch_vdr_restart,
+)
+epoch_online = epoch_section.find(
+    "agent.after-epoch-resume.json",
+    epoch_resume,
+)
+epoch_pid_check = epoch_section.find(
+    "agent_epoch_process_changed",
+    epoch_online,
+)
+epoch_generation_check = epoch_section.find(
+    "agent_epoch_generation_changed",
+    epoch_pid_check,
+)
+epoch_status = epoch_section.find(
+    "EPOCH_STATUS=",
+    epoch_generation_check,
+)
+
+if (
+    min(
+        epoch_drop,
+        epoch_pause,
+        epoch_vdr_restart,
+        epoch_resume,
+        epoch_online,
+        epoch_pid_check,
+        epoch_generation_check,
+        epoch_status,
+    )
+    < 0
+    or not (
+        epoch_drop
+        < epoch_pause
+        < epoch_vdr_restart
+        < epoch_resume
+        < epoch_online
+        < epoch_pid_check
+        < epoch_generation_check
+        < epoch_status
+    )
+):
+    errors.append(
+        "epoch acceptance must pause, restart VDR, resume and verify "
+        "the unchanged Agent context before evaluating the fence"
+    )
+
 if "sqlite3" in acceptance:
     errors.append("acceptance must not use manual SQLite inspection")
 

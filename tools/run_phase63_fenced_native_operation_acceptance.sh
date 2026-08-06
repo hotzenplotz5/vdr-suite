@@ -4,6 +4,7 @@ umask 077
 SUCCESS=0
 RESTORED=0
 RUNTIME_TOUCHED=0
+AGENT_PAUSED=0
 PROXY_PID=""
 VDR_WAS_ACTIVE=0
 DAEMON_WAS_ACTIVE=0
@@ -55,6 +56,14 @@ restore_runtime() {
     if [[ "$RUNTIME_TOUCHED" -ne 1 ]]; then
         RESTORED=1
         return 0
+    fi
+    if [[ "$AGENT_PAUSED" -eq 1 ]]; then
+        systemctl kill \
+            --kill-whom=main \
+            --signal=SIGCONT \
+            "$AGENT_SERVICE" \
+            >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
+        AGENT_PAUSED=0
     fi
     stop_proxy
     systemctl stop "$AGENT_SERVICE" >/dev/null 2>&1 || [[ "$mode" != strict ]] || return 1
@@ -600,15 +609,75 @@ EPOCH_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/epoch.enqueue.last-ou
 printf '%s\n' "$EPOCH_ASSIGNMENT" >"$EVIDENCE_DIR/epoch.assignment.json" || fail epoch_assignment_write_failed
 EPOCH_ID="$(printf '%s\n' "$EPOCH_ASSIGNMENT" | json_field commandId)" || fail epoch_command_id_failed
 wait_proxy_drop "$EPOCH_ID" 90 || fail epoch_drop_not_observed
-systemctl stop "$AGENT_SERVICE" || fail agent_stop_for_epoch_failed
 OLD_PLUGIN_EPOCH="$(state_value plugin_instance_epoch)" || fail old_plugin_epoch_missing
+
+EPOCH_AGENT_STATUS_BEFORE="$(agent_status)" || fail epoch_agent_status_before_failed
+EPOCH_BACKEND_GENERATION_BEFORE="$(
+    printf '%s\n' "$EPOCH_AGENT_STATUS_BEFORE" |
+    json_field backendGeneration
+)" || fail epoch_generation_before_failed
+EPOCH_AGENT_PID_BEFORE="$(
+    systemctl show "$AGENT_UNIT" --property=MainPID --value
+)" || fail epoch_agent_pid_before_failed
+[[ "$EPOCH_AGENT_PID_BEFORE" =~ ^[1-9][0-9]*$ ]] || fail invalid_epoch_agent_pid_before
+
+systemctl kill \
+    --kill-whom=main \
+    --signal=SIGSTOP \
+    "$AGENT_SERVICE" || fail agent_pause_for_epoch_failed
+AGENT_PAUSED=1
+
+sleep 1
+[[ "$(systemctl is-active "$AGENT_SERVICE" 2>/dev/null || true)" == active ]] \
+    || fail agent_not_active_while_paused
+[[ "$(
+    systemctl show "$AGENT_UNIT" --property=MainPID --value
+)" == "$EPOCH_AGENT_PID_BEFORE" ]] || fail agent_epoch_process_changed_while_paused
+
 systemctl restart "$VDR_SERVICE" || fail vdr_epoch_restart_failed
 wait_active "$VDR_SERVICE" 30 || fail vdr_epoch_restart_not_active
-AGENT_EPOCH_STARTED_AT="$(date +%s)" || fail agent_epoch_restart_time_failed
-AGENT_EPOCH_HEARTBEAT_AFTER="$((AGENT_EPOCH_STARTED_AT + 1))"
-systemctl start "$AGENT_SERVICE" || fail agent_epoch_restart_failed
-wait_active "$AGENT_SERVICE" 30 || fail agent_epoch_restart_not_active
-wait_agent_online "$ORIGINAL_AGENT_ID" "$AGENT_EPOCH_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.after-epoch-restart.json" || fail agent_epoch_restart_not_online
+
+systemctl kill \
+    --kill-whom=main \
+    --signal=SIGCONT \
+    "$AGENT_SERVICE" || fail agent_resume_after_epoch_failed
+AGENT_PAUSED=0
+
+AGENT_EPOCH_RESUMED_AT="$(date +%s)" || fail agent_epoch_resume_time_failed
+AGENT_EPOCH_HEARTBEAT_AFTER="$((AGENT_EPOCH_RESUMED_AT + 1))"
+wait_agent_online \
+    "$ORIGINAL_AGENT_ID" \
+    "$AGENT_EPOCH_HEARTBEAT_AFTER" \
+    90 \
+    >"$EVIDENCE_DIR/agent.after-epoch-resume.json" \
+    || fail agent_epoch_resume_not_online
+
+EPOCH_AGENT_PID_AFTER="$(
+    systemctl show "$AGENT_UNIT" --property=MainPID --value
+)" || fail epoch_agent_pid_after_failed
+[[ "$EPOCH_AGENT_PID_AFTER" == "$EPOCH_AGENT_PID_BEFORE" ]] \
+    || fail agent_epoch_process_changed
+
+EPOCH_AGENT_STATUS_AFTER="$(
+    cat "$EVIDENCE_DIR/agent.after-epoch-resume.json"
+)" || fail epoch_agent_status_after_failed
+EPOCH_BACKEND_GENERATION_AFTER="$(
+    printf '%s\n' "$EPOCH_AGENT_STATUS_AFTER" |
+    json_field backendGeneration
+)" || fail epoch_generation_after_failed
+[[ "$EPOCH_BACKEND_GENERATION_AFTER" == "$EPOCH_BACKEND_GENERATION_BEFORE" ]] \
+    || fail agent_epoch_generation_changed
+
+{
+    printf 'PID_BEFORE=%s\n' "$EPOCH_AGENT_PID_BEFORE"
+    printf 'PID_AFTER=%s\n' "$EPOCH_AGENT_PID_AFTER"
+    printf 'BACKEND_GENERATION_BEFORE=%s\n' \
+        "$EPOCH_BACKEND_GENERATION_BEFORE"
+    printf 'BACKEND_GENERATION_AFTER=%s\n' \
+        "$EPOCH_BACKEND_GENERATION_AFTER"
+} >"$EVIDENCE_DIR/agent.epoch-process.txt" \
+    || fail epoch_process_evidence_write_failed
+
 EPOCH_STATUS="$(wait_command_state "$EPOCH_ID" waiting_reconciliation outcome_unknown outcome_unknown 1 90)" || fail plugin_epoch_fence_failed
 printf '%s\n' "$EPOCH_STATUS" >"$EVIDENCE_DIR/epoch.status.json" || fail epoch_status_write_failed
 EPOCH_SUMMARY="$(proxy_exec_summary "$EPOCH_ID")" || fail epoch_proxy_summary_failed
