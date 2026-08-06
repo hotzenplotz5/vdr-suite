@@ -108,7 +108,7 @@ bool pollBackendAgentCommand(const BackendAgentCommandClientConfig& config,const
     if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}BackendAgentCommandPollResult result;if(!parseBackendAgentCommandPollResponseJson(response.body,result,reason))return false;if(!result.assignment.present){reason="no_command_available";return true;}if(!sameContext(result.assignment,context)){reason="command_assignment_context_mismatch";return false;}
     LocalState current;std::string loadReason;if(load(config.statePath,current,loadReason))
     {
-        if(current.assignment.commandId==result.assignment.commandId){if(current.assignment.requestFingerprint!=result.assignment.requestFingerprint){reason="conflicting_duplicate_command";return false;}current.receipt.receiptCategory="duplicate";current.receipt.reasonCode="equivalent_assignment_replay";current.receipt.receivedAt=nowSeconds();current.receiptAcknowledged=false;if(current.resultPresent)current.resultAcknowledged=false;if(!persist(config.statePath,current,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);}
+        if(current.assignment.commandId==result.assignment.commandId){if(current.assignment.requestFingerprint!=result.assignment.requestFingerprint){reason="conflicting_duplicate_command";return false;}current.receiptAcknowledged=false;if(current.resultPresent)current.resultAcknowledged=false;if(!persist(config.statePath,current,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);}
         if(!current.resultAcknowledged){reason="local_command_inbox_busy";return false;}
     }
     else if(loadReason!="command_state_not_found"){reason=loadReason;return false;}

@@ -17,6 +17,12 @@ public:
     explicit BackendAgentCommandRepository(Database& database);
     bool ensureSchema();
     bool insertAssignment(const BackendAgentCommandAssignment& assignment);
+    bool hasCapability(
+        const std::string& backendId,
+        const std::string& agentId,
+        const std::string& agentInstanceId,
+        std::uint64_t backendGeneration,
+        const std::string& commandType) const;
     BackendAgentCommandPollResult poll(
         const BackendAgentCommandPollRequest& request,
         const std::string& agentId,

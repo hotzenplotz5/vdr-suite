@@ -16,6 +16,7 @@ CLIENT_HEADER = ROOT / "core/agent/include/BackendAgentClient.h"
 SCHEMA = ROOT / "database/schema/vdr-suite.sql"
 AGENT_CONFIG = ROOT / "packaging/systemd/backend-agent.conf"
 MAKE_FRAGMENT = ROOT / "mk/phase63-runtime-acceptance.mk"
+RUNTIME_GUARD = ROOT / "tools/check_phase63_command_delivery_runtime.py"
 
 BASE_COMMIT = "39ed86fc3a425697f738f8f555394d54e4e1a684"
 BASE_TREE = "e03bb84951cef7ec5f6b2f338ba456116cd766a2"
@@ -166,50 +167,63 @@ require(
     ],
 )
 
-for path, forbidden_markers in [
-    (
-        HTTP_SERVER,
+runtime_present = RUNTIME_GUARD.is_file()
+if runtime_present:
+    require(
+        RUNTIME_GUARD,
         [
-            "/api/agent/v1/commands",
-            "handleAgentCommand",
-            "handleCommandReceipt",
-            "handleCommandResult",
+            "probe.noop only",
+            "Native VDR mutation: absent",
+            "command_capability_required",
+            "equivalent replay preserves the durable receipt",
+            "parameterized capability cleanup",
         ],
-    ),
-    (
-        CLIENT_HEADER,
-        [
-            "commandInbox",
-            "resultOutbox",
-            "pendingCommand",
-            "publishCommandResult",
-        ],
-    ),
-    (
-        SCHEMA,
-        [
-            "backend_agent_commands",
-            "backend_agent_command_receipts",
-            "backend_agent_command_results",
-            "backend_agent_command_inbox",
-            "backend_agent_result_outbox",
-        ],
-    ),
-    (
-        AGENT_CONFIG,
-        [
-            "COMMAND_TYPES=",
-            "COMMAND_POLL_INTERVAL=",
-        ],
-    ),
-]:
-    text = read(path)
-    for marker in forbidden_markers:
-        if marker in text:
-            failures.append(
-                f"premature command runtime marker in {path.relative_to(ROOT)}: "
-                f"{marker}"
-            )
+    )
+else:
+    for path, forbidden_markers in [
+        (
+            HTTP_SERVER,
+            [
+                "/api/agent/v1/commands",
+                "handleAgentCommand",
+                "handleCommandReceipt",
+                "handleCommandResult",
+            ],
+        ),
+        (
+            CLIENT_HEADER,
+            [
+                "commandInbox",
+                "resultOutbox",
+                "pendingCommand",
+                "publishCommandResult",
+            ],
+        ),
+        (
+            SCHEMA,
+            [
+                "backend_agent_commands",
+                "backend_agent_command_receipts",
+                "backend_agent_command_results",
+                "backend_agent_command_inbox",
+                "backend_agent_result_outbox",
+            ],
+        ),
+        (
+            AGENT_CONFIG,
+            [
+                "COMMAND_TYPES=",
+                "COMMAND_POLL_INTERVAL=",
+            ],
+        ),
+    ]:
+        candidate = read(path)
+        for marker in forbidden_markers:
+            if marker in candidate:
+                failures.append(
+                    f"premature command runtime marker in {path.relative_to(ROOT)}: "
+                    f"{marker}"
+                )
 
 contract_text = read(CONTRACT)
 for forbidden in [
@@ -235,4 +249,4 @@ print("Phase-63 command delivery contract check passed")
 print(f"Merged read-only ingestion base: {BASE_COMMIT}")
 print(f"Merged read-only ingestion tree: {BASE_TREE}")
 print("Next bounded slice: durable Agent command delivery")
-print("Runtime implementation: separate bounded Draft PR")
+print("Runtime implementation: bounded and guarded" if runtime_present else "Runtime implementation: separate bounded Draft PR")

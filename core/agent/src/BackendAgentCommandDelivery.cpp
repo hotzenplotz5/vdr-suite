@@ -96,11 +96,27 @@ bool BackendAgentCommandRepository::insertAssignment(const BackendAgentCommandAs
     return done(s);
 }
 
+bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,const std::string& agentId,const std::string& agentInstanceId,std::uint64_t backendGeneration,const std::string& commandType) const
+{
+    sqlite3_stmt* statement=nullptr;
+    const char* sql="SELECT 1 FROM backend_agent_command_capabilities WHERE backend_id=? AND agent_id=? AND agent_instance_id=? AND backend_generation=? AND command_type=? LIMIT 1;";
+    const bool prepared=sqlite3_prepare_v2(database_.handle(),sql,-1,&statement,nullptr)==SQLITE_OK&&
+        bindText(statement,1,backendId)&&bindText(statement,2,agentId)&&bindText(statement,3,agentInstanceId)&&
+        bindInt(statement,4,static_cast<std::int64_t>(backendGeneration))&&bindText(statement,5,commandType);
+    if(!prepared){if(statement)sqlite3_finalize(statement);return false;}
+    const bool present=sqlite3_step(statement)==SQLITE_ROW;
+    sqlite3_finalize(statement);
+    return present;
+}
+
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
-    bool ok=database_.execute("DELETE FROM backend_agent_command_capabilities WHERE backend_id='"+request.backendId+"';");
+    sqlite3_stmt* clear=nullptr;
+    const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
+    bool ok=sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
+        bindText(clear,1,request.backendId)&&done(clear);
     for (const std::string& type:request.supportedCommandTypes)
     {
         sqlite3_stmt* cap=nullptr;
@@ -273,6 +289,7 @@ std::optional<BackendAgentCommandAssignment> BackendAgentCommandDeliveryService:
 {
     if(!context.authenticated()||context.actor.type!=ActorType::System||!backendAgentCommandSafeIdentifier(backendId)||deadline<=now||deadline-now>3600){reason="invalid_command_assignment_request";return std::nullopt;}
     const auto agent=agentRepository_.findAgentForBackend(backendId); if(!agent.has_value()||agent->revoked||agent->incompatible||agent->agentInstanceId.empty()||agent->backendGeneration==0||agent->leaseExpiresAt<now){reason="active_agent_lease_required";return std::nullopt;}
+    if(!commandRepository_.hasCapability(backendId,agent->agentId,agent->agentInstanceId,agent->backendGeneration,"probe.noop")){reason="command_capability_required";return std::nullopt;}
     BackendAgentCommandAssignment a; a.present=true;a.requestId=backendAgentGenerateOpaqueId("req_",8);a.correlationId=a.requestId;a.operationId=backendAgentGenerateOpaqueId("op_",12);a.jobId=backendAgentGenerateOpaqueId("job_",12);a.attemptId=backendAgentGenerateOpaqueId("att_",12);a.claimEpoch=1;a.commandId=backendAgentGenerateOpaqueId("cmd_",12);a.backendId=backendId;a.agentId=agent->agentId;a.agentInstanceId=agent->agentInstanceId;a.backendGeneration=agent->backendGeneration;a.commandType="probe.noop";a.payloadVersion=1;a.payload="{}";a.verificationPolicy="none";a.assignedAt=now;a.deadline=deadline;a.requestFingerprint=backendAgentCommandFingerprint(a);
     if(!backendAgentCommandValidAssignment(a)||!appendEvent(context,"agent.command.assigned",backendId,a.operationId,"assign-probe-command","allow","non_mutating_probe","attempted",now)||!commandRepository_.insertAssignment(a)){reason="command_assignment_persist_failed";return std::nullopt;} reason="command_probe_assigned";return a;
 }
