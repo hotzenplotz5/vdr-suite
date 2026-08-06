@@ -227,6 +227,48 @@ if min(clean, build) < 0 or clean >= build:
     errors.append("acceptance must clean before building exact candidates")
 if min(touched, first_runtime_stop) < 0 or touched >= first_runtime_stop:
     errors.append("acceptance must mark runtime touched before first service stop")
+
+daemon_restart = acceptance.find(
+    'systemctl restart "$DAEMON_SERVICE"'
+)
+baseline_replay_request = acceptance.find(
+    '--replay "$BASELINE_ID"',
+    daemon_restart,
+)
+baseline_replay_verified = acceptance.find(
+    "control_plane_replay_reexecuted_native_probe",
+    baseline_replay_request,
+)
+agent_restart = acceptance.find(
+    'systemctl restart "$AGENT_SERVICE"',
+    baseline_replay_verified,
+)
+recovery_enqueue = acceptance.find(
+    'RECOVERY_ASSIGNMENT=',
+    agent_restart,
+)
+
+if (
+    min(
+        daemon_restart,
+        baseline_replay_request,
+        baseline_replay_verified,
+        agent_restart,
+        recovery_enqueue,
+    )
+    < 0
+    or not (
+        daemon_restart
+        < baseline_replay_request
+        < baseline_replay_verified
+        < agent_restart
+        < recovery_enqueue
+    )
+):
+    errors.append(
+        "baseline replay must complete before agent generation replacement"
+    )
+
 if "sqlite3" in acceptance:
     errors.append("acceptance must not use manual SQLite inspection")
 

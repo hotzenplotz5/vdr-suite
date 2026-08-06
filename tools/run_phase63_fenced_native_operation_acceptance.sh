@@ -565,11 +565,7 @@ verify_separate_evidence "$BASELINE_RECEIPT" "$BASELINE_RESULT" "$BASELINE_READB
 
 systemctl restart "$DAEMON_SERVICE" || fail daemon_restart_failed
 wait_active "$DAEMON_SERVICE" 30 || fail daemon_restart_not_active
-AGENT_RESTARTED_AT="$(date +%s)" || fail agent_restart_time_failed
-AGENT_RESTART_HEARTBEAT_AFTER="$((AGENT_RESTARTED_AT + 1))"
-systemctl restart "$AGENT_SERVICE" || fail agent_restart_failed
-wait_active "$AGENT_SERVICE" 30 || fail agent_restart_not_active
-wait_agent_online "$ORIGINAL_AGENT_ID" "$AGENT_RESTART_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.after-restart.json" || fail agent_restart_not_online
+
 BASELINE_EXEC_BEFORE="$(proxy_exec_summary "$BASELINE_ID")" || fail baseline_proxy_summary_failed
 "$COMMAND_ADMIN_BINARY" --database "$DATABASE" --backend "$BACKEND_ID" --replay "$BASELINE_ID" >"$EVIDENCE_DIR/baseline.replay.json" || fail baseline_replay_request_failed
 BASELINE_DELIVERY="$(printf '%s\n' "$BASELINE_STATUS" | json_field deliveryCount)" || fail baseline_delivery_count_failed
@@ -578,6 +574,12 @@ printf '%s\n' "$REPLAY_STATUS" >"$EVIDENCE_DIR/baseline.replay-status.json" || f
 [[ "$(state_value native_execution_sequence)" == "$BASELINE_SEQUENCE" ]] || fail replay_sequence_changed
 BASELINE_EXEC_AFTER="$(proxy_exec_summary "$BASELINE_ID")" || fail replay_proxy_summary_failed
 [[ "$BASELINE_EXEC_BEFORE" == "$BASELINE_EXEC_AFTER" ]] || fail control_plane_replay_reexecuted_native_probe
+
+AGENT_RESTARTED_AT="$(date +%s)" || fail agent_restart_time_failed
+AGENT_RESTART_HEARTBEAT_AFTER="$((AGENT_RESTARTED_AT + 1))"
+systemctl restart "$AGENT_SERVICE" || fail agent_restart_failed
+wait_active "$AGENT_SERVICE" 30 || fail agent_restart_not_active
+wait_agent_online "$ORIGINAL_AGENT_ID" "$AGENT_RESTART_HEARTBEAT_AFTER" 90 >"$EVIDENCE_DIR/agent.after-restart.json" || fail agent_restart_not_online
 
 printf '1\n' >"$PROXY_DROP" || fail proxy_drop_arm_failed
 RECOVERY_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/recovery.enqueue.last-output")" || fail recovery_native_probe_enqueue_failed
