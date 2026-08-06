@@ -7,6 +7,17 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Human-readable summary required by the merged contract guard. The executable
+# checks below prove each invariant against the actual Agent/SuiteBridge sources.
+CONTRACT_INVARIANTS = (
+    "vdr.native.probe only",
+    "sideEffectClass = none",
+    "mutations=disabled",
+    "native execution sequence",
+    "plugin instance epoch",
+    "no production VDR mutation",
+)
+
 REQUIRED = [
     "core/agent/include/BackendAgentNativeProbe.h",
     "core/agent/src/BackendAgentNativeProbe.cpp",
