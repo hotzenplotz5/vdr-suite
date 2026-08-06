@@ -18,12 +18,13 @@ install: install-runtime install-cli install-docs install-manpages install-syste
 test-systemd-unit-contract:
 	python3 tools/check_systemd_unit_contract.py
 
-install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin
+install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-enroll $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-enroll
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin
+	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-command-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-command-admin
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	test -e $(DESTDIR)$(SYSCONFDIR)/vdr-suite/backend-agent.conf || \
 		$(INSTALL) -m 0644 packaging/systemd/backend-agent.conf $(DESTDIR)$(SYSCONFDIR)/vdr-suite/backend-agent.conf
@@ -128,6 +129,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-enroll
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin
+	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-command-admin
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite

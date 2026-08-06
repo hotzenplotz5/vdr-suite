@@ -1,5 +1,6 @@
 #include "BackendAgentHttpServer.h"
 #include "BackendAgentChannelObservationJson.h"
+#include "BackendAgentCommandJson.h"
 
 #include "CredentialVerifierRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -307,11 +308,13 @@ bool isAgentPath(const std::string& path)
 BackendAgentHttpServer::BackendAgentHttpServer(
     std::unique_ptr<IHttpServer> clientServer,
     BackendAgentLifecycleService& lifecycleService,
+    BackendAgentCommandDeliveryService& commandDeliveryService,
     BackendAgentRepository& repository,
     CredentialVerifierRepository& credentialVerifierRepository,
     SecurityIdentityRepository& identityRepository)
     : clientServer_(std::move(clientServer)),
       lifecycleService_(lifecycleService),
+      commandDeliveryService_(commandDeliveryService),
       repository_(repository),
       credentialVerifierRepository_(credentialVerifierRepository),
       identityRepository_(identityRepository)
@@ -604,6 +607,52 @@ HttpServerResponse BackendAgentHttpServer::handleChannelObservation(
     return jsonResponse(200, body.str());
 }
 
+
+HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandPollRequest poll;
+    std::string reason;
+    if (!parseBackendAgentCommandPollRequestJson(request.body, poll, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.poll(context, poll, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
+}
+
+HttpServerResponse BackendAgentHttpServer::handleCommandReceipt(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandReceipt receipt;
+    std::string reason;
+    if (!parseBackendAgentCommandReceiptJson(request.body, receipt, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.receipt(context, receipt, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    if (result.dropResponse) return errorResponse(503, "command_receipt_response_deliberately_lost");
+    return jsonResponse(200, std::string("{\"outcome\":\"") +
+        (result.replayed ? "replayed" : "accepted") +
+        "\",\"reasonCode\":\"" + jsonEscape(result.reasonCode) + "\"}");
+}
+
+HttpServerResponse BackendAgentHttpServer::handleCommandResult(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    BackendAgentCommandResult commandResult;
+    std::string reason;
+    if (!parseBackendAgentCommandResultJson(request.body, commandResult, reason))
+        return errorResponse(400, reason);
+    const auto result = commandDeliveryService_.result(context, commandResult, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    if (result.dropResponse) return errorResponse(503, "command_result_response_deliberately_lost");
+    return jsonResponse(200, std::string("{\"outcome\":\"") +
+        (result.replayed ? "replayed" : "accepted") +
+        "\",\"reasonCode\":\"" + jsonEscape(result.reasonCode) + "\"}");
+}
+
 HttpServerResponse BackendAgentHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
@@ -631,5 +680,8 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
         return handleBackendHealthObservation(request, context);
     if (request.path == "/api/agent/v1/observations/channels")
         return handleChannelObservation(request, context);
+    if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);
+    if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);
+    if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);
     return errorResponse(404, "agent_route_not_found");
 }

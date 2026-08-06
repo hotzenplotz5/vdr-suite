@@ -1,5 +1,6 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryService.h"
@@ -41,7 +42,9 @@ struct Fixture
     SecurityIdentityProvisioningRepository provisioningRepository;
     CredentialVerifierRepository verifierRepository;
     AccountabilityEventRepository accountabilityRepository;
+    BackendAgentCommandRepository commandRepository;
     BackendAgentLifecycleService service;
+    BackendAgentCommandDeliveryService commandService;
 
     Fixture()
         : path("/tmp/vdr-suite-backend-agent-test.db"),
@@ -51,6 +54,7 @@ struct Fixture
           provisioningRepository(database),
           verifierRepository(database),
           accountabilityRepository(database),
+          commandRepository(database),
           service(
               database,
               agentRepository,
@@ -58,6 +62,10 @@ struct Fixture
               provisioningRepository,
               identityRepository,
               verifierRepository,
+              accountabilityRepository),
+          commandService(
+              commandRepository,
+              agentRepository,
               accountabilityRepository)
     {
         std::remove(path.c_str());
@@ -66,6 +74,7 @@ struct Fixture
         assert(verifierRepository.ensureSchema());
         assert(accountabilityRepository.ensureSchema());
         assert(agentRepository.ensureSchema());
+        assert(commandRepository.ensureSchema());
 
         BackendNode backend;
         backend.backendId = "default";
@@ -928,6 +937,7 @@ void test_http_protocol_and_redaction()
     BackendAgentHttpServer server(
         std::make_unique<FallbackServer>(),
         fixture.service,
+        fixture.commandService,
         fixture.agentRepository,
         fixture.verifierRepository,
         fixture.identityRepository);
