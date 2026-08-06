@@ -1,15 +1,16 @@
 #pragma once
 
 #include "BackendAgentNativeProbe.h"
-#include "ISuiteBridgeEpgArtworkTransport.h"
-#include "ISuiteBridgeEpgMetadataTransport.h"
-#include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
+#include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeEpgTypeSnapshotTransport.h"
+#include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <sstream>
 #include <string>
@@ -20,38 +21,47 @@ namespace vdrsuite::agent
 struct SuiteBridgeSvdrpTransportConfig
 {
     std::string host = "127.0.0.1";
-    std::uint16_t port = 6419;
+    int port = 6419;
     std::chrono::milliseconds connectTimeout{1000};
     std::chrono::milliseconds ioTimeout{1000};
-    std::chrono::milliseconds operationTimeout{2500};
+    std::chrono::milliseconds operationTimeout{3000};
 };
 
-class SuiteBridgeSvdrpTransport final
-    : public ISuiteBridgeLocalTransport,
-      public ISuiteBridgeEpgArtworkTransport,
-      public ISuiteBridgeEpgMetadataTransport,
-      public ISuiteBridgeEpgTypeSnapshotTransport,
-      public ISuiteBridgeRecordingMetadataTransport,
-      public IBackendAgentNativeProbeTransport
+class SuiteBridgeSvdrpTransport final :
+    public ISuiteBridgeLocalTransport,
+    public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeEpgTypeSnapshotTransport,
+    public ::ISuiteBridgeMetadataTransport,
+    public ::ISuiteBridgeRecordingMetadataTransport,
+    public IBackendAgentNativeProbeTransport
 {
 public:
+    static constexpr std::size_t MaximumGreetingBytes = 1024;
+    static constexpr std::size_t MaximumReplyBytes = 131072;
+    static constexpr std::size_t MaximumReplyLines = 64;
+
     explicit SuiteBridgeSvdrpTransport(
-        SuiteBridgeSvdrpTransportConfig config);
+        SuiteBridgeSvdrpTransportConfig config = {});
 
     SuiteBridgeCommandReply execute(
         SuiteBridgeLocalCommand command) override;
 
-    SuiteBridgeEpgArtworkReply fetchEpgArtwork(
-        const SuiteBridgeEpgArtworkRequest& request) override;
+    ::SuiteBridgeArtworkCommandReply requestArtwork(
+        const std::string& channelId,
+        const std::string& eventId) override;
 
-    SuiteBridgeEpgMetadataReply fetchEpgMetadata(
-        const SuiteBridgeEpgMetadataRequest& request) override;
+    ::SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        std::uint64_t offset,
+        std::size_t limit) override;
 
-    SuiteBridgeEpgTypeSnapshotReply fetchEpgTypeSnapshot(
-        const SuiteBridgeEpgTypeSnapshotRequest& request) override;
+    ::SuiteBridgeMetadataCommandReply requestMetadata(
+        const std::string& channelId,
+        const std::string& eventId) override;
 
-    SuiteBridgeRecordingMetadataReply fetchRecordingMetadata(
-        const SuiteBridgeRecordingMetadataRequest& request) override;
+    ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
+        const std::string& recordingKey) override;
 
     SuiteBridgeCommandReply discoverNativeProbe() override
     {
@@ -119,7 +129,7 @@ private:
     }
 
     SuiteBridgeCommandReply executeRequest(
-        const std::string& request);
+        const std::string& requestText);
 
     SuiteBridgeSvdrpTransportConfig config_;
 };
