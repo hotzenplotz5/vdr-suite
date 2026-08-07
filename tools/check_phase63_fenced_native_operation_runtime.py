@@ -459,6 +459,7 @@ if (
 for token in [
     "PHASE63_REUSE_CANDIDATES_FROM_EVIDENCE",
     "PY_REUSE_SCOPE",
+    'REUSE_SCOPE_RC="$?"',
     "reuse_candidate_build_inputs_changed",
     "sha256sum -c",
     "CANDIDATE_BUILD_REUSED=yes",
@@ -470,6 +471,42 @@ for token in [
             "acceptance deterministic epoch/reuse missing token: "
             + token
         )
+
+if "<<'PY_REUSE_SCOPE' ||" in acceptance:
+    errors.append(
+        "reuse scope heredoc must not attach shell failure "
+        "handling to the opening delimiter"
+    )
+
+reuse_scope_close = acceptance.find(
+    '\nPY_REUSE_SCOPE\n    REUSE_SCOPE_RC="$?"'
+)
+reuse_scope_failure = acceptance.find(
+    "reuse_candidate_build_inputs_changed",
+    reuse_scope_close,
+)
+reuse_scope_hash = acceptance.find(
+    'sha256sum -c "$REUSE_CANDIDATES_FROM/candidates.sha256"',
+    reuse_scope_failure,
+)
+
+if (
+    min(
+        reuse_scope_close,
+        reuse_scope_failure,
+        reuse_scope_hash,
+    )
+    < 0
+    or not (
+        reuse_scope_close
+        < reuse_scope_failure
+        < reuse_scope_hash
+    )
+):
+    errors.append(
+        "candidate reuse scope must fail closed before "
+        "candidate hash acceptance"
+    )
 
 for token in [
     "consume_drop_mode",

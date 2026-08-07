@@ -506,8 +506,7 @@ if [[ -n "$REUSE_CANDIDATES_FROM" ]]; then
     git merge-base --is-ancestor "$REUSE_HEAD" "$CURRENT_HEAD" ||
         fail reuse_candidate_head_not_ancestor
 
-    python3 - "$REUSE_HEAD" "$CURRENT_HEAD" <<'PY_REUSE_SCOPE' ||
-        fail reuse_candidate_build_inputs_changed
+    python3 - "$REUSE_HEAD" "$CURRENT_HEAD" <<'PY_REUSE_SCOPE'
 import subprocess
 import sys
 
@@ -541,6 +540,9 @@ if unexpected:
     )
     raise SystemExit(1)
 PY_REUSE_SCOPE
+    REUSE_SCOPE_RC="$?"
+    [[ "$REUSE_SCOPE_RC" -eq 0 ]] ||
+        fail reuse_candidate_build_inputs_changed
 
     sha256sum -c "$REUSE_CANDIDATES_FROM/candidates.sha256" ||
         fail reuse_candidate_hash_mismatch
