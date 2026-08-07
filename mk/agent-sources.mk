@@ -25,6 +25,7 @@ AGENT_CHANNEL_JSON_SRC := \
 	core/agent/src/BackendAgentChannelObservationJson.cpp
 
 AGENT_NATIVE_PROBE_SRC := \
+	core/agent/src/BackendAgentLocalProvider.cpp \
 	core/agent/src/BackendAgentNativeProbe.cpp
 
 AGENT_COMMAND_DOMAIN_SRC := \
