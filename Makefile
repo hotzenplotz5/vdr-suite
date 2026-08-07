@@ -32,6 +32,7 @@ include mk/phase62-idle-runtime-acceptance.mk
 include mk/phase62-retention-runtime-acceptance.mk
 include mk/phase63-runtime-acceptance.mk
 include mk/agent-tests.mk
+include mk/phase63-local-provider-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
