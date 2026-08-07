@@ -3,6 +3,7 @@
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeProbe.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -402,17 +403,30 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
 {
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandReceiptResult result;
-    std::string providerReason;
-    if(!localProviderSelectionCurrent(r.commandId,providerReason))
-    {result.reasonCode=providerReason;return result;}
     sqlite3_stmt* query=nullptr;
-    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,deadline,state FROM backend_agent_commands WHERE command_id=?;";
+    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,deadline,state,command_type,payload_version FROM backend_agent_commands WHERE command_id=?;";
     if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
     if (sqlite3_step(query)!=SQLITE_ROW) { sqlite3_finalize(query); result.reasonCode="command_not_found"; return result; }
     const bool match=text(query,0)==r.jobId&&text(query,1)==r.attemptId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,2))==r.claimEpoch&&
         text(query,3)==r.backendId&&text(query,4)==r.agentId&&text(query,5)==r.agentInstanceId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,6))==r.backendGeneration&&text(query,7)==r.requestFingerprint;
+    const std::string commandType=text(query,10);
+    const std::uint64_t payloadVersion=static_cast<std::uint64_t>(sqlite3_column_int64(query,11));
     sqlite3_finalize(query);
     if (!match) { result.reasonCode="command_receipt_fenced"; return result; }
+    if(commandType=="vdr.native.probe")
+    {
+        if(payloadVersion==2)
+        {
+            std::string providerReason;
+            if(!localProviderSelectionCurrent(r.commandId,providerReason))
+            {result.reasonCode=providerReason;return result;}
+        }
+        else if(payloadVersion!=1)
+        {
+            result.reasonCode="local_provider_selection_required";
+            return result;
+        }
+    }
     const std::string identity=backendAgentCommandReceiptIdentity(r);
     sqlite3_stmt* existing=nullptr;
     if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
@@ -434,17 +448,44 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
 
 BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const BackendAgentCommandResult& r)
 {
+    using namespace vdrsuite::agent;
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandResultAck result;
-    std::string providerReason;
-    if(!localProviderSelectionCurrent(r.commandId,providerReason))
-    {result.reasonCode=providerReason;return result;}
     sqlite3_stmt* query=nullptr;
-    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint FROM backend_agent_commands WHERE command_id=?;";
+    const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,command_type,payload_version,payload FROM backend_agent_commands WHERE command_id=?;";
     if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
     if (sqlite3_step(query)!=SQLITE_ROW) { sqlite3_finalize(query); result.reasonCode="command_not_found"; return result; }
     const bool match=text(query,0)==r.jobId&&text(query,1)==r.attemptId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,2))==r.claimEpoch&&text(query,3)==r.backendId&&text(query,4)==r.agentId&&text(query,5)==r.agentInstanceId&&static_cast<std::uint64_t>(sqlite3_column_int64(query,6))==r.backendGeneration&&text(query,7)==r.requestFingerprint;
-    sqlite3_finalize(query); if(!match){result.reasonCode="command_result_fenced";return result;}
+    const std::string commandType=text(query,8);
+    const std::uint64_t payloadVersion=static_cast<std::uint64_t>(sqlite3_column_int64(query,9));
+    const std::string payload=text(query,10);
+    sqlite3_finalize(query);
+    if(!match){result.reasonCode="command_result_fenced";return result;}
+    if(commandType=="vdr.native.probe")
+    {
+        if(payloadVersion==2)
+        {
+            BackendAgentNativeProbePayload selectedPayload;
+            std::string payloadReason;
+            if(!backendAgentNativeProbeParseSelectedPayload(payload,selectedPayload,payloadReason))
+            {result.reasonCode="local_provider_selection_invalid";return result;}
+            const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
+                selectedPayload.localProviderSelection);
+            sqlite3_stmt* selected=nullptr;
+            if(sqlite3_prepare_v2(database_.handle(),"SELECT selection_identity FROM backend_agent_command_provider_selections WHERE command_id=?;",-1,&selected,nullptr)!=SQLITE_OK||!bindText(selected,1,r.commandId))
+            {if(selected)sqlite3_finalize(selected);result.reasonCode="command_database_unavailable";return result;}
+            const bool recorded=sqlite3_step(selected)==SQLITE_ROW&&
+                text(selected,0)==expectedIdentity;
+            sqlite3_finalize(selected);
+            if(!recorded)
+            {result.reasonCode="local_provider_selection_required";return result;}
+        }
+        else if(payloadVersion!=1)
+        {
+            result.reasonCode="local_provider_selection_required";
+            return result;
+        }
+    }
     sqlite3_stmt* receipt=nullptr;
     if(sqlite3_prepare_v2(database_.handle(),"SELECT 1 FROM backend_agent_command_receipts WHERE command_id=?;",-1,&receipt,nullptr)!=SQLITE_OK||!bindText(receipt,1,r.commandId)){if(receipt)sqlite3_finalize(receipt);result.reasonCode="command_database_unavailable";return result;}
     const bool hasReceipt=sqlite3_step(receipt)==SQLITE_ROW; sqlite3_finalize(receipt); if(!hasReceipt){result.reasonCode="command_receipt_required";return result;}
