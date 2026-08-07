@@ -49,9 +49,9 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
         return value.payloadVersion == 1 && value.payload == "{}" &&
             value.verificationPolicy == "none";
     }
-    if (value.commandType == "vdr.native.probe")
+    if (value.commandType == "vdr.native.probe" &&
+        value.verificationPolicy == "readback_required")
     {
-        if (value.verificationPolicy != "readback_required") return false;
         if (value.payloadVersion == 1)
         {
             std::string probeNonce;
