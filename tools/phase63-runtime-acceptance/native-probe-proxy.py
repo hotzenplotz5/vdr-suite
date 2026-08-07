@@ -51,17 +51,27 @@ def append_log(path: Path, event: str, request: bytes, response: bytes) -> None:
         output.flush()
 
 
-def consume_drop_budget(path: Path) -> bool:
+def consume_drop_mode(path: Path) -> str:
     try:
-        value = int(path.read_text(encoding="ascii").strip() or "0")
-    except (FileNotFoundError, ValueError):
-        value = 0
+        raw = path.read_text(encoding="ascii").strip()
+    except FileNotFoundError:
+        return ""
+
+    if raw == "hold":
+        return "hold"
+
+    try:
+        value = int(raw or "0")
+    except ValueError:
+        return ""
+
     if value <= 0:
-        return False
+        return ""
+
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_text(f"{value - 1}\n", encoding="ascii")
     temporary.replace(path)
-    return True
+    return "drop"
 
 
 def serve_client(
@@ -69,6 +79,7 @@ def serve_client(
     upstream_host: str,
     upstream_port: int,
     drop_file: Path,
+    stop_file: Path,
     log_file: Path,
 ) -> None:
     try:
@@ -84,9 +95,31 @@ def serve_client(
             request = read_line(client_stream)
             upstream.sendall(request)
             response = read_reply(upstream_stream)
-            is_execute = b" PLUG suitebridge NPROBE EXEC " in b" " + request
-            if is_execute and consume_drop_budget(drop_file):
+            is_execute = (
+                b" PLUG suitebridge NPROBE EXEC "
+                in b" " + request
+            )
+            drop_mode = (
+                consume_drop_mode(drop_file)
+                if is_execute
+                else ""
+            )
+            if drop_mode:
                 append_log(log_file, "drop", request, response)
+                if drop_mode == "hold":
+                    while (
+                        not STOP.is_set()
+                        and not stop_file.exists()
+                    ):
+                        try:
+                            state = drop_file.read_text(
+                                encoding="ascii"
+                            ).strip()
+                        except FileNotFoundError:
+                            state = ""
+                        if state != "hold":
+                            break
+                        STOP.wait(0.05)
                 return
             append_log(log_file, "relay", request, response)
             client.sendall(response)
@@ -139,6 +172,7 @@ def main() -> int:
                 args.upstream_host,
                 args.upstream_port,
                 args.drop_file,
+                args.stop_file,
                 args.log_file,
             )
     return 0

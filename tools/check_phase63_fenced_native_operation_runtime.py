@@ -75,6 +75,9 @@ plugin_runtime = text("vdr-plugin-suite-bridge/suitebridge_native_probe.cpp")
 plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 packaged_config = text("packaging/systemd/backend-agent.conf")
 acceptance = text("tools/run_phase63_fenced_native_operation_acceptance.sh")
+acceptance_proxy = text(
+    "tools/phase63-runtime-acceptance/native-probe-proxy.py"
+)
 
 required_tokens = {
     "agent protocol": (
@@ -451,6 +454,88 @@ if (
     errors.append(
         "epoch acceptance must pause, restart VDR, resume and verify "
         "the unchanged Agent context before evaluating the fence"
+    )
+
+for token in [
+    "PHASE63_REUSE_CANDIDATES_FROM_EVIDENCE",
+    "PY_REUSE_SCOPE",
+    "reuse_candidate_build_inputs_changed",
+    "sha256sum -c",
+    "CANDIDATE_BUILD_REUSED=yes",
+    "epoch_drop_hold_arm_failed",
+    "epoch_drop_release_failed",
+]:
+    if token not in acceptance:
+        errors.append(
+            "acceptance deterministic epoch/reuse missing token: "
+            + token
+        )
+
+for token in [
+    "consume_drop_mode",
+    'raw == "hold"',
+    'drop_mode == "hold"',
+    "stop_file.exists()",
+    "STOP.wait(0.05)",
+]:
+    if token not in acceptance_proxy:
+        errors.append(
+            "acceptance proxy hold missing token: "
+            + token
+        )
+
+hold_arm = acceptance.rfind(
+    'printf \'hold\\n\' >"$PROXY_DROP"',
+    0,
+    epoch_start,
+)
+
+hold_drop = acceptance.find(
+    'wait_proxy_drop "$EPOCH_ID" 90',
+    epoch_start,
+    epoch_end,
+)
+
+hold_pause = acceptance.find(
+    "--signal=SIGSTOP",
+    hold_drop,
+    epoch_end,
+)
+
+hold_release = acceptance.find(
+    'printf \'0\\n\' >"$PROXY_DROP"',
+    hold_pause,
+    epoch_end,
+)
+
+hold_vdr_restart = acceptance.find(
+    'systemctl restart "$VDR_SERVICE"',
+    hold_release,
+    epoch_end,
+)
+
+if (
+    min(
+        hold_arm,
+        epoch_start,
+        hold_drop,
+        hold_pause,
+        hold_release,
+        hold_vdr_restart,
+    )
+    < 0
+    or not (
+        hold_arm
+        < epoch_start
+        < hold_drop
+        < hold_pause
+        < hold_release
+        < hold_vdr_restart
+    )
+):
+    errors.append(
+        "epoch response loss must remain held until "
+        "the Agent is paused before VDR restart"
     )
 
 if "sqlite3" in acceptance:

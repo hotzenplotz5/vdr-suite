@@ -392,7 +392,7 @@ wait_proxy_drop() {
         if printf '%s\n' "$summary" | python3 -c 'import json,sys; values=json.load(sys.stdin); raise SystemExit(0 if any(item[0]=="drop" for item in values) else 1)'; then
             return 0
         fi
-        sleep 1
+        sleep 0.1
     done
     return 1
 }
@@ -478,11 +478,6 @@ if [[ -f "$DROPIN_PATH" ]]; then
     cp -a "$DROPIN_PATH" "$BACKUP_DIR/agent-dropin.conf" || fail dropin_backup_failed
 fi
 
-make clean || fail candidate_clean_failed
-make daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin || fail candidate_binary_build_failed
-make -C vdr-plugin-suite-bridge clean all || fail candidate_plugin_build_failed
-[[ -z "$(git status --porcelain)" ]] || fail build_changed_worktree
-
 CANDIDATES=(
     ".build/vdr-suite-daemon:$DAEMON_BINARY"
     ".build/vdr-suite-backend-agent:$AGENT_BINARY"
@@ -491,6 +486,79 @@ CANDIDATES=(
     ".build/vdr-suite-backend-agent-command-admin:$COMMAND_ADMIN_BINARY"
     "$PLUGIN_CANDIDATE:$PLUGIN_INSTALLED"
 )
+
+REUSE_CANDIDATES_FROM="${PHASE63_REUSE_CANDIDATES_FROM_EVIDENCE:-}"
+
+if [[ -n "$REUSE_CANDIDATES_FROM" ]]; then
+    [[ -d "$REUSE_CANDIDATES_FROM" ]] ||
+        fail reuse_candidate_evidence_missing
+    [[ -f "$REUSE_CANDIDATES_FROM/HEAD" ]] ||
+        fail reuse_candidate_head_missing
+    [[ -f "$REUSE_CANDIDATES_FROM/candidates.sha256" ]] ||
+        fail reuse_candidate_hashes_missing
+
+    REUSE_HEAD="$(cat "$REUSE_CANDIDATES_FROM/HEAD")" ||
+        fail reuse_candidate_head_read_failed
+
+    [[ "$REUSE_HEAD" =~ ^[0-9a-f]{40}$ ]] ||
+        fail invalid_reuse_candidate_head
+
+    git merge-base --is-ancestor "$REUSE_HEAD" "$CURRENT_HEAD" ||
+        fail reuse_candidate_head_not_ancestor
+
+    python3 - "$REUSE_HEAD" "$CURRENT_HEAD" <<'PY_REUSE_SCOPE' ||
+        fail reuse_candidate_build_inputs_changed
+import subprocess
+import sys
+
+old_head, current_head = sys.argv[1:3]
+
+allowed = {
+    "tools/run_phase63_fenced_native_operation_acceptance.sh",
+    "tools/check_phase63_fenced_native_operation_runtime.py",
+    "tools/phase63-runtime-acceptance/native-probe-proxy.py",
+}
+
+changed = set(
+    subprocess.check_output(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            f"{old_head}..{current_head}",
+        ],
+        text=True,
+    ).splitlines()
+)
+
+unexpected = sorted(changed - allowed)
+
+if unexpected:
+    print(
+        "unexpected reuse build inputs: "
+        + ",".join(unexpected),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+PY_REUSE_SCOPE
+
+    sha256sum -c "$REUSE_CANDIDATES_FROM/candidates.sha256" ||
+        fail reuse_candidate_hash_mismatch
+
+    {
+        printf 'REUSED_FROM_HEAD=%s\n' "$REUSE_HEAD"
+        printf 'REUSED_FROM_EVIDENCE=%s\n'             "$REUSE_CANDIDATES_FROM"
+    } >"$EVIDENCE_DIR/reused-candidates.txt" ||
+        fail reuse_candidate_evidence_write_failed
+
+    printf '%s\n' 'CANDIDATE_BUILD_REUSED=yes'
+else
+    make clean || fail candidate_clean_failed
+    make daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin || fail candidate_binary_build_failed
+    make -C vdr-plugin-suite-bridge clean all || fail candidate_plugin_build_failed
+fi
+
+[[ -z "$(git status --porcelain)" ]] || fail build_changed_worktree
 for pair in "${CANDIDATES[@]}"; do
     candidate="${pair%%:*}"
     installed="${pair#*:}"
@@ -604,7 +672,7 @@ values=json.load(sys.stdin)
 raise SystemExit(0 if len(values)==2 and values[0][0]=="drop" and values[0][1]=="accepted" and values[1][0]=="relay" and values[1][1]=="duplicate" and values[0][2]==values[1][2] else 1)
 ' || fail lost_response_not_exact_replay
 
-printf '1\n' >"$PROXY_DROP" || fail epoch_drop_arm_failed
+printf 'hold\n' >"$PROXY_DROP" || fail epoch_drop_hold_arm_failed
 EPOCH_ASSIGNMENT="$(enqueue_native_probe 60 "$EVIDENCE_DIR/epoch.enqueue.last-output")" || fail epoch_native_probe_enqueue_failed
 printf '%s\n' "$EPOCH_ASSIGNMENT" >"$EVIDENCE_DIR/epoch.assignment.json" || fail epoch_assignment_write_failed
 EPOCH_ID="$(printf '%s\n' "$EPOCH_ASSIGNMENT" | json_field commandId)" || fail epoch_command_id_failed
@@ -626,6 +694,8 @@ systemctl kill \
     --signal=SIGSTOP \
     "$AGENT_SERVICE" || fail agent_pause_for_epoch_failed
 AGENT_PAUSED=1
+
+printf '0\n' >"$PROXY_DROP" || fail epoch_drop_release_failed
 
 sleep 1
 [[ "$(systemctl is-active "$AGENT_SERVICE" 2>/dev/null || true)" == active ]] \
