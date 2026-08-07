@@ -33,6 +33,35 @@ bool done(sqlite3_stmt* statement)
     sqlite3_finalize(statement);
     return result==SQLITE_DONE;
 }
+std::string identifiers(const std::vector<std::string>& values)
+{
+    std::ostringstream output;
+    for (std::size_t index=0; index<values.size(); ++index)
+    {
+        if (index!=0) output << ',';
+        output << values[index];
+    }
+    return output.str();
+}
+bool parseIdentifiers(const std::string& encoded,std::vector<std::string>& values)
+{
+    values.clear();
+    if(encoded.empty())return false;
+    std::size_t offset=0;
+    while(offset<=encoded.size())
+    {
+        const std::size_t separator=encoded.find(',',offset);
+        const std::string value=separator==std::string::npos
+            ? encoded.substr(offset):encoded.substr(offset,separator-offset);
+        if(!backendAgentCommandSafeIdentifier(value)||
+            std::find(values.begin(),values.end(),value)!=values.end())return false;
+        values.push_back(value);
+        if(values.size()>64)return false;
+        if(separator==std::string::npos)break;
+        offset=separator+1;
+    }
+    return !values.empty();
+}
 BackendAgentCommandAssignment readAssignment(sqlite3_stmt* s)
 {
     BackendAgentCommandAssignment a;
@@ -68,6 +97,23 @@ bool BackendAgentCommandRepository::ensureSchema()
         "backend_id TEXT NOT NULL,agent_id TEXT NOT NULL,agent_instance_id TEXT NOT NULL,backend_generation INTEGER NOT NULL,"
         "command_type TEXT NOT NULL,published_at INTEGER NOT NULL,PRIMARY KEY(backend_id,command_type));") &&
         database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_local_provider_facts ("
+        "backend_id TEXT NOT NULL,agent_id TEXT NOT NULL,agent_instance_id TEXT NOT NULL,backend_generation INTEGER NOT NULL,"
+        "provider_id TEXT NOT NULL,provider_kind TEXT NOT NULL,provider_instance_epoch TEXT NOT NULL,provider_generation INTEGER NOT NULL,"
+        "capability_revision INTEGER NOT NULL,available INTEGER NOT NULL,capabilities TEXT NOT NULL,observed_at INTEGER NOT NULL,"
+        "PRIMARY KEY(backend_id,provider_id));") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_local_provider_ownership ("
+        "backend_id TEXT NOT NULL,authority_domain TEXT NOT NULL,provider_id TEXT NOT NULL,provider_kind TEXT NOT NULL,"
+        "ownership_generation INTEGER NOT NULL,allowed_capabilities TEXT NOT NULL,active INTEGER NOT NULL,updated_at INTEGER NOT NULL,"
+        "PRIMARY KEY(backend_id,authority_domain));") &&
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS backend_agent_command_provider_selections ("
+        "command_id TEXT PRIMARY KEY,selection_identity TEXT NOT NULL,backend_id TEXT NOT NULL,authority_domain TEXT NOT NULL,"
+        "provider_id TEXT NOT NULL,provider_kind TEXT NOT NULL,ownership_generation INTEGER NOT NULL,provider_instance_epoch TEXT NOT NULL,"
+        "provider_generation INTEGER NOT NULL,capability_revision INTEGER NOT NULL,required_capability TEXT NOT NULL,"
+        "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
+        database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_receipts ("
         "command_id TEXT PRIMARY KEY,receipt_identity TEXT NOT NULL,receipt_category TEXT NOT NULL,reason_code TEXT NOT NULL,received_at INTEGER NOT NULL,"
         "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
@@ -81,19 +127,40 @@ bool BackendAgentCommandRepository::ensureSchema()
         "backend_id TEXT PRIMARY KEY,drop_next_receipt INTEGER NOT NULL DEFAULT 0,drop_next_result INTEGER NOT NULL DEFAULT 0); ");
 }
 
-bool BackendAgentCommandRepository::insertAssignment(const BackendAgentCommandAssignment& a)
+bool BackendAgentCommandRepository::insertAssignment(
+    const BackendAgentCommandAssignment& a,
+    const vdrsuite::agent::BackendAgentLocalProviderSelection* selection)
 {
-    if (!backendAgentCommandValidAssignment(a)) return false;
+    using namespace vdrsuite::agent;
+    if (!backendAgentCommandValidAssignment(a) ||
+        (selection != nullptr &&
+         (!backendAgentLocalProviderValidSelection(*selection) ||
+          selection->backendId != a.backendId ||
+          selection->requiredCapability != a.commandType))) return false;
+    auto transactionLease=database_.acquireTransactionLease();
+    if(!database_.execute("BEGIN IMMEDIATE;"))return false;
     sqlite3_stmt* s=nullptr;
     const std::string sql=std::string("INSERT INTO backend_agent_commands (")+AssignmentColumns+",updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
-    if (sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&s,nullptr)!=SQLITE_OK) return false;
-    bool ok=bindText(s,1,a.protocolVersion)&&bindText(s,2,a.requestId)&&bindText(s,3,a.correlationId)&&bindText(s,4,a.operationId)&&
+    bool ok=sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&s,nullptr)==SQLITE_OK&&
+        bindText(s,1,a.protocolVersion)&&bindText(s,2,a.requestId)&&bindText(s,3,a.correlationId)&&bindText(s,4,a.operationId)&&
         bindText(s,5,a.jobId)&&bindText(s,6,a.attemptId)&&bindInt(s,7,static_cast<std::int64_t>(a.claimEpoch))&&bindText(s,8,a.commandId)&&
         bindText(s,9,a.backendId)&&bindText(s,10,a.agentId)&&bindText(s,11,a.agentInstanceId)&&bindInt(s,12,static_cast<std::int64_t>(a.backendGeneration))&&
         bindText(s,13,a.commandType)&&bindInt(s,14,static_cast<std::int64_t>(a.payloadVersion))&&bindText(s,15,a.payload)&&bindText(s,16,a.requestFingerprint)&&
-        bindText(s,17,a.verificationPolicy)&&bindInt(s,18,a.assignedAt)&&bindInt(s,19,a.deadline)&&bindInt(s,20,a.assignedAt);
-    if (!ok) { sqlite3_finalize(s); return false; }
-    return done(s);
+        bindText(s,17,a.verificationPolicy)&&bindInt(s,18,a.assignedAt)&&bindInt(s,19,a.deadline)&&bindInt(s,20,a.assignedAt)&&done(s);
+    if(ok&&selection!=nullptr)
+    {
+        const std::string identity=backendAgentLocalProviderSelectionIdentity(*selection);
+        sqlite3_stmt* selected=nullptr;
+        const char* selectedSql="INSERT INTO backend_agent_command_provider_selections(command_id,selection_identity,backend_id,authority_domain,provider_id,provider_kind,ownership_generation,provider_instance_epoch,provider_generation,capability_revision,required_capability) VALUES(?,?,?,?,?,?,?,?,?,?,?);";
+        ok=!identity.empty()&&sqlite3_prepare_v2(database_.handle(),selectedSql,-1,&selected,nullptr)==SQLITE_OK&&
+            bindText(selected,1,a.commandId)&&bindText(selected,2,identity)&&bindText(selected,3,selection->backendId)&&
+            bindText(selected,4,selection->authorityDomain)&&bindText(selected,5,selection->providerId)&&bindText(selected,6,selection->providerKind)&&
+            bindInt(selected,7,static_cast<std::int64_t>(selection->ownershipGeneration))&&bindText(selected,8,selection->providerInstanceEpoch)&&
+            bindInt(selected,9,static_cast<std::int64_t>(selection->providerGeneration))&&bindInt(selected,10,static_cast<std::int64_t>(selection->capabilityRevision))&&
+            bindText(selected,11,selection->requiredCapability)&&done(selected);
+    }
+    if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;}
+    return true;
 }
 
 bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,const std::string& agentId,const std::string& agentInstanceId,std::uint64_t backendGeneration,const std::string& commandType) const
@@ -109,6 +176,162 @@ bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,c
     return present;
 }
 
+BackendAgentLocalProviderOwnershipStatus BackendAgentCommandRepository::localProviderOwnershipStatus(
+    const std::string& backendId,const std::string& authorityDomain) const
+{
+    BackendAgentLocalProviderOwnershipStatus status;
+    sqlite3_stmt* s=nullptr;
+    const char* sql="SELECT provider_id,provider_kind,ownership_generation,allowed_capabilities,active FROM backend_agent_local_provider_ownership WHERE backend_id=? AND authority_domain=?;";
+    if(sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)!=SQLITE_OK||
+       !bindText(s,1,backendId)||!bindText(s,2,authorityDomain))
+    {if(s)sqlite3_finalize(s);return status;}
+    if(sqlite3_step(s)==SQLITE_ROW)
+    {
+        status.present=true;
+        status.active=sqlite3_column_int(s,4)!=0;
+        auto& ownership=status.ownership;
+        ownership.backendId=backendId;
+        ownership.authorityDomain=authorityDomain;
+        ownership.providerId=text(s,0);
+        ownership.providerKind=text(s,1);
+        ownership.ownershipGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,2));
+        if(!parseIdentifiers(text(s,3),ownership.allowedCapabilities)||
+           !vdrsuite::agent::backendAgentLocalProviderValidOwnership(ownership))status={};
+    }
+    sqlite3_finalize(s);
+    return status;
+}
+
+bool BackendAgentCommandRepository::setLocalProviderOwnership(
+    const std::string& backendId,const std::string& authorityDomain,
+    const std::string& providerId,const std::string& providerKind,
+    const std::vector<std::string>& allowedCapabilities,std::int64_t updatedAt,
+    vdrsuite::agent::BackendAgentLocalProviderOwnership& ownership,std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    BackendAgentLocalProviderOwnership candidate;
+    candidate.backendId=backendId;candidate.authorityDomain=authorityDomain;
+    candidate.providerId=providerId;candidate.providerKind=providerKind;
+    candidate.ownershipGeneration=1;candidate.allowedCapabilities=allowedCapabilities;
+    if(updatedAt<=0||!backendAgentLocalProviderValidOwnership(candidate))
+    {reason="invalid_local_provider_ownership";return false;}
+    auto transactionLease=database_.acquireTransactionLease();
+    const auto current=localProviderOwnershipStatus(backendId,authorityDomain);
+    if(current.present&&current.active&&current.ownership.providerId==providerId&&
+       current.ownership.providerKind==providerKind&&
+       current.ownership.allowedCapabilities==allowedCapabilities)
+    {ownership=current.ownership;reason="local_provider_ownership_unchanged";return true;}
+    const std::uint64_t maximum=static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    if(current.present&&current.ownership.ownershipGeneration>=maximum)
+    {reason="local_provider_ownership_generation_exhausted";return false;}
+    candidate.ownershipGeneration=current.present?current.ownership.ownershipGeneration+1:1;
+    sqlite3_stmt* s=nullptr;
+    const char* sql="INSERT INTO backend_agent_local_provider_ownership(backend_id,authority_domain,provider_id,provider_kind,ownership_generation,allowed_capabilities,active,updated_at) VALUES(?,?,?,?,?,?,1,?) ON CONFLICT(backend_id,authority_domain) DO UPDATE SET provider_id=excluded.provider_id,provider_kind=excluded.provider_kind,ownership_generation=excluded.ownership_generation,allowed_capabilities=excluded.allowed_capabilities,active=1,updated_at=excluded.updated_at;";
+    const bool ok=sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)==SQLITE_OK&&
+        bindText(s,1,backendId)&&bindText(s,2,authorityDomain)&&bindText(s,3,providerId)&&bindText(s,4,providerKind)&&
+        bindInt(s,5,static_cast<std::int64_t>(candidate.ownershipGeneration))&&bindText(s,6,identifiers(allowedCapabilities))&&bindInt(s,7,updatedAt)&&done(s);
+    if(!ok){reason="local_provider_ownership_persist_failed";return false;}
+    ownership=candidate;reason="local_provider_ownership_set";return true;
+}
+
+bool BackendAgentCommandRepository::clearLocalProviderOwnership(
+    const std::string& backendId,const std::string& authorityDomain,
+    std::int64_t updatedAt,std::string& reason)
+{
+    if(updatedAt<=0||!backendAgentCommandSafeIdentifier(backendId)||
+       !backendAgentCommandSafeIdentifier(authorityDomain))
+    {reason="invalid_local_provider_ownership_clear";return false;}
+    auto transactionLease=database_.acquireTransactionLease();
+    const auto current=localProviderOwnershipStatus(backendId,authorityDomain);
+    if(!current.present||!current.active)
+    {reason="local_provider_ownership_absent";return true;}
+    if(current.ownership.ownershipGeneration>=static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+    {reason="local_provider_ownership_generation_exhausted";return false;}
+    sqlite3_stmt* s=nullptr;
+    const char* sql="UPDATE backend_agent_local_provider_ownership SET active=0,ownership_generation=?,updated_at=? WHERE backend_id=? AND authority_domain=? AND active=1;";
+    const bool ok=sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)==SQLITE_OK&&
+        bindInt(s,1,static_cast<std::int64_t>(current.ownership.ownershipGeneration+1))&&
+        bindInt(s,2,updatedAt)&&bindText(s,3,backendId)&&bindText(s,4,authorityDomain)&&done(s)&&
+        sqlite3_changes(database_.handle())==1;
+    reason=ok?"local_provider_ownership_cleared":"local_provider_ownership_clear_failed";
+    return ok;
+}
+
+std::optional<vdrsuite::agent::BackendAgentLocalProviderSelection>
+BackendAgentCommandRepository::selectLocalProvider(
+    const std::string& backendId,const std::string& agentId,
+    const std::string& agentInstanceId,std::uint64_t backendGeneration,
+    const std::string& authorityDomain,const std::string& requiredCapability,
+    std::string& reason) const
+{
+    using namespace vdrsuite::agent;
+    const auto status=localProviderOwnershipStatus(backendId,authorityDomain);
+    if(!status.present||!status.active)
+    {reason="local_provider_ownership_required";return std::nullopt;}
+    sqlite3_stmt* s=nullptr;
+    const char* sql="SELECT provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities FROM backend_agent_local_provider_facts WHERE backend_id=? AND agent_id=? AND agent_instance_id=? AND backend_generation=? AND provider_id=?;";
+    const auto& ownership=status.ownership;
+    if(sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)!=SQLITE_OK||
+       !bindText(s,1,backendId)||!bindText(s,2,agentId)||!bindText(s,3,agentInstanceId)||
+       !bindInt(s,4,static_cast<std::int64_t>(backendGeneration))||!bindText(s,5,ownership.providerId))
+    {if(s)sqlite3_finalize(s);reason="local_provider_facts_unavailable";return std::nullopt;}
+    if(sqlite3_step(s)!=SQLITE_ROW)
+    {sqlite3_finalize(s);reason="local_provider_facts_required";return std::nullopt;}
+    BackendAgentLocalProviderFacts facts;
+    facts.providerId=ownership.providerId;facts.providerKind=text(s,0);
+    facts.providerInstanceEpoch=text(s,1);
+    facts.providerGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,2));
+    facts.capabilityRevision=static_cast<std::uint64_t>(sqlite3_column_int64(s,3));
+    facts.available=sqlite3_column_int(s,4)!=0;
+    const bool parsed=parseIdentifiers(text(s,5),facts.capabilities);
+    sqlite3_finalize(s);
+    if(!parsed||!backendAgentLocalProviderValidFacts(facts))
+    {reason="local_provider_facts_invalid";return std::nullopt;}
+    const auto selection=backendAgentLocalProviderSelect(
+        ownership,facts,requiredCapability,reason);
+    return backendAgentLocalProviderValidSelection(selection)
+        ?std::optional<BackendAgentLocalProviderSelection>(selection):std::nullopt;
+}
+
+bool BackendAgentCommandRepository::localProviderSelectionCurrent(
+    const std::string& commandId,std::string& reason) const
+{
+    using namespace vdrsuite::agent;
+    sqlite3_stmt* s=nullptr;
+    const char* sql="SELECT c.command_type,c.agent_id,c.agent_instance_id,c.backend_generation,s.backend_id,s.authority_domain,s.provider_id,s.provider_kind,s.ownership_generation,s.provider_instance_epoch,s.provider_generation,s.capability_revision,s.required_capability,s.selection_identity FROM backend_agent_commands c LEFT JOIN backend_agent_command_provider_selections s ON s.command_id=c.command_id WHERE c.command_id=?;";
+    if(sqlite3_prepare_v2(database_.handle(),sql,-1,&s,nullptr)!=SQLITE_OK||!bindText(s,1,commandId))
+    {if(s)sqlite3_finalize(s);reason="local_provider_selection_lookup_failed";return false;}
+    if(sqlite3_step(s)!=SQLITE_ROW)
+    {sqlite3_finalize(s);reason="command_not_found";return false;}
+    const std::string commandType=text(s,0);
+    if(commandType!="vdr.native.probe")
+    {sqlite3_finalize(s);reason="local_provider_selection_not_required";return true;}
+    if(sqlite3_column_type(s,4)==SQLITE_NULL)
+    {sqlite3_finalize(s);reason="local_provider_selection_required";return false;}
+    const std::string agentId=text(s,1),instance=text(s,2);
+    const std::uint64_t backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,3));
+    BackendAgentLocalProviderSelection selection;
+    selection.backendId=text(s,4);selection.authorityDomain=text(s,5);
+    selection.providerId=text(s,6);selection.providerKind=text(s,7);
+    selection.ownershipGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));
+    selection.providerInstanceEpoch=text(s,9);
+    selection.providerGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,10));
+    selection.capabilityRevision=static_cast<std::uint64_t>(sqlite3_column_int64(s,11));
+    selection.requiredCapability=text(s,12);
+    const std::string identity=text(s,13);
+    sqlite3_finalize(s);
+    if(!backendAgentLocalProviderValidSelection(selection)||
+       identity!=backendAgentLocalProviderSelectionIdentity(selection))
+    {reason="local_provider_selection_invalid";return false;}
+    const auto current=selectLocalProvider(
+        selection.backendId,agentId,instance,backendGeneration,
+        selection.authorityDomain,selection.requiredCapability,reason);
+    if(!current.has_value())return false;
+    if(!backendAgentLocalProviderSameFence(selection,*current))
+    {reason="local_provider_selection_stale";return false;}
+    reason="local_provider_selection_current";return true;
+}
+
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
     auto transactionLease = database_.acquireTransactionLease();
@@ -118,12 +341,31 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
     bool ok=sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
         bindText(clear,1,request.backendId)&&done(clear);
+    sqlite3_stmt* clearProviders=nullptr;
+    const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
+    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearProvidersSql,-1,&clearProviders,nullptr)==SQLITE_OK&&
+        bindText(clearProviders,1,request.backendId)&&done(clearProviders);
     for (const std::string& type:request.supportedCommandTypes)
     {
         sqlite3_stmt* cap=nullptr;
         const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
         if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
-  !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
+            !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
+    }
+    for(const auto& facts:request.localProviders)
+    {
+        if(!ok)break;
+        if(!vdrsuite::agent::backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
+        sqlite3_stmt* provider=nullptr;
+        const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
+        if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
+           !bindText(provider,1,request.backendId)||!bindText(provider,2,agentId)||!bindText(provider,3,request.agentInstanceId)||
+           !bindInt(provider,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(provider,5,facts.providerId)||
+           !bindText(provider,6,facts.providerKind)||!bindText(provider,7,facts.providerInstanceEpoch)||
+           !bindInt(provider,8,static_cast<std::int64_t>(facts.providerGeneration))||
+           !bindInt(provider,9,static_cast<std::int64_t>(facts.capabilityRevision))||
+           !bindInt(provider,10,facts.available?1:0)||!bindText(provider,11,identifiers(facts.capabilities))||
+           !bindInt(provider,12,now)||!done(provider)){ok=false;break;}
     }
     if (ok)
     {
@@ -134,12 +376,12 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     if (ok)
     {
         sqlite3_stmt* select=nullptr;
-        const std::string sql=std::string("SELECT ")+AssignmentColumns+" FROM backend_agent_commands c WHERE c.backend_id=? AND c.agent_id=? AND c.agent_instance_id=? AND c.backend_generation=? AND c.deadline>=? AND ((c.state='assigned' AND NOT EXISTS(SELECT 1 FROM backend_agent_command_receipts r WHERE r.command_id=c.command_id)) OR c.replay_requested=1) AND EXISTS(SELECT 1 FROM backend_agent_command_capabilities x WHERE x.backend_id=c.backend_id AND x.agent_id=c.agent_id AND x.agent_instance_id=c.agent_instance_id AND x.backend_generation=c.backend_generation AND x.command_type=c.command_type) ORDER BY c.assigned_at LIMIT 1;";
+        const std::string sql=std::string("SELECT ")+AssignmentColumns+" FROM backend_agent_commands c WHERE c.backend_id=? AND c.agent_id=? AND c.agent_instance_id=? AND c.backend_generation=? AND c.deadline>=? AND ((c.state='assigned' AND NOT EXISTS(SELECT 1 FROM backend_agent_command_receipts r WHERE r.command_id=c.command_id)) OR c.replay_requested=1) AND EXISTS(SELECT 1 FROM backend_agent_command_capabilities x WHERE x.backend_id=c.backend_id AND x.agent_id=c.agent_id AND x.agent_instance_id=c.agent_instance_id AND x.backend_generation=c.backend_generation AND x.command_type=c.command_type) AND (c.command_type!='vdr.native.probe' OR EXISTS(SELECT 1 FROM backend_agent_command_provider_selections s JOIN backend_agent_local_provider_ownership o ON o.backend_id=s.backend_id AND o.authority_domain=s.authority_domain JOIN backend_agent_local_provider_facts f ON f.backend_id=s.backend_id AND f.provider_id=s.provider_id WHERE s.command_id=c.command_id AND o.active=1 AND o.provider_id=s.provider_id AND o.provider_kind=s.provider_kind AND o.ownership_generation=s.ownership_generation AND f.agent_id=c.agent_id AND f.agent_instance_id=c.agent_instance_id AND f.backend_generation=c.backend_generation AND f.provider_kind=s.provider_kind AND f.provider_instance_epoch=s.provider_instance_epoch AND f.provider_generation=s.provider_generation AND f.capability_revision=s.capability_revision AND f.available=1)) ORDER BY c.assigned_at LIMIT 1;";
         if (sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&select,nullptr)!=SQLITE_OK||!bindText(select,1,request.backendId)||!bindText(select,2,agentId)||!bindText(select,3,request.agentInstanceId)||!bindInt(select,4,static_cast<std::int64_t>(request.backendGeneration))||!bindInt(select,5,now)) ok=false;
         else
         {
-  if (sqlite3_step(select)==SQLITE_ROW) result.assignment=readAssignment(select);
-  sqlite3_finalize(select);
+            if (sqlite3_step(select)==SQLITE_ROW) result.assignment=readAssignment(select);
+            sqlite3_finalize(select);
         }
     }
     if (ok && result.assignment.present)
@@ -160,6 +402,9 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
 {
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandReceiptResult result;
+    std::string providerReason;
+    if(!localProviderSelectionCurrent(r.commandId,providerReason))
+    {result.reasonCode=providerReason;return result;}
     sqlite3_stmt* query=nullptr;
     const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,deadline,state FROM backend_agent_commands WHERE command_id=?;";
     if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
@@ -191,6 +436,9 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
 {
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandResultAck result;
+    std::string providerReason;
+    if(!localProviderSelectionCurrent(r.commandId,providerReason))
+    {result.reasonCode=providerReason;return result;}
     sqlite3_stmt* query=nullptr;
     const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint FROM backend_agent_commands WHERE command_id=?;";
     if (sqlite3_prepare_v2(database_.handle(),sql,-1,&query,nullptr)!=SQLITE_OK||!bindText(query,1,r.commandId)) { if(query)sqlite3_finalize(query); result.reasonCode="command_database_unavailable"; return result; }
