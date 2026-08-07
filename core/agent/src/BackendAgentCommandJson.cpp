@@ -43,15 +43,15 @@ bool validUtf8(const std::string& value)
         if (index + count > value.size()) return false;
         for (std::size_t offset = 1; offset < count; ++offset)
         {
-  const unsigned char next = static_cast<unsigned char>(value[index + offset]);
-  if ((next & 0xc0U) != 0x80U) return false;
-  codePoint = (codePoint << 6U) | (next & 0x3fU);
+            const unsigned char next = static_cast<unsigned char>(value[index + offset]);
+            if ((next & 0xc0U) != 0x80U) return false;
+            codePoint = (codePoint << 6U) | (next & 0x3fU);
         }
         if ((count == 2 && codePoint < 0x80U) ||
-  (count == 3 && codePoint < 0x800U) ||
-  (count == 4 && codePoint < 0x10000U) ||
-  codePoint > 0x10ffffU ||
-  (codePoint >= 0xd800U && codePoint <= 0xdfffU)) return false;
+            (count == 3 && codePoint < 0x800U) ||
+            (count == 4 && codePoint < 0x10000U) ||
+            codePoint > 0x10ffffU ||
+            (codePoint >= 0xd800U && codePoint <= 0xdfffU)) return false;
         index += count;
     }
     return true;
@@ -92,28 +92,28 @@ private:
         ++position_;
         while (position_ < input_.size())
         {
-  const unsigned char character = static_cast<unsigned char>(input_[position_++]);
-  if (character == '"') return validUtf8(value);
-  if (character < 0x20U) return false;
-  if (character == '\\')
-  {
-      if (position_ >= input_.size()) return false;
-      const char escaped = input_[position_++];
-      switch (escaped)
-      {
-          case '"': value.push_back('"'); break;
-          case '\\': value.push_back('\\'); break;
-          case '/': value.push_back('/'); break;
-          case 'b': value.push_back('\b'); break;
-          case 'f': value.push_back('\f'); break;
-          case 'n': value.push_back('\n'); break;
-          case 'r': value.push_back('\r'); break;
-          case 't': value.push_back('\t'); break;
-          default: return false;
-      }
-  }
-  else value.push_back(static_cast<char>(character));
-  if (value.size() > MaximumStringBytes) return false;
+            const unsigned char character = static_cast<unsigned char>(input_[position_++]);
+            if (character == '"') return validUtf8(value);
+            if (character < 0x20U) return false;
+            if (character == '\\')
+            {
+                if (position_ >= input_.size()) return false;
+                const char escaped = input_[position_++];
+                switch (escaped)
+                {
+                    case '"': value.push_back('"'); break;
+                    case '\\': value.push_back('\\'); break;
+                    case '/': value.push_back('/'); break;
+                    case 'b': value.push_back('\b'); break;
+                    case 'f': value.push_back('\f'); break;
+                    case 'n': value.push_back('\n'); break;
+                    case 'r': value.push_back('\r'); break;
+                    case 't': value.push_back('\t'); break;
+                    default: return false;
+                }
+            }
+            else value.push_back(static_cast<char>(character));
+            if (value.size() > MaximumStringBytes) return false;
         }
         return false;
     }
@@ -125,9 +125,9 @@ private:
         std::uint64_t number = 0;
         for (std::size_t index = start; index < position_; ++index)
         {
-  const unsigned digit = static_cast<unsigned>(input_[index] - '0');
-  if (number > (static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - digit) / 10U) return false;
-  number = number * 10U + digit;
+            const unsigned digit = static_cast<unsigned>(input_[index] - '0');
+            if (number > (static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - digit) / 10U) return false;
+            number = number * 10U + digit;
         }
         value.kind = Kind::Unsigned;
         value.unsignedValue = number;
@@ -142,21 +142,21 @@ private:
         if (position_ < input_.size() && input_[position_] == '}') { ++position_; return true; }
         while (position_ < input_.size())
         {
-  std::string key;
-  if (!parseString(key) || key.empty() || key.size() > 128) return false;
-  position_ = skip(position_);
-  if (position_ >= input_.size() || input_[position_] != ':') return false;
-  ++position_;
-  position_ = skip(position_);
-  Value child;
-  if (!parseValue(child, depth)) return false;
-  if (!value.objectValue.emplace(key, std::move(child)).second || value.objectValue.size() > 32U) return false;
-  position_ = skip(position_);
-  if (position_ >= input_.size()) return false;
-  if (input_[position_] == '}') { ++position_; return true; }
-  if (input_[position_] != ',') return false;
-  ++position_;
-  position_ = skip(position_);
+            std::string key;
+            if (!parseString(key) || key.empty() || key.size() > 128) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size() || input_[position_] != ':') return false;
+            ++position_;
+            position_ = skip(position_);
+            Value child;
+            if (!parseValue(child, depth)) return false;
+            if (!value.objectValue.emplace(key, std::move(child)).second || value.objectValue.size() > 32U) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == '}') { ++position_; return true; }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            position_ = skip(position_);
         }
         return false;
     }
@@ -169,16 +169,16 @@ private:
         if (position_ < input_.size() && input_[position_] == ']') { ++position_; return true; }
         while (position_ < input_.size())
         {
-  Value child;
-  if (!parseValue(child, depth)) return false;
-  value.arrayValue.push_back(std::move(child));
-  if (value.arrayValue.size() > MaximumArrayItems) return false;
-  position_ = skip(position_);
-  if (position_ >= input_.size()) return false;
-  if (input_[position_] == ']') { ++position_; return true; }
-  if (input_[position_] != ',') return false;
-  ++position_;
-  position_ = skip(position_);
+            Value child;
+            if (!parseValue(child, depth)) return false;
+            value.arrayValue.push_back(std::move(child));
+            if (value.arrayValue.size() > MaximumArrayItems) return false;
+            position_ = skip(position_);
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == ']') { ++position_; return true; }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            position_ = skip(position_);
         }
         return false;
     }
@@ -203,14 +203,14 @@ std::string escape(const std::string& value)
     {
         switch (character)
         {
-  case '"': out << "\\\""; break;
-  case '\\': out << "\\\\"; break;
-  case '\b': out << "\\b"; break;
-  case '\f': out << "\\f"; break;
-  case '\n': out << "\\n"; break;
-  case '\r': out << "\\r"; break;
-  case '\t': out << "\\t"; break;
-  default: if (character >= 0x20U) out << static_cast<char>(character);
+            case '"': out << "\\\""; break;
+            case '\\': out << "\\\\"; break;
+            case '\b': out << "\\b"; break;
+            case '\f': out << "\\f"; break;
+            case '\n': out << "\\n"; break;
+            case '\r': out << "\\r"; break;
+            case '\t': out << "\\t"; break;
+            default: if (character >= 0x20U) out << static_cast<char>(character);
         }
     }
     return out.str();
@@ -226,6 +226,21 @@ std::string stringArray(const std::vector<std::string>& values)
     }
     out << ']';
     return out.str();
+}
+bool parseIdentifiers(const Value& value, std::vector<std::string>& identifiers)
+{
+    if (value.kind != Kind::Array || value.arrayValue.empty() ||
+        value.arrayValue.size() > 64) return false;
+    identifiers.clear();
+    for (const Value& item : value.arrayValue)
+    {
+        if (item.kind != Kind::String ||
+            !backendAgentCommandSafeIdentifier(item.stringValue) ||
+            std::find(identifiers.begin(), identifiers.end(), item.stringValue) !=
+                identifiers.end()) return false;
+        identifiers.push_back(item.stringValue);
+    }
+    return true;
 }
 bool parseTypes(const Value& value, std::vector<std::string>& types)
 {
@@ -243,6 +258,80 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
         types.push_back(item.stringValue);
     }
     return true;
+}
+
+bool parseProviderFacts(
+    const Value& value,
+    vdrsuite::agent::BackendAgentLocalProviderFacts& facts)
+{
+    if (value.kind != Kind::Object || !exactKeys(value.objectValue, {
+        "providerId", "providerKind", "providerInstanceEpoch",
+        "providerGeneration", "capabilityRevision", "available",
+        "capabilities"})) return false;
+    const Value *providerId=get(value.objectValue,"providerId",Kind::String),
+        *providerKind=get(value.objectValue,"providerKind",Kind::String),
+        *epoch=get(value.objectValue,"providerInstanceEpoch",Kind::String),
+        *generation=get(value.objectValue,"providerGeneration",Kind::Unsigned),
+        *revision=get(value.objectValue,"capabilityRevision",Kind::Unsigned),
+        *available=get(value.objectValue,"available",Kind::Boolean),
+        *capabilities=get(value.objectValue,"capabilities",Kind::Array);
+    if (!providerId || !providerKind || !epoch || !generation || !revision ||
+        !available || !capabilities ||
+        !parseIdentifiers(*capabilities, facts.capabilities)) return false;
+    facts.providerId = providerId->stringValue;
+    facts.providerKind = providerKind->stringValue;
+    facts.providerInstanceEpoch = epoch->stringValue;
+    facts.providerGeneration = generation->unsignedValue;
+    facts.capabilityRevision = revision->unsignedValue;
+    facts.available = available->boolValue;
+    return vdrsuite::agent::backendAgentLocalProviderValidFacts(facts);
+}
+
+bool parseProviders(
+    const Value& value,
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts>& providers)
+{
+    if (value.kind != Kind::Array || value.arrayValue.size() > 16) return false;
+    providers.clear();
+    for (const Value& item : value.arrayValue)
+    {
+        vdrsuite::agent::BackendAgentLocalProviderFacts facts;
+        if (!parseProviderFacts(item, facts) ||
+            std::any_of(providers.begin(), providers.end(), [&](const auto& existing) {
+                return existing.providerId == facts.providerId;
+            })) return false;
+        providers.push_back(std::move(facts));
+    }
+    return true;
+}
+
+std::string providerFactsJson(
+    const vdrsuite::agent::BackendAgentLocalProviderFacts& facts)
+{
+    std::ostringstream out;
+    out << "{\"providerId\":\"" << escape(facts.providerId)
+        << "\",\"providerKind\":\"" << escape(facts.providerKind)
+        << "\",\"providerInstanceEpoch\":\""
+        << escape(facts.providerInstanceEpoch)
+        << "\",\"providerGeneration\":" << facts.providerGeneration
+        << ",\"capabilityRevision\":" << facts.capabilityRevision
+        << ",\"available\":" << (facts.available ? "true" : "false")
+        << ",\"capabilities\":" << stringArray(facts.capabilities) << '}';
+    return out.str();
+}
+
+std::string providersJson(
+    const std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts>& providers)
+{
+    std::ostringstream out;
+    out << '[';
+    for (std::size_t index = 0; index < providers.size(); ++index)
+    {
+        if (index != 0) out << ',';
+        out << providerFactsJson(providers[index]);
+    }
+    out << ']';
+    return out.str();
 }
 
 bool readAssignment(const Value& value, BackendAgentCommandAssignment& assignment)
@@ -306,16 +395,29 @@ std::string assignmentJson(const BackendAgentCommandAssignment& a)
 bool parseBackendAgentCommandPollRequestJson(const std::string& body, BackendAgentCommandPollRequest& request, std::string& reason)
 {
     Value root;
-    if (!Parser(body).parse(root) || root.kind != Kind::Object || !exactKeys(root.objectValue,
-        {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes"}))
+    if (!Parser(body).parse(root) || root.kind != Kind::Object)
+    { reason="invalid_command_poll_payload"; return false; }
+    const bool legacy = exactKeys(root.objectValue,
+        {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes"});
+    const bool current = exactKeys(root.objectValue,
+        {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes", "localProviders"});
+    if (!legacy && !current)
     { reason="invalid_command_poll_payload"; return false; }
     const Value* protocol=get(root.objectValue,"protocolVersion",Kind::String);
     const Value* backend=get(root.objectValue,"backendId",Kind::String);
     const Value* instance=get(root.objectValue,"agentInstanceId",Kind::String);
     const Value* generation=get(root.objectValue,"backendGeneration",Kind::Unsigned);
     const Value* types=get(root.objectValue,"supportedCommandTypes",Kind::Array);
-    if (!protocol||!backend||!instance||!generation||!types||!parseTypes(*types,request.supportedCommandTypes))
+    if (!protocol||!backend||!instance||!generation||!types||
+        !parseTypes(*types,request.supportedCommandTypes))
     { reason="invalid_command_poll_payload"; return false; }
+    request.localProviders.clear();
+    if (current)
+    {
+        const Value* providers=get(root.objectValue,"localProviders",Kind::Array);
+        if (!providers || !parseProviders(*providers, request.localProviders))
+        { reason="invalid_command_poll_payload"; return false; }
+    }
     request.protocolVersion=protocol->stringValue; request.backendId=backend->stringValue;
     request.agentInstanceId=instance->stringValue; request.backendGeneration=generation->unsignedValue;
     if (request.protocolVersion!="vdr-suite-agent/1" || !backendAgentCommandSafeIdentifier(request.backendId) ||
@@ -330,7 +432,8 @@ std::string serializeBackendAgentCommandPollRequestJson(const BackendAgentComman
     out << "{\"protocolVersion\":\"vdr-suite-agent/1\",\"backendId\":\"" << escape(request.backendId)
         << "\",\"agentInstanceId\":\"" << escape(request.agentInstanceId)
         << "\",\"backendGeneration\":" << request.backendGeneration
-        << ",\"supportedCommandTypes\":" << stringArray(request.supportedCommandTypes) << '}';
+        << ",\"supportedCommandTypes\":" << stringArray(request.supportedCommandTypes)
+        << ",\"localProviders\":" << providersJson(request.localProviders) << '}';
     return out.str();
 }
 
