@@ -255,6 +255,17 @@ int main()
     assert(!commands.localProviderSelectionCurrent(newAssignment->commandId,reason));
     assert(reason=="local_provider_selection_stale");
 
+    // Restoring the exact provider facts re-authorizes only the same immutable
+    // v2 selection. Complete it before isolating the legacy-v1 delivery check.
+    const auto restoredRevisionPoll=service.poll(agent,current,118);
+    assert(restoredRevisionPoll.accepted);
+    assert(restoredRevisionPoll.assignment.present);
+    assert(restoredRevisionPoll.assignment.commandId==newAssignment->commandId);
+    const auto newReceipt=service.receipt(agent,receipt(*newAssignment,119),119);
+    assert(newReceipt.accepted);
+    const auto newResult=service.result(agent,result(*newAssignment,120),120);
+    assert(newResult.accepted);
+
     // Pre-upgrade v1 commands have no selection sidecar. New Control Plane poll
     // never delivers them, but already-local durable receipt/result evidence is
     // still accepted for reconciliation on the original command identity.
