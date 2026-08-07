@@ -35,6 +35,11 @@ bool contains(
 {
     return std::find(values.begin(), values.end(), expected) != values.end();
 }
+
+void appendIdentityField(std::ostringstream& output, const std::string& value)
+{
+    output << value.size() << ':' << value << '|';
+}
 }
 
 bool backendAgentLocalProviderKnownKind(const std::string& providerKind)
@@ -212,12 +217,16 @@ std::string backendAgentLocalProviderSelectionIdentity(
 {
     if (!backendAgentLocalProviderValidSelection(selection)) return {};
     std::ostringstream output;
-    output << selection.backendId << ':' << selection.authorityDomain << ':'
-           << selection.providerKind << ':' << selection.providerId << ':'
-           << selection.ownershipGeneration << ':'
-           << selection.providerInstanceEpoch << ':' << selection.providerGeneration
-           << ':' << selection.capabilityRevision << ':'
-           << selection.requiredCapability;
+    output << "local-provider-selection/1|";
+    appendIdentityField(output, selection.backendId);
+    appendIdentityField(output, selection.authorityDomain);
+    appendIdentityField(output, selection.providerKind);
+    appendIdentityField(output, selection.providerId);
+    output << "ownershipGeneration=" << selection.ownershipGeneration << '|';
+    appendIdentityField(output, selection.providerInstanceEpoch);
+    output << "providerGeneration=" << selection.providerGeneration << '|'
+           << "capabilityRevision=" << selection.capabilityRevision << '|';
+    appendIdentityField(output, selection.requiredCapability);
     return output.str();
 }
 
