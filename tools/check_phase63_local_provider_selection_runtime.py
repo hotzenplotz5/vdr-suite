@@ -121,7 +121,7 @@ for token in [
 for token in [
     "Availability is not authority.",
     "There is no API in this slice that chooses among a list of available providers.",
-    "BackendNode.online remains untouched.",
+    "`BackendNode.online` remains untouched.",
     "newly received v1 `vdr.native.probe`",
     "final candidate also requires bounded real-yaVDR acceptance",
 ]:
