@@ -51,11 +51,20 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
     }
     if (value.commandType == "vdr.native.probe")
     {
-        std::string probeNonce;
-        return value.payloadVersion == 1 &&
-            value.verificationPolicy == "readback_required" &&
-            vdrsuite::agent::backendAgentNativeProbeParsePayload(
+        if (value.verificationPolicy != "readback_required") return false;
+        if (value.payloadVersion == 1)
+        {
+            std::string probeNonce;
+            return vdrsuite::agent::backendAgentNativeProbeParsePayload(
                 value.payload, probeNonce);
+        }
+        if (value.payloadVersion == 2)
+        {
+            vdrsuite::agent::BackendAgentNativeProbePayload payload;
+            std::string reason;
+            return vdrsuite::agent::backendAgentNativeProbeParseSelectedPayload(
+                value.payload, payload, reason);
+        }
     }
     return false;
 }
