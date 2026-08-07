@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +75,7 @@ for token in ["OWNER_TOUCHED", "build_admin", "--clear-native-probe-owner", "pro
     if token not in cleanup_section:
         errors.append(f"provider cleanup missing token: {token}")
 
-if "sqlite3 " in runner or "sqlite3\n" in runner:
+if re.search(r"(?m)^[ \t]*(?:command[ \t]+)?(?:/usr/bin/)?sqlite3(?:[ \t]|$)", runner):
     errors.append("acceptance must not depend on the sqlite3 CLI")
 if "sqlite3.connect" not in runner:
     errors.append("acceptance must verify persisted provider selection through read-only Python SQLite")
