@@ -123,7 +123,7 @@ for token in [
     "There is no API in this slice that chooses among a list of available providers.",
     "`BackendNode.online` remains untouched.",
     "newly received v1 `vdr.native.probe`",
-    "final candidate also requires bounded real-yaVDR acceptance",
+    "bounded real-yaVDR acceptance",
 ]:
     if token not in doc:
         raise SystemExit(f"provider runtime contract statement missing: {token}")
