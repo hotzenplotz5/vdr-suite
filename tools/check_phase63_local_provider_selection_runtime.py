@@ -78,6 +78,41 @@ for token in [
     if token not in delivery:
         raise SystemExit(f"provider persistence/fence missing: {token}")
 
+receipt_start = delivery.find(
+    "BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt"
+)
+result_start = delivery.find(
+    "BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult"
+)
+replay_start = delivery.find(
+    "bool BackendAgentCommandRepository::requestReplay", result_start
+)
+if min(receipt_start, result_start, replay_start) < 0 or not (
+    receipt_start < result_start < replay_start
+):
+    raise SystemExit("unable to locate provider receipt/result fence sections")
+receipt_section = delivery[receipt_start:result_start]
+result_section = delivery[result_start:replay_start]
+
+if "localProviderSelectionCurrent" not in receipt_section:
+    raise SystemExit(
+        "native receipt must cross the current provider-selection authority fence"
+    )
+if "localProviderSelectionCurrent" in result_section:
+    raise SystemExit(
+        "outcome result ingestion must not require current provider ownership"
+    )
+for token in [
+    "backendAgentNativeProbeParseSelectedPayload",
+    "backend_agent_command_provider_selections",
+    "selection_identity",
+    "backendAgentLocalProviderSelectionIdentity",
+]:
+    if token not in result_section:
+        raise SystemExit(
+            f"outcome evidence must remain bound to immutable selection identity: {token}"
+        )
+
 for token in [
     "selectLocalProvider(",
     '"vdr.native"',
@@ -114,6 +149,8 @@ for token in [
     "local_provider_selection_stale",
     "ownershipGeneration==3",
     "capabilityRevision",
+    "preservedResult.accepted",
+    "legacyResult.accepted",
 ]:
     if token not in test:
         raise SystemExit(f"provider selection regression coverage missing: {token}")
@@ -123,6 +160,8 @@ for token in [
     "There is no API in this slice that chooses among a list of available providers.",
     "`BackendNode.online` remains untouched.",
     "newly received v1 `vdr.native.probe`",
+    "Result evidence does not authorize",
+    "legacy v1 durable receipt and result evidence",
     "bounded real-yaVDR acceptance",
 ]:
     if token not in doc:
