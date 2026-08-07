@@ -392,7 +392,7 @@ wait_proxy_drop() {
         if printf '%s\n' "$summary" | python3 -c 'import json,sys; values=json.load(sys.stdin); raise SystemExit(0 if any(item[0]=="drop" for item in values) else 1)'; then
             return 0
         fi
-        sleep 0.1
+        sleep 1
     done
     return 1
 }
