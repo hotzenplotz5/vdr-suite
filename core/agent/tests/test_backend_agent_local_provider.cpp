@@ -46,7 +46,20 @@ int main()
     assert(backendAgentLocalProviderSelectionUsable(
         selection, ownership, facts, reason));
     assert(reason == "local_provider_fence_current");
-    assert(!backendAgentLocalProviderSelectionIdentity(selection).empty());
+    const std::string selectionIdentity =
+        backendAgentLocalProviderSelectionIdentity(selection);
+    assert(!selectionIdentity.empty());
+
+    auto delimiterLeft = selection;
+    delimiterLeft.backendId = "a:b";
+    delimiterLeft.authorityDomain = "c";
+    auto delimiterRight = selection;
+    delimiterRight.backendId = "a";
+    delimiterRight.authorityDomain = "b:c";
+    assert(backendAgentLocalProviderValidSelection(delimiterLeft));
+    assert(backendAgentLocalProviderValidSelection(delimiterRight));
+    assert(backendAgentLocalProviderSelectionIdentity(delimiterLeft) !=
+        backendAgentLocalProviderSelectionIdentity(delimiterRight));
 
     auto unauthorizedOwnership = ownership;
     unauthorizedOwnership.allowedCapabilities = {"vdr.channels.read"};
