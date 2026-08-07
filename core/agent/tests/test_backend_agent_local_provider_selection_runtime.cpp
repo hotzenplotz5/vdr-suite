@@ -61,7 +61,9 @@ BackendAgentCommandPollRequest pollRequest(
     return request;
 }
 
-BackendAgentCommandReceipt receipt(const BackendAgentCommandAssignment& assignment)
+BackendAgentCommandReceipt receipt(
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t receivedAt=200)
 {
     BackendAgentCommandReceipt value;
     value.commandId=assignment.commandId;
@@ -74,12 +76,14 @@ BackendAgentCommandReceipt receipt(const BackendAgentCommandAssignment& assignme
     value.agentInstanceId=assignment.agentInstanceId;
     value.backendGeneration=assignment.backendGeneration;
     value.receiptCategory="accepted";
-    value.receivedAt=200;
+    value.receivedAt=receivedAt;
     value.reasonCode="durably_recorded";
     return value;
 }
 
-BackendAgentCommandResult result(const BackendAgentCommandAssignment& assignment)
+BackendAgentCommandResult result(
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t completedAt=210)
 {
     BackendAgentCommandResult value;
     value.commandId=assignment.commandId;
@@ -97,7 +101,33 @@ BackendAgentCommandResult result(const BackendAgentCommandAssignment& assignment
     value.errorCategory="none";
     value.retryClassification="none";
     value.boundedDiagnostics="selected provider verified";
-    value.completedAt=210;
+    value.completedAt=completedAt;
+    return value;
+}
+
+BackendAgentCommandAssignment legacyNativeAssignment()
+{
+    BackendAgentCommandAssignment value;
+    value.present=true;
+    value.requestId="req_legacy_provider";
+    value.correlationId="corr_legacy_provider";
+    value.operationId="op_legacy_provider";
+    value.jobId="job_legacy_provider";
+    value.attemptId="att_legacy_provider";
+    value.claimEpoch=1;
+    value.commandId="cmd_legacy_provider";
+    value.backendId="default";
+    value.agentId="agt_provider";
+    value.agentInstanceId="inst_provider";
+    value.backendGeneration=9;
+    value.commandType="vdr.native.probe";
+    value.payloadVersion=1;
+    value.payload="{\"probeSchema\":1,\"probeNonce\":\"pbn_legacy_provider\"}";
+    value.verificationPolicy="readback_required";
+    value.assignedAt=120;
+    value.deadline=500;
+    value.requestFingerprint=backendAgentCommandFingerprint(value);
+    assert(backendAgentCommandValidAssignment(value));
     return value;
 }
 }
@@ -182,36 +212,62 @@ int main()
     const auto acceptedReceipt=service.receipt(agent,receipt(*assignment),109);
     assert(acceptedReceipt.accepted);
 
-    // Ownership revocation fences completion/reconciliation instead of selecting
-    // the still-available RESTfulAPI fact.
+    // Ownership revocation fences all further dispatch/replay authorization.
+    // Already-produced outcome evidence remains ingestible by immutable command
+    // identity so reconciliation never loses what actually happened.
     assert(commands.clearLocalProviderOwnership(
         "default","vdr.native",110,reason));
     const auto cleared=commands.localProviderOwnershipStatus(
         "default","vdr.native");
     assert(cleared.present&&!cleared.active);
     assert(cleared.ownership.ownershipGeneration==2);
-    const auto staleResult=service.result(agent,result(*assignment),111);
-    assert(!staleResult.accepted);
-    assert(staleResult.reasonCode=="local_provider_ownership_required");
+    assert(!commands.localProviderSelectionCurrent(assignment->commandId,reason));
+    assert(reason=="local_provider_ownership_required");
+    const auto staleDuplicateReceipt=service.receipt(
+        agent,receipt(*assignment),111);
+    assert(!staleDuplicateReceipt.accepted);
+    assert(staleDuplicateReceipt.reasonCode=="local_provider_ownership_required");
+    const auto preservedResult=service.result(agent,result(*assignment),112);
+    assert(preservedResult.accepted);
+    assert(preservedResult.reasonCode=="command_result_accepted");
 
     vdrsuite::agent::BackendAgentLocalProviderOwnership restoredOwnership;
     assert(commands.setLocalProviderOwnership(
         "default","vdr.native","suitebridge:local","suitebridge",
-        {"vdr.native.probe"},112,restoredOwnership,reason));
+        {"vdr.native.probe"},113,restoredOwnership,reason));
     assert(restoredOwnership.ownershipGeneration==3);
     assert(!commands.localProviderSelectionCurrent(assignment->commandId,reason));
     assert(reason=="local_provider_selection_stale");
+    assert(service.requestReplay(
+        system,"default",assignment->commandId,114,reason));
+    const auto fencedReplay=service.poll(agent,current,115);
+    assert(fencedReplay.accepted);
+    assert(!fencedReplay.assignment.present);
 
     // Capability revision replacement is another independent fence.
     const auto newAssignment=service.assignNativeProbe(
-        system,"default",113,500,reason);
+        system,"default",116,500,reason);
     assert(newAssignment.has_value());
     auto changedRevision=pollRequest({suiteBridge("pie_1",2)});
-    const auto changedPoll=service.poll(agent,changedRevision,114);
+    const auto changedPoll=service.poll(agent,changedRevision,117);
     assert(changedPoll.accepted);
     assert(!changedPoll.assignment.present);
     assert(!commands.localProviderSelectionCurrent(newAssignment->commandId,reason));
     assert(reason=="local_provider_selection_stale");
+
+    // Pre-upgrade v1 commands have no selection sidecar. New Control Plane poll
+    // never delivers them, but already-local durable receipt/result evidence is
+    // still accepted for reconciliation on the original command identity.
+    const auto legacy=legacyNativeAssignment();
+    assert(commands.insertAssignment(legacy));
+    const auto noLegacyDelivery=service.poll(agent,current,121);
+    assert(noLegacyDelivery.accepted);
+    assert(!noLegacyDelivery.assignment.present);
+    const auto legacyReceipt=service.receipt(agent,receipt(legacy,122),122);
+    assert(legacyReceipt.accepted);
+    const auto legacyResult=service.result(agent,result(legacy,123),123);
+    assert(legacyResult.accepted);
+    assert(legacyResult.reasonCode=="command_result_accepted");
 
     return 0;
 }
