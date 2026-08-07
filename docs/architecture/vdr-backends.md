@@ -150,6 +150,8 @@ Preferred execution order:
 3. SVDRP integration where appropriate
 4. Filesystem or external tool backends
 
+This order expresses architectural preference when provider ownership is explicitly configured. It is not a runtime fallback chain. Once a provider has been selected for an operation, read, replay or reconciliation, availability of another adapter must not silently switch execution to that provider. An unavailable or stale selected provider fails closed until a new explicit ownership/selection decision is made.
+
 Filesystem-based tools may remain valuable execution backends for operations such as import, repair, shrink, cut, recovery or batch processing. However, such tools are privileged execution mechanisms and must not become the VDR-Suite recording domain model.
 
 Higher layers must not depend on filesystem layouts, shell commands, recording directory structures or backend-specific implementation details.
