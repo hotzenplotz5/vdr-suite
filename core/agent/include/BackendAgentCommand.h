@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BackendAgentLocalProvider.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -36,6 +38,7 @@ struct BackendAgentCommandPollRequest
     std::string agentInstanceId;
     std::uint64_t backendGeneration = 0;
     std::vector<std::string> supportedCommandTypes;
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
 };
 
 struct BackendAgentCommandPollResult
