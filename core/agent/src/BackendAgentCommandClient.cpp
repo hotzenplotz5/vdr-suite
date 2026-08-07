@@ -356,6 +356,12 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             return false;
         }
     }
+    if (current && assignment.commandType == "vdr.native.probe" &&
+        assignment.payloadVersion == 2 && !state.resultPresent &&
+        state.receiptAcknowledged)
+    {
+        state.receiptAcknowledged = false;
+    }
     reason = "command_state_loaded";
     return true;
 }
@@ -533,6 +539,47 @@ bool negotiateNativeCapability(
     return true;
 }
 
+bool nativeCapabilityMatchesAssignment(
+    const LocalState& state,
+    const vdrsuite::agent::SuiteBridgeNativeProbeCapability& capability,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    if (state.assignment.payloadVersion == 2)
+    {
+        BackendAgentNativeProbePayload payload;
+        if (!backendAgentNativeProbeParseSelectedPayload(
+                state.assignment.payload, payload, reason)) return false;
+        if (!backendAgentNativeProbeSelectionMatchesCapability(
+                payload.localProviderSelection,
+                state.assignment.backendId,
+                capability,
+                reason)) return false;
+        if (!state.pluginInstanceEpoch.empty() &&
+            state.pluginInstanceEpoch !=
+                payload.localProviderSelection.providerInstanceEpoch)
+        {
+            reason = "local_provider_instance_epoch_changed";
+            return false;
+        }
+        if (!state.probeNonce.empty() && state.probeNonce != payload.probeNonce)
+        {
+            reason = "native_probe_payload_changed";
+            return false;
+        }
+        return true;
+    }
+    if (state.assignment.payloadVersion == 1 &&
+        !state.pluginInstanceEpoch.empty() &&
+        state.pluginInstanceEpoch == capability.pluginInstanceEpoch)
+    {
+        reason = "legacy_native_probe_reconciliation_only";
+        return true;
+    }
+    reason = "native_probe_provider_selection_required";
+    return false;
+}
+
 vdrsuite::agent::SuiteBridgeNativeProbeRequest nativeRequest(
     const LocalState& state)
 {
@@ -561,12 +608,12 @@ bool completeNativeReadback(
     using namespace vdrsuite::agent;
     SuiteBridgeNativeProbeCapability capability;
     if (!negotiateNativeCapability(config, capability, reason) ||
-        capability.pluginInstanceEpoch != state.pluginInstanceEpoch)
+        !nativeCapabilityMatchesAssignment(state, capability, reason))
     {
         createResult(
             state, state.dispatchState, "outcome_unknown", "outcome_unknown",
             "fenced", "reconcile_only",
-            "native probe plugin epoch changed before readback");
+            "native probe provider fence changed before readback");
         return persist(config.statePath, state, reason);
     }
     if (state.nativeExecutionSequence == 0)
@@ -632,26 +679,41 @@ bool executeOrRecoverNative(
     const bool recoveringDispatch = !state.pluginInstanceEpoch.empty();
     if (state.pluginInstanceEpoch.empty())
     {
-        if (!backendAgentNativeProbeParsePayload(
-                state.assignment.payload, state.probeNonce))
+        if (state.assignment.payloadVersion != 2)
         {
             createResult(
                 state, "not_started", "outcome_unknown", "rejected",
-                "unsupported", "none", "native probe payload rejected");
+                "fenced", "none", "native probe provider selection required");
             return persist(config.statePath, state, reason);
         }
-        state.pluginInstanceEpoch = capability.pluginInstanceEpoch;
+        BackendAgentNativeProbePayload payload;
+        if (!backendAgentNativeProbeParseSelectedPayload(
+                state.assignment.payload, payload, reason) ||
+            !backendAgentNativeProbeSelectionMatchesCapability(
+                payload.localProviderSelection,
+                state.assignment.backendId,
+                capability,
+                reason))
+        {
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "fenced", "none", "native probe selected provider unavailable");
+            return persist(config.statePath, state, reason);
+        }
+        state.probeNonce = payload.probeNonce;
+        state.pluginInstanceEpoch =
+            payload.localProviderSelection.providerInstanceEpoch;
         state.nativeCapabilityEvidence =
             backendAgentNativeProbeCapabilityEvidence(capability);
         state.dispatchState="starting";
         if (!persist(config.statePath, state, reason)) return false;
     }
-    else if (capability.pluginInstanceEpoch != state.pluginInstanceEpoch)
+    else if (!nativeCapabilityMatchesAssignment(state, capability, reason))
     {
         createResult(
             state, state.dispatchState, "outcome_unknown", "outcome_unknown",
             "fenced", "reconcile_only",
-            "native probe old plugin epoch cannot be replayed");
+            "native probe selected provider cannot be replayed");
         return persist(config.statePath, state, reason);
     }
 
@@ -733,23 +795,33 @@ bool reconcileNative(
     return false;
 }
 
-std::vector<std::string> availableCommandTypes(
+struct CommandAvailability
+{
+    std::vector<std::string> commandTypes;
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
+};
+
+CommandAvailability availableCommands(
     const BackendAgentCommandClientConfig& config)
 {
-    std::vector<std::string> available;
+    CommandAvailability availability;
     for (const std::string& type : config.commandTypes)
     {
         if (type != "vdr.native.probe")
         {
-            available.push_back(type);
+            availability.commandTypes.push_back(type);
             continue;
         }
         vdrsuite::agent::SuiteBridgeNativeProbeCapability capability;
         std::string reason;
-        if (negotiateNativeCapability(config, capability, reason))
-            available.push_back(type);
+        if (!negotiateNativeCapability(config, capability, reason)) continue;
+        const auto facts =
+            vdrsuite::agent::backendAgentNativeProbeProviderFacts(capability);
+        if (!vdrsuite::agent::backendAgentLocalProviderValidFacts(facts)) continue;
+        availability.commandTypes.push_back(type);
+        availability.localProviders.push_back(facts);
     }
-    return available;
+    return availability;
 }
 }
 
@@ -855,7 +927,9 @@ bool pollBackendAgentCommand(
     request.backendId = context.backendId;
     request.agentInstanceId = context.agentInstanceId;
     request.backendGeneration = context.backendGeneration;
-    request.supportedCommandTypes = availableCommandTypes(config);
+    const CommandAvailability availability = availableCommands(config);
+    request.supportedCommandTypes = availability.commandTypes;
+    request.localProviders = availability.localProviders;
     const auto response = transport.postAuthenticated(
         context.agentId, context.credentialSecret,
         "/api/agent/v1/commands/poll",
