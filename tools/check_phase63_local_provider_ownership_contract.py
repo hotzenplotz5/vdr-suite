@@ -63,15 +63,21 @@ for token in [
     if token not in backend_doc:
         raise SystemExit(f"missing backend provider-selection clarification: {token}")
 
-for relative in [
-    "apps/agent/main.cpp",
-    "core/agent/include/BackendAgentCommand.h",
-    "core/agent/src/BackendAgentNativeProbeDelivery.cpp",
-    "core/vdr/include/BackendNode.h",
-    "core/vdr/src/VdrAdapterFactory.cpp",
-]:
-    text = (ROOT / relative).read_text(encoding="utf-8")
-    if "BackendAgentLocalProvider" in text:
-        raise SystemExit(f"contract-only provider model wired into runtime: {relative}")
+runtime_doc = ROOT / "docs/development/phase-63-local-provider-selection-runtime.md"
+if not runtime_doc.is_file():
+    for relative in [
+        "apps/agent/main.cpp",
+        "core/agent/include/BackendAgentCommand.h",
+        "core/agent/src/BackendAgentNativeProbeDelivery.cpp",
+        "core/vdr/include/BackendNode.h",
+        "core/vdr/src/VdrAdapterFactory.cpp",
+    ]:
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        if "BackendAgentLocalProvider" in text:
+            raise SystemExit(f"contract-only provider model wired into runtime: {relative}")
+else:
+    runtime_guard = ROOT / "tools/check_phase63_local_provider_selection_runtime.py"
+    if not runtime_guard.is_file():
+        raise SystemExit("provider runtime present without runtime architecture guard")
 
 print("PHASE_63_LOCAL_PROVIDER_OWNERSHIP_CONTRACT=PASS")
