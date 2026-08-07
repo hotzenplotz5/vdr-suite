@@ -1,4 +1,4 @@
-.PHONY: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime test-phase63-command-delivery-contract test-phase63-fenced-native-operation-contract test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance phase63-backend-health-ingestion-runtime-acceptance phase63-channel-observation-runtime-acceptance phase63-command-delivery-runtime-acceptance
+.PHONY: test-phase63-observation-ingestion-contract test-phase63-channel-observation-contract test-phase63-channel-observation-runtime test-phase63-command-delivery-contract test-phase63-fenced-native-operation-contract test-phase63-runtime-acceptance-harness phase63-backend-agent-runtime-acceptance phase63-backend-health-ingestion-runtime-acceptance phase63-channel-observation-runtime-acceptance phase63-command-delivery-runtime-acceptance phase63-fenced-native-operation-runtime-acceptance
 
 PHASE63_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/backend-agent-foundation.sh
 PHASE63_INGESTION_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/backend-health-ingestion.sh
@@ -6,6 +6,8 @@ PHASE63_OBSERVATION_EXERCISER := tools/phase63-runtime-acceptance/exercise_backe
 PHASE63_CHANNEL_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/channel-observation-ingestion.sh
 PHASE63_CHANNEL_OBSERVATION_EXERCISER := tools/phase63-runtime-acceptance/exercise_channel_observation.py
 PHASE63_COMMAND_ACCEPTANCE_RUNNER := tools/phase63-runtime-acceptance/command-delivery.sh
+PHASE63_NATIVE_ACCEPTANCE_RUNNER := tools/run_phase63_fenced_native_operation_acceptance.sh
+PHASE63_NATIVE_ACCEPTANCE_PROXY := tools/phase63-runtime-acceptance/native-probe-proxy.py
 
 PHASE63_EXPECTED_BRANCH ?=
 PHASE63_EXPECTED_HEAD ?=
@@ -20,6 +22,8 @@ PHASE63_AGENT_CONFIG_PATH ?= /etc/vdr-suite/backend-agent.conf
 PHASE63_DAEMON_SERVICE ?= vdr-suite-daemon
 PHASE63_AGENT_SERVICE ?= vdr-suite-backend-agent
 PHASE63_VDR_SERVICE ?= vdr
+PHASE63_SVDRP_PORT ?= 6419
+PHASE63_PROXY_PORT ?= 16419
 
 test-phase63-observation-ingestion-contract:
 	python3 tools/check_phase63_observation_ingestion_contract.py
@@ -41,11 +45,13 @@ test-phase63-runtime-acceptance-harness: test-phase63-observation-ingestion-cont
 	bash -n "$(PHASE63_INGESTION_ACCEPTANCE_RUNNER)"
 	bash -n "$(PHASE63_CHANNEL_ACCEPTANCE_RUNNER)"
 	bash -n "$(PHASE63_COMMAND_ACCEPTANCE_RUNNER)"
-	python3 -m py_compile "$(PHASE63_OBSERVATION_EXERCISER)" "$(PHASE63_CHANNEL_OBSERVATION_EXERCISER)"
+	bash -n "$(PHASE63_NATIVE_ACCEPTANCE_RUNNER)"
+	python3 -m py_compile "$(PHASE63_OBSERVATION_EXERCISER)" "$(PHASE63_CHANNEL_OBSERVATION_EXERCISER)" "$(PHASE63_NATIVE_ACCEPTANCE_PROXY)"
 	python3 "$(PHASE63_OBSERVATION_EXERCISER)" --self-test
 	python3 "$(PHASE63_CHANNEL_OBSERVATION_EXERCISER)" --self-test
 	python3 tools/check_phase63_runtime_acceptance.py
 	python3 tools/check_phase63_command_delivery_acceptance.py
+	python3 tools/check_phase63_fenced_native_operation_runtime.py
 
 phase63-backend-agent-runtime-acceptance: test-phase63-runtime-acceptance-harness
 	@test -n "$(PHASE63_EXPECTED_BRANCH)" || { echo "PHASE63_EXPECTED_BRANCH is required"; exit 2; }
@@ -108,3 +114,20 @@ phase63-command-delivery-runtime-acceptance: test-phase63-runtime-acceptance-har
 	PHASE63_AGENT_SERVICE="$(PHASE63_AGENT_SERVICE)" \
 	PHASE63_VDR_SERVICE="$(PHASE63_VDR_SERVICE)" \
 	bash "$(PHASE63_COMMAND_ACCEPTANCE_RUNNER)"
+
+phase63-fenced-native-operation-runtime-acceptance: test-phase63-runtime-acceptance-harness
+	@test -n "$(PHASE63_EXPECTED_BRANCH)" || { echo "PHASE63_EXPECTED_BRANCH is required"; exit 2; }
+	@test -n "$(PHASE63_EXPECTED_HEAD)" || { echo "PHASE63_EXPECTED_HEAD is required"; exit 2; }
+	PHASE63_EXPECTED_BRANCH="$(PHASE63_EXPECTED_BRANCH)" \
+	PHASE63_EXPECTED_HEAD="$(PHASE63_EXPECTED_HEAD)" \
+	PHASE63_EVIDENCE_DIR="$(PHASE63_EVIDENCE_DIR)" \
+	PHASE63_BACKEND_ID="$(PHASE63_BACKEND_ID)" \
+	PHASE63_DATABASE="$(PHASE63_DATABASE)" \
+	PHASE63_VDR_VIDEO_DIR="$(PHASE63_VDR_VIDEO_DIR)" \
+	PHASE63_AGENT_CONFIG_PATH="$(PHASE63_AGENT_CONFIG_PATH)" \
+	PHASE63_DAEMON_SERVICE="$(PHASE63_DAEMON_SERVICE)" \
+	PHASE63_AGENT_SERVICE="$(PHASE63_AGENT_SERVICE)" \
+	PHASE63_VDR_SERVICE="$(PHASE63_VDR_SERVICE)" \
+	PHASE63_SVDRP_PORT="$(PHASE63_SVDRP_PORT)" \
+	PHASE63_PROXY_PORT="$(PHASE63_PROXY_PORT)" \
+	bash "$(PHASE63_NATIVE_ACCEPTANCE_RUNNER)"

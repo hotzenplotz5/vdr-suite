@@ -1,14 +1,18 @@
 #pragma once
 
+#include "BackendAgentNativeProbe.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <sstream>
 #include <string>
 
 namespace vdrsuite::agent
@@ -28,7 +32,8 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeArtworkTransport,
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
-    public ::ISuiteBridgeRecordingMetadataTransport
+    public ::ISuiteBridgeRecordingMetadataTransport,
+    public IBackendAgentNativeProbeTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -58,7 +63,71 @@ public:
     ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
         const std::string& recordingKey) override;
 
+    SuiteBridgeCommandReply discoverNativeProbe() override
+    {
+        return executeRequest("PLUG suitebridge NCAP 1\r\n");
+    }
+
+    SuiteBridgeCommandReply executeNativeProbe(
+        const SuiteBridgeNativeProbeRequest& request) override
+    {
+        if (!safeNativeToken(request.commandId) ||
+            !safeNativeToken(request.requestFingerprint) ||
+            !safeNativeToken(request.operationId) ||
+            !safeNativeToken(request.jobId) ||
+            !safeNativeToken(request.attemptId) || request.claimEpoch == 0 ||
+            !safeNativeToken(request.backendId) ||
+            !safeNativeToken(request.agentId) ||
+            !safeNativeToken(request.agentInstanceId) ||
+            request.backendGeneration == 0 ||
+            !safeNativeToken(request.pluginInstanceEpoch) ||
+            !safeNativeToken(request.probeNonce))
+        {
+            return {SuiteBridgeTransportStatus::Failed, 0, {},
+                "invalid typed native probe request"};
+        }
+        std::ostringstream wire;
+        wire << "PLUG suitebridge NPROBE EXEC vdr-suite-native/1 "
+             << "vdr.native.probe 1 "
+             << request.commandId << ' ' << request.requestFingerprint << ' '
+             << request.operationId << ' ' << request.jobId << ' '
+             << request.attemptId << ' ' << request.claimEpoch << ' '
+             << request.backendId << ' ' << request.agentId << ' '
+             << request.agentInstanceId << ' ' << request.backendGeneration << ' '
+             << request.pluginInstanceEpoch << " 1 " << request.probeNonce
+             << "\r\n";
+        return executeRequest(wire.str());
+    }
+
+    SuiteBridgeCommandReply readNativeProbe(
+        const SuiteBridgeNativeProbeReadbackRequest& request) override
+    {
+        if (!safeNativeToken(request.commandId) ||
+            !safeNativeToken(request.requestFingerprint) ||
+            !safeNativeToken(request.pluginInstanceEpoch) ||
+            request.nativeExecutionSequence == 0)
+        {
+            return {SuiteBridgeTransportStatus::Failed, 0, {},
+                "invalid typed native probe readback request"};
+        }
+        std::ostringstream wire;
+        wire << "PLUG suitebridge NPROBE READ 1 "
+             << request.commandId << ' ' << request.requestFingerprint << ' '
+             << request.pluginInstanceEpoch << ' '
+             << request.nativeExecutionSequence << "\r\n";
+        return executeRequest(wire.str());
+    }
+
 private:
+    static bool safeNativeToken(const std::string& value)
+    {
+        return !value.empty() && value.size() <= 128 &&
+            std::all_of(value.begin(), value.end(), [](unsigned char character) {
+                return std::isalnum(character) != 0 || character == '-' ||
+                    character == '_' || character == '.' || character == ':';
+            });
+    }
+
     SuiteBridgeCommandReply executeRequest(
         const std::string& requestText);
 

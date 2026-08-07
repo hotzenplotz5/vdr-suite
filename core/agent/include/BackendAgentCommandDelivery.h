@@ -66,6 +66,12 @@ public:
         std::int64_t now,
         std::int64_t deadline,
         std::string& reasonCode);
+    std::optional<BackendAgentCommandAssignment> assignNativeProbe(
+        const RequestSecurityContext& context,
+        const std::string& backendId,
+        std::int64_t now,
+        std::int64_t deadline,
+        std::string& reasonCode);
     bool requestReplay(
         const RequestSecurityContext& context,
         const std::string& backendId,

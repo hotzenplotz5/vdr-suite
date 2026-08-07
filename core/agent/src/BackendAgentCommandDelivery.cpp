@@ -111,6 +111,7 @@ bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,c
 
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
+    auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
     sqlite3_stmt* clear=nullptr;
@@ -157,6 +158,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
 
 BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(const BackendAgentCommandReceipt& r)
 {
+    auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandReceiptResult result;
     sqlite3_stmt* query=nullptr;
     const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint,deadline,state FROM backend_agent_commands WHERE command_id=?;";
@@ -187,6 +189,7 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
 
 BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const BackendAgentCommandResult& r)
 {
+    auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandResultAck result;
     sqlite3_stmt* query=nullptr;
     const char* sql="SELECT job_id,attempt_id,claim_epoch,backend_id,agent_id,agent_instance_id,backend_generation,request_fingerprint FROM backend_agent_commands WHERE command_id=?;";
@@ -227,6 +230,7 @@ bool BackendAgentCommandRepository::armFault(const std::string& backendId,const 
 }
 bool BackendAgentCommandRepository::consumeFault(const std::string& backendId,const std::string& kind)
 {
+    auto transactionLease = database_.acquireTransactionLease();
     if (kind != "receipt" && kind != "result") return false;
     const std::string column = kind == "receipt"
         ? "drop_next_receipt"

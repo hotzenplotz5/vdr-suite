@@ -2,7 +2,9 @@
 
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandJson.h"
+#include "BackendAgentNativeProbe.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <fcntl.h>
@@ -15,120 +17,920 @@
 
 namespace
 {
-constexpr std::size_t MaximumStateBytes=64U*1024U;
-std::int64_t nowSeconds(){return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();}
-bool syncParent(const std::string& path){const auto p=path.find_last_of('/');const std::string parent=p==std::string::npos?".":p==0?"/":path.substr(0,p);const int fd=open(parent.c_str(),O_RDONLY|O_DIRECTORY|O_CLOEXEC);if(fd<0)return false;const bool ok=fsync(fd)==0;const bool closed=close(fd)==0;return ok&&closed;}
-bool writeAll(int fd,const std::string& value){std::size_t offset=0;while(offset<value.size()){const ssize_t n=write(fd,value.data()+offset,value.size()-offset);if(n<0){if(errno==EINTR)continue;return false;}if(n==0)return false;offset+=static_cast<std::size_t>(n);}return true;}
-bool writeProtected(const std::string& path,const std::string& value,std::string& reason)
+vdrsuite::agent::IBackendAgentNativeProbeTransport* GlobalNativeProbeTransport = nullptr;
+constexpr std::size_t MaximumStateBytes = 64U * 1024U;
+
+std::int64_t nowSeconds()
 {
-    if(path.empty()||path.front()!='/'||value.size()>MaximumStateBytes){reason="invalid_command_state_path";return false;}
-    const std::string temp=path+".tmp"; const int fd=open(temp.c_str(),O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOFOLLOW,0600);
-    if(fd<0){reason="command_state_open_failed";return false;} const bool ok=fchmod(fd,0600)==0&&writeAll(fd,value)&&fsync(fd)==0&&close(fd)==0&&rename(temp.c_str(),path.c_str())==0&&syncParent(path);
-    if(!ok){close(fd);unlink(temp.c_str());reason="command_state_persist_failed";return false;} reason="command_state_persisted";return true;
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
-bool retireProtectedState(const std::string& path,std::string& reason)
+
+bool syncParent(const std::string& path)
 {
-    if(path.empty()||path.front()!='/'){reason="invalid_command_state_path";return false;}
-    struct stat status{};
-    if(lstat(path.c_str(),&status)!=0){reason=errno==ENOENT?"command_state_not_found":"command_state_stat_failed";return errno==ENOENT;}
-    if(!S_ISREG(status.st_mode)||(status.st_mode&(S_IRWXG|S_IRWXO))!=0){reason="command_state_unprotected";return false;}
-    if(unlink(path.c_str())!=0||!syncParent(path)){reason="command_state_retire_failed";return false;}
-    reason="completed_command_state_retired";
+    const auto separator = path.find_last_of('/');
+    const std::string parent = separator == std::string::npos
+        ? "." : separator == 0 ? "/" : path.substr(0, separator);
+    const int descriptor = open(
+        parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (descriptor < 0) return false;
+    const bool synced = fsync(descriptor) == 0;
+    const bool closed = close(descriptor) == 0;
+    return synced && closed;
+}
+
+bool writeAll(int descriptor, const std::string& value)
+{
+    std::size_t offset = 0;
+    while (offset < value.size())
+    {
+        const ssize_t written = write(
+            descriptor, value.data() + offset, value.size() - offset);
+        if (written < 0)
+        {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (written == 0) return false;
+        offset += static_cast<std::size_t>(written);
+    }
     return true;
 }
-bool readStateFile(const std::string& path,std::map<std::string,std::string>& values,std::string& reason)
+
+bool writeProtected(
+    const std::string& path,
+    const std::string& value,
+    std::string& reason)
 {
-    values.clear();struct stat st{};if(lstat(path.c_str(),&st)!=0){reason=errno==ENOENT?"command_state_not_found":"command_state_stat_failed";return false;}
-    if(!S_ISREG(st.st_mode)||(st.st_mode&(S_IRWXG|S_IRWXO))!=0||st.st_size<0||static_cast<std::size_t>(st.st_size)>MaximumStateBytes){reason="command_state_unprotected";return false;}
-    std::ifstream in(path);if(!in){reason="command_state_open_failed";return false;}std::string line;while(std::getline(in,line)){const auto pos=line.find('=');if(pos==std::string::npos||pos==0||values.count(line.substr(0,pos))){reason="command_state_invalid";return false;}values[line.substr(0,pos)]=line.substr(pos+1);}return true;
+    if (path.empty() || path.front() != '/' ||
+        value.empty() || value.size() > MaximumStateBytes)
+    {
+        reason = "invalid_command_state_path";
+        return false;
+    }
+    const std::string temporary = path + ".tmp";
+    const int descriptor = open(
+        temporary.c_str(),
+        O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+        0600);
+    if (descriptor < 0)
+    {
+        reason = "command_state_open_failed";
+        return false;
+    }
+    const bool complete = fchmod(descriptor, 0600) == 0 &&
+        writeAll(descriptor, value) && fsync(descriptor) == 0;
+    const bool closed = close(descriptor) == 0;
+    if (!complete || !closed || rename(temporary.c_str(), path.c_str()) != 0 ||
+        !syncParent(path))
+    {
+        unlink(temporary.c_str());
+        reason = "command_state_persist_failed";
+        return false;
+    }
+    reason = "command_state_persisted";
+    return true;
 }
-bool number(const std::string& value,std::uint64_t& out){if(value.empty()||value.size()>19)return false;out=0;for(unsigned char c:value){if(c<'0'||c>'9')return false;const unsigned d=c-'0';if(out>(static_cast<std::uint64_t>(INT64_MAX)-d)/10)return false;out=out*10+d;}return true;}
+
+bool retireProtectedState(const std::string& path, std::string& reason)
+{
+    if (path.empty() || path.front() != '/')
+    {
+        reason = "invalid_command_state_path";
+        return false;
+    }
+    struct stat status{};
+    if (lstat(path.c_str(), &status) != 0)
+    {
+        reason = errno == ENOENT
+            ? "command_state_not_found" : "command_state_stat_failed";
+        return errno == ENOENT;
+    }
+    if (!S_ISREG(status.st_mode) ||
+        (status.st_mode & (S_IRWXG | S_IRWXO)) != 0)
+    {
+        reason = "command_state_unprotected";
+        return false;
+    }
+    if (unlink(path.c_str()) != 0 || !syncParent(path))
+    {
+        reason = "command_state_retire_failed";
+        return false;
+    }
+    reason = "completed_command_state_retired";
+    return true;
+}
+
+bool readStateFile(
+    const std::string& path,
+    std::map<std::string, std::string>& values,
+    std::string& reason)
+{
+    values.clear();
+    struct stat status{};
+    if (lstat(path.c_str(), &status) != 0)
+    {
+        reason = errno == ENOENT
+            ? "command_state_not_found" : "command_state_stat_failed";
+        return false;
+    }
+    if (!S_ISREG(status.st_mode) ||
+        (status.st_mode & (S_IRWXG | S_IRWXO)) != 0 ||
+        status.st_size < 0 ||
+        static_cast<std::size_t>(status.st_size) > MaximumStateBytes)
+    {
+        reason = "command_state_unprotected";
+        return false;
+    }
+    std::ifstream input(path);
+    if (!input)
+    {
+        reason = "command_state_open_failed";
+        return false;
+    }
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const auto separator = line.find('=');
+        if (separator == std::string::npos || separator == 0 ||
+            !values.emplace(
+                line.substr(0, separator),
+                line.substr(separator + 1)).second)
+        {
+            reason = "command_state_invalid";
+            return false;
+        }
+    }
+    return true;
+}
+
+bool number(const std::string& value, std::uint64_t& parsed)
+{
+    if (value.empty() || value.size() > 19) return false;
+    parsed = 0;
+    for (unsigned char character : value)
+    {
+        if (character < '0' || character > '9') return false;
+        const unsigned digit = static_cast<unsigned>(character - '0');
+        if (parsed >
+            (static_cast<std::uint64_t>(INT64_MAX) - digit) / 10U) return false;
+        parsed = parsed * 10U + digit;
+    }
+    return true;
+}
+
 struct LocalState
 {
     BackendAgentCommandAssignment assignment;
     BackendAgentCommandReceipt receipt;
     BackendAgentCommandResult result;
-    bool receiptAcknowledged=false;
-    bool resultPresent=false;
-    bool resultAcknowledged=false;
-    std::string dispatchState="not_started";
+    bool receiptAcknowledged = false;
+    bool resultPresent = false;
+    bool resultAcknowledged = false;
+    std::string dispatchState = "not_started";
+    std::string nativeCapabilityEvidence;
+    std::string pluginInstanceEpoch;
+    std::string probeNonce;
+    std::uint64_t nativeExecutionSequence = 0;
+    std::string nativeReceiptEvidence;
+    std::string nativeResultEvidence;
+    std::string nativeReadbackEvidence;
 };
-std::string boolText(bool value){return value?"1":"0";}
-bool load(const std::string& path,LocalState& state,std::string& reason)
-{
-    std::map<std::string,std::string> v;if(!readStateFile(path,v,reason))return false;
-    static const std::vector<std::string> keys={"version","protocol_version","request_id","correlation_id","operation_id","job_id","attempt_id","claim_epoch","command_id","backend_id","agent_id","agent_instance_id","backend_generation","command_type","payload_version","payload","request_fingerprint","verification_policy","assigned_at","deadline","receipt_category","received_at","receipt_reason","receipt_acknowledged","dispatch_state","result_present","result_acknowledged","verification_state","result_category","error_category","retry_classification","bounded_diagnostics","completed_at"};
-    if(v.size()!=keys.size()){reason="command_state_invalid";return false;}for(const auto& key:keys)if(!v.count(key)){reason="command_state_invalid";return false;}
-    std::uint64_t claim=0,generation=0,payloadVersion=0,assigned=0,deadline=0,received=0,completed=0;
-    if(v["version"]!="1"||!number(v["claim_epoch"],claim)||!number(v["backend_generation"],generation)||!number(v["payload_version"],payloadVersion)||!number(v["assigned_at"],assigned)||!number(v["deadline"],deadline)||!number(v["received_at"],received)||!number(v["completed_at"],completed)){reason="command_state_invalid";return false;}
-    auto& a=state.assignment;a.present=true;a.protocolVersion=v["protocol_version"];a.requestId=v["request_id"];a.correlationId=v["correlation_id"];a.operationId=v["operation_id"];a.jobId=v["job_id"];a.attemptId=v["attempt_id"];a.claimEpoch=claim;a.commandId=v["command_id"];a.backendId=v["backend_id"];a.agentId=v["agent_id"];a.agentInstanceId=v["agent_instance_id"];a.backendGeneration=generation;a.commandType=v["command_type"];a.payloadVersion=payloadVersion;a.payload=v["payload"];a.requestFingerprint=v["request_fingerprint"];a.verificationPolicy=v["verification_policy"];a.assignedAt=static_cast<std::int64_t>(assigned);a.deadline=static_cast<std::int64_t>(deadline);
-    if(!backendAgentCommandValidAssignment(a)){reason="command_state_invalid_assignment";return false;}
-    auto& r=state.receipt;r.commandId=a.commandId;r.requestFingerprint=a.requestFingerprint;r.jobId=a.jobId;r.attemptId=a.attemptId;r.claimEpoch=a.claimEpoch;r.backendId=a.backendId;r.agentId=a.agentId;r.agentInstanceId=a.agentInstanceId;r.backendGeneration=a.backendGeneration;r.receiptCategory=v["receipt_category"];r.receivedAt=static_cast<std::int64_t>(received);r.reasonCode=v["receipt_reason"];
-    state.receiptAcknowledged=v["receipt_acknowledged"]=="1";state.dispatchState=v["dispatch_state"];state.resultPresent=v["result_present"]=="1";state.resultAcknowledged=v["result_acknowledged"]=="1";
-    if(state.resultPresent){auto& x=state.result;x.commandId=a.commandId;x.requestFingerprint=a.requestFingerprint;x.jobId=a.jobId;x.attemptId=a.attemptId;x.claimEpoch=a.claimEpoch;x.backendId=a.backendId;x.agentId=a.agentId;x.agentInstanceId=a.agentInstanceId;x.backendGeneration=a.backendGeneration;x.dispatchState=state.dispatchState;x.verificationState=v["verification_state"];x.resultCategory=v["result_category"];x.errorCategory=v["error_category"];x.retryClassification=v["retry_classification"];x.boundedDiagnostics=v["bounded_diagnostics"];x.completedAt=static_cast<std::int64_t>(completed);if(!backendAgentCommandValidResult(x)){reason="command_state_invalid_result";return false;}}
-    reason="command_state_loaded";return true;
-}
-bool persist(const std::string& path,const LocalState& state,std::string& reason)
-{
-    const auto& a=state.assignment;const auto& r=state.receipt;const auto& x=state.result;std::ostringstream out;
-    out<<"version=1\nprotocol_version="<<a.protocolVersion<<"\nrequest_id="<<a.requestId<<"\ncorrelation_id="<<a.correlationId<<"\noperation_id="<<a.operationId<<"\njob_id="<<a.jobId<<"\nattempt_id="<<a.attemptId<<"\nclaim_epoch="<<a.claimEpoch<<"\ncommand_id="<<a.commandId<<"\nbackend_id="<<a.backendId<<"\nagent_id="<<a.agentId<<"\nagent_instance_id="<<a.agentInstanceId<<"\nbackend_generation="<<a.backendGeneration<<"\ncommand_type="<<a.commandType<<"\npayload_version="<<a.payloadVersion<<"\npayload="<<a.payload<<"\nrequest_fingerprint="<<a.requestFingerprint<<"\nverification_policy="<<a.verificationPolicy<<"\nassigned_at="<<a.assignedAt<<"\ndeadline="<<a.deadline<<"\nreceipt_category="<<r.receiptCategory<<"\nreceived_at="<<r.receivedAt<<"\nreceipt_reason="<<r.reasonCode<<"\nreceipt_acknowledged="<<boolText(state.receiptAcknowledged)<<"\ndispatch_state="<<state.dispatchState<<"\nresult_present="<<boolText(state.resultPresent)<<"\nresult_acknowledged="<<boolText(state.resultAcknowledged)<<"\nverification_state="<<(state.resultPresent?x.verificationState:"")<<"\nresult_category="<<(state.resultPresent?x.resultCategory:"")<<"\nerror_category="<<(state.resultPresent?x.errorCategory:"")<<"\nretry_classification="<<(state.resultPresent?x.retryClassification:"")<<"\nbounded_diagnostics="<<(state.resultPresent?x.boundedDiagnostics:"")<<"\ncompleted_at="<<(state.resultPresent?x.completedAt:0)<<"\n";
-    return writeProtected(path,out.str(),reason);
-}
-bool sameContext(const BackendAgentCommandAssignment& a,const BackendAgentCommandClientContext& c){return a.backendId==c.backendId&&a.agentId==c.agentId&&a.agentInstanceId==c.agentInstanceId&&a.backendGeneration==c.backendGeneration;}
-std::string responseCode(const BackendAgentTransportResponse& response){return response.errorCode.empty()?"command_transport_failed":response.errorCode;}
 
-bool sendReceipt(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,LocalState& state,std::string& reason)
+const std::vector<std::string>& legacyKeys()
 {
-    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/receipt",serializeBackendAgentCommandReceiptJson(state.receipt));
-    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}state.receiptAcknowledged=true;return persist(config.statePath,state,reason);
-}
-bool sendResult(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,LocalState& state,std::string& reason)
-{
-    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/result",serializeBackendAgentCommandResultJson(state.result));
-    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}state.resultAcknowledged=true;return persist(config.statePath,state,reason);
-}
-void createResult(LocalState& state,const std::string& dispatch,const std::string& verification,const std::string& category,const std::string& error,const std::string& retry,const std::string& diagnostics)
-{
-    state.dispatchState=dispatch;state.resultPresent=true;state.resultAcknowledged=false;auto& x=state.result;const auto& a=state.assignment;x.commandId=a.commandId;x.requestFingerprint=a.requestFingerprint;x.jobId=a.jobId;x.attemptId=a.attemptId;x.claimEpoch=a.claimEpoch;x.backendId=a.backendId;x.agentId=a.agentId;x.agentInstanceId=a.agentInstanceId;x.backendGeneration=a.backendGeneration;x.dispatchState=dispatch;x.verificationState=verification;x.resultCategory=category;x.errorCategory=error;x.retryClassification=retry;x.boundedDiagnostics=diagnostics;x.completedAt=nowSeconds();
-}
+    static const std::vector<std::string> keys = {
+        "version", "protocol_version", "request_id", "correlation_id",
+        "operation_id", "job_id", "attempt_id", "claim_epoch", "command_id",
+        "backend_id", "agent_id", "agent_instance_id", "backend_generation",
+        "command_type", "payload_version", "payload", "request_fingerprint",
+        "verification_policy", "assigned_at", "deadline", "receipt_category",
+        "received_at", "receipt_reason", "receipt_acknowledged", "dispatch_state",
+        "result_present", "result_acknowledged", "verification_state",
+        "result_category", "error_category", "retry_classification",
+        "bounded_diagnostics", "completed_at"};
+    return keys;
 }
 
-bool reconcileBackendAgentCommandState(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,std::string& reason)
+const std::vector<std::string>& currentKeys()
 {
-    if(config.commandTypes.empty()){reason="command_delivery_disabled";return true;}LocalState state;if(!load(config.statePath,state,reason)){if(reason=="command_state_not_found"){reason="no_local_command";return true;}return false;}
-    if(!sameContext(state.assignment,context))
+    static const std::vector<std::string> keys = [] {
+        std::vector<std::string> value = legacyKeys();
+        value.insert(value.end(), {
+            "native_capability_evidence", "plugin_instance_epoch", "probe_nonce",
+            "native_execution_sequence", "native_receipt_evidence",
+            "native_result_evidence", "native_readback_evidence"});
+        return value;
+    }();
+    return keys;
+}
+
+bool exactKeys(
+    const std::map<std::string, std::string>& values,
+    const std::vector<std::string>& keys)
+{
+    if (values.size() != keys.size()) return false;
+    return std::all_of(keys.begin(), keys.end(), [&](const std::string& key) {
+        return values.count(key) == 1;
+    });
+}
+
+bool load(const std::string& path, LocalState& state, std::string& reason)
+{
+    std::map<std::string, std::string> values;
+    if (!readStateFile(path, values, reason)) return false;
+    const bool legacy = values["version"] == "1";
+    const bool current = values["version"] == "2";
+    if ((!legacy && !current) ||
+        !exactKeys(values, legacy ? legacyKeys() : currentKeys()))
     {
-        if(state.resultPresent&&state.receiptAcknowledged&&state.resultAcknowledged)
-            return retireProtectedState(config.statePath,reason);
-        reason="local_command_generation_fenced";
+        reason = "command_state_invalid";
         return false;
     }
-    if(!state.receiptAcknowledged&&!sendReceipt(config,context,transport,state,reason))return false;
-    if(state.resultPresent){if(!state.resultAcknowledged&&!sendResult(config,context,transport,state,reason))return false;reason="command_result_reconciled";return true;}
-    if(state.dispatchState=="starting"||state.dispatchState=="accepted_by_executor")
+
+    std::uint64_t claim=0, generation=0, payloadVersion=0,
+        assigned=0, deadline=0, received=0, completed=0, nativeSequence=0;
+    if (!number(values["claim_epoch"], claim) ||
+        !number(values["backend_generation"], generation) ||
+        !number(values["payload_version"], payloadVersion) ||
+        !number(values["assigned_at"], assigned) ||
+        !number(values["deadline"], deadline) ||
+        !number(values["received_at"], received) ||
+        !number(values["completed_at"], completed) ||
+        (current && !number(values["native_execution_sequence"], nativeSequence)))
     {
-        createResult(state,state.dispatchState,"outcome_unknown","outcome_unknown","executor_unknown","reconcile_only","probe execution boundary recovered without re-execution");if(!persist(config.statePath,state,reason))return false;return sendResult(config,context,transport,state,reason);
+        reason = "command_state_invalid";
+        return false;
     }
-    if(state.dispatchState!="not_started"||state.assignment.commandType!="probe.noop"){reason="unsupported_local_command_state";return false;}
-    state.dispatchState="starting";if(!persist(config.statePath,state,reason))return false;
-    state.dispatchState="accepted_by_executor";if(!persist(config.statePath,state,reason))return false;
-    createResult(state,"effect_reported","not_required","succeeded","none","none","probe.noop completed without native side effect");if(!persist(config.statePath,state,reason))return false;return sendResult(config,context,transport,state,reason);
+
+    auto& assignment = state.assignment;
+    assignment.present = true;
+    assignment.protocolVersion = values["protocol_version"];
+    assignment.requestId = values["request_id"];
+    assignment.correlationId = values["correlation_id"];
+    assignment.operationId = values["operation_id"];
+    assignment.jobId = values["job_id"];
+    assignment.attemptId = values["attempt_id"];
+    assignment.claimEpoch = claim;
+    assignment.commandId = values["command_id"];
+    assignment.backendId = values["backend_id"];
+    assignment.agentId = values["agent_id"];
+    assignment.agentInstanceId = values["agent_instance_id"];
+    assignment.backendGeneration = generation;
+    assignment.commandType = values["command_type"];
+    assignment.payloadVersion = payloadVersion;
+    assignment.payload = values["payload"];
+    assignment.requestFingerprint = values["request_fingerprint"];
+    assignment.verificationPolicy = values["verification_policy"];
+    assignment.assignedAt = static_cast<std::int64_t>(assigned);
+    assignment.deadline = static_cast<std::int64_t>(deadline);
+    if (!backendAgentCommandValidAssignment(assignment))
+    {
+        reason = "command_state_invalid_assignment";
+        return false;
+    }
+
+    auto& receipt = state.receipt;
+    receipt.commandId = assignment.commandId;
+    receipt.requestFingerprint = assignment.requestFingerprint;
+    receipt.jobId = assignment.jobId;
+    receipt.attemptId = assignment.attemptId;
+    receipt.claimEpoch = assignment.claimEpoch;
+    receipt.backendId = assignment.backendId;
+    receipt.agentId = assignment.agentId;
+    receipt.agentInstanceId = assignment.agentInstanceId;
+    receipt.backendGeneration = assignment.backendGeneration;
+    receipt.receiptCategory = values["receipt_category"];
+    receipt.receivedAt = static_cast<std::int64_t>(received);
+    receipt.reasonCode = values["receipt_reason"];
+
+    state.receiptAcknowledged = values["receipt_acknowledged"] == "1";
+    state.dispatchState = values["dispatch_state"];
+    state.resultPresent = values["result_present"] == "1";
+    state.resultAcknowledged = values["result_acknowledged"] == "1";
+    if (current)
+    {
+        state.nativeCapabilityEvidence = values["native_capability_evidence"];
+        state.pluginInstanceEpoch = values["plugin_instance_epoch"];
+        state.probeNonce = values["probe_nonce"];
+        state.nativeExecutionSequence = nativeSequence;
+        state.nativeReceiptEvidence = values["native_receipt_evidence"];
+        state.nativeResultEvidence = values["native_result_evidence"];
+        state.nativeReadbackEvidence = values["native_readback_evidence"];
+        if (!backendAgentCommandSafeText(state.nativeCapabilityEvidence, 4096) ||
+            !backendAgentCommandSafeText(state.nativeReceiptEvidence, 4096) ||
+            !backendAgentCommandSafeText(state.nativeResultEvidence, 4096) ||
+            !backendAgentCommandSafeText(state.nativeReadbackEvidence, 4096) ||
+            (!state.pluginInstanceEpoch.empty() &&
+             !backendAgentCommandSafeIdentifier(state.pluginInstanceEpoch)) ||
+            (!state.probeNonce.empty() &&
+             !backendAgentCommandSafeIdentifier(state.probeNonce)))
+        {
+            reason = "command_state_invalid_native_evidence";
+            return false;
+        }
+    }
+
+    if (state.resultPresent)
+    {
+        auto& result = state.result;
+        result.commandId = assignment.commandId;
+        result.requestFingerprint = assignment.requestFingerprint;
+        result.jobId = assignment.jobId;
+        result.attemptId = assignment.attemptId;
+        result.claimEpoch = assignment.claimEpoch;
+        result.backendId = assignment.backendId;
+        result.agentId = assignment.agentId;
+        result.agentInstanceId = assignment.agentInstanceId;
+        result.backendGeneration = assignment.backendGeneration;
+        result.dispatchState = state.dispatchState;
+        result.verificationState = values["verification_state"];
+        result.resultCategory = values["result_category"];
+        result.errorCategory = values["error_category"];
+        result.retryClassification = values["retry_classification"];
+        result.boundedDiagnostics = values["bounded_diagnostics"];
+        result.completedAt = static_cast<std::int64_t>(completed);
+        if (!backendAgentCommandValidResult(result))
+        {
+            reason = "command_state_invalid_result";
+            return false;
+        }
+    }
+    reason = "command_state_loaded";
+    return true;
 }
 
-bool pollBackendAgentCommand(const BackendAgentCommandClientConfig& config,const BackendAgentCommandClientContext& context,IBackendAgentControlPlaneTransport& transport,std::string& reason)
+std::string boolText(bool value)
 {
-    if(config.commandTypes.empty()){reason="command_delivery_disabled";return true;}
-    if(!reconcileBackendAgentCommandState(config,context,transport,reason)&&reason!="no_local_command")return false;
-    BackendAgentCommandPollRequest request;request.backendId=context.backendId;request.agentInstanceId=context.agentInstanceId;request.backendGeneration=context.backendGeneration;request.supportedCommandTypes=config.commandTypes;
-    const auto response=transport.postAuthenticated(context.agentId,context.credentialSecret,"/api/agent/v1/commands/poll",serializeBackendAgentCommandPollRequestJson(request));
-    if(!response.transportSucceeded||response.statusCode!=200){reason=responseCode(response);return false;}BackendAgentCommandPollResult result;if(!parseBackendAgentCommandPollResponseJson(response.body,result,reason))return false;if(!result.assignment.present){reason="no_command_available";return true;}if(!sameContext(result.assignment,context)){reason="command_assignment_context_mismatch";return false;}
-    LocalState current;std::string loadReason;if(load(config.statePath,current,loadReason))
+    return value ? "1" : "0";
+}
+
+bool persist(const std::string& path, const LocalState& state, std::string& reason)
+{
+    const auto& assignment = state.assignment;
+    const auto& receipt = state.receipt;
+    const auto& result = state.result;
+    std::ostringstream output;
+    output << "version=2\n"
+        << "protocol_version=" << assignment.protocolVersion << "\n"
+        << "request_id=" << assignment.requestId << "\n"
+        << "correlation_id=" << assignment.correlationId << "\n"
+        << "operation_id=" << assignment.operationId << "\n"
+        << "job_id=" << assignment.jobId << "\n"
+        << "attempt_id=" << assignment.attemptId << "\n"
+        << "claim_epoch=" << assignment.claimEpoch << "\n"
+        << "command_id=" << assignment.commandId << "\n"
+        << "backend_id=" << assignment.backendId << "\n"
+        << "agent_id=" << assignment.agentId << "\n"
+        << "agent_instance_id=" << assignment.agentInstanceId << "\n"
+        << "backend_generation=" << assignment.backendGeneration << "\n"
+        << "command_type=" << assignment.commandType << "\n"
+        << "payload_version=" << assignment.payloadVersion << "\n"
+        << "payload=" << assignment.payload << "\n"
+        << "request_fingerprint=" << assignment.requestFingerprint << "\n"
+        << "verification_policy=" << assignment.verificationPolicy << "\n"
+        << "assigned_at=" << assignment.assignedAt << "\n"
+        << "deadline=" << assignment.deadline << "\n"
+        << "receipt_category=" << receipt.receiptCategory << "\n"
+        << "received_at=" << receipt.receivedAt << "\n"
+        << "receipt_reason=" << receipt.reasonCode << "\n"
+        << "receipt_acknowledged=" << boolText(state.receiptAcknowledged) << "\n"
+        << "dispatch_state=" << state.dispatchState << "\n"
+        << "result_present=" << boolText(state.resultPresent) << "\n"
+        << "result_acknowledged=" << boolText(state.resultAcknowledged) << "\n"
+        << "verification_state="
+        << (state.resultPresent ? result.verificationState : "") << "\n"
+        << "result_category="
+        << (state.resultPresent ? result.resultCategory : "") << "\n"
+        << "error_category="
+        << (state.resultPresent ? result.errorCategory : "") << "\n"
+        << "retry_classification="
+        << (state.resultPresent ? result.retryClassification : "") << "\n"
+        << "bounded_diagnostics="
+        << (state.resultPresent ? result.boundedDiagnostics : "") << "\n"
+        << "completed_at="
+        << (state.resultPresent ? result.completedAt : 0) << "\n"
+        << "native_capability_evidence=" << state.nativeCapabilityEvidence << "\n"
+        << "plugin_instance_epoch=" << state.pluginInstanceEpoch << "\n"
+        << "probe_nonce=" << state.probeNonce << "\n"
+        << "native_execution_sequence=" << state.nativeExecutionSequence << "\n"
+        << "native_receipt_evidence=" << state.nativeReceiptEvidence << "\n"
+        << "native_result_evidence=" << state.nativeResultEvidence << "\n"
+        << "native_readback_evidence=" << state.nativeReadbackEvidence << "\n";
+    return writeProtected(path, output.str(), reason);
+}
+
+bool sameContext(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandClientContext& context)
+{
+    return assignment.backendId == context.backendId &&
+        assignment.agentId == context.agentId &&
+        assignment.agentInstanceId == context.agentInstanceId &&
+        assignment.backendGeneration == context.backendGeneration;
+}
+
+std::string responseCode(const BackendAgentTransportResponse& response)
+{
+    return response.errorCode.empty()
+        ? "command_transport_failed" : response.errorCode;
+}
+
+bool sendReceipt(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    LocalState& state,
+    std::string& reason)
+{
+    const auto response = transport.postAuthenticated(
+        context.agentId, context.credentialSecret,
+        "/api/agent/v1/commands/receipt",
+        serializeBackendAgentCommandReceiptJson(state.receipt));
+    if (!response.transportSucceeded || response.statusCode != 200)
     {
-        if(current.assignment.commandId==result.assignment.commandId){if(current.assignment.requestFingerprint!=result.assignment.requestFingerprint){reason="conflicting_duplicate_command";return false;}current.receiptAcknowledged=false;if(current.resultPresent)current.resultAcknowledged=false;if(!persist(config.statePath,current,reason))return false;return reconcileBackendAgentCommandState(config,context,transport,reason);}
-        if(!current.resultAcknowledged){reason="local_command_inbox_busy";return false;}
+        reason = responseCode(response);
+        return false;
     }
-    else if(loadReason!="command_state_not_found"){reason=loadReason;return false;}
-    LocalState state;state.assignment=result.assignment;auto& receipt=state.receipt;receipt.commandId=result.assignment.commandId;receipt.requestFingerprint=result.assignment.requestFingerprint;receipt.jobId=result.assignment.jobId;receipt.attemptId=result.assignment.attemptId;receipt.claimEpoch=result.assignment.claimEpoch;receipt.backendId=result.assignment.backendId;receipt.agentId=result.assignment.agentId;receipt.agentInstanceId=result.assignment.agentInstanceId;receipt.backendGeneration=result.assignment.backendGeneration;receipt.receiptCategory="accepted";receipt.receivedAt=nowSeconds();receipt.reasonCode="durably_recorded";
+    state.receiptAcknowledged = true;
+    return persist(config.statePath, state, reason);
+}
+
+bool sendResult(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    LocalState& state,
+    std::string& reason)
+{
+    const auto response = transport.postAuthenticated(
+        context.agentId, context.credentialSecret,
+        "/api/agent/v1/commands/result",
+        serializeBackendAgentCommandResultJson(state.result));
+    if (!response.transportSucceeded || response.statusCode != 200)
+    {
+        reason = responseCode(response);
+        return false;
+    }
+    state.resultAcknowledged = true;
+    return persist(config.statePath, state, reason);
+}
+
+void createResult(
+    LocalState& state,
+    const std::string& dispatch,
+    const std::string& verification,
+    const std::string& category,
+    const std::string& error,
+    const std::string& retry,
+    const std::string& diagnostics)
+{
+    state.dispatchState = dispatch;
+    state.resultPresent = true;
+    state.resultAcknowledged = false;
+    auto& result = state.result;
+    const auto& assignment = state.assignment;
+    result.commandId = assignment.commandId;
+    result.requestFingerprint = assignment.requestFingerprint;
+    result.jobId = assignment.jobId;
+    result.attemptId = assignment.attemptId;
+    result.claimEpoch = assignment.claimEpoch;
+    result.backendId = assignment.backendId;
+    result.agentId = assignment.agentId;
+    result.agentInstanceId = assignment.agentInstanceId;
+    result.backendGeneration = assignment.backendGeneration;
+    result.dispatchState = dispatch;
+    result.verificationState = verification;
+    result.resultCategory = category;
+    result.errorCategory = error;
+    result.retryClassification = retry;
+    result.boundedDiagnostics = diagnostics;
+    result.completedAt = nowSeconds();
+}
+
+bool negotiateNativeCapability(
+    const BackendAgentCommandClientConfig& config,
+    vdrsuite::agent::SuiteBridgeNativeProbeCapability& capability,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    IBackendAgentNativeProbeTransport* transport = config.nativeProbeTransport != nullptr
+        ? config.nativeProbeTransport : GlobalNativeProbeTransport;
+    if (transport == nullptr)
+    {
+        reason = "native_capability_unavailable";
+        return false;
+    }
+    const SuiteBridgeCommandReply reply = transport->discoverNativeProbe();
+    if (!reply.transportSucceeded() || reply.replyCode != 900 ||
+        !backendAgentNativeProbeParseCapability(
+            reply.payload, capability, reason))
+    {
+        reason = "native_capability_unavailable";
+        return false;
+    }
+    reason = "native_capability_available";
+    return true;
+}
+
+vdrsuite::agent::SuiteBridgeNativeProbeRequest nativeRequest(
+    const LocalState& state)
+{
+    vdrsuite::agent::SuiteBridgeNativeProbeRequest request;
+    const auto& assignment = state.assignment;
+    request.commandId = assignment.commandId;
+    request.requestFingerprint = assignment.requestFingerprint;
+    request.operationId = assignment.operationId;
+    request.jobId = assignment.jobId;
+    request.attemptId = assignment.attemptId;
+    request.claimEpoch = assignment.claimEpoch;
+    request.backendId = assignment.backendId;
+    request.agentId = assignment.agentId;
+    request.agentInstanceId = assignment.agentInstanceId;
+    request.backendGeneration = assignment.backendGeneration;
+    request.pluginInstanceEpoch = state.pluginInstanceEpoch;
+    request.probeNonce = state.probeNonce;
+    return request;
+}
+
+bool completeNativeReadback(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    SuiteBridgeNativeProbeCapability capability;
+    if (!negotiateNativeCapability(config, capability, reason) ||
+        capability.pluginInstanceEpoch != state.pluginInstanceEpoch)
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "outcome_unknown",
+            "fenced", "reconcile_only",
+            "native probe plugin epoch changed before readback");
+        return persist(config.statePath, state, reason);
+    }
+    if (state.nativeExecutionSequence == 0)
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "outcome_unknown",
+            "executor_unknown", "reconcile_only",
+            "native probe sequence unavailable for readback");
+        return persist(config.statePath, state, reason);
+    }
+    SuiteBridgeNativeProbeReadbackRequest readbackRequest;
+    readbackRequest.commandId = state.assignment.commandId;
+    readbackRequest.requestFingerprint = state.assignment.requestFingerprint;
+    readbackRequest.pluginInstanceEpoch = state.pluginInstanceEpoch;
+    readbackRequest.nativeExecutionSequence = state.nativeExecutionSequence;
+    const SuiteBridgeCommandReply reply =
+        (config.nativeProbeTransport != nullptr ? config.nativeProbeTransport : GlobalNativeProbeTransport)->readNativeProbe(readbackRequest);
+    if (!reply.transportSucceeded())
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "outcome_unknown",
+            "executor_unknown", "reconcile_only",
+            "native probe readback transport outcome unknown");
+        return persist(config.statePath, state, reason);
+    }
+    SuiteBridgeNativeProbeEvidence evidence;
+    const auto request = nativeRequest(state);
+    if (reply.replyCode != 900 ||
+        !backendAgentNativeProbeParseEvidence(
+            reply.payload, true, evidence, reason) ||
+        !backendAgentNativeProbeEvidenceMatches(evidence, request, true) ||
+        evidence.nativeExecutionSequence != state.nativeExecutionSequence)
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "rejected",
+            reply.replyCode == 555 ? "fenced" : "executor_unknown",
+            "reconcile_only", "native probe readback verification failed");
+        return persist(config.statePath, state, reason);
+    }
+    state.nativeReadbackEvidence =
+        backendAgentNativeProbeReadbackEvidence(evidence);
+    createResult(
+        state, "effect_reported", "verified", "succeeded", "none", "none",
+        "vdr.native.probe verified with mutations disabled");
+    return persist(config.statePath, state, reason);
+}
+
+bool executeOrRecoverNative(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    SuiteBridgeNativeProbeCapability capability;
+    if (!negotiateNativeCapability(config, capability, reason))
+    {
+        createResult(
+            state, "not_started", "outcome_unknown", "rejected",
+            "unsupported", "none", "native probe capability unavailable");
+        return persist(config.statePath, state, reason);
+    }
+
+    const bool recoveringDispatch = !state.pluginInstanceEpoch.empty();
+    if (state.pluginInstanceEpoch.empty())
+    {
+        if (!backendAgentNativeProbeParsePayload(
+                state.assignment.payload, state.probeNonce))
+        {
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "unsupported", "none", "native probe payload rejected");
+            return persist(config.statePath, state, reason);
+        }
+        state.pluginInstanceEpoch = capability.pluginInstanceEpoch;
+        state.nativeCapabilityEvidence =
+            backendAgentNativeProbeCapabilityEvidence(capability);
+        state.dispatchState="starting";
+        if (!persist(config.statePath, state, reason)) return false;
+    }
+    else if (capability.pluginInstanceEpoch != state.pluginInstanceEpoch)
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "outcome_unknown",
+            "fenced", "reconcile_only",
+            "native probe old plugin epoch cannot be replayed");
+        return persist(config.statePath, state, reason);
+    }
+
+    const SuiteBridgeNativeProbeRequest request = nativeRequest(state);
+    const SuiteBridgeCommandReply reply =
+        (config.nativeProbeTransport != nullptr ? config.nativeProbeTransport : GlobalNativeProbeTransport)->executeNativeProbe(request);
+    if (!reply.transportSucceeded())
+    {
+        if (!recoveringDispatch)
+        {
+            std::string persistReason;
+            if (!persist(config.statePath, state, persistReason))
+            {
+                reason = persistReason;
+                return false;
+            }
+            reason = "native_probe_dispatch_reconciliation_required";
+            return false;
+        }
+        createResult(
+            state, "starting", "outcome_unknown", "outcome_unknown",
+            "executor_unknown", "reconcile_only",
+            "native probe dispatch remained unknown after exact replay");
+        return persist(config.statePath, state, reason);
+    }
+    if (reply.replyCode != 900)
+    {
+        createResult(
+            state, "starting", "outcome_unknown", "rejected",
+            reply.replyCode == 555 || reply.replyCode == 554
+                ? "fenced" : "unsupported",
+            "none", "native probe executor rejected request");
+        return persist(config.statePath, state, reason);
+    }
+
+    SuiteBridgeNativeProbeEvidence evidence;
+    if (!backendAgentNativeProbeParseEvidence(
+            reply.payload, false, evidence, reason) ||
+        !backendAgentNativeProbeEvidenceMatches(evidence, request, false))
+    {
+        createResult(
+            state, "starting", "outcome_unknown", "outcome_unknown",
+            "executor_unknown", "reconcile_only",
+            "native probe executor evidence invalid");
+        return persist(config.statePath, state, reason);
+    }
+
+    state.nativeExecutionSequence = evidence.nativeExecutionSequence;
+    state.nativeReceiptEvidence =
+        backendAgentNativeProbeReceiptEvidence(evidence);
+    state.dispatchState = "accepted_by_executor";
+    if (!persist(config.statePath, state, reason)) return false;
+    state.nativeResultEvidence =
+        backendAgentNativeProbeResultEvidence(evidence);
+    state.dispatchState = "effect_reported";
+    if (!persist(config.statePath, state, reason)) return false;
+    return completeNativeReadback(config, state, reason);
+}
+
+bool reconcileNative(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::string& reason)
+{
+    if (state.dispatchState == "not_started" ||
+        state.dispatchState == "starting")
+    {
+        return executeOrRecoverNative(config, state, reason);
+    }
+    if (state.dispatchState == "accepted_by_executor")
+    {
+        return executeOrRecoverNative(config, state, reason);
+    }
+    if (state.dispatchState == "effect_reported")
+    {
+        return completeNativeReadback(config, state, reason);
+    }
+    reason = "unsupported_local_command_state";
+    return false;
+}
+
+std::vector<std::string> availableCommandTypes(
+    const BackendAgentCommandClientConfig& config)
+{
+    std::vector<std::string> available;
+    for (const std::string& type : config.commandTypes)
+    {
+        if (type != "vdr.native.probe")
+        {
+            available.push_back(type);
+            continue;
+        }
+        vdrsuite::agent::SuiteBridgeNativeProbeCapability capability;
+        std::string reason;
+        if (negotiateNativeCapability(config, capability, reason))
+            available.push_back(type);
+    }
+    return available;
+}
+}
+
+bool reconcileBackendAgentCommandState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reason)
+{
+    if (config.commandTypes.empty())
+    {
+        reason = "command_delivery_disabled";
+        return true;
+    }
+    LocalState state;
+    if (!load(config.statePath, state, reason))
+    {
+        if (reason == "command_state_not_found")
+        {
+            reason = "no_local_command";
+            return true;
+        }
+        return false;
+    }
+    if (!sameContext(state.assignment, context))
+    {
+        if (state.resultPresent && state.receiptAcknowledged &&
+            state.resultAcknowledged)
+            return retireProtectedState(config.statePath, reason);
+        reason = "local_command_generation_fenced";
+        return false;
+    }
+    if (!state.receiptAcknowledged &&
+        !sendReceipt(config, context, transport, state, reason)) return false;
+    if (state.resultPresent)
+    {
+        if (!state.resultAcknowledged &&
+            !sendResult(config, context, transport, state, reason)) return false;
+        reason = "command_result_reconciled";
+        return true;
+    }
+
+    if (state.assignment.deadline <= nowSeconds() &&
+        state.dispatchState == "not_started")
+    {
+        createResult(
+            state, "not_started", "outcome_unknown", "rejected",
+            "expired", "none", "command deadline expired before native dispatch");
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
+    }
+
+    if (state.assignment.commandType == "vdr.native.probe")
+    {
+        if (!reconcileNative(config, state, reason)) return false;
+        return state.resultPresent
+            ? sendResult(config, context, transport, state, reason) : true;
+    }
+
+    if (state.dispatchState == "starting" ||
+        state.dispatchState == "accepted_by_executor")
+    {
+        createResult(
+            state, state.dispatchState, "outcome_unknown", "outcome_unknown",
+            "executor_unknown", "reconcile_only",
+            "probe execution boundary recovered without re-execution");
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
+    }
+    if (state.dispatchState != "not_started" ||
+        state.assignment.commandType != "probe.noop")
+    {
+        reason = "unsupported_local_command_state";
+        return false;
+    }
+    state.dispatchState="starting";
+    if (!persist(config.statePath, state, reason)) return false;
+    state.dispatchState = "accepted_by_executor";
+    if (!persist(config.statePath, state, reason)) return false;
+    createResult(
+        state, "effect_reported", "not_required", "succeeded", "none", "none",
+        "probe.noop completed without native side effect");
+    if (!persist(config.statePath, state, reason)) return false;
+    return sendResult(config, context, transport, state, reason);
+}
+
+bool pollBackendAgentCommand(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reason)
+{
+    if (config.commandTypes.empty())
+    {
+        reason = "command_delivery_disabled";
+        return true;
+    }
+    if (!reconcileBackendAgentCommandState(
+            config, context, transport, reason) &&
+        reason != "no_local_command") return false;
+
+    BackendAgentCommandPollRequest request;
+    request.backendId = context.backendId;
+    request.agentInstanceId = context.agentInstanceId;
+    request.backendGeneration = context.backendGeneration;
+    request.supportedCommandTypes = availableCommandTypes(config);
+    const auto response = transport.postAuthenticated(
+        context.agentId, context.credentialSecret,
+        "/api/agent/v1/commands/poll",
+        serializeBackendAgentCommandPollRequestJson(request));
+    if (!response.transportSucceeded || response.statusCode != 200)
+    {
+        reason = responseCode(response);
+        return false;
+    }
+    BackendAgentCommandPollResult result;
+    if (!parseBackendAgentCommandPollResponseJson(
+            response.body, result, reason)) return false;
+    if (!result.assignment.present)
+    {
+        reason = request.supportedCommandTypes.empty()
+            ? "native_capability_unavailable" : "no_command_available";
+        return true;
+    }
+    if (!sameContext(result.assignment, context))
+    {
+        reason = "command_assignment_context_mismatch";
+        return false;
+    }
+
+    LocalState current;
+    std::string loadReason;
+    if (load(config.statePath, current, loadReason))
+    {
+        if (current.assignment.commandId == result.assignment.commandId)
+        {
+            if (current.assignment.requestFingerprint !=
+                result.assignment.requestFingerprint)
+            {
+                reason = "conflicting_duplicate_command";
+                return false;
+            }
+            current.receiptAcknowledged=false;
+            if (current.resultPresent) current.resultAcknowledged = false;
+            if (!persist(config.statePath, current, reason)) return false;
+            return reconcileBackendAgentCommandState(
+                config, context, transport, reason);
+        }
+        if (!current.resultAcknowledged)
+        {
+            reason = "local_command_inbox_busy";
+            return false;
+        }
+    }
+    else if (loadReason != "command_state_not_found")
+    {
+        reason = loadReason;
+        return false;
+    }
+
+    LocalState state;
+    state.assignment = result.assignment;
+    auto& receipt = state.receipt;
+    receipt.commandId = result.assignment.commandId;
+    receipt.requestFingerprint = result.assignment.requestFingerprint;
+    receipt.jobId = result.assignment.jobId;
+    receipt.attemptId = result.assignment.attemptId;
+    receipt.claimEpoch = result.assignment.claimEpoch;
+    receipt.backendId = result.assignment.backendId;
+    receipt.agentId = result.assignment.agentId;
+    receipt.agentInstanceId = result.assignment.agentInstanceId;
+    receipt.backendGeneration = result.assignment.backendGeneration;
+    receipt.receiptCategory = "accepted";
+    receipt.receivedAt = nowSeconds();
+    receipt.reasonCode = "durably_recorded";
     if (!persist(config.statePath, state, reason)) return false;
     return reconcileBackendAgentCommandState(config, context, transport, reason);
+}
+
+void setBackendAgentNativeProbeTransport(
+    vdrsuite::agent::IBackendAgentNativeProbeTransport* transport)
+{
+    GlobalNativeProbeTransport = transport;
 }

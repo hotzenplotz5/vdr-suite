@@ -1,8 +1,15 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCommandClient.h"
+#include "SuiteBridgeSvdrpTransport.h"
 
+#include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <csignal>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <string>
 
 namespace
@@ -13,6 +20,32 @@ void handleSignal(int signal)
 {
     if (signal == SIGINT || signal == SIGTERM) StopRequested.store(true);
 }
+
+bool loopbackHost(const std::string& host)
+{
+    return host == "127.0.0.1" || host == "::1" || host == "localhost";
+}
+
+bool portNumber(const std::string& value, std::uint16_t& port)
+{
+    if (value.empty()) return false;
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long parsed = std::strtoul(value.c_str(), &end, 10);
+    if (errno != 0 || end == value.c_str() || *end != '\0' ||
+        parsed == 0 || parsed > 65535) return false;
+    port = static_cast<std::uint16_t>(parsed);
+    return true;
+}
+
+void usage()
+{
+    std::cerr
+        << "usage: vdr-suite-backend-agent [--config PATH] "
+           "[--once | --rotate-credential] "
+           "[--native-probe --suitebridge-host LOOPBACK "
+           "--suitebridge-port PORT]" << std::endl;
+}
 }
 
 int main(int argc, char** argv)
@@ -20,6 +53,9 @@ int main(int argc, char** argv)
     std::string configPath = "/etc/vdr-suite/backend-agent.conf";
     bool once = false;
     bool rotateCredential = false;
+    bool nativeProbe = false;
+    std::string suiteBridgeHost;
+    std::uint16_t suiteBridgePort = 0;
     for (int index = 1; index < argc; ++index)
     {
         const std::string argument = argv[index];
@@ -35,17 +71,44 @@ int main(int argc, char** argv)
         {
             rotateCredential = true;
         }
+        else if (argument == "--native-probe")
+        {
+            nativeProbe = true;
+        }
+        else if (argument == "--suitebridge-host" && index + 1 < argc)
+        {
+            suiteBridgeHost = argv[++index];
+        }
+        else if (argument == "--suitebridge-port" && index + 1 < argc)
+        {
+            if (!portNumber(argv[++index], suiteBridgePort))
+            {
+                usage();
+                return 64;
+            }
+        }
         else
         {
-            std::cerr << "usage: vdr-suite-backend-agent [--config PATH] "
-                         "[--once | --rotate-credential]" << std::endl;
+            usage();
             return 64;
         }
     }
     if (once && rotateCredential)
     {
-        std::cerr << "usage: vdr-suite-backend-agent [--config PATH] "
-                     "[--once | --rotate-credential]" << std::endl;
+        usage();
+        return 64;
+    }
+    if (nativeProbe)
+    {
+        if (!loopbackHost(suiteBridgeHost) || suiteBridgePort == 0)
+        {
+            std::cerr << "native probe requires an explicit loopback SuiteBridge host and port" << std::endl;
+            return 78;
+        }
+    }
+    else if (!suiteBridgeHost.empty() || suiteBridgePort != 0)
+    {
+        usage();
         return 64;
     }
 
@@ -55,6 +118,23 @@ int main(int argc, char** argv)
     {
         std::cerr << "Backend Agent configuration rejected: " << reason << std::endl;
         return 78;
+    }
+
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;
+    if (nativeProbe)
+    {
+        if (!config.commandTypes.empty())
+        {
+            std::cerr << "native probe CLI activation requires COMMAND_TYPES to remain empty" << std::endl;
+            return 78;
+        }
+        config.commandTypes = {"vdr.native.probe"};
+        vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
+        transportConfig.host = suiteBridgeHost;
+        transportConfig.port = suiteBridgePort;
+        nativeTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(transportConfig);
+        setBackendAgentNativeProbeTransport(nativeTransport.get());
     }
 
     CurlBackendAgentControlPlaneTransport transport(config);

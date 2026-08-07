@@ -233,8 +233,13 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
     types.clear();
     for (const Value& item : value.arrayValue)
     {
-        if (item.kind != Kind::String || item.stringValue != "probe.noop" ||
-  std::find(types.begin(), types.end(), item.stringValue) != types.end()) return false;
+        if (item.kind != Kind::String ||
+            (item.stringValue != "probe.noop" &&
+             item.stringValue != "vdr.native.probe") ||
+            std::find(types.begin(), types.end(), item.stringValue) != types.end())
+        {
+            return false;
+        }
         types.push_back(item.stringValue);
     }
     return true;

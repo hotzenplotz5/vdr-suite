@@ -744,14 +744,83 @@ void test_permissions_and_bounded_backoff()
     transport.responses.push_back(BackendAgentTransportResponse{
         false, 0, {}, "protected_transport_failed"});
     std::vector<int> sleeps;
-    int stopChecks = 0;
+    bool stopRequested = false;
     BackendAgentClientRuntime runtime(
         config,
         transport,
-        [&](int seconds) { sleeps.push_back(seconds); },
+        [&](int seconds) {
+            assert(seconds == 1);
+            sleeps.push_back(seconds);
+            if (sleeps.size() == 7) stopRequested = true;
+        },
         [](const std::string&) {});
-    runtime.run([&] { return stopChecks++ >= 3; });
-    assert(sleeps == std::vector<int>({1, 2, 4}));
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(sleeps == std::vector<int>(7, 1));
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+void test_heartbeat_wait_is_interruptible()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-interruptible-wait";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    const BackendAgentClientConfig config = configFor(root);
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\","
+        "\"backendId\":\"default\","
+        "\"backendGeneration\":1,"
+        "\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"capabilityRevision\":1,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"heartbeatSequence\":1,"
+        "\"leaseExpiresAt\":123,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+
+    bool stopRequested = false;
+    std::vector<int> sleeps;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int seconds) {
+            assert(seconds == 1);
+            sleeps.push_back(seconds);
+            stopRequested = true;
+        },
+        [](const std::string&) {});
+
+    assert(runtime.synchronize(reason));
+    const std::size_t requestsBeforeWait = transport.paths.size();
+
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(sleeps == std::vector<int>({1}));
+    assert(transport.paths.size() == requestsBeforeWait);
+    assert(transport.responses.empty());
+
     removeTree(root);
 }
 }
@@ -767,6 +836,7 @@ int main()
     test_channel_observation_publication_change_and_pending_retry();
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
+    test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;
 }

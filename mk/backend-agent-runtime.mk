@@ -5,6 +5,7 @@ backend-agent:
 		$(AGENT_CLIENT_SRC) \
 		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		apps/agent/main.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent

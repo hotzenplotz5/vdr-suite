@@ -24,14 +24,19 @@ AGENT_CHANNEL_DOMAIN_SRC := \
 AGENT_CHANNEL_JSON_SRC := \
 	core/agent/src/BackendAgentChannelObservationJson.cpp
 
+AGENT_NATIVE_PROBE_SRC := \
+	core/agent/src/BackendAgentNativeProbe.cpp
+
 AGENT_COMMAND_DOMAIN_SRC := \
-	core/agent/src/BackendAgentCommand.cpp
+	core/agent/src/BackendAgentCommand.cpp \
+	$(AGENT_NATIVE_PROBE_SRC)
 
 AGENT_COMMAND_JSON_SRC := \
 	core/agent/src/BackendAgentCommandJson.cpp
 
 AGENT_COMMAND_DELIVERY_SRC := \
-	core/agent/src/BackendAgentCommandDelivery.cpp
+	core/agent/src/BackendAgentCommandDelivery.cpp \
+	core/agent/src/BackendAgentNativeProbeDelivery.cpp
 
 AGENT_COMMAND_CLIENT_SRC := \
 	core/agent/src/BackendAgentCommandClient.cpp
