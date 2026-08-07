@@ -146,14 +146,14 @@ selection. Its provider fields are therefore part of the existing normalized
 command request fingerprint.
 
 This means an otherwise identical command with a different ownership
-Generation, provider epoch, provider Generation or capability revision has a
+generation, provider epoch, provider generation or capability revision has a
 different command identity.
 
 The v2 payload remains typed. It contains no provider URL, host, port,
 credential, plugin command text, SVDRP command, shell fragment or arbitrary JSON
 extension.
 
-## Delivery fence
+## Dispatch authority fence
 
 Before returning a selected native command from the command poll, the Control
 Plane requires the persisted selection to still match:
@@ -169,9 +169,33 @@ Plane requires the persisted selection to still match:
 If any value changed, the command is not delivered. Another available provider
 is not a continuation candidate.
 
-The same selection is checked again when the Agent submits command receipt and
-result evidence. This closes the race between assignment/poll and local native
-dispatch for this slice.
+The current selection is checked again when the Agent submits or re-confirms the
+durable command receipt before a v2 native dispatch or exact local replay. A
+stale ownership/provider fence therefore cannot authorize further native
+execution.
+
+## Outcome evidence is not dispatch authority
+
+A result can describe an execution that already happened before ownership or
+provider facts changed. Rejecting that result merely because current ownership
+changed would discard evidence without undoing the execution.
+
+For v2 native commands, result ingestion therefore validates the immutable
+command identity instead of granting new authority. It requires:
+
+- exact command, job, attempt, claim, Agent and backend generation identity;
+- exact request fingerprint;
+- an accepted durable receipt;
+- a valid selected v2 payload;
+- the persisted provider-selection sidecar to match the selection identity that
+  is embedded in the fingerprinted payload.
+
+Current ownership or provider availability is deliberately not required to
+store that already-produced outcome evidence. Result evidence does not authorize
+continuation, replay, readback or re-execution. Those actions still require the
+current dispatch authority fence.
+
+This separation preserves evidence while remaining fail closed for execution.
 
 ## Agent-side fence
 
@@ -211,11 +235,16 @@ can be inspected safely during upgrade.
 
 A newly received v1 `vdr.native.probe` is not eligible for a fresh native
 dispatch under this runtime. It is rejected locally with no native execution
-because it has no explicit provider selection.
+because it has no explicit provider selection. The upgraded Control Plane also
+does not deliver a stored v1 native command as a new assignment because it has
+no provider-selection sidecar.
 
-A v1 command that had already persisted a SuiteBridge plugin epoch before an
-upgrade remains reconciliation-only and may only use the same SuiteBridge epoch.
-It is never converted to another provider.
+A v1 command that had already persisted local state before an upgrade remains
+reconciliation-only and may only use the same SuiteBridge plugin epoch for any
+local recovery step. Its legacy v1 durable receipt and result evidence can still
+be ingested by the Control Plane using the original immutable command identity.
+Accepting legacy v1 reconciliation evidence does not make that command eligible
+for new delivery or execution and never converts it to another provider.
 
 ## RESTfulAPI and other adapters
 
@@ -277,7 +306,9 @@ The runtime refuses assignment, delivery or continuation when applicable for:
 - newly delivered legacy v1 native command;
 - unknown provider kind.
 
-No failure selects another provider automatically.
+No failure selects another provider automatically. A stale execution fence can
+still accept immutable outcome evidence for work that already happened, but it
+cannot authorize any continuation.
 
 ## Security boundary
 
@@ -306,12 +337,15 @@ Hosted tests cover:
 - selected provider persisted in payload v2 and command sidecar;
 - RESTfulAPI fact does not become fallback for SuiteBridge ownership;
 - provider epoch replacement fences delivery and receipt;
-- ownership replacement fences completion/reconciliation;
+- ownership replacement fences continuation and replay;
+- outcome evidence remains ingestible after ownership changes without granting
+  continuation authority;
 - capability revision replacement fences continuation;
 - selected v2 native execution and readback;
 - receipt re-confirmation before lost-response exact replay;
 - plugin epoch replacement prevents blind native replay;
 - newly delivered v1 native command performs no native dispatch;
+- pre-upgrade v1 durable receipt/result evidence remains reconciliation-only;
 - all pre-existing command, Agent, packaging and frontend regressions.
 
 Because this slice changes installed daemon/Agent command behavior, the final
