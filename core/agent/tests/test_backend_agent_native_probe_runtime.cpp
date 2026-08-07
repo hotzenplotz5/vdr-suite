@@ -13,14 +13,29 @@
 using namespace vdrsuite::agent;
 
 namespace {
+BackendAgentLocalProviderSelection selection(const std::string& epoch="pie_1")
+{
+    BackendAgentLocalProviderSelection value;
+    value.backendId="default";
+    value.authorityDomain="vdr.native";
+    value.providerId="suitebridge:local";
+    value.providerKind="suitebridge";
+    value.ownershipGeneration=1;
+    value.providerInstanceEpoch=epoch;
+    value.providerGeneration=1;
+    value.capabilityRevision=1;
+    value.requiredCapability="vdr.native.probe";
+    return value;
+}
+
 BackendAgentCommandAssignment makeAssignment()
 {
     BackendAgentCommandAssignment a;
     a.present=true;a.requestId="req_1";a.correlationId="corr_1";a.operationId="op_1";
     a.jobId="job_1";a.attemptId="att_1";a.claimEpoch=1;a.commandId="cmd_1";
     a.backendId="default";a.agentId="agt_1";a.agentInstanceId="agi_1";
-    a.backendGeneration=7;a.commandType="vdr.native.probe";a.payloadVersion=1;
-    a.payload="{\"probeSchema\":1,\"probeNonce\":\"pbn_1\"}";
+    a.backendGeneration=7;a.commandType="vdr.native.probe";a.payloadVersion=2;
+    a.payload=backendAgentNativeProbeSelectedPayload("pbn_1",selection());
     a.verificationPolicy="readback_required";a.assignedAt=1;a.deadline=4102444800LL;
     a.requestFingerprint=backendAgentCommandFingerprint(a);
     assert(backendAgentCommandValidAssignment(a));
@@ -45,7 +60,20 @@ public:
     BackendAgentTransportResponse postAuthenticated(const std::string&,const std::string&,const std::string& path,const std::string& body) override
     {
         BackendAgentTransportResponse r;r.transportSucceeded=true;r.statusCode=200;
-        if(path.find("/poll")!=std::string::npos){++pollCalls;BackendAgentCommandPollResult result;result.accepted=true;result.reasonCode="command_assigned";result.assignment=assignment;r.body=serializeBackendAgentCommandPollResponseJson(result);}
+        if(path.find("/poll")!=std::string::npos)
+        {
+            ++pollCalls;
+            BackendAgentCommandPollRequest request;
+            std::string reason;
+            assert(parseBackendAgentCommandPollRequestJson(body,request,reason));
+            assert(request.supportedCommandTypes==std::vector<std::string>{"vdr.native.probe"});
+            assert(request.localProviders.size()==1);
+            assert(request.localProviders.front().providerId=="suitebridge:local");
+            assert(request.localProviders.front().providerKind=="suitebridge");
+            assert(request.localProviders.front().providerGeneration==1);
+            assert(request.localProviders.front().capabilityRevision==1);
+            BackendAgentCommandPollResult result;result.accepted=true;result.reasonCode="command_assigned";result.assignment=assignment;r.body=serializeBackendAgentCommandPollResponseJson(result);
+        }
         else if(path.find("/receipt")!=std::string::npos){++receiptCalls;r.body="{}";}
         else if(path.find("/result")!=std::string::npos){++resultCalls;lastResult=body;r.body="{}";}
         return r;
@@ -87,13 +115,16 @@ int main()
     BackendAgentCommandClientContext context{"agt_1","secret-material-at-least-thirty-two-bytes","default","agi_1",7};
     std::string reason;
 
-    // The shared HTTP protocol parser must accept the explicitly negotiated
-    // native probe type while continuing to reject arbitrary command names.
     BackendAgentCommandPollRequest nativePoll;
     nativePoll.backendId="default";
     nativePoll.agentInstanceId="agi_1";
     nativePoll.backendGeneration=7;
     nativePoll.supportedCommandTypes={"vdr.native.probe"};
+    SuiteBridgeNativeProbeCapability nativeCapability;
+    assert(backendAgentNativeProbeParseCapability(
+        "{\"nativeOperation\":\"vdr.native.probe\",\"nativeOperationSchema\":1,\"sideEffectClass\":\"none\",\"mutations\":\"disabled\",\"localProviderKind\":\"suitebridge\",\"pluginInstanceEpoch\":\"pie_1\"}",
+        nativeCapability,reason));
+    nativePoll.localProviders={backendAgentNativeProbeProviderFacts(nativeCapability)};
 
     const std::string nativePollJson=
         serializeBackendAgentCommandPollRequestJson(nativePoll);
@@ -103,13 +134,12 @@ int main()
         nativePollJson,parsedNativePoll,reason));
     assert(reason=="command_poll_parsed");
     assert(parsedNativePoll.supportedCommandTypes.size()==1);
-    assert(
-        parsedNativePoll.supportedCommandTypes.front()==
-        "vdr.native.probe");
+    assert(parsedNativePoll.supportedCommandTypes.front()=="vdr.native.probe");
+    assert(parsedNativePoll.localProviders.size()==1);
+    assert(parsedNativePoll.localProviders.front().providerInstanceEpoch=="pie_1");
 
     BackendAgentCommandPollRequest unsupportedPoll=nativePoll;
     unsupportedPoll.supportedCommandTypes={"vdr.native.mutate"};
-
     BackendAgentCommandPollRequest rejectedPoll;
     assert(!parseBackendAgentCommandPollRequestJson(
         serializeBackendAgentCommandPollRequestJson(unsupportedPoll),
@@ -137,7 +167,9 @@ int main()
     assert(!pollBackendAgentCommand(recovered,context,recoveredControl,reason));
     assert(reason=="native_probe_dispatch_reconciliation_required");
     assert(recoveredControl.resultCalls==0&&recoveredNative.executeCalls==1);
+    const int receiptsBeforeRecovery=recoveredControl.receiptCalls;
     assert(reconcileBackendAgentCommandState(recovered,context,recoveredControl,reason));
+    assert(recoveredControl.receiptCalls==receiptsBeforeRecovery+1);
     assert(recoveredNative.executeCalls==2&&recoveredNative.readCalls==1);
     assert(recoveredControl.lastResult.find("\"verificationState\":\"verified\"")!=std::string::npos);
 
@@ -151,6 +183,20 @@ int main()
     assert(reconcileBackendAgentCommandState(uncertain,context,uncertainControl,reason));
     assert(uncertainNative.executeCalls==1);
     assert(uncertainControl.lastResult.find("\"resultCategory\":\"outcome_unknown\"")!=std::string::npos);
+
+    // A newly received legacy v1 native command is fail-closed and never dispatched.
+    std::remove(path.c_str());
+    Control legacyControl;
+    legacyControl.assignment.payloadVersion=1;
+    legacyControl.assignment.payload="{\"probeSchema\":1,\"probeNonce\":\"pbn_legacy\"}";
+    legacyControl.assignment.requestFingerprint=
+        backendAgentCommandFingerprint(legacyControl.assignment);
+    assert(backendAgentCommandValidAssignment(legacyControl.assignment));
+    Native legacyNative;
+    BackendAgentCommandClientConfig legacy{path,{"vdr.native.probe"},&legacyNative};
+    assert(pollBackendAgentCommand(legacy,context,legacyControl,reason));
+    assert(legacyNative.executeCalls==0);
+    assert(legacyControl.lastResult.find("\"resultCategory\":\"rejected\"")!=std::string::npos);
     std::remove(path.c_str());
     return 0;
 }
