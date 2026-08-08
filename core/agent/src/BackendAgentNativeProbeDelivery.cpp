@@ -1,8 +1,7 @@
 #include "BackendAgentCommandDelivery.h"
 
 #include "BackendAgentLifecycle.h"
-
-#include <sstream>
+#include "BackendAgentNativeProbe.h"
 
 std::optional<BackendAgentCommandAssignment>
 BackendAgentCommandDeliveryService::assignNativeProbe(
@@ -35,6 +34,16 @@ BackendAgentCommandDeliveryService::assignNativeProbe(
         return std::nullopt;
     }
 
+    const auto selection = commandRepository_.selectLocalProvider(
+        backendId,
+        agent->agentId,
+        agent->agentInstanceId,
+        agent->backendGeneration,
+        "vdr.native",
+        "vdr.native.probe",
+        reason);
+    if (!selection.has_value()) return std::nullopt;
+
     BackendAgentCommandAssignment assignment;
     assignment.present = true;
     assignment.requestId = backendAgentGenerateOpaqueId("req_", 8);
@@ -49,21 +58,22 @@ BackendAgentCommandDeliveryService::assignNativeProbe(
     assignment.agentInstanceId = agent->agentInstanceId;
     assignment.backendGeneration = agent->backendGeneration;
     assignment.commandType = "vdr.native.probe";
-    assignment.payloadVersion = 1;
+    assignment.payloadVersion = 2;
     const std::string probeNonce = backendAgentGenerateOpaqueId("pbn_", 12);
-    assignment.payload =
-        "{\"probeSchema\":1,\"probeNonce\":\"" + probeNonce + "\"}";
+    assignment.payload = vdrsuite::agent::backendAgentNativeProbeSelectedPayload(
+        probeNonce, *selection);
     assignment.verificationPolicy = "readback_required";
     assignment.assignedAt = now;
     assignment.deadline = deadline;
     assignment.requestFingerprint = backendAgentCommandFingerprint(assignment);
 
-    if (!backendAgentCommandValidAssignment(assignment) ||
+    if (assignment.payload.empty() ||
+        !backendAgentCommandValidAssignment(assignment) ||
         !appendEvent(
             context, "agent.command.assigned", backendId,
             assignment.operationId, "assign-native-probe-command", "allow",
-            "side_effect_free_native_probe", "attempted", now) ||
-        !commandRepository_.insertAssignment(assignment))
+            "explicit_local_provider_selected", "attempted", now) ||
+        !commandRepository_.insertAssignment(assignment, &*selection))
     {
         reason = "native_probe_assignment_persist_failed";
         return std::nullopt;

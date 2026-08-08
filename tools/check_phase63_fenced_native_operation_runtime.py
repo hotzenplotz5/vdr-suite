@@ -6,6 +6,9 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+PROVIDER_SELECTION_RUNTIME = (
+    ROOT / "docs/development/phase-63-local-provider-selection-runtime.md"
+).is_file()
 
 # Human-readable summary required by the merged contract guard. The executable
 # checks below prove each invariant against the actual Agent/SuiteBridge sources.
@@ -79,6 +82,12 @@ acceptance_proxy = text(
     "tools/phase63-runtime-acceptance/native-probe-proxy.py"
 )
 
+agent_epoch_fence_token = (
+    "native probe selected provider cannot be replayed"
+    if PROVIDER_SELECTION_RUNTIME
+    else "native probe old plugin epoch cannot be replayed"
+)
+
 required_tokens = {
     "agent protocol": (
         agent_protocol,
@@ -101,7 +110,7 @@ required_tokens = {
             "native_result_evidence",
             "native_readback_evidence",
             "native_probe_dispatch_reconciliation_required",
-            "native probe old plugin epoch cannot be replayed",
+            agent_epoch_fence_token,
         ],
     ),
     "plugin runtime": (
@@ -183,13 +192,22 @@ command_begin_count = command_delivery.count(
 command_lease_count = command_delivery.count(
     "database_.acquireTransactionLease()"
 )
+expected_command_begin_count = 5 if PROVIDER_SELECTION_RUNTIME else 4
+expected_command_lease_count = 7 if PROVIDER_SELECTION_RUNTIME else 4
 
-if command_begin_count != 4:
+if command_begin_count != expected_command_begin_count:
     errors.append(
-        "command repository must retain exactly four explicit transactions"
+        "command repository explicit transaction count changed unexpectedly: "
+        f"expected {expected_command_begin_count}, got {command_begin_count}"
     )
 
-if command_lease_count != command_begin_count:
+if command_lease_count != expected_command_lease_count:
+    errors.append(
+        "command repository transaction/provider lease count changed unexpectedly: "
+        f"expected {expected_command_lease_count}, got {command_lease_count}"
+    )
+
+if command_lease_count < command_begin_count:
     errors.append(
         "every command repository transaction must hold the database lease"
     )

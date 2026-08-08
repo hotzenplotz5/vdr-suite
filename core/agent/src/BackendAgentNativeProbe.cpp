@@ -191,8 +191,139 @@ bool backendAgentNativeProbeParsePayload(
         !exactKeys(values, {"probeSchema", "probeNonce"})) return false;
     const Value* schema = get(values, "probeSchema", ValueKind::Unsigned);
     const Value* nonce = get(values, "probeNonce", ValueKind::String);
-    if (!schema || schema->unsignedValue != 1 || !nonce || !safeIdentifier(nonce->stringValue)) return false;
+    if (!schema || schema->unsignedValue != 1 || !nonce ||
+        !safeIdentifier(nonce->stringValue)) return false;
     probeNonce = nonce->stringValue;
+    return true;
+}
+
+bool backendAgentNativeProbeParseSelectedPayload(
+    const std::string& payload,
+    BackendAgentNativeProbePayload& selectedPayload,
+    std::string& reasonCode)
+{
+    std::map<std::string, Value> values;
+    if (!FlatJsonParser(payload).parse(values) ||
+        !exactKeys(values, {
+            "probeSchema", "probeNonce", "backendId", "authorityDomain",
+            "providerId", "providerKind", "ownershipGeneration",
+            "providerInstanceEpoch", "providerGeneration", "capabilityRevision",
+            "requiredCapability"}))
+    {
+        reasonCode = "invalid_native_probe_selected_payload";
+        return false;
+    }
+    const Value *schema=get(values,"probeSchema",ValueKind::Unsigned),
+        *nonce=get(values,"probeNonce",ValueKind::String),
+        *backend=get(values,"backendId",ValueKind::String),
+        *domain=get(values,"authorityDomain",ValueKind::String),
+        *providerId=get(values,"providerId",ValueKind::String),
+        *providerKind=get(values,"providerKind",ValueKind::String),
+        *ownershipGeneration=get(values,"ownershipGeneration",ValueKind::Unsigned),
+        *epoch=get(values,"providerInstanceEpoch",ValueKind::String),
+        *providerGeneration=get(values,"providerGeneration",ValueKind::Unsigned),
+        *capabilityRevision=get(values,"capabilityRevision",ValueKind::Unsigned),
+        *requiredCapability=get(values,"requiredCapability",ValueKind::String);
+    if (!schema || schema->unsignedValue != 2 || !nonce || !backend || !domain ||
+        !providerId || !providerKind || !ownershipGeneration || !epoch ||
+        !providerGeneration || !capabilityRevision || !requiredCapability ||
+        !safeIdentifier(nonce->stringValue))
+    {
+        reasonCode = "invalid_native_probe_selected_payload";
+        return false;
+    }
+    selectedPayload.probeNonce = nonce->stringValue;
+    auto& selection = selectedPayload.localProviderSelection;
+    selection.backendId = backend->stringValue;
+    selection.authorityDomain = domain->stringValue;
+    selection.providerId = providerId->stringValue;
+    selection.providerKind = providerKind->stringValue;
+    selection.ownershipGeneration = ownershipGeneration->unsignedValue;
+    selection.providerInstanceEpoch = epoch->stringValue;
+    selection.providerGeneration = providerGeneration->unsignedValue;
+    selection.capabilityRevision = capabilityRevision->unsignedValue;
+    selection.requiredCapability = requiredCapability->stringValue;
+    if (!backendAgentLocalProviderValidSelection(selection))
+    {
+        reasonCode = "invalid_native_probe_provider_selection";
+        return false;
+    }
+    reasonCode = "native_probe_selected_payload_parsed";
+    return true;
+}
+
+std::string backendAgentNativeProbeSelectedPayload(
+    const std::string& probeNonce,
+    const BackendAgentLocalProviderSelection& selection)
+{
+    if (!safeIdentifier(probeNonce) ||
+        !backendAgentLocalProviderValidSelection(selection)) return {};
+    std::ostringstream output;
+    output << "{\"probeSchema\":2,\"probeNonce\":\"" << escape(probeNonce)
+           << "\",\"backendId\":\"" << escape(selection.backendId)
+           << "\",\"authorityDomain\":\"" << escape(selection.authorityDomain)
+           << "\",\"providerId\":\"" << escape(selection.providerId)
+           << "\",\"providerKind\":\"" << escape(selection.providerKind)
+           << "\",\"ownershipGeneration\":" << selection.ownershipGeneration
+           << ",\"providerInstanceEpoch\":\""
+           << escape(selection.providerInstanceEpoch)
+           << "\",\"providerGeneration\":" << selection.providerGeneration
+           << ",\"capabilityRevision\":" << selection.capabilityRevision
+           << ",\"requiredCapability\":\""
+           << escape(selection.requiredCapability) << "\"}";
+    return output.str();
+}
+
+BackendAgentLocalProviderFacts backendAgentNativeProbeProviderFacts(
+    const SuiteBridgeNativeProbeCapability& capability)
+{
+    BackendAgentLocalProviderFacts facts;
+    if (!backendAgentNativeProbeCapabilityCompatible(capability)) return facts;
+    facts.providerId = "suitebridge:local";
+    facts.providerKind = capability.localProviderKind;
+    facts.providerInstanceEpoch = capability.pluginInstanceEpoch;
+    facts.providerGeneration = 1;
+    facts.capabilityRevision = capability.nativeOperationSchema;
+    facts.available = true;
+    facts.capabilities = {"vdr.native.probe"};
+    return facts;
+}
+
+bool backendAgentNativeProbeSelectionMatchesCapability(
+    const BackendAgentLocalProviderSelection& selection,
+    const std::string& backendId,
+    const SuiteBridgeNativeProbeCapability& capability,
+    std::string& reasonCode)
+{
+    if (!backendAgentLocalProviderValidSelection(selection) ||
+        !backendAgentNativeProbeCapabilityCompatible(capability) ||
+        selection.backendId != backendId ||
+        selection.authorityDomain != "vdr.native" ||
+        selection.providerId != "suitebridge:local" ||
+        selection.providerKind != "suitebridge" ||
+        selection.requiredCapability != "vdr.native.probe")
+    {
+        reasonCode = "native_probe_provider_selection_invalid";
+        return false;
+    }
+    const auto facts = backendAgentNativeProbeProviderFacts(capability);
+    if (!backendAgentLocalProviderValidFacts(facts) ||
+        selection.providerInstanceEpoch != facts.providerInstanceEpoch)
+    {
+        reasonCode = "local_provider_instance_epoch_changed";
+        return false;
+    }
+    if (selection.providerGeneration != facts.providerGeneration)
+    {
+        reasonCode = "local_provider_generation_changed";
+        return false;
+    }
+    if (selection.capabilityRevision != facts.capabilityRevision)
+    {
+        reasonCode = "local_provider_capability_revision_changed";
+        return false;
+    }
+    reasonCode = "local_provider_fence_current";
     return true;
 }
 
@@ -387,7 +518,6 @@ std::string backendAgentNativeProbeCapabilityEvidence(
            << escape(capability.pluginInstanceEpoch) << "\"}";
     return output.str();
 }
-
 
 std::string backendAgentNativeProbeReceiptEvidence(
     const SuiteBridgeNativeProbeEvidence& evidence)

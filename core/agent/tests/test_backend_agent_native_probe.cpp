@@ -14,6 +14,44 @@ int main()
     assert(backendAgentNativeProbeParsePayload("{\"probeSchema\":1,\"probeNonce\":\"pbn_1\"}", nonce));
     assert(nonce == "pbn_1");
 
+    const auto facts=backendAgentNativeProbeProviderFacts(capability);
+    assert(backendAgentLocalProviderValidFacts(facts));
+    assert(facts.providerId=="suitebridge:local");
+    assert(facts.providerKind=="suitebridge");
+    assert(facts.providerInstanceEpoch=="pie_1");
+    assert(facts.providerGeneration==1);
+    assert(facts.capabilityRevision==1);
+    assert(facts.capabilities==std::vector<std::string>{"vdr.native.probe"});
+
+    BackendAgentLocalProviderSelection selection;
+    selection.backendId="default";
+    selection.authorityDomain="vdr.native";
+    selection.providerId="suitebridge:local";
+    selection.providerKind="suitebridge";
+    selection.ownershipGeneration=4;
+    selection.providerInstanceEpoch="pie_1";
+    selection.providerGeneration=1;
+    selection.capabilityRevision=1;
+    selection.requiredCapability="vdr.native.probe";
+    const std::string selectedPayload=
+        backendAgentNativeProbeSelectedPayload("pbn_2",selection);
+    assert(!selectedPayload.empty());
+    BackendAgentNativeProbePayload parsedSelected;
+    assert(backendAgentNativeProbeParseSelectedPayload(
+        selectedPayload,parsedSelected,reason));
+    assert(reason=="native_probe_selected_payload_parsed");
+    assert(parsedSelected.probeNonce=="pbn_2");
+    assert(backendAgentLocalProviderSameFence(
+        selection,parsedSelected.localProviderSelection));
+    assert(backendAgentNativeProbeSelectionMatchesCapability(
+        parsedSelected.localProviderSelection,"default",capability,reason));
+    assert(reason=="local_provider_fence_current");
+    auto staleSelection=selection;
+    staleSelection.providerInstanceEpoch="pie_2";
+    assert(!backendAgentNativeProbeSelectionMatchesCapability(
+        staleSelection,"default",capability,reason));
+    assert(reason=="local_provider_instance_epoch_changed");
+
     SuiteBridgeNativeProbeEvidence execution;
     const std::string payload =
         "{\"commandId\":\"cmd_1\",\"requestFingerprint\":\"fp_1\",\"nativeOperation\":\"vdr.native.probe\",\"nativeOperationSchema\":1,\"pluginInstanceEpoch\":\"pie_1\",\"nativeExecutionSequence\":3,\"receiptCategory\":\"accepted\",\"acceptedAt\":10,\"sideEffectClass\":\"none\",\"resultCategory\":\"succeeded\",\"vdrActive\":true,\"mutationsState\":\"disabled\",\"sideEffectObserved\":false,\"boundedDiagnostics\":\"native probe completed\",\"completedAt\":11}";

@@ -47,7 +47,9 @@ void usage()
     std::cerr
         << "usage: vdr-suite-backend-agent-command-admin "
            "[--database PATH] [--backend ID] "
-           "(--status | --enqueue-probe | --enqueue-native-probe "
+           "(--status | --provider-ownership-status | "
+           "--set-native-probe-owner | --clear-native-probe-owner | "
+           "--enqueue-probe | --enqueue-native-probe "
            "[--deadline-seconds N] | --replay COMMAND_ID | "
            "--arm-lost-receipt-response | --arm-lost-result-response)"
         << std::endl;
@@ -64,6 +66,9 @@ int main(int argc, char** argv)
     {
         None,
         Status,
+        ProviderOwnershipStatus,
+        SetNativeProbeOwner,
+        ClearNativeProbeOwner,
         EnqueueLegacyProbe,
         EnqueueNativeProbe,
         Replay,
@@ -83,6 +88,15 @@ int main(int argc, char** argv)
             deadlineSeconds = std::atoi(argv[++index]);
         else if (argument == "--status")
             action = action == Action::None ? Action::Status : Action::None;
+        else if (argument == "--provider-ownership-status")
+            action = action == Action::None
+                ? Action::ProviderOwnershipStatus : Action::None;
+        else if (argument == "--set-native-probe-owner")
+            action = action == Action::None
+                ? Action::SetNativeProbeOwner : Action::None;
+        else if (argument == "--clear-native-probe-owner")
+            action = action == Action::None
+                ? Action::ClearNativeProbeOwner : Action::None;
         else if (argument == "--enqueue-probe")
             action = action == Action::None
                 ? Action::EnqueueLegacyProbe : Action::None;
@@ -168,6 +182,74 @@ int main(int argc, char** argv)
                 << ",\"deadline\":" << summary.deadline;
         }
         std::cout << "}" << std::endl;
+        return 0;
+    }
+
+    if (action == Action::ProviderOwnershipStatus)
+    {
+        const auto status = commands.localProviderOwnershipStatus(
+            backendId, "vdr.native");
+        std::cout << "{\"present\":" << (status.present ? "true" : "false")
+                  << ",\"active\":" << (status.active ? "true" : "false");
+        if (status.present)
+        {
+            const auto& ownership = status.ownership;
+            std::cout << ",\"authorityDomain\":\""
+                      << escape(ownership.authorityDomain)
+                      << "\",\"providerId\":\"" << escape(ownership.providerId)
+                      << "\",\"providerKind\":\"" << escape(ownership.providerKind)
+                      << "\",\"ownershipGeneration\":"
+                      << ownership.ownershipGeneration
+                      << ",\"allowedCapabilities\":[";
+            for (std::size_t index = 0;
+                 index < ownership.allowedCapabilities.size(); ++index)
+            {
+                if (index != 0) std::cout << ',';
+                std::cout << '"' << escape(ownership.allowedCapabilities[index]) << '"';
+            }
+            std::cout << ']';
+        }
+        std::cout << "}" << std::endl;
+        return 0;
+    }
+
+    if (action == Action::SetNativeProbeOwner)
+    {
+        vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
+        std::string reason;
+        if (!commands.setLocalProviderOwnership(
+                backendId,
+                "vdr.native",
+                "suitebridge:local",
+                "suitebridge",
+                {"vdr.native.probe"},
+                now,
+                ownership,
+                reason))
+        {
+            std::cerr << reason << std::endl;
+            return 1;
+        }
+        std::cout << "{\"accepted\":true,\"reasonCode\":\""
+                  << escape(reason)
+                  << "\",\"providerId\":\"" << escape(ownership.providerId)
+                  << "\",\"providerKind\":\"" << escape(ownership.providerKind)
+                  << "\",\"ownershipGeneration\":"
+                  << ownership.ownershipGeneration << "}" << std::endl;
+        return 0;
+    }
+
+    if (action == Action::ClearNativeProbeOwner)
+    {
+        std::string reason;
+        if (!commands.clearLocalProviderOwnership(
+                backendId, "vdr.native", now, reason))
+        {
+            std::cerr << reason << std::endl;
+            return 1;
+        }
+        std::cout << "{\"accepted\":true,\"reasonCode\":\""
+                  << escape(reason) << "\"}" << std::endl;
         return 0;
     }
 
