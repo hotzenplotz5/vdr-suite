@@ -6,23 +6,62 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 class AccountabilityEventRepository;
 class BackendAgentRepository;
 class Database;
+
+struct BackendAgentLocalProviderOwnershipStatus
+{
+    bool present = false;
+    bool active = false;
+    vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
+};
 
 class BackendAgentCommandRepository
 {
 public:
     explicit BackendAgentCommandRepository(Database& database);
     bool ensureSchema();
-    bool insertAssignment(const BackendAgentCommandAssignment& assignment);
+    bool insertAssignment(
+        const BackendAgentCommandAssignment& assignment,
+        const vdrsuite::agent::BackendAgentLocalProviderSelection* selection = nullptr);
     bool hasCapability(
         const std::string& backendId,
         const std::string& agentId,
         const std::string& agentInstanceId,
         std::uint64_t backendGeneration,
         const std::string& commandType) const;
+    std::optional<vdrsuite::agent::BackendAgentLocalProviderSelection>
+    selectLocalProvider(
+        const std::string& backendId,
+        const std::string& agentId,
+        const std::string& agentInstanceId,
+        std::uint64_t backendGeneration,
+        const std::string& authorityDomain,
+        const std::string& requiredCapability,
+        std::string& reasonCode) const;
+    bool localProviderSelectionCurrent(
+        const std::string& commandId,
+        std::string& reasonCode) const;
+    bool setLocalProviderOwnership(
+        const std::string& backendId,
+        const std::string& authorityDomain,
+        const std::string& providerId,
+        const std::string& providerKind,
+        const std::vector<std::string>& allowedCapabilities,
+        std::int64_t updatedAt,
+        vdrsuite::agent::BackendAgentLocalProviderOwnership& ownership,
+        std::string& reasonCode);
+    bool clearLocalProviderOwnership(
+        const std::string& backendId,
+        const std::string& authorityDomain,
+        std::int64_t updatedAt,
+        std::string& reasonCode);
+    BackendAgentLocalProviderOwnershipStatus localProviderOwnershipStatus(
+        const std::string& backendId,
+        const std::string& authorityDomain) const;
     BackendAgentCommandPollResult poll(
         const BackendAgentCommandPollRequest& request,
         const std::string& agentId,

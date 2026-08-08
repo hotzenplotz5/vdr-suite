@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BackendAgentLocalProvider.h"
 #include "ISuiteBridgeLocalTransport.h"
 
 #include <cstdint>
@@ -18,6 +19,12 @@ struct SuiteBridgeNativeProbeCapability
     std::string mutations;
     std::string localProviderKind;
     std::string pluginInstanceEpoch;
+};
+
+struct BackendAgentNativeProbePayload
+{
+    std::string probeNonce;
+    BackendAgentLocalProviderSelection localProviderSelection;
 };
 
 struct SuiteBridgeNativeProbeRequest
@@ -79,6 +86,24 @@ public:
 bool backendAgentNativeProbeParsePayload(
     const std::string& payload,
     std::string& probeNonce);
+
+bool backendAgentNativeProbeParseSelectedPayload(
+    const std::string& payload,
+    BackendAgentNativeProbePayload& selectedPayload,
+    std::string& reasonCode);
+
+std::string backendAgentNativeProbeSelectedPayload(
+    const std::string& probeNonce,
+    const BackendAgentLocalProviderSelection& selection);
+
+BackendAgentLocalProviderFacts backendAgentNativeProbeProviderFacts(
+    const SuiteBridgeNativeProbeCapability& capability);
+
+bool backendAgentNativeProbeSelectionMatchesCapability(
+    const BackendAgentLocalProviderSelection& selection,
+    const std::string& backendId,
+    const SuiteBridgeNativeProbeCapability& capability,
+    std::string& reasonCode);
 
 bool backendAgentNativeProbeParseCapability(
     const std::string& payload,
