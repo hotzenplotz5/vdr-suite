@@ -27,7 +27,8 @@ NATIVE_EVIDENCE_DIR="$EVIDENCE_DIR/native-runtime"
 ADMIN_BUILD=".build/vdr-suite-backend-agent-command-admin"
 HOST_AGENT_CONFIG="${PHASE63_AGENT_CONFIG_PATH:-/etc/vdr-suite/backend-agent.conf}"
 HOST_AGENT_CONFIG_BACKUP="$EVIDENCE_DIR/backend-agent.host.original.conf"
-ACCEPTANCE_AGENT_CONFIG="$EVIDENCE_DIR/backend-agent.acceptance.conf"
+ACCEPTANCE_AGENT_CONFIG="${PHASE63_ACCEPTANCE_AGENT_CONFIG_PATH:-/run/vdr-suite-phase63-provider-acceptance-${SHORT_HEAD}.conf}"
+ACCEPTANCE_CONFIG_CREATED=0
 OWNER_TOUCHED=0
 OWNER_RESTORED=0
 
@@ -68,8 +69,11 @@ PY_PROVIDER_INACTIVE
 prepare_acceptance_agent_config()
 {
     [[ -f "$HOST_AGENT_CONFIG" && ! -L "$HOST_AGENT_CONFIG" ]] || return 1
+    [[ "$ACCEPTANCE_AGENT_CONFIG" == /* ]] || return 1
+    [[ ! -e "$ACCEPTANCE_AGENT_CONFIG" ]] || return 1
     cp -a "$HOST_AGENT_CONFIG" "$HOST_AGENT_CONFIG_BACKUP" || return 1
-    cp -a "$HOST_AGENT_CONFIG" "$ACCEPTANCE_AGENT_CONFIG" || return 1
+    install -o root -g root -m 0644 "$HOST_AGENT_CONFIG" "$ACCEPTANCE_AGENT_CONFIG" || return 1
+    ACCEPTANCE_CONFIG_CREATED=1
     python3 - "$ACCEPTANCE_AGENT_CONFIG" <<'PY_ACCEPTANCE_CONFIG' || return 1
 from pathlib import Path
 import os
@@ -100,7 +104,7 @@ if not found:
         output.append("")
     output.append(f"COMMAND_STATE_PATH={default_state_path}")
 path.write_text("\n".join(output) + "\n", encoding="utf-8")
-os.chmod(path, 0o600)
+os.chmod(path, 0o644)
 PY_ACCEPTANCE_CONFIG
 }
 
@@ -137,6 +141,14 @@ cleanup()
     if [[ -f "$HOST_AGENT_CONFIG_BACKUP" ]] && ! cmp -s "$HOST_AGENT_CONFIG_BACKUP" "$HOST_AGENT_CONFIG"; then
         printf 'FAIL: host_agent_configuration_changed\n' >&2
         exit_code=1
+    fi
+    if [[ "$ACCEPTANCE_CONFIG_CREATED" -eq 1 ]]; then
+        if rm -f "$ACCEPTANCE_AGENT_CONFIG" && [[ ! -e "$ACCEPTANCE_AGENT_CONFIG" ]]; then
+            ACCEPTANCE_CONFIG_CREATED=0
+        else
+            printf 'FAIL: acceptance_agent_config_cleanup_failed\n' >&2
+            exit_code=1
+        fi
     fi
     exit "$exit_code"
 }
@@ -282,6 +294,9 @@ OWNER_TOUCHED=0
 OWNER_RESTORED=1
 
 cmp -s "$HOST_AGENT_CONFIG_BACKUP" "$HOST_AGENT_CONFIG" || fail host_agent_configuration_changed
+rm -f "$ACCEPTANCE_AGENT_CONFIG" || fail acceptance_agent_config_cleanup_failed
+[[ ! -e "$ACCEPTANCE_AGENT_CONFIG" ]] || fail acceptance_agent_config_cleanup_failed
+ACCEPTANCE_CONFIG_CREATED=0
 [[ -z "$(git status --porcelain)" ]] || fail acceptance_changed_worktree
 
 printf '%s\n' \
@@ -301,6 +316,7 @@ printf '%s\n' \
     'CREDENTIAL_GENERATION_PRESERVED=yes' \
     'ORIGINAL_CONFIGURATION_RESTORED=yes' \
     'HOST_AGENT_CONFIGURATION_UNCHANGED=yes' \
+    'ACCEPTANCE_AGENT_CONFIG_REMOVED=yes' \
     'VDR_ACTIVE=yes' \
     'DAEMON_ACTIVE=yes' \
     'AGENT_ACTIVE=yes' \
