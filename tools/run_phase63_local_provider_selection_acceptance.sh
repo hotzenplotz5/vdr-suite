@@ -25,6 +25,9 @@ EVIDENCE_DIR="${PHASE63_PROVIDER_EVIDENCE_DIR:-/root/vdr-suite-phase63-local-pro
 mkdir -m 0700 "$EVIDENCE_DIR" || fail evidence_directory_create_failed
 NATIVE_EVIDENCE_DIR="$EVIDENCE_DIR/native-runtime"
 ADMIN_BUILD=".build/vdr-suite-backend-agent-command-admin"
+HOST_AGENT_CONFIG="${PHASE63_AGENT_CONFIG_PATH:-/etc/vdr-suite/backend-agent.conf}"
+HOST_AGENT_CONFIG_BACKUP="$EVIDENCE_DIR/backend-agent.host.original.conf"
+ACCEPTANCE_AGENT_CONFIG="$EVIDENCE_DIR/backend-agent.acceptance.conf"
 OWNER_TOUCHED=0
 OWNER_RESTORED=0
 
@@ -62,6 +65,45 @@ raise SystemExit(0 if payload.get("active") is False else 1)
 PY_PROVIDER_INACTIVE
 }
 
+prepare_acceptance_agent_config()
+{
+    [[ -f "$HOST_AGENT_CONFIG" && ! -L "$HOST_AGENT_CONFIG" ]] || return 1
+    cp -a "$HOST_AGENT_CONFIG" "$HOST_AGENT_CONFIG_BACKUP" || return 1
+    cp -a "$HOST_AGENT_CONFIG" "$ACCEPTANCE_AGENT_CONFIG" || return 1
+    python3 - "$ACCEPTANCE_AGENT_CONFIG" <<'PY_ACCEPTANCE_CONFIG' || return 1
+from pathlib import Path
+import os
+import sys
+
+path = Path(sys.argv[1])
+default_state_path = "/var/lib/vdr-suite/backend-agent/commands.state"
+lines = path.read_text(encoding="utf-8").splitlines()
+found = False
+output = []
+for raw in lines:
+    stripped = raw.strip()
+    if not stripped or stripped.startswith("#"):
+        output.append(raw)
+        continue
+    key, separator, value = raw.partition("=")
+    if not separator:
+        raise SystemExit(1)
+    if key.strip() == "COMMAND_STATE_PATH":
+        if found:
+            raise SystemExit(1)
+        found = True
+        output.append(raw if value else f"COMMAND_STATE_PATH={default_state_path}")
+    else:
+        output.append(raw)
+if not found:
+    if output and output[-1] != "":
+        output.append("")
+    output.append(f"COMMAND_STATE_PATH={default_state_path}")
+path.write_text("\n".join(output) + "\n", encoding="utf-8")
+os.chmod(path, 0o600)
+PY_ACCEPTANCE_CONFIG
+}
+
 cleanup()
 {
     local exit_code="$?"
@@ -92,12 +134,17 @@ cleanup()
     if [[ "$OWNER_RESTORED" -ne 1 && "$OWNER_TOUCHED" -eq 1 ]]; then
         printf 'FAIL: provider_ownership_restore_failed\n' >&2
     fi
+    if [[ -f "$HOST_AGENT_CONFIG_BACKUP" ]] && ! cmp -s "$HOST_AGENT_CONFIG_BACKUP" "$HOST_AGENT_CONFIG"; then
+        printf 'FAIL: host_agent_configuration_changed\n' >&2
+        exit_code=1
+    fi
     exit "$exit_code"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+prepare_acceptance_agent_config || fail acceptance_agent_config_prepare_failed
 build_admin || fail provider_admin_build_failed
 ORIGINAL_STATUS="$(provider_status 2>"$EVIDENCE_DIR/provider-owner-original.err")" || fail provider_owner_status_failed
 printf '%s\n' "$ORIGINAL_STATUS" >"$EVIDENCE_DIR/provider-owner-original.json"
@@ -135,7 +182,7 @@ PHASE63_EVIDENCE_DIR="$NATIVE_EVIDENCE_DIR" \
 PHASE63_BACKEND_ID="$BACKEND_ID" \
 PHASE63_DATABASE="$DATABASE" \
 PHASE63_VDR_VIDEO_DIR="${PHASE63_VDR_VIDEO_DIR:-/srv/vdr/video.00}" \
-PHASE63_AGENT_CONFIG_PATH="${PHASE63_AGENT_CONFIG_PATH:-/etc/vdr-suite/backend-agent.conf}" \
+PHASE63_AGENT_CONFIG_PATH="$ACCEPTANCE_AGENT_CONFIG" \
 PHASE63_DAEMON_SERVICE="${PHASE63_DAEMON_SERVICE:-vdr-suite-daemon}" \
 PHASE63_AGENT_SERVICE="${PHASE63_AGENT_SERVICE:-vdr-suite-backend-agent}" \
 PHASE63_VDR_SERVICE="${PHASE63_VDR_SERVICE:-vdr}" \
@@ -165,12 +212,14 @@ do
     grep -Fqx "$marker" "$EVIDENCE_DIR/native-runtime.log" || fail "nested_marker_missing_${marker%%=*}"
 done
 
-python3 - "$DATABASE" "$EVIDENCE_DIR/provider-selection-db.json" <<'PY_PROVIDER_DB'
+cmp -s "$HOST_AGENT_CONFIG_BACKUP" "$HOST_AGENT_CONFIG" || fail host_agent_configuration_changed
+
+python3 - "$DATABASE" "$BACKEND_ID" "$EVIDENCE_DIR/provider-selection-db.json" <<'PY_PROVIDER_DB'
 import json
 import sqlite3
 import sys
 
-database, output = sys.argv[1:]
+database, backend_id, output = sys.argv[1:]
 connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
 try:
     rows = connection.execute(
@@ -185,7 +234,7 @@ try:
          WHERE c.backend_id=? AND c.command_type='vdr.native.probe'
          ORDER BY c.assigned_at
         """,
-        ("default",),
+        (backend_id,),
     ).fetchall()
 finally:
     connection.close()
@@ -203,6 +252,7 @@ for row in rows:
     assert row[9] == "vdr.native.probe"
     assert row[10].startswith("local-provider-selection/1|")
 payload = {
+    "backendId": backend_id,
     "selectionCount": len(rows),
     "allPayloadVersion2": all(row[1] == 2 for row in rows),
     "providerId": "suitebridge:local",
@@ -231,6 +281,7 @@ provider_inactive "$CLEAR_STATUS" || fail provider_owner_not_restored_inactive
 OWNER_TOUCHED=0
 OWNER_RESTORED=1
 
+cmp -s "$HOST_AGENT_CONFIG_BACKUP" "$HOST_AGENT_CONFIG" || fail host_agent_configuration_changed
 [[ -z "$(git status --porcelain)" ]] || fail acceptance_changed_worktree
 
 printf '%s\n' \
@@ -249,6 +300,7 @@ printf '%s\n' \
     'EXISTING_AGENT_IDENTITY_PRESERVED=yes' \
     'CREDENTIAL_GENERATION_PRESERVED=yes' \
     'ORIGINAL_CONFIGURATION_RESTORED=yes' \
+    'HOST_AGENT_CONFIGURATION_UNCHANGED=yes' \
     'VDR_ACTIVE=yes' \
     'DAEMON_ACTIVE=yes' \
     'AGENT_ACTIVE=yes' \
