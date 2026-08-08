@@ -1,4 +1,4 @@
-.PHONY: test-phase63-local-provider-ownership-contract-architecture test-phase63-local-provider-ownership-contract test-phase63-local-provider-selection-runtime-architecture test-phase63-local-provider-selection-acceptance-architecture test-phase63-local-provider-selection-runtime
+.PHONY: test-phase63-local-provider-ownership-contract-architecture test-phase63-local-provider-ownership-contract test-phase63-local-provider-selection-runtime-architecture test-phase63-local-provider-selection-acceptance-architecture test-phase63-local-provider-selection-runtime test-phase63-protected-write-contract-architecture test-phase63-protected-write-contract
 
 test-phase63-local-provider-ownership-contract-architecture:
 	python3 tools/check_phase63_local_provider_ownership_contract.py
@@ -33,5 +33,16 @@ test-phase63-local-provider-selection-runtime: test-phase63-local-provider-selec
 		-o $(BUILD_DIR)/test_backend_agent_local_provider_selection_runtime
 	$(BUILD_DIR)/test_backend_agent_local_provider_selection_runtime
 
-test-fast: test-phase63-local-provider-ownership-contract test-phase63-local-provider-selection-runtime
-test-architecture: test-phase63-local-provider-ownership-contract-architecture test-phase63-local-provider-selection-runtime-architecture test-phase63-local-provider-selection-acceptance-architecture
+test-phase63-protected-write-contract-architecture:
+	python3 tools/check_phase63_protected_write_contract.py
+
+test-phase63-protected-write-contract: test-phase63-protected-write-contract-architecture
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		core/agent/src/BackendAgentLocalProvider.cpp \
+		core/agent/src/BackendAgentProtectedWrite.cpp \
+		core/agent/tests/test_backend_agent_protected_write.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_protected_write
+	$(BUILD_DIR)/test_backend_agent_protected_write
+
+test-fast: test-phase63-local-provider-ownership-contract test-phase63-local-provider-selection-runtime test-phase63-protected-write-contract
+test-architecture: test-phase63-local-provider-ownership-contract-architecture test-phase63-local-provider-selection-runtime-architecture test-phase63-local-provider-selection-acceptance-architecture test-phase63-protected-write-contract-architecture
