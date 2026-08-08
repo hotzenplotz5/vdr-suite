@@ -32,10 +32,13 @@ for token in [
     "HOST_AGENT_CONFIG=",
     "HOST_AGENT_CONFIG_BACKUP=",
     "ACCEPTANCE_AGENT_CONFIG=",
+    "ACCEPTANCE_CONFIG_CREATED=0",
     "prepare_acceptance_agent_config",
+    "/run/vdr-suite-phase63-provider-acceptance-",
     "/var/lib/vdr-suite/backend-agent/commands.state",
     "PHASE63_AGENT_CONFIG_PATH=\"$ACCEPTANCE_AGENT_CONFIG\"",
     "host_agent_configuration_changed",
+    "acceptance_agent_config_cleanup_failed",
     "run_phase63_fenced_native_operation_acceptance.sh",
     "provider-selection-db.json",
     "backend_agent_command_provider_selections",
@@ -58,6 +61,7 @@ for token in [
     "PROVIDER_OWNERSHIP_RESTORED=inactive",
     "MUTATIONS_REMAIN_DISABLED=yes",
     "HOST_AGENT_CONFIGURATION_UNCHANGED=yes",
+    "ACCEPTANCE_AGENT_CONFIG_REMOVED=yes",
 ]:
     if token not in runner:
         errors.append(f"provider acceptance missing safety/evidence token: {token}")
@@ -89,6 +93,9 @@ for token in [
     "provider_inactive",
     "HOST_AGENT_CONFIG_BACKUP",
     "host_agent_configuration_changed",
+    "ACCEPTANCE_CONFIG_CREATED",
+    'rm -f "$ACCEPTANCE_AGENT_CONFIG"',
+    "acceptance_agent_config_cleanup_failed",
 ]:
     if token not in cleanup_section:
         errors.append(f"provider cleanup missing token: {token}")
@@ -98,14 +105,17 @@ prepare_end = runner.find("cleanup()", prepare_start)
 prepare_section = runner[prepare_start:prepare_end]
 for token in [
     'cp -a "$HOST_AGENT_CONFIG" "$HOST_AGENT_CONFIG_BACKUP"',
-    'cp -a "$HOST_AGENT_CONFIG" "$ACCEPTANCE_AGENT_CONFIG"',
+    'install -o root -g root -m 0644 "$HOST_AGENT_CONFIG" "$ACCEPTANCE_AGENT_CONFIG"',
+    'ACCEPTANCE_CONFIG_CREATED=1',
     'key.strip() == "COMMAND_STATE_PATH"',
     'default_state_path = "/var/lib/vdr-suite/backend-agent/commands.state"',
-    'os.chmod(path, 0o600)',
+    'os.chmod(path, 0o644)',
 ]:
     if token not in prepare_section:
         errors.append(f"acceptance config compatibility preparation missing token: {token}")
 
+if '$EVIDENCE_DIR/backend-agent.acceptance.conf' in runner:
+    errors.append("acceptance agent config must not live below root-only evidence storage")
 if '("default",)' in runner:
     errors.append("provider selection DB verification must use the configured backend id")
 if re.search(r"(?m)^[ \t]*(?:command[ \t]+)?(?:/usr/bin/)?sqlite3(?:[ \t]|$)", runner):
