@@ -2,6 +2,9 @@ name: VDR-Suite Full Regression
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - agent/fix-main-full-regression
   schedule:
     - cron: "17 2 * * *"
 
