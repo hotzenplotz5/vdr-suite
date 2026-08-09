@@ -79,12 +79,12 @@ for token in [
 
 for token in [
     "TimerAssignment Persistence and Repository Semantics",
-    "repository issues both",
+    "issues both revision and assignment epoch",
     "assignmentEpoch",
     "exact parent TimerIntent revision",
     "single active primary",
     "selected backend identity",
-    "terminal assignments",
+    "Terminal assignments",
     "BEGIN IMMEDIATE",
     "no scheduler",
     "mutations=enabled",
