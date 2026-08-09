@@ -616,8 +616,9 @@ static void test_polling_change_events_can_feed_snapshot_change_feed()
     assert(feed.entries()[0].sequenceNumber() == 1);
     assert(feed.entries()[0].snapshotGeneration() == snapshotCacheService.generation());
     assert(feed.entries()[0].backendId() == "default");
-    assert(feed.entries()[0].changedDomains().size() == 1);
+    assert(feed.entries()[0].changedDomains().size() == 2);
     assert(feed.entries()[0].changedDomains()[0] == "channels");
+    assert(feed.entries()[0].changedDomains()[1] == "liveOverlay");
 }
 
 static void test_unchanged_poll_does_not_add_snapshot_change_feed_entry()
@@ -671,9 +672,10 @@ static void test_multiple_polling_change_events_feed_multiple_domains()
         "default");
 
     assert(feed.entries().size() == 1);
-    assert(feed.entries()[0].changedDomains().size() == 2);
+    assert(feed.entries()[0].changedDomains().size() == 3);
     assert(feed.entries()[0].changedDomains()[0] == "channels");
-    assert(feed.entries()[0].changedDomains()[1] == "recordings");
+    assert(feed.entries()[0].changedDomains()[1] == "liveOverlay");
+    assert(feed.entries()[0].changedDomains()[2] == "recordings");
 }
 
 int main()
