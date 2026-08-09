@@ -28,6 +28,7 @@ SQLITE_DOMAIN_REPOSITORY_PREFIXES = [
     "core/metadata/src/",
     "core/security/src/",
     "core/agent/src/",
+    "core/timers/src/",
 ]
 
 SQLITE_SPLIT_REPOSITORY_FAMILIES = [
@@ -157,6 +158,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.h",
         "core/metadata/src/MetadataEntityRepository.cpp",
         "core/security/src/SecurityIdentityRepository.cpp",
+        "core/timers/src/TimerIntentRepository.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
         "core/metadata/tests/test_metadata_schema_contract.cpp",
         "core/vdr/tests/test_epg_event_repository.cpp",
@@ -169,6 +171,8 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/metadata/src/MetadataResolver.cpp",
         "core/security/include/SecurityIdentityRepository.h",
         "core/security/src/RepositoryHelper.cpp",
+        "core/timers/src/TimerIntentPersistence.cpp",
+        "core/timers/src/RepositoryHelper.cpp",
         "core/metadata/tests/test_metadata_identity.cpp",
         "api/rest/src/FakeRepository.cpp",
         "apps/example/src/FakeRepository.cpp",
