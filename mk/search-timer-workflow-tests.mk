@@ -266,3 +266,4 @@ test-rest-query-parameters:
 		api/rest/src/RestQueryParameters.cpp \
 		api/rest/tests/test_rest_query_parameters.cpp \
 		-o $(BUILD_DIR)/test_rest_query_parameters
+	$(BUILD_DIR)/test_rest_query_parameters
