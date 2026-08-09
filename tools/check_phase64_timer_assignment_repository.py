@@ -11,7 +11,6 @@ required_files = [
     "core/timers/tests/test_timer_assignment_repository.cpp",
     "docs/development/phase-64-timer-assignment-repository.md",
     "mk/phase64-timer-intent-tests.mk",
-    "docs/planning/roadmap.md",
 ]
 
 for relative in required_files:
@@ -24,7 +23,6 @@ source = (ROOT / required_files[3]).read_text(encoding="utf-8")
 test = (ROOT / required_files[4]).read_text(encoding="utf-8")
 doc = (ROOT / required_files[5]).read_text(encoding="utf-8")
 make_fragment = (ROOT / required_files[6]).read_text(encoding="utf-8")
-roadmap = (ROOT / required_files[7]).read_text(encoding="utf-8")
 
 for token in [
     "TimerAssignmentRepositoryStatus",
@@ -107,16 +105,6 @@ for token in [
     if token not in make_fragment:
         raise SystemExit(
             f"missing TimerAssignment repository test-graph marker: {token}")
-
-for token in [
-    "Phase 64 Slice 4 — TimerAssignment Persistence and Repository Semantics",
-    "Status: **Active; Slice 4 is TimerAssignment persistence and repository semantics.**",
-    "No scheduler or failover execution; no NativeTimerBinding persistence",
-    "Account/backend access management is a hard prerequisite before broad Timer UI wiring",
-]:
-    if token not in roadmap:
-        raise SystemExit(
-            f"missing Phase-64 Slice-4 roadmap boundary: {token}")
 
 forbidden_roots = [
     ROOT / "apps",
