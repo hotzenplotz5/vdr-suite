@@ -69,9 +69,9 @@ private:
     std::deque<WorkItem> queue_;
     std::unordered_set<std::string> pendingKeys_;
     std::unordered_map<std::string, Clock::time_point> suppressedUntilByKey_;
-    std::thread worker_;
     bool stopRequested_ = false;
     bool workerBusy_ = false;
+    std::thread worker_;
 
     void workerLoop();
     void process(const WorkItem& item);
