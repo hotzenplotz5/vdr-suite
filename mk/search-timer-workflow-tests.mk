@@ -1,5 +1,7 @@
 test-search-timer-workflow-real-execution-policy:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -12,6 +14,8 @@ test-search-timer-workflow-real-execution-policy:
 
 test-search-timer-workflow-controlled-invocation-audit-trail:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -31,6 +35,8 @@ test-search-timer-workflow-controlled-invocation-audit-trail:
 
 test-search-timer-workflow-controlled-test-executor-invocation:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -66,6 +72,8 @@ test-search-timer-workflow-executor-result-mapper:
 
 test-search-timer-workflow-guarded-executor-invocation:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -258,5 +266,3 @@ test-rest-query-parameters:
 		api/rest/src/RestQueryParameters.cpp \
 		api/rest/tests/test_rest_query_parameters.cpp \
 		-o $(BUILD_DIR)/test_rest_query_parameters
-	$(BUILD_DIR)/test_rest_query_parameters
-
