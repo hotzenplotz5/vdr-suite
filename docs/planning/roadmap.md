@@ -8,7 +8,7 @@ A roadmap item is not automatically an implementation requirement. New runtime w
 
 ## Current verified position
 
-Baseline: `main @ 40d30c3e83f60688a75bf48bb3c5970b382e336c`.
+Baseline: `main @ e97f85e34e929fd2abb04cb59b9f22cb65e43c0e`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -171,7 +171,7 @@ Stabilize the Phase-64 TimerIntent contract Draft PR on one exact head and obtai
 ## Related documents
 
 - [Current State](../CURRENT.md)
-- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Phase Map](phase-map.md)
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
