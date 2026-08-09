@@ -8,7 +8,7 @@ A roadmap item is not automatically an implementation requirement. New runtime w
 
 ## Current verified position
 
-Baseline: `main @ e97f85e34e929fd2abb04cb59b9f22cb65e43c0e`.
+Baseline: `main @ eeec518de1e7fef4c452390c608d1a4316a1fa52`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -27,8 +27,8 @@ Next strict runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
 Current bounded slice:
-Phase 64 Slice 1 - TimerIntent Domain Contract
-Contract-only; no TimerAssignment, scheduler or native Timer mutation
+Phase 64 Slice 2 - TimerIntent Persistence and Repository Semantics
+Repository-only; no TimerAssignment, scheduler or native Timer mutation
 ```
 
 ## Completed prerequisites
@@ -105,17 +105,17 @@ At that historical checkpoint, before the later command, native-operation and pr
 
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
-Status: **Active; Slice 1 is the TimerIntent domain contract.**
+Status: **Active; Slice 2 is TimerIntent persistence and repository semantics.**
 
 Phase 64 separates TimerIntent, TimerAssignment and NativeTimerBinding, then adds deterministic scheduling/reconciliation, readback, drift handling and uncertain-dispatch recovery in bounded slices.
 
 ### Phase 64 Slice 1 — TimerIntent Domain Contract
 
-Status: **Active contract-only slice.**
+Status: **Completed.**
 
 Binding architecture: [ADR-0044: Timer Intent, Assignment and Native Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md).
 
-The first slice defines only the Control-Plane-owned, backend-neutral TimerIntent value contract:
+Slice 1 established the Control-Plane-owned, backend-neutral TimerIntent value contract:
 
 - stable Suite `timerIntentId` separate from backend-native Timer identity;
 - opaque `intentRevision` for exact optimistic-concurrency fencing;
@@ -125,7 +125,30 @@ The first slice defines only the Control-Plane-owned, backend-neutral TimerInten
 - bounded owner, automation-source, event, channel, schedule, recording-option, assignment-policy, replica-policy and duplicate-policy values;
 - explicit separation from SearchTimer definitions and existing direct native Timer action paths.
 
-This slice does not yet persist TimerIntents or create assignments. Persistence/repository semantics are the next bounded prerequisite before scheduler or native mutation work.
+Slice 1 was squash-merged through PR #150 as `eeec518de1e7fef4c452390c608d1a4316a1fa52`; its post-merge VDR-Suite CI #7384 (`31316807398`) completed successfully.
+
+### Phase 64 Slice 2 — TimerIntent Persistence and Repository Semantics
+
+Status: **Active repository-only slice.**
+
+Binding architecture:
+
+- [ADR-0044: Timer Intent, Assignment and Native Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
+- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](../adr/ADR-0042-safe-mutation-revision-idempotency-contract.md)
+- [ADR-0050: Domain Repository SQLite Boundary](../adr/ADR-0050-domain-repository-sqlite-boundary.md)
+
+This slice adds only the durable prerequisite needed before assignment and scheduling:
+
+- Suite-owned `timer_intents` persistence under `core/timers/`;
+- repository-issued opaque revision tokens backed by monotonic durable revisions;
+- exact compare-and-update optimistic-concurrency fencing;
+- stale-write conflict with current durable readback;
+- immutable creation provenance and terminal TimerIntent state;
+- exact semantic-identity lookup evidence without turning equivalence into an unconditional uniqueness rule;
+- narrow SQLite permission for Timer-domain `*Repository.cpp` implementations only;
+- in-memory SQLite regression coverage integrated into the fast test graph.
+
+This slice does not create TimerAssignments or NativeTimerBindings and does not wire TimerIntent into daemon, Agent, REST, SuiteBridge or native VDR Timer execution.
 
 ## Phase 65 — Streaming Gateway and Media Sessions
 
@@ -160,13 +183,13 @@ Requires stable metadata/provenance, actor privacy, stable identities, mature ac
 - **Client gate:** clients consume Suite contracts, never private provider details.
 - **Acceptance gate:** focused tests, regressions, build/package validation and real-system proof where runtime behaviour changes.
 
-## Phase-64 Slice-1 hard exclusions
+## Phase-64 Slice-2 hard exclusions
 
-No TimerIntent persistence; no TimerAssignment; no NativeTimerBinding; no scheduler or failover execution; no SearchTimer direct execution; no public TimerIntent API; no Agent Timer command; no SuiteBridge Timer mutation command; no native Timer create/update/delete/toggle; no production reconciliation; no `mutations=enabled`; no Phase-65-or-later runtime.
+No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution; no SearchTimer direct execution; no public TimerIntent API; no Agent Timer command; no SuiteBridge Timer mutation command; no native Timer create/update/delete/toggle; no production reconciliation; no `mutations=enabled`; no Phase-65-or-later runtime.
 
 ## Exact next action
 
-Stabilize the Phase-64 TimerIntent contract Draft PR on one exact head and obtain the complete repository CI graph. Because this slice changes no installed runtime path, do not require yaVDR installation or service restart. Keep the PR Draft until explicit approval.
+Stabilize the Phase-64 TimerIntent persistence/repository Draft PR on one exact head and obtain the complete repository CI graph. Because this slice changes no installed runtime path, do not require yaVDR installation or service restart. Keep the PR Draft until explicit approval.
 
 ## Related documents
 
@@ -178,4 +201,5 @@ Stabilize the Phase-64 TimerIntent contract Draft PR on one exact head and obtai
 - [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
 - [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
 - [Phase 64 TimerIntent Contract](../development/phase-64-timer-intent-contract.md)
+- [Phase 64 TimerIntent Repository](../development/phase-64-timer-intent-repository.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
