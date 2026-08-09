@@ -115,6 +115,8 @@ test-test-http-server: prepare-test-db
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
+		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
 		api/rest/src/VdrRecordingFolderController.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
