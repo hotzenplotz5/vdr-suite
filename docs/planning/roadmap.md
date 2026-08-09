@@ -97,6 +97,12 @@ The provider-selection runtime was accepted on real yaVDR with VDR native state 
 
 Phase 63 deliberately did not introduce TimerIntent, TimerAssignment, NativeTimerBinding, a multi-backend scheduler or a production native Timer write.
 
+### Historical Phase-63 observation checkpoint
+
+The earlier read-only observation milestone remains part of the verified Phase-63 history and is retained here because its regression guard binds these provenance markers. Phase 63 Slice 1 established the Agent enrollment foundation. Phase 63 Slice 2, **Observation and Snapshot Ingestion**, was contract-merged in **PR #138** as `24b1d7938ddaa15834a8da6323a270761868f4ba`; **PR #139** then implemented the first bounded `backend-health` runtime.
+
+At that historical checkpoint, before the later command, native-operation and provider-selection slices were completed, the correct status statement was: **Phase 63 is not complete**. That sentence is historical evidence only; the current phase status above is authoritative and records Phase 63 as completed.
+
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
 Status: **Active; Slice 1 is the TimerIntent domain contract.**
