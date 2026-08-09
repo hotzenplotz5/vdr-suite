@@ -33,7 +33,7 @@ Contract-only; no TimerAssignment, scheduler or native Timer mutation
 
 ## Completed prerequisites
 
-### Phase 61 — Suite Metadata and Genre Platform
+### Phase 61 - Suite Metadata and Genre Platform
 
 Status: **Completed.**
 
