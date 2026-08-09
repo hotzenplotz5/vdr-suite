@@ -55,14 +55,14 @@ int main()
     assert(json.find("\"returnedCount\":2") != std::string::npos);
     assert(json.find("\"limit\":2") != std::string::npos);
     assert(json.find("\"offset\":10") != std::string::npos);
-    assert(json.find("\"results\":[") != std::string::npos);
-    assert(json.find("\"eventId\":\"event-1\"") != std::string::npos);
+    assert(json.find("\"matches\":[") != std::string::npos);
+    assert(json.find("\"id\":\"event-1\"") != std::string::npos);
     assert(json.find("\"backendId\":\"living-room\"") != std::string::npos);
     assert(json.find("\"channelId\":\"channel-1\"") != std::string::npos);
     assert(json.find("\"title\":\"Tatort\"") != std::string::npos);
     assert(json.find("\"durationSeconds\":3600") != std::string::npos);
     assert(json.find("\"matchedFields\":[\"title\",\"description\"]") != std::string::npos);
-    assert(json.find("\"eventId\":\"event-2\"") != std::string::npos);
+    assert(json.find("\"id\":\"event-2\"") != std::string::npos);
     assert(json.find("\"backendId\":\"ferienhaus\"") != std::string::npos);
     assert(json.find("\"matchedFields\":[\"subtitle\"]") != std::string::npos);
 
@@ -96,7 +96,7 @@ int main()
     std::string emptyJson =
         serializer.serialize(empty);
 
-    assert(emptyJson == "{\"totalCount\":0,\"returnedCount\":0,\"limit\":50,\"offset\":100,\"results\":[]}");
+    assert(emptyJson == "{\"totalCount\":0,\"returnedCount\":0,\"limit\":50,\"offset\":100,\"matches\":[]}");
 
     std::cout
         << "test_epg_search_result_json_serializer passed"

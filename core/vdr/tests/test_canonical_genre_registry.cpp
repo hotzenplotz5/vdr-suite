@@ -7,26 +7,27 @@ int main()
 {
     CanonicalGenreRegistry registry;
 
-    assert(registry.canonicalize("Crime") == "crime");
-    assert(registry.canonicalize("Krimi") == "crime");
-    assert(registry.canonicalize("Kriminalfilm") == "crime");
+    assert(registry.classify("Crime").id == "crime");
+    assert(registry.classify("Krimi").id == "crime");
+    assert(registry.classify("Kriminalfilm").id == "crime");
 
-    assert(registry.canonicalize("Komödie") == "comedy");
-    assert(registry.canonicalize("Komoedie") == "comedy");
-    assert(registry.canonicalize("Comedy") == "comedy");
+    assert(registry.classify("Komödie").id == "comedy");
+    assert(registry.classify("Komoedie").id == "comedy");
+    assert(registry.classify("Comedy").id == "comedy");
 
-    assert(registry.canonicalize("Doku") == "documentary");
-    assert(registry.canonicalize("Dokumentation") == "documentary");
+    assert(registry.classify("Doku").id == "documentary");
+    assert(registry.classify("Dokumentation").id == "documentary");
 
-    assert(registry.canonicalize("Spielfilm") == "movie");
-    assert(registry.canonicalize("Kinderfilm") == "children");
+    assert(registry.classify("Spielfilm").id == "movie");
+    assert(registry.classify("Kinderfilm").id == "children");
 
-    assert(registry.canonicalize("Science Fiction") == "science-fiction");
-    assert(registry.canonicalize("science_fiction") == "science-fiction");
+    assert(registry.classify("Science Fiction").id == "science-fiction");
+    assert(registry.classify("science_fiction").id == "science-fiction");
 
-    assert(registry.hasCanonicalGenre("crime"));
-    assert(registry.hasCanonicalGenre("comedy"));
-    assert(!registry.hasCanonicalGenre("science-fiction"));
+    assert(registry.isKnown("crime"));
+    assert(registry.isKnown("comedy"));
+    assert(registry.isKnown("science-fiction"));
+    assert(!registry.isKnown("unknown-space-opera"));
 
     std::cout << "test_canonical_genre_registry passed" << std::endl;
     return 0;

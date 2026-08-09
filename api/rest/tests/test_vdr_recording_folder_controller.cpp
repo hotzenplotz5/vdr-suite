@@ -223,7 +223,7 @@ int main()
         "\"manualAssignment\":{\"active\":true,\"revision\":3"));
     assert(contains(
         root.body,
-        "\"posterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2F2026-07-03.20.15.1-0.rec&kind=preferred&index=0\""));
+        "\"posterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2F2026-07-03.20.15.1-0.rec&kind=preferred&index=0&assignmentRevision=3\""));
     assert(!contains(
         root.body,
         "/var/cache/vdr-suite/recording-metadata/posters/manual.webp"));
