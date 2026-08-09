@@ -1,5 +1,7 @@
 test-search-timer-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/EpgSearchMatcher.cpp \
@@ -142,6 +144,8 @@ test-search-timer-workflow-execution-result-json-serializer:
 
 test-search-timer-workflow-end-to-end-verified-execution:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
@@ -162,6 +166,8 @@ test-search-timer-workflow-end-to-end-verified-execution:
 
 test-search-timer-workflow-command-dispatch-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
@@ -235,6 +241,8 @@ test-search-timer-workflow-production-executor-hardening-plan-json-serializer:
 
 test-search-timer-workflow-real-execution-readiness-review:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -247,6 +255,8 @@ test-search-timer-workflow-real-execution-readiness-review:
 
 test-search-timer-workflow-real-execution-readiness-review-json-serializer:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
