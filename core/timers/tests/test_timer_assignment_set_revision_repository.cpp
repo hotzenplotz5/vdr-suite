@@ -2,6 +2,7 @@
 #include "TimerAssignmentRepository.h"
 
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <string>
 
@@ -210,6 +211,82 @@ int main()
         migratedRepository.assignmentSetRevisionForIntent("intent:one");
     assert(afterBootstrappedUpdate.ok());
     assert(afterBootstrappedUpdate.assignmentSetRevision == "2");
+
+    // Cross-connection proof: the durable revision counter is shared while the
+    // fenced expectation itself remains connection-local TEMP state.
+    const char* sharedPath =
+        "/tmp/vdrsuite_timer_assignment_set_revision_repository_test.sqlite";
+    std::remove(sharedPath);
+
+    Database firstConnection;
+    Database secondConnection;
+    assert(firstConnection.open(sharedPath));
+    assert(secondConnection.open(sharedPath));
+    createIntentTable(firstConnection);
+
+    TimerAssignmentRepository firstRepository(firstConnection);
+    TimerAssignmentRepository secondRepository(secondConnection);
+    assert(firstRepository.ensureSchema());
+    assert(secondRepository.ensureSchema());
+
+    const auto sharedEmpty =
+        firstRepository.assignmentSetRevisionForIntent("intent:one");
+    assert(sharedEmpty.ok());
+    assert(sharedEmpty.assignmentSetRevision == "0");
+
+    TimerAssignment secondConnectionMutation = makeSelected(
+        "assignment:connection-b",
+        "backend:connection-b",
+        TimerAssignmentRole::replica,
+        300);
+    secondConnectionMutation.state = TimerAssignmentState::proposed;
+    assert(secondRepository.create(secondConnectionMutation).ok());
+
+    const auto afterSecondConnectionMutation =
+        firstRepository.assignmentSetRevisionForIntent("intent:one");
+    assert(afterSecondConnectionMutation.ok());
+    assert(afterSecondConnectionMutation.assignmentSetRevision == "1");
+
+    TimerAssignment staleFirstConnectionPlan = makeSelected(
+        "assignment:connection-a-stale",
+        "backend:connection-a",
+        TimerAssignmentRole::replica,
+        310);
+    assert(firstRepository.createAgainstAssignmentSetRevision(
+        staleFirstConnectionPlan,
+        sharedEmpty.assignmentSetRevision).status ==
+        TimerAssignmentRepositoryStatus::conflict);
+
+    const std::string sharedFreshFence =
+        afterSecondConnectionMutation.assignmentSetRevision;
+
+    TimerAssignment firstConnectionPlan = makeSelected(
+        "assignment:connection-a-fresh",
+        "backend:connection-a",
+        TimerAssignmentRole::replica,
+        320);
+    TimerAssignment secondConnectionPlan = makeSelected(
+        "assignment:connection-b-fresh",
+        "backend:connection-c",
+        TimerAssignmentRole::replica,
+        330);
+
+    assert(firstRepository.createAgainstAssignmentSetRevision(
+        firstConnectionPlan,
+        sharedFreshFence).ok());
+    assert(secondRepository.createAgainstAssignmentSetRevision(
+        secondConnectionPlan,
+        sharedFreshFence).status ==
+        TimerAssignmentRepositoryStatus::conflict);
+
+    const auto afterCrossConnectionRace =
+        secondRepository.assignmentSetRevisionForIntent("intent:one");
+    assert(afterCrossConnectionRace.ok());
+    assert(afterCrossConnectionRace.assignmentSetRevision == "2");
+
+    firstConnection.close();
+    secondConnection.close();
+    std::remove(sharedPath);
 
     std::cout
         << "test_timer_assignment_set_revision_repository passed\n";

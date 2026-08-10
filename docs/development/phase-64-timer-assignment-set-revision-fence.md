@@ -82,8 +82,9 @@ Repository-owned SQLite triggers increment it after every successful:
 - TimerAssignment update;
 - TimerAssignment delete.
 
-The triggers are durable database schema, contain no process-local state and
-therefore fence writes from any connection using the same SQLite database.
+The revision-bump triggers are durable database schema, contain no process-local
+state and therefore advance the counter for writes from any connection using the
+same SQLite database.
 
 For databases that already contain TimerAssignments when this slice is first
 used, the set revision is bootstrapped from the durable maximum
@@ -98,33 +99,43 @@ An intent with no assignments has set revision `0`.
 `createAgainstAssignmentSetRevision()` does not implement a second assignment
 insert path.
 
-Instead it records one narrow expectation row for the stable
+Instead it installs one connection-local TEMP expectation for the stable
 `timerAssignmentId` and then invokes the existing
-`TimerAssignmentRepository::create()`.
+`TimerAssignmentRepository::create()` while holding the repository transaction
+lease.
 
-A `BEFORE INSERT` trigger checks the expected assignment-set revision at the
-actual durable insert boundary. A successful insert then:
+A connection-local `TEMP TRIGGER` performs the `BEFORE INSERT` check against the
+durable assignment-set revision at the actual insert boundary. A successful
+insert then:
 
 1. uses the existing repository path to issue `assignmentRevision`;
 2. uses the existing repository path to issue the next `assignmentEpoch`;
 3. preserves the existing active-primary ownership check;
-4. increments the assignment-set revision;
-5. removes outstanding expectation rows for the durable assignment ID.
+4. increments the durable assignment-set revision through the persistent bump
+   trigger;
+5. drops the connection-local TEMP trigger and expectation table after the
+   create result is resolved.
 
 A stale set token is returned as the repository's normal optimistic-concurrency
 `conflict` status.
 
-The expectation table uses independent row identities so two concurrent
-attempts with the same assignment ID cannot remove each other's fence before
-the durable insert is resolved.
+The expectation itself is deliberately TEMP state rather than a durable row.
+It is visible only to the database connection performing the fenced create and
+is discarded automatically if that connection or process dies. A crashed
+scheduler therefore cannot leave a durable expectation that blocks or
+accidentally authorizes a later attempt. Concurrent processes each carry their
+own connection-local expectation while SQLite's `BEGIN IMMEDIATE` serialization
+and the shared durable set revision decide which write remains current.
 
 ## Why SQLite triggers are appropriate here
 
 The trigger does not own scheduler policy or assignment semantics.
 
-Its only job is to maintain and verify a repository-local concurrency counter
-at the exact storage boundary. Keeping that check in SQLite is required because
-a process mutex cannot fence another process or another database connection.
+The persistent triggers only maintain the repository-local concurrency
+counter. The fenced create additionally uses a connection-local TEMP trigger to
+verify one expected token at the exact storage boundary. Keeping the authoritative
+revision in SQLite is required because a process mutex cannot fence another process or another database connection; keeping the per-attempt expectation TEMP
+avoids introducing a durable lock or crash-recovery problem.
 
 The implementation remains under `core/timers/src/*Repository.cpp`, which is
 the SQLite boundary allowed by ADR-0050.

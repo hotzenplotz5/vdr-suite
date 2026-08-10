@@ -78,39 +78,10 @@ bool ensureAssignmentSetRevisionSchema(Database& database)
         "FOREIGN KEY(timer_intent_id) "
         "REFERENCES timer_intents(timer_intent_id)"
         ");"
-        "CREATE TABLE IF NOT EXISTS timer_assignment_set_expectations ("
-        "expectation_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "timer_assignment_id TEXT NOT NULL,"
-        "timer_intent_id TEXT NOT NULL,"
-        "expected_set_revision INTEGER NOT NULL "
-        "CHECK(expected_set_revision >= 0)"
-        ");"
-        "CREATE INDEX IF NOT EXISTS "
-        "idx_timer_assignment_set_expectations_assignment "
-        "ON timer_assignment_set_expectations(timer_assignment_id);"
         "INSERT OR IGNORE INTO timer_assignment_set_revisions "
         "(timer_intent_id,set_revision) "
         "SELECT timer_intent_id,COALESCE(MAX(assignment_epoch),0) "
         "FROM timer_assignments GROUP BY timer_intent_id;"
-        "CREATE TRIGGER IF NOT EXISTS "
-        "trg_timer_assignment_set_expectation_insert "
-        "BEFORE INSERT ON timer_assignments "
-        "WHEN EXISTS ("
-        "SELECT 1 FROM timer_assignment_set_expectations "
-        "WHERE timer_assignment_id=NEW.timer_assignment_id"
-        ") "
-        "BEGIN "
-        "SELECT CASE WHEN NOT EXISTS ("
-        "SELECT 1 FROM timer_assignment_set_expectations e "
-        "WHERE e.timer_assignment_id=NEW.timer_assignment_id "
-        "AND e.timer_intent_id=NEW.timer_intent_id "
-        "AND e.expected_set_revision=COALESCE(("
-        "SELECT r.set_revision "
-        "FROM timer_assignment_set_revisions r "
-        "WHERE r.timer_intent_id=NEW.timer_intent_id"
-        "),0)"
-        ") THEN RAISE(ABORT,'timer_assignment_set_revision_conflict') END;"
-        "END;"
         "CREATE TRIGGER IF NOT EXISTS "
         "trg_timer_assignment_set_revision_insert "
         "AFTER INSERT ON timer_assignments "
@@ -120,8 +91,6 @@ bool ensureAssignmentSetRevisionSchema(Database& database)
         "VALUES (NEW.timer_intent_id,1) "
         "ON CONFLICT(timer_intent_id) DO UPDATE SET "
         "set_revision=set_revision+1;"
-        "DELETE FROM timer_assignment_set_expectations "
-        "WHERE timer_assignment_id=NEW.timer_assignment_id;"
         "END;"
         "CREATE TRIGGER IF NOT EXISTS "
         "trg_timer_assignment_set_revision_update "
@@ -143,6 +112,91 @@ bool ensureAssignmentSetRevisionSchema(Database& database)
         "ON CONFLICT(timer_intent_id) DO UPDATE SET "
         "set_revision=set_revision+1;"
         "END;");
+}
+
+void removeTemporaryExpectationFence(Database& database)
+{
+    database.execute(
+        "DROP TRIGGER IF EXISTS temp.trg_timer_assignment_set_expectation_insert;"
+        "DROP TABLE IF EXISTS temp.timer_assignment_set_expectation;");
+}
+
+bool installTemporaryExpectationFence(
+    Database& database,
+    const TimerAssignment& assignment,
+    sqlite3_int64 expectedRevision)
+{
+    removeTemporaryExpectationFence(database);
+
+    if (!database.execute(
+            "CREATE TEMP TABLE timer_assignment_set_expectation ("
+            "timer_assignment_id TEXT PRIMARY KEY NOT NULL,"
+            "timer_intent_id TEXT NOT NULL,"
+            "expected_set_revision INTEGER NOT NULL "
+            "CHECK(expected_set_revision >= 0)"
+            ");"))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO temp.timer_assignment_set_expectation "
+        "(timer_assignment_id,timer_intent_id,expected_set_revision) "
+        "VALUES (?,?,?);";
+
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        removeTemporaryExpectationFence(database);
+        return false;
+    }
+
+    const bool bound =
+        bindText(statement, 1, assignment.timerAssignmentId)
+        && bindText(statement, 2, assignment.timerIntentId)
+        && sqlite3_bind_int64(
+            statement,
+            3,
+            expectedRevision) == SQLITE_OK;
+    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        removeTemporaryExpectationFence(database);
+        return false;
+    }
+
+    if (!database.execute(
+            "CREATE TEMP TRIGGER trg_timer_assignment_set_expectation_insert "
+            "BEFORE INSERT ON main.timer_assignments "
+            "WHEN NEW.timer_assignment_id=("
+            "SELECT timer_assignment_id "
+            "FROM timer_assignment_set_expectation LIMIT 1"
+            ") "
+            "BEGIN "
+            "SELECT CASE WHEN NOT EXISTS ("
+            "SELECT 1 FROM timer_assignment_set_expectation e "
+            "WHERE e.timer_assignment_id=NEW.timer_assignment_id "
+            "AND e.timer_intent_id=NEW.timer_intent_id "
+            "AND e.expected_set_revision=COALESCE(("
+            "SELECT r.set_revision "
+            "FROM timer_assignment_set_revisions r "
+            "WHERE r.timer_intent_id=NEW.timer_intent_id"
+            "),0)"
+            ") THEN RAISE(ABORT,'timer_assignment_set_revision_conflict') END;"
+            "END;"))
+    {
+        removeTemporaryExpectationFence(database);
+        return false;
+    }
+
+    return true;
 }
 
 enum class IntentPresence
@@ -225,81 +279,6 @@ bool readCurrentSetRevision(
     return revision >= 0;
 }
 
-bool insertExpectation(
-    Database& database,
-    const TimerAssignment& assignment,
-    sqlite3_int64 expectedRevision,
-    sqlite3_int64& expectationId)
-{
-    expectationId = 0;
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "INSERT INTO timer_assignment_set_expectations "
-        "(timer_assignment_id,timer_intent_id,expected_set_revision) "
-        "VALUES (?,?,?);";
-
-    if (sqlite3_prepare_v2(
-            database.handle(),
-            sql,
-            -1,
-            &statement,
-            nullptr) != SQLITE_OK)
-    {
-        return false;
-    }
-
-    if (!bindText(statement, 1, assignment.timerAssignmentId)
-        || !bindText(statement, 2, assignment.timerIntentId)
-        || sqlite3_bind_int64(
-            statement,
-            3,
-            expectedRevision) != SQLITE_OK)
-    {
-        sqlite3_finalize(statement);
-        return false;
-    }
-
-    const int step = sqlite3_step(statement);
-    sqlite3_finalize(statement);
-    if (step != SQLITE_DONE)
-    {
-        return false;
-    }
-
-    expectationId = sqlite3_last_insert_rowid(database.handle());
-    return expectationId > 0;
-}
-
-void deleteExpectation(
-    Database& database,
-    sqlite3_int64 expectationId)
-{
-    if (expectationId <= 0) return;
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "DELETE FROM timer_assignment_set_expectations "
-        "WHERE expectation_id=?;";
-
-    if (sqlite3_prepare_v2(
-            database.handle(),
-            sql,
-            -1,
-            &statement,
-            nullptr) != SQLITE_OK)
-    {
-        return;
-    }
-
-    if (sqlite3_bind_int64(
-            statement,
-            1,
-            expectationId) == SQLITE_OK)
-    {
-        sqlite3_step(statement);
-    }
-    sqlite3_finalize(statement);
-}
 
 TimerAssignmentRepositorySetRevisionResult setRevisionResult(
     TimerAssignmentRepositoryStatus status)
@@ -396,12 +375,10 @@ TimerAssignmentRepository::createAgainstAssignmentSetRevision(
         return result;
     }
 
-    sqlite3_int64 expectationId = 0;
-    if (!insertExpectation(
+    if (!installTemporaryExpectationFence(
             database_,
             assignment,
-            expectedRevision,
-            expectationId))
+            expectedRevision))
     {
         TimerAssignmentRepositoryResult result;
         result.status = TimerAssignmentRepositoryStatus::storageError;
@@ -417,7 +394,7 @@ TimerAssignmentRepository::createAgainstAssignmentSetRevision(
             assignment.timerIntentId,
             currentRevision);
 
-    deleteExpectation(database_, expectationId);
+    removeTemporaryExpectationFence(database_);
 
     if (!result.ok()
         && revisionReadable

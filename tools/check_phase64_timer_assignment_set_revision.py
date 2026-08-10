@@ -36,17 +36,18 @@ for token in [
 
 for token in [
     "timer_assignment_set_revisions",
-    "timer_assignment_set_expectations",
-    "trg_timer_assignment_set_expectation_insert",
+    "CREATE TEMP TABLE timer_assignment_set_expectation",
+    "CREATE TEMP TRIGGER trg_timer_assignment_set_expectation_insert",
+    "DROP TRIGGER IF EXISTS temp.trg_timer_assignment_set_expectation_insert",
+    "DROP TABLE IF EXISTS temp.timer_assignment_set_expectation",
     "trg_timer_assignment_set_revision_insert",
     "trg_timer_assignment_set_revision_update",
     "trg_timer_assignment_set_revision_delete",
-    "BEFORE INSERT ON timer_assignments",
+    "BEFORE INSERT ON main.timer_assignments",
     "AFTER INSERT ON timer_assignments",
     "AFTER UPDATE ON timer_assignments",
     "AFTER DELETE ON timer_assignments",
     "timer_assignment_set_revision_conflict",
-    "sqlite3_last_insert_rowid",
     "create(assignment)",
     "TimerAssignmentRepositoryStatus::conflict",
 ]:
@@ -66,6 +67,9 @@ for token in [
     '"not-a-revision"',
     "bootstrapped.assignmentSetRevision == \"1\"",
     "afterBootstrappedUpdate.assignmentSetRevision == \"2\"",
+    "secondConnectionMutation",
+    "staleFirstConnectionPlan",
+    "afterCrossConnectionRace.assignmentSetRevision == \"2\"",
 ]:
     if token not in test:
         raise SystemExit(
@@ -81,6 +85,8 @@ for token in [
     "createAgainstAssignmentSetRevision",
     "BEFORE INSERT",
     "another process or another database connection",
+    "connection-local TEMP expectation",
+    "discarded automatically if that connection or process dies",
     "repository-only",
     "replica persistence",
     "Replacement remains separate",
@@ -102,6 +108,12 @@ for token in [
         raise SystemExit(
             f"missing assignment-set test-graph marker: {token}"
         )
+
+
+if "CREATE TABLE IF NOT EXISTS timer_assignment_set_expectations" in source:
+    raise SystemExit(
+        "assignment-set expectations must not be durable repository state"
+    )
 
 # This slice is a persistence concurrency primitive only. SQLite is expected
 # inside the Repository implementation, but scheduler/runtime/native boundaries
