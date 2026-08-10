@@ -55,7 +55,7 @@ for token in [
     '"no_eligible_backend"',
     "std::sort(",
     "left->backendId < right->backendId",
-    "selectedEvaluation->preferenceRank",
+    "selectedEvaluation.preferenceRank",
 ]:
     if token not in source:
         raise SystemExit(

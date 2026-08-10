@@ -566,7 +566,7 @@ TimerAssignmentPlanningDecision planTimerAssignment(
     decision.decisionPolicyVersion = timerAssignmentPlanningPolicyVersion();
 
     const TimerAssignmentPlanningBackendCandidate* selected = nullptr;
-    const TimerAssignmentPlanningCandidateEvaluation* selectedEvaluation = nullptr;
+    std::size_t selectedEvaluationIndex = kMaxCandidates;
 
     for (const auto* candidate : ordered)
     {
@@ -581,7 +581,7 @@ TimerAssignmentPlanningDecision planTimerAssignment(
         if (!selected && evaluation.eligible)
         {
             selected = candidate;
-            selectedEvaluation = &evaluation;
+            selectedEvaluationIndex = decision.candidates.size() - 1;
         }
     }
 
@@ -595,11 +595,14 @@ TimerAssignmentPlanningDecision planTimerAssignment(
         }
     }
 
-    if (!selected || !selectedEvaluation)
+    if (!selected || selectedEvaluationIndex >= decision.candidates.size())
     {
         appendBounded(decision.decisionEvidence.reasons, "no_eligible_backend");
         return decision;
     }
+
+    const auto& selectedEvaluation =
+        decision.candidates[selectedEvaluationIndex];
 
     decision.outcome = TimerAssignmentPlanningOutcome::selected;
     decision.selectedBackendId = selected->backendId;
@@ -618,34 +621,34 @@ TimerAssignmentPlanningDecision planTimerAssignment(
     appendBounded(decision.decisionEvidence.reasons, "selected_eligible_backend");
     appendBounded(
         decision.decisionEvidence.reasons,
-        selectedEvaluation->preferred
+        selectedEvaluation.preferred
             ? "selected_preferred_backend"
             : "selected_deterministic_backend_id");
 
     if (!request.intent.spec.assignmentPolicy.preferredBackendIds.empty()
-        && !selectedEvaluation->preferred)
+        && !selectedEvaluation.preferred)
     {
         appendBounded(
             decision.decisionEvidence.warnings,
             "preferred_backends_ineligible");
     }
 
-    for (const auto& warning : selectedEvaluation->warnings)
+    for (const auto& warning : selectedEvaluation.warnings)
     {
         appendBounded(decision.decisionEvidence.warnings, warning);
     }
-    for (const auto& fact : selectedEvaluation->conflictFacts)
+    for (const auto& fact : selectedEvaluation.conflictFacts)
     {
         appendBounded(
             decision.decisionEvidence.conflictFacts,
-            backendFact(selectedEvaluation->backendId, fact));
+            backendFact(selectedEvaluation.backendId, fact));
     }
 
     // decisionScore is an ordinal policy marker, not a weighted runtime score.
     // Higher values mean an earlier explicit preference. Ordinary candidates
     // share the same score and are tie-broken only by stable backendId.
     decision.decisionEvidence.decisionScore =
-        -static_cast<std::int32_t>(selectedEvaluation->preferenceRank);
+        -static_cast<std::int32_t>(selectedEvaluation.preferenceRank);
 
     return decision;
 }
