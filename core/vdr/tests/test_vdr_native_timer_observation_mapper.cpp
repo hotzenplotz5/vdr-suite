@@ -40,6 +40,7 @@ int main()
     assert(mapped.observation.backendGeneration == 7);
     assert(mapped.observation.backendNativeTimerId == "timer:42");
     assert(mapped.observation.observedAt == 1234);
+    assert(vdrsuite::timers::nativeTimerObservationValid(mapped.observation));
     assert(mapped.observation.observedState.channelId == "S19.2E-1-1019-10301");
     assert(mapped.observation.observedState.eventId == "1001");
     assert(mapped.observation.observedState.title == "Tagesschau");

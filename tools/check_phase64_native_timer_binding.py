@@ -144,9 +144,6 @@ for forbidden in [
     if forbidden in contract_text:
         raise SystemExit(f"premature NativeTimerBinding boundary crossing: {forbidden}")
 
-allowed_vdr_binding_files = {
-    Path("core/vdr/include/VdrNativeTimerObservationMapper.h"),
-}
 forbidden_roots = [
     ROOT / "apps",
     ROOT / "api",
@@ -168,13 +165,10 @@ for scan_root in forbidden_roots:
         if not path.is_file() or path.suffix not in text_suffixes:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        if "NativeTimerBinding" not in text:
-            continue
-        relative = path.relative_to(ROOT)
-        if relative in allowed_vdr_binding_files:
-            continue
-        raise SystemExit(
-            "premature NativeTimerBinding runtime wiring: " + str(relative))
+        if "NativeTimerBinding" in text:
+            raise SystemExit(
+                "premature NativeTimerBinding runtime wiring: "
+                + str(path.relative_to(ROOT)))
 
 print("Phase-64 NativeTimerBinding contract check passed")
 print(

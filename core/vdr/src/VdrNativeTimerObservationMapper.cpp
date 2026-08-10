@@ -29,29 +29,25 @@ VdrNativeTimerObservationMapResult VdrNativeTimerObservationMapper::map(
     if (!validIdentity(backendId))
         return statusResult(
             VdrNativeTimerObservationMapStatus::invalidBackendIdentity);
-
     if (backendGeneration == 0)
-    {
         return statusResult(
             VdrNativeTimerObservationMapStatus::invalidBackendGeneration);
-    }
-
     if (observedAt <= 0)
         return statusResult(
             VdrNativeTimerObservationMapStatus::invalidObservedAt);
-
     if (!validIdentity(timer.id))
         return statusResult(
             VdrNativeTimerObservationMapStatus::invalidNativeTimerIdentity);
 
     VdrNativeTimerObservationMapResult result;
     result.status = VdrNativeTimerObservationMapStatus::ok;
-    result.observation.backendId = backendId;
-    result.observation.backendGeneration = backendGeneration;
-    result.observation.backendNativeTimerId = timer.id;
-    result.observation.observedAt = observedAt;
+    auto& observation = result.observation;
+    observation.backendId = backendId;
+    observation.backendGeneration = backendGeneration;
+    observation.backendNativeTimerId = timer.id;
+    observation.observedAt = observedAt;
 
-    auto& state = result.observation.observedState;
+    auto& state = observation.observedState;
     state.channelId = timer.channelId;
     state.eventId = timer.eventId;
     state.title = timer.title;
@@ -68,13 +64,9 @@ VdrNativeTimerObservationMapResult VdrNativeTimerObservationMapper::map(
     state.recording = timer.recording;
     state.pending = timer.pending;
 
-    if (!vdrsuite::timers::nativeTimerObservedStateValid(state))
-        return statusResult(
-            VdrNativeTimerObservationMapStatus::invalidObservedState);
-
-    result.observation.observedFingerprint =
+    observation.observedFingerprint =
         vdrsuite::timers::nativeTimerObservedStateFingerprint(state);
-    if (result.observation.observedFingerprint.empty())
+    if (!vdrsuite::timers::nativeTimerObservationValid(observation))
         return statusResult(
             VdrNativeTimerObservationMapStatus::invalidObservedState);
 

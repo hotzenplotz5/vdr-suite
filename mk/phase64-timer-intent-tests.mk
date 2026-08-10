@@ -143,6 +143,7 @@ test-phase64-native-timer-binding-repository: test-phase64-native-timer-binding-
 test-phase64-vdr-native-timer-observation-mapper: test-phase64-vdr-native-timer-observation-mapper-architecture
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include -Icore/vdr/include \
 		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerObservation.cpp \
 		core/vdr/src/VdrNativeTimerObservationMapper.cpp \
 		core/vdr/tests/test_vdr_native_timer_observation_mapper.cpp \
 		-o $(BUILD_DIR)/test_vdr_native_timer_observation_mapper
