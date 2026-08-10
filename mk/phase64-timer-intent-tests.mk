@@ -1,10 +1,13 @@
-.PHONY: test-phase64-timer-intent-contract-architecture test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-repository test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-scheduling
+.PHONY: test-phase64-timer-intent-contract-architecture test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-scheduling
 
 test-phase64-timer-intent-contract-architecture:
 	python3 tools/check_phase64_timer_intent_contract.py
 
 test-phase64-timer-assignment-repository-architecture:
 	python3 tools/check_phase64_timer_assignment_repository.py
+
+test-phase64-timer-assignment-set-revision-architecture:
+	python3 tools/check_phase64_timer_assignment_set_revision.py
 
 test-phase64-timer-assignment-planner-architecture:
 	python3 tools/check_phase64_timer_assignment_planner.py
@@ -46,6 +49,17 @@ test-phase64-timer-assignment-repository: test-phase64-timer-assignment-reposito
 		-o $(BUILD_DIR)/test_timer_assignment_repository
 	$(BUILD_DIR)/test_timer_assignment_repository
 
+test-phase64-timer-assignment-set-revision: test-phase64-timer-assignment-set-revision-architecture
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/tests/test_timer_assignment_set_revision_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_set_revision_repository
+	$(BUILD_DIR)/test_timer_assignment_set_revision_repository
+
 test-phase64-timer-assignment-planner: test-phase64-timer-assignment-planner-architecture
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
 		core/timers/src/TimerIntent.cpp \
@@ -79,5 +93,5 @@ test-phase64-timer-assignment-scheduling: test-phase64-timer-assignment-scheduli
 		-o $(BUILD_DIR)/test_timer_assignment_scheduling_service
 	$(BUILD_DIR)/test_timer_assignment_scheduling_service
 
-test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling
-test-architecture: test-phase64-timer-intent-contract-architecture test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-scheduling-architecture
+test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling
+test-architecture: test-phase64-timer-intent-contract-architecture test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-scheduling-architecture
