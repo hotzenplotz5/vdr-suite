@@ -110,6 +110,9 @@ bool candidateIdentityValid(
         && bounded(candidate.channel.mappingRevision, kMaxIdentityLength)
         && bounded(candidate.channel.mappingSource, kMaxIdentityLength)
         && bounded(candidate.channel.canonicalChannelId, kMaxIdentityLength)
+        && bounded(candidate.channel.sourceType, kMaxIdentityLength)
+        && bounded(candidate.channel.sourceId, kMaxIdentityLength)
+        && bounded(candidate.channel.sourceChannelId, kMaxIdentityLength)
         && bounded(candidate.channel.backendChannelId, kMaxIdentityLength);
 }
 
@@ -339,6 +342,16 @@ TimerAssignmentPlanningCandidateEvaluation evaluateCandidate(
             != request.intent.spec.channelRequirement.canonicalChannelId)
     {
         exclude("channel_mapping_mismatch");
+    }
+    else if (!request.intent.spec.channelRequirement.sourceType.empty()
+        && (candidate.channel.sourceType
+                != request.intent.spec.channelRequirement.sourceType
+            || candidate.channel.sourceId
+                != request.intent.spec.channelRequirement.sourceId
+            || candidate.channel.sourceChannelId
+                != request.intent.spec.channelRequirement.sourceChannelId))
+    {
+        exclude("channel_source_mismatch");
     }
 
     switch (candidate.conflict)

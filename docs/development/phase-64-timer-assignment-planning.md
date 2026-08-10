@@ -94,6 +94,8 @@ The first policy version requires all of the following:
 - channel mapping is current, unambiguous, generation-matched and identifies a
   backend-native channel;
 - a canonical channel requirement, when present, matches exactly;
+- a source-qualified channel requirement, when present, matches exact source
+  type, source identity and source-channel identity;
 - conflict evidence is `confirmed_clear`;
 - the backend is not excluded by the TimerIntent;
 - replica diversity requirements are satisfied when applicable.
@@ -213,6 +215,7 @@ The focused planner regression proves:
 - missing Timer capability rejection;
 - missing/stale health rejection;
 - missing/stale and generation-stale channel mapping rejection;
+- exact source-qualified channel mapping and source mismatch rejection;
 - no selection without explicit current execution authority;
 - explicit `unassigned` when no safe candidate exists;
 - no second active-primary selection;

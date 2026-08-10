@@ -7,6 +7,7 @@ required_files = [
     "core/timers/include/TimerAssignmentPlanner.h",
     "core/timers/src/TimerAssignmentPlanner.cpp",
     "core/timers/tests/test_timer_assignment_planner.cpp",
+    "core/timers/tests/test_timer_assignment_planner_source_channel.cpp",
     "docs/development/phase-64-timer-assignment-planning.md",
     "mk/phase64-timer-intent-tests.mk",
 ]
@@ -19,14 +20,16 @@ for relative in required_files:
 header = (ROOT / required_files[0]).read_text(encoding="utf-8")
 source = (ROOT / required_files[1]).read_text(encoding="utf-8")
 test = (ROOT / required_files[2]).read_text(encoding="utf-8")
-doc = (ROOT / required_files[3]).read_text(encoding="utf-8")
-make_fragment = (ROOT / required_files[4]).read_text(encoding="utf-8")
+source_channel_test = (ROOT / required_files[3]).read_text(encoding="utf-8")
+doc = (ROOT / required_files[4]).read_text(encoding="utf-8")
+make_fragment = (ROOT / required_files[5]).read_text(encoding="utf-8")
 
 for token in [
     "TimerAssignmentPlanningBackendState",
     "TimerAssignmentPlanningCapabilityEvidence",
     "TimerAssignmentPlanningHealthEvidence",
     "TimerAssignmentPlanningChannelEvidence",
+    "sourceChannelId",
     "TimerAssignmentPlanningBackendCandidate",
     "TimerAssignmentPlanningCandidateEvaluation",
     "TimerAssignmentPlanningDecision",
@@ -49,6 +52,7 @@ for token in [
     '"health_missing_or_stale"',
     '"channel_mapping_missing_or_stale"',
     '"channel_mapping_generation_stale"',
+    '"channel_source_mismatch"',
     '"active_primary_exists"',
     '"backend_diversity_required"',
     '"site_diversity_required"',
@@ -84,12 +88,23 @@ for token in [
             f"missing TimerAssignment planner regression marker: {token}")
 
 for token in [
+    "guide-channel:news",
+    "guide-channel:sport",
+    "channel_source_mismatch",
+    "channel_mapping_missing_or_stale",
+]:
+    if token not in source_channel_test:
+        raise SystemExit(
+            f"missing source-qualified channel regression marker: {token}")
+
+for token in [
     "Deterministic TimerAssignment Planning Contract",
     "BackendNode.online",
     "executionAuthorityFence",
     "selection or fallback API",
     "preferredBackendIds",
     "stable lexical `backendId`",
+    "source-qualified channel requirement",
     "decisionScore = -preferenceRank",
     "active_primary_exists",
     "single-active-primary",
@@ -104,8 +119,10 @@ for token in [
 for token in [
     "test-phase64-timer-assignment-planner-architecture",
     "test-phase64-timer-assignment-planner:",
+    "test-phase64-timer-assignment-planner-source-channel:",
     "core/timers/src/TimerAssignmentPlanner.cpp",
     "core/timers/tests/test_timer_assignment_planner.cpp",
+    "core/timers/tests/test_timer_assignment_planner_source_channel.cpp",
     "test-fast:",
     "test-architecture:",
 ]:
@@ -113,7 +130,7 @@ for token in [
         raise SystemExit(
             f"missing TimerAssignment planner test-graph marker: {token}")
 
-planner_text = header + source + test
+planner_text = header + source + test + source_channel_test
 for forbidden in [
     "#include <sqlite3.h>",
     "sqlite3_",

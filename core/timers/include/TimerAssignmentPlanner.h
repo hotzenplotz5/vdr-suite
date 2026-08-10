@@ -69,6 +69,9 @@ struct TimerAssignmentPlanningChannelEvidence
     std::string mappingRevision;
     std::string mappingSource;
     std::string canonicalChannelId;
+    std::string sourceType;
+    std::string sourceId;
+    std::string sourceChannelId;
     std::string backendChannelId;
     bool current = false;
     bool ambiguous = false;
