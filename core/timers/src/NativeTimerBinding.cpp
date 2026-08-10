@@ -49,6 +49,15 @@ bool validNativeHhmm(const std::string& value)
     return hour <= 23 && minute <= 59;
 }
 
+std::string normalizedNativeHhmm(const std::string& value)
+{
+    if (!validNativeHhmm(value)) return {};
+
+    std::string normalized(4 - value.size(), '0');
+    normalized.append(value);
+    return normalized;
+}
+
 void appendField(std::string& output, const std::string& value)
 {
     output.append(std::to_string(value.size()));
@@ -176,8 +185,8 @@ std::string nativeTimerObservedStateFingerprint(
     appendField(fingerprint, state.directory);
     appendField(fingerprint, state.day);
     appendField(fingerprint, state.weekdays);
-    appendField(fingerprint, state.startTime);
-    appendField(fingerprint, state.endTime);
+    appendField(fingerprint, normalizedNativeHhmm(state.startTime));
+    appendField(fingerprint, normalizedNativeHhmm(state.endTime));
     appendInteger(fingerprint, state.flags);
     appendInteger(fingerprint, state.priority);
     appendInteger(fingerprint, state.lifetime);

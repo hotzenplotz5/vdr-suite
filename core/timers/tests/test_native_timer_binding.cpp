@@ -68,6 +68,13 @@ int main()
     assert(nativeTimerObservedStateValid(mapperCompatible));
     assert(!nativeTimerObservedStateFingerprint(mapperCompatible).empty());
 
+    NativeTimerObservedState paddedMidnight = mapperCompatible;
+    paddedMidnight.startTime = "0000";
+    paddedMidnight.endTime = "0930";
+    assert(
+        nativeTimerObservedStateFingerprint(paddedMidnight)
+        == nativeTimerObservedStateFingerprint(mapperCompatible));
+
     NativeTimerObservedState disabled = state;
     disabled.enabled = false;
     assert(nativeTimerObservedStateFingerprint(disabled) != fingerprint);

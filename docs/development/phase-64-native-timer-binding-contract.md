@@ -134,23 +134,26 @@ Policy version 1 starts with:
 native-timer-observed-state/1
 ```
 
-and uses length-delimited field encoding for all normalized observed fields.
-This makes the fingerprint deterministic and collision-safe with respect to
-field boundaries.
+and uses length-delimited field encoding for normalized observed fields. Native
+start/stop values are first canonicalized to four-digit HHMM text before they
+are encoded. Thus adapter-equivalent `930` and `0930` describe the same
+fingerprinted time even though the copied observation may preserve either
+provider representation.
 
 The fingerprint deliberately excludes Suite binding identity, assignment
 identity and backend generation. It describes the normalized observed native
 Timer fields, while those other fences remain explicit separate values.
 
 Changing any material observed field, including `enabled`, produces different
-fingerprint material. A later persistence/reconciliation slice can therefore
-compare exact normalized readback without pretending that title/time similarity
-is authoritative identity.
+fingerprint material. Representation-only zero-padding differences in valid
+native HHMM text do not. A later persistence/reconciliation slice can therefore
+compare normalized readback without pretending that title/time similarity is
+authoritative identity or reporting false drift for provider formatting alone.
 
 ## Existing adapter compatibility
 
 The contract follows the native representation already emitted by the current
-read boundary instead of inventing a second formatting convention.
+read boundary instead of inventing a second stored formatting convention.
 
 The current RESTfulAPI Timer mapper may omit `day` and converts native integer
 start/stop values with `std::to_string()`. Therefore values such as `0`, `5`,
@@ -177,9 +180,11 @@ Examples:
 09:30 -> invalid native number text
 ```
 
-The contract does not normalize these values into TimerIntent absolute-time
-semantics. It fingerprints the copied native representation exactly, so a later
-mapper/readback layer can distinguish what the backend actually reported.
+The copied observation keeps the adapter-provided value; Slice 9 does not turn
+it into TimerIntent absolute-time semantics. The fingerprint, however,
+canonicalizes valid start/stop values to four-digit HHMM before encoding them.
+This makes `0`/`0000` and `930`/`0930` fingerprint-equivalent while preserving
+the original copied readback value for diagnostics and later provider mapping.
 
 ## Observed-state validation
 
@@ -285,6 +290,8 @@ The focused contract regression proves:
 - material observed field changes change fingerprint material;
 - mapper-compatible empty `day` plus unpadded `0`/`930` native HHMM text is
   accepted;
+- equivalent padded and unpadded native HHMM values produce the same normalized
+  fingerprint;
 - malformed native HHMM and weekday values fail closed;
 - fingerprint mismatch invalidates a binding;
 - backend generation zero and empty backend-native identity fail closed;
