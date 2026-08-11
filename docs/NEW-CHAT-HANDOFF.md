@@ -165,6 +165,21 @@ Broad Timer mutation controls remain separately gated on account/backend access 
 
 Therefore Streaming Gateway runtime work may intentionally happen before the broad Timer UI is finished. This is project sequencing, not a technical dependency of Streaming on Timer UI.
 
+## Current security position
+
+- Phase-62 actor identity, scoped authorization, browser-session lifecycle, CSRF and accountability remain authoritative.
+- Phase-63 Agent identity, backend generation, command/replay fencing and explicit provider ownership/selection remain authoritative for remote execution.
+- Runtime Agent credentials cannot act as browser users or unrestricted administrators.
+- Provider reachability/availability never creates execution authority and active work never silently switches provider.
+- Unknown or stale generation, revision, assignment-set or readback evidence fails closed.
+- An uncertain native dispatch is reconciled; it is not blindly retried.
+- Bootstrap/runtime secrets, hashes/verifiers, Authorization headers, cookies, CSRF values, provider credentials, local secret paths and secret-bearing process environments must not be printed, committed or copied into public responses/accountability events.
+- TVScraper remains unchanged upstream; do not write to TVScraper-owned databases or caches.
+
+## Compatibility-retirement decision
+
+Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62, Phase 63 or Phase 64.
+
 ## Documentation synchronization rule
 
 `NEW-CHAT-HANDOFF.md`, `CURRENT.md` and `development/current-status.md` are the direct operational status entry points.
@@ -180,11 +195,12 @@ The current-position markers in `planning/roadmap.md` and `planning/phase-map.md
 - Keep stacked Timer PRs Draft until explicit user approval changes review state.
 - Do not jump directly from evidence/reconciliation work to production native mutation.
 - Do not infer external change or failover eligibility from transport failure or absence alone.
-- Do not create parallel backend, authorization, accountability, job or scheduler authorities.
+- Do not create a second BackendRegistry, authorization service, accountability store, job system or scheduler authority.
+- Unknown central POST routes remain subject to the Phase-62 fail-closed policy outside explicit Legacy Basic compatibility.
 - Do not mix Phase-65 Streaming runtime into a Phase-64 Timer slice.
 - Broad Timer UI work must not bypass the account/backend access-management gate.
-- No manual SQLite inspection is required for acceptance.
-- Avoid unrelated refactors and cosmetic rewrites in bounded slices.
+- Do not require manual SQLite inspection for acceptance.
+- Do not add unrelated refactors or cosmetic rewrites.
 
 ## Exact next action
 
@@ -198,29 +214,31 @@ The current-position markers in `planning/roadmap.md` and `planning/phase-map.md
 
 ## Command presentation contract
 
-Every shell command intended for the user to copy or execute must be inside an ordinary fenced Markdown `bash` block.
+Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block, preferably tagged `bash`.
 
-- Keep explanations outside the block.
-- Put complete executable sequences inside the block.
-- Preserve checkout-path and repository-identity verification.
-- Never hide setup in prose.
-- Do not wrap user-facing commands in `set -e`; use explicit error handling.
+- Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats with IDs or metadata.
+- Keep explanations outside the code block.
+- Put complete, directly executable command sequences inside the code block.
+- Use separate code blocks for logically separate steps when that improves safe execution.
+- Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
+- When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
+- Do not use `set -e` or another user-facing errexit wrapper; use explicit error handling.
 
 ## Binding daemon build and installation manifest
 
-Every installation answer must be derived from the exact requested branch or PR.
+Every installation answer must be generated for the exact requested branch or pull request. Generic installation instructions and commands copied from another PR are forbidden.
 
-Before writing installation commands:
+Before producing the command block, the agent must:
 
-- resolve the exact current PR head from GitHub;
-- inspect the root `Makefile`, included install/build fragments, relevant packaging/systemd files and any changed component Makefile;
-- determine exact required build targets;
-- determine from the exact diff whether `vdr-plugin-suite-bridge` must be rebuilt;
-- never reuse target names, service names, paths or installation options from an older branch without verification.
+- resolve the exact requested PR and branch from GitHub;
+- resolve the exact current PR head SHA immediately before presenting the commands;
+- inspect the root `Makefile`, all included install/build makefiles such as `mk/install.mk`, relevant packaging and systemd files, and any component-specific Makefile changed or required by that exact head;
+- determine the exact build targets and whether `vdr-plugin-suite-bridge` must be rebuilt and installed;
+- never infer installation options, target names, plugin paths or service names from an older branch, older PR, README excerpt or previous chat.
 
-The user-facing answer must use the heading `## Lokaler Bau, Test und Installation`, followed by at most one short sentence and exactly one ordinary fenced `bash` block.
+The answer must use the heading `## Lokaler Bau, Test und Installation`, followed by at most one short sentence and exactly one ordinary fenced Markdown `bash` block without IDs, attributes or metadata.
 
-The established yaVDR daemon flow has this required structure:
+For the established yaVDR checkout, the mandatory daemon flow has this shape:
 
 ```bash
 cd /home/yavdr/vdr-suite
@@ -243,29 +261,58 @@ systemctl is-active vdr-suite-daemon
 systemctl --no-pager --full status vdr-suite-daemon
 ```
 
-The placeholders document structure only. In a user-facing installation answer they must always be replaced with exact verified values.
+The placeholders above define the required structure only. In a user-facing answer they must always be replaced with the exact branch, exact current head SHA and exact build targets for the requested branch or PR. Never leave placeholders in executable instructions.
 
-Do not add package-manager setup, a second clone, unrelated diagnostics or broad local regressions unless the exact change or an observed failure requires them.
+Additional binding rules:
 
-### Conditional SuiteBridge installation
+- `git pull --ff-only origin <exact-branch>` is mandatory for the established checkout.
+- The exact SHA guard is mandatory and must abort before build or installation when the checkout does not match the verified PR head.
+- Use `make clean` followed by `make -j2 --output-sync=target` with only the targets actually required by that branch or PR.
+- Do not add `sudo` merely as a style preference; preserve the established host execution context unless the user explicitly requests a non-root form.
+- Stop the daemon before `make install PREFIX=/usr`, then reload systemd, restart the daemon and show both `is-active` and the full service status.
+- Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.
+- Keep the answer branch-/PR-specific and as short as the complete safe flow permits.
 
-Do not rebuild the plugin merely because it exists. Inspect the exact PR diff and dependency contract first. If the plugin is required, inspect its exact-head Makefile and the established VDR service/layout values before presenting commands. Never guess plugin paths, API version or VDR service unit.
+### Conditional SuiteBridge plugin installation
 
-## Installed-result acceptance manifest
+The plugin must not be rebuilt merely because it exists in the repository.
 
-Daemon startup alone does not prove feature acceptance. For a runtime-changing PR, the follow-up section `## Prüfung des installierten Ergebnisses` must cover the relevant exact-head layers:
+- First inspect the exact PR diff and component dependency contract.
+- When the PR does not change `vdr-plugin-suite-bridge` and the runtime change does not require a new plugin binary or contract, omit all plugin build and installation commands.
+- When the plugin is required, inspect the exact-head `vdr-plugin-suite-bridge/Makefile`, VDR `pkg-config` values and the established yaVDR service layout before writing commands.
+- Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
+- Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
 
-1. installed identity/startup;
-2. positive feature path;
-3. readback plus persistence/restart;
-4. changed search/presentation paths;
-5. replacement/withdrawal semantics when applicable;
-6. authorization/failure boundaries;
-7. nearest adjacent regression;
-8. exact source/CI/build and redacted observed evidence.
+This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
 
-Only include layers the exact PR can affect, but do not omit its primary persistence/restart and regression boundaries merely for brevity. Never claim functional acceptance only because CI or service startup is green.
+## Binding branch- and PR-specific installed-result acceptance manifest
+
+A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
+
+Before writing the acceptance steps, the agent must inspect:
+
+- the exact PR diff and changed components;
+- the current feature, ADR and runtime-acceptance documents;
+- changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
+- the closest existing regression behavior that the PR could unintentionally break.
+
+The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block. Do not merge functional checks into the installation block when that would hide required user actions.
+
+Every acceptance plan must cover the layers that are relevant to that exact PR:
+
+1. **Installed identity and startup:** verify the checked-out exact head, installed binary or asset identity where the repository provides a reliable method, service state and absence of new startup errors.
+2. **Positive feature path:** exercise the behavior introduced or changed by the PR using a real representative resource.
+3. **Readback and persistence:** reload the UI or API, restart the affected service, and confirm the result survives without repeating the mutation or requiring an external provider read.
+4. **Search and presentation:** verify every changed read model, detail view, search path or frontend rendering affected by the PR.
+5. **Replacement and withdrawal semantics:** when the feature supports reassignment, deletion, withdrawal, rollback or fallback, verify the old active result disappears and the documented fallback becomes effective.
+6. **Authorization and failure boundaries:** verify the relevant Read-only, wrong-scope, CSRF, provider-failure or invalid-input denial paths without exposing secrets.
+7. **Adjacent regression:** repeat the nearest established workflow whose performance or correctness could be affected, such as folder navigation, restart behavior or automatic metadata fallback.
+8. **Evidence:** record the exact source head, CI run, installed build identity when available, redacted test resource and observed result.
+
+Only include layers that the exact PR can affect, but never omit persistence/restart or the primary regression boundary merely to shorten the answer. When a test requires credentials, cookies, CSRF values, tokens or private paths, instruct the user through the normal UI or a redacted safe procedure; never request or print those values.
+
+Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result.
 
 ## Credential and secret restrictions
 
-Never print, store or commit authentication headers, plaintext credentials, browser session material, anti-forgery values, provider tokens, enrollment secrets, Agent credential secrets or secret-bearing process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
