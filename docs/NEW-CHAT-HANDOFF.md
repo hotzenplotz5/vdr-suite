@@ -65,6 +65,16 @@ Phase 63 is complete. It established Backend Agent identity/enrollment, protecte
 
 Phase 63 did not own TimerIntent, TimerAssignment or NativeTimerBinding.
 
+## Historical completed context
+
+The following markers are retained for documentation-entrypoint continuity; they are historical, not the current active phase:
+
+- Phase 61 - Suite Metadata and Genre Platform
+- Post-Phase 61 Performance Hardening (B1-B4)
+- VDR Remote and Live Overlay hardening (#110)
+- Backend-scoped Global Search (#111)
+- Phase 62 - Identity, RBAC and Accountability Foundation
+
 ## Phase 64 stack
 
 ```text

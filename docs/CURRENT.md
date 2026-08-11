@@ -102,6 +102,16 @@ Therefore Phase 65 Streaming may deliberately begin after the reliable Phase-64 
 
 Phase-62 identity/authorization/accountability and Phase-63 Agent/generation/provider-ownership contracts remain authoritative. Stale or ambiguous generation, revision and readback evidence fails closed. Provider availability never creates implicit execution authority. TVScraper remains upstream-only.
 
+## Historical completed context
+
+The following markers are retained for documentation-entrypoint continuity; they are historical, not the current active phase:
+
+- Phase 61 - Suite Metadata and Genre Platform
+- Post-Phase 61 Performance Hardening (B1-B4)
+- VDR Remote and Live Overlay hardening (#110)
+- Backend-scoped Global Search (#111)
+- Phase 62 - Identity, RBAC and Accountability Foundation
+
 ## Documentation synchronization note
 
 `CURRENT.md`, `NEW-CHAT-HANDOFF.md` and `development/current-status.md` are the direct operational status entry points.

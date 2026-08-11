@@ -62,6 +62,13 @@ Phase 63 completed the secure multi-site execution foundation:
 
 Historical acceptance evidence remains in the phase closeout documents and is evidence for its exact accepted runtime candidate only.
 
+## Historical completed context
+
+The following completed predecessors remain part of the project history:
+
+- Phase 61 - Suite Metadata and Genre Platform
+- Post-Phase 61 Performance Hardening (B1-B4)
+
 ## Active Phase 64
 
 Phase 64 is active and deliberately separates:
