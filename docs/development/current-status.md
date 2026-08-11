@@ -111,6 +111,18 @@ The broad Timer UI is not required to close Phase 64. It remains gated on accoun
 - Require real-system acceptance only when an installed/runtime boundary actually changes.
 - Broad Timer UI work must not bypass its account/backend access-management gate.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded operation safely.
+
+Use local edits first only when the change requires:
+
+- a workaround because the GitHub connector blocks a file operation;
+- repository-local generation, compilation or tests that cannot be performed through the connector;
+- a coherent multi-file patch that must be validated locally before publication.
+
+Never replace a complete repository file from a truncated fetch. After each GitHub file update, inspect the resulting commit diff before treating the change as correct.
+
 ## Documentation synchronization note
 
 The direct status entry points are [Current State](../CURRENT.md), [New Chat Handoff](../NEW-CHAT-HANDOFF.md) and this file.
