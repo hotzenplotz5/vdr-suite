@@ -16,6 +16,8 @@ Always verify repository, pull-request, CI and runtime facts against current `ma
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Phase 62 Final Closeout](development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [Architecture Decision Records](adr/index.md)
@@ -69,6 +71,7 @@ Phase 63 did not own TimerIntent, TimerAssignment or NativeTimerBinding.
 
 The following markers are retained for documentation-entrypoint continuity; they are historical, not the current active phase:
 
+- Phase 58 - Frontend and Live Parity
 - Phase 61 - Suite Metadata and Genre Platform
 - Post-Phase 61 Performance Hardening (B1-B4)
 - VDR Remote and Live Overlay hardening (#110)

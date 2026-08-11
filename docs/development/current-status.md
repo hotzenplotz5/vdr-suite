@@ -35,6 +35,14 @@ Exact GitHub state always overrides a recorded checkpoint.
 
 Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract. These remain prerequisites for Phase-64 orchestration.
 
+## Historical completed context
+
+Earlier completed platform foundations remain authoritative history, including:
+
+- Phase 62 - Identity, RBAC and Accountability Foundation
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
+
 ## Phase 64 progress
 
 ```text
@@ -115,6 +123,8 @@ The active-slice markers in [Strict Roadmap](../planning/roadmap.md) and [Phase 
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Phase 64 TimerIntent Contract](phase-64-timer-intent-contract.md)
 - [Phase 64 TimerIntent Repository](phase-64-timer-intent-repository.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
