@@ -172,6 +172,7 @@ int main()
 
     NativeTimerBinding external = binding(
         "binding:external", NativeTimerBindingOwnership::external);
+    external.backendNativeTimerId = "timer:external";
     external.timerAssignmentId.clear();
     external.missingSince = 0;
     external.driftState = NativeTimerBindingDriftState::none;
