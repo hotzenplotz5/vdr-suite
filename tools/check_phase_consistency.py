@@ -25,8 +25,8 @@ NEXT_MARKERS = [
     "Next implementation focus",
 ]
 
-EXPECTED_COMPLETED_PHASE = "62"
-EXPECTED_NEXT_PHASE = "63"
+EXPECTED_COMPLETED_PHASE = "63"
+EXPECTED_NEXT_PHASE = "64"
 
 
 def phase_key(value):

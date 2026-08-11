@@ -11,6 +11,9 @@ Current merged main baseline:
 Latest completed numbered runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
+Next strict runtime phase:
+Phase 64 - Timer Intent and Multi-Backend Orchestration
+
 Current active numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
@@ -104,7 +107,7 @@ The active-slice markers in [Strict Roadmap](../planning/roadmap.md) and [Phase 
 1. Re-read PR #169 and its exact current CI before continuation.
 2. Continue from its exact head only if the stack remains unchanged.
 3. Add the expected-absence contract as a separate bounded stacked Draft.
-4. Keep delete verification, external-change classification, failover and native mutation out of that contract slice.
+4. Keep absence verification, external-change classification, failover and native mutation out of that contract slice.
 
 ## Authoritative links
 
@@ -112,7 +115,6 @@ The active-slice markers in [Strict Roadmap](../planning/roadmap.md) and [Phase 
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Phase 64 TimerIntent Contract](phase-64-timer-intent-contract.md)
 - [Phase 64 TimerIntent Repository](phase-64-timer-intent-repository.md)
-- [Phase 64 TimerAssignment Contract](phase-64-timer-assignment-contract.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)

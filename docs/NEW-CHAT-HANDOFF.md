@@ -21,11 +21,10 @@ Always verify repository, pull-request, CI and runtime facts against current `ma
 - [Architecture Decision Records](adr/index.md)
 - [Agent Workflow Rules](../AGENTS.md)
 
-Phase-64 foundation documents:
+Merged Phase-64 foundation documents:
 
 - [TimerIntent Contract](development/phase-64-timer-intent-contract.md)
 - [TimerIntent Repository](development/phase-64-timer-intent-repository.md)
-- [TimerAssignment Contract](development/phase-64-timer-assignment-contract.md)
 
 Historical Phase-62/63 closeouts remain evidence for their accepted candidates but are no longer the current work entry point.
 
@@ -39,6 +38,9 @@ Current merged main checkpoint:
 
 Latest completed numbered runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
+
+Next strict runtime phase:
+Phase 64 - Timer Intent and Multi-Backend Orchestration
 
 Current active numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration

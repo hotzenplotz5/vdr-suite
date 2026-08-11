@@ -24,6 +24,9 @@ Current merged main baseline:
 Latest completed numbered runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
+Next strict runtime phase:
+Phase 64 - Timer Intent and Multi-Backend Orchestration
+
 Current active numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
