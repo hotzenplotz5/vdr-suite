@@ -439,14 +439,6 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
     const std::uint64_t payloadVersion=static_cast<std::uint64_t>(sqlite3_column_int64(query,11));
     sqlite3_finalize(query);
     if (!match) { result.reasonCode="command_receipt_fenced"; return result; }
-    const std::string identity=backendAgentCommandReceiptIdentity(r);
-    sqlite3_stmt* existing=nullptr;
-    if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
-    if (sqlite3_step(existing)==SQLITE_ROW)
-    {
-        result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;
-    }
-    sqlite3_finalize(existing);
     if(commandType=="vdr.native.probe")
     {
         if(payloadVersion==2)
@@ -461,10 +453,22 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
             return result;
         }
     }
-    else if(commandType==kBackendAgentNativeTimerDeleteCommandType)
+    else if(commandType==kBackendAgentNativeTimerDeleteCommandType&&
+            payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
     {
-        if(payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
-        {result.reasonCode="local_provider_selection_required";return result;}
+        result.reasonCode="local_provider_selection_required";
+        return result;
+    }
+    const std::string identity=backendAgentCommandReceiptIdentity(r);
+    sqlite3_stmt* existing=nullptr;
+    if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
+    if (sqlite3_step(existing)==SQLITE_ROW)
+    {
+        result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;
+    }
+    sqlite3_finalize(existing);
+    if(commandType==kBackendAgentNativeTimerDeleteCommandType)
+    {
         std::string providerReason;
         if(!localProviderSelectionCurrent(r.commandId,providerReason))
         {result.reasonCode=providerReason;return result;}
