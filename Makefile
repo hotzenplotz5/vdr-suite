@@ -38,6 +38,7 @@ include mk/phase64-native-timer-readback-expectation-tests.mk
 include mk/phase64-native-timer-present-readback-verification-tests.mk
 include mk/phase64-native-timer-inventory-evidence-tests.mk
 include mk/phase64-restfulapi-native-timer-inventory-reader-tests.mk
+include mk/phase64-native-timer-binding-absence-application-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
