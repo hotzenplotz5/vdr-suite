@@ -45,6 +45,7 @@ At that checkpoint, before the later command, native-execution and provider-sele
 
 Earlier completed platform foundations remain authoritative history, including:
 
+- Post-Phase 61 Performance Hardening (B1-B4)
 - Phase 62 - Identity, RBAC and Accountability Foundation
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
