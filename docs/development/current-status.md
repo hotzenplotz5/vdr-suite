@@ -35,6 +35,12 @@ Exact GitHub state always overrides a recorded checkpoint.
 
 Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract. These remain prerequisites for Phase-64 orchestration.
 
+## Historical Phase-63 observation-ingestion checkpoint
+
+During the historical Phase 63 Slice 1 / Phase 63 Slice 2 **Observation and Snapshot Ingestion** checkpoint, PR #138 merged the read-only ingestion contract as `24b1d7938ddaa15834a8da6323a270761868f4ba`, and PR #139 implemented the first bounded `backend-health` runtime.
+
+At that checkpoint, before the later command, native-execution and provider-selection slices completed the phase, the correct status sentence was: **Phase 63 is not complete**. That sentence is retained only as historical provenance for the Phase-63 observation-ingestion regression contract. The current position above remains authoritative: Phase 63 is complete and Phase 64 is active.
+
 ## Historical completed context
 
 Earlier completed platform foundations remain authoritative history, including:

@@ -116,6 +116,12 @@ The following markers are retained for documentation-entrypoint continuity; they
 - Backend-scoped Global Search (#111)
 - Phase 62 - Identity, RBAC and Accountability Foundation
 
+## Historical Phase-63 observation-ingestion checkpoint
+
+During the historical Phase 63 Slice 1 / Phase 63 Slice 2 **Observation and Snapshot Ingestion** checkpoint, PR #138 merged the read-only ingestion contract as `24b1d7938ddaa15834a8da6323a270761868f4ba`, and PR #139 implemented the first bounded `backend-health` runtime.
+
+At that checkpoint, before the later command, native-execution and provider-selection slices completed the phase, the correct status sentence was: **Phase 63 is not complete**. That sentence is retained here only as provenance required by the historical Phase-63 regression contract. The current status above is authoritative: Phase 63 is complete and Phase 64 is active.
+
 ## Documentation synchronization note
 
 `CURRENT.md`, `NEW-CHAT-HANDOFF.md` and `development/current-status.md` are the direct operational status entry points.
