@@ -2,200 +2,217 @@
 
 ## Purpose
 
-This is the canonical entry point for every new VDR-Suite chat. Repository, pull-request and runtime facts must be checked against the current `main` branch and the exact active PR head; do not repeat historical acceptance work without a directly relevant runtime change.
+This is the canonical operational entry point for every new VDR-Suite chat.
+
+Repository, pull-request, CI and runtime facts must always be rechecked against the current `main` branch and the exact active PR head. Recorded hashes are checkpoints for their exact candidates, not permission to reuse stale assumptions after the branch or stack moves.
 
 ## Canonical reading
 
+Read these first:
+
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 63 Slice-1 Closeout](development/phase-63-slice-1-closeout.md)
-- [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
-- [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
-- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
-- [Manual Recording Metadata Assignment](development/manual-recording-metadata-assignment.md)
-- [Manual Recording Cast Ingestion and Search Integration](development/manual-recording-cast-search.md)
-- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
-- [Phase 62 Final Closeout](development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [ADR-0044 Timer Intent, Assignment and Native Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
+- [ADR-0046 Streaming Gateway and Media Session Boundary](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [Architecture Decision Records](adr/index.md)
 - [Agent Workflow Rules](../AGENTS.md)
+
+Useful Phase-64 foundation documents:
+
+- [Phase 64 TimerIntent Contract](development/phase-64-timer-intent-contract.md)
+- [Phase 64 TimerIntent Repository](development/phase-64-timer-intent-repository.md)
+- [Phase 64 TimerAssignment Contract](development/phase-64-timer-assignment-contract.md)
+
+Historical Phase-62/63 closeouts remain authoritative evidence for their accepted candidates but are no longer the current work entry point.
 
 ## Stable project position
 
 ```text
+Repository: hotzenplotz5/vdr-suite
+Current branch authority: main
+Current merged main checkpoint:
+96fab8ad88eae9ea0d46adf4db50ccf8d750a19b
+
 Latest completed numbered runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
-Previous completed numbered runtime phase:
-Phase 61 - Suite Metadata and Genre Platform
-
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Completed cross-cutting platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
-Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Completed Phase-63 slice:
-Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
-PR #137 merged and exact-head real yaVDR acceptance passed
+Previous completed numbered runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current active numbered runtime phase:
-Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
-Draft PR #139 implements the first bounded read-only observation domain
+Phase 64 - Timer Intent and Multi-Backend Orchestration
 
-Phase 63 is not complete
+Merged Phase-64 foundation:
+Slice 1 - TimerIntent Domain Contract, PR #150
+Slice 2 - TimerIntent Persistence and Repository Semantics, PR #152
 
-Phase 64-67 runtime:
-not advanced
+Current active stacked Draft tip:
+PR #168 - Add failure-aware RESTfulAPI native Timer inventory reader
+branch: agent/phase64-restfulapi-native-timer-inventory-reader
+head checkpoint: a49a3b99167e8f1bbbbf220657d774aaf4038501
+CI checkpoint: VDR-Suite CI #7412 / run 31462922497 - PASS
+runtime change: none; Slice-16 is not linked into an installed runtime target
 ```
 
-Phase 62 remains completed and must not be reopened. Its historical runtime evidence remains authoritative for its accepted candidate.
+Never copy the head above into a later status claim without checking GitHub again.
 
-## Current merged baseline
+## Completed Phase 63 platform boundary
+
+Phase 63 is complete and must not be reopened for Timer work.
+
+It established the platform prerequisites used by Phase 64:
+
+- Backend Agent enrollment, technical identity and credential lifecycle;
+- protected outbound transport, lease, Agent-instance and backend-generation fencing;
+- generation-/sequence-fenced observation ingestion;
+- explicit Channel observation with no hidden source fallback;
+- durable command assignment, receipt, result and reconciliation state;
+- fenced side-effect-free native execution through SuiteBridge;
+- plugin-instance epoch and authoritative readback semantics;
+- explicit provider facts, ownership and immutable provider selection;
+- no silent provider fallback;
+- a generic protected-write safety contract for durable idempotency, authorization, revision/generation/provider fencing and uncertain-outcome reconciliation.
+
+Phase 63 did not own TimerIntent, TimerAssignment or NativeTimerBinding. Those are Phase-64 domains.
+
+## Phase 64 current stack
+
+The active Timer stack is intentionally layered:
 
 ```text
-main @ 24b1d7938ddaa15834a8da6323a270761868f4ba
+TimerIntent
+  -> domain contract
+  -> durable repository/revisions
+
+TimerAssignment
+  -> domain contract
+  -> durable repository/revisions/epochs
+  -> deterministic planner
+  -> primary scheduling handoff
+  -> assignment-set concurrency fence
+  -> replica scheduling handoff
+
+NativeTimerBinding
+  -> domain contract
+  -> durable optimistic-concurrency repository
+  -> VDR NativeTimerObservation mapper
+  -> safe present-readback application
+  -> operation-bound expected PRESENT evidence
+  -> operation-aware PRESENT verification
+  -> complete native Timer inventory / absence evidence
+  -> failure-aware RESTfulAPI complete-inventory reader
 ```
 
-This is the squash merge of:
+Exact Draft PR progression at this checkpoint:
 
 ```text
-PR #138 - Define read-only agent observation ingestion contract
-accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
-CI: VDR-Suite CI #7275
-run ID: 31006387349
-result: all five jobs successful
-runtime change: none; contract and guards only
+#153 -> #154 -> #155 -> #158 -> #159 -> #160
+     -> #161 -> #162 -> #163 -> #164 -> #165 -> #166 -> #167 -> #168
 ```
 
-The merged baseline includes PR #137 and its accepted real yaVDR Agent lifecycle runtime, plus completed PR #135 manual Recording metadata assignment and PR #136 manual selected-movie cast/title/person search integration.
+Draft PR #157 is a separate repository-wide SQLite architecture-baseline repair. Draft PR #156 is a separate proposed client playback/media-adaptation ADR; it does not implement Phase-65 runtime and is not part of the Timer stack.
 
-## Completed Phase 63 Slice 1
+## Timer safety position at Slice 16
 
-Slice 1 established and accepted:
+The stack now proves the foundations that must exist before production native Timer mutation:
 
-- administrator-authorized one-time Agent enrollment into an existing Backend;
-- persistent technical Agent actor/device/credential identity;
-- exact `vdr-suite-agent/1` protocol compatibility;
-- Agent-process-instance and backend-generation fencing;
-- heartbeat, lease and online/stale/offline state;
-- bounded read-only capabilities;
-- reconnect and restart reconciliation;
-- credential rotation, revocation and replacement enrollment;
-- protected outbound HTTPS transport and protected local state;
-- hardened systemd/package/install contracts;
-- redacted status/revocation administration;
-- guarded exact-head real yaVDR acceptance without manual SQLite inspection.
+- Suite Timer intent, assignment and native binding identity are separate;
+- intent, assignment-set and binding concurrency are explicit;
+- primary/replica planning consumes authoritative generation/capability/health/channel evidence and fails closed on stale or ambiguous facts;
+- native Timer observations are copied backend-neutral evidence, not raw VDR objects;
+- semantically unchanged present observations may refresh evidence without erasing unresolved drift;
+- changed present state is not silently overwritten;
+- expected PRESENT mutation results are bound to exact operation ID, binding revision, backend/native identity, backend generation, a post-operation time fence and normalized fingerprint;
+- successful PRESENT verification records only authoritative post-operation readback;
+- Timer absence can be established only from explicit complete-inventory evidence;
+- HTTP failure, malformed JSON, incomplete parsing or missing identities cannot become absence proof;
+- the Slice-16 RESTfulAPI reader remains outside daemon runtime wiring.
 
-Final accepted evidence:
+No current Phase-64 Draft enables `mutations=enabled` or a production Agent/SuiteBridge/RESTfulAPI/SVDRP Timer create/update/delete path.
+
+## Exact next bounded work
+
+The next Phase-64 slice after PR #168 is a backend-neutral NativeTimerBinding absence-application service.
+
+It must:
+
+1. load the exact current durable binding;
+2. accept only valid complete inventory evidence for the exact backend and generation;
+3. require evidence new enough for the queried native Timer identity;
+4. persist authoritative missing observation evidence while preserving the last known present representation and fingerprint;
+5. use the exact current binding revision and surface repository conflict without hidden retry;
+6. avoid guessing `external_delete`, ownership changes, assignment transitions or failover eligibility from absence alone.
+
+Later separate slices must address operation-aware delete verification, changed-state/external-drift reconciliation, binding/assignment lifecycle transitions, controlled replacement/failover, protected native Timer create/update/delete, daemon orchestration and public Timer surfaces.
+
+## Phase ordering and the broad Timer UI
+
+The strict numbered runtime order is:
 
 ```text
-PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
-HEAD=bba51455552bab0f1a06c680369c508858b2384b
-CONTROL_PLANE_URL=https://192.168.178.38/vdr-suite
-CREDENTIAL_GENERATION=2
-VDR_NATIVE_STATE_UNCHANGED=yes
-DAEMON_ACTIVE=yes
-AGENT_ACTIVE=yes
-EVIDENCE=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
+Phase 64 - Timer Intent and Multi-Backend Orchestration
+  -> Phase 65 - Streaming Gateway and Media Sessions
+  -> Phase 66 - Legacy OSD Compatibility Bridge
+  -> Phase 67 - Public API and Client Compatibility Hardening
 ```
 
-Slice 1 implemented no domain observations, snapshots, commands, results, VDR-native execution or provider selection. Agent lifecycle state does not replace existing direct-adapter `BackendNode.online` authority.
+This means Phase 65 Streaming follows completion of the reliable Phase-64 Timer **engine**, not completion of a broad polished Timer UI.
 
-## Active Phase 63 Slice 2 runtime
+Broad Timer mutation controls remain separately gated on account/backend access management built on the completed Phase-62 identity, browser-session, authorization and backend-scoped permission model. That frontend/security gate does not block the backend-neutral Timer engine and does not block Phase 65 once Phase 64 is complete.
 
-```text
-PR #139 - Add backend health observation ingestion runtime
-branch: agent/phase63-backend-health-ingestion-runtime
-base: main @ 24b1d7938ddaa15834a8da6323a270761868f4ba
-state: open Draft
-```
+Therefore it is valid and intended for Streaming Gateway runtime work to occur before the broad Timer UI is finished. This is project sequencing, not a technical dependency of Streaming on the Timer UI.
 
-The exact current PR head, diff, mergeability and CI must always be read from GitHub before work resumes. Do not copy a head SHA from this Handoff as current proof after later commits.
+## Documentation synchronization rule
 
-PR #138 merged the binding Slice-2 contract. PR #139 is the first bounded runtime implementation and must remain Draft until one exact final head has complete green CI, has been installed and accepted on yaVDR, and the user explicitly approves readiness.
+`NEW-CHAT-HANDOFF.md`, `CURRENT.md` and `development/current-status.md` are the direct operational status entry points.
 
-### Runtime architecture
+Some current-position markers in `planning/roadmap.md` and `planning/phase-map.md` still lag the active Phase-64 stacked Drafts. Their architectural dependency rules and strict phase order remain useful, but a stale recorded active-slice marker must not override the exact GitHub stack or these synchronized status files. Updating those broader planning documents is a separate guarded documentation task.
 
-- Existing Agent technical authentication remains the only Agent HTTP authentication.
-- Every observation is fenced by Backend, Agent, Agent instance and backend generation.
-- `completeSnapshot` establishes the `backend-health` baseline; `changeBatch` advances only at the exact next producer sequence.
-- Equivalent replay is idempotent; conflicting replay is rejected; gaps return `resync-required`.
-- Immutable receipt and current cursor persist atomically through Suite-owned repositories.
-- The Agent persists lineage and a pending envelope before transport and retries the exact same envelope after ambiguous results.
-- Protected identity state migrates from version 1 to version 2 without changing the Agent identity.
-- Admin status exposes redacted `backendHealthObservation` cursor facts.
-- Upgrade-safe acceptance preserves the existing active yaVDR Agent and never revokes, replaces or re-enrolls it.
+## Current security and authority position
 
-Hard exclusions remain command/result flow, VDR-native mutation, provider ownership/selection, public Agent/provider URLs, TimerIntent/Phase-64 runtime, Streaming Gateway and OSD work.
-
-Authoritative contract and acceptance:
-
-- [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
-- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
-- [Target Platform Architecture](architecture/target-platform-architecture.md)
-
-## Phase 62 completion evidence
-
-```text
-PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
-accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
-source_ci_run_number=6884
-source_ci_run_id=30752351218
-evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
-```
-
-This evidence closes Phase 62. It is historical evidence for that accepted runtime fingerprint, not a claim that every later daemon build is byte-identical.
-
-## Current security position
-
+- Phase-62 actor identity, scoped authorization, browser-session lifecycle, CSRF and accountability remain authoritative.
+- Phase-63 Agent identity, backend generation, command/replay fencing and explicit provider ownership/selection remain authoritative for remote execution.
 - Runtime Agent credentials cannot act as browser users or unrestricted administrators.
-- Backend binding, credential generation, Agent instance and backend generation are enforced server-side.
-- Observation domains are read-only capability declarations, never grants.
-- Snapshot generation, producer sequence and resource revision are validated independently.
-- Revoked or stale-generation Agents cannot advance current ingestion.
-- Bootstrap/runtime secrets, hashes/verifiers, Authorization headers, cookies, CSRF values, provider URLs, local secret paths and secret-bearing process environments must not be printed, committed or copied into public responses/accountability events.
+- Provider reachability/availability never creates execution authority and active work never silently switches provider.
+- Unknown or stale generation, revision, assignment-set or readback evidence fails closed.
+- An uncertain native dispatch is reconciled; it is not blindly retried.
+- Bootstrap/runtime secrets, hashes/verifiers, Authorization headers, cookies, CSRF values, provider credentials, local secret paths and secret-bearing process environments must not be printed, committed or copied into public responses/accountability events.
 - TVScraper remains unchanged upstream; do not write to TVScraper-owned databases or caches.
 
 ## Compatibility-retirement decision
 
-Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62 or Phase 63.
+Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62, Phase 63 or Phase 64.
 
 ## Current work boundary
 
-- Phase 62 is completed and must not be rewritten.
-- Phase 63 Slice 1 is merged and accepted.
-- PR #139 is the only active Phase-63 runtime slice.
-- Keep PR #139 Draft until exact-head CI, upgrade-safe real yaVDR acceptance and explicit user approval.
-- Do not add command/result flow, VDR-native mutation, provider ownership/selection or later-phase runtime to Slice 2.
-- Do not create a second BackendRegistry, authorization service, accountability store or job system.
-- Do not require manual SQLite inspection for acceptance.
-- Unknown central POST routes remain subject to the Phase-62 fail-closed policy outside explicit Legacy Basic compatibility.
-- Do not add unrelated refactors or cosmetic rewrites.
+- Phase 62 is complete.
+- Phase 63 is complete.
+- Phase 64 is active.
+- PR #168 is the current top Timer Draft at this checkpoint and must be re-read before continuation.
+- Keep stacked Timer PRs Draft until explicit approval changes their review state.
+- Do not jump from evidence/reconciliation work directly to production native Timer mutation.
+- Do not infer external deletion, replacement or failover from transport failure or absence alone.
+- Do not create a second BackendRegistry, authorization service, accountability store, job system or scheduler authority.
+- Do not add Phase-65 Streaming runtime to a Phase-64 Timer slice.
+- Broad Timer UI work must not bypass the account/backend access-management gate.
+- Do not require manual SQLite inspection for runtime acceptance.
+- Do not add unrelated refactors or cosmetic rewrites to bounded slices.
 
 ## Exact next action
 
-1. Read PR #139 and its exact current head from GitHub.
-2. Inspect the complete diff and CI jobs for that exact head.
-3. Fix only evidence-backed `backend-health` sequencing, persistence, retry, security, packaging or acceptance defects.
-4. Run focused Agent tests, contract/harness guards, documentation, Make inventory, packaging and all required PR CI jobs on one exact final head.
-5. Install that exact head on yaVDR and execute `phase63-backend-health-ingestion-runtime-acceptance`; do not revoke or replace the existing Agent and do not inspect SQLite manually.
-6. Update the Draft PR body with exact-head CI and redacted real-system evidence.
-7. Keep PR #139 Draft until explicit approval.
+1. Read PR #168 and its exact current head, diff, mergeability and CI from GitHub.
+2. Treat Slice-16 as the current checkpoint only if that exact head remains authoritative and green.
+3. Open the next bounded stacked Draft for NativeTimerBinding absence application on the exact current #168 head.
+4. Add focused domain/repository regression and architecture guard coverage only for that slice.
+5. Keep native mutation, delete verification, external-drift classification and failover out of the absence-application slice.
+6. Evaluate the final exact-head CI according to `AGENTS.md`; require real yaVDR runtime acceptance only when an installed/runtime boundary actually changes.
+7. Keep all review/merge state transitions behind explicit user approval.
 
 ## Command presentation contract
 
@@ -268,36 +285,32 @@ The plugin must not be rebuilt merely because it exists in the repository.
 - Add the exact plugin clean/build/install and required VDR service stop/restart/status commands to the same branch-/PR-specific Bash block.
 - Never guess `VDRDIR`, `LIBDIR`, `APIVERSION`, destination paths or the VDR service unit name, and never reuse plugin commands from another PR without verifying them against the requested head.
 
-This manifest overrides any tendency to provide generic setup instructions, a fresh-system installation tutorial, commands from a previous PR, or prose instead of one directly copyable branch-/PR-specific shell block.
-
 ## Binding branch- and PR-specific installed-result acceptance manifest
 
 A successful build, file installation and `active (running)` service state prove only that deployment completed. They do not prove that the requested PR behavior works. Every installation answer must therefore be followed by a branch- or PR-specific acceptance section derived from the exact current head.
 
-Before writing the acceptance steps, the agent must inspect:
+Before writing the acceptance steps, inspect:
 
 - the exact PR diff and changed components;
 - the current feature, ADR and runtime-acceptance documents;
 - changed REST routes, persistence/schema behavior, frontend paths, services and plugin contracts;
 - the closest existing regression behavior that the PR could unintentionally break.
 
-The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block. Do not merge functional checks into the installation block when that would hide required user actions.
+The user-facing answer must use the heading `## Prüfung des installierten Ergebnisses`. Shell diagnostics must remain in ordinary fenced `bash` blocks. Browser, UI and functional actions may be a concise numbered checklist outside the shell block.
 
-Every acceptance plan must cover the layers that are relevant to that exact PR:
+Every acceptance plan must cover the relevant layers for that exact PR:
 
-1. **Installed identity and startup:** verify the checked-out exact head, installed binary or asset identity where the repository provides a reliable method, service state and absence of new startup errors.
-2. **Positive feature path:** exercise the behavior introduced or changed by the PR using a real representative resource.
-3. **Readback and persistence:** reload the UI or API, restart the affected service, and confirm the result survives without repeating the mutation or requiring an external provider read.
-4. **Search and presentation:** verify every changed read model, detail view, search path or frontend rendering affected by the PR.
-5. **Replacement and withdrawal semantics:** when the feature supports reassignment, deletion, withdrawal, rollback or fallback, verify the old active result disappears and the documented fallback becomes effective.
-6. **Authorization and failure boundaries:** verify the relevant Read-only, wrong-scope, CSRF, provider-failure or invalid-input denial paths without exposing secrets.
-7. **Adjacent regression:** repeat the nearest established workflow whose performance or correctness could be affected, such as folder navigation, restart behavior or automatic metadata fallback.
-8. **Evidence:** record the exact source head, CI run, installed build identity when available, redacted test resource and observed result.
+1. installed identity and startup;
+2. positive feature path;
+3. readback and persistence/restart;
+4. changed search/presentation surfaces;
+5. replacement/withdrawal semantics where applicable;
+6. authorization and failure boundaries;
+7. nearest adjacent regression;
+8. exact source/CI/build/redacted evidence.
 
-Only include layers that the exact PR can affect, but never omit persistence/restart or the primary regression boundary merely to shorten the answer. When a test requires credentials, cookies, CSRF values, tokens or private paths, instruct the user through the normal UI or a redacted safe procedure; never request or print those values.
-
-Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the user has actually executed the exact-head test and supplied or confirmed the observed result.
+Never describe an acceptance item as passed merely because the daemon started or automated CI is green. Mark it passed only after the exact-head functional test has actually been executed and observed.
 
 ## Credential and secret restrictions
 
-Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, provider tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
