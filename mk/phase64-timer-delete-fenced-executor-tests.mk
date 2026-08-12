@@ -9,6 +9,7 @@ test-phase64-timer-delete-fenced-executor: \
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		$(AGENT_COMMAND_STATE_SRC) \
+		$(AGENT_TIMER_DELETE_EXECUTOR_SRC) \
 		core/agent/tests/test_backend_agent_timer_delete_fenced_executor.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_backend_agent_timer_delete_fenced_executor

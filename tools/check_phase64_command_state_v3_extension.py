@@ -95,8 +95,9 @@ require(
 )
 forbid(command_client, "timer_delete_", "ad-hoc Timer-delete command-state field")
 
-# Only the validation/persistence dependency chain joins the Agent command
-# client link path. No daemon or SuiteBridge mutation transport is added.
+# Only the validation/persistence dependency chain joins the command-state
+# source set. Bounded successor execution contracts must live in a distinct
+# source set and must not weaken this state-owner boundary.
 require(agent_sources, "AGENT_COMMAND_STATE_SRC :=", "bounded command-state source set")
 for source in (
     "core/agent/src/BackendAgentNativeTimerDelete.cpp",
@@ -106,8 +107,10 @@ for source in (
     if agent_sources.count(source) != 1:
         raise SystemExit(f"command-state runtime source must occur exactly once: {source}")
 state_block = agent_sources.split("AGENT_COMMAND_STATE_SRC :=", 1)[1].split(
-    "\n\nAGENT_COMMAND_CLIENT_SRC", 1
-)[0]
+    "\n\nAGENT_TIMER_DELETE_EXECUTOR_SRC", 1
+)[0] if "AGENT_TIMER_DELETE_EXECUTOR_SRC :=" in agent_sources else agent_sources.split(
+    "AGENT_COMMAND_STATE_SRC :=", 1
+)[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
 for token in ("SuiteBridge", "Svdrp", "REST", "restful", "Executor", "Transport"):
     forbid(state_block, token, "mutation transport in command-state source set")
 
@@ -159,6 +162,28 @@ allowed_timer_delete_sources = {
     "BackendAgentNativeTimerDeleteAssignment.cpp",
     "BackendAgentNativeTimerDeleteLocalState.cpp",
 }
+executor_source = agent_src_dir / "BackendAgentNativeTimerDeleteExecutor.cpp"
+if executor_source.is_file():
+    successor_guard = ROOT / "tools/check_phase64_timer_delete_fenced_executor.py"
+    if not successor_guard.is_file():
+        raise SystemExit("Timer-delete executor source requires bounded Slice 32 guard")
+    require(
+        agent_sources,
+        "AGENT_TIMER_DELETE_EXECUTOR_SRC :=",
+        "separate Timer-delete executor source set",
+    )
+    executor_block = agent_sources.split(
+        "AGENT_TIMER_DELETE_EXECUTOR_SRC :=", 1
+    )[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+    if executor_block.count(
+            "core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp") != 1:
+        raise SystemExit(
+            "bounded Timer-delete executor source must occur exactly once in its source set"
+        )
+    for token in ("SuiteBridge", "Svdrp", "REST", "restful"):
+        forbid(executor_block, token, "concrete transport in executor source set")
+    allowed_timer_delete_sources.add("BackendAgentNativeTimerDeleteExecutor.cpp")
+
 for candidate in agent_src_dir.glob("*TimerDelete*.cpp"):
     if candidate.name not in allowed_timer_delete_sources:
         raise SystemExit(

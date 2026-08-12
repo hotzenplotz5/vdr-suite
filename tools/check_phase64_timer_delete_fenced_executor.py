@@ -41,9 +41,18 @@ if makefile.count(include) != 1:
 
 require(
     agent_sources,
-    "core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp",
-    "executor source ownership",
+    "AGENT_TIMER_DELETE_EXECUTOR_SRC :=",
+    "separate executor source set",
 )
+executor_source = "core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp"
+if agent_sources.count(executor_source) != 1:
+    raise SystemExit("Timer-delete executor source must occur exactly once")
+executor_block = agent_sources.split(
+    "AGENT_TIMER_DELETE_EXECUTOR_SRC :=", 1
+)[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+require(executor_block, executor_source, "executor source ownership")
+for token in ("SuiteBridge", "Svdrp", "REST", "restful"):
+    forbid(executor_block, token, "concrete transport in executor source set")
 require(
     header,
     "class IBackendAgentNativeTimerDeleteTransport",
@@ -179,6 +188,11 @@ require(
     mk,
     "test-phase64-timer-delete-fresh-durable-starting",
     "Slice 31 regression dependency",
+)
+require(
+    mk,
+    "$(AGENT_TIMER_DELETE_EXECUTOR_SRC)",
+    "dedicated executor build source",
 )
 require(doc, "Availability cannot replace", "authority-vs-availability documentation")
 require(doc, "exactly one `deleteTimer()` call", "single dispatch documentation")
