@@ -42,6 +42,7 @@ AGENT_COMMAND_DELIVERY_SRC := \
 AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerDelete.cpp \
 	core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
+	core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp \
 	core/agent/src/BackendAgentCommandStateExtension.cpp
 
 AGENT_COMMAND_CLIENT_SRC := \
