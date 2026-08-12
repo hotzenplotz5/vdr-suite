@@ -11,6 +11,7 @@ TEST = ROOT / "core/agent/tests/test_backend_agent_native_timer_delete.cpp"
 DOC = ROOT / "docs/development/phase-64-native-timer-delete-agent-contract.md"
 FRAGMENT = ROOT / "mk/phase64-native-timer-delete-agent-contract-tests.mk"
 MAKEFILE = ROOT / "Makefile"
+AGENT_SOURCES = ROOT / "mk/agent-sources.mk"
 
 failures: list[str] = []
 
@@ -92,11 +93,20 @@ for forbidden in [
     if forbidden in source:
         failures.append(f"Slice-24 contract contains forbidden runtime/write coupling: {forbidden}")
 
+# Slice 24 originally prohibited all runtime wiring. The Slice-29 commands.state
+# v3 owner now needs the pure Timer-delete domain validator to validate a typed
+# local-state extension. Permit exactly that Agent command-state wiring while
+# continuing to reject every other runtime manifest and all write transports.
+agent_sources = AGENT_SOURCES.read_text(encoding="utf-8") if AGENT_SOURCES.is_file() else ""
+if agent_sources.count("core/agent/src/BackendAgentNativeTimerDelete.cpp") != 1:
+    failures.append("Slice-29 Agent state owner must wire the Timer-delete domain validator exactly once")
+if "AGENT_COMMAND_STATE_SRC :=" not in agent_sources:
+    failures.append("Slice-29 Agent state owner command-state source set is missing")
 for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
-    if "BackendAgentNativeTimerDelete.cpp" in text:
+    if "BackendAgentNativeTimerDelete.cpp" in text and source_manifest != AGENT_SOURCES:
         failures.append(
-            f"Slice-24 contract is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
+            f"Slice-24 contract is unexpectedly wired outside the bounded Agent state owner: {source_manifest.relative_to(ROOT)}"
         )
 
 if failures:
