@@ -2,6 +2,7 @@
 
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandJson.h"
+#include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeProbe.h"
 
 #include <algorithm>
@@ -195,6 +196,8 @@ struct LocalState
     std::string nativeReceiptEvidence;
     std::string nativeResultEvidence;
     std::string nativeReadbackEvidence;
+    bool stateExtensionPresent = false;
+    vdrsuite::agent::BackendAgentCommandStateExtension stateExtension;
 };
 
 const std::vector<std::string>& legacyKeys()
@@ -225,6 +228,16 @@ const std::vector<std::string>& currentKeys()
     return keys;
 }
 
+const std::vector<std::string>& extendedKeys()
+{
+    static const std::vector<std::string> keys = [] {
+        std::vector<std::string> value = currentKeys();
+        value.push_back("state_extension");
+        return value;
+    }();
+    return keys;
+}
+
 bool exactKeys(
     const std::map<std::string, std::string>& values,
     const std::vector<std::string>& keys)
@@ -241,8 +254,12 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
     if (!readStateFile(path, values, reason)) return false;
     const bool legacy = values["version"] == "1";
     const bool current = values["version"] == "2";
-    if ((!legacy && !current) ||
-        !exactKeys(values, legacy ? legacyKeys() : currentKeys()))
+    const bool extended = values["version"] == "3";
+    const bool nativeState = current || extended;
+    const auto& expectedKeys = legacy
+        ? legacyKeys() : current ? currentKeys() : extendedKeys();
+    if ((!legacy && !current && !extended) ||
+        !exactKeys(values, expectedKeys))
     {
         reason = "command_state_invalid";
         return false;
@@ -257,7 +274,8 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         !number(values["deadline"], deadline) ||
         !number(values["received_at"], received) ||
         !number(values["completed_at"], completed) ||
-        (current && !number(values["native_execution_sequence"], nativeSequence)))
+        (nativeState &&
+         !number(values["native_execution_sequence"], nativeSequence)))
     {
         reason = "command_state_invalid";
         return false;
@@ -308,7 +326,7 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
     state.dispatchState = values["dispatch_state"];
     state.resultPresent = values["result_present"] == "1";
     state.resultAcknowledged = values["result_acknowledged"] == "1";
-    if (current)
+    if (nativeState)
     {
         state.nativeCapabilityEvidence = values["native_capability_evidence"];
         state.pluginInstanceEpoch = values["plugin_instance_epoch"];
@@ -329,6 +347,21 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             reason = "command_state_invalid_native_evidence";
             return false;
         }
+    }
+
+    if (extended && !values["state_extension"].empty())
+    {
+        vdrsuite::agent::BackendAgentCommandStateExtension extension;
+        if (!vdrsuite::agent::backendAgentCommandStateExtensionParse(
+                values["state_extension"], assignment, extension, reason) ||
+            !vdrsuite::agent::backendAgentCommandStateExtensionValidateSupported(
+                extension, assignment, reason))
+        {
+            reason = "command_state_invalid_extension";
+            return false;
+        }
+        state.stateExtensionPresent = true;
+        state.stateExtension = extension;
     }
 
     if (state.resultPresent)
@@ -356,7 +389,7 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             return false;
         }
     }
-    if (current && assignment.commandType == "vdr.native.probe" &&
+    if (nativeState && assignment.commandType == "vdr.native.probe" &&
         assignment.payloadVersion == 2 && !state.resultPresent &&
         state.receiptAcknowledged)
     {
@@ -376,8 +409,27 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
     const auto& assignment = state.assignment;
     const auto& receipt = state.receipt;
     const auto& result = state.result;
+    std::string stateExtension;
+    if (state.stateExtensionPresent)
+    {
+        if (!vdrsuite::agent::backendAgentCommandStateExtensionValidateSupported(
+                state.stateExtension, assignment, reason))
+        {
+            reason = "command_state_invalid_extension";
+            return false;
+        }
+        stateExtension =
+            vdrsuite::agent::backendAgentCommandStateExtensionSerialize(
+                state.stateExtension, assignment, reason);
+        if (stateExtension.empty())
+        {
+            reason = "command_state_invalid_extension";
+            return false;
+        }
+    }
+
     std::ostringstream output;
-    output << "version=2\n"
+    output << "version=3\n"
         << "protocol_version=" << assignment.protocolVersion << "\n"
         << "request_id=" << assignment.requestId << "\n"
         << "correlation_id=" << assignment.correlationId << "\n"
@@ -422,7 +474,8 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         << "native_execution_sequence=" << state.nativeExecutionSequence << "\n"
         << "native_receipt_evidence=" << state.nativeReceiptEvidence << "\n"
         << "native_result_evidence=" << state.nativeResultEvidence << "\n"
-        << "native_readback_evidence=" << state.nativeReadbackEvidence << "\n";
+        << "native_readback_evidence=" << state.nativeReadbackEvidence << "\n"
+        << "state_extension=" << stateExtension << "\n";
     return writeProtected(path, output.str(), reason);
 }
 
@@ -807,6 +860,9 @@ CommandAvailability availableCommands(
     CommandAvailability availability;
     for (const std::string& type : config.commandTypes)
     {
+        if (type ==
+            vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType)
+            continue;
         if (type != "vdr.native.probe")
         {
             availability.commandTypes.push_back(type);

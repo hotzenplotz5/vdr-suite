@@ -193,6 +193,39 @@ bool backendAgentCommandStateExtensionParse(
     return true;
 }
 
+bool backendAgentCommandStateExtensionValidateSupported(
+    const BackendAgentCommandStateExtension& extension,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reasonCode)
+{
+    if (!backendAgentCommandStateExtensionValid(
+            extension, assignment, reasonCode))
+        return false;
+
+    if (extension.extensionType !=
+        kBackendAgentNativeTimerDeleteLocalStateExtensionType)
+    {
+        reasonCode = "unsupported_command_state_extension_type";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteLocalState candidate;
+    BackendAgentNativeTimerDeleteCommand expected;
+    if (!backendAgentNativeTimerDeleteParseLocalState(
+            extension.payload, candidate, reasonCode) ||
+        !backendAgentNativeTimerDeleteCommandFromAssignment(
+            assignment, expected, reasonCode) ||
+        !sameCommand(expected, candidate.command))
+    {
+        reasonCode =
+            "native_timer_delete_state_extension_assignment_mismatch";
+        return false;
+    }
+
+    reasonCode.clear();
+    return true;
+}
+
 std::string backendAgentNativeTimerDeleteCommandStateExtension(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentNativeTimerDeleteLocalState& state,
