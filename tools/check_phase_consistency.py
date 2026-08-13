@@ -109,7 +109,7 @@ def main():
 
     # The target architecture must remain architecture, not an operational log.
     target = ROOT / "docs" / "architecture" / "target-platform-architecture.md"
-    require(errors, target, "safe mutation and durable execution target")
+    require(errors, target, "Safe mutation and durable execution target")
     require(errors, target, "fenced Agent/native command")
     require(errors, target, "authoritative readback and verification")
     for marker in [
