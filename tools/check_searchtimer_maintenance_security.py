@@ -59,6 +59,7 @@ def main() -> int:
         "tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json",
         "tools/phase62-runtime-acceptance/slice-2l-searchtimer-delete.json",
         "docs/development/phase-62-slice-2l-searchtimer-maintenance-security-migration.md",
+        "docs/development/phase-62-security-contract-index.md",
     ]
 
     for relative in required_files:
@@ -73,7 +74,7 @@ def main() -> int:
     makefile = "mk/security-sources.mk"
     local_tests = "mk/local-test-groups.mk"
     harness_makefile = "mk/phase62-runtime-acceptance.mk"
-    development_index = "docs/development/index.md"
+    historical_index = "docs/development/phase-62-security-contract-index.md"
 
     for route in (
         '"/api/searchtimers/update"',
@@ -124,7 +125,7 @@ def main() -> int:
         "slice-2l-searchtimer-delete.json",
     )
     require(
-        development_index,
+        historical_index,
         "phase-62-slice-2l-searchtimer-maintenance-security-migration.md",
     )
 

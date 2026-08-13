@@ -181,18 +181,19 @@ if "include mk/phase64-timer-intent-tests.mk" not in makefile:
 for token in [
     "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
     "Phase 64 - Timer Intent and Multi-Backend Orchestration",
+    "Phase 65 - Streaming Gateway and Media Sessions",
     "Phase 64 Slice 1 — TimerIntent Domain Contract",
     "Phase 64 Slice 2 — TimerIntent Persistence and Repository Semantics",
     "Status: **Completed.**",
-    "Status: **Active; Slice 2 is TimerIntent persistence and repository semantics.**",
-    "No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution",
+    "Historical Slice-2 boundary: No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution",
+    "planning hold after the PR-#190 checkpoint; Phase 64 is not complete",
 ]:
     if token not in roadmap:
         raise SystemExit(f"missing Phase-64 roadmap boundary: {token}")
 
-# Slice 2 adds only domain persistence. Production wiring outside core/timers
-# would skip the separately reviewed assignment, scheduling and native-mutation
-# slices.
+# The merged Slice-2 code itself remains a persistence-only foundation. The
+# roadmap may describe later stacked work, but accepted main code must still not
+# gain TimerIntent runtime wiring outside the reviewed Timer domain boundary.
 forbidden_roots = [
     ROOT / "apps",
     ROOT / "api",
@@ -228,4 +229,4 @@ for relative in [
         raise SystemExit(f"Phase-64 persistence slice must not enable mutations: {relative}")
 
 print("Phase-64 TimerIntent contract and repository check passed")
-print("Slice-2 boundary: persistence only; assignment/native runtime deferred")
+print("Merged Slice-2 code boundary remains TimerIntent persistence only")
