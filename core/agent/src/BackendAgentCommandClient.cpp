@@ -111,6 +111,57 @@ void createResult(
     result.completedAt = nowSeconds();
 }
 
+vdrsuite::agent::BackendAgentNativeTimerDeleteCommandContext
+nativeTimerDeleteContext(const BackendAgentCommandClientContext& context)
+{
+    return {
+        context.backendId,
+        context.agentId,
+        context.agentInstanceId,
+        context.backendGeneration};
+}
+
+bool reconcileNativeTimerDeleteLocalState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentNativeTimerDeleteCommandReconcileExisting(
+        config.statePath,
+        nativeTimerDeleteContext(context),
+        state,
+        reason);
+}
+
+bool prepareFreshNativeTimerDeleteLocalStarting(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::int64_t currentTime,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentNativeTimerDeleteCommandPrepareFreshStarting(
+        config.statePath,
+        state,
+        currentTime,
+        reason);
+}
+
+bool executeFreshNativeTimerDeleteAndPersistOutcome(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome(
+            config.statePath,
+            nativeTimerDeleteContext(context),
+            config.nativeTimerDeleteTransport,
+            state,
+            reason);
+}
+
 struct CommandAvailability
 {
     std::vector<std::string> commandTypes;
@@ -166,15 +217,8 @@ bool reconcileBackendAgentCommandState(
     }
     const bool timerDeleteCommand = state.assignment.commandType ==
         vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;
-    const vdrsuite::agent::BackendAgentNativeTimerDeleteCommandContext
-        timerDeleteContext{
-            context.backendId,
-            context.agentId,
-            context.agentInstanceId,
-            context.backendGeneration};
     if (timerDeleteCommand && state.stateExtensionPresent &&
-        !vdrsuite::agent::backendAgentNativeTimerDeleteCommandReconcileExisting(
-            config.statePath, timerDeleteContext, state, reason))
+        !reconcileNativeTimerDeleteLocalState(config, context, state, reason))
         return false;
     if (!sameContext(state.assignment, context))
     {
@@ -206,8 +250,8 @@ bool reconcileBackendAgentCommandState(
             reason = "command_result_reconciled";
             return true;
         }
-        if (!vdrsuite::agent::backendAgentNativeTimerDeleteCommandPrepareFreshStarting(
-                config.statePath, state, currentTime, reason))
+        if (!prepareFreshNativeTimerDeleteLocalStarting(
+                config, state, currentTime, reason))
             return false;
         if (!state.receiptAcknowledged &&
             !sendReceipt(config, context, transport, state, reason))
@@ -217,13 +261,8 @@ bool reconcileBackendAgentCommandState(
             reason = "native_delete_local_starting_handoff_persisted";
             return true;
         }
-        if (!vdrsuite::agent::
-                backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome(
-                    config.statePath,
-                    timerDeleteContext,
-                    config.nativeTimerDeleteTransport,
-                    state,
-                    reason))
+        if (!executeFreshNativeTimerDeleteAndPersistOutcome(
+                config, context, state, reason))
             return false;
         if (!sendResult(config, context, transport, state, reason))
             return false;
