@@ -66,7 +66,7 @@ require(
 
 fresh_helper = command_client.split(
     "bool prepareFreshNativeTimerDeleteLocalStarting(", 1
-)[1].split("\nbool negotiateNativeCapability(", 1)[0]
+)[1].split("\nbool executeFreshNativeTimerDeleteAndPersistOutcome(", 1)[0]
 require(fresh_helper, "persist(config.statePath, state, reason)", "durable starting write")
 forbid(fresh_helper, "sendReceipt(", "receipt before fresh helper returns")
 forbid(fresh_helper, "sendResult(", "result emission from fresh helper")
