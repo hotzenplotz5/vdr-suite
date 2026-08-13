@@ -8,6 +8,7 @@ namespace
 {
 constexpr std::size_t kMaxIdentityLength = 160;
 constexpr std::size_t kMaxFingerprintLength = 512;
+constexpr std::size_t kMaxResourceFingerprintLength = 4096;
 constexpr std::size_t kMaxResultReferenceLength = 512;
 
 bool safeIdentity(const std::string& value)
@@ -48,6 +49,8 @@ bool commonValid(const MutationOperation& operation)
         !safeIdentity(operation.resourceType) ||
         !safeIdentity(operation.resourceId) ||
         !validRevisionToken(operation.expectedRevision) ||
+        operation.expectedResourceFingerprint.size() >
+            kMaxResourceFingerprintLength ||
         !safeIdentity(operation.actionFamily) ||
         operation.requestFingerprint.empty() ||
         operation.requestFingerprint.size() > kMaxFingerprintLength ||
