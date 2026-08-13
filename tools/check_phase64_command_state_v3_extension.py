@@ -210,7 +210,7 @@ if executor_source.is_file():
     )
     executor_block = agent_sources.split(
         "AGENT_TIMER_DELETE_EXECUTOR_SRC :=", 1
-    )[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+    )[1].split("\n\nAGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC", 1)[0]
     if executor_block.count(
             "core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp") != 1:
         raise SystemExit(
@@ -219,6 +219,49 @@ if executor_source.is_file():
     for token in ("SuiteBridge", "Svdrp", "REST", "restful"):
         forbid(executor_block, token, "concrete transport in executor source set")
     allowed_timer_delete_sources.add("BackendAgentNativeTimerDeleteExecutor.cpp")
+
+# A later behavior-preserving modularization may extract orchestration into a
+# dedicated command handler. That handler is allowed only as a separate source
+# owner: commands.state parsing/durability stays in StateStore and concrete VDR
+# or control-plane transport must not leak into the handler.
+handler_source = agent_src_dir / "BackendAgentNativeTimerDeleteCommandHandler.cpp"
+if handler_source.is_file():
+    handler_guard = ROOT / "tools/check_phase64_timer_delete_durable_executor_outcome.py"
+    if not handler_guard.is_file():
+        raise SystemExit("Timer-delete command handler requires bounded Slice 33 guard")
+    handler_text = handler_source.read_text(encoding="utf-8")
+    require(
+        agent_sources,
+        "AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC :=",
+        "separate Timer-delete command handler source set",
+    )
+    handler_block = agent_sources.split(
+        "AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC :=", 1
+    )[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+    handler_runtime_source = "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp"
+    if handler_block.count(handler_runtime_source) != 1 or agent_sources.count(handler_runtime_source) != 1:
+        raise SystemExit("Timer-delete command handler source must occur exactly once in its source set")
+    for token in (
+        "SuiteBridgeSvdrp",
+        "ISuiteBridgeLocalTransport",
+        "RESTfulAPI",
+        "restfulapi",
+        '"DELT"',
+        "/api/agent/v1/commands/poll",
+        "/api/agent/v1/commands/receipt",
+        "/api/agent/v1/commands/result",
+        "IBackendAgentControlPlaneTransport",
+    ):
+        forbid(handler_text, token, "concrete/control-plane transport in Timer-delete command handler")
+    for token in (
+        "legacyKeys()",
+        "extendedKeys()",
+        "O_NOFOLLOW",
+        "rename(",
+        "fsync(",
+    ):
+        forbid(handler_text, token, "commands.state storage ownership in Timer-delete command handler")
+    allowed_timer_delete_sources.add("BackendAgentNativeTimerDeleteCommandHandler.cpp")
 
 for candidate in agent_src_dir.glob("*TimerDelete*.cpp"):
     if candidate.name not in allowed_timer_delete_sources:
