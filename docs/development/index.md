@@ -42,6 +42,12 @@ Historical phase and slice closeouts may contain exact source heads, CI runs, da
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 
+Historical security-migration contracts remain linked here as traceability anchors for architecture guards; they are **not** current implementation prompts:
+
+- [Slice 2I — Recording Execution Security Migration](phase-62-slice-2i-recording-execution-security-migration.md)
+- [Slice 2J — SearchTimer Create Security Migration](phase-62-slice-2j-searchtimer-create-security-migration.md)
+- [Slice 2K — Runtime Acceptance Harness](phase-62-slice-2k-runtime-acceptance-harness.md)
+
 ### Phase 63 Backend Agent and secure multi-site runtime
 
 Development and closeout material includes the bounded contracts and acceptance evidence for:
