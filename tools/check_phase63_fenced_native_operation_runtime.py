@@ -585,9 +585,10 @@ hold_drop = acceptance.find(
     epoch_end,
 )
 
-hold_pause = epoch_section.find(
+hold_pause = acceptance.find(
     "--signal=SIGSTOP",
     hold_drop,
+    epoch_end,
 )
 
 hold_release = acceptance.find(
