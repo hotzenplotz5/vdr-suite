@@ -263,6 +263,72 @@ if handler_source.is_file():
         forbid(handler_text, token, "commands.state storage ownership in Timer-delete command handler")
     allowed_timer_delete_sources.add("BackendAgentNativeTimerDeleteCommandHandler.cpp")
 
+# Slice 34 may add a concrete SuiteBridge Timer-delete transport only behind
+# its own guard and source set. It must stay outside commands.state ownership
+# and outside the installed CommandClient source graph while mutations remain
+# disabled.
+disabled_transport_source = agent_src_dir / "SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
+if disabled_transport_source.is_file():
+    transport_guard = ROOT / "tools/check_phase64_suitebridge_native_timer_delete_disabled_transport.py"
+    if not transport_guard.is_file():
+        raise SystemExit(
+            "disabled SuiteBridge Timer-delete transport requires bounded Slice 34 guard"
+        )
+    transport_text = disabled_transport_source.read_text(encoding="utf-8")
+    transport_runtime_source = "core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
+    require(
+        agent_sources,
+        "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=",
+        "separate disabled SuiteBridge Timer-delete transport source set",
+    )
+    transport_block = agent_sources.split(
+        "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=", 1
+    )[1].split("\n\nAGENT_OBSERVATION_SRC", 1)[0]
+    if transport_block.count(transport_runtime_source) != 1 or agent_sources.count(transport_runtime_source) != 1:
+        raise SystemExit(
+            "disabled SuiteBridge Timer-delete transport source must occur exactly once in its source set"
+        )
+    require(
+        transport_text,
+        "BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect",
+        "disabled transport no-effect outcome",
+    )
+    require(
+        transport_text,
+        "BackendAgentNativeTimerDeleteTransportDisposition::outcomeUnknown",
+        "disabled transport ambiguity outcome",
+    )
+    forbid(
+        transport_text,
+        "BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified",
+        "accepted outcome in disabled SuiteBridge Timer-delete transport",
+    )
+    for token in (
+        "legacyKeys()",
+        "extendedKeys()",
+        "O_NOFOLLOW",
+        "rename(",
+        "fsync(",
+        "/api/agent/v1/commands/poll",
+        "/api/agent/v1/commands/receipt",
+        "/api/agent/v1/commands/result",
+        "IBackendAgentControlPlaneTransport",
+    ):
+        forbid(
+            transport_text,
+            token,
+            "commands.state/control-plane ownership in disabled Timer-delete transport",
+        )
+    command_client_block = agent_sources.split("AGENT_COMMAND_CLIENT_SRC :=", 1)[1].split(
+        "\n\nAGENT_CONTROL_PLANE_DOMAIN_SRC", 1
+    )[0]
+    forbid(
+        command_client_block,
+        "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC",
+        "disabled concrete transport in installed CommandClient source set",
+    )
+    allowed_timer_delete_sources.add("SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp")
+
 for candidate in agent_src_dir.glob("*TimerDelete*.cpp"):
     if candidate.name not in allowed_timer_delete_sources:
         raise SystemExit(
