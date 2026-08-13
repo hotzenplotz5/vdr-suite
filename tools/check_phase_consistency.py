@@ -1,130 +1,82 @@
 #!/usr/bin/env python3
-import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = {
-    "README": ROOT / "README.md",
-    "current-entrypoint": ROOT / "docs" / "CURRENT.md",
-}
 
-PHASE = re.compile(r"Phase\s+(\d+(?:\.\d+)?[a-z]?)(?:\s*-\s*[^\n\r|]+)?", re.I)
-
-COMPLETED_MARKERS = [
-    "Latest completed numbered runtime phase",
-    "Latest completed implementation phase",
-    "Current completed project block",
-    "Current completed phase",
-]
-
-NEXT_MARKERS = [
-    "Next strict runtime phase",
-    "Next runtime phase",
-    "Next major implementation milestone",
-    "After that",
-    "Next implementation focus",
-]
-
-EXPECTED_COMPLETED_PHASE = "63"
-EXPECTED_NEXT_PHASE = "64"
+CURRENT = ROOT / "docs" / "CURRENT.md"
+README = ROOT / "README.md"
+HANDOFF = ROOT / "docs" / "NEW-CHAT-HANDOFF.md"
+STATUS = ROOT / "docs" / "development" / "current-status.md"
+ROADMAP = ROOT / "docs" / "planning" / "roadmap.md"
+PHASE_MAP = ROOT / "docs" / "planning" / "phase-map.md"
 
 
-def phase_key(value):
-    match = re.match(r"(\d+)(?:\.(\d+))?([a-z]?)", value, re.I)
-    if not match:
-        return (0, 0, value)
-    return (int(match.group(1)), int(match.group(2) or 0), match.group(3).lower())
+def read(path):
+    return path.read_text(encoding="utf-8")
 
 
-def label(value):
-    return "Phase " + value if value else "no phase found"
+def require(errors, path, marker):
+    if marker not in read(path):
+        errors.append(f"{path.relative_to(ROOT)} misses required marker: {marker}")
 
 
-def phase_after(text, markers):
-    lines = text.splitlines()
-    for marker in markers:
-        for index, line in enumerate(lines):
-            if marker.lower() not in line.lower():
-                continue
-            window = lines[index:index + 10]
-            for offset, candidate in enumerate(window, start=index + 1):
-                match = PHASE.search(candidate)
-                if match:
-                    return {
-                        "value": match.group(1),
-                        "text": match.group(0).strip(),
-                        "line": offset,
-                        "marker": marker,
-                    }
-    return None
-
-
-def describe(name, finding):
-    path = FILES[name].relative_to(ROOT).as_posix()
-    if not finding:
-        return name + ": no phase marker in " + path
-    return (
-        name
-        + ": "
-        + finding["text"]
-        + " at "
-        + path
-        + ":"
-        + str(finding["line"])
-        + " via '"
-        + finding["marker"]
-        + "'"
-    )
-
-
-def newest(findings):
-    values = [finding["value"] for finding in findings.values() if finding]
-    return max(values, key=phase_key, default=None)
+def forbid(errors, path, marker):
+    if marker in read(path):
+        errors.append(f"{path.relative_to(ROOT)} contains forbidden duplicate volatile marker: {marker}")
 
 
 def main():
-    texts = {name: path.read_text(encoding="utf-8") for name, path in FILES.items()}
-    completed = {name: phase_after(text, COMPLETED_MARKERS) for name, text in texts.items()}
-    planned = {name: phase_after(text, NEXT_MARKERS) for name, text in texts.items()}
-
-    completed_value = newest(completed)
-    planned_value = newest(planned)
-
     errors = []
-    for name, finding in completed.items():
-        if not finding or finding["value"] != completed_value:
-            errors.append(name + " completed phase differs")
-    for name, finding in planned.items():
-        if not finding or finding["value"] != planned_value:
-            errors.append(name + " next phase differs")
 
-    if completed_value != EXPECTED_COMPLETED_PHASE:
-        errors.append(
-            "latest completed phase is not Phase " + EXPECTED_COMPLETED_PHASE
-        )
-    if planned_value != EXPECTED_NEXT_PHASE:
-        errors.append("next runtime phase is not Phase " + EXPECTED_NEXT_PHASE)
+    for path in [CURRENT, README, HANDOFF, STATUS, ROADMAP, PHASE_MAP]:
+        if not path.is_file():
+            errors.append(f"missing status/planning file: {path.relative_to(ROOT)}")
+
+    if errors:
+        for error in errors:
+            print("- " + error)
+        return 1
+
+    require(errors, CURRENT, "## Operational status authority")
+    require(errors, CURRENT, "Phase 63 - Backend Agent and Secure Multi-Site Runtime")
+    require(errors, CURRENT, "Phase 64 - Timer Intent and Multi-Backend Orchestration")
+    require(errors, CURRENT, "Phase 65 - Streaming Gateway and Media Sessions")
+    require(errors, CURRENT, "PR #190 - Add disabled SuiteBridge Timer delete transport")
+    require(errors, CURRENT, "No Phase-64 successor implementation is currently authorized")
+
+    for path in [README, HANDOFF, STATUS]:
+        require(errors, path, "Phase 64")
+        require(errors, path, "Phase 65")
+
+    # Exact volatile checkpoints belong only in CURRENT.md. Stable entry points
+    # must link to CURRENT instead of maintaining their own fast-changing copy.
+    for path in [README, HANDOFF, STATUS]:
+        for marker in [
+            "Current merged main checkpoint:",
+            "Current stacked Draft tip:",
+            "head checkpoint:",
+            "CI checkpoint:",
+        ]:
+            forbid(errors, path, marker)
+
+    # The broad Timer UI is deliberately not the Phase-65 prerequisite.
+    for path in [CURRENT, README, HANDOFF, STATUS]:
+        require(errors, path, "broad")
+        require(errors, path, "Timer UI")
+        require(errors, path, "Streaming")
 
     if errors:
         print("Phase consistency check failed:")
         for error in errors:
             print("- " + error)
-        print("")
-        print("Completed phase markers:")
-        for name in sorted(completed):
-            print("- " + describe(name, completed[name]))
-        print("Next phase markers:")
-        for name in sorted(planned):
-            print("- " + describe(name, planned[name]))
         return 1
 
     print("Phase consistency check passed.")
-    print("Latest completed phase: " + label(completed_value))
-    for name in sorted(completed):
-        print("- " + describe(name, completed[name]))
-    print("Next implementation focus: " + label(planned_value))
-    for name in sorted(planned):
-        print("- " + describe(name, planned[name]))
+    print("Volatile status authority: docs/CURRENT.md")
+    print("Latest completed numbered runtime phase: Phase 63")
+    print("Current active numbered runtime phase: Phase 64")
+    print("Next strict numbered runtime phase after Phase 64: Phase 65")
+    print("Implementation hold: after PR #190; no successor currently authorized")
     return 0
 
 
