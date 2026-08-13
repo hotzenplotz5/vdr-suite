@@ -1,6 +1,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommand.h"
 #include "BackendAgentCommandClient.h"
+#include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
