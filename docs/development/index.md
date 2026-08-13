@@ -39,6 +39,8 @@ This is a stable navigation page for development contracts and evidence. It does
 
 Historical exact heads, CI runs, hashes and runtime evidence stay in their closeouts. Historical slice documents remain traceability records and do not authorize successor implementation.
 
+Historical static-guard anchor: `phase-62-slice-2r-browser-session-lifetime-configuration.md`.
+
 ## Active-domain development material
 
 Current Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduling, native observation/readback and protected operations under ADR-0044.
