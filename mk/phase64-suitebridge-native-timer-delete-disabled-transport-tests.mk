@@ -10,6 +10,7 @@ test-phase64-suitebridge-native-timer-delete-disabled-transport: \
 		core/agent/src/BackendAgentLocalProvider.cpp \
 		core/agent/src/BackendAgentNativeTimerDelete.cpp \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		$(AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_native_timer_delete_transport.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_native_timer_delete_transport

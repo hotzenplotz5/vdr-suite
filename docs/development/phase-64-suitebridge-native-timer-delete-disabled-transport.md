@@ -6,14 +6,20 @@ mutation disabled.
 
 ## Boundary
 
-`SuiteBridgeSvdrpTransport` now implements the typed
-`IBackendAgentNativeTimerDeleteTransport` contract. It discovers the local
-SuiteBridge provider through `NTDEL CAP 1` and serializes `NTDEL EXEC` with the
-complete persisted Timer-delete identity and provider fence: command and request
-identity, operation/revision, native binding/revision, assignment/native Timer,
-job/attempt/claim epoch, Agent/backend generation, provider ownership,
-plugin-instance epoch, provider/capability generations, and the durable local
-`starting` timestamp.
+A dedicated `SuiteBridgeNativeTimerDeleteTransport` implements the typed
+`IBackendAgentNativeTimerDeleteTransport` contract. It composes the existing
+`SuiteBridgeSvdrpTransport` instead of extending that generic transport's
+virtual interface. The generic transport exposes only two narrow, non-virtual
+raw-wire hooks for this contract. This separate adapter/source-set boundary
+prevents ordinary SuiteBridge transport users and tests from acquiring
+Timer-delete domain/link dependencies.
+
+The adapter discovers the local SuiteBridge provider through `NTDEL CAP 1` and
+serializes `NTDEL EXEC` with the complete persisted Timer-delete identity and
+provider fence: command and request identity, operation/revision, native
+binding/revision, assignment/native Timer, job/attempt/claim epoch,
+Agent/backend generation, provider ownership, plugin-instance epoch,
+provider/capability generations, and the durable local `starting` timestamp.
 
 The SuiteBridge plugin owns a private `SuiteBridgeNativeTimerDeleteService` for
 that typed protocol. The service shares the same plugin-instance epoch as the
@@ -41,7 +47,7 @@ retry rule even though the current plugin implementation has no mutation path.
 - No replay ledger exists yet because no request can ever be accepted for
   mutation. The replay ledger is a required later boundary before an accepted
   mutation outcome can be introduced.
-- The installed Agent does not inject this transport into
+- The installed Agent does not construct the dedicated adapter or inject it into
   `BackendAgentCommandClientConfig`.
 - `vdr.timer.delete` remains not advertised and absent from packaged Agent
   configuration.

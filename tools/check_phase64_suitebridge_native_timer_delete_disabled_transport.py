@@ -23,7 +23,8 @@ def forbid(text: str, needle: str, label: str) -> None:
 
 makefile = read("Makefile")
 agent_sources = read("mk/agent-sources.mk")
-transport_header = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
+svdrp_header = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
+adapter_header = read("core/agent/include/SuiteBridgeNativeTimerDeleteTransport.h")
 transport_source = read(
     "core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
 )
@@ -53,21 +54,50 @@ if makefile.count(include) != 1:
     raise SystemExit("Slice 34 Make include must occur exactly once")
 
 source_path = "core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
-require(agent_sources, source_path, "typed SuiteBridge Timer-delete transport source")
+require(
+    agent_sources,
+    "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=",
+    "dedicated typed Timer-delete transport source set",
+)
 if agent_sources.count(source_path) != 1:
     raise SystemExit("typed SuiteBridge Timer-delete transport source must occur exactly once")
-transport_block = agent_sources.split("AGENT_SVDRP_TRANSPORT_SRC :=", 1)[1].split(
-    "\n\nAGENT_OBSERVATION_SRC", 1
+transport_block = agent_sources.split(
+    "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=", 1
+)[1].split("\n\nAGENT_OBSERVATION_SRC", 1)[0]
+require(transport_block, source_path, "dedicated Timer-delete transport source ownership")
+generic_block = agent_sources.split("AGENT_SVDRP_TRANSPORT_SRC :=", 1)[1].split(
+    "\n\nAGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC", 1
 )[0]
-require(transport_block, source_path, "SuiteBridge SVDRP source-set ownership")
+forbid(generic_block, source_path, "Timer-delete source in generic SVDRP source set")
 
-require(
-    transport_header,
+# The generic SVDRP transport retains a stable vtable. Only narrow non-virtual
+# raw-wire hooks are added; the domain interface lives in a separate adapter.
+forbid(
+    svdrp_header,
     "public IBackendAgentNativeTimerDeleteTransport",
-    "concrete typed Timer-delete transport implementation",
+    "Timer-delete interface on generic SuiteBridge SVDRP transport",
 )
-require(transport_header, "bool discoverProvider(", "provider discovery override")
-require(transport_header, "deleteTimer(", "typed delete transport override")
+require(
+    svdrp_header,
+    "SuiteBridgeCommandReply discoverNativeTimerDeleteContract();",
+    "typed raw capability hook",
+)
+require(
+    svdrp_header,
+    "SuiteBridgeCommandReply executeNativeTimerDeleteContract(",
+    "typed raw execute hook",
+)
+require(
+    adapter_header,
+    "class SuiteBridgeNativeTimerDeleteTransport final :",
+    "dedicated Timer-delete adapter",
+)
+require(
+    adapter_header,
+    "public IBackendAgentNativeTimerDeleteTransport",
+    "typed Timer-delete interface implementation",
+)
+require(adapter_header, "SuiteBridgeSvdrpTransport transport_;", "composed SVDRP transport")
 
 for needle, label in (
     ('"PLUG suitebridge NTDEL CAP 1\\r\\n"', "typed capability wire"),
@@ -143,7 +173,8 @@ forbid(help_section, "NTDEL", "public SVDRP help advertisement")
 require(plugin_makefile, "suitebridge_native_timer_delete.o", "plugin Timer-delete object build")
 require(plugin_makefile, "test-native-timer-delete", "plugin disabled Timer-delete unit target")
 
-# The transport exists but remains unreachable from installed command runtime.
+# The adapter exists but remains unreachable from installed command runtime.
+forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "production Timer-delete adapter construction")
 forbid(agent_client, "nativeTimerDeleteTransport", "production Timer-delete transport injection")
 forbid(agent_client, "vdr.timer.delete", "production Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
@@ -154,6 +185,7 @@ require(available, "kBackendAgentNativeTimerDeleteCommandType", "Timer-delete ad
 require(available, "continue;", "Timer-delete advertisement suppression")
 
 for needle, label in (
+    ("SuiteBridgeNativeTimerDeleteTransport transport", "dedicated adapter regression"),
     ('server.request() == "PLUG suitebridge NTDEL CAP 1\\r\\n"', "agent capability wire regression"),
     ("rejectedWithoutEffect", "agent disabled rejection regression"),
     ("outcomeUnknown", "agent transport ambiguity regression"),
@@ -168,9 +200,11 @@ for needle, label in (
 ):
     require(plugin_test, needle, label)
 
+require(mk, "$(AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC)", "dedicated adapter test source")
 require(mk, "test-phase64-timer-delete-durable-executor-outcome", "Slice 33 regression dependency")
 require(doc, "No real VDR Timer deletion", "no-mutation documentation")
 require(doc, "replay ledger", "deferred replay-ledger boundary")
 require(doc, "not advertised", "disabled Agent advertisement documentation")
+require(doc, "separate adapter", "source-set layering documentation")
 
 print("Phase 64 SuiteBridge native Timer-delete disabled transport architecture guard passed")

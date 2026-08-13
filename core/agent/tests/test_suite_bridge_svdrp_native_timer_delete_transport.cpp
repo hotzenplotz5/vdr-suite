@@ -1,4 +1,4 @@
-#include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeNativeTimerDeleteTransport.h"
 
 #include <arpa/inet.h>
 #include <cassert>
@@ -126,7 +126,7 @@ int main()
         OneShotServer server(
             "900 vdr-suite-ntdel-cap/1 vdr.timer.delete 1 timer-delete "
             "disabled suitebridge pie_1 1 1 disabled\r\n");
-        SuiteBridgeSvdrpTransport transport(config(server.port()));
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
         BackendAgentLocalProviderFacts facts;
         std::string reason;
         assert(transport.discoverProvider(facts, reason));
@@ -147,7 +147,7 @@ int main()
         OneShotServer server(
             "556 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
             "pie_1 1 1 rejected_without_effect disabled ntdel:disabled:cmd_1\r\n");
-        SuiteBridgeSvdrpTransport transport(config(server.port()));
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
         const auto reply = transport.deleteTimer(validRequest());
         server.wait();
         assert(reply.disposition ==
@@ -165,7 +165,7 @@ int main()
         request.command.operationRevision = "bad revision";
         SuiteBridgeSvdrpTransportConfig disabled;
         disabled.host.clear();
-        SuiteBridgeSvdrpTransport transport(disabled);
+        SuiteBridgeNativeTimerDeleteTransport transport(disabled);
         const auto reply = transport.deleteTimer(request);
         assert(reply.disposition ==
             BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect);
@@ -175,7 +175,7 @@ int main()
     {
         SuiteBridgeSvdrpTransportConfig disabled;
         disabled.host.clear();
-        SuiteBridgeSvdrpTransport transport(disabled);
+        SuiteBridgeNativeTimerDeleteTransport transport(disabled);
         const auto reply = transport.deleteTimer(validRequest());
         assert(reply.disposition ==
             BackendAgentNativeTimerDeleteTransportDisposition::outcomeUnknown);

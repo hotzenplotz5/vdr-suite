@@ -1,4 +1,4 @@
-#include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeNativeTimerDeleteTransport.h"
 
 #include <algorithm>
 #include <cctype>
@@ -6,6 +6,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace vdrsuite::agent
@@ -114,13 +115,49 @@ bool safeRequest(const BackendAgentNativeTimerDeleteTransportRequest& request)
 }
 }
 
-bool SuiteBridgeSvdrpTransport::discoverProvider(
+SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::discoverNativeTimerDeleteContract()
+{
+    return executeRequest("PLUG suitebridge NTDEL CAP 1\r\n");
+}
+
+SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::executeNativeTimerDeleteContract(
+    const BackendAgentNativeTimerDeleteTransportRequest& request)
+{
+    const auto& command = request.command;
+    const auto& selection = command.localProviderSelection;
+    std::ostringstream wire;
+    wire << "PLUG suitebridge NTDEL EXEC vdr-suite-native/1 "
+         << kBackendAgentNativeTimerDeleteCapability << " 1 "
+         << command.commandId << ' ' << command.requestFingerprint << ' '
+         << command.operationId << ' ' << command.operationRevision << ' '
+         << command.nativeTimerBindingId << ' '
+         << command.expectedBindingRevision << ' '
+         << command.timerAssignmentId << ' ' << command.backendNativeTimerId << ' '
+         << command.jobId << ' ' << command.attemptId << ' '
+         << command.claimEpoch << ' ' << command.backendId << ' '
+         << command.agentId << ' ' << command.agentInstanceId << ' '
+         << command.backendGeneration << ' ' << command.controlPlaneClaimedAt << ' '
+         << selection.authorityDomain << ' ' << selection.providerId << ' '
+         << selection.providerKind << ' ' << selection.ownershipGeneration << ' '
+         << selection.providerInstanceEpoch << ' ' << selection.providerGeneration << ' '
+         << selection.capabilityRevision << ' ' << selection.requiredCapability << ' '
+         << request.localStartingPersistedAt << "\r\n";
+    return executeRequest(wire.str());
+}
+
+SuiteBridgeNativeTimerDeleteTransport::SuiteBridgeNativeTimerDeleteTransport(
+    SuiteBridgeSvdrpTransportConfig config)
+    : transport_(std::move(config))
+{
+}
+
+bool SuiteBridgeNativeTimerDeleteTransport::discoverProvider(
     BackendAgentLocalProviderFacts& facts,
     std::string& reasonCode)
 {
     facts = {};
-    const SuiteBridgeCommandReply reply = executeRequest(
-        "PLUG suitebridge NTDEL CAP 1\r\n");
+    const SuiteBridgeCommandReply reply =
+        transport_.discoverNativeTimerDeleteContract();
     if (!reply.transportSucceeded() || reply.replyCode != CapabilityReplyCode)
     {
         reasonCode = "native_timer_delete_suitebridge_capability_unavailable";
@@ -164,7 +201,8 @@ bool SuiteBridgeSvdrpTransport::discoverProvider(
     return true;
 }
 
-BackendAgentNativeTimerDeleteTransportReply SuiteBridgeSvdrpTransport::deleteTimer(
+BackendAgentNativeTimerDeleteTransportReply
+SuiteBridgeNativeTimerDeleteTransport::deleteTimer(
     const BackendAgentNativeTimerDeleteTransportRequest& request)
 {
     if (!safeRequest(request))
@@ -174,25 +212,8 @@ BackendAgentNativeTimerDeleteTransportReply SuiteBridgeSvdrpTransport::deleteTim
 
     const auto& command = request.command;
     const auto& selection = command.localProviderSelection;
-    std::ostringstream wire;
-    wire << "PLUG suitebridge NTDEL EXEC vdr-suite-native/1 "
-         << kBackendAgentNativeTimerDeleteCapability << " 1 "
-         << command.commandId << ' ' << command.requestFingerprint << ' '
-         << command.operationId << ' ' << command.operationRevision << ' '
-         << command.nativeTimerBindingId << ' '
-         << command.expectedBindingRevision << ' '
-         << command.timerAssignmentId << ' ' << command.backendNativeTimerId << ' '
-         << command.jobId << ' ' << command.attemptId << ' '
-         << command.claimEpoch << ' ' << command.backendId << ' '
-         << command.agentId << ' ' << command.agentInstanceId << ' '
-         << command.backendGeneration << ' ' << command.controlPlaneClaimedAt << ' '
-         << selection.authorityDomain << ' ' << selection.providerId << ' '
-         << selection.providerKind << ' ' << selection.ownershipGeneration << ' '
-         << selection.providerInstanceEpoch << ' ' << selection.providerGeneration << ' '
-         << selection.capabilityRevision << ' ' << selection.requiredCapability << ' '
-         << request.localStartingPersistedAt << "\r\n";
-
-    const SuiteBridgeCommandReply reply = executeRequest(wire.str());
+    const SuiteBridgeCommandReply reply =
+        transport_.executeNativeTimerDeleteContract(request);
     if (!reply.transportSucceeded())
     {
         return unknown("suitebridge:ntdel:transport-outcome-unknown");

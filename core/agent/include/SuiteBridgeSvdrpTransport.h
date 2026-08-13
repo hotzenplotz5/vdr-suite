@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BackendAgentNativeProbe.h"
-#include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
@@ -19,6 +18,8 @@
 namespace vdrsuite::agent
 {
 
+struct BackendAgentNativeTimerDeleteTransportRequest;
+
 struct SuiteBridgeSvdrpTransportConfig
 {
     std::string host = "127.0.0.1";
@@ -34,8 +35,7 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
-    public IBackendAgentNativeProbeTransport,
-    public IBackendAgentNativeTimerDeleteTransport
+    public IBackendAgentNativeProbeTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -120,12 +120,12 @@ public:
         return executeRequest(wire.str());
     }
 
-    bool discoverProvider(
-        BackendAgentLocalProviderFacts& facts,
-        std::string& reasonCode) override;
-
-    BackendAgentNativeTimerDeleteTransportReply deleteTimer(
-        const BackendAgentNativeTimerDeleteTransportRequest& request) override;
+    // Narrow typed raw-wire hooks used only by the dedicated disabled
+    // Timer-delete adapter. They are deliberately non-virtual so generic
+    // SuiteBridge users do not acquire Timer-delete link dependencies.
+    SuiteBridgeCommandReply discoverNativeTimerDeleteContract();
+    SuiteBridgeCommandReply executeNativeTimerDeleteContract(
+        const BackendAgentNativeTimerDeleteTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)
