@@ -39,7 +39,9 @@ This is a stable navigation page for development contracts and evidence. It does
 
 Historical exact heads, CI runs, hashes and runtime evidence stay in their closeouts. Historical slice documents remain traceability records and do not authorize successor implementation.
 
-Historical static-guard anchor: `phase-62-slice-2r-browser-session-lifetime-configuration.md`.
+Historical static-guard anchors: `phase-62-slice-2i-recording-execution-security-migration.md`, `phase-62-slice-2j-searchtimer-create-security-migration.md`, `phase-62-slice-2k-runtime-acceptance-harness.md`, `phase-62-slice-2l-searchtimer-maintenance-security-migration.md`, `phase-62-slice-2m-safe-post-classification.md`, `phase-62-slice-2n-searchtimer-execution-security-migration.md`, `phase-62-slice-2o-native-fuzzy-refresh-security-migration.md`, `phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md`, `phase-62-slice-2r-browser-session-lifetime-configuration.md`, `phase-62-slice-2s-browser-session-outcome-accountability.md`, `phase-62-slice-2t-browser-session-issuer-binding.md`.
+
+The complete historical Phase-62 navigation is maintained in `phase-62-security-contract-index.md`; the raw anchors above exist only for compatibility with older static guards that still inspect this index directly.
 
 ## Active-domain development material
 
