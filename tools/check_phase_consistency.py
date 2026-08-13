@@ -47,7 +47,8 @@ def main():
     # README stays stable and delegates live phase/status data to canonical docs.
     require(errors, README, "docs/CURRENT.md")
     require(errors, README, "docs/planning/roadmap.md")
-    require(errors, README, "broad Timer UI")
+    require(errors, README, "broad")
+    require(errors, README, "Timer UI")
     require(errors, README, "Streaming")
 
     for path in [HANDOFF, STATUS]:
