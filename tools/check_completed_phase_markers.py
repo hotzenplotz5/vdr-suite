@@ -65,8 +65,12 @@ def main():
 
     require(errors, "docs/NEW-CHAT-HANDOFF.md", "phase-62-closeout.md", "Phase 62 closeout link")
     require(errors, "docs/NEW-CHAT-HANDOFF.md", "phase-62-slice-2x-runtime-closeout.md", "Slice 2X closeout link")
-    require(errors, "docs/CURRENT.md", HISTORICAL_UMBRELLA, "historical Phase 58 marker")
     require(errors, "docs/development/current-status.md", PHASE62, "Phase 62 historical marker")
+
+    # Historical umbrella naming belongs in stable planning/history, not in the
+    # volatile CURRENT status document.
+    require(errors, "docs/planning/roadmap.md", HISTORICAL_UMBRELLA, "historical Phase 58 marker")
+    require(errors, "docs/planning/phase-map.md", HISTORICAL_UMBRELLA, "historical Phase 58 marker")
 
     for rel in REQUIRED_HISTORY_FILES:
         if not (ROOT / rel).is_file():
