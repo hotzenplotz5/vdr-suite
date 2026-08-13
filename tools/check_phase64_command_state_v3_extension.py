@@ -34,42 +34,52 @@ test = read("core/agent/tests/test_backend_agent_command_state_v3.cpp")
 mk = read("mk/phase64-command-state-v3-extension-tests.mk")
 doc = read("docs/development/phase-64-command-state-v3-extension.md")
 
+state_store_path = ROOT / "core/agent/src/BackendAgentCommandStateStore.cpp"
+state_store = (
+    state_store_path.read_text(encoding="utf-8")
+    if state_store_path.is_file()
+    else ""
+)
+state_owner = state_store if state_store else command_client
+
 include = "include mk/phase64-command-state-v3-extension-tests.mk"
 require(makefile, include, "Slice 29 Make include")
 if makefile.count(include) != 1:
     raise SystemExit("Slice 29 Make include must occur exactly once")
 
-# commands.state stays one exact-key owner with explicit version schemas.
-require(command_client, 'values["version"] == "1"', "v1 loader")
-require(command_client, 'values["version"] == "2"', "v2 loader")
-require(command_client, 'values["version"] == "3"', "v3 loader")
-require(command_client, "legacyKeys()", "v1 exact-key schema")
-require(command_client, "currentKeys()", "v2 exact-key schema")
-require(command_client, "extendedKeys()", "v3 exact-key schema")
-require(command_client, "exactKeys(values, expectedKeys)", "exact-key loader")
+# commands.state stays one exact-key owner with explicit version schemas. A
+# bounded successor may extract that owner from CommandClient, but it must move
+# the complete schema and durability boundary rather than split ownership.
+require(state_owner, 'values["version"] == "1"', "v1 loader")
+require(state_owner, 'values["version"] == "2"', "v2 loader")
+require(state_owner, 'values["version"] == "3"', "v3 loader")
+require(state_owner, "legacyKeys()", "v1 exact-key schema")
+require(state_owner, "currentKeys()", "v2 exact-key schema")
+require(state_owner, "extendedKeys()", "v3 exact-key schema")
+require(state_owner, "exactKeys(values, expectedKeys)", "exact-key loader")
 require(
-    command_client,
+    state_owner,
     'value.push_back("state_extension")',
     "single generic v3 extension key",
 )
-if command_client.count('<< "state_extension="') != 1:
+if state_owner.count('<< "state_extension="') != 1:
     raise SystemExit("commands.state must persist exactly one generic extension field")
-require(command_client, 'output << "version=3\\n"', "v3 persistence writer")
+require(state_owner, 'output << "version=3\\n"', "v3 persistence writer")
 
 # The state owner delegates envelope and typed payload authority checks rather
 # than learning mutation-specific fields.
 require(
-    command_client,
+    state_owner,
     "BackendAgentCommandStateExtension",
     "generic extension state member",
 )
 require(
-    command_client,
+    state_owner,
     "backendAgentCommandStateExtensionParse",
     "generic extension envelope parse",
 )
 require(
-    command_client,
+    state_owner,
     "backendAgentCommandStateExtensionValidateSupported",
     "supported typed extension validation",
 )
@@ -114,6 +124,32 @@ state_block = agent_sources.split("AGENT_COMMAND_STATE_SRC :=", 1)[1].split(
 for token in ("SuiteBridge", "Svdrp", "REST", "restful", "Executor", "Transport"):
     forbid(state_block, token, "mutation transport in command-state source set")
 
+if state_store:
+    state_store_source = "core/agent/src/BackendAgentCommandStateStore.cpp"
+    if agent_sources.count(state_store_source) != 1:
+        raise SystemExit("extracted command state store must occur exactly once")
+    require(state_block, state_store_source, "extracted state store source-set ownership")
+    require(
+        command_client,
+        '#include "BackendAgentCommandStateStore.h"',
+        "CommandClient state-store dependency",
+    )
+    require(
+        state_store,
+        "namespace vdrsuite::agent::commandstate",
+        "bounded state-store namespace",
+    )
+    for token in (
+        "O_NOFOLLOW",
+        "writeAll(",
+        "fsync(",
+        "rename(",
+        "std::ifstream",
+        "legacyKeys()",
+        "extendedKeys()",
+    ):
+        forbid(command_client, token, "low-level commands.state ownership in CommandClient")
+
 # Existing protected persistence is still the single durability boundary.
 for token, label in (
     ("O_NOFOLLOW", "protected temporary open"),
@@ -123,7 +159,7 @@ for token, label in (
     ("rename(temporary.c_str(), path.c_str())", "atomic rename"),
     ("syncParent(path)", "parent directory fsync"),
 ):
-    require(command_client, token, label)
+    require(state_owner, token, label)
 
 # Timer-delete remains unavailable to the installed runtime despite the ability
 # to preserve and validate its future local state.
@@ -141,7 +177,7 @@ forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
 
 runtime_state_sources = "\n".join(
-    (extension_source, local_state_source, timer_delete_source, command_client)
+    (extension_source, local_state_source, timer_delete_source, state_store, command_client)
 )
 for token in (
     "SuiteBridgeSvdrp",
@@ -190,7 +226,7 @@ for candidate in agent_src_dir.glob("*TimerDelete*.cpp"):
             f"unexpected Timer-delete executor/transport source: {candidate.name}"
         )
 
-# The focused regression suite covers every new parser and persistence fence.
+# The focused regression suite covers every parser and persistence fence.
 for needle, label in (
     ("expectAcceptedLoad(path, 1", "v1 load regression"),
     ("expectAcceptedLoad(path, 2", "v2 load regression"),
