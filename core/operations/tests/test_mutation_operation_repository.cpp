@@ -24,6 +24,8 @@ MutationOperation makeOperation(
     operation.resourceType = "NativeTimerBinding";
     operation.resourceId = "binding-1";
     operation.expectedRevision = "19";
+    operation.expectedResourceFingerprint =
+        "native-timer-observed-state/1|3:abc|";
     operation.actionFamily = "timer.delete";
     operation.requestFingerprint = fingerprint;
     operation.requestedAt = 1000;
@@ -45,10 +47,47 @@ void assertState(
     assert(result.operation.state == state);
     assert(result.operation.operationRevision == revision);
 }
+
+void assertLegacySchemaMigration()
+{
+    Database database;
+    assert(database.open(":memory:"));
+    assert(database.execute(
+        "CREATE TABLE mutation_operations ("
+        "operation_id TEXT PRIMARY KEY,"
+        "operation_revision INTEGER NOT NULL,"
+        "idempotency_key TEXT NOT NULL,actor_id TEXT NOT NULL,backend_id TEXT NOT NULL,"
+        "backend_generation INTEGER NOT NULL,resource_type TEXT NOT NULL,resource_id TEXT NOT NULL,"
+        "expected_revision TEXT NOT NULL,action_family TEXT NOT NULL,request_fingerprint TEXT NOT NULL,"
+        "requested_at INTEGER NOT NULL,deadline INTEGER NOT NULL,verification_policy TEXT NOT NULL,"
+        "state TEXT NOT NULL,result_reference TEXT NOT NULL,updated_at INTEGER NOT NULL,"
+        "CHECK(operation_revision>0),CHECK(backend_generation>0),"
+        "CHECK(verification_policy IN ('none','readback_required','event_confirmation','reconciliation_required')),"
+        "CHECK(state IN ('accepted','rejected','conflict','queued','dispatching','executed_unverified','succeeded','failed_before_dispatch','failed_verified','outcome_unknown','cancelled'))"
+        ");"));
+
+    MutationOperationRepository repository(database);
+    assert(repository.ensureSchema());
+
+    auto operation = makeOperation(
+        "op-migrated", "idem-migrated", "sha256:req-migrated");
+    operation.resourceId = "binding-migrated";
+    const auto reserved = repository.reserve(operation);
+    assert(reserved.status == MutationOperationRepositoryStatus::ok);
+    assert(reserved.operation.expectedResourceFingerprint ==
+        operation.expectedResourceFingerprint);
+
+    const auto found = repository.findById("op-migrated");
+    assert(found.status == MutationOperationRepositoryStatus::ok);
+    assert(found.operation.expectedResourceFingerprint ==
+        operation.expectedResourceFingerprint);
+}
 }
 
 int main()
 {
+    assertLegacySchemaMigration();
+
     Database database;
     assert(database.open(":memory:"));
     MutationOperationRepository repository(database);
@@ -61,6 +100,8 @@ int main()
         MutationOperationRepositoryStatus::ok,
         MutationOperationState::accepted,
         "1");
+    assert(reserved.operation.expectedResourceFingerprint ==
+        "native-timer-observed-state/1|3:abc|");
 
     const auto replay = repository.reserve(makeOperation());
     assertState(
@@ -68,6 +109,16 @@ int main()
         MutationOperationRepositoryStatus::idempotentReplay,
         MutationOperationState::accepted,
         "1");
+    assert(replay.operation.expectedResourceFingerprint ==
+        reserved.operation.expectedResourceFingerprint);
+
+    auto changedExpectedResource = makeOperation();
+    changedExpectedResource.expectedResourceFingerprint =
+        "native-timer-observed-state/1|3:def|";
+    const auto resourceFingerprintConflict =
+        repository.reserve(changedExpectedResource);
+    assert(resourceFingerprintConflict.status ==
+        MutationOperationRepositoryStatus::operationConflict);
 
     auto conflictingFingerprint = makeOperation("op-2", "idem-1", "sha256:req-2");
     const auto idempotencyConflict = repository.reserve(conflictingFingerprint);
@@ -91,12 +142,16 @@ int main()
         "timer.delete", "idem-1");
     assert(foundScope.status == MutationOperationRepositoryStatus::ok);
     assert(foundScope.operation.operationId == "op-1");
+    assert(foundScope.operation.expectedResourceFingerprint ==
+        reserved.operation.expectedResourceFingerprint);
 
     auto queued = repository.transition(
         "op-1", "1", MutationOperationState::accepted,
         MutationOperationState::queued, "", 1010);
     assertState(queued, MutationOperationRepositoryStatus::ok,
         MutationOperationState::queued, "2");
+    assert(queued.operation.expectedResourceFingerprint ==
+        reserved.operation.expectedResourceFingerprint);
 
     const auto queuedReplay = repository.transition(
         "op-1", "1", MutationOperationState::accepted,
