@@ -55,6 +55,13 @@ for item in REQUIRED:
 
 agent_protocol = text("core/agent/src/BackendAgentNativeProbe.cpp")
 agent_client = text("core/agent/src/BackendAgentCommandClient.cpp")
+state_store_path = ROOT / "core/agent/src/BackendAgentCommandStateStore.cpp"
+state_store = (
+    state_store_path.read_text(encoding="utf-8")
+    if state_store_path.is_file()
+    else ""
+)
+native_state_owner = state_store if state_store else agent_client
 backend_agent_client = text("core/agent/src/BackendAgentClient.cpp")
 backend_agent_client_test = text(
     "core/agent/tests/test_backend_agent_client.cpp"
@@ -105,12 +112,17 @@ required_tokens = {
         agent_client,
         [
             "state.dispatchState",
+            "native_probe_dispatch_reconciliation_required",
+            agent_epoch_fence_token,
+        ],
+    ),
+    "agent native state owner": (
+        native_state_owner,
+        [
             "native_capability_evidence",
             "native_receipt_evidence",
             "native_result_evidence",
             "native_readback_evidence",
-            "native_probe_dispatch_reconciliation_required",
-            agent_epoch_fence_token,
         ],
     ),
     "plugin runtime": (
@@ -290,6 +302,7 @@ if "COMMAND_TYPES=\n" not in packaged_config:
 scoped_runtime = "\n".join([
     agent_protocol,
     agent_client,
+    state_store,
     agent_command_json,
     transport_header,
     plugin_header,
@@ -572,10 +585,9 @@ hold_drop = acceptance.find(
     epoch_end,
 )
 
-hold_pause = acceptance.find(
+hold_pause = epoch_section.find(
     "--signal=SIGSTOP",
     hold_drop,
-    epoch_end,
 )
 
 hold_release = acceptance.find(
