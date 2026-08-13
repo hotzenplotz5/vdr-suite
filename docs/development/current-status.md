@@ -1,150 +1,112 @@
 # VDR-Suite Current Project Status
 
-## Current verified position
+## Status ownership
 
-```text
-Repository: hotzenplotz5/vdr-suite
-Branch authority: main
-Current merged main baseline:
-96fab8ad88eae9ea0d46adf4db50ccf8d750a19b
+Exact operational state is maintained only in [Current State](../CURRENT.md). This file provides stable narrative context and must not become a second source for current branch heads, PR tips or CI run numbers.
 
-Latest completed numbered runtime phase:
-Phase 63 - Backend Agent and Secure Multi-Site Runtime
+Before continuing work, always read `CURRENT.md`, the Strict Roadmap, the applicable ADRs and live GitHub state.
 
-Next strict runtime phase:
-Phase 64 - Timer Intent and Multi-Backend Orchestration
+## Platform position
 
-Current active numbered runtime phase:
-Phase 64 - Timer Intent and Multi-Backend Orchestration
+Latest completed numbered runtime phase: **Phase 63 - Backend Agent and Secure Multi-Site Runtime**.
 
-Merged Phase-64 foundation:
-PR #150 - TimerIntent Domain Contract
-PR #152 - TimerIntent Persistence and Repository Semantics
+Current active numbered runtime phase: **Phase 64 - Timer Intent and Multi-Backend Orchestration**.
 
-Current stacked Draft tip:
-PR #169 - Add NativeTimerBinding absence application
-branch: agent/phase64-native-timer-binding-absence-application
-head: 9e54a1c2c3087f6eb9a9317b5c1f8ab3dd43525e
-CI: VDR-Suite CI #7413 / run 31463690316; recheck exact current result
-runtime acceptance: not required for Slice 17 because no installed runtime path changes
-```
+Next strict numbered runtime phase after Phase 64: **Phase 65 - Streaming Gateway and Media Sessions**.
 
-Exact GitHub state always overrides a recorded checkpoint.
+Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Post-Phase 61 Performance Hardening (B1-B4), VDR Remote and Live Overlay hardening (#110), Backend-scoped Global Search (#111), Configurable photorealistic VDR Remote (#115), and Phase 62 - Identity, RBAC and Accountability Foundation.
 
-## Completed Phase 63 foundation
+Historical closeouts:
 
-Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract. These remain prerequisites for Phase-64 orchestration.
-
-## Historical Phase-63 observation-ingestion checkpoint
-
-During the historical Phase 63 Slice 1 / Phase 63 Slice 2 **Observation and Snapshot Ingestion** checkpoint, PR #138 merged the read-only ingestion contract as `24b1d7938ddaa15834a8da6323a270761868f4ba`, and PR #139 implemented the first bounded `backend-health` runtime.
-
-At that checkpoint, before the later command, native-execution and provider-selection slices completed the phase, the correct status sentence was: **Phase 63 is not complete**. That sentence is retained only as historical provenance for the Phase-63 observation-ingestion regression contract. The current position above remains authoritative: Phase 63 is complete and Phase 64 is active.
-
-## Historical completed context
-
-Earlier completed platform foundations remain authoritative history, including:
-
-- Post-Phase 61 Performance Hardening (B1-B4)
-- Phase 62 - Identity, RBAC and Accountability Foundation
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 
-## Phase 64 progress
+## Phase 63 foundation
+
+Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract. These remain prerequisites for Phase-64 orchestration and later media execution.
+
+Historical Phase-63 documents may contain checkpoint sentences such as **Phase 63 is not complete**. Those sentences describe their original intermediate acceptance point and are not current project status.
+
+## Phase 64 position
+
+Phase 64 deliberately separates:
 
 ```text
-Slice 1   PR #150 - TimerIntent domain contract                         MERGED
-Slice 2   PR #152 - TimerIntent persistence/repository                  MERGED
-Slice 3   PR #153 - TimerAssignment domain contract                     DRAFT
-Slice 4   PR #154 - TimerAssignment persistence repository              DRAFT
-Slice 5   PR #155 - deterministic TimerAssignment planner               DRAFT
-Slice 6   PR #158 - primary assignment scheduling handoff               DRAFT
-Slice 7   PR #159 - assignment-set revision fence                       DRAFT
-Slice 8   PR #160 - replica assignment scheduling handoff               DRAFT
-Slice 9   PR #161 - NativeTimerBinding domain contract                  DRAFT
-Slice 10  PR #162 - NativeTimerBinding persistence repository           DRAFT
-Slice 11  PR #163 - VDR NativeTimerObservation mapper                   DRAFT
-Slice 12  PR #164 - safe present-readback application                   DRAFT
-Slice 13  PR #165 - expected PRESENT readback contract                  DRAFT
-Slice 14  PR #166 - operation-aware PRESENT verification                DRAFT
-Slice 15  PR #167 - complete inventory / authoritative absence evidence DRAFT
-Slice 16  PR #168 - failure-aware RESTfulAPI inventory reader           DRAFT
-Slice 17  PR #169 - NativeTimerBinding absence application              DRAFT
+TimerIntent
+  -> TimerAssignment
+  -> NativeTimerBinding
 ```
 
-Draft PR #157 is a separate SQLite architecture-baseline repair. Draft PR #156 is a separate proposed media/player ADR.
+The merged foundation on `main` is the TimerIntent contract and TimerIntent repository. A large stacked Draft line has subsequently built deterministic assignment planning, binding/readback evidence, durable operation semantics and a fenced Timer-delete handoff through a disabled concrete SuiteBridge transport.
 
-## Current Timer guarantees
+The exact stacked checkpoint is maintained in `CURRENT.md` and must be re-read from GitHub before use.
 
-The stack now provides stable Suite identity, revision/concurrency fencing, deterministic primary/replica planning, copied native Timer observations, operation-aware PRESENT verification, complete-inventory absence proof, failure-aware inventory acquisition and durable missing-state application.
+The important architectural result is that the Timer-delete path at the current checkpoint is fail-closed: the transport exists, but production native deletion is not enabled merely because the wire path exists. Native mutation still requires the complete accepted replay/idempotency, provider/generation, durable-starting, readback/reconciliation and real-system gates.
 
-Slice 17 preserves the last known present state/fingerprint and first authoritative `missingSince`, advances only valid observation evidence, uses exact binding-revision optimistic concurrency and deliberately keeps first missing-state cause conservative. It never turns absence alone into an external-delete conclusion.
+## Current planning hold
 
-No current Phase-64 Draft enables production native Timer mutation.
+Implementation is intentionally paused after the PR-#190 checkpoint while project truth and forward ordering are synchronized. This is **not** a declaration that Phase 64 is complete and does not authorize a successor Timer implementation or `#191`.
 
-## Exact next bounded slice
-
-Define an operation-aware expected-absence contract for Suite-managed native Timer removal. It must bind operation identity/state, binding identity/revision, backend/generation, native Timer identity and `readbackNotBefore`.
-
-Only explicit operation context plus complete inventory absence may later verify a removal. External-change classification, assignment transitions, replacement/failover and native execution remain separate later work.
+The current authorized work is documentation and architecture review only. A later implementation restart requires an explicit decision after that review.
 
 ## Streaming and Timer UI ordering
 
-Strict phase order remains:
+The intended strict order is:
 
 ```text
-Phase 64 Timer orchestration
-  -> Phase 65 Streaming Gateway
-  -> Phase 66 Legacy OSD bridge
-  -> Phase 67 Public API/client hardening
+Phase 64 reliable Timer orchestration engine
+  -> Phase 65 Streaming Gateway and Media Sessions
+  -> Phase 66 Legacy OSD Compatibility Bridge
+  -> Phase 67 Public API and Client Compatibility Hardening
 ```
 
-The broad Timer UI is not required to close Phase 64. It remains gated on account/backend access management built on Phase 62. Phase 65 may therefore start before that broad Timer UI is finished; this is intended sequencing, not a technical dependency.
+A broad polished Timer UI is not required to close the Phase-64 engine. It remains separately gated on account/backend access management built on the Phase-62 identity/authorization model.
+
+Therefore Phase 65 may intentionally start before the broad Timer UI is complete, but only after the reliable Phase-64 Timer engine satisfies its own completion gates. Streaming is not technically dependent on the broad Timer UI.
+
+## Streaming architecture preparation
+
+Accepted ADR-0046 already defines the server-side Streaming Gateway and MediaSession boundary. Draft PR #156 contains the complementary proposed client-playback/media-adaptation strategy and should be reviewed against the current canonical documents before acceptance.
+
+The intended media direction remains provider-private and transformation-minimal: clients request Suite media capabilities rather than Streamdev/SuiteBridge URLs, and delivery prefers pass-through before remux/repackage before transcoding.
+
+## Product acceptance
+
+Component tests, CI, architecture guards and real-system safety checks remain mandatory. User-visible milestones additionally use [Golden User Journeys](../planning/golden-user-journeys.md) so that a technically correct collection of components is not mistaken for a complete product path.
+
+The key vertical journeys cover Live TV playback, Recording playback, record-one-programme orchestration, multi-backend scheduling without provider knowledge and fail-closed recovery from backend/provider/transport failures.
 
 ## Development rules
 
 - Root-level `AGENTS.md` is binding.
-- Verify current `main`, exact PR head and final-head CI before writes or status claims.
-- Keep active Timer stack PRs Draft unless the user explicitly approves a review-state change.
-- Do not merge, rebase, force-push or rewrite published history without explicit approval.
-- Use the smallest evidence-backed slice and no unrelated refactors.
-- Require real-system acceptance only when an installed/runtime boundary actually changes.
-- Broad Timer UI work must not bypass its account/backend access-management gate.
+- `CURRENT.md` is the sole repository copy of volatile operational status.
+- Verify live `main`, exact PR head and exact-final-head CI before writes or status claims.
+- Keep active stacked PRs Draft unless the user explicitly approves a review-state change.
+- Do not merge, rebase, force-push, retarget or rewrite published history without explicit approval.
+- A slice is the smallest coherent safety/product change, not the smallest mechanically possible diff.
+- Avoid artificial intermediate states and unnecessary long dependency stacks unless a real safety, concurrency, compatibility or acceptance boundary requires them.
+- Provider availability never creates execution authority and active work never silently switches provider.
+- Require real-system acceptance when an installed/runtime or native-behaviour boundary changes.
+- Broad Timer UI work must not bypass the account/backend access-management gate.
 
-### Preferred edit path for new chats
+## Project-decision rule
 
-Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded operation safely.
-
-Use local edits first only when the change requires:
-
-- a workaround because the GitHub connector blocks a file operation;
-- repository-local generation, compilation or tests that cannot be performed through the connector;
-- a coherent multi-file patch that must be validated locally before publication.
-
-Never replace a complete repository file from a truncated fetch. After each GitHub file update, inspect the resulting commit diff before treating the change as correct.
-
-## Documentation synchronization note
-
-The direct status entry points are [Current State](../CURRENT.md), [New Chat Handoff](../NEW-CHAT-HANDOFF.md) and this file.
-
-The active-slice markers in [Strict Roadmap](../planning/roadmap.md) and [Phase Map](../planning/phase-map.md) still lag and require a separate guard-aware documentation synchronization. Their architecture and phase-order rules remain valid.
+A chat discussion is not a binding VDR-Suite project decision until it is represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract. This prevents one conversation or stale handoff from silently overriding the project architecture.
 
 ## Exact next action
 
-1. Re-read PR #169 and its exact current CI before continuation.
-2. Continue from its exact head only if the stack remains unchanged.
-3. Add the expected-absence contract as a separate bounded stacked Draft.
-4. Keep absence verification, external-change classification, failover and native mutation out of that contract slice.
+Use [Current State](../CURRENT.md) for the exact checkpoint. Complete the documentation/roadmap synchronization, review proposed playback ADR PR #156 against that synchronized truth, then explicitly decide what remaining Phase-64 engine work is required before implementation resumes.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Phase Map](../planning/phase-map.md)
+- [Golden User Journeys](../planning/golden-user-journeys.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Phase 64 TimerIntent Contract](phase-64-timer-intent-contract.md)
 - [Phase 64 TimerIntent Repository](phase-64-timer-intent-repository.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
-- [Strict Roadmap](../planning/roadmap.md)
-- [Phase Map](../planning/phase-map.md)
-- [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Agent Workflow Rules](../../AGENTS.md)
