@@ -7,13 +7,18 @@
 #include <vector>
 
 class IBackendAgentControlPlaneTransport;
-namespace vdrsuite::agent { class IBackendAgentNativeProbeTransport; }
+namespace vdrsuite::agent
+{
+class IBackendAgentNativeProbeTransport;
+class IBackendAgentNativeTimerDeleteTransport;
+}
 
 struct BackendAgentCommandClientConfig
 {
     std::string statePath;
     std::vector<std::string> commandTypes;
     vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
 };
 
 struct BackendAgentCommandClientContext
