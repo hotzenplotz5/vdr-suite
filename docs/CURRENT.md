@@ -1,129 +1,182 @@
 # VDR-Suite Current State
 
+## Operational status authority
+
+**This file is the sole repository authority for volatile operational status.**
+
+`README.md`, `NEW-CHAT-HANDOFF.md`, `development/current-status.md`, the Strict Roadmap and the Phase Map may describe stable architecture, phase order and workflow rules, but they must not become competing copies of exact branch heads, active PR tips or CI checkpoints.
+
+Before any implementation, review-state change, installation or status claim, re-read current GitHub state. Recorded values below are checkpoints, not a substitute for a live read.
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Current Project Status](development/current-status.md)
-- [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Current Project Status](development/current-status.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Phase 62 Final Closeout](development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [Architecture Decision Records](adr/index.md)
+- [Agent Workflow Rules](../AGENTS.md)
 
 ## Current verified position
 
 ```text
 Repository: hotzenplotz5/vdr-suite
 Branch authority: main
-Current merged main baseline:
-96fab8ad88eae9ea0d46adf4db50ccf8d750a19b
+Current merged main checkpoint:
+08a87f2f8afb1ccec30ad739155a2eb121d98e37
 
 Latest completed numbered runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Next strict runtime phase:
-Phase 64 - Timer Intent and Multi-Backend Orchestration
-
 Current active numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
-Merged Phase-64 foundation:
-Slice 1 - TimerIntent Domain Contract, PR #150
-Slice 2 - TimerIntent Persistence and Repository Semantics, PR #152
+Next strict numbered runtime phase after Phase 64:
+Phase 65 - Streaming Gateway and Media Sessions
 
-Current stacked Draft tip:
-PR #169 - Add NativeTimerBinding absence application
-branch: agent/phase64-native-timer-binding-absence-application
-head: 9e54a1c2c3087f6eb9a9317b5c1f8ab3dd43525e
-state: open Draft, mergeable
-CI: VDR-Suite CI #7413 / run 31463690316; recheck the exact current result before relying on it
-runtime change: none; Slice 17 does not wire an installed native Timer mutation path
+Merged Phase-64 foundation on main:
+PR #150 - TimerIntent Domain Contract
+PR #152 - TimerIntent Persistence and Repository Semantics
+
+Current stacked implementation checkpoint:
+PR #190 - Add disabled SuiteBridge Timer delete transport
+branch: agent/phase64-suitebridge-timer-delete-disabled-transport
+head: f81bf14c34deb878681833cff84a5b1f45c54811
+state: open Draft; not merged
+relation to current main at audit: diverged, 63 commits ahead / 3 behind; merge base cb6f56e28bc981c8a3c86605fd8e842df4a86ab3
+GitHub CI: VDR-Suite CI #7461 / run 31691807149 - PASS on the exact head
 ```
 
-Always re-read current `main`, the exact active PR head and CI before resuming work.
+## Current implementation hold
 
-## Phase 64 stack
+The agreed implementation checkpoint is **after PR #190**.
+
+No Phase-64 successor implementation is currently authorized. In particular, do not create or start a `#191` Timer implementation merely because the Slice-34 development note names a possible successor. The project is intentionally paused for architecture, roadmap and documentation synchronization.
+
+This hold changes neither ADR-0044 nor the strict phase order. It is a planning gate, not a declaration that Phase 64 is complete.
+
+## What PR #190 proves
+
+The stacked Phase-64 work through PR #190 has reached a strong fail-closed native Timer-delete boundary:
+
+- stable TimerIntent, TimerAssignment and NativeTimerBinding concepts and persistence exist in the stack;
+- deterministic primary/replica scheduling and assignment-set concurrency fencing exist in the stack;
+- native Timer present/absence evidence, operation-aware readback verification and durable mutation-operation state exist in the stack;
+- Agent delivery, durable local `starting`, one-shot executor semantics and unknown-outcome recovery are fenced;
+- a concrete private SuiteBridge `NTDEL` transport exists;
+- SuiteBridge advertises that Timer-delete execution as disabled;
+- the installed Agent does not advertise/configure `vdr.timer.delete` through this checkpoint;
+- no real native VDR Timer delete is enabled by PR #190.
+
+The exact-head GitHub CI is green. The supplied real-system gate for the same head additionally recorded PASS while keeping the Timer inventory and `timers.conf` unchanged, executing no Timer deletion, restoring the original SuiteBridge plugin and preserving the Agent identity.
+
+## What PR #190 does not prove
+
+PR #190 is **not** the Phase-64 completion gate.
+
+Its own slice contract deliberately has no accepted mutation outcome and no real VDR Timer-delete callback. The next technical prerequisites named by that slice include a plugin-instance-scoped exact-request replay ledger, reserve-before-side-effect semantics and a typed mutation callback before any accepted native delete can exist.
+
+More broadly, ADR-0044 remains authoritative for the reliable Timer engine. Phase 64 is complete only when the required managed Timer lifecycle is coherently proved across intent, assignment, native binding, safe mutation, authoritative readback, reconciliation and the required real-VDR acceptance. A transport being wired but disabled is therefore a checkpoint, not an engine closeout.
+
+## Current Phase-64 stack checkpoint
+
+The current stacked implementation line is:
 
 ```text
 #153  TimerAssignment domain contract
 #154  TimerAssignment persistence repository
 #155  deterministic TimerAssignment planner
 #158  primary assignment scheduling handoff
-#159  assignment-set revision concurrency fence
+#159  assignment-set revision fence
 #160  replica assignment scheduling handoff
 #161  NativeTimerBinding domain contract
 #162  NativeTimerBinding persistence repository
 #163  VDR -> NativeTimerObservation mapper
-#164  safe present-readback application
-#165  operation-bound expected PRESENT readback evidence
-#166  operation-aware PRESENT readback verification
-#167  complete native Timer inventory / authoritative absence evidence
-#168  failure-aware RESTfulAPI complete-Timer-inventory reader
-#169  NativeTimerBinding authoritative absence application
+#164  present-readback application
+#165  expected PRESENT readback contract
+#166  operation-aware PRESENT verification
+#167  complete native Timer inventory / absence evidence
+#168  failure-aware RESTfulAPI inventory reader
+#169  NativeTimerBinding absence application
+#171  expected absence readback contract
+#172  operation-aware absence verification
+#173  shared MutationOperation repository
+#174  delete-operation completion after verified readback
+#175  delete-operation preparation handoff
+#176  delete dispatch claim/outcome
+#177  native Timer-delete Agent contract
+#178  Timer-delete assignment persistence
+#179  fenced Timer-delete delivery
+#180  durable local Timer-delete starting state
+#181  generic Agent command-state extension
+#182  commands.state v3 integration
+#183  Timer-delete local-state lifecycle
+#184  fresh durable starting handoff
+#185  fenced Timer-delete executor contract
+#186  durable executor outcomes
+#187  extracted protected Agent command-state store
+#188  extracted Native Probe command handler
+#189  extracted Timer-delete command handler
+#190  disabled SuiteBridge Timer-delete transport
 ```
 
-Draft PR #157 is the separate SQLite architecture-baseline repair. Draft PR #156 is a separate proposed client playback/media-adaptation ADR and does not implement Phase-65 runtime.
+PR #156 is the separate proposed client playback/media-adaptation ADR. PR #157 is the separate SQLite architecture-baseline repair. PR #170 is the separate documentation/status synchronization workstream. These are not additional Timer-engine slices.
 
-## Current Timer safety position
+## Phase ordering and Timer UI decision
 
-The stack now has distinct Suite intent, assignment and native-binding identities; revision and assignment-set concurrency fences; deterministic primary/replica planning; backend-neutral native observations; operation-aware PRESENT verification; complete-inventory absence proof; a failure-aware RESTfulAPI inventory producer; and durable absence application.
-
-Slice 17 records the authoritative fact that a bound native Timer is missing while preserving the last known present state and fingerprint, the first `missingSince`, existing verified-operation evidence and exact binding-revision fencing. It deliberately does not invent an external-delete cause. A later inventory showing the Timer present after durable missing evidence requires reconciliation rather than silently clearing the state.
-
-Production native Timer create/update/remove remains disabled.
-
-## Exact next bounded work
-
-After PR #169, the next slice is an operation-aware **expected absence** contract for Suite-managed native Timer removal.
-
-It must bind the operation identity/state, exact binding identity and expected revision, exact backend ID/generation, exact backend-native Timer identity and a post-operation `readbackNotBefore` fence. Only this explicit operation context plus authoritative complete-inventory absence may later verify a removal.
-
-The contract itself must not classify external changes, transition assignments, perform failover or execute native mutation. Those remain later bounded slices.
-
-## Phase ordering and Timer UI gate
-
-The strict numbered runtime order is:
+The binding numbered order remains:
 
 ```text
-Phase 64 - Timer Intent and Multi-Backend Orchestration
+Phase 64 - reliable Timer Intent and Multi-Backend Orchestration engine
   -> Phase 65 - Streaming Gateway and Media Sessions
   -> Phase 66 - Legacy OSD Compatibility Bridge
   -> Phase 67 - Public API and Client Compatibility Hardening
 ```
 
-A broad polished Timer UI is not the Phase-64 completion gate. It remains separately gated on account/backend access management built on Phase 62.
+The **broad polished Timer UI is not a Phase-64 completion gate**. It remains separately gated on account/backend access management built on the Phase-62 identity and authorization model.
 
-Therefore Phase 65 Streaming may deliberately begin after the reliable Phase-64 Timer engine is complete even if the broad Timer UI is still deferred. Streaming is not technically dependent on that UI, and the broad Timer UI is not a prerequisite for Phase 65.
+Therefore Phase 65 Streaming may intentionally begin before the broad Timer UI is completed, but only after the reliable Phase-64 Timer engine itself satisfies its completion gates. Streaming is not technically dependent on the broad Timer UI.
 
-## Authority boundary
+## Streaming architecture already prepared
 
-Phase-62 identity/authorization/accountability and Phase-63 Agent/generation/provider-ownership contracts remain authoritative. Stale or ambiguous generation, revision and readback evidence fails closed. Provider availability never creates implicit execution authority. TVScraper remains upstream-only.
+ADR-0046 remains the accepted server-side MediaSession/Gateway boundary. Draft PR #156 already contains the complementary proposed playback/media-adaptation ADR. Its direction remains compatible with the current architecture:
 
-## Historical completed context
+```text
+private VDR / Recording source
+  -> explicitly owned StreamProvider
+  -> ProviderStreamLease
+  -> media adaptation boundary
+  -> Streaming Gateway / selected MediaSession profile
+  -> client playback adapter
+  -> platform playback engine
+```
 
-The following markers are retained for documentation-entrypoint continuity; they are historical, not the current active phase:
+Transformation preference is `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain. This planning work does not authorize Phase-65 runtime before Phase 64 completes.
 
-- Phase 58 - Frontend and Live Parity
-- Phase 61 - Suite Metadata and Genre Platform
-- Post-Phase 61 Performance Hardening (B1-B4)
-- VDR Remote and Live Overlay hardening (#110)
-- Backend-scoped Global Search (#111)
-- Phase 62 - Identity, RBAC and Accountability Foundation
+## Binding execution-governance decisions
 
-## Historical Phase-63 observation-ingestion checkpoint
+The following rules apply to further planning and implementation:
 
-During the historical Phase 63 Slice 1 / Phase 63 Slice 2 **Observation and Snapshot Ingestion** checkpoint, PR #138 merged the read-only ingestion contract as `24b1d7938ddaa15834a8da6323a270761868f4ba`, and PR #139 implemented the first bounded `backend-health` runtime.
+1. A chat discussion is not a project decision until represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract.
+2. `CURRENT.md` owns volatile project status. Other documents link here instead of copying exact active heads and CI state.
+3. A slice is the **smallest coherent safety or product change**, not the smallest mechanically possible diff. Avoid artificial intermediate states and unnecessarily long dependent stacks unless a real safety, concurrency, compatibility or acceptance boundary requires the split.
+4. Technical CI and architecture guards are necessary but not sufficient for user-visible milestones. Relevant milestones also require end-to-end user-journey acceptance.
+5. No provider availability or reachability creates authority. No active operation silently changes provider.
+6. No production native mutation is enabled merely to satisfy a roadmap number; all applicable revision, generation, provider, idempotency, durable-starting, readback and real-system gates remain mandatory.
 
-At that checkpoint, before the later command, native-execution and provider-selection slices completed the phase, the correct status sentence was: **Phase 63 is not complete**. That sentence is retained here only as provenance required by the historical Phase-63 regression contract. The current status above is authoritative: Phase 63 is complete and Phase 64 is active.
+The target user journeys are maintained in [Golden User Journeys](planning/golden-user-journeys.md).
 
-## Documentation synchronization note
+## Exact next action
 
-`CURRENT.md`, `NEW-CHAT-HANDOFF.md` and `development/current-status.md` are the direct operational status entry points.
+The next action is planning/documentation synchronization, not another Timer implementation:
 
-The current-position blocks in `planning/roadmap.md` and `planning/phase-map.md` still lag the active Phase-64 stack. Their architecture and phase-order rules remain useful, but stale active-slice markers must not override exact GitHub state. A broader guarded planning-document synchronization is separate.
+- bring PR #170 up to the PR-#190 checkpoint and make the document-authority hierarchy explicit;
+- synchronize the Strict Roadmap and Phase Map without treating PR #190 as Phase-64 completion;
+- preserve the already-decided ordering that Streaming may precede the broad Timer UI after the Timer engine is complete;
+- review/update proposed playback ADR PR #156 against the then-current canonical planning documents;
+- only after that review decide and explicitly authorize the remaining Phase-64 completion work.
+
+No PR Ready/merge/close/retarget action is implied by this planning synchronization.
