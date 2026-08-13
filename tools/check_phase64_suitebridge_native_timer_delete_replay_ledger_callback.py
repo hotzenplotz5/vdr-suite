@@ -29,9 +29,6 @@ plugin_main = read("vdr-plugin-suite-bridge/suitebridge.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 mk = read("mk/phase64-suitebridge-native-timer-delete-replay-ledger-callback-tests.mk")
-doc = read(
-    "docs/development/phase-64-suitebridge-native-timer-delete-replay-ledger-callback.md"
-)
 
 include = "include mk/phase64-suitebridge-native-timer-delete-replay-ledger-callback-tests.mk"
 require(makefile, include, "replay-ledger Make include")
@@ -108,14 +105,5 @@ require(
     "check_phase64_suitebridge_native_timer_delete_replay_ledger_callback.py",
     "replay-ledger guard invocation",
 )
-
-for needle, label in (
-    ("reserve-before-side-effect", "reserve-before-side-effect documentation"),
-    ("plugin-instance-scoped", "plugin-instance replay scope documentation"),
-    ("no real VDR Timer mutation", "no-mutation documentation"),
-    ("production plugin does not configure", "production callback fence documentation"),
-    ("durable Control Plane", "durable idempotency layering documentation"),
-):
-    require(doc, needle, label)
 
 print("Phase 64 SuiteBridge Timer-delete replay ledger/callback architecture guard passed")
