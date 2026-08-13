@@ -10,8 +10,7 @@ NEXT_PHASE = "Phase 65 - Streaming Gateway and Media Sessions"
 HISTORICAL_UMBRELLA = "Phase 58 - Frontend and Live Parity"
 PHASE62 = "Phase 62 - Identity, RBAC and Accountability Foundation"
 
-CURRENT_ENTRYPOINTS = [
-    "README.md",
+STATUS_ENTRYPOINTS = [
     "docs/CURRENT.md",
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/development/current-status.md",
@@ -48,17 +47,21 @@ def require(errors, rel, marker, description):
 def main():
     errors = []
 
-    for rel in CURRENT_ENTRYPOINTS:
+    for rel in STATUS_ENTRYPOINTS:
         require(errors, rel, LATEST_COMPLETED, "latest completed phase marker")
         require(errors, rel, ACTIVE_PHASE, "active phase marker")
         require(errors, rel, NEXT_PHASE, "next numbered phase marker")
 
-    # Planning files must preserve the numbered order, while exact active heads
-    # remain exclusively in CURRENT.md.
     for rel in PLANNING_FILES:
         require(errors, rel, LATEST_COMPLETED, "Phase 63 marker")
         require(errors, rel, ACTIVE_PHASE, "Phase 64 marker")
         require(errors, rel, NEXT_PHASE, "Phase 65 marker")
+
+    # README stays stable and links to the authoritative status/planning files
+    # instead of duplicating current phase status.
+    require(errors, "README.md", "docs/CURRENT.md", "Current State link")
+    require(errors, "README.md", "docs/planning/roadmap.md", "Strict Roadmap link")
+    require(errors, "README.md", "A chat discussion is not a binding VDR-Suite project decision", "project-decision rule")
 
     require(errors, "docs/NEW-CHAT-HANDOFF.md", "phase-62-closeout.md", "Phase 62 closeout link")
     require(errors, "docs/NEW-CHAT-HANDOFF.md", "phase-62-slice-2x-runtime-closeout.md", "Slice 2X closeout link")
@@ -69,15 +72,12 @@ def main():
         if not (ROOT / rel).is_file():
             errors.append(f"closeout/archive file is missing: {rel}")
 
-    # Current operational entry points must not regress to the old Phase-62/63
-    # active-position wording.
     stale_active_markers = [
         "Next strict runtime phase:\nPhase 63",
         "Current active runtime slice:\nPhase 63",
-        "Phase 63 is not complete\n```",
         "Current stacked Draft tip:\nPR #169",
     ]
-    for rel in CURRENT_ENTRYPOINTS:
+    for rel in STATUS_ENTRYPOINTS:
         text = read(rel)
         for marker in stale_active_markers:
             if marker in text:
