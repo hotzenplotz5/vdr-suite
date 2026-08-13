@@ -24,6 +24,7 @@ Accepted
 Date: 2026-08-10
 
 Planning synchronization: 2026-08-13
+Acceptance: 2026-08-13
 
 ---
 
