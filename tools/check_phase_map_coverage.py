@@ -99,13 +99,15 @@ def main():
             fail("required closeout/dependency/planning file is missing: " + rel)
 
     for rel in [
-        "README.md",
         "docs/CURRENT.md",
         "docs/NEW-CHAT-HANDOFF.md",
         "docs/development/current-status.md",
     ]:
         text = (ROOT / rel).read_text(encoding="utf-8")
         require_markers(text, rel, [LATEST, ACTIVE, NEXT])
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    require_markers(readme, "README.md", ["docs/CURRENT.md", "docs/planning/roadmap.md"])
 
     for rel in ["docs/planning/roadmap.md", "docs/planning/phase-map.md"]:
         text = (ROOT / rel).read_text(encoding="utf-8")
