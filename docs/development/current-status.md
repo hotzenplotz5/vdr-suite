@@ -89,6 +89,18 @@ The key vertical journeys cover Live TV playback, Recording playback, record-one
 - Require real-system acceptance when an installed/runtime or native-behaviour boundary changes.
 - Broad Timer UI work must not bypass the account/backend access-management gate.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connected GitHub tooling can perform the complete bounded operation safely. Re-read the exact pull-request head immediately before every repository write and inspect the resulting diff before treating the change as correct.
+
+Use local edits first only when the change requires:
+
+- a programmatic transformation that cannot be performed safely through the GitHub connector;
+- local build, test or generated-artifact work that requires a checkout;
+- a workaround because the GitHub connector blocks a file operation.
+
+Do not replace a complete existing file from a truncated or partial fetch. Fetch the complete content or the required ranges first. Continue through already-approved bounded steps without artificial confirmation pauses, keep published updates fast-forward-only, and evaluate GitHub Actions at the final stabilization head rather than after every intermediate commit.
+
 ## Project-decision rule
 
 A chat discussion is not a binding VDR-Suite project decision until it is represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract. This prevents one conversation or stale handoff from silently overriding the project architecture.
