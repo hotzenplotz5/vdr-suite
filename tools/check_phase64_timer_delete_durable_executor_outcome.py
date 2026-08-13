@@ -24,6 +24,10 @@ def forbid(text: str, needle: str, label: str) -> None:
 makefile = read("Makefile")
 client_header = read("core/agent/include/BackendAgentCommandClient.h")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+timer_delete_handler = read(
+    "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp"
+)
+agent_sources = read("mk/agent-sources.mk")
 executor_source = read("core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp")
 test = read("core/agent/tests/test_backend_agent_timer_delete_durable_executor_outcome.cpp")
 mk = read("mk/phase64-timer-delete-durable-executor-outcome-tests.mk")
@@ -58,21 +62,43 @@ forbid(
 )
 require(
     command_client,
-    '#include "BackendAgentNativeTimerDeleteExecutor.h"',
-    "Timer-delete executor dependency",
+    '#include "BackendAgentNativeTimerDeleteCommandHandler.h"',
+    "Timer-delete command handler dependency",
 )
+require(
+    agent_sources,
+    "AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC :=",
+    "dedicated Timer-delete handler source set",
+)
+if agent_sources.count(
+        "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp") != 1:
+    raise SystemExit("Timer-delete command handler source must occur exactly once")
 
-# The bounded completion helper consumes only a fresh, receipt-acknowledged
-# starting state, invokes the one-shot executor once, and durably stores typed
-# completed evidence plus its generic result before any result transmission.
+# The CommandClient retains only the stable orchestration handoff. The dedicated
+# handler consumes a fresh, receipt-acknowledged starting state, invokes the
+# one-shot executor once, and durably stores typed completed evidence plus its
+# generic result before returning to the client for result delivery.
 helper_name = "executeFreshNativeTimerDeleteAndPersistOutcome"
 if command_client.count(helper_name + "(") != 2:
     raise SystemExit("Slice 33 executor handoff must have one definition and one call")
-helper = command_client.split(
+client_helper = command_client.split(
     "bool executeFreshNativeTimerDeleteAndPersistOutcome(", 1
 )[1].split("\nstruct CommandAvailability", 1)[0]
+require(
+    client_helper,
+    "backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome",
+    "dedicated handler delegation",
+)
+forbid(client_helper, "backendAgentNativeTimerDeleteExecuteFreshStartingOnce(", "low-level executor call in CommandClient handoff")
+forbid(client_helper, "sendReceipt(", "receipt inside executor handoff")
+forbid(client_helper, "sendResult(", "result inside executor handoff")
+
+handler_helper = timer_delete_handler.split(
+    "bool backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome(",
+    1,
+)[1]
 for needle, label in (
-    ("config.nativeTimerDeleteTransport == nullptr", "null transport fence"),
+    ("transport == nullptr", "null transport fence"),
     ("!state.receiptAcknowledged", "receipt acknowledgement prerequisite"),
     ("backendAgentNativeTimerDeleteParseLocalState", "typed starting decode"),
     ("BackendAgentNativeTimerDeleteLocalPhase::starting", "fresh starting phase fence"),
@@ -83,14 +109,21 @@ for needle, label in (
     ("backendAgentNativeTimerDeleteCompleteLocalState", "typed completion"),
     ("backendAgentNativeTimerDeleteSerializeLocalState", "typed completed serialization"),
     ("nativeTimerDeleteGenericProjection", "generic outcome projection"),
-    ("state.result.completedAt = evidence.completedAt", "shared evidence timestamp"),
-    ("persist(config.statePath, state, reason)", "durable completed state/result write"),
+    ("createTimerDeleteResult(state, projection, evidence.completedAt)", "shared evidence timestamp projection"),
+    ("persist(statePath, state, reason)", "durable completed state/result write"),
 ):
-    require(helper, needle, label)
-if helper.count("backendAgentNativeTimerDeleteExecuteFreshStartingOnce(") != 1:
-    raise SystemExit("Slice 33 completion helper must invoke executor exactly once")
-forbid(helper, "sendReceipt(", "control-plane receipt from executor helper")
-forbid(helper, "sendResult(", "control-plane result before durable outcome return")
+    require(handler_helper, needle, label)
+if handler_helper.count("backendAgentNativeTimerDeleteExecuteFreshStartingOnce(") != 1:
+    raise SystemExit("Slice 33 completion handler must invoke executor exactly once")
+for token in (
+    "IBackendAgentControlPlaneTransport",
+    "/api/agent/v1/commands/poll",
+    "/api/agent/v1/commands/receipt",
+    "/api/agent/v1/commands/result",
+    "sendReceipt(",
+    "sendResult(",
+):
+    forbid(timer_delete_handler, token, "control-plane delivery from Timer-delete handler")
 
 # Existing-state recovery remains before current-context checks. Fresh execution
 # exists only in the same invocation that created the new durable starting state.
@@ -126,7 +159,7 @@ require(
 # its no-concrete-transport assertions.
 require(
     slice32_guard,
-    "bounded Slice 33 durable-outcome successor",
+    "dedicated Timer-delete handler",
     "Slice 32 successor allowance",
 )
 
@@ -160,7 +193,8 @@ for token in (
     "curl ",
     "/timers",
 ):
-    forbid(command_client, token, "concrete Timer-delete mutation coupling")
+    forbid(command_client, token, "concrete Timer-delete CommandClient coupling")
+    forbid(timer_delete_handler, token, "concrete Timer-delete handler coupling")
 
 forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
