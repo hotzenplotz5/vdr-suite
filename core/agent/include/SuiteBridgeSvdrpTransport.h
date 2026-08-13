@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
@@ -33,7 +34,8 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
-    public IBackendAgentNativeProbeTransport
+    public IBackendAgentNativeProbeTransport,
+    public IBackendAgentNativeTimerDeleteTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -117,6 +119,13 @@ public:
              << request.nativeExecutionSequence << "\r\n";
         return executeRequest(wire.str());
     }
+
+    bool discoverProvider(
+        BackendAgentLocalProviderFacts& facts,
+        std::string& reasonCode) override;
+
+    BackendAgentNativeTimerDeleteTransportReply deleteTimer(
+        const BackendAgentNativeTimerDeleteTransportRequest& request) override;
 
 private:
     static bool safeNativeToken(const std::string& value)
