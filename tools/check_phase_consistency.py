@@ -44,12 +44,19 @@ def main():
     require(errors, CURRENT, "PR #190 - Add disabled SuiteBridge Timer delete transport")
     require(errors, CURRENT, "No Phase-64 successor implementation is currently authorized")
 
-    for path in [README, HANDOFF, STATUS]:
+    # README stays stable and delegates live phase/status data to canonical docs.
+    require(errors, README, "docs/CURRENT.md")
+    require(errors, README, "docs/planning/roadmap.md")
+    require(errors, README, "broad Timer UI")
+    require(errors, README, "Streaming")
+
+    for path in [HANDOFF, STATUS]:
         require(errors, path, "Phase 64")
         require(errors, path, "Phase 65")
+        require(errors, path, "broad")
+        require(errors, path, "Timer UI")
+        require(errors, path, "Streaming")
 
-    # Exact volatile checkpoints belong only in CURRENT.md. Stable entry points
-    # must link to CURRENT instead of maintaining their own fast-changing copy.
     for path in [README, HANDOFF, STATUS]:
         for marker in [
             "Current merged main checkpoint:",
@@ -59,8 +66,7 @@ def main():
         ]:
             forbid(errors, path, marker)
 
-    # The broad Timer UI is deliberately not the Phase-65 prerequisite.
-    for path in [CURRENT, README, HANDOFF, STATUS]:
+    for path in [CURRENT, HANDOFF, STATUS]:
         require(errors, path, "broad")
         require(errors, path, "Timer UI")
         require(errors, path, "Streaming")
