@@ -19,7 +19,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 Date: 2026-08-10
 
