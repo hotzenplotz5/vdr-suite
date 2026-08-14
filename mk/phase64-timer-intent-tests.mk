@@ -1,4 +1,4 @@
-.PHONY: test-phase64-timer-intent-contract-architecture test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-scheduling test-phase64-timer-assignment-replica-scheduling-architecture test-phase64-timer-assignment-replica-scheduling
+.PHONY: test-phase64-timer-intent-contract-architecture test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-scheduling test-phase64-timer-assignment-replica-scheduling-architecture test-phase64-timer-assignment-replica-scheduling test-phase64-native-timer-binding-contract-architecture test-phase64-native-timer-binding-contract
 
 test-phase64-timer-intent-contract-architecture:
 	python3 tools/check_phase64_timer_intent_contract.py
@@ -17,6 +17,9 @@ test-phase64-timer-assignment-scheduling-architecture:
 
 test-phase64-timer-assignment-replica-scheduling-architecture:
 	python3 tools/check_phase64_timer_assignment_replica_scheduling.py
+
+test-phase64-native-timer-binding-contract-architecture:
+	python3 tools/check_phase64_native_timer_binding.py
 
 test-phase64-timer-intent-contract: test-phase64-timer-intent-contract-architecture
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
@@ -112,5 +115,12 @@ test-phase64-timer-assignment-replica-scheduling: test-phase64-timer-assignment-
 		-o $(BUILD_DIR)/test_timer_assignment_replica_scheduling_service
 	$(BUILD_DIR)/test_timer_assignment_replica_scheduling_service
 
-test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling test-phase64-timer-assignment-replica-scheduling
-test-architecture: test-phase64-timer-intent-contract-architecture test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-replica-scheduling-architecture
+test-phase64-native-timer-binding-contract: test-phase64-native-timer-binding-contract-architecture
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/tests/test_native_timer_binding.cpp \
+		-o $(BUILD_DIR)/test_native_timer_binding
+	$(BUILD_DIR)/test_native_timer_binding
+
+test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract test-phase64-timer-assignment-repository test-phase64-timer-assignment-set-revision test-phase64-timer-assignment-planner test-phase64-timer-assignment-planner-source-channel test-phase64-timer-assignment-scheduling test-phase64-timer-assignment-replica-scheduling test-phase64-native-timer-binding-contract
+test-architecture: test-phase64-timer-intent-contract-architecture test-phase64-timer-assignment-repository-architecture test-phase64-timer-assignment-set-revision-architecture test-phase64-timer-assignment-planner-architecture test-phase64-timer-assignment-scheduling-architecture test-phase64-timer-assignment-replica-scheduling-architecture test-phase64-native-timer-binding-contract-architecture
