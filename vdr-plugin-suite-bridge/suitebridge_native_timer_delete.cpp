@@ -19,7 +19,7 @@ constexpr const char *ResultProtocol = "vdr-suite-ntdel-result/1";
 constexpr std::uint64_t NativeOperationSchema = 1;
 constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 1;
-constexpr std::size_t NativeFingerprintTokenMaximum = 8192;
+constexpr std::size_t NativeFingerprintTokenLength = 71;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
 constexpr int StaleReplyCode = 555;
@@ -40,9 +40,14 @@ bool safeToken(const std::string &value, std::size_t maximum = 512)
 
 bool safeFingerprintToken(const std::string &value)
 {
-  return !value.empty() && value.size() <= NativeFingerprintTokenMaximum &&
-      value.size() % 2 == 0 &&
-      std::all_of(value.begin(), value.end(), [](unsigned char character) {
+  if (value.size() != NativeFingerprintTokenLength ||
+      value.compare(0, 7, "sha256:") != 0) {
+    return false;
+  }
+  return std::all_of(
+      value.begin() + 7,
+      value.end(),
+      [](unsigned char character) {
         return (character >= '0' && character <= '9') ||
             (character >= 'a' && character <= 'f');
       });
