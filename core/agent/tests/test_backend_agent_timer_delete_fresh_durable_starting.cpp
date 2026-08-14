@@ -73,6 +73,7 @@ BackendAgentCommandAssignment timerDeleteAssignment(std::int64_t deadline = 4102
     payload.operationRevision = "operation-revision-fresh-starting";
     payload.nativeTimerBindingId = "binding-fresh-starting";
     payload.expectedBindingRevision = "binding-revision-fresh-starting";
+    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-fresh-starting";
     payload.timerAssignmentId = "timer-assignment-fresh-starting";
     payload.backendNativeTimerId = "native-timer-fresh-starting";
     payload.controlPlaneClaimedAt = 90;
