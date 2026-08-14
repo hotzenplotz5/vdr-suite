@@ -32,6 +32,7 @@ BackendAgentNativeTimerDeleteCommand command()
     value.operationRevision = "2";
     value.nativeTimerBindingId = "binding:1";
     value.expectedBindingRevision = "7";
+    value.expectedNativeTimerFingerprint = "sha256:native-timer-observed-1";
     value.timerAssignmentId = "assignment:1";
     value.backendNativeTimerId = "timer:17";
     value.jobId = "job:1";
@@ -81,6 +82,11 @@ int main()
     const auto valid = command();
     assert(backendAgentNativeTimerDeleteValidCommand(valid, reason));
     assert(reason.empty());
+
+    auto noNativeFingerprint = valid;
+    noNativeFingerprint.expectedNativeTimerFingerprint.clear();
+    assert(!backendAgentNativeTimerDeleteValidCommand(noNativeFingerprint, reason));
+    assert(reason == "invalid-command-identity");
 
     auto wrongCapability = valid;
     wrongCapability.localProviderSelection.requiredCapability = "vdr.native.probe";
