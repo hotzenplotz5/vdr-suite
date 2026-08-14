@@ -2,7 +2,7 @@
 
 ## Status
 
-Bounded pre-dispatch slice stacked on Phase 64 Slice 21 / Draft PR #174.
+Bounded pre-dispatch slice, now retargeted to `main` after Slice 21 / PR #174 merged.
 
 Slice 20 supplies the single durable ADR-0042 mutation operation authority.
 Slice 21 closes a delete operation only after Slice 19 has verified the native
