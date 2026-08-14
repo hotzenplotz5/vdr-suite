@@ -106,7 +106,8 @@ for needle, label in (
     ("command.operationRevision", "operation revision wire identity"),
     ("command.nativeTimerBindingId", "native binding wire identity"),
     ("command.expectedBindingRevision", "binding revision wire identity"),
-    ("command.expectedNativeTimerFingerprint", "native Timer fingerprint wire fence"),
+    ("backendAgentNativeTimerDeleteFingerprintTokenValid(", "strict SHA-256 Timer fingerprint wire fence"),
+    ("command.expectedNativeTimerFingerprint", "native Timer fingerprint wire token"),
     ("command.timerAssignmentId", "assignment wire identity"),
     ("command.backendNativeTimerId", "backend native Timer wire identity"),
     ("command.jobId", "job wire identity"),
@@ -146,6 +147,7 @@ require(plugin_source, 'values.front() == "CAP"', "NTDEL capability path")
 require(plugin_source, 'values.front() == "EXEC"', "NTDEL execute path")
 require(plugin_source, 'values.size() != 30', "fingerprint-aware typed execute shape")
 require(plugin_source, "request.expectedNativeTimerFingerprint = values[10]", "native Timer fingerprint parser")
+require(plugin_source, "safeFingerprintToken(request.expectedNativeTimerFingerprint)", "strict SHA-256 native Timer fingerprint parser")
 require(plugin_source, "appendCanonical(canonical, request.expectedNativeTimerFingerprint)", "native Timer fingerprint replay identity")
 require(plugin_source, '"ntdel:disabled:"', "disabled typed result")
 require(plugin_source, "request.authorityDomain == AuthorityDomain", "authority fence")
@@ -188,9 +190,11 @@ require(available, "continue;", "Timer-delete advertisement suppression")
 for needle, label in (
     ("SuiteBridgeNativeTimerDeleteTransport transport", "dedicated adapter regression"),
     ('server.request() == "PLUG suitebridge NTDEL CAP 1\\r\\n"', "agent capability wire regression"),
-    ('expectedNativeTimerFingerprint = "ntfp_1"', "agent native Timer fingerprint fixture"),
-    ("ntb_1 nbr_1 ntfp_1 tas_1", "agent native Timer fingerprint wire regression"),
+    ("std::string fingerprintToken", "agent SHA-256 Timer fingerprint fixture"),
+    ("request.command.expectedNativeTimerFingerprint == fingerprintToken()", "agent SHA-256 Timer fingerprint regression"),
+    ("request.command.expectedNativeTimerFingerprint +", "agent native Timer fingerprint wire regression"),
     ("expectedNativeTimerFingerprint.clear()", "agent missing fingerprint rejection regression"),
+    ("expectedNativeTimerFingerprint.back() = 'g'", "agent malformed digest rejection regression"),
     ("rejectedWithoutEffect", "agent disabled rejection regression"),
     ("outcomeUnknown", "agent transport ambiguity regression"),
     ("bad revision", "agent local wire validation regression"),
@@ -198,8 +202,9 @@ for needle, label in (
     require(agent_test, needle, label)
 for needle, label in (
     ('service.Handle("NTDEL", "CAP 1")', "plugin capability regression"),
-    ('lastExpectedNativeTimerFingerprint == "ntfp_1"', "plugin callback fingerprint regression"),
+    ("lastExpectedNativeTimerFingerprint == fingerprintToken()", "plugin callback fingerprint regression"),
     ("conflictingNativeTimerFingerprint", "plugin changed native Timer fingerprint replay conflict"),
+    ("malformedDigest", "plugin malformed SHA-256 fingerprint regression"),
     ("reply.replyCode == 556", "plugin disabled rejection regression"),
     ("reply.replyCode == 555", "plugin stale fence regression"),
     ("reply.replyCode == 501", "plugin malformed request regression"),
