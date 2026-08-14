@@ -100,6 +100,7 @@ bool safeRequest(const BackendAgentNativeTimerDeleteTransportRequest& request)
         safeWireToken(command.operationRevision, 192) &&
         safeWireToken(command.nativeTimerBindingId, 192) &&
         safeWireToken(command.expectedBindingRevision, 192) &&
+        safeWireToken(command.expectedNativeTimerFingerprint) &&
         safeWireToken(command.timerAssignmentId, 192) &&
         safeWireToken(command.backendNativeTimerId, 192) &&
         safeWireToken(command.jobId, 192) &&
@@ -132,6 +133,7 @@ SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::executeNativeTimerDeleteContr
          << command.operationId << ' ' << command.operationRevision << ' '
          << command.nativeTimerBindingId << ' '
          << command.expectedBindingRevision << ' '
+         << command.expectedNativeTimerFingerprint << ' '
          << command.timerAssignmentId << ' ' << command.backendNativeTimerId << ' '
          << command.jobId << ' ' << command.attemptId << ' '
          << command.claimEpoch << ' ' << command.backendId << ' '
