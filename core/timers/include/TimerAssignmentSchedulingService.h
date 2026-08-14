@@ -16,17 +16,28 @@ enum class TimerAssignmentSchedulingStatus
     persisted,
     alreadyPersisted,
     activePrimaryExists,
+    replicaTargetSatisfied,
     invalidRequest,
     assignmentIdConflict,
     intentNotFound,
     intentRevisionConflict,
     planningInvalid,
     ownershipConflict,
+    assignmentSetConflict,
     repositoryConflict,
     storageError
 };
 
 struct TimerAssignmentPrimarySchedulingRequest
+{
+    std::string timerAssignmentId;
+    std::string timerIntentId;
+    std::string expectedIntentRevision;
+    std::int64_t createdAt = 0;
+    std::vector<TimerAssignmentPlanningBackendCandidate> candidates;
+};
+
+struct TimerAssignmentReplicaSchedulingRequest
 {
     std::string timerAssignmentId;
     std::string timerIntentId;
@@ -46,7 +57,8 @@ struct TimerAssignmentSchedulingResult
     {
         return status == TimerAssignmentSchedulingStatus::persisted
             || status == TimerAssignmentSchedulingStatus::alreadyPersisted
-            || status == TimerAssignmentSchedulingStatus::activePrimaryExists;
+            || status == TimerAssignmentSchedulingStatus::activePrimaryExists
+            || status == TimerAssignmentSchedulingStatus::replicaTargetSatisfied;
     }
 };
 
@@ -59,6 +71,9 @@ public:
 
     TimerAssignmentSchedulingResult schedulePrimary(
         const TimerAssignmentPrimarySchedulingRequest& request);
+
+    TimerAssignmentSchedulingResult scheduleReplica(
+        const TimerAssignmentReplicaSchedulingRequest& request);
 
 private:
     TimerIntentRepository& intentRepository_;

@@ -106,14 +106,12 @@ for forbidden in [
             f"premature TimerAssignment scheduling boundary crossing: {forbidden}")
 
 for forbidden in [
-    "scheduleReplica",
     "scheduleReplacement",
-    "TimerAssignmentRole::replica",
     "TimerAssignmentRole::replacement",
 ]:
     if forbidden in header + source:
         raise SystemExit(
-            f"Slice-6 primary-only boundary widened prematurely: {forbidden}")
+            f"TimerAssignment replacement boundary widened prematurely: {forbidden}")
 
 forbidden_roots = [
     ROOT / "apps",
@@ -143,5 +141,5 @@ for root in forbidden_roots:
 
 print("Phase-64 TimerAssignment scheduling handoff check passed")
 print(
-    "Slice-6 boundary: durable primary assignment handoff only; "
-    "replica/replacement/native runtime deferred")
+    "Scheduling boundary: durable primary/replica handoff only; "
+    "replacement/native runtime deferred")
