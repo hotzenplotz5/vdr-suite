@@ -6,13 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PHASE_MAP = ROOT / "docs/planning/phase-map.md"
 ROADMAP = ROOT / "docs/planning/roadmap.md"
 
-LATEST_PHASE = "Phase 62 - Identity, RBAC and Accountability Foundation"
-PREVIOUS_PHASE = "Phase 61 - Suite Metadata and Genre Platform"
-HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
-REMOTE = "VDR Remote and Live Overlay hardening (#110)"
-SEARCH = "Backend-scoped Global Search (#111)"
+LATEST = "Phase 63 - Backend Agent and Secure Multi-Site Runtime"
+ACTIVE = "Phase 64 - Timer Intent and Multi-Backend Orchestration"
+NEXT = "Phase 65 - Streaming Gateway and Media Sessions"
 HISTORICAL = "Phase 58 - Frontend and Live Parity"
-NEXT = "Phase 63 - Backend Agent and Secure Multi-Site Runtime"
+HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
 
 COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -30,19 +28,10 @@ COMPLETED_RANGES = [
     "Phase 60.1-60.15",
     "Phase 61",
     "Phase 62",
-]
-
-PLANNED_PHASES = [
     "Phase 63",
-    "Phase 64",
-    "Phase 65",
-    "Phase 66",
-    "Phase 67",
-    "Phase 68",
 ]
 
 ROADMAP_ORDER = [
-    "Phase 63 — Backend Agent and Secure Multi-Site Runtime",
     "Phase 64 — Timer Intent and Multi-Backend Orchestration",
     "Phase 65 — Streaming Gateway and Media Sessions",
     "Phase 66 — Legacy OSD Compatibility Bridge",
@@ -54,20 +43,12 @@ REQUIRED_FILES = [
     "docs/architecture/target-platform-architecture.md",
     "docs/planning/domain-dependency-map.md",
     "docs/planning/implementation-dependency-map.md",
+    "docs/planning/golden-user-journeys.md",
     "docs/development/phase-61-metadata-genre-performance-closeout.md",
     "docs/development/post-phase-61-platform-runtime-closeout.md",
     "docs/development/completed-phases/phase-61.md",
     "docs/development/phase-62-closeout.md",
     "docs/development/phase-62-slice-2x-runtime-closeout.md",
-]
-
-STALE_ACTIVE_MARKERS = [
-    "Phase 62 - Recommendation and Content Knowledge Graph",
-    "runtime milestone number not yet assigned",
-    "Next implementation focus:\nPhase 61",
-    "Latest completed slice:\nPhase 60.15",
-    "Next strict runtime phase:\nPhase 62",
-    "Phase 62 state:\nactive and incomplete",
 ]
 
 
@@ -104,44 +85,44 @@ def main():
     require_markers(
         phase_map,
         "docs/planning/phase-map.md",
-        COMPLETED_RANGES
-        + PLANNED_PHASES
-        + [LATEST_PHASE, PREVIOUS_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
+        COMPLETED_RANGES + [LATEST, ACTIVE, NEXT, HARDENING, HISTORICAL],
     )
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        PLANNED_PHASES
-        + [LATEST_PHASE, PREVIOUS_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
+        [LATEST, ACTIVE, NEXT, HARDENING, HISTORICAL],
     )
     require_order(roadmap, "docs/planning/roadmap.md", ROADMAP_ORDER)
 
     for rel in REQUIRED_FILES:
         if not (ROOT / rel).is_file():
-            fail("required closeout/dependency file is missing: " + rel)
+            fail("required closeout/dependency/planning file is missing: " + rel)
 
     for rel in [
-        "README.md",
         "docs/CURRENT.md",
         "docs/NEW-CHAT-HANDOFF.md",
         "docs/development/current-status.md",
-        "docs/development/completed-phases.md",
-        "docs/development/completed-phases-latest.md",
-        "docs/planning/roadmap.md",
-        "docs/planning/phase-map.md",
     ]:
         text = (ROOT / rel).read_text(encoding="utf-8")
-        require_markers(text, rel, [LATEST_PHASE, HARDENING, NEXT])
-        for stale in STALE_ACTIVE_MARKERS:
+        require_markers(text, rel, [LATEST, ACTIVE, NEXT])
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    require_markers(readme, "README.md", ["docs/CURRENT.md", "docs/planning/roadmap.md"])
+
+    for rel in ["docs/planning/roadmap.md", "docs/planning/phase-map.md"]:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for stale in [
+            "Next strict runtime phase:\nPhase 63",
+            "Current active runtime slice:\nPhase 63",
+            "Current merged main baseline:",
+        ]:
             if stale in text:
-                fail(f"{rel} still contains stale active marker: {stale}")
+                fail(f"{rel} still contains stale/volatile planning marker: {stale}")
 
     print("Phase map coverage check passed.")
-    print("Latest completed phase: " + LATEST_PHASE)
-    print("Previous completed phase: " + PREVIOUS_PHASE)
-    print("Completed hardening: " + HARDENING)
-    print("Completed platform features: " + REMOTE + ", " + SEARCH)
-    print("Next phase: " + NEXT)
+    print("Latest completed numbered runtime phase: " + LATEST)
+    print("Current active numbered runtime phase: " + ACTIVE)
+    print("Next strict numbered runtime phase: " + NEXT)
     return 0
 
 
