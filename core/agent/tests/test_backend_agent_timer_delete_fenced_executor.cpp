@@ -11,6 +11,13 @@ using namespace vdrsuite::agent;
 namespace
 {
 
+const std::string& timerFingerprint()
+{
+    static const std::string value =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    return value;
+}
+
 BackendAgentCommandAssignment assignment()
 {
     BackendAgentLocalProviderSelection selection;
@@ -28,7 +35,7 @@ BackendAgentCommandAssignment assignment()
     payload.operationRevision = "operation-revision-executor";
     payload.nativeTimerBindingId = "binding-executor";
     payload.expectedBindingRevision = "binding-revision-executor";
-    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-executor";
+    payload.expectedNativeTimerFingerprint = timerFingerprint();
     payload.timerAssignmentId = "timer-assignment-executor";
     payload.backendNativeTimerId = "native-timer-executor";
     payload.controlPlaneClaimedAt = 90;
@@ -133,7 +140,7 @@ public:
         ++deleteCalls;
         assert(request.command.commandId == "command-executor");
         assert(request.command.expectedNativeTimerFingerprint ==
-               "sha256:native-timer-observed-executor");
+               timerFingerprint());
         assert(request.localStartingPersistedAt == 200);
         if (throwDelete) throw std::runtime_error("delete");
         return reply;
