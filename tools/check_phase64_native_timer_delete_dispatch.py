@@ -68,6 +68,9 @@ require(TEST, [
 require(DOC, [
     "Phase 64 Slice 23",
     "PR #175",
+    "expectedResourceFingerprint",
+    "expectedNativeTimerFingerprint",
+    "observedFingerprint",
     "accepted -> dispatching",
     "failed_verified",
     "executed_unverified",
