@@ -28,7 +28,7 @@ RequestSecurityContext context(ActorType type, const std::string& actor)
 std::string canonicalObservedFingerprint(const std::string& marker)
 {
     return "native-timer-observed-state/1|9:channel:1|11:Movie \"A " +
-        marker + "\"|" + std::string(300, 'x') + "|";
+        marker + "\"|" + std::string(700, 'x') + "|";
 }
 
 vdrsuite::agent::BackendAgentLocalProviderFacts providerFacts(
@@ -117,6 +117,10 @@ int main()
 {
     using namespace vdrsuite::agent;
 
+    assert(backendAgentNativeTimerDeleteFingerprintToken("abc") ==
+        "sha256:ba7816bf8f01cfea414140de5dae2223"
+        "b00361a396177a9cb410ff61f20015ad");
+
     Database database;
     assert(database.open(":memory:"));
     BackendAgentRepository agents(database);
@@ -188,10 +192,12 @@ int main()
         request().expectedNativeTimerFingerprint;
     const std::string expectedFingerprintToken =
         backendAgentNativeTimerDeleteFingerprintToken(rawExpectedFingerprint);
-    assert(rawExpectedFingerprint.size() > 256);
+    assert(rawExpectedFingerprint.size() > 512);
     assert(rawExpectedFingerprint.find(' ') != std::string::npos);
     assert(rawExpectedFingerprint.find('|') != std::string::npos);
-    assert(expectedFingerprintToken.size() > 512);
+    assert(expectedFingerprintToken.size() ==
+        kBackendAgentNativeTimerDeleteFingerprintTokenLength);
+    assert(expectedFingerprintToken.rfind("sha256:", 0) == 0);
     assert(backendAgentNativeTimerDeleteFingerprintTokenValid(
         expectedFingerprintToken));
 
