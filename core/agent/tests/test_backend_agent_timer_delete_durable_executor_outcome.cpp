@@ -19,6 +19,13 @@ using namespace vdrsuite::agent;
 namespace
 {
 
+const std::string& timerFingerprint()
+{
+    static const std::string value =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    return value;
+}
+
 class Control final : public IBackendAgentControlPlaneTransport
 {
 public:
@@ -77,7 +84,7 @@ BackendAgentCommandAssignment timerDeleteAssignment()
     payload.operationRevision = "operation-revision-durable-outcome";
     payload.nativeTimerBindingId = "binding-durable-outcome";
     payload.expectedBindingRevision = "binding-revision-durable-outcome";
-    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-durable-outcome";
+    payload.expectedNativeTimerFingerprint = timerFingerprint();
     payload.timerAssignmentId = "timer-assignment-durable-outcome";
     payload.backendNativeTimerId = "native-timer-durable-outcome";
     payload.controlPlaneClaimedAt = 90;
@@ -314,7 +321,7 @@ int main()
     assert(accepted.discoveryCalls == 1);
     assert(accepted.deleteCalls == 1);
     assert(accepted.lastRequest.command.expectedNativeTimerFingerprint ==
-           "sha256:native-timer-observed-durable-outcome");
+           timerFingerprint());
     const std::string acceptedPersisted = readAll(path);
     const auto acceptedState = localStateFrom(acceptedPersisted, assignment);
     assert(acceptedState.phase == BackendAgentNativeTimerDeleteLocalPhase::completed);
