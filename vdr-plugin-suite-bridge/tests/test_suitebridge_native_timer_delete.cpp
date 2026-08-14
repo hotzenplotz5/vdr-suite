@@ -6,12 +6,17 @@
 #include <string>
 
 namespace {
+std::string fingerprintToken(char digit = 'a')
+{
+  return "sha256:" + std::string(64, digit);
+}
+
 std::string request(
     const std::string &commandId,
     const std::string &fingerprint,
     const std::string &operationId,
     const std::string &pluginEpoch = "pie_1",
-    const std::string &expectedNativeTimerFingerprint = "aa11")
+    const std::string &expectedNativeTimerFingerprint = fingerprintToken())
 {
   return
       "EXEC vdr-suite-native/1 vdr.timer.delete 1 " + commandId + " " +
@@ -119,7 +124,7 @@ int main()
         "vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 pie_1 1 1 "
         "accepted_unverified callback_applied ntdel:callback-applied");
     assert(callback.calls == 1);
-    assert(callback.lastExpectedNativeTimerFingerprint == "aa11");
+    assert(callback.lastExpectedNativeTimerFingerprint == fingerprintToken());
 
     const SuiteBridgeCommandResult replay =
         service.Handle("NTDEL", baseRequest.c_str());
@@ -128,7 +133,7 @@ int main()
     assert(callback.calls == 1);
 
     const std::string conflictingNativeTimerFingerprint =
-        request("cmd_1", "fp_1", "op_1", "pie_1", "bb22");
+        request("cmd_1", "fp_1", "op_1", "pie_1", fingerprintToken('b'));
     const SuiteBridgeCommandResult nativeTimerFingerprintConflict =
         service.Handle("NTDEL", conflictingNativeTimerFingerprint.c_str());
     assert(nativeTimerFingerprintConflict.replyCode == 559);
@@ -154,23 +159,11 @@ int main()
   }
 
   {
-    CountingCallback callback;
-    SuiteBridgeNativeTimerDeleteService service("pie_1", &callback);
-    const std::string longFingerprint(600, 'a');
-    const std::string longRequest =
-        request("cmd_l", "fp_l", "op_l", "pie_1", longFingerprint);
-    const SuiteBridgeCommandResult reply =
-        service.Handle("NTDEL", longRequest.c_str());
-    assert(reply.handled);
-    assert(reply.replyCode == 557);
-    assert(callback.calls == 1);
-    assert(callback.lastExpectedNativeTimerFingerprint == longFingerprint);
-  }
-
-  {
     SuiteBridgeNativeTimerDeleteService service("pie_1");
+    const std::string malformedDigest =
+        "sha256:" + std::string(63, 'a') + "g";
     const std::string invalidFingerprint =
-        request("cmd_i", "fp_i", "op_i", "pie_1", "gg");
+        request("cmd_i", "fp_i", "op_i", "pie_1", malformedDigest);
     const SuiteBridgeCommandResult reply =
         service.Handle("NTDEL", invalidFingerprint.c_str());
     assert(reply.handled);
