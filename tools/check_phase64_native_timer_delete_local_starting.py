@@ -109,8 +109,8 @@ require(
 )
 require(
     test,
-    'expected_native_timer_fingerprint=sha256:native-timer-observed-44',
-    "native Timer fingerprint persistence regression",
+    '"expected_native_timer_fingerprint=" + timerFingerprint()',
+    "SHA-256 native Timer fingerprint persistence regression",
 )
 require(
     test,
