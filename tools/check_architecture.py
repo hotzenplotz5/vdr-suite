@@ -38,20 +38,31 @@ SQLITE_SPLIT_REPOSITORY_FAMILIES = [
     ),
 ]
 
+SQLITE_SPLIT_REPOSITORY_FILES = {
+    "core/agent/src/BackendAgentCommandDelivery.cpp",
+    "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
+}
+
 SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
     "api/rest/src/GenreBrowserApiRuntime.cpp",
+    "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
 }
 
 SQLITE_ALLOWED_CONTRACT_TESTS = {
+    "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+    "core/agent/tests/test_backend_agent_lifecycle.cpp",
     "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
+    "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
     "core/metadata/tests/test_genre_epg_refresh_fast_path.cpp",
     "core/metadata/tests/test_genre_recording_sync_noop.cpp",
     "core/metadata/tests/test_genre_write_batching.cpp",
+    "core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp",
     "core/metadata/tests/test_metadata_schema_contract.cpp",
+    "core/recordings/tests/test_manual_recording_metadata_revision.cpp",
     "core/vdr/tests/test_epg_artwork_repository.cpp",
     "core/vdr/tests/test_epg_event_repository.cpp",
     "core/vdr/tests/test_global_search_repository.cpp",
-    "core/agent/tests/test_backend_agent_lifecycle.cpp",
+    "core/vdr/tests/test_vdr_recording_native_person_search_service.cpp",
 }
 
 
@@ -85,6 +96,9 @@ def is_domain_repository_implementation(path: Path) -> bool:
 
 def is_split_repository_implementation(path: Path) -> bool:
     rel = repo_path(path)
+    if rel in SQLITE_SPLIT_REPOSITORY_FILES:
+        return True
+
     return any(
         rel.startswith(directory_prefix) and
         path.name.startswith(repository_prefix)
@@ -151,6 +165,7 @@ def check_sqlite_boundary_contract() -> list[str]:
     allowed_paths = [
         "core/sqlite/src/Database.cpp",
         "core/recordings/src/RecordingRepository.cpp",
+        "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
         "core/vdr/src/EpgEventRepository.cpp",
         "core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp",
         "core/vdr/src/VdrRecordingCacheRepository.cpp",
@@ -158,21 +173,31 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.h",
         "core/metadata/src/MetadataEntityRepository.cpp",
         "core/security/src/SecurityIdentityRepository.cpp",
+        "core/agent/src/BackendAgentCommandDelivery.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
+        "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
+        "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+        "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
+        "core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp",
         "core/metadata/tests/test_metadata_schema_contract.cpp",
+        "core/recordings/tests/test_manual_recording_metadata_revision.cpp",
         "core/vdr/tests/test_epg_event_repository.cpp",
+        "core/vdr/tests/test_vdr_recording_native_person_search_service.cpp",
     ]
 
     rejected_paths = [
         "core/recordings/src/RecordingActionService.cpp",
+        "core/recordings/src/ManualRecordingMetadataRepositoryFacadeHelper.cpp",
         "core/vdr/src/VdrService.cpp",
         "core/vdr/src/RepositoryHelper.cpp",
         "core/metadata/src/MetadataResolver.cpp",
         "core/security/include/SecurityIdentityRepository.h",
         "core/security/src/RepositoryHelper.cpp",
+        "core/agent/src/BackendAgentCommandDeliveryHelper.cpp",
         "core/timers/src/TimerIntentPersistence.cpp",
         "core/timers/src/RepositoryHelper.cpp",
+        "core/daemon/src/SeriesArtworkBackendSettingsHelper.cpp",
         "core/metadata/tests/test_metadata_identity.cpp",
         "api/rest/src/FakeRepository.cpp",
         "apps/example/src/FakeRepository.cpp",
