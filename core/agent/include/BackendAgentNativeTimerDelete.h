@@ -23,6 +23,7 @@ struct BackendAgentNativeTimerDeleteCommand
     std::string operationRevision;
     std::string nativeTimerBindingId;
     std::string expectedBindingRevision;
+    std::string expectedNativeTimerFingerprint;
     std::string timerAssignmentId;
     std::string backendNativeTimerId;
     std::string jobId;
