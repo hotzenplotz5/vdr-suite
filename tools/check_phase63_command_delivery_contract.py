@@ -149,10 +149,13 @@ require(
     ],
 )
 
+# The target architecture is intentionally status-free. Guard the stable
+# execution semantics rather than a historical phase-progress sentence.
 require(
     TARGET_ARCHITECTURE,
     [
-        "commands/results and native execution [later Phase 63]",
+        "Backend Agent Protocol",
+        "observations, commands, receipts, results and local fencing",
         "safe mutation and durable execution target",
         "fenced Agent/native command",
         "authoritative readback and verification",
@@ -248,5 +251,5 @@ if failures:
 print("Phase-63 command delivery contract check passed")
 print(f"Merged read-only ingestion base: {BASE_COMMIT}")
 print(f"Merged read-only ingestion tree: {BASE_TREE}")
-print("Next bounded slice: durable Agent command delivery")
+print("Historical next bounded slice: durable Agent command delivery")
 print("Runtime implementation: bounded and guarded" if runtime_present else "Runtime implementation: separate bounded Draft PR")
