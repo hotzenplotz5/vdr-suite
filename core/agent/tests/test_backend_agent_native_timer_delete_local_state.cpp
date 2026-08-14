@@ -9,6 +9,13 @@ using namespace vdrsuite::agent;
 namespace
 {
 
+const std::string& timerFingerprint()
+{
+    static const std::string value =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    return value;
+}
+
 BackendAgentCommandAssignment assignment()
 {
     BackendAgentLocalProviderSelection selection;
@@ -26,7 +33,7 @@ BackendAgentCommandAssignment assignment()
     payload.operationRevision = "op-rev-9";
     payload.nativeTimerBindingId = "binding-17";
     payload.expectedBindingRevision = "binding-rev-6";
-    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-44";
+    payload.expectedNativeTimerFingerprint = timerFingerprint();
     payload.timerAssignmentId = "timer-assignment-12";
     payload.backendNativeTimerId = "native-timer-44";
     payload.controlPlaneClaimedAt = 100;
@@ -100,8 +107,7 @@ int main()
     assert(command.operationId == assigned.operationId);
     assert(command.operationRevision == "op-rev-9");
     assert(command.nativeTimerBindingId == "binding-17");
-    assert(command.expectedNativeTimerFingerprint ==
-           "sha256:native-timer-observed-44");
+    assert(command.expectedNativeTimerFingerprint == timerFingerprint());
     assert(command.backendNativeTimerId == "native-timer-44");
     assert(command.localProviderSelection.providerInstanceEpoch ==
            "suitebridge-epoch-4");
@@ -151,7 +157,7 @@ int main()
         backendAgentNativeTimerDeleteSerializeLocalState(starting, reason);
     assert(!encodedStarting.empty());
     assert(encodedStarting.find(
-               "expected_native_timer_fingerprint=sha256:native-timer-observed-44\n") !=
+               "expected_native_timer_fingerprint=" + timerFingerprint() + "\n") !=
            std::string::npos);
     BackendAgentNativeTimerDeleteLocalState parsedStarting;
     assert(backendAgentNativeTimerDeleteParseLocalState(
@@ -219,7 +225,7 @@ int main()
     assert(parsedCompleted.phase ==
            BackendAgentNativeTimerDeleteLocalPhase::completed);
     assert(parsedCompleted.command.expectedNativeTimerFingerprint ==
-           "sha256:native-timer-observed-44");
+           timerFingerprint());
     assert(parsedCompleted.evidence.dispatchStartedAt == 121);
     assert(parsedCompleted.evidence.completedAt == 126);
 
@@ -247,7 +253,7 @@ int main()
 
     std::string missingFingerprint = encodedStarting;
     const std::string fingerprint =
-        "expected_native_timer_fingerprint=sha256:native-timer-observed-44";
+        "expected_native_timer_fingerprint=" + timerFingerprint();
     const auto fingerprintAt = missingFingerprint.find(fingerprint);
     assert(fingerprintAt != std::string::npos);
     missingFingerprint.replace(
