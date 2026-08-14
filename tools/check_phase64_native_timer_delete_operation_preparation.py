@@ -32,6 +32,7 @@ require(
         "NativeTimerDeleteOperationPreparationRequest",
         "NativeTimerDeleteDispatchHandoff",
         "expectedBindingRevision",
+        "expectedNativeTimerFingerprint",
         "expectedBackendGeneration",
         "operationRevision",
         "alreadyPrepared",
@@ -43,6 +44,9 @@ require(
     [
         'operation.resourceType = "NativeTimerBinding"',
         'operation.actionFamily = "timer.delete"',
+        "operation.expectedResourceFingerprint = binding.observedFingerprint",
+        "handoff.expectedNativeTimerFingerprint =",
+        "operation.expectedResourceFingerprint",
         "MutationOperationVerificationPolicy::readbackRequired",
         "MutationOperationState::accepted",
         "binding.missingSince != 0",
@@ -67,6 +71,10 @@ require(
         "bindingMissing",
         "driftConflict",
         "bindingNotFound",
+        "prepared.operation.expectedResourceFingerprint",
+        "prepared.handoff.expectedNativeTimerFingerprint",
+        "replay.operation.expectedResourceFingerprint",
+        "replay.handoff.expectedNativeTimerFingerprint",
     ],
 )
 require(
