@@ -34,6 +34,7 @@ require(HEADER, [
     "BackendAgentNativeTimerDeleteEvidence",
     "operationRevision",
     "expectedBindingRevision",
+    "expectedNativeTimerFingerprint",
     "controlPlaneClaimedAt",
     "localStartingPersistedAt",
     "acceptedUnverified",
@@ -45,11 +46,14 @@ require(SOURCE, [
     "kBackendAgentNativeTimerDeleteCapability",
     "kBackendAgentNativeTimerDeleteProviderId",
     "kBackendAgentNativeTimerDeleteProviderKind",
+    "fingerprint(command.expectedNativeTimerFingerprint)",
     "evidence.localStartingPersistedAt < command.controlPlaneClaimedAt",
     "evidence.dispatchStartedAt < evidence.localStartingPersistedAt",
     "rejected-outcome-has-dispatch",
 ])
 require(TEST, [
+    'expectedNativeTimerFingerprint = "sha256:native-timer-observed-1"',
+    "noNativeFingerprint.expectedNativeTimerFingerprint.clear()",
     'requiredCapability = "vdr.native.probe"',
     'authorityDomain = "vdr.native"',
     'providerId = "restfulapi:local"',
