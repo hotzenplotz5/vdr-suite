@@ -103,6 +103,35 @@ This is target context, not a native command and not a readback expectation.
 The fingerprint is a precondition for a later dispatch claim; it is not evidence
 that any mutation occurred.
 
+## Downstream transport representation
+
+The Control Plane deliberately keeps the exact canonical
+`NativeTimerBinding.observedFingerprint` as the durable CAS value. Preparation,
+`MutationOperation.expectedResourceFingerprint`, the dispatch handoff and the
+Control-Plane dispatch claim compare that canonical value byte-for-byte; they do
+not replace it with a hash.
+
+The later Agent/SuiteBridge hardening introduces a separate bounded transport
+representation at the Control Plane -> Agent assignment boundary. The canonical
+fingerprint is deterministically converted to:
+
+```text
+sha256:<64 lowercase hexadecimal characters>
+```
+
+Only that fixed-size token is carried in the Agent command payload, durable
+Agent local state and private SuiteBridge Timer-delete protocol/replay identity.
+This avoids treating the canonical fingerprint itself as an SVDRP token: the
+canonical form is length-delimited state text and may legitimately contain
+spaces, separators and long Timer metadata.
+
+The SHA-256 token is therefore a transport/CAS representation of the already
+frozen canonical state, not a second source of truth and not a replacement for
+the Control-Plane raw equality check. A later real VDR mutation callback must
+canonicalize the freshly locked live Timer, derive the same token and compare it
+before any delete side effect is allowed. That real mutation/lock-time check is
+outside this preparation slice and remains separately acceptance-gated.
+
 ## No premature readback fence
 
 Slice 18 requires a positive `readbackNotBefore` because an observation captured
