@@ -2,7 +2,7 @@
 
 ## Status
 
-Bounded dispatch-state contract stacked on Phase 64 Slice 22 / Draft PR #175.
+Bounded dispatch-state contract, now retargeted to `main` after Slice 22 / PR #175 merged.
 
 Slice 22 reserves one shared ADR-0042 delete operation and returns immutable
 pre-dispatch target context. Slice 23 defines how that context is claimed before
