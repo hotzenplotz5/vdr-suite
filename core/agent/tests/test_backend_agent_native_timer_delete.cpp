@@ -23,6 +23,11 @@ BackendAgentLocalProviderSelection selection()
     return value;
 }
 
+std::string fingerprintToken(char digit = 'a')
+{
+    return "sha256:" + std::string(64, digit);
+}
+
 BackendAgentNativeTimerDeleteCommand command()
 {
     BackendAgentNativeTimerDeleteCommand value;
@@ -32,7 +37,7 @@ BackendAgentNativeTimerDeleteCommand command()
     value.operationRevision = "2";
     value.nativeTimerBindingId = "binding:1";
     value.expectedBindingRevision = "7";
-    value.expectedNativeTimerFingerprint = "aabbccdd";
+    value.expectedNativeTimerFingerprint = fingerprintToken();
     value.timerAssignmentId = "assignment:1";
     value.backendNativeTimerId = "timer:17";
     value.jobId = "job:1";
