@@ -19,6 +19,7 @@ constexpr const char *ResultProtocol = "vdr-suite-ntdel-result/1";
 constexpr std::uint64_t NativeOperationSchema = 1;
 constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 1;
+constexpr std::size_t NativeFingerprintTokenMaximum = 8192;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
 constexpr int StaleReplyCode = 555;
@@ -34,6 +35,16 @@ bool safeToken(const std::string &value, std::size_t maximum = 512)
       std::all_of(value.begin(), value.end(), [](unsigned char character) {
         return std::isalnum(character) != 0 || character == '-' ||
             character == '_' || character == '.' || character == ':';
+      });
+}
+
+bool safeFingerprintToken(const std::string &value)
+{
+  return !value.empty() && value.size() <= NativeFingerprintTokenMaximum &&
+      value.size() % 2 == 0 &&
+      std::all_of(value.begin(), value.end(), [](unsigned char character) {
+        return (character >= '0' && character <= '9') ||
+            (character >= 'a' && character <= 'f');
       });
 }
 
@@ -116,7 +127,7 @@ bool parseExecute(
       safeToken(request.operationRevision, 192) &&
       safeToken(request.nativeTimerBindingId, 192) &&
       safeToken(request.expectedBindingRevision, 192) &&
-      safeToken(request.expectedNativeTimerFingerprint) &&
+      safeFingerprintToken(request.expectedNativeTimerFingerprint) &&
       safeToken(request.timerAssignmentId, 192) &&
       safeToken(request.backendNativeTimerId, 192) &&
       safeToken(request.jobId, 192) && safeToken(request.attemptId, 192) &&
