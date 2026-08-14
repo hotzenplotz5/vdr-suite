@@ -162,6 +162,35 @@ before relying on replay after process restart. Phase 63 already demonstrates
 this principle with protected command/result state; Slice 23 only defines the
 Control-Plane mapping.
 
+## Agent and SuiteBridge fingerprint representation
+
+The Control-Plane CAS remains the exact canonical native Timer observed-state
+fingerprint. `MutationOperation.expectedResourceFingerprint`, the preparation
+handoff, the dispatch claim and the current `NativeTimerBinding` are compared
+byte-for-byte in that canonical representation before dispatch is authorized.
+
+The later Agent/SuiteBridge integration does not place that raw canonical text
+on the private SVDRP wire. At the Control Plane -> Agent assignment boundary the
+already frozen canonical fingerprint is deterministically represented as:
+
+```text
+sha256:<64 lowercase hexadecimal characters>
+```
+
+The Agent command payload, durable local `starting`/completed state and private
+SuiteBridge Timer-delete request/replay identity carry this fixed-size token.
+That distinction matters because the canonical fingerprint is length-delimited
+state data and may contain spaces, separators and long Timer metadata that are
+not valid single SVDRP tokens.
+
+The token is an additional bounded representation of the same CAS precondition;
+it does not weaken or replace the raw Control-Plane equality check. A future
+real VDR delete callback must acquire the correct VDR Timer lock, canonicalize
+the live Timer using the same observed-state rules, derive the same SHA-256
+token and compare it before any side effect. A mismatch must reject without
+deleting. PR #192 still leaves production Timer mutation disabled, so that
+lock-time mutation boundary remains a later explicit acceptance gate.
+
 ## Relationship to Phase 63
 
 Phase 63 established that:
