@@ -197,11 +197,6 @@ inline bool safeIdentifier(const std::string& value)
     return safeToken(value, 128);
 }
 
-inline bool safeFingerprint(const std::string& value)
-{
-    return backendAgentNativeTimerDeleteFingerprintTokenValid(value);
-}
-
 inline bool exactProviderSelection(
     const BackendAgentLocalProviderSelection& selection)
 {
@@ -214,16 +209,41 @@ inline bool exactProviderSelection(
             kBackendAgentNativeTimerDeleteCapability;
 }
 
-inline bool valid(const BackendAgentNativeTimerDeletePayload& payload)
+inline bool commonValid(const BackendAgentNativeTimerDeletePayload& payload)
 {
     return safeIdentifier(payload.operationRevision) &&
         safeIdentifier(payload.nativeTimerBindingId) &&
         safeIdentifier(payload.expectedBindingRevision) &&
-        safeFingerprint(payload.expectedNativeTimerFingerprint) &&
         safeIdentifier(payload.timerAssignmentId) &&
         safeIdentifier(payload.backendNativeTimerId) &&
         payload.controlPlaneClaimedAt > 0 &&
         exactProviderSelection(payload.localProviderSelection);
+}
+
+inline bool valid(const BackendAgentNativeTimerDeletePayload& payload)
+{
+    return commonValid(payload) &&
+        backendAgentNativeTimerDeleteFingerprintTokenValid(
+            payload.expectedNativeTimerFingerprint);
+}
+
+inline bool serializable(const BackendAgentNativeTimerDeletePayload& payload)
+{
+    return commonValid(payload) &&
+        (backendAgentNativeTimerDeleteFingerprintTokenValid(
+             payload.expectedNativeTimerFingerprint) ||
+         backendAgentNativeTimerDeleteCanonicalFingerprintValid(
+             payload.expectedNativeTimerFingerprint));
+}
+
+inline std::string transportFingerprint(
+    const BackendAgentNativeTimerDeletePayload& payload)
+{
+    if (backendAgentNativeTimerDeleteFingerprintTokenValid(
+            payload.expectedNativeTimerFingerprint))
+        return payload.expectedNativeTimerFingerprint;
+    return backendAgentNativeTimerDeleteFingerprintToken(
+        payload.expectedNativeTimerFingerprint);
 }
 
 } // namespace native_timer_delete_payload_detail
@@ -232,7 +252,9 @@ inline std::string backendAgentNativeTimerDeletePayload(
     const BackendAgentNativeTimerDeletePayload& payload)
 {
     using namespace native_timer_delete_payload_detail;
-    if (!valid(payload)) return {};
+    if (!serializable(payload)) return {};
+    const std::string fingerprint = transportFingerprint(payload);
+    if (!backendAgentNativeTimerDeleteFingerprintTokenValid(fingerprint)) return {};
     const auto& selection = payload.localProviderSelection;
     std::ostringstream output;
     output << "{\"timerDeleteSchema\":1"
@@ -240,7 +262,7 @@ inline std::string backendAgentNativeTimerDeletePayload(
            << ",\"nativeTimerBindingId\":\"" << payload.nativeTimerBindingId << "\""
            << ",\"expectedBindingRevision\":\"" << payload.expectedBindingRevision << "\""
            << ",\"expectedNativeTimerFingerprint\":\""
-           << payload.expectedNativeTimerFingerprint << "\""
+           << fingerprint << "\""
            << ",\"timerAssignmentId\":\"" << payload.timerAssignmentId << "\""
            << ",\"backendNativeTimerId\":\"" << payload.backendNativeTimerId << "\""
            << ",\"controlPlaneClaimedAt\":" << payload.controlPlaneClaimedAt
