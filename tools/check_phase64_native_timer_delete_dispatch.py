@@ -26,6 +26,7 @@ def require(path: Path, markers: list[str]) -> None:
 require(HEADER, [
     "NativeTimerDeleteDispatchService",
     "NativeTimerDeleteDispatchClaim",
+    "expectedNativeTimerFingerprint",
     "NativeTimerDeleteExecutorOutcome",
     "rejectedWithoutEffect",
     "acceptedUnverified",
@@ -39,7 +40,12 @@ require(SOURCE, [
     "MutationOperationState::executedUnverified",
     "MutationOperationState::outcomeUnknown",
     "operationRepository_.transition",
+    "operation.expectedResourceFingerprint ==",
+    "handoff.expectedNativeTimerFingerprint",
+    "claim.expectedNativeTimerFingerprint =",
+    "claim.expectedNativeTimerFingerprint.empty()",
     "binding.bindingRevision == handoff.expectedBindingRevision",
+    "binding.observedFingerprint != handoff.expectedNativeTimerFingerprint",
     "binding.missingSince != 0",
     "binding.driftState != NativeTimerBindingDriftState::none",
     "expectation.readbackNotBefore = outcome.dispatchStartedAt",
@@ -52,6 +58,12 @@ require(TEST, [
     "failedVerified",
     "readbackNotBefore",
     "bindingRevisionConflict",
+    "binding:fingerprint-race",
+    "mutateObservedState",
+    "NativeTimerDeleteDispatchClaimStatus::bindingStateConflict",
+    "fingerprintOperation.operation.state == MutationOperationState::accepted",
+    "tamperedHandoff.expectedNativeTimerFingerprint",
+    "NativeTimerDeleteDispatchClaimStatus::identityConflict",
 ])
 require(DOC, [
     "Phase 64 Slice 23",
