@@ -1,103 +1,74 @@
 # VDR-Suite Documentation
 
+## Navigation
+
+- [README](../README.md)
+- [Current State](CURRENT.md)
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Architecture Decision Records](adr/index.md)
+
+---
+
+## Purpose
+
+This index is a stable navigation page. It deliberately does **not** duplicate active PR numbers, branch heads, CI runs, current phase tips or other volatile operational facts.
+
+For exact current project state, always use [Current State](CURRENT.md). For binding future execution order, use the [Strict Roadmap](planning/roadmap.md).
+
 ## Start here
 
-- [Current State](CURRENT.md) — current merged implementation and runtime truth.
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for new work.
-- [Current Project Status](development/current-status.md) — compact current development state.
-- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md) — later security impact and evidence boundary.
-- [Phase 62 Final Closeout](development/phase-62-closeout.md) — completed phase scope and retirement decision.
-- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md) — final real-yaVDR Phase-62 evidence.
-- [Project Overview](project-overview.md) — compact product and architecture summary.
-- [Project Status Dashboard](project-status-dashboard.md) — capability/status table.
+- [Current State](CURRENT.md) — sole repository authority for volatile operational status.
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite work session.
+- [Current Project Status](development/current-status.md) — stable narrative context around the current platform direction.
+- [Project Overview](project-overview.md) — compact product and architecture overview.
 - [Project Principles](project-principles.md) — binding product and engineering principles.
-
-## Planning and implementation status
-
-- [Strict Roadmap](planning/roadmap.md)
-- [Phase Map](planning/phase-map.md)
-- [Phase 62 Final Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
-- [Development Documentation](development/index.md)
-- [Implementation Dependency Map](planning/implementation-dependency-map.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Current Architecture State](development/current-architecture-state.md)
-
-## Current marker
-
-The latest completed numbered runtime phase is **Phase 62 — Identity, RBAC and Accountability Foundation**. PR #117 is merged. The next strict runtime phase is **Phase 63 — Backend Agent and Secure Multi-Site Runtime**, which is planned but not started.
-
-```text
-Historical final accepted Phase-62 runtime head:
-4762583d5b5170866838ed9f03b928adbf39f99e
-
-Source CI:
-VDR-Suite CI #6884
-Run ID 30752351218
-All five jobs successful
-
-Runtime marker:
-PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
-
-Installed/running daemon SHA-256:
-488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
-
-Runtime report SHA-256:
-bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
-
-Durable evidence:
-/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
-```
-
-The historical hash closes Phase 62. Later daemon work has separate CI and runtime evidence and does not reopen the phase.
-
-Completed post-Phase-62 work includes TVScraper corrections (#118), public-base-path-safe EPG artwork (#123), guarded series-artwork fallback and secure backend settings (#132), and the channel-detail layout correction (`96b97378` / `2d04a963`). Phase 63-67 runtime has not been advanced.
-
-## Completed history
-
-- [Completed Phases](development/completed-phases.md)
-- [Completed Phases Latest Marker](development/completed-phases-latest.md)
-- [Completed Phase Archive](development/completed-phases/README.md)
-- [Phase 62 Final Closeout](development/phase-62-closeout.md)
-- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
-- [Phase 61 Metadata, Genre and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
+- [Strict Roadmap](planning/roadmap.md) — binding phase order and completion gates.
+- [Golden User Journeys](planning/golden-user-journeys.md) — vertical product acceptance paths.
 
 ## Architecture
 
 - [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
-- [Security and Identity Foundation](architecture/security-identity-foundation.md)
-- [EPG Series Artwork Fallback Runtime](architecture/epg-series-artwork-fallback-runtime.md)
-- [EPG Series Artwork Public Delivery](architecture/epg-series-artwork-public-delivery.md)
-- [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
-- [Backend-Scoped Global Search](architecture/global-search.md)
-- [Live Remote, Overlay and Legacy OSD Contract](architecture/live-remote-osd-contract.md)
-- [RESTfulAPI Integration](architecture/restfulapi-integration.md)
+- [Current Architecture State](development/current-architecture-state.md)
+- [Domain Dependency Map](planning/domain-dependency-map.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Architecture Decision Records](adr/index.md)
 
-## Development references
+## Development and history
 
+- [Development Documentation](development/index.md)
+- [Completed Phases](development/completed-phases.md)
+- [Completed Phase Archive](development/completed-phases/README.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
-- [Person API](development/person-api.md)
-- [Web Client API Contract Snapshot](development/web-client-api-contract-snapshot.md)
 
-## Planning references
+Historical closeouts may contain exact accepted SHAs, CI runs, runtime fingerprints and evidence paths. Those values are historical evidence for the bounded candidate they close and must not be interpreted as the current repository head.
+
+## Planning
 
 - [Planning Documentation](planning/index.md)
-- [Domain Dependency Map](planning/domain-dependency-map.md)
-- [TVScraper / Provider Strategy](planning/tvscraper-recording-metadata-roadmap.md)
-- [Lazy Recording Loading](planning/lazy-recording-loading.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Golden User Journeys](planning/golden-user-journeys.md)
+- [VDR Ecosystem Parity and Product Gaps](planning/parity-audit-and-frontend-gap-roadmap.md)
 
 ## Status model
 
-- **CURRENT**: verified current merged-code truth plus explicitly identified maintenance work.
-- **PLANNED**: genuinely open work with an explicit target owner.
-- **COMPLETED**: implementation with test and appropriate runtime evidence.
-- **HISTORICAL**: retained traceability that is not a current entry point.
-- **SUPERSEDED**: replaced content with a named current successor.
-- **DEFERRED**: intentionally postponed work with prerequisites.
+- **CURRENT** — volatile operational truth; owned only by `docs/CURRENT.md`.
+- **ROADMAP** — binding dependency/order and phase gates; no exact active-head duplication.
+- **ARCHITECTURE** — stable ownership, identity and contract boundaries.
+- **COMPLETED** — historical implementation evidence for closed work.
+- **PLANNED** — genuinely open work with explicit prerequisites.
+- **HISTORICAL** — retained traceability that is not a current work prompt.
+- **SUPERSEDED** — replaced content with a named current successor.
+- **DEFERRED** — intentionally postponed work with named prerequisites.
 
-Accepted ADRs remain architecture decisions. Their runtime implementation status is tracked separately.
+Accepted ADRs change target contracts. They do not by themselves prove runtime implementation or phase completion.
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Current State](CURRENT.md)
