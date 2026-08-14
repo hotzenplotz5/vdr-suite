@@ -86,6 +86,11 @@ SuiteBridgeSvdrpTransportConfig config(int port)
     return value;
 }
 
+std::string fingerprintToken(char digit = 'a')
+{
+    return "sha256:" + std::string(64, digit);
+}
+
 BackendAgentNativeTimerDeleteTransportRequest validRequest()
 {
     BackendAgentNativeTimerDeleteTransportRequest request;
@@ -96,7 +101,7 @@ BackendAgentNativeTimerDeleteTransportRequest validRequest()
     command.operationRevision = "opr_1";
     command.nativeTimerBindingId = "ntb_1";
     command.expectedBindingRevision = "nbr_1";
-    command.expectedNativeTimerFingerprint = std::string(600, 'a');
+    command.expectedNativeTimerFingerprint = fingerprintToken();
     command.timerAssignmentId = "tas_1";
     command.backendNativeTimerId = "42";
     command.jobId = "job_1";
@@ -155,7 +160,7 @@ int main()
         assert(reply.disposition ==
             BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect);
         assert(reply.evidenceReference == "ntdel:disabled:cmd_1");
-        assert(request.command.expectedNativeTimerFingerprint.size() > 512);
+        assert(request.command.expectedNativeTimerFingerprint == fingerprintToken());
         assert(server.request() ==
             "PLUG suitebridge NTDEL EXEC vdr-suite-native/1 vdr.timer.delete 1 "
             "cmd_1 fp_1 op_1 opr_1 ntb_1 nbr_1 " +
@@ -178,7 +183,7 @@ int main()
 
     {
         auto request = validRequest();
-        request.command.expectedNativeTimerFingerprint[0] = 'g';
+        request.command.expectedNativeTimerFingerprint.back() = 'g';
         SuiteBridgeSvdrpTransportConfig disabled;
         disabled.host.clear();
         SuiteBridgeNativeTimerDeleteTransport transport(disabled);
