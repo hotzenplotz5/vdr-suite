@@ -116,6 +116,14 @@ include_line = "include mk/phase64-native-timer-inventory-evidence-tests.mk"
 if include_line not in makefile:
     raise SystemExit("Slice-15 make fragment is not included")
 
+# Slice 16 adds one explicitly reviewed, test-only provider-side producer for this
+# evidence. Keep the older Slice-15 runtime-wiring fence closed everywhere else.
+allowed_later_consumers = {
+    "core/vdr/include/RestfulApiNativeTimerInventoryReader.h",
+    "core/vdr/src/RestfulApiNativeTimerInventoryReader.cpp",
+    "core/vdr/tests/test_restfulapi_native_timer_inventory_reader.cpp",
+}
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",
@@ -130,12 +138,12 @@ for scan_root in [
             ".mk", ".conf", ".service",
         }:
             continue
+        relative = str(path.relative_to(ROOT))
         if "NativeTimerInventoryEvidence" in path.read_text(
             encoding="utf-8", errors="ignore"
-        ):
+        ) and relative not in allowed_later_consumers:
             raise SystemExit(
-                "premature Slice-15 runtime wiring: "
-                + str(path.relative_to(ROOT))
+                "premature Slice-15 runtime wiring: " + relative
             )
 
 print("Phase-64 native Timer inventory evidence check passed")
