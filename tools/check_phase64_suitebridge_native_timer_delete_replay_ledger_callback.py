@@ -48,6 +48,7 @@ for needle, label in (
     require(header, needle, label)
 
 for needle, label in (
+    ("safeFingerprintToken(request.expectedNativeTimerFingerprint)", "strict SHA-256 fingerprint request validation"),
     ("canonicalRequest(request)", "exact semantic request canonicalization"),
     ("request.operationId", "operation identity binding"),
     ("request.requestFingerprint", "request fingerprint binding"),
@@ -93,9 +94,10 @@ forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement
 
 for needle, label in (
     ("callback.calls == 1", "exactly-once callback assertions"),
-    ('callback.lastExpectedNativeTimerFingerprint == "ntfp_1"', "exact native Timer fingerprint callback propagation"),
+    ("callback.lastExpectedNativeTimerFingerprint == fingerprintToken()", "exact SHA-256 native Timer fingerprint callback propagation"),
     ("conflictingNativeTimerFingerprint", "changed native Timer fingerprint replay conflict"),
     ("nativeTimerFingerprintConflict.replyCode == 559", "changed native Timer fingerprint no-effect result"),
+    ("malformedDigest", "malformed SHA-256 fingerprint regression"),
     ("reentrantReply.replyCode == 558", "in-progress replay regression"),
     ("conflict.replyCode == 559", "fingerprint conflict regression"),
     ("full.replyCode == 560", "ledger capacity regression"),
