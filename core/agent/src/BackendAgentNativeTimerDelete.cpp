@@ -1,5 +1,7 @@
 #include "BackendAgentNativeTimerDelete.h"
 
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
+
 #include <cstddef>
 
 namespace vdrsuite::agent
@@ -7,7 +9,7 @@ namespace vdrsuite::agent
 namespace
 {
 constexpr std::size_t kMaxIdentityLength = 192;
-constexpr std::size_t kMaxFingerprintLength = 512;
+constexpr std::size_t kMaxRequestFingerprintLength = 512;
 constexpr std::size_t kMaxEvidenceReferenceLength = 512;
 
 bool identity(const std::string& value)
@@ -15,9 +17,9 @@ bool identity(const std::string& value)
     return !value.empty() && value.size() <= kMaxIdentityLength;
 }
 
-bool fingerprint(const std::string& value)
+bool requestFingerprint(const std::string& value)
 {
-    return !value.empty() && value.size() <= kMaxFingerprintLength;
+    return !value.empty() && value.size() <= kMaxRequestFingerprintLength;
 }
 
 bool exactProviderSelection(
@@ -48,11 +50,13 @@ bool backendAgentNativeTimerDeleteValidCommand(
     std::string& reasonCode)
 {
     reasonCode.clear();
-    if (!identity(command.commandId) || !fingerprint(command.requestFingerprint) ||
+    if (!identity(command.commandId) ||
+        !requestFingerprint(command.requestFingerprint) ||
         !identity(command.operationId) || !identity(command.operationRevision) ||
         !identity(command.nativeTimerBindingId) ||
         !identity(command.expectedBindingRevision) ||
-        !fingerprint(command.expectedNativeTimerFingerprint) ||
+        !backendAgentNativeTimerDeleteFingerprintTokenValid(
+            command.expectedNativeTimerFingerprint) ||
         !identity(command.timerAssignmentId) ||
         !identity(command.backendNativeTimerId) || !identity(command.jobId) ||
         !identity(command.attemptId) || command.claimEpoch == 0 ||
