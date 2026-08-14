@@ -1,5 +1,7 @@
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
 
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -100,7 +102,8 @@ bool safeRequest(const BackendAgentNativeTimerDeleteTransportRequest& request)
         safeWireToken(command.operationRevision, 192) &&
         safeWireToken(command.nativeTimerBindingId, 192) &&
         safeWireToken(command.expectedBindingRevision, 192) &&
-        safeWireToken(command.expectedNativeTimerFingerprint) &&
+        backendAgentNativeTimerDeleteFingerprintTokenValid(
+            command.expectedNativeTimerFingerprint) &&
         safeWireToken(command.timerAssignmentId, 192) &&
         safeWireToken(command.backendNativeTimerId, 192) &&
         safeWireToken(command.jobId, 192) &&
