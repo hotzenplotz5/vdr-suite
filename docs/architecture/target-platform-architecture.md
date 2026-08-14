@@ -1,86 +1,57 @@
 # VDR-Suite Target Platform Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
+- [Current Architecture State](../development/current-architecture-state.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Domain Dependency Map](../planning/domain-dependency-map.md)
+- [ADR Index](../adr/index.md)
+
+---
+
 ## Status and purpose
 
-This is the canonical target architecture accepted through ADR-0049, with ADR-0050 reinforcing the domain-repository SQLite boundary. It distinguishes implemented foundations from later target runtime.
+This document defines the stable target ownership and contract boundaries of VDR-Suite.
 
-A target box is not proof of implementation. Current runtime truth is maintained in:
+It intentionally does **not** contain current branch heads, active PR numbers, CI checkpoints or a mutable implementation overlay. Exact operational progress belongs only in [Current State](../CURRENT.md). Implemented architecture is summarized without active-head duplication in [Current Architecture State](../development/current-architecture-state.md).
 
-- [Current Architecture State](../development/current-architecture-state.md)
-- [Current State](../CURRENT.md)
-- [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
-- [Completed Phases](../development/completed-phases.md)
-
-The previous full target-diagram snapshot is retained as [historical architecture evidence](history/target-platform-architecture-before-refresh.md).
-
-## Current implementation overlay
-
-Implemented on merged `main @ a9620179a442155f0860ef3182ca39186ac46a57`:
-
-- backend registry, backend-scoped snapshots/caches/change feed and server-enforced read-only mode;
-- Recordings 2 and guarded Recording actions;
-- SearchTimer and native Timer foundations;
-- completed Phase 61 persistent Recording/EPG metadata, people, artwork references and Genre read models;
-- query-only provider-free Genre and Global Search GET paths;
-- backend-neutral RemoteAction and LiveOverlay contracts;
-- modular browser Client API boundaries;
-- completed Phase-62 production actor identity, scoped RBAC, browser-session security and append-only accountability;
-- completed Phase-63 Slice-1 Agent enrollment, protected outbound transport, technical identity, protocol/generation/instance fencing, heartbeat/lease, read-only capabilities, reconnect and credential lifecycle foundation.
-
-Active contract work in Draft PR #138:
-
-- Phase 63 Slice 2 — Read-only Observation and Snapshot Ingestion Foundation;
-- independent backend generation, Agent instance, observation domain, snapshot generation, producer sequence and resource revision;
-- complete baseline, exact-next sequence, idempotent replay and explicit `resync-required`;
-- Suite-owned transactional receipt/fact and ingestion-cursor persistence;
-- initial bounded `backend-health` domain;
-- no command/result or VDR-native mutation runtime.
-
-Not yet implemented as complete target runtime:
-
-- Phase-63 observation/snapshot runtime implementation beyond the contract;
-- durable command/results, native execution and provider selection;
-- universal revision/idempotency/job reconciliation;
-- TimerIntent orchestration;
-- Streaming Gateway;
-- legacy OSD bridge;
-- stable public `/api/v1`;
-- recommendation/knowledge graph.
-
-Phase 63 is not complete.
+A target box or accepted ADR is not proof that its runtime implementation is complete.
 
 ## Platform and trust boundary
 
 ```text
 Web / Desktop / Mobile / TV / Automation clients
                          |
-                         | future authenticated public API
+                         | authenticated Suite client contracts
                          v
 +---------------------------------------------------------------+
 | VDR-Suite Control Plane                                       |
 |                                                               |
-| actor identity, sessions, RBAC and policy       [implemented] |
-| Suite-owned domain services and repositories    [foundation]  |
-| Agent observation ingestion                      [Slice 2]     |
-| operations, jobs and reconciliation             [partial]     |
-| metadata, people, Genres and search              [implemented] |
-| Timer scheduler and assignments                  [Phase 64]    |
-| media/OSD session policy                         [65 / 66]     |
-| accountability event store                      [implemented] |
-+--------------------------+----------------------+-------------+
-                           | protected Agent protocol [Phase 63]
+| actor identity, sessions, authorization and policy            |
+| Suite-owned domain services and repositories                  |
+| backend observations and read-model projection                |
+| operations, jobs, protected writes and reconciliation         |
+| metadata, people, Genres and search                           |
+| TimerIntent scheduling and assignments                        |
+| MediaSession / OSD session policy                             |
+| accountability and security-event linkage                     |
++--------------------------+------------------------------------+
+                           | protected Agent protocol
                            v
 +---------------------------------------------------------------+
 | Backend Agent                                                 |
 | enrolled identity, generation, heartbeat, lease, capabilities |
-| lifecycle [Slice 1]; read-only observations [Slice 2 target]  |
-| commands/results and native execution [later Phase 63]        |
+| observations, commands, receipts, results and local fencing   |
+| explicit local provider ownership/selection and cleanup       |
 +--------------------------+------------------------------------+
                            | local/private adapter contracts
                            v
 +---------------------------------------------------------------+
 | VDR site                                                      |
-| VDR Core | SuiteBridge | RESTfulAPI | SVDRP | Streamdev        |
+| VDR Core | SuiteBridge | RESTfulAPI | SVDRP | Streamdev       |
 | epgsearch | TVScraper | native files and databases            |
 +---------------------------------------------------------------+
 ```
@@ -88,31 +59,32 @@ Web / Desktop / Mobile / TV / Automation clients
 Rules:
 
 - VDR remains authoritative for VDR-native runtime state and execution.
-- The Control Plane owns external identity, policy, orchestration and client contracts.
-- Agents own bounded site-local transport and execution, not global policy.
-- Agent observations are evidence with explicit provenance, not hidden authority over direct-adapter facts.
-- Private plugins/providers are never the public security boundary.
-- Clients receive no permanent VDR/plugin/Agent/provider credentials or private URLs.
+- The Control Plane owns external identity, authorization, policy, orchestration, reconciliation and client contracts.
+- Backend Agents own bounded site-local observation/execution and local provider access, not global policy.
+- Private plugins/providers are never the public security or compatibility boundary.
+- Reachability does not grant provider authority.
+- Clients receive no permanent VDR/plugin/Agent/provider credentials or private provider URLs.
 
 ## Contract separation
 
 ```text
 Public Client API
-  resources, commands, operations, errors and revisions
+  Suite resources, commands, operations, errors and revisions
 
 Backend Agent Protocol
   enrollment, generation, lease, capabilities, observations,
   fenced commands, receipts, results and reconnect evidence
 
 Media Plane
-  MediaSession, short-lived grant, route epoch, provider lease and bytes
+  MediaSession, short-lived access grant, route epoch,
+  ProviderStreamLease and media bytes
 
 Legacy OSD Plane
   session, viewer binding, ordered frames/deltas,
   controller lease and allowlisted input
 
 Plugin Local Contract
-  bounded capabilities, native observations and command/result facts
+  bounded native capabilities, observations and execution facts
 
 Internal C++ APIs
   domain services, repositories, adapters and serializers
@@ -140,30 +112,27 @@ VDR Core or local provider
   -> bounded native fact
   -> plugin/local adapter
   -> immutable observation
-  -> Backend Agent [remote sites]
+  -> Backend Agent where applicable
   -> authenticated generation/instance-fenced envelope
   -> complete snapshot or exact-next change batch
   -> Control Plane ingestion
   -> atomic receipt/fact plus ingestion cursor
   -> Suite-owned persistent read models
   -> authorized Suite API
-  -> VdrSuiteClientApi
+  -> client API wrapper
   -> frontend owner
 ```
-
-Current local paths may use direct private adapters while preserving the same domain/service/repository boundary.
 
 Read invariants:
 
 - backend-native IDs remain backend scoped;
 - producer sequence, snapshot generation, backend generation and resource revision are distinct;
-- title, time, channel name and filesystem path are evidence, not universal identity;
-- sequence gaps trigger `resync-required` rather than guessed continuity;
-- changes require an accepted complete baseline;
+- titles, times, channel names and filesystem paths are evidence, not universal identity;
+- sequence gaps require explicit resynchronization instead of guessed continuity;
 - equivalent replay is idempotent and conflicting replay is rejected;
 - stale Agent instances and stale backend generations cannot advance current ingestion;
 - partial multi-backend reads declare their partial nature;
-- normal documented Genre/Search GETs remain query-only and provider-free.
+- ordinary frontend GET paths do not acquire hidden provider authority.
 
 ## Observation ingestion target
 
@@ -183,13 +152,13 @@ authenticated Agent observation
 Observation invariants:
 
 - `backendGeneration` fences replacement or resynchronized backend state;
-- `agentInstanceId` fences stale processes in one backend generation;
+- `agentInstanceId` fences stale processes within one backend generation;
 - `snapshotGeneration` identifies one complete domain lineage;
 - `producerSequence` is monotone within that lineage;
-- `resourceRevision` remains resource/domain evidence, not transport continuity;
-- database failure cannot advance the cursor;
-- repository code owns SQLite; HTTP and Agent client code do not issue direct SQLite statements;
-- no manual SQLite inspection is required for acceptance.
+- `resourceRevision` remains domain evidence, not transport continuity;
+- database failure cannot advance the ingestion cursor;
+- repository code owns SQLite;
+- manual SQLite inspection is not a normal acceptance dependency.
 
 ## Safe mutation and durable execution target
 
@@ -199,7 +168,7 @@ client command
   -> authentication and centralized authorization
   -> backend access/capability/revision/generation preconditions
   -> durable Operation + idempotency scope
-  -> required pre-dispatch AccountabilityEvent/outbox
+  -> required pre-dispatch accountability evidence
   -> durable Job/Attempt claim
   -> recorded dispatch boundary
   -> fenced Agent/native command
@@ -208,16 +177,17 @@ client command
   -> reconciliation when outcome is uncertain
 ```
 
-Current Recording actions, selected Timer/SearchTimer paths and Phase-62 policy/accountability provide strong bounded foundations. Phase-63 Slice 1 adds lifecycle fencing. Phase-63 Slice 2 precedes command delivery by establishing trustworthy read-only observation continuity. The universal mutation target still requires later Phase-63 command/result runtime.
-
 Mutation invariants:
 
 - no production mutation uses an implicit backend;
 - no protected dispatch begins when required authorization/accountability evidence cannot be persisted;
-- possible dispatch followed by timeout never causes speculative duplicate mutation;
+- a possible dispatch followed by timeout never causes speculative duplicate mutation;
 - retries preserve the same logical operation/idempotency scope;
-- verification is domain-specific and stronger than adapter acknowledgement;
-- stale Agent generations and stale job claims cannot complete current work.
+- resource-scoped concurrency/lease fencing prevents conflicting protected writes;
+- backend generation and provider ownership are explicit execution fences;
+- verification is domain-specific and stronger than adapter acknowledgement where required;
+- stale Agent generations, stale claims and stale provider epochs cannot complete current work;
+- an unknown outcome remains unknown until evidence permits reconciliation.
 
 ## Identity and provenance model
 
@@ -226,7 +196,7 @@ MetadataEntity
   -> may describe many broadcasts/recordings
 
 ProgramEvent
-  -> canonical programme occurrence [partial/future expansion]
+  -> canonical programme occurrence where available
   -> BackendEventRef observations from one or more backends
   -> provider/native field evidence
 
@@ -247,9 +217,7 @@ Identity invariants:
 - metadata/editorial identity remains separate from broadcast occurrence identity;
 - provider values retain source, state and evidence;
 - external native objects are adopted only through an explicit decision;
-- deliberate replicas are explicit assignments, not unexplained duplicate timers.
-
-Phase 61 implements backend-scoped metadata target bindings, people and Genre evidence/assignments for its accepted scope. Universal ProgramEvent, Recording lifecycle revision and TimerIntent identity remain broader target work.
+- deliberate replicas are explicit assignments, not unexplained duplicate native timers.
 
 ## Timer orchestration target
 
@@ -259,26 +227,51 @@ user / SearchTimer / epgsearch / automation provider
   -> central scheduler decision
   -> TimerAssignment
   -> backend/channel/capability/health eligibility
-  -> durable operation/job
+  -> durable protected operation
   -> NativeTimerBinding
-  -> readback and reconciliation
+  -> authoritative native readback and reconciliation
 ```
 
-SearchTimer and epgsearch are automation sources. They do not own the future global multi-backend scheduler or bypass central authorization/accountability.
+Timer rules:
+
+- the user request remains backend-neutral;
+- SearchTimer and epgsearch are automation sources, not owners of the global multi-backend scheduler;
+- provider reachability does not authorize execution;
+- primary and deliberate replica assignments are explicit;
+- unknown mutation outcomes block unsafe blind replacement/retry;
+- a native VDR Timer is an execution binding/evidence object, not the owner of Suite intent.
 
 ## Media session target
 
 ```text
 client playback request
-  -> Control Plane authorization/routing
+  -> Control Plane authorization/admission
   -> MediaSession + short-lived MediaAccessGrant
   -> Streaming Gateway
-  -> route epoch and ProviderStreamLease
-  -> private Agent/Streamdev/provider path
+  -> MediaRoute + route epoch
+  -> Backend Agent
+  -> explicitly owned ProviderStreamLease
+  -> private StreamProvider / VDR source
   -> media bytes
 ```
 
-Permanent Streamdev, VDR or Agent URLs are never public. Playback and download permissions remain separate. Current LiveOverlay/SSE is not media streaming.
+Media rules:
+
+- Streamdev may be an explicitly owned internal StreamProvider; it is not the public playback API.
+- permanent Streamdev, VDR, Agent or provider URLs are never public client contracts;
+- user login/session identifiers and `mediaSessionId` are not reusable URL bearer credentials;
+- playback and unrestricted download permissions remain separate;
+- capability negotiation chooses Suite media profiles, not provider identities;
+- transformation preference is pass-through, then remux/repackage, then transcode only when materially required;
+- slow clients, network backpressure and expensive media processing remain outside VDR callbacks/locks;
+- ordinary live playback does not silently imply timeshift;
+- LiveOverlay/SSE carries state updates, not media bytes.
+
+## Client playback boundary
+
+First-party clients use a small Suite playback abstraction over mature platform-appropriate playback engines. VDR-Suite does not require one universal cross-platform decoder/renderer core.
+
+The server owns authorized MediaSession/profile semantics. The platform player owns decode/render/audio/lifecycle integration. Kodi may be an architectural reference or client integration target without becoming a shared player-code dependency.
 
 ## Legacy OSD compatibility target
 
@@ -288,46 +281,62 @@ local structured/native OSD observation
   -> LegacyOsdSession
   -> viewer fan-out and full resync
   -> one fenced controller lease
-  -> allowlisted/rate-limited RemoteAction input
+  -> allowlisted/rate-limited input
 ```
 
-Viewing precedes control. The current RemoteAction/LiveOverlay runtime is a reusable foundation but does not implement OSD frames, sessions, sequencing or controller lease.
+Viewing and controlling are separate permissions. Legacy OSD compatibility is not the same subsystem as LiveOverlay or media streaming.
 
-## Public API and accountability target
+## Public API target
 
-A resource enters stable `/api/v1` only when these are explicit:
+A resource enters the stable public API only when these are explicit:
 
-- stable identity and backend scope;
+- stable Suite identity and backend scope;
 - actor authorization and redaction;
 - resource revision and conditional mutation rules;
 - structured errors and request/correlation IDs;
-- pagination/partial-result semantics;
+- pagination and partial-result semantics;
 - operation/idempotency behaviour;
-- accountability producer and outcome evidence;
-- compatibility/deprecation policy.
+- accountability producer/outcome evidence;
+- compatibility and deprecation policy.
 
-The current transition API and `VdrSuiteClientApi` are strong foundations, not a completed stable public API.
+The public API version, Agent protocol version, media protocol version and plugin-local contract remain independently evolvable.
 
-## Strict implementation order
+## Golden product acceptance
 
-```text
-Completed Phase 61 and post-phase hardening/features
-  -> Phase 62 Identity, RBAC and Accountability
-  -> Phase 63 Slice 1 Agent lifecycle
-  -> Phase 63 Slice 2 Observation and Snapshot Ingestion
-  -> later Phase 63 command/result and provider ownership slices
-  -> Phase 64 Timer Intent and Orchestration
-  -> Phase 65 Streaming Gateway
-  -> Phase 66 Legacy OSD Bridge
-  -> Phase 67 Public API and Client Hardening
-  -> Phase 68 Recommendation and Knowledge Graph
-```
+Architecture completion is not judged only by component/unit tests. The platform must also support vertical user journeys such as:
 
-## Related documents
+- channel/EPG selection -> authorized Live playback -> picture and sound -> clean channel switch;
+- Recording detail -> authorized playback -> seek where supported -> stop/resume semantics;
+- EPG programme -> TimerIntent -> TimerAssignment -> NativeTimerBinding -> authoritative VDR result;
+- multi-backend scheduling without private provider selection by the user;
+- classified failure without hidden unsafe recovery.
 
-- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
-- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
-- [Domain Dependency Map](../planning/domain-dependency-map.md)
-- [Implementation Dependency Map](../planning/implementation-dependency-map.md)
-- [Strict Roadmap](../planning/roadmap.md)
-- [ADR Index](../adr/index.md)
+See [Golden User Journeys](../planning/golden-user-journeys.md).
+
+## Implementation-order rule
+
+The binding numbered phase sequence and completion gates are maintained in the [Strict Roadmap](../planning/roadmap.md). The current completed/active/next phase position is maintained only in [Current State](../CURRENT.md).
+
+This target architecture must not duplicate active PR tips or exact repository heads.
+
+## Related decisions
+
+- [ADR-0039: Backend Agent and Control Plane Boundary](../adr/ADR-0039-backend-agent-control-plane-boundary.md)
+- [ADR-0040: Backend Lifecycle, Generation, Lease and Health](../adr/ADR-0040-backend-lifecycle-generation-lease-health.md)
+- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](../adr/ADR-0041-authentication-agent-trust-multi-site-transport.md)
+- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](../adr/ADR-0042-safe-mutation-revision-idempotency-contract.md)
+- [ADR-0043: Job Claim, Retry and Saga Execution Model](../adr/ADR-0043-job-claim-retry-saga-execution-model.md)
+- [ADR-0044: Timer Intent, Assignment and Native Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
+- [ADR-0045: Canonical EPG Event Identity and Provenance](../adr/ADR-0045-canonical-epg-event-identity-provenance.md)
+- [ADR-0046: Streaming Gateway and Media Session Boundary](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
+- [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
+- [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [ADR-0049: Audit and Security Event Model](../adr/ADR-0049-audit-security-event-model.md)
+- [ADR-0050: Domain Repository SQLite Boundary](../adr/ADR-0050-domain-repository-sqlite-boundary.md)
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)

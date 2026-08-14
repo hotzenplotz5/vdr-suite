@@ -7,8 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_LINKS = {
     "README.md": [
         "docs/CURRENT.md",
-        "docs/index.md",
+        "docs/NEW-CHAT-HANDOFF.md",
         "docs/planning/roadmap.md",
+        "docs/adr/index.md",
     ],
     "docs/index.md": [
         "CURRENT.md",
@@ -20,15 +21,14 @@ REQUIRED_LINKS = {
         "NEW-CHAT-HANDOFF.md",
         "planning/roadmap.md",
         "planning/phase-map.md",
-        "planning/parity-audit-and-frontend-gap-roadmap.md",
+        "planning/golden-user-journeys.md",
         "adr/index.md",
-        "development/completed-phases.md",
+        "development/current-status.md",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "CURRENT.md",
         "planning/roadmap.md",
-        "planning/phase-map.md",
-        "planning/parity-audit-and-frontend-gap-roadmap.md",
+        "planning/golden-user-journeys.md",
         "adr/index.md",
         "development/completed-phases.md",
     ],
@@ -37,8 +37,13 @@ REQUIRED_LINKS = {
     ],
     "docs/planning/roadmap.md": [
         "phase-map.md",
-        "parity-audit-and-frontend-gap-roadmap.md",
+        "golden-user-journeys.md",
         "../CURRENT.md",
+    ],
+    "docs/planning/phase-map.md": [
+        "../CURRENT.md",
+        "roadmap.md",
+        "golden-user-journeys.md",
     ],
     "docs/planning/index.md": [
         "roadmap.md",
@@ -51,21 +56,27 @@ REQUIRED_LINKS = {
 
 REQUIRED_TEXT = {
     "README.md": [
-        "Phase 61 - Suite Metadata and Genre Platform",
-        "Post-Phase 61 Performance Hardening (B1-B4)",
-        "Phase 62 - Identity, RBAC and Accountability Foundation",
-    ],
-    "docs/NEW-CHAT-HANDOFF.md": [
-        "Phase 61 - Suite Metadata and Genre Platform",
-        "VDR Remote and Live Overlay hardening (#110)",
-        "Backend-scoped Global Search (#111)",
-        "Phase 62 - Identity, RBAC and Accountability Foundation",
+        "sole repository authority for volatile operational status",
+        "A chat discussion is not a binding VDR-Suite project decision",
     ],
     "docs/CURRENT.md": [
-        "Phase 61 - Suite Metadata and Genre Platform",
-        "VDR Remote and Live Overlay hardening (#110)",
-        "Backend-scoped Global Search (#111)",
-        "Phase 62 - Identity, RBAC and Accountability Foundation",
+        "## Operational status authority",
+        "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
+        "Phase 64 - Timer Intent and Multi-Backend Orchestration",
+        "Phase 65 - Streaming Gateway and Media Sessions",
+        "PR #190 - Add disabled SuiteBridge Timer delete transport",
+        "No Phase-64 successor implementation is currently authorized",
+    ],
+    "docs/NEW-CHAT-HANDOFF.md": [
+        "## Current implementation boundary",
+        "no `#191` are currently authorized",
+        "broad polished Timer UI",
+        "Phase 65 Streaming",
+    ],
+    "docs/planning/roadmap.md": [
+        "planning hold after the PR-#190 checkpoint; Phase 64 is not complete",
+        "broad polished Timer UI",
+        "Phase 65 — Streaming Gateway and Media Sessions",
     ],
 }
 
@@ -107,6 +118,7 @@ def main():
         return 1
 
     print("Documentation entrypoint check passed.")
+    print("Volatile project status authority: docs/CURRENT.md")
     return 0
 
 
