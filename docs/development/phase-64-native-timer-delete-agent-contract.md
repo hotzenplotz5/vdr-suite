@@ -2,7 +2,7 @@
 
 ## Status
 
-Bounded contract-only slice stacked on Phase 64 Slice 23 / Draft PR #176.
+Bounded contract-only slice, now retargeted to `main` after Slice 23 / PR #176 merged.
 
 Slice 23 defines the Control-Plane dispatch claim and its three typed executor
 outcomes. Slice 24 defines the exact Agent-side command/evidence envelope that a
