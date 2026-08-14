@@ -35,6 +35,7 @@ require(PAYLOAD, [
     "timerDeleteSchema",
     "operationRevision",
     "expectedBindingRevision",
+    "expectedNativeTimerFingerprint",
     "controlPlaneClaimedAt",
     "ownershipGeneration",
     "providerInstanceEpoch",
@@ -44,6 +45,7 @@ require(HEADER, [
     "BackendAgentNativeTimerDeleteAssignmentRequest",
     "BackendAgentNativeTimerDeleteAssignmentResult",
     "BackendAgentNativeTimerDeleteAssignmentService",
+    "expectedNativeTimerFingerprint",
     "backendGeneration",
     "controlPlaneClaimedAt",
 ])
@@ -55,6 +57,8 @@ require(SOURCE, [
     "findAssignmentForOperation",
     "localProviderSelectionForCommand",
     "selectLocalProvider",
+    "request.expectedNativeTimerFingerprint",
+    "payload.expectedNativeTimerFingerprint",
     "kBackendAgentNativeTimerDeleteAuthorityDomain",
     "kBackendAgentNativeTimerDeleteCapability",
     "insertAssignment",
@@ -68,6 +72,8 @@ require(COMMAND, [
     "payload.controlPlaneClaimedAt <= value.assignedAt",
 ])
 require(TEST, [
+    'expectedNativeTimerFingerprint = "sha256:native-timer-observed-44"',
+    "changedFingerprintRequest.expectedNativeTimerFingerprint",
     'supportedCommandTypes = {"probe.noop"}',
     'supportedCommandTypes = {"vdr.timer.delete"}',
     "blockedDelivery",
