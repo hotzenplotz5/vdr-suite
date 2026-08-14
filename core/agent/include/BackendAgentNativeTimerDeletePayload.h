@@ -19,6 +19,7 @@ struct BackendAgentNativeTimerDeletePayload
     std::string operationRevision;
     std::string nativeTimerBindingId;
     std::string expectedBindingRevision;
+    std::string expectedNativeTimerFingerprint;
     std::string timerAssignmentId;
     std::string backendNativeTimerId;
     std::int64_t controlPlaneClaimedAt = 0;
@@ -181,13 +182,23 @@ inline const Value* get(
         : nullptr;
 }
 
-inline bool safeIdentifier(const std::string& value)
+inline bool safeToken(const std::string& value, std::size_t maximum)
 {
-    if (value.empty() || value.size() > 128) return false;
+    if (value.empty() || value.size() > maximum) return false;
     return std::all_of(value.begin(), value.end(), [](unsigned char character) {
         return std::isalnum(character) != 0 || character == '-' ||
             character == '_' || character == '.' || character == ':';
     });
+}
+
+inline bool safeIdentifier(const std::string& value)
+{
+    return safeToken(value, 128);
+}
+
+inline bool safeFingerprint(const std::string& value)
+{
+    return safeToken(value, 512);
 }
 
 inline bool exactProviderSelection(
@@ -207,6 +218,7 @@ inline bool valid(const BackendAgentNativeTimerDeletePayload& payload)
     return safeIdentifier(payload.operationRevision) &&
         safeIdentifier(payload.nativeTimerBindingId) &&
         safeIdentifier(payload.expectedBindingRevision) &&
+        safeFingerprint(payload.expectedNativeTimerFingerprint) &&
         safeIdentifier(payload.timerAssignmentId) &&
         safeIdentifier(payload.backendNativeTimerId) &&
         payload.controlPlaneClaimedAt > 0 &&
@@ -226,6 +238,8 @@ inline std::string backendAgentNativeTimerDeletePayload(
            << ",\"operationRevision\":\"" << payload.operationRevision << "\""
            << ",\"nativeTimerBindingId\":\"" << payload.nativeTimerBindingId << "\""
            << ",\"expectedBindingRevision\":\"" << payload.expectedBindingRevision << "\""
+           << ",\"expectedNativeTimerFingerprint\":\""
+           << payload.expectedNativeTimerFingerprint << "\""
            << ",\"timerAssignmentId\":\"" << payload.timerAssignmentId << "\""
            << ",\"backendNativeTimerId\":\"" << payload.backendNativeTimerId << "\""
            << ",\"controlPlaneClaimedAt\":" << payload.controlPlaneClaimedAt
@@ -252,10 +266,11 @@ inline bool backendAgentNativeTimerDeleteParsePayload(
     if (!FlatJsonParser(encoded).parse(values) ||
         !exactKeys(values, {
             "timerDeleteSchema", "operationRevision", "nativeTimerBindingId",
-            "expectedBindingRevision", "timerAssignmentId", "backendNativeTimerId",
-            "controlPlaneClaimedAt", "backendId", "authorityDomain", "providerId",
-            "providerKind", "ownershipGeneration", "providerInstanceEpoch",
-            "providerGeneration", "capabilityRevision", "requiredCapability"}))
+            "expectedBindingRevision", "expectedNativeTimerFingerprint",
+            "timerAssignmentId", "backendNativeTimerId", "controlPlaneClaimedAt",
+            "backendId", "authorityDomain", "providerId", "providerKind",
+            "ownershipGeneration", "providerInstanceEpoch", "providerGeneration",
+            "capabilityRevision", "requiredCapability"}))
     {
         reasonCode = "invalid_native_timer_delete_payload";
         return false;
@@ -268,6 +283,8 @@ inline bool backendAgentNativeTimerDeleteParsePayload(
         get(values, "nativeTimerBindingId", ValueKind::String);
     const Value* bindingRevision =
         get(values, "expectedBindingRevision", ValueKind::String);
+    const Value* nativeFingerprint =
+        get(values, "expectedNativeTimerFingerprint", ValueKind::String);
     const Value* assignmentId =
         get(values, "timerAssignmentId", ValueKind::String);
     const Value* nativeId =
@@ -290,9 +307,10 @@ inline bool backendAgentNativeTimerDeleteParsePayload(
         get(values, "requiredCapability", ValueKind::String);
 
     if (!schema || schema->unsignedValue != 1 || !operationRevision || !bindingId ||
-        !bindingRevision || !assignmentId || !nativeId || !claimedAt || !backendId ||
-        !authority || !providerId || !providerKind || !ownership || !providerEpoch ||
-        !providerGeneration || !capabilityRevision || !requiredCapability)
+        !bindingRevision || !nativeFingerprint || !assignmentId || !nativeId ||
+        !claimedAt || !backendId || !authority || !providerId || !providerKind ||
+        !ownership || !providerEpoch || !providerGeneration || !capabilityRevision ||
+        !requiredCapability)
     {
         reasonCode = "invalid_native_timer_delete_payload";
         return false;
@@ -302,6 +320,7 @@ inline bool backendAgentNativeTimerDeleteParsePayload(
     candidate.operationRevision = operationRevision->stringValue;
     candidate.nativeTimerBindingId = bindingId->stringValue;
     candidate.expectedBindingRevision = bindingRevision->stringValue;
+    candidate.expectedNativeTimerFingerprint = nativeFingerprint->stringValue;
     candidate.timerAssignmentId = assignmentId->stringValue;
     candidate.backendNativeTimerId = nativeId->stringValue;
     candidate.controlPlaneClaimedAt =
