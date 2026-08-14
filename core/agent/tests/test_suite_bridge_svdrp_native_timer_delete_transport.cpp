@@ -96,6 +96,7 @@ BackendAgentNativeTimerDeleteTransportRequest validRequest()
     command.operationRevision = "opr_1";
     command.nativeTimerBindingId = "ntb_1";
     command.expectedBindingRevision = "nbr_1";
+    command.expectedNativeTimerFingerprint = "ntfp_1";
     command.timerAssignmentId = "tas_1";
     command.backendNativeTimerId = "42";
     command.jobId = "job_1";
@@ -155,9 +156,21 @@ int main()
         assert(reply.evidenceReference == "ntdel:disabled:cmd_1");
         assert(server.request() ==
             "PLUG suitebridge NTDEL EXEC vdr-suite-native/1 vdr.timer.delete 1 "
-            "cmd_1 fp_1 op_1 opr_1 ntb_1 nbr_1 tas_1 42 job_1 att_1 3 "
+            "cmd_1 fp_1 op_1 opr_1 ntb_1 nbr_1 ntfp_1 tas_1 42 job_1 att_1 3 "
             "default agt_1 agi_1 7 100 vdr.timer suitebridge:local suitebridge "
             "9 pie_1 1 1 vdr.timer.delete 101\r\n");
+    }
+
+    {
+        auto request = validRequest();
+        request.command.expectedNativeTimerFingerprint.clear();
+        SuiteBridgeSvdrpTransportConfig disabled;
+        disabled.host.clear();
+        SuiteBridgeNativeTimerDeleteTransport transport(disabled);
+        const auto reply = transport.deleteTimer(request);
+        assert(reply.disposition ==
+            BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect);
+        assert(reply.evidenceReference == "suitebridge:ntdel:local-request-invalid");
     }
 
     {
