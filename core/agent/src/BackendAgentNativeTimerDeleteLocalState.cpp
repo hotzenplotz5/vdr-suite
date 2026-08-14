@@ -173,6 +173,7 @@ const std::vector<std::string>& localStateKeys()
         "operation_revision",
         "native_timer_binding_id",
         "expected_binding_revision",
+        "expected_native_timer_fingerprint",
         "timer_assignment_id",
         "backend_native_timer_id",
         "job_id",
@@ -245,6 +246,7 @@ bool backendAgentNativeTimerDeleteCommandFromAssignment(
     candidate.operationRevision = payload.operationRevision;
     candidate.nativeTimerBindingId = payload.nativeTimerBindingId;
     candidate.expectedBindingRevision = payload.expectedBindingRevision;
+    candidate.expectedNativeTimerFingerprint = payload.expectedNativeTimerFingerprint;
     candidate.timerAssignmentId = payload.timerAssignmentId;
     candidate.backendNativeTimerId = payload.backendNativeTimerId;
     candidate.jobId = assignment.jobId;
@@ -461,6 +463,8 @@ std::string backendAgentNativeTimerDeleteSerializeLocalState(
         << "operation_revision=" << command.operationRevision << "\n"
         << "native_timer_binding_id=" << command.nativeTimerBindingId << "\n"
         << "expected_binding_revision=" << command.expectedBindingRevision << "\n"
+        << "expected_native_timer_fingerprint="
+        << command.expectedNativeTimerFingerprint << "\n"
         << "timer_assignment_id=" << command.timerAssignmentId << "\n"
         << "backend_native_timer_id=" << command.backendNativeTimerId << "\n"
         << "job_id=" << command.jobId << "\n"
@@ -547,6 +551,8 @@ bool backendAgentNativeTimerDeleteParseLocalState(
     command.operationRevision = values["operation_revision"];
     command.nativeTimerBindingId = values["native_timer_binding_id"];
     command.expectedBindingRevision = values["expected_binding_revision"];
+    command.expectedNativeTimerFingerprint =
+        values["expected_native_timer_fingerprint"];
     command.timerAssignmentId = values["timer_assignment_id"];
     command.backendNativeTimerId = values["backend_native_timer_id"];
     command.jobId = values["job_id"];
