@@ -11,7 +11,7 @@ std::string request(
     const std::string &fingerprint,
     const std::string &operationId,
     const std::string &pluginEpoch = "pie_1",
-    const std::string &expectedNativeTimerFingerprint = "ntfp_1")
+    const std::string &expectedNativeTimerFingerprint = "aa11")
 {
   return
       "EXEC vdr-suite-native/1 vdr.timer.delete 1 " + commandId + " " +
@@ -119,7 +119,7 @@ int main()
         "vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 pie_1 1 1 "
         "accepted_unverified callback_applied ntdel:callback-applied");
     assert(callback.calls == 1);
-    assert(callback.lastExpectedNativeTimerFingerprint == "ntfp_1");
+    assert(callback.lastExpectedNativeTimerFingerprint == "aa11");
 
     const SuiteBridgeCommandResult replay =
         service.Handle("NTDEL", baseRequest.c_str());
@@ -128,7 +128,7 @@ int main()
     assert(callback.calls == 1);
 
     const std::string conflictingNativeTimerFingerprint =
-        request("cmd_1", "fp_1", "op_1", "pie_1", "ntfp_2");
+        request("cmd_1", "fp_1", "op_1", "pie_1", "bb22");
     const SuiteBridgeCommandResult nativeTimerFingerprintConflict =
         service.Handle("NTDEL", conflictingNativeTimerFingerprint.c_str());
     assert(nativeTimerFingerprintConflict.replyCode == 559);
@@ -151,6 +151,31 @@ int main()
         service.Handle("NTDEL", conflictingOperation.c_str());
     assert(commandConflict.replyCode == 559);
     assert(callback.calls == 1);
+  }
+
+  {
+    CountingCallback callback;
+    SuiteBridgeNativeTimerDeleteService service("pie_1", &callback);
+    const std::string longFingerprint(600, 'a');
+    const std::string longRequest =
+        request("cmd_l", "fp_l", "op_l", "pie_1", longFingerprint);
+    const SuiteBridgeCommandResult reply =
+        service.Handle("NTDEL", longRequest.c_str());
+    assert(reply.handled);
+    assert(reply.replyCode == 557);
+    assert(callback.calls == 1);
+    assert(callback.lastExpectedNativeTimerFingerprint == longFingerprint);
+  }
+
+  {
+    SuiteBridgeNativeTimerDeleteService service("pie_1");
+    const std::string invalidFingerprint =
+        request("cmd_i", "fp_i", "op_i", "pie_1", "gg");
+    const SuiteBridgeCommandResult reply =
+        service.Handle("NTDEL", invalidFingerprint.c_str());
+    assert(reply.handled);
+    assert(reply.replyCode == 501);
+    assert(reply.payload == "vdr-suite-ntdel-rejected/1 execute-malformed");
   }
 
   {
