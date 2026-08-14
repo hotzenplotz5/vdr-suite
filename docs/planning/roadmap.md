@@ -84,7 +84,17 @@ Status: **Completed.** PR #150 established stable backend-neutral TimerIntent id
 
 Status: **Completed.** PR #152 established Suite-owned TimerIntent persistence, repository-issued revisions and optimistic-concurrency fencing.
 
-Historical Slice-2 boundary: No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution; no production native Timer mutation.
+Historical Slice-2 boundary: No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution.
+
+### Phase 64 Slice 3 — TimerAssignment Domain Contract
+
+Status: **Completed.** PR #153 established the backend-neutral TimerAssignment value contract, lifecycle, roles, assignment epoch, backend/channel evidence and native-binding identity boundary.
+
+Historical Slice-3 status marker retained for exact guard/history compatibility: `Status: **Active; Slice 3 is the TimerAssignment domain contract.**`
+
+Historical Slice-3 boundary: No TimerAssignment persistence; no NativeTimerBinding; no scheduler or failover execution.
+
+Account/backend access management is a hard prerequisite before broad Timer UI wiring. This historical prerequisite remains compatible with the current separate Broad Timer UI gate below.
 
 ### Current stacked checkpoint
 
