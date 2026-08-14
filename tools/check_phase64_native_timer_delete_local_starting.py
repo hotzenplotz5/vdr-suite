@@ -79,6 +79,26 @@ require(
 )
 require(
     source,
+    "candidate.expectedNativeTimerFingerprint = payload.expectedNativeTimerFingerprint",
+    "immutable native Timer fingerprint assignment mapping",
+)
+require(
+    source,
+    '"expected_native_timer_fingerprint"',
+    "durable native Timer fingerprint local-state key",
+)
+require(
+    source,
+    "command.expectedNativeTimerFingerprint",
+    "native Timer fingerprint local-state serialization",
+)
+require(
+    source,
+    'values["expected_native_timer_fingerprint"]',
+    "native Timer fingerprint local-state parse",
+)
+require(
+    source,
     "backendAgentNativeTimerDeleteEvidenceMatches",
     "Slice 24 evidence chronology reuse",
 )
@@ -86,6 +106,21 @@ require(
     test,
     "every recovery path is reconciliation-only",
     "no-blind-retry regression",
+)
+require(
+    test,
+    'expected_native_timer_fingerprint=sha256:native-timer-observed-44',
+    "native Timer fingerprint persistence regression",
+)
+require(
+    test,
+    "parsedStarting.command.expectedNativeTimerFingerprint",
+    "native Timer fingerprint starting replay regression",
+)
+require(
+    test,
+    "missingFingerprint",
+    "missing native Timer fingerprint fail-closed regression",
 )
 require(
     test,
