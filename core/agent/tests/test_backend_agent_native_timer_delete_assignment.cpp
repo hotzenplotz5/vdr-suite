@@ -70,6 +70,7 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentRequest request(
     value.operationRevision = "3";
     value.nativeTimerBindingId = "ntb_timer_1";
     value.expectedBindingRevision = "12";
+    value.expectedNativeTimerFingerprint = "sha256:native-timer-observed-44";
     value.timerAssignmentId = "ta_timer_1";
     value.backendId = "default";
     value.backendGeneration = 7;
@@ -89,6 +90,7 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteCommand commandFrom(
     command.operationRevision = payload.operationRevision;
     command.nativeTimerBindingId = payload.nativeTimerBindingId;
     command.expectedBindingRevision = payload.expectedBindingRevision;
+    command.expectedNativeTimerFingerprint = payload.expectedNativeTimerFingerprint;
     command.timerAssignmentId = payload.timerAssignmentId;
     command.backendNativeTimerId = payload.backendNativeTimerId;
     command.jobId = assignment.jobId;
@@ -181,6 +183,8 @@ int main()
     assert(payload.operationRevision == "3");
     assert(payload.nativeTimerBindingId == "ntb_timer_1");
     assert(payload.expectedBindingRevision == "12");
+    assert(payload.expectedNativeTimerFingerprint ==
+           "sha256:native-timer-observed-44");
     assert(payload.timerAssignmentId == "ta_timer_1");
     assert(payload.backendNativeTimerId == "native_timer_44");
     assert(payload.controlPlaneClaimedAt == 110);
@@ -198,6 +202,8 @@ int main()
         *sidecar, payload.localProviderSelection));
 
     const auto domain = commandFrom(assigned.assignment, payload);
+    assert(domain.expectedNativeTimerFingerprint ==
+           "sha256:native-timer-observed-44");
     assert(backendAgentNativeTimerDeleteValidCommand(domain, reason));
 
     const auto replay = service.assign(system, request(), 121, 501);
@@ -206,6 +212,15 @@ int main()
     assert(replay.reasonCode == "native_timer_delete_assignment_replayed");
     assert(replay.assignment.commandId == assigned.assignment.commandId);
     assert(replay.assignment.jobId == assigned.assignment.jobId);
+
+    auto changedFingerprintRequest = request();
+    changedFingerprintRequest.expectedNativeTimerFingerprint =
+        "sha256:native-timer-observed-45";
+    const auto changedFingerprint =
+        service.assign(system, changedFingerprintRequest, 122, 502);
+    assert(!changedFingerprint.accepted);
+    assert(changedFingerprint.reasonCode ==
+           "native_timer_delete_assignment_conflict");
 
     auto changedTargetRequest = request();
     changedTargetRequest.backendNativeTimerId = "native_timer_45";
