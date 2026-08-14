@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file is the canonical compact phase-number map. Detailed history belongs in [Completed Phases](../development/completed-phases.md); strict future order belongs in [Roadmap](roadmap.md).
+This file is the canonical compact phase-number map. Detailed history belongs in [Completed Phases](../development/completed-phases.md); strict forward order and completion gates belong in the [Roadmap](roadmap.md); exact active heads and CI checkpoints belong only in [Current State](../CURRENT.md).
 
 ## Completed phase ranges
 
@@ -23,6 +23,7 @@ This file is the canonical compact phase-number map. Detailed history belongs in
 | Phase 60.1-60.15 | Completed | Frontend Platform and Metadata Preparation | Recordings 2, lazy cache, metadata and authenticated artwork preparation. |
 | Phase 61 | Completed | Suite Metadata and Genre Platform | Persistent Recording/EPG metadata, people and Genre assignments, query-only browse paths and frontend integration. |
 | Phase 62 | Completed | Identity, RBAC and Accountability | Persistent identities, scoped authorization, browser-session security, protected central mutations and append-only decision/outcome evidence. |
+| Phase 63 | Completed | Backend Agent and Secure Multi-Site Runtime | Secure Agent lifecycle, fenced observations/commands/native execution, explicit provider ownership and protected-write foundation. |
 
 ## Completed non-numbered blocks
 
@@ -33,75 +34,92 @@ This file is the canonical compact phase-number map. Detailed history belongs in
 | Backend-scoped Global Search (#111) | Completed | Persisted Recording/EPG title, subtitle and people search. |
 | Configurable photorealistic VDR Remote (#115) | Completed | Backend-neutral configurable remote asset and interaction path. |
 
-These blocks do not consume or invent a phase number.
+Historical umbrella implementation track: **Phase 58 - Frontend and Live Parity**.
 
 ## Current position
 
 ```text
-Current merged main baseline:
-24b1d7938ddaa15834a8da6323a270761868f4ba
-
 Latest completed numbered runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
-Previous completed numbered runtime phase:
-Phase 61 - Suite Metadata and Genre Platform
-
-Latest completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
-Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Completed Phase-63 slice:
-Phase 63 Slice 1 - Backend Agent Enrollment and Lease Foundation
-PR #137 merged and exact-head real yaVDR acceptance passed
+Current active numbered runtime phase:
+Phase 64 - Timer Intent and Multi-Backend Orchestration
 
-Current active runtime slice:
-Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
-Draft PR #139 implements the first bounded read-only observation domain
+Next strict numbered runtime phase after Phase 64:
+Phase 65 - Streaming Gateway and Media Sessions
 
-Phase 63 is not complete
+Current implementation boundary:
+planning hold after the PR-#190 checkpoint; Phase 64 is not complete
 ```
 
-## Planned phase sequence
+The exact PR head, branch relation and CI status are intentionally not duplicated here. Read `CURRENT.md` and live GitHub state.
 
-| Order | Phase | Status | Track | Goal |
+## Numbered forward sequence
+
+| Order | Phase | Status | Track | Completion direction |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 63 | Active Slice 2 | Backend Agent and Secure Multi-Site Runtime | Slice 1 completed enrollment, protected transport, generation, lease, capabilities and credential lifecycle. Slice 2 establishes generation-/sequence-fenced read-only Observation and Snapshot Ingestion; commands remain later. |
-| 2 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
-| 3 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
-| 4 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
-| 5 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions and compatibility. |
-| 6 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after platform foundations mature. |
+| 1 | Phase 64 | Active; planning hold | Timer Intent and Multi-Backend Orchestration | Reliable intent/assignment/binding orchestration, safe managed native fulfillment, authoritative readback, reconciliation and real-system write acceptance. |
+| 2 | Phase 65 | Planned after Phase-64 engine completion | Streaming Gateway and Media Sessions | Authorized short-lived media sessions, private-provider routing, Live/Recording delivery and first vertical playback acceptance. |
+| 3 | Phase 66 | Planned after Phase 65 | Legacy OSD Compatibility Bridge | Isolated OSD snapshot/control compatibility with sequencing and controller lease. |
+| 4 | Phase 67 | Planned after Phase 66 | Public API and Client Compatibility Hardening | Stabilize versioned public contracts, errors, revisions, pagination and compatibility. |
+| 5 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after metadata, identity, accountability and public contracts mature. |
 
-## Phase 63 slice progression
+## Phase 64 compact boundary
 
-| Slice | Status | Result / Goal |
-| --- | --- | --- |
-| Phase 63 Slice 1 | Completed and merged | Controlled Agent enrollment, technical identity, protected HTTPS transport, protocol/generation/instance fencing, heartbeat/lease, read-only capabilities, credential rotation/revocation/replacement and guarded real-system acceptance. |
-| Phase 63 Slice 2 | Active runtime | PR #138 merged the contract; Draft PR #139 implements complete baseline plus exact-next change ingestion, idempotent replay, gap-driven `resync-required`, atomic receipt/cursor persistence and protected Agent retry for `backend-health`. |
-| Later Phase 63 slices | Not started | Durable command/receipt/result flow, native execution and provider ownership/selection require separate contracts after read-only ingestion. |
+Phase 64 separates:
+
+```text
+TimerIntent
+  -> TimerAssignment
+  -> NativeTimerBinding
+```
+
+The current stacked implementation checkpoint has already explored deterministic primary/replica planning, native binding/readback evidence, durable mutation-operation state and a fenced Timer-delete handoff to a concrete but disabled SuiteBridge transport.
+
+That checkpoint is not Phase-64 completion. The reliable engine still requires the applicable ADR-0044 managed native lifecycle, safe mutation/replay semantics, authoritative reconciliation and real-VDR acceptance before production write enablement can close the phase.
+
+A broad polished Timer UI is not a Phase-64 completion gate. It remains separately gated on account/backend access management and therefore may be completed after Phase 65 begins.
+
+## Phase 65 compact boundary
+
+Phase 65 follows the reliable Phase-64 engine, not the broad Timer UI. Accepted ADR-0046 owns the server MediaSession/Gateway boundary; Draft PR #156 contains the complementary proposed playback/media-adaptation strategy.
+
+The intended media direction remains:
+
+```text
+private source
+  -> explicitly owned provider
+  -> ProviderStreamLease
+  -> media adaptation
+  -> Streaming Gateway / MediaSession profile
+  -> client adapter
+  -> platform playback engine
+```
+
+Prefer pass-through before remux/repackage before transcode. Streamdev remains a private provider candidate rather than a public platform contract.
+
+## Product acceptance
+
+Vertical product acceptance is maintained in [Golden User Journeys](golden-user-journeys.md). In particular:
+
+- Phase 64 uses record-one-programme, multi-backend ownership and fail-closed recovery journeys to prove orchestration semantics.
+- Phase 65 adds Live-TV and Recording-playback journeys through Suite MediaSession contracts.
 
 ## Numbering rules
 
 - Completed history is never renumbered.
 - Phase 58 remains a historical umbrella label only.
-- Phase 61 is closed for its accepted metadata/Genre runtime scope.
-- Phase 62 is closed for its accepted identity, authorization and accountability scope.
+- Phases 61, 62 and 63 are closed for their accepted scopes.
 - Optional providers, diagnostics and administration products do not silently reopen completed phases.
-- Phase 63 is the active numbered runtime phase.
-- Completion of Phase 63 Slice 1 does not complete Phase 63.
-- Observation and Snapshot Ingestion precedes any command/result or VDR-native execution slice.
+- Phase 64 is the active numbered runtime phase.
+- Phase 65 is the next numbered runtime phase only after Phase-64 engine completion.
+- Broad Timer UI completion is not inserted as a numbered phase between 64 and 65.
+- Draft planning or ADR work does not advance a numbered runtime phase by itself.
 
 ## Verification
 
 ```bash
 make test-phase-map-coverage
-make test-phase63-observation-ingestion-contract
 make test-docs
 make test-phase
 ```
@@ -110,8 +128,8 @@ make test-phase
 
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
-- [Phase 63 Slice-1 Closeout](../development/phase-63-slice-1-closeout.md)
-- [Phase 63 Observation and Snapshot Ingestion](../development/phase-63-observation-ingestion.md)
+- [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
