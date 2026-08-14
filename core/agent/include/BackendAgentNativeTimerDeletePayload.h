@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentNativeTimerDelete.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include <algorithm>
 #include <cctype>
@@ -50,7 +51,7 @@ public:
     bool parse(std::map<std::string, Value>& values)
     {
         values.clear();
-        if (input_.empty() || input_.size() > 4096) return false;
+        if (input_.empty() || input_.size() > 16384) return false;
         skip();
         if (!consume('{')) return false;
         skip();
@@ -118,7 +119,9 @@ private:
             {
                 value.push_back(static_cast<char>(character));
             }
-            if (value.size() > 1024) return false;
+            if (value.size() >
+                kBackendAgentNativeTimerDeleteFingerprintTokenMaximum)
+                return false;
         }
         return false;
     }
@@ -198,7 +201,7 @@ inline bool safeIdentifier(const std::string& value)
 
 inline bool safeFingerprint(const std::string& value)
 {
-    return safeToken(value, 512);
+    return backendAgentNativeTimerDeleteFingerprintTokenValid(value);
 }
 
 inline bool exactProviderSelection(
