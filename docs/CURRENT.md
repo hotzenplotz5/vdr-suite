@@ -1,144 +1,182 @@
 # VDR-Suite Current State
 
+## Operational status authority
+
+**This file is the sole repository authority for volatile operational status.**
+
+`README.md`, `NEW-CHAT-HANDOFF.md`, `development/current-status.md`, the Strict Roadmap and the Phase Map may describe stable architecture, phase order and workflow rules, but they must not become competing copies of exact branch heads, active PR tips or CI checkpoints.
+
+Before any implementation, review-state change, installation or status claim, re-read current GitHub state. Recorded values below are checkpoints, not a substitute for a live read.
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Current Project Status](development/current-status.md)
-- [Phase 63 Slice-1 Closeout](development/phase-63-slice-1-closeout.md)
-- [Phase 63 Observation and Snapshot Ingestion](development/phase-63-observation-ingestion.md)
-- [Phase 63 Backend Agent Foundation](development/phase-63-backend-agent-foundation.md)
-- [Phase 63 Backend Agent Runtime Acceptance](development/phase-63-backend-agent-runtime-acceptance-runbook.md)
-- [Manual Recording Cast Feature](development/manual-recording-cast-search.md)
-- [Post-Phase-62 Security Review](development/post-phase-62-security-review.md)
-- [Phase 62 Final Closeout](development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
-- [Completed Phases](development/completed-phases.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Current Project Status](development/current-status.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
+- [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [Architecture Decision Records](adr/index.md)
+- [Agent Workflow Rules](../AGENTS.md)
 
 ## Current verified position
 
 ```text
 Repository: hotzenplotz5/vdr-suite
-Current branch authority: main
-Current merged main baseline:
-24b1d7938ddaa15834a8da6323a270761868f4ba
-
-Latest merged bounded contract slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-PR #138 - Define read-only agent observation ingestion contract
-Accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
-Merge commit: 24b1d7938ddaa15834a8da6323a270761868f4ba
-CI: VDR-Suite CI #7275 / 31006387349, all five jobs successful
-Runtime change: none; contract and guards only
-
-Active numbered runtime slice:
-Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
-Draft PR #139 - Add backend health observation ingestion runtime
-Branch: agent/phase63-backend-health-ingestion-runtime
-State: Draft runtime implementation; exact-head CI and real yaVDR acceptance pending
+Branch authority: main
+Current merged main checkpoint:
+08a87f2f8afb1ccec30ad739155a2eb121d98e37
 
 Latest completed numbered runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
-Previous completed numbered runtime phase:
-Phase 61 - Suite Metadata and Genre Platform
-
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
-Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
 Current active numbered runtime phase:
-Phase 63 Slice 2; Phase 63 is not complete
+Phase 64 - Timer Intent and Multi-Backend Orchestration
 
-Phase 64-67 runtime:
-not advanced
+Next strict numbered runtime phase after Phase 64:
+Phase 65 - Streaming Gateway and Media Sessions
+
+Merged Phase-64 foundation on main:
+PR #150 - TimerIntent Domain Contract
+PR #152 - TimerIntent Persistence and Repository Semantics
+
+Current stacked implementation checkpoint:
+PR #190 - Add disabled SuiteBridge Timer delete transport
+branch: agent/phase64-suitebridge-timer-delete-disabled-transport
+head: f81bf14c34deb878681833cff84a5b1f45c54811
+state: open Draft; not merged
+relation to current main at audit: diverged, 63 commits ahead / 3 behind; merge base cb6f56e28bc981c8a3c86605fd8e842df4a86ab3
+GitHub CI: VDR-Suite CI #7461 / run 31691807149 - PASS on the exact head
 ```
 
-## Completed cross-cutting platform features
+## Current implementation hold
 
-- VDR Remote and Live Overlay hardening (#110)
-- Backend-scoped Global Search (#111)
-- Configurable photorealistic VDR Remote (#115)
-- Manual Recording metadata assignment (#135)
-- Manual selected-movie cast ingestion and search integration (#136)
+The agreed implementation checkpoint is **after PR #190**.
 
-## Completed Phase 63 Slice 1
+No Phase-64 successor implementation is currently authorized. In particular, do not create or start a `#191` Timer implementation merely because the Slice-34 development note names a possible successor. The project is intentionally paused for architecture, roadmap and documentation synchronization.
 
-PR #137 established and proved the secure Agent lifecycle foundation:
+This hold changes neither ADR-0044 nor the strict phase order. It is a planning gate, not a declaration that Phase 64 is complete.
 
-- controlled one-time enrollment into an existing Backend;
-- persistent technical Agent actor/device/credential identity;
-- exact `vdr-suite-agent/1` protocol compatibility;
-- Agent-instance and backend-generation fencing;
-- heartbeat/lease and online/stale/offline state;
-- bounded read-only capability publication;
-- reconnect and restart reconciliation;
-- credential rotation, revocation and replacement enrollment;
-- protected HTTPS transport and local state;
-- systemd/package/install contracts;
-- redacted administration and guarded real-yaVDR acceptance.
+## What PR #190 proves
 
-Exact real-system evidence:
+The stacked Phase-64 work through PR #190 has reached a strong fail-closed native Timer-delete boundary:
+
+- stable TimerIntent, TimerAssignment and NativeTimerBinding concepts and persistence exist in the stack;
+- deterministic primary/replica scheduling and assignment-set concurrency fencing exist in the stack;
+- native Timer present/absence evidence, operation-aware readback verification and durable mutation-operation state exist in the stack;
+- Agent delivery, durable local `starting`, one-shot executor semantics and unknown-outcome recovery are fenced;
+- a concrete private SuiteBridge `NTDEL` transport exists;
+- SuiteBridge advertises that Timer-delete execution as disabled;
+- the installed Agent does not advertise/configure `vdr.timer.delete` through this checkpoint;
+- no real native VDR Timer delete is enabled by PR #190.
+
+The exact-head GitHub CI is green. The supplied real-system gate for the same head additionally recorded PASS while keeping the Timer inventory and `timers.conf` unchanged, executing no Timer deletion, restoring the original SuiteBridge plugin and preserving the Agent identity.
+
+## What PR #190 does not prove
+
+PR #190 is **not** the Phase-64 completion gate.
+
+Its own slice contract deliberately has no accepted mutation outcome and no real VDR Timer-delete callback. The next technical prerequisites named by that slice include a plugin-instance-scoped exact-request replay ledger, reserve-before-side-effect semantics and a typed mutation callback before any accepted native delete can exist.
+
+More broadly, ADR-0044 remains authoritative for the reliable Timer engine. Phase 64 is complete only when the required managed Timer lifecycle is coherently proved across intent, assignment, native binding, safe mutation, authoritative readback, reconciliation and the required real-VDR acceptance. A transport being wired but disabled is therefore a checkpoint, not an engine closeout.
+
+## Current Phase-64 stack checkpoint
+
+The current stacked implementation line is:
 
 ```text
-PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
-HEAD=bba51455552bab0f1a06c680369c508858b2384b
-CONTROL_PLANE_URL=https://192.168.178.38/vdr-suite
-CREDENTIAL_GENERATION=2
-VDR_NATIVE_STATE_UNCHANGED=yes
-DAEMON_ACTIVE=yes
-AGENT_ACTIVE=yes
-EVIDENCE=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
+#153  TimerAssignment domain contract
+#154  TimerAssignment persistence repository
+#155  deterministic TimerAssignment planner
+#158  primary assignment scheduling handoff
+#159  assignment-set revision fence
+#160  replica assignment scheduling handoff
+#161  NativeTimerBinding domain contract
+#162  NativeTimerBinding persistence repository
+#163  VDR -> NativeTimerObservation mapper
+#164  present-readback application
+#165  expected PRESENT readback contract
+#166  operation-aware PRESENT verification
+#167  complete native Timer inventory / absence evidence
+#168  failure-aware RESTfulAPI inventory reader
+#169  NativeTimerBinding absence application
+#171  expected absence readback contract
+#172  operation-aware absence verification
+#173  shared MutationOperation repository
+#174  delete-operation completion after verified readback
+#175  delete-operation preparation handoff
+#176  delete dispatch claim/outcome
+#177  native Timer-delete Agent contract
+#178  Timer-delete assignment persistence
+#179  fenced Timer-delete delivery
+#180  durable local Timer-delete starting state
+#181  generic Agent command-state extension
+#182  commands.state v3 integration
+#183  Timer-delete local-state lifecycle
+#184  fresh durable starting handoff
+#185  fenced Timer-delete executor contract
+#186  durable executor outcomes
+#187  extracted protected Agent command-state store
+#188  extracted Native Probe command handler
+#189  extracted Timer-delete command handler
+#190  disabled SuiteBridge Timer-delete transport
 ```
 
-The merged Agent remains read-only. Slice 1 implemented no snapshots, commands, VDR-native execution or provider selection.
+PR #156 is the separate proposed client playback/media-adaptation ADR. PR #157 is the separate SQLite architecture-baseline repair. PR #170 is the separate documentation/status synchronization workstream. These are not additional Timer-engine slices.
 
-## Active Phase 63 Slice 2 runtime
+## Phase ordering and Timer UI decision
 
-PR #138 merged the binding read-only Observation and Snapshot Ingestion contract. Draft PR #139 implements its first bounded runtime domain, `backend-health`, without command or VDR mutation paths.
+The binding numbered order remains:
 
-The runtime separates and fences:
+```text
+Phase 64 - reliable Timer Intent and Multi-Backend Orchestration engine
+  -> Phase 65 - Streaming Gateway and Media Sessions
+  -> Phase 66 - Legacy OSD Compatibility Bridge
+  -> Phase 67 - Public API and Client Compatibility Hardening
+```
 
-- authenticated Backend and Agent identity;
-- Agent process instance;
-- backend generation;
-- observation domain;
-- complete snapshot generation;
-- producer sequence;
-- resource revision.
+The **broad polished Timer UI is not a Phase-64 completion gate**. It remains separately gated on account/backend access management built on the Phase-62 identity and authorization model.
 
-It requires a complete baseline, exact-next change sequencing, idempotent equivalent replay, conflicting replay rejection and explicit `resync-required` on gaps or missing baselines. Accepted receipt/fact evidence and the ingestion cursor must commit atomically through Suite-owned repositories.
+Therefore Phase 65 Streaming may intentionally begin before the broad Timer UI is completed, but only after the reliable Phase-64 Timer engine itself satisfies its completion gates. Streaming is not technically dependent on the broad Timer UI.
 
-The implementation persists immutable receipts and one atomic ingestion cursor, accepts complete baseline plus exact-next changes, acknowledges equivalent replay idempotently, rejects conflicting replay and returns `resync-required` on gaps or missing baselines. The Agent persists protected lineage and a pending envelope before transport so an ambiguous response retries the exact same observation.
+## Streaming architecture already prepared
 
-Adding recordings, timers, EPG or channels requires explicit identity and complete-snapshot semantics and is not automatic scope.
+ADR-0046 remains the accepted server-side MediaSession/Gateway boundary. Draft PR #156 already contains the complementary proposed playback/media-adaptation ADR. Its direction remains compatible with the current architecture:
 
-## Current security position
+```text
+private VDR / Recording source
+  -> explicitly owned StreamProvider
+  -> ProviderStreamLease
+  -> media adaptation boundary
+  -> Streaming Gateway / selected MediaSession profile
+  -> client playback adapter
+  -> platform playback engine
+```
 
-Phase-62 identity, exact backend-scoped authorization, fixed Admin/Read-only roles, browser-session lifecycle, CSRF, fail-closed central mutation classification and append-only accountability remain authoritative.
+Transformation preference is `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain. This planning work does not authorize Phase-65 runtime before Phase 64 completes.
 
-Agent credentials remain distinct technical identities. Observation endpoints accept no browser/user credential as Agent authentication. Backend generation, Agent instance, observation domain, snapshot generation and producer sequence are validated server-side. Raw bootstrap/runtime secrets, verifiers, Authorization headers, provider credentials, private URLs and secret-bearing process state are excluded from normal output and accountability context.
+## Binding execution-governance decisions
 
-## Current work boundary
+The following rules apply to further planning and implementation:
 
-- Phase 62 is complete.
-- Phase 63 Slice 1 is merged and accepted.
-- Phase 63 Slice 2 runtime is active in Draft PR #139.
-- Phase 63 is not complete.
-- No command inbox/results, VDR-native mutation, provider ownership/selection, public provider URLs, TimerIntent/Phase-64, Streaming Gateway or OSD runtime belongs in Slice 2.
-- Existing direct-adapter `BackendNode.online` authority is not replaced by Agent lifecycle or observations.
-- TVScraper remains an unchanged upstream dependency; Suite code writes no TVScraper-owned database or cache.
+1. A chat discussion is not a project decision until represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract.
+2. `CURRENT.md` owns volatile project status. Other documents link here instead of copying exact active heads and CI state.
+3. A slice is the **smallest coherent safety or product change**, not the smallest mechanically possible diff. Avoid artificial intermediate states and unnecessarily long dependent stacks unless a real safety, concurrency, compatibility or acceptance boundary requires the split.
+4. Technical CI and architecture guards are necessary but not sufficient for user-visible milestones. Relevant milestones also require end-to-end user-journey acceptance.
+5. No provider availability or reachability creates authority. No active operation silently changes provider.
+6. No production native mutation is enabled merely to satisfy a roadmap number; all applicable revision, generation, provider, idempotency, durable-starting, readback and real-system gates remain mandatory.
+
+The target user journeys are maintained in [Golden User Journeys](planning/golden-user-journeys.md).
 
 ## Exact next action
 
-Stabilize Draft PR #139 on one exact head with full CI and the upgrade-safe real yaVDR acceptance path. Preserve the existing active Agent identity, prove `backend-health` baseline/change/replay/gap/restart semantics and keep the PR Draft until explicit approval.
+The next action is planning/documentation synchronization, not another Timer implementation:
+
+- bring PR #170 up to the PR-#190 checkpoint and make the document-authority hierarchy explicit;
+- synchronize the Strict Roadmap and Phase Map without treating PR #190 as Phase-64 completion;
+- preserve the already-decided ordering that Streaming may precede the broad Timer UI after the Timer engine is complete;
+- review/update proposed playback ADR PR #156 against the then-current canonical planning documents;
+- only after that review decide and explicitly authorize the remaining Phase-64 completion work.
+
+No PR Ready/merge/close/retarget action is implied by this planning synchronization.

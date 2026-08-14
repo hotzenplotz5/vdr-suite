@@ -1,286 +1,284 @@
 # VDR-Suite Implementation Dependency Map
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
+- [Strict Roadmap](roadmap.md)
+- [Phase Map](phase-map.md)
+- [Domain Dependency Map](domain-dependency-map.md)
+
+---
+
 ## Purpose
 
-This map translates accepted ADRs and implemented foundations into a strict runtime dependency order. It distinguishes completed prerequisites from future work and forbids shortcuts that would move policy into clients, plugins or providers.
+This map translates accepted architecture into a strict **runtime dependency order**. It defines what later work may depend on and what shortcuts are forbidden.
+
+It intentionally does not say which PR is active, which branch is current or which exact slice comes next. Those volatile facts belong only in [Current State](../CURRENT.md).
 
 ## Governing sequence
 
 ```text
-Completed architecture contracts and dependency maps
-  -> Completed Phase 60.15 Recording metadata preparation
-  -> Completed Phase 61 Suite Metadata and Genre Platform
-  -> Completed Post-Phase 61 Performance Hardening (B1-B4)
-  -> Completed Remote/Live Overlay hardening (#110)
-  -> Completed Backend-scoped Global Search (#111)
-  -> Completed Phase 62 Identity, RBAC and Accountability
-  -> Active Phase 63 Backend Agent and Secure Multi-Site Runtime
-  -> Phase 64 Timer Intent and Orchestration
-  -> Phase 65 Streaming Gateway
-  -> Phase 66 Legacy OSD Bridge
-  -> Phase 67 Public API and Client Hardening
-  -> Phase 68 Recommendation and Knowledge Graph
+identity, authorization and accountability
+  -> secure Backend Agent lifecycle and observation continuity
+  -> durable command/result and protected-write safety
+  -> Timer Intent and Multi-Backend Orchestration
+  -> Streaming Gateway and Media Sessions
+  -> Legacy OSD Compatibility Bridge
+  -> stable Public API and Client Compatibility Hardening
+  -> Recommendation and Content Knowledge Graph
 ```
 
-Later phases may not bypass earlier identity, authorization, accountability, lifecycle, revision or stable-domain prerequisites.
+The numbered phase mapping for these dependencies is maintained by the [Strict Roadmap](roadmap.md) and [Phase Map](phase-map.md).
 
-## Existing foundations to reuse
+Later phases may not bypass earlier identity, authorization, accountability, lifecycle, revision, fencing or stable-domain prerequisites.
 
-- daemon composition and HTTP server boundary;
-- SQLite migrations, repositories and transaction boundaries;
-- BackendNode/BackendRegistry and backend access modes;
+## Existing reusable foundations
+
+The implementation must continue to reuse rather than duplicate:
+
+- daemon composition and HTTP server boundaries;
+- SQLite migrations, repositories and transaction ownership;
+- BackendNode/BackendRegistry and backend access policy;
 - backend-scoped snapshots, caches, partial refresh and change feed;
-- RESTfulAPI and SVDRP adapter abstractions;
-- Recordings 2 and guarded Recording action workflow;
+- RESTfulAPI/SVDRP/SuiteBridge adapter boundaries;
+- Recordings 2 and guarded Recording action workflows;
 - native Timer and SearchTimer foundations;
 - persistent Recording/EPG metadata, people, artwork and Genre assignments;
-- query-only Genre and global-search repositories;
-- TVScraper/SuiteBridge evidence acquisition behind Suite boundaries;
+- query-oriented Genre/global-search repositories;
 - backend-neutral RemoteAction and LiveOverlay contracts;
 - modular frontend ownership through `VdrSuiteClientApi`;
-- packaging, staging and real-system acceptance;
-- SuiteBridge read-only/capability/lifecycle foundations.
+- persistent actor identity, browser sessions, RBAC and accountability;
+- Backend Agent enrollment/lifecycle/generation fencing;
+- Agent observation ingestion, durable commands/results and explicit provider ownership;
+- protected-write safety and unknown-outcome reconciliation.
 
-These foundations may be migrated or hardened, but must not be replaced with parallel frontend- or provider-owned systems.
+These foundations may be hardened or generalized only when a concrete domain requires it; they must not be replaced by parallel frontend-, plugin- or provider-owned systems.
 
-## Completed runtime dependency — Phase 61
+## Dependency A — Identity, authorization and accountability
 
-```text
-backend-scoped metadata target identity
-  -> provider/native/derived evidence
-  -> canonical Genre assignment and state
-  -> indexed query-only read model
-  -> Suite REST
-  -> VdrSuiteClientApi
-  -> Genre navigation
-  -> existing Recordings 2 / EPG detail owners
-```
-
-Completion gates met:
-
-- Suite persistence/read models own public behaviour;
-- provider outages do not remove cached browse capability;
-- evidence state/provenance is explicit;
-- normal GETs remain provider-free;
-- migrations/restart persistence/backend isolation are tested;
-- real-system acceptance completed.
-
-## Completed operational dependency — B1-B4
+Required before protected multi-site or cross-backend effects:
 
 ```text
-faster bounded candidate/window reads
-  + atomic evidence writes
-  + unchanged Recording synchronization no-op
-  + unchanged EPG upsert no-op
-  + completed ETYPES cycle throttling
+persistent ActorIdentity
+  -> authenticated request/session context
+  -> exact backend/resource scope
+  -> AuthorizationDecision
+  -> required pre-dispatch accountability evidence
+  -> classified protected outcome evidence
 ```
 
-This reduces query cost, lock duration, WAL traffic and repeated native scans without changing the public Phase 61 contract.
+Critical rules:
 
-## Completed cross-cutting read/control features
+- authentication establishes identity, not permission;
+- frontend visibility is not authorization;
+- read-only/backend policy remains independent from actor permission;
+- secret material is not copied into durable accountability;
+- protected dispatch fails closed when required authorization/accountability evidence cannot be persisted.
 
-### Remote and Live Overlay (#110)
+## Dependency B — Backend Agent lifecycle and trustworthy observations
+
+Required before safe remote/site-local execution:
 
 ```text
-backend capability/read-only state
-  -> allowlisted RemoteAction / LiveOverlay service
-  -> VdrSuiteClientApi
-  -> isolated button pressed-state
-  -> one in-flight dispatch guard
+Agent enrollment and technical identity
+  -> credential lifecycle
+  -> backend generation + Agent instance fencing
+  -> heartbeat/lease and health
+  -> truthful capabilities
+  -> complete observation baseline
+  -> exact-next changes / replay / gap handling
+  -> resync-required when continuity is lost
 ```
 
-This does not implement streaming or a legacy OSD bridge.
+Critical rules:
 
-### Backend-scoped Global Search (#111)
+- backend generation, Agent instance, snapshot generation, producer sequence and resource revision are distinct;
+- stale generations/instances cannot advance current state;
+- observations are evidence with provenance, not hidden provider authority;
+- repository code owns SQLite.
+
+## Dependency C — Durable commands and protected-write safety
+
+Required before a new native mutation may be trusted across process/network boundaries:
 
 ```text
-persisted Recording/EPG titles, subtitles and people
-  -> query-only GlobalSearchRepository
-  -> service/controller/runtime
-  -> VdrSuiteClientApi
-  -> grouped results
-  -> existing Recordings 2 / EPG detail owners
+durable Operation
+  -> idempotency scope
+  -> durable Job/Attempt or equivalent execution record
+  -> recorded dispatch boundary
+  -> Agent command/receipt/result lifecycle
+  -> backend/provider/resource fences
+  -> native execution
+  -> authoritative readback
+  -> verified success / verified no-effect / outcome unknown
+  -> reconciliation before unsafe retry
 ```
 
-The first slice deliberately searches one selected backend. Any later aggregator must authorize each backend independently and merge bounded pages without sharing provider state.
+Critical rules:
 
-# Future implementation order
+- a timeout after possible dispatch is not proof of failure;
+- a retry does not create a new logical actor request;
+- resource-scoped leases/concurrency keys prevent conflicting protected writes;
+- provider availability does not grant provider authority;
+- active execution never silently switches provider;
+- stale backend generation, provider epoch or job claim cannot complete current work.
 
-## Phase 62 — Identity, RBAC and Accountability
+## Dependency D — Timer Intent and Multi-Backend Orchestration
 
-Prerequisites:
-
-- current server-enforced read-only policy;
-- ADR-0041 identity/trust direction;
-- ADR-0042 mutation context;
-- ADR-0048 request/correlation context;
-- ADR-0049 accountability model;
-- current persistent identity/repository patterns.
-
-Internal order:
-
-```text
-ActorIdentity and actor types
-  -> actor/session/credential persistence
-  -> roles, permissions and backend/resource scopes
-  -> centralized AuthorizationDecision
-  -> server-side enforcement adapters
-  -> actor/request/correlation context
-  -> AccountabilityEvent catalogue and schema
-  -> append-only repository
-  -> transactional outbox
-  -> protected query/redaction/retention
-  -> deny/outage/failure-injection acceptance
-```
-
-Critical gate:
-
-```text
-central authorization before privileged policy migration
-append-only accountability/outbox before new remote dispatch
-```
-
-## Phase 63 — Backend Agent and Secure Multi-Site Runtime
-
-Status: active through bounded Slice 1 in Draft PR #137. Prerequisites are completed Phase 62, ADR-0039 through ADR-0043 and the existing accountability producer.
-
-```text
-Slice 1 active:
-Agent identity/enrollment
-  -> credential rotation/revocation and local recovery
-  -> protected outbound transport
-  -> exact protocol compatibility
-  -> backend generation
-  -> heartbeat/lease and derived health
-  -> bounded read-only capabilities
-  -> reconnect reconciliation
-
-Later Phase-63 slices, not implemented here:
-snapshot/change publication
-  -> durable command inbox/result outbox
-  -> fenced native operations
-  -> local provider/SuiteBridge selection
-  -> protected writes only after all gates
-```
-
-[Binding Slice-1 contract](../development/phase-63-backend-agent-foundation.md)
-
-## Phase 64 — Timer Intent and Multi-Backend Orchestration
-
-Prerequisites: Phase 62 authorization/accountability; Phase 63 lifecycle/fencing; canonical event support; durable operations.
+The Timer engine depends on A-C and the relevant current EPG/channel evidence.
 
 ```text
 TimerIntent
   -> intent revision/lifecycle
-  -> observed native Timer normalization
-  -> NativeTimerBinding/adoption/provenance
+  -> current backend/channel/capability evidence
+  -> deterministic eligible-backend decision
   -> TimerAssignment
-  -> eligibility and deterministic scheduling
-  -> operation/job binding
-  -> native readback and reconciliation
-  -> epgsearch/SearchTimer proposal-to-intent conversion
-  -> duplicate/ambiguity/replica/failover policy
+  -> deliberate primary/replica role
+  -> durable protected native operation
+  -> NativeTimerBinding
+  -> authoritative native Timer readback
+  -> reconciliation / drift handling
 ```
 
-No provider or SearchTimer path may bypass central orchestration.
+Automation sources such as SearchTimer/epgsearch may create proposals/intents, but they do not bypass central authorization, assignment ownership or reconciliation.
 
-## Phase 65 — Streaming Gateway
+No failover/reassignment is allowed while a prior native mutation may have succeeded and remains outcome-unknown.
 
-Prerequisites: Phase 62 media authorization/accountability; Phase 63 Agent lifecycle; stable media identities; ADR-0046.
+A broad polished Timer UI is not automatically an engine-completion prerequisite; UI product gates are defined separately from the reliable orchestration engine gate.
+
+## Dependency E — Streaming Gateway and Media Sessions
+
+Media runtime depends on the established identity/trust/Agent boundaries plus stable media resource identity.
 
 ```text
-MediaResourceRef / MediaSession
-  -> authorization
-  -> MediaRoute and route epoch
-  -> short-lived access grants
+MediaResourceRef
+  -> authenticated playback request
+  -> authorization and admission
+  -> MediaSession
+  -> selected compatible media profile
+  -> MediaRoute + routeEpoch
+  -> short-lived MediaAccessGrant
   -> Gateway connection ownership
-  -> Agent provider route and capacity lease
-  -> Live pass-through
-  -> Recording range/seek/reconnect/growing file
-  -> provider failure invalidation
-  -> optional remux/transcode
+  -> Agent provider route
+  -> explicitly owned ProviderStreamLease
+  -> private VDR/StreamProvider source
+  -> bytes
 ```
 
-No permanent Streamdev or private provider URL becomes public.
+Required rules:
 
-## Phase 66 — Legacy OSD Bridge
+- no permanent Streamdev/private provider URL becomes public;
+- `mediaSessionId` is an identifier, not a bearer credential;
+- provider identity is not client-selectable;
+- route replacement receives a new epoch and fences the old route;
+- disconnect/revocation releases bounded provider resources;
+- slow clients and media processing stay outside VDR callbacks/locks;
+- transformation preference is pass-through, then remux/repackage, then transcode only when materially required;
+- growing Recording/range/seek capability is reported truthfully;
+- ordinary live playback does not silently imply timeshift.
 
-Prerequisites: Phase 62 view/control permissions; Phase 63 generation/sequence fencing; ADR-0047.
+Product acceptance must include real picture/sound and deterministic cleanup, not only fake-provider CI.
+
+## Dependency F — Legacy OSD Compatibility Bridge
+
+Legacy OSD compatibility depends on identity/authorization and backend generation/sequence fencing.
 
 ```text
-read-only OSD snapshot
-  -> immutable frames and ordered deltas
-  -> viewer session/fan-out
-  -> sequence-gap full resync
-  -> controller lease
+read-only OSD observation
+  -> immutable ordered frame/delta
+  -> LegacyOsdSession
+  -> viewer fan-out
+  -> gap/full-resync semantics
+  -> separate controller permission
+  -> one fenced controller lease
   -> allowlisted/rate-limited input
-  -> read-only backend denial
-  -> physical remote coexistence
 ```
 
-Viewing precedes control; no arbitrary command tunnel.
+Viewing precedes control. No arbitrary command tunnel is created. This subsystem is separate from LiveOverlay and media streaming.
 
-## Phase 67 — Public API and Client Hardening
+## Dependency G — Stable Public API and Client Hardening
 
-Prerequisites: implemented domain resources; actor context; stable revisions/operations/errors; ADR-0048.
+Stable independent-client contracts depend on implemented domain resources and mature identity/revision/error semantics.
 
 ```text
-request/correlation middleware
-  -> common problem responses
-  -> /api/v1 root/capabilities
-  -> ETag / If-Match
-  -> idempotency/operation exposure
-  -> cursor/partial-result semantics
-  -> resource migration
-  -> legacy aliases/deprecation metadata
-  -> structured Client API errors
-  -> schema/compatibility tests
+request/correlation context
+  -> common problem/error model
+  -> stable resource IDs and revisions
+  -> conditional mutation / idempotency exposure
+  -> cursor and partial-result semantics
+  -> compatibility/deprecation rules
+  -> schema/client contract tests
 ```
 
-## Phase 68 — Recommendation and Knowledge Graph
+Internal transition routes and first-party wrappers are not automatically stable public API commitments.
 
-Prerequisites: stable metadata/provenance, actor privacy, stable Recording/ProgramEvent/Timer identities, mature accountability and public API.
+## Dependency H — Recommendation and Content Knowledge Graph
+
+Recommendation/knowledge-graph work depends on mature content identity/provenance, actor privacy/preferences and stable resource semantics.
 
 ```text
-graph identity/edges
-  -> fact provenance
+stable content identities
+  -> provenance-aware facts/edges
   -> privacy/preferences
   -> deterministic baseline
   -> explainable ranking
   -> optional provider-neutral AI
-  -> local/offline providers
   -> feedback/correction
 ```
 
+It must not become a hidden authority that mutates Timer, metadata or access policy without the owning domain contract.
+
 ## Cross-cutting test order
 
-Each slice must progress through:
+Each coherent slice should progress through the smallest applicable set of:
 
 ```text
-value/domain tests
+domain/value tests
   -> repository/migration tests
   -> service/controller tests
-  -> architecture guards
-  -> frontend contract tests where relevant
-  -> aggregate regressions
+  -> architecture/static guards
+  -> frontend/client contract tests where relevant
+  -> aggregate regression
   -> build/package/install validation
   -> real-system acceptance where native behaviour changes
+  -> Golden User Journey acceptance where product behaviour changes
 ```
+
+A slice should be small enough to review safely, but not so small that it creates an artificial intermediate state with no independently useful or coherent contract.
 
 ## Forbidden shortcuts
 
-- no frontend-owned authorization or provider calls;
+- no frontend-owned authorization or private provider calls;
 - no direct provider/shared database as public Suite authority;
-- no new remote write before identity/accountability/revision/idempotency/fencing;
-- no Timer failover before unresolved prior dispatch is reconciled;
-- no public private-provider URL;
-- no accepted ADR presented as completed runtime without evidence.
+- no new remote/native write without identity/accountability/idempotency/fencing/readback semantics appropriate to the resource;
+- no blind retry after an unknown mutation outcome;
+- no Timer failover while prior dispatch is unresolved;
+- no silent provider fallback based on reachability/priority alone;
+- no public permanent private-provider URL;
+- no accepted ADR presented as completed runtime without evidence;
+- no historical slice document treated as current implementation authorization;
+- no active PR/head/CI checkpoint copied into this dependency map.
+
+## Status rule
+
+This map answers **what must precede what**. It does not answer **what is active right now**.
+
+For exact current completed/active/next phase position and authorized implementation checkpoint, use [Current State](../CURRENT.md).
 
 ## Related documents
 
 - [Strict Roadmap](roadmap.md)
 - [Phase Map](phase-map.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
+- [Golden User Journeys](golden-user-journeys.md)
 - [Current Architecture State](../development/current-architecture-state.md)
-- [Phase 61 Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Closeout](../development/post-phase-61-platform-runtime-closeout.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
+
+## Back
+
+- [Back to Planning Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)
