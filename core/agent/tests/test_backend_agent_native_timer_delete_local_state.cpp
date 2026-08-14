@@ -26,6 +26,7 @@ BackendAgentCommandAssignment assignment()
     payload.operationRevision = "op-rev-9";
     payload.nativeTimerBindingId = "binding-17";
     payload.expectedBindingRevision = "binding-rev-6";
+    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-44";
     payload.timerAssignmentId = "timer-assignment-12";
     payload.backendNativeTimerId = "native-timer-44";
     payload.controlPlaneClaimedAt = 100;
@@ -99,6 +100,8 @@ int main()
     assert(command.operationId == assigned.operationId);
     assert(command.operationRevision == "op-rev-9");
     assert(command.nativeTimerBindingId == "binding-17");
+    assert(command.expectedNativeTimerFingerprint ==
+           "sha256:native-timer-observed-44");
     assert(command.backendNativeTimerId == "native-timer-44");
     assert(command.localProviderSelection.providerInstanceEpoch ==
            "suitebridge-epoch-4");
@@ -147,6 +150,9 @@ int main()
     const std::string encodedStarting =
         backendAgentNativeTimerDeleteSerializeLocalState(starting, reason);
     assert(!encodedStarting.empty());
+    assert(encodedStarting.find(
+               "expected_native_timer_fingerprint=sha256:native-timer-observed-44\n") !=
+           std::string::npos);
     BackendAgentNativeTimerDeleteLocalState parsedStarting;
     assert(backendAgentNativeTimerDeleteParseLocalState(
         encodedStarting, parsedStarting, reason));
@@ -154,6 +160,8 @@ int main()
            BackendAgentNativeTimerDeleteLocalPhase::starting);
     assert(parsedStarting.command.requestFingerprint ==
            starting.command.requestFingerprint);
+    assert(parsedStarting.command.expectedNativeTimerFingerprint ==
+           starting.command.expectedNativeTimerFingerprint);
     assert(parsedStarting.command.localProviderSelection.ownershipGeneration == 11);
     assert(parsedStarting.localStartingPersistedAt == 120);
 
@@ -210,6 +218,8 @@ int main()
         encodedCompleted, parsedCompleted, reason));
     assert(parsedCompleted.phase ==
            BackendAgentNativeTimerDeleteLocalPhase::completed);
+    assert(parsedCompleted.command.expectedNativeTimerFingerprint ==
+           "sha256:native-timer-observed-44");
     assert(parsedCompleted.evidence.dispatchStartedAt == 121);
     assert(parsedCompleted.evidence.completedAt == 126);
 
@@ -234,6 +244,18 @@ int main()
     BackendAgentNativeTimerDeleteLocalState invalid;
     assert(!backendAgentNativeTimerDeleteParseLocalState(
         tampered, invalid, reason));
+
+    std::string missingFingerprint = encodedStarting;
+    const std::string fingerprint =
+        "expected_native_timer_fingerprint=sha256:native-timer-observed-44";
+    const auto fingerprintAt = missingFingerprint.find(fingerprint);
+    assert(fingerprintAt != std::string::npos);
+    missingFingerprint.replace(
+        fingerprintAt,
+        fingerprint.size(),
+        "expected_native_timer_fingerprint=");
+    assert(!backendAgentNativeTimerDeleteParseLocalState(
+        missingFingerprint, invalid, reason));
 
     BackendAgentCommandAssignment wrongType = assigned;
     wrongType.commandType = "probe.noop";
