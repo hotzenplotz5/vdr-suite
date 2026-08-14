@@ -85,6 +85,8 @@ require(
         "Pre-dispatch only",
         "No premature readback fence",
         "NativeTimerDeleteDispatchHandoff",
+        "expectedResourceFingerprint",
+        "expectedNativeTimerFingerprint",
         "accepted",
         "no native Timer mutation",
         "Slice 23",
