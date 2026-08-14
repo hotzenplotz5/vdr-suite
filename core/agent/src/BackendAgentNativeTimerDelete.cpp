@@ -52,6 +52,7 @@ bool backendAgentNativeTimerDeleteValidCommand(
         !identity(command.operationId) || !identity(command.operationRevision) ||
         !identity(command.nativeTimerBindingId) ||
         !identity(command.expectedBindingRevision) ||
+        !fingerprint(command.expectedNativeTimerFingerprint) ||
         !identity(command.timerAssignmentId) ||
         !identity(command.backendNativeTimerId) || !identity(command.jobId) ||
         !identity(command.attemptId) || command.claimEpoch == 0 ||
