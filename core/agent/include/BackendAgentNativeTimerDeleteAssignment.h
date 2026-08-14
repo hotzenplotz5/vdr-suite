@@ -18,6 +18,7 @@ struct BackendAgentNativeTimerDeleteAssignmentRequest
     std::string operationRevision;
     std::string nativeTimerBindingId;
     std::string expectedBindingRevision;
+    std::string expectedNativeTimerFingerprint;
     std::string timerAssignmentId;
     std::string backendId;
     std::uint64_t backendGeneration = 0;
