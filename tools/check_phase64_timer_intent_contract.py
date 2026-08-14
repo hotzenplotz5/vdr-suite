@@ -10,15 +10,19 @@ required_files = [
     "core/timers/include/TimerIntentRepository.h",
     "core/timers/src/TimerIntentRepository.cpp",
     "core/timers/tests/test_timer_intent_repository.cpp",
+    "core/timers/include/TimerAssignment.h",
+    "core/timers/src/TimerAssignment.cpp",
+    "core/timers/tests/test_timer_assignment.cpp",
     "docs/development/phase-64-timer-intent-contract.md",
     "docs/development/phase-64-timer-intent-repository.md",
+    "docs/development/phase-64-timer-assignment-contract.md",
     "mk/phase64-timer-intent-tests.mk",
     "Makefile",
     "docs/planning/roadmap.md",
 ]
 for relative in required_files:
     if not (ROOT / relative).is_file():
-        raise SystemExit(f"missing Phase-64 TimerIntent file: {relative}")
+        raise SystemExit(f"missing Phase-64 file: {relative}")
 
 header = (ROOT / required_files[0]).read_text(encoding="utf-8")
 source = (ROOT / required_files[1]).read_text(encoding="utf-8")
@@ -26,11 +30,15 @@ test = (ROOT / required_files[2]).read_text(encoding="utf-8")
 repository_header = (ROOT / required_files[3]).read_text(encoding="utf-8")
 repository_source = (ROOT / required_files[4]).read_text(encoding="utf-8")
 repository_test = (ROOT / required_files[5]).read_text(encoding="utf-8")
-contract_doc = (ROOT / required_files[6]).read_text(encoding="utf-8")
-repository_doc = (ROOT / required_files[7]).read_text(encoding="utf-8")
-make_fragment = (ROOT / required_files[8]).read_text(encoding="utf-8")
-makefile = (ROOT / required_files[9]).read_text(encoding="utf-8")
-roadmap = (ROOT / required_files[10]).read_text(encoding="utf-8")
+assignment_header = (ROOT / required_files[6]).read_text(encoding="utf-8")
+assignment_source = (ROOT / required_files[7]).read_text(encoding="utf-8")
+assignment_test = (ROOT / required_files[8]).read_text(encoding="utf-8")
+contract_doc = (ROOT / required_files[9]).read_text(encoding="utf-8")
+repository_doc = (ROOT / required_files[10]).read_text(encoding="utf-8")
+assignment_doc = (ROOT / required_files[11]).read_text(encoding="utf-8")
+make_fragment = (ROOT / required_files[12]).read_text(encoding="utf-8")
+makefile = (ROOT / required_files[13]).read_text(encoding="utf-8")
+roadmap = (ROOT / required_files[14]).read_text(encoding="utf-8")
 
 for token in [
     "TimerIntentType",
@@ -132,6 +140,59 @@ for token in [
         raise SystemExit(f"missing TimerIntent repository regression marker: {token}")
 
 for token in [
+    "TimerAssignmentState",
+    "TimerAssignmentRole",
+    "TimerAssignmentChannelBinding",
+    "TimerAssignmentDecisionEvidence",
+    "struct TimerAssignment",
+    "assignmentEpoch",
+    "backendGeneration",
+    "nativeTimerBindingId",
+    "timerAssignmentRevisionMatches",
+    "timerAssignmentCanTransition",
+    "timerAssignmentActiveOwnershipState",
+    "timerAssignmentTerminal",
+]:
+    if token not in assignment_header:
+        raise SystemExit(f"missing TimerAssignment header contract marker: {token}")
+
+for token in [
+    '"proposed"',
+    '"selected"',
+    '"provisioning"',
+    '"bound"',
+    '"reconciling"',
+    '"unassigned"',
+    '"superseding"',
+    '"superseded"',
+    '"cancel_requested"',
+    '"cancelled"',
+    '"failed"',
+    '"primary"',
+    '"replica"',
+    '"replacement"',
+    "unassignedShapeValid",
+    "assignedShapeValid",
+    "assignment.nativeTimerBindingId",
+]:
+    if token not in assignment_source:
+        raise SystemExit(f"missing TimerAssignment source contract marker: {token}")
+
+for token in [
+    "timerAssignmentValid(selected)",
+    "TimerAssignmentState::unassigned",
+    "TimerAssignmentState::bound",
+    "nativeTimerBindingId = \"native-timer-binding:1\"",
+    "TimerAssignmentRole::replica",
+    "TimerAssignmentRole::replacement",
+    "timerAssignmentCanTransition",
+    "timerAssignmentActiveOwnershipState",
+    "timerAssignmentTerminal",
+]:
+    if token not in assignment_test:
+        raise SystemExit(f"missing TimerAssignment regression marker: {token}")
+
+for token in [
     "Control Plane",
     "TimerAssignment",
     "NativeTimerBinding",
@@ -163,37 +224,56 @@ for token in [
         raise SystemExit(f"missing Phase-64 Slice-2 repository statement: {token}")
 
 for token in [
+    "TimerAssignment Domain Contract",
+    "assignmentEpoch",
+    "active ownership states",
+    "unassigned",
+    "nativeTimerBindingId",
+    "authoritative native readback",
+    "Account management",
+    "existing Phase-62",
+    "TimerAssignment repository",
+    "mutations=disabled",
+    "no real yaVDR acceptance",
+]:
+    if token not in assignment_doc:
+        raise SystemExit(f"missing Phase-64 Slice-3 assignment statement: {token}")
+
+for token in [
     "test-phase64-timer-intent-contract-architecture",
     "test-phase64-timer-intent-contract:",
     "test-phase64-timer-intent-repository:",
+    "test-phase64-timer-assignment-contract:",
     "core/timers/src/TimerIntent.cpp",
     "core/timers/src/TimerIntentRepository.cpp",
     "core/timers/tests/test_timer_intent_repository.cpp",
-    "test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository",
+    "core/timers/src/TimerAssignment.cpp",
+    "core/timers/tests/test_timer_assignment.cpp",
+    "test-fast: test-phase64-timer-intent-contract test-phase64-timer-intent-repository test-phase64-timer-assignment-contract",
     "test-architecture: test-phase64-timer-intent-contract-architecture",
 ]:
     if token not in make_fragment:
         raise SystemExit(f"missing Phase-64 test-graph marker: {token}")
 
 if "include mk/phase64-timer-intent-tests.mk" not in makefile:
-    raise SystemExit("Phase-64 TimerIntent test fragment is not included by Makefile")
+    raise SystemExit("Phase-64 Timer test fragment is not included by Makefile")
 
 for token in [
     "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
     "Phase 64 - Timer Intent and Multi-Backend Orchestration",
-    "Phase 65 - Streaming Gateway and Media Sessions",
     "Phase 64 Slice 1 — TimerIntent Domain Contract",
     "Phase 64 Slice 2 — TimerIntent Persistence and Repository Semantics",
-    "Status: **Completed.**",
-    "Historical Slice-2 boundary: No TimerAssignment; no NativeTimerBinding; no scheduler or failover execution",
-    "planning hold after the PR-#190 checkpoint; Phase 64 is not complete",
+    "Phase 64 Slice 3 — TimerAssignment Domain Contract",
+    "Status: **Active; Slice 3 is the TimerAssignment domain contract.**",
+    "No TimerAssignment persistence; no NativeTimerBinding; no scheduler or failover execution",
+    "Account/backend access management is a hard prerequisite before broad Timer UI wiring",
 ]:
     if token not in roadmap:
         raise SystemExit(f"missing Phase-64 roadmap boundary: {token}")
 
-# The merged Slice-2 code itself remains a persistence-only foundation. The
-# roadmap may describe later stacked work, but accepted main code must still not
-# gain TimerIntent runtime wiring outside the reviewed Timer domain boundary.
+# Slice 3 adds only backend-neutral TimerAssignment value semantics. Production
+# wiring outside core/timers would skip separately reviewed persistence,
+# scheduling and native-mutation slices.
 forbidden_roots = [
     ROOT / "apps",
     ROOT / "api",
@@ -212,8 +292,8 @@ for root in forbidden_roots:
         if not path.is_file() or path.suffix not in text_suffixes:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        if "TimerIntent" in text or "timer-intent-semantic/1" in text:
-            raise SystemExit(f"premature Phase-64 TimerIntent runtime wiring: {path.relative_to(ROOT)}")
+        if "TimerIntent" in text or "TimerAssignment" in text or "timer-intent-semantic/1" in text:
+            raise SystemExit(f"premature Phase-64 Timer runtime wiring: {path.relative_to(ROOT)}")
 
 for relative in [
     required_files[0],
@@ -222,11 +302,14 @@ for relative in [
     required_files[3],
     required_files[4],
     required_files[5],
+    required_files[6],
+    required_files[7],
     required_files[8],
+    required_files[12],
 ]:
     text = (ROOT / relative).read_text(encoding="utf-8")
     if "mutations=enabled" in text:
-        raise SystemExit(f"Phase-64 persistence slice must not enable mutations: {relative}")
+        raise SystemExit(f"Phase-64 domain slice must not enable mutations: {relative}")
 
-print("Phase-64 TimerIntent contract and repository check passed")
-print("Merged Slice-2 code boundary remains TimerIntent persistence only")
+print("Phase-64 TimerIntent and TimerAssignment contract check passed")
+print("Slice-3 boundary: assignment value contract only; persistence/runtime deferred")
