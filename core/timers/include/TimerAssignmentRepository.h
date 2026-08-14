@@ -47,6 +47,18 @@ struct TimerAssignmentRepositoryListResult
     }
 };
 
+struct TimerAssignmentRepositorySetRevisionResult
+{
+    TimerAssignmentRepositoryStatus status =
+        TimerAssignmentRepositoryStatus::storageError;
+    std::string assignmentSetRevision;
+
+    bool ok() const
+    {
+        return status == TimerAssignmentRepositoryStatus::ok;
+    }
+};
+
 class TimerAssignmentRepository
 {
 public:
@@ -60,10 +72,26 @@ public:
     TimerAssignmentRepositoryResult create(
         const TimerAssignment& assignment);
 
+    // Snapshot-fenced creation reuses create() for the durable assignment write.
+    // The opaque set revision represents the complete TimerAssignment set for
+    // one TimerIntent. A stale set revision returns `conflict`; the repository
+    // still owns assignmentRevision, assignmentEpoch and primary ownership.
+    TimerAssignmentRepositoryResult createAgainstAssignmentSetRevision(
+        const TimerAssignment& assignment,
+        const std::string& expectedAssignmentSetRevision);
+
     TimerAssignmentRepositoryResult findById(
         const std::string& timerAssignmentId);
 
     TimerAssignmentRepositoryListResult listForIntent(
+        const std::string& timerIntentId);
+
+    // Returns an opaque per-intent set revision. Callers that plan from a
+    // subsequently loaded assignment list can safely persist only against this
+    // exact token: any intervening assignment create/update/delete invalidates
+    // the token.
+    TimerAssignmentRepositorySetRevisionResult
+    assignmentSetRevisionForIntent(
         const std::string& timerIntentId);
 
     TimerAssignmentRepositoryResult findActivePrimaryForIntent(
