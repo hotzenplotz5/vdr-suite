@@ -1,160 +1,124 @@
 # VDR-Suite Current Project Status
 
-## Current verified position
+## Status ownership
+
+Exact operational state is maintained only in [Current State](../CURRENT.md). This file provides stable narrative context and must not become a second source for current branch heads, PR tips or CI run numbers.
+
+Before continuing work, always read `CURRENT.md`, the Strict Roadmap, the applicable ADRs and live GitHub state.
+
+## Platform position
+
+Latest completed numbered runtime phase: **Phase 63 - Backend Agent and Secure Multi-Site Runtime**.
+
+Current active numbered runtime phase: **Phase 64 - Timer Intent and Multi-Backend Orchestration**.
+
+Next strict numbered runtime phase after Phase 64: **Phase 65 - Streaming Gateway and Media Sessions**.
+
+Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Post-Phase 61 Performance Hardening (B1-B4), VDR Remote and Live Overlay hardening (#110), Backend-scoped Global Search (#111), Configurable photorealistic VDR Remote (#115), and Phase 62 - Identity, RBAC and Accountability Foundation.
+
+Historical closeouts:
+
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
+
+## Phase 63 foundation
+
+Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract. These remain prerequisites for Phase-64 orchestration and later media execution.
+
+Historical Phase-63 documents may contain checkpoint sentences such as **Phase 63 is not complete**. Those sentences describe their original intermediate acceptance point and are not current project status.
+
+## Phase 64 position
+
+Phase 64 deliberately separates:
 
 ```text
-Repository: hotzenplotz5/vdr-suite
-Branch authority: main
-Current merged main baseline:
-24b1d7938ddaa15834a8da6323a270761868f4ba
-
-Latest merged bounded contract slice:
-Phase 63 Slice 2 - Read-only Observation and Snapshot Ingestion Foundation
-PR #138 - Define read-only agent observation ingestion contract
-Accepted source head: 0207c0cbc01f167139b5d6483680f9a280c05160
-Merge commit: 24b1d7938ddaa15834a8da6323a270761868f4ba
-Source CI: VDR-Suite CI #7275, run 31006387349, all five jobs successful
-Runtime change: none; contract and guards only
-
-Active numbered runtime slice:
-Phase 63 Slice 2 - Backend Health Observation Ingestion Runtime
-Draft PR #139 - Add backend health observation ingestion runtime
-Branch: agent/phase63-backend-health-ingestion-runtime
-State: Draft runtime implementation; exact-head CI and real yaVDR acceptance pending
-
-Latest completed numbered runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Next strict runtime phase:
-Phase 63 - Backend Agent and Secure Multi-Site Runtime
-
-Current active numbered runtime phase:
-Phase 63 Slice 2; Phase 63 is not complete
-
-Phase 64-67 runtime:
-not advanced
+TimerIntent
+  -> TimerAssignment
+  -> NativeTimerBinding
 ```
 
-## Final accepted Phase 63 Slice 1 runtime
+The merged foundation on `main` is the TimerIntent contract and TimerIntent repository. A large stacked Draft line has subsequently built deterministic assignment planning, binding/readback evidence, durable operation semantics and a fenced Timer-delete handoff through a disabled concrete SuiteBridge transport.
+
+The exact stacked checkpoint is maintained in `CURRENT.md` and must be re-read from GitHub before use.
+
+The important architectural result is that the Timer-delete path at the current checkpoint is fail-closed: the transport exists, but production native deletion is not enabled merely because the wire path exists. Native mutation still requires the complete accepted replay/idempotency, provider/generation, durable-starting, readback/reconciliation and real-system gates.
+
+## Current planning hold
+
+Implementation is intentionally paused after the PR-#190 checkpoint while project truth and forward ordering are synchronized. This is **not** a declaration that Phase 64 is complete and does not authorize a successor Timer implementation or `#191`.
+
+The current authorized work is documentation and architecture review only. A later implementation restart requires an explicit decision after that review.
+
+## Streaming and Timer UI ordering
+
+The intended strict order is:
 
 ```text
-PHASE_63_BACKEND_AGENT_RUNTIME_ACCEPTANCE=PASS
-accepted_runtime_head=bba51455552bab0f1a06c680369c508858b2384b
-accepted_tree=575f49a197cda9ad02da4035b437ee1c32bed2d6
-merge_commit=a9620179a442155f0860ef3182ca39186ac46a57
-source_ci_run_number=7256
-source_ci_run_id=31001478896
-control_plane_url=https://192.168.178.38/vdr-suite
-credential_generation=2
-vdr_native_state_unchanged=yes
-daemon_active=yes
-agent_active=yes
-evidence_directory=/var/backups/vdr-suite-phase63-20260805T114111Z-bba51455552b
+Phase 64 reliable Timer orchestration engine
+  -> Phase 65 Streaming Gateway and Media Sessions
+  -> Phase 66 Legacy OSD Compatibility Bridge
+  -> Phase 67 Public API and Client Compatibility Hardening
 ```
 
-This is durable historical evidence for the accepted Slice-1 candidate. Later Agent or daemon changes require their own exact-head CI and runtime proof.
+A broad polished Timer UI is not required to close the Phase-64 engine. It remains separately gated on account/backend access management built on the Phase-62 identity/authorization model.
 
-## Completed post-Phase-62 work
+Therefore Phase 65 may intentionally start before the broad Timer UI is complete, but only after the reliable Phase-64 Timer engine satisfies its own completion gates. Streaming is not technically dependent on the broad Timer UI.
 
-- Remote/Live Overlay hardening (#110), backend-scoped Global Search (#111), TVScraper and artwork corrections (#118, #123, #132).
-- PR #135 added backend-only manual movie/series/season/episode selection, immutable evidence, relationship-locked assignment/withdrawal and bundled folder readback.
-- PR #136 added atomic selected-movie cast persistence, canonical people identities, effective title/actor search integration, reassignment/withdrawal history and provider-free set-based read paths.
-- PR #137 added controlled Backend Agent enrollment, technical identity, protected transport, generation/instance fencing, lease lifecycle, read-only capabilities, credential rotation/revocation/replacement, hardened local state and guarded real-system acceptance.
+## Streaming architecture preparation
 
-## Completed Phase 63 Slice 1
+Accepted ADR-0046 already defines the server-side Streaming Gateway and MediaSession boundary. Draft PR #156 contains the complementary proposed client-playback/media-adaptation strategy and should be reviewed against the current canonical documents before acceptance.
 
-The binding historical contract is [Phase 63 Backend Agent Enrollment and Lease Foundation](phase-63-backend-agent-foundation.md); the accepted evidence is recorded in [Phase 63 Slice-1 Closeout](phase-63-slice-1-closeout.md).
+The intended media direction remains provider-private and transformation-minimal: clients request Suite media capabilities rather than Streamdev/SuiteBridge URLs, and delivery prefers pass-through before remux/repackage before transcoding.
 
-Completed scope:
+## Product acceptance
 
-- administrator-authorized one-time enrollment bound to an existing Backend;
-- persistent technical Agent actor/device/credential identity;
-- exact Agent protocol validation and generation fencing;
-- heartbeat, lease and derived lifecycle status;
-- bounded read-only capabilities;
-- reconnect/resync disposition;
-- self-scoped central authorization for credential rotation;
-- atomic credential replacement and restart-safe lost-response recovery;
-- Agent revocation and replacement enrollment with retained history;
-- accountability repository and redacted request/correlation evidence reuse;
-- outbound HTTPS runtime, protected local state, systemd-owned 0700 storage, hardened unit, manpages and install staging;
-- local status/revocation administration and guarded yaVDR acceptance with failed-run cleanup.
+Component tests, CI, architecture guards and real-system safety checks remain mandatory. User-visible milestones additionally use [Golden User Journeys](../planning/golden-user-journeys.md) so that a technically correct collection of components is not mistaken for a complete product path.
 
-Slice 1 did not implement domain observations, snapshots, commands, results, native execution, provider selection, public provider URLs, streaming, OSD or Phase-64 work. Agent lifecycle state does not replace existing direct-adapter availability authority.
-
-## Active Phase 63 Slice 2 runtime
-
-The binding contract is [Phase 63 Observation and Snapshot Ingestion](phase-63-observation-ingestion.md).
-
-Draft PR #139 implements the first bounded `backend-health` domain:
-
-- existing `vdr-suite-agent/1` technical authentication only;
-- backend, Agent, Agent-instance and backend-generation fencing;
-- complete snapshot baseline and exact-next change sequencing;
-- equivalent replay idempotency, conflicting replay rejection and explicit `resync-required`;
-- atomic immutable receipt plus ingestion-cursor persistence in Suite-owned SQLite repositories;
-- protected Agent-side observation lineage and pending-envelope retry after ambiguous transport results;
-- backward-compatible migration of protected Agent identity state;
-- redacted administrative observation cursor readback;
-- upgrade-safe real-system acceptance that preserves the existing active Agent identity.
-
-The runtime remains read-only and does not replace direct-adapter `BackendNode.online` authority.
-
-## Security review
-
-No browser/user authentication, CSRF, fixed Read-only-role or cross-backend policy is weakened. Agent credentials remain distinct technical identities and receive no user/admin authority. Observation ingestion is fail-closed around existing central authentication, authorization and accountability boundaries.
-
-Bootstrap/runtime secrets, hashes/verifiers, Authorization headers, provider credentials and secret-bearing diagnostics are never normal output. Observation payloads do not become hidden authority over direct-adapter facts.
-
-## Compatibility-retirement decision
-
-Legacy Basic remains transitional. `enforced` is the fail-closed target. Removal requires a separate deployment-migration contract and is not unfinished Phase 62 or Phase 63.
+The key vertical journeys cover Live TV playback, Recording playback, record-one-programme orchestration, multi-backend scheduling without provider knowledge and fail-closed recovery from backend/provider/transport failures.
 
 ## Development rules
 
-- Root-level `AGENTS.md` remains binding.
-- Verify current `main`, branch, PR and CI state before repository writes.
-- Evaluate CI only for the exact final feature head.
-- Do not treat historical acceptance hashes as proof for changed daemon fingerprints.
-- Keep PR #139 Draft until exact-head CI and real yaVDR acceptance are green and the user explicitly approves readiness.
-- Do not cross the documented Slice-2 exclusions.
-- Never commit or print credentials, cookies, CSRF secrets, provider tokens or secret-bearing process environments.
-- No manual SQLite inspection is part of runtime acceptance.
+- Root-level `AGENTS.md` is binding.
+- `CURRENT.md` is the sole repository copy of volatile operational status.
+- Verify live `main`, exact PR head and exact-final-head CI before writes or status claims.
+- Keep active stacked PRs Draft unless the user explicitly approves a review-state change.
+- Do not merge, rebase, force-push, retarget or rewrite published history without explicit approval.
+- A slice is the smallest coherent safety/product change, not the smallest mechanically possible diff.
+- Avoid artificial intermediate states and unnecessary long dependency stacks unless a real safety, concurrency, compatibility or acceptance boundary requires them.
+- Provider availability never creates execution authority and active work never silently switches provider.
+- Require real-system acceptance when an installed/runtime or native-behaviour boundary changes.
+- Broad Timer UI work must not bypass the account/backend access-management gate.
 
 ### Preferred edit path for new chats
 
-Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded operation safely.
+Prefer direct GitHub repository updates for existing files when the connected GitHub tooling can perform the complete bounded operation safely. Re-read the exact pull-request head immediately before every repository write and inspect the resulting diff before treating the change as correct.
 
 Use local edits first only when the change requires:
 
-- a workaround because the GitHub connector blocks a file operation;
-- repository-local generation, compilation or tests that cannot be performed through the connector;
-- a coherent multi-file patch that must be validated locally before publication.
+- a programmatic transformation that cannot be performed safely through the GitHub connector;
+- local build, test or generated-artifact work that requires a checkout;
+- a workaround because the GitHub connector blocks a file operation.
 
-Never replace a complete repository file from a truncated fetch. After each GitHub file update, inspect the resulting commit diff before treating the change as correct.
+Do not replace a complete existing file from a truncated or partial fetch. Fetch the complete content or the required ranges first. Continue through already-approved bounded steps without artificial confirmation pauses, keep published updates fast-forward-only, and evaluate GitHub Actions at the final stabilization head rather than after every intermediate commit.
+
+## Project-decision rule
+
+A chat discussion is not a binding VDR-Suite project decision until it is represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract. This prevents one conversation or stale handoff from silently overriding the project architecture.
 
 ## Exact next action
 
-1. Complete the upgrade-safe `backend-health` runtime acceptance harness and authoritative status updates in Draft PR #139.
-2. Obtain all required CI jobs on one exact final head.
-3. Build and install that exact head on yaVDR, preserving the existing Agent identity.
-4. Execute the guarded upgrade-safe acceptance and retain redacted evidence.
-5. Keep PR #139 Draft until exact-head acceptance and explicit approval.
+Use [Current State](../CURRENT.md) for the exact checkpoint. Complete the documentation/roadmap synchronization, review proposed playback ADR PR #156 against that synchronized truth, then explicitly decide what remaining Phase-64 engine work is required before implementation resumes.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Phase 63 Slice-1 Closeout](phase-63-slice-1-closeout.md)
-- [Phase 63 Observation and Snapshot Ingestion](phase-63-observation-ingestion.md)
-- [Phase 63 Backend Agent Foundation](phase-63-backend-agent-foundation.md)
-- [Phase 63 Backend Agent Runtime Acceptance](phase-63-backend-agent-runtime-acceptance-runbook.md)
-- [Post-Phase-62 Security Review](post-phase-62-security-review.md)
-- [Phase 62 Final Closeout](phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
+- [Golden User Journeys](../planning/golden-user-journeys.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
+- [Phase 64 TimerIntent Contract](phase-64-timer-intent-contract.md)
+- [Phase 64 TimerIntent Repository](phase-64-timer-intent-repository.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Agent Workflow Rules](../../AGENTS.md)
