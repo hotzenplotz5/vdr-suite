@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static guard for the Phase-63 Slice-2 observation ingestion contract."""
+"""Static guard for the historical Phase-63 Slice-2 observation contract."""
 
 from pathlib import Path
 import sys
@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 CLOSEOUT = ROOT / "docs/development/phase-63-slice-1-closeout.md"
 CONTRACT = ROOT / "docs/development/phase-63-observation-ingestion.md"
+SLICE2_CLOSEOUT = ROOT / "docs/development/phase-63-slice-2-closeout.md"
 CURRENT = ROOT / "docs/CURRENT.md"
 STATUS = ROOT / "docs/development/current-status.md"
 ROADMAP = ROOT / "docs/planning/roadmap.md"
@@ -70,18 +71,26 @@ require(
     ],
 )
 
+# Historical evidence stays in the historical contract/closeout documents.
+require(
+    SLICE2_CLOSEOUT,
+    [
+        "24b1d7938ddaa15834a8da6323a270761868f4ba",
+        "PR #138",
+        "PR #139",
+        "Phase 63 Slice 2",
+        "backend-health",
+    ],
+)
+
+# Current operational/planning entry points must describe the current phase,
+# not duplicate the old Slice-2 checkpoint as if it were still active.
 for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
     require(
         path,
         [
-            "24b1d7938ddaa15834a8da6323a270761868f4ba",
-            "PR #138",
-            "PR #139",
-            "Phase 63 Slice 1",
-            "Phase 63 Slice 2",
-            "Observation and Snapshot Ingestion",
-            "backend-health",
-            "Phase 63 is not complete",
+            "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
+            "Phase 64 - Timer Intent and Multi-Backend Orchestration",
         ],
     )
 
@@ -90,20 +99,13 @@ for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
         continue
     text = path.read_text(encoding="utf-8")
     for stale in [
-        "Current merged main baseline:\na125b702a6d3a7fe510a94c84dc1930d3b17a4c5",
-        "Phase 63 Slice 1 in Draft PR #137",
-        "Draft PR #137 - Add backend agent enrollment and lease foundation",
-        "State: Draft; implementation and stabilization in progress",
-        "Keep PR #137 Draft",
-        "Stabilize Draft PR #137",
-        "Draft PR #138 - Define read-only agent observation ingestion contract",
-        "State: Draft contract/closeout; runtime implementation not yet included",
-        "Keep PR #138 Draft",
-        "Stabilize Draft PR #138",
+        "Current active runtime slice:\nPhase 63 Slice 2",
+        "Draft PR #139 implements the first bounded read-only observation domain",
+        "Re-read PR #139 before continuation",
     ]:
         if stale in text:
             failures.append(
-                f"{path.relative_to(ROOT)} still contains stale marker: {stale}"
+                f"{path.relative_to(ROOT)} still contains stale active marker: {stale}"
             )
 
 contract_text = CONTRACT.read_text(encoding="utf-8") if CONTRACT.is_file() else ""
@@ -123,6 +125,5 @@ if failures:
     raise SystemExit(1)
 
 print("Phase-63 observation ingestion contract check passed")
-print("Accepted Slice-1 merge: a9620179a442155f0860ef3182ca39186ac46a57")
-print("Merged Slice-2 contract: 24b1d7938ddaa15834a8da6323a270761868f4ba")
-print("Active bounded runtime: PR #139 backend-health Observation Ingestion")
+print("Historical Slice-2 contract merge: 24b1d7938ddaa15834a8da6323a270761868f4ba")
+print("Current phase: Phase 64; Phase 63 historical evidence remains archived")
