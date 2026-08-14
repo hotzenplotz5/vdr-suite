@@ -1,23 +1,32 @@
 # Planning Documentation
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
+- [Strict Roadmap](roadmap.md)
+- [Phase Map](phase-map.md)
+
+---
+
 ## Purpose
 
-This section contains genuinely open work, strict dependency order and living gap registers. Completed implementation belongs in development closeouts/history; stable architecture belongs in architecture/ADRs.
+This section contains binding future execution order, domain/implementation dependencies, product acceptance journeys and living gap registers.
+
+It does **not** own volatile operational state. Exact current phase position, active PRs, branch heads and CI checkpoints belong only in [Current State](../CURRENT.md).
 
 ## Authoritative planning documents
 
 ### Execution order
 
-- [Strict Roadmap](roadmap.md)
-- [Phase Map](phase-map.md)
-- [Implementation Dependency Map](implementation-dependency-map.md)
+- [Strict Roadmap](roadmap.md) — binding numbered phase order and completion gates.
+- [Phase Map](phase-map.md) — compact phase-number map.
+- [Implementation Dependency Map](implementation-dependency-map.md) — dependency order that later runtime work may not bypass.
 
-### Completed Phase 62 references
+### Product acceptance
 
-- [Phase 62 Final Gap Matrix](phase-62-security-identity-gap-matrix.md)
-- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
-- [Security and Identity Architecture](../architecture/security-identity-foundation.md)
+- [Golden User Journeys](golden-user-journeys.md) — vertical user-visible acceptance paths across Timer, multi-backend failure and media playback.
 
 ### Architecture and domain dependencies
 
@@ -32,74 +41,67 @@ This section contains genuinely open work, strict dependency order and living ga
 - [Post-Phase-61 Provider Strategy](tvscraper-recording-metadata-roadmap.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 
-## Current verified position
+## Planning authority rules
 
 ```text
-Latest completed numbered runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
+docs/CURRENT.md
+  -> volatile operational truth
 
-Completed operational hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
+docs/planning/roadmap.md
+  -> binding phase order and completion gates
 
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
+docs/planning/phase-map.md
+  -> compact numbered phase map
 
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
+docs/planning/*dependency-map.md
+  -> stable prerequisite direction
 
-Next strict runtime phase:
-Phase 63 - Backend Agent and Secure Multi-Site Runtime
+docs/planning/golden-user-journeys.md
+  -> vertical product acceptance
 
-Current active runtime phase:
-none; Phase 63 is planned but not started
+ADRs
+  -> accepted target decisions, not implementation proof
+
+completed closeouts
+  -> historical evidence, not active work prompts
 ```
 
-## Strict future sequence
+No planning index or dependency document should copy an exact active branch head, current PR tip or CI checkpoint from `CURRENT.md`.
+
+## Stable phase dependency chain
+
+The numbered architecture sequence is:
 
 ```text
-Phase 63 - Backend Agent and Secure Multi-Site Runtime
-Phase 64 - Timer Intent and Multi-Backend Orchestration
-Phase 65 - Streaming Gateway and Media Sessions
-Phase 66 - Legacy OSD Compatibility Bridge
-Phase 67 - Public API and Client Compatibility Hardening
-Phase 68 - Recommendation and Content Knowledge Graph
+Phase 62 — Identity, RBAC and Accountability
+  -> Phase 63 — Backend Agent and Secure Multi-Site Runtime
+  -> Phase 64 — Timer Intent and Multi-Backend Orchestration
+  -> Phase 65 — Streaming Gateway and Media Sessions
+  -> Phase 66 — Legacy OSD Compatibility Bridge
+  -> Phase 67 — Public API and Client Compatibility Hardening
+  -> Phase 68 — Recommendation and Content Knowledge Graph
 ```
 
-## Phase 62 planning closeout
+Which of these phases is currently completed, active or next is intentionally not repeated here. See [Current State](../CURRENT.md).
 
-Phase 62 is completed through Slice 2X. The final runtime proof is recorded in the Slice-2X closeout and durable evidence directory.
+## Planning cautions
 
-Compatibility retirement was explicitly evaluated. Legacy Basic remains transitional because the code and packaged deployment defaults do not yet mandate migration to `enforced`. Removal requires a separate future migration contract and does not reopen Phase 62.
+- A completed phase is not reopened merely because later work reuses or hardens its contracts.
+- A proposed ADR does not authorize runtime work by itself.
+- A historical slice document may name a once-proposed successor; that does not make the successor currently authorized.
+- A broad polished UI may have different product prerequisites from the underlying engine phase and must not silently become an engine completion dependency.
+- Later phases may prepare bounded internal contracts only when they do not publish, activate or bypass earlier prerequisites.
+- Private RESTfulAPI, SVDRP, Streamdev or SuiteBridge reachability never becomes client/provider authority by accident.
 
-No audit product, generic security administration, generic Outbox, universal idempotency framework or native/service credential lifecycle is automatically carried into Phase 63.
+## Completed evidence
 
-## Status rules
+Closed implementation evidence remains under `docs/development/` and `docs/development/completed-phases/`. Historical exact SHAs, CI runs, hashes and evidence directories are valid for the bounded candidate they close and should remain there rather than being recopied into current planning pages.
 
-- **CURRENT** is based on code, tests and real-system evidence, with active branch work identified separately.
-- **PLANNED** contains only work that is not implemented.
-- **COMPLETED** moves to development history/closeouts.
-- **HISTORICAL** material remains traceable but is not a current entry point.
-- **SUPERSEDED** material points to its replacement.
-- **DEFERRED** work names its prerequisites and later owner.
-- Accepted ADRs change target contracts, not automatically implementation status.
+Useful entry points:
 
-## Current planning cautions
-
-- Phase 62 is completed and must not be reopened without a new necessity proof.
-- PR #117 remains open, Draft and unmerged pending explicit approval.
-- Phase 63 has not started and requires its own bounded contract.
-- Android and client architecture are consumers of security contracts, not automatically Phase-63 implementation scope.
-- Provider additions are post-Phase-61 strategy/backlog, not unfinished Phase-61 or Phase-62 slices.
-
-## Completed evidence used as planning prerequisites
-
-- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
-- [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
-- [Phase 61 Metadata, Genre and Performance Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md)
 - [Completed Phases](../development/completed-phases.md)
+- [Phase 62 Final Closeout](../development/phase-62-closeout.md)
+- [Phase 63 development/closeout documents](../development/index.md)
 
 ## Historical and superseded planning evidence
 
@@ -111,3 +113,9 @@ No audit product, generic security administration, generic Outbox, universal ide
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](../development/current-status.md)
 - [Current Architecture State](../development/current-architecture-state.md)
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)
