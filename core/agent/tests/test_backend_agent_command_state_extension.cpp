@@ -27,7 +27,8 @@ BackendAgentCommandAssignment assignment()
     payload.operationRevision = "op-rev-14";
     payload.nativeTimerBindingId = "binding-23";
     payload.expectedBindingRevision = "binding-rev-9";
-    payload.expectedNativeTimerFingerprint = "aabbccdd";
+    payload.expectedNativeTimerFingerprint =
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     payload.timerAssignmentId = "timer-assignment-19";
     payload.backendNativeTimerId = "native-timer-72";
     payload.controlPlaneClaimedAt = 200;
