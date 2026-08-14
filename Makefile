@@ -45,6 +45,7 @@ include mk/phase64-mutation-operation-repository-tests.mk
 include mk/phase64-native-timer-delete-operation-completion-tests.mk
 include mk/phase64-native-timer-delete-operation-preparation-tests.mk
 include mk/phase64-native-timer-delete-dispatch-tests.mk
+include mk/phase64-native-timer-delete-agent-contract-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
