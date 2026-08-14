@@ -10,12 +10,14 @@ std::string request(
     const std::string &commandId,
     const std::string &fingerprint,
     const std::string &operationId,
-    const std::string &pluginEpoch = "pie_1")
+    const std::string &pluginEpoch = "pie_1",
+    const std::string &expectedNativeTimerFingerprint = "ntfp_1")
 {
   return
       "EXEC vdr-suite-native/1 vdr.timer.delete 1 " + commandId + " " +
       fingerprint + " " + operationId +
-      " opr_1 ntb_1 nbr_1 tas_1 42 job_1 att_1 3 "
+      " opr_1 ntb_1 nbr_1 " + expectedNativeTimerFingerprint +
+      " tas_1 42 job_1 att_1 3 "
       "default agt_1 agi_1 7 100 vdr.timer suitebridge:local suitebridge "
       "9 " + pluginEpoch + " 1 1 vdr.timer.delete 101";
 }
@@ -32,11 +34,14 @@ public:
   SuiteBridgeNativeTimerDeleteService *service = nullptr;
   std::string reentrantRequest;
   SuiteBridgeCommandResult reentrantReply;
+  std::string lastExpectedNativeTimerFingerprint;
 
   SuiteBridgeNativeTimerDeleteMutationResult DeleteTimer(
-      const SuiteBridgeNativeTimerDeleteRequest &) override
+      const SuiteBridgeNativeTimerDeleteRequest &request) override
   {
     ++calls;
+    lastExpectedNativeTimerFingerprint =
+        request.expectedNativeTimerFingerprint;
     if (reenter) {
       assert(service != nullptr);
       reentrantReply = service->Handle("NTDEL", reentrantRequest.c_str());
@@ -114,11 +119,22 @@ int main()
         "vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 pie_1 1 1 "
         "accepted_unverified callback_applied ntdel:callback-applied");
     assert(callback.calls == 1);
+    assert(callback.lastExpectedNativeTimerFingerprint == "ntfp_1");
 
     const SuiteBridgeCommandResult replay =
         service.Handle("NTDEL", baseRequest.c_str());
     assert(replay.replyCode == first.replyCode);
     assert(replay.payload == first.payload);
+    assert(callback.calls == 1);
+
+    const std::string conflictingNativeTimerFingerprint =
+        request("cmd_1", "fp_1", "op_1", "pie_1", "ntfp_2");
+    const SuiteBridgeCommandResult nativeTimerFingerprintConflict =
+        service.Handle("NTDEL", conflictingNativeTimerFingerprint.c_str());
+    assert(nativeTimerFingerprintConflict.replyCode == 559);
+    assert(nativeTimerFingerprintConflict.payload ==
+        "vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 pie_1 1 1 "
+        "rejected_without_effect replay_conflict ntdel:replay-conflict:cmd_1");
     assert(callback.calls == 1);
 
     const std::string conflictingFingerprint = request("cmd_1", "fp_2", "op_1");
