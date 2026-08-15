@@ -10,6 +10,9 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp
 
+AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC := \
+	core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp
+
 AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservation.cpp \
 	core/agent/src/SuiteBridgeObservationService.cpp \
