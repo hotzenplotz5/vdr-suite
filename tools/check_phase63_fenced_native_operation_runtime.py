@@ -300,11 +300,32 @@ scoped_runtime = "\n".join([
 if "mutations=enabled" in scoped_runtime or '"enabled"' in scoped_runtime:
     errors.append("mutations=enabled is forbidden")
 
+# Phase 64 may classify the already-validated Timer-delete command state in the
+# generic Agent command owner. This single boolean discriminator carries no
+# execution authority and must remain paired with the bounded fresh-starting
+# successor helper. Strip only that exact declaration from the old Phase-63
+# mutation-name heuristic; every other timer/recording/channel/etc assignment
+# remains forbidden by the original scan below.
+allowed_timer_delete_discriminator = (
+    "const bool timerDeleteCommand = state.assignment.commandType ==\n"
+    "        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;"
+)
+scoped_runtime_boundary = scoped_runtime
+if allowed_timer_delete_discriminator in agent_client:
+    if agent_client.count(allowed_timer_delete_discriminator) != 1 or \
+            "prepareFreshNativeTimerDeleteLocalStarting" not in agent_client:
+        errors.append(
+            "Timer-delete discriminator must remain a single bounded Phase-64 state handoff"
+        )
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        allowed_timer_delete_discriminator, "", 1
+    )
+
 for pattern in [
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
     r"\b(?:timer|recording|searchtimer|channel|epg|remote|osd)[A-Za-z_]*\s*=",
 ]:
-    if re.search(pattern, scoped_runtime, flags=re.IGNORECASE):
+    if re.search(pattern, scoped_runtime_boundary, flags=re.IGNORECASE):
         errors.append(f"forbidden runtime boundary matched: {pattern}")
 
 for forbidden in ["set -e", "set -u", "set -o pipefail"]:
