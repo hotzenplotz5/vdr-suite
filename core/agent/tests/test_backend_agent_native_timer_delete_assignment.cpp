@@ -2,6 +2,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerDelete.h"
 #include "BackendAgentNativeTimerDeleteAssignment.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "Database.h"
 
@@ -22,6 +23,12 @@ RequestSecurityContext context(ActorType type, const std::string& actor)
         "cred_timer_delete_assignment", true, false, false};
     value.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
     return value;
+}
+
+std::string canonicalObservedFingerprint(const std::string& marker)
+{
+    return "native-timer-observed-state/1|9:channel:1|11:Movie \"A " +
+        marker + "\"|" + std::string(700, 'x') + "|";
 }
 
 vdrsuite::agent::BackendAgentLocalProviderFacts providerFacts(
@@ -70,6 +77,7 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentRequest request(
     value.operationRevision = "3";
     value.nativeTimerBindingId = "ntb_timer_1";
     value.expectedBindingRevision = "12";
+    value.expectedNativeTimerFingerprint = canonicalObservedFingerprint("44");
     value.timerAssignmentId = "ta_timer_1";
     value.backendId = "default";
     value.backendGeneration = 7;
@@ -89,6 +97,7 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteCommand commandFrom(
     command.operationRevision = payload.operationRevision;
     command.nativeTimerBindingId = payload.nativeTimerBindingId;
     command.expectedBindingRevision = payload.expectedBindingRevision;
+    command.expectedNativeTimerFingerprint = payload.expectedNativeTimerFingerprint;
     command.timerAssignmentId = payload.timerAssignmentId;
     command.backendNativeTimerId = payload.backendNativeTimerId;
     command.jobId = assignment.jobId;
@@ -107,6 +116,10 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteCommand commandFrom(
 int main()
 {
     using namespace vdrsuite::agent;
+
+    assert(backendAgentNativeTimerDeleteFingerprintToken("abc") ==
+        "sha256:ba7816bf8f01cfea414140de5dae2223"
+        "b00361a396177a9cb410ff61f20015ad");
 
     Database database;
     assert(database.open(":memory:"));
@@ -175,12 +188,27 @@ int main()
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
 
+    const std::string rawExpectedFingerprint =
+        request().expectedNativeTimerFingerprint;
+    const std::string expectedFingerprintToken =
+        backendAgentNativeTimerDeleteFingerprintToken(rawExpectedFingerprint);
+    assert(rawExpectedFingerprint.size() > 512);
+    assert(rawExpectedFingerprint.find(' ') != std::string::npos);
+    assert(rawExpectedFingerprint.find('|') != std::string::npos);
+    assert(expectedFingerprintToken.size() ==
+        kBackendAgentNativeTimerDeleteFingerprintTokenLength);
+    assert(expectedFingerprintToken.rfind("sha256:", 0) == 0);
+    assert(backendAgentNativeTimerDeleteFingerprintTokenValid(
+        expectedFingerprintToken));
+
     BackendAgentNativeTimerDeletePayload payload;
     assert(backendAgentNativeTimerDeleteParsePayload(
         assigned.assignment.payload, payload, reason));
     assert(payload.operationRevision == "3");
     assert(payload.nativeTimerBindingId == "ntb_timer_1");
     assert(payload.expectedBindingRevision == "12");
+    assert(payload.expectedNativeTimerFingerprint == expectedFingerprintToken);
+    assert(payload.expectedNativeTimerFingerprint != rawExpectedFingerprint);
     assert(payload.timerAssignmentId == "ta_timer_1");
     assert(payload.backendNativeTimerId == "native_timer_44");
     assert(payload.controlPlaneClaimedAt == 110);
@@ -198,6 +226,7 @@ int main()
         *sidecar, payload.localProviderSelection));
 
     const auto domain = commandFrom(assigned.assignment, payload);
+    assert(domain.expectedNativeTimerFingerprint == expectedFingerprintToken);
     assert(backendAgentNativeTimerDeleteValidCommand(domain, reason));
 
     const auto replay = service.assign(system, request(), 121, 501);
@@ -206,6 +235,15 @@ int main()
     assert(replay.reasonCode == "native_timer_delete_assignment_replayed");
     assert(replay.assignment.commandId == assigned.assignment.commandId);
     assert(replay.assignment.jobId == assigned.assignment.jobId);
+
+    auto changedFingerprintRequest = request();
+    changedFingerprintRequest.expectedNativeTimerFingerprint =
+        canonicalObservedFingerprint("45");
+    const auto changedFingerprint =
+        service.assign(system, changedFingerprintRequest, 122, 502);
+    assert(!changedFingerprint.accepted);
+    assert(changedFingerprint.reasonCode ==
+           "native_timer_delete_assignment_conflict");
 
     auto changedTargetRequest = request();
     changedTargetRequest.backendNativeTimerId = "native_timer_45";

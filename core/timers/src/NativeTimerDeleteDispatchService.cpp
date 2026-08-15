@@ -32,6 +32,8 @@ bool operationMatchesHandoff(
         operation.resourceType == "NativeTimerBinding" &&
         operation.resourceId == handoff.nativeTimerBindingId &&
         operation.expectedRevision == handoff.expectedBindingRevision &&
+        operation.expectedResourceFingerprint ==
+            handoff.expectedNativeTimerFingerprint &&
         operation.actionFamily == "timer.delete" &&
         operation.verificationPolicy ==
             MutationOperationVerificationPolicy::readbackRequired;
@@ -59,6 +61,8 @@ NativeTimerDeleteDispatchClaim claimFrom(
     claim.operationRevision = operation.operationRevision;
     claim.nativeTimerBindingId = handoff.nativeTimerBindingId;
     claim.expectedBindingRevision = handoff.expectedBindingRevision;
+    claim.expectedNativeTimerFingerprint =
+        handoff.expectedNativeTimerFingerprint;
     claim.backendId = handoff.backendId;
     claim.backendGeneration = handoff.backendGeneration;
     claim.backendNativeTimerId = handoff.backendNativeTimerId;
@@ -98,9 +102,10 @@ bool claimValid(const NativeTimerDeleteDispatchClaim& claim)
 {
     return !claim.operationId.empty() && !claim.operationRevision.empty() &&
         !claim.nativeTimerBindingId.empty() &&
-        !claim.expectedBindingRevision.empty() && !claim.backendId.empty() &&
-        claim.backendGeneration > 0 && !claim.backendNativeTimerId.empty() &&
-        claim.claimedAt > 0;
+        !claim.expectedBindingRevision.empty() &&
+        !claim.expectedNativeTimerFingerprint.empty() &&
+        !claim.backendId.empty() && claim.backendGeneration > 0 &&
+        !claim.backendNativeTimerId.empty() && claim.claimedAt > 0;
 }
 
 bool operationMatchesClaim(
@@ -113,6 +118,8 @@ bool operationMatchesClaim(
         operation.resourceType == "NativeTimerBinding" &&
         operation.resourceId == claim.nativeTimerBindingId &&
         operation.expectedRevision == claim.expectedBindingRevision &&
+        operation.expectedResourceFingerprint ==
+            claim.expectedNativeTimerFingerprint &&
         operation.actionFamily == "timer.delete" &&
         operation.verificationPolicy ==
             MutationOperationVerificationPolicy::readbackRequired;
@@ -187,8 +194,10 @@ NativeTimerDeleteDispatchClaimResult NativeTimerDeleteDispatchService::claim(
 {
     if (handoff.operationId.empty() || handoff.operationRevision.empty() ||
         handoff.nativeTimerBindingId.empty() ||
-        handoff.expectedBindingRevision.empty() || handoff.backendId.empty() ||
-        handoff.backendGeneration == 0 || handoff.backendNativeTimerId.empty() ||
+        handoff.expectedBindingRevision.empty() ||
+        handoff.expectedNativeTimerFingerprint.empty() ||
+        handoff.backendId.empty() || handoff.backendGeneration == 0 ||
+        handoff.backendNativeTimerId.empty() ||
         handoff.timerAssignmentId.empty() || claimedAt <= 0)
         return claimResult(NativeTimerDeleteDispatchClaimStatus::invalid);
 
@@ -241,7 +250,8 @@ NativeTimerDeleteDispatchClaimResult NativeTimerDeleteDispatchService::claim(
     if (!suiteManaged(binding.ownership))
         return claimResult(
             NativeTimerDeleteDispatchClaimStatus::ownershipConflict, operation);
-    if (binding.missingSince != 0 ||
+    if (binding.observedFingerprint != handoff.expectedNativeTimerFingerprint ||
+        binding.missingSince != 0 ||
         binding.driftState != NativeTimerBindingDriftState::none)
         return claimResult(
             NativeTimerDeleteDispatchClaimStatus::bindingStateConflict,

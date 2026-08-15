@@ -88,17 +88,23 @@ int main()
     const auto handoff = preparedHandoff(
         operations, bindings, created.binding,
         "operation:delete:1", "idem:delete:1");
+    assert(handoff.expectedNativeTimerFingerprint ==
+        created.binding.observedFingerprint);
 
     const auto claimed = service.claim(handoff, 2100);
     assert(claimed.status == NativeTimerDeleteDispatchClaimStatus::claimed);
     assert(claimed.operation.state == MutationOperationState::dispatching);
     assert(claimed.operation.operationRevision == "2");
     assert(claimed.claim.operationRevision == "2");
+    assert(claimed.claim.expectedNativeTimerFingerprint ==
+        handoff.expectedNativeTimerFingerprint);
     assert(claimed.claim.claimedAt == 2100);
 
     const auto claimReplay = service.claim(handoff, 2200);
     assert(claimReplay.status == NativeTimerDeleteDispatchClaimStatus::alreadyClaimed);
     assert(claimReplay.claim.operationRevision == "2");
+    assert(claimReplay.claim.expectedNativeTimerFingerprint ==
+        handoff.expectedNativeTimerFingerprint);
     assert(claimReplay.claim.claimedAt == 2100);
 
     NativeTimerDeleteExecutorOutcome accepted;
@@ -181,6 +187,50 @@ int main()
     assert(service.claim(staleHandoff, 5100).status ==
         NativeTimerDeleteDispatchClaimStatus::bindingRevisionConflict);
 
+    const auto fingerprintCreated = bindings.create(
+        binding("binding:fingerprint-race", "timer:fingerprint-race"));
+    assert(fingerprintCreated.ok());
+    const auto fingerprintHandoff = preparedHandoff(
+        operations, bindings, fingerprintCreated.binding,
+        "operation:delete:fingerprint-race", "idem:delete:fingerprint-race");
+    NativeTimerObservedState changedState = fingerprintCreated.binding.observedState;
+    changedState.startTime = "945";
+    const std::string changedFingerprint =
+        nativeTimerObservedStateFingerprint(changedState);
+    assert(!changedFingerprint.empty());
+    assert(changedFingerprint != fingerprintHandoff.expectedNativeTimerFingerprint);
+    const std::string mutateObservedState =
+        "UPDATE native_timer_bindings SET observed_start_time='945',"
+        "observed_fingerprint='" + changedFingerprint +
+        "' WHERE native_timer_binding_id='binding:fingerprint-race';";
+    assert(database.execute(mutateObservedState));
+    const auto fingerprintCurrent =
+        bindings.findById(fingerprintCreated.binding.nativeTimerBindingId);
+    assert(fingerprintCurrent.ok());
+    assert(fingerprintCurrent.binding.bindingRevision ==
+        fingerprintHandoff.expectedBindingRevision);
+    assert(fingerprintCurrent.binding.observedFingerprint == changedFingerprint);
+    assert(service.claim(fingerprintHandoff, 5600).status ==
+        NativeTimerDeleteDispatchClaimStatus::bindingStateConflict);
+    const auto fingerprintOperation =
+        operations.findById(fingerprintHandoff.operationId);
+    assert(fingerprintOperation.ok());
+    assert(fingerprintOperation.operation.state == MutationOperationState::accepted);
+
+    const auto tamperedCreated = bindings.create(
+        binding("binding:tampered-fingerprint", "timer:tampered-fingerprint"));
+    assert(tamperedCreated.ok());
+    auto tamperedHandoff = preparedHandoff(
+        operations, bindings, tamperedCreated.binding,
+        "operation:delete:tampered-fingerprint",
+        "idem:delete:tampered-fingerprint");
+    tamperedHandoff.expectedNativeTimerFingerprint = changedFingerprint;
+    assert(service.claim(tamperedHandoff, 5800).status ==
+        NativeTimerDeleteDispatchClaimStatus::identityConflict);
+    const auto tamperedOperation = operations.findById(tamperedHandoff.operationId);
+    assert(tamperedOperation.ok());
+    assert(tamperedOperation.operation.state == MutationOperationState::accepted);
+
     const auto driftCreated = bindings.create(
         binding("binding:drift", "timer:drift"));
     assert(driftCreated.ok());
@@ -208,8 +258,18 @@ int main()
     assert(service.claim(wrongNative, 7100).status ==
         NativeTimerDeleteDispatchClaimStatus::operationNotFound);
 
+    auto invalidHandoff = unknownHandoff;
+    invalidHandoff.expectedNativeTimerFingerprint.clear();
+    assert(service.claim(invalidHandoff, 7200).status ==
+        NativeTimerDeleteDispatchClaimStatus::invalid);
+
     NativeTimerDeleteDispatchClaim invalidClaim = claimed.claim;
     invalidClaim.operationRevision.clear();
+    assert(service.applyOutcome(invalidClaim, accepted).status ==
+        NativeTimerDeleteDispatchOutcomeStatus::invalid);
+
+    invalidClaim = claimed.claim;
+    invalidClaim.expectedNativeTimerFingerprint.clear();
     assert(service.applyOutcome(invalidClaim, accepted).status ==
         NativeTimerDeleteDispatchOutcomeStatus::invalid);
 

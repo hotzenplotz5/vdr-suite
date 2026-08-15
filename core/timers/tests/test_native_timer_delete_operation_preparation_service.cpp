@@ -90,12 +90,16 @@ int main()
     assert(prepared.operation.resourceType == "NativeTimerBinding");
     assert(prepared.operation.resourceId == created.binding.nativeTimerBindingId);
     assert(prepared.operation.expectedRevision == created.binding.bindingRevision);
+    assert(prepared.operation.expectedResourceFingerprint ==
+        created.binding.observedFingerprint);
     assert(prepared.operation.actionFamily == "timer.delete");
     assert(prepared.operation.verificationPolicy ==
         MutationOperationVerificationPolicy::readbackRequired);
     assert(prepared.handoff.operationId == request.operationId);
     assert(prepared.handoff.operationRevision == "1");
     assert(prepared.handoff.expectedBindingRevision == created.binding.bindingRevision);
+    assert(prepared.handoff.expectedNativeTimerFingerprint ==
+        created.binding.observedFingerprint);
     assert(prepared.handoff.backendId == created.binding.backendId);
     assert(prepared.handoff.backendGeneration == created.binding.backendGeneration);
     assert(prepared.handoff.backendNativeTimerId == created.binding.backendNativeTimerId);
@@ -105,7 +109,11 @@ int main()
     assert(replay.status ==
         NativeTimerDeleteOperationPreparationStatus::alreadyPrepared);
     assert(replay.operation.operationRevision == "1");
+    assert(replay.operation.expectedResourceFingerprint ==
+        created.binding.observedFingerprint);
     assert(replay.handoff.operationRevision == "1");
+    assert(replay.handoff.expectedNativeTimerFingerprint ==
+        created.binding.observedFingerprint);
 
     const auto dispatching = operationRepository.transition(
         request.operationId,

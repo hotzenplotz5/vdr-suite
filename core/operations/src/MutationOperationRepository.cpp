@@ -39,6 +39,30 @@ std::string columnText(sqlite3_stmt* statement, int column)
         : std::string(reinterpret_cast<const char*>(value));
 }
 
+bool hasColumn(
+    Database& database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
 bool parseRevision(const std::string& token, std::int64_t& value)
 {
     if (token.empty()) return false;
@@ -85,24 +109,25 @@ bool readOperation(sqlite3_stmt* statement, MutationOperation& operation)
     operation.resourceType = columnText(statement, 6);
     operation.resourceId = columnText(statement, 7);
     operation.expectedRevision = columnText(statement, 8);
-    operation.actionFamily = columnText(statement, 9);
-    operation.requestFingerprint = columnText(statement, 10);
-    operation.requestedAt = sqlite3_column_int64(statement, 11);
-    operation.deadline = sqlite3_column_int64(statement, 12);
+    operation.expectedResourceFingerprint = columnText(statement, 9);
+    operation.actionFamily = columnText(statement, 10);
+    operation.requestFingerprint = columnText(statement, 11);
+    operation.requestedAt = sqlite3_column_int64(statement, 12);
+    operation.deadline = sqlite3_column_int64(statement, 13);
     if (!mutationOperationVerificationPolicyFromName(
-            columnText(statement, 13), operation.verificationPolicy) ||
-        !mutationOperationStateFromName(columnText(statement, 14), operation.state))
+            columnText(statement, 14), operation.verificationPolicy) ||
+        !mutationOperationStateFromName(columnText(statement, 15), operation.state))
         return false;
-    operation.resultReference = columnText(statement, 15);
-    operation.updatedAt = sqlite3_column_int64(statement, 16);
+    operation.resultReference = columnText(statement, 16);
+    operation.updatedAt = sqlite3_column_int64(statement, 17);
     return mutationOperationValidDurable(operation);
 }
 
 constexpr const char* kColumns =
     "operation_id,operation_revision,idempotency_key,actor_id,backend_id,"
-    "backend_generation,resource_type,resource_id,expected_revision,action_family,"
-    "request_fingerprint,requested_at,deadline,verification_policy,state,"
-    "result_reference,updated_at";
+    "backend_generation,resource_type,resource_id,expected_revision,"
+    "expected_resource_fingerprint,action_family,request_fingerprint,requested_at,"
+    "deadline,verification_policy,state,result_reference,updated_at";
 
 bool selectById(
     Database& database,
@@ -181,6 +206,7 @@ bool sameLogicalOperation(
         left.resourceType == right.resourceType &&
         left.resourceId == right.resourceId &&
         left.expectedRevision == right.expectedRevision &&
+        left.expectedResourceFingerprint == right.expectedResourceFingerprint &&
         left.actionFamily == right.actionFamily &&
         left.requestFingerprint == right.requestFingerprint &&
         left.requestedAt == right.requestedAt &&
@@ -196,19 +222,29 @@ MutationOperationRepository::MutationOperationRepository(Database& database)
 
 bool MutationOperationRepository::ensureSchema()
 {
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS mutation_operations ("
+            "operation_id TEXT PRIMARY KEY,"
+            "operation_revision INTEGER NOT NULL,"
+            "idempotency_key TEXT NOT NULL,actor_id TEXT NOT NULL,backend_id TEXT NOT NULL,"
+            "backend_generation INTEGER NOT NULL,resource_type TEXT NOT NULL,resource_id TEXT NOT NULL,"
+            "expected_revision TEXT NOT NULL,expected_resource_fingerprint TEXT NOT NULL DEFAULT '',"
+            "action_family TEXT NOT NULL,request_fingerprint TEXT NOT NULL,"
+            "requested_at INTEGER NOT NULL,deadline INTEGER NOT NULL,verification_policy TEXT NOT NULL,"
+            "state TEXT NOT NULL,result_reference TEXT NOT NULL,updated_at INTEGER NOT NULL,"
+            "CHECK(operation_revision>0),CHECK(backend_generation>0),"
+            "CHECK(verification_policy IN ('none','readback_required','event_confirmation','reconciliation_required')),"
+            "CHECK(state IN ('accepted','rejected','conflict','queued','dispatching','executed_unverified','succeeded','failed_before_dispatch','failed_verified','outcome_unknown','cancelled'))"
+            ");"))
+        return false;
+
+    if (!hasColumn(database_, "mutation_operations", "expected_resource_fingerprint") &&
+        !database_.execute(
+            "ALTER TABLE mutation_operations "
+            "ADD COLUMN expected_resource_fingerprint TEXT NOT NULL DEFAULT '';"))
+        return false;
+
     return database_.execute(
-        "CREATE TABLE IF NOT EXISTS mutation_operations ("
-        "operation_id TEXT PRIMARY KEY,"
-        "operation_revision INTEGER NOT NULL,"
-        "idempotency_key TEXT NOT NULL,actor_id TEXT NOT NULL,backend_id TEXT NOT NULL,"
-        "backend_generation INTEGER NOT NULL,resource_type TEXT NOT NULL,resource_id TEXT NOT NULL,"
-        "expected_revision TEXT NOT NULL,action_family TEXT NOT NULL,request_fingerprint TEXT NOT NULL,"
-        "requested_at INTEGER NOT NULL,deadline INTEGER NOT NULL,verification_policy TEXT NOT NULL,"
-        "state TEXT NOT NULL,result_reference TEXT NOT NULL,updated_at INTEGER NOT NULL,"
-        "CHECK(operation_revision>0),CHECK(backend_generation>0),"
-        "CHECK(verification_policy IN ('none','readback_required','event_confirmation','reconciliation_required')),"
-        "CHECK(state IN ('accepted','rejected','conflict','queued','dispatching','executed_unverified','succeeded','failed_before_dispatch','failed_verified','outcome_unknown','cancelled'))"
-        ");"
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_mutation_operations_idempotency_scope "
         "ON mutation_operations(actor_id,backend_id,resource_type,resource_id,action_family,idempotency_key);"
         "CREATE INDEX IF NOT EXISTS idx_mutation_operations_backend_state "
@@ -266,9 +302,9 @@ MutationOperationRepositoryResult MutationOperationRepository::reserve(
     const char* sql =
         "INSERT INTO mutation_operations("
         "operation_id,operation_revision,idempotency_key,actor_id,backend_id,backend_generation,"
-        "resource_type,resource_id,expected_revision,action_family,request_fingerprint,requested_at,"
-        "deadline,verification_policy,state,result_reference,updated_at)"
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+        "resource_type,resource_id,expected_revision,expected_resource_fingerprint,action_family,"
+        "request_fingerprint,requested_at,deadline,verification_policy,state,result_reference,updated_at)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
     const bool prepared =
         sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) == SQLITE_OK;
     const bool bound = prepared &&
@@ -281,14 +317,15 @@ MutationOperationRepositoryResult MutationOperationRepository::reserve(
         bindText(statement, 7, durable.resourceType) &&
         bindText(statement, 8, durable.resourceId) &&
         bindText(statement, 9, durable.expectedRevision) &&
-        bindText(statement, 10, durable.actionFamily) &&
-        bindText(statement, 11, durable.requestFingerprint) &&
-        bindInt64(statement, 12, durable.requestedAt) &&
-        bindInt64(statement, 13, durable.deadline) &&
-        bindText(statement, 14, mutationOperationVerificationPolicyName(durable.verificationPolicy)) &&
-        bindText(statement, 15, mutationOperationStateName(durable.state)) &&
-        bindText(statement, 16, durable.resultReference) &&
-        bindInt64(statement, 17, durable.updatedAt);
+        bindText(statement, 10, durable.expectedResourceFingerprint) &&
+        bindText(statement, 11, durable.actionFamily) &&
+        bindText(statement, 12, durable.requestFingerprint) &&
+        bindInt64(statement, 13, durable.requestedAt) &&
+        bindInt64(statement, 14, durable.deadline) &&
+        bindText(statement, 15, mutationOperationVerificationPolicyName(durable.verificationPolicy)) &&
+        bindText(statement, 16, mutationOperationStateName(durable.state)) &&
+        bindText(statement, 17, durable.resultReference) &&
+        bindInt64(statement, 18, durable.updatedAt);
     const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
     if (statement != nullptr) sqlite3_finalize(statement);
     if (step != SQLITE_DONE || !database_.execute("COMMIT;"))
