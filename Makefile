@@ -53,6 +53,7 @@ include mk/phase64-command-state-extension-tests.mk
 include mk/phase64-command-state-v3-extension-tests.mk
 include mk/phase64-timer-delete-local-state-lifecycle-tests.mk
 include mk/phase64-timer-delete-fresh-durable-starting-tests.mk
+include mk/phase64-timer-delete-fenced-executor-tests.mk
 include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
