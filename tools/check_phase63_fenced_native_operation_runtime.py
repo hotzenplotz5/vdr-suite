@@ -55,6 +55,17 @@ for item in REQUIRED:
 
 agent_protocol = text("core/agent/src/BackendAgentNativeProbe.cpp")
 agent_client = text("core/agent/src/BackendAgentCommandClient.cpp")
+native_handler_path = ROOT / "core/agent/src/BackendAgentNativeProbeCommandHandler.cpp"
+native_handler = (
+    native_handler_path.read_text(encoding="utf-8")
+    if native_handler_path.is_file()
+    else ""
+)
+native_command_runtime = (
+    agent_client + "\n" + native_handler
+    if native_handler
+    else agent_client
+)
 state_store_path = ROOT / "core/agent/src/BackendAgentCommandStateStore.cpp"
 state_store = (
     state_store_path.read_text(encoding="utf-8")
@@ -75,6 +86,7 @@ command_delivery_test = text(
     "core/agent/tests/test_backend_agent_command_delivery.cpp"
 )
 agent_tests_make = text("mk/agent-tests.mk")
+agent_sources = text("mk/agent-sources.mk")
 native_runtime_test = text(
     "core/agent/tests/test_backend_agent_native_probe_runtime.cpp"
 )
@@ -108,8 +120,8 @@ required_tokens = {
             "backendAgentNativeProbeReadbackEvidence",
         ],
     ),
-    "agent client": (
-        agent_client,
+    "agent native command runtime": (
+        native_command_runtime,
         [
             "state.dispatchState",
             "native_probe_dispatch_reconciliation_required",
@@ -142,6 +154,61 @@ for label, (content, tokens) in required_tokens.items():
     for token in tokens:
         if token not in content:
             errors.append(f"{label} missing required token: {token}")
+
+if native_handler:
+    for token in [
+        '#include "BackendAgentNativeProbeCommandHandler.h"',
+        "backendAgentNativeProbeCommandAvailability",
+        "backendAgentNativeProbeCommandReconcile",
+        "backendAgentNativeProbeCommandSetDefaultTransport",
+    ]:
+        if token not in agent_client:
+            errors.append(
+                "Native Probe CommandClient handoff missing token: " + token
+            )
+    for token in [
+        "executeNativeProbe(request)",
+        "readNativeProbe(readbackRequest)",
+        "backendAgentNativeProbeSelectionMatchesCapability",
+        "native_probe_dispatch_reconciliation_required",
+        agent_epoch_fence_token,
+    ]:
+        if token not in native_handler:
+            errors.append(
+                "Native Probe handler missing bounded runtime token: " + token
+            )
+    for token in [
+        "executeNativeProbe(request)",
+        "readNativeProbe(readbackRequest)",
+        "backendAgentNativeProbeParseEvidence",
+        "backendAgentNativeProbeSelectionMatchesCapability",
+    ]:
+        if token in agent_client:
+            errors.append(
+                "Native Probe execution ownership leaked back into CommandClient: "
+                + token
+            )
+    for token in [
+        "IBackendAgentControlPlaneTransport",
+        "/api/agent/v1/commands/receipt",
+        "/api/agent/v1/commands/result",
+        "sendReceipt(",
+        "sendResult(",
+        "BackendAgentNativeTimerDelete",
+        "vdr.timer.delete",
+    ]:
+        if token in native_handler:
+            errors.append(
+                "Native Probe handler crossed its bounded ownership boundary: "
+                + token
+            )
+    if agent_sources.count(
+            "core/agent/src/BackendAgentNativeProbeCommandHandler.cpp") != 1:
+        errors.append(
+            "Native Probe command handler must occur exactly once in Agent sources"
+        )
+    if "AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC :=" not in agent_sources:
+        errors.append("Native Probe command handler source set missing")
 
 if 'value.commandType == "probe.noop"' not in agent_command or \
         'value.commandType == "vdr.native.probe"' not in agent_command:
@@ -259,15 +326,23 @@ if (
         "command delivery concurrency test compile must use -pthread"
     )
 
-execute = agent_client.find("executeNativeProbe(request)")
+native_dispatch_owner = native_handler if native_handler else agent_client
+execute = native_dispatch_owner.find("executeNativeProbe(request)")
 starting_matches = list(re.finditer(
     r'state\.dispatchState\s*=\s*"starting"',
-    agent_client[:execute] if execute >= 0 else "",
+    native_dispatch_owner[:execute] if execute >= 0 else "",
 ))
 starting = starting_matches[-1].start() if starting_matches else -1
-persist_starting = agent_client.find(
-    "persist(config.statePath, state, reason)", starting, execute)
-if min(starting, persist_starting, execute) < 0 or not (starting < persist_starting < execute):
+persist_needle = (
+    "persist(statePath, state, reason)"
+    if native_handler
+    else "persist(config.statePath, state, reason)"
+)
+persist_starting = native_dispatch_owner.find(
+    persist_needle, starting, execute)
+if min(starting, persist_starting, execute) < 0 or not (
+    starting < persist_starting < execute
+):
     errors.append("durable starting must precede native dispatch")
 
 reserve = plugin_runtime.find("ReceiptEntry *entry = reserve()")
@@ -302,6 +377,7 @@ if "COMMAND_TYPES=\n" not in packaged_config:
 scoped_runtime = "\n".join([
     agent_protocol,
     agent_client,
+    native_handler,
     state_store,
     agent_command_json,
     transport_header,

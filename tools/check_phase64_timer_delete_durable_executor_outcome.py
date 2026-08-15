@@ -70,7 +70,7 @@ if command_client.count(helper_name + "(") != 2:
     raise SystemExit("Slice 33 executor handoff must have one definition and one call")
 helper = command_client.split(
     "bool executeFreshNativeTimerDeleteAndPersistOutcome(", 1
-)[1].split("\nbool negotiateNativeCapability(", 1)[0]
+)[1].split("\nstruct CommandAvailability", 1)[0]
 for needle, label in (
     ("config.nativeTimerDeleteTransport == nullptr", "null transport fence"),
     ("!state.receiptAcknowledged", "receipt acknowledgement prerequisite"),
