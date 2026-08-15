@@ -34,8 +34,9 @@ require(makefile, include, "Slice 30 Make include")
 if makefile.count(include) != 1:
     raise SystemExit("Slice 30 Make include must occur exactly once")
 
-# Slice 30 consumes only already-durable typed local state. It must never open
-# a path that prepares a fresh starting record or enters an executor.
+# Slice 30 consumes already-durable typed local state. A bounded successor may
+# add fresh-starting preparation, but only through its explicitly named handoff;
+# Slice 30 still owns recovery and must not acquire an executor/write transport.
 require(
     command_client,
     '#include "BackendAgentNativeTimerDeleteLocalState.h"',
@@ -72,11 +73,12 @@ require(
     "outcome-unknown projection",
 )
 require(command_client, '"reconcile_only"', "reconciliation-only generic result")
-forbid(
-    command_client,
-    "backendAgentNativeTimerDeletePrepareLocalStarting",
-    "fresh Timer-delete starting preparation",
-)
+if "backendAgentNativeTimerDeletePrepareLocalStarting" in command_client:
+    require(
+        command_client,
+        "prepareFreshNativeTimerDeleteLocalStarting",
+        "bounded successor fresh-starting handoff",
+    )
 forbid(command_client, "vdr.timer.delete", "literal Timer-delete execution branch")
 
 # Recovery must happen before the generic generation fence so completed

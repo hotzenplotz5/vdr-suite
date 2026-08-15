@@ -720,6 +720,49 @@ bool reconcileNativeTimerDeleteLocalState(
     return true;
 }
 
+bool prepareFreshNativeTimerDeleteLocalStarting(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::int64_t currentTime,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    if (state.stateExtensionPresent || state.resultPresent ||
+        state.dispatchState != "not_started" || currentTime <= 0 ||
+        currentTime > state.assignment.deadline)
+    {
+        reason = "native_delete_fresh_starting_state_invalid";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteLocalState localState;
+    if (!backendAgentNativeTimerDeletePrepareLocalStarting(
+            state.assignment, currentTime, localState, reason))
+        return false;
+
+    BackendAgentCommandStateExtension extension;
+    extension.extensionType =
+        kBackendAgentNativeTimerDeleteLocalStateExtensionType;
+    extension.commandId = state.assignment.commandId;
+    extension.requestFingerprint = state.assignment.requestFingerprint;
+    extension.payload = backendAgentNativeTimerDeleteSerializeLocalState(
+        localState, reason);
+    if (extension.payload.empty() ||
+        !backendAgentCommandStateExtensionValidateSupported(
+            extension, state.assignment, reason))
+    {
+        reason = "native_delete_fresh_starting_extension_invalid";
+        return false;
+    }
+
+    state.stateExtensionPresent = true;
+    state.stateExtension = extension;
+    state.dispatchState = "starting";
+    if (!persist(config.statePath, state, reason)) return false;
+    reason = "native_delete_local_starting_persisted";
+    return true;
+}
+
 bool negotiateNativeCapability(
     const BackendAgentCommandClientConfig& config,
     vdrsuite::agent::SuiteBridgeNativeProbeCapability& capability,
@@ -1055,8 +1098,9 @@ bool reconcileBackendAgentCommandState(
         }
         return false;
     }
-    if (state.assignment.commandType ==
-            vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType &&
+    const bool timerDeleteCommand = state.assignment.commandType ==
+        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;
+    if (timerDeleteCommand && state.stateExtensionPresent &&
         !reconcileNativeTimerDeleteLocalState(
             config, context, state, reason))
         return false;
@@ -1068,6 +1112,38 @@ bool reconcileBackendAgentCommandState(
         reason = "local_command_generation_fenced";
         return false;
     }
+
+    if (timerDeleteCommand && !state.stateExtensionPresent && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            reason = "native_delete_fresh_starting_state_invalid";
+            return false;
+        }
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            if (!state.receiptAcknowledged &&
+                !sendReceipt(config, context, transport, state, reason))
+                return false;
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "expired", "none", "command deadline expired before native dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            if (!sendResult(config, context, transport, state, reason)) return false;
+            reason = "command_result_reconciled";
+            return true;
+        }
+        if (!prepareFreshNativeTimerDeleteLocalStarting(
+                config, state, currentTime, reason))
+            return false;
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        reason = "native_delete_local_starting_handoff_persisted";
+        return true;
+    }
+
     if (!state.receiptAcknowledged &&
         !sendReceipt(config, context, transport, state, reason)) return false;
     if (state.resultPresent)
