@@ -278,21 +278,84 @@ std::string join(const std::vector<std::string>& fields, char separator)
     return output.str();
 }
 
+BackendAgentCommandClientContext contextFor(
+    const BackendAgentCommandAssignment& assignment,
+    std::uint64_t backendGeneration = 0)
+{
+    return BackendAgentCommandClientContext{
+        assignment.agentId,
+        "secret-material-at-least-thirty-two-bytes",
+        assignment.backendId,
+        assignment.agentInstanceId,
+        backendGeneration == 0 ? assignment.backendGeneration : backendGeneration};
+}
+
+bool reconcileWithContext(
+    const std::string& path,
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandClientContext& context,
+    Control& control,
+    std::string& reason)
+{
+    BackendAgentCommandClientConfig config{path, {"probe.noop"}};
+    return reconcileBackendAgentCommandState(
+        config, context, control, reason);
+}
+
 bool reconcile(
     const std::string& path,
     const BackendAgentCommandAssignment& assignment,
     Control& control,
     std::string& reason)
 {
-    BackendAgentCommandClientConfig config{path, {"probe.noop"}};
-    BackendAgentCommandClientContext context{
-        assignment.agentId,
-        "secret-material-at-least-thirty-two-bytes",
-        assignment.backendId,
-        assignment.agentInstanceId,
-        assignment.backendGeneration};
-    return reconcileBackendAgentCommandState(
-        config, context, control, reason);
+    return reconcileWithContext(
+        path, assignment, contextFor(assignment), control, reason);
+}
+
+BackendAgentNativeTimerDeleteEvidence evidenceFor(
+    const BackendAgentNativeTimerDeleteLocalState& starting,
+    BackendAgentNativeTimerDeleteOutcomeCategory outcome,
+    std::int64_t dispatchStartedAt,
+    std::int64_t completedAt,
+    const std::string& evidenceReference)
+{
+    const auto& command = starting.command;
+    BackendAgentNativeTimerDeleteEvidence evidence;
+    evidence.commandId = command.commandId;
+    evidence.requestFingerprint = command.requestFingerprint;
+    evidence.operationId = command.operationId;
+    evidence.operationRevision = command.operationRevision;
+    evidence.jobId = command.jobId;
+    evidence.attemptId = command.attemptId;
+    evidence.claimEpoch = command.claimEpoch;
+    evidence.backendId = command.backendId;
+    evidence.agentId = command.agentId;
+    evidence.agentInstanceId = command.agentInstanceId;
+    evidence.backendGeneration = command.backendGeneration;
+    evidence.providerInstanceEpoch =
+        command.localProviderSelection.providerInstanceEpoch;
+    evidence.localStartingPersistedAt = starting.localStartingPersistedAt;
+    evidence.outcome = outcome;
+    evidence.dispatchStartedAt = dispatchStartedAt;
+    evidence.completedAt = completedAt;
+    evidence.evidenceReference = evidenceReference;
+    return evidence;
+}
+
+std::string completedExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentNativeTimerDeleteLocalState& starting,
+    const BackendAgentNativeTimerDeleteEvidence& evidence)
+{
+    auto completed = starting;
+    std::string reason;
+    assert(backendAgentNativeTimerDeleteCompleteLocalState(
+        completed, evidence, reason));
+    const std::string encoded =
+        backendAgentNativeTimerDeleteCommandStateExtension(
+            assignment, completed, reason);
+    assert(!encoded.empty());
+    return encoded;
 }
 
 void expectAcceptedLoad(
@@ -351,19 +414,24 @@ int main()
             timerDelete, starting, reason);
     assert(!extension.empty());
 
-    // A valid typed extension is loaded, survives a normal state-owner persist,
-    // and still cannot cause Timer-delete execution in this slice.
+    // starting recovery becomes durable completed outcome-unknown evidence;
+    // the command-state owner never re-enters a Timer-delete executor.
     writeState(
         path,
         stateText(3, timerDelete, extension, false, false, false));
     Control timerControl;
-    assert(!reconcile(path, timerDelete, timerControl, reason));
-    assert(reason == "unsupported_local_command_state");
+    assert(reconcile(path, timerDelete, timerControl, reason));
+    assert(reason == "command_result_reconciled");
     assert(timerControl.receiptCalls == 1);
-    assert(timerControl.resultCalls == 0);
+    assert(timerControl.resultCalls == 1);
     const std::string persisted = readAll(path);
     assert(persisted.rfind("version=3\n", 0) == 0);
-    assert(valueFor(persisted, "state_extension") == extension);
+    assert(valueFor(persisted, "dispatch_state") == "starting");
+    assert(valueFor(persisted, "verification_state") == "outcome_unknown");
+    assert(valueFor(persisted, "result_category") == "outcome_unknown");
+    assert(valueFor(persisted, "error_category") == "executor_unknown");
+    assert(valueFor(persisted, "retry_classification") == "reconcile_only");
+    assert(valueFor(persisted, "result_acknowledged") == "1");
     assert(persisted.find("\ntimer_delete_") == std::string::npos);
     struct stat status{};
     assert(lstat(path.c_str(), &status) == 0);
@@ -376,11 +444,105 @@ int main()
         recovered,
         reason));
     assert(recovered.phase ==
-        BackendAgentNativeTimerDeleteLocalPhase::starting);
+        BackendAgentNativeTimerDeleteLocalPhase::completed);
+    assert(recovered.evidence.outcome ==
+        BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown);
+    assert(recovered.evidence.localStartingPersistedAt == 220);
+    assert(recovered.evidence.dispatchStartedAt == 220);
+    assert(recovered.evidence.completedAt >= 220);
     assert(recovered.command.commandId == timerDelete.commandId);
     assert(recovered.command.requestFingerprint ==
         timerDelete.requestFingerprint);
     std::remove(path.c_str());
+
+    // completed evidence survives context drift: it is projected and persisted
+    // before the generic generation fence, but is not sent under the new context.
+    const auto driftEvidence = evidenceFor(
+        starting,
+        BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown,
+        220,
+        230,
+        "executor:outcome-unknown");
+    const std::string driftExtension =
+        completedExtension(timerDelete, starting, driftEvidence);
+    writeState(
+        path,
+        stateText(3, timerDelete, driftExtension, false, true, false));
+    Control driftControl;
+    const auto driftContext = contextFor(
+        timerDelete, timerDelete.backendGeneration + 1);
+    assert(!reconcileWithContext(
+        path, timerDelete, driftContext, driftControl, reason));
+    assert(reason == "local_command_generation_fenced");
+    assert(driftControl.receiptCalls == 0);
+    assert(driftControl.resultCalls == 0);
+    const std::string driftPersisted = readAll(path);
+    assert(valueFor(driftPersisted, "state_extension") == driftExtension);
+    assert(valueFor(driftPersisted, "result_present") == "1");
+    assert(valueFor(driftPersisted, "result_acknowledged") == "0");
+    assert(valueFor(driftPersisted, "result_category") == "outcome_unknown");
+    std::remove(path.c_str());
+
+    // rejected-without-effect projects to a verified rejection and never opens
+    // a dispatch boundary in the generic result.
+    const auto rejectedEvidence = evidenceFor(
+        starting,
+        BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect,
+        0,
+        230,
+        "executor:rejected-without-effect");
+    const std::string rejectedExtension =
+        completedExtension(timerDelete, starting, rejectedEvidence);
+    writeState(
+        path,
+        stateText(3, timerDelete, rejectedExtension, false, true, false));
+    Control rejectedControl;
+    assert(reconcile(path, timerDelete, rejectedControl, reason));
+    assert(reason == "command_result_reconciled");
+    assert(rejectedControl.receiptCalls == 0);
+    assert(rejectedControl.resultCalls == 1);
+    const std::string rejectedPersisted = readAll(path);
+    assert(valueFor(rejectedPersisted, "dispatch_state") == "not_started");
+    assert(valueFor(rejectedPersisted, "verification_state") == "verified");
+    assert(valueFor(rejectedPersisted, "result_category") == "rejected");
+    assert(valueFor(rejectedPersisted, "error_category") == "fenced");
+    assert(valueFor(rejectedPersisted, "retry_classification") == "none");
+    assert(valueFor(rejectedPersisted, "state_extension") == rejectedExtension);
+    std::remove(path.c_str());
+
+    // accepted-unverified remains reconciliation-only until the later native
+    // absence-readback slice proves the postcondition.
+    const auto acceptedEvidence = evidenceFor(
+        starting,
+        BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified,
+        221,
+        230,
+        "executor:accepted-unverified");
+    const std::string acceptedExtension =
+        completedExtension(timerDelete, starting, acceptedEvidence);
+    writeState(
+        path,
+        stateText(3, timerDelete, acceptedExtension, false, true, false));
+    Control acceptedControl;
+    assert(reconcile(path, timerDelete, acceptedControl, reason));
+    assert(reason == "command_result_reconciled");
+    assert(acceptedControl.receiptCalls == 0);
+    assert(acceptedControl.resultCalls == 1);
+    const std::string acceptedPersisted = readAll(path);
+    assert(valueFor(acceptedPersisted, "dispatch_state") == "accepted_by_executor");
+    assert(valueFor(acceptedPersisted, "verification_state") == "outcome_unknown");
+    assert(valueFor(acceptedPersisted, "result_category") == "outcome_unknown");
+    assert(valueFor(acceptedPersisted, "error_category") == "none");
+    assert(valueFor(acceptedPersisted, "retry_classification") == "reconcile_only");
+    assert(valueFor(acceptedPersisted, "state_extension") == acceptedExtension);
+    std::remove(path.c_str());
+
+    // A generic result cannot contradict the durable typed completion evidence.
+    expectRejectedState(
+        path,
+        stateText(3, timerDelete, acceptedExtension, true, true, false),
+        timerDelete,
+        "native_delete_result_evidence_conflict");
 
     // Cross-command adoption is fail-closed.
     auto different = timerDelete;
