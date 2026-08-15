@@ -157,9 +157,9 @@ int main()
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
 
-    // The Control Plane itself keeps Slice 25 dormant. Even if an Agent claims
-    // support for vdr.timer.delete, the temporary server-side capability gate
-    // suppresses that advertisement and the persisted command is not delivered.
+    // Slice 25's assignment helper created the temporary dormant capability
+    // gate. Slice 26 deliberately retires that gate when the exact bounded
+    // Timer-delete command/provider advertisement reaches command polling.
     BackendAgentCommandPollRequest claimedDeleteCapability;
     claimedDeleteCapability.backendId = "default";
     claimedDeleteCapability.agentInstanceId = "inst_timer_delete";
@@ -169,8 +169,9 @@ int main()
     const auto blockedDelivery = commands.poll(
         claimedDeleteCapability, "agt_timer_delete", 120);
     assert(blockedDelivery.accepted);
-    assert(!blockedDelivery.assignment.present);
-    assert(!commands.hasCapability(
+    assert(blockedDelivery.assignment.present);
+    assert(blockedDelivery.assignment.commandId == assigned.assignment.commandId);
+    assert(commands.hasCapability(
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
 
@@ -258,8 +259,8 @@ int main()
     assert(noObservedCapability.reasonCode ==
            "local_provider_capability_not_observed");
 
-    // The persisted Timer-delete command remains undeliverable because Slice
-    // 25 never publishes vdr.timer.delete as an Agent command type.
+    // The persisted Timer-delete command remains undeliverable because this
+    // poll does not advertise vdr.timer.delete as an Agent command type.
     BackendAgentCommandPollRequest poll;
     poll.backendId = "default";
     poll.agentInstanceId = "inst_timer_delete";
