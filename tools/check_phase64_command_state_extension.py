@@ -29,6 +29,12 @@ doc = read("docs/development/phase-64-command-state-extension.md")
 mk = read("mk/phase64-command-state-extension-tests.mk")
 agent_sources = read("mk/agent-sources.mk")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+state_store_header_path = ROOT / "core/agent/include/BackendAgentCommandStateStore.h"
+state_owner_header = (
+    state_store_header_path.read_text(encoding="utf-8")
+    if state_store_header_path.is_file()
+    else command_client
+)
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 
@@ -64,15 +70,16 @@ require(doc, "No runtime wiring", "non-runtime boundary documentation")
 require(mk, "test-phase64-command-state-extension", "focused Slice 28 target")
 
 # Slice 28 defined the wrapper before runtime wiring. The v3 state-owner
-# successor may now link it, but no Timer-delete execution or advertisement is
-# opened by that successor.
+# successor may now link it, and a later bounded refactor may extract that state
+# owner from CommandClient, but no Timer-delete execution or advertisement is
+# opened by either successor.
 require(
     agent_sources,
     "core/agent/src/BackendAgentCommandStateExtension.cpp",
     "generic state extension runtime validation wiring",
 )
 require(
-    command_client,
+    state_owner_header,
     '#include "BackendAgentCommandStateExtension.h"',
     "generic state owner extension integration",
 )

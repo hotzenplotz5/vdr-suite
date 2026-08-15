@@ -26,6 +26,12 @@ command_json = (ROOT / required[3]).read_text(encoding="utf-8")
 delivery = (ROOT / required[4]).read_text(encoding="utf-8")
 native_delivery = (ROOT / required[5]).read_text(encoding="utf-8")
 client = (ROOT / required[6]).read_text(encoding="utf-8")
+state_store_path = ROOT / "core/agent/src/BackendAgentCommandStateStore.cpp"
+state_store = (
+    state_store_path.read_text(encoding="utf-8")
+    if state_store_path.is_file()
+    else client
+)
 admin = (ROOT / required[7]).read_text(encoding="utf-8")
 test = (ROOT / required[8]).read_text(encoding="utf-8")
 doc = (ROOT / required[9]).read_text(encoding="utf-8")
@@ -130,10 +136,14 @@ for token in [
     "backendAgentNativeProbeSelectionMatchesCapability",
     'assignment.payloadVersion != 2',
     '"native probe provider selection required"',
-    "state.receiptAcknowledged = false",
 ]:
     if token not in client:
         raise SystemExit(f"agent provider fence missing: {token}")
+
+if "state.receiptAcknowledged = false" not in state_store:
+    raise SystemExit(
+        "agent provider recovery fence missing: state.receiptAcknowledged = false"
+    )
 
 for token in [
     '"--provider-ownership-status"',
