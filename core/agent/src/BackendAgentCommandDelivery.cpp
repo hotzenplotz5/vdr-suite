@@ -4,6 +4,8 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerDeleteAdvertisement.h"
+#include "BackendAgentNativeTimerDeletePayload.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -125,7 +127,9 @@ bool BackendAgentCommandRepository::ensureSchema()
         "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
         database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_faults ("
-        "backend_id TEXT PRIMARY KEY,drop_next_receipt INTEGER NOT NULL DEFAULT 0,drop_next_result INTEGER NOT NULL DEFAULT 0); ");
+        "backend_id TEXT PRIMARY KEY,drop_next_receipt INTEGER NOT NULL DEFAULT 0,drop_next_result INTEGER NOT NULL DEFAULT 0); ") &&
+        database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;");
 }
 
 bool BackendAgentCommandRepository::insertAssignment(
@@ -305,7 +309,9 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
     if(sqlite3_step(s)!=SQLITE_ROW)
     {sqlite3_finalize(s);reason="command_not_found";return false;}
     const std::string commandType=text(s,0);
-    if(commandType!="vdr.native.probe")
+    const bool nativeProbe=commandType=="vdr.native.probe";
+    const bool timerDelete=commandType==kBackendAgentNativeTimerDeleteCommandType;
+    if(!nativeProbe&&!timerDelete)
     {sqlite3_finalize(s);reason="local_provider_selection_not_required";return true;}
     if(sqlite3_column_type(s,4)==SQLITE_NULL)
     {sqlite3_finalize(s);reason="local_provider_selection_required";return false;}
@@ -324,6 +330,12 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
     if(!backendAgentLocalProviderValidSelection(selection)||
        identity!=backendAgentLocalProviderSelectionIdentity(selection))
     {reason="local_provider_selection_invalid";return false;}
+    if(timerDelete&&
+       (selection.authorityDomain!=kBackendAgentNativeTimerDeleteAuthorityDomain||
+        selection.providerId!=kBackendAgentNativeTimerDeleteProviderId||
+        selection.providerKind!=kBackendAgentNativeTimerDeleteProviderKind||
+        selection.requiredCapability!=kBackendAgentNativeTimerDeleteCapability))
+    {reason="native_timer_delete_provider_selection_mismatch";return false;}
     const auto current=selectLocalProvider(
         selection.backendId,agentId,instance,backendGeneration,
         selection.authorityDomain,selection.requiredCapability,reason);
@@ -335,12 +347,18 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
 
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
+    using namespace vdrsuite::agent;
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
+    std::string advertisementReason;
+    if(!backendAgentNativeTimerDeleteAdvertisementValid(request,advertisementReason))
+    {result.accepted=false;result.reasonCode=advertisementReason;return result;}
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
+    bool ok=database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;");
     sqlite3_stmt* clear=nullptr;
     const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
-    bool ok=sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
+    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
         bindText(clear,1,request.backendId)&&done(clear);
     sqlite3_stmt* clearProviders=nullptr;
     const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
@@ -356,7 +374,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     for(const auto& facts:request.localProviders)
     {
         if(!ok)break;
-        if(!vdrsuite::agent::backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
+        if(!backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
         sqlite3_stmt* provider=nullptr;
         const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
         if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
@@ -385,6 +403,13 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
             sqlite3_finalize(select);
         }
     }
+    if(ok&&result.assignment.present&&
+       result.assignment.commandType==kBackendAgentNativeTimerDeleteCommandType)
+    {
+        std::string providerReason;
+        if(!localProviderSelectionCurrent(result.assignment.commandId,providerReason))
+        {result.assignment={};result.reasonCode=providerReason;}
+    }
     if (ok && result.assignment.present)
     {
         sqlite3_stmt* update=nullptr;
@@ -401,6 +426,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
 
 BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(const BackendAgentCommandReceipt& r)
 {
+    using namespace vdrsuite::agent;
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandReceiptResult result;
     sqlite3_stmt* query=nullptr;
@@ -427,6 +453,12 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
             return result;
         }
     }
+    else if(commandType==kBackendAgentNativeTimerDeleteCommandType&&
+            payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
+    {
+        result.reasonCode="local_provider_selection_required";
+        return result;
+    }
     const std::string identity=backendAgentCommandReceiptIdentity(r);
     sqlite3_stmt* existing=nullptr;
     if (sqlite3_prepare_v2(database_.handle(),"SELECT receipt_identity FROM backend_agent_command_receipts WHERE command_id=?;",-1,&existing,nullptr)!=SQLITE_OK||!bindText(existing,1,r.commandId)) { if(existing)sqlite3_finalize(existing); result.reasonCode="command_database_unavailable"; return result; }
@@ -435,6 +467,12 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
         result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;
     }
     sqlite3_finalize(existing);
+    if(commandType==kBackendAgentNativeTimerDeleteCommandType)
+    {
+        std::string providerReason;
+        if(!localProviderSelectionCurrent(r.commandId,providerReason))
+        {result.reasonCode=providerReason;return result;}
+    }
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.reasonCode="command_database_unavailable"; return result; }
     sqlite3_stmt* insert=nullptr;
     const char* insertSql="INSERT INTO backend_agent_command_receipts(command_id,receipt_identity,receipt_category,reason_code,received_at) VALUES(?,?,?,?,?);";
@@ -485,6 +523,25 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
             result.reasonCode="local_provider_selection_required";
             return result;
         }
+    }
+    else if(commandType==kBackendAgentNativeTimerDeleteCommandType)
+    {
+        if(payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
+        {result.reasonCode="local_provider_selection_required";return result;}
+        BackendAgentNativeTimerDeletePayload deletePayload;
+        std::string payloadReason;
+        if(!backendAgentNativeTimerDeleteParsePayload(payload,deletePayload,payloadReason))
+        {result.reasonCode="local_provider_selection_invalid";return result;}
+        const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
+            deletePayload.localProviderSelection);
+        sqlite3_stmt* selected=nullptr;
+        if(sqlite3_prepare_v2(database_.handle(),"SELECT selection_identity FROM backend_agent_command_provider_selections WHERE command_id=?;",-1,&selected,nullptr)!=SQLITE_OK||!bindText(selected,1,r.commandId))
+        {if(selected)sqlite3_finalize(selected);result.reasonCode="command_database_unavailable";return result;}
+        const bool recorded=sqlite3_step(selected)==SQLITE_ROW&&
+            text(selected,0)==expectedIdentity;
+        sqlite3_finalize(selected);
+        if(!recorded)
+        {result.reasonCode="local_provider_selection_required";return result;}
     }
     sqlite3_stmt* receipt=nullptr;
     if(sqlite3_prepare_v2(database_.handle(),"SELECT 1 FROM backend_agent_command_receipts WHERE command_id=?;",-1,&receipt,nullptr)!=SQLITE_OK||!bindText(receipt,1,r.commandId)){if(receipt)sqlite3_finalize(receipt);result.reasonCode="command_database_unavailable";return result;}
