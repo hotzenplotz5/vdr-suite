@@ -63,12 +63,18 @@ require(doc, "Generic extension envelope", "generic extension architecture docum
 require(doc, "No runtime wiring", "non-runtime boundary documentation")
 require(mk, "test-phase64-command-state-extension", "focused Slice 28 target")
 
-# The wrapper is preparation for commands.state v3 only. It does not alter the
-# installed state owner or open Timer-delete advertisement/execution yet.
-forbid(
+# Slice 28 defined the wrapper before runtime wiring. The v3 state-owner
+# successor may now link it, but no Timer-delete execution or advertisement is
+# opened by that successor.
+require(
     agent_sources,
-    "BackendAgentCommandStateExtension.cpp",
-    "state extension runtime source wiring",
+    "core/agent/src/BackendAgentCommandStateExtension.cpp",
+    "generic state extension runtime validation wiring",
+)
+require(
+    command_client,
+    '#include "BackendAgentCommandStateExtension.h"',
+    "generic state owner extension integration",
 )
 forbid(command_client, "vdr.timer.delete", "Timer-delete command-client execution")
 forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent advertisement")

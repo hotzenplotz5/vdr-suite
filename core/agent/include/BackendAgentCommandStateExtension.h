@@ -37,6 +37,11 @@ bool backendAgentCommandStateExtensionParse(
     BackendAgentCommandStateExtension& extension,
     std::string& reasonCode);
 
+bool backendAgentCommandStateExtensionValidateSupported(
+    const BackendAgentCommandStateExtension& extension,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reasonCode);
+
 std::string backendAgentNativeTimerDeleteCommandStateExtension(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentNativeTimerDeleteLocalState& state,

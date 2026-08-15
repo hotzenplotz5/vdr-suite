@@ -108,12 +108,13 @@ require(
     "focused Slice 27 target",
 )
 
-# Slice 27 is a typed local-state contract only. It must not be linked into the
-# shipped Agent until the separately gated executor/transport slice.
-forbid(
+# Slice 27 remains a typed local-state contract. The v3 state-owner successor
+# may link that contract for validation/persistence, but it still cannot expose
+# a Timer-delete command or any side-effectful transport.
+require(
     agent_sources,
-    "BackendAgentNativeTimerDeleteLocalState.cpp",
-    "Timer-delete local-state runtime source wiring",
+    "core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp",
+    "v3 state-owner local-state validation wiring",
 )
 forbid(command_client, "vdr.timer.delete", "Timer-delete command-client execution")
 forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent advertisement")
