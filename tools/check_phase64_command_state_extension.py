@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def read(path: str) -> str:
+    target = ROOT / path
+    if not target.is_file():
+        raise SystemExit(f"missing required Slice 28 file: {path}")
+    return target.read_text(encoding="utf-8")
+
+
+def require(text: str, needle: str, label: str) -> None:
+    if needle not in text:
+        raise SystemExit(f"missing {label}: {needle}")
+
+
+def forbid(text: str, needle: str, label: str) -> None:
+    if needle in text:
+        raise SystemExit(f"forbidden {label}: {needle}")
+
+
+makefile = read("Makefile")
+header = read("core/agent/include/BackendAgentCommandStateExtension.h")
+source = read("core/agent/src/BackendAgentCommandStateExtension.cpp")
+test = read("core/agent/tests/test_backend_agent_command_state_extension.cpp")
+doc = read("docs/development/phase-64-command-state-extension.md")
+mk = read("mk/phase64-command-state-extension-tests.mk")
+agent_sources = read("mk/agent-sources.mk")
+command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+agent_client = read("core/agent/src/BackendAgentClient.cpp")
+packaged_config = read("packaging/systemd/backend-agent.conf")
+
+include = "include mk/phase64-command-state-extension-tests.mk"
+require(makefile, include, "Slice 28 Make include")
+if makefile.count(include) != 1:
+    raise SystemExit("Slice 28 Make include must occur exactly once")
+
+require(header, "BackendAgentCommandStateExtension", "generic state extension envelope")
+require(header, "vdr.timer.delete.local-state.v1", "typed Timer-delete extension type")
+require(source, "extension.commandId != assignment.commandId", "command identity fence")
+require(
+    source,
+    "extension.requestFingerprint != assignment.requestFingerprint",
+    "request fingerprint fence",
+)
+require(source, "kMaximumExtensionPayloadBytes", "bounded extension payload")
+require(source, 'std::string encoded = "cse1."', "single-line extension encoding")
+require(
+    source,
+    "backendAgentNativeTimerDeleteSerializeLocalState",
+    "Slice 27 state embedding",
+)
+require(
+    source,
+    "backendAgentNativeTimerDeleteParseLocalState",
+    "strict Slice 27 state recovery",
+)
+require(test, "single-line safe value for commands.state", "commands.state embedding regression")
+require(test, "different command identity", "cross-command adoption regression")
+require(doc, "Generic extension envelope", "generic extension architecture documentation")
+require(doc, "No runtime wiring", "non-runtime boundary documentation")
+require(mk, "test-phase64-command-state-extension", "focused Slice 28 target")
+
+# The wrapper is preparation for commands.state v3 only. It does not alter the
+# installed state owner or open Timer-delete advertisement/execution yet.
+forbid(
+    agent_sources,
+    "BackendAgentCommandStateExtension.cpp",
+    "state extension runtime source wiring",
+)
+forbid(command_client, "vdr.timer.delete", "Timer-delete command-client execution")
+forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent advertisement")
+forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+
+for token in (
+    "SuiteBridgeSvdrp",
+    "ISuiteBridgeLocalTransport",
+    "restfulapi",
+    "RESTfulAPI",
+    "SVDRP",
+    "system(",
+    "popen(",
+    "/timers",
+):
+    forbid(source, token, "native mutation/transport coupling in state extension")
+
+print("Phase 64 command state extension architecture guard passed")
