@@ -23,6 +23,9 @@ def forbid(text: str, needle: str, label: str) -> None:
 
 makefile = read("Makefile")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+timer_delete_handler = read(
+    "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp"
+)
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 test = read("core/agent/tests/test_backend_agent_timer_delete_fresh_durable_starting.cpp")
@@ -35,41 +38,38 @@ require(makefile, include, "Slice 31 Make include")
 if makefile.count(include) != 1:
     raise SystemExit("Slice 31 Make include must occur exactly once")
 
-# The fresh handoff reuses the Slice-27 typed state contract and the Slice-28
-# generic extension. The existing protected v3 writer remains the sole durable
-# state owner.
+# The generic client retains the historical handoff name for ordering clarity;
+# typed state construction/serialization/persistence is owned by the dedicated
+# Timer-delete handler.
 require(
     command_client,
     "prepareFreshNativeTimerDeleteLocalStarting",
-    "bounded fresh starting helper",
+    "bounded fresh starting handoff",
 )
 require(
     command_client,
-    "backendAgentNativeTimerDeletePrepareLocalStarting",
-    "typed fresh starting preparation",
+    "backendAgentNativeTimerDeleteCommandPrepareFreshStarting",
+    "fresh starting handler delegation",
 )
-require(
-    command_client,
-    "backendAgentNativeTimerDeleteSerializeLocalState",
-    "typed starting serialization",
-)
-require(
-    command_client,
-    "backendAgentCommandStateExtensionValidateSupported",
-    "typed extension validation before persist",
-)
-require(
-    command_client,
-    'state.dispatchState = "starting"',
-    "generic starting projection",
-)
+for token, label in (
+    ("backendAgentNativeTimerDeletePrepareLocalStarting", "typed fresh starting preparation"),
+    ("backendAgentNativeTimerDeleteSerializeLocalState", "typed starting serialization"),
+    ("backendAgentCommandStateExtensionValidateSupported", "typed extension validation before persist"),
+    ('state.dispatchState = "starting"', "generic starting projection"),
+):
+    require(timer_delete_handler, token, label)
+    forbid(command_client, token, "fresh starting implementation in CommandClient")
 
-fresh_helper = command_client.split(
-    "bool prepareFreshNativeTimerDeleteLocalStarting(", 1
-)[1].split("\nbool executeFreshNativeTimerDeleteAndPersistOutcome(", 1)[0]
-require(fresh_helper, "persist(config.statePath, state, reason)", "durable starting write")
-forbid(fresh_helper, "sendReceipt(", "receipt before fresh helper returns")
-forbid(fresh_helper, "sendResult(", "result emission from fresh helper")
+fresh_helper = timer_delete_handler.split(
+    "bool backendAgentNativeTimerDeleteCommandPrepareFreshStarting(", 1
+)[1].split(
+    "\nbool backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome(",
+    1,
+)[0]
+require(fresh_helper, "persist(statePath, state, reason)", "durable starting write")
+forbid(fresh_helper, "sendReceipt(", "receipt before fresh handler returns")
+forbid(fresh_helper, "sendResult(", "result emission from fresh handler")
+forbid(fresh_helper, "IBackendAgentControlPlaneTransport", "control-plane transport in fresh handler")
 
 # Ordering is the core safety property. Existing typed evidence is recovered
 # before context drift can hide it. A fresh state is instead armed only after
@@ -119,12 +119,11 @@ require(
 # its recovery assertions when fresh starting becomes legal in Slice 31.
 require(
     slice30_guard,
-    "bounded successor fresh-starting handoff",
+    "bounded Timer-delete CommandClient handoff",
     "Slice 30 successor allowance",
 )
 
-# There is still no Timer-delete availability or execution path. The type is
-# not advertised, cannot be configured, and has no native write transport.
+# There is still no Timer-delete availability or concrete execution transport.
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split(
     "\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1
 )[0]
@@ -149,19 +148,17 @@ for token in (
     "curl ",
     "/timers",
 ):
-    forbid(command_client, token, "Timer-delete executor/write transport coupling")
+    forbid(command_client, token, "Timer-delete CommandClient executor/write coupling")
+    forbid(timer_delete_handler, token, "Timer-delete handler concrete write coupling")
 
-# Focused regression locks the new boundary and its failure modes.
+# Focused regression locks the boundary and its failure modes.
 for needle, label in (
     ("Fresh current-context handoff persists typed starting before the accepted", "fresh starting before receipt"),
     ("never performs a second fresh preparation or blind retry", "no-blind-retry successor recovery"),
     ("Fresh starting is fenced by the current Agent/backend generation", "generation-fenced fresh state"),
     ("Expiry is checked before fresh starting", "deadline-before-starting regression"),
     ("Receipt transport failure after the durable starting write", "lost receipt after starting regression"),
-    ("COMMAND_STATE", "placeholder"),
 ):
-    if label == "placeholder":
-        continue
     require(test, needle, label)
 
 require(
