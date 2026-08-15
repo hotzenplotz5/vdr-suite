@@ -4,6 +4,7 @@
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerDeleteLocalState.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -567,6 +568,158 @@ void createResult(
     result.completedAt = nowSeconds();
 }
 
+struct NativeTimerDeleteGenericProjection
+{
+    std::string dispatchState;
+    std::string verificationState;
+    std::string resultCategory;
+    std::string errorCategory;
+    std::string retryClassification;
+    std::string diagnostics;
+};
+
+bool nativeTimerDeleteGenericProjection(
+    vdrsuite::agent::BackendAgentNativeTimerDeleteOutcomeCategory outcome,
+    NativeTimerDeleteGenericProjection& projection)
+{
+    using namespace vdrsuite::agent;
+    switch (outcome)
+    {
+        case BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect:
+            projection = {
+                "not_started", "verified", "rejected", "fenced", "none",
+                "native Timer delete rejected without effect"};
+            return true;
+        case BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified:
+            projection = {
+                "accepted_by_executor", "outcome_unknown", "outcome_unknown",
+                "none", "reconcile_only",
+                "native Timer delete accepted; readback reconciliation required"};
+            return true;
+        case BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown:
+            projection = {
+                "starting", "outcome_unknown", "outcome_unknown",
+                "executor_unknown", "reconcile_only",
+                "native Timer delete outcome unknown; reconciliation required"};
+            return true;
+    }
+    return false;
+}
+
+bool genericResultMatchesTimerDeleteEvidence(
+    const LocalState& state,
+    const NativeTimerDeleteGenericProjection& projection,
+    const vdrsuite::agent::BackendAgentNativeTimerDeleteEvidence& evidence)
+{
+    if (!state.resultPresent) return false;
+    const auto& result = state.result;
+    return state.dispatchState == projection.dispatchState &&
+        result.dispatchState == projection.dispatchState &&
+        result.verificationState == projection.verificationState &&
+        result.resultCategory == projection.resultCategory &&
+        result.errorCategory == projection.errorCategory &&
+        result.retryClassification == projection.retryClassification &&
+        result.boundedDiagnostics == projection.diagnostics &&
+        result.completedAt == evidence.completedAt;
+}
+
+bool reconcileNativeTimerDeleteLocalState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    if (!state.stateExtensionPresent ||
+        state.stateExtension.extensionType !=
+            kBackendAgentNativeTimerDeleteLocalStateExtensionType)
+    {
+        reason = "native_delete_local_state_required";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteLocalState localState;
+    if (!backendAgentNativeTimerDeleteParseLocalState(
+            state.stateExtension.payload, localState, reason))
+    {
+        reason = "native_delete_local_state_invalid";
+        return false;
+    }
+
+    const auto recovery = backendAgentNativeTimerDeleteRecoverLocalState(
+        localState,
+        context.backendId,
+        context.agentId,
+        context.agentInstanceId,
+        context.backendGeneration,
+        nowSeconds());
+    if (recovery.decision ==
+        BackendAgentNativeTimerDeleteRecoveryDecision::failClosed)
+    {
+        reason = recovery.reasonCode.empty()
+            ? "native_delete_recovery_failed" : recovery.reasonCode;
+        return false;
+    }
+
+    bool stateChanged = false;
+    if (recovery.decision ==
+        BackendAgentNativeTimerDeleteRecoveryDecision::reconcileOnly)
+    {
+        if (!backendAgentNativeTimerDeleteCompleteLocalState(
+                localState, recovery.evidence, reason))
+            return false;
+        const std::string payload =
+            backendAgentNativeTimerDeleteSerializeLocalState(
+                localState, reason);
+        if (payload.empty()) return false;
+        state.stateExtension.payload = payload;
+        stateChanged = true;
+    }
+    else if (recovery.decision !=
+        BackendAgentNativeTimerDeleteRecoveryDecision::returnPersistedEvidence)
+    {
+        reason = "native_delete_recovery_decision_invalid";
+        return false;
+    }
+
+    NativeTimerDeleteGenericProjection projection;
+    if (!nativeTimerDeleteGenericProjection(
+            recovery.evidence.outcome, projection))
+    {
+        reason = "native_delete_outcome_projection_invalid";
+        return false;
+    }
+
+    if (state.resultPresent)
+    {
+        if (!genericResultMatchesTimerDeleteEvidence(
+                state, projection, recovery.evidence))
+        {
+            reason = "native_delete_result_evidence_conflict";
+            return false;
+        }
+    }
+    else
+    {
+        createResult(
+            state,
+            projection.dispatchState,
+            projection.verificationState,
+            projection.resultCategory,
+            projection.errorCategory,
+            projection.retryClassification,
+            projection.diagnostics);
+        state.result.completedAt = recovery.evidence.completedAt;
+        stateChanged = true;
+    }
+
+    if (stateChanged)
+        return persist(config.statePath, state, reason);
+
+    reason = "native_delete_local_state_reconciled";
+    return true;
+}
+
 bool negotiateNativeCapability(
     const BackendAgentCommandClientConfig& config,
     vdrsuite::agent::SuiteBridgeNativeProbeCapability& capability,
@@ -902,6 +1055,11 @@ bool reconcileBackendAgentCommandState(
         }
         return false;
     }
+    if (state.assignment.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType &&
+        !reconcileNativeTimerDeleteLocalState(
+            config, context, state, reason))
+        return false;
     if (!sameContext(state.assignment, context))
     {
         if (state.resultPresent && state.receiptAcknowledged &&
