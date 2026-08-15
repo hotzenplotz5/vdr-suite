@@ -41,6 +41,7 @@ SQLITE_SPLIT_REPOSITORY_FAMILIES = [
 
 SQLITE_SPLIT_REPOSITORY_FILES = {
     "core/agent/src/BackendAgentCommandDelivery.cpp",
+    "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
 }
 
@@ -175,6 +176,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/metadata/src/MetadataEntityRepository.cpp",
         "core/security/src/SecurityIdentityRepository.cpp",
         "core/agent/src/BackendAgentCommandDelivery.cpp",
+        "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
         "core/operations/src/MutationOperationRepository.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
@@ -197,6 +199,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/security/include/SecurityIdentityRepository.h",
         "core/security/src/RepositoryHelper.cpp",
         "core/agent/src/BackendAgentCommandDeliveryHelper.cpp",
+        "core/agent/src/BackendAgentNativeTimerDeleteAssignmentHelper.cpp",
         "core/timers/src/TimerIntentPersistence.cpp",
         "core/timers/src/RepositoryHelper.cpp",
         "core/operations/src/MutationOperationPersistence.cpp",

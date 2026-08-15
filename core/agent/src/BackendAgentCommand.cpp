@@ -1,5 +1,6 @@
 #include "BackendAgentCommand.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerDeletePayload.h"
 
 #include <algorithm>
 #include <cctype>
@@ -65,6 +66,19 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
             return vdrsuite::agent::backendAgentNativeProbeParseSelectedPayload(
                 value.payload, payload, reason);
         }
+    }
+    if (value.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentNativeTimerDeletePayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentNativeTimerDeletePayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentNativeTimerDeleteParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
     }
     return false;
 }
