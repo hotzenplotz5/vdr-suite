@@ -125,14 +125,37 @@ require(
     "invalid accepted evidence downgrade",
 )
 
-# Slice 32 is contract-only. It must not become reachable from the production
-# command owner or gain a concrete SuiteBridge/VDR mutation transport.
-for token in (
-    "BackendAgentNativeTimerDeleteExecutor",
-    "IBackendAgentNativeTimerDeleteTransport",
-    "backendAgentNativeTimerDeleteExecuteFreshStartingOnce",
-):
-    forbid(command_client, token, "Slice 32 CommandClient runtime wiring")
+# Slice 32 remains the isolated one-shot executor contract. A bounded Slice 33
+# durable-outcome successor may reference it from the generic command owner,
+# but only while a dedicated successor guard exists and concrete transport stays
+# absent. This keeps the historical Slice-32 contract assertions intact.
+successor_guard = ROOT / "tools/check_phase64_timer_delete_durable_executor_outcome.py"
+if successor_guard.is_file():
+    require(
+        command_client,
+        '#include "BackendAgentNativeTimerDeleteExecutor.h"',
+        "bounded Slice 33 durable-outcome successor",
+    )
+    require(
+        command_client,
+        "executeFreshNativeTimerDeleteAndPersistOutcome",
+        "Slice 33 durable outcome handoff",
+    )
+    require(
+        command_client,
+        "nativeTimerDeleteTransport",
+        "explicit injected transport gate",
+    )
+    if command_client.count(
+            "backendAgentNativeTimerDeleteExecuteFreshStartingOnce(") != 1:
+        raise SystemExit("Slice 33 must have exactly one CommandClient executor call")
+else:
+    for token in (
+        "BackendAgentNativeTimerDeleteExecutor",
+        "IBackendAgentNativeTimerDeleteTransport",
+        "backendAgentNativeTimerDeleteExecuteFreshStartingOnce",
+    ):
+        forbid(command_client, token, "Slice 32 CommandClient runtime wiring")
 
 for text, label in (
     (transport_header, "SuiteBridge transport header"),
@@ -162,6 +185,7 @@ for token in (
     "/timers",
 ):
     forbid(source, token, "concrete Timer-delete mutation coupling")
+    forbid(command_client, token, "concrete Timer-delete CommandClient coupling")
 
 forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
