@@ -14,6 +14,8 @@ test-phase64-backend-agent-command-reservation: test-phase64-backend-agent-comma
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
 		core/agent/src/BackendAgentCommandReservation.cpp \
 		core/agent/tests/test_backend_agent_command_reservation.cpp \
 		$(LDFLAGS) \
