@@ -6,6 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = ROOT / "core/agent/include/BackendAgentNativeTimerDelete.h"
+FINGERPRINT = ROOT / "core/agent/include/BackendAgentNativeTimerDeleteFingerprint.h"
 SOURCE = ROOT / "core/agent/src/BackendAgentNativeTimerDelete.cpp"
 TEST = ROOT / "core/agent/tests/test_backend_agent_native_timer_delete.cpp"
 DOC = ROOT / "docs/development/phase-64-native-timer-delete-agent-contract.md"
@@ -34,10 +35,18 @@ require(HEADER, [
     "BackendAgentNativeTimerDeleteEvidence",
     "operationRevision",
     "expectedBindingRevision",
+    "expectedNativeTimerFingerprint",
     "controlPlaneClaimedAt",
     "localStartingPersistedAt",
     "acceptedUnverified",
     "outcomeUnknown",
+])
+require(FINGERPRINT, [
+    "kBackendAgentNativeTimerDeleteCanonicalFingerprintMaximum = 4096",
+    "kBackendAgentNativeTimerDeleteFingerprintTokenLength = 71",
+    'std::string token = "sha256:"',
+    "backendAgentNativeTimerDeleteFingerprintToken",
+    "backendAgentNativeTimerDeleteFingerprintTokenValid",
 ])
 require(SOURCE, [
     "backendAgentLocalProviderValidSelection",
@@ -45,11 +54,16 @@ require(SOURCE, [
     "kBackendAgentNativeTimerDeleteCapability",
     "kBackendAgentNativeTimerDeleteProviderId",
     "kBackendAgentNativeTimerDeleteProviderKind",
+    "backendAgentNativeTimerDeleteFingerprintTokenValid(",
     "evidence.localStartingPersistedAt < command.controlPlaneClaimedAt",
     "evidence.dispatchStartedAt < evidence.localStartingPersistedAt",
     "rejected-outcome-has-dispatch",
 ])
 require(TEST, [
+    "std::string fingerprintToken",
+    "expectedNativeTimerFingerprint = fingerprintToken()",
+    "invalidNativeFingerprint.expectedNativeTimerFingerprint = \"not-hex\"",
+    "noNativeFingerprint.expectedNativeTimerFingerprint.clear()",
     'requiredCapability = "vdr.native.probe"',
     'authorityDomain = "vdr.native"',
     'providerId = "restfulapi:local"',

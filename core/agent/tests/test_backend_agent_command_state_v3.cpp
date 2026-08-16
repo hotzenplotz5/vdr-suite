@@ -121,6 +121,7 @@ BackendAgentCommandAssignment timerDeleteAssignment()
     payload.operationRevision = "operation-revision-v3";
     payload.nativeTimerBindingId = "binding-v3";
     payload.expectedBindingRevision = "binding-revision-v3";
+    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-v3";
     payload.timerAssignmentId = "timer-assignment-v3";
     payload.backendNativeTimerId = "native-timer-v3";
     payload.controlPlaneClaimedAt = 200;

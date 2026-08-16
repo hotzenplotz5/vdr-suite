@@ -3,6 +3,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerDelete.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "Database.h"
 
@@ -78,6 +79,8 @@ bool requestValid(
         backendAgentCommandSafeIdentifier(request.operationRevision) &&
         backendAgentCommandSafeIdentifier(request.nativeTimerBindingId) &&
         backendAgentCommandSafeIdentifier(request.expectedBindingRevision) &&
+        vdrsuite::agent::backendAgentNativeTimerDeleteCanonicalFingerprintValid(
+            request.expectedNativeTimerFingerprint) &&
         backendAgentCommandSafeIdentifier(request.timerAssignmentId) &&
         backendAgentCommandSafeIdentifier(request.backendId) &&
         request.backendGeneration > 0 &&
@@ -99,6 +102,7 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteCommand domainCommand(
     command.operationRevision = payload.operationRevision;
     command.nativeTimerBindingId = payload.nativeTimerBindingId;
     command.expectedBindingRevision = payload.expectedBindingRevision;
+    command.expectedNativeTimerFingerprint = payload.expectedNativeTimerFingerprint;
     command.timerAssignmentId = payload.timerAssignmentId;
     command.backendNativeTimerId = payload.backendNativeTimerId;
     command.jobId = assignment.jobId;
@@ -129,6 +133,9 @@ bool requestMatches(
         payload.operationRevision == request.operationRevision &&
         payload.nativeTimerBindingId == request.nativeTimerBindingId &&
         payload.expectedBindingRevision == request.expectedBindingRevision &&
+        payload.expectedNativeTimerFingerprint ==
+            vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                request.expectedNativeTimerFingerprint) &&
         payload.timerAssignmentId == request.timerAssignmentId &&
         payload.backendNativeTimerId == request.backendNativeTimerId &&
         payload.controlPlaneClaimedAt == request.controlPlaneClaimedAt;
@@ -377,6 +384,9 @@ BackendAgentNativeTimerDeleteAssignmentService::assign(
     payload.operationRevision = request.operationRevision;
     payload.nativeTimerBindingId = request.nativeTimerBindingId;
     payload.expectedBindingRevision = request.expectedBindingRevision;
+    payload.expectedNativeTimerFingerprint =
+        backendAgentNativeTimerDeleteFingerprintToken(
+            request.expectedNativeTimerFingerprint);
     payload.timerAssignmentId = request.timerAssignmentId;
     payload.backendNativeTimerId = request.backendNativeTimerId;
     payload.controlPlaneClaimedAt = request.controlPlaneClaimedAt;

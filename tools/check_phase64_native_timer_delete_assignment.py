@@ -6,6 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PAYLOAD = ROOT / "core/agent/include/BackendAgentNativeTimerDeletePayload.h"
+FINGERPRINT = ROOT / "core/agent/include/BackendAgentNativeTimerDeleteFingerprint.h"
 HEADER = ROOT / "core/agent/include/BackendAgentNativeTimerDeleteAssignment.h"
 SOURCE = ROOT / "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp"
 COMMAND = ROOT / "core/agent/src/BackendAgentCommand.cpp"
@@ -35,15 +36,25 @@ require(PAYLOAD, [
     "timerDeleteSchema",
     "operationRevision",
     "expectedBindingRevision",
+    "expectedNativeTimerFingerprint",
+    "transportFingerprint",
+    "backendAgentNativeTimerDeleteFingerprintTokenValid",
     "controlPlaneClaimedAt",
     "ownershipGeneration",
     "providerInstanceEpoch",
     "requiredCapability",
 ])
+require(FINGERPRINT, [
+    "backendAgentNativeTimerDeleteCanonicalFingerprintValid",
+    "backendAgentNativeTimerDeleteFingerprintToken",
+    "backendAgentNativeTimerDeleteFingerprintTokenValid",
+    'std::string token = "sha256:"',
+])
 require(HEADER, [
     "BackendAgentNativeTimerDeleteAssignmentRequest",
     "BackendAgentNativeTimerDeleteAssignmentResult",
     "BackendAgentNativeTimerDeleteAssignmentService",
+    "expectedNativeTimerFingerprint",
     "backendGeneration",
     "controlPlaneClaimedAt",
 ])
@@ -55,6 +66,10 @@ require(SOURCE, [
     "findAssignmentForOperation",
     "localProviderSelectionForCommand",
     "selectLocalProvider",
+    "backendAgentNativeTimerDeleteCanonicalFingerprintValid(",
+    "backendAgentNativeTimerDeleteFingerprintToken(",
+    "request.expectedNativeTimerFingerprint",
+    "payload.expectedNativeTimerFingerprint",
     "kBackendAgentNativeTimerDeleteAuthorityDomain",
     "kBackendAgentNativeTimerDeleteCapability",
     "insertAssignment",
@@ -68,6 +83,13 @@ require(COMMAND, [
     "payload.controlPlaneClaimedAt <= value.assignedAt",
 ])
 require(TEST, [
+    "canonicalObservedFingerprint",
+    "backendAgentNativeTimerDeleteFingerprintToken(\"abc\")",
+    '"sha256:ba7816bf8f01cfea414140de5dae2223"',
+    "rawExpectedFingerprint.size() > 512",
+    "expectedFingerprintToken.rfind(\"sha256:\", 0) == 0",
+    "payload.expectedNativeTimerFingerprint == expectedFingerprintToken",
+    "changedFingerprintRequest.expectedNativeTimerFingerprint",
     'supportedCommandTypes = {"probe.noop"}',
     'supportedCommandTypes = {"vdr.timer.delete"}',
     "blockedDelivery",

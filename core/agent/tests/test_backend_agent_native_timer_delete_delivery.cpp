@@ -60,6 +60,7 @@ BackendAgentCommandAssignment timerDeleteAssignment(
     payload.operationRevision = "3";
     payload.nativeTimerBindingId = "ntb_timer_" + suffix;
     payload.expectedBindingRevision = "12";
+    payload.expectedNativeTimerFingerprint = "sha256:native-timer-observed-" + suffix;
     payload.timerAssignmentId = "ta_timer_" + suffix;
     payload.backendNativeTimerId = "native_timer_" + suffix;
     payload.controlPlaneClaimedAt = assignedAt - 1;

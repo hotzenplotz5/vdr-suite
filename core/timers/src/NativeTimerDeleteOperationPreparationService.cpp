@@ -41,6 +41,8 @@ NativeTimerDeleteDispatchHandoff handoffFor(
     handoff.operationRevision = operation.operationRevision;
     handoff.nativeTimerBindingId = binding.nativeTimerBindingId;
     handoff.expectedBindingRevision = operation.expectedRevision;
+    handoff.expectedNativeTimerFingerprint =
+        operation.expectedResourceFingerprint;
     handoff.timerAssignmentId = binding.timerAssignmentId;
     handoff.backendId = binding.backendId;
     handoff.backendGeneration = operation.backendGeneration;
@@ -61,6 +63,7 @@ MutationOperation operationFor(
     operation.resourceType = "NativeTimerBinding";
     operation.resourceId = binding.nativeTimerBindingId;
     operation.expectedRevision = request.expectedBindingRevision;
+    operation.expectedResourceFingerprint = binding.observedFingerprint;
     operation.actionFamily = "timer.delete";
     operation.requestFingerprint = request.requestFingerprint;
     operation.requestedAt = request.requestedAt;

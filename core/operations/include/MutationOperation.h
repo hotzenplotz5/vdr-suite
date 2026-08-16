@@ -39,6 +39,7 @@ struct MutationOperation
     std::string resourceType;
     std::string resourceId;
     std::string expectedRevision;
+    std::string expectedResourceFingerprint;
     std::string actionFamily;
     std::string requestFingerprint;
     std::int64_t requestedAt = 0;

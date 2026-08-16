@@ -10,6 +10,10 @@ an executor may act and how a later typed executor outcome is translated into
 the shared operation lifecycle plus, when necessary, the Slice-18 authoritative
 absence-readback expectation.
 
+The later fingerprint-CAS hardening extends the same claim boundary with the
+exact native Timer observed-state fingerprint captured during preparation. This
+adds a resource-state CAS fence without changing the dispatch-state vocabulary.
+
 This slice still contains **no Agent/VDR transport wiring** and performs no
 native Timer mutation itself.
 
@@ -24,11 +28,17 @@ handoff identity:
 - action family `timer.delete`;
 - verification policy `readback_required`;
 - exact binding ID and preparation-time binding revision;
+- exact expected native Timer observed-state fingerprint;
 - exact TimerAssignment ID;
 - exact backend ID/generation;
 - exact backend-native Timer identity;
 - managed/adopted ownership;
 - binding still present and free of unresolved drift.
+
+The durable operation must carry the same
+`expectedResourceFingerprint` as the handoff's
+`expectedNativeTimerFingerprint`, and the current binding's canonical
+`observedFingerprint` must still equal that expected value.
 
 Only then may the shared operation transition:
 
@@ -39,12 +49,19 @@ accepted -> dispatching
 through its exact `operationRevision` fence.
 
 The resulting `NativeTimerDeleteDispatchClaim` carries the new operation
-revision. Exact claim replay while the operation remains `dispatching` is
-idempotent and returns the original durable claim time; it does not create a
-second dispatch authorization.
+revision and the same `expectedNativeTimerFingerprint`. Exact claim replay while
+the operation remains `dispatching` is idempotent and returns the original
+durable claim time; it does not create a second dispatch authorization.
 
 Any binding revision/generation/identity change after preparation fences the
-claim before execution.
+claim before execution. A changed native Timer observed state also fences the
+claim even if a stale or corrupted path were to leave the binding revision
+unchanged. In that case the operation remains `accepted`; no dispatch claim is
+minted and no executor may act.
+
+A caller cannot substitute another fingerprint in the handoff: that conflicts
+with the fingerprint already persisted in the durable mutation operation and is
+rejected as an identity conflict before dispatch.
 
 ## Executor outcome vocabulary
 
@@ -128,6 +145,10 @@ An observation older than this value remains unable to prove the delete.
 The executor outcome carries a bounded durable evidence reference. The shared
 operation stores that reference with its lifecycle transition.
 
+The dispatch claim remains correlated to the exact durable expected native
+Timer fingerprint when the outcome is applied; a claim with a missing or
+substituted fingerprint cannot advance the operation lifecycle.
+
 Exact outcome replay is idempotent: if the operation already has the same target
 state and evidence reference, the repository returns the already-applied
 transition. For readback-requiring outcomes the same expectation is reproduced
@@ -140,6 +161,35 @@ The eventual runtime integration must make the executor outcome itself durable
 before relying on replay after process restart. Phase 63 already demonstrates
 this principle with protected command/result state; Slice 23 only defines the
 Control-Plane mapping.
+
+## Agent and SuiteBridge fingerprint representation
+
+The Control-Plane CAS remains the exact canonical native Timer observed-state
+fingerprint. `MutationOperation.expectedResourceFingerprint`, the preparation
+handoff, the dispatch claim and the current `NativeTimerBinding` are compared
+byte-for-byte in that canonical representation before dispatch is authorized.
+
+The later Agent/SuiteBridge integration does not place that raw canonical text
+on the private SVDRP wire. At the Control Plane -> Agent assignment boundary the
+already frozen canonical fingerprint is deterministically represented as:
+
+```text
+sha256:<64 lowercase hexadecimal characters>
+```
+
+The Agent command payload, durable local `starting`/completed state and private
+SuiteBridge Timer-delete request/replay identity carry this fixed-size token.
+That distinction matters because the canonical fingerprint is length-delimited
+state data and may contain spaces, separators and long Timer metadata that are
+not valid single SVDRP tokens.
+
+The token is an additional bounded representation of the same CAS precondition;
+it does not weaken or replace the raw Control-Plane equality check. A future
+real VDR delete callback must acquire the correct VDR Timer lock, canonicalize
+the live Timer using the same observed-state rules, derive the same SHA-256
+token and compare it before any side effect. A mismatch must reject without
+deleting. PR #192 still leaves production Timer mutation disabled, so that
+lock-time mutation boundary remains a later explicit acceptance gate.
 
 ## Relationship to Phase 63
 
@@ -180,9 +230,10 @@ required for Slice 23.
 
 **Slice 24** should define the domain-specific Agent command/executor contract
 for native Timer deletion. It must bind one command/attempt to the Slice-23
-claim, use the already accepted Phase-63 generation/Agent/provider/claim fences,
-persist the command-side `starting` state before local execution, and return one
-of the exact Slice-23 outcomes with durable evidence.
+claim, including the exact expected native Timer fingerprint, use the already
+accepted Phase-63 generation/Agent/provider/claim fences, persist the
+command-side `starting` state before local execution, and return one of the exact
+Slice-23 outcomes with durable evidence.
 
 The first real runtime wiring must remain separately acceptance-gated. It must
 not enable broad mutations merely by adding a Timer-delete command capability.
