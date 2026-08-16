@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentCommand.h"
+#include "BackendAgentNativeTimerCreateLocalState.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 
 #include <cstdint>
@@ -9,6 +10,8 @@
 namespace vdrsuite::agent
 {
 
+inline constexpr const char* kBackendAgentNativeTimerCreateLocalStateExtensionType =
+    "vdr.timer.create.local-state.v1";
 inline constexpr const char* kBackendAgentNativeTimerDeleteLocalStateExtensionType =
     "vdr.timer.delete.local-state.v1";
 
@@ -40,6 +43,17 @@ bool backendAgentCommandStateExtensionParse(
 bool backendAgentCommandStateExtensionValidateSupported(
     const BackendAgentCommandStateExtension& extension,
     const BackendAgentCommandAssignment& assignment,
+    std::string& reasonCode);
+
+std::string backendAgentNativeTimerCreateCommandStateExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentNativeTimerCreateLocalState& state,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerCreateParseCommandStateExtension(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerCreateLocalState& state,
     std::string& reasonCode);
 
 std::string backendAgentNativeTimerDeleteCommandStateExtension(
