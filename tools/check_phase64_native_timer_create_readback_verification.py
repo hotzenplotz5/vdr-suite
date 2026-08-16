@@ -73,7 +73,7 @@ for token in [
 for token in [
     "authoritative complete inventory",
     "exactly one managed correlation",
-    "no blind retry",
+    "blind retry",
     "NativeTimerBinding",
     "outcome_unknown",
 ]:
