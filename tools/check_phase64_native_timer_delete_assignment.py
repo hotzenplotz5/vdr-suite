@@ -63,8 +63,6 @@ require(SOURCE, [
     "idx_backend_agent_timer_delete_operation",
     "trg_backend_agent_timer_delete_dormant_capability",
     "DELETE FROM backend_agent_command_capabilities",
-    "findAssignmentForOperation",
-    "localProviderSelectionForCommand",
     "selectLocalProvider",
     "backendAgentNativeTimerDeleteCanonicalFingerprintValid(",
     "backendAgentNativeTimerDeleteFingerprintToken(",
@@ -76,6 +74,11 @@ require(SOURCE, [
     "native_timer_delete_assignment_replayed",
     "native_timer_delete_provider_selection_stale",
 ])
+require(DELIVERY, [
+    "findAssignmentForOperation",
+    "localProviderSelectionForCommand",
+])
+
 require(COMMAND, [
     'BackendAgentNativeTimerDeletePayload.h',
     "kBackendAgentNativeTimerDeleteCommandType",

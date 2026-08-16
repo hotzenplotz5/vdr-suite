@@ -33,41 +33,6 @@ std::string text(sqlite3_stmt* statement, int column)
         : std::string();
 }
 
-BackendAgentCommandAssignment readAssignment(sqlite3_stmt* statement)
-{
-    BackendAgentCommandAssignment assignment;
-    assignment.present = true;
-    assignment.protocolVersion = text(statement, 0);
-    assignment.requestId = text(statement, 1);
-    assignment.correlationId = text(statement, 2);
-    assignment.operationId = text(statement, 3);
-    assignment.jobId = text(statement, 4);
-    assignment.attemptId = text(statement, 5);
-    assignment.claimEpoch = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 6));
-    assignment.commandId = text(statement, 7);
-    assignment.backendId = text(statement, 8);
-    assignment.agentId = text(statement, 9);
-    assignment.agentInstanceId = text(statement, 10);
-    assignment.backendGeneration = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 11));
-    assignment.commandType = text(statement, 12);
-    assignment.payloadVersion = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 13));
-    assignment.payload = text(statement, 14);
-    assignment.requestFingerprint = text(statement, 15);
-    assignment.verificationPolicy = text(statement, 16);
-    assignment.assignedAt = sqlite3_column_int64(statement, 17);
-    assignment.deadline = sqlite3_column_int64(statement, 18);
-    return assignment;
-}
-
-constexpr const char* kAssignmentColumns =
-    "protocol_version,request_id,correlation_id,operation_id,job_id,attempt_id,"
-    "claim_epoch,command_id,backend_id,agent_id,agent_instance_id,"
-    "backend_generation,command_type,payload_version,payload,request_fingerprint,"
-    "verification_policy,assigned_at,deadline";
-
 bool requestValid(
     const RequestSecurityContext& context,
     const vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentRequest& request,
@@ -168,87 +133,6 @@ bool BackendAgentCommandRepository::ensureNativeTimerDeleteAssignmentSchema()
         return false;
     }
     return true;
-}
-
-std::optional<BackendAgentCommandAssignment>
-BackendAgentCommandRepository::findAssignmentForOperation(
-    const std::string& backendId,
-    const std::string& operationId,
-    const std::string& commandType) const
-{
-    if (!backendAgentCommandSafeIdentifier(backendId) ||
-        !backendAgentCommandSafeIdentifier(operationId) ||
-        !backendAgentCommandSafeIdentifier(commandType))
-        return std::nullopt;
-
-    sqlite3_stmt* statement = nullptr;
-    const std::string sql = std::string("SELECT ") + kAssignmentColumns +
-        " FROM backend_agent_commands WHERE backend_id=? AND operation_id=? "
-        "AND command_type=? ORDER BY assigned_at,command_id LIMIT 1;";
-    if (sqlite3_prepare_v2(
-            database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
-        !bindText(statement, 1, backendId) ||
-        !bindText(statement, 2, operationId) ||
-        !bindText(statement, 3, commandType))
-    {
-        if (statement != nullptr) sqlite3_finalize(statement);
-        return std::nullopt;
-    }
-
-    std::optional<BackendAgentCommandAssignment> result;
-    if (sqlite3_step(statement) == SQLITE_ROW)
-        result = readAssignment(statement);
-    sqlite3_finalize(statement);
-    return result;
-}
-
-std::optional<vdrsuite::agent::BackendAgentLocalProviderSelection>
-BackendAgentCommandRepository::localProviderSelectionForCommand(
-    const std::string& commandId) const
-{
-    using namespace vdrsuite::agent;
-    if (!backendAgentCommandSafeIdentifier(commandId)) return std::nullopt;
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT selection_identity,backend_id,authority_domain,provider_id,"
-        "provider_kind,ownership_generation,provider_instance_epoch,"
-        "provider_generation,capability_revision,required_capability "
-        "FROM backend_agent_command_provider_selections WHERE command_id=?;";
-    if (sqlite3_prepare_v2(
-            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
-        !bindText(statement, 1, commandId))
-    {
-        if (statement != nullptr) sqlite3_finalize(statement);
-        return std::nullopt;
-    }
-
-    if (sqlite3_step(statement) != SQLITE_ROW)
-    {
-        sqlite3_finalize(statement);
-        return std::nullopt;
-    }
-
-    const std::string identity = text(statement, 0);
-    BackendAgentLocalProviderSelection selection;
-    selection.backendId = text(statement, 1);
-    selection.authorityDomain = text(statement, 2);
-    selection.providerId = text(statement, 3);
-    selection.providerKind = text(statement, 4);
-    selection.ownershipGeneration = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 5));
-    selection.providerInstanceEpoch = text(statement, 6);
-    selection.providerGeneration = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 7));
-    selection.capabilityRevision = static_cast<std::uint64_t>(
-        sqlite3_column_int64(statement, 8));
-    selection.requiredCapability = text(statement, 9);
-    sqlite3_finalize(statement);
-
-    if (!backendAgentLocalProviderValidSelection(selection) ||
-        identity != backendAgentLocalProviderSelectionIdentity(selection))
-        return std::nullopt;
-    return selection;
 }
 
 namespace vdrsuite::agent
