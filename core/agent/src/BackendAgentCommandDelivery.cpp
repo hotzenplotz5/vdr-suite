@@ -182,7 +182,7 @@ BackendAgentCommandRepository::findAssignmentForOperation(
         return std::nullopt;
 
     sqlite3_stmt* statement = nullptr;
-    const std::string sql = std::string("SELECT ") + kAssignmentColumns +
+    const std::string sql = std::string("SELECT ") + AssignmentColumns +
         " FROM backend_agent_commands WHERE backend_id=? AND operation_id=? "
         "AND command_type=? ORDER BY assigned_at,command_id LIMIT 1;";
     if (sqlite3_prepare_v2(
