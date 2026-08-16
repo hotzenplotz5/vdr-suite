@@ -66,7 +66,7 @@ for token in [
 
 for token in [
     "complete native Timer inventory evidence",
-    "opaque aux",
+    "opaque provider-local data",
     "exact native-id set",
     "does not collapse duplicate managed correlations",
 ]:
