@@ -2,6 +2,7 @@
 #include "BackendAgentNativeProbe.h"
 #include "BackendAgentNativeTimerCreatePayload.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
+#include "BackendAgentNativeTimerModifyPayload.h"
 
 #include <algorithm>
 #include <cctype>
