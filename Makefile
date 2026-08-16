@@ -34,7 +34,11 @@ include mk/phase63-runtime-acceptance.mk
 include mk/agent-tests.mk
 include mk/phase63-local-provider-tests.mk
 include mk/phase64-timer-intent-tests.mk
+include mk/phase64-native-timer-specification-tests.mk
+include mk/phase64-vdr-timer-managed-correlation-tests.mk
 include mk/phase64-native-timer-readback-expectation-tests.mk
+include mk/phase64-native-timer-create-readback-expectation-tests.mk
+include mk/phase64-native-timer-create-readback-evidence-tests.mk
 include mk/phase64-native-timer-present-readback-verification-tests.mk
 include mk/phase64-native-timer-inventory-evidence-tests.mk
 include mk/phase64-restfulapi-native-timer-inventory-reader-tests.mk
