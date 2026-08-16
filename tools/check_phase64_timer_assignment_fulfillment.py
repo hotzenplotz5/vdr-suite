@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,11 +31,8 @@ for token in [
     if token not in header:
         raise SystemExit(f"missing fulfillment header marker: {token}")
 
-for token in [
-    "current.state =",  # prohibited below if accidental direct mutation
-]:
-    if token in source:
-        raise SystemExit("fulfillment must not mutate repository snapshots in place")
+if re.search(r"\bcurrent\.state\s*=(?!=)", source):
+    raise SystemExit("fulfillment must not mutate repository snapshots in place")
 
 for token in [
     "assignmentRepository_.findById(timerAssignmentId)",
