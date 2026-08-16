@@ -39,6 +39,7 @@ include mk/phase64-vdr-timer-managed-correlation-tests.mk
 include mk/phase64-native-timer-readback-expectation-tests.mk
 include mk/phase64-native-timer-create-readback-expectation-tests.mk
 include mk/phase64-native-timer-create-readback-evidence-tests.mk
+include mk/phase64-vdr-managed-timer-create-readback-evidence-tests.mk
 include mk/phase64-native-timer-create-readback-verification-tests.mk
 include mk/phase64-native-timer-present-readback-verification-tests.mk
 include mk/phase64-native-timer-inventory-evidence-tests.mk
