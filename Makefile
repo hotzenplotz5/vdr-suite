@@ -36,6 +36,7 @@ include mk/phase63-local-provider-tests.mk
 include mk/phase64-timer-intent-tests.mk
 include mk/phase64-native-timer-specification-tests.mk
 include mk/phase64-vdr-timer-managed-correlation-tests.mk
+include mk/phase64-vdr-managed-timer-create-request-tests.mk
 include mk/phase64-native-timer-readback-expectation-tests.mk
 include mk/phase64-native-timer-create-readback-expectation-tests.mk
 include mk/phase64-native-timer-create-readback-evidence-tests.mk
