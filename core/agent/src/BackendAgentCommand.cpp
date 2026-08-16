@@ -95,6 +95,23 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
             payload.localProviderSelection.backendId == value.backendId &&
             payload.controlPlaneClaimedAt <= value.assignedAt;
     }
+    if ((value.commandType ==
+             vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+         value.commandType ==
+             vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType) &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentNativeTimerModifyPayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentNativeTimerModifyPayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentNativeTimerModifyParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.backendId == value.backendId &&
+            payload.backendGeneration == value.backendGeneration &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
     return false;
 }
 }

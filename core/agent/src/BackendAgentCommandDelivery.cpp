@@ -348,6 +348,15 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
         selection.providerKind!=kBackendAgentNativeTimerDeleteProviderKind||
         selection.requiredCapability!=kBackendAgentNativeTimerDeleteCapability))
     {reason="native_timer_delete_provider_selection_mismatch";return false;}
+    if(timerModify&&
+       (selection.authorityDomain!=kBackendAgentNativeTimerModifyAuthorityDomain||
+        selection.providerId!=kBackendAgentNativeTimerModifyProviderId||
+        selection.providerKind!=kBackendAgentNativeTimerModifyProviderKind||
+        selection.requiredCapability!=
+          (commandType==kBackendAgentNativeTimerToggleCommandType
+            ?kBackendAgentNativeTimerToggleCapability
+            :kBackendAgentNativeTimerUpdateCapability)))
+    {reason="native_timer_modify_provider_selection_mismatch";return false;}
     const auto current=selectLocalProvider(
         selection.backendId,agentId,instance,backendGeneration,
         selection.authorityDomain,selection.requiredCapability,reason);
@@ -474,6 +483,13 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
     }
     else if(commandType==kBackendAgentNativeTimerDeleteCommandType&&
             payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
+    {
+        result.reasonCode="local_provider_selection_required";
+        return result;
+    }
+    else if((commandType==kBackendAgentNativeTimerUpdateCommandType||
+             commandType==kBackendAgentNativeTimerToggleCommandType)&&
+            payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion)
     {
         result.reasonCode="local_provider_selection_required";
         return result;
