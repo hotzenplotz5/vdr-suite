@@ -208,9 +208,14 @@ if executor_source.is_file():
         "AGENT_TIMER_DELETE_EXECUTOR_SRC :=",
         "separate Timer-delete executor source set",
     )
-    executor_block = agent_sources.split(
+    executor_tail = agent_sources.split(
         "AGENT_TIMER_DELETE_EXECUTOR_SRC :=", 1
-    )[1].split("\n\nAGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC", 1)[0]
+    )[1]
+    executor_block = (
+        executor_tail.split("\n\nAGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC", 1)[0]
+        if "AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC :=" in executor_tail
+        else executor_tail.split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+    )
     if executor_block.count(
             "core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp") != 1:
         raise SystemExit(
