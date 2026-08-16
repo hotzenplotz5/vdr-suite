@@ -23,6 +23,10 @@ def forbid(text: str, needle: str, label: str) -> None:
 
 makefile = read("Makefile")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+timer_delete_handler = read(
+    "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp"
+)
+agent_sources = read("mk/agent-sources.mk")
 test = read("core/agent/tests/test_backend_agent_command_state_v3.cpp")
 mk = read("mk/phase64-timer-delete-local-state-lifecycle-tests.mk")
 doc = read("docs/development/phase-64-timer-delete-local-state-lifecycle.md")
@@ -34,51 +38,60 @@ require(makefile, include, "Slice 30 Make include")
 if makefile.count(include) != 1:
     raise SystemExit("Slice 30 Make include must occur exactly once")
 
-# Slice 30 consumes already-durable typed local state. A bounded successor may
-# add fresh-starting preparation, but only through its explicitly named handoff;
-# Slice 30 still owns recovery and must not acquire an executor/write transport.
+# Slice 30's typed recovery/projection lifecycle may move to a dedicated
+# successor handler, but the generic CommandClient must retain only a bounded
+# handoff and the handler must not acquire control-plane delivery authority.
 require(
     command_client,
-    '#include "BackendAgentNativeTimerDeleteLocalState.h"',
-    "typed Timer-delete lifecycle dependency",
+    '#include "BackendAgentNativeTimerDeleteCommandHandler.h"',
+    "Timer-delete handler dependency",
 )
-require(
-    command_client,
+for token in (
+    "reconcileNativeTimerDeleteLocalState",
+    "prepareFreshNativeTimerDeleteLocalStarting",
+    "executeFreshNativeTimerDeleteAndPersistOutcome",
+):
+    require(command_client, token, "bounded Timer-delete CommandClient handoff")
+
+for token, label in (
+    ("backendAgentNativeTimerDeleteRecoverLocalState", "typed recovery decision"),
+    ("backendAgentNativeTimerDeleteCompleteLocalState", "durable starting-to-completed conversion"),
+    ("backendAgentNativeTimerDeleteSerializeLocalState", "completed typed-state persistence"),
+    ("BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect", "rejected-without-effect projection"),
+    ("BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified", "accepted-unverified projection"),
+    ("BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown", "outcome-unknown projection"),
+    ('"reconcile_only"', "reconciliation-only generic result"),
+):
+    require(timer_delete_handler, token, label)
+
+for token in (
     "backendAgentNativeTimerDeleteRecoverLocalState",
-    "typed recovery decision",
-)
-require(
-    command_client,
     "backendAgentNativeTimerDeleteCompleteLocalState",
-    "durable starting-to-completed conversion",
-)
-require(
-    command_client,
     "backendAgentNativeTimerDeleteSerializeLocalState",
-    "completed typed-state persistence",
-)
-require(
-    command_client,
     "BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect",
-    "rejected-without-effect projection",
-)
-require(
-    command_client,
     "BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified",
-    "accepted-unverified projection",
-)
-require(
-    command_client,
     "BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown",
-    "outcome-unknown projection",
+):
+    forbid(command_client, token, "Timer-delete lifecycle implementation in CommandClient")
+
+for token in (
+    "IBackendAgentControlPlaneTransport",
+    "/api/agent/v1/commands/poll",
+    "/api/agent/v1/commands/receipt",
+    "/api/agent/v1/commands/result",
+    "sendReceipt(",
+    "sendResult(",
+):
+    forbid(timer_delete_handler, token, "control-plane authority in Timer-delete handler")
+
+if agent_sources.count(
+        "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp") != 1:
+    raise SystemExit("Timer-delete command handler must occur exactly once in Agent sources")
+require(
+    agent_sources,
+    "AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC :=",
+    "Timer-delete command handler source set",
 )
-require(command_client, '"reconcile_only"', "reconciliation-only generic result")
-if "backendAgentNativeTimerDeletePrepareLocalStarting" in command_client:
-    require(
-        command_client,
-        "prepareFreshNativeTimerDeleteLocalStarting",
-        "bounded successor fresh-starting handoff",
-    )
 forbid(command_client, "vdr.timer.delete", "literal Timer-delete execution branch")
 
 # Recovery must happen before the generic generation fence so completed
@@ -114,7 +127,8 @@ for token in (
     "curl ",
     "/timers",
 ):
-    forbid(command_client, token, "Timer-delete executor/write transport coupling")
+    forbid(command_client, token, "Timer-delete CommandClient write coupling")
+    forbid(timer_delete_handler, token, "Timer-delete handler concrete write coupling")
 
 # Focused regression proves all lifecycle projections and drift behavior while
 # preserving the existing v1/v2/v3 and advertisement tests.

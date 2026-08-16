@@ -25,6 +25,9 @@ makefile = read("Makefile")
 agent_sources = read("mk/agent-sources.mk")
 header = read("core/agent/include/BackendAgentNativeTimerDeleteExecutor.h")
 source = read("core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp")
+timer_delete_handler = read(
+    "core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp"
+)
 test = read("core/agent/tests/test_backend_agent_timer_delete_fenced_executor.cpp")
 mk = read("mk/phase64-timer-delete-fenced-executor-tests.mk")
 doc = read("docs/development/phase-64-timer-delete-fenced-executor.md")
@@ -49,7 +52,7 @@ if agent_sources.count(executor_source) != 1:
     raise SystemExit("Timer-delete executor source must occur exactly once")
 executor_block = agent_sources.split(
     "AGENT_TIMER_DELETE_EXECUTOR_SRC :=", 1
-)[1].split("\n\nAGENT_COMMAND_CLIENT_SRC", 1)[0]
+)[1].split("\n\nAGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC", 1)[0]
 require(executor_block, executor_source, "executor source ownership")
 for token in ("SuiteBridge", "Svdrp", "REST", "restful"):
     forbid(executor_block, token, "concrete transport in executor source set")
@@ -125,16 +128,15 @@ require(
     "invalid accepted evidence downgrade",
 )
 
-# Slice 32 remains the isolated one-shot executor contract. A bounded Slice 33
-# durable-outcome successor may reference it from the generic command owner,
-# but only while a dedicated successor guard exists and concrete transport stays
-# absent. This keeps the historical Slice-32 contract assertions intact.
+# Slice 32 remains the isolated one-shot executor contract. Its durable-outcome
+# successor now lives in the dedicated Timer-delete handler; the CommandClient
+# retains only the stable orchestration handoff and injected-transport gate.
 successor_guard = ROOT / "tools/check_phase64_timer_delete_durable_executor_outcome.py"
 if successor_guard.is_file():
     require(
         command_client,
-        '#include "BackendAgentNativeTimerDeleteExecutor.h"',
-        "bounded Slice 33 durable-outcome successor",
+        '#include "BackendAgentNativeTimerDeleteCommandHandler.h"',
+        "bounded Slice 33 handler successor",
     )
     require(
         command_client,
@@ -146,9 +148,19 @@ if successor_guard.is_file():
         "nativeTimerDeleteTransport",
         "explicit injected transport gate",
     )
-    if command_client.count(
+    require(
+        timer_delete_handler,
+        "backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome",
+        "dedicated durable outcome handler",
+    )
+    if timer_delete_handler.count(
             "backendAgentNativeTimerDeleteExecuteFreshStartingOnce(") != 1:
-        raise SystemExit("Slice 33 must have exactly one CommandClient executor call")
+        raise SystemExit("Slice 33 handler must contain exactly one executor call")
+    forbid(
+        command_client,
+        "backendAgentNativeTimerDeleteExecuteFreshStartingOnce(",
+        "low-level executor call in CommandClient",
+    )
 else:
     for token in (
         "BackendAgentNativeTimerDeleteExecutor",
@@ -186,6 +198,17 @@ for token in (
 ):
     forbid(source, token, "concrete Timer-delete mutation coupling")
     forbid(command_client, token, "concrete Timer-delete CommandClient coupling")
+    forbid(timer_delete_handler, token, "concrete Timer-delete handler coupling")
+
+for token in (
+    "IBackendAgentControlPlaneTransport",
+    "/api/agent/v1/commands/poll",
+    "/api/agent/v1/commands/receipt",
+    "/api/agent/v1/commands/result",
+    "sendReceipt(",
+    "sendResult(",
+):
+    forbid(timer_delete_handler, token, "control-plane authority in Timer-delete handler")
 
 forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
