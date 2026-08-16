@@ -273,11 +273,12 @@ for token in [
 
 # Slice 3 originally prohibited every TimerIntent/TimerAssignment runtime token
 # outside core/timers. Later Phase-64 slices are reviewed independently and may
-# cross that boundary only when the specific runtime file is protected by its
-# own architecture guard. Keep this allow-list intentionally narrow: adding a
-# new production integration point must be a separate, explicit review step.
+# cross that boundary only when the specific runtime file or its focused
+# regression is protected by its own architecture guard. Keep this allow-list
+# intentionally narrow: adding another integration point is a separate review.
 reviewed_runtime_files = {
     Path("core/agent/src/BackendAgentNativeTimerCreateActivation.cpp"),
+    Path("core/agent/tests/test_backend_agent_native_timer_create_activation.cpp"),
 }
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
