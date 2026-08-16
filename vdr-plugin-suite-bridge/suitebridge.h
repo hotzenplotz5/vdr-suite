@@ -7,6 +7,8 @@
 #include "suitebridge_native_timer_create_vdr.h"
 #include "suitebridge_native_timer_delete.h"
 #include "suitebridge_native_timer_delete_vdr.h"
+#include "suitebridge_native_timer_modify.h"
+#include "suitebridge_native_timer_modify_vdr.h"
 #include "suitebridge_status_monitor.h"
 
 #include <vdr/plugin.h>
@@ -38,6 +40,8 @@ private:
   SuiteBridgeNativeTimerCreateService nativeTimerCreate_;
   SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_;
   SuiteBridgeNativeTimerDeleteService nativeTimerDelete_;
+  SuiteBridgeNativeTimerModifyVdrMutationCallback nativeTimerModifyVdrMutation_;
+  SuiteBridgeNativeTimerModifyService nativeTimerModify_;
 };
 
 #endif
