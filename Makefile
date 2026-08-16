@@ -46,6 +46,7 @@ include mk/phase64-suitebridge-native-timer-create-real-mutation-tests.mk
 include mk/phase64-suitebridge-native-timer-command-path-wiring-tests.mk
 include mk/phase63-local-provider-tests.mk
 include mk/phase64-timer-intent-tests.mk
+include mk/phase64-timer-intent-application-tests.mk
 include mk/phase64-timer-assignment-fulfillment-tests.mk
 include mk/phase64-native-timer-specification-tests.mk
 include mk/phase64-vdr-timer-managed-correlation-tests.mk
