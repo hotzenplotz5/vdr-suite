@@ -40,8 +40,14 @@ bool alreadyVerified(
 bool nativeTimerModifyReadbackExpectationValid(
     const NativeTimerModifyReadbackExpectation& expectation)
 {
+    const bool stateValid =
+        expectation.operationState ==
+            NativeTimerReadbackOperationState::executedUnverified ||
+        expectation.operationState ==
+            NativeTimerReadbackOperationState::outcomeUnknown;
     return !expectation.operationId.empty()
         && expectation.operationId.size() <= 160
+        && stateValid
         && nativeTimerModifyOperationPayloadValid(expectation.payload)
         && expectation.readbackNotBefore > 0;
 }

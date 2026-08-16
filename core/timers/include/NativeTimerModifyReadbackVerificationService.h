@@ -2,6 +2,7 @@
 
 #include "NativeTimerModifyOperationPayload.h"
 #include "NativeTimerObservation.h"
+#include "NativeTimerReadbackExpectation.h"
 
 namespace vdrsuite::timers
 {
@@ -28,6 +29,8 @@ enum class NativeTimerModifyReadbackVerificationStatus
 struct NativeTimerModifyReadbackExpectation
 {
     std::string operationId;
+    NativeTimerReadbackOperationState operationState =
+        NativeTimerReadbackOperationState::executedUnverified;
     NativeTimerModifyOperationPayload payload;
     std::int64_t readbackNotBefore = 0;
 };
