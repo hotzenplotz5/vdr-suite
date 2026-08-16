@@ -38,9 +38,14 @@ for relative, markers in required.items():
 client = (ROOT / "core/agent/src/BackendAgentCommandClient.cpp").read_text(
     encoding="utf-8"
 )
+availability_start = client.find("CommandAvailability availableCommands")
+availability_end = client.find("\n}", availability_start)
+availability = client[availability_start:availability_end]
 closed = (
-    'type == vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||' in client
-    and 'type == vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType)\n            continue;' in client
+    availability_start >= 0
+    and "kBackendAgentNativeTimerCreateCommandType" in availability
+    and "kBackendAgentNativeTimerDeleteCommandType" in availability
+    and "continue;" in availability
 )
 if not closed:
     errors.append("productive vdr.timer.create Agent advertisement must remain closed")

@@ -1,7 +1,9 @@
-.PHONY: test-phase64-native-timer-modify-agent-contract
+.PHONY: test-phase64-native-timer-modify-agent-contract test-phase64-native-timer-modify-agent-contract-architecture
 
-test-phase64-native-timer-modify-agent-contract:
+test-phase64-native-timer-modify-agent-contract-architecture:
 	python3 tools/check_phase64_native_timer_modify_agent_contract.py
+
+test-phase64-native-timer-modify-agent-contract: test-phase64-native-timer-modify-agent-contract-architecture
 	mkdir -p $(BUILD_DIR)
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/agent/src/BackendAgentCommand.cpp \
@@ -16,3 +18,6 @@ test-phase64-native-timer-modify-agent-contract:
 		-o $(BUILD_DIR)/test_backend_agent_native_timer_modify
 	$(BUILD_DIR)/test_backend_agent_native_timer_modify
 	rm -f $(BUILD_DIR)/test_backend_agent_native_timer_modify
+
+test-fast: test-phase64-native-timer-modify-agent-contract
+test-architecture: test-phase64-native-timer-modify-agent-contract-architecture

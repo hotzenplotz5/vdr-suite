@@ -108,6 +108,7 @@ bool exactExisting(BackendAgentCommandRepository& repository,
  return true;
 }
 }
+} // namespace vdrsuite::agent
 
 bool BackendAgentCommandRepository::ensureNativeTimerModifyAssignmentSchema()
 {
@@ -131,6 +132,9 @@ bool BackendAgentCommandRepository::ensureNativeTimerModifyAssignmentSchema()
  if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;}
  return true;
 }
+
+namespace vdrsuite::agent
+{
 
 BackendAgentNativeTimerModifyAssignmentService::
 BackendAgentNativeTimerModifyAssignmentService(
