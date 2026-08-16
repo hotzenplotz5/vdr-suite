@@ -35,6 +35,7 @@ include mk/agent-tests.mk
 include mk/phase64-backend-agent-command-reservation-tests.mk
 include mk/phase64-native-timer-create-agent-contract-tests.mk
 include mk/phase64-native-timer-create-reservation-tests.mk
+include mk/phase64-native-timer-create-dispatch-state-tests.mk
 include mk/phase63-local-provider-tests.mk
 include mk/phase64-timer-intent-tests.mk
 include mk/phase64-timer-assignment-fulfillment-tests.mk
