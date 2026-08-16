@@ -417,6 +417,20 @@ allowed_timer_discriminators = (
             "prepareFreshNativeTimerDeleteLocalStarting",
         ),
     ),
+    (
+        "Timer-modify",
+        (
+            "const bool timerModifyCommand =\n"
+            "        state.assignment.commandType ==\n"
+            "            vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||\n"
+            "        state.assignment.commandType ==\n"
+            "            vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerModifyLocalStarting",
+            "executeFreshNativeTimerModifyAndPersistOutcome",
+        ),
+    ),
 )
 
 scoped_runtime_boundary = scoped_runtime
