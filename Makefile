@@ -42,6 +42,7 @@ include mk/phase64-native-timer-create-local-state-tests.mk
 include mk/phase64-native-timer-create-executor-tests.mk
 include mk/phase64-suitebridge-native-timer-create-transport-tests.mk
 include mk/phase64-suitebridge-native-timer-create-command-service-tests.mk
+include mk/phase64-suitebridge-native-timer-create-real-mutation-tests.mk
 include mk/phase63-local-provider-tests.mk
 include mk/phase64-timer-intent-tests.mk
 include mk/phase64-timer-assignment-fulfillment-tests.mk

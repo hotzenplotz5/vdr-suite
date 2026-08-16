@@ -315,11 +315,11 @@ for plugin_path in (
             "missing CREATE command-service successor: " + plugin_path
         )
 
-if (
+if not (
     ROOT
     / "vdr-plugin-suite-bridge/suitebridge_native_timer_create_vdr.cpp"
-).exists():
-    raise SystemExit("CREATE VDR mutation boundary landed too early")
+).is_file():
+    raise SystemExit("missing CREATE VDR mutation successor")
 
 plugin_svdrp = read(
     "vdr-plugin-suite-bridge/suitebridge_svdrp.cpp"

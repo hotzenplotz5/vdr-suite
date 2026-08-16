@@ -63,8 +63,8 @@ require(plugin_makefile, "suitebridge_native_timer_create.o",
 require(plugin_makefile, "test-native-timer-create",
         "CREATE plugin unit test")
 
-if (ROOT / "vdr-plugin-suite-bridge/suitebridge_native_timer_create_vdr.cpp").exists():
-    raise SystemExit("CREATE VDR mutation successor landed too early")
+require(plugin, "SuiteBridgeNativeTimerCreateVdrMutationCallback",
+        "CREATE VDR mutation successor owner")
 
 availability = client[
     client.find("CommandAvailability availableCommands"):
