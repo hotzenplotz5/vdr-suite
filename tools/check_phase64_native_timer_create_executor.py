@@ -77,11 +77,14 @@ if (
         "CREATE capability advertisement is not visibly held closed"
     )
 
-if Path(
+create_transport_source = Path(
     "core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp"
-).exists():
+)
+if create_transport_source.exists() and not Path(
+    "tools/check_phase64_suitebridge_native_timer_create_transport.py"
+).is_file():
     raise SystemExit(
-        "SuiteBridge CREATE transport must not land in executor slice"
+        "SuiteBridge CREATE transport requires bounded successor guard"
     )
 
 sources = Path("mk/agent-sources.mk").read_text()
