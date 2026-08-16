@@ -10,6 +10,7 @@ test-phase64-native-timer-create-local-state: test-phase64-native-timer-create-l
 		core/agent/src/BackendAgentNativeTimerCreate.cpp \
 		core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
 		core/agent/src/BackendAgentCommand.cpp \
 		core/agent/tests/test_backend_agent_native_timer_create_local_state.cpp \
 		$(LDFLAGS) \

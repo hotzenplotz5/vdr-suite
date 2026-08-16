@@ -32,6 +32,14 @@ struct BackendAgentNativeTimerCreateLocalState
     BackendAgentNativeTimerCreateEvidence evidence;
 };
 
+struct BackendAgentNativeTimerCreateRecoveryResult
+{
+    BackendAgentNativeTimerCreateRecoveryDecision decision =
+        BackendAgentNativeTimerCreateRecoveryDecision::failClosed;
+    std::string reasonCode;
+    BackendAgentNativeTimerCreateEvidence evidence;
+};
+
 bool backendAgentNativeTimerCreateCommandFromAssignment(
     const BackendAgentCommandAssignment& assignment,
     BackendAgentNativeTimerCreateCommand& command,
@@ -52,11 +60,14 @@ bool backendAgentNativeTimerCreateCompleteLocalState(
     const BackendAgentNativeTimerCreateEvidence& evidence,
     std::string& reasonCode);
 
-BackendAgentNativeTimerCreateRecoveryDecision
+BackendAgentNativeTimerCreateRecoveryResult
 backendAgentNativeTimerCreateRecoverLocalState(
     const BackendAgentNativeTimerCreateLocalState& state,
-    BackendAgentNativeTimerCreateEvidence& evidence,
-    std::string& reasonCode);
+    const std::string& backendId,
+    const std::string& agentId,
+    const std::string& agentInstanceId,
+    std::uint64_t backendGeneration,
+    std::int64_t now);
 
 std::string backendAgentNativeTimerCreateSerializeLocalState(
     const BackendAgentNativeTimerCreateLocalState& state,

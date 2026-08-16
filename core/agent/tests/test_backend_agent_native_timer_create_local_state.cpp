@@ -137,16 +137,50 @@ int main()
     assert(backendAgentNativeTimerCreateSerializeLocalState(
         parsedStarting, reason) == encodedStarting);
 
-    BackendAgentNativeTimerCreateEvidence recovered;
     const auto recovery = backendAgentNativeTimerCreateRecoverLocalState(
-        parsedStarting, recovered, reason);
-    assert(recovery == BackendAgentNativeTimerCreateRecoveryDecision::reconcileOnly);
-    assert(reason ==
-        "native_timer_create_dispatch_may_have_occurred_reconcile_only");
-    assert(recovered.completedAt == 0);
+        parsedStarting,
+        "default",
+        "agt_create_local_1",
+        "inst_create_local_1",
+        7,
+        115);
+    assert(recovery.decision ==
+        BackendAgentNativeTimerCreateRecoveryDecision::reconcileOnly);
+    assert(recovery.reasonCode ==
+        "native_timer_create_starting_recovery_reconcile_only");
+    assert(recovery.evidence.outcome ==
+        BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown);
+    assert(recovery.evidence.localStartingPersistedAt == 110);
+    assert(recovery.evidence.dispatchStartedAt == 110);
+    assert(recovery.evidence.completedAt == 115);
+    assert(recovery.evidence.evidenceReference ==
+        "local-recovery:cmd_create_local_1");
+    assert(backendAgentNativeTimerCreateEvidenceMatches(
+        recovery.evidence, command, reason));
 
     // Once local starting is durable, crash/restart is never evidence that the
     // native CREATE did not happen and must never authorize a second dispatch.
+    BackendAgentNativeTimerCreateLocalState recoveredStarting = parsedStarting;
+    assert(backendAgentNativeTimerCreateCompleteLocalState(
+        recoveredStarting, recovery.evidence, reason));
+    assert(recoveredStarting.phase ==
+        BackendAgentNativeTimerCreateLocalPhase::completed);
+
+    const auto contextDriftRecovery = backendAgentNativeTimerCreateRecoverLocalState(
+        parsedStarting,
+        "default",
+        "agt_create_local_1",
+        "inst_create_local_replacement",
+        8,
+        116);
+    assert(contextDriftRecovery.decision ==
+        BackendAgentNativeTimerCreateRecoveryDecision::reconcileOnly);
+    assert(contextDriftRecovery.reasonCode ==
+        "native_timer_create_starting_context_fenced_reconcile_only");
+    assert(contextDriftRecovery.evidence.outcome ==
+        BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown);
+    assert(contextDriftRecovery.evidence.dispatchStartedAt == 110);
+
     auto accepted = evidenceFor(
         command,
         BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified,
@@ -163,13 +197,35 @@ int main()
     assert(backendAgentNativeTimerCreateParseLocalState(
         encodedCompleted, parsedCompleted, reason));
     const auto completedRecovery = backendAgentNativeTimerCreateRecoverLocalState(
-        parsedCompleted, recovered, reason);
-    assert(completedRecovery ==
+        parsedCompleted,
+        "default",
+        "agt_create_local_1",
+        "inst_create_local_1",
+        7,
+        130);
+    assert(completedRecovery.decision ==
         BackendAgentNativeTimerCreateRecoveryDecision::returnPersistedEvidence);
-    assert(recovered.outcome ==
+    assert(completedRecovery.reasonCode ==
+        "native_timer_create_completed_evidence_replay");
+    assert(completedRecovery.evidence.outcome ==
         BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified);
-    assert(recovered.dispatchStartedAt == 111);
-    assert(recovered.nativeTimerBindingId == "ntb_create_local_1");
+    assert(completedRecovery.evidence.dispatchStartedAt == 111);
+    assert(completedRecovery.evidence.nativeTimerBindingId ==
+        "ntb_create_local_1");
+
+    const auto completedContextDrift = backendAgentNativeTimerCreateRecoverLocalState(
+        parsedCompleted,
+        "default",
+        "agt_create_local_1",
+        "inst_create_local_replacement",
+        8,
+        131);
+    assert(completedContextDrift.decision ==
+        BackendAgentNativeTimerCreateRecoveryDecision::returnPersistedEvidence);
+    assert(completedContextDrift.reasonCode ==
+        "native_timer_create_completed_evidence_survives_context_drift");
+    assert(completedContextDrift.evidence.evidenceReference ==
+        "suitebridge_create_accepted_unverified");
 
     BackendAgentNativeTimerCreateLocalState rejectedStarting;
     assert(backendAgentNativeTimerCreatePrepareLocalStarting(
@@ -214,6 +270,13 @@ int main()
 
     assert(!backendAgentNativeTimerCreateParseLocalState(
         encodedStarting + "x", parsedStarting, reason));
+
+    const auto invalidContext = backendAgentNativeTimerCreateRecoverLocalState(
+        parsedStarting, "", "agt_create_local_1", "inst_create_local_1", 7, 115);
+    assert(invalidContext.decision ==
+        BackendAgentNativeTimerCreateRecoveryDecision::failClosed);
+    assert(invalidContext.reasonCode ==
+        "native_timer_create_recovery_context_invalid");
 
     return 0;
 }
