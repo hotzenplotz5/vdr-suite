@@ -37,6 +37,20 @@ MutationOperation makeOperation(
     return operation;
 }
 
+MutationOperationPayload makePayload(
+    const std::string& operationId = "op-payload",
+    const std::string& body = "payload-v1",
+    const std::string& fingerprint = "payload-fingerprint-v1")
+{
+    MutationOperationPayload payload;
+    payload.operationId = operationId;
+    payload.payloadType = "test.operation.payload";
+    payload.payloadVersion = 1;
+    payload.payload = body;
+    payload.payloadFingerprint = fingerprint;
+    return payload;
+}
+
 void assertState(
     const MutationOperationRepositoryResult& result,
     MutationOperationRepositoryStatus status,
@@ -68,6 +82,7 @@ void assertLegacySchemaMigration()
 
     MutationOperationRepository repository(database);
     assert(repository.ensureSchema());
+    assert(database.tableExists("mutation_operation_payloads"));
 
     auto operation = makeOperation(
         "op-migrated", "idem-migrated", "sha256:req-migrated");
@@ -81,18 +96,111 @@ void assertLegacySchemaMigration()
     assert(found.status == MutationOperationRepositoryStatus::ok);
     assert(found.operation.expectedResourceFingerprint ==
         operation.expectedResourceFingerprint);
+    assert(repository.findPayloadByOperationId("op-migrated").status ==
+        MutationOperationRepositoryStatus::notFound);
+}
+
+void assertAtomicPayloadReservation()
+{
+    Database database;
+    assert(database.open(":memory:"));
+    MutationOperationRepository repository(database);
+    assert(repository.ensureSchema());
+
+    auto operation = makeOperation(
+        "op-payload", "idem-payload", "sha256:req-payload");
+    operation.resourceType = "TimerAssignment";
+    operation.resourceId = "assignment-1";
+    operation.expectedRevision = "4";
+    operation.expectedResourceFingerprint =
+        "native-timer-specification/1|desired";
+    operation.actionFamily = "timer.create";
+
+    const auto payload = makePayload();
+    const auto reserved = repository.reserveWithPayload(operation, payload);
+    assertState(
+        reserved,
+        MutationOperationRepositoryStatus::ok,
+        MutationOperationState::accepted,
+        "1");
+
+    const auto foundPayload = repository.findPayloadByOperationId("op-payload");
+    assert(foundPayload.ok());
+    assert(foundPayload.payload.operationId == "op-payload");
+    assert(foundPayload.payload.payloadType == "test.operation.payload");
+    assert(foundPayload.payload.payloadVersion == 1);
+    assert(foundPayload.payload.payload == "payload-v1");
+    assert(foundPayload.payload.payloadFingerprint ==
+        "payload-fingerprint-v1");
+
+    const auto replay = repository.reserveWithPayload(operation, payload);
+    assertState(
+        replay,
+        MutationOperationRepositoryStatus::idempotentReplay,
+        MutationOperationState::accepted,
+        "1");
+
+    auto changedBody = payload;
+    changedBody.payload = "payload-v1-changed";
+    assert(repository.reserveWithPayload(operation, changedBody).status ==
+        MutationOperationRepositoryStatus::operationConflict);
+
+    auto changedFingerprint = payload;
+    changedFingerprint.payloadFingerprint = "payload-fingerprint-other";
+    assert(repository.reserveWithPayload(operation, changedFingerprint).status ==
+        MutationOperationRepositoryStatus::operationConflict);
+
+    auto changedVersion = payload;
+    changedVersion.payloadVersion = 2;
+    assert(repository.reserveWithPayload(operation, changedVersion).status ==
+        MutationOperationRepositoryStatus::operationConflict);
+
+    auto wrongOperation = payload;
+    wrongOperation.operationId = "op-other";
+    assert(repository.reserveWithPayload(operation, wrongOperation).status ==
+        MutationOperationRepositoryStatus::invalid);
+
+    auto emptyPayload = payload;
+    emptyPayload.payload.clear();
+    assert(repository.reserveWithPayload(
+        makeOperation("op-empty", "idem-empty", "sha256:req-empty"),
+        emptyPayload).status == MutationOperationRepositoryStatus::invalid);
+
+    auto oversized = makePayload(
+        "op-oversized", std::string(64 * 1024 + 1, 'x'), "fingerprint");
+    auto oversizedOperation = makeOperation(
+        "op-oversized", "idem-oversized", "sha256:req-oversized");
+    oversizedOperation.resourceId = "binding-oversized";
+    assert(repository.reserveWithPayload(oversizedOperation, oversized).status ==
+        MutationOperationRepositoryStatus::invalid);
+
+    auto legacyOperation = makeOperation(
+        "op-no-payload", "idem-no-payload", "sha256:req-no-payload");
+    legacyOperation.resourceId = "binding-no-payload";
+    assert(repository.reserve(legacyOperation).status ==
+        MutationOperationRepositoryStatus::ok);
+    assert(repository.findPayloadByOperationId("op-no-payload").status ==
+        MutationOperationRepositoryStatus::notFound);
+
+    auto latePayload = makePayload("op-no-payload");
+    assert(repository.reserveWithPayload(legacyOperation, latePayload).status ==
+        MutationOperationRepositoryStatus::operationConflict);
+    assert(repository.findPayloadByOperationId("op-no-payload").status ==
+        MutationOperationRepositoryStatus::notFound);
 }
 }
 
 int main()
 {
     assertLegacySchemaMigration();
+    assertAtomicPayloadReservation();
 
     Database database;
     assert(database.open(":memory:"));
     MutationOperationRepository repository(database);
     assert(repository.ensureSchema());
     assert(database.tableExists("mutation_operations"));
+    assert(database.tableExists("mutation_operation_payloads"));
 
     const auto reserved = repository.reserve(makeOperation());
     assertState(

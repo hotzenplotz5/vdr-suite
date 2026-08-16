@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Architecture guard for Phase 64 Slice 20 shared mutation operation persistence."""
+"""Architecture guard for Phase 64 shared mutation operation persistence."""
 
 from pathlib import Path
 import sys
@@ -19,7 +19,7 @@ failures: list[str] = []
 
 def require(path: Path, markers: list[str]) -> None:
     if not path.is_file():
-        failures.append(f"missing Slice-20 file: {path.relative_to(ROOT)}")
+        failures.append(f"missing mutation-operation file: {path.relative_to(ROOT)}")
         return
     text = path.read_text(encoding="utf-8")
     for marker in markers:
@@ -64,9 +64,15 @@ require(
 require(
     REPO_H,
     [
+        "struct MutationOperationPayload",
+        "payloadType",
+        "payloadVersion",
+        "payloadFingerprint",
         "class MutationOperationRepository",
         "reserve(",
+        "reserveWithPayload(",
         "findById(",
+        "findPayloadByOperationId(",
         "findByIdempotencyScope(",
         "transition(",
         "idempotentReplay",
@@ -79,9 +85,14 @@ require(
     REPO_CPP,
     [
         "CREATE TABLE IF NOT EXISTS mutation_operations",
+        "CREATE TABLE IF NOT EXISTS mutation_operation_payloads",
         "idx_mutation_operations_idempotency_scope",
+        "idx_mutation_operation_payloads_type_version",
         "actor_id,backend_id,resource_type,resource_id,action_family,idempotency_key",
         "BEGIN IMMEDIATE TRANSACTION",
+        "insertOperation(database, durable)",
+        "insertPayload(database, *payload)",
+        "samePayload(existingPayload, *payload)",
         "operation_revision=?",
         "mutationOperationTransitionAllowed",
     ],
@@ -89,6 +100,12 @@ require(
 require(
     TEST,
     [
+        "assertAtomicPayloadReservation",
+        "mutation_operation_payloads",
+        "reserveWithPayload",
+        "findPayloadByOperationId",
+        "payload-v1-changed",
+        "op-no-payload",
         "idempotentReplay",
         "idempotencyConflict",
         "operationConflict",
@@ -105,7 +122,8 @@ require(
         "ADR-0042",
         "no existing durable generic operation repository",
         "Single lifecycle authority",
-        "Slice 21",
+        "Atomic immutable payload reservation",
+        "reserveWithPayload()",
         "No Timer-specific operation table",
         "no daemon/runtime wiring",
     ],
@@ -150,7 +168,7 @@ for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
     if "MutationOperation.cpp" in text or "MutationOperationRepository.cpp" in text:
         failures.append(
-            f"Slice-20 operation source is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
+            f"mutation operation source is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
         )
 
 if failures:

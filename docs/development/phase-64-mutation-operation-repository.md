@@ -1,18 +1,19 @@
-# Phase 64 Slice 20 — Shared Mutation Operation Repository
+# Phase 64 — Shared Mutation Operation Repository
 
 ## Status
 
-Bounded implementation slice stacked on Phase 64 Slice 19 / Draft PR #172.
+Phase-64 shared Control-Plane persistence used by the guarded Timer mutation work.
 
-This slice closes a prerequisite that became explicit while preparing the
+This boundary closes a prerequisite that became explicit while preparing the
 Native Timer readback-to-operation handoff: the repository has the accepted
 ADR-0042 lifecycle contract and Phase-63 protected-write/idempotency decision
 contract, but **no existing durable generic operation repository** that can own
 that lifecycle across domains and process restarts.
 
 Creating a Timer-local operation table would establish a second lifecycle
-authority and violate ADR-0042. Slice 20 therefore implements the missing shared
-persistence boundary first.
+authority and violate ADR-0042. The shared persistence boundary therefore owns
+both the operation lifecycle and, when required, one immutable versioned
+handler payload reserved atomically with that operation.
 
 ## Governing contract
 
@@ -45,9 +46,9 @@ reconciliation_required
 
 ## Single lifecycle authority
 
-The new `vdrsuite::operations::MutationOperation` is backend-neutral and
-transport-neutral. The durable `MutationOperationRepository` is the **single
-lifecycle authority** introduced by this slice.
+The backend-neutral, transport-neutral `vdrsuite::operations::MutationOperation`
+and durable `MutationOperationRepository` remain the **Single lifecycle authority**
+for ADR-0042 mutation state.
 
 The stored immutable operation envelope contains:
 
@@ -56,7 +57,7 @@ The stored immutable operation envelope contains:
 - actor identity;
 - backend ID and exact backend generation;
 - resource type and stable Suite resource ID;
-- expected resource revision;
+- expected resource revision and optional resource fingerprint;
 - action family;
 - normalized request fingerprint;
 - requested time and optional dispatch deadline;
@@ -84,7 +85,7 @@ actorId
 + idempotencyKey
 ```
 
-`reserve()` creates only an `accepted` operation and owns initial revision `1`.
+`reserve()` creates an `accepted` operation and owns initial revision `1`.
 An exact replay of the same logical operation returns the existing record and
 performs no second insert. Reusing the same scope with another operation or
 request fingerprint is an idempotency conflict. Reusing an operation ID for a
@@ -92,6 +93,39 @@ different logical operation is an operation conflict.
 
 The request fingerprint is immutable; a later lifecycle transition never edits
 it or any scope/resource/generation field.
+
+## Atomic immutable payload reservation
+
+Some mutations can reconstruct their dispatch handoff entirely from durable
+resource state. Others, such as native Timer CREATE, need pre-dispatch values
+which do not yet exist as a durable post-mutation resource. For those cases the
+repository provides `reserveWithPayload()`.
+
+The payload envelope contains:
+
+- the exact `operationId`;
+- stable `payloadType`;
+- positive `payloadVersion`;
+- immutable normalized serialized `payload`;
+- immutable `payloadFingerprint`.
+
+The operation row and payload row are inserted inside the **same `BEGIN
+IMMEDIATE` SQLite transaction**. There is therefore no accepted-operation state
+from which the corresponding required CREATE handoff has not yet been made
+durable.
+
+Exact idempotent replay requires both the logical operation and the complete
+payload envelope to match. A missing payload, changed version, changed bytes or
+changed payload fingerprint fails closed as an operation conflict. A payload
+cannot be attached later to an operation previously reserved through the
+payload-free API; the caller must have chosen the atomic reservation path before
+acceptance.
+
+The repository treats payload bytes as opaque versioned handler input. It does
+not know about Timer, Recording, Agent or VDR domain types. Domain code owns
+serialization, version compatibility and semantic validation.
+
+Existing payload-free `reserve()` users remain valid and unchanged.
 
 ## Revision-fenced lifecycle transitions
 
@@ -111,6 +145,22 @@ fail closed.
 
 Terminal states do not transition further.
 
+## Relationship to ADR-0043
+
+ADR-0043 defines a future production job model with versioned immutable payloads,
+atomic claims, attempts, claim fencing, leases, retries and sagas. The current
+legacy Recording `JobRepository` does not implement that contract and is not
+promoted into Timer execution.
+
+The immutable operation payload added here is deliberately narrower: it closes
+the pre-dispatch crash gap for mutation-specific durable input while preserving
+ADR-0042 as the operation lifecycle authority. It is not represented as a full
+ADR-0043 job implementation and does not invent claim/attempt semantics.
+
+A later production job layer may reference the same `operationId` and copy or
+reference the versioned payload under ADR-0043 rules without changing the
+operation's caller-visible identity.
+
 ## Relationship to Phase 63
 
 Phase 63 already provides important lower-level pieces:
@@ -121,43 +171,15 @@ Phase 63 already provides important lower-level pieces:
 - accountability evidence;
 - provider/generation fencing.
 
-Those are not replaced. In particular, `BackendAgentCommandRepository` remains
-the command transport/result owner and `AccountabilityEventRepository` remains
-the append-only accountability owner. Neither is promoted into the mutation
-operation lifecycle implicitly.
-
-The Phase-63 protected-write slice explicitly deferred SQLite idempotency
-persistence; this slice supplies that missing common Control-Plane authority
-without changing Agent behavior.
-
-## Relationship to Native Timer readback
-
-Slice 19 / PR #172 can prove and durably record the expected Native Timer delete
-postcondition on `NativeTimerBinding`, including `lastVerifiedOperationId`.
-It deliberately does not transition the ADR-0042 operation lifecycle.
-
-**Slice 21** may now add the narrow correlation service that:
-
-1. reloads the exact durable MutationOperation by operation ID;
-2. requires the correct backend/resource/action identity and unresolved
-   `executed_unverified` or `outcome_unknown` state;
-3. requires the matching durable NativeTimerBinding verification evidence from
-   Slice 19;
-4. transitions this shared operation record to `succeeded` through the exact
-   repository revision fence.
-
-That later service must not infer success from transport acknowledgement or
-from an uncorrelated missing Timer.
+Those are not replaced. In particular, Agent command persistence remains the
+remote command transport/result owner. It begins only after Control-Plane
+pre-dispatch state is durable.
 
 ## Scope boundary
 
-This slice intentionally adds only the shared domain model, SQLite repository,
-focused regression, architecture guard and isolated Make test fragment.
-
-It adds:
+This shared repository remains domain-neutral. It adds:
 
 - no Native Timer dependency in `core/operations`;
-- no Timer lifecycle transition service yet;
 - no Agent command creation or dispatch;
 - no native Timer create/update/delete execution;
 - no provider or SuiteBridge changes;
@@ -167,6 +189,5 @@ It adds:
 - no daemon/runtime wiring;
 - no `mutations=enabled` switch.
 
-Because no installed runtime path changes, real yaVDR runtime acceptance is not
-required for Slice 20. The focused repository regression and normal repository
-CI are the acceptance boundary.
+The focused repository regression and normal repository CI remain the acceptance
+boundary for this persistence change.
