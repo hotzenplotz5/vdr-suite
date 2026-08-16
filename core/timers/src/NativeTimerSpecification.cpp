@@ -65,7 +65,7 @@ void append(std::string& output, std::int32_t value)
 
 void append(std::string& output, bool value)
 {
-    append(output, value ? "1" : "0");
+    append(output, std::string(value ? "1" : "0"));
 }
 
 }
