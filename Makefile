@@ -65,7 +65,6 @@ include mk/phase64-native-timer-absence-readback-verification-tests.mk
 include mk/phase64-mutation-operation-repository-tests.mk
 include mk/phase64-native-timer-create-operation-preparation-tests.mk
 include mk/phase64-native-timer-modify-operation-tests.mk
-include mk/phase64-suitebridge-native-timer-modify-command-service-tests.mk
 include mk/phase64-native-timer-delete-operation-completion-tests.mk
 include mk/phase64-native-timer-delete-operation-preparation-tests.mk
 include mk/phase64-native-timer-delete-dispatch-tests.mk
