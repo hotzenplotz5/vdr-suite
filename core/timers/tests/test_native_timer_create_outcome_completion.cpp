@@ -42,7 +42,6 @@ TimerAssignment selectedAssignment(
     assignment.timerAssignmentId = "assignment:create:outcome";
     assignment.timerIntentId = "intent:create:outcome";
     assignment.intentRevision = "intent-revision:1";
-    assignment.assignmentEpoch = 1;
     assignment.backendId = "backend:1";
     assignment.backendGeneration = 7;
     assignment.state = TimerAssignmentState::selected;
