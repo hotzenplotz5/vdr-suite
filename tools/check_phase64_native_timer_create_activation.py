@@ -21,7 +21,8 @@ required = {
         "activation.activate(dispatchReference.commandId)",
     ],
     "core/agent/tests/test_backend_agent_native_timer_create_activation.cpp": [
-        "cannot be activated before",
+        "durable reservation alone is deliberately non-pollable",
+        "activated before the MutationOperation",
         "no new command/job/attempt identity is generated",
         "provider replacement after dispatching",
         "only legal command identity",
