@@ -87,6 +87,34 @@ std::string timerDay(
   return valid ? request.day : std::string();
 }
 
+char upperHex(unsigned value)
+{
+  return static_cast<char>(value < 10U ? '0' + value : 'A' + value - 10U);
+}
+
+std::string hexIdentity(const std::string &value)
+{
+  if (value.empty() || value.size() > 160) return {};
+  std::string encoded;
+  encoded.reserve(value.size() * 2U);
+  for (unsigned char character : value) {
+    encoded.push_back(upperHex((character >> 4U) & 0x0fU));
+    encoded.push_back(upperHex(character & 0x0fU));
+  }
+  return encoded;
+}
+
+std::string managedCorrelation(
+    const SuiteBridgeNativeTimerCreateRequest &request)
+{
+  const std::string assignment = hexIdentity(request.timerAssignmentId);
+  const std::string binding = hexIdentity(request.nativeTimerBindingId);
+  if (assignment.empty() || binding.empty()) return {};
+  return std::string(
+      "<vdr-suite-managed-timer-v1 assignment=\"") +
+      assignment + "\" binding=\"" + binding + "\"/>";
+}
+
 std::string timerFile(
     const SuiteBridgeNativeTimerCreateRequest &request,
     bool &valid)
@@ -123,6 +151,12 @@ SuiteBridgeNativeTimerCreateVdrMutationCallback::CreateTimer(
         SuiteBridgeNativeTimerCreateMutationDisposition::RejectedWithoutEffect,
         evidence("invalid-file", request.commandId));
 
+  const std::string aux = managedCorrelation(request);
+  if (aux.empty())
+    return result(
+        SuiteBridgeNativeTimerCreateMutationDisposition::RejectedWithoutEffect,
+        evidence("invalid-correlation", request.commandId));
+
   const unsigned flags =
       (request.enabled ? tfActive : tfNone) |
       (request.vps ? tfVps : tfNone);
@@ -130,7 +164,7 @@ SuiteBridgeNativeTimerCreateVdrMutationCallback::CreateTimer(
   definition << flags << ':' << request.channelId << ':' << day << ':'
              << request.startTime << ':' << request.endTime << ':'
              << request.priority << ':' << request.lifetime << ':'
-             << file << ':';
+             << file << ':' << aux;
 
   std::unique_ptr<cTimer> timer(new cTimer());
   if (!timer->Parse(definition.str().c_str()))

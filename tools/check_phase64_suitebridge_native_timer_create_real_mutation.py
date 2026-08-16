@@ -38,7 +38,12 @@ for needle in (
     "timers->SetExplicitModify()", "timers->Add(timer.get())",
     "timer.release()", "timers->SetModified()", "stateKey.Remove();",
     "AppliedUnverified", 'evidence("created-unverified"',
+    '"<vdr-suite-managed-timer-v1 assignment=\\""',
+    "hexIdentity(request.timerAssignmentId)",
+    "hexIdentity(request.nativeTimerBindingId)",
+    "<< file << ':' << aux",
 ):
+
     require(source, needle, "bounded CREATE VDR mutation")
 if source.count("timers->Add(timer.get())") != 1:
     raise SystemExit("CREATE callback must contain exactly one native Add")
