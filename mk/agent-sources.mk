@@ -33,6 +33,8 @@ AGENT_NATIVE_PROBE_SRC := \
 
 AGENT_COMMAND_DOMAIN_SRC := \
 	core/agent/src/BackendAgentCommand.cpp \
+	core/agent/src/BackendAgentNativeTimerCreate.cpp \
+	core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
 	$(AGENT_NATIVE_PROBE_SRC)
 
 AGENT_COMMAND_JSON_SRC := \
