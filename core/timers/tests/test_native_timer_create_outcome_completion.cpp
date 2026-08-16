@@ -35,7 +35,7 @@ NativeTimerSpecification specification()
     return value;
 }
 
-TimerAssignment provisioningAssignment(
+TimerAssignment selectedAssignment(
     TimerAssignmentRepository& repository)
 {
     TimerAssignment assignment;
@@ -45,7 +45,7 @@ TimerAssignment provisioningAssignment(
     assignment.assignmentEpoch = 1;
     assignment.backendId = "backend:1";
     assignment.backendGeneration = 7;
-    assignment.state = TimerAssignmentState::provisioning;
+    assignment.state = TimerAssignmentState::selected;
     assignment.role = TimerAssignmentRole::primary;
     assignment.channelBinding.canonicalChannelId = "channel:ard";
     assignment.channelBinding.backendChannelId = specification().channelId;
@@ -94,8 +94,19 @@ int main()
     assert(assignments.ensureSchema());
     assert(bindings.ensureSchema());
 
-    const TimerAssignment assignment =
-        provisioningAssignment(assignments);
+    const TimerAssignment selected =
+        selectedAssignment(assignments);
+    TimerAssignmentFulfillmentService fulfillment(
+        assignments, bindings);
+    const auto started = fulfillment.beginProvisioning(
+        selected.timerAssignmentId,
+        selected.assignmentRevision,
+        selected.intentRevision,
+        selected.backendGeneration,
+        95);
+    assert(started.status ==
+        TimerAssignmentFulfillmentStatus::provisioningStarted);
+    const TimerAssignment assignment = started.assignment;
 
     NativeTimerCreateOperationPayload payload;
     payload.timerAssignmentId = assignment.timerAssignmentId;
@@ -203,8 +214,6 @@ int main()
     assert(verified.status ==
         NativeTimerCreateReadbackVerificationStatus::verified);
 
-    TimerAssignmentFulfillmentService fulfillment(
-        assignments, bindings);
     const auto bound = fulfillment.bindVerified(
         assignment.timerAssignmentId,
         assignment.assignmentRevision,
