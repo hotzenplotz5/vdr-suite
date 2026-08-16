@@ -5,6 +5,7 @@
 #include "BackendAgentCommandStateStore.h"
 #include "BackendAgentNativeProbeCommandHandler.h"
 #include "BackendAgentNativeTimerCreate.h"
+#include "BackendAgentNativeTimerCreateCommandHandler.h"
 #include "BackendAgentNativeTimerDeleteCommandHandler.h"
 
 #include <chrono>
@@ -112,6 +113,57 @@ void createResult(
     result.completedAt = nowSeconds();
 }
 
+vdrsuite::agent::BackendAgentNativeTimerCreateCommandContext
+nativeTimerCreateContext(const BackendAgentCommandClientContext& context)
+{
+    return {
+        context.backendId,
+        context.agentId,
+        context.agentInstanceId,
+        context.backendGeneration};
+}
+
+bool reconcileNativeTimerCreateLocalState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentNativeTimerCreateCommandReconcileExisting(
+        config.statePath,
+        nativeTimerCreateContext(context),
+        state,
+        reason);
+}
+
+bool prepareFreshNativeTimerCreateLocalStarting(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::int64_t currentTime,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentNativeTimerCreateCommandPrepareFreshStarting(
+        config.statePath,
+        state,
+        currentTime,
+        reason);
+}
+
+bool executeFreshNativeTimerCreateAndPersistOutcome(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentNativeTimerCreateCommandExecuteFreshStartingAndPersistOutcome(
+            config.statePath,
+            nativeTimerCreateContext(context),
+            config.nativeTimerCreateTransport,
+            state,
+            reason);
+}
+
 vdrsuite::agent::BackendAgentNativeTimerDeleteCommandContext
 nativeTimerDeleteContext(const BackendAgentCommandClientContext& context)
 {
@@ -216,8 +268,13 @@ bool reconcileBackendAgentCommandState(
         }
         return false;
     }
+    const bool timerCreateCommand = state.assignment.commandType ==
+        vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;
     const bool timerDeleteCommand = state.assignment.commandType ==
         vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;
+    if (timerCreateCommand && state.stateExtensionPresent &&
+        !reconcileNativeTimerCreateLocalState(config, context, state, reason))
+        return false;
     if (timerDeleteCommand && state.stateExtensionPresent &&
         !reconcileNativeTimerDeleteLocalState(config, context, state, reason))
         return false;
@@ -228,6 +285,48 @@ bool reconcileBackendAgentCommandState(
             return retireProtectedState(config.statePath, reason);
         reason = "local_command_generation_fenced";
         return false;
+    }
+
+    if (timerCreateCommand && !state.stateExtensionPresent && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            reason = "native_create_fresh_starting_state_invalid";
+            return false;
+        }
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            if (!state.receiptAcknowledged &&
+                !sendReceipt(config, context, transport, state, reason))
+                return false;
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "expired", "none",
+                "command deadline expired before native dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            if (!sendResult(config, context, transport, state, reason)) return false;
+            reason = "command_result_reconciled";
+            return true;
+        }
+        if (!prepareFreshNativeTimerCreateLocalStarting(
+                config, state, currentTime, reason))
+            return false;
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (config.nativeTimerCreateTransport == nullptr)
+        {
+            reason = "native_create_local_starting_handoff_persisted";
+            return true;
+        }
+        if (!executeFreshNativeTimerCreateAndPersistOutcome(
+                config, context, state, reason))
+            return false;
+        if (!sendResult(config, context, transport, state, reason))
+            return false;
+        reason = "native_create_executor_outcome_reconciled";
+        return true;
     }
 
     if (timerDeleteCommand && !state.stateExtensionPresent && !state.resultPresent)

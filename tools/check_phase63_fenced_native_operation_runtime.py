@@ -389,25 +389,57 @@ scoped_runtime = "\n".join([
 if "mutations=enabled" in scoped_runtime or '"enabled"' in scoped_runtime:
     errors.append("mutations=enabled is forbidden")
 
-# Phase 64 may classify the already-validated Timer-delete command state in the
-# generic Agent command owner. This single boolean discriminator carries no
-# execution authority and must remain paired with the bounded fresh-starting
-# successor helper. Strip only that exact declaration from the old Phase-63
-# mutation-name heuristic; every other timer/recording/channel/etc assignment
+# Phase 64 may classify already-validated Timer command state in the generic
+# Agent command owner. These boolean discriminators carry no execution authority.
+# Strip only the exact CREATE/DELETE declarations from the old Phase-63
+# mutation-name heuristic, and only while each remains paired with its bounded
+# fresh-starting handoff. Every other timer/recording/channel/etc assignment
 # remains forbidden by the original scan below.
-allowed_timer_delete_discriminator = (
-    "const bool timerDeleteCommand = state.assignment.commandType ==\n"
-    "        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;"
+allowed_timer_discriminators = (
+    (
+        "Timer-create",
+        (
+            "const bool timerCreateCommand = state.assignment.commandType ==\n"
+            "        vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerCreateLocalStarting",
+            "executeFreshNativeTimerCreateAndPersistOutcome",
+        ),
+    ),
+    (
+        "Timer-delete",
+        (
+            "const bool timerDeleteCommand = state.assignment.commandType ==\n"
+            "        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerDeleteLocalStarting",
+        ),
+    ),
 )
+
 scoped_runtime_boundary = scoped_runtime
-if allowed_timer_delete_discriminator in agent_client:
-    if agent_client.count(allowed_timer_delete_discriminator) != 1 or \
-            "prepareFreshNativeTimerDeleteLocalStarting" not in agent_client:
-        errors.append(
-            "Timer-delete discriminator must remain a single bounded Phase-64 state handoff"
+
+for label, discriminator, required_handoffs in allowed_timer_discriminators:
+    if discriminator not in agent_client:
+        continue
+
+    if (
+        agent_client.count(discriminator) != 1
+        or any(
+            handoff not in agent_client
+            for handoff in required_handoffs
         )
+    ):
+        errors.append(
+            f"{label} discriminator must remain a single bounded "
+            "Phase-64 state handoff"
+        )
+        continue
+
     scoped_runtime_boundary = scoped_runtime_boundary.replace(
-        allowed_timer_delete_discriminator, "", 1
+        discriminator, "", 1
     )
 
 for pattern in [

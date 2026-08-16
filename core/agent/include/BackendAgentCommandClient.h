@@ -11,6 +11,7 @@ namespace vdrsuite::agent
 {
 class IBackendAgentNativeProbeTransport;
 class IBackendAgentNativeTimerDeleteTransport;
+class IBackendAgentNativeTimerCreateTransport;
 }
 
 struct BackendAgentCommandClientConfig
@@ -19,6 +20,7 @@ struct BackendAgentCommandClientConfig
     std::vector<std::string> commandTypes;
     vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
 };
 
 struct BackendAgentCommandClientContext

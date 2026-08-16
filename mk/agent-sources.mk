@@ -46,6 +46,7 @@ AGENT_COMMAND_DELIVERY_SRC := \
 
 AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
+	core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
 	core/agent/src/BackendAgentNativeTimerDelete.cpp \
 	core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
 	core/agent/src/BackendAgentCommandStateExtension.cpp \
@@ -57,13 +58,21 @@ AGENT_TIMER_DELETE_EXECUTOR_SRC := \
 AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC := \
 	core/agent/src/BackendAgentNativeProbeCommandHandler.cpp
 
+AGENT_TIMER_CREATE_EXECUTOR_SRC := \
+	core/agent/src/BackendAgentNativeTimerCreateExecutor.cpp
+
+AGENT_NATIVE_TIMER_CREATE_COMMAND_HANDLER_SRC := \
+	core/agent/src/BackendAgentNativeTimerCreateCommandHandler.cpp
+
 AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC := \
 	core/agent/src/BackendAgentNativeTimerDeleteCommandHandler.cpp
 
 AGENT_COMMAND_CLIENT_SRC := \
 	$(AGENT_COMMAND_STATE_SRC) \
+	$(AGENT_TIMER_CREATE_EXECUTOR_SRC) \
 	$(AGENT_TIMER_DELETE_EXECUTOR_SRC) \
 	$(AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC) \
+	$(AGENT_NATIVE_TIMER_CREATE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC) \
 	core/agent/src/BackendAgentCommandClient.cpp
 
