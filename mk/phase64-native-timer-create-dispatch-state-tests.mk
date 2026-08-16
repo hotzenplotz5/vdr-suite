@@ -11,6 +11,7 @@ test-phase64-native-timer-create-dispatch-state: test-phase64-native-timer-creat
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
 		core/timers/src/NativeTimerCreateDispatchService.cpp \
 		core/timers/tests/test_native_timer_create_dispatch_service.cpp \
 		$(LDFLAGS) \

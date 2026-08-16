@@ -94,3 +94,21 @@ This component does not dispatch, call Agent, SuiteBridge or VDR, advertise a
 write command, create a native Timer, or mark an assignment bound. It only
 produces durable pre-dispatch authority. Real runtime mutation remains closed
 until the later execution path and exact-candidate yaVDR acceptance are ready.
+
+## Executor outcome and verified completion
+
+After the reserved command is activated, its exact reservation identity remains
+fenced into the dispatching operation. The executor outcome must name that same
+command and request fingerprint. Rejection without effect terminates as
+`failed_verified`; accepted-unverified and outcome-unknown results transition
+to their shared mutation states and create a PRESENT-readback expectation from
+the immutable durable CREATE payload. Its lower observation boundary is the
+durable dispatch-start timestamp, so pre-dispatch inventory cannot verify the
+write.
+
+Terminal completion is separate from dispatch acknowledgement. It requires the
+authoritative correlated readback to have created the managed binding, the
+assignment fulfillment service to have persisted the assignment as `bound`, and
+both records to retain the exact backend generation and stable Suite identities.
+Only then may the mutation operation advance to `succeeded`. Exact outcome and
+completion replays are idempotent.

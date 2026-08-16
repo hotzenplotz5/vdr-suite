@@ -18,6 +18,7 @@ test-phase64-native-timer-create-activation: test-phase64-native-timer-create-ac
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
 		core/timers/src/NativeTimerCreateDispatchService.cpp \
 		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
 		core/agent/src/BackendAgentNativeTimerDelete.cpp \

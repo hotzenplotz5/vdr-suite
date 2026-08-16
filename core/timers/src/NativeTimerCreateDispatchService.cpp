@@ -18,6 +18,7 @@ constexpr const char* kReferencePrefix =
 constexpr std::size_t kMaxIdentityLength = 160;
 constexpr std::size_t kMaxFingerprintLength = 512;
 constexpr std::size_t kMaxResourceFingerprintLength = 4096;
+constexpr std::size_t kMaxEvidenceReferenceLength = 512;
 
 bool boundedIdentity(const std::string& value)
 {
@@ -275,6 +276,267 @@ NativeTimerCreateDispatchService::claimAfterReservation(
                 transitioned.operation);
     }
     return result(NativeTimerCreateDispatchClaimStatus::operationRepositoryError);
+}
+
+
+namespace
+{
+NativeTimerCreateDispatchOutcomeResult outcomeResult(
+    NativeTimerCreateDispatchOutcomeStatus status,
+    const vdrsuite::operations::MutationOperation& operation = {},
+    const NativeTimerCreateReadbackExpectation* expectation = nullptr)
+{
+    NativeTimerCreateDispatchOutcomeResult value;
+    value.status = status;
+    value.operation = operation;
+    if (expectation != nullptr)
+    {
+        value.expectationPresent = true;
+        value.expectation = *expectation;
+    }
+    return value;
+}
+
+bool outcomeShapeValid(const NativeTimerCreateExecutorOutcome& outcome)
+{
+    if (!boundedIdentity(outcome.operationId) ||
+        !boundedIdentity(outcome.operationRevision) ||
+        !nativeTimerCreateCommandReservationReferenceValid(
+            outcome.reservation) ||
+        outcome.completedAt <= 0 ||
+        outcome.evidenceReference.empty() ||
+        outcome.evidenceReference.size() > kMaxEvidenceReferenceLength)
+        return false;
+
+    switch (outcome.category)
+    {
+        case NativeTimerCreateExecutorOutcomeCategory::rejectedWithoutEffect:
+            return outcome.dispatchStartedAt == 0;
+        case NativeTimerCreateExecutorOutcomeCategory::acceptedUnverified:
+        case NativeTimerCreateExecutorOutcomeCategory::outcomeUnknown:
+            return outcome.dispatchStartedAt > 0 &&
+                outcome.dispatchStartedAt <= outcome.completedAt;
+    }
+    return false;
+}
+
+vdrsuite::operations::MutationOperationState outcomeState(
+    NativeTimerCreateExecutorOutcomeCategory category)
+{
+    using vdrsuite::operations::MutationOperationState;
+    switch (category)
+    {
+        case NativeTimerCreateExecutorOutcomeCategory::rejectedWithoutEffect:
+            return MutationOperationState::failedVerified;
+        case NativeTimerCreateExecutorOutcomeCategory::acceptedUnverified:
+            return MutationOperationState::executedUnverified;
+        case NativeTimerCreateExecutorOutcomeCategory::outcomeUnknown:
+            return MutationOperationState::outcomeUnknown;
+    }
+    return MutationOperationState::outcomeUnknown;
+}
+
+bool operationMatchesPayload(
+    const vdrsuite::operations::MutationOperation& operation,
+    const NativeTimerCreateOperationPayload& payload)
+{
+    const std::string fingerprint =
+        nativeTimerSpecificationFingerprint(payload.expectedSpecification);
+    return operation.backendId == payload.backendId &&
+        operation.backendGeneration == payload.backendGeneration &&
+        operation.resourceType == "TimerAssignment" &&
+        operation.resourceId == payload.timerAssignmentId &&
+        operation.expectedRevision == payload.expectedAssignmentRevision &&
+        operation.expectedResourceFingerprint == fingerprint &&
+        operation.actionFamily == "timer.create" &&
+        operation.verificationPolicy ==
+            vdrsuite::operations::MutationOperationVerificationPolicy::
+                readbackRequired;
+}
+
+NativeTimerCreateReadbackExpectation expectationFor(
+    const NativeTimerCreateExecutorOutcome& outcome,
+    const NativeTimerCreateOperationPayload& payload)
+{
+    NativeTimerCreateReadbackExpectation expectation;
+    expectation.operationId = outcome.operationId;
+    expectation.operationState =
+        outcome.category ==
+            NativeTimerCreateExecutorOutcomeCategory::acceptedUnverified
+        ? NativeTimerReadbackOperationState::executedUnverified
+        : NativeTimerReadbackOperationState::outcomeUnknown;
+    expectation.timerAssignmentId = payload.timerAssignmentId;
+    expectation.nativeTimerBindingId = payload.nativeTimerBindingId;
+    expectation.backendId = payload.backendId;
+    expectation.backendGeneration = payload.backendGeneration;
+    expectation.readbackNotBefore = outcome.dispatchStartedAt;
+    expectation.expectedSpecification = payload.expectedSpecification;
+    expectation.expectedSpecificationFingerprint =
+        nativeTimerSpecificationFingerprint(payload.expectedSpecification);
+    return expectation;
+}
+} // namespace
+
+NativeTimerCreateDispatchOutcomeResult
+NativeTimerCreateDispatchService::applyOutcome(
+    const NativeTimerCreateExecutorOutcome& outcome)
+{
+    using namespace vdrsuite::operations;
+    if (!outcomeShapeValid(outcome))
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::invalid);
+
+    const auto found = operationRepository_.findById(outcome.operationId);
+    if (found.status == MutationOperationRepositoryStatus::notFound)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::operationNotFound);
+    if (!found.ok())
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::
+                operationRepositoryError);
+    const MutationOperation& operation = found.operation;
+
+    const MutationOperationState target = outcomeState(outcome.category);
+    if (operation.state != MutationOperationState::dispatching &&
+        operation.state != target)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::operationStateConflict,
+            operation);
+    if (operation.state == MutationOperationState::dispatching &&
+        operation.operationRevision != outcome.operationRevision)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::
+                operationRevisionConflict,
+            operation);
+    if (outcome.completedAt < operation.updatedAt)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::invalid,
+            operation);
+    if (operation.state == MutationOperationState::dispatching &&
+        outcome.category !=
+            NativeTimerCreateExecutorOutcomeCategory::rejectedWithoutEffect &&
+        outcome.dispatchStartedAt < operation.updatedAt)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::invalid,
+            operation);
+
+    if (operation.state == MutationOperationState::dispatching)
+    {
+        NativeTimerCreateCommandReservationReference reserved;
+        if (!parseNativeTimerCreateCommandReservationReference(
+                operation.resultReference, reserved) ||
+            reserved.commandId != outcome.reservation.commandId ||
+            reserved.requestFingerprint !=
+                outcome.reservation.requestFingerprint)
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::identityConflict,
+                operation);
+    }
+    else if (operation.resultReference != outcome.evidenceReference)
+    {
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::operationStateConflict,
+            operation);
+    }
+
+    const auto durable =
+        operationRepository_.findPayloadByOperationId(outcome.operationId);
+    if (durable.status == MutationOperationRepositoryStatus::notFound)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::payloadNotFound,
+            operation);
+    if (!durable.ok())
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::
+                operationRepositoryError,
+            operation);
+    if (durable.payload.payloadType != "native.timer.create" ||
+        durable.payload.payloadVersion != 1)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::payloadConflict,
+            operation);
+
+    NativeTimerCreateOperationPayload payload;
+    if (!parseNativeTimerCreateOperationPayload(
+            durable.payload.payload, payload) ||
+        durable.payload.payload !=
+            serializeNativeTimerCreateOperationPayload(payload) ||
+        durable.payload.payloadFingerprint !=
+            nativeTimerCreateOperationPayloadFingerprint(payload))
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::payloadConflict,
+            operation);
+    if (!operationMatchesPayload(operation, payload))
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::identityConflict,
+            operation);
+
+    NativeTimerCreateReadbackExpectation expectation;
+    const bool needsReadback =
+        outcome.category !=
+            NativeTimerCreateExecutorOutcomeCategory::rejectedWithoutEffect;
+    if (needsReadback)
+    {
+        expectation = expectationFor(outcome, payload);
+        if (!nativeTimerCreateReadbackExpectationValid(expectation))
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::invalid,
+                operation);
+    }
+
+    if (operation.state == target)
+        return outcomeResult(
+            NativeTimerCreateDispatchOutcomeStatus::alreadyApplied,
+            operation,
+            needsReadback ? &expectation : nullptr);
+
+    const auto transitioned = operationRepository_.transition(
+        operation.operationId,
+        outcome.operationRevision,
+        MutationOperationState::dispatching,
+        target,
+        outcome.evidenceReference,
+        outcome.completedAt);
+    switch (transitioned.status)
+    {
+        case MutationOperationRepositoryStatus::ok:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::applied,
+                transitioned.operation,
+                needsReadback ? &expectation : nullptr);
+        case MutationOperationRepositoryStatus::idempotentReplay:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::alreadyApplied,
+                transitioned.operation,
+                needsReadback ? &expectation : nullptr);
+        case MutationOperationRepositoryStatus::notFound:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::operationNotFound);
+        case MutationOperationRepositoryStatus::revisionConflict:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::
+                    operationRevisionConflict,
+                transitioned.operation);
+        case MutationOperationRepositoryStatus::stateConflict:
+        case MutationOperationRepositoryStatus::idempotencyConflict:
+        case MutationOperationRepositoryStatus::operationConflict:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::
+                    operationStateConflict,
+                transitioned.operation);
+        case MutationOperationRepositoryStatus::invalid:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::invalid,
+                transitioned.operation);
+        case MutationOperationRepositoryStatus::storageError:
+            return outcomeResult(
+                NativeTimerCreateDispatchOutcomeStatus::
+                    operationRepositoryError,
+                transitioned.operation);
+    }
+    return outcomeResult(
+        NativeTimerCreateDispatchOutcomeStatus::operationRepositoryError,
+        operation);
 }
 
 } // namespace vdrsuite::timers

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MutationOperation.h"
+#include "NativeTimerCreateReadbackExpectation.h"
 
 #include <cstdint>
 #include <string>
@@ -68,6 +69,54 @@ struct NativeTimerCreateDispatchClaimResult
     }
 };
 
+enum class NativeTimerCreateExecutorOutcomeCategory
+{
+    rejectedWithoutEffect,
+    acceptedUnverified,
+    outcomeUnknown,
+};
+
+struct NativeTimerCreateExecutorOutcome
+{
+    std::string operationId;
+    std::string operationRevision;
+    NativeTimerCreateCommandReservationReference reservation;
+    NativeTimerCreateExecutorOutcomeCategory category =
+        NativeTimerCreateExecutorOutcomeCategory::outcomeUnknown;
+    std::int64_t dispatchStartedAt = 0;
+    std::int64_t completedAt = 0;
+    std::string evidenceReference;
+};
+
+enum class NativeTimerCreateDispatchOutcomeStatus
+{
+    applied,
+    alreadyApplied,
+    operationNotFound,
+    payloadNotFound,
+    identityConflict,
+    payloadConflict,
+    operationStateConflict,
+    operationRevisionConflict,
+    operationRepositoryError,
+    invalid,
+};
+
+struct NativeTimerCreateDispatchOutcomeResult
+{
+    NativeTimerCreateDispatchOutcomeStatus status =
+        NativeTimerCreateDispatchOutcomeStatus::operationRepositoryError;
+    vdrsuite::operations::MutationOperation operation;
+    bool expectationPresent = false;
+    NativeTimerCreateReadbackExpectation expectation;
+
+    bool ok() const
+    {
+        return status == NativeTimerCreateDispatchOutcomeStatus::applied ||
+            status == NativeTimerCreateDispatchOutcomeStatus::alreadyApplied;
+    }
+};
+
 class NativeTimerCreateDispatchService
 {
 public:
@@ -77,6 +126,9 @@ public:
     NativeTimerCreateDispatchClaimResult claimAfterReservation(
         const NativeTimerCreateDispatchClaimRequest& request,
         std::int64_t claimedAt);
+
+    NativeTimerCreateDispatchOutcomeResult applyOutcome(
+        const NativeTimerCreateExecutorOutcome& outcome);
 
 private:
     vdrsuite::operations::MutationOperationRepository& operationRepository_;
