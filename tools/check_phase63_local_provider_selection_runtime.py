@@ -26,6 +26,12 @@ command_json = (ROOT / required[3]).read_text(encoding="utf-8")
 delivery = (ROOT / required[4]).read_text(encoding="utf-8")
 native_delivery = (ROOT / required[5]).read_text(encoding="utf-8")
 client = (ROOT / required[6]).read_text(encoding="utf-8")
+native_handler_path = ROOT / "core/agent/src/BackendAgentNativeProbeCommandHandler.cpp"
+native_handler = (
+    native_handler_path.read_text(encoding="utf-8")
+    if native_handler_path.is_file()
+    else client
+)
 state_store_path = ROOT / "core/agent/src/BackendAgentCommandStateStore.cpp"
 state_store = (
     state_store_path.read_text(encoding="utf-8")
@@ -132,12 +138,19 @@ for token in [
 
 for token in [
     "CommandAvailability",
-    "backendAgentNativeProbeProviderFacts",
-    "backendAgentNativeProbeSelectionMatchesCapability",
-    'assignment.payloadVersion != 2',
-    '"native probe provider selection required"',
+    "backendAgentNativeProbeCommandAvailability",
+    "backendAgentNativeProbeCommandReconcile",
 ]:
     if token not in client:
+        raise SystemExit(f"agent provider handoff missing: {token}")
+
+for token in [
+    "backendAgentNativeProbeProviderFacts",
+    "backendAgentNativeProbeSelectionMatchesCapability",
+    'state.assignment.payloadVersion != 2',
+    '"native probe provider selection required"',
+]:
+    if token not in native_handler:
         raise SystemExit(f"agent provider fence missing: {token}")
 
 if "state.receiptAcknowledged = false" not in state_store:

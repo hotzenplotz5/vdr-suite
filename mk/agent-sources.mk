@@ -48,9 +48,13 @@ AGENT_COMMAND_STATE_SRC := \
 AGENT_TIMER_DELETE_EXECUTOR_SRC := \
 	core/agent/src/BackendAgentNativeTimerDeleteExecutor.cpp
 
+AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC := \
+	core/agent/src/BackendAgentNativeProbeCommandHandler.cpp
+
 AGENT_COMMAND_CLIENT_SRC := \
 	$(AGENT_COMMAND_STATE_SRC) \
 	$(AGENT_TIMER_DELETE_EXECUTOR_SRC) \
+	$(AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC) \
 	core/agent/src/BackendAgentCommandClient.cpp
 
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
