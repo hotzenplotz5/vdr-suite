@@ -342,6 +342,38 @@ bool reconcileBackendAgentCommandState(
         if (state.assignment.deadline <= currentTime)
         {
         
+    if (!state.receiptAcknowledged &&
+                !sendReceipt(config, context, transport, state, reason))
+                return false;
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "expired", "none",
+                "command deadline expired before native dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            if (!sendResult(config, context, transport, state, reason)) return false;
+            reason = "command_result_reconciled";
+            return true;
+        }
+        if (!prepareFreshNativeTimerCreateLocalStarting(
+                config, state, currentTime, reason))
+            return false;
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (config.nativeTimerCreateTransport == nullptr)
+        {
+            reason = "native_create_local_starting_handoff_persisted";
+            return true;
+        }
+        if (!executeFreshNativeTimerCreateAndPersistOutcome(
+                config, context, state, reason))
+            return false;
+        if (!sendResult(config, context, transport, state, reason))
+            return false;
+        reason = "native_create_executor_outcome_reconciled";
+        return true;
+    }
+
     if (timerModifyCommand && !state.stateExtensionPresent && !state.resultPresent)
     {
         if (state.dispatchState != "not_started")
@@ -383,37 +415,6 @@ bool reconcileBackendAgentCommandState(
         return true;
     }
 
-    if (!state.receiptAcknowledged &&
-                !sendReceipt(config, context, transport, state, reason))
-                return false;
-            createResult(
-                state, "not_started", "outcome_unknown", "rejected",
-                "expired", "none",
-                "command deadline expired before native dispatch");
-            if (!persist(config.statePath, state, reason)) return false;
-            if (!sendResult(config, context, transport, state, reason)) return false;
-            reason = "command_result_reconciled";
-            return true;
-        }
-        if (!prepareFreshNativeTimerCreateLocalStarting(
-                config, state, currentTime, reason))
-            return false;
-        if (!state.receiptAcknowledged &&
-            !sendReceipt(config, context, transport, state, reason))
-            return false;
-        if (config.nativeTimerCreateTransport == nullptr)
-        {
-            reason = "native_create_local_starting_handoff_persisted";
-            return true;
-        }
-        if (!executeFreshNativeTimerCreateAndPersistOutcome(
-                config, context, state, reason))
-            return false;
-        if (!sendResult(config, context, transport, state, reason))
-            return false;
-        reason = "native_create_executor_outcome_reconciled";
-        return true;
-    }
 
     if (timerDeleteCommand && !state.stateExtensionPresent && !state.resultPresent)
     {
