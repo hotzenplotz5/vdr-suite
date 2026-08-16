@@ -116,12 +116,15 @@ include_line = "include mk/phase64-native-timer-inventory-evidence-tests.mk"
 if include_line not in makefile:
     raise SystemExit("Slice-15 make fragment is not included")
 
-# Slice 16 adds one explicitly reviewed, test-only provider-side producer for this
-# evidence. Keep the older Slice-15 runtime-wiring fence closed everywhere else.
+# Later Phase-64 read-only consumers are explicitly allow-listed. The fence
+# stays closed for command/runtime mutation wiring and unrelated adapters.
 allowed_later_consumers = {
     "core/vdr/include/RestfulApiNativeTimerInventoryReader.h",
     "core/vdr/src/RestfulApiNativeTimerInventoryReader.cpp",
     "core/vdr/tests/test_restfulapi_native_timer_inventory_reader.cpp",
+    "core/vdr/include/VdrManagedTimerCreateReadbackEvidenceBuilder.h",
+    "core/vdr/src/VdrManagedTimerCreateReadbackEvidenceBuilder.cpp",
+    "core/vdr/tests/test_vdr_managed_timer_create_readback_evidence_builder.cpp",
 }
 
 for scan_root in [
@@ -149,5 +152,5 @@ for scan_root in [
 print("Phase-64 native Timer inventory evidence check passed")
 print(
     "Slice-15 boundary: complete backend-generation-fenced inventory evidence "
-    "only; producer, missing-state application and native mutation deferred"
+    "with explicitly reviewed read-only consumers; native mutation remains deferred"
 )
