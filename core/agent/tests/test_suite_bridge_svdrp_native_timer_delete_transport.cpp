@@ -151,6 +151,22 @@ int main()
 
     {
         OneShotServer server(
+            "900 vdr-suite-ntdel-cap/1 vdr.timer.delete 1 timer-delete "
+            "enabled suitebridge pie_1 1 1 enabled\r\n");
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
+        BackendAgentLocalProviderFacts facts;
+        std::string reason;
+        assert(transport.discoverProvider(facts, reason));
+        server.wait();
+        assert(reason == "native_timer_delete_suitebridge_provider_discovered_enabled");
+        assert(facts.available);
+        assert(facts.providerInstanceEpoch == "pie_1");
+        assert(facts.capabilities.size() == 1);
+        assert(facts.capabilities.front() == "vdr.timer.delete");
+    }
+
+    {
+        OneShotServer server(
             "556 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
             "pie_1 1 1 rejected_without_effect disabled ntdel:disabled:cmd_1\r\n");
         SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
@@ -167,6 +183,57 @@ int main()
             request.command.expectedNativeTimerFingerprint +
             " tas_1 42 job_1 att_1 3 default agt_1 agi_1 7 100 vdr.timer "
             "suitebridge:local suitebridge 9 pie_1 1 1 vdr.timer.delete 101\r\n");
+    }
+
+    {
+        OneShotServer server(
+            "557 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
+            "pie_1 1 1 accepted_unverified callback_applied "
+            "ntdel:vdr:deleted-unverified:cmd_1\r\n");
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
+        const auto reply = transport.deleteTimer(validRequest());
+        server.wait();
+        assert(reply.disposition ==
+            BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified);
+        assert(reply.evidenceReference == "ntdel:vdr:deleted-unverified:cmd_1");
+    }
+
+    {
+        OneShotServer server(
+            "558 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
+            "pie_1 1 1 outcome_unknown callback_unknown "
+            "ntdel:vdr:exception:cmd_1\r\n");
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
+        const auto reply = transport.deleteTimer(validRequest());
+        server.wait();
+        assert(reply.disposition ==
+            BackendAgentNativeTimerDeleteTransportDisposition::outcomeUnknown);
+        assert(reply.evidenceReference == "ntdel:vdr:exception:cmd_1");
+    }
+
+    {
+        OneShotServer server(
+            "557 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
+            "pie_other 1 1 accepted_unverified callback_applied "
+            "ntdel:vdr:deleted-unverified:cmd_1\r\n");
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
+        const auto reply = transport.deleteTimer(validRequest());
+        server.wait();
+        assert(reply.disposition ==
+            BackendAgentNativeTimerDeleteTransportDisposition::outcomeUnknown);
+        assert(reply.evidenceReference == "suitebridge:ntdel:reply-fence-mismatch");
+    }
+
+    {
+        OneShotServer server(
+            "555 vdr-suite-ntdel-result/1 cmd_1 fp_1 vdr.timer.delete 1 "
+            "pie_other 1 1 rejected_without_effect stale ntdel:stale:cmd_1\r\n");
+        SuiteBridgeNativeTimerDeleteTransport transport(config(server.port()));
+        const auto reply = transport.deleteTimer(validRequest());
+        server.wait();
+        assert(reply.disposition ==
+            BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect);
+        assert(reply.evidenceReference == "ntdel:stale:cmd_1");
     }
 
     {

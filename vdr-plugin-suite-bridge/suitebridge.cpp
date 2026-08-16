@@ -7,7 +7,9 @@
 
 cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
-      nativeTimerDelete_(nativeProbe_.PluginInstanceEpoch())
+      nativeTimerDelete_(
+          nativeProbe_.PluginInstanceEpoch(),
+          &nativeTimerDeleteVdrMutation_)
 {
 }
 
@@ -48,7 +50,7 @@ bool cPluginSuiteBridge::Initialize(void)
   isyslog(
       "suitebridge: native-operation=vdr.native.probe schema=1 side-effect=none mutations=disabled provider=suitebridge");
   isyslog(
-      "suitebridge: native-operation=vdr.timer.delete schema=1 side-effect=timer-delete mutations=disabled execution=disabled provider=suitebridge");
+      "suitebridge: native-operation=vdr.timer.delete schema=1 side-effect=timer-delete mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   return true;
 }
 
