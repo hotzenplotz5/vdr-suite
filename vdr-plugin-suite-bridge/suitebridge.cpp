@@ -7,6 +7,7 @@
 
 cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
+      nativeTimerCreate_(nativeProbe_.PluginInstanceEpoch()),
       nativeTimerDelete_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerDeleteVdrMutation_)

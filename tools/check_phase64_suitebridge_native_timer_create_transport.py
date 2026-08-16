@@ -305,27 +305,40 @@ forbid(
     "packaged CREATE configuration",
 )
 
-# This slice deliberately stops before any SuiteBridge plugin command family
-# or VDR Timer mutation implementation exists.
+# The private command-service successor may now own the parser/replay layer.
 for plugin_path in (
     "vdr-plugin-suite-bridge/suitebridge_native_timer_create.h",
     "vdr-plugin-suite-bridge/suitebridge_native_timer_create.cpp",
-    "vdr-plugin-suite-bridge/suitebridge_native_timer_create_vdr.cpp",
 ):
-    if (ROOT / plugin_path).exists():
+    if not (ROOT / plugin_path).is_file():
         raise SystemExit(
-            "CREATE plugin mutation boundary landed too early: "
-            + plugin_path
+            "missing CREATE command-service successor: " + plugin_path
         )
+
+if (
+    ROOT
+    / "vdr-plugin-suite-bridge/suitebridge_native_timer_create_vdr.cpp"
+).exists():
+    raise SystemExit("CREATE VDR mutation boundary landed too early")
 
 plugin_svdrp = read(
     "vdr-plugin-suite-bridge/suitebridge_svdrp.cpp"
 )
 
-forbid(
+require(
     plugin_svdrp,
+    "nativeTimerCreate_.Handle(Command, Option)",
+    "private CREATE command-service dispatch",
+)
+
+help_start = plugin_svdrp.find("SVDRPHelpPages")
+command_start = plugin_svdrp.find("SVDRPCommand", help_start)
+if help_start < 0 or command_start < 0:
+    raise SystemExit("SuiteBridge help boundary not found")
+forbid(
+    plugin_svdrp[help_start:command_start],
     "NTCREATE",
-    "CREATE plugin command family before dedicated plugin slice",
+    "public CREATE Help advertisement",
 )
 
 print(
