@@ -70,8 +70,6 @@ generic_block = agent_sources.split("AGENT_SVDRP_TRANSPORT_SRC :=", 1)[1].split(
 )[0]
 forbid(generic_block, source_path, "Timer-delete source in generic SVDRP source set")
 
-# The generic SVDRP transport retains a stable vtable. Only narrow non-virtual
-# raw-wire hooks are added; the domain interface lives in a separate adapter.
 forbid(
     svdrp_header,
     "public IBackendAgentNativeTimerDeleteTransport",
@@ -135,7 +133,7 @@ require(
 forbid(
     transport_source,
     "BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified",
-    "accepted Timer-delete outcome in disabled transport",
+    "accepted Timer-delete outcome in disabled Agent transport",
 )
 for token in ('"DELT"', "cTimers", "Timers->", "/timers", "RESTfulAPI", "restfulapi"):
     forbid(transport_source, token, "direct VDR Timer mutation coupling")
@@ -144,7 +142,7 @@ require(plugin_header, "SuiteBridgeNativeTimerDeleteService", "plugin typed serv
 require(plugin_source, 'strcasecmp(command, "NTDEL")', "private NTDEL command family")
 require(plugin_source, 'values.front() == "CAP"', "NTDEL capability path")
 require(plugin_source, 'values.front() == "EXEC"', "NTDEL execute path")
-require(plugin_source, '"rejected_without_effect disabled "', "disabled typed result")
+require(plugin_source, '"ntdel:disabled:"', "disabled typed result")
 require(plugin_source, "request.authorityDomain == AuthorityDomain", "authority fence")
 require(plugin_source, "request.providerId == ProviderId", "provider id fence")
 require(plugin_source, "request.providerInstanceEpoch == pluginInstanceEpoch_", "plugin epoch fence")
@@ -156,24 +154,22 @@ for token in (
     "<vdr/timers.h>",
     "cTimers",
     "Timers->",
-    "Del(",
-    "Delete(",
-    "std::function",
-    "ReceiptEntry",
-    "std::array",
-    "accepted_unverified",
+    '"DELT"',
+    "RESTfulAPI",
+    "restfulapi",
 ):
-    forbid(plugin_source, token, "mutation/replay execution in disabled plugin contract")
+    forbid(plugin_source, token, "direct VDR mutation in SuiteBridge transport service")
 
 require(plugin_main_header, "SuiteBridgeNativeTimerDeleteService nativeTimerDelete_", "plugin service owner")
-require(plugin_main, "nativeTimerDelete_(nativeProbe_.PluginInstanceEpoch())", "shared plugin epoch")
+require(plugin_main, "nativeTimerDelete_(nativeProbe_.PluginInstanceEpoch())", "production callback remains unconfigured")
+forbid(plugin_main, "ISuiteBridgeNativeTimerDeleteMutationCallback", "production mutation callback wiring")
+require(plugin_main, "mutations=disabled execution=disabled", "truthful production disabled log")
 require(plugin_svdrp, "nativeTimerDelete_.Handle(Command, Option)", "SVDRP typed handler wiring")
 help_section = plugin_svdrp.split("SVDRPHelpPages", 1)[1].split("SVDRPCommand", 1)[0]
 forbid(help_section, "NTDEL", "public SVDRP help advertisement")
 require(plugin_makefile, "suitebridge_native_timer_delete.o", "plugin Timer-delete object build")
 require(plugin_makefile, "test-native-timer-delete", "plugin disabled Timer-delete unit target")
 
-# The adapter exists but remains unreachable from installed command runtime.
 forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "production Timer-delete adapter construction")
 forbid(agent_client, "nativeTimerDeleteTransport", "production Timer-delete transport injection")
 forbid(agent_client, "vdr.timer.delete", "production Timer-delete Agent configuration")

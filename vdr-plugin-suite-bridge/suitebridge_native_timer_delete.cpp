@@ -21,8 +21,12 @@ constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 1;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
-constexpr int DisabledReplyCode = 556;
 constexpr int StaleReplyCode = 555;
+constexpr int DisabledReplyCode = 556;
+constexpr int AcceptedUnverifiedReplyCode = 557;
+constexpr int OutcomeUnknownReplyCode = 558;
+constexpr int ReplayConflictReplyCode = 559;
+constexpr int ReplayLedgerFullReplyCode = 560;
 
 bool safeToken(const std::string &value, std::size_t maximum = 512)
 {
@@ -68,35 +72,9 @@ std::vector<std::string> split(const char *option)
   return values;
 }
 
-struct Request final {
-  std::string commandId;
-  std::string requestFingerprint;
-  std::string operationId;
-  std::string operationRevision;
-  std::string nativeTimerBindingId;
-  std::string expectedBindingRevision;
-  std::string timerAssignmentId;
-  std::string backendNativeTimerId;
-  std::string jobId;
-  std::string attemptId;
-  std::uint64_t claimEpoch = 0;
-  std::string backendId;
-  std::string agentId;
-  std::string agentInstanceId;
-  std::uint64_t backendGeneration = 0;
-  std::uint64_t controlPlaneClaimedAt = 0;
-  std::string authorityDomain;
-  std::string providerId;
-  std::string providerKind;
-  std::uint64_t ownershipGeneration = 0;
-  std::string providerInstanceEpoch;
-  std::uint64_t providerGeneration = 0;
-  std::uint64_t capabilityRevision = 0;
-  std::string requiredCapability;
-  std::uint64_t localStartingPersistedAt = 0;
-};
-
-bool parseExecute(const char *option, Request &request)
+bool parseExecute(
+    const char *option,
+    SuiteBridgeNativeTimerDeleteRequest &request)
 {
   const std::vector<std::string> values = split(option);
   if (values.size() != 29 || values[0] != "EXEC" ||
@@ -148,6 +126,47 @@ bool parseExecute(const char *option, Request &request)
       safeToken(request.requiredCapability, 192);
 }
 
+void appendCanonical(std::ostringstream &output, const std::string &value)
+{
+  output << value.size() << ':' << value << '|';
+}
+
+void appendCanonical(std::ostringstream &output, std::uint64_t value)
+{
+  output << value << '|';
+}
+
+std::string canonicalRequest(const SuiteBridgeNativeTimerDeleteRequest &request)
+{
+  std::ostringstream canonical;
+  appendCanonical(canonical, request.commandId);
+  appendCanonical(canonical, request.requestFingerprint);
+  appendCanonical(canonical, request.operationId);
+  appendCanonical(canonical, request.operationRevision);
+  appendCanonical(canonical, request.nativeTimerBindingId);
+  appendCanonical(canonical, request.expectedBindingRevision);
+  appendCanonical(canonical, request.timerAssignmentId);
+  appendCanonical(canonical, request.backendNativeTimerId);
+  appendCanonical(canonical, request.jobId);
+  appendCanonical(canonical, request.attemptId);
+  appendCanonical(canonical, request.claimEpoch);
+  appendCanonical(canonical, request.backendId);
+  appendCanonical(canonical, request.agentId);
+  appendCanonical(canonical, request.agentInstanceId);
+  appendCanonical(canonical, request.backendGeneration);
+  appendCanonical(canonical, request.controlPlaneClaimedAt);
+  appendCanonical(canonical, request.authorityDomain);
+  appendCanonical(canonical, request.providerId);
+  appendCanonical(canonical, request.providerKind);
+  appendCanonical(canonical, request.ownershipGeneration);
+  appendCanonical(canonical, request.providerInstanceEpoch);
+  appendCanonical(canonical, request.providerGeneration);
+  appendCanonical(canonical, request.capabilityRevision);
+  appendCanonical(canonical, request.requiredCapability);
+  appendCanonical(canonical, request.localStartingPersistedAt);
+  return canonical.str();
+}
+
 SuiteBridgeCommandResult genericRejection(int replyCode, const char *reason)
 {
   SuiteBridgeCommandResult result;
@@ -157,10 +176,12 @@ SuiteBridgeCommandResult genericRejection(int replyCode, const char *reason)
   return result;
 }
 
-SuiteBridgeCommandResult typedRejection(
+SuiteBridgeCommandResult typedResult(
     int replyCode,
-    const Request &request,
+    const SuiteBridgeNativeTimerDeleteRequest &request,
     const std::string &pluginInstanceEpoch,
+    const char *disposition,
+    const char *reason,
     const std::string &evidenceReference)
 {
   SuiteBridgeCommandResult result;
@@ -171,28 +192,105 @@ SuiteBridgeCommandResult typedRejection(
           << request.requestFingerprint << ' ' << NativeOperation << ' '
           << NativeOperationSchema << ' ' << pluginInstanceEpoch << ' '
           << ProviderGeneration << ' ' << CapabilityRevision << ' '
-          << "rejected_without_effect disabled " << evidenceReference;
+          << disposition << ' ' << reason << ' ' << evidenceReference;
   result.payload = payload.str();
+  return result;
+}
+
+SuiteBridgeCommandResult typedRejection(
+    int replyCode,
+    const SuiteBridgeNativeTimerDeleteRequest &request,
+    const std::string &pluginInstanceEpoch,
+    const char *reason,
+    const std::string &evidenceReference)
+{
+  return typedResult(
+      replyCode,
+      request,
+      pluginInstanceEpoch,
+      "rejected_without_effect",
+      reason,
+      evidenceReference);
+}
+
+SuiteBridgeCommandResult mutationReply(
+    const SuiteBridgeNativeTimerDeleteRequest &request,
+    const std::string &pluginInstanceEpoch,
+    const SuiteBridgeNativeTimerDeleteMutationResult &mutationResult)
+{
+  switch (mutationResult.disposition) {
+    case SuiteBridgeNativeTimerDeleteMutationDisposition::AppliedUnverified:
+      return typedResult(
+          AcceptedUnverifiedReplyCode,
+          request,
+          pluginInstanceEpoch,
+          "accepted_unverified",
+          "callback_applied",
+          mutationResult.evidenceReference);
+    case SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect:
+      return typedResult(
+          DisabledReplyCode,
+          request,
+          pluginInstanceEpoch,
+          "rejected_without_effect",
+          "callback_rejected",
+          mutationResult.evidenceReference);
+    case SuiteBridgeNativeTimerDeleteMutationDisposition::OutcomeUnknown:
+      return typedResult(
+          OutcomeUnknownReplyCode,
+          request,
+          pluginInstanceEpoch,
+          "outcome_unknown",
+          "callback_unknown",
+          mutationResult.evidenceReference);
+  }
+  return typedResult(
+      OutcomeUnknownReplyCode,
+      request,
+      pluginInstanceEpoch,
+      "outcome_unknown",
+      "callback_invalid",
+      "ntdel:callback-invalid:" + request.commandId);
+}
+
+SuiteBridgeNativeTimerDeleteMutationResult normalizedCallbackResult(
+    const SuiteBridgeNativeTimerDeleteRequest &request,
+    SuiteBridgeNativeTimerDeleteMutationResult result)
+{
+  if (!safeToken(result.evidenceReference)) {
+    result.disposition =
+        SuiteBridgeNativeTimerDeleteMutationDisposition::OutcomeUnknown;
+    result.evidenceReference = "ntdel:callback-invalid:" + request.commandId;
+  }
   return result;
 }
 } // namespace
 
 SuiteBridgeNativeTimerDeleteService::SuiteBridgeNativeTimerDeleteService(
-    std::string pluginInstanceEpoch)
-    : pluginInstanceEpoch_(std::move(pluginInstanceEpoch))
+    std::string pluginInstanceEpoch,
+    ISuiteBridgeNativeTimerDeleteMutationCallback *mutationCallback,
+    std::size_t maximumReplayEntries)
+    : pluginInstanceEpoch_(std::move(pluginInstanceEpoch)),
+      mutationCallback_(mutationCallback),
+      maximumReplayEntries_(maximumReplayEntries)
 {
   if (!safeToken(pluginInstanceEpoch_, 192)) pluginInstanceEpoch_ = "pie_invalid";
 }
 
+bool SuiteBridgeNativeTimerDeleteService::ExecutionConfigured() const noexcept
+{
+  return mutationCallback_ != nullptr;
+}
+
 SuiteBridgeCommandResult SuiteBridgeNativeTimerDeleteService::Handle(
     const char *command,
-    const char *option) const
+    const char *option)
 {
   if (command == nullptr || strcasecmp(command, "NTDEL") != 0) return {};
   const std::vector<std::string> values = split(option);
   if (values.empty()) return genericRejection(MalformedReplyCode, "malformed");
   if (values.front() == "CAP") return capability(option);
-  if (values.front() == "EXEC") return executeDisabled(option);
+  if (values.front() == "EXEC") return execute(option);
   return genericRejection(MalformedReplyCode, "unsupported");
 }
 
@@ -204,22 +302,23 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerDeleteService::capability(
     return genericRejection(MalformedReplyCode, "capability-schema-unsupported");
   }
 
+  const char *state = ExecutionConfigured() ? "enabled" : "disabled";
   SuiteBridgeCommandResult result;
   result.handled = true;
   result.replyCode = SuccessReplyCode;
   std::ostringstream payload;
   payload << CapabilityProtocol << ' ' << NativeOperation << ' '
-          << NativeOperationSchema << " timer-delete disabled "
+          << NativeOperationSchema << " timer-delete " << state << ' '
           << ProviderKind << ' ' << pluginInstanceEpoch_ << ' '
-          << ProviderGeneration << ' ' << CapabilityRevision << " disabled";
+          << ProviderGeneration << ' ' << CapabilityRevision << ' ' << state;
   result.payload = payload.str();
   return result;
 }
 
-SuiteBridgeCommandResult SuiteBridgeNativeTimerDeleteService::executeDisabled(
-    const char *option) const
+SuiteBridgeCommandResult SuiteBridgeNativeTimerDeleteService::execute(
+    const char *option)
 {
-  Request request;
+  SuiteBridgeNativeTimerDeleteRequest request;
   if (!parseExecute(option, request)) {
     return genericRejection(MalformedReplyCode, "execute-malformed");
   }
@@ -238,12 +337,139 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerDeleteService::executeDisabled(
         StaleReplyCode,
         request,
         pluginInstanceEpoch_,
+        "stale",
         "ntdel:stale:" + request.commandId);
   }
 
-  return typedRejection(
-      DisabledReplyCode,
+  if (!ExecutionConfigured()) {
+    return typedRejection(
+        DisabledReplyCode,
+        request,
+        pluginInstanceEpoch_,
+        "disabled",
+        "ntdel:disabled:" + request.commandId);
+  }
+
+  bool replayed = false;
+  bool inProgress = false;
+  bool conflict = false;
+  bool ledgerFull = false;
+  const std::string canonical = canonicalRequest(request);
+  const SuiteBridgeNativeTimerDeleteMutationResult result = executeReserved(
       request,
-      pluginInstanceEpoch_,
-      "ntdel:disabled:" + request.commandId);
+      canonical,
+      replayed,
+      inProgress,
+      conflict,
+      ledgerFull);
+
+  if (conflict) {
+    return typedRejection(
+        ReplayConflictReplyCode,
+        request,
+        pluginInstanceEpoch_,
+        "replay_conflict",
+        "ntdel:replay-conflict:" + request.commandId);
+  }
+  if (ledgerFull) {
+    return typedRejection(
+        ReplayLedgerFullReplyCode,
+        request,
+        pluginInstanceEpoch_,
+        "ledger_full",
+        "ntdel:ledger-full:" + request.commandId);
+  }
+  if (inProgress) {
+    return typedResult(
+        OutcomeUnknownReplyCode,
+        request,
+        pluginInstanceEpoch_,
+        "outcome_unknown",
+        "in_progress",
+        "ntdel:in-progress:" + request.commandId);
+  }
+
+  (void)replayed;
+  return mutationReply(request, pluginInstanceEpoch_, result);
+}
+
+SuiteBridgeNativeTimerDeleteMutationResult
+SuiteBridgeNativeTimerDeleteService::executeReserved(
+    const SuiteBridgeNativeTimerDeleteRequest &request,
+    const std::string &canonical,
+    bool &replayed,
+    bool &inProgress,
+    bool &conflict,
+    bool &ledgerFull)
+{
+  replayed = false;
+  inProgress = false;
+  conflict = false;
+  ledgerFull = false;
+
+  {
+    std::lock_guard<std::mutex> lock(replayMutex_);
+
+    const auto commandOwner = operationByCommandId_.find(request.commandId);
+    if (commandOwner != operationByCommandId_.end() &&
+        commandOwner->second != request.operationId) {
+      conflict = true;
+      return {};
+    }
+
+    const auto existing = replayByOperationId_.find(request.operationId);
+    if (existing != replayByOperationId_.end()) {
+      const ReplayEntry &entry = existing->second;
+      if (entry.commandId != request.commandId ||
+          entry.requestFingerprint != request.requestFingerprint ||
+          entry.canonicalRequest != canonical) {
+        conflict = true;
+        return {};
+      }
+      if (!entry.terminal) {
+        inProgress = true;
+        return {};
+      }
+      replayed = true;
+      return entry.result;
+    }
+
+    if (replayByOperationId_.size() >= maximumReplayEntries_) {
+      ledgerFull = true;
+      return {};
+    }
+
+    ReplayEntry entry;
+    entry.commandId = request.commandId;
+    entry.requestFingerprint = request.requestFingerprint;
+    entry.canonicalRequest = canonical;
+    replayByOperationId_.emplace(request.operationId, std::move(entry));
+    operationByCommandId_.emplace(request.commandId, request.operationId);
+  }
+
+  SuiteBridgeNativeTimerDeleteMutationResult callbackResult;
+  try {
+    callbackResult = normalizedCallbackResult(
+        request,
+        mutationCallback_->DeleteTimer(request));
+  } catch (...) {
+    callbackResult.disposition =
+        SuiteBridgeNativeTimerDeleteMutationDisposition::OutcomeUnknown;
+    callbackResult.evidenceReference =
+        "ntdel:callback-exception:" + request.commandId;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(replayMutex_);
+    const auto existing = replayByOperationId_.find(request.operationId);
+    if (existing != replayByOperationId_.end() &&
+        existing->second.commandId == request.commandId &&
+        existing->second.requestFingerprint == request.requestFingerprint &&
+        existing->second.canonicalRequest == canonical) {
+      existing->second.result = callbackResult;
+      existing->second.terminal = true;
+    }
+  }
+
+  return callbackResult;
 }
