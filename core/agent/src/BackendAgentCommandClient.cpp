@@ -4,6 +4,7 @@
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandStateStore.h"
 #include "BackendAgentNativeProbeCommandHandler.h"
+#include "BackendAgentNativeTimerCreate.h"
 #include "BackendAgentNativeTimerDeleteCommandHandler.h"
 
 #include <chrono>
@@ -174,8 +175,8 @@ CommandAvailability availableCommands(
     CommandAvailability availability;
     for (const std::string& type : config.commandTypes)
     {
-        if (type ==
-            vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType)
+        if (type == vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||
+            type == vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType)
             continue;
         if (type != "vdr.native.probe")
         {
