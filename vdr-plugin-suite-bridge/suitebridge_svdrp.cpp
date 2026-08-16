@@ -60,6 +60,12 @@ cString cPluginSuiteBridge::SVDRPCommand(
     return ReturnResult(nativeProbe, ReplyCode);
   }
 
+  const SuiteBridgeCommandResult nativeTimerDelete =
+      nativeTimerDelete_.Handle(Command, Option);
+  if (nativeTimerDelete.handled) {
+    return ReturnResult(nativeTimerDelete, ReplyCode);
+  }
+
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
       Option,

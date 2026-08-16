@@ -3,6 +3,7 @@
 
 #include "suitebridge_lifecycle.h"
 #include "suitebridge_native_probe.h"
+#include "suitebridge_native_timer_delete.h"
 #include "suitebridge_status_monitor.h"
 
 #include <vdr/plugin.h>
@@ -30,6 +31,7 @@ private:
   SuiteBridgeLifecycle lifecycle_;
   SuiteBridgeStatusMonitor statusMonitor_;
   SuiteBridgeNativeProbeService nativeProbe_;
+  SuiteBridgeNativeTimerDeleteService nativeTimerDelete_;
 };
 
 #endif

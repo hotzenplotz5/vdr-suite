@@ -18,6 +18,8 @@
 namespace vdrsuite::agent
 {
 
+struct BackendAgentNativeTimerDeleteTransportRequest;
+
 struct SuiteBridgeSvdrpTransportConfig
 {
     std::string host = "127.0.0.1";
@@ -117,6 +119,13 @@ public:
              << request.nativeExecutionSequence << "\r\n";
         return executeRequest(wire.str());
     }
+
+    // Narrow typed raw-wire hooks used only by the dedicated disabled
+    // Timer-delete adapter. They are deliberately non-virtual so generic
+    // SuiteBridge users do not acquire Timer-delete link dependencies.
+    SuiteBridgeCommandReply discoverNativeTimerDeleteContract();
+    SuiteBridgeCommandReply executeNativeTimerDeleteContract(
+        const BackendAgentNativeTimerDeleteTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)
