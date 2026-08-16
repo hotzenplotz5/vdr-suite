@@ -12,6 +12,7 @@ namespace vdrsuite::agent
 class IBackendAgentNativeProbeTransport;
 class IBackendAgentNativeTimerDeleteTransport;
 class IBackendAgentNativeTimerCreateTransport;
+class IBackendAgentNativeTimerModifyTransport;
 }
 
 struct BackendAgentCommandClientConfig
@@ -21,6 +22,7 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerModifyTransport* nativeTimerModifyTransport = nullptr;
 };
 
 struct BackendAgentCommandClientContext

@@ -708,6 +708,7 @@ bool BackendAgentClientRuntime::loadConfig(
     config.suiteBridgePort = 0;
     config.nativeTimerCreateTransport = nullptr;
     config.nativeTimerDeleteTransport = nullptr;
+    config.nativeTimerModifyTransport = nullptr;
     if (!values["SUITEBRIDGE_PORT"].empty() &&
         !strictInt(values["SUITEBRIDGE_PORT"], 1, 65535,
                    config.suiteBridgePort))
@@ -1914,6 +1915,8 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         config_.nativeTimerCreateTransport;
     commandConfig.nativeTimerDeleteTransport =
         config_.nativeTimerDeleteTransport;
+    commandConfig.nativeTimerModifyTransport =
+        config_.nativeTimerModifyTransport;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {

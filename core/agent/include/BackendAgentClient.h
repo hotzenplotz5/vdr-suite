@@ -10,6 +10,7 @@ namespace vdrsuite::agent
 {
 class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerDeleteTransport;
+class IBackendAgentNativeTimerModifyTransport;
 }
 
 struct BackendAgentClientConfig
@@ -31,6 +32,8 @@ struct BackendAgentClientConfig
         nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport*
         nativeTimerDeleteTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerModifyTransport*
+        nativeTimerModifyTransport = nullptr;
     int heartbeatIntervalSeconds = 30;
     int reconnectInitialSeconds = 1;
     int reconnectMaximumSeconds = 30;

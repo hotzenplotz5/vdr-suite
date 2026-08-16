@@ -2,6 +2,7 @@
 #include "BackendAgentCommandClient.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
+#include "SuiteBridgeNativeTimerModifyTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 
 #include <algorithm>
@@ -126,6 +127,8 @@ int main(int argc, char** argv)
         nativeTimerCreateTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>
         nativeTimerDeleteTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>
+        nativeTimerModifyTransport;
     if (!config.suiteBridgeHost.empty())
     {
         vdrsuite::agent::SuiteBridgeSvdrpTransportConfig timerTransportConfig;
@@ -137,10 +140,15 @@ int main(int argc, char** argv)
         nativeTimerDeleteTransport = std::make_unique<
             vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>(
                 timerTransportConfig);
+        nativeTimerModifyTransport = std::make_unique<
+            vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>(
+                timerTransportConfig);
         config.nativeTimerCreateTransport =
             nativeTimerCreateTransport.get();
         config.nativeTimerDeleteTransport =
             nativeTimerDeleteTransport.get();
+        config.nativeTimerModifyTransport =
+            nativeTimerModifyTransport.get();
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;
