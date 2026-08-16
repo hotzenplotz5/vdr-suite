@@ -25,12 +25,13 @@ BackendAgentNativeTimerModifyPayload payload(){
 }
 BackendAgentCommandAssignment assignment(){
  BackendAgentCommandAssignment a;a.commandId="cmd_1";
- a.requestFingerprint="sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+ a.requestId="req_1";a.correlationId="req_1";
  a.operationId="op_1";a.commandType="vdr.timer.update";a.payloadVersion=1;
  a.payload=backendAgentNativeTimerModifyPayload(payload());a.verificationPolicy="readback_required";
  a.jobId="job_1";a.attemptId="attempt_1";a.claimEpoch=1;a.backendId="backend_1";
  a.agentId="agent_1";a.agentInstanceId="instance_1";a.backendGeneration=1;
- a.deadline=1000;return a;
+ a.assignedAt=100;a.deadline=1000;a.requestFingerprint=backendAgentCommandFingerprint(a);
+ return a;
 }
 struct Transport final:IBackendAgentNativeTimerModifyTransport{
  int calls=0;bool discoverProvider(BackendAgentLocalProviderFacts& f,std::string&)override{
