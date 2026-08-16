@@ -28,6 +28,7 @@ public:
         const BackendAgentCommandAssignment& assignment,
         const vdrsuite::agent::BackendAgentLocalProviderSelection* selection = nullptr);
     bool ensureNativeTimerDeleteAssignmentSchema();
+    bool ensureNativeTimerModifyAssignmentSchema();
     std::optional<BackendAgentCommandAssignment> findAssignmentForOperation(
         const std::string& backendId,
         const std::string& operationId,
