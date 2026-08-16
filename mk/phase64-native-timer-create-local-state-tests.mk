@@ -9,6 +9,8 @@ test-phase64-native-timer-create-local-state: test-phase64-native-timer-create-l
 		core/agent/src/BackendAgentNativeProbe.cpp \
 		core/agent/src/BackendAgentNativeTimerCreate.cpp \
 		core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
+		core/agent/src/BackendAgentNativeTimerModify.cpp \
+		core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
 		core/agent/src/BackendAgentCommand.cpp \

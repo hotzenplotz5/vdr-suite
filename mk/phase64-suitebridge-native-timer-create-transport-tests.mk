@@ -12,6 +12,8 @@ test-phase64-suitebridge-native-timer-create-transport: \
 		core/agent/src/BackendAgentNativeProbe.cpp \
 		core/agent/src/BackendAgentNativeTimerCreate.cpp \
 		core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
+		core/agent/src/BackendAgentNativeTimerModify.cpp \
+		core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		$(AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_native_timer_create_transport.cpp \
