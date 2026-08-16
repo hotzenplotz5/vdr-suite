@@ -19,11 +19,16 @@ constexpr const char* CapabilityProtocol = "vdr-suite-ntdel-cap/1";
 constexpr const char* ResultProtocol = "vdr-suite-ntdel-result/1";
 constexpr const char* SideEffectClass = "timer-delete";
 constexpr const char* DisabledState = "disabled";
+constexpr const char* EnabledState = "enabled";
 constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 1;
 constexpr int CapabilityReplyCode = 900;
-constexpr int DisabledReplyCode = 556;
 constexpr int StaleReplyCode = 555;
+constexpr int RejectedReplyCode = 556;
+constexpr int AcceptedUnverifiedReplyCode = 557;
+constexpr int OutcomeUnknownReplyCode = 558;
+constexpr int ReplayConflictReplyCode = 559;
+constexpr int ReplayLedgerFullReplyCode = 560;
 
 std::vector<std::string> split(const std::string& input, std::size_t maximum)
 {
@@ -76,6 +81,15 @@ BackendAgentNativeTimerDeleteTransportReply rejected(std::string evidence)
     BackendAgentNativeTimerDeleteTransportReply reply;
     reply.disposition =
         BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect;
+    reply.evidenceReference = std::move(evidence);
+    return reply;
+}
+
+BackendAgentNativeTimerDeleteTransportReply accepted(std::string evidence)
+{
+    BackendAgentNativeTimerDeleteTransportReply reply;
+    reply.disposition =
+        BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified;
     reply.evidenceReference = std::move(evidence);
     return reply;
 }
@@ -172,15 +186,16 @@ bool SuiteBridgeNativeTimerDeleteTransport::discoverProvider(
     const std::vector<std::string> values = split(reply.payload, 10);
     std::uint64_t providerGeneration = 0;
     std::uint64_t capabilityRevision = 0;
-    if (values.size() != 10 || values[0] != CapabilityProtocol ||
+    const bool stateValid = values.size() == 10 &&
+        (values[4] == DisabledState || values[4] == EnabledState) &&
+        values[9] == values[4];
+    if (!stateValid || values[0] != CapabilityProtocol ||
         values[1] != kBackendAgentNativeTimerDeleteCapability ||
         values[2] != "1" || values[3] != SideEffectClass ||
-        values[4] != DisabledState ||
         values[5] != kBackendAgentNativeTimerDeleteProviderKind ||
         !safeWireToken(values[6], 192) ||
         !unsignedValue(values[7], providerGeneration) ||
         !unsignedValue(values[8], capabilityRevision) ||
-        values[9] != DisabledState ||
         providerGeneration != ProviderGeneration ||
         capabilityRevision != CapabilityRevision)
     {
@@ -202,7 +217,9 @@ bool SuiteBridgeNativeTimerDeleteTransport::discoverProvider(
         return false;
     }
 
-    reasonCode = "native_timer_delete_suitebridge_provider_discovered_disabled";
+    reasonCode = values[4] == EnabledState
+        ? "native_timer_delete_suitebridge_provider_discovered_enabled"
+        : "native_timer_delete_suitebridge_provider_discovered_disabled";
     return true;
 }
 
@@ -227,7 +244,7 @@ SuiteBridgeNativeTimerDeleteTransport::deleteTimer(
     const std::vector<std::string> values = split(reply.payload, 11);
     std::uint64_t providerGeneration = 0;
     std::uint64_t capabilityRevision = 0;
-    const bool typedRejection =
+    const bool typedResult =
         values.size() == 11 && values[0] == ResultProtocol &&
         values[1] == command.commandId &&
         values[2] == command.requestFingerprint &&
@@ -235,15 +252,13 @@ SuiteBridgeNativeTimerDeleteTransport::deleteTimer(
         values[4] == "1" && safeWireToken(values[5], 192) &&
         unsignedValue(values[6], providerGeneration) &&
         unsignedValue(values[7], capabilityRevision) &&
-        values[8] == "rejected_without_effect" &&
-        values[9] == DisabledState && safeWireToken(values[10]);
-    if (!typedRejection ||
-        (reply.replyCode != DisabledReplyCode && reply.replyCode != StaleReplyCode))
-    {
+        safeWireToken(values[8], 64) && safeWireToken(values[9], 64) &&
+        safeWireToken(values[10]);
+    if (!typedResult)
         return unknown("suitebridge:ntdel:reply-outcome-unknown");
-    }
 
-    if (reply.replyCode == DisabledReplyCode &&
+    const bool staleReply = reply.replyCode == StaleReplyCode;
+    if (!staleReply &&
         (values[5] != selection.providerInstanceEpoch ||
          providerGeneration != selection.providerGeneration ||
          capabilityRevision != selection.capabilityRevision))
@@ -251,7 +266,22 @@ SuiteBridgeNativeTimerDeleteTransport::deleteTimer(
         return unknown("suitebridge:ntdel:reply-fence-mismatch");
     }
 
-    return rejected(values[10]);
+    if (reply.replyCode == AcceptedUnverifiedReplyCode &&
+        values[8] == "accepted_unverified")
+        return accepted(values[10]);
+
+    if (reply.replyCode == OutcomeUnknownReplyCode &&
+        values[8] == "outcome_unknown")
+        return unknown(values[10]);
+
+    if ((reply.replyCode == StaleReplyCode ||
+         reply.replyCode == RejectedReplyCode ||
+         reply.replyCode == ReplayConflictReplyCode ||
+         reply.replyCode == ReplayLedgerFullReplyCode) &&
+        values[8] == "rejected_without_effect")
+        return rejected(values[10]);
+
+    return unknown("suitebridge:ntdel:reply-outcome-unknown");
 }
 
 }

@@ -161,8 +161,9 @@ for token, label in (
 ):
     require(state_owner, token, label)
 
-# Timer-delete remains unavailable to the installed runtime despite the ability
-# to preserve and validate its future local state.
+# Timer-delete remains unavailable to the installed Agent runtime despite the
+# ability to preserve and validate its typed local state. A later SuiteBridge
+# plugin mutation callback does not change this command-advertisement fence.
 require(
     command_client,
     "kBackendAgentNativeTimerDeleteCommandType",
@@ -268,46 +269,58 @@ if handler_source.is_file():
         forbid(handler_text, token, "commands.state storage ownership in Timer-delete command handler")
     allowed_timer_delete_sources.add("BackendAgentNativeTimerDeleteCommandHandler.cpp")
 
-# Slice 34 may add a concrete SuiteBridge Timer-delete transport only behind
-# its own guard and source set. It must stay outside commands.state ownership
-# and outside the installed CommandClient source graph while mutations remain
-# disabled.
-disabled_transport_source = agent_src_dir / "SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
-if disabled_transport_source.is_file():
+# Slice 34 introduced the concrete private SuiteBridge transport in its own
+# source set. The explicit real-mutation successor may extend that adapter to
+# preserve accepted_unverified/outcome_unknown replies, but only when the
+# dedicated real-mutation guard exists. commands.state ownership and installed
+# Agent injection remain forbidden here either way.
+transport_source = agent_src_dir / "SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
+if transport_source.is_file():
     transport_guard = ROOT / "tools/check_phase64_suitebridge_native_timer_delete_disabled_transport.py"
     if not transport_guard.is_file():
         raise SystemExit(
-            "disabled SuiteBridge Timer-delete transport requires bounded Slice 34 guard"
+            "SuiteBridge Timer-delete transport requires bounded Slice 34 guard"
         )
-    transport_text = disabled_transport_source.read_text(encoding="utf-8")
+    transport_text = transport_source.read_text(encoding="utf-8")
     transport_runtime_source = "core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp"
     require(
         agent_sources,
         "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=",
-        "separate disabled SuiteBridge Timer-delete transport source set",
+        "separate SuiteBridge Timer-delete transport source set",
     )
     transport_block = agent_sources.split(
         "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC :=", 1
     )[1].split("\n\nAGENT_OBSERVATION_SRC", 1)[0]
     if transport_block.count(transport_runtime_source) != 1 or agent_sources.count(transport_runtime_source) != 1:
         raise SystemExit(
-            "disabled SuiteBridge Timer-delete transport source must occur exactly once in its source set"
+            "SuiteBridge Timer-delete transport source must occur exactly once in its source set"
         )
     require(
         transport_text,
         "BackendAgentNativeTimerDeleteTransportDisposition::rejectedWithoutEffect",
-        "disabled transport no-effect outcome",
+        "transport no-effect outcome",
     )
     require(
         transport_text,
         "BackendAgentNativeTimerDeleteTransportDisposition::outcomeUnknown",
-        "disabled transport ambiguity outcome",
+        "transport ambiguity outcome",
     )
-    forbid(
-        transport_text,
-        "BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified",
-        "accepted outcome in disabled SuiteBridge Timer-delete transport",
-    )
+    if "BackendAgentNativeTimerDeleteTransportDisposition::acceptedUnverified" in transport_text:
+        real_mutation_guard = ROOT / "tools/check_phase64_suitebridge_native_timer_delete_real_mutation.py"
+        if not real_mutation_guard.is_file():
+            raise SystemExit(
+                "accepted Timer-delete transport outcome requires explicit real-mutation successor guard"
+            )
+        require(
+            transport_text,
+            "native_timer_delete_suitebridge_provider_discovered_enabled",
+            "real-mutation enabled provider discovery",
+        )
+        require(
+            transport_text,
+            "AcceptedUnverifiedReplyCode",
+            "real-mutation accepted-unverified reply mapping",
+        )
     for token in (
         "legacyKeys()",
         "extendedKeys()",
@@ -322,7 +335,7 @@ if disabled_transport_source.is_file():
         forbid(
             transport_text,
             token,
-            "commands.state/control-plane ownership in disabled Timer-delete transport",
+            "commands.state/control-plane ownership in Timer-delete transport",
         )
     command_client_block = agent_sources.split("AGENT_COMMAND_CLIENT_SRC :=", 1)[1].split(
         "\n\nAGENT_CONTROL_PLANE_DOMAIN_SRC", 1
@@ -330,7 +343,7 @@ if disabled_transport_source.is_file():
     forbid(
         command_client_block,
         "AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC",
-        "disabled concrete transport in installed CommandClient source set",
+        "concrete Timer-delete transport in installed CommandClient source set",
     )
     allowed_timer_delete_sources.add("SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp")
 
@@ -367,7 +380,7 @@ require(
     "test-phase63-fenced-native-operation-runtime",
     "vdr.native.probe Phase 63 regression dependency",
 )
-require(doc, "No Timer-delete execution", "non-execution architecture boundary")
+require(doc, "No Timer-delete execution", "historical Slice-29 non-execution boundary")
 require(doc, "commands.state v3", "v3 state-owner documentation")
 
 print("Phase 64 command state v3 extension architecture guard passed")

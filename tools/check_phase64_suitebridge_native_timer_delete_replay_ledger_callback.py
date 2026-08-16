@@ -25,6 +25,7 @@ makefile = read("Makefile")
 header = read("vdr-plugin-suite-bridge/suitebridge_native_timer_delete.h")
 source = read("vdr-plugin-suite-bridge/suitebridge_native_timer_delete.cpp")
 test = read("vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_delete.cpp")
+plugin_main_header = read("vdr-plugin-suite-bridge/suitebridge.h")
 plugin_main = read("vdr-plugin-suite-bridge/suitebridge.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
@@ -73,6 +74,9 @@ callback_pos = source.find("mutationCallback_->DeleteTimer(request)")
 if reserve_pos < 0 or callback_pos < 0 or reserve_pos >= callback_pos:
     raise SystemExit("callback side effect must occur only after replay reservation")
 
+# Replay/idempotency ownership stays transport-only. The real VDR successor is
+# implemented in a dedicated callback translation unit and must not leak VDR
+# mutation APIs into this ledger/service owner.
 for token in (
     "<vdr/timers.h>",
     "cTimers",
@@ -81,14 +85,18 @@ for token in (
     "RESTfulAPI",
     "restfulapi",
 ):
-    forbid(source, token, "real VDR mutation in replay-ledger slice")
+    forbid(source, token, "real VDR mutation in replay-ledger owner")
 
 require(
-    plugin_main,
-    "nativeTimerDelete_(nativeProbe_.PluginInstanceEpoch())",
-    "production callback remains unconfigured",
+    plugin_main_header,
+    "SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_",
+    "real-mutation successor callback owner",
 )
-forbid(plugin_main, "ISuiteBridgeNativeTimerDeleteMutationCallback", "production callback wiring")
+require(
+    plugin_main,
+    "&nativeTimerDeleteVdrMutation_",
+    "real-mutation successor callback wiring",
+)
 forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport wiring")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
 
@@ -113,4 +121,4 @@ require(
     "replay-ledger guard invocation",
 )
 
-print("Phase 64 SuiteBridge Timer-delete replay ledger/callback architecture guard passed")
+print("Phase 64 SuiteBridge Timer-delete replay ledger/callback architecture guard passed (real-mutation successor aware)")
