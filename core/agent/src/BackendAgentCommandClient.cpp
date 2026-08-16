@@ -4,6 +4,7 @@
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 
 #include <algorithm>
@@ -763,6 +764,78 @@ bool prepareFreshNativeTimerDeleteLocalStarting(
     return true;
 }
 
+bool executeFreshNativeTimerDeleteAndPersistOutcome(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    using namespace vdrsuite::agent;
+    if (config.nativeTimerDeleteTransport == nullptr ||
+        !state.stateExtensionPresent || state.resultPresent ||
+        state.dispatchState != "starting" || !state.receiptAcknowledged ||
+        state.stateExtension.extensionType !=
+            kBackendAgentNativeTimerDeleteLocalStateExtensionType)
+    {
+        reason = "native_delete_executor_handoff_state_invalid";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteLocalState localState;
+    if (!backendAgentNativeTimerDeleteParseLocalState(
+            state.stateExtension.payload, localState, reason) ||
+        localState.phase != BackendAgentNativeTimerDeleteLocalPhase::starting)
+    {
+        reason = "native_delete_executor_starting_state_invalid";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteExecutorContext executorContext;
+    executorContext.backendId = context.backendId;
+    executorContext.agentId = context.agentId;
+    executorContext.agentInstanceId = context.agentInstanceId;
+    executorContext.backendGeneration = context.backendGeneration;
+    executorContext.now = nowSeconds();
+
+    BackendAgentNativeTimerDeleteEvidence evidence;
+    if (!backendAgentNativeTimerDeleteExecuteFreshStartingOnce(
+            state.assignment,
+            localState,
+            executorContext,
+            *config.nativeTimerDeleteTransport,
+            evidence,
+            reason))
+        return false;
+
+    if (!backendAgentNativeTimerDeleteCompleteLocalState(
+            localState, evidence, reason))
+        return false;
+    const std::string payload = backendAgentNativeTimerDeleteSerializeLocalState(
+        localState, reason);
+    if (payload.empty()) return false;
+    state.stateExtension.payload = payload;
+
+    NativeTimerDeleteGenericProjection projection;
+    if (!nativeTimerDeleteGenericProjection(evidence.outcome, projection))
+    {
+        reason = "native_delete_executor_outcome_projection_invalid";
+        return false;
+    }
+    createResult(
+        state,
+        projection.dispatchState,
+        projection.verificationState,
+        projection.resultCategory,
+        projection.errorCategory,
+        projection.retryClassification,
+        projection.diagnostics);
+    state.result.completedAt = evidence.completedAt;
+
+    if (!persist(config.statePath, state, reason)) return false;
+    reason = "native_delete_executor_outcome_persisted";
+    return true;
+}
+
 bool negotiateNativeCapability(
     const BackendAgentCommandClientConfig& config,
     vdrsuite::agent::SuiteBridgeNativeProbeCapability& capability,
@@ -1140,7 +1213,17 @@ bool reconcileBackendAgentCommandState(
         if (!state.receiptAcknowledged &&
             !sendReceipt(config, context, transport, state, reason))
             return false;
-        reason = "native_delete_local_starting_handoff_persisted";
+        if (config.nativeTimerDeleteTransport == nullptr)
+        {
+            reason = "native_delete_local_starting_handoff_persisted";
+            return true;
+        }
+        if (!executeFreshNativeTimerDeleteAndPersistOutcome(
+                config, context, state, reason))
+            return false;
+        if (!sendResult(config, context, transport, state, reason))
+            return false;
+        reason = "native_delete_executor_outcome_reconciled";
         return true;
     }
 
