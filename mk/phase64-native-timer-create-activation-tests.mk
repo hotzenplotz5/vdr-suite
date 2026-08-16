@@ -4,7 +4,7 @@ test-phase64-native-timer-create-activation-architecture:
 	python3 tools/check_phase64_native_timer_create_activation.py
 
 test-phase64-native-timer-create-activation: test-phase64-native-timer-create-activation-architecture
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/sqlite/include -Icore/operations/include -Icore/timers/include \
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/CredentialVerifierRepository.cpp \
@@ -15,7 +15,7 @@ test-phase64-native-timer-create-activation: test-phase64-native-timer-create-ac
 		core/vdr/src/BackendRegistryService.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/timers/src/NativeTimerObservedState.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
 		core/timers/src/NativeTimerCreateDispatchService.cpp \

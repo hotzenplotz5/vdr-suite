@@ -45,6 +45,7 @@ AGENT_COMMAND_DELIVERY_SRC := \
 	core/agent/src/BackendAgentNativeProbeDelivery.cpp
 
 AGENT_COMMAND_STATE_SRC := \
+	core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
 	core/agent/src/BackendAgentNativeTimerDelete.cpp \
 	core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
 	core/agent/src/BackendAgentCommandStateExtension.cpp \
