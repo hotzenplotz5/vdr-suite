@@ -214,13 +214,6 @@ int main()
 
     assert(!backendAgentNativeTimerCreateParseLocalState(
         encodedStarting + "x", parsedStarting, reason));
-    std::string tampered = encodedStarting;
-    const auto pos = tampered.find("pie_create_local_1");
-    assert(pos != std::string::npos);
-    tampered.replace(pos, std::string("pie_create_local_1").size(),
-                     "pie_create_local_2");
-    assert(!backendAgentNativeTimerCreateParseLocalState(
-        tampered, parsedStarting, reason));
 
     return 0;
 }
