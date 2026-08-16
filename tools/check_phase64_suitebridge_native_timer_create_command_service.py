@@ -26,6 +26,7 @@ svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 plugin_makefile = read("vdr-plugin-suite-bridge/Makefile")
 client = read("core/agent/src/BackendAgentCommandClient.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
+agent_main = read("apps/agent/main.cpp")
 
 for needle in (
     "timerAssignmentId", "expectedAssignmentRevision",
@@ -73,9 +74,9 @@ availability = client[
 require(availability, "kBackendAgentNativeTimerCreateCommandType",
         "CREATE advertisement fence")
 require(availability, "continue;", "CREATE advertisement suppression")
-forbid(agent_client, "SuiteBridgeNativeTimerCreateTransport",
-       "production CREATE adapter construction")
-forbid(agent_client, "nativeTimerCreateTransport",
-       "production CREATE transport injection")
+require(agent_main, "SuiteBridgeNativeTimerCreateTransport",
+        "production CREATE adapter construction successor")
+require(agent_client, "config_.nativeTimerCreateTransport",
+        "production CREATE transport injection successor")
 
 print("Phase 64 SuiteBridge NTCREATE command service architecture guard passed")

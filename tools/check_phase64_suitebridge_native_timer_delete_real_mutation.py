@@ -33,6 +33,7 @@ plugin_makefile = read("vdr-plugin-suite-bridge/Makefile")
 transport_source = read("core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp")
 transport_test = read("core/agent/tests/test_suite_bridge_svdrp_native_timer_delete_transport.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
+agent_main = read("apps/agent/main.cpp")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 
@@ -152,8 +153,8 @@ for needle, label in (
     require(transport_test, needle, label)
 
 # The real callback gate does not silently open the Agent/shipped command path.
-forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport construction")
-forbid(agent_client, "nativeTimerDeleteTransport", "installed Agent Timer-delete transport injection")
+require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport construction successor")
+require(agent_client, "config_.nativeTimerDeleteTransport", "installed Agent Timer-delete transport injection successor")
 forbid(agent_client, "vdr.timer.delete", "installed Agent Timer-delete configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split(

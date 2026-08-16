@@ -36,6 +36,7 @@ plugin_svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 plugin_makefile = read("vdr-plugin-suite-bridge/Makefile")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
+agent_main = read("apps/agent/main.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 mk = read("mk/phase64-suitebridge-native-timer-delete-disabled-transport-tests.mk")
 doc = read("docs/development/phase-64-suitebridge-native-timer-delete-disabled-transport.md")
@@ -116,8 +117,8 @@ require(plugin_makefile, "suitebridge_native_timer_delete.o", "plugin Timer-dele
 require(plugin_makefile, "suitebridge_native_timer_delete_vdr.o", "plugin native VDR mutation object build")
 require(plugin_makefile, "test-native-timer-delete", "plugin Timer-delete service unit target")
 
-forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "production Timer-delete adapter construction")
-forbid(agent_client, "nativeTimerDeleteTransport", "production Timer-delete transport injection")
+require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "production Timer-delete adapter construction successor")
+require(agent_client, "config_.nativeTimerDeleteTransport", "production Timer-delete transport injection successor")
 forbid(agent_client, "vdr.timer.delete", "production Timer-delete Agent configuration")
 forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split("\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1)[0]

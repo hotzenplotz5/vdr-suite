@@ -24,6 +24,7 @@ main = read("vdr-plugin-suite-bridge/suitebridge.cpp")
 svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 client = read("core/agent/src/BackendAgentCommandClient.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
+agent_main = read("apps/agent/main.cpp")
 packaged = read("packaging/systemd/backend-agent.conf")
 
 for needle in (
@@ -58,9 +59,9 @@ available = client[
 require(available, "kBackendAgentNativeTimerCreateCommandType",
         "CREATE advertisement fence")
 require(available, "continue;", "CREATE advertisement suppression")
-forbid(agent_client, "SuiteBridgeNativeTimerCreateTransport",
-       "production CREATE adapter construction")
-forbid(agent_client, "nativeTimerCreateTransport",
-       "production CREATE transport injection")
+require(agent_main, "SuiteBridgeNativeTimerCreateTransport",
+        "production CREATE adapter construction successor")
+require(agent_client, "config_.nativeTimerCreateTransport",
+        "production CREATE transport injection successor")
 forbid(packaged, "vdr.timer.create", "packaged CREATE advertisement")
 print("Phase 64 SuiteBridge native Timer CREATE real-mutation guard passed")

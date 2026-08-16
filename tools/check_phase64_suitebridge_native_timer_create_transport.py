@@ -45,6 +45,7 @@ client = read(
 agent_client = read(
     "core/agent/src/BackendAgentClient.cpp"
 )
+agent_main = read("apps/agent/main.cpp")
 packaged = read(
     "packaging/systemd/backend-agent.conf"
 )
@@ -281,16 +282,16 @@ require(
     "CREATE advertisement suppression",
 )
 
-forbid(
-    agent_client,
+require(
+    agent_main,
     "SuiteBridgeNativeTimerCreateTransport",
-    "production CREATE adapter construction",
+    "production CREATE adapter construction successor",
 )
 
-forbid(
+require(
     agent_client,
-    "nativeTimerCreateTransport",
-    "production CREATE transport injection",
+    "config_.nativeTimerCreateTransport",
+    "production CREATE transport injection successor",
 )
 
 forbid(

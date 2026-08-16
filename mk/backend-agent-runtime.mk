@@ -6,6 +6,8 @@ backend-agent:
 		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		$(AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC) \
+		$(AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC) \
 		apps/agent/main.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent

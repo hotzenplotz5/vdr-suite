@@ -131,6 +131,8 @@ void test_protected_url_and_configuration()
            << "ENROLLMENT_PATH=" << root << "/enrollment\n"
            << "ADAPTERS=\n"
            << "OBSERVATION_DOMAINS=backend-health\n"
+           << "SUITEBRIDGE_HOST=127.0.0.1\n"
+           << "SUITEBRIDGE_PORT=6419\n"
            << "HEARTBEAT_INTERVAL_SECONDS=30\n";
     output.close();
     BackendAgentClientConfig config;
@@ -139,6 +141,10 @@ void test_protected_url_and_configuration()
     assert(reason == "configuration_loaded");
     assert(config.backendId == "default");
     assert(config.observationDomains.size() == 1);
+    assert(config.suiteBridgeHost == "127.0.0.1");
+    assert(config.suiteBridgePort == 6419);
+    assert(config.nativeTimerCreateTransport == nullptr);
+    assert(config.nativeTimerDeleteTransport == nullptr);
 
     std::ofstream invalid(path);
     invalid << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
@@ -150,6 +156,20 @@ void test_protected_url_and_configuration()
     invalid.close();
     assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
     assert(reason == "invalid_channel_source_configuration");
+
+    std::ofstream remoteSuiteBridge(path);
+    remoteSuiteBridge
+        << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+        << "BACKEND_ID=default\n"
+        << "IDENTITY_PATH=" << root << "/identity\n"
+        << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+        << "ADAPTERS=\n"
+        << "OBSERVATION_DOMAINS=backend-health\n"
+        << "SUITEBRIDGE_HOST=192.0.2.1\n"
+        << "SUITEBRIDGE_PORT=6419\n";
+    remoteSuiteBridge.close();
+    assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+    assert(reason == "invalid_suitebridge_configuration");
     removeTree(root);
 }
 
