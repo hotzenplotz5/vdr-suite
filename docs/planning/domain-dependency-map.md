@@ -16,7 +16,7 @@
 
 ## Purpose
 
-This document defines the dependency direction between the future VDR-Suite domain models accepted through ADR-0049.
+This document defines dependency direction between VDR-Suite domain models. Accepted architecture remains authoritative; proposed ADR-0054 is represented only where explicitly labeled as proposed planning input.
 
 It answers:
 
@@ -84,6 +84,8 @@ BackendGeneration
   -> AgentCommandFence
   -> NativeBindingObservation
   -> MediaRoute
+  -> BroadcastApplicationRef
+  -> TeletextServiceRef
   -> OsdSurfaceRef
 ```
 
@@ -547,6 +549,80 @@ PlaybackConnection -x-> persistent Recording mutation right
 
 ---
 
+# 10A. Broadcast Companion Domain — Proposed ADR-0054
+
+This section is proposed planning architecture until ADR-0054 is accepted.
+
+```text
+TeletextServiceRef
+  -> BackendId
+  -> BackendGeneration
+  -> Channel / BroadcastService identity
+  -> ProviderIdentity
+  -> ProviderGenerationOrCapabilityRevision
+  -> Freshness / Availability
+
+TeletextPageRef
+  -> TeletextServiceRef
+  -> PageNumber
+  -> SubpageIdentity optional
+
+TeletextPage
+  -> TeletextPageRef
+  -> PageRevisionOrObservationSequence
+  -> ObservedAt
+  -> ImmutableBoundedPageState
+  -> Completeness / Degradation
+
+BroadcastApplicationRef
+  -> BackendId
+  -> BackendGeneration
+  -> Channel / BroadcastService identity
+  -> Broadcaster/Application identity
+  -> DescriptorRevision
+
+BroadcastApplicationDescriptor
+  -> BroadcastApplicationRef
+  -> DiscoveryProvenance
+  -> ApplicationProfileFacts
+  -> Autostart / RedButton semantics
+  -> EntryPointEvidence
+  -> Availability
+
+BroadcastApplicationSession
+  -> BroadcastApplicationRef
+  -> ActorIdentity
+  -> AuthorizationDecision
+  -> BackendGeneration
+  -> DescriptorRevision
+  -> SessionState
+  -> Expiry
+  -> ApplicationRuntimeCapabilityProfile
+```
+
+Dependencies:
+
+- Teletext and HbbTV discovery depend on current backend/channel/broadcast evidence;
+- provider/cache/browser implementation details do not replace Suite resource identity;
+- HbbTV application launch depends on actor/backend policy and an isolated runtime boundary;
+- Suite-owned media requested from a broadcast application remains subject to Phase-65 `MediaSession`/Gateway semantics;
+- channel/backend-generation change invalidates stale application/session context unless an explicit contract proves continuity.
+
+Forbidden dependencies:
+
+```text
+TeletextPageRef -x-> provider cache filename
+TeletextPage -x-> LegacyOsdSession as normal rendering authority
+BroadcastApplicationRef -x-> URL alone
+BroadcastApplicationSession -x-> unrestricted browser credential
+BroadcastApplicationSession -x-> public raw URL/JavaScript/plugin command tunnel
+HbbTV input -x-> arbitrary browser key code
+```
+
+Teletext and HbbTV are normal television-domain capabilities. Legacy OSD is not their primary product model.
+
+---
+
 # 11. Legacy OSD Domain
 
 ```text
@@ -598,7 +674,8 @@ Dependencies:
 - viewing depends on `osd.view` permission;
 - controlling depends on separate `osd.control` permission and a valid exclusive lease;
 - input depends on current backend generation, OSD epoch and lease epoch;
-- read-only backend policy prohibits control.
+- read-only backend policy prohibits control;
+- structured EPG/Timer/Recording/Streaming/Teletext/HbbTV domains take precedence over OSD compatibility when available.
 
 Forbidden dependencies:
 
@@ -668,7 +745,7 @@ Alert cleared -x-> delete source event
 
 # 13. Public API Resource Dependency
 
-The public API exposes Suite-owned resources:
+The public API exposes Suite-owned resources. Illustrative mature resource families include:
 
 ```text
 /api/v1/backends
@@ -680,11 +757,13 @@ The public API exposes Suite-owned resources:
 /api/v1/operations
 /api/v1/jobs
 /api/v1/media-sessions
+/api/v1/broadcast-applications
+/api/v1/teletext-services
 /api/v1/legacy-osd-sessions
 /api/v1/capabilities
 ```
 
-Public representations depend on stable domain resources and policy-filtered views.
+Public representations depend on stable domain resources and policy-filtered views. The exact Phase-68 stable public inventory must be selected from actually implemented mature domains rather than inferred from this illustrative list.
 
 Domain resources do not depend on:
 
@@ -710,13 +789,13 @@ AuthenticationContext              AccountabilityEvent
      v                                      |
 AuthorizationDecision ---------------------+
      |
-     +----------------------+-----------------------+
-     |                      |                       |
-     v                      v                       v
-Recording domain       TimerIntent domain      Media / OSD sessions
-     |                      |                       |
-     v                      v                       v
-Operation ----------------+-----------------------+
+     +----------------------+------------------------------+
+     |                      |                              |
+     v                      v                              v
+Recording domain       TimerIntent domain      Media / Broadcast / OSD sessions
+     |                      |                              |
+     v                      v                              v
+Operation ----------------+------------------------------+
      |
      v
 Job -> Attempt -> Verification/Reconciliation
@@ -726,10 +805,11 @@ BackendNode -> Lifecycle/Generation -> Capability/Access Policy
      +-----------------+-------------------------+
                        |
                        v
-             native bindings and routes
+             native bindings, providers and routes
 
 EventObservation -> ProgramEvent -> TimerIntent
 ProviderEvidence -> MetadataEntity -> Recording/ProgramEvent enrichment
+BroadcastEvidence -> TeletextService / BroadcastApplication
 ```
 
 ---
@@ -758,22 +838,26 @@ TimerIntent, assignment, native binding and reconciliation
         |
         v
 Phase 65
-MediaSession, route, grant and provider lease
+MediaSession, route, grant, provider lease and playback adaptation
         |
         v
 Phase 66
-LegacyOsdSession, viewer, controller lease and input
+TeletextService/Page + BroadcastApplication discovery/session [proposed ADR-0054]
         |
         v
 Phase 67
-Stable /api/v1 representations for implemented domains
+LegacyOsdSession, viewer, controller lease and input
         |
         v
 Phase 68
+Stable /api/v1 representations for implemented mature domains
+        |
+        v
+Phase 69
 Recommendations and knowledge graph over mature identities/provenance
 ```
 
-Later phases may prepare isolated internal code only when they do not publish, activate or bypass prerequisites. The strict roadmap controls runtime start and completion.
+Later phases may prepare isolated internal code only when they do not publish, activate or bypass prerequisites. The strict roadmap controls runtime start and completion. Proposed ADR-0054 does not authorize Phase-66 runtime until accepted.
 
 ---
 
@@ -805,9 +889,11 @@ A domain slice is not ready merely because its class names exist. It must prove:
 - [ADR-0044](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0045](../adr/ADR-0045-canonical-epg-event-identity-provenance.md)
 - [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
+- [ADR-0053](../adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md)
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049](../adr/ADR-0049-audit-security-event-model.md)
+- proposed [ADR-0054](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 
 ---
 
