@@ -55,7 +55,7 @@ std::string canonical(const NativeTimerModifyOperationPayload& payload)
 {
     if (!nativeTimerModifyOperationPayloadValid(payload)) return {};
     std::string output;
-    append(output, nativeTimerModifyKindName(payload.kind));
+    append(output, std::string(nativeTimerModifyKindName(payload.kind)));
     append(output, payload.timerAssignmentId);
     append(output, payload.expectedAssignmentRevision);
     append(output, payload.expectedIntentRevision);
