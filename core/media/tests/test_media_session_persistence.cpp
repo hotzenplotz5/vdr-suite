@@ -1,4 +1,5 @@
 #include "MediaAccessGrantAuthenticator.h"
+#include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
 
@@ -60,6 +61,7 @@ int main()
 
     MediaSessionRepository repository(database);
     assert(repository.ensureSchema());
+    MediaRouteLeaseRepository routeLeaseRepository(database);
 
     DeterministicEntropy entropy;
     MediaSessionIssuanceService issuer(
@@ -82,6 +84,10 @@ int main()
     const auto provisioning = repository.findSession(issued.session.sessionId);
     assert(provisioning.has_value());
     assert(provisioning->state == "provisioning");
+    assert(!routeLeaseRepository.findActive(
+        issued.session.sessionId,
+        issued.session.routeId,
+        issued.session.routeEpoch).has_value());
 
     const auto storedGrant = repository.findResolvedGrant(issued.session.grantId, 300);
     assert(storedGrant.has_value());
@@ -107,6 +113,24 @@ int main()
     assert(accepted.routeEpoch == 1);
     assert(accepted.actorId == "actor-1");
 
+    const auto activeLease = routeLeaseRepository.findActive(
+        accepted.sessionId,
+        accepted.routeId,
+        accepted.routeEpoch);
+    assert(activeLease.has_value());
+    assert(activeLease->sessionId == issued.session.sessionId);
+    assert(activeLease->routeId == issued.session.routeId);
+    assert(activeLease->routeEpoch == 1);
+    assert(activeLease->providerId == "local-vdr-recording");
+    assert(activeLease->leaseId == issued.session.leaseId);
+    assert(activeLease->workspaceId == issued.session.workspaceId);
+    assert(activeLease->presentationProfileId == "hls-fmp4");
+
+    assert(!routeLeaseRepository.findActive(
+        accepted.sessionId,
+        accepted.routeId,
+        accepted.routeEpoch + 1).has_value());
+
     std::string wrongCredential = issued.session.accessCredential;
     wrongCredential.back() = wrongCredential.back() == 'A' ? 'B' : 'A';
     const auto wrongSecret = authenticator.authenticate(
@@ -126,6 +150,11 @@ int main()
     assert(ended.has_value());
     assert(ended->state == "ended");
     assert(ended->terminalReason == "client_stop");
+    assert(!routeLeaseRepository.findActive(
+        issued.session.sessionId,
+        issued.session.routeId,
+        issued.session.routeEpoch).has_value());
+
     const auto afterEnd = authenticator.authenticate(
         issued.session.accessCredential,
         issued.session.sessionId);
