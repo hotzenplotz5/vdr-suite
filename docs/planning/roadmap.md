@@ -329,11 +329,11 @@ Phase 65 begins only after explicit kickoff. This roadmap update does not itself
 
 ## Phase 66 — Broadcast Companion Services: Teletext and HbbTV
 
-Status: **Planned after Phase 65; architecture proposal required before runtime.**
+Status: **Planned after Phase 65; architecture accepted, runtime not started.**
 
-Proposed architecture: `ADR-0054: Broadcast Companion Services — Teletext and HbbTV`.
+Binding architecture: [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md).
 
-ADR-0054 is intentionally introduced as a proposal by the roadmap-reconciliation work. Runtime implementation remains blocked until that ADR is accepted.
+ADR-0054 establishes the domain-first Teletext/HbbTV boundary and the future sequencing. Runtime implementation remains blocked until Phase 65 closes and Phase 66 is explicitly started.
 
 ### Why this phase exists before Legacy OSD
 
@@ -480,7 +480,7 @@ Status: **Planned after Phase 66.**
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
-Planning note: the accepted ADR-0047 architecture remains authoritative. This roadmap intentionally places its not-yet-started runtime after the Broadcast Companion phase. ADR-0054, if accepted, supersedes only the older future-phase numbering statement; it does not weaken ADR-0047's architecture or safety constraints.
+Planning note: the accepted ADR-0047 architecture remains authoritative. This roadmap intentionally places its not-yet-started runtime after the Broadcast Companion phase. Accepted ADR-0054 supersedes only the older future-phase numbering statement; it does not weaken ADR-0047's architecture or safety constraints.
 
 ### Phase goal
 
@@ -918,7 +918,7 @@ The roadmap/ADR reconciliation itself does not authorize Phase-65 runtime implem
 - [ADR-0044 Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053 Playback/Adaptation](../adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md)
+- [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0047 Legacy OSD](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049 Audit/Security](../adr/ADR-0049-audit-security-event-model.md)
-- Proposed ADR-0054 Broadcast Companion Services
