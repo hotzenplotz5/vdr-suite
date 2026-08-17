@@ -22,6 +22,7 @@ makefile = read("Makefile")
 header = read("core/agent/include/BackendAgentClient.h")
 client = read("core/agent/src/BackendAgentClient.cpp")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+command_json = read("core/agent/src/BackendAgentCommandJson.cpp")
 delivery = read("core/agent/src/BackendAgentCommandDelivery.cpp")
 advertisement = read(
     "core/agent/include/BackendAgentNativeTimerDeleteAdvertisement.h"
@@ -103,6 +104,18 @@ for token in (
 ):
     require(availability, token, "activated Timer command type")
 
+poll_types = command_json[
+    command_json.find("bool parseTypes"):
+    command_json.find("bool parseProviderFacts")
+]
+for token in (
+    "kBackendAgentNativeTimerCreateCommandType",
+    "kBackendAgentNativeTimerUpdateCommandType",
+    "kBackendAgentNativeTimerToggleCommandType",
+    "kBackendAgentNativeTimerDeleteCommandType",
+):
+    require(poll_types, token, "activated Timer poll parser type")
+
 for token in (
     "backendAgentNativeTimerAdvertisementValid",
     "native_timer_create_provider_advertisement_required",
@@ -124,6 +137,7 @@ for token in (
     "pie_timer_activation_replaced",
     "supportedCommandTypes.empty()",
     "localProviders.size() == 1",
+    "parseBackendAgentCommandPollRequestJson",
 ):
     require(client_test, token, "activation regression")
 require(config_test, ACTIVATED, "configuration activation regression")

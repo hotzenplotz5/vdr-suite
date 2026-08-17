@@ -1,4 +1,5 @@
 #include "BackendAgentCommandJson.h"
+#include "BackendAgentNativeTimerCreate.h"
 #include "BackendAgentNativeTimerDelete.h"
 #include "BackendAgentNativeTimerModify.h"
 
@@ -253,6 +254,12 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
         if (item.kind != Kind::String ||
             (item.stringValue != "probe.noop" &&
              item.stringValue != "vdr.native.probe" &&
+             item.stringValue !=
+                 vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType &&
+             item.stringValue !=
+                 vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType &&
+             item.stringValue !=
+                 vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType &&
              item.stringValue !=
                  vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType) ||
             std::find(types.begin(), types.end(), item.stringValue) != types.end())
