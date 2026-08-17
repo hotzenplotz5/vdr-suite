@@ -1,5 +1,7 @@
 #include "FfmpegHlsCommandBuilder.h"
 
+#include <string>
+
 namespace
 {
 
@@ -8,6 +10,31 @@ FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
     FfmpegHlsCommandPlan plan;
     plan.reasonCode = reasonCode;
     return plan;
+}
+
+bool appendSelectedTrackMaps(
+    std::vector<std::string>& argv,
+    const MediaPresentationProfile& profile)
+{
+    if (profile.videoAction != MediaTrackAction::Omit) {
+        if (profile.sourceVideoStreamIndex < 0) {
+            return false;
+        }
+        argv.push_back("-map");
+        argv.push_back(
+            "0:v:" + std::to_string(profile.sourceVideoStreamIndex) + "?");
+    }
+
+    if (profile.audioAction != MediaTrackAction::Omit) {
+        if (profile.sourceAudioStreamIndex < 0) {
+            return false;
+        }
+        argv.push_back("-map");
+        argv.push_back(
+            "0:a:" + std::to_string(profile.sourceAudioStreamIndex) + "?");
+    }
+
+    return true;
 }
 
 void appendVideoPlan(
@@ -92,11 +119,14 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         "-n",
         "-f", "concat",
         "-safe", "1",
-        "-i", "input.ffconcat",
-        "-map", "0:v:0?",
-        "-map", "0:a:0?",
-        "-sn"
+        "-i", "input.ffconcat"
     };
+
+    if (!appendSelectedTrackMaps(plan.argv, profile)) {
+        return invalid("selected_source_track_missing");
+    }
+
+    plan.argv.push_back("-sn");
 
     bool trackPlanValid = true;
     appendVideoPlan(plan.argv, profile, trackPlanValid);
