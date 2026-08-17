@@ -63,7 +63,7 @@ int runRecordingMediaHttpRuntime(
             const std::string& body,
             const std::string& actorRef)
         {
-            return recordingMediaSessionController.createSession(
+            return recordingMediaSessionController.handleRequest(
                 body,
                 actorRef);
         });
