@@ -133,7 +133,7 @@ for path in [
         raise SystemExit(f"{path}: public Agent route marker")
 
 print("Phase-63 command delivery runtime check passed")
-print("Command type: probe.noop baseline plus gated Phase-64 Timer successor")
+print("Command type: probe.noop only in Phase-63 baseline; gated Phase-64 Timer successor")
 print("Native VDR mutation: absent")
 print("command_capability_required")
 print("equivalent replay preserves the durable receipt")
