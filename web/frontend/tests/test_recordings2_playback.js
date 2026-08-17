@@ -66,7 +66,10 @@ assert.deepStrictEqual(
 );
 assert.strictEqual(test.recordingId({recordingId: 'rec_public'}), 'rec_public');
 assert.strictEqual(test.recordingId({id: 'rec_fallback'}), 'rec_fallback');
+assert.strictEqual(test.recordingId({nativeId: '/srv/vdr/video/private.rec'}), '');
 assert.strictEqual(test.recordingId({backendNativeId: '/srv/vdr/video/private.rec'}), '');
+assert.strictEqual(test.safeSessionId('mediasess_test'), 'mediasess_test');
+assert.strictEqual(test.safeSessionId('../mediasess_test'), '');
 
 const parsed = test.parsePlaylist([
   '#EXTM3U',
@@ -118,6 +121,23 @@ assert.ok(test.supportedMimeType().indexOf('avc1.640028') !== -1);
   assert.deepStrictEqual(body.capabilities.videoCodecs, ['h264']);
   assert.deepStrictEqual(body.capabilities.audioCodecs, ['aac']);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(body, 'accessCredential'), false);
+  assert.strictEqual(request.path.indexOf('token='), -1);
+  assert.strictEqual(request.path.indexOf('credential='), -1);
+
+  await test.stopSession('default', 'mediasess_test');
+  assert.strictEqual(request.path, '/api/media/sessions');
+  assert.strictEqual(request.options.method, 'POST');
+  assert.strictEqual(request.options.credentials, 'same-origin');
+  assert.strictEqual(request.options.cache, 'no-store');
+  assert.strictEqual(request.options.keepalive, true);
+  assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
+  const stopBody = JSON.parse(request.options.body);
+  assert.deepStrictEqual(stopBody, {
+    operation: 'stop',
+    backendId: 'default',
+    sessionId: 'mediasess_test'
+  });
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(stopBody, 'accessCredential'), false);
   assert.strictEqual(request.path.indexOf('token='), -1);
   assert.strictEqual(request.path.indexOf('credential='), -1);
 
