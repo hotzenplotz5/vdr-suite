@@ -167,6 +167,8 @@ public:
                 path,
                 manualMetadataBackendId,
                 manualMetadataOperation);
+        const bool isRecordingPlaybackSessionCreate =
+            isPost && path == "/api/media/sessions";
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -195,6 +197,8 @@ public:
             isNativeFuzzyStaleProbeDeleteAction ||
             isSeriesArtworkSettingsAction ||
             isManualRecordingMetadataAction;
+        const bool isExplicitlyAuthorizedPost =
+            isProtectedMutation || isRecordingPlaybackSessionCreate;
 
         if (isSafePost)
         {
@@ -206,7 +210,7 @@ public:
             return gate;
         }
 
-        if (isPost && gate.browserAuthenticated && !isProtectedMutation)
+        if (isPost && gate.browserAuthenticated && !isExplicitlyAuthorizedPost)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -222,7 +226,7 @@ public:
                 "");
         }
 
-        if (!isProtectedMutation)
+        if (!isExplicitlyAuthorizedPost)
         {
             const bool explicitPolicyRequired =
                 isPost &&
@@ -246,13 +250,18 @@ public:
             return gate;
         }
 
-        gate.protectedMutation = true;
+        gate.protectedMutation = isProtectedMutation;
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId =
             jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isRemoteAction)
+        if (isRecordingPlaybackSessionCreate)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.play";
+        }
+        else if (isRemoteAction)
         {
             requestToAuthorize.permission = "remote.control";
             requestToAuthorize.action = "remote.control";
