@@ -67,7 +67,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
 
 Completed history through Phase 64 is unchanged. The reorder affects only not-yet-started future phases.
 
-Proposed ADR-0054 defines the intended Teletext/HbbTV architecture for Phase 66. That phase remains runtime-blocked until the ADR is explicitly accepted.
+Accepted ADR-0054 defines the Teletext/HbbTV architecture for Phase 66. That phase remains runtime-blocked until it is explicitly started after Phase 65.
 
 ## Streaming architecture preparation
 
