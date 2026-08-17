@@ -41,7 +41,7 @@ TimerAssignment selectedAssignment(
     TimerAssignment assignment;
     assignment.timerAssignmentId = "assignment:create:outcome";
     assignment.timerIntentId = "intent:create:outcome";
-    assignment.intentRevision = "intent-revision:1";
+    assignment.intentRevision = "1";
     assignment.backendId = "backend:1";
     assignment.backendGeneration = 7;
     assignment.state = TimerAssignmentState::selected;
@@ -85,6 +85,15 @@ int main()
 {
     Database database;
     assert(database.open(":memory:"));
+    assert(database.execute(
+        "CREATE TABLE timer_intents ("
+        "timer_intent_id TEXT PRIMARY KEY NOT NULL,"
+        "intent_revision INTEGER NOT NULL CHECK(intent_revision > 0)"
+        ");"));
+    assert(database.execute(
+        "INSERT INTO timer_intents "
+        "(timer_intent_id,intent_revision) "
+        "VALUES ('intent:create:outcome',1);"));
 
     MutationOperationRepository operations(database);
     TimerAssignmentRepository assignments(database);
