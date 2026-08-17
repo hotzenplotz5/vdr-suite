@@ -68,6 +68,38 @@ std::string jsonEscape(const std::string& value)
     return result;
 }
 
+ApiResponse stoppedResponse(const std::string& sessionId)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    const std::string expiredCookie =
+        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+    if (!expiredCookie.empty()) {
+        response.headers["Set-Cookie"] = expiredCookie;
+    }
+    response.body =
+        "{\"mediaSession\":{\"id\":\"" +
+        jsonEscape(sessionId) +
+        "\",\"state\":\"ended\"}}";
+    return response;
+}
+
+ApiResponse stopFailureResponse(
+    const std::string& sessionId,
+    const std::string& code)
+{
+    ApiResponse response = jsonError(503, code);
+    const std::string expiredCookie =
+        MediaAccessCredentialHttp::expiredSessionCookie(sessionId);
+    if (!expiredCookie.empty()) {
+        response.headers["Set-Cookie"] = expiredCookie;
+    }
+    return response;
+}
+
 bool systemEntropy(unsigned char* output, std::size_t size)
 {
     std::size_t offset = 0;
@@ -134,6 +166,68 @@ RecordingMediaSessionController::RecordingMediaSessionController(
 }
 
 RecordingMediaSessionController::~RecordingMediaSessionController() = default;
+
+ApiResponse RecordingMediaSessionController::handleRequest(
+    const std::string& body,
+    const std::string& actorId) const
+{
+    if (actorId.empty()) {
+        return jsonError(401, "media_actor_required");
+    }
+
+    const RecordingMediaSessionStopRequest stopRequest =
+        RecordingMediaSessionRequestParser().parseStop(body);
+    if (stopRequest.valid) {
+        return stopSession(body, actorId);
+    }
+    if (stopRequest.reasonCode != "media_session_stop_not_requested") {
+        return jsonError(
+            400,
+            stopRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : stopRequest.reasonCode);
+    }
+
+    return createSession(body, actorId);
+}
+
+ApiResponse RecordingMediaSessionController::stopSession(
+    const std::string& body,
+    const std::string& actorId) const
+{
+    const RecordingMediaSessionStopRequest request =
+        RecordingMediaSessionRequestParser().parseStop(body);
+    if (!request.valid) {
+        return jsonError(
+            400,
+            request.reasonCode.empty()
+                ? "invalid_media_session_stop_request"
+                : request.reasonCode);
+    }
+
+    const auto stored = mediaSessionRepository_.findSession(request.sessionId);
+    if (!stored.has_value() || stored->backendId != request.backendId) {
+        return jsonError(404, "media_session_not_found");
+    }
+    if (stored->actorId != actorId) {
+        return jsonError(403, "media_session_not_owned");
+    }
+
+    if (stored->state == "ended" || stored->state == "failed") {
+        return stoppedResponse(request.sessionId);
+    }
+
+    if (!mediaSessionRuntime_->stop(request.sessionId, "client_closed")) {
+        mediaSessionRepository_.endBundle(
+            request.sessionId,
+            "client_stop_runtime_unavailable");
+        return stopFailureResponse(
+            request.sessionId,
+            "media_session_stop_failed");
+    }
+
+    return stoppedResponse(request.sessionId);
+}
 
 ApiResponse RecordingMediaSessionController::createSession(
     const std::string& body,
