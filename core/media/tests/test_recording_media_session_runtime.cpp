@@ -134,14 +134,23 @@ int main()
         const auto ready = repository.findSession(issued.session.sessionId);
         assert(ready.has_value());
         assert(ready->state == "ready");
+
+        assert(runtime.stop(issued.session.sessionId, "client_closed"));
+        assert(!runtime.stop(issued.session.sessionId, "client_closed"));
+        assert(terminateCalls == 1);
+
+        const auto stopped = repository.findSession(issued.session.sessionId);
+        assert(stopped.has_value());
+        assert(stopped->state == "ended");
+        assert(stopped->terminalReason == "client_closed");
+        assert(!std::filesystem::exists(root / issued.session.workspaceId));
     }
 
     assert(terminateCalls == 1);
     const auto ended = repository.findSession(issued.session.sessionId);
     assert(ended.has_value());
     assert(ended->state == "ended");
-    assert(ended->terminalReason == "daemon_shutdown");
-    assert(!std::filesystem::exists(root / issued.session.workspaceId));
+    assert(ended->terminalReason == "client_closed");
 
     issued.session.clearSecret();
     std::filesystem::remove_all(root);
