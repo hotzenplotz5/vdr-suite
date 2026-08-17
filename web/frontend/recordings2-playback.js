@@ -17,7 +17,13 @@
 
   function recordingId(recording) {
     if (!recording || typeof recording !== 'object') return '';
-    return text(recording.recordingId || recording.id || recording.nativeId).trim();
+    return text(recording.recordingId || recording.id).trim();
+  }
+
+  function safeSessionId(value) {
+    const id = text(value).trim();
+    if (!id || id.length > 128) return '';
+    return /^[A-Za-z0-9._:-]+$/.test(id) ? id : '';
   }
 
   function capabilities() {
@@ -59,6 +65,26 @@
       }),
       cache: 'no-store',
       credentials: 'same-origin'
+    });
+  }
+
+  function stopSession(backendId, sessionId) {
+    const api = global.VdrSuiteClientApi;
+    const id = safeSessionId(sessionId);
+    if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
+    if (!id) return Promise.resolve(null);
+
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'stop',
+        backendId: text(backendId || 'default'),
+        sessionId: id
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin',
+      keepalive: true
     });
   }
 
@@ -248,6 +274,9 @@
 
     let destroyed = false;
     let started = false;
+    let playbackFailed = false;
+    let stopIssued = false;
+    let activeSessionId = '';
     let pollTimer = null;
     let mediaSource = null;
     let objectUrl = '';
@@ -258,6 +287,14 @@
     function setStatus(message, error) {
       status.textContent = message;
       status.classList.toggle('error', Boolean(error));
+    }
+
+    function stopActiveSession() {
+      if (stopIssued || !activeSessionId) return;
+      stopIssued = true;
+      stopSession(backendId, activeSessionId).catch(function () {
+        // Browser teardown is best-effort. The server still owns shutdown recovery.
+      });
     }
 
     function schedulePump(callback) {
@@ -325,6 +362,8 @@
 
     function handlePlaybackError(error) {
       if (destroyed || (error && error.name === 'AbortError')) return;
+      playbackFailed = true;
+      stopActiveSession();
       setStatus(error && error.message ? error.message : String(error || 'Wiedergabefehler'), true);
       startButton.disabled = false;
     }
@@ -351,15 +390,22 @@
       const playRequest = video.play();
       if (playRequest && typeof playRequest.catch === 'function') playRequest.catch(function () {});
 
+      const sessionPromise = createSession(backendId, recording).then(function (session) {
+        const mediaSession = session && session.mediaSession;
+        activeSessionId = safeSessionId(mediaSession && mediaSession.id);
+        if (destroyed || playbackFailed) stopActiveSession();
+        return session;
+      });
+
       Promise.all([
-        createSession(backendId, recording),
+        sessionPromise,
         waitForSourceOpen(mediaSource)
       ]).then(function (results) {
         if (destroyed) return;
         const session = results[0];
         const mediaSession = session && session.mediaSession;
         const mediaPath = mediaSession && text(mediaSession.mediaPath);
-        if (!mediaSession || mediaSession.state !== 'ready' || !mediaPath) {
+        if (!activeSessionId || !mediaSession || mediaSession.state !== 'ready' || !mediaPath) {
           throw new Error('MediaSession wurde nicht wiedergabebereit bereitgestellt.');
         }
         const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
@@ -373,6 +419,7 @@
     function destroy() {
       if (destroyed) return;
       destroyed = true;
+      stopActiveSession();
       if (pollTimer !== null) {
         global.clearTimeout(pollTimer);
         pollTimer = null;
@@ -401,8 +448,10 @@
     createPanel: createPanel,
     __test: Object.freeze({
       recordingId: recordingId,
+      safeSessionId: safeSessionId,
       capabilities: capabilities,
       createSession: createSession,
+      stopSession: stopSession,
       safeArtifactName: safeArtifactName,
       parsePlaylist: parsePlaylist,
       artifactUrl: artifactUrl,
