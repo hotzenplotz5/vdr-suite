@@ -10,6 +10,7 @@ test-phase64-command-state-extension: test-phase64-command-state-extension-archi
 		core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
+		core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 		core/agent/src/BackendAgentCommandStateExtension.cpp \
 		core/agent/tests/test_backend_agent_command_state_extension.cpp \
 		$(LDFLAGS) \
@@ -21,6 +22,7 @@ test-phase64-command-state-extension: test-phase64-command-state-extension-archi
 		core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
+		core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 		core/agent/src/BackendAgentCommandStateExtension.cpp \
 		core/agent/tests/test_backend_agent_native_timer_create_state_extension.cpp \
 		$(LDFLAGS) \
