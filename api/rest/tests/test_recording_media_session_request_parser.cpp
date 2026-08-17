@@ -119,6 +119,31 @@ void missingOrEmptyCapabilitiesFailClosed()
     assert(empty.reasonCode == "invalid_media_capabilities");
 }
 
+void stopRequestMapsOwnedSessionIdentity()
+{
+    const auto result = RecordingMediaSessionRequestParser().parseStop(
+        R"json({"operation":"stop","backendId":"default","sessionId":"mediasess_0123456789abcdef"})json");
+    assert(result.valid);
+    assert(result.reasonCode.empty());
+    assert(result.backendId == "default");
+    assert(result.sessionId == "mediasess_0123456789abcdef");
+
+    const auto notRequested = RecordingMediaSessionRequestParser().parseStop(
+        ValidRequest);
+    assert(!notRequested.valid);
+    assert(notRequested.reasonCode == "media_session_stop_not_requested");
+
+    const auto badOperation = RecordingMediaSessionRequestParser().parseStop(
+        R"json({"operation":"delete","backendId":"default","sessionId":"mediasess_1"})json");
+    assert(!badOperation.valid);
+    assert(badOperation.reasonCode == "invalid_media_session_operation");
+
+    const auto unsafeSession = RecordingMediaSessionRequestParser().parseStop(
+        R"json({"operation":"stop","backendId":"default","sessionId":"../mediasess_1"})json");
+    assert(!unsafeSession.valid);
+    assert(unsafeSession.reasonCode == "invalid_media_session_id");
+}
+
 } // namespace
 
 int main()
@@ -128,5 +153,6 @@ int main()
     unknownCapabilitiesFailClosed();
     malformedScalarsFailClosed();
     missingOrEmptyCapabilitiesFailClosed();
+    stopRequestMapsOwnedSessionIdentity();
     return 0;
 }
