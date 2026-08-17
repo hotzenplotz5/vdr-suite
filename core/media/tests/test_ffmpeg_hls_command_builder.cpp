@@ -31,6 +31,8 @@ MediaPresentationProfile hlsFmp4Profile()
     profile.adaptationClass = MediaAdaptationClass::Transcode;
     profile.videoAction = MediaTrackAction::Copy;
     profile.audioAction = MediaTrackAction::Transcode;
+    profile.sourceVideoStreamIndex = 0;
+    profile.sourceAudioStreamIndex = 1;
     profile.targetVideoCodec = MediaCodec::H264;
     profile.targetAudioCodec = MediaCodec::Aac;
     return profile;
@@ -50,7 +52,8 @@ int main()
         assert(plan.argv.front() == "/usr/bin/ffmpeg");
         assert(plan.argv.back() == "master.m3u8");
         assert(std::find(plan.argv.begin(), plan.argv.end(), "/bin/sh") == plan.argv.end());
-        assert(std::find(plan.argv.begin(), plan.argv.end(), "-c:v") != plan.argv.end());
+        assert(containsPair(plan.argv, "-map", "0:v:0?"));
+        assert(containsPair(plan.argv, "-map", "0:a:1?"));
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "aac"));
         assert(containsPair(plan.argv, "-b:a", "192k"));
@@ -88,6 +91,16 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "libx264"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.sourceAudioStreamIndex = -1;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "selected_source_track_missing");
+        assert(plan.argv.empty());
     }
 
     {
