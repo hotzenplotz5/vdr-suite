@@ -79,7 +79,7 @@ required_content = (
     "strcasecmp(command, CommandName())",
     "ParseRequestedSchema(option)",
     'inline constexpr const char *Name = "suitebridge";',
-    'inline constexpr const char *Version = "0.13.2";',
+    'inline constexpr const char *Version = "0.13.3";',
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     "svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
     "svdrp command=CAPS result=rejected reply=%d",
@@ -114,13 +114,25 @@ discovery_dispatch = plugin_source.find(
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply("
 )
 discovery_handled = plugin_source.find("if (capabilityReply.Handled())")
-snapshot_capture = plugin_source.find("statusMonitor_.CaptureSnapshot()")
+snapshot_reply = plugin_source.find(
+    "const SuiteBridgeSvdrpReply snapshotReply("
+)
+snapshot_capture = plugin_source.find(
+    "statusMonitor_.CaptureSnapshot()",
+    max(snapshot_reply, 0),
+)
 
 if (
     discovery_dispatch < 0
     or discovery_handled < 0
+    or snapshot_reply < 0
     or snapshot_capture < 0
-    or not discovery_dispatch < discovery_handled < snapshot_capture
+    or not (
+        discovery_dispatch
+        < discovery_handled
+        < snapshot_reply
+        <= snapshot_capture
+    )
 ):
     errors.append(
         "CAPS must be dispatched and returned before SNAP captures a snapshot"
