@@ -82,7 +82,7 @@ if packaged.count("COMMAND_TYPES=") != 1:
 require(packaged, ACTIVATED + "\n", "exact packaged Timer activation")
 
 availability = command_client[
-    command_client.find("CommandAvailability availableCommands"):
+    command_client.find("bool mergeProviderFacts"):
     command_client.find("bool reconcileBackendAgentCommandState")
 ]
 for needle in (
