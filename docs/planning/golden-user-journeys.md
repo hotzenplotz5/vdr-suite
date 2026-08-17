@@ -161,7 +161,7 @@ Acceptance proves:
 - page/subpage navigation is deterministic;
 - no raw VDR remote/plugin command channel is required for normal Teletext browsing.
 
-This becomes a Phase-66 product journey after proposed ADR-0054 is accepted.
+This is a Phase-66 product journey under accepted ADR-0054; runtime remains not started until Phase 66 is explicitly authorized.
 
 ---
 
@@ -191,7 +191,7 @@ Acceptance proves:
 
 External broadcaster/network failure is reported distinctly from Suite discovery/session failure.
 
-This becomes a Phase-66 product journey after proposed ADR-0054 is accepted.
+This is a Phase-66 product journey under accepted ADR-0054; runtime remains not started until Phase 66 is explicitly authorized.
 
 ---
 
