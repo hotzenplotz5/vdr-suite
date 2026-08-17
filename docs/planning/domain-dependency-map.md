@@ -16,7 +16,7 @@
 
 ## Purpose
 
-This document defines dependency direction between VDR-Suite domain models. Accepted architecture remains authoritative; proposed ADR-0054 is represented only where explicitly labeled as proposed planning input.
+This document defines dependency direction between VDR-Suite domain models. Accepted architecture remains authoritative; ADR-0054 is represented as accepted architecture while runtime completion remains separately governed by the Strict Roadmap.
 
 It answers:
 
@@ -549,9 +549,9 @@ PlaybackConnection -x-> persistent Recording mutation right
 
 ---
 
-# 10A. Broadcast Companion Domain — Proposed ADR-0054
+# 10A. Broadcast Companion Domain — ADR-0054
 
-This section is proposed planning architecture until ADR-0054 is accepted.
+This section reflects accepted architecture. Runtime remains planned for Phase 66 after Phase 65 and requires an explicit Phase-66 start.
 
 ```text
 TeletextServiceRef
@@ -842,7 +842,7 @@ MediaSession, route, grant, provider lease and playback adaptation
         |
         v
 Phase 66
-TeletextService/Page + BroadcastApplication discovery/session [proposed ADR-0054]
+TeletextService/Page + BroadcastApplication discovery/session [ADR-0054 accepted]
         |
         v
 Phase 67
@@ -857,7 +857,7 @@ Phase 69
 Recommendations and knowledge graph over mature identities/provenance
 ```
 
-Later phases may prepare isolated internal code only when they do not publish, activate or bypass prerequisites. The strict roadmap controls runtime start and completion. Proposed ADR-0054 does not authorize Phase-66 runtime until accepted.
+Later phases may prepare isolated internal code only when they do not publish, activate or bypass prerequisites. The strict roadmap controls runtime start and completion. Accepted ADR-0054 does not authorize Phase-66 runtime before Phase 65 closes and Phase 66 is explicitly started.
 
 ---
 
@@ -890,10 +890,10 @@ A domain slice is not ready merely because its class names exist. It must prove:
 - [ADR-0045](../adr/ADR-0045-canonical-epg-event-identity-provenance.md)
 - [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053](../adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md)
+- [ADR-0054](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049](../adr/ADR-0049-audit-security-event-model.md)
-- proposed [ADR-0054](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 
 ---
 
