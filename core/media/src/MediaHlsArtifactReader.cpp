@@ -1,6 +1,7 @@
 #include "MediaHlsArtifactReader.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <filesystem>
 #include <fcntl.h>
@@ -30,12 +31,18 @@ bool safeWorkspaceId(const std::string& value)
         });
 }
 
+bool hasSuffix(const std::string& value, const std::string& suffix)
+{
+    return value.size() >= suffix.size() &&
+        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 std::string contentTypeFor(const std::string& artifactName)
 {
     if (artifactName == "master.m3u8") return "application/vnd.apple.mpegurl";
     if (artifactName == "init.mp4") return "video/mp4";
-    if (artifactName.size() >= 4 && artifactName.ends_with(".m4s")) return "video/iso.segment";
-    if (artifactName.size() >= 3 && artifactName.ends_with(".ts")) return "video/mp2t";
+    if (hasSuffix(artifactName, ".m4s")) return "video/iso.segment";
+    if (hasSuffix(artifactName, ".ts")) return "video/mp2t";
     return "application/octet-stream";
 }
 
