@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization
+.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http
 
 CXXFLAGS += -Icore/media/include
 
@@ -94,6 +94,12 @@ test-phase65-recording-playback-authorization:
 		-o $(BUILD_DIR)/test_phase65_recording_playback_authorization
 	$(BUILD_DIR)/test_phase65_recording_playback_authorization
 
+test-phase65-media-access-credential-http:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/http/include \
+		core/http/tests/test_media_access_credential_http.cpp \
+		-o $(BUILD_DIR)/test_phase65_media_access_credential_http
+	$(BUILD_DIR)/test_phase65_media_access_credential_http
+
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization
+test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http

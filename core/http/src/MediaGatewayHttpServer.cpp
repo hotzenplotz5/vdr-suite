@@ -1,5 +1,6 @@
 #include "MediaGatewayHttpServer.h"
 
+#include "MediaAccessCredentialHttp.h"
 #include "MediaAccessGrantAuthenticator.h"
 #include "MediaHlsArtifactReader.h"
 #include "MediaRouteLeaseRepository.h"
@@ -14,9 +15,6 @@ namespace
 
 constexpr const char* Prefix = "/api/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
-constexpr const char* MediaCookieName = "vdr_suite_media";
-constexpr const char* MediaAuthorizationHeader =
-    "X-VDR-Suite-Media-Authorization";
 
 bool safeIdentifier(const std::string& value)
 {
@@ -85,7 +83,7 @@ std::string mediaCredentialFromCookie(const std::string& cookie)
             end == std::string::npos ? std::string::npos : end - cursor);
         const std::size_t separator = item.find('=');
         if (separator != std::string::npos &&
-            item.substr(0, separator) == MediaCookieName) {
+            item.substr(0, separator) == MediaAccessCredentialHttp::CookieName) {
             return item.substr(separator + 1);
         }
         if (end == std::string::npos) break;
@@ -97,7 +95,7 @@ std::string mediaCredentialFromCookie(const std::string& cookie)
 std::string mediaCredential(const HttpServerRequest& request)
 {
     const std::string authorization =
-        headerValue(request, MediaAuthorizationHeader);
+        headerValue(request, MediaAccessCredentialHttp::AuthorizationHeader);
     const std::string bearer = "Bearer ";
     if (authorization.rfind(bearer, 0) == 0 &&
         authorization.size() > bearer.size()) {
