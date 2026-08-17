@@ -389,12 +389,11 @@ scoped_runtime = "\n".join([
 if "mutations=enabled" in scoped_runtime or '"enabled"' in scoped_runtime:
     errors.append("mutations=enabled is forbidden")
 
-# Phase 64 may classify already-validated Timer command state in the generic
-# Agent command owner. These boolean discriminators carry no execution authority.
-# Strip only the exact CREATE/DELETE declarations from the old Phase-63
-# mutation-name heuristic, and only while each remains paired with its bounded
-# fresh-starting handoff. Every other timer/recording/channel/etc assignment
-# remains forbidden by the original scan below.
+# Phase 64 may classify already-validated Timer command state and capability
+# availability in the generic Agent command owner. These boolean discriminators
+# carry no mutation authority. Strip only their exact declarations and bounded
+# fail-closed availability state from the old Phase-63 mutation-name heuristic.
+# Every other timer/recording/channel/etc assignment remains forbidden below.
 allowed_timer_discriminators = (
     (
         "Timer-create",
@@ -434,6 +433,65 @@ allowed_timer_discriminators = (
 )
 
 scoped_runtime_boundary = scoped_runtime
+
+timer_availability_discriminator = (
+    "const bool timerType =\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;"
+)
+timer_snapshot_initial = "bool timerSnapshotCoherent = true;"
+timer_snapshot_failed = "timerSnapshotCoherent = false;"
+timer_availability_start = agent_client.find(
+    "CommandAvailability availableCommands("
+)
+timer_availability_end = agent_client.find(
+    "\nbool reconcileBackendAgentCommandState(",
+    timer_availability_start,
+)
+timer_availability_runtime = (
+    agent_client[timer_availability_start:timer_availability_end]
+    if timer_availability_start >= 0
+    and timer_availability_end > timer_availability_start
+    else ""
+)
+timer_availability_tokens = (
+    "if (!transport->discoverProvider(facts, reason))",
+    "catch (...)",
+    "if (supported.empty())",
+    "if (!mergeProviderFacts(timerProviders, facts))",
+    "if (timerSnapshotCoherent &&",
+    "availability.localProviders.clear();",
+)
+
+if (
+    agent_client.count(timer_availability_discriminator) != 1
+    or timer_availability_runtime.count(timer_snapshot_initial) != 1
+    or timer_availability_runtime.count(timer_snapshot_failed) != 5
+    or any(
+        token not in timer_availability_runtime
+        for token in timer_availability_tokens
+    )
+):
+    errors.append(
+        "Timer availability discriminator must remain a single bounded "
+        "fail-closed Phase-64 capability handoff"
+    )
+else:
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        timer_availability_discriminator, "", 1
+    )
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        timer_snapshot_initial, "", 1
+    )
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        timer_snapshot_failed, "", 5
+    )
 
 for label, discriminator, required_handoffs in allowed_timer_discriminators:
     if discriminator not in agent_client:
