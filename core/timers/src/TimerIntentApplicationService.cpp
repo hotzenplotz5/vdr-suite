@@ -22,9 +22,12 @@ TimerIntentApplicationResult result(
 
 bool requestValid(const TimerIntentApplicationRequest& request)
 {
-    return timerIntentValid(request.intent)
+    TimerIntent revisionValidated = request.intent;
+    revisionValidated.intentRevision = "1";
+
+    return request.intent.intentRevision.empty()
+        && timerIntentValid(revisionValidated)
         && request.intent.state == TimerIntentState::draft
-        && request.intent.intentRevision.empty()
         && !request.timerAssignmentId.empty()
         && request.timerAssignmentId.size() <= 160
         && request.activatedAt > request.intent.updatedAt
