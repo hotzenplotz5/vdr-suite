@@ -50,6 +50,26 @@ int main()
         assert(profile.adaptationClass == MediaAdaptationClass::PassThrough);
         assert(profile.videoAction == MediaTrackAction::Copy);
         assert(profile.audioAction == MediaTrackAction::Copy);
+        assert(profile.sourceVideoStreamIndex == 0);
+        assert(profile.sourceAudioStreamIndex == 0);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+
+        ClientMediaCapabilities client;
+        client.protocols = {MediaDeliveryProtocol::Progressive};
+        client.containers = {MediaContainer::MpegTs};
+        client.videoCodecs = {MediaCodec::H264};
+        client.audioCodecs = {MediaCodec::Aac};
+        client.supportsByteRanges = true;
+
+        const auto profile = selector.select(source, client);
+        assert(profile.available);
+        assert(profile.adaptationClass == MediaAdaptationClass::PassThrough);
+        assert(profile.sourceAudioStreamIndex == 1);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
     }
 
     {
@@ -60,8 +80,23 @@ int main()
         assert(profile.container == MediaContainer::Fmp4);
         assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
         assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.sourceVideoStreamIndex == 0);
         assert(profile.targetVideoCodec == MediaCodec::H264);
         assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.profileId == "hls-fmp4");
+        assert(profile.adaptationClass == MediaAdaptationClass::Remux);
+        assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.audioAction == MediaTrackAction::Copy);
+        assert(profile.sourceAudioStreamIndex == 1);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
     }
 
