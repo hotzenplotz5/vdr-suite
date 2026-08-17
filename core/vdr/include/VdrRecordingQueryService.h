@@ -21,6 +21,11 @@ public:
     VdrRecordingQueryResult queryRecordings(
         const VdrRecordingQuery& query) const;
 
+    bool findRecordingById(
+        const std::string& backendId,
+        const std::string& recordingId,
+        VdrRecording& recording) const;
+
 private:
     VdrService& vdrService_;
     VdrRecordingCacheRepository* recordingCacheRepository_;
