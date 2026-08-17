@@ -7,5 +7,6 @@ test-phase65-media-capability-negotiation:
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
 	$(BUILD_DIR)/test_phase65_media_capability_negotiation
 
-# Phase 65 is an active runtime phase. Keep its contract test in the fast CI gate.
-test-ci-fast: test-phase65-media-capability-negotiation
+# test-ci-fast already owns test-fast in the canonical group file. Extend that
+# existing public group instead of defining a second canonical group target.
+test-fast: test-phase65-media-capability-negotiation
