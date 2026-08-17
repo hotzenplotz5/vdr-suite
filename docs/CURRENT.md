@@ -116,7 +116,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 Future phases 66+ are not runtime-authorized merely because they are named here. The strict details and gates live in the [Roadmap](planning/roadmap.md).
 
-The Phase-66 Broadcast Companion architecture is introduced as **proposed ADR-0054** by the roadmap-reconciliation work. Teletext/HbbTV runtime remains blocked until that ADR is explicitly accepted.
+The Phase-66 Broadcast Companion architecture is defined by **accepted ADR-0054**. Teletext/HbbTV runtime remains blocked until Phase 66 is explicitly started after Phase 65.
 
 ## Timer Product UI decision
 
