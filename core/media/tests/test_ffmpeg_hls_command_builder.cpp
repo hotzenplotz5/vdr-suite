@@ -21,6 +21,13 @@ bool containsPair(
     return false;
 }
 
+bool containsValue(
+    const std::vector<std::string>& argv,
+    const std::string& value)
+{
+    return std::find(argv.begin(), argv.end(), value) != argv.end();
+}
+
 MediaPresentationProfile hlsFmp4Profile()
 {
     MediaPresentationProfile profile;
@@ -51,19 +58,26 @@ int main()
         assert(!plan.argv.empty());
         assert(plan.argv.front() == "/usr/bin/ffmpeg");
         assert(plan.argv.back() == "master.m3u8");
-        assert(std::find(plan.argv.begin(), plan.argv.end(), "/bin/sh") == plan.argv.end());
+        assert(!containsValue(plan.argv, "/bin/sh"));
+        assert(containsValue(plan.argv, "-re"));
         assert(containsPair(plan.argv, "-map", "0:v:0?"));
         assert(containsPair(plan.argv, "-map", "0:a:1?"));
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "aac"));
         assert(containsPair(plan.argv, "-b:a", "192k"));
+        assert(containsPair(plan.argv, "-hls_time", "4"));
+        assert(containsPair(plan.argv, "-hls_list_size", "8"));
+        assert(containsPair(plan.argv, "-hls_delete_threshold", "2"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
+        assert(!containsValue(plan.argv, "-hls_playlist_type"));
+        assert(!containsValue(plan.argv, "event"));
         assert(containsPair(plan.argv, "-hls_segment_type", "fmp4"));
         assert(containsPair(plan.argv, "-hls_fmp4_init_filename", "init.mp4"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.m4s"));
-        assert(std::find(
-            plan.argv.begin(),
-            plan.argv.end(),
-            "untrusted-profile-name;rm -rf /") == plan.argv.end());
+        assert(!containsValue(plan.argv, "untrusted-profile-name;rm -rf /"));
     }
 
     {
@@ -78,7 +92,7 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
-        assert(std::find(plan.argv.begin(), plan.argv.end(), "-hls_segment_type") == plan.argv.end());
+        assert(!containsValue(plan.argv, "-hls_segment_type"));
     }
 
     {
