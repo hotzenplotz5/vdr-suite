@@ -4,6 +4,7 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "MediaSessionRepository.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
 #include "SimpleHttpListener.h"
 
@@ -31,6 +32,17 @@ int DaemonRuntime::run()
         return 1;
     }
 
+    MediaSessionRepository mediaSessionRepository(database_);
+    if (!mediaSessionRepository.ensureSchema()) {
+        std::cerr << "failed to initialize MediaSession schema" << std::endl;
+        return 1;
+    }
+    if (!mediaSessionRepository.recoverNonTerminalBundles()) {
+        std::cerr << "failed to recover MediaSession runtime ownership" << std::endl;
+        return 1;
+    }
+
+    std::cout << "MediaSession persistence and restart recovery initialized" << std::endl;
     std::cout << "vdr-suite-daemon runtime running" << std::endl;
     std::cout << "vdr-suite-daemon serving HTTP on " << config_.httpListenHost() << ":" << config_.httpListenPort() << std::endl;
 

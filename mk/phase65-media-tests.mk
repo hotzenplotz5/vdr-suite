@@ -1,5 +1,7 @@
 .PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http
 
+CXXFLAGS += -Icore/media/include
+
 test-phase65-media-capability-negotiation:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
 		core/media/src/MediaPresentationSelector.cpp \
