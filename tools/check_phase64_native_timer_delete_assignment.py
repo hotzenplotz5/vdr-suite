@@ -17,6 +17,9 @@ DOC = ROOT / "docs/development/phase-64-native-timer-delete-assignment.md"
 FRAGMENT = ROOT / "mk/phase64-native-timer-delete-assignment-tests.mk"
 MAKEFILE = ROOT / "Makefile"
 AGENT_SOURCES = ROOT / "mk/agent-sources.mk"
+ACTIVATION_GUARD = ROOT / (
+    "tools/check_phase64_suitebridge_native_timer_command_path_wiring.py"
+)
 
 failures: list[str] = []
 
@@ -135,8 +138,44 @@ for forbidden in [
     if forbidden in source:
         failures.append(f"Slice-25 assignment contains forbidden delivery/write coupling: {forbidden}")
 
-if DELIVERY.is_file() and "vdr.timer.delete" in DELIVERY.read_text(encoding="utf-8"):
-    failures.append("Slice-25 unexpectedly changes Timer-delete delivery runtime")
+delivery = DELIVERY.read_text(encoding="utf-8") if DELIVERY.is_file() else ""
+if "vdr.timer.delete" in delivery:
+    # The accepted command-path successor extends delivery only with the exact
+    # provider-selection fence. Slice-25 assignment persistence itself remains
+    # absent from every runtime source manifest below.
+    activation_guard = (
+        ACTIVATION_GUARD.read_text(encoding="utf-8")
+        if ACTIVATION_GUARD.is_file()
+        else ""
+    )
+    for marker in [
+        'delivery = read("core/agent/src/BackendAgentCommandDelivery.cpp")',
+        '"native_timer_delete_provider_advertisement_required"',
+        '"localProviderSelectionCurrent"',
+        '"kBackendAgentNativeTimerDeleteCommandType"',
+    ]:
+        if marker not in activation_guard:
+            failures.append(
+                "Timer-delete delivery requires the bounded command-path "
+                f"successor guard marker: {marker}"
+            )
+    for marker in [
+        (
+            "c.command_type NOT IN('vdr.native.probe','vdr.timer.create',"
+            "'vdr.timer.update','vdr.timer.toggle','vdr.timer.delete')"
+        ),
+        "JOIN backend_agent_local_provider_ownership",
+        "JOIN backend_agent_local_provider_facts",
+        "f.provider_instance_epoch=s.provider_instance_epoch",
+        "f.provider_generation=s.provider_generation",
+        "f.capability_revision=s.capability_revision",
+        "f.available=1",
+    ]:
+        if marker not in delivery:
+            failures.append(
+                "Timer-delete delivery successor misses provider fence: "
+                + marker
+            )
 if CLIENT.is_file() and "vdr.timer.delete" in CLIENT.read_text(encoding="utf-8"):
     failures.append("Slice-25 unexpectedly advertises/executes Timer delete in Agent client")
 
