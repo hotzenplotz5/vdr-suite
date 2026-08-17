@@ -100,7 +100,7 @@ Browser is the initial first-party product-validation client. Streamdev may be a
 
 ## Phase 66 compact boundary
 
-Planned architecture: proposed ADR-0054.
+Binding architecture: accepted ADR-0054.
 
 Teletext and HbbTV are television-domain capabilities and therefore precede Legacy OSD compatibility.
 
