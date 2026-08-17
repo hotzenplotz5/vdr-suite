@@ -27,6 +27,7 @@
     requestSequence: 0
   };
   let view;
+  let playbackRuntimePromise = null;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -43,6 +44,21 @@
     if (state.error) return view.renderError();
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
+  }
+  function ensurePlaybackRuntime() {
+    if (global.VdrSuiteRecordings2Playback) return Promise.resolve();
+    if (playbackRuntimePromise) return playbackRuntimePromise;
+    if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve();
+    playbackRuntimePromise = global.loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-playback-runtime',
+      '/frontend/recordings2-playback.js',
+      function () { return Boolean(global.VdrSuiteRecordings2Playback); }
+    ).then(function () {
+      if (state.active && state.selectedRecording) render();
+    }).catch(function (error) {
+      console.error('VDR-Suite Recordings 2 playback runtime failed', error);
+    });
+    return playbackRuntimePromise;
   }
   function requestFolder(path, offset) {
     const api = shared.clientApi();
@@ -167,6 +183,7 @@
   }
   function closeDetail() {
     const detailReturn = state.detailReturn;
+    if (view && typeof view.destroy === 'function') view.destroy();
     state.selectedRecording = null;
     clearExternalDetailReturn();
     if (typeof detailReturn === 'function') {
@@ -204,6 +221,7 @@
       render();
     },
     deactivate: function () {
+      if (view && typeof view.destroy === 'function') view.destroy();
       state.active = false;
       state.requestSequence += 1;
       state.selectedRecording = null;
@@ -250,7 +268,8 @@
       formatSize: shared.formatSize,
       normalizeRecording: normalizeRecording,
       applyFolderData: applyFolderData,
-      resolveSingleRecordingLeaves: resolveSingleRecordingLeaves
+      resolveSingleRecordingLeaves: resolveSingleRecordingLeaves,
+      ensurePlaybackRuntime: ensurePlaybackRuntime
     })
   });
   function ensureNavigationTab() {
@@ -307,4 +326,5 @@
     boundary.registerModule('recordings2', moduleApi);
   }
   installShellEntry();
+  ensurePlaybackRuntime();
 }(window));
