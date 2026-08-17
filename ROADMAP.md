@@ -44,7 +44,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 69 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 66 is backed by proposed ADR-0054 and remains runtime-blocked until that ADR is explicitly accepted.
+Phase 66 is backed by accepted ADR-0054. Runtime remains blocked until Phase 66 is explicitly started after Phase 65.
 
 ## Cross-cutting product milestones
 
