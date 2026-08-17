@@ -211,7 +211,7 @@ VDR-Suite does not vendor one universal decoder/rendering core.
 
 Phase 66 depends on A-B and on Phase-65 media semantics where HbbTV/application media uses Suite-owned resources.
 
-Architecture is introduced by proposed ADR-0054 and is not runtime-authorized until accepted.
+Architecture is defined by accepted ADR-0054; runtime remains unauthorized until Phase 65 closes and Phase 66 is explicitly started.
 
 ### Teletext dependency direction
 
