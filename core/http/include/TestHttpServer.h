@@ -21,6 +21,7 @@
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
+#include <map>
 #include <memory>
 
 class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
@@ -44,7 +45,8 @@ public:
         return mapApiResponse(
             response.statusCode,
             response.contentType,
-            response.body);
+            response.body,
+            response.headers);
     }
 
     bool securityReady() const
@@ -89,7 +91,8 @@ private:
     HttpServerResponse mapApiResponse(
         int statusCode,
         const std::string& contentType,
-        const std::string& body) const;
+        const std::string& body,
+        const std::map<std::string, std::string>& headers) const;
 
     HttpServerResponse finalizeResponse(
         const RequestSecurityContext& context,
