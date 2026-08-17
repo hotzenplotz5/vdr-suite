@@ -6,11 +6,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PHASE_MAP = ROOT / "docs/planning/phase-map.md"
 ROADMAP = ROOT / "docs/planning/roadmap.md"
 
-LATEST = "Phase 63 - Backend Agent and Secure Multi-Site Runtime"
-ACTIVE = "Phase 64 - Timer Intent and Multi-Backend Orchestration"
+LATEST = "Phase 64 - Timer Intent and Multi-Backend Orchestration"
 NEXT = "Phase 65 - Streaming Gateway and Media Sessions"
-HISTORICAL = "Phase 58 - Frontend and Live Parity"
-HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
+NOT_STARTED = "Phase 65 has not started"
+HISTORICAL = "Phase 58 remains a historical umbrella label only."
 
 COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -29,6 +28,7 @@ COMPLETED_RANGES = [
     "Phase 61",
     "Phase 62",
     "Phase 63",
+    "Phase 64",
 ]
 
 ROADMAP_ORDER = [
@@ -49,6 +49,7 @@ REQUIRED_FILES = [
     "docs/development/completed-phases/phase-61.md",
     "docs/development/phase-62-closeout.md",
     "docs/development/phase-62-slice-2x-runtime-closeout.md",
+    "docs/development/phase-64-closeout.md",
 ]
 
 
@@ -85,14 +86,19 @@ def main():
     require_markers(
         phase_map,
         "docs/planning/phase-map.md",
-        COMPLETED_RANGES + [LATEST, ACTIVE, NEXT, HARDENING, HISTORICAL],
+        COMPLETED_RANGES + [LATEST, NEXT],
     )
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        [LATEST, ACTIVE, NEXT, HARDENING, HISTORICAL],
+        [LATEST, NEXT],
     )
     require_order(roadmap, "docs/planning/roadmap.md", ROADMAP_ORDER)
+
+    # The historical Phase-58 umbrella must remain represented without being
+    # mistaken for current execution state.
+    if HISTORICAL not in phase_map and HISTORICAL not in roadmap:
+        fail("historical Phase 58 umbrella marker is missing")
 
     for rel in REQUIRED_FILES:
         if not (ROOT / rel).is_file():
@@ -104,7 +110,19 @@ def main():
         "docs/development/current-status.md",
     ]:
         text = (ROOT / rel).read_text(encoding="utf-8")
-        require_markers(text, rel, [LATEST, ACTIVE, NEXT])
+        require_markers(text, rel, [LATEST, NEXT, NOT_STARTED])
+
+    closeout = (ROOT / "docs/development/phase-64-closeout.md").read_text(
+        encoding="utf-8"
+    )
+    require_markers(
+        closeout,
+        "docs/development/phase-64-closeout.md",
+        [
+            "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
+            "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
+        ],
+    )
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     require_markers(readme, "README.md", ["docs/CURRENT.md", "docs/planning/roadmap.md"])
@@ -115,14 +133,15 @@ def main():
             "Next strict runtime phase:\nPhase 63",
             "Current active runtime slice:\nPhase 63",
             "Current merged main baseline:",
+            "Latest completed numbered runtime phase:\nPhase 63",
         ]:
             if stale in text:
                 fail(f"{rel} still contains stale/volatile planning marker: {stale}")
 
     print("Phase map coverage check passed.")
     print("Latest completed numbered runtime phase: " + LATEST)
-    print("Current active numbered runtime phase: " + ACTIVE)
-    print("Next strict numbered runtime phase: " + NEXT)
+    print("Current active numbered runtime phase: none")
+    print("Next strict numbered runtime phase: " + NEXT + " (not started)")
     return 0
 
 

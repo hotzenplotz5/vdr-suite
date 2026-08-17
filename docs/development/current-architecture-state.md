@@ -5,6 +5,7 @@
 - [README](../../README.md)
 - [Documentation Index](../index.md)
 - [Current State](../CURRENT.md)
+- [Phase 64 Closeout](phase-64-closeout.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Strict Roadmap](../planning/roadmap.md)
 
@@ -12,9 +13,9 @@
 
 ## Purpose
 
-This document summarizes **implemented architecture by durable capability boundary**. It intentionally does not copy active PR numbers, exact current branch heads or CI checkpoints from [Current State](../CURRENT.md).
+This document summarizes **implemented architecture by durable capability boundary**. It intentionally does not copy active PR tips or transient CI checkpoints from [Current State](../CURRENT.md).
 
-Historical exact acceptance evidence stays in phase/slice closeouts. Volatile implementation progress inside the active phase stays in `docs/CURRENT.md`.
+Historical exact acceptance evidence stays in phase/slice closeouts. Volatile implementation progress inside an active phase stays in `docs/CURRENT.md`.
 
 ## Ownership model
 
@@ -82,7 +83,7 @@ The implemented Agent architecture includes bounded support for:
 - explicit local provider ownership and selection;
 - protected-write safety contracts that prevent silent provider fallback and stale-generation completion.
 
-This capability is a reusable platform foundation for later Timer and media work. Exact currently active Timer/native-write checkpoint details belong only in [Current State](../CURRENT.md).
+This Phase-63 capability is a reusable platform foundation for completed Timer orchestration and future media execution.
 
 ## Protected-write safety model
 
@@ -93,7 +94,7 @@ operation / intent
   -> authorization and backend/provider eligibility
   -> idempotency scope
   -> expected revision where applicable
-  -> resource-scoped concurrency/lease fencing
+  -> resource-scoped concurrency/ownership fencing
   -> backend generation / provider ownership fence
   -> durable dispatch boundary
   -> one-shot or otherwise bounded native execution
@@ -104,9 +105,9 @@ operation / intent
 
 A transport timeout after possible dispatch is not treated as proof of failure. Provider availability does not create authority and active execution does not silently switch providers.
 
-## Timer architecture
+## Timer architecture — implemented and accepted
 
-The implemented Phase-64 foundation uses the accepted separation:
+Phase 64 is complete and implements the accepted separation:
 
 ```text
 TimerIntent
@@ -114,9 +115,24 @@ TimerIntent
   -> NativeTimerBinding
 ```
 
-`TimerIntent` is backend-neutral Suite-owned intent. `TimerAssignment` records deterministic backend ownership/role. `NativeTimerBinding` represents the backend-native VDR Timer relationship and observation state.
+`TimerIntent` is backend-neutral Suite-owned intent. `TimerAssignment` records deterministic backend ownership/role with repository-issued revision/epoch and assignment-set fencing. `NativeTimerBinding` represents the backend-native VDR Timer relationship and canonical observation/readback state.
 
-Current Phase-64 implementation progress is intentionally not repeated here; see [Current State](../CURRENT.md).
+The accepted runtime boundary includes:
+
+- deterministic primary/replica scheduling;
+- managed native create/update/toggle/delete fulfillment;
+- durable mutation-operation preparation/dispatch/completion;
+- stable Suite correlation and expected-state fingerprint fencing;
+- durable Agent `starting` before possible side effect;
+- no blind retry after possible dispatch;
+- authoritative PRESENT and complete-inventory ABSENCE readback;
+- controlled replacement before dispatch or after exact verified absence;
+- atomic exclusive-owner handover with durable reassignment evidence;
+- reconciliation-only handling for uncertain native outcomes.
+
+Exact final acceptance evidence belongs in [Phase 64 Closeout](phase-64-closeout.md).
+
+A broad polished Timer UI remains outside the completed Phase-64 engine boundary and is separately gated on account/backend access management.
 
 ## Media architecture state
 
@@ -133,7 +149,9 @@ Client
   -> private media provider / VDR source
 ```
 
-This document does not claim Phase-65 runtime completion. Streamdev remains a private possible provider rather than the public API/security boundary.
+Phase 65 is the next strict runtime phase but has not started. Existing playback/media-adaptation planning must be reconciled with the completed Phase-64 platform before runtime work begins.
+
+Streamdev remains a private possible provider rather than the public API/security boundary.
 
 ## Public API and client boundary
 
@@ -158,6 +176,7 @@ Exact historical acceptance heads/hashes belong in the closeout that accepted th
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](current-status.md)
+- [Phase 64 Closeout](phase-64-closeout.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)

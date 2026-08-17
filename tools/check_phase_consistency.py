@@ -7,6 +7,7 @@ CURRENT = ROOT / "docs" / "CURRENT.md"
 README = ROOT / "README.md"
 HANDOFF = ROOT / "docs" / "NEW-CHAT-HANDOFF.md"
 STATUS = ROOT / "docs" / "development" / "current-status.md"
+CLOSEOUT = ROOT / "docs" / "development" / "phase-64-closeout.md"
 ROADMAP = ROOT / "docs" / "planning" / "roadmap.md"
 PHASE_MAP = ROOT / "docs" / "planning" / "phase-map.md"
 
@@ -36,13 +37,15 @@ def require(errors, path, marker):
 
 def forbid(errors, path, marker):
     if marker in read(path):
-        errors.append(f"{path.relative_to(ROOT)} contains forbidden duplicate volatile/stale marker: {marker}")
+        errors.append(
+            f"{path.relative_to(ROOT)} contains forbidden duplicate volatile/stale marker: {marker}"
+        )
 
 
 def main():
     errors = []
 
-    required = [CURRENT, README, HANDOFF, STATUS, ROADMAP, PHASE_MAP] + STABLE_CURRENT_DOCS
+    required = [CURRENT, README, HANDOFF, STATUS, CLOSEOUT, ROADMAP, PHASE_MAP] + STABLE_CURRENT_DOCS
     for path in required:
         if not path.is_file():
             errors.append(f"missing status/planning file: {path.relative_to(ROOT)}")
@@ -53,11 +56,15 @@ def main():
         return 1
 
     require(errors, CURRENT, "## Operational status authority")
-    require(errors, CURRENT, "Phase 63 - Backend Agent and Secure Multi-Site Runtime")
     require(errors, CURRENT, "Phase 64 - Timer Intent and Multi-Backend Orchestration")
     require(errors, CURRENT, "Phase 65 - Streaming Gateway and Media Sessions")
-    require(errors, CURRENT, "PR #190 - Add disabled SuiteBridge Timer delete transport")
-    require(errors, CURRENT, "No Phase-64 successor implementation is currently authorized")
+    require(errors, CURRENT, "none - Phase 65 has not started")
+    require(errors, CURRENT, "Phase 64 Closeout")
+
+    require(errors, CLOSEOUT, "**Phase 64 is completed.**")
+    require(errors, CLOSEOUT, "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS")
+    require(errors, CLOSEOUT, "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS")
+    require(errors, CLOSEOUT, "72e298a76f7879ea7fc58f6a502e32eca7399f5a")
 
     # README stays stable and delegates live phase/status data to canonical docs.
     require(errors, README, "docs/CURRENT.md")
@@ -72,6 +79,7 @@ def main():
         require(errors, path, "broad")
         require(errors, path, "Timer UI")
         require(errors, path, "Streaming")
+        require(errors, path, "not started")
 
     for path in [README, HANDOFF, STATUS]:
         for marker in [
@@ -79,6 +87,16 @@ def main():
             "Current stacked Draft tip:",
             "head checkpoint:",
             "CI checkpoint:",
+        ]:
+            forbid(errors, path, marker)
+
+    # Canonical current documents must not regress to the old PR-190 planning hold.
+    for path in [CURRENT, HANDOFF, STATUS]:
+        for marker in [
+            "Current stacked implementation checkpoint:",
+            "planning hold after the PR-#190 checkpoint",
+            "No Phase-64 successor implementation is currently authorized",
+            "no `#191` are currently authorized",
         ]:
             forbid(errors, path, marker)
 
@@ -129,6 +147,11 @@ def main():
         require(errors, path, "Timer UI")
         require(errors, path, "Streaming")
 
+    require(errors, ROADMAP, "Phase 64 — Timer Intent and Multi-Backend Orchestration")
+    require(errors, ROADMAP, "Status: **Completed.**")
+    require(errors, ROADMAP, "Phase 65 — Streaming Gateway and Media Sessions")
+    require(errors, ROADMAP, "Status: **Next; not started.**")
+
     if errors:
         print("Phase consistency check failed:")
         for error in errors:
@@ -137,10 +160,10 @@ def main():
 
     print("Phase consistency check passed.")
     print("Volatile status authority: docs/CURRENT.md")
-    print("Latest completed numbered runtime phase: Phase 63")
-    print("Current active numbered runtime phase: Phase 64")
-    print("Next strict numbered runtime phase after Phase 64: Phase 65")
-    print("Implementation hold: after PR #190; no successor currently authorized")
+    print("Latest completed numbered runtime phase: Phase 64")
+    print("Current active numbered runtime phase: none")
+    print("Next strict numbered runtime phase: Phase 65")
+    print("Phase 64 closeout: accepted CI and real yaVDR evidence recorded")
     print("Stable current/architecture docs: no duplicate volatile phase snapshot")
     return 0
 

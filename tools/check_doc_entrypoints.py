@@ -16,6 +16,7 @@ REQUIRED_LINKS = {
         "NEW-CHAT-HANDOFF.md",
         "planning/roadmap.md",
         "planning/parity-audit-and-frontend-gap-roadmap.md",
+        "development/phase-64-closeout.md",
     ],
     "docs/CURRENT.md": [
         "NEW-CHAT-HANDOFF.md",
@@ -24,6 +25,7 @@ REQUIRED_LINKS = {
         "planning/golden-user-journeys.md",
         "adr/index.md",
         "development/current-status.md",
+        "development/phase-64-closeout.md",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "CURRENT.md",
@@ -31,6 +33,7 @@ REQUIRED_LINKS = {
         "planning/golden-user-journeys.md",
         "adr/index.md",
         "development/completed-phases.md",
+        "development/phase-64-closeout.md",
     ],
     "docs/development/github-actions-status-handoff.md": [
         "../NEW-CHAT-HANDOFF.md",
@@ -39,11 +42,13 @@ REQUIRED_LINKS = {
         "phase-map.md",
         "golden-user-journeys.md",
         "../CURRENT.md",
+        "../development/phase-64-closeout.md",
     ],
     "docs/planning/phase-map.md": [
         "../CURRENT.md",
         "roadmap.md",
         "golden-user-journeys.md",
+        "../development/phase-64-closeout.md",
     ],
     "docs/planning/index.md": [
         "roadmap.md",
@@ -61,22 +66,31 @@ REQUIRED_TEXT = {
     ],
     "docs/CURRENT.md": [
         "## Operational status authority",
-        "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
         "Phase 64 - Timer Intent and Multi-Backend Orchestration",
         "Phase 65 - Streaming Gateway and Media Sessions",
-        "PR #190 - Add disabled SuiteBridge Timer delete transport",
-        "No Phase-64 successor implementation is currently authorized",
+        "none - Phase 65 has not started",
+        "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
+        "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "## Current implementation boundary",
-        "no `#191` are currently authorized",
+        "Phase 64 is complete",
+        "Phase 65",
+        "not started",
         "broad polished Timer UI",
-        "Phase 65 Streaming",
     ],
     "docs/planning/roadmap.md": [
-        "planning hold after the PR-#190 checkpoint; Phase 64 is not complete",
-        "broad polished Timer UI",
+        "Phase 64 — Timer Intent and Multi-Backend Orchestration",
+        "Status: **Completed.**",
         "Phase 65 — Streaming Gateway and Media Sessions",
+        "Status: **Next; not started.**",
+        "broad polished Timer UI",
+    ],
+    "docs/development/phase-64-closeout.md": [
+        "**Phase 64 is completed.**",
+        "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
+        "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
+        "72e298a76f7879ea7fc58f6a502e32eca7399f5a",
     ],
 }
 
@@ -119,6 +133,8 @@ def main():
 
     print("Documentation entrypoint check passed.")
     print("Volatile project status authority: docs/CURRENT.md")
+    print("Latest completed numbered runtime phase: Phase 64")
+    print("Next strict numbered runtime phase: Phase 65 (not started)")
     return 0
 
 
