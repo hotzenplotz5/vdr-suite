@@ -34,6 +34,7 @@ DAEMON_SRC := \
         api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
+        api/rest/src/RecordingMediaSessionRequestParser.cpp \
         $(GENRE_BROWSER_REST_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
