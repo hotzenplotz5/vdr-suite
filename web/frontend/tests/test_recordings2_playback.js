@@ -52,6 +52,17 @@ const playback = window.VdrSuiteRecordings2Playback;
 assert.ok(playback);
 const test = playback.__test;
 
+const frontendHttpPaths = fs.readFileSync(
+  'core/http/src/TestHttpServerPaths.inc',
+  'utf8'
+);
+assert.ok(
+  frontendHttpPaths.includes(
+    '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", nullptr}'
+  ),
+  'recordings2 playback runtime must be exposed by the daemon frontend asset router'
+);
+
 assert.deepStrictEqual(
   JSON.parse(JSON.stringify(test.capabilities())),
   {
