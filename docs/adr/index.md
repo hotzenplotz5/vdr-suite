@@ -41,9 +41,6 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 - [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
-
-Current proposed ADR:
-
 - [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 
 Next available canonical ADR:
@@ -100,7 +97,7 @@ Rules:
 
 - [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0026: External Orchestration Layer Above VDR](ADR-0026-external-orchestration-layer-above-vdr.md)
-- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-with-future-media-federation.md)
+- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-future-media-federation.md)
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
 - [ADR-0029: Backend-Neutral SearchTimer Architecture](ADR-0029-backend-neutral-searchtimer-architecture.md)
 - [ADR-0030: Domain-First UI Over OSD Proxy](ADR-0030-domain-first-ui-over-osd-proxy.md)
@@ -129,6 +126,7 @@ Rules:
 - [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-provenance.md)
 - [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
+- [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
@@ -137,11 +135,7 @@ Rules:
 
 ## Proposed Canonical ADRs
 
-### Broadcast Companion
-
-- [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
-
-ADR-0054 proposes the domain-first Teletext and HbbTV boundary and a revised ordering of future, not-yet-started phases. Until accepted, it is planning input only and does not authorize Phase-66 runtime.
+None currently.
 
 ---
 
@@ -184,7 +178,7 @@ was replaced by the canonical:
 
 ## Future-phase sequencing note
 
-The Strict Roadmap owns phase numbering/order. The post-Phase-64 reconciliation proposes:
+The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 establishes the post-Phase-65 sequence:
 
 ```text
 65 Streaming
@@ -194,7 +188,7 @@ The Strict Roadmap owns phase numbering/order. The post-Phase-64 reconciliation 
 69 Recommendation / Knowledge Graph
 ```
 
-If ADR-0054 is accepted, its sequencing clause supersedes only older future phase-number statements inside ADR-0047/ADR-0048. Their architecture decisions remain accepted.
+ADR-0054's sequencing clause supersedes only older future phase-number statements inside ADR-0047/ADR-0048. Their architecture decisions remain accepted.
 
 ---
 
