@@ -337,6 +337,12 @@ int main()
         == TimerAssignmentReassignmentNativeOutcome::verifiedAbsent);
     assert(absentReplacement.evidence.oldOperationId
         == "operation:delete-absent");
+    assert(absentReplacement.evidence.oldOperationRevision
+        == absent.operation.operationRevision);
+    auto incompatibleOperationReplay = absentRequest;
+    incompatibleOperationReplay.expectedOldOperationRevision = "999";
+    assert(service.reassign(incompatibleOperationReplay).status
+        == TimerAssignmentReassignmentStatus::replacementIdConflict);
 
     const TimerIntent unknownIntent = activeIntent(intents, "intent:unknown");
     const TimerAssignment unknownSelected = primary(

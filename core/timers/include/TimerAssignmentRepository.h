@@ -75,6 +75,7 @@ struct TimerAssignmentReassignmentEvidence
     TimerAssignmentReassignmentNativeOutcome oldNativeOutcome =
         TimerAssignmentReassignmentNativeOutcome::beforeDispatch;
     std::string oldOperationId;
+    std::string oldOperationRevision;
     std::string oldNativeTimerBindingId;
     std::string oldBindingRevision;
     std::string reason;

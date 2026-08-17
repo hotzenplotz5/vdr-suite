@@ -26,7 +26,7 @@ Every successful reassignment records:
 - old assignment ID, exact revision and repository-issued epoch;
 - old backend ID and generation;
 - old native outcome (`before_dispatch` or `verified_absent`);
-- exact operation/binding evidence when absence is the authority;
+- exact operation ID/revision and binding evidence when absence is the authority;
 - bounded reason;
 - replacement assignment ID, new backend ID/generation and new assignment
   epoch;

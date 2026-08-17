@@ -67,6 +67,38 @@ bool parseOutcome(
     return true;
 }
 
+std::string columnText(sqlite3_stmt* statement, int column)
+{
+    const unsigned char* value = sqlite3_column_text(statement, column);
+    return value == nullptr
+        ? std::string()
+        : std::string(reinterpret_cast<const char*>(value));
+}
+
+bool hasColumn(
+    Database& database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
 bool evidenceShapeValid(const TimerAssignmentReassignmentEvidence& evidence)
 {
     if (!safeIdentity(evidence.oldTimerAssignmentId)
@@ -89,18 +121,20 @@ bool evidenceShapeValid(const TimerAssignmentReassignmentEvidence& evidence)
         == TimerAssignmentReassignmentNativeOutcome::beforeDispatch)
     {
         return evidence.oldOperationId.empty()
+            && evidence.oldOperationRevision.empty()
             && evidence.oldNativeTimerBindingId.empty()
             && evidence.oldBindingRevision.empty();
     }
 
     return safeIdentity(evidence.oldOperationId)
+        && safeIdentity(evidence.oldOperationRevision)
         && safeIdentity(evidence.oldNativeTimerBindingId)
         && safeIdentity(evidence.oldBindingRevision);
 }
 
 bool ensureReassignmentSchema(Database& database)
 {
-    return database.execute(
+    if (!database.execute(
         "CREATE TABLE IF NOT EXISTS timer_assignment_reassignments ("
         "replacement_assignment_id TEXT PRIMARY KEY NOT NULL,"
         "old_assignment_id TEXT NOT NULL UNIQUE,"
@@ -111,6 +145,7 @@ bool ensureReassignmentSchema(Database& database)
         "old_native_outcome TEXT NOT NULL CHECK(old_native_outcome IN "
         "('before_dispatch','verified_absent')),"
         "old_operation_id TEXT NOT NULL DEFAULT '',"
+        "old_operation_revision TEXT NOT NULL DEFAULT '',"
         "old_binding_id TEXT NOT NULL DEFAULT '',"
         "old_binding_revision TEXT NOT NULL DEFAULT '',"
         "reason TEXT NOT NULL,"
@@ -120,7 +155,16 @@ bool ensureReassignmentSchema(Database& database)
         "created_at INTEGER NOT NULL CHECK(created_at > 0),"
         "FOREIGN KEY(old_assignment_id) REFERENCES timer_assignments(timer_assignment_id),"
         "FOREIGN KEY(replacement_assignment_id) REFERENCES timer_assignments(timer_assignment_id)"
-        ");");
+        ");"))
+        return false;
+
+    return hasColumn(
+               database,
+               "timer_assignment_reassignments",
+               "old_operation_revision")
+        || database.execute(
+            "ALTER TABLE timer_assignment_reassignments "
+            "ADD COLUMN old_operation_revision TEXT NOT NULL DEFAULT '';");
 }
 
 void removeExpectation(Database& database)
@@ -156,6 +200,7 @@ bool installExpectation(
             "old_backend_generation INTEGER NOT NULL,"
             "old_native_outcome TEXT NOT NULL,"
             "old_operation_id TEXT NOT NULL,"
+            "old_operation_revision TEXT NOT NULL,"
             "old_binding_id TEXT NOT NULL,"
             "old_binding_revision TEXT NOT NULL,"
             "reason TEXT NOT NULL,"
@@ -168,7 +213,7 @@ bool installExpectation(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO temp.timer_assignment_reassignment_expectation VALUES "
-        "(?,?,?,?,?,?,?,?,?,?,?,?,?);";
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
     if (sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr)
         != SQLITE_OK)
     {
@@ -190,10 +235,11 @@ bool installExpectation(
             == SQLITE_OK
         && bindText(statement, 8, outcomeName(evidence.oldNativeOutcome))
         && bindText(statement, 9, evidence.oldOperationId)
-        && bindText(statement, 10, evidence.oldNativeTimerBindingId)
-        && bindText(statement, 11, evidence.oldBindingRevision)
-        && bindText(statement, 12, evidence.reason)
-        && sqlite3_bind_int64(statement, 13, evidence.createdAt) == SQLITE_OK;
+        && bindText(statement, 10, evidence.oldOperationRevision)
+        && bindText(statement, 11, evidence.oldNativeTimerBindingId)
+        && bindText(statement, 12, evidence.oldBindingRevision)
+        && bindText(statement, 13, evidence.reason)
+        && sqlite3_bind_int64(statement, 14, evidence.createdAt) == SQLITE_OK;
     const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
     sqlite3_finalize(statement);
     if (step != SQLITE_DONE)
@@ -228,8 +274,46 @@ bool installExpectation(
             "AND old.backend_generation=e.old_backend_generation "
             "AND old.role IN ('primary','replacement') "
             "AND old.state IN ('selected','provisioning','bound','reconciling') "
+            "AND ((e.old_native_outcome='before_dispatch' "
+            "AND old.state='selected' AND old.native_timer_binding_id='') "
+            "OR (e.old_native_outcome='verified_absent' "
+            "AND old.state IN ('bound','reconciling') "
+            "AND old.native_timer_binding_id=e.old_binding_id)) "
             "AND NEW.created_at>old.updated_at) "
             "THEN RAISE(ABORT,'old_owner_conflict') END;"
+            "SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM timer_intents intent "
+            "WHERE intent.timer_intent_id=NEW.timer_intent_id "
+            "AND CAST(intent.intent_revision AS TEXT)=NEW.intent_revision "
+            "AND intent.assignment_allow_failover=1) "
+            "THEN RAISE(ABORT,'intent_conflict') END;"
+            "SELECT CASE WHEN (SELECT old_native_outcome FROM "
+            "timer_assignment_reassignment_expectation LIMIT 1)='verified_absent' "
+            "AND NOT EXISTS(SELECT 1 FROM native_timer_bindings binding "
+            "JOIN timer_assignment_reassignment_expectation e "
+            "ON e.old_binding_id=binding.native_timer_binding_id "
+            "WHERE CAST(binding.binding_revision AS TEXT)=e.old_binding_revision "
+            "AND binding.timer_assignment_id=e.old_assignment_id "
+            "AND binding.backend_id=e.old_backend_id "
+            "AND binding.backend_generation=e.old_backend_generation "
+            "AND binding.ownership IN ('managed','adopted') "
+            "AND binding.missing_since>0 "
+            "AND binding.drift_state='expected_transition' "
+            "AND binding.observed_recording=0 "
+            "AND binding.last_verified_operation_id=e.old_operation_id) "
+            "THEN RAISE(ABORT,'binding_conflict') END;"
+            "SELECT CASE WHEN (SELECT old_native_outcome FROM "
+            "timer_assignment_reassignment_expectation LIMIT 1)='verified_absent' "
+            "AND NOT EXISTS(SELECT 1 FROM mutation_operations operation "
+            "JOIN timer_assignment_reassignment_expectation e "
+            "ON e.old_operation_id=operation.operation_id "
+            "WHERE CAST(operation.operation_revision AS TEXT)=e.old_operation_revision "
+            "AND operation.state='succeeded' "
+            "AND operation.action_family='timer.delete' "
+            "AND operation.resource_type='NativeTimerBinding' "
+            "AND operation.resource_id=e.old_binding_id "
+            "AND operation.backend_id=e.old_backend_id "
+            "AND operation.backend_generation=e.old_backend_generation) "
+            "THEN RAISE(ABORT,'operation_conflict') END;"
             "UPDATE timer_assignments SET state='superseded',"
             "assignment_revision=assignment_revision+1,updated_at=NEW.created_at "
             "WHERE timer_assignment_id=(SELECT old_assignment_id FROM "
@@ -243,12 +327,12 @@ bool installExpectation(
             "INSERT INTO timer_assignment_reassignments ("
             "replacement_assignment_id,old_assignment_id,old_assignment_revision,"
             "old_assignment_epoch,old_backend_id,old_backend_generation,"
-            "old_native_outcome,old_operation_id,old_binding_id,old_binding_revision,"
+            "old_native_outcome,old_operation_id,old_operation_revision,old_binding_id,old_binding_revision,"
             "reason,new_backend_id,new_backend_generation,new_assignment_epoch,created_at"
             ") SELECT NEW.timer_assignment_id,e.old_assignment_id,"
             "CAST(e.old_assignment_revision AS TEXT),e.old_assignment_epoch,"
             "e.old_backend_id,e.old_backend_generation,e.old_native_outcome,"
-            "e.old_operation_id,e.old_binding_id,e.old_binding_revision,e.reason,"
+            "e.old_operation_id,e.old_operation_revision,e.old_binding_id,e.old_binding_revision,e.reason,"
             "NEW.backend_id,NEW.backend_generation,NEW.assignment_epoch,e.created_at "
             "FROM timer_assignment_reassignment_expectation e;"
             "END;"))
@@ -331,7 +415,7 @@ TimerAssignmentRepository::findControlledReplacement(
     const char* sql =
         "SELECT old_assignment_id,old_assignment_revision,old_assignment_epoch,"
         "old_backend_id,old_backend_generation,old_native_outcome,old_operation_id,"
-        "old_binding_id,old_binding_revision,reason,new_backend_id,"
+        "old_operation_revision,old_binding_id,old_binding_revision,reason,new_backend_id,"
         "new_backend_generation,new_assignment_epoch,created_at "
         "FROM timer_assignment_reassignments WHERE replacement_assignment_id=?;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
@@ -365,14 +449,15 @@ TimerAssignmentRepository::findControlledReplacement(
     evidence.oldBackendGeneration = static_cast<std::uint64_t>(sqlite3_column_int64(statement, 4));
     const bool outcomeOk = parseOutcome(text(5), evidence.oldNativeOutcome);
     evidence.oldOperationId = text(6);
-    evidence.oldNativeTimerBindingId = text(7);
-    evidence.oldBindingRevision = text(8);
-    evidence.reason = text(9);
+    evidence.oldOperationRevision = text(7);
+    evidence.oldNativeTimerBindingId = text(8);
+    evidence.oldBindingRevision = text(9);
+    evidence.reason = text(10);
     evidence.replacementTimerAssignmentId = replacementTimerAssignmentId;
-    evidence.newBackendId = text(10);
-    evidence.newBackendGeneration = static_cast<std::uint64_t>(sqlite3_column_int64(statement, 11));
-    evidence.newAssignmentEpoch = static_cast<std::uint64_t>(sqlite3_column_int64(statement, 12));
-    evidence.createdAt = sqlite3_column_int64(statement, 13);
+    evidence.newBackendId = text(11);
+    evidence.newBackendGeneration = static_cast<std::uint64_t>(sqlite3_column_int64(statement, 12));
+    evidence.newAssignmentEpoch = static_cast<std::uint64_t>(sqlite3_column_int64(statement, 13));
+    evidence.createdAt = sqlite3_column_int64(statement, 14);
     sqlite3_finalize(statement);
     if (!outcomeOk) return statusResult(TimerAssignmentRepositoryStatus::storageError);
 

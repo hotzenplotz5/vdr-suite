@@ -80,6 +80,8 @@ bool replayMatches(
             == request.expectedOldBackendGeneration
         && evidence.oldNativeOutcome == request.oldNativeOutcome
         && evidence.oldOperationId == request.oldOperationId
+        && evidence.oldOperationRevision
+            == request.expectedOldOperationRevision
         && evidence.oldNativeTimerBindingId
             == request.oldNativeTimerBindingId
         && evidence.oldBindingRevision == request.expectedOldBindingRevision
@@ -132,6 +134,7 @@ TimerAssignmentReassignmentEvidence evidenceFor(
     evidence.oldBackendGeneration = request.expectedOldBackendGeneration;
     evidence.oldNativeOutcome = request.oldNativeOutcome;
     evidence.oldOperationId = request.oldOperationId;
+    evidence.oldOperationRevision = request.expectedOldOperationRevision;
     evidence.oldNativeTimerBindingId = request.oldNativeTimerBindingId;
     evidence.oldBindingRevision = request.expectedOldBindingRevision;
     evidence.reason = request.reason;
