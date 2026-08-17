@@ -22,7 +22,7 @@ const window = {
     }
   },
   MediaSource: {
-    isTypeSupported(type) { return type.indexOf('avc1.640028') !== -1; }
+    isTypeSupported(type) { return type.indexOf('avc1.640016') !== -1; }
   }
 };
 
@@ -39,7 +39,8 @@ const context = vm.createContext({
   Set,
   RegExp,
   Error,
-  JSON
+  JSON,
+  Uint8Array
 });
 
 vm.runInContext(
@@ -112,7 +113,45 @@ assert.throws(
   () => test.artifactUrl('/elsewhere/master.m3u8', 'init.mp4'),
   /außerhalb des HLS-Gateways/
 );
-assert.ok(test.supportedMimeType().indexOf('avc1.640028') !== -1);
+
+function mp4Box(type, payload) {
+  const result = Buffer.alloc(8 + payload.length);
+  result.writeUInt32BE(result.length, 0);
+  result.write(type, 4, 4, 'ascii');
+  Buffer.from(payload).copy(result, 8);
+  return result;
+}
+
+function arrayBufferFromBuffer(buffer) {
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+// Regression for the real yaVDR "Angel Has Fallen" acceptance recording:
+// H.264 High profile, constraint byte 0x00, level_idc 0x16 (Level 2.2), AAC-LC.
+const high22Init = arrayBufferFromBuffer(Buffer.concat([
+  mp4Box('avcC', [0x01, 0x64, 0x00, 0x16, 0xff]),
+  mp4Box('esds', [0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x12, 0x10])
+]));
+assert.strictEqual(test.avcCodecFromInitSegment(high22Init), 'avc1.640016');
+assert.strictEqual(test.aacCodecFromInitSegment(high22Init), 'mp4a.40.2');
+assert.strictEqual(
+  test.mimeTypeFromInitSegment(high22Init),
+  'video/mp4; codecs="avc1.640016,mp4a.40.2"'
+);
+assert.strictEqual(
+  test.supportedMimeType(high22Init),
+  'video/mp4; codecs="avc1.640016,mp4a.40.2"'
+);
+
+const high40Init = arrayBufferFromBuffer(Buffer.concat([
+  mp4Box('avcC', [0x01, 0x64, 0x00, 0x28, 0xff]),
+  mp4Box('esds', [0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x12, 0x10])
+]));
+assert.strictEqual(test.avcCodecFromInitSegment(high40Init), 'avc1.640028');
+assert.strictEqual(
+  test.mimeTypeFromInitSegment(new ArrayBuffer(0)),
+  ''
+);
 
 (async function () {
   await test.createSession('default', {recordingId: 'rec_public'});
