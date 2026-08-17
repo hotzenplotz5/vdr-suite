@@ -1,6 +1,7 @@
 #include "MediaPresentationSelector.h"
 
 #include <algorithm>
+#include <cstddef>
 
 namespace
 {
@@ -29,6 +30,58 @@ bool fitsVideoLimits(
     return true;
 }
 
+int firstDirectVideoIndex(
+    const MediaSourceDescriptor& source,
+    const ClientMediaCapabilities& client)
+{
+    for (std::size_t index = 0; index < source.videoStreams.size(); ++index) {
+        const auto& video = source.videoStreams[index];
+        if (validSourceCodec(video.codec) &&
+            contains(client.videoCodecs, video.codec) &&
+            fitsVideoLimits(video, client)) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
+int firstDirectAudioIndex(
+    const MediaSourceDescriptor& source,
+    const ClientMediaCapabilities& client)
+{
+    for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
+        const auto& audio = source.audioStreams[index];
+        if (validSourceCodec(audio.codec) &&
+            contains(client.audioCodecs, audio.codec)) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
+int firstValidVideoIndex(
+    const MediaSourceDescriptor& source,
+    const ClientMediaCapabilities& client)
+{
+    for (std::size_t index = 0; index < source.videoStreams.size(); ++index) {
+        const auto& video = source.videoStreams[index];
+        if (validSourceCodec(video.codec) && fitsVideoLimits(video, client)) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
+int firstValidAudioIndex(const MediaSourceDescriptor& source)
+{
+    for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
+        if (validSourceCodec(source.audioStreams[index].codec)) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
 MediaPresentationProfile unavailable(const std::string& reason)
 {
     MediaPresentationProfile profile;
@@ -50,19 +103,14 @@ MediaPresentationProfile directProfile(
         return unavailable("seekable recording requires byte-range support");
     }
 
-    for (const auto& video : source.videoStreams) {
-        if (!validSourceCodec(video.codec) ||
-            !contains(client.videoCodecs, video.codec) ||
-            !fitsVideoLimits(video, client)) {
-            return unavailable("source video stream is not directly playable");
-        }
+    const int videoIndex = firstDirectVideoIndex(source, client);
+    if (!source.videoStreams.empty() && videoIndex < 0) {
+        return unavailable("no directly playable source video track is available");
     }
 
-    for (const auto& audio : source.audioStreams) {
-        if (!validSourceCodec(audio.codec) ||
-            !contains(client.audioCodecs, audio.codec)) {
-            return unavailable("source audio stream is not directly playable");
-        }
+    const int audioIndex = firstDirectAudioIndex(source, client);
+    if (!source.audioStreams.empty() && audioIndex < 0) {
+        return unavailable("no directly playable source audio track is available");
     }
 
     MediaPresentationProfile profile;
@@ -71,19 +119,21 @@ MediaPresentationProfile directProfile(
     profile.protocol = MediaDeliveryProtocol::Progressive;
     profile.container = source.container;
     profile.adaptationClass = MediaAdaptationClass::PassThrough;
-    profile.videoAction = source.videoStreams.empty()
+    profile.sourceVideoStreamIndex = videoIndex;
+    profile.sourceAudioStreamIndex = audioIndex;
+    profile.videoAction = videoIndex < 0
         ? MediaTrackAction::Omit
         : MediaTrackAction::Copy;
-    profile.audioAction = source.audioStreams.empty()
+    profile.audioAction = audioIndex < 0
         ? MediaTrackAction::Omit
         : MediaTrackAction::Copy;
-    profile.targetVideoCodec = source.videoStreams.empty()
+    profile.targetVideoCodec = videoIndex < 0
         ? MediaCodec::None
-        : source.videoStreams.front().codec;
-    profile.targetAudioCodec = source.audioStreams.empty()
+        : source.videoStreams[static_cast<std::size_t>(videoIndex)].codec;
+    profile.targetAudioCodec = audioIndex < 0
         ? MediaCodec::None
-        : source.audioStreams.front().codec;
-    profile.reason = "client can consume the source transport, container and codecs directly";
+        : source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
+    profile.reason = "client can consume one selected source video/audio track without transformation";
     return profile;
 }
 
@@ -122,26 +172,25 @@ MediaPresentationProfile hlsProfile(
         profile.targetVideoCodec = MediaCodec::None;
     }
     else {
-        const auto& video = source.videoStreams.front();
-        if (!validSourceCodec(video.codec)) {
-            return unavailable("source video codec is unknown");
-        }
-
-        const bool directCodec =
-            contains(client.videoCodecs, video.codec) &&
-            fitsVideoLimits(video, client);
-
-        if (directCodec) {
+        int videoIndex = firstDirectVideoIndex(source, client);
+        if (videoIndex >= 0) {
+            profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Copy;
-            profile.targetVideoCodec = video.codec;
+            profile.targetVideoCodec =
+                source.videoStreams[static_cast<std::size_t>(videoIndex)].codec;
         }
-        else if (contains(client.videoCodecs, MediaCodec::H264)) {
+        else {
+            videoIndex = firstValidVideoIndex(source, client);
+            if (videoIndex < 0) {
+                return unavailable("no valid source video track fits the requested client limits");
+            }
+            if (!contains(client.videoCodecs, MediaCodec::H264)) {
+                return unavailable("no allowed video codec path is available");
+            }
+            profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Transcode;
             profile.targetVideoCodec = MediaCodec::H264;
             profile.adaptationClass = MediaAdaptationClass::Transcode;
-        }
-        else {
-            return unavailable("no allowed video codec path is available");
         }
     }
 
@@ -150,28 +199,31 @@ MediaPresentationProfile hlsProfile(
         profile.targetAudioCodec = MediaCodec::None;
     }
     else {
-        const auto& audio = source.audioStreams.front();
-        if (!validSourceCodec(audio.codec)) {
-            return unavailable("source audio codec is unknown");
-        }
-
-        if (contains(client.audioCodecs, audio.codec)) {
+        int audioIndex = firstDirectAudioIndex(source, client);
+        if (audioIndex >= 0) {
+            profile.sourceAudioStreamIndex = audioIndex;
             profile.audioAction = MediaTrackAction::Copy;
-            profile.targetAudioCodec = audio.codec;
+            profile.targetAudioCodec =
+                source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
         }
-        else if (contains(client.audioCodecs, MediaCodec::Aac)) {
+        else {
+            audioIndex = firstValidAudioIndex(source);
+            if (audioIndex < 0) {
+                return unavailable("source audio codec is unknown");
+            }
+            if (!contains(client.audioCodecs, MediaCodec::Aac)) {
+                return unavailable("no allowed audio codec path is available");
+            }
+            profile.sourceAudioStreamIndex = audioIndex;
             profile.audioAction = MediaTrackAction::Transcode;
             profile.targetAudioCodec = MediaCodec::Aac;
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
-        else {
-            return unavailable("no allowed audio codec path is available");
-        }
     }
 
     profile.reason = profile.adaptationClass == MediaAdaptationClass::Transcode
-        ? "HLS packaging selected with only incompatible tracks transcoded"
-        : "HLS packaging selected without codec re-encoding";
+        ? "HLS packaging selected with only the selected incompatible tracks transcoded"
+        : "HLS packaging selected with compatible selected tracks copied";
     return profile;
 }
 
