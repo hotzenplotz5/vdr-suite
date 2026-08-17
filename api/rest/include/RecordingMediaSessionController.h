@@ -20,11 +20,19 @@ public:
         std::string workspaceRoot);
     ~RecordingMediaSessionController();
 
+    ApiResponse handleRequest(
+        const std::string& body,
+        const std::string& actorId) const;
+
     ApiResponse createSession(
         const std::string& body,
         const std::string& actorId) const;
 
 private:
+    ApiResponse stopSession(
+        const std::string& body,
+        const std::string& actorId) const;
+
     VdrRecordingQueryService& recordingQueryService_;
     MediaSessionRepository& mediaSessionRepository_;
     MediaSessionIssuanceService& mediaSessionIssuanceService_;
