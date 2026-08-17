@@ -34,11 +34,13 @@ Latest completed numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
 Current active numbered runtime phase:
-none - Phase 65 has not started
+Phase 65 - Streaming Gateway and Media Sessions
 
 Next strict numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 ```
+
+Phase 65 was explicitly started after the accepted post-Phase-64 roadmap/ADR reconciliation. Its first bounded implementation vertical is existing-Recording playback through the Suite-owned MediaSession / Streaming Gateway path. Live TV, general seek/growing-Recording behavior and Phase 66 remain outside this first vertical.
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
@@ -103,11 +105,11 @@ Public SuiteBridge SVDRP help remains closed for `NTCREATE`, `NTMOD` and `NTDELE
 
 ## Revised phase ordering
 
-The strict numbered order after the completed Phase 64 is:
+The strict numbered order is now:
 
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
-  -> Phase 65 - Streaming Gateway and Media Sessions [NEXT, NOT STARTED]
+  -> Phase 65 - Streaming Gateway and Media Sessions [ACTIVE]
   -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV
   -> Phase 67 - Legacy OSD Compatibility Bridge
   -> Phase 68 - Public API and Client Compatibility Hardening
@@ -132,9 +134,9 @@ Phase 62 identity/RBAC foundation [DONE]
 
 The UI must remain intent-first and show assignment, fulfillment, reconciliation and failover state without collapsing uncertain native outcomes into fake success/failure.
 
-Phase 65 may therefore begin before the broad Timer UI is completed.
+Phase 65 may proceed before the broad Timer UI is completed.
 
-## Streaming architecture prepared for Phase 65
+## Active Phase 65 architecture
 
 ADR-0046 and ADR-0053 jointly define the accepted server/client media direction:
 
@@ -150,7 +152,9 @@ private VDR / Recording source
 
 Transformation preference is `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain.
 
-The roadmap now makes the intended product sequence explicit: Recording playback first, then Live TV, then truthful seek/growing-Recording semantics, with remux/transcode added only from demonstrated compatibility need.
+The active first product vertical is Recording playback. Browser playback is the first real-system validator, not the architecture authority; the same media/session/source contracts must remain usable by Android/Android TV, Apple platforms, Windows, Kodi-style clients and television runtimes.
+
+The bounded implementation contract lives in [Phase 65 Media Capability Negotiation Contract](development/phase-65-media-capability-negotiation-contract.md). Its completion requires real yaVDR picture + sound and deterministic cleanup on the exact candidate, not merely an HTTP response.
 
 ## Binding execution-governance decisions
 
@@ -162,16 +166,18 @@ The roadmap now makes the intended product sequence explicit: Recording playback
 6. No production native mutation is enabled merely to satisfy a roadmap number; applicable revision, generation, provider, idempotency, durable-starting, readback and real-system gates remain mandatory.
 7. Completed phases are never renumbered. Only future not-yet-started phases may be reordered by explicit repository planning/architecture reconciliation.
 
-## Next authorization boundary
+## Current authorization boundary
 
-Phase 65 is the next strict numbered runtime phase, but it remains **not started**.
+Phase 65 is **active**.
 
-Before any Phase-65 runtime implementation is authorized:
+The currently authorized runtime scope is only the first coherent Recording-playback vertical:
 
-1. read live `main`;
-2. re-read ADR-0046 and ADR-0053;
-3. inspect the current media/provider implementation gap;
-4. define the first coherent Recording-playback vertical and exact acceptance evidence;
-5. explicitly authorize Phase-65 kickoff.
+1. stable Suite Recording identity resolves to a private local provider source;
+2. source facts and client capabilities select the least-transformation presentation profile;
+3. MediaSession / MediaRoute / ProviderStreamLease / MediaAccessGrant lifecycle is explicit and durable where required by ADR-0046;
+4. the Gateway delivers bytes without exposing native paths/provider URLs or materializing the whole Recording in memory;
+5. browser playback proves visible picture and audible sound;
+6. stop/revoke deterministically cleans provider/adaptation/session state;
+7. exact-head CI and real yaVDR acceptance close the vertical.
 
-A documentation/roadmap merge does not itself authorize Phase-65 runtime work.
+Live-TV allocation/channel switching, general seek/growing-Recording behavior, Phase 66 Broadcast Companion, Legacy OSD and broad Timer UI are not authorized by this kickoff.
