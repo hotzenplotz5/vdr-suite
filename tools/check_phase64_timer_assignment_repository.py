@@ -43,7 +43,7 @@ for token in [
 for token in [
     '"CREATE TABLE IF NOT EXISTS timer_assignments ("',
     '"UNIQUE(timer_intent_id,assignment_epoch),"',
-    '"idx_timer_assignments_active_primary "',
+    '"idx_timer_assignments_active_exclusive_owner "',
     '"BEGIN IMMEDIATE TRANSACTION;"',
     "nextAssignmentEpoch(",
     "validateIntentRevision(",

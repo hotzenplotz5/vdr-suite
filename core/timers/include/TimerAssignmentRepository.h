@@ -59,6 +59,46 @@ struct TimerAssignmentRepositorySetRevisionResult
     }
 };
 
+enum class TimerAssignmentReassignmentNativeOutcome
+{
+    beforeDispatch,
+    verifiedAbsent,
+};
+
+struct TimerAssignmentReassignmentEvidence
+{
+    std::string oldTimerAssignmentId;
+    std::string oldAssignmentRevision;
+    std::uint64_t oldAssignmentEpoch = 0;
+    std::string oldBackendId;
+    std::uint64_t oldBackendGeneration = 0;
+    TimerAssignmentReassignmentNativeOutcome oldNativeOutcome =
+        TimerAssignmentReassignmentNativeOutcome::beforeDispatch;
+    std::string oldOperationId;
+    std::string oldNativeTimerBindingId;
+    std::string oldBindingRevision;
+    std::string reason;
+    std::string replacementTimerAssignmentId;
+    std::string newBackendId;
+    std::uint64_t newBackendGeneration = 0;
+    std::uint64_t newAssignmentEpoch = 0;
+    std::int64_t createdAt = 0;
+};
+
+struct TimerAssignmentControlledReplacementResult
+{
+    TimerAssignmentRepositoryStatus status =
+        TimerAssignmentRepositoryStatus::storageError;
+    TimerAssignment oldAssignment;
+    TimerAssignment replacementAssignment;
+    TimerAssignmentReassignmentEvidence evidence;
+
+    bool ok() const
+    {
+        return status == TimerAssignmentRepositoryStatus::ok;
+    }
+};
+
 class TimerAssignmentRepository
 {
 public:
@@ -79,6 +119,18 @@ public:
     TimerAssignmentRepositoryResult createAgainstAssignmentSetRevision(
         const TimerAssignment& assignment,
         const std::string& expectedAssignmentSetRevision);
+
+    // Atomically closes one exact active exclusive owner, creates one new
+    // replacement assignment and persists the handover evidence. The set,
+    // assignment revision/epoch and backend generation fences are rechecked at
+    // the INSERT boundary. Callers must validate the native-outcome evidence.
+    TimerAssignmentControlledReplacementResult createControlledReplacement(
+        const TimerAssignment& replacement,
+        const std::string& expectedAssignmentSetRevision,
+        const TimerAssignmentReassignmentEvidence& evidence);
+
+    TimerAssignmentControlledReplacementResult findControlledReplacement(
+        const std::string& replacementTimerAssignmentId);
 
     TimerAssignmentRepositoryResult findById(
         const std::string& timerAssignmentId);
