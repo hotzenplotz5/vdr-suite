@@ -117,6 +117,10 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         "-hide_banner",
         "-loglevel", "warning",
         "-n",
+        // The first vertical intentionally has no arbitrary seek yet. Pace the
+        // worker at source rate so one session cannot materialize an entire
+        // Recording into its private HLS workspace as fast as the disk allows.
+        "-re",
         "-f", "concat",
         "-safe", "1",
         "-i", "input.ffconcat"
@@ -141,8 +145,13 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         {
             "-f", "hls",
             "-hls_time", "4",
-            "-hls_list_size", "0",
-            "-hls_playlist_type", "event"
+            // Keep a bounded sliding window for this non-seekable first
+            // vertical. Later Recording seek is implemented from the logical
+            // Recording source/index contract, not by retaining unbounded
+            // temporary HLS output.
+            "-hls_list_size", "8",
+            "-hls_delete_threshold", "2",
+            "-hls_flags", "delete_segments+independent_segments+temp_file"
         });
 
     if (profile.container == MediaContainer::Fmp4) {
