@@ -194,6 +194,8 @@ int main()
         serializeNativeTimerModifyOperationPayload(codec);
     assert(!serialized.empty());
     NativeTimerModifyOperationPayload parsed;
+    if (!parseNativeTimerModifyOperationPayload(serialized, parsed))
+        std::cerr << "modify payload parse failed: " << serialized << '\n';
     assert(parseNativeTimerModifyOperationPayload(serialized, parsed));
     assert(parsed.kind == NativeTimerModifyKind::toggle);
     assert(parsed.expectedSpecification.startTime == "0930");

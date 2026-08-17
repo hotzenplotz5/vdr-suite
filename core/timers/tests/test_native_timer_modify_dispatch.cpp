@@ -156,6 +156,9 @@ void verifyRoundTrip(
     request.expectedOperationRevision = operation.operationRevision;
 
     const auto claimed = dispatch.claim(request, 105);
+    if (claimed.status != NativeTimerModifyDispatchClaimStatus::claimed)
+        std::cerr << "modify claim failed: "
+                  << static_cast<int>(claimed.status) << '\n';
     assert(claimed.status ==
         NativeTimerModifyDispatchClaimStatus::claimed);
     assert(claimed.operation.state == MutationOperationState::dispatching);
