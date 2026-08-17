@@ -37,7 +37,7 @@ int main()
         assert(result.completed);
         assert(result.success);
         assert(result.exitCode == 0);
-        assert(result.output == "codec_name=h264|codec_type=video\\n");
+        assert(result.output == "codec_name=h264|codec_type=video\n");
     }
 
     {
