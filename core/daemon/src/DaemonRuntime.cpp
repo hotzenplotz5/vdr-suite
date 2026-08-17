@@ -4,28 +4,12 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
-#include "MediaAccessGrantAuthenticator.h"
-#include "MediaGatewayHttpServer.h"
-#include "MediaHlsArtifactReader.h"
-#include "MediaRouteLeaseRepository.h"
-#include "MediaSessionIssuanceService.h"
-#include "MediaSessionRepository.h"
-#include "RecordingMediaSessionController.h"
+#include "RecordingMediaHttpRuntime.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
-#include "SimpleHttpListener.h"
 
 #include <chrono>
 #include <csignal>
 #include <iostream>
-#include <utility>
-
-namespace
-{
-
-constexpr const char* MediaSessionWorkspaceRoot =
-    "/var/cache/vdr-suite/media-sessions";
-
-}
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -46,62 +30,20 @@ int DaemonRuntime::run()
         std::cerr << "vdr-suite-daemon runtime not initialized" << std::endl;
         return 1;
     }
-
-    MediaSessionRepository mediaSessionRepository(database_);
-    if (!mediaSessionRepository.ensureSchema()) {
-        std::cerr << "failed to initialize MediaSession schema" << std::endl;
-        return 1;
-    }
-    if (!mediaSessionRepository.recoverNonTerminalBundles()) {
-        std::cerr << "failed to recover MediaSession runtime ownership" << std::endl;
-        return 1;
-    }
-
     if (!httpServer_ || !apiRouter_ || !vdrRecordingQueryService_) {
         std::cerr << "HTTP/API runtime unavailable for Media Gateway" << std::endl;
         return 1;
     }
 
-    MediaRouteLeaseRepository mediaRouteLeaseRepository(database_);
-    MediaSessionIssuanceService mediaSessionIssuanceService(
-        mediaSessionRepository);
-    RecordingMediaSessionController recordingMediaSessionController(
-        *vdrRecordingQueryService_,
-        mediaSessionRepository,
-        mediaSessionIssuanceService,
-        MediaSessionWorkspaceRoot);
-    MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
-        mediaSessionRepository);
-    MediaHlsArtifactReader mediaHlsArtifactReader(
-        MediaSessionWorkspaceRoot);
-
-    apiRouter_->setRecordingMediaSessionHandler(
-        [&recordingMediaSessionController](
-            const std::string& body,
-            const std::string& actorRef)
-        {
-            return recordingMediaSessionController.createSession(
-                body,
-                actorRef);
-        });
-
-    // The listener created during initialize() has not started yet. Rebuild it
-    // around the same already-composed HTTP server after inserting the Media
-    // Gateway as the outermost media-specific fence. The gateway dependencies
-    // below remain alive for the complete listener run and the gateway is
-    // destroyed before these stack-owned dependencies leave scope.
-    httpListener_.reset();
-    httpServer_ = std::make_unique<MediaGatewayHttpServer>(
-        std::move(httpServer_),
-        mediaAccessGrantAuthenticator,
-        mediaRouteLeaseRepository,
-        mediaHlsArtifactReader);
-
     auto lastVdrPoll = std::chrono::steady_clock::now();
-    httpListener_ = std::make_unique<SimpleHttpListener>(
+    return runRecordingMediaHttpRuntime(
+        database_,
+        *apiRouter_,
+        *vdrRecordingQueryService_,
+        httpServer_,
+        httpListener_,
         config_.httpListenHost(),
         config_.httpListenPort(),
-        *httpServer_,
         []() {
             return shutdownRequested_.load();
         },
@@ -118,21 +60,6 @@ int DaemonRuntime::run()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
-
-    std::cout << "MediaSession persistence and restart recovery initialized" << std::endl;
-    std::cout << "Media Gateway runtime initialized" << std::endl;
-    std::cout << "Recording MediaSession API runtime initialized" << std::endl;
-    std::cout << "vdr-suite-daemon runtime running" << std::endl;
-    std::cout << "vdr-suite-daemon serving HTTP on " << config_.httpListenHost() << ":" << config_.httpListenPort() << std::endl;
-
-    const int result = httpListener_->runUntilStopped();
-
-    // Avoid leaving HTTP components that reference stack-owned media runtime
-    // dependencies between run() and shutdown().
-    httpListener_.reset();
-    httpServer_.reset();
-    apiRouter_->setRecordingMediaSessionHandler({});
-    return result;
 }
 
 void DaemonRuntime::shutdown()
