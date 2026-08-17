@@ -2,7 +2,7 @@
 
 ## Operational status authority
 
-**This file is the sole repository authority for volatile operational status.**
+**This file is the sole repository authority for volatile operational phase status.**
 
 `README.md`, `NEW-CHAT-HANDOFF.md`, `development/current-status.md`, the Strict Roadmap and the Phase Map may describe stable architecture, phase order and workflow rules, but they must not become competing copies of active PR tips or transient CI state.
 
@@ -13,11 +13,14 @@ Before any implementation, review-state change, installation or status claim, re
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Golden User Journeys](planning/golden-user-journeys.md)
+- [Architecture Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Current Project Status](development/current-status.md)
 - [Phase 64 Closeout](development/phase-64-closeout.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
+- [ADR-0053 Playback/Adaptation](adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md)
 - [Architecture Decision Records](adr/index.md)
 - [Agent Workflow Rules](../AGENTS.md)
 
@@ -73,7 +76,7 @@ See [Phase 64 Closeout](development/phase-64-closeout.md) for the durable comple
 
 ## What Phase 64 established
 
-The completed Timer engine now coherently implements the accepted ADR-0044 separation:
+The completed Timer engine coherently implements the accepted ADR-0044 separation:
 
 ```text
 TimerIntent
@@ -98,30 +101,48 @@ The accepted scope includes:
 
 Public SuiteBridge SVDRP help remains closed for `NTCREATE`, `NTMOD` and `NTDELETE`; private transport commands are implementation details, not a public mutation API.
 
-## Phase ordering and Timer UI decision
+## Revised phase ordering
 
-The binding numbered order is now:
+The strict numbered order after the completed Phase 64 is:
 
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [NEXT, NOT STARTED]
-  -> Phase 66 - Legacy OSD Compatibility Bridge
-  -> Phase 67 - Public API and Client Compatibility Hardening
+  -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 67 - Legacy OSD Compatibility Bridge
+  -> Phase 68 - Public API and Client Compatibility Hardening
+  -> Phase 69 - Recommendation and Content Knowledge Graph
 ```
 
-The broad polished Timer UI was intentionally not a Phase-64 completion gate. It remains separately gated on account/backend access management built on the Phase-62 identity and authorization model. Phase 65 may therefore begin before the broad Timer UI is completed.
+Future phases 66+ are not runtime-authorized merely because they are named here. The strict details and gates live in the [Roadmap](planning/roadmap.md).
 
-## Streaming architecture already prepared
+The Phase-66 Broadcast Companion architecture is introduced as **proposed ADR-0054** by the roadmap-reconciliation work. Teletext/HbbTV runtime remains blocked until that ADR is explicitly accepted.
 
-ADR-0046 remains the accepted server-side MediaSession/Gateway boundary. Existing playback/media-adaptation planning must be reconciled with the completed Phase-64 platform before Phase-65 runtime implementation begins.
+## Timer Product UI decision
 
-The intended direction remains:
+The broad polished Timer UI was intentionally not a Phase-64 completion gate and is not inserted as a numbered runtime phase.
+
+It remains a cross-cutting product milestone with prerequisites:
+
+```text
+Phase 62 identity/RBAC foundation [DONE]
++ Phase 64 Timer engine [DONE]
++ required account/backend access administration [OPEN]
+```
+
+The UI must remain intent-first and show assignment, fulfillment, reconciliation and failover state without collapsing uncertain native outcomes into fake success/failure.
+
+Phase 65 may therefore begin before the broad Timer UI is completed.
+
+## Streaming architecture prepared for Phase 65
+
+ADR-0046 and ADR-0053 jointly define the accepted server/client media direction:
 
 ```text
 private VDR / Recording source
   -> explicitly owned StreamProvider
   -> ProviderStreamLease
-  -> media adaptation boundary
+  -> least-transformation media adaptation
   -> Streaming Gateway / selected MediaSession profile
   -> client playback adapter
   -> platform playback engine
@@ -129,17 +150,28 @@ private VDR / Recording source
 
 Transformation preference is `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain.
 
+The roadmap now makes the intended product sequence explicit: Recording playback first, then Live TV, then truthful seek/growing-Recording semantics, with remux/transcode added only from demonstrated compatibility need.
+
 ## Binding execution-governance decisions
 
 1. A chat discussion is not a project decision until represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract.
-2. `CURRENT.md` owns volatile project status. Other documents link here instead of copying active PR tips.
+2. `CURRENT.md` owns volatile project phase status. Other documents link here instead of copying active PR tips.
 3. A slice is the **smallest coherent safety or product change**, not the smallest mechanically possible diff.
 4. Technical CI and architecture guards are necessary but not sufficient for user-visible milestones; applicable [Golden User Journeys](planning/golden-user-journeys.md) are also required.
 5. No provider availability or reachability creates authority. No active operation silently changes provider.
 6. No production native mutation is enabled merely to satisfy a roadmap number; applicable revision, generation, provider, idempotency, durable-starting, readback and real-system gates remain mandatory.
+7. Completed phases are never renumbered. Only future not-yet-started phases may be reordered by explicit repository planning/architecture reconciliation.
 
 ## Next authorization boundary
 
-Phase 65 is the next strict numbered runtime phase, but it remains **not started**. Before any Phase-65 runtime implementation is authorized, perform a bounded architecture/scope review against ADR-0046, the live `main` state, current platform capabilities and the applicable Golden User Journeys, then define the first coherent vertical and its acceptance boundary.
+Phase 65 is the next strict numbered runtime phase, but it remains **not started**.
 
-A documentation merge, roadmap entry or historical “next action” note does not itself authorize Phase-65 runtime work.
+Before any Phase-65 runtime implementation is authorized:
+
+1. read live `main`;
+2. re-read ADR-0046 and ADR-0053;
+3. inspect the current media/provider implementation gap;
+4. define the first coherent Recording-playback vertical and exact acceptance evidence;
+5. explicitly authorize Phase-65 kickoff.
+
+A documentation/roadmap merge does not itself authorize Phase-65 runtime work.
