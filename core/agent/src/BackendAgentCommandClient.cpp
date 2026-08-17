@@ -298,7 +298,7 @@ bool mergeProviderFacts(
         existing->available != facts.available)
         return false;
     for (const std::string& capability : facts.capabilities)
-        if (!hasCapability(*existing, capability))
+        if (!hasCapability(*existing, capability.c_str()))
             existing->capabilities.push_back(capability);
     return true;
 }
