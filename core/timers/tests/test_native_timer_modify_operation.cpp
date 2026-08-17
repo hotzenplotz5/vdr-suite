@@ -83,7 +83,6 @@ TimerAssignment boundAssignment(
     assignment.timerAssignmentId = "assignment:modify:1";
     assignment.timerIntentId = intent.timerIntentId;
     assignment.intentRevision = intent.intentRevision;
-    assignment.assignmentEpoch = 1;
     assignment.backendId = "backend:1";
     assignment.backendGeneration = 7;
     assignment.state = TimerAssignmentState::bound;
