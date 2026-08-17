@@ -14,7 +14,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 4. [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md) and [ADR-0053 Client Playback / Media Adaptation](adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md) for Phase-65 media work.
 5. [Golden User Journeys](planning/golden-user-journeys.md) for vertical product acceptance.
 6. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [Architecture Decision Records](adr/index.md) as required by the task.
-7. If work concerns Teletext/HbbTV or future phase ordering, read proposed [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md); it is not runtime-authoritative until explicitly accepted.
+7. If work concerns Teletext/HbbTV or future phase ordering, read accepted [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md); acceptance defines the architecture but does not authorize Phase-66 runtime.
 8. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Completed Phases](development/completed-phases.md), [Phase 62 Final Closeout](development/phase-62-closeout.md) and the Phase-63 development records provide stable historical/narrative context.
@@ -72,7 +72,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 69 Recommendation and Content Knowledge Graph
 ```
 
-Completed history is not renumbered. The post-Phase-65 sequence concerns only not-yet-started future phases. Phase 66 is backed by proposed ADR-0054 and remains runtime-blocked until that ADR is explicitly accepted.
+Completed history is not renumbered. The post-Phase-65 sequence concerns only not-yet-started future phases. Phase 66 is backed by accepted ADR-0054 and remains runtime-blocked until Phase 66 is explicitly started after Phase 65.
 
 The broad polished Timer UI is not the Phase-64 completion gate and is not inserted as a numbered phase. Its prerequisite chain is:
 
@@ -110,7 +110,7 @@ The preferred Phase-65 product order is Recording playback first, then Live TV, 
 
 Teletext and HbbTV are planned as normal television-domain capabilities, not as Legacy OSD shortcuts.
 
-Proposed ADR-0054 defines the intended distinction:
+Accepted ADR-0054 defines the distinction:
 
 ```text
 TeletextService / TeletextPage
@@ -156,7 +156,7 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 2. Query live `main`, the relevant PR/branch and exact-final-head CI before making a status claim.
 3. Treat Phase 64 as completed and Phase 65 as next but not started.
 4. For Phase-65 planning, reconcile ADR-0046, ADR-0053, current architecture and current code before suggesting implementation.
-5. Treat Phase-66 Teletext/HbbTV planning as proposed until ADR-0054 is explicitly accepted.
+5. Treat Phase-66 Teletext/HbbTV architecture as accepted via ADR-0054, but do not start its runtime before Phase 65 closes and Phase 66 is explicitly authorized.
 6. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 or block Streaming solely for that UI.
 7. Keep review/merge/retarget/close state changes behind explicit user approval.
 8. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes.
