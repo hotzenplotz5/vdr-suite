@@ -232,6 +232,16 @@ bool safeRecordingId(const std::string& value)
     return true;
 }
 
+bool safeSessionId(const std::string& value)
+{
+    if (value.empty() || value.size() > 128) return false;
+    for (unsigned char character : value) {
+        if (!std::isalnum(character) && character != '-' && character != '_' &&
+            character != '.' && character != ':') return false;
+    }
+    return true;
+}
+
 bool parseProtocols(
     const std::vector<std::string>& values,
     std::vector<MediaDeliveryProtocol>& result)
@@ -292,6 +302,13 @@ RecordingMediaSessionRequest invalid(const std::string& reasonCode)
     return result;
 }
 
+RecordingMediaSessionStopRequest invalidStop(const std::string& reasonCode)
+{
+    RecordingMediaSessionStopRequest result;
+    result.reasonCode = reasonCode;
+    return result;
+}
+
 } // namespace
 
 RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
@@ -337,6 +354,33 @@ RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
             "maxVideoHeight",
             request.capabilities.maxVideoHeight)) {
         return invalid("invalid_media_capabilities");
+    }
+
+    request.valid = true;
+    return request;
+}
+
+RecordingMediaSessionStopRequest RecordingMediaSessionRequestParser::parseStop(
+    const std::string& body) const
+{
+    std::size_t operationPosition = 0;
+    if (!locateValue(body, "operation", operationPosition)) {
+        return invalidStop("media_session_stop_not_requested");
+    }
+
+    std::string operation;
+    if (!readStringAt(body, operationPosition, operation) || operation != "stop") {
+        return invalidStop("invalid_media_session_operation");
+    }
+
+    RecordingMediaSessionStopRequest request;
+    if (!readStringField(body, "backendId", request.backendId) ||
+        !safeBackendId(request.backendId)) {
+        return invalidStop("invalid_backend_id");
+    }
+    if (!readStringField(body, "sessionId", request.sessionId) ||
+        !safeSessionId(request.sessionId)) {
+        return invalidStop("invalid_media_session_id");
     }
 
     request.valid = true;
