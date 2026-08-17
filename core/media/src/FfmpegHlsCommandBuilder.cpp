@@ -85,7 +85,7 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
 
     FfmpegHlsCommandPlan plan;
     plan.argv = {
-        "ffmpeg",
+        "/usr/bin/ffmpeg",
         "-nostdin",
         "-hide_banner",
         "-loglevel", "warning",
