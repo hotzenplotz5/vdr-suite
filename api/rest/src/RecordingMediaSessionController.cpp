@@ -9,11 +9,13 @@
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
 #include "RecordingMediaSessionRequestParser.h"
+#include "RecordingMediaSessionRuntime.h"
 #include "VdrRecordingQueryService.h"
 
 #include <array>
 #include <cerrno>
 #include <chrono>
+#include <memory>
 #include <string>
 #include <sys/random.h>
 #include <utility>
@@ -124,9 +126,14 @@ RecordingMediaSessionController::RecordingMediaSessionController(
     : recordingQueryService_(recordingQueryService),
       mediaSessionRepository_(mediaSessionRepository),
       mediaSessionIssuanceService_(mediaSessionIssuanceService),
+      mediaSessionRuntime_(std::make_unique<RecordingMediaSessionRuntime>(
+          mediaSessionRepository,
+          workspaceRoot)),
       workspaceRoot_(std::move(workspaceRoot))
 {
 }
+
+RecordingMediaSessionController::~RecordingMediaSessionController() = default;
 
 ApiResponse RecordingMediaSessionController::createSession(
     const std::string& body,
@@ -246,6 +253,29 @@ ApiResponse RecordingMediaSessionController::createSession(
         return jsonError(500, "media_access_credential_transport_failed");
     }
 
+    if (profile.protocol != MediaDeliveryProtocol::Hls) {
+        mediaSessionRepository_.endBundle(
+            issuance.session.sessionId,
+            "progressive_direct_not_yet_provisioned");
+        issuance.session.clearSecret();
+        return jsonError(422, "media_progressive_direct_not_available");
+    }
+
+    const RecordingMediaSessionProvisionResult provision =
+        mediaSessionRuntime_->provisionHls(
+            issuance.session.sessionId,
+            issuance.session.workspaceId,
+            profile,
+            sourceResolution.source.segmentPaths);
+    if (!provision.ready) {
+        issuance.session.clearSecret();
+        return jsonError(
+            503,
+            provision.reasonCode.empty()
+                ? "media_hls_provision_failed"
+                : provision.reasonCode);
+    }
+
     ApiResponse response;
     response.statusCode = 201;
     response.contentType = "application/json";
@@ -255,12 +285,12 @@ ApiResponse RecordingMediaSessionController::createSession(
     response.body =
         "{\"mediaSession\":{"
         "\"id\":\"" + jsonEscape(issuance.session.sessionId) + "\"," +
-        "\"state\":\"provisioning\"," +
+        "\"state\":\"ready\"," +
         "\"backendId\":\"" + jsonEscape(request.backendId) + "\"," +
         "\"recordingId\":\"" + jsonEscape(request.recordingId) + "\"," +
         "\"presentationProfileId\":\"" + jsonEscape(profile.profileId) + "\"," +
         "\"mediaPath\":\"/api/media/sessions/" +
-            jsonEscape(issuance.session.sessionId) + "/\"," +
+            jsonEscape(issuance.session.sessionId) + "/hls/master.m3u8\"," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
 
     issuance.session.clearSecret();
