@@ -118,7 +118,7 @@ FfprobeRecordingPlan FfprobeRecordingSource::commandPlan() const
 {
     FfprobeRecordingPlan plan;
     plan.argv = {
-        "ffprobe",
+        "/usr/bin/ffprobe",
         "-v", "error",
         "-f", "concat",
         "-safe", "1",
