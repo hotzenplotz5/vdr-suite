@@ -53,6 +53,7 @@ test-phase65-media-session-persistence:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaRouteLeaseRepository.cpp \
 		core/media/src/MediaSessionIssuanceService.cpp \
 		core/media/src/MediaAccessGrantAuthenticator.cpp \
 		core/media/tests/test_media_session_persistence.cpp \
