@@ -45,6 +45,14 @@
           reload: options.reload
         })
       : null;
+    let activePlayback = null;
+
+    function destroyPlayback() {
+      if (activePlayback && typeof activePlayback.destroy === 'function') {
+        activePlayback.destroy();
+      }
+      activePlayback = null;
+    }
 
     function state() {
       return getState();
@@ -125,6 +133,7 @@
     }
 
     function prepareTarget() {
+      destroyPlayback();
       const target = shared.mountTarget();
       if (!target) return null;
       shared.installStyles();
@@ -351,6 +360,12 @@
       details.appendChild(detailField('Metadatenquelle', shared.first(provider, ['source'], 'VDR')));
       root.appendChild(details);
 
+      const playback = global.VdrSuiteRecordings2Playback;
+      if (playback && typeof playback.createPanel === 'function') {
+        activePlayback = playback.createPanel(recording, currentState.backendId);
+        if (activePlayback && activePlayback.element) root.appendChild(activePlayback.element);
+      }
+
       if (actionView && typeof actionView.createPanel === 'function') {
         root.appendChild(actionView.createPanel(recording));
       }
@@ -367,7 +382,8 @@
       renderLoading: renderLoading,
       renderError: renderError,
       renderFolder: renderFolder,
-      renderDetail: renderDetail
+      renderDetail: renderDetail,
+      destroy: destroyPlayback
     });
   }
 
