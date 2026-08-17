@@ -72,8 +72,8 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-35 | Golden vertical product acceptance | Strong planning foundation | Component CI is complemented by real end-to-end Timer/media/failure journeys as capabilities land. | Golden User Journeys |
 | G-36 | Broad Timer Product UI | Planned cross-cutting milestone | Phase-64 engine is complete, but intent-first polished UI remains gated on required account/backend access administration. | Phase 62 + Phase 64 + Roadmap milestone |
 | G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
-| G-38 | Teletext domain service | Proposed | No canonical Teletext domain exists yet. Proposed ADR-0054 models service/page/subpage data independently of OSD rendering. | proposed ADR-0054 / Phase 66 |
-| G-39 | HbbTV broadcast application domain/runtime | Proposed | No canonical HbbTV domain exists yet. Proposed ADR-0054 models application discovery/session/runtime without public raw plugin/browser commands. | proposed ADR-0054 / Phase 66 |
+| G-38 | Teletext domain service | Planned | No canonical Teletext runtime exists yet. Accepted ADR-0054 models service/page/subpage data independently of OSD rendering. | ADR-0054 / Phase 66 |
+| G-39 | HbbTV broadcast application domain/runtime | Planned | No canonical HbbTV runtime exists yet. Accepted ADR-0054 models application discovery/session/runtime without public raw plugin/browser commands. | ADR-0054 / Phase 66 |
 | G-40 | Legacy Basic retirement | Deferred deployment migration | Transitional compatibility remains until enforced-mode rollout, recovery and upgrade/rollback are proven. | Phase 62 closeout / deployment milestone |
 | G-41 | Recommendation/content graph | Deferred vision | Requires stable identities, privacy/preferences, provenance and Phase-68 public resource semantics plus a dedicated ADR. | future ADR / Phase 69 |
 
@@ -95,9 +95,9 @@ Exact kickoff still requires a current-code gap review and explicit authorizatio
 
 ### Following television product domain — Phase 66
 
-Teletext/HbbTV architecture is proposed, not yet runtime-authorized.
+Teletext/HbbTV architecture is accepted via ADR-0054; runtime remains not started and follows Phase 65.
 
-The intended rule is domain-first:
+The binding rule is domain-first:
 
 - Teletext data/pages instead of OSD-frame ownership;
 - broadcast application discovery/session instead of raw URL/JS/key plugin control;
