@@ -262,7 +262,7 @@ int main()
             "pie_1");
         assert(facts.providerGeneration == 1);
         assert(facts.capabilityRevision == 1);
-        assert(facts.available);
+        assert(!facts.available);
         assert(facts.capabilities.size() == 1);
         assert(facts.capabilities.front() ==
             "vdr.timer.create");

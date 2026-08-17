@@ -73,7 +73,8 @@ availability = client[
 ]
 require(availability, "kBackendAgentNativeTimerCreateCommandType",
         "CREATE advertisement fence")
-require(availability, "continue;", "CREATE advertisement suppression")
+require(availability, "discoverProvider", "CREATE provider discovery")
+require(availability, "facts.available", "CREATE availability fence")
 require(agent_main, "SuiteBridgeNativeTimerCreateTransport",
         "production CREATE adapter construction successor")
 require(agent_client, "config_.nativeTimerCreateTransport",

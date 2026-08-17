@@ -103,9 +103,9 @@ require(plugin_source, "request.localStartingPersistedAt >= request.controlPlane
 for token in ("<vdr/timers.h>", "cTimers", "Timers->", '"DELT"', "RESTfulAPI", "restfulapi"):
     forbid(plugin_source, token, "direct VDR mutation in replay/transport service")
 
-# The original Slice-34 boundary remains useful for the Agent/private transport.
-# The explicit successor gate may configure one dedicated VDR callback in the
-# plugin while the shipped Agent remains non-advertising and non-injecting.
+# The original Slice-34 boundary remains useful for the private transport.
+# The accepted activation successor may advertise it only after enabled,
+# coherent SuiteBridge provider discovery.
 require(plugin_main_header, "SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_", "dedicated VDR mutation callback owner")
 require(plugin_main_header, "SuiteBridgeNativeTimerDeleteService nativeTimerDelete_", "plugin service owner")
 require(plugin_main, "&nativeTimerDeleteVdrMutation_", "explicit production callback wiring")
@@ -119,11 +119,13 @@ require(plugin_makefile, "test-native-timer-delete", "plugin Timer-delete servic
 
 require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "production Timer-delete adapter construction successor")
 require(agent_client, "config_.nativeTimerDeleteTransport", "production Timer-delete transport injection successor")
-forbid(agent_client, "vdr.timer.delete", "production Timer-delete Agent configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split("\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1)[0]
 require(available, "kBackendAgentNativeTimerDeleteCommandType", "Timer-delete advertisement fence")
-require(available, "continue;", "Timer-delete advertisement suppression")
+require(available, "discoverProvider", "Timer-delete provider discovery")
+require(available, "facts.available", "Timer-delete availability fence")
 
 for needle, label in (
     ("native_timer_delete_suitebridge_provider_discovered_enabled", "enabled discovery regression"),

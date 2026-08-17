@@ -143,7 +143,7 @@ int main()
         assert(facts.providerInstanceEpoch == "pie_1");
         assert(facts.providerGeneration == 1);
         assert(facts.capabilityRevision == 1);
-        assert(facts.available);
+        assert(!facts.available);
         assert(facts.capabilities.size() == 1);
         assert(facts.capabilities.front() == "vdr.timer.delete");
         assert(server.request() == "PLUG suitebridge NTDEL CAP 1\r\n");

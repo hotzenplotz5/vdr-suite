@@ -32,13 +32,14 @@ std::string hexText(const std::string& value){if(value.empty())return "-";std::s
 BackendAgentNativeTimerModifyTransportReply result(
  BackendAgentNativeTimerModifyTransportDisposition d,std::string e){return {d,std::move(e)};}
 bool parseCapability(const SuiteBridgeCommandReply& reply,const char* capability,
- std::string& epoch,std::uint64_t& generation,std::uint64_t& revision,std::string& reason){
+ std::string& epoch,std::uint64_t& generation,std::uint64_t& revision,
+ bool& enabled,std::string& reason){
  if(!reply.transportSucceeded()||reply.replyCode!=CapabilityReplyCode){reason="ntmod_capability_unavailable";return false;}
  auto v=split(reply.payload,10);if(v.size()!=10||v[0]!=CapabilityProtocol||v[1]!=capability||
  v[2]!="1"||v[3]!="timer-modify"||(v[4]!="enabled"&&v[4]!="disabled")||v[9]!=v[4]||
  v[5]!=kBackendAgentNativeTimerModifyProviderKind||!safeToken(v[6],192)||
  !number(v[7],generation)||!number(v[8],revision)){reason="ntmod_capability_invalid";return false;}
- epoch=v[6];return true;}
+ epoch=v[6];enabled=v[4]=="enabled";return true;}
 }
 
 SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::discoverNativeTimerModifyContract(
@@ -76,21 +77,25 @@ bool SuiteBridgeNativeTimerModifyTransport::discoverProvider(
  BackendAgentLocalProviderFacts& facts,std::string& reason)
 {
  facts={};std::string updateEpoch,toggleEpoch;std::uint64_t ug=0,ur=0,tg=0,tr=0;
+ bool updateEnabled=false,toggleEnabled=false;
  if(!parseCapability(transport_.discoverNativeTimerModifyContract(
       BackendAgentNativeTimerModifyKind::update),kBackendAgentNativeTimerUpdateCapability,
-      updateEpoch,ug,ur,reason)||
+      updateEpoch,ug,ur,updateEnabled,reason)||
     !parseCapability(transport_.discoverNativeTimerModifyContract(
       BackendAgentNativeTimerModifyKind::toggle),kBackendAgentNativeTimerToggleCapability,
-      toggleEpoch,tg,tr,reason)||updateEpoch!=toggleEpoch||ug!=tg||ur!=tr){
+      toggleEpoch,tg,tr,toggleEnabled,reason)||updateEpoch!=toggleEpoch||ug!=tg||ur!=tr||
+    updateEnabled!=toggleEnabled){
    reason="native_timer_modify_suitebridge_capability_invalid";return false;}
  facts.providerId=kBackendAgentNativeTimerModifyProviderId;
  facts.providerKind=kBackendAgentNativeTimerModifyProviderKind;
  facts.providerInstanceEpoch=updateEpoch;facts.providerGeneration=ug;
- facts.capabilityRevision=ur;facts.available=true;
+ facts.capabilityRevision=ur;facts.available=updateEnabled;
  facts.capabilities={kBackendAgentNativeTimerUpdateCapability,
                      kBackendAgentNativeTimerToggleCapability};
  if(!backendAgentLocalProviderValidFacts(facts)){facts={};reason="native_timer_modify_provider_invalid";return false;}
- reason="native_timer_modify_suitebridge_provider_discovered";return true;
+ reason=updateEnabled?"native_timer_modify_suitebridge_provider_discovered":
+                      "native_timer_modify_suitebridge_provider_discovered_disabled";
+ return true;
 }
 
 BackendAgentNativeTimerModifyTransportReply

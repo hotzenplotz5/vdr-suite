@@ -152,16 +152,18 @@ for needle, label in (
 ):
     require(transport_test, needle, label)
 
-# The real callback gate does not silently open the Agent/shipped command path.
+# The accepted successor opens only the capability-gated Agent command path.
 require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport construction successor")
 require(agent_client, "config_.nativeTimerDeleteTransport", "installed Agent Timer-delete transport injection successor")
-forbid(agent_client, "vdr.timer.delete", "installed Agent Timer-delete configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "installed Agent Timer-delete configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split(
     "\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1
 )[0]
 require(available, "kBackendAgentNativeTimerDeleteCommandType", "Timer-delete advertisement fence")
-require(available, "continue;", "Timer-delete advertisement suppression")
+require(available, "discoverProvider", "Timer-delete provider discovery")
+require(available, "facts.available", "Timer-delete availability fence")
 
 for needle, label in (
     ("first Phase-64 slice that contains and wires a real native VDR", "real-mutation scope documentation"),

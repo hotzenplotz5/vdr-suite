@@ -132,8 +132,7 @@ require(
 )
 forbid(command_client, '"vdr.timer.delete"', "Timer-delete command-client literal execution")
 forbid(agent_client, '"vdr.timer.delete"', "Timer-delete Agent literal advertisement")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
-forbid(packaged_config, "vdr.timer.create", "packaged Timer-create advertisement")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for token in (
     "SuiteBridgeSvdrp",

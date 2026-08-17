@@ -2,6 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ACTIVATED = "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete"
 
 def read(path: str) -> str:
     target = ROOT / path
@@ -21,10 +22,16 @@ makefile = read("Makefile")
 header = read("core/agent/include/BackendAgentClient.h")
 client = read("core/agent/src/BackendAgentClient.cpp")
 command_client = read("core/agent/src/BackendAgentCommandClient.cpp")
+delivery = read("core/agent/src/BackendAgentCommandDelivery.cpp")
+advertisement = read(
+    "core/agent/include/BackendAgentNativeTimerDeleteAdvertisement.h"
+)
 main = read("apps/agent/main.cpp")
 runtime_mk = read("mk/backend-agent-runtime.mk")
 packaged = read("packaging/systemd/backend-agent.conf")
-test = read("core/agent/tests/test_backend_agent_client.cpp")
+client_test = read("core/agent/tests/test_backend_agent_command_client.cpp")
+config_test = read("core/agent/tests/test_backend_agent_client.cpp")
+svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 doc = read("docs/development/phase-64-suitebridge-native-timer-command-path-wiring.md")
 
 include = "include mk/phase64-suitebridge-native-timer-command-path-wiring-tests.mk"
@@ -32,68 +39,108 @@ require(makefile, include, "command-path wiring Make include")
 if makefile.count(include) != 1:
     raise SystemExit("command-path wiring Make include must occur exactly once")
 
-for needle, label in (
-    ("suiteBridgeHost", "loopback SuiteBridge host configuration"),
-    ("suiteBridgePort", "SuiteBridge port configuration"),
-    ("nativeTimerCreateTransport = nullptr", "default-closed CREATE injection"),
-    ("nativeTimerDeleteTransport = nullptr", "default-closed DELETE injection"),
+for needle in (
+    "suiteBridgeHost",
+    "suiteBridgePort",
+    "nativeTimerCreateTransport = nullptr",
+    "nativeTimerDeleteTransport = nullptr",
+    "nativeTimerModifyTransport = nullptr",
 ):
-    require(header, needle, label)
+    require(header, needle, "default-closed transport injection")
 
-for needle, label in (
-    ('"SUITEBRIDGE_HOST"', "SuiteBridge host parser"),
-    ('"SUITEBRIDGE_PORT"', "SuiteBridge port parser"),
-    ("loopbackHost(config.suiteBridgeHost)", "loopback-only SuiteBridge fence"),
-    ("config_.nativeTimerCreateTransport", "CREATE CommandClient injection"),
-    ("config_.nativeTimerDeleteTransport", "DELETE CommandClient injection"),
+for needle in (
+    '"SUITEBRIDGE_HOST"',
+    '"SUITEBRIDGE_PORT"',
+    "loopbackHost(config.suiteBridgeHost)",
+    "kBackendAgentNativeTimerCreateCommandType",
+    "kBackendAgentNativeTimerUpdateCommandType",
+    "kBackendAgentNativeTimerToggleCommandType",
+    "kBackendAgentNativeTimerDeleteCommandType",
+    "timerCommandsConfigured && config.suiteBridgeHost.empty()",
 ):
-    require(client, needle, label)
+    require(client, needle, "Timer configuration fence")
 
-for needle, label in (
-    ('#include "SuiteBridgeNativeTimerCreateTransport.h"', "CREATE adapter include"),
-    ('#include "SuiteBridgeNativeTimerDeleteTransport.h"', "DELETE adapter include"),
-    ("SuiteBridgeNativeTimerCreateTransport", "CREATE adapter construction"),
-    ("SuiteBridgeNativeTimerDeleteTransport", "DELETE adapter construction"),
-    ("config.nativeTimerCreateTransport =", "CREATE runtime injection"),
-    ("config.nativeTimerDeleteTransport =", "DELETE runtime injection"),
+for needle in (
+    "SuiteBridgeNativeTimerCreateTransport",
+    "SuiteBridgeNativeTimerDeleteTransport",
+    "SuiteBridgeNativeTimerModifyTransport",
+    "config.nativeTimerCreateTransport =",
+    "config.nativeTimerDeleteTransport =",
+    "config.nativeTimerModifyTransport =",
 ):
-    require(main, needle, label)
+    require(main, needle, "installed Timer adapter wiring")
 
-for needle, label in (
-    ("$(AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC)", "CREATE adapter binary link"),
-    ("$(AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC)", "DELETE adapter binary link"),
+for needle in (
+    "$(AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC)",
+    "$(AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC)",
+    "$(AGENT_NATIVE_TIMER_MODIFY_TRANSPORT_SRC)",
 ):
-    require(runtime_mk, needle, label)
+    require(runtime_mk, needle, "Timer adapter binary link")
 
-for needle, label in (
-    ("SUITEBRIDGE_HOST=127.0.0.1", "packaged loopback host"),
-    ("SUITEBRIDGE_PORT=6419", "packaged SuiteBridge port"),
-    ("COMMAND_TYPES=", "closed packaged command advertisement"),
-):
-    require(packaged, needle, label)
-for token in ("vdr.timer.create", "vdr.timer.delete"):
-    forbid(packaged, token, "premature packaged Timer command advertisement")
+if packaged.count("COMMAND_TYPES=") != 1:
+    raise SystemExit("packaged command activation must occur exactly once")
+require(packaged, ACTIVATED + "\n", "exact packaged Timer activation")
 
 availability = command_client[
     command_client.find("CommandAvailability availableCommands"):
     command_client.find("bool reconcileBackendAgentCommandState")
 ]
 for needle in (
+    "discoverProvider",
+    "facts.available",
+    "mergeProviderFacts",
+    "timerSnapshotCoherent",
+    "providerInstanceEpoch",
+    "providerGeneration",
+    "capabilityRevision",
+):
+    require(availability, needle, "runtime availability fence")
+for token in (
     "kBackendAgentNativeTimerCreateCommandType",
+    "kBackendAgentNativeTimerUpdateCommandType",
+    "kBackendAgentNativeTimerToggleCommandType",
     "kBackendAgentNativeTimerDeleteCommandType",
-    "continue;",
 ):
-    require(availability, needle, "closed Timer advertisement fence")
+    require(availability, token, "activated Timer command type")
 
-for needle in (
-    "SUITEBRIDGE_HOST=127.0.0.1",
-    "SUITEBRIDGE_PORT=6419",
-    'config.suiteBridgeHost == "127.0.0.1"',
-    "config.suiteBridgePort == 6419",
-    "invalid_suitebridge_configuration",
+for token in (
+    "backendAgentNativeTimerAdvertisementValid",
+    "native_timer_create_provider_advertisement_required",
+    "native_timer_update_provider_advertisement_required",
+    "native_timer_toggle_provider_advertisement_required",
+    "native_timer_delete_provider_advertisement_required",
 ):
-    require(test, needle, "SuiteBridge configuration regression")
+    require(advertisement + delivery, token, "Control Plane advertisement fence")
 
-require(doc, "advertisement remains closed", "closed advertisement documentation")
-require(doc, "Control Plane", "productive command path documentation")
-print("Phase 64 SuiteBridge native Timer command-path wiring guard passed")
+for token in (
+    "kBackendAgentNativeTimerUpdateCommandType",
+    "kBackendAgentNativeTimerToggleCommandType",
+    "localProviderSelectionCurrent",
+):
+    require(delivery, token, "pre-delivery provider fence")
+
+for token in (
+    "testTimerAdvertisementActivation",
+    "pie_timer_activation_replaced",
+    "supportedCommandTypes.empty()",
+    "localProviders.size() == 1",
+):
+    require(client_test, token, "activation regression")
+require(config_test, ACTIVATED, "configuration activation regression")
+
+help_start = svdrp.find("SVDRPHelpPages")
+command_start = svdrp.find("SVDRPCommand", help_start)
+if help_start < 0 or command_start < 0:
+    raise SystemExit("SuiteBridge help boundary missing")
+for command in ("NTCREATE", "NTMOD", "NTDELETE"):
+    forbid(svdrp[help_start:command_start], command, "public Timer write help")
+
+for token in (
+    "passed the bounded real-yaVDR",
+    "acceptance before activation",
+    "Advertisement remains fail-closed at runtime",
+    "public SuiteBridge SVDRP Help advertisement remains",
+):
+    require(doc, token, "activation documentation")
+
+print("Phase 64 SuiteBridge native Timer command-path activation guard passed")

@@ -278,9 +278,10 @@ require(
 
 require(
     availability,
-    "continue;",
-    "CREATE advertisement suppression",
+    "discoverProvider",
+    "CREATE provider discovery",
 )
+require(availability, "facts.available", "CREATE availability fence")
 
 require(
     agent_main,
@@ -294,16 +295,16 @@ require(
     "production CREATE transport injection successor",
 )
 
-forbid(
+require(
     agent_client,
-    "vdr.timer.create",
-    "production CREATE Agent configuration",
+    "kBackendAgentNativeTimerCreateCommandType",
+    "production CREATE Agent configuration allowlist",
 )
 
-forbid(
+require(
     packaged,
-    "vdr.timer.create",
-    "packaged CREATE configuration",
+    "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete",
+    "accepted packaged Timer activation",
 )
 
 # The private command-service successor may now own the parser/replay layer.

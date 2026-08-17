@@ -152,8 +152,9 @@ require(
     "v3 state-owner local-state validation wiring",
 )
 forbid(command_client, "vdr.timer.delete", "Timer-delete command-client execution")
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent advertisement")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for token in (
     "SuiteBridgeSvdrp",

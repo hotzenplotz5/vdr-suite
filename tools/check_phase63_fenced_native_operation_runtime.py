@@ -371,8 +371,8 @@ for token in ["discoverNativeProbe", "executeNativeProbe", "readNativeProbe"]:
 if "--native-probe" not in agent_main or "loopbackHost" not in agent_main or \
         'config.commandTypes = {"vdr.native.probe"}' not in agent_main:
     errors.append("runtime activation must be explicit and loopback-only")
-if "COMMAND_TYPES=\n" not in packaged_config:
-    errors.append("packaged command types must remain disabled by default")
+if "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete\n" not in packaged_config:
+    errors.append("packaged Timer command activation must remain exact")
 
 scoped_runtime = "\n".join([
     agent_protocol,

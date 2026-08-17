@@ -208,7 +208,7 @@ bool SuiteBridgeNativeTimerDeleteTransport::discoverProvider(
     facts.providerInstanceEpoch = values[6];
     facts.providerGeneration = providerGeneration;
     facts.capabilityRevision = capabilityRevision;
-    facts.available = true;
+    facts.available = values[4] == EnabledState;
     facts.capabilities = {kBackendAgentNativeTimerDeleteCapability};
     if (!backendAgentLocalProviderValidFacts(facts))
     {

@@ -23,17 +23,18 @@ if RUNNER.is_file():
         "backend-agent-command-admin",
         "make -C vdr-plugin-suite-bridge -j2 check",
         "candidates.sha256",
-        "COMMAND_TYPES=\\n",
+        "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,",
+        "vdr.timer.toggle,vdr.timer.delete\\n",
         "if ! python3 -",
         (
-            "PY_CLOSED_ADVERTISEMENT\n"
+            "PY_ACTIVATED_ADVERTISEMENT\n"
             "then\n"
-            "    fail closed_advertisement_check_failed\n"
+            "    fail activated_advertisement_check_failed\n"
             "fi"
         ),
-        "closed_advertisement_evidence_missing",
+        "activated_advertisement_evidence_missing",
         'for command in ("NTCREATE", "NTMOD", "NTDELETE")',
-        "ADVERTISEMENT=closed",
+        "ADVERTISEMENT=timer-commands-activated",
         "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
     ]
     for token in required:
@@ -46,7 +47,7 @@ if RUNNER.is_file():
         "scp ",
         "curl ",
         "wget ",
-        "<<'PY_CLOSED_ADVERTISEMENT' ||",
+        "<<'PY_ACTIVATED_ADVERTISEMENT' ||",
         "systemctl ",
         "timers.conf",
         "sqlite3 ",

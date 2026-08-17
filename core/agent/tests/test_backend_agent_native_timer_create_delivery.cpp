@@ -194,8 +194,7 @@ int main()
     assert(advertisementClosed.accepted);
     assert(!advertisementClosed.assignment.present);
 
-    // Repository-level fixture can explicitly advertise CREATE to exercise the
-    // delivery boundary. Production Agent advertisement remains closed elsewhere.
+    // An enabled, fenced provider advertisement makes CREATE deliverable.
     const auto delivered = commands.poll(
         pollRequest({kBackendAgentNativeTimerCreateCommandType}, {firstFacts}),
         "agt_create_delivery", 120);

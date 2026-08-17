@@ -112,8 +112,9 @@ require(
     "kBackendAgentNativeTimerDeleteCommandType",
     "Timer-delete type fence",
 )
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for token in (
     "SuiteBridgeSvdrp",

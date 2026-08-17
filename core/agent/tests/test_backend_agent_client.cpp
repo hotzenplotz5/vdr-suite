@@ -133,6 +133,7 @@ void test_protected_url_and_configuration()
            << "OBSERVATION_DOMAINS=backend-health\n"
            << "SUITEBRIDGE_HOST=127.0.0.1\n"
            << "SUITEBRIDGE_PORT=6419\n"
+           << "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete\n"
            << "HEARTBEAT_INTERVAL_SECONDS=30\n";
     output.close();
     BackendAgentClientConfig config;
@@ -143,6 +144,9 @@ void test_protected_url_and_configuration()
     assert(config.observationDomains.size() == 1);
     assert(config.suiteBridgeHost == "127.0.0.1");
     assert(config.suiteBridgePort == 6419);
+    assert(config.commandTypes == std::vector<std::string>({
+        "vdr.timer.create", "vdr.timer.update",
+        "vdr.timer.toggle", "vdr.timer.delete"}));
     assert(config.nativeTimerCreateTransport == nullptr);
     assert(config.nativeTimerDeleteTransport == nullptr);
 

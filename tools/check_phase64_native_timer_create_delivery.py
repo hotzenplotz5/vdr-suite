@@ -1,54 +1,44 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
 required = {
-    "core/agent/src/BackendAgentCommandDelivery.cpp": [
-        'BackendAgentNativeTimerCreatePayload.h',
-        'const bool timerCreate=commandType==kBackendAgentNativeTimerCreateCommandType;',
-        'native_timer_create_provider_selection_mismatch',
-        'result.assignment.commandType==kBackendAgentNativeTimerCreateCommandType',
-        'commandType==kBackendAgentNativeTimerCreateCommandType||',
-        'backendAgentNativeTimerCreateParsePayload',
+    "core/agent/include/BackendAgentNativeTimerCreate.h": [
+        'kBackendAgentNativeTimerCreateCommandType = "vdr.timer.create"',
     ],
     "core/agent/src/BackendAgentCommandClient.cpp": [
-        'BackendAgentNativeTimerCreate.h',
-        'type == vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||',
+        "kBackendAgentNativeTimerCreateCommandType",
+        "nativeTimerCreateTransport",
+        "discoverProvider",
+        "mergeProviderFacts",
+        "facts.available",
     ],
     "core/agent/tests/test_backend_agent_native_timer_create_delivery.cpp": [
-        'Production Agent advertisement remains closed elsewhere',
-        'local_provider_selection_stale',
-        'persisted provider selection',
-        'local_provider_selection_required',
+        "An enabled, fenced provider advertisement makes CREATE deliverable",
+        "local_provider_selection_stale",
+        "persisted provider selection",
+        "local_provider_selection_required",
     ],
 }
 
 errors = []
 for relative, markers in required.items():
     path = ROOT / relative
-    if not path.exists():
+    if not path.is_file():
         errors.append(f"missing {relative}")
         continue
-    text = path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
     for marker in markers:
-        if marker not in text:
+        if marker not in content:
             errors.append(f"{relative}: missing marker {marker}")
 
-client = (ROOT / "core/agent/src/BackendAgentCommandClient.cpp").read_text(
+packaged = (ROOT / "packaging/systemd/backend-agent.conf").read_text(
     encoding="utf-8"
 )
-availability_start = client.find("CommandAvailability availableCommands")
-availability_end = client.find("\n}", availability_start)
-availability = client[availability_start:availability_end]
-closed = (
-    availability_start >= 0
-    and "kBackendAgentNativeTimerCreateCommandType" in availability
-    and "kBackendAgentNativeTimerDeleteCommandType" in availability
-    and "continue;" in availability
-)
-if not closed:
-    errors.append("productive vdr.timer.create Agent advertisement must remain closed")
+if "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete\n" not in packaged:
+    errors.append("productive vdr.timer.create activation is not exact")
 
 makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 if "include mk/phase64-native-timer-create-delivery-tests.mk" not in makefile:
@@ -56,6 +46,7 @@ if "include mk/phase64-native-timer-create-delivery-tests.mk" not in makefile:
 
 if errors:
     for error in errors:
-        print(error)
+        print(error, file=sys.stderr)
     raise SystemExit(1)
-print("Phase 64 native Timer CREATE delivery architecture guard passed")
+
+print("Phase 64 native Timer CREATE delivery guard passed")

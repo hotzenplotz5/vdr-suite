@@ -63,10 +63,11 @@ available = client[
 ]
 require(available, "kBackendAgentNativeTimerCreateCommandType",
         "CREATE advertisement fence")
-require(available, "continue;", "CREATE advertisement suppression")
+require(available, "discoverProvider", "CREATE provider discovery")
+require(available, "facts.available", "CREATE availability fence")
 require(agent_main, "SuiteBridgeNativeTimerCreateTransport",
         "production CREATE adapter construction successor")
 require(agent_client, "config_.nativeTimerCreateTransport",
         "production CREATE transport injection successor")
-forbid(packaged, "vdr.timer.create", "packaged CREATE advertisement")
+require(packaged, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 print("Phase 64 SuiteBridge native Timer CREATE real-mutation guard passed")

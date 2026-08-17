@@ -3,6 +3,9 @@
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeTimerCreate.h"
+#include "BackendAgentNativeTimerDelete.h"
+#include "BackendAgentNativeTimerModify.h"
 
 #include <curl/curl.h>
 
@@ -776,8 +779,42 @@ bool BackendAgentClientRuntime::loadConfig(
         reasonCode = "invalid_capability_configuration";
         return false;
     }
-    if (config.commandTypes.size() > 1 ||
-        (!config.commandTypes.empty() && config.commandTypes.front() != "probe.noop"))
+    const std::vector<std::string> allowedCommandTypes = {
+        "probe.noop",
+        vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType,
+    };
+    std::vector<std::string> uniqueCommandTypes;
+    for (const std::string& type : config.commandTypes)
+    {
+        if (std::find(
+                allowedCommandTypes.begin(),
+                allowedCommandTypes.end(),
+                type) == allowedCommandTypes.end() ||
+            std::find(
+                uniqueCommandTypes.begin(),
+                uniqueCommandTypes.end(),
+                type) != uniqueCommandTypes.end())
+        {
+            reasonCode = "invalid_command_type_configuration";
+            return false;
+        }
+        uniqueCommandTypes.push_back(type);
+    }
+    const bool probeNoopConfigured = std::find(
+        config.commandTypes.begin(),
+        config.commandTypes.end(),
+        "probe.noop") != config.commandTypes.end();
+    const bool timerCommandsConfigured = std::any_of(
+        config.commandTypes.begin(),
+        config.commandTypes.end(),
+        [](const std::string& type) {
+            return type.rfind("vdr.timer.", 0) == 0;
+        });
+    if ((probeNoopConfigured && config.commandTypes.size() != 1) ||
+        (timerCommandsConfigured && config.suiteBridgeHost.empty()))
     {
         reasonCode = "invalid_command_type_configuration";
         return false;

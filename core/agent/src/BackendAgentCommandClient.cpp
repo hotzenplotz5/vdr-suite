@@ -6,11 +6,17 @@
 #include "BackendAgentNativeProbeCommandHandler.h"
 #include "BackendAgentNativeTimerCreate.h"
 #include "BackendAgentNativeTimerCreateCommandHandler.h"
+#include "BackendAgentNativeTimerCreateExecutor.h"
 #include "BackendAgentNativeTimerDeleteCommandHandler.h"
+#include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerModifyCommandHandler.h"
+#include "BackendAgentNativeTimerModifyExecutor.h"
 
+#include <algorithm>
 #include <chrono>
+#include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -255,17 +261,143 @@ struct CommandAvailability
     std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
 };
 
+bool hasCommandType(
+    const BackendAgentCommandClientConfig& config,
+    const char* commandType)
+{
+    return std::find(
+        config.commandTypes.begin(), config.commandTypes.end(), commandType) !=
+        config.commandTypes.end();
+}
+
+bool hasCapability(
+    const vdrsuite::agent::BackendAgentLocalProviderFacts& facts,
+    const char* capability)
+{
+    return std::find(
+        facts.capabilities.begin(), facts.capabilities.end(), capability) !=
+        facts.capabilities.end();
+}
+
+bool mergeProviderFacts(
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts>& providers,
+    const vdrsuite::agent::BackendAgentLocalProviderFacts& facts)
+{
+    auto existing = std::find_if(
+        providers.begin(), providers.end(),
+        [&](const auto& value) { return value.providerId == facts.providerId; });
+    if (existing == providers.end())
+    {
+        providers.push_back(facts);
+        return true;
+    }
+    if (existing->providerKind != facts.providerKind ||
+        existing->providerInstanceEpoch != facts.providerInstanceEpoch ||
+        existing->providerGeneration != facts.providerGeneration ||
+        existing->capabilityRevision != facts.capabilityRevision ||
+        existing->available != facts.available)
+        return false;
+    for (const std::string& capability : facts.capabilities)
+        if (!hasCapability(*existing, capability))
+            existing->capabilities.push_back(capability);
+    return true;
+}
+
 CommandAvailability availableCommands(
     const BackendAgentCommandClientConfig& config)
 {
     CommandAvailability availability;
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> timerProviders;
+    std::vector<std::string> supportedTimerTypes;
+    bool timerSnapshotCoherent = true;
+
+    const auto discoverTimer =
+        [&](auto* transport,
+            const std::initializer_list<std::pair<const char*, const char*>>&
+                requirements) {
+            bool requested = false;
+            for (const auto& requirement : requirements)
+                requested = requested ||
+                    hasCommandType(config, requirement.first);
+            if (!requested || transport == nullptr) return;
+
+            vdrsuite::agent::BackendAgentLocalProviderFacts facts;
+            std::string reason;
+            try
+            {
+                if (!transport->discoverProvider(facts, reason))
+                {
+                    timerSnapshotCoherent = false;
+                    return;
+                }
+            }
+            catch (...)
+            {
+                timerSnapshotCoherent = false;
+                return;
+            }
+            if (!vdrsuite::agent::backendAgentLocalProviderValidFacts(facts) ||
+                facts.providerId !=
+                    vdrsuite::agent::kBackendAgentNativeTimerCreateProviderId ||
+                facts.providerKind !=
+                    vdrsuite::agent::kBackendAgentNativeTimerCreateProviderKind)
+            {
+                timerSnapshotCoherent = false;
+                return;
+            }
+            if (!facts.available) return;
+
+            std::vector<std::string> supported;
+            for (const auto& requirement : requirements)
+                if (hasCommandType(config, requirement.first) &&
+                    hasCapability(facts, requirement.second))
+                    supported.push_back(requirement.first);
+            if (supported.empty())
+            {
+                timerSnapshotCoherent = false;
+                return;
+            }
+            if (!mergeProviderFacts(timerProviders, facts))
+            {
+                timerSnapshotCoherent = false;
+                return;
+            }
+            supportedTimerTypes.insert(
+                supportedTimerTypes.end(), supported.begin(), supported.end());
+        };
+
+    discoverTimer(
+        config.nativeTimerCreateTransport,
+        {{vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType,
+          vdrsuite::agent::kBackendAgentNativeTimerCreateCapability}});
+    discoverTimer(
+        config.nativeTimerDeleteTransport,
+        {{vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType,
+          vdrsuite::agent::kBackendAgentNativeTimerDeleteCapability}});
+    discoverTimer(
+        config.nativeTimerModifyTransport,
+        {{vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType,
+          vdrsuite::agent::kBackendAgentNativeTimerUpdateCapability},
+         {vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType,
+          vdrsuite::agent::kBackendAgentNativeTimerToggleCapability}});
+
     for (const std::string& type : config.commandTypes)
     {
-        if (type == vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||
+        const bool timerType =
+            type == vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||
             type == vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType ||
             type == vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
-            type == vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType)
+            type == vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;
+        if (timerType)
+        {
+            if (timerSnapshotCoherent &&
+                std::find(
+                    supportedTimerTypes.begin(),
+                    supportedTimerTypes.end(),
+                    type) != supportedTimerTypes.end())
+                availability.commandTypes.push_back(type);
             continue;
+        }
         if (type != "vdr.native.probe")
         {
             availability.commandTypes.push_back(type);
@@ -274,11 +406,33 @@ CommandAvailability availableCommands(
         vdrsuite::agent::BackendAgentLocalProviderFacts facts;
         std::string reason;
         if (!vdrsuite::agent::backendAgentNativeProbeCommandAvailability(
-                config.nativeProbeTransport, facts, reason))
+                config.nativeProbeTransport, facts, reason) ||
+            !mergeProviderFacts(availability.localProviders, facts))
             continue;
         availability.commandTypes.push_back(type);
-        availability.localProviders.push_back(facts);
     }
+
+    if (timerSnapshotCoherent &&
+        std::any_of(
+            availability.commandTypes.begin(),
+            availability.commandTypes.end(),
+            [](const std::string& type) {
+                return type.rfind("vdr.timer.", 0) == 0;
+            }))
+        for (const auto& facts : timerProviders)
+            if (!mergeProviderFacts(availability.localProviders, facts))
+            {
+                availability.commandTypes.erase(
+                    std::remove_if(
+                        availability.commandTypes.begin(),
+                        availability.commandTypes.end(),
+                        [](const std::string& type) {
+                            return type.rfind("vdr.timer.", 0) == 0;
+                        }),
+                    availability.commandTypes.end());
+                availability.localProviders.clear();
+                break;
+            }
     return availability;
 }
 }

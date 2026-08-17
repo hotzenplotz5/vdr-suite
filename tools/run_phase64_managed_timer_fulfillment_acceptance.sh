@@ -108,16 +108,20 @@ readelf -h vdr-plugin-suite-bridge/libvdr-suitebridge.so \
 if ! python3 - \
     packaging/systemd/backend-agent.conf \
     vdr-plugin-suite-bridge/suitebridge_svdrp.cpp \
-    "$EVIDENCE_DIR/closed-advertisement.txt" <<'PY_CLOSED_ADVERTISEMENT'
+    "$EVIDENCE_DIR/activated-advertisement.txt" <<'PY_ACTIVATED_ADVERTISEMENT'
 from pathlib import Path
 import sys
 
 config = Path(sys.argv[1]).read_text(encoding="utf-8")
 svdrp = Path(sys.argv[2]).read_text(encoding="utf-8")
 output = Path(sys.argv[3])
+expected = (
+    "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,"
+    "vdr.timer.toggle,vdr.timer.delete\n"
+)
 
-if "COMMAND_TYPES=\n" not in config:
-    raise SystemExit("packaged command advertisement is not closed")
+if config.count("COMMAND_TYPES=") != 1 or expected not in config:
+    raise SystemExit("packaged Timer command advertisement is not exact")
 
 help_start = svdrp.find("SVDRPHelpPages")
 command_start = svdrp.find("SVDRPCommand", help_start)
@@ -129,17 +133,18 @@ for command in ("NTCREATE", "NTMOD", "NTDELETE"):
         raise SystemExit(f"private write advertised in help: {command}")
 
 output.write_text(
-    "PACKAGED_COMMAND_TYPES=closed\n"
+    "PACKAGED_COMMAND_TYPES=vdr.timer.create,vdr.timer.update,"
+    "vdr.timer.toggle,vdr.timer.delete\n"
     "PUBLIC_SVDRP_TIMER_WRITES=closed\n",
     encoding="utf-8",
 )
-PY_CLOSED_ADVERTISEMENT
+PY_ACTIVATED_ADVERTISEMENT
 then
-    fail closed_advertisement_check_failed
+    fail activated_advertisement_check_failed
 fi
 
-if [[ ! -s "$EVIDENCE_DIR/closed-advertisement.txt" ]]; then
-    fail closed_advertisement_evidence_missing
+if [[ ! -s "$EVIDENCE_DIR/activated-advertisement.txt" ]]; then
+    fail activated_advertisement_evidence_missing
 fi
 
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
@@ -156,5 +161,5 @@ git diff --check ||
 
 printf 'PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS\n'
 printf 'HEAD=%s\n' "$ACTUAL_HEAD"
-printf 'ADVERTISEMENT=closed\n'
+printf 'ADVERTISEMENT=timer-commands-activated\n'
 printf 'EVIDENCE=%s\n' "$EVIDENCE_DIR"

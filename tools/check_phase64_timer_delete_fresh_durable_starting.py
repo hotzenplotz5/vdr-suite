@@ -123,7 +123,8 @@ require(
     "Slice 30 successor allowance",
 )
 
-# There is still no Timer-delete availability or concrete execution transport.
+# The historical slice remains null-transport closed; the accepted successor
+# adds dedicated transport discovery without weakening durable starting.
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split(
     "\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1
 )[0]
@@ -132,9 +133,11 @@ require(
     "kBackendAgentNativeTimerDeleteCommandType",
     "Timer-delete availability fence",
 )
-require(available, "continue;", "Timer-delete advertisement suppression")
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
+require(available, "discoverProvider", "Timer-delete provider discovery")
+require(available, "facts.available", "Timer-delete availability fence")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for token in (
     "SuiteBridgeSvdrp",

@@ -100,7 +100,7 @@ require(
 )
 require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport wiring successor")
 require(agent_client, "config_.nativeTimerDeleteTransport", "installed Agent Timer-delete transport injection successor")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for needle, label in (
     ("callback.calls == 1", "exactly-once callback assertions"),
