@@ -2,7 +2,7 @@
 
 ## Status ownership
 
-Exact operational state is maintained only in [Current State](../CURRENT.md). This file provides stable narrative context and must not become a second source for active branch heads, PR tips or transient CI run numbers.
+Exact operational phase state is maintained only in [Current State](../CURRENT.md). This file provides stable narrative context and must not become a second source for active branch heads, PR tips, transient CI run numbers or exact live `main` SHAs.
 
 Before continuing work, always read `CURRENT.md`, the Strict Roadmap, the applicable ADRs and live GitHub state.
 
@@ -36,7 +36,7 @@ The completed engine provides durable Timer intent/assignment/binding identities
 
 The final reassignment/failover block allows replacement only before native dispatch or after exact authoritative absence. It atomically supersedes the old exclusive owner, creates the replacement with a new assignment identity/epoch, persists durable handover evidence and rechecks current candidate authority. Stale or ambiguous evidence fails closed.
 
-The exact completion candidate, CI and real yaVDR evidence are recorded in [Phase 64 Closeout](phase-64-closeout.md). Exact current `main` remains owned by [Current State](../CURRENT.md).
+The exact completion candidate, CI and real yaVDR evidence are recorded in [Phase 64 Closeout](phase-64-closeout.md). Exact live `main` must be read from GitHub rather than copied into narrative status documents.
 
 ## Timer mutation safety position
 
@@ -82,7 +82,7 @@ The key vertical journeys cover Live TV playback, Recording playback, record-one
 ## Development rules
 
 - Root-level `AGENTS.md` is binding.
-- `CURRENT.md` is the sole repository copy of volatile operational status.
+- `CURRENT.md` is the sole repository copy of volatile operational phase status.
 - Verify live `main`, exact PR head and exact-final-head CI before writes or status claims.
 - Keep review/merge/retarget/close state changes behind explicit user approval.
 - A slice is the smallest coherent safety/product change, not the smallest mechanically possible diff.
@@ -105,9 +105,9 @@ Use local edits first only when the change requires:
 
 GitHub-first does not weaken review safety: keep updates fast-forward-only, do not replace a complete file from a truncated fetch, and do not mark Draft PRs Ready or merge them without explicit approval.
 
-## Exact next action
+## Next authorization boundary
 
-Complete the Phase-64 closeout documentation synchronization. Then review ADR-0046 and existing playback/media-adaptation planning against current `main`, define the first coherent Phase-65 vertical and explicitly authorize it before runtime implementation begins.
+Before the first Phase-65 runtime change, review ADR-0046 and the existing playback/media-adaptation planning against live `main`, define the first coherent Phase-65 vertical and its acceptance boundary, and explicitly authorize that kickoff. Until then, Phase 65 remains not started.
 
 ## Authoritative links
 

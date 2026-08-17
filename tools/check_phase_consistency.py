@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from phase_status_contract import ROOT, load_phase_status
 
 CURRENT = ROOT / "docs" / "CURRENT.md"
 README = ROOT / "README.md"
 HANDOFF = ROOT / "docs" / "NEW-CHAT-HANDOFF.md"
 STATUS = ROOT / "docs" / "development" / "current-status.md"
-CLOSEOUT = ROOT / "docs" / "development" / "phase-64-closeout.md"
 ROADMAP = ROOT / "docs" / "planning" / "roadmap.md"
 PHASE_MAP = ROOT / "docs" / "planning" / "phase-map.md"
 
@@ -42,44 +41,59 @@ def forbid(errors, path, marker):
         )
 
 
+def roadmap_section(text, heading):
+    marker = "## " + heading
+    start = text.find(marker)
+    if start < 0:
+        return ""
+    next_heading = text.find("\n## ", start + len(marker))
+    return text[start:] if next_heading < 0 else text[start:next_heading]
+
+
 def main():
     errors = []
+    try:
+        status_contract = load_phase_status()
+    except ValueError as exc:
+        print("Phase consistency check failed:")
+        print("- " + str(exc))
+        return 1
 
-    required = [CURRENT, README, HANDOFF, STATUS, CLOSEOUT, ROADMAP, PHASE_MAP] + STABLE_CURRENT_DOCS
+    closeout = status_contract.latest_closeout_path
+    required = [CURRENT, README, HANDOFF, STATUS, closeout, ROADMAP, PHASE_MAP] + STABLE_CURRENT_DOCS
     for path in required:
         if not path.is_file():
             errors.append(f"missing status/planning file: {path.relative_to(ROOT)}")
 
     if errors:
+        print("Phase consistency check failed:")
         for error in errors:
             print("- " + error)
         return 1
 
     require(errors, CURRENT, "## Operational status authority")
-    require(errors, CURRENT, "Phase 64 - Timer Intent and Multi-Backend Orchestration")
-    require(errors, CURRENT, "Phase 65 - Streaming Gateway and Media Sessions")
-    require(errors, CURRENT, "none - Phase 65 has not started")
-    require(errors, CURRENT, "Phase 64 Closeout")
+    require(errors, CURRENT, status_contract.latest_completed)
+    require(errors, CURRENT, status_contract.current_active)
+    require(errors, CURRENT, status_contract.next_phase)
+    require(errors, CURRENT, f"Phase {status_contract.latest_completed_number} Closeout")
 
-    require(errors, CLOSEOUT, "**Phase 64 is completed.**")
-    require(errors, CLOSEOUT, "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS")
-    require(errors, CLOSEOUT, "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS")
-    require(errors, CLOSEOUT, "72e298a76f7879ea7fc58f6a502e32eca7399f5a")
+    require(
+        errors,
+        closeout,
+        f"**Phase {status_contract.latest_completed_number} is completed.**",
+    )
 
     # README stays stable and delegates live phase/status data to canonical docs.
     require(errors, README, "docs/CURRENT.md")
     require(errors, README, "docs/planning/roadmap.md")
-    require(errors, README, "broad")
-    require(errors, README, "Timer UI")
-    require(errors, README, "Streaming")
 
+    # Narrative current entry points may mirror the canonical phase tuple, but
+    # they must agree with CURRENT.md and must not become commit/PR authorities.
     for path in [HANDOFF, STATUS]:
-        require(errors, path, "Phase 64")
-        require(errors, path, "Phase 65")
-        require(errors, path, "broad")
-        require(errors, path, "Timer UI")
-        require(errors, path, "Streaming")
-        require(errors, path, "not started")
+        require(errors, path, status_contract.latest_completed)
+        require(errors, path, status_contract.next_phase)
+        if status_contract.current_active_is_none:
+            require(errors, path, status_contract.next_not_started_marker)
 
     for path in [README, HANDOFF, STATUS]:
         for marker in [
@@ -90,7 +104,7 @@ def main():
         ]:
             forbid(errors, path, marker)
 
-    # Canonical current documents must not regress to the old PR-190 planning hold.
+    # Canonical current documents must not regress to obsolete operational holds.
     for path in [CURRENT, HANDOFF, STATUS]:
         for marker in [
             "Current stacked implementation checkpoint:",
@@ -142,15 +156,20 @@ def main():
     require(errors, implementation_map, "This map answers **what must precede what**")
     forbid(errors, implementation_map, "Status: active through bounded Slice 1 in Draft PR #137")
 
-    for path in [CURRENT, HANDOFF, STATUS]:
-        require(errors, path, "broad")
-        require(errors, path, "Timer UI")
-        require(errors, path, "Streaming")
-
-    require(errors, ROADMAP, "Phase 64 — Timer Intent and Multi-Backend Orchestration")
-    require(errors, ROADMAP, "Status: **Completed.**")
-    require(errors, ROADMAP, "Phase 65 — Streaming Gateway and Media Sessions")
-    require(errors, ROADMAP, "Status: **Next; not started.**")
+    roadmap = read(ROADMAP)
+    completed_section = roadmap_section(roadmap, status_contract.latest_roadmap_heading)
+    next_section = roadmap_section(roadmap, status_contract.next_roadmap_heading)
+    if "Status: **Completed.**" not in completed_section:
+        errors.append(
+            "docs/planning/roadmap.md latest completed phase section lacks Completed status: "
+            + status_contract.latest_roadmap_heading
+        )
+    if status_contract.current_active_is_none:
+        if "Status: **Next; not started.**" not in next_section:
+            errors.append(
+                "docs/planning/roadmap.md next phase section lacks Next; not started status: "
+                + status_contract.next_roadmap_heading
+            )
 
     if errors:
         print("Phase consistency check failed:")
@@ -160,11 +179,11 @@ def main():
 
     print("Phase consistency check passed.")
     print("Volatile status authority: docs/CURRENT.md")
-    print("Latest completed numbered runtime phase: Phase 64")
-    print("Current active numbered runtime phase: none")
-    print("Next strict numbered runtime phase: Phase 65")
-    print("Phase 64 closeout: accepted CI and real yaVDR evidence recorded")
-    print("Stable current/architecture docs: no duplicate volatile phase snapshot")
+    print("Latest completed numbered runtime phase: " + status_contract.latest_completed)
+    print("Current active numbered runtime phase: " + status_contract.current_active)
+    print("Next strict numbered runtime phase: " + status_contract.next_phase)
+    print("Latest closeout: " + status_contract.latest_closeout_rel)
+    print("Stable current/architecture docs: no duplicate volatile repository snapshot")
     return 0
 
 

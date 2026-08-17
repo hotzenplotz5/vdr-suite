@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Static guard for the historical Phase-63 Slice-2 observation contract."""
+"""Static guard for the historical Phase-63 Slice-2 observation contract.
+
+This guard intentionally protects only immutable Phase-63 contract/evidence.
+Current/latest/next phase status belongs to docs/CURRENT.md and the generic
+phase-status guards; historical guards must not become volatile status owners.
+"""
 
 from pathlib import Path
 import sys
@@ -8,10 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CLOSEOUT = ROOT / "docs/development/phase-63-slice-1-closeout.md"
 CONTRACT = ROOT / "docs/development/phase-63-observation-ingestion.md"
 SLICE2_CLOSEOUT = ROOT / "docs/development/phase-63-slice-2-closeout.md"
-CURRENT = ROOT / "docs/CURRENT.md"
-STATUS = ROOT / "docs/development/current-status.md"
-ROADMAP = ROOT / "docs/planning/roadmap.md"
-PHASE_MAP = ROOT / "docs/planning/phase-map.md"
 
 failures: list[str] = []
 
@@ -71,7 +72,6 @@ require(
     ],
 )
 
-# Historical evidence stays in the historical contract/closeout documents.
 require(
     SLICE2_CLOSEOUT,
     [
@@ -82,32 +82,6 @@ require(
         "backend-health",
     ],
 )
-
-# Current operational/planning entry points must retain the exact historical
-# Phase-63 foundation marker while also describing the completed Phase-64
-# state. The Phase-63 marker is traceability, not active-phase authority.
-for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
-    require(
-        path,
-        [
-            "Phase 63 - Backend Agent and Secure Multi-Site Runtime",
-            "Phase 64 - Timer Intent and Multi-Backend Orchestration",
-        ],
-    )
-
-for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
-    if not path.is_file():
-        continue
-    text = path.read_text(encoding="utf-8")
-    for stale in [
-        "Current active runtime slice:\nPhase 63 Slice 2",
-        "Draft PR #139 implements the first bounded read-only observation domain",
-        "Re-read PR #139 before continuation",
-    ]:
-        if stale in text:
-            failures.append(
-                f"{path.relative_to(ROOT)} still contains stale active marker: {stale}"
-            )
 
 contract_text = CONTRACT.read_text(encoding="utf-8") if CONTRACT.is_file() else ""
 for forbidden in [
@@ -127,5 +101,4 @@ if failures:
 
 print("Phase-63 observation ingestion contract check passed")
 print("Historical Slice-2 contract merge: 24b1d7938ddaa15834a8da6323a270761868f4ba")
-print("Latest completed phase: Phase 64; Phase 63 historical evidence remains archived")
-print("Current active numbered phase: none; Phase 65 is next and not started")
+print("Current phase status intentionally delegated to docs/CURRENT.md")

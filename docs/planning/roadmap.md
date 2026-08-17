@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file owns the strict forward execution order and phase-completion gates. Exact active branch heads, PR tips and transient CI checkpoints belong only in [Current State](../CURRENT.md). Completed history belongs in [Completed Phases](../development/completed-phases.md); compact numbering belongs in the [Phase Map](phase-map.md).
+This file owns the strict forward execution order and phase-completion gates. Exact active branch heads, PR tips and transient CI checkpoints belong to live GitHub state; canonical volatile phase status belongs only in [Current State](../CURRENT.md). Completed history belongs in [Completed Phases](../development/completed-phases.md); compact numbering belongs in the [Phase Map](phase-map.md).
 
 A roadmap entry is not automatic permission to implement the next possible diff. New runtime work requires a binding requirement, an accepted-code gap and the smallest **coherent** change that closes a real correctness, security or product need.
 
@@ -27,7 +27,7 @@ Next strict numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 ```
 
-Phase 64 is complete. The durable evidence is maintained in [Phase 64 Closeout](../development/phase-64-closeout.md) and the exact current checkpoint in [Current State](../CURRENT.md).
+Phase 64 is complete. The durable evidence is maintained in [Phase 64 Closeout](../development/phase-64-closeout.md). Canonical phase status is maintained in [Current State](../CURRENT.md), while an exact live `main` SHA must be read from GitHub.
 
 ## Completed prerequisites
 
@@ -160,9 +160,9 @@ Requires stable metadata/provenance, actor privacy, stable identities, mature ac
 - **Acceptance:** focused tests, regressions, build/package validation and real-system proof where runtime behaviour changes.
 - **Product:** relevant [Golden User Journeys](golden-user-journeys.md) for user-visible milestone claims.
 
-## Exact next action
+## Next authorization boundary
 
-Land the Phase-64 closeout/status synchronization. Then perform a bounded Phase-65 architecture and scope review against ADR-0046, current platform capabilities and Golden User Journeys. Only after that review should the first Phase-65 runtime slice be explicitly authorized.
+Before Phase 65 runtime implementation begins, perform a bounded architecture and scope review against ADR-0046, live `main`, current platform capabilities and the applicable Golden User Journeys. Define the first coherent Phase-65 vertical and its acceptance boundary, then require an explicit kickoff decision. Until that happens, Phase 65 remains next but not started.
 
 ## Related documents
 
