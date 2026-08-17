@@ -89,7 +89,7 @@ A naive OSD proxy would create serious problems:
 - OSD contents could expose recording names, plugin configuration, PIN prompts or other private information;
 - the compatibility bridge could become a permanent shortcut instead of a bounded migration aid.
 
-This ADR completes the architecture decision for gap G-20. Runtime implementation remains Phase 66 work.
+This ADR completes the architecture decision for gap G-20. Runtime implementation remains Phase 67 work.
 
 ---
 
@@ -1275,7 +1275,7 @@ Any existing or experimental direct OSD access is migrated in stages.
 
 ## Implementation Sequence
 
-Phase 66 should proceed in bounded slices:
+Phase 67 should proceed in bounded slices:
 
 1. shared OSD identities, states and capability vocabulary;
 2. read-only OsdFrame contract;
@@ -1390,7 +1390,7 @@ This ADR does not define:
 - permanent OSD frame recording;
 - final HTTP error mapping;
 - final audit-event schema;
-- implementation of Phase 66.
+- implementation of Phase 67.
 
 It defines the mandatory ownership, identity, authorization, lease, sequencing, resynchronization, input and native-safety boundary.
 
