@@ -4,12 +4,6 @@
 
   const POLL_INTERVAL_MS = 1000;
   const BUFFER_HISTORY_SECONDS = 90;
-  const MIME_CANDIDATES = Object.freeze([
-    'video/mp4; codecs="avc1.640028,mp4a.40.2"',
-    'video/mp4; codecs="avc1.64001f,mp4a.40.2"',
-    'video/mp4; codecs="avc1.4d401f,mp4a.40.2"',
-    'video/mp4; codecs="avc1.42e01e,mp4a.40.2"'
-  ]);
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -163,13 +157,114 @@
     });
   }
 
-  function supportedMimeType() {
-    const MediaSource = global.MediaSource;
-    if (!MediaSource || typeof MediaSource.isTypeSupported !== 'function') return '';
-    for (let index = 0; index < MIME_CANDIDATES.length; index += 1) {
-      if (MediaSource.isTypeSupported(MIME_CANDIDATES[index])) return MIME_CANDIDATES[index];
+  function bytesView(value) {
+    if (!value || typeof value.byteLength !== 'number') return null;
+    try {
+      if (value.buffer && typeof value.byteOffset === 'number') {
+        return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      }
+      return new Uint8Array(value);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function hexByte(value) {
+    return Number(value).toString(16).padStart(2, '0');
+  }
+
+  function boxTypeAt(bytes, offset, type) {
+    if (offset < 0 || offset + 4 > bytes.length || type.length !== 4) return false;
+    for (let index = 0; index < 4; index += 1) {
+      if (bytes[offset + index] !== type.charCodeAt(index)) return false;
+    }
+    return true;
+  }
+
+  function uint32At(bytes, offset) {
+    if (offset < 0 || offset + 4 > bytes.length) return 0;
+    return (((bytes[offset] << 24) >>> 0) +
+      (bytes[offset + 1] << 16) +
+      (bytes[offset + 2] << 8) +
+      bytes[offset + 3]) >>> 0;
+  }
+
+  function findBox(bytes, type) {
+    for (let typeOffset = 4; typeOffset + 4 <= bytes.length; typeOffset += 1) {
+      if (!boxTypeAt(bytes, typeOffset, type)) continue;
+      const start = typeOffset - 4;
+      const size = uint32At(bytes, start);
+      if (size < 8 || start + size > bytes.length) continue;
+      return {payloadStart: start + 8, end: start + size};
+    }
+    return null;
+  }
+
+  function avcCodecFromInitSegment(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return '';
+    const box = findBox(bytes, 'avcC');
+    if (!box || box.payloadStart + 4 > box.end || bytes[box.payloadStart] !== 1) return '';
+    return 'avc1.' +
+      hexByte(bytes[box.payloadStart + 1]) +
+      hexByte(bytes[box.payloadStart + 2]) +
+      hexByte(bytes[box.payloadStart + 3]);
+  }
+
+  function descriptorLength(bytes, offset, end) {
+    let length = 0;
+    for (let count = 0; count < 4 && offset < end; count += 1, offset += 1) {
+      const value = bytes[offset];
+      length = (length << 7) | (value & 0x7f);
+      if ((value & 0x80) === 0) return {length: length, next: offset + 1};
+    }
+    return null;
+  }
+
+  function audioObjectType(bytes, offset, end) {
+    if (offset >= end) return 0;
+    let type = bytes[offset] >> 3;
+    if (type === 31) {
+      if (offset + 1 >= end) return 0;
+      type = 32 + (((bytes[offset] & 0x07) << 3) | (bytes[offset + 1] >> 5));
+    }
+    return type;
+  }
+
+  function aacCodecFromInitSegment(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return '';
+    const box = findBox(bytes, 'esds');
+    if (!box) return '';
+
+    // esds is a FullBox, so the first four payload bytes are version/flags.
+    // DecoderSpecificInfo (tag 0x05) contains the MPEG-4 AudioSpecificConfig.
+    for (let offset = box.payloadStart + 4; offset < box.end; offset += 1) {
+      if (bytes[offset] !== 0x05) continue;
+      const descriptor = descriptorLength(bytes, offset + 1, box.end);
+      if (!descriptor || descriptor.length < 2 || descriptor.next + descriptor.length > box.end) continue;
+      const type = audioObjectType(bytes, descriptor.next, descriptor.next + descriptor.length);
+      if (type > 0 && type <= 63) return 'mp4a.40.' + String(type);
     }
     return '';
+  }
+
+  function mimeTypeFromInitSegment(value) {
+    const videoCodec = avcCodecFromInitSegment(value);
+    const audioCodec = aacCodecFromInitSegment(value);
+    if (!videoCodec && !audioCodec) return '';
+    const codecs = [];
+    if (videoCodec) codecs.push(videoCodec);
+    if (audioCodec) codecs.push(audioCodec);
+    return (videoCodec ? 'video/mp4' : 'audio/mp4') + '; codecs="' + codecs.join(',') + '"';
+  }
+
+  function supportedMimeType(initBytes) {
+    const MediaSource = global.MediaSource;
+    if (!MediaSource || typeof MediaSource.isTypeSupported !== 'function') return '';
+    const mimeType = mimeTypeFromInitSegment(initBytes);
+    if (!mimeType || !MediaSource.isTypeSupported(mimeType)) return '';
+    return mimeType;
   }
 
   function waitForSourceOpen(mediaSource) {
@@ -302,30 +397,48 @@
       pollTimer = global.setTimeout(callback, POLL_INTERVAL_MS);
     }
 
+    function prepareSourceBuffer(mediaPath) {
+      return fetchText(mediaPath, abortController.signal)
+        .then(function (manifestText) {
+          const manifest = parsePlaylist(manifestText);
+          if (!manifest.initSegment) {
+            throw new Error('HLS-Manifest enthält kein fMP4-Init-Segment.');
+          }
+          return fetchBytes(
+            artifactUrl(mediaPath, manifest.initSegment),
+            abortController.signal
+          );
+        })
+        .then(function (initBytes) {
+          if (destroyed) return null;
+          const declaredMimeType = mimeTypeFromInitSegment(initBytes);
+          if (!declaredMimeType) {
+            throw new Error('fMP4-Init-Segment enthält keine unterstützte H.264/AAC-Codec-Konfiguration.');
+          }
+          const mimeType = supportedMimeType(initBytes);
+          if (!mimeType) {
+            throw new Error('Browser unterstützt die tatsächliche fMP4-Codec-Konfiguration nicht (' + declaredMimeType + ').');
+          }
+          const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+          sourceBuffer.mode = 'segments';
+          return appendBytes(sourceBuffer, initBytes).then(function () {
+            initAppended = true;
+            return {sourceBuffer: sourceBuffer, mimeType: mimeType};
+          });
+        });
+    }
+
     function pump(mediaPath, sourceBuffer) {
       if (destroyed) return Promise.resolve();
       return fetchText(mediaPath, abortController.signal)
         .then(function (manifestText) {
           if (destroyed) return null;
           const manifest = parsePlaylist(manifestText);
-          if (!manifest.initSegment) {
-            throw new Error('HLS-Manifest enthält kein fMP4-Init-Segment.');
+          if (!manifest.initSegment || !initAppended) {
+            throw new Error('HLS-Stream besitzt kein initialisiertes fMP4-Segment.');
           }
 
           let chain = Promise.resolve();
-          if (!initAppended) {
-            chain = chain
-              .then(function () {
-                return fetchBytes(artifactUrl(mediaPath, manifest.initSegment), abortController.signal);
-              })
-              .then(function (bytes) {
-                if (destroyed) return;
-                return appendBytes(sourceBuffer, bytes).then(function () {
-                  initAppended = true;
-                });
-              });
-          }
-
           manifest.segments.forEach(function (segmentName) {
             if (appendedSegments.has(segmentName)) return;
             chain = chain
@@ -350,7 +463,7 @@
               if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
                 mediaSource.endOfStream();
               }
-              setStatus('Aufnahme vollständig gepuffert.', false);
+              setStatus('Wiedergabe läuft · Stream vollständig erzeugt.', false);
               return;
             }
             schedulePump(function () {
@@ -374,11 +487,11 @@
       startButton.disabled = true;
       setStatus('MediaSession wird vorbereitet …', false);
 
-      const mimeType = supportedMimeType();
-      if (!mimeType) {
+      const MediaSource = global.MediaSource;
+      if (!MediaSource || typeof MediaSource.isTypeSupported !== 'function') {
         started = false;
         startButton.disabled = false;
-        setStatus('Dieser Browser unterstützt den benötigten fMP4-MediaSource-Pfad nicht.', true);
+        setStatus('Dieser Browser unterstützt den benötigten MediaSource-Pfad nicht.', true);
         return;
       }
 
@@ -401,18 +514,23 @@
         sessionPromise,
         waitForSourceOpen(mediaSource)
       ]).then(function (results) {
-        if (destroyed) return;
+        if (destroyed) return null;
         const session = results[0];
         const mediaSession = session && session.mediaSession;
         const mediaPath = mediaSession && text(mediaSession.mediaPath);
         if (!activeSessionId || !mediaSession || mediaSession.state !== 'ready' || !mediaPath) {
           throw new Error('MediaSession wurde nicht wiedergabebereit bereitgestellt.');
         }
-        const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-        sourceBuffer.mode = 'segments';
-        startButton.hidden = true;
-        setStatus('Streaming gestartet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4'), false);
-        return pump(mediaPath, sourceBuffer);
+        return prepareSourceBuffer(mediaPath).then(function (prepared) {
+          if (destroyed || !prepared) return;
+          startButton.hidden = true;
+          setStatus(
+            'Streaming gestartet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4') +
+              ' · ' + prepared.mimeType,
+            false
+          );
+          return pump(mediaPath, prepared.sourceBuffer);
+        });
       }).catch(handlePlaybackError);
     }
 
@@ -455,6 +573,9 @@
       safeArtifactName: safeArtifactName,
       parsePlaylist: parsePlaylist,
       artifactUrl: artifactUrl,
+      avcCodecFromInitSegment: avcCodecFromInitSegment,
+      aacCodecFromInitSegment: aacCodecFromInitSegment,
+      mimeTypeFromInitSegment: mimeTypeFromInitSegment,
       supportedMimeType: supportedMimeType
     })
   });
