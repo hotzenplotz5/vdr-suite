@@ -7,6 +7,7 @@
 #include <limits>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
