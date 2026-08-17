@@ -100,3 +100,10 @@ focused reassignment regression/build evidence.
 
 Phase 64 is not complete until that final real-system acceptance passes. The PR
 must remain Draft and must not be merged without explicit user approval.
+
+The exact final candidate is run with:
+
+```bash
+PHASE64_EXPECTED_HEAD=<exact-40-character-commit> \
+  make phase64-reassignment-failover-acceptance
+```
