@@ -199,6 +199,30 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     return result;
 }
 
+bool RecordingMediaSessionRuntime::stop(
+    const std::string& sessionId,
+    const std::string& reasonCode)
+{
+    if (sessionId.empty() || reasonCode.empty()) return false;
+
+    ActiveSession active;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto found = active_.find(sessionId);
+        if (found == active_.end()) return false;
+        active = std::move(found->second);
+        active_.erase(found);
+    }
+
+    bool workerStopped = true;
+    if (active.pid > 0) {
+        workerStopped = workerTerminator_(active.pid, WorkerShutdownGrace);
+    }
+
+    const bool bundleEnded = repository_.endBundle(sessionId, reasonCode);
+    return workerStopped && bundleEnded;
+}
+
 void RecordingMediaSessionRuntime::stopAll()
 {
     std::map<std::string, ActiveSession> active;
