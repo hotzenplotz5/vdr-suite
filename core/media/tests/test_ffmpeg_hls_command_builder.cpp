@@ -47,7 +47,7 @@ int main()
         assert(plan.valid);
         assert(plan.reasonCode.empty());
         assert(!plan.argv.empty());
-        assert(plan.argv.front() == "ffmpeg");
+        assert(plan.argv.front() == "/usr/bin/ffmpeg");
         assert(plan.argv.back() == "master.m3u8");
         assert(std::find(plan.argv.begin(), plan.argv.end(), "/bin/sh") == plan.argv.end());
         assert(std::find(plan.argv.begin(), plan.argv.end(), "-c:v") != plan.argv.end());
