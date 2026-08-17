@@ -12,7 +12,7 @@
 
 ## Purpose
 
-This is a stable navigation page for development contracts and evidence. It does not duplicate active PRs, exact branch heads, CI checkpoints or the current phase snapshot. Those volatile facts belong only in [Current State](../CURRENT.md).
+This is a stable navigation page for development contracts and evidence. It does not duplicate active PR tips or transient CI checkpoints. Those volatile facts belong only in [Current State](../CURRENT.md).
 
 ## Current orientation
 
@@ -26,6 +26,7 @@ This is a stable navigation page for development contracts and evidence. It does
 
 - [Completed Phases](completed-phases.md)
 - [Completed Phase Archive](completed-phases/README.md)
+- [Phase 64 Final Closeout](phase-64-closeout.md)
 - [Phase 62 Security Contract Index](phase-62-security-contract-index.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
@@ -43,11 +44,15 @@ Historical static-guard anchors: `phase-62-slice-2i-recording-execution-security
 
 The complete historical Phase-62 navigation is maintained in `phase-62-security-contract-index.md`; the raw anchors above exist only for compatibility with older static guards that still inspect this index directly.
 
-## Active-domain development material
+## Timer-orchestration material
 
-Current Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduling, native observation/readback and protected operations under ADR-0044.
+Phase-64 Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduling, native observation/readback, protected operations and controlled reassignment/failover under ADR-0044.
 
-The exact currently authorized implementation checkpoint is deliberately not repeated here; see [Current State](../CURRENT.md).
+Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for the current repository checkpoint.
+
+## Next-domain planning
+
+Phase 65 - Streaming Gateway and Media Sessions is next but not started. Use ADR-0046, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing the first runtime vertical.
 
 ## Developer references
 

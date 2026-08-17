@@ -12,7 +12,7 @@
 
 ## Purpose
 
-This index is a stable navigation page. It deliberately does **not** duplicate active PR numbers, branch heads, CI runs, current phase tips or other volatile operational facts.
+This index is a stable navigation page. It deliberately does **not** duplicate active PR numbers, branch heads, transient CI runs, current phase tips or other volatile operational facts.
 
 For exact current project state, always use [Current State](CURRENT.md). For binding future execution order, use the [Strict Roadmap](planning/roadmap.md).
 
@@ -21,6 +21,7 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Current State](CURRENT.md) — sole repository authority for volatile operational status.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite work session.
 - [Current Project Status](development/current-status.md) — stable narrative context around the current platform direction.
+- [Phase 64 Final Closeout](development/phase-64-closeout.md) — accepted Timer-engine completion boundary and exact evidence.
 - [Project Overview](project-overview.md) — compact product and architecture overview.
 - [Project Principles](project-principles.md) — binding product and engineering principles.
 - [Strict Roadmap](planning/roadmap.md) — binding phase order and completion gates.
@@ -41,6 +42,7 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Development Documentation](development/index.md)
 - [Completed Phases](development/completed-phases.md)
 - [Completed Phase Archive](development/completed-phases/README.md)
+- [Phase 64 Final Closeout](development/phase-64-closeout.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)

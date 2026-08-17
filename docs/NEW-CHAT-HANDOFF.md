@@ -4,66 +4,81 @@
 
 This is the canonical operational entry point for every new VDR-Suite chat.
 
-**Do not use this file as a second copy of exact active heads or CI state.** Volatile operational truth belongs only in [Current State](CURRENT.md), and live GitHub state must still be re-read before any action.
+**Do not use this file as a second copy of active PR tips or transient CI state.** Volatile operational truth belongs only in [Current State](CURRENT.md), and live GitHub state must still be re-read before any action.
 
 ## Mandatory reading order
 
-1. [Current State](CURRENT.md) — exact current repository checkpoint and implementation hold.
+1. [Current State](CURRENT.md) — exact current repository checkpoint.
 2. [Strict Roadmap](planning/roadmap.md) — binding phase order and completion gates.
-3. [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md) for Phase-64 Timer work.
+3. [Phase 64 Final Closeout](development/phase-64-closeout.md) for the accepted Timer-engine boundary.
 4. [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md) for Phase-65 media work.
 5. [Golden User Journeys](planning/golden-user-journeys.md) for vertical product acceptance.
 6. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [Architecture Decision Records](adr/index.md) as required by the task.
 7. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
-[Current Project Status](development/current-status.md), [Completed Phases](development/completed-phases.md), [Phase 62 Final Closeout](development/phase-62-closeout.md) and [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md) provide stable historical/narrative context.
+[Current Project Status](development/current-status.md), [Completed Phases](development/completed-phases.md), [Phase 62 Final Closeout](development/phase-62-closeout.md) and the Phase-63 development records provide stable historical/narrative context.
 
 ## Stable project position
 
-- Latest completed numbered runtime phase: **Phase 63 - Backend Agent and Secure Multi-Site Runtime**.
-- Current active numbered runtime phase: **Phase 64 - Timer Intent and Multi-Backend Orchestration**.
-- Next strict numbered runtime phase after Phase 64: **Phase 65 - Streaming Gateway and Media Sessions**.
+- Latest completed numbered runtime phase: **Phase 64 - Timer Intent and Multi-Backend Orchestration**.
+- Current active numbered runtime phase: **none; Phase 65 has not started**.
+- Next strict numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
 - Phase 58 - Frontend and Live Parity remains a historical umbrella track.
-- Post-Phase 61 Performance Hardening (B1-B4), VDR Remote and Live Overlay hardening (#110), Backend-scoped Global Search (#111) and Configurable photorealistic VDR Remote (#115) are completed non-numbered platform work.
+- A broad polished Timer UI remains outside the Phase-64 completion gate and is separately gated on account/backend access management.
 
-Do not paste a branch SHA or current PR tip into this section. Read it from `CURRENT.md` and GitHub instead.
+Do not paste a current branch SHA or active PR tip into this section. Read exact operational state from `CURRENT.md` and GitHub instead.
+
+## Completed Phase-64 boundary
+
+Phase 64 is complete. Its accepted engine separates:
+
+```text
+TimerIntent
+  -> TimerAssignment
+  -> NativeTimerBinding
+```
+
+The completed scope includes deterministic multi-backend ownership, managed native Timer create/update/toggle/delete fulfillment, durable no-blind-retry handling, authoritative PRESENT/ABSENCE reconciliation and controlled reassignment/failover.
+
+The final real-system gate proved both managed fulfillment and reassignment/failover on one exact accepted candidate before PR #195 merged it to `main`. See [Phase 64 Final Closeout](development/phase-64-closeout.md).
+
+Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later media work that consumes the accepted contracts.
 
 ## Current implementation boundary
 
-The agreed implementation checkpoint is after **PR #190**, the disabled SuiteBridge Timer-delete transport checkpoint.
+No numbered runtime phase is currently active.
 
-This means:
+The next possible numbered implementation is Phase 65, but it is **not automatically authorized** by the Phase-64 merge or by this handoff. Before implementation begins:
 
-- Phase 64 is still active and **not declared complete**;
-- production native Timer deletion is not enabled by the checkpoint;
-- a concrete private SuiteBridge transport existing does not authorize its mutation callback;
-- **no Phase-64 successor implementation and no `#191` are currently authorized**;
-- the current authorized task is architecture/documentation/roadmap synchronization only.
+1. re-read live `main` and `CURRENT.md`;
+2. review ADR-0046 and existing playback/media-adaptation planning against the completed Phase-64 platform;
+3. define the first coherent Phase-65 vertical and its acceptance boundary;
+4. obtain an explicit kickoff decision.
 
-A later implementation restart requires an explicit decision after the planning review. Do not treat a “next slice” paragraph inside an older development note as current permission to start it.
+Do not treat an old draft PR, historical “next slice” note or prior chat plan as current authorization.
 
 ## Phase ordering and broad Timer UI
 
 The binding intended order is:
 
 ```text
-Phase 64 reliable Timer orchestration engine
-  -> Phase 65 Streaming Gateway and Media Sessions
+Phase 64 reliable Timer orchestration engine [COMPLETED]
+  -> Phase 65 Streaming Gateway and Media Sessions [NEXT, NOT STARTED]
   -> Phase 66 Legacy OSD Compatibility Bridge
   -> Phase 67 Public API and Client Compatibility Hardening
 ```
 
 The broad polished Timer UI is not the Phase-64 completion gate. It remains separately gated on account/backend access management built on the Phase-62 identity/authorization model.
 
-Therefore Phase 65 Streaming may intentionally be implemented before the broad Timer UI is finished, but only after the reliable Phase-64 Timer engine satisfies its own completion gates.
+Therefore Phase 65 Streaming may intentionally be implemented before the broad Timer UI is finished.
 
 ## Streaming planning already exists
 
 Do not invent a second media architecture.
 
-Accepted ADR-0046 owns the server-side Streaming Gateway / MediaSession boundary. Draft PR #156 contains the proposed complementary client-playback/media-adaptation strategy and must be reviewed against the current canonical planning before acceptance.
+Accepted ADR-0046 owns the server-side Streaming Gateway / MediaSession boundary. Existing client-playback/media-adaptation planning must be reviewed against current canonical planning before Phase-65 runtime work starts.
 
-Its intended direction is provider-private and transformation-minimal:
+The intended direction is provider-private and transformation-minimal:
 
 ```text
 private VDR / Recording source
@@ -89,6 +104,7 @@ Prefer `pass-through -> remux/repackage -> transcode`. Streamdev may be an expli
 
 - Phase-62 actor identity, scoped authorization, browser-session lifecycle, CSRF and accountability remain authoritative.
 - Phase-63 Agent identity, backend generation, durable command semantics and explicit provider ownership/selection remain authoritative for remote execution.
+- Phase-64 assignment/binding/operation/fingerprint fences and authoritative readback remain authoritative for Timer orchestration.
 - Runtime Agent credentials cannot act as browser users or unrestricted administrators.
 - Provider reachability/availability never creates execution authority and active work never silently switches provider.
 - Unknown or stale generation, revision, assignment-set, provider-epoch or readback evidence fails closed.
@@ -104,8 +120,8 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main`, the relevant PR/branch and exact-final-head CI before making a status claim.
-3. Respect the current implementation hold; do not start a Timer successor merely because the stack has an obvious next technical step.
-4. For planning work, reconcile the roadmap and proposed media ADR with the current checkpoint before suggesting implementation.
+3. Treat Phase 64 as completed and Phase 65 as next but not started.
+4. For Phase-65 planning, reconcile ADR-0046, current architecture and existing media planning before suggesting implementation.
 5. Keep review/merge/retarget/close state changes behind explicit user approval.
 6. Require real yaVDR acceptance when an installed/runtime or native-behaviour boundary changes.
 
