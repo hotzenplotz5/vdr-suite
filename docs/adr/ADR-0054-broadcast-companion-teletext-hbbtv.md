@@ -21,11 +21,11 @@
 
 ## Status
 
-**Proposed**
+**Accepted**
 
 Date: 2026-08-17
 
-This ADR is introduced by the post-Phase-64 roadmap reconciliation. It must be explicitly accepted before Broadcast Companion runtime implementation begins.
+Accepted during the post-Phase-64 roadmap reconciliation. Acceptance establishes the architecture and future phase sequencing only; it does not start Phase-66 runtime implementation.
 
 ---
 
@@ -444,7 +444,7 @@ Therefore:
 
 # Sequencing Decision
 
-If accepted, this ADR changes only the **future not-yet-started phase sequencing** after Phase 65:
+This ADR changes only the **future not-yet-started phase sequencing** after Phase 65:
 
 ```text
 Phase 65 - Streaming Gateway and Media Sessions
@@ -466,7 +466,7 @@ Phase 65 remains the next strict runtime phase and is not started by acceptance 
 
 # Implementation Direction
 
-After Phase 65 closes and this ADR is accepted, Phase 66 should use coherent verticals rather than micro-slices.
+After Phase 65 closes and Phase 66 is explicitly authorized, Phase 66 should use coherent verticals rather than micro-slices.
 
 ## Vertical 1 — Teletext read path
 
