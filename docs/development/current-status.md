@@ -146,7 +146,12 @@ The key vertical journeys now cover:
 
 Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded edit safely. Read the complete file content required for the change, write a coherent commit on the intended branch and inspect the resulting diff before treating the update as correct.
 
-Use local edits first only when the change requires local build/test execution, multi-file transformations that are materially safer in a checked-out worktree, binary/generated-file handling unavailable through the connector, or a connector workaround.
+Use local edits first only when the change requires:
+
+- local build/test execution that cannot be represented by the connector;
+- multi-file transformations that are materially safer in a checked-out worktree;
+- binary/generated-file handling unavailable through the connector; or
+- a workaround because the GitHub connector blocks a file operation.
 
 GitHub-first does not weaken review safety: keep updates fast-forward-only, do not replace a complete file from a truncated fetch, and do not mark Draft PRs Ready or merge them without explicit approval.
 
