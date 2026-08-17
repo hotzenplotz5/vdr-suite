@@ -97,6 +97,8 @@ struct MediaPresentationProfile
     MediaAdaptationClass adaptationClass = MediaAdaptationClass::PassThrough;
     MediaTrackAction videoAction = MediaTrackAction::Copy;
     MediaTrackAction audioAction = MediaTrackAction::Copy;
+    int sourceVideoStreamIndex = -1;
+    int sourceAudioStreamIndex = -1;
     MediaCodec targetVideoCodec = MediaCodec::None;
     MediaCodec targetAudioCodec = MediaCodec::None;
     std::string reason;
