@@ -7,6 +7,7 @@
 - [Current State](../CURRENT.md)
 - [Project Overview](../project-overview.md)
 - [Architecture Documentation](../architecture/index.md)
+- [Strict Roadmap](../planning/roadmap.md)
 
 ---
 
@@ -23,6 +24,8 @@ Current implementation progress belongs in:
 - [Current State](../CURRENT.md)
 - [Current Project Status](../development/current-status.md)
 
+The Strict Roadmap owns future phase sequencing. ADRs own stable architecture and may declare prerequisites, but accepted architecture does not by itself authorize or complete runtime work.
+
 ---
 
 ## ADR Numbering Policy
@@ -30,19 +33,20 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0053
+ADR-0054
 ```
 
-Current active ADRs at the end of the sequence:
+Latest accepted ADRs at the end of the sequence:
 
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 - [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
+- [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0054
+ADR-0055
 ```
 
 Rules:
@@ -50,8 +54,9 @@ Rules:
 - Use the next canonical `ADR-00xx` number for new ADRs.
 - Do not create new lowercase `adr-00x` files.
 - Do not create new legacy numeric files such as `007-*` or `008-*`.
-- Do not list duplicate active ADR numbers.
-- If an old ADR is superseded or has a numbering conflict, keep it visible only in the historical or superseded sections.
+- Do not list duplicate active/proposed ADR numbers.
+- A Proposed ADR is not an implemented or accepted runtime boundary.
+- If an old ADR is superseded or has a numbering conflict, keep it visible only in the historical/superseded sections and state the replacement.
 
 ---
 
@@ -110,7 +115,7 @@ Rules:
 
 - [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 
-### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration, Provenance, Media, Legacy Compatibility, Public API and Audit
+### Control Plane, Trust, Mutation Safety, Orchestration, Media, Compatibility, Public API and Audit
 
 - [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
@@ -121,9 +126,16 @@ Rules:
 - [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-provenance.md)
 - [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
+- [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
+
+---
+
+## Proposed Canonical ADRs
+
+None currently.
 
 ---
 
@@ -164,6 +176,22 @@ was replaced by the canonical:
 
 ---
 
+## Future-phase sequencing note
+
+The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 establishes the post-Phase-65 sequence:
+
+```text
+65 Streaming
+66 Broadcast Companion: Teletext + HbbTV
+67 Legacy OSD
+68 Public API Hardening
+69 Recommendation / Knowledge Graph
+```
+
+ADR-0054's sequencing clause supersedes only older future phase-number statements inside ADR-0047/ADR-0048. Their architecture decisions remain accepted.
+
+---
+
 ## Related Documents
 
 - [Current State](../CURRENT.md)
@@ -171,6 +199,7 @@ was replaced by the canonical:
 - [Current Architecture State](../development/current-architecture-state.md)
 - [Current Project Status](../development/current-status.md)
 - [Roadmap](../planning/roadmap.md)
+- [Phase Map](../planning/phase-map.md)
 
 ---
 

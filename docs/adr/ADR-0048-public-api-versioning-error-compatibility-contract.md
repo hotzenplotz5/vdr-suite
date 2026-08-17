@@ -95,7 +95,7 @@ Without a binding decision, the first client that happens to use an endpoint cou
 - a test-only Basic Authentication behavior;
 - a plugin or Agent schema version.
 
-This ADR completes the target decision for architecture gaps G-03, G-06, G-25 and G-26 where they concern the public client contract. Runtime implementation remains Phase 67 work, with prerequisite identity, authorization, Agent, Timer, streaming and OSD phases remaining authoritative.
+This ADR completes the target decision for architecture gaps G-03, G-06, G-25 and G-26 where they concern the public client contract. Runtime implementation remains Phase 68 work, with prerequisite identity, authorization, Agent, Timer, streaming, Broadcast Companion and Legacy OSD phases remaining authoritative.
 
 ---
 
@@ -1125,7 +1125,7 @@ Each endpoint requires contract review, representation tests and compatibility d
 
 ## Implementation Sequence
 
-Phase 67 should implement this decision in bounded slices.
+Phase 68 should implement this decision in bounded slices.
 
 ### 1. Public response and request context foundation
 
@@ -1316,7 +1316,7 @@ Trade-offs:
 
 This ADR does not:
 
-- implement Phase 67;
+- implement Phase 68;
 - migrate every current endpoint;
 - define the final endpoint list for all future domains;
 - implement production authentication or RBAC;

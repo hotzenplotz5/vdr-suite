@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This file is the canonical compact phase-number map. Detailed history belongs in [Completed Phases](../development/completed-phases.md); strict forward order and completion gates belong in the [Roadmap](roadmap.md); exact active heads and CI checkpoints belong only in [Current State](../CURRENT.md).
+This file is the canonical compact phase-number map. Detailed completed history belongs in [Completed Phases](../development/completed-phases.md); strict forward execution order and completion gates belong in the [Roadmap](roadmap.md); volatile completed/active/next status belongs only in [Current State](../CURRENT.md).
+
+Future phase numbers may be reordered only before those phases start and only through an explicit planning/architecture reconciliation. Completed history is never renumbered.
 
 ## Completed phase ranges
 
@@ -28,6 +30,8 @@ This file is the canonical compact phase-number map. Detailed history belongs in
 
 Historical exact foundation marker retained for contract traceability: `Phase 63 - Backend Agent and Secure Multi-Site Runtime`. It is completed history, not current execution state.
 
+Phase 58 remains a historical umbrella label only.
+
 ## Current position
 
 ```text
@@ -43,19 +47,20 @@ Phase 65 - Streaming Gateway and Media Sessions
 
 The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md) and [Phase 64 Closeout](../development/phase-64-closeout.md).
 
-## Numbered forward sequence
+## Revised numbered forward sequence
 
-| Order | Phase | Status | Track | Completion direction |
+| Order | Phase | Status | Track | Primary completion direction |
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable intent/assignment/binding orchestration, safe managed native fulfillment, authoritative readback, reconciliation, controlled reassignment and real-system write acceptance. |
-| 2 | Phase 65 | Next; not started | Streaming Gateway and Media Sessions | Authorized short-lived media sessions, private-provider routing, Live/Recording delivery and first vertical playback acceptance. |
-| 3 | Phase 66 | Planned after Phase 65 | Legacy OSD Compatibility Bridge | Isolated OSD snapshot/control compatibility with sequencing and controller lease. |
-| 4 | Phase 67 | Planned after Phase 66 | Public API and Client Compatibility Hardening | Stabilize versioned public contracts, errors, revisions, pagination and compatibility. |
-| 5 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after metadata, identity, accountability and public contracts mature. |
+| 2 | Phase 65 | Next; not started | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. |
+| 3 | Phase 66 | Planned after Phase 65 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext pages plus broadcast-application discovery/session runtime without reducing them to OSD proxying. |
+| 4 | Phase 67 | Planned after Phase 66 | Legacy OSD Compatibility Bridge | Isolated OSD observation, sequencing/resync, exclusive controller lease and allowlisted native input. |
+| 5 | Phase 68 | Planned after Phase 67 | Public API and Client Compatibility Hardening | Stabilized `/api/v1`, errors, revisions/preconditions, pagination, compatibility/deprecation and independent-client contracts. |
+| 6 | Phase 69 | Vision | Recommendation and Content Knowledge Graph | Explainable, provenance-aware recommendations after stable identities, privacy, accountability and public resource semantics mature. |
 
 ## Phase 64 compact boundary
 
-Phase 64 completed the accepted separation:
+Phase 64 completed:
 
 ```text
 TimerIntent
@@ -63,46 +68,115 @@ TimerIntent
   -> NativeTimerBinding
 ```
 
-The completed engine includes deterministic primary/replica assignment, native binding/readback evidence, durable mutation-operation state, managed native create/update/toggle/delete execution, no-blind-retry semantics, authoritative reconciliation and controlled reassignment/failover with atomic ownership handover.
+including deterministic primary/replica assignment, managed create/update/toggle/delete fulfillment, native readback evidence, durable mutation-operation state, no-blind-retry semantics and controlled atomic reassignment/failover.
 
-A broad polished Timer UI is not part of the Phase-64 completion gate. It remains separately gated on account/backend access management and may be completed after Phase 65 begins.
+The broad polished Timer UI is not part of the Phase-64 completion gate.
 
 ## Phase 65 compact boundary
 
-Phase 65 follows the reliable Phase-64 engine, not the broad Timer UI. Accepted ADR-0046 owns the server MediaSession/Gateway boundary.
-
-The intended media direction remains:
+Binding decisions: ADR-0046 + ADR-0053.
 
 ```text
-private source
+private media source
   -> explicitly owned provider
   -> ProviderStreamLease
-  -> media adaptation
+  -> least-transformation adaptation
   -> Streaming Gateway / MediaSession profile
-  -> client adapter
+  -> client playback adapter
   -> platform playback engine
 ```
 
-Prefer pass-through before remux/repackage before transcode. Streamdev remains a private provider candidate rather than a public platform contract.
+Product order:
 
-Phase 65 is the next strict phase, but it is not active until explicitly started.
+```text
+Recording playback
+  -> Live TV
+  -> truthful seek/growing Recording behavior
+  -> remux only from demonstrated need
+  -> transcode only from demonstrated need
+```
+
+Browser is the initial first-party product-validation client. Streamdev may be an internal explicitly owned provider but is not the public media API.
+
+## Phase 66 compact boundary
+
+Binding architecture: accepted ADR-0054.
+
+Teletext and HbbTV are television-domain capabilities and therefore precede Legacy OSD compatibility.
+
+```text
+Live Channel / ProgramEvent
+  +--> TeletextService -> Page/Subpage
+  +--> BroadcastApplication -> HbbTV Application Session
+```
+
+Normal Teletext browsing does not require a VDR OSD frame. HbbTV application discovery/runtime does not expose raw local plugin URL/JS/key command channels as a public API.
+
+## Phase 67 compact boundary
+
+Binding architecture: ADR-0047.
+
+```text
+LegacyOsdSession
+  -> immutable OSD full frame / delta
+  -> sequence + resync
+  -> viewer bindings
+  -> optional exclusive controller lease
+  -> allowlisted input
+```
+
+This remains compatibility-only. Domain-first EPG, Timer, Recording, Streaming, Teletext and HbbTV surfaces remain preferred.
+
+## Phase 68 compact boundary
+
+Binding architecture: ADR-0048.
+
+```text
+/api/v1
+  -> stable Suite resource IDs
+  -> stable error semantics
+  -> revisions / preconditions / idempotency
+  -> deterministic collections / partial results
+  -> compatibility and deprecation tests
+```
+
+The Agent protocol, Media Plane, OSD data plane and plugin-local contracts remain independently versioned.
+
+## Phase 69 compact boundary
+
+Recommendation/knowledge-graph runtime requires its own accepted ADR before implementation. It may consume stable metadata, people, genre, ProgramEvent, Recording and actor-preference evidence, but it does not gain hidden mutation authority.
+
+## Cross-cutting non-numbered milestones
+
+These are intentionally not inserted between numbered runtime phases:
+
+- Account and Backend Access Administration;
+- Broad Timer Product UI;
+- Audit/Security/Operations product surfaces;
+- Legacy Basic retirement migration;
+- first-party client family rollout.
+
+The Broad Timer Product UI depends on completed Phase 62 + completed Phase 64 + the required account/backend access administration. It may proceed alongside Phase 65 without blocking Streaming.
 
 ## Product acceptance
 
 Vertical product acceptance is maintained in [Golden User Journeys](golden-user-journeys.md).
 
-- Phase 64 uses record-one-programme, multi-backend ownership and fail-closed recovery journeys to prove orchestration semantics.
-- Phase 65 adds Live-TV and Recording-playback journeys through Suite MediaSession contracts.
+- Phase 64 uses Timer scheduling/fail-closed journeys for engine completion.
+- Phase 65 owns Live-TV and Recording-playback journeys.
+- Phase 66 adds Teletext and HbbTV journeys.
+- Phase 67 adds one explicit Legacy OSD compatibility journey.
+- the Broad Timer Product UI later completes the user-facing Timer journey without reopening Phase 64.
 
 ## Numbering rules
 
 - Completed history is never renumbered.
-- Phase 58 remains a historical umbrella label only.
 - Phases 61, 62, 63 and 64 are closed for their accepted scopes.
-- Optional providers, diagnostics and administration products do not silently reopen completed phases.
-- Phase 65 is the next numbered runtime phase, but is not active until explicitly started.
+- Phase 65 is the next numbered runtime phase and remains not started until explicitly kicked off.
+- Future phases 66+ may be reordered only before runtime starts and only through explicit repository planning/architecture reconciliation.
 - Broad Timer UI completion is not inserted as a numbered phase between 64 and 65.
-- Draft planning or ADR work does not advance a numbered runtime phase by itself.
+- Cross-cutting product/admin work does not silently advance the numbered runtime phase.
+- Draft planning or ADR work does not by itself authorize runtime implementation.
 
 ## Verification
 
@@ -117,6 +191,7 @@ make test-phase
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
 - [Phase 64 Closeout](../development/phase-64-closeout.md)
+- [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
