@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader
+.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http
 
 test-phase65-media-capability-negotiation:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -68,6 +68,21 @@ test-phase65-media-hls-artifact-reader:
 		-o $(BUILD_DIR)/test_phase65_media_hls_artifact_reader
 	$(BUILD_DIR)/test_phase65_media_hls_artifact_reader
 
+test-phase65-media-gateway-http:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/http/include -Icore/media/include -Icore/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaRouteLeaseRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/media/src/MediaAccessGrantAuthenticator.cpp \
+		core/media/src/MediaHlsArtifactReader.cpp \
+		core/http/src/MediaGatewayHttpServer.cpp \
+		core/http/tests/test_media_gateway_http_server.cpp \
+		-lsqlite3 -lcrypt \
+		-o $(BUILD_DIR)/test_phase65_media_gateway_http
+	$(BUILD_DIR)/test_phase65_media_gateway_http
+
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader
+test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http
