@@ -48,6 +48,26 @@ int decodedExitCode(int status)
     return -1;
 }
 
+bool waitForChildUntil(
+    pid_t pid,
+    std::chrono::steady_clock::time_point deadline,
+    int& status)
+{
+    for (;;) {
+        const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+        if (waited == pid || (waited < 0 && errno == ECHILD)) {
+            return true;
+        }
+        if (waited < 0 && errno != EINTR) {
+            return false;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
 } // namespace
 
 bool MediaProcessRunner::validInvocation(
@@ -252,26 +272,21 @@ bool MediaProcessRunner::terminateAndWait(
     }
 
     int status = 0;
-    pid_t waited = ::waitpid(pid, &status, WNOHANG);
-    if (waited == pid || (waited < 0 && errno == ECHILD)) {
+    const auto naturalExitDeadline =
+        std::chrono::steady_clock::now() + gracePeriod;
+    if (waitForChildUntil(pid, naturalExitDeadline, status)) {
         return true;
     }
 
     signalProcessGroup(pid, SIGTERM);
-    const auto deadline = std::chrono::steady_clock::now() + gracePeriod;
-
-    while (std::chrono::steady_clock::now() < deadline) {
-        waited = ::waitpid(pid, &status, WNOHANG);
-        if (waited == pid || (waited < 0 && errno == ECHILD)) {
-            return true;
-        }
-        if (waited < 0 && errno != EINTR) {
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    const auto terminationDeadline =
+        std::chrono::steady_clock::now() + gracePeriod;
+    if (waitForChildUntil(pid, terminationDeadline, status)) {
+        return true;
     }
 
     signalProcessGroup(pid, SIGKILL);
+    pid_t waited = -1;
     while ((waited = ::waitpid(pid, &status, 0)) < 0 && errno == EINTR) {
     }
     return waited == pid || (waited < 0 && errno == ECHILD);
