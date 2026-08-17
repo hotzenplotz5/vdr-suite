@@ -49,6 +49,8 @@ Status: **Completed.**
 
 Phase 63 established secure Agent enrollment/identity, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit provider ownership/selection and the generic protected-write safety contract.
 
+Historical exact guard spelling retained for traceability: `Phase 63 - Backend Agent and Secure Multi-Site Runtime`.
+
 ## Phase 64 — Timer Intent and Multi-Backend Orchestration
 
 Status: **Completed.**
@@ -86,6 +88,19 @@ The accepted engine provides:
 The completion gate required coherent proof of the ADR-0044 lifecycle, including safe managed native mutation, durable unknown-outcome handling, authoritative readback, reconciliation, controlled reassignment and real-system acceptance. Those requirements were satisfied by the final accepted candidate and merged through PR #195.
 
 See [Phase 64 Closeout](../development/phase-64-closeout.md).
+
+### Historical Slice 1-3 traceability anchors
+
+The following strings describe **historical intermediate Phase-64 boundaries only**. They are retained because early-slice architecture guards verify that those original contracts remain documented; they are not current project status or implementation authority.
+
+- `Phase 64 Slice 1 — TimerIntent Domain Contract`
+- `Phase 64 Slice 2 — TimerIntent Persistence and Repository Semantics`
+- `Phase 64 Slice 3 — TimerAssignment Domain Contract`
+- `Status: **Active; Slice 3 is the TimerAssignment domain contract.**`
+- `No TimerAssignment persistence; no NativeTimerBinding; no scheduler or failover execution`
+- `Account/backend access management is a hard prerequisite before broad Timer UI wiring`
+
+Those statements must be read as historical slice boundaries; later accepted Phase-64 slices superseded their implementation limitations without rewriting the historical slice contracts.
 
 ### Broad Timer UI gate
 
