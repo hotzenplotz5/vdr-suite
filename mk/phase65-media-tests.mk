@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner
+.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner
 
 test-phase65-media-capability-negotiation:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -13,6 +13,13 @@ test-phase65-local-recording-source:
 		core/media/tests/test_local_vdr_recording_source_resolver.cpp \
 		-o $(BUILD_DIR)/test_phase65_local_recording_source
 	$(BUILD_DIR)/test_phase65_local_recording_source
+
+test-phase65-segmented-recording-byte-source:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/SegmentedRecordingByteSource.cpp \
+		core/media/tests/test_segmented_recording_byte_source.cpp \
+		-o $(BUILD_DIR)/test_phase65_segmented_recording_byte_source
+	$(BUILD_DIR)/test_phase65_segmented_recording_byte_source
 
 test-phase65-ffmpeg-hls-command-builder:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -44,4 +51,4 @@ test-phase65-media-process-runner:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner
+test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner
