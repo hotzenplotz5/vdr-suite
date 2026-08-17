@@ -51,6 +51,10 @@ public:
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
+    bool stop(
+        const std::string& sessionId,
+        const std::string& reasonCode);
+
     void stopAll();
 
 private:
