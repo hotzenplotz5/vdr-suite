@@ -6,7 +6,7 @@
 
 `README.md`, `NEW-CHAT-HANDOFF.md`, `development/current-status.md`, the Strict Roadmap and the Phase Map may describe stable architecture, phase order and workflow rules, but they must not become competing copies of active PR tips or transient CI state.
 
-Before any implementation, review-state change, installation or status claim, re-read current GitHub state. Recorded values below are verified checkpoints, not a substitute for a live read.
+Before any implementation, review-state change, installation or status claim, re-read current GitHub state. Recorded completion evidence below is a durable checkpoint, not a substitute for a live read of `main`.
 
 ## Navigation
 
@@ -26,8 +26,6 @@ Before any implementation, review-state change, installation or status claim, re
 ```text
 Repository: hotzenplotz5/vdr-suite
 Branch authority: main
-Current merged main checkpoint:
-72e298a76f7879ea7fc58f6a502e32eca7399f5a
 
 Latest completed numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
@@ -40,6 +38,8 @@ Phase 65 - Streaming Gateway and Media Sessions
 ```
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
+
+The current `main` commit itself is intentionally **not** copied into this file. Query live GitHub state whenever an exact repository checkpoint matters.
 
 ## Historical foundation markers
 
@@ -138,8 +138,8 @@ Transformation preference is `pass-through -> remux/repackage -> transcode`. Str
 5. No provider availability or reachability creates authority. No active operation silently changes provider.
 6. No production native mutation is enabled merely to satisfy a roadmap number; applicable revision, generation, provider, idempotency, durable-starting, readback and real-system gates remain mandatory.
 
-## Exact next action
+## Next authorization boundary
 
-The next repository task is the Phase-64 closeout documentation synchronization represented by this branch/PR. After that lands, perform a bounded Phase-65 planning review against ADR-0046 and the current architecture before authorizing the first Streaming runtime vertical.
+Phase 65 is the next strict numbered runtime phase, but it remains **not started**. Before any Phase-65 runtime implementation is authorized, perform a bounded architecture/scope review against ADR-0046, the live `main` state, current platform capabilities and the applicable Golden User Journeys, then define the first coherent vertical and its acceptance boundary.
 
-Do **not** infer from this document that Phase 65 implementation has already started or is automatically authorized.
+A documentation merge, roadmap entry or historical “next action” note does not itself authorize Phase-65 runtime work.

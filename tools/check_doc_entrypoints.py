@@ -2,21 +2,14 @@
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+from phase_status_contract import ROOT, load_phase_status
 
-REQUIRED_LINKS = {
+BASE_REQUIRED_LINKS = {
     "README.md": [
         "docs/CURRENT.md",
         "docs/NEW-CHAT-HANDOFF.md",
         "docs/planning/roadmap.md",
         "docs/adr/index.md",
-    ],
-    "docs/index.md": [
-        "CURRENT.md",
-        "NEW-CHAT-HANDOFF.md",
-        "planning/roadmap.md",
-        "planning/parity-audit-and-frontend-gap-roadmap.md",
-        "development/phase-64-closeout.md",
     ],
     "docs/CURRENT.md": [
         "NEW-CHAT-HANDOFF.md",
@@ -25,7 +18,6 @@ REQUIRED_LINKS = {
         "planning/golden-user-journeys.md",
         "adr/index.md",
         "development/current-status.md",
-        "development/phase-64-closeout.md",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "CURRENT.md",
@@ -33,7 +25,6 @@ REQUIRED_LINKS = {
         "planning/golden-user-journeys.md",
         "adr/index.md",
         "development/completed-phases.md",
-        "development/phase-64-closeout.md",
     ],
     "docs/development/github-actions-status-handoff.md": [
         "../NEW-CHAT-HANDOFF.md",
@@ -42,13 +33,11 @@ REQUIRED_LINKS = {
         "phase-map.md",
         "golden-user-journeys.md",
         "../CURRENT.md",
-        "../development/phase-64-closeout.md",
     ],
     "docs/planning/phase-map.md": [
         "../CURRENT.md",
         "roadmap.md",
         "golden-user-journeys.md",
-        "../development/phase-64-closeout.md",
     ],
     "docs/planning/index.md": [
         "roadmap.md",
@@ -59,38 +48,17 @@ REQUIRED_LINKS = {
     ],
 }
 
-REQUIRED_TEXT = {
+BASE_REQUIRED_TEXT = {
     "README.md": [
         "sole repository authority for volatile operational status",
         "A chat discussion is not a binding VDR-Suite project decision",
     ],
     "docs/CURRENT.md": [
         "## Operational status authority",
-        "Phase 64 - Timer Intent and Multi-Backend Orchestration",
-        "Phase 65 - Streaming Gateway and Media Sessions",
-        "none - Phase 65 has not started",
-        "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
-        "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "## Current implementation boundary",
-        "Phase 64 is complete",
-        "Phase 65",
         "not started",
-        "broad polished Timer UI",
-    ],
-    "docs/planning/roadmap.md": [
-        "Phase 64 — Timer Intent and Multi-Backend Orchestration",
-        "Status: **Completed.**",
-        "Phase 65 — Streaming Gateway and Media Sessions",
-        "Status: **Next; not started.**",
-        "broad polished Timer UI",
-    ],
-    "docs/development/phase-64-closeout.md": [
-        "**Phase 64 is completed.**",
-        "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
-        "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
-        "72e298a76f7879ea7fc58f6a502e32eca7399f5a",
     ],
 }
 
@@ -104,8 +72,43 @@ def read(rel):
 
 def main():
     errors = []
+    try:
+        status = load_phase_status()
+    except ValueError as exc:
+        print("Documentation entrypoint check failed:")
+        print("- " + str(exc))
+        return 1
 
-    for rel, links in REQUIRED_LINKS.items():
+    closeout_name = f"phase-{status.latest_completed_number}-closeout.md"
+    required_links = {key: list(value) for key, value in BASE_REQUIRED_LINKS.items()}
+    required_links["docs/index.md"] = [
+        "CURRENT.md",
+        "NEW-CHAT-HANDOFF.md",
+        "planning/roadmap.md",
+        "planning/parity-audit-and-frontend-gap-roadmap.md",
+        f"development/{closeout_name}",
+    ]
+    required_links["docs/CURRENT.md"].append(f"development/{closeout_name}")
+    required_links["docs/NEW-CHAT-HANDOFF.md"].append(f"development/{closeout_name}")
+    required_links["docs/planning/roadmap.md"].append(f"../development/{closeout_name}")
+    required_links["docs/planning/phase-map.md"].append(f"../development/{closeout_name}")
+
+    required_text = {key: list(value) for key, value in BASE_REQUIRED_TEXT.items()}
+    required_text["docs/CURRENT.md"].extend(
+        [status.latest_completed, status.current_active, status.next_phase]
+    )
+    required_text["docs/NEW-CHAT-HANDOFF.md"].extend(
+        [status.latest_completed, status.next_phase]
+    )
+    required_text["docs/planning/roadmap.md"] = [
+        status.latest_roadmap_heading,
+        status.next_roadmap_heading,
+    ]
+    required_text[status.latest_closeout_rel] = [
+        f"**Phase {status.latest_completed_number} is completed.**",
+    ]
+
+    for rel, links in required_links.items():
         try:
             text = read(rel)
         except FileNotFoundError:
@@ -115,7 +118,7 @@ def main():
             if link not in text:
                 errors.append(rel + " misses link/text: " + link)
 
-    for rel, markers in REQUIRED_TEXT.items():
+    for rel, markers in required_text.items():
         try:
             text = read(rel)
         except FileNotFoundError:
@@ -133,8 +136,9 @@ def main():
 
     print("Documentation entrypoint check passed.")
     print("Volatile project status authority: docs/CURRENT.md")
-    print("Latest completed numbered runtime phase: Phase 64")
-    print("Next strict numbered runtime phase: Phase 65 (not started)")
+    print("Latest completed numbered runtime phase: " + status.latest_completed)
+    print("Current active numbered runtime phase: " + status.current_active)
+    print("Next strict numbered runtime phase: " + status.next_phase)
     return 0
 
 

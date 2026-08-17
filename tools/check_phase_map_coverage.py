@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+from phase_status_contract import ROOT, load_phase_status
+
 PHASE_MAP = ROOT / "docs/planning/phase-map.md"
 ROADMAP = ROOT / "docs/planning/roadmap.md"
 
-LATEST = "Phase 64 - Timer Intent and Multi-Backend Orchestration"
-NEXT = "Phase 65 - Streaming Gateway and Media Sessions"
-NOT_STARTED = "Phase 65 has not started"
 HISTORICAL = "Phase 58 remains a historical umbrella label only."
 
-COMPLETED_RANGES = [
+BASE_COMPLETED_RANGES = [
     "Phase 1.x-7.x",
     "Phase 8.x",
     "Phase 9.x-29.x",
@@ -25,18 +24,6 @@ COMPLETED_RANGES = [
     "Phase 58.0-58.90b",
     "Phase 59.00-59.15e",
     "Phase 60.1-60.15",
-    "Phase 61",
-    "Phase 62",
-    "Phase 63",
-    "Phase 64",
-]
-
-ROADMAP_ORDER = [
-    "Phase 64 — Timer Intent and Multi-Backend Orchestration",
-    "Phase 65 — Streaming Gateway and Media Sessions",
-    "Phase 66 — Legacy OSD Compatibility Bridge",
-    "Phase 67 — Public API and Client Compatibility Hardening",
-    "Phase 68 — Recommendation and Content Knowledge Graph",
 ]
 
 REQUIRED_FILES = [
@@ -49,8 +36,9 @@ REQUIRED_FILES = [
     "docs/development/completed-phases/phase-61.md",
     "docs/development/phase-62-closeout.md",
     "docs/development/phase-62-slice-2x-runtime-closeout.md",
-    "docs/development/phase-64-closeout.md",
 ]
+
+ROADMAP_PHASE_RE = re.compile(r"^## Phase (\d+) [—-] (.+)$", re.MULTILINE)
 
 
 def fail(message):
@@ -65,42 +53,56 @@ def require_markers(text, rel, markers):
             fail(f"{rel} misses required marker: {marker}")
 
 
-def require_order(text, rel, markers):
-    positions = []
-    for marker in markers:
-        pos = text.find(marker)
-        if pos < 0:
-            fail(f"{rel} misses ordered marker: {marker}")
-        positions.append(pos)
-    if positions != sorted(positions):
-        fail(f"{rel} does not preserve required phase order")
-
-
 def main():
+    try:
+        status = load_phase_status()
+    except ValueError as exc:
+        fail(str(exc))
+
     if not PHASE_MAP.is_file() or not ROADMAP.is_file():
         fail("phase-map.md or roadmap.md is missing")
 
     phase_map = PHASE_MAP.read_text(encoding="utf-8")
     roadmap = ROADMAP.read_text(encoding="utf-8")
 
+    completed_integer_markers = [
+        f"Phase {number}"
+        for number in range(61, status.latest_completed_number + 1)
+    ]
     require_markers(
         phase_map,
         "docs/planning/phase-map.md",
-        COMPLETED_RANGES + [LATEST, NEXT],
+        BASE_COMPLETED_RANGES
+        + completed_integer_markers
+        + [status.latest_completed, status.next_phase],
     )
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        [LATEST, NEXT],
+        [status.latest_roadmap_heading, status.next_roadmap_heading],
     )
-    require_order(roadmap, "docs/planning/roadmap.md", ROADMAP_ORDER)
 
-    # The historical Phase-58 umbrella must remain represented without being
-    # mistaken for current execution state.
+    # The numbered roadmap headings at and after the latest completed phase must
+    # remain strictly increasing. No future phase number is hard-coded here.
+    numbered = [(int(number), title) for number, title in ROADMAP_PHASE_RE.findall(roadmap)]
+    forward = [(number, title) for number, title in numbered if number >= status.latest_completed_number]
+    if not forward:
+        fail("roadmap has no numbered forward phase headings")
+    numbers = [number for number, _ in forward]
+    if numbers != sorted(numbers) or len(numbers) != len(set(numbers)):
+        fail("roadmap numbered forward phase headings are not strictly increasing")
+    if status.latest_completed_number not in numbers:
+        fail("roadmap misses latest completed numbered phase heading")
+    if status.next_phase_number not in numbers:
+        fail("roadmap misses next strict numbered phase heading")
+    latest_index = numbers.index(status.latest_completed_number)
+    if latest_index + 1 >= len(numbers) or numbers[latest_index + 1] != status.next_phase_number:
+        fail("next strict numbered phase does not immediately follow latest completed phase")
+
     if HISTORICAL not in phase_map and HISTORICAL not in roadmap:
         fail("historical Phase 58 umbrella marker is missing")
 
-    for rel in REQUIRED_FILES:
+    for rel in REQUIRED_FILES + [status.latest_closeout_rel]:
         if not (ROOT / rel).is_file():
             fail("required closeout/dependency/planning file is missing: " + rel)
 
@@ -110,18 +112,16 @@ def main():
         "docs/development/current-status.md",
     ]:
         text = (ROOT / rel).read_text(encoding="utf-8")
-        require_markers(text, rel, [LATEST, NEXT, NOT_STARTED])
+        markers = [status.latest_completed, status.next_phase]
+        if status.current_active_is_none:
+            markers.append(status.next_not_started_marker)
+        require_markers(text, rel, markers)
 
-    closeout = (ROOT / "docs/development/phase-64-closeout.md").read_text(
-        encoding="utf-8"
-    )
+    closeout = status.latest_closeout_path.read_text(encoding="utf-8")
     require_markers(
         closeout,
-        "docs/development/phase-64-closeout.md",
-        [
-            "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
-            "PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS",
-        ],
+        status.latest_closeout_rel,
+        [f"**Phase {status.latest_completed_number} is completed.**"],
     )
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -139,9 +139,9 @@ def main():
                 fail(f"{rel} still contains stale/volatile planning marker: {stale}")
 
     print("Phase map coverage check passed.")
-    print("Latest completed numbered runtime phase: " + LATEST)
-    print("Current active numbered runtime phase: none")
-    print("Next strict numbered runtime phase: " + NEXT + " (not started)")
+    print("Latest completed numbered runtime phase: " + status.latest_completed)
+    print("Current active numbered runtime phase: " + status.current_active)
+    print("Next strict numbered runtime phase: " + status.next_phase)
     return 0
 
 
