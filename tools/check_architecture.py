@@ -41,6 +41,7 @@ SQLITE_SPLIT_REPOSITORY_FAMILIES = [
 
 SQLITE_SPLIT_REPOSITORY_FILES = {
     "core/agent/src/BackendAgentCommandDelivery.cpp",
+    "core/agent/src/BackendAgentCommandReservation.cpp",
     "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
 }
@@ -176,6 +177,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/metadata/src/MetadataEntityRepository.cpp",
         "core/security/src/SecurityIdentityRepository.cpp",
         "core/agent/src/BackendAgentCommandDelivery.cpp",
+        "core/agent/src/BackendAgentCommandReservation.cpp",
         "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
         "core/operations/src/MutationOperationRepository.cpp",

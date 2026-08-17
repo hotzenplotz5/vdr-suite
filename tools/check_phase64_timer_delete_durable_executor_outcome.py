@@ -174,7 +174,8 @@ for needle in (
 ):
     require(executor_source, needle, "preserved provider fence")
 
-# Still no concrete mutation transport or normal availability/configuration.
+# The generic SVDRP transport remains free of Timer-delete coupling; the
+# accepted successor uses the dedicated typed transport and gated availability.
 for text, label in (
     (transport_header, "SuiteBridge transport header"),
     (transport_source, "SuiteBridge transport source"),
@@ -196,13 +197,15 @@ for token in (
     forbid(command_client, token, "concrete Timer-delete CommandClient coupling")
     forbid(timer_delete_handler, token, "concrete Timer-delete handler coupling")
 
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 available = command_client.split("CommandAvailability availableCommands(", 1)[1].split(
     "\n}\n}\n\nbool reconcileBackendAgentCommandState(", 1
 )[0]
 require(available, "kBackendAgentNativeTimerDeleteCommandType", "Timer-delete availability fence")
-require(available, "continue;", "Timer-delete advertisement suppression")
+require(available, "discoverProvider", "Timer-delete provider discovery")
+require(available, "facts.available", "Timer-delete availability fence")
 
 # Focused integration regressions lock the no-blind-retry and evidence-ordering
 # semantics without a real SuiteBridge or VDR mutation transport.

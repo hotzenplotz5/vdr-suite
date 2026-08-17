@@ -271,9 +271,19 @@ for token in [
     if token not in roadmap:
         raise SystemExit(f"missing Phase-64 roadmap boundary: {token}")
 
-# Slice 3 adds only backend-neutral TimerAssignment value semantics. Production
-# wiring outside core/timers would skip separately reviewed persistence,
-# scheduling and native-mutation slices.
+# Slice 3 originally prohibited every TimerIntent/TimerAssignment runtime token
+# outside core/timers. Later Phase-64 slices are reviewed independently and may
+# cross that boundary only when the specific runtime file or its focused
+# regression is protected by its own architecture guard. Keep this allow-list
+# intentionally narrow: adding another integration point is a separate review.
+reviewed_runtime_files = {
+    Path("core/agent/src/BackendAgentNativeTimerCreateActivation.cpp"),
+    Path("core/agent/tests/test_backend_agent_native_timer_create_activation.cpp"),
+}
+for reviewed in reviewed_runtime_files:
+    if not (ROOT / reviewed).is_file():
+        raise SystemExit(f"missing reviewed Phase-64 runtime file: {reviewed}")
+
 forbidden_roots = [
     ROOT / "apps",
     ROOT / "api",
@@ -291,9 +301,12 @@ for root in forbidden_roots:
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix not in text_suffixes:
             continue
+        relative = path.relative_to(ROOT)
+        if relative in reviewed_runtime_files:
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if "TimerIntent" in text or "TimerAssignment" in text or "timer-intent-semantic/1" in text:
-            raise SystemExit(f"premature Phase-64 Timer runtime wiring: {path.relative_to(ROOT)}")
+            raise SystemExit(f"premature Phase-64 Timer runtime wiring: {relative}")
 
 for relative in [
     required_files[0],
@@ -312,4 +325,4 @@ for relative in [
         raise SystemExit(f"Phase-64 domain slice must not enable mutations: {relative}")
 
 print("Phase-64 TimerIntent and TimerAssignment contract check passed")
-print("Slice-3 boundary: assignment value contract only; persistence/runtime deferred")
+print("Slice-3 boundary: assignment value contract only; later runtime files require explicit reviewed allow-list entries")

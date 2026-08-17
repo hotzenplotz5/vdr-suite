@@ -4,8 +4,10 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerCreatePayload.h"
 #include "BackendAgentNativeTimerDeleteAdvertisement.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
+#include "BackendAgentNativeTimerModifyPayload.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -168,6 +170,88 @@ bool BackendAgentCommandRepository::insertAssignment(
     return true;
 }
 
+std::optional<BackendAgentCommandAssignment>
+BackendAgentCommandRepository::findAssignmentForOperation(
+    const std::string& backendId,
+    const std::string& operationId,
+    const std::string& commandType) const
+{
+    if (!backendAgentCommandSafeIdentifier(backendId) ||
+        !backendAgentCommandSafeIdentifier(operationId) ||
+        !backendAgentCommandSafeIdentifier(commandType))
+        return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = std::string("SELECT ") + AssignmentColumns +
+        " FROM backend_agent_commands WHERE backend_id=? AND operation_id=? "
+        "AND command_type=? ORDER BY assigned_at,command_id LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, backendId) ||
+        !bindText(statement, 2, operationId) ||
+        !bindText(statement, 3, commandType))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    std::optional<BackendAgentCommandAssignment> result;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+        result = readAssignment(statement);
+    sqlite3_finalize(statement);
+    return result;
+}
+
+std::optional<vdrsuite::agent::BackendAgentLocalProviderSelection>
+BackendAgentCommandRepository::localProviderSelectionForCommand(
+    const std::string& commandId) const
+{
+    using namespace vdrsuite::agent;
+    if (!backendAgentCommandSafeIdentifier(commandId)) return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT selection_identity,backend_id,authority_domain,provider_id,"
+        "provider_kind,ownership_generation,provider_instance_epoch,"
+        "provider_generation,capability_revision,required_capability "
+        "FROM backend_agent_command_provider_selections WHERE command_id=?;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, commandId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    if (sqlite3_step(statement) != SQLITE_ROW)
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    const std::string identity = text(statement, 0);
+    BackendAgentLocalProviderSelection selection;
+    selection.backendId = text(statement, 1);
+    selection.authorityDomain = text(statement, 2);
+    selection.providerId = text(statement, 3);
+    selection.providerKind = text(statement, 4);
+    selection.ownershipGeneration = static_cast<std::uint64_t>(
+        sqlite3_column_int64(statement, 5));
+    selection.providerInstanceEpoch = text(statement, 6);
+    selection.providerGeneration = static_cast<std::uint64_t>(
+        sqlite3_column_int64(statement, 7));
+    selection.capabilityRevision = static_cast<std::uint64_t>(
+        sqlite3_column_int64(statement, 8));
+    selection.requiredCapability = text(statement, 9);
+    sqlite3_finalize(statement);
+
+    if (!backendAgentLocalProviderValidSelection(selection) ||
+        identity != backendAgentLocalProviderSelectionIdentity(selection))
+        return std::nullopt;
+    return selection;
+}
+
+
 bool BackendAgentCommandRepository::hasCapability(const std::string& backendId,const std::string& agentId,const std::string& agentInstanceId,std::uint64_t backendGeneration,const std::string& commandType) const
 {
     sqlite3_stmt* statement=nullptr;
@@ -310,8 +394,12 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
     {sqlite3_finalize(s);reason="command_not_found";return false;}
     const std::string commandType=text(s,0);
     const bool nativeProbe=commandType=="vdr.native.probe";
+    const bool timerCreate=commandType==kBackendAgentNativeTimerCreateCommandType;
     const bool timerDelete=commandType==kBackendAgentNativeTimerDeleteCommandType;
-    if(!nativeProbe&&!timerDelete)
+    const bool timerModify=
+        commandType==kBackendAgentNativeTimerUpdateCommandType||
+        commandType==kBackendAgentNativeTimerToggleCommandType;
+    if(!nativeProbe&&!timerCreate&&!timerDelete&&!timerModify)
     {sqlite3_finalize(s);reason="local_provider_selection_not_required";return true;}
     if(sqlite3_column_type(s,4)==SQLITE_NULL)
     {sqlite3_finalize(s);reason="local_provider_selection_required";return false;}
@@ -330,12 +418,27 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
     if(!backendAgentLocalProviderValidSelection(selection)||
        identity!=backendAgentLocalProviderSelectionIdentity(selection))
     {reason="local_provider_selection_invalid";return false;}
+    if(timerCreate&&
+       (selection.authorityDomain!=kBackendAgentNativeTimerCreateAuthorityDomain||
+        selection.providerId!=kBackendAgentNativeTimerCreateProviderId||
+        selection.providerKind!=kBackendAgentNativeTimerCreateProviderKind||
+        selection.requiredCapability!=kBackendAgentNativeTimerCreateCapability))
+    {reason="native_timer_create_provider_selection_mismatch";return false;}
     if(timerDelete&&
        (selection.authorityDomain!=kBackendAgentNativeTimerDeleteAuthorityDomain||
         selection.providerId!=kBackendAgentNativeTimerDeleteProviderId||
         selection.providerKind!=kBackendAgentNativeTimerDeleteProviderKind||
         selection.requiredCapability!=kBackendAgentNativeTimerDeleteCapability))
     {reason="native_timer_delete_provider_selection_mismatch";return false;}
+    if(timerModify&&
+       (selection.authorityDomain!=kBackendAgentNativeTimerModifyAuthorityDomain||
+        selection.providerId!=kBackendAgentNativeTimerModifyProviderId||
+        selection.providerKind!=kBackendAgentNativeTimerModifyProviderKind||
+        selection.requiredCapability!=
+          (commandType==kBackendAgentNativeTimerToggleCommandType
+            ?kBackendAgentNativeTimerToggleCapability
+            :kBackendAgentNativeTimerUpdateCapability)))
+    {reason="native_timer_modify_provider_selection_mismatch";return false;}
     const auto current=selectLocalProvider(
         selection.backendId,agentId,instance,backendGeneration,
         selection.authorityDomain,selection.requiredCapability,reason);
@@ -351,7 +454,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     std::string advertisementReason;
-    if(!backendAgentNativeTimerDeleteAdvertisementValid(request,advertisementReason))
+    if(!backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
     {result.accepted=false;result.reasonCode=advertisementReason;return result;}
     if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
     bool ok=database_.execute(
@@ -404,7 +507,10 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
         }
     }
     if(ok&&result.assignment.present&&
-       result.assignment.commandType==kBackendAgentNativeTimerDeleteCommandType)
+       (result.assignment.commandType==kBackendAgentNativeTimerCreateCommandType||
+        result.assignment.commandType==kBackendAgentNativeTimerDeleteCommandType||
+        result.assignment.commandType==kBackendAgentNativeTimerUpdateCommandType||
+        result.assignment.commandType==kBackendAgentNativeTimerToggleCommandType))
     {
         std::string providerReason;
         if(!localProviderSelectionCurrent(result.assignment.commandId,providerReason))
@@ -453,8 +559,21 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
             return result;
         }
     }
+    else if(commandType==kBackendAgentNativeTimerCreateCommandType&&
+            payloadVersion!=kBackendAgentNativeTimerCreatePayloadVersion)
+    {
+        result.reasonCode="local_provider_selection_required";
+        return result;
+    }
     else if(commandType==kBackendAgentNativeTimerDeleteCommandType&&
             payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
+    {
+        result.reasonCode="local_provider_selection_required";
+        return result;
+    }
+    else if((commandType==kBackendAgentNativeTimerUpdateCommandType||
+             commandType==kBackendAgentNativeTimerToggleCommandType)&&
+            payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion)
     {
         result.reasonCode="local_provider_selection_required";
         return result;
@@ -467,7 +586,10 @@ BackendAgentCommandReceiptResult BackendAgentCommandRepository::acceptReceipt(co
         result.accepted=text(existing,0)==identity; result.replayed=result.accepted; result.reasonCode=result.accepted?"command_receipt_replayed":"command_receipt_conflict"; sqlite3_finalize(existing); if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET receipt_replay_count=receipt_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}} return result;
     }
     sqlite3_finalize(existing);
-    if(commandType==kBackendAgentNativeTimerDeleteCommandType)
+    if(commandType==kBackendAgentNativeTimerCreateCommandType||
+       commandType==kBackendAgentNativeTimerDeleteCommandType||
+       commandType==kBackendAgentNativeTimerUpdateCommandType||
+       commandType==kBackendAgentNativeTimerToggleCommandType)
     {
         std::string providerReason;
         if(!localProviderSelectionCurrent(r.commandId,providerReason))
@@ -524,6 +646,25 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
             return result;
         }
     }
+    else if(commandType==kBackendAgentNativeTimerCreateCommandType)
+    {
+        if(payloadVersion!=kBackendAgentNativeTimerCreatePayloadVersion)
+        {result.reasonCode="local_provider_selection_required";return result;}
+        BackendAgentNativeTimerCreatePayload createPayload;
+        std::string payloadReason;
+        if(!backendAgentNativeTimerCreateParsePayload(payload,createPayload,payloadReason))
+        {result.reasonCode="local_provider_selection_invalid";return result;}
+        const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
+            createPayload.localProviderSelection);
+        sqlite3_stmt* selected=nullptr;
+        if(sqlite3_prepare_v2(database_.handle(),"SELECT selection_identity FROM backend_agent_command_provider_selections WHERE command_id=?;",-1,&selected,nullptr)!=SQLITE_OK||!bindText(selected,1,r.commandId))
+        {if(selected)sqlite3_finalize(selected);result.reasonCode="command_database_unavailable";return result;}
+        const bool recorded=sqlite3_step(selected)==SQLITE_ROW&&
+            text(selected,0)==expectedIdentity;
+        sqlite3_finalize(selected);
+        if(!recorded)
+        {result.reasonCode="local_provider_selection_required";return result;}
+    }
     else if(commandType==kBackendAgentNativeTimerDeleteCommandType)
     {
         if(payloadVersion!=kBackendAgentNativeTimerDeletePayloadVersion)
@@ -534,6 +675,27 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
         {result.reasonCode="local_provider_selection_invalid";return result;}
         const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
             deletePayload.localProviderSelection);
+        sqlite3_stmt* selected=nullptr;
+        if(sqlite3_prepare_v2(database_.handle(),"SELECT selection_identity FROM backend_agent_command_provider_selections WHERE command_id=?;",-1,&selected,nullptr)!=SQLITE_OK||!bindText(selected,1,r.commandId))
+        {if(selected)sqlite3_finalize(selected);result.reasonCode="command_database_unavailable";return result;}
+        const bool recorded=sqlite3_step(selected)==SQLITE_ROW&&
+            text(selected,0)==expectedIdentity;
+        sqlite3_finalize(selected);
+        if(!recorded)
+        {result.reasonCode="local_provider_selection_required";return result;}
+    }
+
+    else if(commandType==kBackendAgentNativeTimerUpdateCommandType||
+            commandType==kBackendAgentNativeTimerToggleCommandType)
+    {
+        if(payloadVersion!=kBackendAgentNativeTimerModifyPayloadVersion)
+        {result.reasonCode="local_provider_selection_required";return result;}
+        BackendAgentNativeTimerModifyPayload modifyPayload;
+        std::string payloadReason;
+        if(!backendAgentNativeTimerModifyParsePayload(payload,modifyPayload,payloadReason))
+        {result.reasonCode="local_provider_selection_invalid";return result;}
+        const std::string expectedIdentity=backendAgentLocalProviderSelectionIdentity(
+            modifyPayload.localProviderSelection);
         sqlite3_stmt* selected=nullptr;
         if(sqlite3_prepare_v2(database_.handle(),"SELECT selection_identity FROM backend_agent_command_provider_selections WHERE command_id=?;",-1,&selected,nullptr)!=SQLITE_OK||!bindText(selected,1,r.commandId))
         {if(selected)sqlite3_finalize(selected);result.reasonCode="command_database_unavailable";return result;}

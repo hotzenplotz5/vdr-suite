@@ -371,8 +371,8 @@ for token in ["discoverNativeProbe", "executeNativeProbe", "readNativeProbe"]:
 if "--native-probe" not in agent_main or "loopbackHost" not in agent_main or \
         'config.commandTypes = {"vdr.native.probe"}' not in agent_main:
     errors.append("runtime activation must be explicit and loopback-only")
-if "COMMAND_TYPES=\n" not in packaged_config:
-    errors.append("packaged command types must remain disabled by default")
+if "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete\n" not in packaged_config:
+    errors.append("packaged Timer command activation must remain exact")
 
 scoped_runtime = "\n".join([
     agent_protocol,
@@ -389,25 +389,129 @@ scoped_runtime = "\n".join([
 if "mutations=enabled" in scoped_runtime or '"enabled"' in scoped_runtime:
     errors.append("mutations=enabled is forbidden")
 
-# Phase 64 may classify the already-validated Timer-delete command state in the
-# generic Agent command owner. This single boolean discriminator carries no
-# execution authority and must remain paired with the bounded fresh-starting
-# successor helper. Strip only that exact declaration from the old Phase-63
-# mutation-name heuristic; every other timer/recording/channel/etc assignment
-# remains forbidden by the original scan below.
-allowed_timer_delete_discriminator = (
-    "const bool timerDeleteCommand = state.assignment.commandType ==\n"
-    "        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;"
+# Phase 64 may classify already-validated Timer command state and capability
+# availability in the generic Agent command owner. These boolean discriminators
+# carry no mutation authority. Strip only their exact declarations and bounded
+# fail-closed availability state from the old Phase-63 mutation-name heuristic.
+# Every other timer/recording/channel/etc assignment remains forbidden below.
+allowed_timer_discriminators = (
+    (
+        "Timer-create",
+        (
+            "const bool timerCreateCommand = state.assignment.commandType ==\n"
+            "        vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerCreateLocalStarting",
+            "executeFreshNativeTimerCreateAndPersistOutcome",
+        ),
+    ),
+    (
+        "Timer-delete",
+        (
+            "const bool timerDeleteCommand = state.assignment.commandType ==\n"
+            "        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerDeleteLocalStarting",
+        ),
+    ),
+    (
+        "Timer-modify",
+        (
+            "const bool timerModifyCommand =\n"
+            "        state.assignment.commandType ==\n"
+            "            vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||\n"
+            "        state.assignment.commandType ==\n"
+            "            vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;"
+        ),
+        (
+            "prepareFreshNativeTimerModifyLocalStarting",
+            "executeFreshNativeTimerModifyAndPersistOutcome",
+        ),
+    ),
 )
+
 scoped_runtime_boundary = scoped_runtime
-if allowed_timer_delete_discriminator in agent_client:
-    if agent_client.count(allowed_timer_delete_discriminator) != 1 or \
-            "prepareFreshNativeTimerDeleteLocalStarting" not in agent_client:
-        errors.append(
-            "Timer-delete discriminator must remain a single bounded Phase-64 state handoff"
-        )
+
+timer_availability_discriminator = (
+    "const bool timerType =\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||\n"
+    "            type == "
+    "vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;"
+)
+timer_snapshot_initial = "bool timerSnapshotCoherent = true;"
+timer_snapshot_failed = "timerSnapshotCoherent = false;"
+timer_availability_start = agent_client.find(
+    "CommandAvailability availableCommands("
+)
+timer_availability_end = agent_client.find(
+    "\nbool reconcileBackendAgentCommandState(",
+    timer_availability_start,
+)
+timer_availability_runtime = (
+    agent_client[timer_availability_start:timer_availability_end]
+    if timer_availability_start >= 0
+    and timer_availability_end > timer_availability_start
+    else ""
+)
+timer_availability_tokens = (
+    "if (!transport->discoverProvider(facts, reason))",
+    "catch (...)",
+    "if (supported.empty())",
+    "if (!mergeProviderFacts(timerProviders, facts))",
+    "if (timerSnapshotCoherent &&",
+    "availability.localProviders.clear();",
+)
+
+if (
+    agent_client.count(timer_availability_discriminator) != 1
+    or timer_availability_runtime.count(timer_snapshot_initial) != 1
+    or timer_availability_runtime.count(timer_snapshot_failed) != 5
+    or any(
+        token not in timer_availability_runtime
+        for token in timer_availability_tokens
+    )
+):
+    errors.append(
+        "Timer availability discriminator must remain a single bounded "
+        "fail-closed Phase-64 capability handoff"
+    )
+else:
     scoped_runtime_boundary = scoped_runtime_boundary.replace(
-        allowed_timer_delete_discriminator, "", 1
+        timer_availability_discriminator, "", 1
+    )
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        timer_snapshot_initial, "", 1
+    )
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        timer_snapshot_failed, "", 5
+    )
+
+for label, discriminator, required_handoffs in allowed_timer_discriminators:
+    if discriminator not in agent_client:
+        continue
+
+    if (
+        agent_client.count(discriminator) != 1
+        or any(
+            handoff not in agent_client
+            for handoff in required_handoffs
+        )
+    ):
+        errors.append(
+            f"{label} discriminator must remain a single bounded "
+            "Phase-64 state handoff"
+        )
+        continue
+
+    scoped_runtime_boundary = scoped_runtime_boundary.replace(
+        discriminator, "", 1
     )
 
 for pattern in [

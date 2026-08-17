@@ -1,5 +1,8 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandClient.h"
+#include "SuiteBridgeNativeTimerCreateTransport.h"
+#include "SuiteBridgeNativeTimerDeleteTransport.h"
+#include "SuiteBridgeNativeTimerModifyTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 
 #include <algorithm>
@@ -118,6 +121,34 @@ int main(int argc, char** argv)
     {
         std::cerr << "Backend Agent configuration rejected: " << reason << std::endl;
         return 78;
+    }
+
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport>
+        nativeTimerCreateTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>
+        nativeTimerDeleteTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>
+        nativeTimerModifyTransport;
+    if (!config.suiteBridgeHost.empty())
+    {
+        vdrsuite::agent::SuiteBridgeSvdrpTransportConfig timerTransportConfig;
+        timerTransportConfig.host = config.suiteBridgeHost;
+        timerTransportConfig.port = config.suiteBridgePort;
+        nativeTimerCreateTransport = std::make_unique<
+            vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport>(
+                timerTransportConfig);
+        nativeTimerDeleteTransport = std::make_unique<
+            vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>(
+                timerTransportConfig);
+        nativeTimerModifyTransport = std::make_unique<
+            vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>(
+                timerTransportConfig);
+        config.nativeTimerCreateTransport =
+            nativeTimerCreateTransport.get();
+        config.nativeTimerDeleteTransport =
+            nativeTimerDeleteTransport.get();
+        config.nativeTimerModifyTransport =
+            nativeTimerModifyTransport.get();
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;

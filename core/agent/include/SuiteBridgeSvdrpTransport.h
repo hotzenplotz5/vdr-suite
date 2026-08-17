@@ -18,7 +18,10 @@
 namespace vdrsuite::agent
 {
 
+struct BackendAgentNativeTimerCreateTransportRequest;
 struct BackendAgentNativeTimerDeleteTransportRequest;
+struct BackendAgentNativeTimerModifyTransportRequest;
+enum class BackendAgentNativeTimerModifyKind;
 
 struct SuiteBridgeSvdrpTransportConfig
 {
@@ -120,12 +123,21 @@ public:
         return executeRequest(wire.str());
     }
 
-    // Narrow typed raw-wire hooks used only by the dedicated disabled
-    // Timer-delete adapter. They are deliberately non-virtual so generic
-    // SuiteBridge users do not acquire Timer-delete link dependencies.
+    // Narrow typed raw-wire hooks used only by dedicated native Timer
+    // adapters. They are deliberately non-virtual so generic SuiteBridge
+    // users do not acquire native Timer mutation link dependencies.
+    SuiteBridgeCommandReply discoverNativeTimerCreateContract();
+    SuiteBridgeCommandReply executeNativeTimerCreateContract(
+        const BackendAgentNativeTimerCreateTransportRequest& request);
+
     SuiteBridgeCommandReply discoverNativeTimerDeleteContract();
     SuiteBridgeCommandReply executeNativeTimerDeleteContract(
         const BackendAgentNativeTimerDeleteTransportRequest& request);
+
+    SuiteBridgeCommandReply discoverNativeTimerModifyContract(
+        BackendAgentNativeTimerModifyKind kind);
+    SuiteBridgeCommandReply executeNativeTimerModifyContract(
+        const BackendAgentNativeTimerModifyTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)

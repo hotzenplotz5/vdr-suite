@@ -28,6 +28,7 @@ test = read("vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_delete.
 plugin_main_header = read("vdr-plugin-suite-bridge/suitebridge.h")
 plugin_main = read("vdr-plugin-suite-bridge/suitebridge.cpp")
 agent_client = read("core/agent/src/BackendAgentClient.cpp")
+agent_main = read("apps/agent/main.cpp")
 packaged_config = read("packaging/systemd/backend-agent.conf")
 mk = read("mk/phase64-suitebridge-native-timer-delete-replay-ledger-callback-tests.mk")
 
@@ -97,8 +98,9 @@ require(
     "&nativeTimerDeleteVdrMutation_",
     "real-mutation successor callback wiring",
 )
-forbid(agent_client, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport wiring")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+require(agent_main, "SuiteBridgeNativeTimerDeleteTransport", "installed Agent Timer-delete transport wiring successor")
+require(agent_client, "config_.nativeTimerDeleteTransport", "installed Agent Timer-delete transport injection successor")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 
 for needle, label in (
     ("callback.calls == 1", "exactly-once callback assertions"),

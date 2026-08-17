@@ -14,10 +14,23 @@ namespace
 {
 constexpr std::size_t kMaxIdentityLength = 160;
 constexpr std::size_t kMaxResultReferenceLength = 512;
+constexpr std::size_t kMaxPayloadLength = 64 * 1024;
+constexpr std::size_t kMaxPayloadFingerprintLength = 4096;
 
 bool safeIdentity(const std::string& value)
 {
     return !value.empty() && value.size() <= kMaxIdentityLength;
+}
+
+bool validPayload(const MutationOperationPayload& payload)
+{
+    return safeIdentity(payload.operationId)
+        && safeIdentity(payload.payloadType)
+        && payload.payloadVersion > 0
+        && !payload.payload.empty()
+        && payload.payload.size() <= kMaxPayloadLength
+        && !payload.payloadFingerprint.empty()
+        && payload.payloadFingerprint.size() <= kMaxPayloadFingerprintLength;
 }
 
 bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
@@ -96,6 +109,24 @@ MutationOperationRepositoryResult operationResult(
     return result;
 }
 
+MutationOperationPayloadRepositoryResult payloadStatusResult(
+    MutationOperationRepositoryStatus status)
+{
+    MutationOperationPayloadRepositoryResult result;
+    result.status = status;
+    return result;
+}
+
+MutationOperationPayloadRepositoryResult payloadResult(
+    MutationOperationRepositoryStatus status,
+    const MutationOperationPayload& payload)
+{
+    MutationOperationPayloadRepositoryResult result;
+    result.status = status;
+    result.payload = payload;
+    return result;
+}
+
 bool readOperation(sqlite3_stmt* statement, MutationOperation& operation)
 {
     operation.operationId = columnText(statement, 0);
@@ -121,6 +152,21 @@ bool readOperation(sqlite3_stmt* statement, MutationOperation& operation)
     operation.resultReference = columnText(statement, 16);
     operation.updatedAt = sqlite3_column_int64(statement, 17);
     return mutationOperationValidDurable(operation);
+}
+
+bool readPayload(sqlite3_stmt* statement, MutationOperationPayload& payload)
+{
+    payload.operationId = columnText(statement, 0);
+    payload.payloadType = columnText(statement, 1);
+    const sqlite3_int64 payloadVersion = sqlite3_column_int64(statement, 2);
+    if (payloadVersion <= 0
+        || payloadVersion > static_cast<sqlite3_int64>(
+            std::numeric_limits<std::uint32_t>::max()))
+        return false;
+    payload.payloadVersion = static_cast<std::uint32_t>(payloadVersion);
+    payload.payload = columnText(statement, 3);
+    payload.payloadFingerprint = columnText(statement, 4);
+    return validPayload(payload);
 }
 
 constexpr const char* kColumns =
@@ -149,6 +195,34 @@ bool selectById(
     if (step == SQLITE_ROW)
     {
         found = readOperation(statement, operation);
+        sqlite3_finalize(statement);
+        return found;
+    }
+    sqlite3_finalize(statement);
+    return step == SQLITE_DONE;
+}
+
+bool selectPayloadByOperationId(
+    Database& database,
+    const std::string& operationId,
+    MutationOperationPayload& payload,
+    bool& found)
+{
+    found = false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT operation_id,payload_type,payload_version,payload,payload_fingerprint "
+        "FROM mutation_operation_payloads WHERE operation_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr) != SQLITE_OK
+        || !bindText(statement, 1, operationId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return false;
+    }
+    const int step = sqlite3_step(statement);
+    if (step == SQLITE_ROW)
+    {
+        found = readPayload(statement, payload);
         sqlite3_finalize(statement);
         return found;
     }
@@ -213,6 +287,168 @@ bool sameLogicalOperation(
         left.deadline == right.deadline &&
         left.verificationPolicy == right.verificationPolicy;
 }
+
+bool samePayload(
+    const MutationOperationPayload& left,
+    const MutationOperationPayload& right)
+{
+    return left.operationId == right.operationId
+        && left.payloadType == right.payloadType
+        && left.payloadVersion == right.payloadVersion
+        && left.payload == right.payload
+        && left.payloadFingerprint == right.payloadFingerprint;
+}
+
+bool insertOperation(Database& database, const MutationOperation& durable)
+{
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO mutation_operations("
+        "operation_id,operation_revision,idempotency_key,actor_id,backend_id,backend_generation,"
+        "resource_type,resource_id,expected_revision,expected_resource_fingerprint,action_family,"
+        "request_fingerprint,requested_at,deadline,verification_policy,state,result_reference,updated_at)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+    const bool prepared =
+        sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr) == SQLITE_OK;
+    const bool bound = prepared &&
+        bindText(statement, 1, durable.operationId) &&
+        bindInt64(statement, 2, 1) &&
+        bindText(statement, 3, durable.idempotencyKey) &&
+        bindText(statement, 4, durable.actorId) &&
+        bindText(statement, 5, durable.backendId) &&
+        bindInt64(statement, 6, static_cast<std::int64_t>(durable.backendGeneration)) &&
+        bindText(statement, 7, durable.resourceType) &&
+        bindText(statement, 8, durable.resourceId) &&
+        bindText(statement, 9, durable.expectedRevision) &&
+        bindText(statement, 10, durable.expectedResourceFingerprint) &&
+        bindText(statement, 11, durable.actionFamily) &&
+        bindText(statement, 12, durable.requestFingerprint) &&
+        bindInt64(statement, 13, durable.requestedAt) &&
+        bindInt64(statement, 14, durable.deadline) &&
+        bindText(statement, 15, mutationOperationVerificationPolicyName(durable.verificationPolicy)) &&
+        bindText(statement, 16, mutationOperationStateName(durable.state)) &&
+        bindText(statement, 17, durable.resultReference) &&
+        bindInt64(statement, 18, durable.updatedAt);
+    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    if (statement != nullptr) sqlite3_finalize(statement);
+    return step == SQLITE_DONE;
+}
+
+bool insertPayload(Database& database, const MutationOperationPayload& payload)
+{
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO mutation_operation_payloads("
+        "operation_id,payload_type,payload_version,payload,payload_fingerprint)"
+        " VALUES(?,?,?,?,?);";
+    const bool prepared =
+        sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr) == SQLITE_OK;
+    const bool bound = prepared
+        && bindText(statement, 1, payload.operationId)
+        && bindText(statement, 2, payload.payloadType)
+        && bindInt64(statement, 3, static_cast<std::int64_t>(payload.payloadVersion))
+        && bindText(statement, 4, payload.payload)
+        && bindText(statement, 5, payload.payloadFingerprint);
+    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    if (statement != nullptr) sqlite3_finalize(statement);
+    return step == SQLITE_DONE;
+}
+
+MutationOperationRepositoryResult reserveInternal(
+    Database& database,
+    const MutationOperation& operation,
+    const MutationOperationPayload* payload)
+{
+    if (!mutationOperationValidForCreate(operation)
+        || (payload != nullptr
+            && (!validPayload(*payload)
+                || payload->operationId != operation.operationId)))
+    {
+        return statusResult(MutationOperationRepositoryStatus::invalid);
+    }
+
+    MutationOperation durable = operation;
+    durable.operationRevision = "1";
+
+    auto lease = database.acquireTransactionLease();
+    if (!database.execute("BEGIN IMMEDIATE TRANSACTION;"))
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+    auto rollback = [&database]() { database.execute("ROLLBACK;"); };
+
+    MutationOperation existing;
+    bool found = false;
+    if (!selectById(database, operation.operationId, existing, found))
+    {
+        rollback();
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+    if (found)
+    {
+        if (!sameLogicalOperation(existing, durable))
+        {
+            rollback();
+            return operationResult(
+                MutationOperationRepositoryStatus::operationConflict,
+                existing);
+        }
+
+        if (payload != nullptr)
+        {
+            MutationOperationPayload existingPayload;
+            bool payloadFound = false;
+            if (!selectPayloadByOperationId(
+                    database, operation.operationId,
+                    existingPayload, payloadFound))
+            {
+                rollback();
+                return statusResult(
+                    MutationOperationRepositoryStatus::storageError);
+            }
+            if (!payloadFound || !samePayload(existingPayload, *payload))
+            {
+                rollback();
+                return operationResult(
+                    MutationOperationRepositoryStatus::operationConflict,
+                    existing);
+            }
+        }
+
+        rollback();
+        return operationResult(
+            MutationOperationRepositoryStatus::idempotentReplay,
+            existing);
+    }
+
+    if (!selectByScope(
+            database, operation.actorId, operation.backendId,
+            operation.resourceType, operation.resourceId,
+            operation.actionFamily, operation.idempotencyKey,
+            existing, found))
+    {
+        rollback();
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+    if (found)
+    {
+        rollback();
+        return operationResult(
+            MutationOperationRepositoryStatus::idempotencyConflict, existing);
+    }
+
+    if (!insertOperation(database, durable)
+        || (payload != nullptr && !insertPayload(database, *payload)))
+    {
+        rollback();
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+
+    if (!database.execute("COMMIT;"))
+    {
+        rollback();
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+    return operationResult(MutationOperationRepositoryStatus::ok, durable);
+}
 }
 
 MutationOperationRepository::MutationOperationRepository(Database& database)
@@ -244,96 +480,39 @@ bool MutationOperationRepository::ensureSchema()
             "ADD COLUMN expected_resource_fingerprint TEXT NOT NULL DEFAULT '';"))
         return false;
 
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS mutation_operation_payloads ("
+            "operation_id TEXT PRIMARY KEY,"
+            "payload_type TEXT NOT NULL,"
+            "payload_version INTEGER NOT NULL,"
+            "payload TEXT NOT NULL,"
+            "payload_fingerprint TEXT NOT NULL,"
+            "CHECK(payload_version>0),"
+            "FOREIGN KEY(operation_id) REFERENCES mutation_operations(operation_id) ON DELETE CASCADE"
+            ");"))
+        return false;
+
     return database_.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_mutation_operations_idempotency_scope "
         "ON mutation_operations(actor_id,backend_id,resource_type,resource_id,action_family,idempotency_key);"
         "CREATE INDEX IF NOT EXISTS idx_mutation_operations_backend_state "
-        "ON mutation_operations(backend_id,state,updated_at);");
+        "ON mutation_operations(backend_id,state,updated_at);"
+        "CREATE INDEX IF NOT EXISTS idx_mutation_operation_payloads_type_version "
+        "ON mutation_operation_payloads(payload_type,payload_version);"
+    );
 }
 
 MutationOperationRepositoryResult MutationOperationRepository::reserve(
     const MutationOperation& operation)
 {
-    if (!mutationOperationValidForCreate(operation))
-        return statusResult(MutationOperationRepositoryStatus::invalid);
+    return reserveInternal(database_, operation, nullptr);
+}
 
-    MutationOperation durable = operation;
-    durable.operationRevision = "1";
-
-    auto lease = database_.acquireTransactionLease();
-    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
-        return statusResult(MutationOperationRepositoryStatus::storageError);
-    auto rollback = [this]() { database_.execute("ROLLBACK;"); };
-
-    MutationOperation existing;
-    bool found = false;
-    if (!selectById(database_, operation.operationId, existing, found))
-    {
-        rollback();
-        return statusResult(MutationOperationRepositoryStatus::storageError);
-    }
-    if (found)
-    {
-        rollback();
-        return operationResult(
-            sameLogicalOperation(existing, durable)
-                ? MutationOperationRepositoryStatus::idempotentReplay
-                : MutationOperationRepositoryStatus::operationConflict,
-            existing);
-    }
-
-    if (!selectByScope(
-            database_, operation.actorId, operation.backendId,
-            operation.resourceType, operation.resourceId,
-            operation.actionFamily, operation.idempotencyKey,
-            existing, found))
-    {
-        rollback();
-        return statusResult(MutationOperationRepositoryStatus::storageError);
-    }
-    if (found)
-    {
-        rollback();
-        return operationResult(
-            MutationOperationRepositoryStatus::idempotencyConflict, existing);
-    }
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "INSERT INTO mutation_operations("
-        "operation_id,operation_revision,idempotency_key,actor_id,backend_id,backend_generation,"
-        "resource_type,resource_id,expected_revision,expected_resource_fingerprint,action_family,"
-        "request_fingerprint,requested_at,deadline,verification_policy,state,result_reference,updated_at)"
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
-    const bool prepared =
-        sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) == SQLITE_OK;
-    const bool bound = prepared &&
-        bindText(statement, 1, durable.operationId) &&
-        bindInt64(statement, 2, 1) &&
-        bindText(statement, 3, durable.idempotencyKey) &&
-        bindText(statement, 4, durable.actorId) &&
-        bindText(statement, 5, durable.backendId) &&
-        bindInt64(statement, 6, static_cast<std::int64_t>(durable.backendGeneration)) &&
-        bindText(statement, 7, durable.resourceType) &&
-        bindText(statement, 8, durable.resourceId) &&
-        bindText(statement, 9, durable.expectedRevision) &&
-        bindText(statement, 10, durable.expectedResourceFingerprint) &&
-        bindText(statement, 11, durable.actionFamily) &&
-        bindText(statement, 12, durable.requestFingerprint) &&
-        bindInt64(statement, 13, durable.requestedAt) &&
-        bindInt64(statement, 14, durable.deadline) &&
-        bindText(statement, 15, mutationOperationVerificationPolicyName(durable.verificationPolicy)) &&
-        bindText(statement, 16, mutationOperationStateName(durable.state)) &&
-        bindText(statement, 17, durable.resultReference) &&
-        bindInt64(statement, 18, durable.updatedAt);
-    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
-    if (statement != nullptr) sqlite3_finalize(statement);
-    if (step != SQLITE_DONE || !database_.execute("COMMIT;"))
-    {
-        rollback();
-        return statusResult(MutationOperationRepositoryStatus::storageError);
-    }
-    return operationResult(MutationOperationRepositoryStatus::ok, durable);
+MutationOperationRepositoryResult MutationOperationRepository::reserveWithPayload(
+    const MutationOperation& operation,
+    const MutationOperationPayload& payload)
+{
+    return reserveInternal(database_, operation, &payload);
 }
 
 MutationOperationRepositoryResult MutationOperationRepository::findById(
@@ -348,6 +527,21 @@ MutationOperationRepositoryResult MutationOperationRepository::findById(
     return found
         ? operationResult(MutationOperationRepositoryStatus::ok, operation)
         : statusResult(MutationOperationRepositoryStatus::notFound);
+}
+
+MutationOperationPayloadRepositoryResult
+MutationOperationRepository::findPayloadByOperationId(
+    const std::string& operationId)
+{
+    if (!safeIdentity(operationId))
+        return payloadStatusResult(MutationOperationRepositoryStatus::invalid);
+    MutationOperationPayload payload;
+    bool found = false;
+    if (!selectPayloadByOperationId(database_, operationId, payload, found))
+        return payloadStatusResult(MutationOperationRepositoryStatus::storageError);
+    return found
+        ? payloadResult(MutationOperationRepositoryStatus::ok, payload)
+        : payloadStatusResult(MutationOperationRepositoryStatus::notFound);
 }
 
 MutationOperationRepositoryResult MutationOperationRepository::findByIdempotencyScope(

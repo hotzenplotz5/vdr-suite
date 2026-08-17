@@ -1,7 +1,9 @@
 #pragma once
 
 #include "BackendAgentCommand.h"
+#include "BackendAgentNativeTimerCreateLocalState.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
 
 #include <cstdint>
 #include <string>
@@ -9,8 +11,12 @@
 namespace vdrsuite::agent
 {
 
+inline constexpr const char* kBackendAgentNativeTimerCreateLocalStateExtensionType =
+    "vdr.timer.create.local-state.v1";
 inline constexpr const char* kBackendAgentNativeTimerDeleteLocalStateExtensionType =
     "vdr.timer.delete.local-state.v1";
+inline constexpr const char* kBackendAgentNativeTimerModifyLocalStateExtensionType =
+    "vdr.timer.modify.local-state.v1";
 
 struct BackendAgentCommandStateExtension
 {
@@ -42,6 +48,17 @@ bool backendAgentCommandStateExtensionValidateSupported(
     const BackendAgentCommandAssignment& assignment,
     std::string& reasonCode);
 
+std::string backendAgentNativeTimerCreateCommandStateExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentNativeTimerCreateLocalState& state,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerCreateParseCommandStateExtension(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerCreateLocalState& state,
+    std::string& reasonCode);
+
 std::string backendAgentNativeTimerDeleteCommandStateExtension(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentNativeTimerDeleteLocalState& state,
@@ -51,6 +68,17 @@ bool backendAgentNativeTimerDeleteParseCommandStateExtension(
     const std::string& encoded,
     const BackendAgentCommandAssignment& assignment,
     BackendAgentNativeTimerDeleteLocalState& state,
+    std::string& reasonCode);
+
+std::string backendAgentNativeTimerModifyCommandStateExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentNativeTimerModifyLocalState& state,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerModifyParseCommandStateExtension(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerModifyLocalState& state,
     std::string& reasonCode);
 
 }

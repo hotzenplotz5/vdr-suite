@@ -6,6 +6,13 @@
 #include <string>
 #include <vector>
 
+namespace vdrsuite::agent
+{
+class IBackendAgentNativeTimerCreateTransport;
+class IBackendAgentNativeTimerDeleteTransport;
+class IBackendAgentNativeTimerModifyTransport;
+}
+
 struct BackendAgentClientConfig
 {
     std::string controlPlaneUrl;
@@ -19,6 +26,14 @@ struct BackendAgentClientConfig
     std::vector<std::string> adapters;
     std::vector<std::string> observationDomains = {"backend-health"};
     std::vector<std::string> commandTypes;
+    std::string suiteBridgeHost;
+    int suiteBridgePort = 0;
+    vdrsuite::agent::IBackendAgentNativeTimerCreateTransport*
+        nativeTimerCreateTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport*
+        nativeTimerDeleteTransport = nullptr;
+    vdrsuite::agent::IBackendAgentNativeTimerModifyTransport*
+        nativeTimerModifyTransport = nullptr;
     int heartbeatIntervalSeconds = 30;
     int reconnectInitialSeconds = 1;
     int reconnectMaximumSeconds = 30;

@@ -1,6 +1,8 @@
 #include "BackendAgentCommand.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentNativeTimerCreatePayload.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
+#include "BackendAgentNativeTimerModifyPayload.h"
 
 #include <algorithm>
 #include <cctype>
@@ -68,6 +70,19 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
         }
     }
     if (value.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentNativeTimerCreatePayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentNativeTimerCreatePayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentNativeTimerCreateParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
+    if (value.commandType ==
             vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType &&
         value.payloadVersion ==
             vdrsuite::agent::kBackendAgentNativeTimerDeletePayloadVersion &&
@@ -78,6 +93,23 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
         return vdrsuite::agent::backendAgentNativeTimerDeleteParsePayload(
                    value.payload, payload, reason) &&
             payload.localProviderSelection.backendId == value.backendId &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
+    if ((value.commandType ==
+             vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+         value.commandType ==
+             vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType) &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentNativeTimerModifyPayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentNativeTimerModifyPayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentNativeTimerModifyParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.backendId == value.backendId &&
+            payload.backendGeneration == value.backendGeneration &&
             payload.controlPlaneClaimedAt <= value.assignedAt;
     }
     return false;

@@ -3,6 +3,9 @@
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeTimerCreate.h"
+#include "BackendAgentNativeTimerDelete.h"
+#include "BackendAgentNativeTimerModify.h"
 
 #include <curl/curl.h>
 
@@ -79,6 +82,11 @@ bool safeSoftwareVersion(const std::string& value)
         std::none_of(value.begin(), value.end(), [](unsigned char character) {
             return character < 0x20U || character == 0x7fU;
         });
+}
+
+bool loopbackHost(const std::string& host)
+{
+    return host == "127.0.0.1" || host == "::1" || host == "localhost";
 }
 
 bool validCapabilities(
@@ -673,6 +681,7 @@ bool BackendAgentClientRuntime::loadConfig(
         "CONTROL_PLANE_URL", "BACKEND_ID", "IDENTITY_PATH", "ENROLLMENT_PATH",
         "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "COMMAND_STATE_PATH", "SOFTWARE_VERSION", "ADAPTERS",
         "OBSERVATION_DOMAINS", "COMMAND_TYPES",
+        "SUITEBRIDGE_HOST", "SUITEBRIDGE_PORT",
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
         "REQUEST_TIMEOUT_MILLISECONDS"};
@@ -698,6 +707,25 @@ bool BackendAgentClientRuntime::loadConfig(
     if (!values["OBSERVATION_DOMAINS"].empty())
         config.observationDomains = splitCsv(values["OBSERVATION_DOMAINS"]);
     config.commandTypes = splitCsv(values["COMMAND_TYPES"]);
+    config.suiteBridgeHost = values["SUITEBRIDGE_HOST"];
+    config.suiteBridgePort = 0;
+    config.nativeTimerCreateTransport = nullptr;
+    config.nativeTimerDeleteTransport = nullptr;
+    config.nativeTimerModifyTransport = nullptr;
+    if (!values["SUITEBRIDGE_PORT"].empty() &&
+        !strictInt(values["SUITEBRIDGE_PORT"], 1, 65535,
+                   config.suiteBridgePort))
+    {
+        reasonCode = "invalid_suitebridge_configuration";
+        return false;
+    }
+    if ((!config.suiteBridgeHost.empty() || config.suiteBridgePort != 0) &&
+        (!loopbackHost(config.suiteBridgeHost) ||
+         config.suiteBridgePort == 0))
+    {
+        reasonCode = "invalid_suitebridge_configuration";
+        return false;
+    }
     if ((!values["HEARTBEAT_INTERVAL_SECONDS"].empty() &&
          !strictInt(values["HEARTBEAT_INTERVAL_SECONDS"], 10, 60,
                     config.heartbeatIntervalSeconds)) ||
@@ -751,8 +779,42 @@ bool BackendAgentClientRuntime::loadConfig(
         reasonCode = "invalid_capability_configuration";
         return false;
     }
-    if (config.commandTypes.size() > 1 ||
-        (!config.commandTypes.empty() && config.commandTypes.front() != "probe.noop"))
+    const std::vector<std::string> allowedCommandTypes = {
+        "probe.noop",
+        vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType,
+        vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType,
+    };
+    std::vector<std::string> uniqueCommandTypes;
+    for (const std::string& type : config.commandTypes)
+    {
+        if (std::find(
+                allowedCommandTypes.begin(),
+                allowedCommandTypes.end(),
+                type) == allowedCommandTypes.end() ||
+            std::find(
+                uniqueCommandTypes.begin(),
+                uniqueCommandTypes.end(),
+                type) != uniqueCommandTypes.end())
+        {
+            reasonCode = "invalid_command_type_configuration";
+            return false;
+        }
+        uniqueCommandTypes.push_back(type);
+    }
+    const bool probeNoopConfigured = std::find(
+        config.commandTypes.begin(),
+        config.commandTypes.end(),
+        "probe.noop") != config.commandTypes.end();
+    const bool timerCommandsConfigured = std::any_of(
+        config.commandTypes.begin(),
+        config.commandTypes.end(),
+        [](const std::string& type) {
+            return type.rfind("vdr.timer.", 0) == 0;
+        });
+    if ((probeNoopConfigured && config.commandTypes.size() != 1) ||
+        (timerCommandsConfigured && config.suiteBridgeHost.empty()))
     {
         reasonCode = "invalid_command_type_configuration";
         return false;
@@ -1883,7 +1945,15 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "agent_not_synchronized";
         return false;
     }
-    BackendAgentCommandClientConfig commandConfig{config_.commandStatePath, config_.commandTypes};
+    BackendAgentCommandClientConfig commandConfig;
+    commandConfig.statePath = config_.commandStatePath;
+    commandConfig.commandTypes = config_.commandTypes;
+    commandConfig.nativeTimerCreateTransport =
+        config_.nativeTimerCreateTransport;
+    commandConfig.nativeTimerDeleteTransport =
+        config_.nativeTimerDeleteTransport;
+    commandConfig.nativeTimerModifyTransport =
+        config_.nativeTimerModifyTransport;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {

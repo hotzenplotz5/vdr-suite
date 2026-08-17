@@ -51,6 +51,59 @@ for path, markers in required.items():
     if missing:
         raise SystemExit(f"{path}: missing {missing}")
 
+delivery_path = "core/agent/src/BackendAgentCommandDelivery.cpp"
+delivery_boundary = Path(delivery_path).read_text(encoding="utf-8")
+timer_delivery_successor = (
+    "c.command_type NOT IN('vdr.native.probe','vdr.timer.create',"
+    "'vdr.timer.update','vdr.timer.toggle','vdr.timer.delete')"
+)
+if "timer.create" in delivery_boundary:
+    activation_guard_path = Path(
+        "tools/check_phase64_suitebridge_native_timer_command_path_wiring.py"
+    )
+    activation_guard = (
+        activation_guard_path.read_text(encoding="utf-8")
+        if activation_guard_path.is_file()
+        else ""
+    )
+    packaged = Path("packaging/systemd/backend-agent.conf").read_text(
+        encoding="utf-8"
+    )
+    if (
+        delivery_boundary.count(timer_delivery_successor) != 1
+        or packaged.count(
+            "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,"
+            "vdr.timer.toggle,vdr.timer.delete\n"
+        ) != 1
+    ):
+        raise SystemExit(
+            f"{delivery_path}: Timer successor activation is not exact"
+        )
+    for marker in [
+        '"native_timer_delete_provider_advertisement_required"',
+        '"localProviderSelectionCurrent"',
+        '"kBackendAgentNativeTimerDeleteCommandType"',
+    ]:
+        if marker not in activation_guard:
+            raise SystemExit(
+                f"{delivery_path}: Timer successor guard misses {marker}"
+            )
+    for marker in [
+        "JOIN backend_agent_local_provider_ownership",
+        "JOIN backend_agent_local_provider_facts",
+        "f.provider_instance_epoch=s.provider_instance_epoch",
+        "f.provider_generation=s.provider_generation",
+        "f.capability_revision=s.capability_revision",
+        "f.available=1",
+    ]:
+        if marker not in delivery_boundary:
+            raise SystemExit(
+                f"{delivery_path}: Timer successor fence misses {marker}"
+            )
+    delivery_boundary = delivery_boundary.replace(
+        timer_delivery_successor, "", 1
+    )
+
 forbidden_by_path = {
     "core/agent/src/BackendAgentCommandDelivery.cpp": [
         "DELETE FROM backend_agent_command_capabilities WHERE backend_id='",
@@ -63,7 +116,11 @@ forbidden_by_path = {
     ],
 }
 for path, markers in forbidden_by_path.items():
-    text = Path(path).read_text(encoding="utf-8")
+    text = (
+        delivery_boundary
+        if path == delivery_path
+        else Path(path).read_text(encoding="utf-8")
+    )
     for marker in markers:
         if marker in text:
             raise SystemExit(f"{path}: forbidden runtime marker {marker}")
@@ -76,7 +133,7 @@ for path in [
         raise SystemExit(f"{path}: public Agent route marker")
 
 print("Phase-63 command delivery runtime check passed")
-print("Command type: probe.noop only")
+print("Command type: probe.noop only in Phase-63 baseline; gated Phase-64 Timer successor")
 print("Native VDR mutation: absent")
 print("command_capability_required")
 print("equivalent replay preserves the durable receipt")

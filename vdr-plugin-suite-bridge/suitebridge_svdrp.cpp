@@ -60,10 +60,22 @@ cString cPluginSuiteBridge::SVDRPCommand(
     return ReturnResult(nativeProbe, ReplyCode);
   }
 
+  const SuiteBridgeCommandResult nativeTimerCreate =
+      nativeTimerCreate_.Handle(Command, Option);
+  if (nativeTimerCreate.handled) {
+    return ReturnResult(nativeTimerCreate, ReplyCode);
+  }
+
   const SuiteBridgeCommandResult nativeTimerDelete =
       nativeTimerDelete_.Handle(Command, Option);
   if (nativeTimerDelete.handled) {
     return ReturnResult(nativeTimerDelete, ReplyCode);
+  }
+
+  const SuiteBridgeCommandResult nativeTimerModify =
+      nativeTimerModify_.Handle(Command, Option);
+  if (nativeTimerModify.handled) {
+    return ReturnResult(nativeTimerModify, ReplyCode);
   }
 
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(

@@ -75,7 +75,7 @@ require(
 )
 require(
     delivery,
-    "backendAgentNativeTimerDeleteAdvertisementValid(request,advertisementReason)",
+    "backendAgentNativeTimerAdvertisementValid(request,advertisementReason)",
     "server-side advertisement validation",
 )
 require(
@@ -112,11 +112,13 @@ require(mk, "test-phase64-native-timer-delete-delivery", "focused Slice 26 targe
 require(doc, "Availability is not authority", "Slice 26 authority boundary documentation")
 require(doc, "no local Timer-delete executor", "executor scope boundary documentation")
 
-# Slice 26 deliberately opens only the Control-Plane protocol/delivery boundary.
-# The shipped Agent must still be unable to advertise or execute the mutation.
-forbid(command_client, "vdr.timer.delete", "Timer-delete Agent command-client execution")
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration advertisement")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete advertisement")
+# The historical protocol boundary is preserved by the accepted successor:
+# production delivery requires enabled provider discovery and an exact package opt-in.
+require(command_client, "discoverProvider", "Timer-delete provider discovery")
+require(command_client, "facts.available", "Timer-delete availability fence")
+require(agent_client, "kBackendAgentNativeTimerDeleteCommandType",
+        "Timer-delete Agent configuration allowlist")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete", "accepted packaged Timer activation")
 forbid(
     agent_sources,
     "BackendAgentNativeTimerDeleteAssignment.cpp",

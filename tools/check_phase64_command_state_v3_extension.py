@@ -161,21 +161,23 @@ for token, label in (
 ):
     require(state_owner, token, label)
 
-# Timer-delete remains unavailable to the installed Agent runtime despite the
-# ability to preserve and validate its typed local state. A later SuiteBridge
-# plugin mutation callback does not change this command-advertisement fence.
+# The historical state slice remains default-closed without an injected
+# transport. Its accepted successor advertises DELETE only after enabled
+# SuiteBridge discovery and an exact provider fence.
 require(
     command_client,
     "kBackendAgentNativeTimerDeleteCommandType",
-    "explicit Timer-delete availability fence",
+    "typed Timer-delete availability",
 )
+require(command_client, "discoverProvider", "Timer-delete provider discovery")
+require(command_client, "facts.available", "Timer-delete availability fence")
 require(
-    command_client,
-    "continue;",
-    "Timer-delete availability suppression",
+    agent_client,
+    "kBackendAgentNativeTimerDeleteCommandType",
+    "Timer-delete Agent configuration allowlist",
 )
-forbid(agent_client, "vdr.timer.delete", "Timer-delete Agent configuration")
-forbid(packaged_config, "vdr.timer.delete", "packaged Timer-delete configuration")
+require(packaged_config, "COMMAND_TYPES=vdr.timer.create,vdr.timer.update,vdr.timer.toggle,vdr.timer.delete",
+        "accepted packaged Timer activation")
 
 runtime_state_sources = "\n".join(
     (extension_source, local_state_source, timer_delete_source, state_store, command_client)
