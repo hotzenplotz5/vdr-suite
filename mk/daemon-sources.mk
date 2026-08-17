@@ -81,7 +81,11 @@ DAEMON_SRC := \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
         core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/TestHttpServer.cpp \
+        core/http/src/MediaGatewayHttpServer.cpp \
         core/media/src/MediaSessionRepository.cpp \
+        core/media/src/MediaRouteLeaseRepository.cpp \
+        core/media/src/MediaAccessGrantAuthenticator.cpp \
+        core/media/src/MediaHlsArtifactReader.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \

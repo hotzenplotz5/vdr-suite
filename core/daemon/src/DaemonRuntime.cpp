@@ -4,13 +4,26 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "MediaAccessGrantAuthenticator.h"
+#include "MediaGatewayHttpServer.h"
+#include "MediaHlsArtifactReader.h"
+#include "MediaRouteLeaseRepository.h"
 #include "MediaSessionRepository.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
 #include "SimpleHttpListener.h"
 
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <utility>
+
+namespace
+{
+
+constexpr const char* MediaSessionWorkspaceRoot =
+    "/var/cache/vdr-suite/media-sessions";
+
+}
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -42,11 +55,63 @@ int DaemonRuntime::run()
         return 1;
     }
 
+    if (!httpServer_) {
+        std::cerr << "HTTP server runtime unavailable for Media Gateway" << std::endl;
+        return 1;
+    }
+
+    MediaRouteLeaseRepository mediaRouteLeaseRepository(database_);
+    MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
+        mediaSessionRepository);
+    MediaHlsArtifactReader mediaHlsArtifactReader(
+        MediaSessionWorkspaceRoot);
+
+    // The listener created during initialize() has not started yet. Rebuild it
+    // around the same already-composed HTTP server after inserting the Media
+    // Gateway as the outermost media-specific fence. The gateway dependencies
+    // below remain alive for the complete listener run and the gateway is
+    // destroyed before these stack-owned dependencies leave scope.
+    httpListener_.reset();
+    httpServer_ = std::make_unique<MediaGatewayHttpServer>(
+        std::move(httpServer_),
+        mediaAccessGrantAuthenticator,
+        mediaRouteLeaseRepository,
+        mediaHlsArtifactReader);
+
+    auto lastVdrPoll = std::chrono::steady_clock::now();
+    httpListener_ = std::make_unique<SimpleHttpListener>(
+        config_.httpListenHost(),
+        config_.httpListenPort(),
+        *httpServer_,
+        []() {
+            return shutdownRequested_.load();
+        },
+        [this, lastVdrPoll]() mutable {
+            const auto now = std::chrono::steady_clock::now();
+            const bool externalHint = externalVdrChangeHint_.exchange(false);
+
+            if (!externalHint &&
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    now - lastVdrPoll).count() < 5) {
+                return;
+            }
+
+            lastVdrPoll = now;
+            pollVdrAndUpdateChangeFeed();
+        });
+
     std::cout << "MediaSession persistence and restart recovery initialized" << std::endl;
+    std::cout << "Media Gateway runtime initialized" << std::endl;
     std::cout << "vdr-suite-daemon runtime running" << std::endl;
     std::cout << "vdr-suite-daemon serving HTTP on " << config_.httpListenHost() << ":" << config_.httpListenPort() << std::endl;
 
-    return httpListener_->runUntilStopped();
+    const int result = httpListener_->runUntilStopped();
+
+    // Avoid leaving a gateway that references stack-owned media runtime
+    // dependencies between run() and shutdown().
+    httpListener_.reset();
+    httpServer_.reset();
+    return result;
 }
 
 void DaemonRuntime::shutdown()
