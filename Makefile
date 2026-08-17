@@ -68,6 +68,8 @@ include mk/phase64-native-timer-create-operation-preparation-tests.mk
 include mk/phase64-native-timer-modify-operation-tests.mk
 include mk/phase64-native-timer-modify-dispatch-tests.mk
 include mk/phase64-managed-timer-fulfillment-acceptance.mk
+include mk/phase64-timer-reassignment-failover-tests.mk
+include mk/phase64-reassignment-failover-acceptance.mk
 include mk/phase64-native-timer-delete-operation-completion-tests.mk
 include mk/phase64-native-timer-delete-operation-preparation-tests.mk
 include mk/phase64-native-timer-delete-dispatch-tests.mk

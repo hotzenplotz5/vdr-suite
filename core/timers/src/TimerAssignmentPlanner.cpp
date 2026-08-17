@@ -218,7 +218,8 @@ bool hasActivePrimary(const std::vector<TimerAssignment>& assignments)
         assignments.end(),
         [](const TimerAssignment& assignment)
         {
-            return assignment.role == TimerAssignmentRole::primary
+            return (assignment.role == TimerAssignmentRole::primary
+                    || assignment.role == TimerAssignmentRole::replacement)
                 && timerAssignmentActiveOwnershipState(assignment.state);
         });
 }
@@ -233,7 +234,8 @@ std::size_t activeReplicaOwnerCount(
         {
             return timerAssignmentActiveOwnershipState(assignment.state)
                 && (assignment.role == TimerAssignmentRole::primary
-                    || assignment.role == TimerAssignmentRole::replica);
+                    || assignment.role == TimerAssignmentRole::replica
+                    || assignment.role == TimerAssignmentRole::replacement);
         }));
 }
 

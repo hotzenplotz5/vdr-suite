@@ -30,6 +30,29 @@ bool safeIdentity(const std::string& value)
     return !value.empty() && value.size() <= kMaxIdentityLength;
 }
 
+bool bindText(sqlite3_stmt* statement, int index, const std::string& value);
+
+bool controlledReplacementExpected(
+    Database& database,
+    const std::string& timerAssignmentId)
+{
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT 1 FROM sqlite_temp_master "
+        "WHERE type='table' AND name='timer_assignment_reassignment_expectation' "
+        "AND EXISTS(SELECT 1 FROM temp.timer_assignment_reassignment_expectation "
+        "WHERE replacement_assignment_id=?);";
+    if (sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr)
+        != SQLITE_OK)
+    {
+        return false;
+    }
+    const bool bound = bindText(statement, 1, timerAssignmentId);
+    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    sqlite3_finalize(statement);
+    return step == SQLITE_ROW;
+}
+
 std::string columnText(sqlite3_stmt* statement, int column)
 {
     const unsigned char* text = sqlite3_column_text(statement, column);
@@ -604,7 +627,7 @@ bool hasOtherActivePrimary(
         "SELECT timer_assignment_id "
         "FROM timer_assignments "
         "WHERE timer_intent_id=? "
-        "AND role='primary' "
+        "AND role IN ('primary','replacement') "
         "AND state IN "
         "('selected','provisioning','bound',"
         "'reconciling','superseding') "
@@ -739,11 +762,12 @@ bool TimerAssignmentRepository::ensureSchema()
         "ON timer_assignments "
         "(timer_intent_id,assignment_epoch,timer_assignment_id);"
         "CREATE UNIQUE INDEX IF NOT EXISTS "
-        "idx_timer_assignments_active_primary "
+        "idx_timer_assignments_active_exclusive_owner "
         "ON timer_assignments(timer_intent_id) "
-        "WHERE role='primary' AND state IN "
+        "WHERE role IN ('primary','replacement') AND state IN "
         "('selected','provisioning','bound',"
-        "'reconciling','superseding');");
+        "'reconciling','superseding');"
+        "DROP INDEX IF EXISTS idx_timer_assignments_active_primary;");
 }
 
 TimerAssignmentRepositoryResult
@@ -808,11 +832,21 @@ TimerAssignmentRepository::create(
             TimerAssignmentRepositoryStatus::invalid);
     }
 
-    if (durable.role == TimerAssignmentRole::primary &&
+    if ((durable.role == TimerAssignmentRole::primary
+         || durable.role == TimerAssignmentRole::replacement) &&
         timerAssignmentActiveOwnershipState(durable.state))
     {
+        if (durable.role == TimerAssignmentRole::replacement
+            && !controlledReplacementExpected(
+                database_, durable.timerAssignmentId))
+        {
+            database_.execute("ROLLBACK;");
+            return statusResult(
+                TimerAssignmentRepositoryStatus::ownershipConflict);
+        }
         bool activePrimary = false;
-        if (!hasOtherActivePrimary(
+        if (durable.role != TimerAssignmentRole::replacement
+            && !hasOtherActivePrimary(
                 database_,
                 durable.timerIntentId,
                 "",
@@ -822,7 +856,8 @@ TimerAssignmentRepository::create(
             return statusResult(
                 TimerAssignmentRepositoryStatus::storageError);
         }
-        if (activePrimary)
+        if (durable.role != TimerAssignmentRole::replacement
+            && activePrimary)
         {
             database_.execute("ROLLBACK;");
             return statusResult(
@@ -1025,7 +1060,7 @@ TimerAssignmentRepository::findActivePrimaryForIntent(
         std::string("SELECT ") + kSelectColumns +
         " FROM timer_assignments "
         "WHERE timer_intent_id=? "
-        "AND role='primary' "
+        "AND role IN ('primary','replacement') "
         "AND state IN "
         "('selected','provisioning','bound',"
         "'reconciling','superseding') "
@@ -1167,7 +1202,8 @@ TimerAssignmentRepository::update(
             TimerAssignmentRepositoryStatus::invalid);
     }
 
-    if (durable.role == TimerAssignmentRole::primary &&
+    if ((durable.role == TimerAssignmentRole::primary
+         || durable.role == TimerAssignmentRole::replacement) &&
         timerAssignmentActiveOwnershipState(durable.state))
     {
         bool activePrimary = false;

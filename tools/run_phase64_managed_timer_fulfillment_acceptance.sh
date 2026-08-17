@@ -45,7 +45,8 @@ fi
 
 BRANCH="$(git branch --show-current 2>/dev/null)" ||
     fail branch_unavailable
-if [[ "$BRANCH" != "work/phase64-managed-timer-fulfillment" ]]; then
+EXPECTED_BRANCH="${PHASE64_EXPECTED_BRANCH:-work/phase64-managed-timer-fulfillment}"
+if [[ "$BRANCH" != "$EXPECTED_BRANCH" ]]; then
     fail unexpected_branch
 fi
 
