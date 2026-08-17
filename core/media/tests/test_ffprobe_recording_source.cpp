@@ -12,7 +12,7 @@ int main()
     {
         const auto plan = probe.commandPlan();
         assert(!plan.argv.empty());
-        assert(plan.argv.front() == "ffprobe");
+        assert(plan.argv.front() == "/usr/bin/ffprobe");
         assert(std::find(plan.argv.begin(), plan.argv.end(), "/bin/sh") == plan.argv.end());
         assert(std::find(plan.argv.begin(), plan.argv.end(), "input.ffconcat") != plan.argv.end());
     }
