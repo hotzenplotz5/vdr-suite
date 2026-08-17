@@ -83,8 +83,9 @@ require(
     ],
 )
 
-# Current operational/planning entry points must describe the current phase,
-# not duplicate the old Slice-2 checkpoint as if it were still active.
+# Current operational/planning entry points must retain the exact historical
+# Phase-63 foundation marker while also describing the completed Phase-64
+# state. The Phase-63 marker is traceability, not active-phase authority.
 for path in (CURRENT, STATUS, ROADMAP, PHASE_MAP):
     require(
         path,
@@ -126,4 +127,5 @@ if failures:
 
 print("Phase-63 observation ingestion contract check passed")
 print("Historical Slice-2 contract merge: 24b1d7938ddaa15834a8da6323a270761868f4ba")
-print("Current phase: Phase 64; Phase 63 historical evidence remains archived")
+print("Latest completed phase: Phase 64; Phase 63 historical evidence remains archived")
+print("Current active numbered phase: none; Phase 65 is next and not started")

@@ -41,6 +41,10 @@ Phase 65 - Streaming Gateway and Media Sessions
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
+## Historical foundation markers
+
+`Phase 63 - Backend Agent and Secure Multi-Site Runtime` remains the completed execution/provider foundation beneath Phase 64. This marker is retained for historical contract guards and traceability only; it does not make Phase 63 current or active again.
+
 ## Phase 64 completion evidence
 
 The final exact-head hosted CI and real-system gate both passed.
