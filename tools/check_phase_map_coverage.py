@@ -9,7 +9,7 @@ ROADMAP = ROOT / "docs/planning/roadmap.md"
 LATEST = "Phase 64 - Timer Intent and Multi-Backend Orchestration"
 NEXT = "Phase 65 - Streaming Gateway and Media Sessions"
 NOT_STARTED = "Phase 65 has not started"
-HISTORICAL = "Phase 58 - Frontend and Live Parity"
+HISTORICAL = "Phase 58 remains a historical umbrella label only."
 
 COMPLETED_RANGES = [
     "Phase 1.x-7.x",
