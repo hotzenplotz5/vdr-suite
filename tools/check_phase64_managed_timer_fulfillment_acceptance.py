@@ -24,6 +24,14 @@ if RUNNER.is_file():
         "make -C vdr-plugin-suite-bridge -j2 check",
         "candidates.sha256",
         "COMMAND_TYPES=\\n",
+        "if ! python3 -",
+        (
+            "PY_CLOSED_ADVERTISEMENT\n"
+            "then\n"
+            "    fail closed_advertisement_check_failed\n"
+            "fi"
+        ),
+        "closed_advertisement_evidence_missing",
         'for command in ("NTCREATE", "NTMOD", "NTDELETE")',
         "ADVERTISEMENT=closed",
         "PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS",
@@ -38,6 +46,7 @@ if RUNNER.is_file():
         "scp ",
         "curl ",
         "wget ",
+        "<<'PY_CLOSED_ADVERTISEMENT' ||",
         "systemctl ",
         "timers.conf",
         "sqlite3 ",

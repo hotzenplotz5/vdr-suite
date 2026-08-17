@@ -105,11 +105,10 @@ readelf -h vdr-plugin-suite-bridge/libvdr-suitebridge.so \
     >"$EVIDENCE_DIR/suitebridge.elf.txt" 2>&1 ||
     fail suitebridge_elf_check_failed
 
-python3 - \
+if ! python3 - \
     packaging/systemd/backend-agent.conf \
     vdr-plugin-suite-bridge/suitebridge_svdrp.cpp \
-    "$EVIDENCE_DIR/closed-advertisement.txt" <<'PY_CLOSED_ADVERTISEMENT' ||
-    fail closed_advertisement_check_failed
+    "$EVIDENCE_DIR/closed-advertisement.txt" <<'PY_CLOSED_ADVERTISEMENT'
 from pathlib import Path
 import sys
 
@@ -135,6 +134,13 @@ output.write_text(
     encoding="utf-8",
 )
 PY_CLOSED_ADVERTISEMENT
+then
+    fail closed_advertisement_check_failed
+fi
+
+if [[ ! -s "$EVIDENCE_DIR/closed-advertisement.txt" ]]; then
+    fail closed_advertisement_evidence_missing
+fi
 
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     fail tracked_worktree_changed_by_acceptance
