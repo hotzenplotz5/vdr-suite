@@ -122,6 +122,7 @@ int main()
 
     int spawnCalls = 0;
     int terminateCalls = 0;
+    std::string idleSessionId;
     {
         RecordingMediaSessionRuntime runtime(
             repository,
@@ -157,6 +158,7 @@ int main()
         const auto result = runtime.provisionHls(
             issued.session.sessionId,
             issued.session.workspaceId,
+            issued.session.grantId,
             hlsProfile(),
             {segment.string()});
         assert(result.ready);
@@ -176,13 +178,62 @@ int main()
         assert(stopped->state == "ended");
         assert(stopped->terminalReason == "client_closed");
         assert(!std::filesystem::exists(root / issued.session.workspaceId));
+
+        auto idleIssued = issuer.issue(issuanceRequest());
+        assert(idleIssued.issued);
+        idleSessionId = idleIssued.session.sessionId;
+
+        const auto idleResult = runtime.provisionHls(
+            idleIssued.session.sessionId,
+            idleIssued.session.workspaceId,
+            idleIssued.session.grantId,
+            hlsProfile(),
+            {segment.string()});
+        assert(idleResult.ready);
+        assert(spawnCalls == 2);
+
+        assert(runtime.reapInactive(300) == 0);
+        assert(terminateCalls == 1);
+        const auto stillReady = repository.findSession(idleIssued.session.sessionId);
+        assert(stillReady.has_value());
+        assert(stillReady->state == "ready");
+
+        assert(database.execute(
+            "UPDATE media_access_grants SET "
+            "last_seen_at=datetime('now','-301 seconds'), "
+            "updated_at=CURRENT_TIMESTAMP "
+            "WHERE session_id='" + idleIssued.session.sessionId + "';"));
+
+        const auto idleGrant = repository.findResolvedGrant(
+            idleIssued.session.grantId,
+            300);
+        assert(idleGrant.has_value());
+        assert(idleGrant->active);
+        assert(idleGrant->idleExpired);
+
+        assert(runtime.reapInactive(300) == 1);
+        assert(runtime.reapInactive(300) == 0);
+        assert(terminateCalls == 2);
+
+        const auto reaped = repository.findSession(idleIssued.session.sessionId);
+        assert(reaped.has_value());
+        assert(reaped->state == "ended");
+        assert(reaped->terminalReason == "media_access_idle_expired");
+        assert(!std::filesystem::exists(root / idleIssued.session.workspaceId));
+
+        idleIssued.session.clearSecret();
     }
 
-    assert(terminateCalls == 1);
+    assert(terminateCalls == 2);
     const auto ended = repository.findSession(issued.session.sessionId);
     assert(ended.has_value());
     assert(ended->state == "ended");
     assert(ended->terminalReason == "client_closed");
+
+    const auto idleEnded = repository.findSession(idleSessionId);
+    assert(idleEnded.has_value());
+    assert(idleEnded->state == "ended");
+    assert(idleEnded->terminalReason == "media_access_idle_expired");
 
     issued.session.clearSecret();
     std::filesystem::remove_all(root);
