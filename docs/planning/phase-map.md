@@ -39,20 +39,23 @@ Latest completed numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
 Current active numbered runtime phase:
-none - Phase 65 has not started
-
-Next strict numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
+
+Current Phase-65 focus:
+Recording playback lifecycle closeout hardening
+
+Next Phase-65 product vertical after that closeout:
+65.B - Live-TV playback
 ```
 
-The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md) and [Phase 64 Closeout](../development/phase-64-closeout.md).
+The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md), [Phase 64 Closeout](../development/phase-64-closeout.md) and [Phase 65 Recording Playback Closeout Readiness](../development/phase-65-recording-playback-closeout-readiness.md).
 
 ## Revised numbered forward sequence
 
 | Order | Phase | Status | Track | Primary completion direction |
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable intent/assignment/binding orchestration, safe managed native fulfillment, authoritative readback, reconciliation, controlled reassignment and real-system write acceptance. |
-| 2 | Phase 65 | Next; not started | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. |
+| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. Recording playback is functionally/compatibility accepted; server-side hard-disconnect lifecycle cleanup remains open before 65.A closeout. |
 | 3 | Phase 66 | Planned after Phase 65 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext pages plus broadcast-application discovery/session runtime without reducing them to OSD proxying. |
 | 4 | Phase 67 | Planned after Phase 66 | Legacy OSD Compatibility Bridge | Isolated OSD observation, sequencing/resync, exclusive controller lease and allowlisted native input. |
 | 5 | Phase 68 | Planned after Phase 67 | Public API and Client Compatibility Hardening | Stabilized `/api/v1`, errors, revisions/preconditions, pagination, compatibility/deprecation and independent-client contracts. |
@@ -95,6 +98,13 @@ Recording playback
   -> remux only from demonstrated need
   -> transcode only from demonstrated need
 ```
+
+Current implementation position:
+
+- existing-Recording browser playback, copy/transcode selection, interlace handling, HLS buffering/segmentation and calibrated VAAPI UHD adaptation have passed real yaVDR acceptance;
+- graceful stop/pagehide cleanup has passed real yaVDR acceptance;
+- the remaining 65.A blocker is proactive server cleanup after an ungraceful client disappearance, because access-grant idle expiry currently does not itself reap an already-running worker;
+- 65.B Live-TV runtime is next only after that lifecycle closeout hardening is accepted.
 
 Browser is the initial first-party product-validation client. Streamdev may be an internal explicitly owned provider but is not the public media API.
 
@@ -172,7 +182,8 @@ Vertical product acceptance is maintained in [Golden User Journeys](golden-user-
 
 - Completed history is never renumbered.
 - Phases 61, 62, 63 and 64 are closed for their accepted scopes.
-- Phase 65 is the next numbered runtime phase and remains not started until explicitly kicked off.
+- Phase 65 is the active numbered runtime phase.
+- Phase 65 does not close until its Recording, Live-TV and other required acceptance gates in the Strict Roadmap are satisfied.
 - Future phases 66+ may be reordered only before runtime starts and only through explicit repository planning/architecture reconciliation.
 - Broad Timer UI completion is not inserted as a numbered phase between 64 and 65.
 - Cross-cutting product/admin work does not silently advance the numbered runtime phase.
@@ -191,6 +202,7 @@ make test-phase
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
 - [Phase 64 Closeout](../development/phase-64-closeout.md)
+- [Phase 65 Recording Playback Closeout Readiness](../development/phase-65-recording-playback-closeout-readiness.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)
