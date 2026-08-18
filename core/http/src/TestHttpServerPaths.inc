@@ -24,6 +24,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2-shared.js", "recordings2-shared.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-folder-artwork.js", "recordings2-folder-artwork.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-actions.js", "recordings2-actions.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-browser-view.js", "recordings2-browser-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-person-search-view.js", "recordings2-person-search-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-metadata-view.js", "recordings2-metadata-view.js", "application/javascript; charset=utf-8", nullptr},

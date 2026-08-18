@@ -24,6 +24,29 @@ int main()
     assert(allResult.recordings().at(0).title == "Tagesschau");
     assert(allResult.recordings().at(1).title == "Tatort");
 
+    VdrRecording resolvedRecording;
+    assert(queryService.findRecordingById(
+        "default",
+        allResult.recordings().at(1).id,
+        resolvedRecording));
+    assert(resolvedRecording.id == allResult.recordings().at(1).id);
+    assert(resolvedRecording.title == "Tatort");
+    assert(!resolvedRecording.path.empty());
+
+    VdrRecording missingRecording;
+    assert(!queryService.findRecordingById(
+        "default",
+        "recording-not-found",
+        missingRecording));
+    assert(!queryService.findRecordingById(
+        "default",
+        "",
+        missingRecording));
+    assert(!queryService.findRecordingById(
+        "other-backend",
+        allResult.recordings().at(1).id,
+        missingRecording));
+
     VdrRecordingQueryResult limitedResult =
         queryService.queryRecordings(
             VdrRecordingQuery::limited(

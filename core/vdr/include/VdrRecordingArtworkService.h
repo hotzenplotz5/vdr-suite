@@ -1,7 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <map>
+#include <mutex>
 #include <string>
 
 class VdrRecordingCacheRepository;
@@ -35,7 +37,21 @@ public:
         const std::string& requestPath) const;
 
 private:
+    struct ArtworkLookupIndex
+    {
+        bool initialized = false;
+        std::chrono::steady_clock::time_point rebuiltAt{};
+        std::map<std::string, std::string> referencesByAssetId;
+    };
+
+    bool resolveArtworkReference(
+        const std::string& backendId,
+        const std::string& assetId,
+        std::string& reference) const;
+
     VdrRecordingCacheRepository& repository_;
     std::map<std::string, std::string> rootsByBackend_;
     std::size_t maximumFileSizeBytes_;
+    mutable std::mutex artworkIndexMutex_;
+    mutable std::map<std::string, ArtworkLookupIndex> artworkIndexes_;
 };

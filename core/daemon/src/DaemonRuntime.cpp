@@ -4,12 +4,12 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "RecordingMediaHttpRuntime.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
-#include "SimpleHttpListener.h"
 
+#include <chrono>
 #include <csignal>
 #include <iostream>
-#include <utility>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -30,11 +30,36 @@ int DaemonRuntime::run()
         std::cerr << "vdr-suite-daemon runtime not initialized" << std::endl;
         return 1;
     }
+    if (!httpServer_ || !apiRouter_ || !vdrRecordingQueryService_) {
+        std::cerr << "HTTP/API runtime unavailable for Media Gateway" << std::endl;
+        return 1;
+    }
 
-    std::cout << "vdr-suite-daemon runtime running" << std::endl;
-    std::cout << "vdr-suite-daemon serving HTTP on " << config_.httpListenHost() << ":" << config_.httpListenPort() << std::endl;
+    auto lastVdrPoll = std::chrono::steady_clock::now();
+    return runRecordingMediaHttpRuntime(
+        database_,
+        *apiRouter_,
+        *vdrRecordingQueryService_,
+        httpServer_,
+        httpListener_,
+        config_.httpListenHost(),
+        config_.httpListenPort(),
+        []() {
+            return shutdownRequested_.load();
+        },
+        [this, lastVdrPoll]() mutable {
+            const auto now = std::chrono::steady_clock::now();
+            const bool externalHint = externalVdrChangeHint_.exchange(false);
 
-    return httpListener_->runUntilStopped();
+            if (!externalHint &&
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    now - lastVdrPoll).count() < 5) {
+                return;
+            }
+
+            lastVdrPoll = now;
+            pollVdrAndUpdateChangeFeed();
+        });
 }
 
 void DaemonRuntime::shutdown()

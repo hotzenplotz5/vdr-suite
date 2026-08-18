@@ -127,6 +127,78 @@ int main()
         "csrf_validation_failed") !=
         std::string::npos);
 
+    HttpServerRequest playbackMissingCsrf =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "default");
+    fixture.addBrowserAuthentication(playbackMissingCsrf);
+
+    const SecurityGateDecision playbackMissingCsrfDecision =
+        fixture.gate.evaluate(playbackMissingCsrf);
+    assert(!playbackMissingCsrfDecision.allowed);
+    assert(!playbackMissingCsrfDecision.protectedMutation);
+    assert(playbackMissingCsrfDecision.rejection.statusCode == 403);
+    assert(playbackMissingCsrfDecision.rejection.body.find(
+        "csrf_validation_failed") !=
+        std::string::npos);
+
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
+        "media.recording.play",
+        "default"));
+
+    HttpServerRequest playback =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "default");
+    fixture.addBrowserAuthentication(playback, true);
+
+    const SecurityGateDecision playbackAllowed =
+        fixture.gate.evaluate(playback);
+    assert(playbackAllowed.allowed);
+    assert(!playbackAllowed.protectedMutation);
+    assert(playbackAllowed.authorizationDecision.allowed);
+    assert(playbackAllowed.authorizationDecision.permission ==
+        "media.recording.play");
+    assert(playbackAllowed.authorizationDecision.backendId ==
+        "default");
+    assert(playbackAllowed.authorizationDecision.action ==
+        "media.recording.play");
+    assert(!fixture.gate.appendProtectedMutationOutcome(
+        playbackAllowed,
+        201));
+
+    HttpServerRequest playbackWrongScope =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "house-b");
+    fixture.addBrowserAuthentication(playbackWrongScope, true);
+
+    const SecurityGateDecision playbackWrongScopeDecision =
+        fixture.gate.evaluate(playbackWrongScope);
+    assert(!playbackWrongScopeDecision.allowed);
+    assert(!playbackWrongScopeDecision.protectedMutation);
+    assert(playbackWrongScopeDecision.rejection.statusCode == 403);
+    assert(playbackWrongScopeDecision.rejection.body.find(
+        "backend_scope_denied") !=
+        std::string::npos);
+
+    HttpServerRequest playbackMissingBackend =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "",
+            false);
+    fixture.addBrowserAuthentication(playbackMissingBackend, true);
+
+    const SecurityGateDecision playbackMissingBackendDecision =
+        fixture.gate.evaluate(playbackMissingBackend);
+    assert(!playbackMissingBackendDecision.allowed);
+    assert(!playbackMissingBackendDecision.protectedMutation);
+    assert(playbackMissingBackendDecision.rejection.statusCode == 400);
+    assert(playbackMissingBackendDecision.rejection.body.find(
+        "invalid_backend_scope") !=
+        std::string::npos);
+
     HttpServerRequest missingPermission =
         fixture.mutationRequest(
             "/api/vdr/remote/actions",
@@ -240,6 +312,7 @@ int main()
 
     bool sawRemoteAllowed = false;
     bool sawUnmigratedDenied = false;
+    bool sawPlaybackAllowed = false;
     bool sawRemoteSucceeded = false;
     bool sawRemoteFailed = false;
 
@@ -253,6 +326,11 @@ int main()
             (event.reasonCode ==
                  "security_policy_not_migrated" &&
              event.outcome == "dispatch_denied");
+        sawPlaybackAllowed = sawPlaybackAllowed ||
+            (event.permission == "media.recording.play" &&
+             event.backendId == "default" &&
+             event.action == "media.recording.play" &&
+             event.outcome == "dispatch_authorized");
         sawRemoteSucceeded = sawRemoteSucceeded ||
             (event.eventType == "operation.succeeded" &&
              event.permission == "remote.control" &&
@@ -288,6 +366,7 @@ int main()
 
     assert(sawRemoteAllowed);
     assert(sawUnmigratedDenied);
+    assert(sawPlaybackAllowed);
     assert(sawRemoteSucceeded);
     assert(sawRemoteFailed);
 

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -19,6 +20,9 @@ namespace
 
 const std::string artworkPrefix =
     "/recording-artwork/";
+
+constexpr auto ArtworkIndexMissRefreshInterval =
+    std::chrono::seconds(1);
 
 int hexValue(
     const char character)
@@ -393,6 +397,37 @@ VdrRecordingArtworkAsset readAllowedAsset(
     return result;
 }
 
+std::map<std::string, std::string> buildArtworkIndex(
+    const std::vector<VdrRecording>& recordings)
+{
+    std::map<std::string, std::string> referencesByAssetId;
+
+    for (const VdrRecording& recording : recordings)
+    {
+        for (const VdrRecordingArtworkRef& artwork : recording.metadata.artwork)
+        {
+            if (!artwork.isValid())
+            {
+                continue;
+            }
+
+            const std::string assetId =
+                VdrRecordingArtworkIdentity::assetId(
+                    recording,
+                    artwork);
+
+            if (!assetId.empty())
+            {
+                referencesByAssetId.emplace(
+                    assetId,
+                    artwork.reference);
+            }
+        }
+    }
+
+    return referencesByAssetId;
+}
+
 }
 
 VdrRecordingArtworkService::VdrRecordingArtworkService(
@@ -412,6 +447,58 @@ bool VdrRecordingArtworkService::handlesPath(
         0,
         artworkPrefix.size(),
         artworkPrefix) == 0;
+}
+
+bool VdrRecordingArtworkService::resolveArtworkReference(
+    const std::string& backendId,
+    const std::string& assetId,
+    std::string& reference) const
+{
+    const auto now = std::chrono::steady_clock::now();
+
+    {
+        std::lock_guard<std::mutex> lock(artworkIndexMutex_);
+        const auto index = artworkIndexes_.find(backendId);
+
+        if (index != artworkIndexes_.end() && index->second.initialized)
+        {
+            const auto found =
+                index->second.referencesByAssetId.find(assetId);
+
+            if (found != index->second.referencesByAssetId.end())
+            {
+                reference = found->second;
+                return true;
+            }
+
+            if (now - index->second.rebuiltAt <
+                ArtworkIndexMissRefreshInterval)
+            {
+                return false;
+            }
+        }
+    }
+
+    std::map<std::string, std::string> rebuilt =
+        buildArtworkIndex(
+            repository_.findAllForBackend(backendId));
+
+    std::lock_guard<std::mutex> lock(artworkIndexMutex_);
+    ArtworkLookupIndex& index = artworkIndexes_[backendId];
+    index.initialized = true;
+    index.rebuiltAt = std::chrono::steady_clock::now();
+    index.referencesByAssetId = std::move(rebuilt);
+
+    const auto found =
+        index.referencesByAssetId.find(assetId);
+
+    if (found == index.referencesByAssetId.end())
+    {
+        return false;
+    }
+
+    reference = found->second;
+    return true;
 }
 
 VdrRecordingArtworkAsset VdrRecordingArtworkService::loadPath(
@@ -436,28 +523,17 @@ VdrRecordingArtworkAsset VdrRecordingArtworkService::loadPath(
         return {};
     }
 
-    const std::vector<VdrRecording> recordings =
-        repository_.findAllForBackend(backendId);
-
-    for (const VdrRecording& recording : recordings)
+    std::string reference;
+    if (!resolveArtworkReference(
+            backendId,
+            requestedAssetId,
+            reference))
     {
-        for (const VdrRecordingArtworkRef& artwork :
-             recording.metadata.artwork)
-        {
-            if (!artwork.isValid() ||
-                VdrRecordingArtworkIdentity::assetId(
-                    recording,
-                    artwork) != requestedAssetId)
-            {
-                continue;
-            }
-
-            return readAllowedAsset(
-                configuredRoot->second,
-                artwork.reference,
-                maximumFileSizeBytes_);
-        }
+        return {};
     }
 
-    return {};
+    return readAllowedAsset(
+        configuredRoot->second,
+        reference,
+        maximumFileSizeBytes_);
 }

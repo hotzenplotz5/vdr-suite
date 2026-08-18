@@ -134,7 +134,27 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", '"csrf_validation_failed"')
     require(
         "core/security/include/SecurityHttpGate.h",
-        "isPost && gate.browserAuthenticated && !isProtectedMutation",
+        "isExplicitlyAuthorizedPost =",
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "isProtectedMutation || isRecordingPlaybackSessionCreate",
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "isPost && gate.browserAuthenticated && !isExplicitlyAuthorizedPost",
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/media/sessions"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"media.recording.play"',
+    )
+    require(
+        "core/security/tests/test_security_http_gate.cpp",
+        '"media.recording.play"',
     )
     require("core/security/include/SecurityHttpGate.h", '"unmapped.browser.mutation"')
     require(

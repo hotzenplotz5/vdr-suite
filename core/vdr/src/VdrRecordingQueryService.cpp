@@ -104,6 +104,40 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
         offset);
 }
 
+bool VdrRecordingQueryService::findRecordingById(
+    const std::string& backendId,
+    const std::string& recordingId,
+    VdrRecording& recording) const
+{
+    if (recordingId.empty())
+    {
+        return false;
+    }
+
+    VdrRecordingQuery query = VdrRecordingQuery::all();
+    if (!backendId.empty())
+    {
+        query.setBackendFilter(backendId);
+    }
+
+    const auto recordings = loadRecordings(query);
+    const auto match = std::find_if(
+        recordings.begin(),
+        recordings.end(),
+        [&recordingId](const VdrRecording& candidate)
+        {
+            return candidate.id == recordingId;
+        });
+
+    if (match == recordings.end())
+    {
+        return false;
+    }
+
+    recording = *match;
+    return true;
+}
+
 std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
     const VdrRecordingQuery& query) const
 {

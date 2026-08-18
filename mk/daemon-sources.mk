@@ -33,6 +33,8 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
+        api/rest/src/RecordingMediaSessionController.cpp \
+        api/rest/src/RecordingMediaSessionRequestParser.cpp \
         $(GENRE_BROWSER_REST_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
@@ -81,6 +83,19 @@ DAEMON_SRC := \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
         core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/TestHttpServer.cpp \
+        core/http/src/MediaGatewayHttpServer.cpp \
+        core/media/src/LocalVdrRecordingSourceResolver.cpp \
+        core/media/src/FfprobeRecordingSource.cpp \
+        core/media/src/MediaPresentationSelector.cpp \
+        core/media/src/FfmpegHlsCommandBuilder.cpp \
+        core/media/src/MediaProcessRunner.cpp \
+        core/media/src/MediaSessionWorkspace.cpp \
+        core/media/src/MediaSessionRepository.cpp \
+        core/media/src/MediaRouteLeaseRepository.cpp \
+        core/media/src/MediaSessionIssuanceService.cpp \
+        core/media/src/MediaAccessGrantAuthenticator.cpp \
+        core/media/src/MediaHlsArtifactReader.cpp \
+        core/media/src/RecordingMediaSessionRuntime.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
@@ -89,6 +104,7 @@ DAEMON_SRC := \
         core/daemon/src/DaemonRuntimePolling.cpp \
         core/daemon/src/DaemonRuntimeEpgCache.cpp \
         core/daemon/src/DaemonRuntimeRecordingCache.cpp \
+        core/daemon/src/RecordingMediaHttpRuntime.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp \
         api/rest/src/SearchTimerCreateRequestParser.cpp \
@@ -101,3 +117,6 @@ DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
+
+# MediaSessionIssuanceService uses crypt_r for salted credential hashes.
+LDFLAGS += -lcrypt

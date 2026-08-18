@@ -11,6 +11,7 @@
 #include "SeriesArtworkSettingsApiRuntime.h"
 #include "VdrSnapshotReadService.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -109,6 +110,11 @@ private:
 class ApiRouter
 {
 public:
+    using RecordingMediaSessionHandler =
+        std::function<ApiResponse(
+            const std::string& body,
+            const std::string& actorRef)>;
+
     ApiRouter(
         DashboardController& dashboardController,
         JobsController& jobsController,
@@ -146,6 +152,12 @@ public:
     {
         vdrSnapshotReadService_.setSearchTimerPreviewEpgCache(
             searchTimerPreviewEpgCache);
+    }
+
+    void setRecordingMediaSessionHandler(
+        RecordingMediaSessionHandler handler)
+    {
+        recordingMediaSessionHandler_ = std::move(handler);
     }
 
     ApiResponse getEpgArtwork(
@@ -227,6 +239,21 @@ public:
     {
         ApiResponse response;
 
+        if (requestTarget == "/api/media/sessions")
+        {
+            if (!recordingMediaSessionHandler_)
+            {
+                response.statusCode = 503;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.body =
+                    "{\"error\":{\"code\":\"media_session_runtime_unavailable\"}}";
+                return response;
+            }
+
+            return recordingMediaSessionHandler_(body, actorRef);
+        }
+
         ManualRecordingMetadataApiRuntime::instance().registerController(
             metadataController_);
         if (ManualRecordingMetadataApiRuntime::instance().tryHandlePost(
@@ -288,4 +315,5 @@ private:
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
+    RecordingMediaSessionHandler recordingMediaSessionHandler_;
 };

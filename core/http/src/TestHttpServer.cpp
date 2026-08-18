@@ -339,7 +339,8 @@ HttpServerResponse TestHttpServer::handleRequest(
             mapApiResponse(
                 405,
                 "application/json",
-                "{\"error\":\"method not allowed\"}"));
+                "{\"error\":\"method not allowed\"}",
+                {}));
     }
 
     if (gate.protectedMutation &&
@@ -357,16 +358,19 @@ HttpServerResponse TestHttpServer::handleRequest(
         mapApiResponse(
             apiResponse.statusCode,
             apiResponse.contentType,
-            apiResponse.body));
+            apiResponse.body,
+            apiResponse.headers));
 }
 
 HttpServerResponse TestHttpServer::mapApiResponse(
     int statusCode,
     const std::string& contentType,
-    const std::string& body) const
+    const std::string& body,
+    const std::map<std::string, std::string>& headers) const
 {
     HttpServerResponse response;
     response.statusCode = statusCode;
+    response.headers = headers;
     response.headers["Content-Type"] = contentType;
     response.body = body;
     return response;

@@ -30,6 +30,7 @@ SQLITE_DOMAIN_REPOSITORY_PREFIXES = [
     "core/agent/src/",
     "core/timers/src/",
     "core/operations/src/",
+    "core/media/src/",
 ]
 
 SQLITE_SPLIT_REPOSITORY_FAMILIES = [
@@ -181,6 +182,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
         "core/operations/src/MutationOperationRepository.cpp",
+        "core/media/src/MediaSessionRepository.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
@@ -206,6 +208,8 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/timers/src/RepositoryHelper.cpp",
         "core/operations/src/MutationOperationPersistence.cpp",
         "core/operations/src/RepositoryHelper.cpp",
+        "core/media/src/MediaSessionPersistence.cpp",
+        "core/media/src/RepositoryHelper.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsHelper.cpp",
         "core/metadata/tests/test_metadata_identity.cpp",
         "api/rest/src/FakeRepository.cpp",

@@ -179,9 +179,15 @@ private:
             permission == "backend.agent.credential.rotate";
     }
 
+    static bool mediaPermission(const std::string& permission)
+    {
+        return permission == "media.recording.play";
+    }
+
     static bool adminRoleGrants(const std::string& permission)
     {
-        return protectedMutationPermission(permission);
+        return protectedMutationPermission(permission) ||
+            mediaPermission(permission);
     }
 
     static bool mutatingPermission(const std::string& permission)

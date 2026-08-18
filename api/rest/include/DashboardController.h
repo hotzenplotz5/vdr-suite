@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 class DashboardFacade;
@@ -10,6 +11,7 @@ struct ApiResponse
     int statusCode = 200;
     std::string contentType = "application/json";
     std::string body;
+    std::map<std::string, std::string> headers;
 };
 
 class DashboardController
