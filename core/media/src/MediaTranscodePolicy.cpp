@@ -13,7 +13,7 @@ namespace
 
 constexpr const char* DefaultPerformanceProfilePath =
     "/var/lib/vdr-suite/media-transcode-performance.conf";
-constexpr const char* SupportedPerformanceProfileVersion = "3";
+constexpr std::size_t MaximumHardwareDevicePathLength = 512;
 
 std::string trim(const std::string& value)
 {
@@ -21,6 +21,13 @@ std::string trim(const std::string& value)
     if (first == std::string::npos) return {};
     const std::size_t last = value.find_last_not_of(" \t\r\n");
     return value.substr(first, last - first + 1);
+}
+
+bool validVaapiDevice(const std::string& value)
+{
+    return !value.empty() &&
+        value.size() <= MaximumHardwareDevicePathLength &&
+        value.rfind("/dev/dri/", 0) == 0;
 }
 
 MediaSoftwareEncoderPreset presetForMode(MediaTranscodePresetMode mode)
@@ -90,6 +97,25 @@ bool presetFromString(
     return false;
 }
 
+bool backendFromString(
+    const std::string& value,
+    MediaVideoEncoderBackend& backend)
+{
+    if (value == "vaapi") {
+        backend = MediaVideoEncoderBackend::Vaapi;
+        return true;
+    }
+    if (value == "qsv") {
+        backend = MediaVideoEncoderBackend::Qsv;
+        return true;
+    }
+    if (value == "nvenc") {
+        backend = MediaVideoEncoderBackend::Nvenc;
+        return true;
+    }
+    return false;
+}
+
 bool positiveFiniteDouble(const std::string& text, double& value)
 {
     if (text.empty()) return false;
@@ -103,12 +129,18 @@ bool positiveFiniteDouble(const std::string& text, double& value)
     return true;
 }
 
-MediaTranscodePerformanceSamples loadPerformanceSamples(
-    const std::string& path)
+struct LoadedPerformanceProfile
 {
-    MediaTranscodePerformanceSamples samples;
+    MediaTranscodePerformanceSamples software;
+    MediaHardwareTranscodePerformanceSamples hardware;
+    std::string vaapiDevice;
+};
+
+LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
+{
+    LoadedPerformanceProfile profile;
     std::ifstream input(path);
-    if (!input.is_open()) return samples;
+    if (!input.is_open()) return profile;
 
     std::vector<std::string> lines;
     std::string line;
@@ -116,8 +148,7 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
     while (std::getline(input, line)) {
         lines.push_back(line);
         const std::string normalized = trim(line);
-        if (normalized ==
-            std::string("version=") + SupportedPerformanceProfileVersion) {
+        if (normalized == "version=3" || normalized == "version=4") {
             supportedVersion = true;
         }
     }
@@ -125,9 +156,10 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
     // Versions 1 and 2 were intentionally retired after real yaVDR evidence:
     // v1 omitted source decode cost, while v2 allowed very short real-source
     // samples whose damaged startup region could dominate the final speed.
-    // Only v3 represents sustained real-reference throughput and keeps the
-    // calibrator's fallback decision identical to this runtime policy.
-    if (!supportedVersion) return samples;
+    // v3 remains valid for software-only calibration. v4 is an additive
+    // extension that can also carry measured hardware-backend throughput and
+    // the render device on which that throughput was measured.
+    if (!supportedVersion) return profile;
 
     for (const std::string& rawLine : lines) {
         line = trim(rawLine);
@@ -139,6 +171,10 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
         const std::string key = trim(line.substr(0, equals));
         const std::string value = trim(line.substr(equals + 1));
         if (key == "version") continue;
+        if (key == "vaapi.device") {
+            if (validVaapiDevice(value)) profile.vaapiDevice = value;
+            continue;
+        }
 
         const std::size_t dot = key.find('.');
         if (dot == std::string::npos || dot == 0 || dot + 1 >= key.size()) {
@@ -146,16 +182,25 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
         }
 
         MediaTranscodeWorkload workload = MediaTranscodeWorkload::None;
-        MediaSoftwareEncoderPreset preset = MediaSoftwareEncoderPreset::Veryfast;
         double speed = 0.0;
         if (!workloadFromString(key.substr(0, dot), workload) ||
-            !presetFromString(key.substr(dot + 1), preset) ||
             !positiveFiniteDouble(value, speed)) {
             continue;
         }
-        samples[workload][preset] = speed;
+
+        const std::string implementation = key.substr(dot + 1);
+        MediaSoftwareEncoderPreset preset = MediaSoftwareEncoderPreset::Veryfast;
+        if (presetFromString(implementation, preset)) {
+            profile.software[workload][preset] = speed;
+            continue;
+        }
+
+        MediaVideoEncoderBackend backend = MediaVideoEncoderBackend::SoftwareX264;
+        if (backendFromString(implementation, backend)) {
+            profile.hardware[workload][backend] = speed;
+        }
     }
-    return samples;
+    return profile;
 }
 
 std::optional<MediaTranscodePresetMode> optionalModeFromEnvironment(
@@ -173,9 +218,11 @@ std::optional<MediaTranscodePresetMode> optionalModeFromEnvironment(
 
 MediaTranscodePolicy::MediaTranscodePolicy(
     MediaTranscodePolicyConfig config,
-    MediaTranscodePerformanceSamples samples)
+    MediaTranscodePerformanceSamples samples,
+    MediaHardwareTranscodePerformanceSamples hardwareSamples)
     : config_(std::move(config)),
-      samples_(std::move(samples))
+      samples_(std::move(samples)),
+      hardwareSamples_(std::move(hardwareSamples))
 {
     if (!std::isfinite(config_.minimumRealtimeSpeed) ||
         config_.minimumRealtimeSpeed < 1.0 ||
@@ -215,14 +262,27 @@ MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment()
     config.uhdSourcePresetMode = optionalModeFromEnvironment(
         "VDR_SUITE_MEDIA_X264_UHD_PRESET");
 
+    bool vaapiDeviceOverridden = false;
+    if (const char* raw = std::getenv("VDR_SUITE_MEDIA_VAAPI_DEVICE")) {
+        if (*raw != '\0' && validVaapiDevice(raw)) {
+            config.vaapiDevice = raw;
+            vaapiDeviceOverridden = true;
+        }
+    }
+
     std::string profilePath = DefaultPerformanceProfilePath;
     if (const char* raw = std::getenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE")) {
         if (*raw != '\0') profilePath = raw;
     }
 
+    LoadedPerformanceProfile performance = loadPerformanceProfile(profilePath);
+    if (!vaapiDeviceOverridden && !performance.vaapiDevice.empty()) {
+        config.vaapiDevice = performance.vaapiDevice;
+    }
     return MediaTranscodePolicy(
         std::move(config),
-        loadPerformanceSamples(profilePath));
+        std::move(performance.software),
+        std::move(performance.hardware));
 }
 
 MediaTranscodePresetMode MediaTranscodePolicy::modeFor(
@@ -248,6 +308,28 @@ MediaTranscodePresetMode MediaTranscodePolicy::modeFor(
     return config_.globalPresetMode;
 }
 
+std::optional<MediaSoftwareEncoderPreset> MediaTranscodePolicy::selectMeasuredPreset(
+    MediaTranscodeWorkload workload) const
+{
+    const auto workloadSamples = samples_.find(workload);
+    if (workloadSamples == samples_.end()) return std::nullopt;
+
+    static constexpr std::array<MediaSoftwareEncoderPreset, 4> QualityOrder = {
+        MediaSoftwareEncoderPreset::Fast,
+        MediaSoftwareEncoderPreset::Faster,
+        MediaSoftwareEncoderPreset::Veryfast,
+        MediaSoftwareEncoderPreset::Superfast
+    };
+    for (MediaSoftwareEncoderPreset preset : QualityOrder) {
+        const auto sample = workloadSamples->second.find(preset);
+        if (sample != workloadSamples->second.end() &&
+            sample->second >= config_.minimumRealtimeSpeed) {
+            return preset;
+        }
+    }
+    return std::nullopt;
+}
+
 MediaSoftwareEncoderPreset MediaTranscodePolicy::selectPreset(
     MediaTranscodeWorkload workload) const
 {
@@ -256,26 +338,22 @@ MediaSoftwareEncoderPreset MediaTranscodePolicy::selectPreset(
         return presetForMode(mode);
     }
 
-    const auto workloadSamples = samples_.find(workload);
-    if (workloadSamples != samples_.end()) {
-        // Prefer the slowest/highest-compression x264 preset that still has
-        // enough measured real-time headroom for HLS muxing and system load.
-        static constexpr std::array<MediaSoftwareEncoderPreset, 4> QualityOrder = {
-            MediaSoftwareEncoderPreset::Fast,
-            MediaSoftwareEncoderPreset::Faster,
-            MediaSoftwareEncoderPreset::Veryfast,
-            MediaSoftwareEncoderPreset::Superfast
-        };
-        for (MediaSoftwareEncoderPreset preset : QualityOrder) {
-            const auto sample = workloadSamples->second.find(preset);
-            if (sample != workloadSamples->second.end() &&
-                sample->second >= config_.minimumRealtimeSpeed) {
-                return preset;
-            }
-        }
-    }
+    const std::optional<MediaSoftwareEncoderPreset> measured =
+        selectMeasuredPreset(workload);
+    if (measured.has_value()) return measured.value();
 
     return conservativeFallback(workload);
+}
+
+bool MediaTranscodePolicy::hardwareMeetsRealtimeThreshold(
+    MediaTranscodeWorkload workload,
+    MediaVideoEncoderBackend backend) const
+{
+    const auto workloadSamples = hardwareSamples_.find(workload);
+    if (workloadSamples == hardwareSamples_.end()) return false;
+    const auto sample = workloadSamples->second.find(backend);
+    return sample != workloadSamples->second.end() &&
+        sample->second >= config_.minimumRealtimeSpeed;
 }
 
 MediaPresentationProfile MediaTranscodePolicy::apply(
@@ -296,10 +374,39 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
         result.videoTranscodeWorkload = workload;
     }
 
-    // The policy boundary owns encoder selection. Software x264 is the only
-    // implemented backend today; VAAPI/QSV/NVENC can be introduced here later
-    // without teaching the presentation selector or browser about server HW.
+    // UHD software fallback is not safe when calibration already proves that
+    // the host cannot sustain real-time decode/scale/encode. In auto mode only
+    // select implementations that meet the same measured headroom contract as
+    // ordinary x264 preset selection. VAAPI is the first implemented hardware
+    // backend; QSV/NVENC remain modeled but fail closed until their command
+    // plans and acceptance coverage exist.
+    if (workload == MediaTranscodeWorkload::UhdSource &&
+        modeFor(workload) == MediaTranscodePresetMode::Auto) {
+        if (validVaapiDevice(config_.vaapiDevice) &&
+            hardwareMeetsRealtimeThreshold(
+                workload, MediaVideoEncoderBackend::Vaapi)) {
+            result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+            result.videoHardwareDevice = config_.vaapiDevice;
+            return result;
+        }
+
+        const std::optional<MediaSoftwareEncoderPreset> measured =
+            selectMeasuredPreset(workload);
+        if (measured.has_value()) {
+            result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
+            result.videoEncoderPreset = measured.value();
+            result.videoHardwareDevice.clear();
+            return result;
+        }
+
+        result.available = false;
+        result.reason =
+            "no calibrated UHD transcode backend reaches minimum real-time speed";
+        return result;
+    }
+
     result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
     result.videoEncoderPreset = selectPreset(workload);
+    result.videoHardwareDevice.clear();
     return result;
 }

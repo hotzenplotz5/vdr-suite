@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,16 @@ bool containsValue(
     const std::string& value)
 {
     return std::find(argv.begin(), argv.end(), value) != argv.end();
+}
+
+std::size_t indexOf(
+    const std::vector<std::string>& argv,
+    const std::string& value)
+{
+    const auto found = std::find(argv.begin(), argv.end(), value);
+    return found == argv.end()
+        ? argv.size()
+        : static_cast<std::size_t>(std::distance(argv.begin(), found));
 }
 
 MediaPresentationProfile hlsFmp4Profile()
@@ -232,6 +243,84 @@ int main()
         profile.videoAction = MediaTrackAction::Transcode;
         profile.targetVideoCodec = MediaCodec::H264;
         profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+        profile.videoHardwareDevice = "/dev/dri/renderD128";
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(
+            plan.argv,
+            "-init_hw_device",
+            "vaapi=va:/dev/dri/renderD128"));
+        assert(containsPair(plan.argv, "-filter_hw_device", "va"));
+        assert(containsPair(plan.argv, "-hwaccel", "vaapi"));
+        assert(containsPair(plan.argv, "-hwaccel_device", "va"));
+        assert(containsPair(plan.argv, "-hwaccel_output_format", "vaapi"));
+        assert(indexOf(plan.argv, "-init_hw_device") < indexOf(plan.argv, "-i"));
+        assert(indexOf(plan.argv, "-hwaccel_output_format") < indexOf(plan.argv, "-i"));
+        assert(containsPair(plan.argv, "-c:v", "h264_vaapi"));
+        assert(containsPair(plan.argv, "-qp", "22"));
+        assert(containsPair(
+            plan.argv,
+            "-vf",
+            "scale_vaapi=w=1920:h=1080:format=nv12"));
+        assert(!containsValue(plan.argv, "libx264"));
+        assert(!containsValue(plan.argv, "-preset"));
+        assert(!containsValue(plan.argv, "-crf"));
+        assert(!containsValue(plan.argv, "-pix_fmt"));
+        assert(containsPair(
+            plan.argv,
+            "-force_key_frames",
+            "expr:gte(t,n_forced*4)"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+        profile.videoHardwareDevice = "/tmp/not-a-dri-device";
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+        profile.videoHardwareDevice = "/dev/dri/renderD128";
+        profile.deinterlaceVideo = true;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Qsv;
 
         const auto plan = builder.build(profile);
         assert(!plan.valid);

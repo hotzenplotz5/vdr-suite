@@ -45,6 +45,7 @@ void clearPolicyEnvironment()
     ::unsetenv("VDR_SUITE_MEDIA_X264_STANDARD_PRESET");
     ::unsetenv("VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET");
     ::unsetenv("VDR_SUITE_MEDIA_X264_UHD_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_VAAPI_DEVICE");
     ::unsetenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE");
 }
 
@@ -66,11 +67,8 @@ int main()
 
     {
         MediaTranscodePerformanceSamples samples;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Veryfast] = 0.992;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Superfast] = 1.54;
-
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Veryfast] = 0.992;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Superfast] = 1.54;
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
         assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
             MediaSoftwareEncoderPreset::Superfast);
@@ -78,15 +76,10 @@ int main()
 
     {
         MediaTranscodePerformanceSamples samples;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Fast] = 1.31;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Faster] = 1.55;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Veryfast] = 1.85;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Superfast] = 2.2;
-
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Fast] = 1.31;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Faster] = 1.55;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Veryfast] = 1.85;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Superfast] = 2.2;
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
         assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
             MediaSoftwareEncoderPreset::Fast);
@@ -94,13 +87,9 @@ int main()
 
     {
         MediaTranscodePerformanceSamples samples;
-        samples[MediaTranscodeWorkload::Standard][
-            MediaSoftwareEncoderPreset::Fast] = 1.10;
-        samples[MediaTranscodeWorkload::Standard][
-            MediaSoftwareEncoderPreset::Faster] = 1.30;
-        samples[MediaTranscodeWorkload::Standard][
-            MediaSoftwareEncoderPreset::Veryfast] = 1.60;
-
+        samples[MediaTranscodeWorkload::Standard][MediaSoftwareEncoderPreset::Fast] = 1.10;
+        samples[MediaTranscodeWorkload::Standard][MediaSoftwareEncoderPreset::Faster] = 1.30;
+        samples[MediaTranscodeWorkload::Standard][MediaSoftwareEncoderPreset::Veryfast] = 1.60;
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
         assert(policy.selectPreset(MediaTranscodeWorkload::Standard) ==
             MediaSoftwareEncoderPreset::Faster);
@@ -108,23 +97,61 @@ int main()
 
     {
         MediaTranscodePerformanceSamples samples;
-        samples[MediaTranscodeWorkload::UhdSource][
-            MediaSoftwareEncoderPreset::Superfast] = 0.94;
-        samples[MediaTranscodeWorkload::UhdSource][
-            MediaSoftwareEncoderPreset::Veryfast] = 0.86;
+        samples[MediaTranscodeWorkload::UhdSource][MediaSoftwareEncoderPreset::Superfast] = 0.94;
+        samples[MediaTranscodeWorkload::UhdSource][MediaSoftwareEncoderPreset::Veryfast] = 0.86;
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
         assert(policy.selectPreset(MediaTranscodeWorkload::UhdSource) ==
             MediaSoftwareEncoderPreset::Veryfast);
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(!resolved.available);
+        assert(resolved.reason ==
+            "no calibrated UHD transcode backend reaches minimum real-time speed");
+    }
+
+    {
+        MediaHardwareTranscodePerformanceSamples hardware;
+        hardware[MediaTranscodeWorkload::UhdSource][MediaVideoEncoderBackend::Vaapi] = 3.825;
+        MediaTranscodePolicy policy(
+            MediaTranscodePolicyConfig{}, MediaTranscodePerformanceSamples{}, hardware);
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi);
+        assert(resolved.videoHardwareDevice == "/dev/dri/renderD128");
+    }
+
+    {
+        MediaTranscodePerformanceSamples samples;
+        samples[MediaTranscodeWorkload::UhdSource][MediaSoftwareEncoderPreset::Superfast] = 1.40;
+        MediaHardwareTranscodePerformanceSamples hardware;
+        hardware[MediaTranscodeWorkload::UhdSource][MediaVideoEncoderBackend::Vaapi] = 1.10;
+        MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples, hardware);
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264);
+        assert(resolved.videoEncoderPreset == MediaSoftwareEncoderPreset::Superfast);
+        assert(resolved.videoHardwareDevice.empty());
+    }
+
+    {
+        MediaTranscodePolicyConfig config;
+        config.uhdSourcePresetMode = MediaTranscodePresetMode::Superfast;
+        MediaTranscodePolicy policy(config);
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264);
+        assert(resolved.videoEncoderPreset == MediaSoftwareEncoderPreset::Superfast);
     }
 
     {
         MediaTranscodePolicyConfig config;
         config.globalPresetMode = MediaTranscodePresetMode::Fast;
         MediaTranscodePolicy policy(config);
-        assert(policy.selectPreset(MediaTranscodeWorkload::Standard) ==
-            MediaSoftwareEncoderPreset::Fast);
-        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
-            MediaSoftwareEncoderPreset::Fast);
+        assert(policy.selectPreset(MediaTranscodeWorkload::Standard) == MediaSoftwareEncoderPreset::Fast);
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) == MediaSoftwareEncoderPreset::Fast);
     }
 
     {
@@ -132,71 +159,80 @@ int main()
         config.globalPresetMode = MediaTranscodePresetMode::Veryfast;
         config.deinterlacePresetMode = MediaTranscodePresetMode::Superfast;
         MediaTranscodePolicy policy(config);
-        assert(policy.selectPreset(MediaTranscodeWorkload::Standard) ==
-            MediaSoftwareEncoderPreset::Veryfast);
-        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
-            MediaSoftwareEncoderPreset::Superfast);
+        assert(policy.selectPreset(MediaTranscodeWorkload::Standard) == MediaSoftwareEncoderPreset::Veryfast);
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) == MediaSoftwareEncoderPreset::Superfast);
     }
 
     {
         MediaTranscodePerformanceSamples samples;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Veryfast] = 0.992;
-        samples[MediaTranscodeWorkload::Deinterlace][
-            MediaSoftwareEncoderPreset::Superfast] = 1.54;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Veryfast] = 0.992;
+        samples[MediaTranscodeWorkload::Deinterlace][MediaSoftwareEncoderPreset::Superfast] = 1.54;
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
-
-        MediaPresentationProfile profile =
-            transcodeProfile(MediaTranscodeWorkload::Deinterlace);
+        MediaPresentationProfile profile = transcodeProfile(MediaTranscodeWorkload::Deinterlace);
         profile.deinterlaceVideo = true;
         const MediaPresentationProfile resolved = policy.apply(profile);
-        assert(resolved.videoEncoderBackend ==
-            MediaVideoEncoderBackend::SoftwareX264);
-        assert(resolved.videoEncoderPreset ==
-            MediaSoftwareEncoderPreset::Superfast);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264);
+        assert(resolved.videoEncoderPreset == MediaSoftwareEncoderPreset::Superfast);
     }
 
     {
         bool valid = false;
-        assert(MediaTranscodePolicy::presetModeFromString("auto", valid) ==
-            MediaTranscodePresetMode::Auto && valid);
-        assert(MediaTranscodePolicy::presetModeFromString("faster", valid) ==
-            MediaTranscodePresetMode::Faster && valid);
+        assert(MediaTranscodePolicy::presetModeFromString("auto", valid) == MediaTranscodePresetMode::Auto && valid);
+        assert(MediaTranscodePolicy::presetModeFromString("faster", valid) == MediaTranscodePresetMode::Faster && valid);
         (void)MediaTranscodePolicy::presetModeFromString("nonsense", valid);
         assert(!valid);
     }
 
     for (const std::string version : {"1", "2"}) {
         const auto path = profilePath("v" + version + ".conf");
-        writeProfile(
-            path,
+        writeProfile(path,
             "version=" + version + "\n"
             "deinterlace.superfast=1.950\n"
             "deinterlace.veryfast=1.540\n");
         ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
         ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
-
         const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
-        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
-            MediaSoftwareEncoderPreset::Superfast);
-
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) == MediaSoftwareEncoderPreset::Superfast);
         std::filesystem::remove(path);
         clearPolicyEnvironment();
     }
 
     {
         const auto path = profilePath("v3.conf");
-        writeProfile(
-            path,
+        writeProfile(path,
             "version=3\n"
             "deinterlace.superfast=1.950\n"
             "deinterlace.veryfast=1.540\n");
         ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
         ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
-
         const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
-        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
-            MediaSoftwareEncoderPreset::Veryfast);
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) == MediaSoftwareEncoderPreset::Veryfast);
+        std::filesystem::remove(path);
+        clearPolicyEnvironment();
+    }
+
+    {
+        const auto path = profilePath("v4.conf");
+        writeProfile(path,
+            "version=4\n"
+            "uhd-source.superfast=0.468\n"
+            "uhd-source.veryfast=0.281\n"
+            "uhd-source.vaapi=3.825\n"
+            "vaapi.device=/dev/dri/renderD129\n");
+        ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
+        ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
+        const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi);
+        assert(resolved.videoHardwareDevice == "/dev/dri/renderD129");
+
+        ::setenv("VDR_SUITE_MEDIA_VAAPI_DEVICE", "/dev/dri/renderD130", 1);
+        const MediaTranscodePolicy overridden = MediaTranscodePolicy::fromEnvironment();
+        const MediaPresentationProfile overriddenResult = overridden.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(overriddenResult.videoHardwareDevice == "/dev/dri/renderD130");
 
         std::filesystem::remove(path);
         clearPolicyEnvironment();

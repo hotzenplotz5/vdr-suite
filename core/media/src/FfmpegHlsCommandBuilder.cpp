@@ -7,6 +7,7 @@ namespace
 
 constexpr int MaximumTypedAudioChannels = 32;
 constexpr int MaximumTypedVideoDimension = 16384;
+constexpr std::size_t MaximumHardwareDevicePathLength = 512;
 
 FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
 {
@@ -17,7 +18,8 @@ FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
 
 const char* x264PresetName(MediaSoftwareEncoderPreset preset)
 {
-    switch (preset) {
+    switch (preset)
+    {
     case MediaSoftwareEncoderPreset::Superfast: return "superfast";
     case MediaSoftwareEncoderPreset::Veryfast: return "veryfast";
     case MediaSoftwareEncoderPreset::Faster: return "faster";
@@ -61,6 +63,19 @@ bool validTargetVideoSize(const MediaPresentationProfile& profile)
         profile.targetVideoHeight % 2 == 0;
 }
 
+bool validVaapiDevice(const std::string& value)
+{
+    return !value.empty() &&
+        value.size() <= MaximumHardwareDevicePathLength &&
+        value.rfind("/dev/dri/", 0) == 0;
+}
+
+bool usesVaapiInput(const MediaPresentationProfile& profile)
+{
+    return profile.videoAction == MediaTrackAction::Transcode &&
+        profile.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi;
+}
+
 void appendVideoPlan(
     std::vector<std::string>& argv,
     const MediaPresentationProfile& profile,
@@ -74,12 +89,19 @@ void appendVideoPlan(
         argv.push_back("-c:v");
         argv.push_back("copy");
         return;
-    case MediaTrackAction::Transcode: {
+    case MediaTrackAction::Transcode:
+        break;
+    }
+
+    if (profile.targetVideoCodec != MediaCodec::H264 ||
+        !validTargetVideoSize(profile)) {
+        valid = false;
+        return;
+    }
+
+    if (profile.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264) {
         const char* preset = x264PresetName(profile.videoEncoderPreset);
-        if (profile.targetVideoCodec != MediaCodec::H264 ||
-            profile.videoEncoderBackend != MediaVideoEncoderBackend::SoftwareX264 ||
-            preset == nullptr ||
-            !validTargetVideoSize(profile)) {
+        if (preset == nullptr) {
             valid = false;
             return;
         }
@@ -109,17 +131,35 @@ void appendVideoPlan(
         // broadly interoperable 8-bit 4:2:0 H.264 browser target.
         argv.push_back("-pix_fmt");
         argv.push_back("yuv420p");
-        // HLS cuts on video keyframes. Keep the encoded GOP boundary aligned
-        // with the fixed four-second segment target so a paced transcode does
-        // not depend on the encoder's much longer default GOP before the first
-        // playable segment can be published.
-        argv.push_back("-force_key_frames");
-        argv.push_back("expr:gte(t,n_forced*4)");
+    }
+    else if (profile.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi) {
+        // Phase 65 enables VAAPI only for progressive UHD-source transcodes.
+        // Interlaced VAAPI deinterlacing remains outside this maintenance
+        // follow-up; such profiles must continue through the software path.
+        if (profile.deinterlaceVideo ||
+            !validVaapiDevice(profile.videoHardwareDevice)) {
+            valid = false;
+            return;
+        }
+        argv.push_back("-c:v");
+        argv.push_back("h264_vaapi");
+        argv.push_back("-qp");
+        argv.push_back("22");
+        argv.push_back("-vf");
+        argv.push_back(
+            "scale_vaapi=w=" + std::to_string(profile.targetVideoWidth) +
+            ":h=" + std::to_string(profile.targetVideoHeight) +
+            ":format=nv12");
+    }
+    else {
+        valid = false;
         return;
     }
-    }
 
-    valid = false;
+    // HLS cuts on video keyframes. Keep the encoded GOP boundary aligned with
+    // the fixed four-second segment target for both x264 and VAAPI.
+    argv.push_back("-force_key_frames");
+    argv.push_back("expr:gte(t,n_forced*4)");
 }
 
 void appendAudioPlan(
@@ -177,15 +217,40 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         "-nostdin",
         "-hide_banner",
         "-loglevel", "warning",
-        "-n",
-        // The first vertical intentionally has no arbitrary seek yet. Pace the
-        // worker at source rate so one session cannot materialize an entire
-        // Recording into its private HLS workspace as fast as the disk allows.
-        "-re",
-        "-f", "concat",
-        "-safe", "1",
-        "-i", "input.ffconcat"
+        "-n"
     };
+
+    // Hardware decode options are FFmpeg input options and must be placed
+    // before the concat input. Use the exact VAAPI device selected by the
+    // calibrated policy; no shell expansion or implicit device discovery is
+    // performed by the worker command.
+    if (usesVaapiInput(profile)) {
+        if (!validVaapiDevice(profile.videoHardwareDevice)) {
+            return invalid("unsupported_track_transformation");
+        }
+        plan.argv.insert(
+            plan.argv.end(),
+            {
+                "-init_hw_device", "vaapi=va:" + profile.videoHardwareDevice,
+                "-filter_hw_device", "va",
+                "-hwaccel", "vaapi",
+                "-hwaccel_device", "va",
+                "-hwaccel_output_format", "vaapi"
+            });
+    }
+
+    plan.argv.insert(
+        plan.argv.end(),
+        {
+            // The first vertical intentionally has no arbitrary seek yet. Pace
+            // the worker at source rate so one session cannot materialize an
+            // entire Recording into its private HLS workspace as fast as disk
+            // or a hardware encoder allows.
+            "-re",
+            "-f", "concat",
+            "-safe", "1",
+            "-i", "input.ffconcat"
+        });
 
     if (!appendSelectedTrackMaps(plan.argv, profile)) {
         return invalid("selected_source_track_missing");
