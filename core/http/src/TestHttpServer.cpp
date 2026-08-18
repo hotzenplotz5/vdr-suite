@@ -302,8 +302,11 @@ HttpServerResponse TestHttpServer::handleRequest(
 
     const HttpServerRequest securityRequest =
         SeriesArtworkSettingsSecurityRequest::forAuthorization(request);
-    const SecurityGateDecision gate =
-        securityHttpGate_->evaluate(securityRequest);
+    SecurityGateDecision gate;
+    {
+        const HttpServerRequest& request = securityRequest;
+        gate = securityHttpGate_->evaluate(request);
+    }
 
     if (!gate.allowed)
     {
