@@ -73,7 +73,8 @@ assert.deepStrictEqual(
     audioCodecs: ['aac'],
     supportsByteRanges: false,
     maxVideoWidth: 1920,
-    maxVideoHeight: 1080
+    maxVideoHeight: 1080,
+    maxAudioChannels: 2
   }
 );
 assert.strictEqual(test.recordingId({recordingId: 'rec_public'}), 'rec_public');
@@ -170,6 +171,7 @@ assert.strictEqual(
   assert.deepStrictEqual(body.capabilities.containers, ['fmp4']);
   assert.deepStrictEqual(body.capabilities.videoCodecs, ['h264']);
   assert.deepStrictEqual(body.capabilities.audioCodecs, ['aac']);
+  assert.strictEqual(body.capabilities.maxAudioChannels, 2);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(body, 'accessCredential'), false);
   assert.strictEqual(request.path.indexOf('token='), -1);
   assert.strictEqual(request.path.indexOf('credential='), -1);

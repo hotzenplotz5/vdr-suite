@@ -33,9 +33,10 @@ The initial typed client facts cover:
 - supported containers;
 - supported video and audio codecs;
 - byte-range capability;
-- maximum video dimensions.
+- maximum video dimensions;
+- maximum supported audio channel count for the selected playback path.
 
-Client capability values never become provider URLs, filesystem paths, shell fragments or raw FFmpeg arguments.
+Client capability values never become provider URLs, filesystem paths, shell fragments or raw FFmpeg arguments. Numeric media limits are parsed into bounded typed values before they can influence a presentation profile.
 
 ## Recording source contract
 
@@ -78,13 +79,15 @@ copy | transcode | omit
 
 For example, a Recording with German AC3 plus English AAC does not require audio transcoding for an AAC-capable client merely because the first audio track is AC3. The selector may choose the compatible AAC track.
 
-Track selection is deterministic from trusted source descriptors and typed client capabilities. Clients do not inject raw FFmpeg stream selectors.
+Audio compatibility includes both codec and the client's typed maximum channel count. A codec-compatible track whose channel count exceeds the client limit is not eligible for copy. When AAC is the allowed target codec, the selector may keep the video copied while transcoding only the selected audio track and constraining its target channel count. The current browser MSE/fMP4 adapter advertises a two-channel limit because real Edge acceptance showed AAC 5.1 can be valid as ordinary MP4 while the same initialization segment fails in the MSE SourceBuffer path.
+
+Track selection is deterministic from trusted source descriptors and typed client capabilities. Clients do not inject raw FFmpeg stream selectors or arbitrary audio-channel command arguments.
 
 ## Selection order
 
 The selector uses the least transformation that satisfies both source facts and client capabilities:
 
-1. `progressive-direct` when protocol, container, selected codecs and seek semantics are directly supported;
+1. `progressive-direct` when protocol, container, selected codecs, channel limits and seek semantics are directly supported;
 2. `hls-fmp4` as the preferred interoperable HLS packaging profile when supported;
 3. `hls-ts` as an HLS compatibility packaging profile when needed;
 4. selective track transcoding only for incompatible selected tracks;
@@ -93,10 +96,10 @@ The selector uses the least transformation that satisfies both source facts and 
 Packaging and codec transformation are separate decisions. A typical browser path may therefore be:
 
 ```text
-VDR Recording: MPEG-TS + H.264 + AC3
+VDR Recording: MPEG-TS + H.264 + AC3 5.1
   -> HLS/fMP4 packaging
   -> H.264 copied
-  -> AC3 transcoded to AAC
+  -> AC3 transcoded to AAC stereo
 ```
 
 The video is not re-encoded merely because the selected audio track is incompatible.
@@ -154,6 +157,8 @@ When remuxing or transcoding is required, the initial implementation may use FFm
 - explicit stop, reap and cleanup;
 - provider credentials and internal paths remain private;
 - capacity and later resource policy can deny expensive transformations.
+
+For audio transcoding, a positive `targetAudioChannels` is emitted only from the internally selected typed profile and only after the command builder has bounded the value. Copy paths never receive `-ac`.
 
 The preferred transformation order remains:
 

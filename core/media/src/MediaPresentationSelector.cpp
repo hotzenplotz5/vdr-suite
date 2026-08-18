@@ -30,6 +30,29 @@ bool fitsVideoLimits(
     return true;
 }
 
+bool fitsAudioLimits(
+    const MediaAudioStreamDescriptor& audio,
+    const ClientMediaCapabilities& client)
+{
+    if (client.maxAudioChannels <= 0) {
+        return true;
+    }
+    return audio.channels > 0 && audio.channels <= client.maxAudioChannels;
+}
+
+int selectedTargetAudioChannels(
+    const MediaAudioStreamDescriptor& audio,
+    const ClientMediaCapabilities& client)
+{
+    if (client.maxAudioChannels <= 0) {
+        return 0;
+    }
+    if (audio.channels <= 0) {
+        return -1;
+    }
+    return std::min(audio.channels, client.maxAudioChannels);
+}
+
 int firstDirectVideoIndex(
     const MediaSourceDescriptor& source,
     const ClientMediaCapabilities& client)
@@ -52,7 +75,8 @@ int firstDirectAudioIndex(
     for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
         const auto& audio = source.audioStreams[index];
         if (validSourceCodec(audio.codec) &&
-            contains(client.audioCodecs, audio.codec)) {
+            contains(client.audioCodecs, audio.codec) &&
+            fitsAudioLimits(audio, client)) {
             return static_cast<int>(index);
         }
     }
@@ -133,6 +157,9 @@ MediaPresentationProfile directProfile(
     profile.targetAudioCodec = audioIndex < 0
         ? MediaCodec::None
         : source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
+    profile.targetAudioChannels = audioIndex < 0
+        ? 0
+        : source.audioStreams[static_cast<std::size_t>(audioIndex)].channels;
     profile.reason = "client can consume one selected source video/audio track without transformation";
     return profile;
 }
@@ -197,6 +224,7 @@ MediaPresentationProfile hlsProfile(
     if (source.audioStreams.empty()) {
         profile.audioAction = MediaTrackAction::Omit;
         profile.targetAudioCodec = MediaCodec::None;
+        profile.targetAudioChannels = 0;
     }
     else {
         int audioIndex = firstDirectAudioIndex(source, client);
@@ -205,6 +233,8 @@ MediaPresentationProfile hlsProfile(
             profile.audioAction = MediaTrackAction::Copy;
             profile.targetAudioCodec =
                 source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
+            profile.targetAudioChannels =
+                source.audioStreams[static_cast<std::size_t>(audioIndex)].channels;
         }
         else {
             audioIndex = firstValidAudioIndex(source);
@@ -214,9 +244,18 @@ MediaPresentationProfile hlsProfile(
             if (!contains(client.audioCodecs, MediaCodec::Aac)) {
                 return unavailable("no allowed audio codec path is available");
             }
+
+            const auto& sourceAudio =
+                source.audioStreams[static_cast<std::size_t>(audioIndex)];
+            const int targetChannels = selectedTargetAudioChannels(sourceAudio, client);
+            if (targetChannels < 0) {
+                return unavailable("source audio channel count is unknown for the requested client limit");
+            }
+
             profile.sourceAudioStreamIndex = audioIndex;
             profile.audioAction = MediaTrackAction::Transcode;
             profile.targetAudioCodec = MediaCodec::Aac;
+            profile.targetAudioChannels = targetChannels;
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
     }

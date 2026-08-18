@@ -26,6 +26,7 @@ ClientMediaCapabilities browserHlsCapabilities()
     client.supportsByteRanges = true;
     client.maxVideoWidth = 3840;
     client.maxVideoHeight = 2160;
+    client.maxAudioChannels = 2;
     return client;
 }
 
@@ -52,6 +53,7 @@ int main()
         assert(profile.audioAction == MediaTrackAction::Copy);
         assert(profile.sourceVideoStreamIndex == 0);
         assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.targetAudioChannels == 6);
     }
 
     {
@@ -64,12 +66,14 @@ int main()
         client.videoCodecs = {MediaCodec::H264};
         client.audioCodecs = {MediaCodec::Aac};
         client.supportsByteRanges = true;
+        client.maxAudioChannels = 2;
 
         const auto profile = selector.select(source, client);
         assert(profile.available);
         assert(profile.adaptationClass == MediaAdaptationClass::PassThrough);
         assert(profile.sourceAudioStreamIndex == 1);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
     }
 
     {
@@ -85,6 +89,40 @@ int main()
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.sourceAudioStreamIndex == 0);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.front().channels = 2;
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.front().codec = MediaCodec::Aac;
+        source.audioStreams.front().channels = 2;
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.adaptationClass == MediaAdaptationClass::Remux);
+        assert(profile.audioAction == MediaTrackAction::Copy);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.front().codec = MediaCodec::Aac;
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
     }
 
     {
@@ -98,6 +136,19 @@ int main()
         assert(profile.audioAction == MediaTrackAction::Copy);
         assert(profile.sourceAudioStreamIndex == 1);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        ClientMediaCapabilities client = browserHlsCapabilities();
+        client.maxAudioChannels = 6;
+
+        const auto profile = selector.select(source, client);
+        assert(profile.available);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 6);
     }
 
     {
@@ -111,6 +162,7 @@ int main()
         assert(profile.targetVideoCodec == MediaCodec::H264);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
     }
 
     {
@@ -118,6 +170,7 @@ int main()
         ClientMediaCapabilities client = browserHlsCapabilities();
         client.containers = {MediaContainer::MpegTs};
         client.audioCodecs = {MediaCodec::Ac3};
+        client.maxAudioChannels = 6;
 
         const auto profile = selector.select(source, client);
         assert(profile.available);
@@ -125,6 +178,7 @@ int main()
         assert(profile.adaptationClass == MediaAdaptationClass::Remux);
         assert(profile.videoAction == MediaTrackAction::Copy);
         assert(profile.audioAction == MediaTrackAction::Copy);
+        assert(profile.targetAudioChannels == 6);
     }
 
     {

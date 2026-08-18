@@ -9,6 +9,8 @@
 namespace
 {
 
+constexpr int MaximumTypedAudioChannels = 32;
+
 void skipWhitespace(const std::string& value, std::size_t& position)
 {
     while (position < value.size() &&
@@ -352,7 +354,12 @@ RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
         !readNonNegativeIntField(
             capabilitiesObject,
             "maxVideoHeight",
-            request.capabilities.maxVideoHeight)) {
+            request.capabilities.maxVideoHeight) ||
+        !readNonNegativeIntField(
+            capabilitiesObject,
+            "maxAudioChannels",
+            request.capabilities.maxAudioChannels) ||
+        request.capabilities.maxAudioChannels > MaximumTypedAudioChannels) {
         return invalid("invalid_media_capabilities");
     }
 

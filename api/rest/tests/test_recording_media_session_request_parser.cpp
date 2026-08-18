@@ -16,7 +16,8 @@ const std::string ValidRequest = R"json({
     "audioCodecs":["aac","ac3"],
     "supportsByteRanges":true,
     "maxVideoWidth":1920,
-    "maxVideoHeight":1080
+    "maxVideoHeight":1080,
+    "maxAudioChannels":2
   }
 })json";
 
@@ -42,6 +43,7 @@ void validRequestMapsTypedCapabilities()
     assert(result.capabilities.supportsByteRanges);
     assert(result.capabilities.maxVideoWidth == 1920);
     assert(result.capabilities.maxVideoHeight == 1080);
+    assert(result.capabilities.maxAudioChannels == 2);
 }
 
 void invalidIdentityFailsClosed()
@@ -102,6 +104,13 @@ void malformedScalarsFailClosed()
     result = RecordingMediaSessionRequestParser().parse(body);
     assert(!result.valid);
     assert(result.reasonCode == "invalid_media_capabilities");
+
+    body = ValidRequest;
+    const auto channels = body.find("\"maxAudioChannels\":2");
+    body.replace(channels, std::string("\"maxAudioChannels\":2").size(), "\"maxAudioChannels\":33");
+    result = RecordingMediaSessionRequestParser().parse(body);
+    assert(!result.valid);
+    assert(result.reasonCode == "invalid_media_capabilities");
 }
 
 void missingOrEmptyCapabilitiesFailClosed()
@@ -117,6 +126,13 @@ void missingOrEmptyCapabilitiesFailClosed()
     auto empty = RecordingMediaSessionRequestParser().parse(body);
     assert(!empty.valid);
     assert(empty.reasonCode == "invalid_media_capabilities");
+
+    body = ValidRequest;
+    const auto channels = body.find(",\n    \"maxAudioChannels\":2");
+    body.erase(channels, std::string(",\n    \"maxAudioChannels\":2").size());
+    const auto missingChannels = RecordingMediaSessionRequestParser().parse(body);
+    assert(!missingChannels.valid);
+    assert(missingChannels.reasonCode == "invalid_media_capabilities");
 }
 
 void stopRequestMapsOwnedSessionIdentity()

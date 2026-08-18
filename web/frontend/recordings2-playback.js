@@ -28,7 +28,8 @@
       audioCodecs: ['aac'],
       supportsByteRanges: false,
       maxVideoWidth: 1920,
-      maxVideoHeight: 1080
+      maxVideoHeight: 1080,
+      maxAudioChannels: 2
     };
   }
 

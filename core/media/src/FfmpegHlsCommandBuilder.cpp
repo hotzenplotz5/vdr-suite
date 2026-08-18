@@ -5,6 +5,8 @@
 namespace
 {
 
+constexpr int MaximumTypedAudioChannels = 32;
+
 FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
 {
     FfmpegHlsCommandPlan plan;
@@ -81,7 +83,9 @@ void appendAudioPlan(
         argv.push_back("copy");
         return;
     case MediaTrackAction::Transcode:
-        if (profile.targetAudioCodec != MediaCodec::Aac) {
+        if (profile.targetAudioCodec != MediaCodec::Aac ||
+            profile.targetAudioChannels < 0 ||
+            profile.targetAudioChannels > MaximumTypedAudioChannels) {
             valid = false;
             return;
         }
@@ -89,6 +93,10 @@ void appendAudioPlan(
         argv.push_back("aac");
         argv.push_back("-b:a");
         argv.push_back("192k");
+        if (profile.targetAudioChannels > 0) {
+            argv.push_back("-ac");
+            argv.push_back(std::to_string(profile.targetAudioChannels));
+        }
         return;
     }
 

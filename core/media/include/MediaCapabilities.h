@@ -86,6 +86,7 @@ struct ClientMediaCapabilities
     bool supportsByteRanges = false;
     int maxVideoWidth = 0;
     int maxVideoHeight = 0;
+    int maxAudioChannels = 0;
 };
 
 struct MediaPresentationProfile
@@ -102,4 +103,5 @@ struct MediaPresentationProfile
     MediaCodec targetVideoCodec = MediaCodec::None;
     MediaCodec targetAudioCodec = MediaCodec::None;
     std::string reason;
+    int targetAudioChannels = 0;
 };

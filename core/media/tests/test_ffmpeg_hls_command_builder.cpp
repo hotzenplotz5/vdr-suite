@@ -42,6 +42,7 @@ MediaPresentationProfile hlsFmp4Profile()
     profile.sourceAudioStreamIndex = 1;
     profile.targetVideoCodec = MediaCodec::H264;
     profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
     return profile;
 }
 
@@ -65,6 +66,7 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "aac"));
         assert(containsPair(plan.argv, "-b:a", "192k"));
+        assert(containsPair(plan.argv, "-ac", "2"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_time", "4"));
@@ -92,6 +94,7 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
+        assert(!containsValue(plan.argv, "-ac"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
     }
@@ -107,10 +110,30 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
+        assert(!containsValue(plan.argv, "-ac"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
         assert(!containsValue(plan.argv, "-hls_segment_type"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.targetAudioChannels = 6;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-ac", "6"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.targetAudioChannels = 33;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
     }
 
     {
