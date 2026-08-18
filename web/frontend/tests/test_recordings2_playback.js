@@ -81,6 +81,12 @@ assert.ok(
   playbackSource.includes("video.addEventListener('ended', handleEnded)"),
   'recording playback must release the MediaSession at natural playback end'
 );
+assert.ok(
+  playbackSource.includes(
+    'if (destroyed || playbackFailed || !playbackStarted || rebuffering) return;'
+  ),
+  'a terminal playback error must not be overwritten by a later waiting event'
+);
 
 assert.deepStrictEqual(
   JSON.parse(JSON.stringify(test.capabilities())),
