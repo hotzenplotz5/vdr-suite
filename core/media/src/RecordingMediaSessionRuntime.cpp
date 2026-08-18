@@ -37,11 +37,29 @@ RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
     WorkerSpawner workerSpawner,
     WorkerTerminator workerTerminator,
     ReadinessProbe readinessProbe)
+    : RecordingMediaSessionRuntime(
+          repository,
+          std::move(workspaceRoot),
+          std::move(workerSpawner),
+          std::move(workerTerminator),
+          std::move(readinessProbe),
+          MediaTranscodePolicy::fromEnvironment())
+{
+}
+
+RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
+    MediaSessionRepository& repository,
+    std::string workspaceRoot,
+    WorkerSpawner workerSpawner,
+    WorkerTerminator workerTerminator,
+    ReadinessProbe readinessProbe,
+    MediaTranscodePolicy transcodePolicy)
     : repository_(repository),
       workspaceRoot_(std::move(workspaceRoot)),
       workerSpawner_(std::move(workerSpawner)),
       workerTerminator_(std::move(workerTerminator)),
-      readinessProbe_(std::move(readinessProbe))
+      readinessProbe_(std::move(readinessProbe)),
+      transcodePolicy_(std::move(transcodePolicy))
 {
     if (!workerSpawner_) {
         workerSpawner_ = [](const std::vector<std::string>& argv,
@@ -118,7 +136,11 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
         return result;
     }
 
-    const FfmpegHlsCommandPlan command = FfmpegHlsCommandBuilder().build(profile);
+    // Resolve server performance policy exactly once before the worker starts.
+    // The selected encoder/preset remains stable for this MediaSession.
+    const MediaPresentationProfile resolvedProfile = transcodePolicy_.apply(profile);
+    const FfmpegHlsCommandPlan command =
+        FfmpegHlsCommandBuilder().build(resolvedProfile);
     if (!command.valid) {
         result.reasonCode = command.reasonCode.empty()
             ? "media_worker_plan_invalid"
@@ -139,7 +161,7 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
 
     const auto deadline = std::chrono::steady_clock::now() + HlsReadinessTimeout;
     while (std::chrono::steady_clock::now() < deadline) {
-        if (readinessProbe_(workspace->directory(), profile.container)) {
+        if (readinessProbe_(workspace->directory(), resolvedProfile.container)) {
             ActiveSession active;
             active.pid = pid;
             active.workspace = std::move(workspace);
