@@ -134,6 +134,7 @@ struct MediaPresentationProfile
     MediaTranscodeWorkload videoTranscodeWorkload = MediaTranscodeWorkload::None;
     MediaVideoEncoderBackend videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
     MediaSoftwareEncoderPreset videoEncoderPreset = MediaSoftwareEncoderPreset::Veryfast;
+    std::string videoHardwareDevice;
     int targetAudioChannels = 0;
     std::string reason;
 };
