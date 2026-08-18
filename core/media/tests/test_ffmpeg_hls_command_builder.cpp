@@ -80,6 +80,10 @@ int main()
         assert(containsPair(
             plan.argv,
             "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
+        assert(!containsPair(
+            plan.argv,
+            "-hls_flags",
             "delete_segments+independent_segments+temp_file"));
         assert(!containsValue(plan.argv, "-hls_playlist_type"));
         assert(!containsValue(plan.argv, "event"));
@@ -105,6 +109,10 @@ int main()
         assert(!containsValue(plan.argv, "-force_key_frames"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
     }
 
     {
@@ -126,6 +134,10 @@ int main()
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
         assert(!containsValue(plan.argv, "-hls_segment_type"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
     }
 
     {
@@ -165,6 +177,14 @@ int main()
             "-force_key_frames",
             "expr:gte(t,n_forced*4)"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
+        assert(!containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
     }
 
     {
@@ -189,6 +209,10 @@ int main()
             "-force_key_frames",
             "expr:gte(t,n_forced*4)"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+        assert(containsPair(
+            plan.argv,
+            "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
     }
 
     {

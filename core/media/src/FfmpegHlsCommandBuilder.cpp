@@ -222,6 +222,17 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         plan.argv.push_back("aac_adtstoasc");
     }
 
+    // Encoded H.264 paths force a keyframe every four seconds and can promise
+    // independent HLS segments. Video-copy paths cannot create new keyframes;
+    // cutting only on source GOP boundaries can therefore delay publication
+    // for many seconds and drain the browser's forward buffer. Split copied
+    // video on the fixed time cadence instead, without advertising segment
+    // independence that the source bitstream cannot guarantee.
+    const char* hlsFlags =
+        profile.videoAction == MediaTrackAction::Copy
+            ? "delete_segments+split_by_time+temp_file"
+            : "delete_segments+independent_segments+temp_file";
+
     plan.argv.insert(
         plan.argv.end(),
         {
@@ -233,7 +244,7 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
             // temporary HLS output.
             "-hls_list_size", "8",
             "-hls_delete_threshold", "2",
-            "-hls_flags", "delete_segments+independent_segments+temp_file"
+            "-hls_flags", hlsFlags
         });
 
     if (profile.container == MediaContainer::Fmp4) {
