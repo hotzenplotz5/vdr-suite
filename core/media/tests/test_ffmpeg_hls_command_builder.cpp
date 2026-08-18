@@ -172,6 +172,7 @@ int main()
         profile.videoAction = MediaTrackAction::Transcode;
         profile.targetVideoCodec = MediaCodec::H264;
         profile.deinterlaceVideo = true;
+        profile.videoEncoderPreset = MediaSoftwareEncoderPreset::Superfast;
 
         const auto plan = builder.build(profile);
         assert(plan.valid);
@@ -188,6 +189,30 @@ int main()
             "-force_key_frames",
             "expr:gte(t,n_forced*4)"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderPreset = MediaSoftwareEncoderPreset::Faster;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-preset", "faster"));
+        assert(!containsPair(plan.argv, "-preset", "veryfast"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
     }
 
     {
