@@ -156,6 +156,7 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "libx264"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
+        assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
         assert(containsPair(plan.argv, "-vf", "scale=1920:1080"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
@@ -170,11 +171,61 @@ int main()
         MediaPresentationProfile profile = hlsFmp4Profile();
         profile.videoAction = MediaTrackAction::Transcode;
         profile.targetVideoCodec = MediaCodec::H264;
+        profile.deinterlaceVideo = true;
+        profile.videoEncoderPreset = MediaSoftwareEncoderPreset::Superfast;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-c:v", "libx264"));
+        assert(containsPair(plan.argv, "-preset", "superfast"));
+        assert(!containsPair(plan.argv, "-preset", "veryfast"));
+        assert(containsPair(
+            plan.argv,
+            "-vf",
+            "bwdif=mode=send_frame:parity=auto:deint=all,scale=1920:1080"));
+        assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
+        assert(containsPair(
+            plan.argv,
+            "-force_key_frames",
+            "expr:gte(t,n_forced*4)"));
+        assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderPreset = MediaSoftwareEncoderPreset::Faster;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-preset", "faster"));
+        assert(!containsPair(plan.argv, "-preset", "veryfast"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
         profile.targetVideoWidth = 1920;
         profile.targetVideoHeight = 800;
 
         const auto plan = builder.build(profile);
         assert(plan.valid);
+        assert(containsPair(plan.argv, "-preset", "veryfast"));
+        assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-vf", "scale=1920:800"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
         assert(containsPair(

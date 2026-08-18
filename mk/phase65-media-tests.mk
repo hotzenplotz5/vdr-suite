@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime
+.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime
 
 CXXFLAGS += -Icore/media/include
 
@@ -8,6 +8,13 @@ test-phase65-media-capability-negotiation:
 		core/media/tests/test_media_presentation_selector.cpp \
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
 	$(BUILD_DIR)/test_phase65_media_capability_negotiation
+
+test-phase65-media-transcode-policy:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/tests/test_media_transcode_policy.cpp \
+		-o $(BUILD_DIR)/test_phase65_media_transcode_policy
+	$(BUILD_DIR)/test_phase65_media_transcode_policy
 
 test-phase65-local-recording-source:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -110,6 +117,7 @@ test-phase65-recording-media-session-request-parser:
 test-phase65-recording-media-session-runtime:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
+		core/media/src/MediaTranscodePolicy.cpp \
 		core/media/src/FfmpegHlsCommandBuilder.cpp \
 		core/media/src/MediaProcessRunner.cpp \
 		core/media/src/MediaSessionWorkspace.cpp \
@@ -123,4 +131,4 @@ test-phase65-recording-media-session-runtime:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime
+test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime

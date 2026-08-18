@@ -117,6 +117,7 @@ int firstDirectVideoIndex(
     for (std::size_t index = 0; index < source.videoStreams.size(); ++index) {
         const auto& video = source.videoStreams[index];
         if (validSourceCodec(video.codec) &&
+            !video.interlaced &&
             contains(client.videoCodecs, video.codec) &&
             fitsVideoLimits(video, client)) {
             return static_cast<int>(index);
@@ -291,6 +292,16 @@ MediaPresentationProfile hlsProfile(
             profile.targetVideoCodec = MediaCodec::H264;
             profile.targetVideoWidth = targetSize.width;
             profile.targetVideoHeight = targetSize.height;
+            profile.deinterlaceVideo = sourceVideo.interlaced;
+            if (sourceVideo.interlaced) {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
+            }
+            else if (sourceVideo.width > 1920 || sourceVideo.height > 1080) {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::UhdSource;
+            }
+            else {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::Standard;
+            }
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
     }

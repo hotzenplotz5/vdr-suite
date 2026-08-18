@@ -52,6 +52,30 @@ enum class MediaTrackAction
     Omit
 };
 
+enum class MediaTranscodeWorkload
+{
+    None,
+    Standard,
+    Deinterlace,
+    UhdSource
+};
+
+enum class MediaVideoEncoderBackend
+{
+    SoftwareX264,
+    Vaapi,
+    Qsv,
+    Nvenc
+};
+
+enum class MediaSoftwareEncoderPreset
+{
+    Superfast,
+    Veryfast,
+    Faster,
+    Fast
+};
+
 struct MediaVideoStreamDescriptor
 {
     MediaCodec codec = MediaCodec::Unknown;
@@ -59,6 +83,7 @@ struct MediaVideoStreamDescriptor
     int height = 0;
     double framesPerSecond = 0.0;
     bool hdr = false;
+    bool interlaced = false;
 };
 
 struct MediaAudioStreamDescriptor
@@ -105,6 +130,10 @@ struct MediaPresentationProfile
     MediaCodec targetAudioCodec = MediaCodec::None;
     int targetVideoWidth = 0;
     int targetVideoHeight = 0;
+    bool deinterlaceVideo = false;
+    MediaTranscodeWorkload videoTranscodeWorkload = MediaTranscodeWorkload::None;
+    MediaVideoEncoderBackend videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
+    MediaSoftwareEncoderPreset videoEncoderPreset = MediaSoftwareEncoderPreset::Veryfast;
     int targetAudioChannels = 0;
     std::string reason;
 };

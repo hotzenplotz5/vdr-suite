@@ -87,6 +87,7 @@ DAEMON_SRC := \
         core/media/src/LocalVdrRecordingSourceResolver.cpp \
         core/media/src/FfprobeRecordingSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \
+        core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
         core/media/src/MediaProcessRunner.cpp \
         core/media/src/MediaSessionWorkspace.cpp \

@@ -4,6 +4,9 @@
 
   const POLL_INTERVAL_MS = 1000;
   const BUFFER_HISTORY_SECONDS = 90;
+  const STARTUP_BUFFER_SECONDS = 12;
+  const REBUFFER_RESUME_SECONDS = 12;
+  const BUFFER_EPSILON_SECONDS = 0.25;
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -78,8 +81,33 @@
         sessionId: id
       }),
       cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
+  // Page teardown cannot rely on VdrSuiteClientApi.requestJson because its
+  // generic request options intentionally do not guarantee Fetch keepalive.
+  // Use a direct same-origin Fetch for the small stop request so closing or
+  // navigating away from a browser tab can still release the server worker.
+  function stopSessionKeepalive(backendId, sessionId) {
+    const id = safeSessionId(sessionId);
+    if (!id || typeof global.fetch !== 'function') return Promise.resolve(null);
+
+    return global.fetch('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'stop',
+        backendId: text(backendId || 'default'),
+        sessionId: id
+      }),
+      cache: 'no-store',
       credentials: 'same-origin',
       keepalive: true
+    }).catch(function () {
+      // Teardown is best-effort; daemon shutdown recovery remains the final
+      // ownership fence if the browser disappears before the request lands.
+      return null;
     });
   }
 
@@ -96,6 +124,8 @@
     const lines = text(source).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     let initSegment = '';
     const segments = [];
+    const segmentDurations = [];
+    let pendingDuration = 0;
     let ended = false;
 
     lines.forEach(function (line) {
@@ -108,12 +138,57 @@
         if (match) initSegment = safeArtifactName(match[1]);
         return;
       }
+      if (line.indexOf('#EXTINF:') === 0) {
+        const comma = line.indexOf(',');
+        const rawDuration = line.slice(8, comma === -1 ? line.length : comma);
+        const duration = Number(rawDuration);
+        pendingDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+        return;
+      }
       if (line.charAt(0) === '#') return;
       const segment = safeArtifactName(line);
-      if (segment) segments.push(segment);
+      if (segment) {
+        segments.push(segment);
+        segmentDurations.push(pendingDuration);
+      }
+      pendingDuration = 0;
     });
 
-    return {initSegment: initSegment, segments: segments, ended: ended};
+    return {
+      initSegment: initSegment,
+      segments: segments,
+      segmentDurations: segmentDurations,
+      ended: ended
+    };
+  }
+
+  function startupBatch(manifest, targetSeconds) {
+    const segments = manifest && Array.isArray(manifest.segments)
+      ? manifest.segments
+      : [];
+    const durations = manifest && Array.isArray(manifest.segmentDurations)
+      ? manifest.segmentDurations
+      : [];
+    const target = Math.max(0, Number(targetSeconds) || 0);
+    const selected = [];
+    let duration = 0;
+
+    for (let index = 0; index < segments.length; index += 1) {
+      selected.push(segments[index]);
+      const segmentDuration = Number(durations[index] || 0);
+      if (Number.isFinite(segmentDuration) && segmentDuration > 0) {
+        duration += segmentDuration;
+      }
+      if (duration + BUFFER_EPSILON_SECONDS >= target) {
+        return {ready: true, segments: selected, duration: duration};
+      }
+    }
+
+    return {
+      ready: Boolean(manifest && manifest.ended && selected.length > 0),
+      segments: selected,
+      duration: duration
+    };
   }
 
   function artifactUrl(mediaPath, artifactName) {
@@ -168,6 +243,24 @@
     } catch (error) {
       return null;
     }
+  }
+
+  function concatArrayBuffers(values) {
+    const views = [];
+    let total = 0;
+    (values || []).forEach(function (value) {
+      const view = bytesView(value);
+      if (!view) throw new Error('Media-Segment enthält keine gültigen Binärdaten.');
+      views.push(view);
+      total += view.byteLength;
+    });
+    const combined = new Uint8Array(total);
+    let offset = 0;
+    views.forEach(function (view) {
+      combined.set(view, offset);
+      offset += view.byteLength;
+    });
+    return combined.buffer;
   }
 
   function hexByte(value) {
@@ -319,6 +412,34 @@
     });
   }
 
+  function bufferedAheadSeconds(sourceBuffer, video) {
+    const buffered = sourceBuffer && sourceBuffer.buffered;
+    if (!buffered || buffered.length === 0) return 0;
+    const currentTime = Math.max(0, Number(video && video.currentTime) || 0);
+
+    for (let index = 0; index < buffered.length; index += 1) {
+      const start = Number(buffered.start(index));
+      const end = Number(buffered.end(index));
+      if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)) continue;
+      if (currentTime + BUFFER_EPSILON_SECONDS >= start && currentTime <= end) {
+        return Math.max(0, end - Math.max(currentTime, start));
+      }
+    }
+
+    const firstStart = Number(buffered.start(0));
+    const firstEnd = Number(buffered.end(0));
+    if (Number.isFinite(firstStart) && Number.isFinite(firstEnd) && currentTime < firstStart) {
+      return Math.max(0, firstEnd - firstStart);
+    }
+    return 0;
+  }
+
+  function bufferReady(sourceBuffer, video, targetSeconds, ended) {
+    const ahead = bufferedAheadSeconds(sourceBuffer, video);
+    const target = Math.max(0, Number(targetSeconds) || 0);
+    return ahead + BUFFER_EPSILON_SECONDS >= target || (Boolean(ended) && ahead > 0);
+  }
+
   function trimHistory(sourceBuffer, video) {
     const currentTime = Number(video.currentTime || 0);
     const trimUntil = currentTime - BUFFER_HISTORY_SECONDS;
@@ -370,13 +491,17 @@
 
     let destroyed = false;
     let started = false;
+    let playbackStarted = false;
+    let rebuffering = false;
     let playbackFailed = false;
     let stopIssued = false;
+    let pageHidden = false;
     let activeSessionId = '';
     let pollTimer = null;
     let mediaSource = null;
     let objectUrl = '';
     let abortController = null;
+    let activeSourceBuffer = null;
     const appendedSegments = new Set();
     let initAppended = false;
 
@@ -385,17 +510,60 @@
       status.classList.toggle('error', Boolean(error));
     }
 
-    function stopActiveSession() {
+    function bufferText(sourceBuffer) {
+      return bufferedAheadSeconds(sourceBuffer, video).toFixed(1) + ' s';
+    }
+
+    function stopActiveSession(useKeepalive) {
       if (stopIssued || !activeSessionId) return;
       stopIssued = true;
-      stopSession(backendId, activeSessionId).catch(function () {
-        // Browser teardown is best-effort. The server still owns shutdown recovery.
-      });
+      const request = useKeepalive
+        ? stopSessionKeepalive(backendId, activeSessionId)
+        : stopSession(backendId, activeSessionId);
+      if (request && typeof request.catch === 'function') {
+        request.catch(function () {
+          // Browser teardown is best-effort. Daemon shutdown recovery remains
+          // the final fence for an ungraceful browser/process loss.
+        });
+      }
+    }
+
+    function handlePageHide() {
+      if (destroyed) return;
+      pageHidden = true;
+      stopActiveSession(true);
+    }
+
+    function handleEnded() {
+      if (destroyed) return;
+      stopActiveSession(false);
     }
 
     function schedulePump(callback) {
       if (destroyed) return;
       pollTimer = global.setTimeout(callback, POLL_INTERVAL_MS);
+    }
+
+    function resumeAfterRebuffer(sourceBuffer, ended) {
+      if (!rebuffering || destroyed) return;
+      if (!bufferReady(sourceBuffer, video, REBUFFER_RESUME_SECONDS, ended)) {
+        setStatus(
+          'Puffer wird nachgeladen · ' + bufferText(sourceBuffer) +
+            ' / ' + REBUFFER_RESUME_SECONDS + ' s',
+          false
+        );
+        return;
+      }
+
+      rebuffering = false;
+      setStatus('Puffer wieder aufgebaut · ' + bufferText(sourceBuffer), false);
+      const request = video.play();
+      if (request && typeof request.catch === 'function') {
+        request.catch(function () {
+          // Playback was already user-authorized by the initial start action.
+          // Browser controls remain available if a platform still requires a tap.
+        });
+      }
     }
 
     function prepareSourceBuffer(mediaPath) {
@@ -422,11 +590,34 @@
           }
           const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
           sourceBuffer.mode = 'segments';
+          activeSourceBuffer = sourceBuffer;
           return appendBytes(sourceBuffer, initBytes).then(function () {
             initAppended = true;
             return {sourceBuffer: sourceBuffer, mimeType: mimeType};
           });
         });
+    }
+
+    function fetchStartupBatch(mediaPath, batch, sourceBuffer) {
+      setStatus(
+        'Startpuffer bereit · ' + batch.duration.toFixed(1) + ' s werden geladen.',
+        false
+      );
+      return Promise.all(batch.segments.map(function (segmentName) {
+        return fetchBytes(artifactUrl(mediaPath, segmentName), abortController.signal);
+      })).then(function (buffers) {
+        if (destroyed) return;
+        return appendBytes(sourceBuffer, concatArrayBuffers(buffers)).then(function () {
+          batch.segments.forEach(function (segmentName) {
+            appendedSegments.add(segmentName);
+          });
+          setStatus(
+            'Startpuffer aufgebaut · ' + bufferText(sourceBuffer) +
+              ' · Wiedergabe startet.',
+            false
+          );
+        });
+      });
     }
 
     function pump(mediaPath, sourceBuffer) {
@@ -437,6 +628,33 @@
           const manifest = parsePlaylist(manifestText);
           if (!manifest.initSegment || !initAppended) {
             throw new Error('HLS-Stream besitzt kein initialisiertes fMP4-Segment.');
+          }
+
+          if (appendedSegments.size === 0) {
+            const batch = startupBatch(manifest, STARTUP_BUFFER_SECONDS);
+            if (!batch.ready) {
+              setStatus(
+                'Startpuffer wird aufgebaut · ' + batch.duration.toFixed(1) +
+                  ' / ' + STARTUP_BUFFER_SECONDS + ' s',
+                false
+              );
+              schedulePump(function () {
+                pump(mediaPath, sourceBuffer).catch(handlePlaybackError);
+              });
+              return null;
+            }
+            return fetchStartupBatch(mediaPath, batch, sourceBuffer).then(function () {
+              if (destroyed) return;
+              if (manifest.ended) {
+                if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
+                  mediaSource.endOfStream();
+                }
+                return;
+              }
+              schedulePump(function () {
+                pump(mediaPath, sourceBuffer).catch(handlePlaybackError);
+              });
+            });
           }
 
           let chain = Promise.resolve();
@@ -453,7 +671,16 @@
                 if (destroyed || !bytes) return;
                 return appendBytes(sourceBuffer, bytes).then(function () {
                   appendedSegments.add(segmentName);
-                  setStatus('Wiedergabe läuft · ' + appendedSegments.size + ' Segment(e) empfangen.', false);
+                  if (rebuffering) {
+                    resumeAfterRebuffer(sourceBuffer, manifest.ended);
+                  }
+                  else if (playbackStarted) {
+                    setStatus(
+                      'Wiedergabe läuft · Puffer ' + bufferText(sourceBuffer) +
+                        ' · ' + appendedSegments.size + ' Segment(e) empfangen.',
+                      false
+                    );
+                  }
                 });
               });
           });
@@ -464,6 +691,7 @@
               if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
                 mediaSource.endOfStream();
               }
+              resumeAfterRebuffer(sourceBuffer, true);
               setStatus('Wiedergabe läuft · Stream vollständig erzeugt.', false);
               return;
             }
@@ -477,9 +705,31 @@
     function handlePlaybackError(error) {
       if (destroyed || (error && error.name === 'AbortError')) return;
       playbackFailed = true;
-      stopActiveSession();
+      stopActiveSession(false);
       setStatus(error && error.message ? error.message : String(error || 'Wiedergabefehler'), true);
       startButton.disabled = false;
+    }
+
+    function handlePlaying() {
+      if (destroyed) return;
+      playbackStarted = true;
+      rebuffering = false;
+      if (activeSourceBuffer) {
+        setStatus('Wiedergabe läuft · Puffer ' + bufferText(activeSourceBuffer), false);
+      }
+    }
+
+    function handleWaiting() {
+      if (destroyed || !playbackStarted || rebuffering) return;
+      rebuffering = true;
+      try { video.pause(); } catch (error) {}
+      if (activeSourceBuffer) {
+        setStatus(
+          'Puffer wird nachgeladen · ' + bufferText(activeSourceBuffer) +
+            ' / ' + REBUFFER_RESUME_SECONDS + ' s',
+          false
+        );
+      }
     }
 
     function start() {
@@ -501,13 +751,18 @@
       objectUrl = global.URL.createObjectURL(mediaSource);
       video.src = objectUrl;
       video.hidden = false;
+
+      // Keep the user-initiated play request pending while the HLS worker builds
+      // the startup buffer. The first media append is deliberately a >=12 s
+      // batch, so playback cannot consume the first 4 s segment immediately.
       const playRequest = video.play();
       if (playRequest && typeof playRequest.catch === 'function') playRequest.catch(function () {});
 
       const sessionPromise = createSession(backendId, recording).then(function (session) {
         const mediaSession = session && session.mediaSession;
         activeSessionId = safeSessionId(mediaSession && mediaSession.id);
-        if (destroyed || playbackFailed) stopActiveSession();
+        if (pageHidden) stopActiveSession(true);
+        else if (destroyed || playbackFailed) stopActiveSession(false);
         return session;
       });
 
@@ -515,7 +770,7 @@
         sessionPromise,
         waitForSourceOpen(mediaSource)
       ]).then(function (results) {
-        if (destroyed) return null;
+        if (destroyed || pageHidden) return null;
         const session = results[0];
         const mediaSession = session && session.mediaSession;
         const mediaPath = mediaSession && text(mediaSession.mediaPath);
@@ -523,11 +778,11 @@
           throw new Error('MediaSession wurde nicht wiedergabebereit bereitgestellt.');
         }
         return prepareSourceBuffer(mediaPath).then(function (prepared) {
-          if (destroyed || !prepared) return;
+          if (destroyed || pageHidden || !prepared) return;
           startButton.hidden = true;
           setStatus(
-            'Streaming gestartet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4') +
-              ' · ' + prepared.mimeType,
+            'Streaming vorbereitet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4') +
+              ' · Startpuffer ' + STARTUP_BUFFER_SECONDS + ' s',
             false
           );
           return pump(mediaPath, prepared.sourceBuffer);
@@ -538,7 +793,10 @@
     function destroy() {
       if (destroyed) return;
       destroyed = true;
-      stopActiveSession();
+      if (typeof global.removeEventListener === 'function') {
+        global.removeEventListener('pagehide', handlePageHide);
+      }
+      stopActiveSession(false);
       if (pollTimer !== null) {
         global.clearTimeout(pollTimer);
         pollTimer = null;
@@ -555,6 +813,12 @@
       }
     }
 
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pagehide', handlePageHide);
+    }
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('ended', handleEnded);
     startButton.addEventListener('click', start);
 
     return Object.freeze({
@@ -571,13 +835,20 @@
       capabilities: capabilities,
       createSession: createSession,
       stopSession: stopSession,
+      stopSessionKeepalive: stopSessionKeepalive,
       safeArtifactName: safeArtifactName,
       parsePlaylist: parsePlaylist,
+      startupBatch: startupBatch,
+      concatArrayBuffers: concatArrayBuffers,
       artifactUrl: artifactUrl,
       avcCodecFromInitSegment: avcCodecFromInitSegment,
       aacCodecFromInitSegment: aacCodecFromInitSegment,
       mimeTypeFromInitSegment: mimeTypeFromInitSegment,
-      supportedMimeType: supportedMimeType
+      supportedMimeType: supportedMimeType,
+      bufferedAheadSeconds: bufferedAheadSeconds,
+      bufferReady: bufferReady,
+      startupBufferSeconds: STARTUP_BUFFER_SECONDS,
+      rebufferResumeSeconds: REBUFFER_RESUME_SECONDS
     })
   });
 }(window));

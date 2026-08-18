@@ -5,6 +5,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 let request = null;
+let keepaliveRequest = null;
 const window = {
   VdrSuiteBrowserSession: {
     csrfHeaders() { return {'X-CSRF-Token': 'csrf-test-token'}; }
@@ -20,6 +21,10 @@ const window = {
         }
       });
     }
+  },
+  fetch(path, options) {
+    keepaliveRequest = {path, options};
+    return Promise.resolve({ok: true});
   },
   MediaSource: {
     isTypeSupported(type) { return type.indexOf('avc1.640016') !== -1; }
@@ -43,8 +48,9 @@ const context = vm.createContext({
   Uint8Array
 });
 
+const playbackSource = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
 vm.runInContext(
-  fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8'),
+  playbackSource,
   context,
   {filename: 'web/frontend/recordings2-playback.js'}
 );
@@ -62,6 +68,18 @@ assert.ok(
     '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", nullptr}'
   ),
   'recordings2 playback runtime must be exposed by the daemon frontend asset router'
+);
+assert.ok(
+  playbackSource.includes("global.addEventListener('pagehide', handlePageHide)"),
+  'recording playback must stop its MediaSession when the page is hidden/unloaded'
+);
+assert.ok(
+  playbackSource.includes("global.removeEventListener('pagehide', handlePageHide)"),
+  'recording playback must remove the pagehide handler on ordinary view teardown'
+);
+assert.ok(
+  playbackSource.includes("video.addEventListener('ended', handleEnded)"),
+  'recording playback must release the MediaSession at natural playback end'
 );
 
 assert.deepStrictEqual(
@@ -97,6 +115,7 @@ const parsed = test.parsePlaylist([
 ].join('\n'));
 assert.strictEqual(parsed.initSegment, 'init.mp4');
 assert.deepStrictEqual(Array.from(parsed.segments), ['segment-000001.m4s', 'segment-000002.m4s']);
+assert.deepStrictEqual(Array.from(parsed.segmentDurations), [4, 4]);
 assert.strictEqual(parsed.ended, true);
 assert.strictEqual(test.safeArtifactName('../secret.m4s'), '');
 assert.strictEqual(test.safeArtifactName('/tmp/secret.m4s'), '');
@@ -113,6 +132,70 @@ assert.throws(
 assert.throws(
   () => test.artifactUrl('/elsewhere/master.m3u8', 'init.mp4'),
   /außerhalb des HLS-Gateways/
+);
+
+assert.strictEqual(test.startupBufferSeconds, 12);
+assert.strictEqual(test.rebufferResumeSeconds, 12);
+
+const startupTooShort = test.parsePlaylist([
+  '#EXTM3U',
+  '#EXT-X-MAP:URI="init.mp4"',
+  '#EXTINF:4.0,',
+  'segment-000001.m4s',
+  '#EXTINF:4.0,',
+  'segment-000002.m4s'
+].join('\n'));
+const shortBatch = test.startupBatch(startupTooShort, test.startupBufferSeconds);
+assert.strictEqual(shortBatch.ready, false);
+assert.strictEqual(shortBatch.duration, 8);
+assert.deepStrictEqual(Array.from(shortBatch.segments), [
+  'segment-000001.m4s',
+  'segment-000002.m4s'
+]);
+
+const startupReady = test.parsePlaylist([
+  '#EXTM3U',
+  '#EXT-X-MAP:URI="init.mp4"',
+  '#EXTINF:4.0,',
+  'segment-000001.m4s',
+  '#EXTINF:4.0,',
+  'segment-000002.m4s',
+  '#EXTINF:4.0,',
+  'segment-000003.m4s'
+].join('\n'));
+const readyBatch = test.startupBatch(startupReady, test.startupBufferSeconds);
+assert.strictEqual(readyBatch.ready, true);
+assert.strictEqual(readyBatch.duration, 12);
+assert.deepStrictEqual(Array.from(readyBatch.segments), [
+  'segment-000001.m4s',
+  'segment-000002.m4s',
+  'segment-000003.m4s'
+]);
+
+const shortEndedBatch = test.startupBatch(parsed, test.startupBufferSeconds);
+assert.strictEqual(shortEndedBatch.ready, true);
+assert.strictEqual(shortEndedBatch.duration, 8);
+
+const bufferedRange = {
+  buffered: {
+    length: 1,
+    start() { return 0; },
+    end() { return 12; }
+  }
+};
+assert.strictEqual(test.bufferedAheadSeconds(bufferedRange, {currentTime: 0}), 12);
+assert.strictEqual(test.bufferedAheadSeconds(bufferedRange, {currentTime: 5}), 7);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 0}, test.startupBufferSeconds, false),
+  true
+);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 5}, test.rebufferResumeSeconds, false),
+  false
+);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 5}, test.rebufferResumeSeconds, true),
+  true
 );
 
 function mp4Box(type, payload) {
@@ -181,7 +264,6 @@ assert.strictEqual(
   assert.strictEqual(request.options.method, 'POST');
   assert.strictEqual(request.options.credentials, 'same-origin');
   assert.strictEqual(request.options.cache, 'no-store');
-  assert.strictEqual(request.options.keepalive, true);
   assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
   const stopBody = JSON.parse(request.options.body);
   assert.deepStrictEqual(stopBody, {
@@ -192,6 +274,28 @@ assert.strictEqual(
   assert.strictEqual(Object.prototype.hasOwnProperty.call(stopBody, 'accessCredential'), false);
   assert.strictEqual(request.path.indexOf('token='), -1);
   assert.strictEqual(request.path.indexOf('credential='), -1);
+
+  keepaliveRequest = null;
+  await test.stopSessionKeepalive('default', 'mediasess_keepalive');
+  assert.ok(keepaliveRequest);
+  assert.strictEqual(keepaliveRequest.path, '/api/media/sessions');
+  assert.strictEqual(keepaliveRequest.options.method, 'POST');
+  assert.strictEqual(keepaliveRequest.options.credentials, 'same-origin');
+  assert.strictEqual(keepaliveRequest.options.cache, 'no-store');
+  assert.strictEqual(keepaliveRequest.options.keepalive, true);
+  assert.strictEqual(
+    keepaliveRequest.options.headers['X-CSRF-Token'],
+    'csrf-test-token'
+  );
+  assert.deepStrictEqual(JSON.parse(keepaliveRequest.options.body), {
+    operation: 'stop',
+    backendId: 'default',
+    sessionId: 'mediasess_keepalive'
+  });
+
+  keepaliveRequest = null;
+  await test.stopSessionKeepalive('default', '../invalid');
+  assert.strictEqual(keepaliveRequest, null);
 
   console.log('recordings2 playback browser contract ok');
 })().catch(error => {

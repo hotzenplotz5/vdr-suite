@@ -15,11 +15,17 @@ int main()
         assert(plan.argv.front() == "/usr/bin/ffprobe");
         assert(std::find(plan.argv.begin(), plan.argv.end(), "/bin/sh") == plan.argv.end());
         assert(std::find(plan.argv.begin(), plan.argv.end(), "input.ffconcat") != plan.argv.end());
+        assert(std::any_of(
+            plan.argv.begin(),
+            plan.argv.end(),
+            [](const std::string& value) {
+                return value.find("field_order") != std::string::npos;
+            }));
     }
 
     {
         const std::string output =
-            "codec_name=h264|codec_type=video|width=1920|height=1080|r_frame_rate=50/1\n"
+            "codec_name=h264|codec_type=video|width=1920|height=1080|r_frame_rate=50/1|field_order=tt\n"
             "codec_name=ac3|codec_type=audio|channels=6|tag:language=deu\n";
 
         const auto result = probe.parse(output);
@@ -35,6 +41,7 @@ int main()
         assert(result.source.videoStreams[0].width == 1920);
         assert(result.source.videoStreams[0].height == 1080);
         assert(std::fabs(result.source.videoStreams[0].framesPerSecond - 50.0) < 0.001);
+        assert(result.source.videoStreams[0].interlaced);
         assert(result.source.audioStreams[0].codec == MediaCodec::Ac3);
         assert(result.source.audioStreams[0].channels == 6);
         assert(result.source.audioStreams[0].language == "deu");
@@ -48,18 +55,20 @@ int main()
         const auto result = probe.parse(output);
         assert(result.valid);
         assert(result.source.videoStreams[0].codec == MediaCodec::Mpeg2Video);
+        assert(!result.source.videoStreams[0].interlaced);
         assert(result.source.audioStreams[0].codec == MediaCodec::MpegAudio);
     }
 
     {
         const std::string output =
-            "codec_name=h264|codec_type=video|width=1280|height=688|r_frame_rate=24000/1001\n"
+            "codec_name=h264|codec_type=video|width=1280|height=688|r_frame_rate=24000/1001|field_order=progressive\n"
             "codec_name=dts|codec_type=audio|channels=6|tag:language=ger\n"
             "codec_name=dts|codec_type=audio|channels=6|tag:language=eng\n";
 
         const auto result = probe.parse(output);
         assert(result.valid);
         assert(result.reasonCode.empty());
+        assert(!result.source.videoStreams[0].interlaced);
         assert(result.source.audioStreams.size() == 2);
         assert(result.source.audioStreams[0].codec == MediaCodec::Dts);
         assert(result.source.audioStreams[0].channels == 6);
