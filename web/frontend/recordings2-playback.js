@@ -720,7 +720,7 @@
     }
 
     function handleWaiting() {
-      if (destroyed || !playbackStarted || rebuffering) return;
+      if (destroyed || playbackFailed || !playbackStarted || rebuffering) return;
       rebuffering = true;
       try { video.pause(); } catch (error) {}
       if (activeSourceBuffer) {
