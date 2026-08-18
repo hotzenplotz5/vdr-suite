@@ -14,9 +14,10 @@ assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
-assert module.PROFILE_VERSION == 3
+assert module.PROFILE_VERSION == 4
 assert module.DEFAULT_REAL_SOURCE_SECONDS == 30
 assert module.DEFAULT_REAL_SOURCE_START == 15
+assert module.DEFAULT_VAAPI_DEVICE == "/dev/dri/renderD128"
 assert module.MINIMUM_REALTIME_SPEED == 1.25
 
 choice, measured = module.policy_choice(
@@ -31,17 +32,41 @@ choice, measured = module.policy_choice(
 assert choice == "superfast"
 assert not measured
 
-choice, measured = module.policy_choice(
-    "uhd-source",
+choice, measured = module.uhd_policy_choice(
     {
         "superfast": 0.940,
         "veryfast": 0.861,
         "faster": 0.732,
         "fast": 0.633,
     },
+    None,
+)
+assert choice == "unavailable"
+assert not measured
+
+choice, measured = module.uhd_policy_choice(
+    {
+        "superfast": 0.468,
+        "veryfast": 0.281,
+        "faster": 0.20,
+        "fast": 0.15,
+    },
+    3.825,
+)
+assert choice == "vaapi"
+assert measured
+
+choice, measured = module.uhd_policy_choice(
+    {
+        "superfast": 1.41,
+        "veryfast": 1.28,
+        "faster": 1.10,
+        "fast": 0.90,
+    },
+    1.10,
 )
 assert choice == "veryfast"
-assert not measured
+assert measured
 
 choice, measured = module.policy_choice(
     "standard",
