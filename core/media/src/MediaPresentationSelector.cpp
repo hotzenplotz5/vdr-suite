@@ -293,6 +293,15 @@ MediaPresentationProfile hlsProfile(
             profile.targetVideoWidth = targetSize.width;
             profile.targetVideoHeight = targetSize.height;
             profile.deinterlaceVideo = sourceVideo.interlaced;
+            if (sourceVideo.interlaced) {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
+            }
+            else if (sourceVideo.width > 1920 || sourceVideo.height > 1080) {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::UhdSource;
+            }
+            else {
+                profile.videoTranscodeWorkload = MediaTranscodeWorkload::Standard;
+            }
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
     }
