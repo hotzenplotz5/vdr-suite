@@ -83,6 +83,12 @@ void appendVideoPlan(
         // broadly interoperable 8-bit 4:2:0 H.264 browser target.
         argv.push_back("-pix_fmt");
         argv.push_back("yuv420p");
+        // HLS cuts on video keyframes. Keep the encoded GOP boundary aligned
+        // with the fixed four-second segment target so a paced transcode does
+        // not depend on the encoder's much longer default GOP before the first
+        // playable segment can be published.
+        argv.push_back("-force_key_frames");
+        argv.push_back("expr:gte(t,n_forced*4)");
         return;
     }
 

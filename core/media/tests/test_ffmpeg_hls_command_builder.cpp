@@ -71,6 +71,7 @@ int main()
         assert(containsPair(plan.argv, "-ac", "2"));
         assert(!containsValue(plan.argv, "-vf"));
         assert(!containsValue(plan.argv, "-pix_fmt"));
+        assert(!containsValue(plan.argv, "-force_key_frames"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_time", "4"));
@@ -101,6 +102,7 @@ int main()
         assert(!containsValue(plan.argv, "-ac"));
         assert(!containsValue(plan.argv, "-vf"));
         assert(!containsValue(plan.argv, "-pix_fmt"));
+        assert(!containsValue(plan.argv, "-force_key_frames"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
     }
@@ -119,6 +121,7 @@ int main()
         assert(!containsValue(plan.argv, "-ac"));
         assert(!containsValue(plan.argv, "-vf"));
         assert(!containsValue(plan.argv, "-pix_fmt"));
+        assert(!containsValue(plan.argv, "-force_key_frames"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
@@ -156,6 +159,10 @@ int main()
         assert(containsPair(plan.argv, "-crf", "20"));
         assert(containsPair(plan.argv, "-vf", "scale=1920:1080"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
+        assert(containsPair(
+            plan.argv,
+            "-force_key_frames",
+            "expr:gte(t,n_forced*4)"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
     }
 
@@ -170,6 +177,10 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-vf", "scale=1920:800"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
+        assert(containsPair(
+            plan.argv,
+            "-force_key_frames",
+            "expr:gte(t,n_forced*4)"));
     }
 
     {
