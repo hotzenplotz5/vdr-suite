@@ -4,6 +4,7 @@
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -59,9 +60,26 @@ MediaPresentationProfile hlsProfile()
     profile.profileId = "hls-fmp4";
     profile.protocol = MediaDeliveryProtocol::Hls;
     profile.container = MediaContainer::Fmp4;
-    profile.videoAction = MediaTrackAction::Omit;
+    profile.videoAction = MediaTrackAction::Transcode;
+    profile.sourceVideoStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetVideoWidth = 1920;
+    profile.targetVideoHeight = 1080;
+    profile.deinterlaceVideo = true;
+    profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
     profile.audioAction = MediaTrackAction::Omit;
     return profile;
+}
+
+bool containsPair(
+    const std::vector<std::string>& argv,
+    const std::string& option,
+    const std::string& value)
+{
+    for (std::size_t index = 0; index + 1 < argv.size(); ++index) {
+        if (argv[index] == option && argv[index + 1] == value) return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -95,6 +113,13 @@ int main()
         output << "recording";
     }
 
+    MediaTranscodePerformanceSamples samples;
+    samples[MediaTranscodeWorkload::Deinterlace][
+        MediaSoftwareEncoderPreset::Veryfast] = 0.992;
+    samples[MediaTranscodeWorkload::Deinterlace][
+        MediaSoftwareEncoderPreset::Superfast] = 1.54;
+    MediaTranscodePolicy transcodePolicy(MediaTranscodePolicyConfig{}, samples);
+
     int spawnCalls = 0;
     int terminateCalls = 0;
     {
@@ -106,6 +131,12 @@ int main()
                           const std::string& logPath) {
                 assert(!argv.empty());
                 assert(argv.front() == "/usr/bin/ffmpeg");
+                assert(containsPair(argv, "-c:v", "libx264"));
+                assert(containsPair(argv, "-preset", "superfast"));
+                assert(containsPair(
+                    argv,
+                    "-vf",
+                    "bwdif=mode=send_frame:parity=auto:deint=all,scale=1920:1080"));
                 assert(!workingDirectory.empty());
                 assert(!logPath.empty());
                 ++spawnCalls;
@@ -120,7 +151,8 @@ int main()
             [](const std::string& workingDirectory, MediaContainer container) {
                 assert(!workingDirectory.empty());
                 return container == MediaContainer::Fmp4;
-            });
+            },
+            transcodePolicy);
 
         const auto result = runtime.provisionHls(
             issued.session.sessionId,
