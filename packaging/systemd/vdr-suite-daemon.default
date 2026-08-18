@@ -11,16 +11,6 @@ VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default
 VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1
 VDR_SUITE_SUITE_BRIDGE_PORT=6419
 
-# Recording playback software-transcode policy. Auto uses the measured profile
-# when present and otherwise conservative per-workload defaults. Accepted preset
-# values are auto, superfast, veryfast, faster and fast. Workload-specific
-# variables can be uncommented to override only that class.
-VDR_SUITE_MEDIA_X264_PRESET=auto
-VDR_SUITE_MEDIA_TRANSCODE_PROFILE=/var/lib/vdr-suite/media-transcode-performance.conf
-# VDR_SUITE_MEDIA_X264_STANDARD_PRESET=auto
-# VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET=auto
-# VDR_SUITE_MEDIA_X264_UHD_PRESET=auto
-
 # Bounded transport and observation timings in milliseconds.
 VDR_SUITE_SUITE_BRIDGE_CONNECT_TIMEOUT_MS=1000
 VDR_SUITE_SUITE_BRIDGE_IO_TIMEOUT_MS=1000
@@ -78,6 +68,17 @@ VDR_SUITE_TMDB_RETRY_BACKOFF_MS=250
 VDR_SUITE_TMDB_NEGATIVE_CACHE_TTL_SECONDS=21600
 VDR_SUITE_TMDB_TRANSIENT_CACHE_TTL_SECONDS=300
 VDR_SUITE_TMDB_MAX_JSON_BYTES=524288
+
+# Recording software-transcode policy. Auto is resolved once before the FFmpeg
+# worker starts and stays stable for the complete media session. A trusted v3
+# calibration profile can select a slower/higher-compression x264 preset when
+# measured throughput keeps at least 1.25x real-time headroom. Without such a
+# profile the typed fallbacks are deinterlace=superfast and otherwise=veryfast.
+VDR_SUITE_MEDIA_X264_PRESET=auto
+VDR_SUITE_MEDIA_TRANSCODE_PROFILE=/var/lib/vdr-suite/media-transcode-performance.conf
+# VDR_SUITE_MEDIA_X264_STANDARD_PRESET=auto
+# VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET=auto
+# VDR_SUITE_MEDIA_X264_UHD_PRESET=auto
 
 # Absolute browser-session lifetime in seconds. Values must be strict decimal
 # integers from 300 through 86400. This is not an idle timeout or refresh
