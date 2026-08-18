@@ -72,7 +72,11 @@ void appendVideoPlan(
         argv.push_back("-c:v");
         argv.push_back("libx264");
         argv.push_back("-preset");
-        argv.push_back("veryfast");
+        // Real yaVDR acceptance showed that 1080p25 deinterlacing at veryfast
+        // runs at only about source rate, leaving no HLS headroom. Keep the
+        // established veryfast target for normal transcodes and use the
+        // bounded superfast compatibility preset only when deinterlacing.
+        argv.push_back(profile.deinterlaceVideo ? "superfast" : "veryfast");
         argv.push_back("-crf");
         argv.push_back("20");
         argv.push_back("-vf");
