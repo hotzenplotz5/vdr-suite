@@ -37,6 +37,12 @@ MediaCodec codecFromName(const std::string& name)
     return MediaCodec::Unknown;
 }
 
+bool interlacedFieldOrder(const std::string& value)
+{
+    return value == "tt" || value == "bb" ||
+        value == "tb" || value == "bt";
+}
+
 int integerValue(const std::map<std::string, std::string>& fields, const std::string& key)
 {
     const auto iterator = fields.find(key);
@@ -127,7 +133,7 @@ FfprobeRecordingPlan FfprobeRecordingSource::commandPlan() const
         "-safe", "1",
         "-i", "input.ffconcat",
         "-show_entries",
-        "stream=codec_type,codec_name,width,height,r_frame_rate,channels:stream_tags=language",
+        "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,channels:stream_tags=language",
         "-of", "compact=p=0:nk=0"
     };
     return plan;
@@ -163,6 +169,7 @@ FfprobeRecordingResult FfprobeRecordingSource::parse(
             video.width = integerValue(fields, "width");
             video.height = integerValue(fields, "height");
             video.framesPerSecond = frameRateValue(fieldValue(fields, "r_frame_rate"));
+            video.interlaced = interlacedFieldOrder(fieldValue(fields, "field_order"));
             result.source.videoStreams.push_back(video);
         }
         else if (codecType == "audio") {
