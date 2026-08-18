@@ -5,6 +5,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 let request = null;
+let keepaliveRequest = null;
 const window = {
   VdrSuiteBrowserSession: {
     csrfHeaders() { return {'X-CSRF-Token': 'csrf-test-token'}; }
@@ -20,6 +21,10 @@ const window = {
         }
       });
     }
+  },
+  fetch(path, options) {
+    keepaliveRequest = {path, options};
+    return Promise.resolve({ok: true});
   },
   MediaSource: {
     isTypeSupported(type) { return type.indexOf('avc1.640016') !== -1; }
@@ -43,8 +48,9 @@ const context = vm.createContext({
   Uint8Array
 });
 
+const playbackSource = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
 vm.runInContext(
-  fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8'),
+  playbackSource,
   context,
   {filename: 'web/frontend/recordings2-playback.js'}
 );
@@ -62,6 +68,18 @@ assert.ok(
     '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", nullptr}'
   ),
   'recordings2 playback runtime must be exposed by the daemon frontend asset router'
+);
+assert.ok(
+  playbackSource.includes("global.addEventListener('pagehide', handlePageHide)"),
+  'recording playback must stop its MediaSession when the page is hidden/unloaded'
+);
+assert.ok(
+  playbackSource.includes("global.removeEventListener('pagehide', handlePageHide)"),
+  'recording playback must remove the pagehide handler on ordinary view teardown'
+);
+assert.ok(
+  playbackSource.includes("video.addEventListener('ended', handleEnded)"),
+  'recording playback must release the MediaSession at natural playback end'
 );
 
 assert.deepStrictEqual(
@@ -246,7 +264,6 @@ assert.strictEqual(
   assert.strictEqual(request.options.method, 'POST');
   assert.strictEqual(request.options.credentials, 'same-origin');
   assert.strictEqual(request.options.cache, 'no-store');
-  assert.strictEqual(request.options.keepalive, true);
   assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-test-token');
   const stopBody = JSON.parse(request.options.body);
   assert.deepStrictEqual(stopBody, {
@@ -257,6 +274,28 @@ assert.strictEqual(
   assert.strictEqual(Object.prototype.hasOwnProperty.call(stopBody, 'accessCredential'), false);
   assert.strictEqual(request.path.indexOf('token='), -1);
   assert.strictEqual(request.path.indexOf('credential='), -1);
+
+  keepaliveRequest = null;
+  await test.stopSessionKeepalive('default', 'mediasess_keepalive');
+  assert.ok(keepaliveRequest);
+  assert.strictEqual(keepaliveRequest.path, '/api/media/sessions');
+  assert.strictEqual(keepaliveRequest.options.method, 'POST');
+  assert.strictEqual(keepaliveRequest.options.credentials, 'same-origin');
+  assert.strictEqual(keepaliveRequest.options.cache, 'no-store');
+  assert.strictEqual(keepaliveRequest.options.keepalive, true);
+  assert.strictEqual(
+    keepaliveRequest.options.headers['X-CSRF-Token'],
+    'csrf-test-token'
+  );
+  assert.deepStrictEqual(JSON.parse(keepaliveRequest.options.body), {
+    operation: 'stop',
+    backendId: 'default',
+    sessionId: 'mediasess_keepalive'
+  });
+
+  keepaliveRequest = null;
+  await test.stopSessionKeepalive('default', '../invalid');
+  assert.strictEqual(keepaliveRequest, null);
 
   console.log('recordings2 playback browser contract ok');
 })().catch(error => {
