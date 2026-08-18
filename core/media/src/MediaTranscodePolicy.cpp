@@ -13,6 +13,7 @@ namespace
 
 constexpr const char* DefaultPerformanceProfilePath =
     "/var/lib/vdr-suite/media-transcode-performance.conf";
+constexpr std::size_t MaximumHardwareDevicePathLength = 512;
 
 std::string trim(const std::string& value)
 {
@@ -20,6 +21,13 @@ std::string trim(const std::string& value)
     if (first == std::string::npos) return {};
     const std::size_t last = value.find_last_not_of(" \t\r\n");
     return value.substr(first, last - first + 1);
+}
+
+bool validVaapiDevice(const std::string& value)
+{
+    return !value.empty() &&
+        value.size() <= MaximumHardwareDevicePathLength &&
+        value.rfind("/dev/dri/", 0) == 0;
 }
 
 MediaSoftwareEncoderPreset presetForMode(MediaTranscodePresetMode mode)
@@ -125,6 +133,7 @@ struct LoadedPerformanceProfile
 {
     MediaTranscodePerformanceSamples software;
     MediaHardwareTranscodePerformanceSamples hardware;
+    std::string vaapiDevice;
 };
 
 LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
@@ -148,7 +157,8 @@ LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
     // v1 omitted source decode cost, while v2 allowed very short real-source
     // samples whose damaged startup region could dominate the final speed.
     // v3 remains valid for software-only calibration. v4 is an additive
-    // extension that can also carry measured hardware-backend throughput.
+    // extension that can also carry measured hardware-backend throughput and
+    // the render device on which that throughput was measured.
     if (!supportedVersion) return profile;
 
     for (const std::string& rawLine : lines) {
@@ -161,6 +171,10 @@ LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
         const std::string key = trim(line.substr(0, equals));
         const std::string value = trim(line.substr(equals + 1));
         if (key == "version") continue;
+        if (key == "vaapi.device") {
+            if (validVaapiDevice(value)) profile.vaapiDevice = value;
+            continue;
+        }
 
         const std::size_t dot = key.find('.');
         if (dot == std::string::npos || dot == 0 || dot + 1 >= key.size()) {
@@ -248,8 +262,12 @@ MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment()
     config.uhdSourcePresetMode = optionalModeFromEnvironment(
         "VDR_SUITE_MEDIA_X264_UHD_PRESET");
 
+    bool vaapiDeviceOverridden = false;
     if (const char* raw = std::getenv("VDR_SUITE_MEDIA_VAAPI_DEVICE")) {
-        if (*raw != '\0') config.vaapiDevice = raw;
+        if (*raw != '\0' && validVaapiDevice(raw)) {
+            config.vaapiDevice = raw;
+            vaapiDeviceOverridden = true;
+        }
     }
 
     std::string profilePath = DefaultPerformanceProfilePath;
@@ -258,6 +276,9 @@ MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment()
     }
 
     LoadedPerformanceProfile performance = loadPerformanceProfile(profilePath);
+    if (!vaapiDeviceOverridden && !performance.vaapiDevice.empty()) {
+        config.vaapiDevice = performance.vaapiDevice;
+    }
     return MediaTranscodePolicy(
         std::move(config),
         std::move(performance.software),
@@ -293,8 +314,6 @@ std::optional<MediaSoftwareEncoderPreset> MediaTranscodePolicy::selectMeasuredPr
     const auto workloadSamples = samples_.find(workload);
     if (workloadSamples == samples_.end()) return std::nullopt;
 
-    // Prefer the slowest/highest-compression x264 preset that still has enough
-    // measured real-time headroom for HLS muxing and system load.
     static constexpr std::array<MediaSoftwareEncoderPreset, 4> QualityOrder = {
         MediaSoftwareEncoderPreset::Fast,
         MediaSoftwareEncoderPreset::Faster,
@@ -363,7 +382,7 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
     // plans and acceptance coverage exist.
     if (workload == MediaTranscodeWorkload::UhdSource &&
         modeFor(workload) == MediaTranscodePresetMode::Auto) {
-        if (!config_.vaapiDevice.empty() &&
+        if (validVaapiDevice(config_.vaapiDevice) &&
             hardwareMeetsRealtimeThreshold(
                 workload, MediaVideoEncoderBackend::Vaapi)) {
             result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
