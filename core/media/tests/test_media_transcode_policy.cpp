@@ -1,6 +1,11 @@
 #include "MediaTranscodePolicy.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <unistd.h>
 
 namespace
 {
@@ -19,10 +24,36 @@ MediaPresentationProfile transcodeProfile(MediaTranscodeWorkload workload)
     return profile;
 }
 
+std::filesystem::path profilePath(const std::string& suffix)
+{
+    return std::filesystem::temp_directory_path() /
+        ("vdr-suite-media-policy-" + std::to_string(::getpid()) + "-" + suffix);
+}
+
+void writeProfile(const std::filesystem::path& path, const std::string& content)
+{
+    std::ofstream output(path, std::ios::trunc);
+    assert(output.is_open());
+    output << content;
+    output.close();
+    assert(output.good());
+}
+
+void clearPolicyEnvironment()
+{
+    ::unsetenv("VDR_SUITE_MEDIA_X264_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_X264_STANDARD_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_X264_UHD_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE");
+}
+
 } // namespace
 
 int main()
 {
+    clearPolicyEnvironment();
+
     {
         MediaTranscodePolicy policy;
         assert(policy.selectPreset(MediaTranscodeWorkload::Standard) ==
@@ -122,6 +153,42 @@ int main()
             MediaTranscodePresetMode::Faster && valid);
         (void)MediaTranscodePolicy::presetModeFromString("nonsense", valid);
         assert(!valid);
+    }
+
+    {
+        const auto path = profilePath("v1.conf");
+        writeProfile(
+            path,
+            "version=1\n"
+            "deinterlace.superfast=1.950\n"
+            "deinterlace.veryfast=1.540\n");
+        ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
+        ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
+
+        const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
+            MediaSoftwareEncoderPreset::Superfast);
+
+        std::filesystem::remove(path);
+        clearPolicyEnvironment();
+    }
+
+    {
+        const auto path = profilePath("v2.conf");
+        writeProfile(
+            path,
+            "version=2\n"
+            "deinterlace.superfast=1.950\n"
+            "deinterlace.veryfast=1.540\n");
+        ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
+        ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
+
+        const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
+        assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
+            MediaSoftwareEncoderPreset::Veryfast);
+
+        std::filesystem::remove(path);
+        clearPolicyEnvironment();
     }
 
     return 0;
