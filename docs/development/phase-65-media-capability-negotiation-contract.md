@@ -81,7 +81,9 @@ For example, a Recording with German AC3 plus English AAC does not require audio
 
 Audio compatibility includes both codec and the client's typed maximum channel count. A codec-compatible track whose channel count exceeds the client limit is not eligible for copy. When AAC is the allowed target codec, the selector may keep the video copied while transcoding only the selected audio track and constraining its target channel count. The current browser MSE/fMP4 adapter advertises a two-channel limit because real Edge acceptance showed AAC 5.1 can be valid as ordinary MP4 while the same initialization segment fails in the MSE SourceBuffer path.
 
-Track selection is deterministic from trusted source descriptors and typed client capabilities. Clients do not inject raw FFmpeg stream selectors or arbitrary audio-channel command arguments.
+Video source validity and client output limits are separate facts. A known decodable source video track is not rejected merely because its source dimensions exceed the client limit. Direct copy still requires the source dimensions to fit the client capability, but an allowlisted transcode path derives a concrete target width and height that fit within the typed client bounds, preserve the source aspect ratio, never upscale, and use even dimensions suitable for the H.264 target. This permits, for example, a trusted HEVC 3840x2160 Recording source to become an H.264 1920x1080 browser presentation without pretending that the browser natively accepts the 4K source.
+
+Track selection is deterministic from trusted source descriptors and typed client capabilities. Clients do not inject raw FFmpeg stream selectors, scale expressions or arbitrary audio-channel command arguments.
 
 ## Selection order
 
@@ -100,6 +102,15 @@ VDR Recording: MPEG-TS + H.264 + AC3 5.1
   -> HLS/fMP4 packaging
   -> H.264 copied
   -> AC3 transcoded to AAC stereo
+```
+
+A high-resolution incompatible source may instead require both selected tracks to transform:
+
+```text
+VDR Recording: MPEG-TS + HEVC Main 10 3840x2160 + AAC 5.1
+  -> HLS/fMP4 packaging
+  -> HEVC transcoded to H.264 1920x1080 yuv420p
+  -> AAC downmixed/transcoded to AAC stereo
 ```
 
 The video is not re-encoded merely because the selected audio track is incompatible.
@@ -159,6 +170,8 @@ When remuxing or transcoding is required, the initial implementation may use FFm
 - capacity and later resource policy can deny expensive transformations.
 
 For audio transcoding, a positive `targetAudioChannels` is emitted only from the internally selected typed profile and only after the command builder has bounded the value. Copy paths never receive `-ac`.
+
+For H.264 video transcoding, `targetVideoWidth` and `targetVideoHeight` are concrete bounded even integers produced by the selector. The command builder rejects invalid dimensions and emits only the fixed typed scale operation. The first browser target also normalizes transcoded output to `yuv420p`, so high-bit-depth HEVC input does not silently become a high-bit-depth H.264 presentation outside the advertised browser capability. Video copy paths receive neither scaling nor pixel-format conversion.
 
 The preferred transformation order remains:
 

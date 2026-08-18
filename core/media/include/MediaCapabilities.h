@@ -102,6 +102,8 @@ struct MediaPresentationProfile
     int sourceAudioStreamIndex = -1;
     MediaCodec targetVideoCodec = MediaCodec::None;
     MediaCodec targetAudioCodec = MediaCodec::None;
-    std::string reason;
+    int targetVideoWidth = 0;
+    int targetVideoHeight = 0;
     int targetAudioChannels = 0;
+    std::string reason;
 };

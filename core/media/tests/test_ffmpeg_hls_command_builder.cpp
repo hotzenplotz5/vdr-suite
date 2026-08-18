@@ -42,6 +42,8 @@ MediaPresentationProfile hlsFmp4Profile()
     profile.sourceAudioStreamIndex = 1;
     profile.targetVideoCodec = MediaCodec::H264;
     profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetVideoWidth = 1920;
+    profile.targetVideoHeight = 1080;
     profile.targetAudioChannels = 2;
     return profile;
 }
@@ -67,6 +69,8 @@ int main()
         assert(containsPair(plan.argv, "-c:a", "aac"));
         assert(containsPair(plan.argv, "-b:a", "192k"));
         assert(containsPair(plan.argv, "-ac", "2"));
+        assert(!containsValue(plan.argv, "-vf"));
+        assert(!containsValue(plan.argv, "-pix_fmt"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_time", "4"));
@@ -95,6 +99,8 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
         assert(!containsValue(plan.argv, "-ac"));
+        assert(!containsValue(plan.argv, "-vf"));
+        assert(!containsValue(plan.argv, "-pix_fmt"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
     }
@@ -111,6 +117,8 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
         assert(!containsValue(plan.argv, "-ac"));
+        assert(!containsValue(plan.argv, "-vf"));
+        assert(!containsValue(plan.argv, "-pix_fmt"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
@@ -146,7 +154,46 @@ int main()
         assert(containsPair(plan.argv, "-c:v", "libx264"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
+        assert(containsPair(plan.argv, "-vf", "scale=1920:1080"));
+        assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.targetVideoWidth = 1920;
+        profile.targetVideoHeight = 800;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-vf", "scale=1920:800"));
+        assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.targetVideoWidth = 1921;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
+        profile.targetVideoWidth = 20000;
+
+        const auto plan = builder.build(profile);
+        assert(!plan.valid);
+        assert(plan.reasonCode == "unsupported_track_transformation");
+        assert(plan.argv.empty());
     }
 
     {

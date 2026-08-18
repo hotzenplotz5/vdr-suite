@@ -24,8 +24,8 @@ ClientMediaCapabilities browserHlsCapabilities()
     client.videoCodecs = {MediaCodec::H264};
     client.audioCodecs = {MediaCodec::Aac};
     client.supportsByteRanges = true;
-    client.maxVideoWidth = 3840;
-    client.maxVideoHeight = 2160;
+    client.maxVideoWidth = 1920;
+    client.maxVideoHeight = 1080;
     client.maxAudioChannels = 2;
     return client;
 }
@@ -53,6 +53,8 @@ int main()
         assert(profile.audioAction == MediaTrackAction::Copy);
         assert(profile.sourceVideoStreamIndex == 0);
         assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.targetVideoWidth == 1920);
+        assert(profile.targetVideoHeight == 1080);
         assert(profile.targetAudioChannels == 6);
     }
 
@@ -86,6 +88,8 @@ int main()
         assert(profile.videoAction == MediaTrackAction::Copy);
         assert(profile.sourceVideoStreamIndex == 0);
         assert(profile.targetVideoCodec == MediaCodec::H264);
+        assert(profile.targetVideoWidth == 1920);
+        assert(profile.targetVideoHeight == 1080);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.sourceAudioStreamIndex == 0);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
@@ -173,9 +177,64 @@ int main()
         assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
         assert(profile.videoAction == MediaTrackAction::Transcode);
         assert(profile.targetVideoCodec == MediaCodec::H264);
+        assert(profile.targetVideoWidth == 1920);
+        assert(profile.targetVideoHeight == 1080);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
         assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front() =
+            {MediaCodec::H265, 3840, 2160, 23.976, false};
+        source.audioStreams.clear();
+        source.audioStreams.push_back({MediaCodec::Aac, 6, "ger"});
+        source.audioStreams.push_back({MediaCodec::Aac, 8, "eng"});
+
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.profileId == "hls-fmp4");
+        assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
+        assert(profile.sourceVideoStreamIndex == 0);
+        assert(profile.videoAction == MediaTrackAction::Transcode);
+        assert(profile.targetVideoCodec == MediaCodec::H264);
+        assert(profile.targetVideoWidth == 1920);
+        assert(profile.targetVideoHeight == 1080);
+        assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front() =
+            {MediaCodec::H265, 3840, 1600, 24.0, false};
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.videoAction == MediaTrackAction::Transcode);
+        assert(profile.targetVideoWidth == 1920);
+        assert(profile.targetVideoHeight == 800);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front() =
+            {MediaCodec::H265, 1280, 720, 24.0, false};
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.videoAction == MediaTrackAction::Transcode);
+        assert(profile.targetVideoWidth == 1280);
+        assert(profile.targetVideoHeight == 720);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front() =
+            {MediaCodec::H265, 0, 0, 24.0, false};
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(!profile.available);
     }
 
     {

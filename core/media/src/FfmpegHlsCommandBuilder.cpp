@@ -6,6 +6,7 @@ namespace
 {
 
 constexpr int MaximumTypedAudioChannels = 32;
+constexpr int MaximumTypedVideoDimension = 16384;
 
 FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
 {
@@ -39,6 +40,16 @@ bool appendSelectedTrackMaps(
     return true;
 }
 
+bool validTargetVideoSize(const MediaPresentationProfile& profile)
+{
+    return profile.targetVideoWidth >= 2 &&
+        profile.targetVideoHeight >= 2 &&
+        profile.targetVideoWidth <= MaximumTypedVideoDimension &&
+        profile.targetVideoHeight <= MaximumTypedVideoDimension &&
+        profile.targetVideoWidth % 2 == 0 &&
+        profile.targetVideoHeight % 2 == 0;
+}
+
 void appendVideoPlan(
     std::vector<std::string>& argv,
     const MediaPresentationProfile& profile,
@@ -53,7 +64,8 @@ void appendVideoPlan(
         argv.push_back("copy");
         return;
     case MediaTrackAction::Transcode:
-        if (profile.targetVideoCodec != MediaCodec::H264) {
+        if (profile.targetVideoCodec != MediaCodec::H264 ||
+            !validTargetVideoSize(profile)) {
             valid = false;
             return;
         }
@@ -63,6 +75,14 @@ void appendVideoPlan(
         argv.push_back("veryfast");
         argv.push_back("-crf");
         argv.push_back("20");
+        argv.push_back("-vf");
+        argv.push_back(
+            "scale=" + std::to_string(profile.targetVideoWidth) +
+            ":" + std::to_string(profile.targetVideoHeight));
+        // Normalize high-bit-depth HEVC and other source formats to the
+        // broadly interoperable 8-bit 4:2:0 H.264 browser target.
+        argv.push_back("-pix_fmt");
+        argv.push_back("yuv420p");
         return;
     }
 

@@ -17,15 +17,24 @@ bool validSourceCodec(MediaCodec codec)
     return codec != MediaCodec::Unknown && codec != MediaCodec::None;
 }
 
+bool knownVideoDimensions(const MediaVideoStreamDescriptor& video)
+{
+    return video.width > 0 && video.height > 0;
+}
+
 bool fitsVideoLimits(
     const MediaVideoStreamDescriptor& video,
     const ClientMediaCapabilities& client)
 {
-    if (client.maxVideoWidth > 0 && video.width > client.maxVideoWidth) {
-        return false;
+    if (client.maxVideoWidth > 0) {
+        if (video.width <= 0 || video.width > client.maxVideoWidth) {
+            return false;
+        }
     }
-    if (client.maxVideoHeight > 0 && video.height > client.maxVideoHeight) {
-        return false;
+    if (client.maxVideoHeight > 0) {
+        if (video.height <= 0 || video.height > client.maxVideoHeight) {
+            return false;
+        }
     }
     return true;
 }
@@ -38,6 +47,54 @@ bool fitsAudioLimits(
         return true;
     }
     return audio.channels > 0 && audio.channels <= client.maxAudioChannels;
+}
+
+struct TargetVideoSize
+{
+    bool valid = false;
+    int width = 0;
+    int height = 0;
+};
+
+TargetVideoSize selectedTargetVideoSize(
+    const MediaVideoStreamDescriptor& video,
+    const ClientMediaCapabilities& client)
+{
+    TargetVideoSize result;
+    if (!knownVideoDimensions(video)) {
+        return result;
+    }
+
+    long long width = video.width;
+    long long height = video.height;
+
+    if (client.maxVideoWidth > 0 && width > client.maxVideoWidth) {
+        height = (height * client.maxVideoWidth) / width;
+        width = client.maxVideoWidth;
+    }
+
+    if (client.maxVideoHeight > 0 && height > client.maxVideoHeight) {
+        width = (width * client.maxVideoHeight) / height;
+        height = client.maxVideoHeight;
+    }
+
+    width -= width % 2;
+    height -= height % 2;
+
+    if (width < 2 || height < 2) {
+        return result;
+    }
+    if (client.maxVideoWidth > 0 && width > client.maxVideoWidth) {
+        return result;
+    }
+    if (client.maxVideoHeight > 0 && height > client.maxVideoHeight) {
+        return result;
+    }
+
+    result.valid = true;
+    result.width = static_cast<int>(width);
+    result.height = static_cast<int>(height);
+    return result;
 }
 
 int selectedTargetAudioChannels(
@@ -83,13 +140,11 @@ int firstDirectAudioIndex(
     return -1;
 }
 
-int firstValidVideoIndex(
-    const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+int firstValidVideoIndex(const MediaSourceDescriptor& source)
 {
     for (std::size_t index = 0; index < source.videoStreams.size(); ++index) {
         const auto& video = source.videoStreams[index];
-        if (validSourceCodec(video.codec) && fitsVideoLimits(video, client)) {
+        if (validSourceCodec(video.codec) && knownVideoDimensions(video)) {
             return static_cast<int>(index);
         }
     }
@@ -157,6 +212,11 @@ MediaPresentationProfile directProfile(
     profile.targetAudioCodec = audioIndex < 0
         ? MediaCodec::None
         : source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
+    if (videoIndex >= 0) {
+        const auto& video = source.videoStreams[static_cast<std::size_t>(videoIndex)];
+        profile.targetVideoWidth = video.width;
+        profile.targetVideoHeight = video.height;
+    }
     profile.targetAudioChannels = audioIndex < 0
         ? 0
         : source.audioStreams[static_cast<std::size_t>(audioIndex)].channels;
@@ -201,22 +261,36 @@ MediaPresentationProfile hlsProfile(
     else {
         int videoIndex = firstDirectVideoIndex(source, client);
         if (videoIndex >= 0) {
+            const auto& sourceVideo =
+                source.videoStreams[static_cast<std::size_t>(videoIndex)];
             profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Copy;
-            profile.targetVideoCodec =
-                source.videoStreams[static_cast<std::size_t>(videoIndex)].codec;
+            profile.targetVideoCodec = sourceVideo.codec;
+            profile.targetVideoWidth = sourceVideo.width;
+            profile.targetVideoHeight = sourceVideo.height;
         }
         else {
-            videoIndex = firstValidVideoIndex(source, client);
+            videoIndex = firstValidVideoIndex(source);
             if (videoIndex < 0) {
-                return unavailable("no valid source video track fits the requested client limits");
+                return unavailable("no valid source video track is available");
             }
             if (!contains(client.videoCodecs, MediaCodec::H264)) {
                 return unavailable("no allowed video codec path is available");
             }
+
+            const auto& sourceVideo =
+                source.videoStreams[static_cast<std::size_t>(videoIndex)];
+            const TargetVideoSize targetSize =
+                selectedTargetVideoSize(sourceVideo, client);
+            if (!targetSize.valid) {
+                return unavailable("source video dimensions cannot satisfy requested client limits");
+            }
+
             profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Transcode;
             profile.targetVideoCodec = MediaCodec::H264;
+            profile.targetVideoWidth = targetSize.width;
+            profile.targetVideoHeight = targetSize.height;
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
     }
