@@ -5,25 +5,26 @@
 Recording playback must choose a server-side video transformation that is both
 browser-compatible and sustainable in real time. A codec or pixel-format match
 alone is not sufficient: source decoding, deinterlacing and high-resolution
-transcoding can change the amount of CPU work substantially.
+transcoding can change the amount of server work substantially.
 
-The server must not infer performance from a CPU model name. Virtualization,
-clocking, thermal limits, concurrent work and encoder/library versions all make
-that unreliable. Instead, VDR-Suite uses a typed workload plus optional measured
+The server must not infer performance from a CPU/GPU model name. Virtualization,
+clocking, thermal limits, concurrent work, drivers and encoder/library versions
+all make that unreliable. VDR-Suite instead uses a typed workload plus measured
 throughput samples.
 
 ## Session-stable decision
 
 The transcode policy is resolved once, before the FFmpeg worker starts. The
-selected encoder backend and preset remain stable for the complete MediaSession.
-VDR-Suite does not switch x264 presets in the middle of an HLS/MSE session.
+selected encoder backend, hardware device and software preset remain stable for
+the complete MediaSession. VDR-Suite does not switch implementations in the
+middle of an HLS/MSE session.
 
 This preserves segment continuity and keeps the browser transport independent of
 server performance decisions.
 
 ## Workloads
 
-The current software policy distinguishes:
+The current policy distinguishes:
 
 - `standard`: ordinary video fallback/transcode at HD-or-lower source size;
 - `deinterlace`: interlaced source video transformed to progressive output;
@@ -31,7 +32,7 @@ The current software policy distinguishes:
   target size.
 
 The presentation selector classifies the workload. The transcode policy chooses
-the encoder implementation and preset.
+the encoder implementation.
 
 ## Software x264 presets
 
@@ -53,17 +54,66 @@ The quality-order search is:
 3. `veryfast`
 4. `superfast`
 
-If no measured preset reaches the minimum, the runtime uses the conservative
-workload fallback instead of pretending that the fastest measured preset passed:
+For `standard` and `deinterlace`, the historical conservative software fallback
+remains when no measured preset reaches the minimum:
 
 - `deinterlace` -> `superfast`
 - `standard` -> `veryfast`
-- `uhd-source` -> `veryfast`
 
-The calibrator reports the same fallback decision as the daemon. A generated
-fixture that is unusually expensive therefore cannot silently change the typed
-fallback to a different preset merely because all measured presets missed the
-threshold.
+For `uhd-source`, auto mode is deliberately stricter. A UHD transform that is
+known to run below real time can never be repaired by a finite browser buffer.
+UHD auto therefore selects only an implementation measured at **>=1.25x**. If
+neither a supported hardware backend nor x264 reaches that threshold, the
+presentation is unavailable instead of starting a stream that is guaranteed to
+fall behind.
+
+An explicit `VDR_SUITE_MEDIA_X264_UHD_PRESET` remains an operator override and
+can force the software path when needed for diagnosis.
+
+## VAAPI UHD backend
+
+Phase 65 implements VAAPI as the first hardware video backend. It is currently
+restricted to progressive `uhd-source` -> H.264 transcodes. Standard and
+interlaced/deinterlace workloads retain their established x264 paths.
+
+A selected VAAPI session uses one explicitly configured DRM render node and keeps
+decode, scaling and H.264 encode on the hardware path:
+
+```text
+-init_hw_device vaapi=va:/dev/dri/renderD128
+-filter_hw_device va
+-hwaccel vaapi
+-hwaccel_device va
+-hwaccel_output_format vaapi
+...
+-c:v h264_vaapi
+-qp 22
+-vf scale_vaapi=w=1920:h=1080:format=nv12
+-force_key_frames expr:gte(t,n_forced*4)
+```
+
+The hardware input options are emitted before the FFmpeg input. The HLS output
+keeps the same four-second forced-keyframe and independent-segment contract as
+software transcodes.
+
+The default device is:
+
+```text
+/dev/dri/renderD128
+```
+
+It can be overridden by the trusted server environment:
+
+```text
+VDR_SUITE_MEDIA_VAAPI_DEVICE=/dev/dri/renderD128
+```
+
+A VAAPI device is not selected merely because FFmpeg lists `h264_vaapi`. Auto
+selection requires a calibration result for `uhd-source.vaapi` that meets the
+same 1.25x minimum as software.
+
+QSV and NVENC remain represented by the typed backend enum but are not enabled
+by this Phase-65 follow-up; their command plans still fail closed.
 
 ## Calibration
 
@@ -77,29 +127,31 @@ Run it outside active playback when the server is in a representative operating
 state. Calibration is an explicit operator action; it is never started by the
 daemon.
 
-The **version 3** calibration format measures source decode plus the selected
-workload transform plus x264 encode. For a real Recording reference it also
-includes the normal AAC stereo audio fallback when an audio stream is present.
+The **version 4** profile extends the v3 software measurements with optional
+hardware-backend throughput. The daemon continues to accept existing **version
+3** profiles for backwards-compatible software policy, while versions 1 and 2
+remain intentionally ignored.
+
+Measurements include source decode, the selected workload transform and encode.
+For a real Recording reference they also include the normal AAC stereo audio
+fallback when an audio stream is present.
 
 Generated compressed fixtures use the short `--seconds` duration (default: six
 media seconds). Real source references use the separate `--real-seconds`
 duration, defaulting to **30 media seconds**, because Phase-65 acceptance showed
-that a damaged Recording startup can dominate a six-second speed result even
-when the sustained transform is viable.
+that a damaged Recording startup can dominate a short speed result even when the
+sustained transform is viable.
 
-Real source references also skip **15 seconds** of recording pre-roll by default
-before the timed sample begins. This keeps channel bumpers, recording-start
-artifacts and short pre-roll content from defining the server's sustained CPU
-profile. The offset is an operator control, not a playback rule: Recording
-playback still starts at the requested media position and must remain compatible
-with the pre-roll itself.
+Real source references skip **15 seconds** of recording pre-roll by default
+before the timed sample begins. This is an operator calibration control only;
+actual Recording playback still starts at the requested media position.
 
-For a workload where an operator has a representative real Recording, that
-source can be supplied directly:
+Representative real Recording sources can be supplied directly:
 
 ```bash
 sudo vdr-suite-media-calibrate \
-  --deinterlace-source '/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec'
+  --deinterlace-source '/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec' \
+  --uhd-source '/srv/vdr/video.00/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec'
 ```
 
 A source argument may point either to a media file or to a VDR `.rec` directory;
@@ -113,23 +165,26 @@ Available real-source overrides are:
 --uhd-source
 ```
 
-The real-source duration and pre-roll offset can be changed explicitly with:
+Other relevant controls are:
 
 ```text
 --real-seconds 30
 --real-start 15
+--vaapi-device /dev/dri/renderD128
+--no-vaapi
 ```
 
-Use `--real-start 0` only when the recording start itself is intentionally the
-representative calibration region.
+When VAAPI is not disabled, the selected render node exists, and FFmpeg exposes
+`h264_vaapi`, the calibrator additionally benchmarks the UHD VAAPI path. Device
+or driver capability is therefore proven by an actual decode/scale/encode run,
+not by encoder-list presence alone.
 
 When no real source is supplied:
 
 - `standard` uses a generated compressed 1080p H.264 fixture;
 - `deinterlace` uses a generated compressed 1080i H.264 fixture;
 - `uhd-source` uses a generated compressed 2160p HEVC fixture when `libx265` is
-  available; otherwise that workload is omitted and the daemon retains its
-  conservative UHD fallback.
+  available.
 
 The calibrator writes:
 
@@ -137,25 +192,23 @@ The calibrator writes:
 /var/lib/vdr-suite/media-transcode-performance.conf
 ```
 
-Example format:
+Example v4 format:
 
 ```text
-version=3
+version=4
 # deinterlace.source=real:/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec/00001.ts
-# deinterlace.start=15
-# deinterlace.seconds=30
 deinterlace.superfast=1.540
 deinterlace.veryfast=0.992
 deinterlace.faster=0.810
 deinterlace.fast=0.690
+# uhd-source.source=real:/srv/vdr/video.00/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec/00001.ts
+uhd-source.superfast=0.468
+uhd-source.veryfast=0.281
+uhd-source.faster=0.200
+uhd-source.fast=0.150
+uhd-source.vaapi=3.825
+# vaapi.device=/dev/dri/renderD128
 ```
-
-The daemon accepts only **version 3** profiles. Versions 1 and 2 are intentionally
-ignored and therefore fall back to the conservative workload defaults:
-
-- version 1 omitted source decode cost;
-- version 2 added decode cost but allowed short real-source samples whose damaged
-  startup region could dominate the final speed and obscure sustained capacity.
 
 After reviewing the generated profile, restart the daemon to load it:
 
@@ -165,9 +218,27 @@ sudo systemctl restart vdr-suite-daemon
 
 Calibration is never run automatically during playback or daemon startup.
 
+## Profile compatibility
+
+The daemon accepts:
+
+- **version 3**: trusted sustained software measurements from the prior Phase-65
+  policy;
+- **version 4**: the same software schema plus optional hardware-backend samples.
+
+Versions 1 and 2 remain ignored:
+
+- version 1 omitted source decode cost;
+- version 2 added decode cost but allowed short real-source samples whose damaged
+  startup region could dominate the final speed.
+
+A v3 profile without a >=1.25x UHD software result will now make UHD auto fail
+closed. Re-run the v4 calibrator on hardware-capable systems to enable a measured
+VAAPI path.
+
 ## Operator overrides
 
-The global mode is controlled by:
+The global x264 mode is controlled by:
 
 ```text
 VDR_SUITE_MEDIA_X264_PRESET=auto
@@ -191,28 +262,22 @@ VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET
 VDR_SUITE_MEDIA_X264_UHD_PRESET
 ```
 
-The performance-profile path can be overridden with:
+The performance-profile path and VAAPI render node can be overridden with:
 
 ```text
 VDR_SUITE_MEDIA_TRANSCODE_PROFILE
+VDR_SUITE_MEDIA_VAAPI_DEVICE
 ```
 
-An invalid override is ignored and falls back to the typed auto/default policy;
-arbitrary FFmpeg arguments are never accepted through these settings.
+Arbitrary FFmpeg arguments are never accepted through these settings. The VAAPI
+device is carried as one argv value and the command builder restricts it to a
+`/dev/dri/` path.
 
-## Real yaVDR evidence
+## Real yaVDR evidence — interlaced HD
 
 The Phase-65 interlaced Recording acceptance case
 `/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec` exposed both the playback and
-calibration requirements. The source is H.264 1920x1080 with top-field-first
-interlacing and also contains damaged/inconsistent H.264/transport data.
-
-Frame probes at the Recording start and at relative offsets beyond the Sky
-pre-roll show the same basic media format: H.264 1920x1080, yuv420p,
-interlaced/top-field-first with 25 frame/s timing. The evidence therefore does
-not support a codec switch at the bumper-to-film transition. The startup region
-is nevertheless a poor sustained-capacity sample because it includes sender
-pre-roll and known decoder/transport damage.
+software-calibration requirements.
 
 For the required 1080i -> 1080p25 browser compatibility transform on the tested
 yaVDR system, a 30-second real-source benchmark measured:
@@ -220,28 +285,33 @@ yaVDR system, a 30-second real-source benchmark measured:
 - x264 `veryfast`: `0.992x`, without useful HLS headroom;
 - x264 `superfast`: `1.54x`, with viable real-time reserve.
 
-The original raw-frame calibrator materially overestimated the same machine. A
-subsequent v2 run that decoded the real source but measured only six seconds
-reported `superfast=1.03x` and `veryfast=0.682x`; that result was dominated by the
-known startup/pre-roll region and contradicted the sustained 30-second acceptance
-measurement. The same v2 run also exposed a CLI/runtime inconsistency for UHD:
-all synthetic UHD presets missed 1.25x, yet the CLI displayed `auto -> superfast`
-while the daemon's typed fallback was `veryfast`.
+That evidence established the sustained 1.25x policy and the v3 real-source
+sampling rules. It also remains the reason deinterlace keeps its proven software
+path in this follow-up.
 
-Those findings are why only version 3 profiles are trusted: real references use a
-sustained sample after a configurable pre-roll offset by default, and calibrator
-fallback reporting is identical to the runtime policy.
+## Real yaVDR evidence — UHD HEVC Main10
 
-This evidence justifies the conservative deinterlace fallback for an
-uncalibrated server while still allowing a faster, correctly calibrated server
-to select `veryfast`, `faster` or `fast` automatically.
+`/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec` exposed the unsafe UHD software
+fallback. The source is HEVC Main10, 3840x2160. Runtime selected x264 `veryfast`
+with a 1920x1080 target. The HLS segments themselves were healthy at about
+2.71 Mbit/s and exactly four seconds, but FFmpeg's paced-source lag grew past
+eight seconds while the browser forward buffer drained.
 
-## Hardware encoder boundary
+Direct sustained software measurements on that exact source showed:
 
-The profile model already distinguishes encoder backends for software x264,
-VAAPI, Intel QSV and NVENC. Only software x264 is implemented in this slice.
-Unimplemented hardware backends fail closed in the command builder.
+- 1080p x264 `veryfast`: `0.281x`;
+- 1080p x264 `superfast`: `0.356x`;
+- 720p x264 `veryfast`: `0.391x`;
+- 720p x264 `superfast`: `0.468x`.
 
-A later hardware-acceleration implementation can extend the same server-side
-policy boundary without changing browser capabilities, presentation selection or
-mid-session HLS behavior.
+No software resolution/preset combination tested could sustain real time.
+
+The same source on the host's Intel UHD Graphics 605 using
+`/dev/dri/renderD128` measured the 4K HEVC -> 1080p H.264 VAAPI path at
+**3.825x**. A complete paced 40-second HLS reproduction then completed with
+`EXIT=0`, H.264 1920x1080 + AAC, `#EXT-X-INDEPENDENT-SEGMENTS`, and ten
+consecutive `4.004s` fMP4 segments.
+
+This evidence is why Phase 65 now permits calibrated VAAPI for progressive UHD
+Recording transcodes and why UHD auto fails closed when no implementation meets
+the minimum real-time threshold.
