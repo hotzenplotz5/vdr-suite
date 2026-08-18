@@ -81,7 +81,10 @@ sudo systemctl restart vdr-suite-daemon
 .fi
 .PP
 measures representative software-x264 workloads and stores per-workload preset throughput.
-Generated fixtures use a short benchmark duration; explicitly supplied real Recording references use a sustained 30-second sample by default and include source decode plus the normal AAC audio fallback when present.
+Generated fixtures use a short benchmark duration.
+Explicitly supplied real Recording references use a sustained 30-second sample by default and include source decode plus the normal AAC audio fallback when present.
+The real-reference duration can be adjusted with
+.BR --real-seconds .
 The accepted profile format is version 3. Older profile versions are ignored and fall back to conservative workload defaults.
 In auto mode VDR-Suite selects the slowest/highest-compression supported preset that has at least 1.25x measured real-time throughput.
 If no measured preset reaches the threshold, the typed fallback remains
