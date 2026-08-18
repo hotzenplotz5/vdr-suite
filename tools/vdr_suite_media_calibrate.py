@@ -11,26 +11,30 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 PRESETS = ("superfast", "veryfast", "faster", "fast")
 QUALITY_ORDER = ("fast", "faster", "veryfast", "superfast")
 MINIMUM_REALTIME_SPEED = 1.25
-PROFILE_VERSION = 2
+PROFILE_VERSION = 3
+DEFAULT_REAL_SOURCE_SECONDS = 30
 SPEED_RE = re.compile(r"speed=\s*([0-9]+(?:\.[0-9]+)?)x")
 
 WORKLOADS = {
     "standard": {
         "filter": "scale=1920:1080",
+        "fallback": "veryfast",
     },
     "deinterlace": {
         "filter": (
             "bwdif=mode=send_frame:parity=auto:deint=all,"
             "scale=1920:1080"
         ),
+        "fallback": "superfast",
     },
     "uhd-source": {
         "filter": "scale=1920:1080",
+        "fallback": "veryfast",
     },
 }
 
@@ -156,6 +160,7 @@ def benchmark(
     preset: str,
     seconds: int,
     source: pathlib.Path,
+    include_audio: bool,
 ) -> float:
     command = [
         ffmpeg,
@@ -169,9 +174,13 @@ def benchmark(
         str(source),
         "-map",
         "0:v:0",
+    ]
+    if include_audio:
+        command += ["-map", "0:a:0?"]
+    command += [
         "-t",
         str(seconds),
-        "-an",
+        "-sn",
         "-c:v",
         "libx264",
         "-preset",
@@ -182,10 +191,13 @@ def benchmark(
         WORKLOADS[workload]["filter"],
         "-pix_fmt",
         "yuv420p",
-        "-f",
-        "null",
-        "-",
     ]
+    if include_audio:
+        command += ["-c:a", "aac", "-b:a", "192k", "-ac", "2"]
+    else:
+        command += ["-an"]
+    command += ["-f", "null", "-"]
+
     completed = subprocess.run(
         command,
         stdout=subprocess.DEVNULL,
@@ -207,17 +219,18 @@ def benchmark(
     return speeds[-1]
 
 
-def recommended_preset(samples: Dict[str, float]) -> str:
+def policy_choice(workload: str, samples: Dict[str, float]) -> tuple[str, bool]:
     for preset in QUALITY_ORDER:
         if samples.get(preset, 0.0) >= MINIMUM_REALTIME_SPEED:
-            return preset
-    return "superfast"
+            return preset, True
+    return str(WORKLOADS[workload]["fallback"]), False
 
 
 def write_profile(
     path: pathlib.Path,
     results: Dict[str, Dict[str, float]],
     source_kinds: Dict[str, str],
+    durations: Dict[str, int],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -229,6 +242,7 @@ def write_profile(
         if workload not in results:
             continue
         lines.append(f"# {workload}.source={source_kinds[workload]}")
+        lines.append(f"# {workload}.seconds={durations[workload]}")
         for preset in PRESETS:
             lines.append(f"{workload}.{preset}={results[workload][preset]:.3f}")
     lines.append("")
@@ -269,7 +283,13 @@ def main() -> int:
         "--seconds",
         type=int,
         default=6,
-        help="media seconds per benchmark (default: 6)",
+        help="media seconds per generated-fixture benchmark (default: 6)",
+    )
+    parser.add_argument(
+        "--real-seconds",
+        type=int,
+        default=DEFAULT_REAL_SOURCE_SECONDS,
+        help="media seconds per real-reference benchmark (default: 30)",
     )
     parser.add_argument(
         "--standard-source",
@@ -287,6 +307,8 @@ def main() -> int:
 
     if args.seconds < 3 or args.seconds > 30:
         parser.error("--seconds must be between 3 and 30")
+    if args.real_seconds < 15 or args.real_seconds > 60:
+        parser.error("--real-seconds must be between 15 and 60")
 
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -304,15 +326,18 @@ def main() -> int:
     has_libx265 = ffmpeg_has_encoder(ffmpeg, "libx265")
     results: Dict[str, Dict[str, float]] = {}
     source_kinds: Dict[str, str] = {}
+    durations: Dict[str, int] = {}
 
     try:
         with tempfile.TemporaryDirectory(prefix="vdr-suite-media-calibrate-") as temp:
             root = pathlib.Path(temp)
             for workload in WORKLOADS:
                 reference = resolve_reference(references[workload])
-                if reference is not None:
+                real_reference = reference is not None
+                if real_reference:
                     source = reference
                     source_kinds[workload] = f"real:{reference}"
+                    durations[workload] = args.real_seconds
                 else:
                     source = generate_fixture(
                         ffmpeg, workload, args.seconds, root, has_libx265
@@ -323,19 +348,37 @@ def main() -> int:
                         )
                         continue
                     source_kinds[workload] = "generated-compressed-fixture"
+                    durations[workload] = args.seconds
 
                 results[workload] = {}
-                print(f"[{workload}] source={source_kinds[workload]}")
+                print(
+                    f"[{workload}] source={source_kinds[workload]} "
+                    f"seconds={durations[workload]}"
+                )
                 for preset in PRESETS:
-                    speed = benchmark(ffmpeg, workload, preset, args.seconds, source)
+                    speed = benchmark(
+                        ffmpeg,
+                        workload,
+                        preset,
+                        durations[workload],
+                        source,
+                        include_audio=real_reference,
+                    )
                     results[workload][preset] = speed
                     verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
                     print(f"  {preset:9s} {speed:5.3f}x  {verdict}")
-                print(
-                    "  auto -> "
-                    f"{recommended_preset(results[workload])} "
-                    f"(minimum {MINIMUM_REALTIME_SPEED:.2f}x)"
-                )
+
+                choice, measured = policy_choice(workload, results[workload])
+                if measured:
+                    print(
+                        f"  auto -> {choice} "
+                        f"(minimum {MINIMUM_REALTIME_SPEED:.2f}x)"
+                    )
+                else:
+                    print(
+                        f"  auto -> fallback {choice} "
+                        f"(no measured preset reaches {MINIMUM_REALTIME_SPEED:.2f}x)"
+                    )
     except (RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"vdr-suite-media-calibrate: {error}", file=sys.stderr)
         return 3
@@ -346,7 +389,7 @@ def main() -> int:
 
     output = pathlib.Path(args.output)
     try:
-        write_profile(output, results, source_kinds)
+        write_profile(output, results, source_kinds, durations)
     except OSError as error:
         print(
             f"vdr-suite-media-calibrate: cannot write {output}: {error}",
