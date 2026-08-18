@@ -12,9 +12,9 @@ Latest completed numbered runtime phase: **Phase 64 - Timer Intent and Multi-Bac
 
 Current active numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
 
-Current Phase-65 focus: **Recording playback lifecycle closeout hardening**.
+Completed Phase-65 vertical: **65.A - Existing-Recording playback**.
 
-Next Phase-65 product vertical after that closeout: **65.B - Live-TV playback**.
+Next Phase-65 product vertical: **65.B - Live-TV playback**.
 
 Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, and Phase 63 - Backend Agent and Secure Multi-Site Runtime.
 
@@ -87,9 +87,9 @@ private source
 
 The product order remains Recording playback first, then Live TV, then truthful seek/growing-Recording behavior. Remux and transcode are evidence-driven compatibility escalation, not default architecture.
 
-## Phase 65 Recording playback status
+## Phase 65.A Recording playback completion
 
-The existing-Recording playback vertical is functionally and compatibility accepted on real yaVDR for the implemented browser path.
+The existing-Recording playback vertical is accepted and closed for its bounded browser product scope.
 
 Accepted capabilities include:
 
@@ -105,33 +105,17 @@ Accepted capabilities include:
 - calibrated x264 workload policy;
 - calibrated VAAPI UHD hardware transcoding with fail-closed UHD auto selection when no measured path reaches the 1.25x minimum;
 - graceful `pagehide`, stop, ended and error cleanup;
+- server-owned cleanup after an ungraceful client disappearance using the existing 300-second MediaAccessGrant idle boundary;
+- deterministic worker/workspace and MediaSession/Route/Lease/Grant terminal cleanup;
 - real browser picture + sound acceptance including mobile/VPN-sensitive cases.
 
-See [Phase 65 Recording Playback Closeout Readiness](phase-65-recording-playback-closeout-readiness.md) for the durable evidence summary and remaining blocker.
+The hard-disconnect acceptance proved that active playback is not reaped while access continues, and that an idle client disappearance ends the worker with terminal reason `media_access_idle_expired` and removes the workspace.
 
-## Remaining Phase 65.A lifecycle blocker
-
-The current Recording path is not yet fully closeout-ready for an ungraceful client disappearance.
-
-Current runtime behavior separates two facts:
-
-```text
-MediaAccessGrant idle expiry
-  -> future Gateway requests fail authorization
-
-active RecordingMediaSessionRuntime worker ownership
-  -> worker stops on explicit stop/failure/daemon shutdown/restart recovery
-```
-
-The default media access idle timeout is five minutes, while Recording MediaSessions have a six-hour absolute lifetime. No server-side reaper currently maps an idle/expired active grant back to the runtime-owned FFmpeg worker and proactively ends that MediaSession.
-
-Therefore a killed browser process or lost network can leave an already-running worker alive after client access has gone idle. This is the last identified 65.A lifecycle hardening gap. It is a resource-cleanup issue, not a playback/codec/HLS issue.
-
-The required fix is a bounded, idempotent server-owned reaper/watchdog driven by existing MediaSession/MediaAccessGrant lifecycle evidence. It must race safely with normal pagehide/stop cleanup and prove the hard-disconnect case on real yaVDR.
+See [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md) for the durable evidence summary.
 
 ## Phase 65.B next direction
 
-After the Recording hard-disconnect lifecycle gap is accepted, the next product vertical is Live-TV playback:
+The next authorized product vertical is Live-TV playback:
 
 ```text
 channel / EPG selection
@@ -146,6 +130,8 @@ channel / EPG selection
 ```
 
 Live TV must reuse the public MediaSession/Gateway boundary rather than expose Streamdev or other provider URLs directly to the browser. Channel replacement must be explicit and old provider/tuner resources must be released deterministically.
+
+General seek/growing-Recording behavior remains later Phase-65 work.
 
 ## Broadcast Companion direction
 
@@ -217,16 +203,17 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Current authorization boundary
 
-The authorized next runtime change remains inside Phase 65.A and is limited to the Recording hard-disconnect lifecycle closeout:
+Phase 65.A Recording playback is closed. The next authorized runtime change is Phase 65.B Live-TV playback:
 
-1. use existing MediaSession/MediaAccessGrant lifecycle evidence to detect stale active Recording sessions;
-2. reap the runtime-owned worker/workspace deterministically;
-3. persist a terminal session/route/lease/grant state/reason;
-4. remain idempotent and safe against races with normal browser stop/pagehide cleanup;
-5. prove that an active session is not reaped while its access grant is still being touched;
-6. pass CI and real yaVDR hard-disconnect acceptance.
+1. resolve stable Suite Channel identity to an explicitly owned private live provider;
+2. create authorized MediaSession/Route/Lease/Grant state without exposing provider URLs;
+3. deliver live picture and sound through the Suite Gateway to the first-party browser;
+4. keep provider/tuner ownership explicit and bounded;
+5. make channel replacement explicit and release old route/provider/tuner resources deterministically;
+6. preserve disconnect/revoke/expiry cleanup semantics;
+7. pass exact-head CI and real yaVDR acceptance.
 
-After that closeout is accepted, Phase 65.B Live-TV playback becomes the next authorized product vertical. General seek/growing-Recording work follows according to the Strict Roadmap. Phase 66 remains out of scope.
+General seek/growing-Recording work follows according to the Strict Roadmap. Phase 66 remains out of scope.
 
 ## Authoritative links
 
@@ -235,7 +222,7 @@ After that closeout is accepted, Phase 65.B Live-TV playback becomes the next au
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
-- [Phase 65 Recording Playback Closeout Readiness](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
