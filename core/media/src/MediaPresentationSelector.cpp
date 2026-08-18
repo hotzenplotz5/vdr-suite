@@ -48,7 +48,7 @@ int selectedTargetAudioChannels(
         return 0;
     }
     if (audio.channels <= 0) {
-        return -1;
+        return client.maxAudioChannels;
     }
     return std::min(audio.channels, client.maxAudioChannels);
 }
@@ -248,9 +248,6 @@ MediaPresentationProfile hlsProfile(
             const auto& sourceAudio =
                 source.audioStreams[static_cast<std::size_t>(audioIndex)];
             const int targetChannels = selectedTargetAudioChannels(sourceAudio, client);
-            if (targetChannels < 0) {
-                return unavailable("source audio channel count is unknown for the requested client limit");
-            }
 
             profile.sourceAudioStreamIndex = audioIndex;
             profile.audioAction = MediaTrackAction::Transcode;

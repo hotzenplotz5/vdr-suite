@@ -182,11 +182,21 @@ FfprobeRecordingResult FfprobeRecordingSource::parse(
             return result;
         }
     }
+
+    bool hasKnownAudioCodec = false;
+    bool hasUnknownAudioCodec = false;
     for (const auto& audio : result.source.audioStreams) {
         if (audio.codec == MediaCodec::Unknown) {
-            result.reasonCode = "unknown_audio_codec";
-            return result;
+            hasUnknownAudioCodec = true;
         }
+        else if (audio.codec != MediaCodec::None) {
+            hasKnownAudioCodec = true;
+        }
+    }
+
+    if (hasUnknownAudioCodec && !hasKnownAudioCodec) {
+        result.reasonCode = "unknown_audio_codec";
+        return result;
     }
 
     result.valid = true;

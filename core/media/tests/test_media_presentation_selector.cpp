@@ -127,6 +127,19 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.front().codec = MediaCodec::Aac;
+        source.audioStreams.front().channels = 0;
+        const auto profile = selector.select(source, browserHlsCapabilities());
+        assert(profile.available);
+        assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
         source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(profile.available);
