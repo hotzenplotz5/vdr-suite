@@ -4,8 +4,8 @@
 
 Recording playback must choose a server-side video transformation that is both
 browser-compatible and sustainable in real time. A codec or pixel-format match
-alone is not sufficient: deinterlacing and high-resolution transcoding can
-change the amount of CPU work substantially.
+alone is not sufficient: source decoding, deinterlacing and high-resolution
+transcoding can change the amount of CPU work substantially.
 
 The server must not infer performance from a CPU model name. Virtualization,
 clocking, thermal limits, concurrent work and encoder/library versions all make
@@ -42,9 +42,9 @@ Supported software presets are:
 - `faster`
 - `fast`
 
-`auto` is the default policy mode. When measured samples exist, auto chooses the
-slowest/highest-compression preset that still reaches at least **1.25x** measured
-real-time speed for that workload.
+`auto` is the default policy mode. When trusted measured samples exist, auto
+chooses the slowest/highest-compression preset that still reaches at least
+**1.25x** measured real-time speed for that workload.
 
 The quality-order search is:
 
@@ -71,15 +71,43 @@ vdr-suite-media-calibrate
 ```
 
 Run it outside active playback when the server is in a representative operating
-state:
+state. Calibration is an explicit operator action; it is never started by the
+daemon.
+
+The **version 2** calibration format measures source decode plus the selected
+workload transform plus x264 encode. The calibrator therefore no longer feeds
+raw `lavfi` frames directly into the encoder as the authoritative performance
+sample.
+
+By default, it first creates short compressed reference clips and then decodes
+those clips during each benchmark. For a workload where an operator has a
+representative real Recording, that source can be supplied directly:
 
 ```bash
-sudo vdr-suite-media-calibrate
-sudo systemctl restart vdr-suite-daemon
+sudo vdr-suite-media-calibrate \
+  --deinterlace-source '/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec'
 ```
 
-The tool benchmarks representative synthetic `standard`, `deinterlace` and
-`uhd-source` software-x264 workloads for all supported presets and writes:
+A source argument may point either to a media file or to a VDR `.rec` directory;
+for a Recording directory the first five-digit `.ts` segment is used.
+
+Available real-source overrides are:
+
+```text
+--standard-source
+--deinterlace-source
+--uhd-source
+```
+
+When no real source is supplied:
+
+- `standard` uses a generated compressed 1080p H.264 fixture;
+- `deinterlace` uses a generated compressed 1080i H.264 fixture;
+- `uhd-source` uses a generated compressed 2160p HEVC fixture when `libx265` is
+  available; otherwise that workload is omitted and the daemon retains its
+  conservative UHD fallback.
+
+The calibrator writes:
 
 ```text
 /var/lib/vdr-suite/media-transcode-performance.conf
@@ -88,15 +116,27 @@ The tool benchmarks representative synthetic `standard`, `deinterlace` and
 Example format:
 
 ```text
-version=1
+version=2
+# deinterlace.source=real:/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec/00001.ts
 deinterlace.superfast=1.540
 deinterlace.veryfast=0.992
 deinterlace.faster=0.810
 deinterlace.fast=0.690
 ```
 
-The daemon reads this profile when the media runtime is created. Calibration is
-never run automatically during playback or daemon startup.
+The daemon accepts only the decoded-source **version 2** profile format. Earlier
+`version=1` profiles are intentionally ignored and therefore fall back to the
+conservative workload defaults. This is a safety boundary: Phase-65 real yaVDR
+acceptance showed that the original raw-frame benchmark could materially
+overestimate the capacity of the real Decode -> Deinterlace -> Encode path.
+
+After reviewing the generated profile, restart the daemon to load it:
+
+```bash
+sudo systemctl restart vdr-suite-daemon
+```
+
+Calibration is never run automatically during playback or daemon startup.
 
 ## Operator overrides
 
@@ -136,19 +176,26 @@ arbitrary FFmpeg arguments are never accepted through these settings.
 ## Real yaVDR evidence
 
 The Phase-65 interlaced Recording acceptance case
-`/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec` exposed the need for this
-policy. The source is H.264 1920x1080 with top-field-first interlacing and also
-contains damaged/inconsistent H.264/transport data.
+`/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec` exposed both the playback and
+calibration requirements. The source is H.264 1920x1080 with top-field-first
+interlacing and also contains damaged/inconsistent H.264/transport data.
 
 For the required 1080i -> 1080p25 browser compatibility transform on the tested
 yaVDR system:
 
-- x264 `veryfast` measured `0.992x` and had no useful HLS headroom;
-- x264 `superfast` measured `1.54x` and provided a viable real-time reserve.
+- x264 `veryfast` measured `0.992x` on the real Recording source and had no useful
+  HLS headroom;
+- x264 `superfast` measured `1.54x` on the same real source and provided a viable
+  real-time reserve.
 
-That evidence justifies the conservative deinterlace fallback for an
-uncalibrated server while still allowing a faster calibrated server to select
-`veryfast`, `faster` or `fast` automatically.
+The original raw-frame calibrator produced materially more optimistic numbers
+for the same machine (`deinterlace veryfast=1.54x`). That mismatch is why
+version 1 profiles are rejected and calibration now includes compressed-source
+decode or an explicitly supplied real Recording.
+
+This evidence justifies the conservative deinterlace fallback for an
+uncalibrated server while still allowing a faster, correctly calibrated server
+to select `veryfast`, `faster` or `fast` automatically.
 
 ## Hardware encoder boundary
 
