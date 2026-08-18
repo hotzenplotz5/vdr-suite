@@ -10,10 +10,9 @@ install-media-transcode-calibrator:
 		$(DESTDIR)$(BINDIR)/vdr-suite-media-calibrate
 
 test-phase65-media-transcode-calibrator-install:
-	rm -rf /tmp/vdr-suite-media-calibrator-install
+	python3 -m py_compile tools/vdr_suite_media_calibrate.py
 	$(MAKE) install-media-transcode-calibrator \
 		DESTDIR=/tmp/vdr-suite-media-calibrator-install PREFIX=/usr
 	test -x /tmp/vdr-suite-media-calibrator-install/usr/bin/vdr-suite-media-calibrate
 	/tmp/vdr-suite-media-calibrator-install/usr/bin/vdr-suite-media-calibrate \
 		--help >/dev/null
-	rm -rf /tmp/vdr-suite-media-calibrator-install
