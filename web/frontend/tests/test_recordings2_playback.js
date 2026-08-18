@@ -97,6 +97,7 @@ const parsed = test.parsePlaylist([
 ].join('\n'));
 assert.strictEqual(parsed.initSegment, 'init.mp4');
 assert.deepStrictEqual(Array.from(parsed.segments), ['segment-000001.m4s', 'segment-000002.m4s']);
+assert.deepStrictEqual(Array.from(parsed.segmentDurations), [4, 4]);
 assert.strictEqual(parsed.ended, true);
 assert.strictEqual(test.safeArtifactName('../secret.m4s'), '');
 assert.strictEqual(test.safeArtifactName('/tmp/secret.m4s'), '');
@@ -113,6 +114,70 @@ assert.throws(
 assert.throws(
   () => test.artifactUrl('/elsewhere/master.m3u8', 'init.mp4'),
   /außerhalb des HLS-Gateways/
+);
+
+assert.strictEqual(test.startupBufferSeconds, 12);
+assert.strictEqual(test.rebufferResumeSeconds, 12);
+
+const startupTooShort = test.parsePlaylist([
+  '#EXTM3U',
+  '#EXT-X-MAP:URI="init.mp4"',
+  '#EXTINF:4.0,',
+  'segment-000001.m4s',
+  '#EXTINF:4.0,',
+  'segment-000002.m4s'
+].join('\n'));
+const shortBatch = test.startupBatch(startupTooShort, test.startupBufferSeconds);
+assert.strictEqual(shortBatch.ready, false);
+assert.strictEqual(shortBatch.duration, 8);
+assert.deepStrictEqual(Array.from(shortBatch.segments), [
+  'segment-000001.m4s',
+  'segment-000002.m4s'
+]);
+
+const startupReady = test.parsePlaylist([
+  '#EXTM3U',
+  '#EXT-X-MAP:URI="init.mp4"',
+  '#EXTINF:4.0,',
+  'segment-000001.m4s',
+  '#EXTINF:4.0,',
+  'segment-000002.m4s',
+  '#EXTINF:4.0,',
+  'segment-000003.m4s'
+].join('\n'));
+const readyBatch = test.startupBatch(startupReady, test.startupBufferSeconds);
+assert.strictEqual(readyBatch.ready, true);
+assert.strictEqual(readyBatch.duration, 12);
+assert.deepStrictEqual(Array.from(readyBatch.segments), [
+  'segment-000001.m4s',
+  'segment-000002.m4s',
+  'segment-000003.m4s'
+]);
+
+const shortEndedBatch = test.startupBatch(parsed, test.startupBufferSeconds);
+assert.strictEqual(shortEndedBatch.ready, true);
+assert.strictEqual(shortEndedBatch.duration, 8);
+
+const bufferedRange = {
+  buffered: {
+    length: 1,
+    start() { return 0; },
+    end() { return 12; }
+  }
+};
+assert.strictEqual(test.bufferedAheadSeconds(bufferedRange, {currentTime: 0}), 12);
+assert.strictEqual(test.bufferedAheadSeconds(bufferedRange, {currentTime: 5}), 7);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 0}, test.startupBufferSeconds, false),
+  true
+);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 5}, test.rebufferResumeSeconds, false),
+  false
+);
+assert.strictEqual(
+  test.bufferReady(bufferedRange, {currentTime: 5}, test.rebufferResumeSeconds, true),
+  true
 );
 
 function mp4Box(type, payload) {
