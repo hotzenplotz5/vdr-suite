@@ -140,6 +140,17 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         return invalid("unsupported_track_transformation");
     }
 
+    if (profile.container == MediaContainer::Fmp4 &&
+        profile.videoAction == MediaTrackAction::Copy &&
+        profile.targetVideoCodec == MediaCodec::H264) {
+        // Some trusted Recording sources carry stale or impossible H.264
+        // level_idc metadata. Browsers validate the SPS more strictly than
+        // ffmpeg does while remuxing. Let ffmpeg derive the level from the
+        // actual bitstream properties without re-encoding the video.
+        plan.argv.push_back("-bsf:v");
+        plan.argv.push_back("h264_metadata=level=auto");
+    }
+
     plan.argv.insert(
         plan.argv.end(),
         {
