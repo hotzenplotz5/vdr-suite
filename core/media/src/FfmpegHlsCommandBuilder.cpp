@@ -76,9 +76,21 @@ void appendVideoPlan(
         argv.push_back("-crf");
         argv.push_back("20");
         argv.push_back("-vf");
-        argv.push_back(
-            "scale=" + std::to_string(profile.targetVideoWidth) +
-            ":" + std::to_string(profile.targetVideoHeight));
+        if (profile.deinterlaceVideo) {
+            // Convert interlaced Recording video into a progressive browser
+            // target before scaling. send_field preserves the source field
+            // cadence (for example 1080i50 becomes 1080p50) instead of
+            // discarding half of the temporal samples.
+            argv.push_back(
+                "bwdif=mode=send_field:parity=auto:deint=all,scale=" +
+                std::to_string(profile.targetVideoWidth) + ":" +
+                std::to_string(profile.targetVideoHeight));
+        }
+        else {
+            argv.push_back(
+                "scale=" + std::to_string(profile.targetVideoWidth) +
+                ":" + std::to_string(profile.targetVideoHeight));
+        }
         // Normalize high-bit-depth HEVC and other source formats to the
         // broadly interoperable 8-bit 4:2:0 H.264 browser target.
         argv.push_back("-pix_fmt");
