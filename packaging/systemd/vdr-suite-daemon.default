@@ -71,9 +71,9 @@ VDR_SUITE_TMDB_MAX_JSON_BYTES=524288
 
 # Recording software-transcode policy. Auto is resolved once before the FFmpeg
 # worker starts and stays stable for the complete media session. A trusted v3
-# calibration profile can select a slower/higher-compression x264 preset when
-# measured throughput keeps at least 1.25x real-time headroom. Without such a
-# profile the typed fallbacks are deinterlace=superfast and otherwise=veryfast.
+# calibration profile can choose a higher-compression x264 preset only when the
+# measured workload retains at least 1.25x real-time throughput. Otherwise the
+# typed fallbacks are deinterlace=superfast and standard/UHD=veryfast.
 VDR_SUITE_MEDIA_X264_PRESET=auto
 VDR_SUITE_MEDIA_TRANSCODE_PROFILE=/var/lib/vdr-suite/media-transcode-performance.conf
 # VDR_SUITE_MEDIA_X264_STANDARD_PRESET=auto
