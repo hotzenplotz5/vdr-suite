@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -27,6 +28,8 @@ public:
     ApiResponse createSession(
         const std::string& body,
         const std::string& actorId) const;
+
+    std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
     ApiResponse stopSession(

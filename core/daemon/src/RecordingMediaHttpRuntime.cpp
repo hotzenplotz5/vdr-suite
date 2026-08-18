@@ -13,6 +13,7 @@
 #include "SimpleHttpListener.h"
 #include "VdrRecordingQueryService.h"
 
+#include <chrono>
 #include <iostream>
 #include <utility>
 
@@ -21,6 +22,8 @@ namespace
 
 constexpr const char* MediaSessionWorkspaceRoot =
     "/var/cache/vdr-suite/media-sessions";
+constexpr int MediaAccessIdleTimeoutSeconds = 300;
+constexpr auto MediaSessionReapInterval = std::chrono::seconds(5);
 
 }
 
@@ -54,7 +57,8 @@ int runRecordingMediaHttpRuntime(
         mediaSessionIssuanceService,
         MediaSessionWorkspaceRoot);
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
-        mediaSessionRepository);
+        mediaSessionRepository,
+        MediaAccessIdleTimeoutSeconds);
     MediaHlsArtifactReader mediaHlsArtifactReader(
         MediaSessionWorkspaceRoot);
 
@@ -68,6 +72,22 @@ int runRecordingMediaHttpRuntime(
                 actorRef);
         });
 
+    auto nextMediaSessionReap = std::chrono::steady_clock::now();
+    auto mediaRuntimeTick =
+        [&recordingMediaSessionController,
+         nextMediaSessionReap,
+         onTick = std::move(onTick)]() mutable {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= nextMediaSessionReap) {
+                recordingMediaSessionController.reapInactiveSessions(
+                    MediaAccessIdleTimeoutSeconds);
+                nextMediaSessionReap = now + MediaSessionReapInterval;
+            }
+            if (onTick) {
+                onTick();
+            }
+        };
+
     httpListener.reset();
     httpServer = std::make_unique<MediaGatewayHttpServer>(
         std::move(httpServer),
@@ -79,7 +99,7 @@ int runRecordingMediaHttpRuntime(
         listenPort,
         *httpServer,
         std::move(shouldStop),
-        std::move(onTick));
+        std::move(mediaRuntimeTick));
 
     std::cout << "MediaSession persistence and restart recovery initialized" << std::endl;
     std::cout << "Media Gateway runtime initialized" << std::endl;

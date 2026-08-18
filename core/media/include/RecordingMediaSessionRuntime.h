@@ -4,6 +4,7 @@
 #include "MediaTranscodePolicy.h"
 
 #include <chrono>
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -58,6 +59,7 @@ public:
     RecordingMediaSessionProvisionResult provisionHls(
         const std::string& sessionId,
         const std::string& workspaceId,
+        const std::string& grantId,
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
@@ -65,12 +67,15 @@ public:
         const std::string& sessionId,
         const std::string& reasonCode);
 
+    std::size_t reapInactive(int idleTimeoutSeconds);
+
     void stopAll();
 
 private:
     struct ActiveSession
     {
         pid_t pid = -1;
+        std::string grantId;
         std::unique_ptr<MediaSessionWorkspace> workspace;
     };
 

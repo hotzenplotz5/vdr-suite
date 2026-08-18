@@ -105,11 +105,12 @@ bool RecordingMediaSessionRuntime::defaultReady(
 RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     const std::string& sessionId,
     const std::string& workspaceId,
+    const std::string& grantId,
     const MediaPresentationProfile& profile,
     const std::vector<std::string>& sourceSegments)
 {
     RecordingMediaSessionProvisionResult result;
-    if (sessionId.empty() || workspaceId.empty() ||
+    if (sessionId.empty() || workspaceId.empty() || grantId.empty() ||
         !profile.available || profile.protocol != MediaDeliveryProtocol::Hls ||
         (profile.container != MediaContainer::Fmp4 &&
          profile.container != MediaContainer::MpegTs)) {
@@ -164,6 +165,7 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
         if (readinessProbe_(workspace->directory(), resolvedProfile.container)) {
             ActiveSession active;
             active.pid = pid;
+            active.grantId = grantId;
             active.workspace = std::move(workspace);
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -243,6 +245,49 @@ bool RecordingMediaSessionRuntime::stop(
 
     const bool bundleEnded = repository_.endBundle(sessionId, reasonCode);
     return workerStopped && bundleEnded;
+}
+
+std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
+{
+    if (idleTimeoutSeconds < 0 || idleTimeoutSeconds > 86400) {
+        return 0;
+    }
+
+    std::vector<std::pair<std::string, std::string>> candidates;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        candidates.reserve(active_.size());
+        for (const auto& entry : active_) {
+            candidates.emplace_back(entry.first, entry.second.grantId);
+        }
+    }
+
+    std::size_t reaped = 0;
+    for (const auto& candidate : candidates) {
+        const auto grant = repository_.findResolvedGrant(
+            candidate.second,
+            idleTimeoutSeconds);
+        if (!grant.has_value() || grant->sessionId != candidate.first) {
+            continue;
+        }
+
+        std::string reasonCode;
+        if (!grant->active || grant->revoked) {
+            reasonCode = "media_access_revoked";
+        }
+        else if (grant->expired) {
+            reasonCode = "media_access_expired";
+        }
+        else if (grant->idleExpired) {
+            reasonCode = "media_access_idle_expired";
+        }
+
+        if (!reasonCode.empty() && stop(candidate.first, reasonCode)) {
+            ++reaped;
+        }
+    }
+
+    return reaped;
 }
 
 void RecordingMediaSessionRuntime::stopAll()

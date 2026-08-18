@@ -167,6 +167,12 @@ RecordingMediaSessionController::RecordingMediaSessionController(
 
 RecordingMediaSessionController::~RecordingMediaSessionController() = default;
 
+std::size_t RecordingMediaSessionController::reapInactiveSessions(
+    int idleTimeoutSeconds) const
+{
+    return mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
+}
+
 ApiResponse RecordingMediaSessionController::handleRequest(
     const std::string& body,
     const std::string& actorId) const
@@ -359,6 +365,7 @@ ApiResponse RecordingMediaSessionController::createSession(
         mediaSessionRuntime_->provisionHls(
             issuance.session.sessionId,
             issuance.session.workspaceId,
+            issuance.session.grantId,
             profile,
             sourceResolution.source.segmentPaths);
     if (!provision.ready) {
