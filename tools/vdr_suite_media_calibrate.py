@@ -23,10 +23,7 @@ DEFAULT_VAAPI_DEVICE = "/dev/dri/renderD128"
 SPEED_RE = re.compile(r"speed=\s*([0-9]+(?:\.[0-9]+)?)x")
 
 WORKLOADS = {
-    "standard": {
-        "filter": "scale=1920:1080",
-        "fallback": "veryfast",
-    },
+    "standard": {"filter": "scale=1920:1080", "fallback": "veryfast"},
     "deinterlace": {
         "filter": (
             "bwdif=mode=send_frame:parity=auto:deint=all,"
@@ -34,10 +31,7 @@ WORKLOADS = {
         ),
         "fallback": "superfast",
     },
-    "uhd-source": {
-        "filter": "scale=1920:1080",
-        "fallback": "veryfast",
-    },
+    "uhd-source": {"filter": "scale=1920:1080", "fallback": "veryfast"},
 }
 
 
@@ -280,7 +274,7 @@ def write_profile(
         for backend, speed in hardware_results.get(workload, {}).items():
             lines.append(f"{workload}.{backend}={speed:.3f}")
     if any(hardware_results.values()):
-        lines.append(f"# vaapi.device={vaapi_device}")
+        lines.append(f"vaapi.device={vaapi_device}")
     lines.append("")
 
     handle = tempfile.NamedTemporaryFile(
@@ -437,9 +431,7 @@ def main() -> int:
                         print(f"  vaapi     unavailable ({error})")
                     else:
                         hardware_results.setdefault(workload, {})["vaapi"] = speed
-                        verdict = (
-                            "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
-                        )
+                        verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
                         print(f"  {'vaapi':9s} {speed:5.3f}x  {verdict}")
 
                 if workload == "uhd-source":
