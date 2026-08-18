@@ -60,7 +60,10 @@ workload fallback instead of pretending that the fastest measured preset passed:
 - `standard` -> `veryfast`
 - `uhd-source` -> `veryfast`
 
-The calibrator reports the same fallback decision as the daemon.
+The calibrator reports the same fallback decision as the daemon. A generated
+fixture that is unusually expensive therefore cannot silently change the typed
+fallback to a different preset merely because all measured presets missed the
+threshold.
 
 ## Calibration
 
