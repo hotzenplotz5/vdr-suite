@@ -96,53 +96,32 @@ def generate_fixture(
 ) -> Optional[pathlib.Path]:
     duration = seconds + 2
     output = root / f"{workload}.mkv"
-    base = [
-        ffmpeg,
-        "-hide_banner",
-        "-v",
-        "error",
-        "-y",
-        "-f",
-        "lavfi",
-    ]
+    base = [ffmpeg, "-hide_banner", "-v", "error", "-y", "-f", "lavfi"]
 
     if workload == "standard":
         command = base + [
             "-i", "testsrc2=size=1920x1080:rate=25",
-            "-t", str(duration),
-            "-an",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-crf", "18",
-            "-pix_fmt", "yuv420p",
-            str(output),
+            "-t", str(duration), "-an",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-pix_fmt", "yuv420p", str(output),
         ]
     elif workload == "deinterlace":
         command = base + [
             "-i", "testsrc2=size=1920x1080:rate=50",
-            "-t", str(duration),
-            "-an",
+            "-t", str(duration), "-an",
             "-vf", "tinterlace=mode=interleave_top",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-crf", "18",
-            "-flags", "+ilme+ildct",
-            "-x264-params", "tff=1",
-            "-pix_fmt", "yuv420p",
-            str(output),
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-flags", "+ilme+ildct", "-x264-params", "tff=1",
+            "-pix_fmt", "yuv420p", str(output),
         ]
     elif workload == "uhd-source":
         if not has_libx265:
             return None
         command = base + [
             "-i", "testsrc2=size=3840x2160:rate=25",
-            "-t", str(duration),
-            "-an",
-            "-c:v", "libx265",
-            "-preset", "ultrafast",
-            "-crf", "20",
-            "-x265-params", "log-level=error",
-            "-pix_fmt", "yuv420p",
+            "-t", str(duration), "-an",
+            "-c:v", "libx265", "-preset", "ultrafast", "-crf", "20",
+            "-x265-params", "log-level=error", "-pix_fmt", "yuv420p",
             str(output),
         ]
     else:
@@ -156,7 +135,9 @@ def generate_fixture(
     return output
 
 
-def speed_from_completed(completed: subprocess.CompletedProcess[str], description: str) -> float:
+def speed_from_completed(
+    completed: subprocess.CompletedProcess[str], description: str
+) -> float:
     speeds = [float(match.group(1)) for match in SPEED_RE.finditer(completed.stderr)]
     if not speeds:
         raise RuntimeError(f"ffmpeg produced no speed metric for {description}")
@@ -173,38 +154,18 @@ def benchmark(
     start_seconds: int,
 ) -> float:
     command = [
-        ffmpeg,
-        "-hide_banner",
-        "-stats",
-        "-stats_period",
-        "0.5",
-        "-v",
-        "warning",
+        ffmpeg, "-hide_banner", "-stats", "-stats_period", "0.5",
+        "-v", "warning",
     ]
     if start_seconds > 0:
         command += ["-ss", str(start_seconds)]
-    command += [
-        "-i",
-        str(source),
-        "-map",
-        "0:v:0",
-    ]
+    command += ["-i", str(source), "-map", "0:v:0"]
     if include_audio:
         command += ["-map", "0:a:0?"]
     command += [
-        "-t",
-        str(seconds),
-        "-sn",
-        "-c:v",
-        "libx264",
-        "-preset",
-        preset,
-        "-crf",
-        "20",
-        "-vf",
-        WORKLOADS[workload]["filter"],
-        "-pix_fmt",
-        "yuv420p",
+        "-t", str(seconds), "-sn",
+        "-c:v", "libx264", "-preset", preset, "-crf", "20",
+        "-vf", WORKLOADS[workload]["filter"], "-pix_fmt", "yuv420p",
     ]
     if include_audio:
         command += ["-c:a", "aac", "-b:a", "192k", "-ac", "2"]
@@ -237,44 +198,23 @@ def benchmark_vaapi_uhd(
     device: pathlib.Path,
 ) -> float:
     command = [
-        ffmpeg,
-        "-hide_banner",
-        "-stats",
-        "-stats_period",
-        "0.5",
-        "-v",
-        "warning",
-        "-init_hw_device",
-        f"vaapi=va:{device}",
-        "-filter_hw_device",
-        "va",
-        "-hwaccel",
-        "vaapi",
-        "-hwaccel_device",
-        "va",
-        "-hwaccel_output_format",
-        "vaapi",
+        ffmpeg, "-hide_banner", "-stats", "-stats_period", "0.5",
+        "-v", "warning",
+        "-init_hw_device", f"vaapi=va:{device}",
+        "-filter_hw_device", "va",
+        "-hwaccel", "vaapi",
+        "-hwaccel_device", "va",
+        "-hwaccel_output_format", "vaapi",
     ]
     if start_seconds > 0:
         command += ["-ss", str(start_seconds)]
-    command += [
-        "-i",
-        str(source),
-        "-map",
-        "0:v:0",
-    ]
+    command += ["-i", str(source), "-map", "0:v:0"]
     if include_audio:
         command += ["-map", "0:a:0?"]
     command += [
-        "-t",
-        str(seconds),
-        "-sn",
-        "-c:v",
-        "h264_vaapi",
-        "-qp",
-        "22",
-        "-vf",
-        "scale_vaapi=w=1920:h=1080:format=nv12",
+        "-t", str(seconds), "-sn",
+        "-c:v", "h264_vaapi", "-qp", "22",
+        "-vf", "scale_vaapi=w=1920:h=1080:format=nv12",
     ]
     if include_audio:
         command += ["-c:a", "aac", "-b:a", "192k", "-ac", "2"]
@@ -304,8 +244,7 @@ def policy_choice(workload: str, samples: Dict[str, float]) -> tuple[str, bool]:
 
 
 def uhd_policy_choice(
-    samples: Dict[str, float],
-    vaapi_speed: Optional[float],
+    samples: Dict[str, float], vaapi_speed: Optional[float]
 ) -> tuple[str, bool]:
     if vaapi_speed is not None and vaapi_speed >= MINIMUM_REALTIME_SPEED:
         return "vaapi", True
@@ -345,11 +284,8 @@ def write_profile(
     lines.append("")
 
     handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=str(path.parent),
-        prefix=f".{path.name}.",
-        delete=False,
+        mode="w", encoding="utf-8", dir=str(path.parent),
+        prefix=f".{path.name}.", delete=False,
     )
     temporary = pathlib.Path(handle.name)
     try:
@@ -377,21 +313,15 @@ def main() -> int:
         help="performance profile path",
     )
     parser.add_argument(
-        "--seconds",
-        type=int,
-        default=6,
+        "--seconds", type=int, default=6,
         help="media seconds per generated-fixture benchmark (default: 6)",
     )
     parser.add_argument(
-        "--real-seconds",
-        type=int,
-        default=DEFAULT_REAL_SOURCE_SECONDS,
+        "--real-seconds", type=int, default=DEFAULT_REAL_SOURCE_SECONDS,
         help="media seconds per real-reference benchmark (default: 30)",
     )
     parser.add_argument(
-        "--real-start",
-        type=int,
-        default=DEFAULT_REAL_SOURCE_START,
+        "--real-start", type=int, default=DEFAULT_REAL_SOURCE_START,
         help=(
             "seconds to skip at the beginning of real references before measuring "
             "(default: 15; use 0 to include recording pre-roll)"
@@ -418,8 +348,7 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--no-vaapi",
-        action="store_true",
+        "--no-vaapi", action="store_true",
         help="skip optional VAAPI UHD calibration",
     )
     args = parser.parse_args()
@@ -489,11 +418,7 @@ def main() -> int:
                 )
                 for preset in PRESETS:
                     speed = benchmark(
-                        ffmpeg,
-                        workload,
-                        preset,
-                        durations[workload],
-                        source,
+                        ffmpeg, workload, preset, durations[workload], source,
                         include_audio=real_reference,
                         start_seconds=starts[workload],
                     )
@@ -502,17 +427,20 @@ def main() -> int:
                     print(f"  {preset:9s} {speed:5.3f}x  {verdict}")
 
                 if workload == "uhd-source" and vaapi_available:
-                    speed = benchmark_vaapi_uhd(
-                        ffmpeg,
-                        durations[workload],
-                        source,
-                        include_audio=real_reference,
-                        start_seconds=starts[workload],
-                        device=vaapi_device,
-                    )
-                    hardware_results.setdefault(workload, {})["vaapi"] = speed
-                    verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
-                    print(f"  {'vaapi':9s} {speed:5.3f}x  {verdict}")
+                    try:
+                        speed = benchmark_vaapi_uhd(
+                            ffmpeg, durations[workload], source,
+                            include_audio=real_reference,
+                            start_seconds=starts[workload], device=vaapi_device,
+                        )
+                    except (RuntimeError, subprocess.TimeoutExpired) as error:
+                        print(f"  vaapi     unavailable ({error})")
+                    else:
+                        hardware_results.setdefault(workload, {})["vaapi"] = speed
+                        verdict = (
+                            "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
+                        )
+                        print(f"  {'vaapi':9s} {speed:5.3f}x  {verdict}")
 
                 if workload == "uhd-source":
                     choice, measured = uhd_policy_choice(
@@ -547,13 +475,8 @@ def main() -> int:
     output = pathlib.Path(args.output)
     try:
         write_profile(
-            output,
-            results,
-            hardware_results,
-            source_kinds,
-            durations,
-            starts,
-            vaapi_device,
+            output, results, hardware_results, source_kinds,
+            durations, starts, vaapi_device,
         )
     except OSError as error:
         print(
