@@ -178,7 +178,7 @@ int main()
         assert(containsPair(
             plan.argv,
             "-vf",
-            "bwdif=mode=send_field:parity=auto:deint=all,scale=1920:1080"));
+            "bwdif=mode=send_frame:parity=auto:deint=all,scale=1920:1080"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
         assert(containsPair(
             plan.argv,
