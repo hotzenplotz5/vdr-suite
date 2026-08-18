@@ -56,6 +56,7 @@ int main()
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 1080);
         assert(!profile.deinterlaceVideo);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::None);
         assert(profile.targetAudioChannels == 6);
     }
 
@@ -92,6 +93,7 @@ int main()
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 1080);
         assert(!profile.deinterlaceVideo);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::None);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.sourceAudioStreamIndex == 0);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
@@ -112,6 +114,7 @@ int main()
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 1080);
         assert(profile.deinterlaceVideo);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::Deinterlace);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
         assert(profile.targetAudioChannels == 2);
@@ -201,6 +204,7 @@ int main()
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 1080);
         assert(!profile.deinterlaceVideo);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::Standard);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
         assert(profile.targetAudioChannels == 2);
@@ -224,6 +228,7 @@ int main()
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 1080);
         assert(!profile.deinterlaceVideo);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::UhdSource);
         assert(profile.sourceAudioStreamIndex == 0);
         assert(profile.audioAction == MediaTrackAction::Transcode);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
@@ -237,6 +242,7 @@ int main()
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(profile.available);
         assert(profile.videoAction == MediaTrackAction::Transcode);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::UhdSource);
         assert(profile.targetVideoWidth == 1920);
         assert(profile.targetVideoHeight == 800);
     }
@@ -248,6 +254,7 @@ int main()
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(profile.available);
         assert(profile.videoAction == MediaTrackAction::Transcode);
+        assert(profile.videoTranscodeWorkload == MediaTranscodeWorkload::Standard);
         assert(profile.targetVideoWidth == 1280);
         assert(profile.targetVideoHeight == 720);
     }
