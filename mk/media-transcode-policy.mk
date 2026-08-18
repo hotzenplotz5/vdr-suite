@@ -17,3 +17,6 @@ test-phase65-media-transcode-calibrator-install:
 	/tmp/vdr-suite-media-calibrator-install/usr/bin/vdr-suite-media-calibrate \
 		--help >/dev/null
 	rm -rf /tmp/vdr-suite-media-calibrator-install
+
+# Extend the canonical fast group without creating another owner for it.
+test-fast: test-phase65-media-transcode-calibrator-install
