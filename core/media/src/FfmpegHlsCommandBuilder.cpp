@@ -78,11 +78,11 @@ void appendVideoPlan(
         argv.push_back("-vf");
         if (profile.deinterlaceVideo) {
             // Convert interlaced Recording video into a progressive browser
-            // target before scaling. send_field preserves the source field
-            // cadence (for example 1080i50 becomes 1080p50) instead of
-            // discarding half of the temporal samples.
+            // target before scaling. Keep one output frame per decoded input
+            // frame so the bounded software worker remains viable in real
+            // time on the yaVDR target instead of doubling the encode rate.
             argv.push_back(
-                "bwdif=mode=send_field:parity=auto:deint=all,scale=" +
+                "bwdif=mode=send_frame:parity=auto:deint=all,scale=" +
                 std::to_string(profile.targetVideoWidth) + ":" +
                 std::to_string(profile.targetVideoHeight));
         }
