@@ -87,6 +87,13 @@ duration, defaulting to **30 media seconds**, because Phase-65 acceptance showed
 that a damaged Recording startup can dominate a six-second speed result even
 when the sustained transform is viable.
 
+Real source references also skip **15 seconds** of recording pre-roll by default
+before the timed sample begins. This keeps channel bumpers, recording-start
+artifacts and short pre-roll content from defining the server's sustained CPU
+profile. The offset is an operator control, not a playback rule: Recording
+playback still starts at the requested media position and must remain compatible
+with the pre-roll itself.
+
 For a workload where an operator has a representative real Recording, that
 source can be supplied directly:
 
@@ -106,11 +113,15 @@ Available real-source overrides are:
 --uhd-source
 ```
 
-The real-source duration can be changed explicitly with:
+The real-source duration and pre-roll offset can be changed explicitly with:
 
 ```text
 --real-seconds 30
+--real-start 15
 ```
+
+Use `--real-start 0` only when the recording start itself is intentionally the
+representative calibration region.
 
 When no real source is supplied:
 
@@ -131,6 +142,7 @@ Example format:
 ```text
 version=3
 # deinterlace.source=real:/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec/00001.ts
+# deinterlace.start=15
 # deinterlace.seconds=30
 deinterlace.superfast=1.540
 deinterlace.veryfast=0.992
@@ -195,6 +207,13 @@ The Phase-65 interlaced Recording acceptance case
 calibration requirements. The source is H.264 1920x1080 with top-field-first
 interlacing and also contains damaged/inconsistent H.264/transport data.
 
+Frame probes at the Recording start and at relative offsets beyond the Sky
+pre-roll show the same basic media format: H.264 1920x1080, yuv420p,
+interlaced/top-field-first with 25 frame/s timing. The evidence therefore does
+not support a codec switch at the bumper-to-film transition. The startup region
+is nevertheless a poor sustained-capacity sample because it includes sender
+pre-roll and known decoder/transport damage.
+
 For the required 1080i -> 1080p25 browser compatibility transform on the tested
 yaVDR system, a 30-second real-source benchmark measured:
 
@@ -204,14 +223,14 @@ yaVDR system, a 30-second real-source benchmark measured:
 The original raw-frame calibrator materially overestimated the same machine. A
 subsequent v2 run that decoded the real source but measured only six seconds
 reported `superfast=1.03x` and `veryfast=0.682x`; that result was dominated by the
-known damaged startup region and contradicted the sustained 30-second acceptance
+known startup/pre-roll region and contradicted the sustained 30-second acceptance
 measurement. The same v2 run also exposed a CLI/runtime inconsistency for UHD:
 all synthetic UHD presets missed 1.25x, yet the CLI displayed `auto -> superfast`
 while the daemon's typed fallback was `veryfast`.
 
 Those findings are why only version 3 profiles are trusted: real references use a
-sustained sample by default, and calibrator fallback reporting is identical to
-the runtime policy.
+sustained sample after a configurable pre-roll offset by default, and calibrator
+fallback reporting is identical to the runtime policy.
 
 This evidence justifies the conservative deinterlace fallback for an
 uncalibrated server while still allowing a faster, correctly calibrated server
