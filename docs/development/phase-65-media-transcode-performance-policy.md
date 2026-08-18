@@ -53,14 +53,14 @@ The quality-order search is:
 3. `veryfast`
 4. `superfast`
 
-If no suitable measurement exists, the conservative compatibility defaults are:
+If no measured preset reaches the minimum, the runtime uses the conservative
+workload fallback instead of pretending that the fastest measured preset passed:
 
 - `deinterlace` -> `superfast`
 - `standard` -> `veryfast`
 - `uhd-source` -> `veryfast`
 
-These fallbacks are intentionally server-safe defaults, not claims that every
-machine has the same performance.
+The calibrator reports the same fallback decision as the daemon.
 
 ## Calibration
 
@@ -74,14 +74,18 @@ Run it outside active playback when the server is in a representative operating
 state. Calibration is an explicit operator action; it is never started by the
 daemon.
 
-The **version 2** calibration format measures source decode plus the selected
-workload transform plus x264 encode. The calibrator therefore no longer feeds
-raw `lavfi` frames directly into the encoder as the authoritative performance
-sample.
+The **version 3** calibration format measures source decode plus the selected
+workload transform plus x264 encode. For a real Recording reference it also
+includes the normal AAC stereo audio fallback when an audio stream is present.
 
-By default, it first creates short compressed reference clips and then decodes
-those clips during each benchmark. For a workload where an operator has a
-representative real Recording, that source can be supplied directly:
+Generated compressed fixtures use the short `--seconds` duration (default: six
+media seconds). Real source references use the separate `--real-seconds`
+duration, defaulting to **30 media seconds**, because Phase-65 acceptance showed
+that a damaged Recording startup can dominate a six-second speed result even
+when the sustained transform is viable.
+
+For a workload where an operator has a representative real Recording, that
+source can be supplied directly:
 
 ```bash
 sudo vdr-suite-media-calibrate \
@@ -97,6 +101,12 @@ Available real-source overrides are:
 --standard-source
 --deinterlace-source
 --uhd-source
+```
+
+The real-source duration can be changed explicitly with:
+
+```text
+--real-seconds 30
 ```
 
 When no real source is supplied:
@@ -116,19 +126,21 @@ The calibrator writes:
 Example format:
 
 ```text
-version=2
+version=3
 # deinterlace.source=real:/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec/00001.ts
+# deinterlace.seconds=30
 deinterlace.superfast=1.540
 deinterlace.veryfast=0.992
 deinterlace.faster=0.810
 deinterlace.fast=0.690
 ```
 
-The daemon accepts only the decoded-source **version 2** profile format. Earlier
-`version=1` profiles are intentionally ignored and therefore fall back to the
-conservative workload defaults. This is a safety boundary: Phase-65 real yaVDR
-acceptance showed that the original raw-frame benchmark could materially
-overestimate the capacity of the real Decode -> Deinterlace -> Encode path.
+The daemon accepts only **version 3** profiles. Versions 1 and 2 are intentionally
+ignored and therefore fall back to the conservative workload defaults:
+
+- version 1 omitted source decode cost;
+- version 2 added decode cost but allowed short real-source samples whose damaged
+  startup region could dominate the final speed and obscure sustained capacity.
 
 After reviewing the generated profile, restart the daemon to load it:
 
@@ -181,17 +193,17 @@ calibration requirements. The source is H.264 1920x1080 with top-field-first
 interlacing and also contains damaged/inconsistent H.264/transport data.
 
 For the required 1080i -> 1080p25 browser compatibility transform on the tested
-yaVDR system:
+yaVDR system, a 30-second real-source benchmark measured:
 
-- x264 `veryfast` measured `0.992x` on the real Recording source and had no useful
-  HLS headroom;
-- x264 `superfast` measured `1.54x` on the same real source and provided a viable
-  real-time reserve.
+- x264 `veryfast`: `0.992x`, without useful HLS headroom;
+- x264 `superfast`: `1.54x`, with viable real-time reserve.
 
-The original raw-frame calibrator produced materially more optimistic numbers
-for the same machine (`deinterlace veryfast=1.54x`). That mismatch is why
-version 1 profiles are rejected and calibration now includes compressed-source
-decode or an explicitly supplied real Recording.
+The original raw-frame calibrator materially overestimated the same machine. A
+subsequent six-second decoded-source measurement then underestimated the viable
+`superfast` path because the damaged Recording startup dominated the short
+sample. Those two acceptance findings are why only version 3 profiles are
+trusted and why real-source calibration uses a sustained 30-second sample by
+default.
 
 This evidence justifies the conservative deinterlace fallback for an
 uncalibrated server while still allowing a faster, correctly calibrated server
