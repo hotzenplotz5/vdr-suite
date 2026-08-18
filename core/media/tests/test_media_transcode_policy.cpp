@@ -107,6 +107,17 @@ int main()
     }
 
     {
+        MediaTranscodePerformanceSamples samples;
+        samples[MediaTranscodeWorkload::UhdSource][
+            MediaSoftwareEncoderPreset::Superfast] = 0.94;
+        samples[MediaTranscodeWorkload::UhdSource][
+            MediaSoftwareEncoderPreset::Veryfast] = 0.86;
+        MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
+        assert(policy.selectPreset(MediaTranscodeWorkload::UhdSource) ==
+            MediaSoftwareEncoderPreset::Veryfast);
+    }
+
+    {
         MediaTranscodePolicyConfig config;
         config.globalPresetMode = MediaTranscodePresetMode::Fast;
         MediaTranscodePolicy policy(config);
@@ -155,11 +166,11 @@ int main()
         assert(!valid);
     }
 
-    {
-        const auto path = profilePath("v1.conf");
+    for (const std::string version : {"1", "2"}) {
+        const auto path = profilePath("v" + version + ".conf");
         writeProfile(
             path,
-            "version=1\n"
+            "version=" + version + "\n"
             "deinterlace.superfast=1.950\n"
             "deinterlace.veryfast=1.540\n");
         ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
@@ -174,10 +185,10 @@ int main()
     }
 
     {
-        const auto path = profilePath("v2.conf");
+        const auto path = profilePath("v3.conf");
         writeProfile(
             path,
-            "version=2\n"
+            "version=3\n"
             "deinterlace.superfast=1.950\n"
             "deinterlace.veryfast=1.540\n");
         ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
