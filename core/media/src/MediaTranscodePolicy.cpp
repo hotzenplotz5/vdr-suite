@@ -6,12 +6,14 @@
 #include <fstream>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace
 {
 
 constexpr const char* DefaultPerformanceProfilePath =
     "/var/lib/vdr-suite/media-transcode-performance.conf";
+constexpr const char* SupportedPerformanceProfileVersion = "2";
 
 std::string trim(const std::string& value)
 {
@@ -108,9 +110,26 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
     std::ifstream input(path);
     if (!input.is_open()) return samples;
 
+    std::vector<std::string> lines;
     std::string line;
+    bool supportedVersion = false;
     while (std::getline(input, line)) {
-        line = trim(line);
+        lines.push_back(line);
+        const std::string normalized = trim(line);
+        if (normalized ==
+            std::string("version=") + SupportedPerformanceProfileVersion) {
+            supportedVersion = true;
+        }
+    }
+
+    // Version 1 measured raw lavfi frames and therefore omitted source decode
+    // cost. Real yaVDR acceptance proved that those samples can overestimate
+    // deinterlace capacity enough to choose an unsafe preset. Fail closed to
+    // conservative defaults unless the decoded-source profile format is used.
+    if (!supportedVersion) return samples;
+
+    for (const std::string& rawLine : lines) {
+        line = trim(rawLine);
         if (line.empty() || line.front() == '#') continue;
 
         const std::size_t equals = line.find('=');
@@ -118,6 +137,8 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
 
         const std::string key = trim(line.substr(0, equals));
         const std::string value = trim(line.substr(equals + 1));
+        if (key == "version") continue;
+
         const std::size_t dot = key.find('.');
         if (dot == std::string::npos || dot == 0 || dot + 1 >= key.size()) {
             continue;
