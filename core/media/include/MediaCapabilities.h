@@ -59,6 +59,7 @@ struct MediaVideoStreamDescriptor
     int height = 0;
     double framesPerSecond = 0.0;
     bool hdr = false;
+    bool interlaced = false;
 };
 
 struct MediaAudioStreamDescriptor
@@ -105,6 +106,7 @@ struct MediaPresentationProfile
     MediaCodec targetAudioCodec = MediaCodec::None;
     int targetVideoWidth = 0;
     int targetVideoHeight = 0;
+    bool deinterlaceVideo = false;
     int targetAudioChannels = 0;
     std::string reason;
 };
