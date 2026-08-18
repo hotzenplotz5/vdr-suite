@@ -110,7 +110,9 @@ VDR_SUITE_MEDIA_VAAPI_DEVICE=/dev/dri/renderD128
 
 A VAAPI device is not selected merely because FFmpeg lists `h264_vaapi`. Auto
 selection requires a calibration result for `uhd-source.vaapi` that meets the
-same 1.25x minimum as software.
+same 1.25x minimum as software. Version 4 also persists the render node in
+`vaapi.device`, so the daemon uses the device on which the measurement was made.
+An explicit environment override takes precedence over that persisted path.
 
 QSV and NVENC remain represented by the typed backend enum but are not enabled
 by this Phase-65 follow-up; their command plans still fail closed.
@@ -128,9 +130,10 @@ state. Calibration is an explicit operator action; it is never started by the
 daemon.
 
 The **version 4** profile extends the v3 software measurements with optional
-hardware-backend throughput. The daemon continues to accept existing **version
-3** profiles for backwards-compatible software policy, while versions 1 and 2
-remain intentionally ignored.
+hardware-backend throughput and the hardware device used for that measurement.
+The daemon continues to accept existing **version 3** profiles for
+backwards-compatible software policy, while versions 1 and 2 remain
+intentionally ignored.
 
 Measurements include source decode, the selected workload transform and encode.
 For a real Recording reference they also include the normal AAC stereo audio
@@ -175,9 +178,10 @@ Other relevant controls are:
 ```
 
 When VAAPI is not disabled, the selected render node exists, and FFmpeg exposes
-`h264_vaapi`, the calibrator additionally benchmarks the UHD VAAPI path. Device
-or driver capability is therefore proven by an actual decode/scale/encode run,
-not by encoder-list presence alone.
+`h264_vaapi`, the calibrator additionally benchmarks the UHD VAAPI path. A failed
+hardware probe is reported but does not discard the completed software
+calibration; without a passing hardware sample UHD auto will still fail closed
+unless a software preset reaches the threshold.
 
 When no real source is supplied:
 
@@ -192,22 +196,22 @@ The calibrator writes:
 /var/lib/vdr-suite/media-transcode-performance.conf
 ```
 
-Example v4 format:
+Example v4 schema (illustrative values):
 
 ```text
 version=4
-# deinterlace.source=real:/srv/vdr/video.00/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec/00001.ts
-deinterlace.superfast=1.540
-deinterlace.veryfast=0.992
-deinterlace.faster=0.810
-deinterlace.fast=0.690
-# uhd-source.source=real:/srv/vdr/video.00/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec/00001.ts
-uhd-source.superfast=0.468
-uhd-source.veryfast=0.281
-uhd-source.faster=0.200
-uhd-source.fast=0.150
-uhd-source.vaapi=3.825
-# vaapi.device=/dev/dri/renderD128
+# deinterlace.source=real:/path/to/interlaced.rec/00001.ts
+deinterlace.superfast=1.600
+deinterlace.veryfast=1.300
+deinterlace.faster=1.100
+deinterlace.fast=0.900
+# uhd-source.source=real:/path/to/uhd.rec/00001.ts
+uhd-source.superfast=0.700
+uhd-source.veryfast=0.600
+uhd-source.faster=0.500
+uhd-source.fast=0.400
+uhd-source.vaapi=2.500
+vaapi.device=/dev/dri/renderD128
 ```
 
 After reviewing the generated profile, restart the daemon to load it:
@@ -224,7 +228,8 @@ The daemon accepts:
 
 - **version 3**: trusted sustained software measurements from the prior Phase-65
   policy;
-- **version 4**: the same software schema plus optional hardware-backend samples.
+- **version 4**: the same software schema plus optional hardware-backend samples
+  and `vaapi.device`.
 
 Versions 1 and 2 remain ignored:
 
@@ -270,8 +275,8 @@ VDR_SUITE_MEDIA_VAAPI_DEVICE
 ```
 
 Arbitrary FFmpeg arguments are never accepted through these settings. The VAAPI
-device is carried as one argv value and the command builder restricts it to a
-`/dev/dri/` path.
+device is carried as one argv value and the policy/command builder restrict it
+to a `/dev/dri/` path.
 
 ## Real yaVDR evidence — interlaced HD
 
