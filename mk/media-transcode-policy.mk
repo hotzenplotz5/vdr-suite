@@ -11,8 +11,10 @@ install-media-transcode-calibrator:
 
 test-phase65-media-transcode-calibrator-install:
 	python3 -m py_compile tools/vdr_suite_media_calibrate.py
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-media-calibrator-install", ignore_errors=True)'
 	$(MAKE) install-media-transcode-calibrator \
 		DESTDIR=/tmp/vdr-suite-media-calibrator-install PREFIX=/usr
 	test -x /tmp/vdr-suite-media-calibrator-install/usr/bin/vdr-suite-media-calibrate
 	/tmp/vdr-suite-media-calibrator-install/usr/bin/vdr-suite-media-calibrate \
 		--help >/dev/null
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-media-calibrator-install", ignore_errors=True)'
