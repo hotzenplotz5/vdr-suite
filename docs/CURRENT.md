@@ -37,6 +37,9 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration
 Current active numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 
+Next strict numbered runtime phase:
+Phase 65 - Streaming Gateway and Media Sessions
+
 Completed Phase-65 product vertical:
 65.A - Existing-Recording playback
 
