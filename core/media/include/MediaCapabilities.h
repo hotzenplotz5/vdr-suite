@@ -34,6 +34,7 @@ enum class MediaCodec
     Aac,
     Ac3,
     Eac3,
+    Dts,
     MpegAudio
 };
 

@@ -28,6 +28,9 @@ MediaCodec codecFromName(const std::string& name)
     if (name == "eac3") {
         return MediaCodec::Eac3;
     }
+    if (name == "dts") {
+        return MediaCodec::Dts;
+    }
     if (name == "mp2" || name == "mp3") {
         return MediaCodec::MpegAudio;
     }

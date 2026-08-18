@@ -53,8 +53,26 @@ int main()
 
     {
         const std::string output =
+            "codec_name=h264|codec_type=video|width=1280|height=688|r_frame_rate=24000/1001\n"
+            "codec_name=dts|codec_type=audio|channels=6|tag:language=ger\n"
+            "codec_name=dts|codec_type=audio|channels=6|tag:language=eng\n";
+
+        const auto result = probe.parse(output);
+        assert(result.valid);
+        assert(result.reasonCode.empty());
+        assert(result.source.audioStreams.size() == 2);
+        assert(result.source.audioStreams[0].codec == MediaCodec::Dts);
+        assert(result.source.audioStreams[0].channels == 6);
+        assert(result.source.audioStreams[0].language == "ger");
+        assert(result.source.audioStreams[1].codec == MediaCodec::Dts);
+        assert(result.source.audioStreams[1].channels == 6);
+        assert(result.source.audioStreams[1].language == "eng");
+    }
+
+    {
+        const std::string output =
             "codec_name=h264|codec_type=video|width=1920|height=1080|r_frame_rate=25/1\n"
-            "codec_name=dts|codec_type=audio|channels=6|tag:language=eng\n"
+            "codec_name=vorbis|codec_type=audio|channels=6|tag:language=eng\n"
             "codec_name=aac|codec_type=audio|channels=2|tag:language=deu\n";
 
         const auto result = probe.parse(output);
@@ -68,7 +86,7 @@ int main()
     {
         const auto result = probe.parse(
             "codec_name=h264|codec_type=video|width=1920|height=1080|r_frame_rate=25/1\n"
-            "codec_name=dts|codec_type=audio|channels=6\n");
+            "codec_name=vorbis|codec_type=audio|channels=6\n");
         assert(!result.valid);
         assert(result.reasonCode == "unknown_audio_codec");
     }
