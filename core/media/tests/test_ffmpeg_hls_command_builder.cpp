@@ -170,6 +170,27 @@ int main()
         MediaPresentationProfile profile = hlsFmp4Profile();
         profile.videoAction = MediaTrackAction::Transcode;
         profile.targetVideoCodec = MediaCodec::H264;
+        profile.deinterlaceVideo = true;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-c:v", "libx264"));
+        assert(containsPair(
+            plan.argv,
+            "-vf",
+            "bwdif=mode=send_field:parity=auto:deint=all,scale=1920:1080"));
+        assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
+        assert(containsPair(
+            plan.argv,
+            "-force_key_frames",
+            "expr:gte(t,n_forced*4)"));
+        assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.targetVideoCodec = MediaCodec::H264;
         profile.targetVideoWidth = 1920;
         profile.targetVideoHeight = 800;
 
