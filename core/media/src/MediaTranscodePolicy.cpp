@@ -13,7 +13,7 @@ namespace
 
 constexpr const char* DefaultPerformanceProfilePath =
     "/var/lib/vdr-suite/media-transcode-performance.conf";
-constexpr const char* SupportedPerformanceProfileVersion = "2";
+constexpr const char* SupportedPerformanceProfileVersion = "3";
 
 std::string trim(const std::string& value)
 {
@@ -122,10 +122,11 @@ MediaTranscodePerformanceSamples loadPerformanceSamples(
         }
     }
 
-    // Version 1 measured raw lavfi frames and therefore omitted source decode
-    // cost. Real yaVDR acceptance proved that those samples can overestimate
-    // deinterlace capacity enough to choose an unsafe preset. Fail closed to
-    // conservative defaults unless the decoded-source profile format is used.
+    // Versions 1 and 2 were intentionally retired after real yaVDR evidence:
+    // v1 omitted source decode cost, while v2 allowed very short real-source
+    // samples whose damaged startup region could dominate the final speed.
+    // Only v3 represents sustained real-reference throughput and keeps the
+    // calibrator's fallback decision identical to this runtime policy.
     if (!supportedVersion) return samples;
 
     for (const std::string& rawLine : lines) {
