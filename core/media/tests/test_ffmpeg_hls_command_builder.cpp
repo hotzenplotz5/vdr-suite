@@ -156,6 +156,7 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "libx264"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
+        assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
         assert(containsPair(plan.argv, "-vf", "scale=1920:1080"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
@@ -175,6 +176,8 @@ int main()
         const auto plan = builder.build(profile);
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "libx264"));
+        assert(containsPair(plan.argv, "-preset", "superfast"));
+        assert(!containsPair(plan.argv, "-preset", "veryfast"));
         assert(containsPair(
             plan.argv,
             "-vf",
@@ -196,6 +199,8 @@ int main()
 
         const auto plan = builder.build(profile);
         assert(plan.valid);
+        assert(containsPair(plan.argv, "-preset", "veryfast"));
+        assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-vf", "scale=1920:800"));
         assert(containsPair(plan.argv, "-pix_fmt", "yuv420p"));
         assert(containsPair(
