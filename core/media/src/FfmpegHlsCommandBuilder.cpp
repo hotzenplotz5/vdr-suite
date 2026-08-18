@@ -151,6 +151,16 @@ FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
         plan.argv.push_back("h264_metadata=level=auto");
     }
 
+    if (profile.container == MediaContainer::Fmp4 &&
+        profile.audioAction == MediaTrackAction::Copy &&
+        profile.targetAudioCodec == MediaCodec::Aac) {
+        // VDR MPEG-TS Recordings commonly carry AAC in ADTS framing. MP4/fMP4
+        // requires MPEG-4 AudioSpecificConfig instead. Convert the framing
+        // metadata while keeping the encoded AAC frames untouched.
+        plan.argv.push_back("-bsf:a");
+        plan.argv.push_back("aac_adtstoasc");
+    }
+
     plan.argv.insert(
         plan.argv.end(),
         {
