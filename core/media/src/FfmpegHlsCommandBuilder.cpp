@@ -15,6 +15,17 @@ FfmpegHlsCommandPlan invalid(const std::string& reasonCode)
     return plan;
 }
 
+const char* x264PresetName(MediaSoftwareEncoderPreset preset)
+{
+    switch (preset) {
+    case MediaSoftwareEncoderPreset::Superfast: return "superfast";
+    case MediaSoftwareEncoderPreset::Veryfast: return "veryfast";
+    case MediaSoftwareEncoderPreset::Faster: return "faster";
+    case MediaSoftwareEncoderPreset::Fast: return "fast";
+    }
+    return nullptr;
+}
+
 bool appendSelectedTrackMaps(
     std::vector<std::string>& argv,
     const MediaPresentationProfile& profile)
@@ -63,8 +74,11 @@ void appendVideoPlan(
         argv.push_back("-c:v");
         argv.push_back("copy");
         return;
-    case MediaTrackAction::Transcode:
+    case MediaTrackAction::Transcode: {
+        const char* preset = x264PresetName(profile.videoEncoderPreset);
         if (profile.targetVideoCodec != MediaCodec::H264 ||
+            profile.videoEncoderBackend != MediaVideoEncoderBackend::SoftwareX264 ||
+            preset == nullptr ||
             !validTargetVideoSize(profile)) {
             valid = false;
             return;
@@ -72,19 +86,15 @@ void appendVideoPlan(
         argv.push_back("-c:v");
         argv.push_back("libx264");
         argv.push_back("-preset");
-        // Real yaVDR acceptance showed that 1080p25 deinterlacing at veryfast
-        // runs at only about source rate, leaving no HLS headroom. Keep the
-        // established veryfast target for normal transcodes and use the
-        // bounded superfast compatibility preset only when deinterlacing.
-        argv.push_back(profile.deinterlaceVideo ? "superfast" : "veryfast");
+        argv.push_back(preset);
         argv.push_back("-crf");
         argv.push_back("20");
         argv.push_back("-vf");
         if (profile.deinterlaceVideo) {
             // Convert interlaced Recording video into a progressive browser
             // target before scaling. Keep one output frame per decoded input
-            // frame so the bounded software worker remains viable in real
-            // time on the yaVDR target instead of doubling the encode rate.
+            // frame; the server-side transcode policy independently selects
+            // an encoder preset with measured real-time headroom.
             argv.push_back(
                 "bwdif=mode=send_frame:parity=auto:deint=all,scale=" +
                 std::to_string(profile.targetVideoWidth) + ":" +
@@ -106,6 +116,7 @@ void appendVideoPlan(
         argv.push_back("-force_key_frames");
         argv.push_back("expr:gte(t,n_forced*4)");
         return;
+    }
     }
 
     valid = false;
