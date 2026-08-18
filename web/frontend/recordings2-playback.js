@@ -81,8 +81,33 @@
         sessionId: id
       }),
       cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
+  // Page teardown cannot rely on VdrSuiteClientApi.requestJson because its
+  // generic request options intentionally do not guarantee Fetch keepalive.
+  // Use a direct same-origin Fetch for the small stop request so closing or
+  // navigating away from a browser tab can still release the server worker.
+  function stopSessionKeepalive(backendId, sessionId) {
+    const id = safeSessionId(sessionId);
+    if (!id || typeof global.fetch !== 'function') return Promise.resolve(null);
+
+    return global.fetch('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'stop',
+        backendId: text(backendId || 'default'),
+        sessionId: id
+      }),
+      cache: 'no-store',
       credentials: 'same-origin',
       keepalive: true
+    }).catch(function () {
+      // Teardown is best-effort; daemon shutdown recovery remains the final
+      // ownership fence if the browser disappears before the request lands.
+      return null;
     });
   }
 
@@ -470,6 +495,7 @@
     let rebuffering = false;
     let playbackFailed = false;
     let stopIssued = false;
+    let pageHidden = false;
     let activeSessionId = '';
     let pollTimer = null;
     let mediaSource = null;
@@ -488,12 +514,29 @@
       return bufferedAheadSeconds(sourceBuffer, video).toFixed(1) + ' s';
     }
 
-    function stopActiveSession() {
+    function stopActiveSession(useKeepalive) {
       if (stopIssued || !activeSessionId) return;
       stopIssued = true;
-      stopSession(backendId, activeSessionId).catch(function () {
-        // Browser teardown is best-effort. The server still owns shutdown recovery.
-      });
+      const request = useKeepalive
+        ? stopSessionKeepalive(backendId, activeSessionId)
+        : stopSession(backendId, activeSessionId);
+      if (request && typeof request.catch === 'function') {
+        request.catch(function () {
+          // Browser teardown is best-effort. Daemon shutdown recovery remains
+          // the final fence for an ungraceful browser/process loss.
+        });
+      }
+    }
+
+    function handlePageHide() {
+      if (destroyed) return;
+      pageHidden = true;
+      stopActiveSession(true);
+    }
+
+    function handleEnded() {
+      if (destroyed) return;
+      stopActiveSession(false);
     }
 
     function schedulePump(callback) {
@@ -662,7 +705,7 @@
     function handlePlaybackError(error) {
       if (destroyed || (error && error.name === 'AbortError')) return;
       playbackFailed = true;
-      stopActiveSession();
+      stopActiveSession(false);
       setStatus(error && error.message ? error.message : String(error || 'Wiedergabefehler'), true);
       startButton.disabled = false;
     }
@@ -718,7 +761,8 @@
       const sessionPromise = createSession(backendId, recording).then(function (session) {
         const mediaSession = session && session.mediaSession;
         activeSessionId = safeSessionId(mediaSession && mediaSession.id);
-        if (destroyed || playbackFailed) stopActiveSession();
+        if (pageHidden) stopActiveSession(true);
+        else if (destroyed || playbackFailed) stopActiveSession(false);
         return session;
       });
 
@@ -726,7 +770,7 @@
         sessionPromise,
         waitForSourceOpen(mediaSource)
       ]).then(function (results) {
-        if (destroyed) return null;
+        if (destroyed || pageHidden) return null;
         const session = results[0];
         const mediaSession = session && session.mediaSession;
         const mediaPath = mediaSession && text(mediaSession.mediaPath);
@@ -734,7 +778,7 @@
           throw new Error('MediaSession wurde nicht wiedergabebereit bereitgestellt.');
         }
         return prepareSourceBuffer(mediaPath).then(function (prepared) {
-          if (destroyed || !prepared) return;
+          if (destroyed || pageHidden || !prepared) return;
           startButton.hidden = true;
           setStatus(
             'Streaming vorbereitet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4') +
@@ -749,7 +793,10 @@
     function destroy() {
       if (destroyed) return;
       destroyed = true;
-      stopActiveSession();
+      if (typeof global.removeEventListener === 'function') {
+        global.removeEventListener('pagehide', handlePageHide);
+      }
+      stopActiveSession(false);
       if (pollTimer !== null) {
         global.clearTimeout(pollTimer);
         pollTimer = null;
@@ -766,8 +813,12 @@
       }
     }
 
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pagehide', handlePageHide);
+    }
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('ended', handleEnded);
     startButton.addEventListener('click', start);
 
     return Object.freeze({
@@ -784,6 +835,7 @@
       capabilities: capabilities,
       createSession: createSession,
       stopSession: stopSession,
+      stopSessionKeepalive: stopSessionKeepalive,
       safeArtifactName: safeArtifactName,
       parsePlaylist: parsePlaylist,
       startupBatch: startupBatch,
