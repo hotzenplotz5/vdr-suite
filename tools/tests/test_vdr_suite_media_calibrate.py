@@ -16,6 +16,7 @@ spec.loader.exec_module(module)
 
 assert module.PROFILE_VERSION == 3
 assert module.DEFAULT_REAL_SOURCE_SECONDS == 30
+assert module.DEFAULT_REAL_SOURCE_START == 15
 assert module.MINIMUM_REALTIME_SPEED == 1.25
 
 choice, measured = module.policy_choice(
