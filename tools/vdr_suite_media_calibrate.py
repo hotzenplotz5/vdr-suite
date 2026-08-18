@@ -11,35 +11,152 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Dict
+from typing import Dict, Optional, Tuple
 
 PRESETS = ("superfast", "veryfast", "faster", "fast")
 QUALITY_ORDER = ("fast", "faster", "veryfast", "superfast")
 MINIMUM_REALTIME_SPEED = 1.25
+PROFILE_VERSION = 2
 SPEED_RE = re.compile(r"speed=\s*([0-9]+(?:\.[0-9]+)?)x")
 
 WORKLOADS = {
     "standard": {
-        "source": "testsrc2=size=1920x1080:rate=25",
         "filter": "scale=1920:1080",
     },
     "deinterlace": {
-        "source": "testsrc2=size=1920x1080:rate=50",
         "filter": (
-            "tinterlace=mode=interleave_top,"
             "bwdif=mode=send_frame:parity=auto:deint=all,"
             "scale=1920:1080"
         ),
     },
     "uhd-source": {
-        "source": "testsrc2=size=3840x2160:rate=25",
         "filter": "scale=1920:1080",
     },
 }
 
 
-def benchmark(ffmpeg: str, workload: str, preset: str, seconds: int) -> float:
-    spec = WORKLOADS[workload]
+def run_checked(command: list[str], timeout: int, description: str) -> None:
+    completed = subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    if completed.returncode != 0:
+        tail = "\n".join(completed.stderr.splitlines()[-12:])
+        raise RuntimeError(f"{description} failed:\n{tail}")
+
+
+def ffmpeg_has_encoder(ffmpeg: str, encoder: str) -> bool:
+    completed = subprocess.run(
+        [ffmpeg, "-hide_banner", "-encoders"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return False
+    return any(
+        line.split()[1:2] == [encoder]
+        for line in completed.stdout.splitlines()
+        if line.strip()
+    )
+
+
+def resolve_reference(path_text: Optional[str]) -> Optional[pathlib.Path]:
+    if not path_text:
+        return None
+    path = pathlib.Path(path_text)
+    if path.is_dir():
+        segments = sorted(path.glob("[0-9][0-9][0-9][0-9][0-9].ts"))
+        if not segments:
+            raise RuntimeError(f"no VDR TS segment found below {path}")
+        path = segments[0]
+    if not path.is_file():
+        raise RuntimeError(f"reference source is not a regular file: {path}")
+    return path.resolve()
+
+
+def generate_fixture(
+    ffmpeg: str,
+    workload: str,
+    seconds: int,
+    root: pathlib.Path,
+    has_libx265: bool,
+) -> Optional[pathlib.Path]:
+    duration = seconds + 2
+    output = root / f"{workload}.mkv"
+    base = [
+        ffmpeg,
+        "-hide_banner",
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+    ]
+
+    if workload == "standard":
+        command = base + [
+            "-i", "testsrc2=size=1920x1080:rate=25",
+            "-t", str(duration),
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "18",
+            "-pix_fmt", "yuv420p",
+            str(output),
+        ]
+    elif workload == "deinterlace":
+        command = base + [
+            "-i", "testsrc2=size=1920x1080:rate=50",
+            "-t", str(duration),
+            "-an",
+            "-vf", "tinterlace=mode=interleave_top",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "18",
+            "-flags", "+ilme+ildct",
+            "-x264-params", "tff=1",
+            "-pix_fmt", "yuv420p",
+            str(output),
+        ]
+    elif workload == "uhd-source":
+        if not has_libx265:
+            return None
+        command = base + [
+            "-i", "testsrc2=size=3840x2160:rate=25",
+            "-t", str(duration),
+            "-an",
+            "-c:v", "libx265",
+            "-preset", "ultrafast",
+            "-crf", "20",
+            "-x265-params", "log-level=error",
+            "-pix_fmt", "yuv420p",
+            str(output),
+        ]
+    else:
+        raise RuntimeError(f"unknown workload: {workload}")
+
+    run_checked(
+        command,
+        timeout=max(120, duration * 30),
+        description=f"fixture generation for {workload}",
+    )
+    return output
+
+
+def benchmark(
+    ffmpeg: str,
+    workload: str,
+    preset: str,
+    seconds: int,
+    source: pathlib.Path,
+) -> float:
     command = [
         ffmpeg,
         "-hide_banner",
@@ -48,10 +165,10 @@ def benchmark(ffmpeg: str, workload: str, preset: str, seconds: int) -> float:
         "0.5",
         "-v",
         "warning",
-        "-f",
-        "lavfi",
         "-i",
-        spec["source"],
+        str(source),
+        "-map",
+        "0:v:0",
         "-t",
         str(seconds),
         "-an",
@@ -62,7 +179,7 @@ def benchmark(ffmpeg: str, workload: str, preset: str, seconds: int) -> float:
         "-crf",
         "20",
         "-vf",
-        spec["filter"],
+        WORKLOADS[workload]["filter"],
         "-pix_fmt",
         "yuv420p",
         "-f",
@@ -97,14 +214,21 @@ def recommended_preset(samples: Dict[str, float]) -> str:
     return "superfast"
 
 
-def write_profile(path: pathlib.Path, results: Dict[str, Dict[str, float]]) -> None:
+def write_profile(
+    path: pathlib.Path,
+    results: Dict[str, Dict[str, float]],
+    source_kinds: Dict[str, str],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# Generated by vdr-suite-media-calibrate.",
-        "# Values are maximum measured software-transcode speed multipliers.",
-        "version=1",
+        "# Measurements include source decode plus the workload transform and x264 encode.",
+        f"version={PROFILE_VERSION}",
     ]
     for workload in WORKLOADS:
+        if workload not in results:
+            continue
+        lines.append(f"# {workload}.source={source_kinds[workload]}")
         for preset in PRESETS:
             lines.append(f"{workload}.{preset}={results[workload][preset]:.3f}")
     lines.append("")
@@ -132,8 +256,8 @@ def write_profile(path: pathlib.Path, results: Dict[str, Dict[str, float]]) -> N
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Benchmark representative VDR-Suite x264 workloads and write the "
-            "server performance profile used by VDR_SUITE_MEDIA_X264_PRESET=auto."
+            "Benchmark representative decoded VDR-Suite x264 workloads and write "
+            "the server performance profile used by VDR_SUITE_MEDIA_X264_PRESET=auto."
         )
     )
     parser.add_argument(
@@ -147,6 +271,18 @@ def main() -> int:
         default=6,
         help="media seconds per benchmark (default: 6)",
     )
+    parser.add_argument(
+        "--standard-source",
+        help="optional real file or .rec directory for the standard workload",
+    )
+    parser.add_argument(
+        "--deinterlace-source",
+        help="optional real interlaced file or .rec directory for deinterlace",
+    )
+    parser.add_argument(
+        "--uhd-source",
+        help="optional real UHD file or .rec directory for the UHD workload",
+    )
     args = parser.parse_args()
 
     if args.seconds < 3 or args.seconds > 30:
@@ -156,29 +292,61 @@ def main() -> int:
     if not ffmpeg:
         print("vdr-suite-media-calibrate: ffmpeg not found", file=sys.stderr)
         return 2
+    if not ffmpeg_has_encoder(ffmpeg, "libx264"):
+        print("vdr-suite-media-calibrate: libx264 encoder not available", file=sys.stderr)
+        return 2
 
+    references = {
+        "standard": args.standard_source,
+        "deinterlace": args.deinterlace_source,
+        "uhd-source": args.uhd_source,
+    }
+    has_libx265 = ffmpeg_has_encoder(ffmpeg, "libx265")
     results: Dict[str, Dict[str, float]] = {}
+    source_kinds: Dict[str, str] = {}
+
     try:
-        for workload in WORKLOADS:
-            results[workload] = {}
-            print(f"[{workload}]")
-            for preset in PRESETS:
-                speed = benchmark(ffmpeg, workload, preset, args.seconds)
-                results[workload][preset] = speed
-                verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
-                print(f"  {preset:9s} {speed:5.3f}x  {verdict}")
-            print(
-                "  auto -> "
-                f"{recommended_preset(results[workload])} "
-                f"(minimum {MINIMUM_REALTIME_SPEED:.2f}x)"
-            )
+        with tempfile.TemporaryDirectory(prefix="vdr-suite-media-calibrate-") as temp:
+            root = pathlib.Path(temp)
+            for workload in WORKLOADS:
+                reference = resolve_reference(references[workload])
+                if reference is not None:
+                    source = reference
+                    source_kinds[workload] = f"real:{reference}"
+                else:
+                    source = generate_fixture(
+                        ffmpeg, workload, args.seconds, root, has_libx265
+                    )
+                    if source is None:
+                        print(
+                            f"[{workload}] skipped: no representative fixture encoder available"
+                        )
+                        continue
+                    source_kinds[workload] = "generated-compressed-fixture"
+
+                results[workload] = {}
+                print(f"[{workload}] source={source_kinds[workload]}")
+                for preset in PRESETS:
+                    speed = benchmark(ffmpeg, workload, preset, args.seconds, source)
+                    results[workload][preset] = speed
+                    verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
+                    print(f"  {preset:9s} {speed:5.3f}x  {verdict}")
+                print(
+                    "  auto -> "
+                    f"{recommended_preset(results[workload])} "
+                    f"(minimum {MINIMUM_REALTIME_SPEED:.2f}x)"
+                )
     except (RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"vdr-suite-media-calibrate: {error}", file=sys.stderr)
         return 3
 
+    if not results:
+        print("vdr-suite-media-calibrate: no workload could be measured", file=sys.stderr)
+        return 3
+
     output = pathlib.Path(args.output)
     try:
-        write_profile(output, results)
+        write_profile(output, results, source_kinds)
     except OSError as error:
         print(
             f"vdr-suite-media-calibrate: cannot write {output}: {error}",
