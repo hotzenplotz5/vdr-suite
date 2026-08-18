@@ -66,6 +66,7 @@ int main()
         assert(containsPair(plan.argv, "-c:a", "aac"));
         assert(containsPair(plan.argv, "-b:a", "192k"));
         assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+        assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_time", "4"));
         assert(containsPair(plan.argv, "-hls_list_size", "8"));
         assert(containsPair(plan.argv, "-hls_delete_threshold", "2"));
@@ -83,16 +84,31 @@ int main()
 
     {
         MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.adaptationClass = MediaAdaptationClass::Remux;
+        profile.audioAction = MediaTrackAction::Copy;
+        profile.targetAudioCodec = MediaCodec::Aac;
+
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-c:v", "copy"));
+        assert(containsPair(plan.argv, "-c:a", "copy"));
+        assert(containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+        assert(containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
         profile.container = MediaContainer::MpegTs;
         profile.adaptationClass = MediaAdaptationClass::Remux;
         profile.audioAction = MediaTrackAction::Copy;
-        profile.targetAudioCodec = MediaCodec::Ac3;
+        profile.targetAudioCodec = MediaCodec::Aac;
 
         const auto plan = builder.build(profile);
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
+        assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
         assert(!containsValue(plan.argv, "-hls_segment_type"));
     }
