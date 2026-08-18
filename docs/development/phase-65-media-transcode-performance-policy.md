@@ -202,11 +202,16 @@ yaVDR system, a 30-second real-source benchmark measured:
 - x264 `superfast`: `1.54x`, with viable real-time reserve.
 
 The original raw-frame calibrator materially overestimated the same machine. A
-subsequent six-second decoded-source measurement then underestimated the viable
-`superfast` path because the damaged Recording startup dominated the short
-sample. Those two acceptance findings are why only version 3 profiles are
-trusted and why real-source calibration uses a sustained 30-second sample by
-default.
+subsequent v2 run that decoded the real source but measured only six seconds
+reported `superfast=1.03x` and `veryfast=0.682x`; that result was dominated by the
+known damaged startup region and contradicted the sustained 30-second acceptance
+measurement. The same v2 run also exposed a CLI/runtime inconsistency for UHD:
+all synthetic UHD presets missed 1.25x, yet the CLI displayed `auto -> superfast`
+while the daemon's typed fallback was `veryfast`.
+
+Those findings are why only version 3 profiles are trusted: real references use a
+sustained sample by default, and calibrator fallback reporting is identical to
+the runtime policy.
 
 This evidence justifies the conservative deinterlace fallback for an
 uncalibrated server while still allowing a faster, correctly calibrated server
