@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MediaCapabilities.h"
+#include "MediaTranscodePolicy.h"
 
 #include <chrono>
 #include <functional>
@@ -40,6 +41,15 @@ public:
         WorkerSpawner workerSpawner = {},
         WorkerTerminator workerTerminator = {},
         ReadinessProbe readinessProbe = {});
+
+    RecordingMediaSessionRuntime(
+        MediaSessionRepository& repository,
+        std::string workspaceRoot,
+        WorkerSpawner workerSpawner,
+        WorkerTerminator workerTerminator,
+        ReadinessProbe readinessProbe,
+        MediaTranscodePolicy transcodePolicy);
+
     ~RecordingMediaSessionRuntime();
 
     RecordingMediaSessionRuntime(const RecordingMediaSessionRuntime&) = delete;
@@ -73,6 +83,7 @@ private:
     WorkerSpawner workerSpawner_;
     WorkerTerminator workerTerminator_;
     ReadinessProbe readinessProbe_;
+    MediaTranscodePolicy transcodePolicy_;
     std::mutex mutex_;
     std::map<std::string, ActiveSession> active_;
 };
