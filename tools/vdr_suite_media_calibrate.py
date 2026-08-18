@@ -18,6 +18,7 @@ QUALITY_ORDER = ("fast", "faster", "veryfast", "superfast")
 MINIMUM_REALTIME_SPEED = 1.25
 PROFILE_VERSION = 3
 DEFAULT_REAL_SOURCE_SECONDS = 30
+DEFAULT_REAL_SOURCE_START = 15
 SPEED_RE = re.compile(r"speed=\s*([0-9]+(?:\.[0-9]+)?)x")
 
 WORKLOADS = {
@@ -161,6 +162,7 @@ def benchmark(
     seconds: int,
     source: pathlib.Path,
     include_audio: bool,
+    start_seconds: int,
 ) -> float:
     command = [
         ffmpeg,
@@ -170,6 +172,10 @@ def benchmark(
         "0.5",
         "-v",
         "warning",
+    ]
+    if start_seconds > 0:
+        command += ["-ss", str(start_seconds)]
+    command += [
         "-i",
         str(source),
         "-map",
@@ -231,6 +237,7 @@ def write_profile(
     results: Dict[str, Dict[str, float]],
     source_kinds: Dict[str, str],
     durations: Dict[str, int],
+    starts: Dict[str, int],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -242,6 +249,7 @@ def write_profile(
         if workload not in results:
             continue
         lines.append(f"# {workload}.source={source_kinds[workload]}")
+        lines.append(f"# {workload}.start={starts[workload]}")
         lines.append(f"# {workload}.seconds={durations[workload]}")
         for preset in PRESETS:
             lines.append(f"{workload}.{preset}={results[workload][preset]:.3f}")
@@ -292,6 +300,15 @@ def main() -> int:
         help="media seconds per real-reference benchmark (default: 30)",
     )
     parser.add_argument(
+        "--real-start",
+        type=int,
+        default=DEFAULT_REAL_SOURCE_START,
+        help=(
+            "seconds to skip at the beginning of real references before measuring "
+            "(default: 15; use 0 to include recording pre-roll)"
+        ),
+    )
+    parser.add_argument(
         "--standard-source",
         help="optional real file or .rec directory for the standard workload",
     )
@@ -309,6 +326,8 @@ def main() -> int:
         parser.error("--seconds must be between 3 and 30")
     if args.real_seconds < 15 or args.real_seconds > 60:
         parser.error("--real-seconds must be between 15 and 60")
+    if args.real_start < 0 or args.real_start > 3600:
+        parser.error("--real-start must be between 0 and 3600")
 
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -327,6 +346,7 @@ def main() -> int:
     results: Dict[str, Dict[str, float]] = {}
     source_kinds: Dict[str, str] = {}
     durations: Dict[str, int] = {}
+    starts: Dict[str, int] = {}
 
     try:
         with tempfile.TemporaryDirectory(prefix="vdr-suite-media-calibrate-") as temp:
@@ -338,6 +358,7 @@ def main() -> int:
                     source = reference
                     source_kinds[workload] = f"real:{reference}"
                     durations[workload] = args.real_seconds
+                    starts[workload] = args.real_start
                 else:
                     source = generate_fixture(
                         ffmpeg, workload, args.seconds, root, has_libx265
@@ -349,11 +370,12 @@ def main() -> int:
                         continue
                     source_kinds[workload] = "generated-compressed-fixture"
                     durations[workload] = args.seconds
+                    starts[workload] = 0
 
                 results[workload] = {}
                 print(
                     f"[{workload}] source={source_kinds[workload]} "
-                    f"seconds={durations[workload]}"
+                    f"start={starts[workload]} seconds={durations[workload]}"
                 )
                 for preset in PRESETS:
                     speed = benchmark(
@@ -363,6 +385,7 @@ def main() -> int:
                         durations[workload],
                         source,
                         include_audio=real_reference,
+                        start_seconds=starts[workload],
                     )
                     results[workload][preset] = speed
                     verdict = "PASS" if speed >= MINIMUM_REALTIME_SPEED else "slow"
@@ -389,7 +412,7 @@ def main() -> int:
 
     output = pathlib.Path(args.output)
     try:
-        write_profile(output, results, source_kinds, durations)
+        write_profile(output, results, source_kinds, durations, starts)
     except OSError as error:
         print(
             f"vdr-suite-media-calibrate: cannot write {output}: {error}",
