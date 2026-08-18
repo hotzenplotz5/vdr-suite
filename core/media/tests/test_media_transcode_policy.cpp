@@ -45,6 +45,7 @@ void clearPolicyEnvironment()
     ::unsetenv("VDR_SUITE_MEDIA_X264_STANDARD_PRESET");
     ::unsetenv("VDR_SUITE_MEDIA_X264_DEINTERLACE_PRESET");
     ::unsetenv("VDR_SUITE_MEDIA_X264_UHD_PRESET");
+    ::unsetenv("VDR_SUITE_MEDIA_VAAPI_DEVICE");
     ::unsetenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE");
 }
 
@@ -115,6 +116,60 @@ int main()
         MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples);
         assert(policy.selectPreset(MediaTranscodeWorkload::UhdSource) ==
             MediaSoftwareEncoderPreset::Veryfast);
+
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(!resolved.available);
+        assert(resolved.reason ==
+            "no calibrated UHD transcode backend reaches minimum real-time speed");
+    }
+
+    {
+        MediaHardwareTranscodePerformanceSamples hardware;
+        hardware[MediaTranscodeWorkload::UhdSource][
+            MediaVideoEncoderBackend::Vaapi] = 3.825;
+        MediaTranscodePolicy policy(
+            MediaTranscodePolicyConfig{},
+            MediaTranscodePerformanceSamples{},
+            hardware);
+
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi);
+        assert(resolved.videoHardwareDevice == "/dev/dri/renderD128");
+    }
+
+    {
+        MediaTranscodePerformanceSamples samples;
+        samples[MediaTranscodeWorkload::UhdSource][
+            MediaSoftwareEncoderPreset::Superfast] = 1.40;
+        MediaHardwareTranscodePerformanceSamples hardware;
+        hardware[MediaTranscodeWorkload::UhdSource][
+            MediaVideoEncoderBackend::Vaapi] = 1.10;
+        MediaTranscodePolicy policy(MediaTranscodePolicyConfig{}, samples, hardware);
+
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend ==
+            MediaVideoEncoderBackend::SoftwareX264);
+        assert(resolved.videoEncoderPreset ==
+            MediaSoftwareEncoderPreset::Superfast);
+        assert(resolved.videoHardwareDevice.empty());
+    }
+
+    {
+        MediaTranscodePolicyConfig config;
+        config.uhdSourcePresetMode = MediaTranscodePresetMode::Superfast;
+        MediaTranscodePolicy policy(config);
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend ==
+            MediaVideoEncoderBackend::SoftwareX264);
+        assert(resolved.videoEncoderPreset ==
+            MediaSoftwareEncoderPreset::Superfast);
     }
 
     {
@@ -197,6 +252,29 @@ int main()
         const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
         assert(policy.selectPreset(MediaTranscodeWorkload::Deinterlace) ==
             MediaSoftwareEncoderPreset::Veryfast);
+
+        std::filesystem::remove(path);
+        clearPolicyEnvironment();
+    }
+
+    {
+        const auto path = profilePath("v4.conf");
+        writeProfile(
+            path,
+            "version=4\n"
+            "uhd-source.superfast=0.468\n"
+            "uhd-source.veryfast=0.281\n"
+            "uhd-source.vaapi=3.825\n");
+        ::setenv("VDR_SUITE_MEDIA_X264_PRESET", "auto", 1);
+        ::setenv("VDR_SUITE_MEDIA_TRANSCODE_PROFILE", path.c_str(), 1);
+        ::setenv("VDR_SUITE_MEDIA_VAAPI_DEVICE", "/dev/dri/renderD129", 1);
+
+        const MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment();
+        const MediaPresentationProfile resolved = policy.apply(
+            transcodeProfile(MediaTranscodeWorkload::UhdSource));
+        assert(resolved.available);
+        assert(resolved.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi);
+        assert(resolved.videoHardwareDevice == "/dev/dri/renderD129");
 
         std::filesystem::remove(path);
         clearPolicyEnvironment();
