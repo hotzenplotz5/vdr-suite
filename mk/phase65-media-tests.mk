@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation
+.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance
 
 CXXFLAGS += -Icore/media/include
 
@@ -146,6 +146,16 @@ test-phase65-live-media-adaptation:
 		-o $(BUILD_DIR)/test_phase65_live_media_adaptation
 	$(BUILD_DIR)/test_phase65_live_media_adaptation
 
+test-phase65-live-media-session-issuance:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/media/tests/test_live_media_session_issuance.cpp \
+		-lsqlite3 -lcrypt \
+		-o $(BUILD_DIR)/test_phase65_live_media_session_issuance
+	$(BUILD_DIR)/test_phase65_live_media_session_issuance
+
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation
+test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance
