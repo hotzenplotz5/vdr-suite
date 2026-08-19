@@ -62,6 +62,10 @@ public:
     bool insertProvisioningBundle(
         const MediaSessionBundleRegistration& registration);
 
+    bool updateProvisioningPresentationProfile(
+        const std::string& sessionId,
+        const std::string& presentationProfileId);
+
     bool activateBundle(const std::string& sessionId);
 
     bool failBundle(
