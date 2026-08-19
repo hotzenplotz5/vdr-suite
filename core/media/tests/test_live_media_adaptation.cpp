@@ -51,6 +51,7 @@ int main()
     assert(probePlan.valid);
     assert(pair(probePlan.argv, "-f", "mpegts"));
     assert(pair(probePlan.argv, "-read_intervals", "%+3"));
+    assert(pair(probePlan.argv, "-of", "compact=p=0:nk=0"));
     assert(contains(
         probePlan.argv,
         "unix:///run/vdr/vdr-suite-live/lease_live_1.sock?timeout=5000000&type=stream"));
@@ -58,10 +59,8 @@ int main()
     assert(!probe.commandPlan("/run/vdr/../tmp/socket").valid);
 
     const std::string output =
-        "[STREAM]\nindex=0\ncodec_name=h264\ncodec_type=video\n"
-        "width=1920\nheight=1080\navg_frame_rate=25/1\nfield_order=tt\n[/STREAM]\n"
-        "[STREAM]\nindex=1\ncodec_name=mp2\ncodec_type=audio\nchannels=2\n[/STREAM]\n"
-        "[FORMAT]\nformat_name=mpegts\n[/FORMAT]\n";
+        "codec_type=video|codec_name=h264|width=1920|height=1080|r_frame_rate=25/1|field_order=tt\n"
+        "codec_type=audio|codec_name=mp2|channels=2|tag:language=deu\n";
     const auto source = probe.parse(output);
     assert(source.valid);
     assert(source.source.resourceKind == MediaResourceKind::LiveChannel);
@@ -73,6 +72,7 @@ int main()
     assert(source.source.videoStreams.front().interlaced);
     assert(source.source.audioStreams.size() == 1);
     assert(source.source.audioStreams.front().codec == MediaCodec::MpegAudio);
+    assert(source.source.audioStreams.front().language == "deu");
 
     FfmpegHlsCommandBuilder builder;
     auto copy = profile();
