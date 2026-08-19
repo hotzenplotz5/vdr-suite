@@ -37,7 +37,7 @@ int main()
       SuiteBridgeCapabilityDiscoveryReply::PayloadUnavailableReplyCode() == 451);
 
   const char *expected =
-      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.13.0\",\"capability_schema\":1,\"snapshot_schema\":2,\"local_contract_schema\":2,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"epg-type-snapshot\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
+      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.13.0\",\"capability_schema\":1,\"snapshot_schema\":2,\"local_contract_schema\":2,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"epg-type-snapshot\",\"state\":\"available\"},{\"id\":\"vdr.live.stream\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
 
   const SuiteBridgeCapabilityDiscoveryPayload payload(
       "suitebridge",
