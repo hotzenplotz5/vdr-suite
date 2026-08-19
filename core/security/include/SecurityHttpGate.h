@@ -138,6 +138,7 @@ public:
         const bool isManualRecordingMetadataAction = isPost &&
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
+        const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -155,7 +156,8 @@ public:
             isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction || isNativeFuzzyStaleProbeDeleteAction ||
             isSeriesArtworkSettingsAction || isManualRecordingMetadataAction;
-        const bool isExplicitlyAuthorizedPost = isProtectedMutation || isMediaSessionMutation;
+        const bool isExplicitlyAuthorizedPost =
+            isProtectedMutation || isRecordingPlaybackSessionCreate;
 
         if (isSafePost)
         {
