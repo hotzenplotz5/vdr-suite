@@ -37,6 +37,10 @@ function node(tagName) {
 }
 
 const window = {
+  VdrSuitePublicUrl: {
+    basePath: '/vdr-suite',
+    resolvePath(path) { return '/vdr-suite' + path; }
+  },
   VdrSuiteBrowserSession: {
     csrfHeaders() { return {'X-CSRF-Token': 'csrf-live-token'}; },
     subscribe() {}
@@ -116,9 +120,14 @@ assert.strictEqual(
   test.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
   '/api/media/sessions/live_session_test/live/stream.mp4'
 );
+assert.strictEqual(
+  test.publicLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
+  '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+);
 assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test/hls/master.m3u8'), '');
 assert.strictEqual(test.safeLiveMediaPath('unix:///run/vdr/live.sock'), '');
 assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4?token=x'), '');
+assert.strictEqual(test.publicLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4?token=x'), '');
 
 (async function () {
   requests.length = 0;
@@ -147,7 +156,10 @@ assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test
   assert.strictEqual(requests[0].options.headers['X-CSRF-Token'], 'csrf-live-token');
 
   assert.strictEqual(videos.length, 1);
-  assert.strictEqual(videos[0].src, '/api/media/sessions/live_session_test/live/stream.mp4');
+  assert.strictEqual(
+    videos[0].src,
+    '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+  );
   assert.strictEqual(videos[0].autoplay, true);
   assert.strictEqual(videos[0].played, 1);
 
@@ -179,6 +191,7 @@ assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test
   }));
 
   assert.ok(source.includes("protocols: ['progressive']"));
+  assert.ok(source.includes('publicLiveMediaPath'));
   assert.ok(source.includes('stream\\.mp4'));
   assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
   assert.ok(!source.includes('master.m3u8'));

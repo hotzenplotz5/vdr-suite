@@ -123,6 +123,20 @@
       : '';
   }
 
+  function publicLiveMediaPath(value) {
+    const canonical = safeLiveMediaPath(value);
+    if (!canonical) return '';
+
+    const publicUrl = global.VdrSuitePublicUrl;
+    if (!publicUrl || typeof publicUrl.resolvePath !== 'function') return canonical;
+
+    try {
+      return text(publicUrl.resolvePath(canonical)).trim();
+    } catch (error) {
+      return '';
+    }
+  }
+
   function liveCapabilities() {
     return {
       protocols: ['progressive'],
@@ -279,7 +293,7 @@
         if (destroyed) return '';
         const mediaSession = session && session.mediaSession;
         const id = safeSessionId(mediaSession && mediaSession.id);
-        const mediaPath = safeLiveMediaPath(mediaSession && mediaSession.mediaPath);
+        const mediaPath = publicLiveMediaPath(mediaSession && mediaSession.mediaPath);
         if (!id || !mediaPath || !mediaSession || mediaSession.state !== 'ready') {
           throw new Error('Live-MediaSession wurde nicht direkt wiedergabebereit bereitgestellt.');
         }
@@ -390,6 +404,7 @@
     __test: Object.freeze({
       liveCapabilities: liveCapabilities,
       safeLiveMediaPath: safeLiveMediaPath,
+      publicLiveMediaPath: publicLiveMediaPath,
       safeSessionId: safeSessionId,
       channelId: channelId
     })
