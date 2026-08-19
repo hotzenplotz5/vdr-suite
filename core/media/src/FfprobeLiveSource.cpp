@@ -2,13 +2,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <sstream>
+#include <string>
 
 namespace
 {
 constexpr std::size_t MaximumLiveSocketPathLength = 100;
-constexpr const char* LiveIoTimeoutMicros = "5000000";
-constexpr const char* LiveAnalyzeDurationMicros = "3000000";
-constexpr const char* LiveProbeSizeBytes = "2000000";
+constexpr const char* LiveIoTimeoutMicros = "2000000";
+constexpr const char* LiveAnalyzeDurationMicros = "500000";
+constexpr const char* LiveProbeSizeBytes = "524288";
 
 bool validSocketPath(const std::string& value)
 {
@@ -22,6 +24,29 @@ bool validSocketPath(const std::string& value)
             character == '-' || character == '_' || character == '.' ||
             character == ':';
     });
+}
+
+bool knownVideoScanType(const std::string& output)
+{
+    std::istringstream stream(output);
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (line.find("codec_type=video") == std::string::npos) continue;
+
+        const std::string marker = "field_order=";
+        const std::size_t start = line.find(marker);
+        if (start == std::string::npos) return false;
+        const std::size_t valueStart = start + marker.size();
+        const std::size_t end = line.find('|', valueStart);
+        const std::string value = line.substr(
+            valueStart,
+            end == std::string::npos ? std::string::npos : end - valueStart);
+        if (value != "progressive" && value != "tt" && value != "bb" &&
+            value != "tb" && value != "bt") {
+            return false;
+        }
+    }
+    return true;
 }
 }
 
@@ -54,9 +79,14 @@ FfprobeRecordingResult FfprobeLiveSource::parse(const std::string& output) const
     FfprobeRecordingSource recordingProbe;
     auto result = recordingProbe.parse(output);
     if (!result.valid) return result;
+    if (!knownVideoScanType(output)) {
+        result.valid = false;
+        result.reasonCode = "live_video_scan_type_unknown";
+        return result;
+    }
     result.source.resourceKind = MediaResourceKind::LiveChannel;
     result.source.container = MediaContainer::MpegTs;
     result.source.seekable = false;
-    result.source.growing = false;
+    result.source.growing = true;
     return result;
 }
