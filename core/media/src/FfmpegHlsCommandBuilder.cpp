@@ -227,10 +227,13 @@ FfmpegHlsCommandPlan buildPlan(
     else {
         // The native provider already emits source-rate MPEG-TS. Do not add
         // -re: doing so would create a second clock and can make live playback
-        // lag behind the actual tuner feed.
+        // lag behind the actual tuner feed. Keep protocol options separate
+        // from the Unix pathname: FFmpeg's unix protocol treats the full URL
+        // tail as sockaddr_un.sun_path rather than parsing URL query options.
         plan.argv.insert(plan.argv.end(), {
+            "-rw_timeout", "5000000",
             "-f", "mpegts",
-            "-i", "unix://" + *liveSocketPath + "?timeout=5000000&type=stream"
+            "-i", "unix://" + *liveSocketPath
         });
     }
 
