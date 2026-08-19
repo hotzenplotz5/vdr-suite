@@ -37,6 +37,10 @@ AGENT_NATIVE_PROBE_SRC := \
 	core/agent/src/BackendAgentLocalProvider.cpp \
 	core/agent/src/BackendAgentNativeProbe.cpp
 
+AGENT_LIVE_PROVIDER_SRC := \
+	core/agent/src/BackendAgentLiveProviderAuthority.cpp \
+	core/agent/src/BackendAgentLiveProviderRuntime.cpp
+
 AGENT_COMMAND_DOMAIN_SRC := \
 	core/agent/src/BackendAgentCommand.cpp \
 	core/agent/src/BackendAgentNativeTimerCreate.cpp \
@@ -99,7 +103,8 @@ AGENT_CONTROL_PLANE_DOMAIN_SRC := \
 	core/agent/src/BackendAgentLifecycle.cpp \
 	$(AGENT_CHANNEL_DOMAIN_SRC) \
 	$(AGENT_COMMAND_DOMAIN_SRC) \
-	$(AGENT_COMMAND_DELIVERY_SRC)
+	$(AGENT_COMMAND_DELIVERY_SRC) \
+	$(AGENT_LIVE_PROVIDER_SRC)
 
 AGENT_CONTROL_PLANE_HTTP_SRC := \
 	core/agent/src/BackendAgentHttpServer.cpp \
