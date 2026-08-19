@@ -114,19 +114,19 @@ int main()
     staleEpoch.providerInstanceEpoch = "pie_live_2";
     assert(!authority.usable(
         pin, baseAgent, baseCursor, baseChannels, baseOwnership, staleEpoch, reason));
-    assert(reason == "local_provider_selection_stale");
+    assert(reason == "local_provider_instance_epoch_changed");
 
     auto staleGeneration = baseFacts;
     ++staleGeneration.providerGeneration;
     assert(!authority.usable(
         pin, baseAgent, baseCursor, baseChannels, baseOwnership, staleGeneration, reason));
-    assert(reason == "local_provider_selection_stale");
+    assert(reason == "local_provider_generation_changed");
 
     auto staleCapability = baseFacts;
     ++staleCapability.capabilityRevision;
     assert(!authority.usable(
         pin, baseAgent, baseCursor, baseChannels, baseOwnership, staleCapability, reason));
-    assert(reason == "local_provider_selection_stale");
+    assert(reason == "local_provider_capability_revision_changed");
 
     auto staleObservation = baseCursor;
     staleObservation.resourceRevision = "chanrev_12";
@@ -138,7 +138,7 @@ int main()
     ++revokedOwnership.ownershipGeneration;
     assert(!authority.usable(
         pin, baseAgent, baseCursor, baseChannels, revokedOwnership, baseFacts, reason));
-    assert(reason == "local_provider_selection_stale");
+    assert(reason == "local_provider_ownership_changed");
 
     auto unavailableFacts = baseFacts;
     unavailableFacts.available = false;
@@ -152,7 +152,7 @@ int main()
     alternateFacts.providerInstanceEpoch = "rest_live_1";
     assert(!authority.usable(
         pin, baseAgent, baseCursor, baseChannels, baseOwnership, alternateFacts, reason));
-    assert(reason == "local_provider_selection_stale");
+    assert(reason == "local_provider_identity_changed");
 
     auto missingChannel = baseChannels;
     missingChannel.front().channelId = "S19.2E-1-1019-99999";
