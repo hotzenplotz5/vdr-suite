@@ -2,10 +2,12 @@
 #define VDR_SUITE_BRIDGE_LIVE_SOURCE_H
 
 #include "suitebridge_command_result.h"
+#include "suitebridge_live_transport_buffer.h"
 
 #include <vdr/channels.h>
 #include <vdr/device.h>
 #include <vdr/receiver.h>
+#include <vdr/remux.h>
 #include <vdr/tools.h>
 
 #include <algorithm>
@@ -17,7 +19,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <deque>
 #include <fcntl.h>
 #include <map>
 #include <memory>
@@ -34,16 +35,39 @@
 
 class SuiteBridgeLiveSourceService final {
 private:
+  enum class TerminalReason {
+    None,
+    BackpressureOverflow,
+    TsPacketContractViolation,
+    ReceiverPreempted,
+  };
+
   struct SharedState final {
-    std::mutex mutex;
+    static constexpr std::size_t BufferBytes = 5U * 1024U * 1024U;
+    static constexpr std::size_t BufferPackets =
+        BufferBytes / SuiteBridgeTsPacketBuffer::PacketSize;
+
+    SuiteBridgeTsPacketBuffer buffer{BufferPackets};
+    std::mutex waitMutex;
+    std::mutex clientMutex;
     std::condition_variable wake;
-    std::deque<std::vector<uchar>> queue;
-    std::size_t queuedBytes = 0;
-    bool stopping = false;
-    bool terminal = false;
-    bool clientConnected = false;
-    std::string terminalReason;
+    std::atomic<bool> stopping{false};
+    std::atomic<bool> terminal{false};
+    std::atomic<bool> clientConnected{false};
+    std::atomic<TerminalReason> terminalReason{TerminalReason::None};
     int clientFd = -1;
+
+    void MarkTerminal(TerminalReason reason)
+    {
+      TerminalReason expected = TerminalReason::None;
+      terminalReason.compare_exchange_strong(
+          expected,
+          reason,
+          std::memory_order_acq_rel,
+          std::memory_order_acquire);
+      terminal.store(true, std::memory_order_release);
+      wake.notify_all();
+    }
   };
 
   class LiveReceiver final : public cReceiver {
@@ -55,37 +79,37 @@ private:
     void Receive(const uchar *data, int length) override
     {
       if (data == nullptr || length <= 0) return;
-      std::unique_lock<std::mutex> lock(state_->mutex, std::try_to_lock);
-      if (!lock.owns_lock() || state_->stopping || state_->terminal ||
-          !state_->clientConnected) {
+      if (state_->stopping.load(std::memory_order_acquire) ||
+          state_->terminal.load(std::memory_order_acquire)) {
         return;
       }
-      const std::size_t bytes = static_cast<std::size_t>(length);
-      if (bytes > MaximumQueuedBytes ||
-          state_->queuedBytes > MaximumQueuedBytes - bytes) {
-        state_->terminal = true;
-        state_->terminalReason = "backpressure_overflow";
-        state_->queue.clear();
-        state_->queuedBytes = 0;
-        state_->wake.notify_all();
+
+      const auto result = state_->buffer.Push(
+          reinterpret_cast<const std::uint8_t *>(data),
+          static_cast<std::size_t>(length));
+      if (result == SuiteBridgeTsPacketBuffer::PushResult::InvalidPacket) {
+        state_->MarkTerminal(TerminalReason::TsPacketContractViolation);
         return;
       }
-      state_->queue.emplace_back(data, data + length);
-      state_->queuedBytes += bytes;
-      lock.unlock();
+      if (result == SuiteBridgeTsPacketBuffer::PushResult::Full) {
+        state_->MarkTerminal(TerminalReason::BackpressureOverflow);
+        return;
+      }
       state_->wake.notify_one();
     }
 
   private:
-    static constexpr std::size_t MaximumQueuedBytes = 2U * 1024U * 1024U;
     std::shared_ptr<SharedState> state_;
   };
 
   struct Session final {
+    using Packet = SuiteBridgeTsPacketBuffer::Packet;
+
     std::string leaseId;
     std::string channelId;
     std::string socketPath;
     std::shared_ptr<SharedState> state = std::make_shared<SharedState>();
+    std::vector<Packet> startupPackets;
     cDevice *device = nullptr;
     std::unique_ptr<LiveReceiver> receiver;
     int listenFd = -1;
@@ -134,6 +158,7 @@ private:
       LOCK_CHANNELS_READ;
       const cChannel *channel = Channels->GetByChannelID(nativeId);
       if (channel == nullptr || channel->GroupSep()) return false;
+      if (!PrepareStartupPackets(channel)) return false;
       device = cDevice::GetDevice(channel, LIVEPRIORITY, false);
       if (device == nullptr || !device->SwitchChannel(channel, false)) {
         device = nullptr;
@@ -161,10 +186,9 @@ private:
 
     void Stop()
     {
+      if (state->stopping.exchange(true, std::memory_order_acq_rel)) return;
       {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        if (state->stopping) return;
-        state->stopping = true;
+        std::lock_guard<std::mutex> lock(state->clientMutex);
         if (state->clientFd >= 0) ::shutdown(state->clientFd, SHUT_RDWR);
       }
       state->wake.notify_all();
@@ -182,21 +206,54 @@ private:
 
     std::string StateName() const
     {
-      std::lock_guard<std::mutex> lock(state->mutex);
-      if (state->terminal) return "terminal";
-      if (state->stopping) return "stopping";
+      if (state->terminal.load(std::memory_order_acquire)) return "terminal";
+      if (state->stopping.load(std::memory_order_acquire)) return "stopping";
       return Attached() ? "active" : "preempted";
     }
 
     std::string Reason() const
     {
-      std::lock_guard<std::mutex> lock(state->mutex);
-      if (!state->terminalReason.empty()) return state->terminalReason;
+      switch (state->terminalReason.load(std::memory_order_acquire)) {
+        case TerminalReason::BackpressureOverflow:
+          return "backpressure_overflow";
+        case TerminalReason::TsPacketContractViolation:
+          return "ts_packet_contract_violation";
+        case TerminalReason::ReceiverPreempted:
+          return "receiver_preempted";
+        case TerminalReason::None:
+          break;
+      }
       if (!Attached()) return "receiver_preempted";
       return "none";
     }
 
   private:
+    bool PrepareStartupPackets(const cChannel *channel)
+    {
+      startupPackets.clear();
+      cPatPmtGenerator generator(channel);
+      if (!AppendStartupPacket(generator.GetPat())) return false;
+
+      int index = 0;
+      bool havePmt = false;
+      while (const uchar *pmt = generator.GetPmt(index)) {
+        if (!AppendStartupPacket(pmt)) return false;
+        havePmt = true;
+      }
+      return havePmt;
+    }
+
+    bool AppendStartupPacket(const uchar *data)
+    {
+      if (data == nullptr || data[0] != SuiteBridgeTsPacketBuffer::SyncByte) {
+        return false;
+      }
+      Packet packet{};
+      std::memcpy(packet.data(), data, packet.size());
+      startupPackets.push_back(packet);
+      return true;
+    }
+
     void CloseSocket()
     {
       if (listenFd >= 0) {
@@ -206,10 +263,10 @@ private:
       if (!socketPath.empty()) ::unlink(socketPath.c_str());
     }
 
-    bool SendChunk(int fd, const std::vector<uchar> &chunk)
+    bool SendPacket(int fd, const Packet &packet)
     {
       std::size_t offset = 0;
-      while (offset < chunk.size()) {
+      while (offset < packet.size()) {
         pollfd descriptor {};
         descriptor.fd = fd;
         descriptor.events = POLLOUT;
@@ -220,8 +277,8 @@ private:
         }
         const ssize_t written = ::send(
             fd,
-            chunk.data() + offset,
-            chunk.size() - offset,
+            packet.data() + offset,
+            packet.size() - offset,
 #ifdef MSG_NOSIGNAL
             MSG_NOSIGNAL
 #else
@@ -240,31 +297,47 @@ private:
       return true;
     }
 
+    bool SendStartupPackets(int fd)
+    {
+      for (const auto &packet : startupPackets) {
+        if (!SendPacket(fd, packet)) return false;
+      }
+      return true;
+    }
+
+    void SetClient(int fd)
+    {
+      {
+        std::lock_guard<std::mutex> lock(state->clientMutex);
+        state->clientFd = fd;
+      }
+      state->clientConnected.store(true, std::memory_order_release);
+    }
+
     void DisconnectClient(int fd)
     {
       {
-        std::lock_guard<std::mutex> lock(state->mutex);
+        std::lock_guard<std::mutex> lock(state->clientMutex);
         if (state->clientFd == fd) state->clientFd = -1;
-        state->clientConnected = false;
-        state->queue.clear();
-        state->queuedBytes = 0;
       }
+      state->clientConnected.store(false, std::memory_order_release);
       ::shutdown(fd, SHUT_RDWR);
       ::close(fd);
+    }
+
+    bool StoppingOrTerminal() const
+    {
+      return state->stopping.load(std::memory_order_acquire) ||
+             state->terminal.load(std::memory_order_acquire);
     }
 
     void WriterLoop()
     {
       int client = -1;
       while (true) {
-        {
-          std::lock_guard<std::mutex> lock(state->mutex);
-          if (state->stopping || state->terminal) break;
-        }
+        if (StoppingOrTerminal()) break;
         if (receiver == nullptr || !receiver->IsAttached()) {
-          std::lock_guard<std::mutex> lock(state->mutex);
-          state->terminal = true;
-          state->terminalReason = "receiver_preempted";
+          state->MarkTerminal(TerminalReason::ReceiverPreempted);
           break;
         }
 
@@ -282,40 +355,36 @@ private:
                 ::close(client);
                 client = -1;
               } else {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                state->queue.clear();
-                state->queuedBytes = 0;
-                state->clientFd = client;
-                state->clientConnected = true;
+                SetClient(client);
+                if (!SendStartupPackets(client)) {
+                  DisconnectClient(client);
+                  client = -1;
+                }
               }
             }
           }
           continue;
         }
 
-        std::vector<uchar> chunk;
-        {
-          std::unique_lock<std::mutex> lock(state->mutex);
+        Packet packet{};
+        if (!state->buffer.Pop(packet)) {
+          std::unique_lock<std::mutex> lock(state->waitMutex);
           state->wake.wait_for(lock, std::chrono::milliseconds(100), [this]() {
-            return state->stopping || state->terminal || !state->queue.empty();
+            return StoppingOrTerminal() || !state->buffer.Empty();
           });
-          if (state->stopping || state->terminal) break;
-          if (state->queue.empty()) continue;
-          chunk = std::move(state->queue.front());
-          state->queue.pop_front();
-          state->queuedBytes -= chunk.size();
+          continue;
         }
-        if (!SendChunk(client, chunk)) {
+        if (!SendPacket(client, packet)) {
           DisconnectClient(client);
           client = -1;
         }
       }
       if (client >= 0) DisconnectClient(client);
-      std::lock_guard<std::mutex> lock(state->mutex);
-      state->clientConnected = false;
-      state->clientFd = -1;
-      state->queue.clear();
-      state->queuedBytes = 0;
+      state->clientConnected.store(false, std::memory_order_release);
+      {
+        std::lock_guard<std::mutex> lock(state->clientMutex);
+        state->clientFd = -1;
+      }
     }
   };
 

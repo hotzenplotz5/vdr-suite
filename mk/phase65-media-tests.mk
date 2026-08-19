@@ -215,3 +215,13 @@ test-phase65-live-socket-runtime-install:
 # this runtime dependency so the live source cannot regress back to ENOENT.
 test-fast: test-phase65-live-socket-runtime-install
 test-install-staging: test-phase65-live-socket-runtime-install
+
+.PHONY: test-phase65-live-ts-transport-buffer
+
+test-phase65-live-ts-transport-buffer:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Ivdr-plugin-suite-bridge \
+		vdr-plugin-suite-bridge/tests/test_suitebridge_live_transport_buffer.cpp \
+		-o $(BUILD_DIR)/test_phase65_live_ts_transport_buffer
+	$(BUILD_DIR)/test_phase65_live_ts_transport_buffer
+
+test-fast: test-phase65-live-ts-transport-buffer
