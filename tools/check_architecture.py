@@ -38,6 +38,10 @@ SQLITE_SPLIT_REPOSITORY_FAMILIES = [
         "core/vdr/src/",
         "VdrRecordingNativeMetadataRepository",
     ),
+    (
+        "core/media/src/",
+        "MediaSessionRepository",
+    ),
 ]
 
 SQLITE_SPLIT_REPOSITORY_FILES = {
@@ -183,6 +187,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/timers/src/TimerIntentRepository.cpp",
         "core/operations/src/MutationOperationRepository.cpp",
         "core/media/src/MediaSessionRepository.cpp",
+        "core/media/src/MediaSessionRepositoryLive.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
