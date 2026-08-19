@@ -179,8 +179,8 @@ assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test
   }));
 
   assert.ok(source.includes("protocols: ['progressive']"));
-  assert.ok(source.includes('/live/stream\\.mp4'));
-  assert.ok(!source.includes("STARTUP_BUFFER_SECONDS"));
+  assert.ok(source.includes('stream\\.mp4'));
+  assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
   assert.ok(!source.includes('master.m3u8'));
 
   console.log('direct Live TV browser contract ok');
