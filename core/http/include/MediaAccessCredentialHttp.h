@@ -7,8 +7,8 @@
 class MediaAccessCredentialHttp
 {
 public:
-    static constexpr const char* CookieName = "vdr_suite_media";
-    static constexpr const char* AuthorizationHeader =
+    inline static constexpr char CookieName[] = "vdr_suite_media";
+    inline static constexpr char AuthorizationHeader[] =
         "X-VDR-Suite-Media-Authorization";
 
     static std::string cookiePath(const std::string& sessionId)

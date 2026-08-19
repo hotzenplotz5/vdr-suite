@@ -15,6 +15,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 
 namespace
 {
@@ -59,7 +60,7 @@ void writeFile(const std::filesystem::path& path, const std::string& value)
     stream.write(value.data(), static_cast<std::streamsize>(value.size()));
 }
 
-MediaSessionIssuanceRequest request()
+MediaSessionIssuanceRequest recordingRequest()
 {
     MediaSessionIssuanceRequest value;
     value.actorId = "actor-1";
@@ -68,6 +69,19 @@ MediaSessionIssuanceRequest request()
     value.resourceId = "42";
     value.presentationProfileId = "hls-fmp4";
     value.providerId = "local-vdr-recording";
+    value.lifetimeSeconds = 21600;
+    return value;
+}
+
+MediaSessionIssuanceRequest liveRequest()
+{
+    MediaSessionIssuanceRequest value;
+    value.actorId = "actor-live";
+    value.backendId = "default";
+    value.resourceKind = "live-channel";
+    value.resourceId = "S19.2E-1-1019-10301";
+    value.presentationProfileId = "live-progressive-fmp4";
+    value.providerId = "suitebridge-native-live";
     value.lifetimeSeconds = 21600;
     return value;
 }
@@ -90,7 +104,7 @@ int main()
         },
         [] { return futureClock(); });
 
-    auto issued = issuer.issue(request());
+    auto issued = issuer.issue(recordingRequest());
     assert(issued.issued);
     assert(sessionRepository.activateBundle(issued.session.sessionId));
 
@@ -108,7 +122,8 @@ int main()
         std::make_unique<FallbackServer>(),
         authenticator,
         routeRepository,
-        artifactReader);
+        artifactReader,
+        root.string());
 
     const std::string prefix =
         "/api/media/sessions/" + issued.session.sessionId + "/hls/";
@@ -142,6 +157,7 @@ int main()
         assert(response.headers.at("Content-Type") == "application/vnd.apple.mpegurl");
         assert(response.body == "#EXTM3U\nsegment-000001.m4s\n");
         assert(response.headers.at("Cross-Origin-Resource-Policy") == "same-origin");
+        assert(response.streamBodyPath.empty());
     }
 
     {
@@ -168,7 +184,48 @@ int main()
         assert(response.body.find("media_access_inactive") != std::string::npos);
     }
 
+    auto live = issuer.issue(liveRequest());
+    assert(live.issued);
+    assert(sessionRepository.activateBundle(live.session.sessionId));
+    const auto liveWorkspace = root / live.session.workspaceId;
+    std::filesystem::create_directories(liveWorkspace);
+    const auto liveFifo = liveWorkspace / "live.fmp4";
+    assert(::mkfifo(liveFifo.c_str(), 0600) == 0);
+
+    const std::string livePath =
+        "/api/media/sessions/" + live.session.sessionId + "/live/stream.mp4";
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = livePath;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = livePath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + live.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 200);
+        assert(response.headers.at("Content-Type") == "video/mp4");
+        assert(response.headers.at("Cache-Control") == "no-store");
+        assert(response.headers.at("X-Accel-Buffering") == "no");
+        assert(response.body.empty());
+        assert(response.streamBodyPath == liveFifo.string());
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = livePath + "?token=forbidden";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 418);
+    }
+
+    assert(sessionRepository.endBundle(live.session.sessionId, "client_stop"));
     std::filesystem::remove_all(root);
     issued.session.clearSecret();
+    live.session.clearSecret();
     return 0;
 }

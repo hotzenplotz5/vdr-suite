@@ -30,6 +30,14 @@ SecurityConfiguration enforcedConfiguration()
     };
     return configuration;
 }
+
+void setLiveChannelBody(HttpServerRequest& request, const std::string& backendId)
+{
+    request.body =
+        "{\"backendId\":\"" + backendId +
+        "\",\"resourceKind\":\"live-channel\""
+        ",\"operationId\":\"phase65-live-security-test\"}";
+}
 }
 
 int main()
@@ -167,6 +175,45 @@ int main()
     assert(!fixture.gate.appendProtectedMutationOutcome(
         playbackAllowed,
         201));
+
+    HttpServerRequest livePlaybackWithoutGrant =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "default");
+    setLiveChannelBody(livePlaybackWithoutGrant, "default");
+    fixture.addBrowserAuthentication(livePlaybackWithoutGrant, true);
+
+    const SecurityGateDecision livePlaybackWithoutGrantDecision =
+        fixture.gate.evaluate(livePlaybackWithoutGrant);
+    assert(!livePlaybackWithoutGrantDecision.allowed);
+    assert(!livePlaybackWithoutGrantDecision.protectedMutation);
+    assert(livePlaybackWithoutGrantDecision.rejection.statusCode == 403);
+    assert(livePlaybackWithoutGrantDecision.rejection.body.find(
+        "permission_denied") != std::string::npos);
+
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
+        "media.live.play",
+        "default"));
+
+    HttpServerRequest livePlayback =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "default");
+    setLiveChannelBody(livePlayback, "default");
+    fixture.addBrowserAuthentication(livePlayback, true);
+
+    const SecurityGateDecision livePlaybackAllowed =
+        fixture.gate.evaluate(livePlayback);
+    assert(livePlaybackAllowed.allowed);
+    assert(!livePlaybackAllowed.protectedMutation);
+    assert(livePlaybackAllowed.authorizationDecision.allowed);
+    assert(livePlaybackAllowed.authorizationDecision.permission ==
+        "media.live.play");
+    assert(livePlaybackAllowed.authorizationDecision.backendId ==
+        "default");
+    assert(livePlaybackAllowed.authorizationDecision.action ==
+        "media.live.play");
 
     HttpServerRequest playbackWrongScope =
         fixture.mutationRequest(
@@ -313,6 +360,8 @@ int main()
     bool sawRemoteAllowed = false;
     bool sawUnmigratedDenied = false;
     bool sawPlaybackAllowed = false;
+    bool sawLivePlaybackDenied = false;
+    bool sawLivePlaybackAllowed = false;
     bool sawRemoteSucceeded = false;
     bool sawRemoteFailed = false;
 
@@ -330,6 +379,17 @@ int main()
             (event.permission == "media.recording.play" &&
              event.backendId == "default" &&
              event.action == "media.recording.play" &&
+             event.outcome == "dispatch_authorized");
+        sawLivePlaybackDenied = sawLivePlaybackDenied ||
+            (event.permission == "media.live.play" &&
+             event.backendId == "default" &&
+             event.action == "media.live.play" &&
+             event.outcome == "dispatch_denied" &&
+             event.reasonCode == "permission_denied");
+        sawLivePlaybackAllowed = sawLivePlaybackAllowed ||
+            (event.permission == "media.live.play" &&
+             event.backendId == "default" &&
+             event.action == "media.live.play" &&
              event.outcome == "dispatch_authorized");
         sawRemoteSucceeded = sawRemoteSucceeded ||
             (event.eventType == "operation.succeeded" &&
@@ -367,6 +427,8 @@ int main()
     assert(sawRemoteAllowed);
     assert(sawUnmigratedDenied);
     assert(sawPlaybackAllowed);
+    assert(sawLivePlaybackDenied);
+    assert(sawLivePlaybackAllowed);
     assert(sawRemoteSucceeded);
     assert(sawRemoteFailed);
 

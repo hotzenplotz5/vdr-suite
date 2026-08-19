@@ -98,79 +98,48 @@ public:
 
         const bool isPost = request.method == "POST";
         const std::string path = requestPath(request.path);
-        const bool isRemoteAction =
-            isPost && path == "/api/vdr/remote/actions";
-        const bool isTimerCreateAction =
-            isPost && path == "/api/vdr/timers/actions/create";
-        const bool isTimerUpdateAction =
-            isPost && path == "/api/vdr/timers/actions/update";
-        const bool isTimerDeleteAction =
-            isPost && path == "/api/vdr/timers/actions/delete";
-        const bool isChannelMoveAction =
-            isPost &&
-            (path == "/api/vdr/channels/move" ||
-             path == "/api/vdr/channels/actions/move");
-        const bool isRecordingExecutionAction =
-            isPost &&
-            (path == "/api/recordings/actions/execute" ||
-             path == "/api/vdr/recordings/actions/execute");
-        const bool isSearchTimerCreateAction =
-            isPost &&
-            (path == "/api/searchtimers" ||
-             path == "/api/vdr/searchtimers");
-        const bool isSearchTimerUpdateAction =
-            isPost &&
-            (path == "/api/searchtimers/update" ||
-             path == "/api/vdr/searchtimers/update");
-        const bool isSearchTimerDeleteAction =
-            isPost &&
-            (path == "/api/searchtimers/delete" ||
-             path == "/api/vdr/searchtimers/delete");
-        const bool isSearchTimerExecuteAction =
-            isPost &&
-            (path == "/api/searchtimers/execute" ||
-             path == "/api/vdr/searchtimers/execute");
-        const bool isSearchTimerRealTestAction =
-            isPost &&
-            (path == "/api/searchtimers/real-test" ||
-             path == "/api/vdr/searchtimers/real-test");
-        const bool isSearchTimerPreviewCacheRefreshAction =
-            isPost &&
-            (path == "/api/searchtimers/preview/cache/refresh" ||
-             path == "/api/vdr/searchtimers/preview/cache/refresh");
-        const bool isEpgCacheRefreshAction =
-            isPost && path == "/api/epg/cache/refresh";
-        const bool isNativeFuzzyRefreshAction =
-            isPost &&
-            (path == "/api/epgsearch/native-fuzzy/refresh" ||
-             path == "/api/vdr/epgsearch/native-fuzzy/refresh");
-        const bool isNativeFuzzyStaleProbeDeleteAction =
-            isPost &&
-            (path ==
-                 "/api/epgsearch/native-fuzzy/stale-probes/delete" ||
-             path ==
-                 "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete");
+        const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
+        const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
+        const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
+        const bool isTimerDeleteAction = isPost && path == "/api/vdr/timers/actions/delete";
+        const bool isChannelMoveAction = isPost &&
+            (path == "/api/vdr/channels/move" || path == "/api/vdr/channels/actions/move");
+        const bool isRecordingExecutionAction = isPost &&
+            (path == "/api/recordings/actions/execute" || path == "/api/vdr/recordings/actions/execute");
+        const bool isSearchTimerCreateAction = isPost &&
+            (path == "/api/searchtimers" || path == "/api/vdr/searchtimers");
+        const bool isSearchTimerUpdateAction = isPost &&
+            (path == "/api/searchtimers/update" || path == "/api/vdr/searchtimers/update");
+        const bool isSearchTimerDeleteAction = isPost &&
+            (path == "/api/searchtimers/delete" || path == "/api/vdr/searchtimers/delete");
+        const bool isSearchTimerExecuteAction = isPost &&
+            (path == "/api/searchtimers/execute" || path == "/api/vdr/searchtimers/execute");
+        const bool isSearchTimerRealTestAction = isPost &&
+            (path == "/api/searchtimers/real-test" || path == "/api/vdr/searchtimers/real-test");
+        const bool isSearchTimerPreviewCacheRefreshAction = isPost &&
+            (path == "/api/searchtimers/preview/cache/refresh" || path == "/api/vdr/searchtimers/preview/cache/refresh");
+        const bool isEpgCacheRefreshAction = isPost && path == "/api/epg/cache/refresh";
+        const bool isNativeFuzzyRefreshAction = isPost &&
+            (path == "/api/epgsearch/native-fuzzy/refresh" || path == "/api/vdr/epgsearch/native-fuzzy/refresh");
+        const bool isNativeFuzzyStaleProbeDeleteAction = isPost &&
+            (path == "/api/epgsearch/native-fuzzy/stale-probes/delete" ||
+             path == "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete");
         const bool isSeriesArtworkSettingsAction =
             isPost &&
             path.size() > std::string("/api/backends/").size() +
                 std::string("/settings/series-artwork").size() &&
-            path.compare(0, std::string("/api/backends/").size(),
-                         "/api/backends/") == 0 &&
+            path.compare(0, std::string("/api/backends/").size(), "/api/backends/") == 0 &&
             path.compare(
                 path.size() - std::string("/settings/series-artwork").size(),
                 std::string("/settings/series-artwork").size(),
                 "/settings/series-artwork") == 0;
         std::string manualMetadataBackendId;
         std::string manualMetadataOperation;
-        const bool isManualRecordingMetadataAction =
-            isPost && manualRecordingMetadataRoute(
-                path,
-                manualMetadataBackendId,
-                manualMetadataOperation);
-        const bool isRecordingPlaybackSessionCreate =
-            isPost && path == "/api/media/sessions";
-        const bool isSafePost =
-            isPost &&
+        const bool isManualRecordingMetadataAction = isPost &&
+            manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
+        const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
+        const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
              path == "/api/recordings/actions/preview" ||
@@ -180,32 +149,19 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
-            isRemoteAction ||
-            isTimerCreateAction ||
-            isTimerUpdateAction ||
-            isTimerDeleteAction ||
-            isChannelMoveAction ||
-            isRecordingExecutionAction ||
-            isSearchTimerCreateAction ||
-            isSearchTimerUpdateAction ||
-            isSearchTimerDeleteAction ||
-            isSearchTimerExecuteAction ||
-            isSearchTimerRealTestAction ||
-            isSearchTimerPreviewCacheRefreshAction ||
-            isEpgCacheRefreshAction ||
-            isNativeFuzzyRefreshAction ||
-            isNativeFuzzyStaleProbeDeleteAction ||
-            isSeriesArtworkSettingsAction ||
-            isManualRecordingMetadataAction;
+            isRemoteAction || isTimerCreateAction || isTimerUpdateAction ||
+            isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
+            isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
+            isSearchTimerExecuteAction || isSearchTimerRealTestAction ||
+            isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
+            isNativeFuzzyRefreshAction || isNativeFuzzyStaleProbeDeleteAction ||
+            isSeriesArtworkSettingsAction || isManualRecordingMetadataAction;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
 
         if (isSafePost)
         {
-            if (!gate.context.authenticated())
-            {
-                return rejectAuthentication(gate);
-            }
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
             gate.allowed = true;
             return gate;
         }
@@ -218,18 +174,14 @@ public:
             decision.backendId = "*";
             decision.action = "http.browser.mutation";
             return rejectWithAudit(
-                gate,
-                decision,
-                503,
-                "Browser-session mutations have not yet been migrated "
-                "to the Phase 62 CSRF contract",
+                gate, decision, 503,
+                "Browser-session mutations have not yet been migrated to the Phase 62 CSRF contract",
                 "");
         }
 
         if (!isExplicitlyAuthorizedPost)
         {
-            const bool explicitPolicyRequired =
-                isPost &&
+            const bool explicitPolicyRequired = isPost &&
                 (configuration_.mode == SecurityMode::Enforced ||
                  !usesLegacyCompatibilityCredential(gate.context));
             if (explicitPolicyRequired)
@@ -240,9 +192,7 @@ public:
                 decision.backendId = "*";
                 decision.action = "http.mutation";
                 return rejectWithAudit(
-                    gate,
-                    decision,
-                    503,
+                    gate, decision, 503,
                     "This mutation route has not yet been migrated to the Phase 62 security contract",
                     "");
             }
@@ -252,14 +202,22 @@ public:
 
         gate.protectedMutation = isProtectedMutation;
         AuthorizationRequest requestToAuthorize;
-        requestToAuthorize.backendId =
-            jsonStringValue(request.body, "backendId");
+        requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isRecordingPlaybackSessionCreate)
+        if (isMediaSessionMutation)
         {
-            requestToAuthorize.permission = "media.recording.play";
-            requestToAuthorize.action = "media.recording.play";
+            const std::string resourceKind = jsonStringValue(request.body, "resourceKind");
+            if (resourceKind == "live-channel")
+            {
+                requestToAuthorize.permission = "media.live.play";
+                requestToAuthorize.action = "media.live.play";
+            }
+            else
+            {
+                requestToAuthorize.permission = "media.recording.play";
+                requestToAuthorize.action = "media.recording.play";
+            }
         }
         else if (isRemoteAction)
         {
@@ -312,56 +270,44 @@ public:
         }
         else if (isSearchTimerPreviewCacheRefreshAction)
         {
-            requestToAuthorize.permission =
-                "searchtimers.preview-cache.refresh";
-            requestToAuthorize.action =
-                "searchtimers.preview-cache.refresh";
-            requestToAuthorize.backendId =
-                queryStringValue(request.path, "backend");
+            requestToAuthorize.permission = "searchtimers.preview-cache.refresh";
+            requestToAuthorize.action = "searchtimers.preview-cache.refresh";
+            requestToAuthorize.backendId = queryStringValue(request.path, "backend");
             defaultBackend(requestToAuthorize);
         }
         else if (isEpgCacheRefreshAction)
         {
             requestToAuthorize.permission = "epg.cache.refresh";
             requestToAuthorize.action = "epg.cache.refresh";
-            requestToAuthorize.backendId =
-                queryStringValue(request.path, "backend");
+            requestToAuthorize.backendId = queryStringValue(request.path, "backend");
             defaultBackend(requestToAuthorize);
         }
         else if (isNativeFuzzyStaleProbeDeleteAction)
         {
-            requestToAuthorize.permission =
-                "epgsearch.native-fuzzy.stale-probes.delete";
-            requestToAuthorize.action =
-                "epgsearch.native-fuzzy.stale-probes.delete";
+            requestToAuthorize.permission = "epgsearch.native-fuzzy.stale-probes.delete";
+            requestToAuthorize.action = "epgsearch.native-fuzzy.stale-probes.delete";
             requestToAuthorize.backendId = "*";
         }
         else if (isNativeFuzzyRefreshAction)
         {
-            requestToAuthorize.permission =
-                "epgsearch.native-fuzzy.refresh";
-            requestToAuthorize.action =
-                "epgsearch.native-fuzzy.refresh";
+            requestToAuthorize.permission = "epgsearch.native-fuzzy.refresh";
+            requestToAuthorize.action = "epgsearch.native-fuzzy.refresh";
             defaultBackend(requestToAuthorize);
         }
         else if (isManualRecordingMetadataAction)
         {
             requestToAuthorize.permission = "metadata.recording.assign";
-            requestToAuthorize.action =
-                "metadata.recording." + manualMetadataOperation;
+            requestToAuthorize.action = "metadata.recording." + manualMetadataOperation;
             requestToAuthorize.backendId = manualMetadataBackendId;
         }
         else if (isSeriesArtworkSettingsAction)
         {
-            requestToAuthorize.permission =
-                "backend.settings.series-artwork.modify";
-            requestToAuthorize.action =
-                "backend.settings.series-artwork.modify";
+            requestToAuthorize.permission = "backend.settings.series-artwork.modify";
+            requestToAuthorize.action = "backend.settings.series-artwork.modify";
         }
         else
         {
-            const std::string recordingAction =
-                jsonStringValue(request.body, "action");
+            const std::string recordingAction = jsonStringValue(request.body, "action");
             if (recordingAction == "RENAME")
             {
                 requestToAuthorize.permission = "recordings.rename";
@@ -385,8 +331,7 @@ public:
             }
         }
 
-        const std::string operationId =
-            jsonStringValue(request.body, "operationId");
+        const std::string operationId = jsonStringValue(request.body, "operationId");
 
         if (gate.browserAuthenticated &&
             (browserSessionAuthenticator_ == nullptr ||
@@ -398,11 +343,7 @@ public:
             decision.backendId = requestToAuthorize.backendId;
             decision.action = requestToAuthorize.action;
             return rejectWithAudit(
-                gate,
-                decision,
-                403,
-                "A valid CSRF token is required",
-                operationId);
+                gate, decision, 403, "A valid CSRF token is required", operationId);
         }
 
         if (isRecordingExecutionAction && !recordingActionSupported)
@@ -413,11 +354,7 @@ public:
             decision.backendId = requestToAuthorize.backendId;
             decision.action = requestToAuthorize.action;
             return rejectWithAudit(
-                gate,
-                decision,
-                400,
-                "Unsupported recording execution action",
-                operationId);
+                gate, decision, 400, "Unsupported recording execution action", operationId);
         }
 
         const AuthorizationDecision decision =
@@ -460,45 +397,28 @@ public:
     {
         response.headers["X-Request-ID"] = context.requestId;
         if (!context.correlationId.empty())
-        {
             response.headers["X-Correlation-ID"] = context.correlationId;
-        }
     }
 
     bool appendProtectedMutationOutcome(
         const SecurityGateDecision& gate,
         int statusCode) const
     {
-        if (!gate.allowed ||
-            !gate.protectedMutation ||
-            !gate.authorizationDecision.allowed)
-        {
-            return false;
-        }
+        if (!gate.allowed || !gate.protectedMutation ||
+            !gate.authorizationDecision.allowed) return false;
 
-        const bool succeeded =
-            statusCode >= 200 && statusCode <= 299;
-
+        const bool succeeded = statusCode >= 200 && statusCode <= 299;
         AccountabilityEvent event;
         event.eventId = opaqueId("audit");
         event.classes = succeeded ? "audit" : "audit,security";
-        event.eventType = succeeded
-            ? "operation.succeeded"
-            : "operation.failed";
+        event.eventType = succeeded ? "operation.succeeded" : "operation.failed";
         event.severity = succeeded ? "info" : "error";
         event.occurredAt = nowUtc();
-        event.actorId = gate.context.actor.actorId.empty()
-            ? "anonymous"
-            : gate.context.actor.actorId;
+        event.actorId = gate.context.actor.actorId.empty() ? "anonymous" : gate.context.actor.actorId;
         event.actorType = actorTypeName(gate.context.actor.type);
-        event.deviceId = gate.context.device
-            ? gate.context.device->deviceId
-            : "";
-        event.sessionId = gate.context.session
-            ? gate.context.session->sessionId
-            : "";
-        event.authenticationState =
-            authenticationStateName(gate.context.authenticationState);
+        event.deviceId = gate.context.device ? gate.context.device->deviceId : "";
+        event.sessionId = gate.context.session ? gate.context.session->sessionId : "";
+        event.authenticationState = authenticationStateName(gate.context.authenticationState);
         event.permission = gate.authorizationDecision.permission;
         event.backendId = gate.authorizationDecision.backendId;
         event.operationId = gate.operationId;
@@ -506,8 +426,7 @@ public:
         event.correlationId = gate.context.correlationId;
         event.action = gate.authorizationDecision.action;
         event.decision = "allowed";
-        event.reasonCode =
-            "http_status_" + std::to_string(statusCode);
+        event.reasonCode = "http_status_" + std::to_string(statusCode);
         event.outcome = succeeded ? "succeeded" : "failed";
         return accountabilityRepository_.append(event);
     }
@@ -525,20 +444,13 @@ public:
 private:
     static void defaultBackend(AuthorizationRequest& request)
     {
-        if (request.backendId.empty())
-        {
-            request.backendId = "default";
-        }
+        if (request.backendId.empty()) request.backendId = "default";
     }
 
     static std::string lowerAscii(std::string value)
     {
-        std::transform(
-            value.begin(),
-            value.end(),
-            value.begin(),
-            [](unsigned char character)
-            {
+        std::transform(value.begin(), value.end(), value.begin(),
+            [](unsigned char character) {
                 return static_cast<char>(std::tolower(character));
             });
         return value;
@@ -566,22 +478,15 @@ private:
         operation = path.substr(separator + segment.size());
         const bool validBackend =
             !backendId.empty() && backendId.size() <= 128U &&
-            std::all_of(
-                backendId.begin(),
-                backendId.end(),
-                [](unsigned char character)
-                {
-                    return std::isalnum(character) ||
-                        character == '.' || character == '_' || character == '-';
+            std::all_of(backendId.begin(), backendId.end(),
+                [](unsigned char character) {
+                    return std::isalnum(character) || character == '.' ||
+                        character == '_' || character == '-';
                 });
-        if (!validBackend || operation.empty() ||
-            operation.find('/') != std::string::npos)
+        if (!validBackend || operation.empty() || operation.find('/') != std::string::npos)
             return false;
-        return operation == "search" ||
-            operation == "seasons" ||
-            operation == "episodes" ||
-            operation == "assign" ||
-            operation == "withdraw";
+        return operation == "search" || operation == "seasons" ||
+            operation == "episodes" || operation == "assign" || operation == "withdraw";
     }
 
     static int hexValue(char value)
@@ -610,8 +515,7 @@ private:
                 const int low = hexValue(value[index + 2]);
                 if (high >= 0 && low >= 0)
                 {
-                    decoded.push_back(
-                        static_cast<char>((high << 4) | low));
+                    decoded.push_back(static_cast<char>((high << 4) | low));
                     index += 2;
                     continue;
                 }
@@ -626,11 +530,7 @@ private:
         const std::string& key)
     {
         const std::size_t queryStart = target.find('?');
-        if (queryStart == std::string::npos || queryStart + 1 >= target.size())
-        {
-            return "";
-        }
-
+        if (queryStart == std::string::npos || queryStart + 1 >= target.size()) return "";
         std::string result;
         std::size_t position = queryStart + 1;
         while (position <= target.size())
@@ -638,22 +538,13 @@ private:
             const std::size_t separator = target.find('&', position);
             const std::string item = target.substr(
                 position,
-                separator == std::string::npos
-                    ? std::string::npos
-                    : separator - position);
+                separator == std::string::npos ? std::string::npos : separator - position);
             const std::size_t equals = item.find('=');
             const std::string itemKey = urlDecode(
                 equals == std::string::npos ? item : item.substr(0, equals));
             if (itemKey == key)
-            {
-                result = equals == std::string::npos
-                    ? ""
-                    : urlDecode(item.substr(equals + 1));
-            }
-            if (separator == std::string::npos)
-            {
-                break;
-            }
+                result = equals == std::string::npos ? "" : urlDecode(item.substr(equals + 1));
+            if (separator == std::string::npos) break;
             position = separator + 1;
         }
         return result;
@@ -665,12 +556,7 @@ private:
     {
         const std::string wanted = lowerAscii(name);
         for (const auto& header : request.headers)
-        {
-            if (lowerAscii(header.first) == wanted)
-            {
-                return header.second;
-            }
-        }
+            if (lowerAscii(header.first) == wanted) return header.second;
         return "";
     }
 
@@ -683,12 +569,8 @@ private:
         if (position == std::string::npos) return "";
         position = body.find(':', position + needle.size());
         if (position == std::string::npos) return "";
-        do
-        {
-            ++position;
-        }
-        while (position < body.size() &&
-               std::isspace(static_cast<unsigned char>(body[position])));
+        do { ++position; }
+        while (position < body.size() && std::isspace(static_cast<unsigned char>(body[position])));
         if (position >= body.size() || body[position] != '"') return "";
 
         ++position;
@@ -736,9 +618,7 @@ private:
                 case '\t': escaped += "\\t"; break;
                 default:
                     if (static_cast<unsigned char>(character) >= 0x20)
-                    {
                         escaped.push_back(character);
-                    }
                     break;
             }
         }
@@ -748,46 +628,31 @@ private:
     static bool safeContextToken(const std::string& value)
     {
         if (value.empty() || value.size() > 128) return false;
-        return std::all_of(
-            value.begin(),
-            value.end(),
-            [](unsigned char character)
-            {
-                return std::isalnum(character) ||
-                    character == '-' ||
-                    character == '_' ||
-                    character == '.' ||
-                    character == ':';
+        return std::all_of(value.begin(), value.end(),
+            [](unsigned char character) {
+                return std::isalnum(character) || character == '-' ||
+                    character == '_' || character == '.' || character == ':';
             });
     }
 
-    static std::string authenticationReason(
-        const RequestSecurityContext& context)
+    static std::string authenticationReason(const RequestSecurityContext& context)
     {
-        if (context.authenticationState == AuthenticationState::Anonymous)
-            return "authentication_required";
-        if (context.authenticationState == AuthenticationState::Invalid)
-            return "invalid_credentials";
-        if (!context.actor.active || context.actor.actorId.empty())
-            return "actor_revoked";
-        if (context.device.has_value() && !context.device->active)
-            return "device_revoked";
+        if (context.authenticationState == AuthenticationState::Anonymous) return "authentication_required";
+        if (context.authenticationState == AuthenticationState::Invalid) return "invalid_credentials";
+        if (!context.actor.active || context.actor.actorId.empty()) return "actor_revoked";
+        if (context.device.has_value() && !context.device->active) return "device_revoked";
         if (context.credential.has_value())
         {
-            if (context.credential->revoked || !context.credential->active)
-                return "credential_revoked";
+            if (context.credential->revoked || !context.credential->active) return "credential_revoked";
             if (context.credential->expired) return "credential_expired";
         }
         if (context.session.has_value())
         {
-            if (context.session->revoked || !context.session->active)
-                return "session_revoked";
+            if (context.session->revoked || !context.session->active) return "session_revoked";
             if (context.session->expired) return "session_expired";
         }
-        if (context.authenticationState == AuthenticationState::Expired)
-            return "session_expired";
-        if (context.authenticationState == AuthenticationState::Revoked)
-            return "session_revoked";
+        if (context.authenticationState == AuthenticationState::Expired) return "session_expired";
+        if (context.authenticationState == AuthenticationState::Revoked) return "session_revoked";
         return "invalid_credentials";
     }
 
@@ -805,29 +670,18 @@ private:
 
     static std::string messageForReason(const std::string& reasonCode)
     {
-        if (reasonCode == "authentication_required")
-            return "Authentication is required";
-        if (reasonCode == "invalid_credentials")
-            return "The supplied credentials are invalid";
-        if (reasonCode == "session_expired")
-            return "The authenticated session has expired";
-        if (reasonCode == "credential_expired")
-            return "The authenticated credential has expired";
-        if (reasonCode == "session_revoked" ||
-            reasonCode == "credential_revoked" ||
-            reasonCode == "actor_revoked" ||
-            reasonCode == "device_revoked")
+        if (reasonCode == "authentication_required") return "Authentication is required";
+        if (reasonCode == "invalid_credentials") return "The supplied credentials are invalid";
+        if (reasonCode == "session_expired") return "The authenticated session has expired";
+        if (reasonCode == "credential_expired") return "The authenticated credential has expired";
+        if (reasonCode == "session_revoked" || reasonCode == "credential_revoked" ||
+            reasonCode == "actor_revoked" || reasonCode == "device_revoked")
             return "The authenticated identity is no longer active";
-        if (reasonCode == "backend_scope_denied")
-            return "The actor is not permitted to mutate this backend";
-        if (reasonCode == "permission_denied")
-            return "The actor lacks the required permission";
-        if (reasonCode == "permission_grants_unavailable")
-            return "Browser permission persistence is unavailable";
-        if (reasonCode == "invalid_backend_scope")
-            return "A valid backend scope is required";
-        if (reasonCode == "csrf_validation_failed")
-            return "A valid CSRF token is required";
+        if (reasonCode == "backend_scope_denied") return "The actor is not permitted to mutate this backend";
+        if (reasonCode == "permission_denied") return "The actor lacks the required permission";
+        if (reasonCode == "permission_grants_unavailable") return "Browser permission persistence is unavailable";
+        if (reasonCode == "invalid_backend_scope") return "A valid backend scope is required";
+        if (reasonCode == "csrf_validation_failed") return "A valid CSRF token is required";
         return "The request is not authorized";
     }
 
@@ -847,32 +701,25 @@ private:
 
     std::string opaqueId(const std::string& prefix) const
     {
-        const auto ticks =
-            std::chrono::steady_clock::now().time_since_epoch().count();
+        const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
         const unsigned long long sequence = idCounter_.fetch_add(1) + 1;
         std::ostringstream output;
-        output << prefix << '-' << std::hex
-               << static_cast<unsigned long long>(ticks)
+        output << prefix << '-' << std::hex << static_cast<unsigned long long>(ticks)
                << '-' << sequence;
         return output.str();
     }
 
-    bool usesLegacyCompatibilityCredential(
-        const RequestSecurityContext& context) const
+    bool usesLegacyCompatibilityCredential(const RequestSecurityContext& context) const
     {
-        return context.authenticated() &&
-            context.actor.actorId == configuration_.actorId &&
+        return context.authenticated() && context.actor.actorId == configuration_.actorId &&
             context.credential.has_value() &&
             context.credential->credentialId == configuration_.credentialId;
     }
 
-    RequestSecurityContext resolvePersistentIdentity(
-        RequestSecurityContext context) const
+    RequestSecurityContext resolvePersistentIdentity(RequestSecurityContext context) const
     {
         if (persistentIdentityResolver_ != nullptr)
-        {
             context = persistentIdentityResolver_->resolve(std::move(context));
-        }
         return context;
     }
 
@@ -882,32 +729,25 @@ private:
         std::string requestId = headerValue(request, "X-Request-ID");
         if (!safeContextToken(requestId)) requestId = opaqueId("req");
 
-        std::string correlationId =
-            headerValue(request, "X-Correlation-ID");
-        if (!correlationId.empty() && !safeContextToken(correlationId))
-            correlationId.clear();
+        std::string correlationId = headerValue(request, "X-Correlation-ID");
+        if (!correlationId.empty() && !safeContextToken(correlationId)) correlationId.clear();
 
         if (browserSessionAuthenticator_ != nullptr &&
             browserSessionAuthenticator_->hasSessionCookie(request.headers))
         {
             result.browserSessionPresented = true;
             result.context = browserSessionAuthenticator_->authenticate(
-                request.headers,
-                requestId,
-                correlationId);
+                request.headers, requestId, correlationId);
             if (result.context.authenticated())
             {
-                result.context =
-                    resolvePersistentIdentity(std::move(result.context));
+                result.context = resolvePersistentIdentity(std::move(result.context));
                 result.browserAuthenticated = result.context.authenticated();
             }
             return result;
         }
 
         result.context = legacyAuthenticator_.authenticate(
-            request.headers,
-            requestId,
-            correlationId);
+            request.headers, requestId, correlationId);
         if (result.context.authenticated())
         {
             result.context = resolvePersistentIdentity(std::move(result.context));
@@ -916,15 +756,11 @@ private:
 
         if (managedBasicAuthenticator_ != nullptr)
         {
-            RequestSecurityContext managedContext =
-                managedBasicAuthenticator_->authenticate(
-                    request.headers,
-                    requestId,
-                    correlationId);
+            RequestSecurityContext managedContext = managedBasicAuthenticator_->authenticate(
+                request.headers, requestId, correlationId);
             if (managedContext.authenticated())
             {
-                result.context =
-                    resolvePersistentIdentity(std::move(managedContext));
+                result.context = resolvePersistentIdentity(std::move(managedContext));
                 return result;
             }
         }
@@ -939,11 +775,7 @@ private:
         decision.permission = "legacy.compatibility.access";
         decision.backendId = "*";
         return rejectWithAudit(
-            gate,
-            decision,
-            401,
-            messageForReason(decision.reasonCode),
-            "");
+            gate, decision, 401, messageForReason(decision.reasonCode), "");
     }
 
     bool appendDecisionEvent(
@@ -954,19 +786,14 @@ private:
         AccountabilityEvent event;
         event.eventId = opaqueId("audit");
         event.classes = decision.allowed ? "audit" : "audit,security";
-        event.eventType = decision.allowed
-            ? "authorization.allowed"
-            : "authorization.denied";
+        event.eventType = decision.allowed ? "authorization.allowed" : "authorization.denied";
         event.severity = decision.allowed ? "info" : "warning";
         event.occurredAt = nowUtc();
-        event.actorId = context.actor.actorId.empty()
-            ? "anonymous"
-            : context.actor.actorId;
+        event.actorId = context.actor.actorId.empty() ? "anonymous" : context.actor.actorId;
         event.actorType = actorTypeName(context.actor.type);
         event.deviceId = context.device ? context.device->deviceId : "";
         event.sessionId = context.session ? context.session->sessionId : "";
-        event.authenticationState =
-            authenticationStateName(context.authenticationState);
+        event.authenticationState = authenticationStateName(context.authenticationState);
         event.permission = decision.permission;
         event.backendId = decision.backendId;
         event.operationId = operationId;
@@ -975,9 +802,7 @@ private:
         event.action = decision.action;
         event.decision = decision.allowed ? "allowed" : "denied";
         event.reasonCode = decision.reasonCode;
-        event.outcome = decision.allowed
-            ? "dispatch_authorized"
-            : "dispatch_denied";
+        event.outcome = decision.allowed ? "dispatch_authorized" : "dispatch_denied";
         return accountabilityRepository_.append(event);
     }
 
@@ -999,11 +824,7 @@ private:
             return gate;
         }
         gate.rejection = errorResponse(
-            statusCode,
-            decision.reasonCode,
-            message,
-            gate.context,
-            advertiseBasic);
+            statusCode, decision.reasonCode, message, gate.context, advertiseBasic);
         return gate;
     }
 
@@ -1019,15 +840,11 @@ private:
         response.headers["Content-Type"] = "application/json";
         response.headers["Cache-Control"] = "no-store";
         if (advertiseBasic)
-        {
-            response.headers["WWW-Authenticate"] =
-                "Basic realm=\"VDR-Suite\", charset=\"UTF-8\"";
-        }
+            response.headers["WWW-Authenticate"] = "Basic realm=\"VDR-Suite\", charset=\"UTF-8\"";
         response.body =
             "{\"error\":{\"code\":\"" + jsonEscape(code) +
             "\",\"message\":\"" + jsonEscape(message) +
-            "\",\"requestId\":\"" + jsonEscape(context.requestId) +
-            "\"}}";
+            "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"}}";
         decorateResponse(context, response);
         return response;
     }

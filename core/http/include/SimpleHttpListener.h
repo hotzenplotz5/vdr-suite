@@ -49,7 +49,8 @@ private:
     bool prepareClientResponse(
         int clientSocket,
         std::string& rawResponse,
-        bool& imageResponse) const;
+        bool& imageResponse,
+        std::string& streamBodyPath) const;
 };
 
 #endif

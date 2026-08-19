@@ -1,0 +1,432 @@
+#include "LiveMediaSessionRuntime.h"
+
+#include "FfmpegLiveStreamCommandBuilder.h"
+#include "MediaSessionRepository.h"
+#include "MediaSessionWorkspace.h"
+
+#include <algorithm>
+#include <cerrno>
+#include <chrono>
+#include <filesystem>
+#include <sys/wait.h>
+#include <utility>
+
+namespace
+{
+constexpr auto WorkerShutdownGrace = std::chrono::milliseconds(500);
+
+bool contains(
+    const std::vector<MediaDeliveryProtocol>& values,
+    MediaDeliveryProtocol wanted)
+{
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool contains(
+    const std::vector<MediaContainer>& values,
+    MediaContainer wanted)
+{
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool contains(
+    const std::vector<MediaCodec>& values,
+    MediaCodec wanted)
+{
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool supportsDirectLive(const ClientMediaCapabilities& capabilities)
+{
+    return contains(capabilities.protocols, MediaDeliveryProtocol::Progressive) &&
+        contains(capabilities.containers, MediaContainer::Fmp4) &&
+        contains(capabilities.videoCodecs, MediaCodec::H264) &&
+        contains(capabilities.audioCodecs, MediaCodec::Aac) &&
+        capabilities.maxAudioChannels >= 2;
+}
+
+MediaPresentationProfile directLivePresentation()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "live-progressive-fmp4";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::Fmp4;
+    profile.adaptationClass = MediaAdaptationClass::Transcode;
+    profile.videoAction = MediaTrackAction::Transcode;
+    profile.audioAction = MediaTrackAction::Transcode;
+    profile.sourceVideoStreamIndex = 0;
+    profile.sourceAudioStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
+
+    // A browser is not a VNSI/Kodi decoder. Keep the VNSI one-consumer start
+    // model, but normalize the decoded video in that same FFmpeg process.
+    // Native dimensions are preserved and bwdif only acts on frames that the
+    // decoder marks as interlaced.
+    profile.targetVideoWidth = 0;
+    profile.targetVideoHeight = 0;
+    profile.deinterlaceVideo = true;
+    profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
+    profile.reason = "live_progressive_fmp4_continuous_adaptation_selected";
+    return profile;
+}
+
+MediaSourceDescriptor directLiveDescriptor()
+{
+    MediaSourceDescriptor source;
+    source.resourceKind = MediaResourceKind::LiveChannel;
+    source.container = MediaContainer::MpegTs;
+    source.seekable = false;
+    source.growing = true;
+
+    // This descriptor describes the conditioned browser-facing contract. The
+    // source itself is intentionally not consumed by a separate metadata probe.
+    MediaVideoStreamDescriptor video;
+    video.codec = MediaCodec::H264;
+    video.interlaced = false;
+    source.videoStreams.push_back(video);
+
+    MediaAudioStreamDescriptor audio;
+    audio.codec = MediaCodec::Aac;
+    audio.channels = 2;
+    source.audioStreams.push_back(audio);
+    return source;
+}
+}
+
+LiveMediaSessionRuntime::LiveMediaSessionRuntime(
+    MediaSessionRepository& repository,
+    vdrsuite::agent::BackendAgentLiveProviderRuntime& providerRuntime,
+    std::string workspaceRoot,
+    ProbeRunner probeRunner,
+    WorkerSpawner workerSpawner,
+    WorkerTerminator workerTerminator,
+    ReadinessProbe readinessProbe,
+    MediaTranscodePolicy transcodePolicy)
+    : repository_(repository),
+      providerRuntime_(providerRuntime),
+      workspaceRoot_(std::move(workspaceRoot)),
+      probeRunner_(std::move(probeRunner)),
+      workerSpawner_(std::move(workerSpawner)),
+      workerTerminator_(std::move(workerTerminator)),
+      readinessProbe_(std::move(readinessProbe)),
+      transcodePolicy_(std::move(transcodePolicy))
+{
+    // ProbeRunner remains constructor-compatible with the Phase-65 runtime
+    // test seam, but Live-TV deliberately never invokes it. A separate probe
+    // would become a first socket consumer and reintroduce the zap race.
+    if (!workerSpawner_) {
+        workerSpawner_ = [](const std::vector<std::string>& argv,
+                            const std::string& workingDirectory,
+                            const std::string& logPath) {
+            return MediaProcessRunner().spawnLogged(argv, workingDirectory, logPath);
+        };
+    }
+    if (!workerTerminator_) {
+        workerTerminator_ = [](pid_t pid, std::chrono::milliseconds grace) {
+            return MediaProcessRunner().terminateAndWait(pid, grace);
+        };
+    }
+}
+
+LiveMediaSessionRuntime::~LiveMediaSessionRuntime()
+{
+    stopAll();
+}
+
+bool LiveMediaSessionRuntime::defaultReady(
+    const std::string& workspaceDirectory,
+    MediaContainer container)
+{
+    if (container != MediaContainer::Fmp4) return false;
+    std::error_code error;
+    return std::filesystem::exists(
+        std::filesystem::path(workspaceDirectory) / "live.fmp4",
+        error) && !error;
+}
+
+LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
+    const std::string& sessionId,
+    const std::string& workspaceId,
+    const std::string& leaseId,
+    const std::string& grantId,
+    const vdrsuite::agent::BackendAgentLiveProviderPreparation& preparation,
+    const ClientMediaCapabilities& clientCapabilities)
+{
+    LiveMediaSessionProvisionResult result;
+    if (sessionId.empty() || workspaceId.empty() || leaseId.empty() || grantId.empty() ||
+        !preparation.valid || !preparation.pin.valid) {
+        result.reasonCode = "invalid_live_stream_provision_request";
+        return result;
+    }
+    if (!supportsDirectLive(clientCapabilities)) {
+        result.reasonCode = "live_progressive_fmp4_unsupported";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (active_.find(sessionId) != active_.end()) {
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    auto workspace = std::make_unique<MediaSessionWorkspace>(workspaceRoot_);
+    const auto workspaceResult = workspace->prepareLive(workspaceId);
+    if (!workspaceResult.ready) {
+        result.reasonCode = workspaceResult.reasonCode.empty()
+            ? "media_workspace_unavailable" : workspaceResult.reasonCode;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const auto opened = providerRuntime_.open(preparation, leaseId);
+    if (!opened.opened) {
+        result.reasonCode = opened.reasonCode.empty()
+            ? "live_provider_open_failed" : opened.reasonCode;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+    const auto closeProvider = [&]() {
+        std::string ignored;
+        providerRuntime_.close(preparation, leaseId, ignored);
+    };
+
+    std::string providerReason;
+    if (!providerRuntime_.current(preparation, providerReason)) {
+        closeProvider();
+        result.reasonCode = providerReason.empty()
+            ? "live_provider_fence_stale" : providerReason;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    result.source = directLiveDescriptor();
+    result.presentation = transcodePolicy_.apply(directLivePresentation());
+    if (!result.presentation.available) {
+        closeProvider();
+        result.reasonCode = result.presentation.reason.empty()
+            ? "live_transcode_capacity_unproven" : result.presentation.reason;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    // Re-check the authority immediately before starting the only socket
+    // consumer. There is intentionally no ffprobe connection between this
+    // fence and the FFmpeg worker.
+    providerReason.clear();
+    if (!providerRuntime_.current(preparation, providerReason)) {
+        closeProvider();
+        result.reasonCode = providerReason.empty()
+            ? "live_provider_fence_stale_before_worker" : providerReason;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const auto command = FfmpegLiveStreamCommandBuilder().build(
+        result.presentation,
+        opened.unixSocketPath,
+        workspace->liveStreamPath());
+    if (!command.valid) {
+        closeProvider();
+        result.reasonCode = command.reasonCode.empty()
+            ? "live_worker_plan_invalid" : command.reasonCode;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const pid_t pid = workerSpawner_(
+        command.argv, workspace->directory(), workspace->logPath());
+    if (pid <= 0) {
+        closeProvider();
+        result.reasonCode = "live_worker_start_failed";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    int status = 0;
+    const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+    if (waited == pid) {
+        closeProvider();
+        result.reasonCode = "live_worker_exited_during_start";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+    if (waited < 0 && errno != EINTR) {
+        workerTerminator_(pid, WorkerShutdownGrace);
+        closeProvider();
+        result.reasonCode = "live_worker_wait_failed";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    ActiveSession active;
+    active.pid = pid;
+    active.leaseId = leaseId;
+    active.grantId = grantId;
+    active.preparation = preparation;
+    active.workspace = std::move(workspace);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto inserted = active_.emplace(sessionId, std::move(active));
+        if (!inserted.second) {
+            workerTerminator_(pid, WorkerShutdownGrace);
+            closeProvider();
+            result.reasonCode = "media_session_already_owned";
+            repository_.failBundle(sessionId, result.reasonCode);
+            return result;
+        }
+    }
+
+    result.ready = true;
+    result.workerPid = pid;
+    result.reasonCode = "live_stream_worker_active";
+    return result;
+}
+
+LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
+    const std::string& sessionId,
+    const std::string& workspaceId,
+    const std::string& leaseId,
+    const std::string& grantId,
+    const vdrsuite::agent::BackendAgentLiveProviderPreparation& preparation,
+    const ClientMediaCapabilities& clientCapabilities)
+{
+    ClientMediaCapabilities direct = clientCapabilities;
+    if (!contains(direct.protocols, MediaDeliveryProtocol::Progressive))
+        direct.protocols.push_back(MediaDeliveryProtocol::Progressive);
+    if (!contains(direct.containers, MediaContainer::Fmp4))
+        direct.containers.push_back(MediaContainer::Fmp4);
+    return provisionStream(
+        sessionId, workspaceId, leaseId, grantId, preparation, direct);
+}
+
+bool LiveMediaSessionRuntime::finishTaken(
+    const std::string& sessionId,
+    ActiveSession&& active,
+    const std::string& reasonCode,
+    bool workerAlreadyExited)
+{
+    bool workerStopped = true;
+    if (!workerAlreadyExited && active.pid > 0)
+        workerStopped = workerTerminator_(active.pid, WorkerShutdownGrace);
+    std::string providerReason;
+    const bool providerClosed = providerRuntime_.close(
+        active.preparation, active.leaseId, providerReason);
+    const bool bundleEnded = repository_.endBundle(sessionId, reasonCode);
+    return workerStopped && providerClosed && bundleEnded;
+}
+
+bool LiveMediaSessionRuntime::stop(
+    const std::string& sessionId,
+    const std::string& reasonCode)
+{
+    if (sessionId.empty() || reasonCode.empty()) return false;
+    ActiveSession active;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto found = active_.find(sessionId);
+        if (found == active_.end()) return false;
+        active = std::move(found->second);
+        active_.erase(found);
+    }
+    return finishTaken(sessionId, std::move(active), reasonCode, false);
+}
+
+std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
+{
+    if (idleTimeoutSeconds < 0 || idleTimeoutSeconds > 86400) return 0;
+    struct Candidate { std::string sessionId; std::string grantId; };
+    std::vector<Candidate> candidates;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        candidates.reserve(active_.size());
+        for (const auto& entry : active_)
+            candidates.push_back({entry.first, entry.second.grantId});
+    }
+
+    std::size_t reaped = 0;
+    for (const auto& candidate : candidates) {
+        std::string reasonCode;
+        bool workerExited = false;
+        vdrsuite::agent::BackendAgentLiveProviderPreparation preparation;
+        std::string leaseId;
+        pid_t pid = -1;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = active_.find(candidate.sessionId);
+            if (found == active_.end()) continue;
+            preparation = found->second.preparation;
+            leaseId = found->second.leaseId;
+            pid = found->second.pid;
+        }
+
+        int status = 0;
+        const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+        if (waited == pid) {
+            reasonCode = "live_worker_exited";
+            workerExited = true;
+        }
+        else if (waited < 0 && errno != EINTR) {
+            reasonCode = "live_worker_wait_failed";
+        }
+
+        if (reasonCode.empty()) {
+            const auto providerStatus = providerRuntime_.status(preparation, leaseId);
+            if (!providerStatus.current)
+                reasonCode = providerStatus.reasonCode.empty()
+                    ? "live_provider_terminal" : providerStatus.reasonCode;
+        }
+
+        if (reasonCode.empty()) {
+            const auto grant = repository_.findResolvedGrant(
+                candidate.grantId, idleTimeoutSeconds);
+            if (!grant.has_value() || grant->sessionId != candidate.sessionId) {
+                reasonCode = "media_access_grant_missing";
+            }
+            else if (!grant->active || grant->revoked) reasonCode = "media_access_revoked";
+            else if (grant->expired) reasonCode = "media_access_expired";
+            else if (grant->idleExpired) reasonCode = "media_access_idle_expired";
+        }
+        if (reasonCode.empty()) continue;
+
+        ActiveSession active;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto found = active_.find(candidate.sessionId);
+            if (found == active_.end()) continue;
+            active = std::move(found->second);
+            active_.erase(found);
+        }
+        if (finishTaken(candidate.sessionId, std::move(active), reasonCode, workerExited))
+            ++reaped;
+    }
+    return reaped;
+}
+
+void LiveMediaSessionRuntime::stopAll()
+{
+    std::map<std::string, ActiveSession> active;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        active.swap(active_);
+    }
+    for (auto& entry : active)
+        finishTaken(entry.first, std::move(entry.second), "daemon_shutdown", false);
+}
+
+std::size_t LiveMediaSessionRuntime::activeCount() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return active_.size();
+}
+
+pid_t LiveMediaSessionRuntime::workerPid(const std::string& sessionId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto found = active_.find(sessionId);
+    return found == active_.end() ? -1 : found->second.pid;
+}

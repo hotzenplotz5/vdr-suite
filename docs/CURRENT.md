@@ -18,6 +18,7 @@ Before any implementation, review-state change, installation or status claim, re
 - [Current Project Status](development/current-status.md)
 - [Phase 64 Closeout](development/phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](development/phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](development/phase-65-live-tv-closeout.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
@@ -40,14 +41,15 @@ Phase 65 - Streaming Gateway and Media Sessions
 Next strict numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 
-Completed Phase-65 product vertical:
+Completed Phase-65 product verticals:
 65.A - Existing-Recording playback
+65.B - Live-TV playback
 
 Next Phase-65 product vertical:
-65.B - Live-TV playback
+65.C - Recording seek and growing-recording semantics
 ```
 
-Phase 65 was explicitly started after the accepted post-Phase-64 roadmap/ADR reconciliation. The first bounded vertical, existing-Recording playback through the Suite-owned MediaSession / Streaming Gateway path, is accepted and closed. The next authorized runtime vertical is Live-TV playback. General seek/growing-Recording behavior follows later inside Phase 65. Phase 66 remains blocked.
+Phase 65 was explicitly started after the accepted post-Phase-64 roadmap/ADR reconciliation. Existing-Recording playback and Live-TV playback are accepted and closed for their bounded scopes. The next authorized runtime vertical is 65.C Recording seek and growing-recording semantics. Phase 66 remains blocked.
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
@@ -198,6 +200,33 @@ ROUTE_LEASE_GRANT_CLEANUP=PASS
 
 See [Phase 65 Recording Playback Closeout](development/phase-65-recording-playback-closeout-readiness.md) for the durable evidence and compatibility history.
 
+## Phase 65.B Live-TV playback completion evidence
+
+The Live-TV playback vertical is accepted and closed for its bounded browser scope.
+
+The accepted runtime candidate is:
+
+```text
+accepted_65b_runtime_candidate=7da9a3defc87b9442f1f75f90fb67ac514fd10cd
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=7966
+source_ci_run_id=32303041048
+source_ci_result=PASS
+
+LIVE_TV_PICTURE_SOUND=PASS
+LIVE_TV_REPEATED_ZAPPING=PASS
+ZAP_SEQUENCE=Pro7->ZDF->RTL->Pro7->NDR->Pro7
+PRO7_15_MINUTE_STABILITY=PASS
+LIVE_HOT_PATH_FFPROBE=absent
+VDR_RESTART_DURING_FINAL_ACCEPTANCE=none_observed
+```
+
+The final hot path keeps one continuous FFmpeg consumer on the conditioned SuiteBridge replay instead of probing through one socket consumer and reconnecting a second consumer for playback. Browser compatibility remains a selected profile rather than a universal native-client contract.
+
+The previously observed VDR restart under Live-TV stress was not reproduced on the accepted candidate. The single-consumer change is a plausible common fix for both zap/start instability and the earlier restart, but causality is not claimed as proven because the earlier crash had no captured stack trace or coredump.
+
+See [Phase 65 Live-TV Playback Closeout](development/phase-65-live-tv-closeout.md) for durable implementation, CI and real-system evidence.
+
 ## Binding execution-governance decisions
 
 1. A chat discussion is not a project decision until represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract.
@@ -210,16 +239,18 @@ See [Phase 65 Recording Playback Closeout](development/phase-65-recording-playba
 
 ## Current authorization boundary
 
-Phase 65 is **active**. Phase 65.A Recording playback is closed.
+Phase 65 is **active**. Phase 65.A Recording playback and Phase 65.B Live-TV playback are closed.
 
-The next authorized runtime scope is **65.B Live-TV playback**:
+The next authorized runtime scope is **65.C — Recording seek and growing-recording semantics**:
 
-1. stable Suite Channel identity resolves to an explicitly owned private live provider;
-2. authorization/admission creates a MediaSession / MediaRoute / ProviderStreamLease / MediaAccessGrant without exposing provider-native URLs;
-3. the Streaming Gateway delivers the selected live presentation to the first-party browser;
-4. real yaVDR acceptance proves visible picture and audible sound;
-5. channel replacement is explicit and releases the old route/provider/tuner resources deterministically;
-6. disconnect/revoke/expiry cleanup follows the accepted MediaSession lifecycle model;
-7. exact-head CI and real-system acceptance close the Live-TV vertical.
+1. advertise range/seek only when the selected source/profile truly supports it;
+2. model completed versus growing Recordings explicitly;
+3. expose current readable extent and seek window truthfully;
+4. avoid treating a still-growing Recording as immutable;
+5. preserve normalized Suite media/track identity independently of provider-native paths/PIDs where public semantics require it;
+6. keep the ADR-0053 least-transformation order, including `progressive-direct` where source and client capabilities permit it;
+7. keep provider-native paths private and preserve MediaSession/Gateway authorization and cleanup boundaries.
 
-General seek/growing-Recording behavior remains later Phase-65 work. Phase 66 Broadcast Companion, Legacy OSD and broad Timer UI are not authorized by this Live-TV kickoff boundary.
+Recording startup/performance work is authorized only as a coherent implementation of these existing Phase-65 contracts; it must not introduce browser-brand/user-agent routing or bypass truthful Range/Seek semantics merely to reduce latency.
+
+Phase 66 Broadcast Companion, Legacy OSD and broad Timer UI are not authorized by this 65.C boundary.

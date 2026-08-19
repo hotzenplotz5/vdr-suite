@@ -26,27 +26,20 @@ void wipe(std::string& value) noexcept
     volatile char* bytes = value.empty()
         ? nullptr
         : const_cast<volatile char*>(value.data());
-    for (std::size_t index = 0; index < value.size(); ++index) {
-        bytes[index] = 0;
-    }
+    for (std::size_t index = 0; index < value.size(); ++index) bytes[index] = 0;
     value.clear();
 }
 
 template <typename Value>
 void wipeObject(Value& value) noexcept
 {
-    volatile unsigned char* bytes =
-        reinterpret_cast<volatile unsigned char*>(&value);
-    for (std::size_t index = 0; index < sizeof(Value); ++index) {
-        bytes[index] = 0;
-    }
+    volatile unsigned char* bytes = reinterpret_cast<volatile unsigned char*>(&value);
+    for (std::size_t index = 0; index < sizeof(Value); ++index) bytes[index] = 0;
 }
 
 bool systemEntropy(unsigned char* output, std::size_t size)
 {
-    if (output == nullptr || size == 0) {
-        return false;
-    }
+    if (output == nullptr || size == 0) return false;
     std::size_t offset = 0;
     while (offset < size) {
         const ssize_t received = getrandom(output + offset, size - offset, 0);
@@ -65,11 +58,14 @@ bool safeIdentifier(const std::string& value)
     if (value.empty() || value.size() > 128) return false;
     for (unsigned char character : value) {
         if (!std::isalnum(character) && character != '-' && character != '_' &&
-            character != '.' && character != ':') {
-            return false;
-        }
+            character != '.' && character != ':') return false;
     }
     return true;
+}
+
+bool supportedResourceKind(const std::string& value)
+{
+    return value == "recording" || value == "live-channel";
 }
 
 std::string hexEncode(const unsigned char* bytes, std::size_t size)
@@ -123,9 +119,8 @@ std::string saltEncode(const unsigned char* bytes, std::size_t size)
 {
     std::string result;
     result.reserve(size);
-    for (std::size_t index = 0; index < size; ++index) {
+    for (std::size_t index = 0; index < size; ++index)
         result.push_back(CryptAlphabet[bytes[index] & 0x3f]);
-    }
     return result;
 }
 
@@ -147,9 +142,8 @@ std::string formatTimestamp(std::chrono::system_clock::time_point value)
     std::tm utc{};
     if (gmtime_r(&timestamp, &utc) == nullptr) return {};
     std::array<char, 32> buffer{};
-    if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &utc) == 0) {
+    if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &utc) == 0)
         return {};
-    }
     return buffer.data();
 }
 
@@ -262,7 +256,7 @@ MediaSessionIssuanceResult MediaSessionIssuanceService::issue(
 {
     MediaSessionIssuanceResult result;
     if (!safeIdentifier(request.actorId) || !safeIdentifier(request.backendId) ||
-        request.resourceKind != "recording" || request.resourceId.empty() ||
+        !supportedResourceKind(request.resourceKind) || request.resourceId.empty() ||
         request.resourceId.size() > 512 ||
         !safeIdentifier(request.presentationProfileId) ||
         !safeIdentifier(request.providerId) ||

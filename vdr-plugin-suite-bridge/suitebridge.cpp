@@ -7,6 +7,8 @@
 
 cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
+      liveCapability_(nativeProbe_.PluginInstanceEpoch()),
+      liveSource_(nativeProbe_.PluginInstanceEpoch()),
       nativeTimerCreate_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerCreateVdrMutation_),
@@ -56,6 +58,8 @@ bool cPluginSuiteBridge::Initialize(void)
   isyslog(
       "suitebridge: native-operation=vdr.native.probe schema=1 side-effect=none mutations=disabled provider=suitebridge");
   isyslog(
+      "suitebridge: native-operation=vdr.live.stream schema=1 transport=private-unix-stream receiver=bounded provider=suitebridge public-endpoint=none");
+  isyslog(
       "suitebridge: native-operation=vdr.timer.create schema=1 side-effect=timer-create mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   isyslog(
       "suitebridge: native-operation=vdr.timer.delete schema=1 side-effect=timer-delete mutations=enabled execution=enabled provider=suitebridge acceptance=required");
@@ -100,6 +104,7 @@ void cPluginSuiteBridge::Stop(void)
         lifecycle_.StateName(),
         SuiteBridgePluginIdentity::Version);
 
+    liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
     if (!lifecycle_.CompleteStop()) {

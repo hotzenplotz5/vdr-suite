@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime
+.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 CXXFLAGS += -Icore/media/include
 
@@ -129,6 +129,99 @@ test-phase65-recording-media-session-runtime:
 		-o $(BUILD_DIR)/test_phase65_recording_media_session_runtime
 	$(BUILD_DIR)/test_phase65_recording_media_session_runtime
 
+test-phase65-live-provider-authority:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		core/agent/src/BackendAgentLocalProvider.cpp \
+		core/agent/src/BackendAgentLiveProviderAuthority.cpp \
+		core/agent/tests/test_backend_agent_live_provider_authority.cpp \
+		-o $(BUILD_DIR)/test_phase65_live_provider_authority
+	$(BUILD_DIR)/test_phase65_live_provider_authority
+
+test-phase65-live-media-adaptation:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/FfmpegHlsCommandBuilder.cpp \
+		core/media/src/FfprobeRecordingSource.cpp \
+		core/media/src/FfprobeLiveSource.cpp \
+		core/media/tests/test_live_media_adaptation.cpp \
+		-o $(BUILD_DIR)/test_phase65_live_media_adaptation
+	$(BUILD_DIR)/test_phase65_live_media_adaptation
+
+test-phase65-live-media-session-issuance:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/media/tests/test_live_media_session_issuance.cpp \
+		-lsqlite3 -lcrypt \
+		-o $(BUILD_DIR)/test_phase65_live_media_session_issuance
+	$(BUILD_DIR)/test_phase65_live_media_session_issuance
+
+test-phase65-live-media-session-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/daemon/include -Icore/media/include -Icore/agent/include \
+		-Icore/security/include -Icore/sqlite/include -Icore/vdr/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/FfmpegHlsCommandBuilder.cpp \
+		core/media/src/FfprobeRecordingSource.cpp \
+		core/media/src/FfprobeLiveSource.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaSessionWorkspace.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/daemon/src/LiveMediaSessionRuntime.cpp \
+		core/daemon/tests/test_live_media_session_runtime.cpp \
+		$(LDFLAGS) -lsqlite3 -lcrypt \
+		-o $(BUILD_DIR)/test_phase65_live_media_session_runtime
+	$(BUILD_DIR)/test_phase65_live_media_session_runtime
+
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime
+test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+
+.PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
+
+TMPFILESDIR ?= /usr/lib/tmpfiles.d
+
+# The SuiteBridge plugin runs inside VDR as the unprivileged vdr user. Its
+# private live transport cannot create a missing parent below root-owned /run,
+# so provision the volatile socket root through systemd-tmpfiles.
+install-systemd: install-phase65-live-socket-runtime
+
+install-phase65-live-socket-runtime:
+	$(INSTALL) -d $(DESTDIR)$(TMPFILESDIR)
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-live.conf \
+		$(DESTDIR)$(TMPFILESDIR)/vdr-suite-live.conf
+
+test-phase65-live-socket-runtime-install:
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
+	$(MAKE) install-phase65-live-socket-runtime \
+		DESTDIR=/tmp/vdr-suite-live-runtime-install
+	test -f /tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf
+	grep -Fx 'd /run/vdr/vdr-suite-live 0700 vdr vdr -' \
+		/tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf >/dev/null
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
+
+# Keep both the fast Phase-65 graph and the packaging staging graph aware of
+# this runtime dependency so the live source cannot regress back to ENOENT.
+test-fast: test-phase65-live-socket-runtime-install
+test-install-staging: test-phase65-live-socket-runtime-install
+
+.PHONY: test-phase65-live-ts-transport-buffer
+
+test-phase65-live-ts-transport-buffer:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Ivdr-plugin-suite-bridge \
+		vdr-plugin-suite-bridge/tests/test_suitebridge_live_transport_buffer.cpp \
+		-o $(BUILD_DIR)/test_phase65_live_ts_transport_buffer
+	$(BUILD_DIR)/test_phase65_live_ts_transport_buffer
+
+test-fast: test-phase65-live-ts-transport-buffer

@@ -32,14 +32,28 @@ FORBIDDEN_SOURCE_SNIPPETS = [
 def requires_break_on_eintr(source: str) -> list[str]:
     errors = []
 
-    select_eintr = re.search(
-        r"if\s*\(errno\s*==\s*EINTR\)\s*\{\s*break\s*;\s*\}",
-        source,
+    select_start = source.find("const int ready = select(")
+    accept_start = source.find("const int clientSocket = accept(", select_start + 1)
+    if select_start < 0 or accept_start < 0:
+        errors.append("missing listener select/accept boundary")
+        return errors
+
+    # Only inspect the listener select branch. The live-stream writer has its
+    # own poll/read loop where retrying EINTR is correct and must not satisfy
+    # (or violate) this listener-shutdown contract.
+    select_branch = source[select_start:accept_start]
+    select_eintr_break = re.search(
+        r"if\s*\(errno\s*==\s*EINTR\)\s*(?:break\s*;|\{\s*break\s*;\s*\})",
+        select_branch,
         re.MULTILINE)
-    if not select_eintr:
+    if not select_eintr_break:
         errors.append("missing EINTR break handling")
 
-    if "if (errno == EINTR) {\n                continue;" in source:
+    select_eintr_continue = re.search(
+        r"if\s*\(errno\s*==\s*EINTR\)\s*(?:continue\s*;|\{\s*continue\s*;\s*\})",
+        select_branch,
+        re.MULTILINE)
+    if select_eintr_continue:
         errors.append("EINTR must not continue the listener loop")
 
     return errors

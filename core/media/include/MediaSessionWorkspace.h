@@ -22,13 +22,20 @@ public:
         const std::string& workspaceId,
         const std::vector<std::string>& sourceSegments);
 
+    MediaSessionWorkspaceResult prepareLive(
+        const std::string& workspaceId);
+
     void cleanup();
 
     const std::string& directory() const;
     std::string concatPath() const;
     std::string logPath() const;
+    std::string liveStreamPath() const;
 
 private:
+    MediaSessionWorkspaceResult prepareDirectory(
+        const std::string& workspaceId);
+
     std::string rootDirectory_;
     std::string directory_;
 };

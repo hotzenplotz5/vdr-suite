@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <string>
+#include <sys/stat.h>
 #include <utility>
 
 namespace
@@ -15,6 +17,7 @@ namespace
 
 constexpr const char* Prefix = "/api/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
+constexpr const char* LiveSuffix = "/live/stream.mp4";
 
 bool safeIdentifier(const std::string& value)
 {
@@ -30,6 +33,7 @@ bool safeIdentifier(const std::string& value)
 struct MediaPath
 {
     bool valid = false;
+    bool live = false;
     std::string sessionId;
     std::string artifactName;
 };
@@ -38,17 +42,29 @@ MediaPath parseMediaPath(const std::string& path)
 {
     MediaPath result;
     const std::string prefix(Prefix);
-    if (path.rfind(prefix, 0) != 0) return result;
+    if (path.rfind(prefix, 0) != 0 || path.find('?') != std::string::npos ||
+        path.find('#') != std::string::npos) {
+        return result;
+    }
 
-    const std::size_t marker = path.find(HlsMarker, prefix.size());
-    if (marker == std::string::npos) return result;
-    if (path.find('?', marker) != std::string::npos ||
-        path.find('#', marker) != std::string::npos) return result;
+    const std::size_t hlsMarker = path.find(HlsMarker, prefix.size());
+    if (hlsMarker != std::string::npos) {
+        result.sessionId = path.substr(prefix.size(), hlsMarker - prefix.size());
+        result.artifactName = path.substr(hlsMarker + std::string(HlsMarker).size());
+        result.valid = safeIdentifier(result.sessionId) &&
+            MediaHlsArtifactReader::allowedArtifactName(result.artifactName);
+        return result;
+    }
 
-    result.sessionId = path.substr(prefix.size(), marker - prefix.size());
-    result.artifactName = path.substr(marker + std::string(HlsMarker).size());
-    result.valid = safeIdentifier(result.sessionId) &&
-        MediaHlsArtifactReader::allowedArtifactName(result.artifactName);
+    const std::string suffix(LiveSuffix);
+    if (path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0) {
+        return result;
+    }
+    result.sessionId = path.substr(
+        prefix.size(), path.size() - prefix.size() - suffix.size());
+    result.live = true;
+    result.valid = safeIdentifier(result.sessionId);
     return result;
 }
 
@@ -117,17 +133,37 @@ HttpServerResponse jsonError(int statusCode, const std::string& code)
     return response;
 }
 
+std::string liveStreamPath(
+    const std::string& workspaceRoot,
+    const std::string& workspaceId)
+{
+    if (!safeIdentifier(workspaceId)) return {};
+    const std::filesystem::path root(workspaceRoot);
+    if (!root.is_absolute()) return {};
+    const std::filesystem::path workspace = root / workspaceId;
+    const std::filesystem::path stream = workspace / "live.fmp4";
+    if (workspace.parent_path() != root || stream.parent_path() != workspace)
+        return {};
+
+    struct stat status {};
+    if (::lstat(stream.c_str(), &status) != 0 || !S_ISFIFO(status.st_mode))
+        return {};
+    return stream.string();
+}
+
 } // namespace
 
 MediaGatewayHttpServer::MediaGatewayHttpServer(
     std::unique_ptr<IHttpServer> inner,
     const MediaAccessGrantAuthenticator& authenticator,
     const MediaRouteLeaseRepository& routeLeaseRepository,
-    const MediaHlsArtifactReader& artifactReader)
+    const MediaHlsArtifactReader& artifactReader,
+    std::string workspaceRoot)
     : inner_(std::move(inner)),
       authenticator_(authenticator),
       routeLeaseRepository_(routeLeaseRepository),
-      artifactReader_(artifactReader)
+      artifactReader_(artifactReader),
+      workspaceRoot_(std::move(workspaceRoot))
 {
 }
 
@@ -162,6 +198,29 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         authentication.routeEpoch);
     if (!lease.has_value()) {
         return jsonError(409, "media_route_not_active");
+    }
+
+    if (mediaPath.live) {
+        if (lease->presentationProfileId != "live-progressive-fmp4") {
+            return jsonError(409, "media_presentation_not_live_stream");
+        }
+        const std::string streamPath = liveStreamPath(
+            workspaceRoot_, lease->workspaceId);
+        if (streamPath.empty()) {
+            HttpServerResponse response = jsonError(404, "live_stream_not_ready");
+            response.headers["Retry-After"] = "1";
+            return response;
+        }
+
+        HttpServerResponse response;
+        response.statusCode = 200;
+        response.headers["Content-Type"] = "video/mp4";
+        response.headers["Cache-Control"] = "no-store";
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        response.headers["X-Accel-Buffering"] = "no";
+        response.streamBodyPath = streamPath;
+        return response;
     }
 
     if (lease->presentationProfileId != "hls-fmp4" &&

@@ -1,8 +1,13 @@
 #include "RecordingMediaHttpRuntime.h"
 
 #include "ApiRouter.h"
+#include "BackendAgentCommandDelivery.h"
+#include "BackendAgentLifecycle.h"
+#include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
 #include "IHttpServer.h"
+#include "LiveMediaSessionController.h"
+#include "LiveMediaSessionRequestParser.h"
 #include "MediaAccessGrantAuthenticator.h"
 #include "MediaGatewayHttpServer.h"
 #include "MediaHlsArtifactReader.h"
@@ -11,6 +16,7 @@
 #include "MediaSessionRepository.h"
 #include "RecordingMediaSessionController.h"
 #include "SimpleHttpListener.h"
+#include "SuiteBridgeSvdrpTransport.h"
 #include "VdrRecordingQueryService.h"
 
 #include <chrono>
@@ -49,43 +55,59 @@ int runRecordingMediaHttpRuntime(
     }
 
     MediaRouteLeaseRepository mediaRouteLeaseRepository(database);
-    MediaSessionIssuanceService mediaSessionIssuanceService(
-        mediaSessionRepository);
+    MediaSessionIssuanceService mediaSessionIssuanceService(mediaSessionRepository);
     RecordingMediaSessionController recordingMediaSessionController(
         recordingQueryService,
         mediaSessionRepository,
         mediaSessionIssuanceService,
         MediaSessionWorkspaceRoot);
+
+    BackendAgentRepository agentRepository(database);
+    BackendAgentCommandRepository commandRepository(database);
+    vdrsuite::agent::SuiteBridgeSvdrpTransport suiteBridgeTransport;
+    vdrsuite::agent::BackendAgentLiveProviderRuntime liveProviderRuntime(
+        agentRepository, commandRepository, suiteBridgeTransport);
+    LiveMediaSessionController liveMediaSessionController(
+        mediaSessionRepository,
+        mediaSessionIssuanceService,
+        liveProviderRuntime,
+        MediaSessionWorkspaceRoot);
+
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
         mediaSessionRepository,
         MediaAccessIdleTimeoutSeconds);
-    MediaHlsArtifactReader mediaHlsArtifactReader(
-        MediaSessionWorkspaceRoot);
+    MediaHlsArtifactReader mediaHlsArtifactReader(MediaSessionWorkspaceRoot);
 
     apiRouter.setRecordingMediaSessionHandler(
-        [&recordingMediaSessionController](
+        [&recordingMediaSessionController, &liveMediaSessionController](
             const std::string& body,
             const std::string& actorRef)
         {
-            return recordingMediaSessionController.handleRequest(
-                body,
-                actorRef);
+            if (LiveMediaSessionRequestParser::requestsLiveChannel(body)) {
+                return liveMediaSessionController.handleRequest(body, actorRef);
+            }
+            return recordingMediaSessionController.handleRequest(body, actorRef);
         });
 
     auto nextMediaSessionReap = std::chrono::steady_clock::now();
     auto mediaRuntimeTick =
         [&recordingMediaSessionController,
+         &liveMediaSessionController,
          nextMediaSessionReap,
          onTick = std::move(onTick)]() mutable {
             const auto now = std::chrono::steady_clock::now();
             if (now >= nextMediaSessionReap) {
                 recordingMediaSessionController.reapInactiveSessions(
                     MediaAccessIdleTimeoutSeconds);
+                // A direct live response is one long authenticated GET. There
+                // is no HLS polling to refresh last_seen_at, so liveness is
+                // fenced by worker/provider/grant expiry rather than an idle
+                // request timeout. Browser disconnect makes the FIFO writer
+                // fail and the worker reaper closes the native receiver.
+                liveMediaSessionController.reapInactiveSessions(0);
                 nextMediaSessionReap = now + MediaSessionReapInterval;
             }
-            if (onTick) {
-                onTick();
-            }
+            if (onTick) onTick();
         };
 
     httpListener.reset();
@@ -93,7 +115,8 @@ int runRecordingMediaHttpRuntime(
         std::move(httpServer),
         mediaAccessGrantAuthenticator,
         mediaRouteLeaseRepository,
-        mediaHlsArtifactReader);
+        mediaHlsArtifactReader,
+        MediaSessionWorkspaceRoot);
     httpListener = std::make_unique<SimpleHttpListener>(
         listenHost,
         listenPort,
@@ -104,14 +127,13 @@ int runRecordingMediaHttpRuntime(
     std::cout << "MediaSession persistence and restart recovery initialized" << std::endl;
     std::cout << "Media Gateway runtime initialized" << std::endl;
     std::cout << "Recording MediaSession API runtime initialized" << std::endl;
+    std::cout << "Live MediaSession API runtime initialized" << std::endl;
     std::cout << "vdr-suite-daemon runtime running" << std::endl;
     std::cout << "vdr-suite-daemon serving HTTP on "
               << listenHost << ":" << listenPort << std::endl;
 
     const int result = httpListener->runUntilStopped();
 
-    // The gateway and controller reference stack-owned runtime dependencies.
-    // Tear the complete media HTTP composition down before returning.
     httpListener.reset();
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});

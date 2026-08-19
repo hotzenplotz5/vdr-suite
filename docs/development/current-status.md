@@ -12,9 +12,9 @@ Latest completed numbered runtime phase: **Phase 64 - Timer Intent and Multi-Bac
 
 Current active numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
 
-Completed Phase-65 vertical: **65.A - Existing-Recording playback**.
+Completed Phase-65 verticals: **65.A - Existing-Recording playback** and **65.B - Live-TV playback**.
 
-Next Phase-65 product vertical: **65.B - Live-TV playback**.
+Next Phase-65 product vertical: **65.C - Recording seek and growing-recording semantics**.
 
 Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, and Phase 63 - Backend Agent and Secure Multi-Site Runtime.
 
@@ -113,25 +113,44 @@ The hard-disconnect acceptance proved that active playback is not reaped while a
 
 See [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md) for the durable evidence summary.
 
-## Phase 65.B next direction
+## Phase 65.B Live-TV playback completion
 
-The next authorized product vertical is Live-TV playback:
+The Live-TV playback vertical is accepted and closed for its bounded browser product scope.
+
+Accepted capabilities include:
+
+- stable Suite Channel identity resolved to an explicitly owned private native live provider;
+- authorization through MediaSession / MediaRoute / ProviderStreamLease / MediaAccessGrant rather than provider URLs;
+- bounded SuiteBridge receiver/replay transport;
+- direct browser-facing fragmented-MP4 delivery without the old HLS readiness barrier;
+- one continuous FFmpeg socket consumer in the Live-TV hot path and no separate ffprobe socket consumer;
+- browser-safe H.264/AAC adaptation with conditional interlace handling;
+- explicit channel replacement and deterministic old-session/provider cleanup;
+- repeated real yaVDR zap acceptance across Pro7, ZDF, RTL and NDR;
+- a 15-minute stable Pro7 run;
+- no VDR restart reproduced during the final accepted Live-TV stress run.
+
+The previous VDR restart remains causally unproven because no earlier stack trace/coredump was captured, but it was not reproducible after the single-consumer fix under the previously problematic Live-TV workload.
+
+See [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md) for the exact candidate, CI and real-system evidence.
+
+## Phase 65.C next direction
+
+The next authorized product vertical is Recording seek and growing-recording semantics:
 
 ```text
-channel / EPG selection
+stable Recording identity
+  -> truthful source/readable extent
   -> authorized MediaSession
-  -> explicit live StreamProvider
-  -> ProviderStreamLease
-  -> Streaming Gateway
-  -> first-party browser playback
-  -> picture + sound
-  -> channel change
-  -> old route / receiver / lease released
+  -> capability-driven selected profile
+  -> Range/seek only when actually supported
+  -> completed or growing Recording semantics
+  -> deterministic cleanup
 ```
 
-Live TV must reuse the public MediaSession/Gateway boundary rather than expose Streamdev or other provider URLs directly to the browser. Channel replacement must be explicit and old provider/tuner resources must be released deterministically.
+Recording startup/performance work belongs inside this existing Phase-65 direction only when it preserves truthful seek/range semantics and the least-transformation contract. In particular, the already modeled `progressive-direct` profile may be provisioned for compatible clients instead of forcing HLS, but provider-native paths remain private and no browser-brand/user-agent routing is allowed.
 
-General seek/growing-Recording behavior remains later Phase-65 work.
+General native-client support remains capability-driven: Android/Android TV, Windows, Kodi-style and other clients use their platform playback engines and may receive cheaper pass-through/remux profiles when their declared capabilities permit them.
 
 ## Broadcast Companion direction
 
@@ -203,17 +222,17 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Current authorization boundary
 
-Phase 65.A Recording playback is closed. The next authorized runtime change is Phase 65.B Live-TV playback:
+Phase 65.A Recording playback and Phase 65.B Live-TV playback are closed. The next authorized runtime change is Phase 65.C Recording seek and growing-recording semantics:
 
-1. resolve stable Suite Channel identity to an explicitly owned private live provider;
-2. create authorized MediaSession/Route/Lease/Grant state without exposing provider URLs;
-3. deliver live picture and sound through the Suite Gateway to the first-party browser;
-4. keep provider/tuner ownership explicit and bounded;
-5. make channel replacement explicit and release old route/provider/tuner resources deterministically;
-6. preserve disconnect/revoke/expiry cleanup semantics;
-7. pass exact-head CI and real yaVDR acceptance.
+1. advertise range/seek only when the selected source/profile truthfully supports it;
+2. represent completed versus growing Recordings explicitly;
+3. expose readable extent and seek-window semantics without assuming immutability;
+4. preserve stable Suite media/track identity independently of provider-native paths/PIDs where public semantics require it;
+5. retain least-transformation profile selection, including `progressive-direct` for compatible clients;
+6. preserve MediaSession/Gateway authorization, provider privacy and deterministic cleanup;
+7. require exact-head CI and real yaVDR acceptance for changed runtime behavior.
 
-General seek/growing-Recording work follows according to the Strict Roadmap. Phase 66 remains out of scope.
+Recording startup/performance optimization may proceed as a coherent 65.C block only within those boundaries. Phase 66 remains out of scope.
 
 ## Authoritative links
 
@@ -223,6 +242,7 @@ General seek/growing-Recording work follows according to the Strict Roadmap. Pha
 - [Phase Map](../planning/phase-map.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)

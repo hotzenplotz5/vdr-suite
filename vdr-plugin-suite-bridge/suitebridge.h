@@ -2,6 +2,8 @@
 #define VDR_SUITE_BRIDGE_H
 
 #include "suitebridge_lifecycle.h"
+#include "suitebridge_live_capability.h"
+#include "suitebridge_live_source.h"
 #include "suitebridge_native_probe.h"
 #include "suitebridge_native_timer_create.h"
 #include "suitebridge_native_timer_create_vdr.h"
@@ -36,6 +38,8 @@ private:
   SuiteBridgeLifecycle lifecycle_;
   SuiteBridgeStatusMonitor statusMonitor_;
   SuiteBridgeNativeProbeService nativeProbe_;
+  SuiteBridgeLiveCapabilityService liveCapability_;
+  SuiteBridgeLiveSourceService liveSource_;
   SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;
   SuiteBridgeNativeTimerCreateService nativeTimerCreate_;
   SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_;

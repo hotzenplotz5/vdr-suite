@@ -35,6 +35,8 @@ DAEMON_SRC := \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
+        api/rest/src/LiveMediaSessionController.cpp \
+        api/rest/src/LiveMediaSessionRequestParser.cpp \
         $(GENRE_BROWSER_REST_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
@@ -86,17 +88,21 @@ DAEMON_SRC := \
         core/http/src/MediaGatewayHttpServer.cpp \
         core/media/src/LocalVdrRecordingSourceResolver.cpp \
         core/media/src/FfprobeRecordingSource.cpp \
+        core/media/src/FfprobeLiveSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \
         core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
+        core/media/src/FfmpegLiveStreamCommandBuilder.cpp \
         core/media/src/MediaProcessRunner.cpp \
         core/media/src/MediaSessionWorkspace.cpp \
         core/media/src/MediaSessionRepository.cpp \
+        core/media/src/MediaSessionRepositoryLive.cpp \
         core/media/src/MediaRouteLeaseRepository.cpp \
         core/media/src/MediaSessionIssuanceService.cpp \
         core/media/src/MediaAccessGrantAuthenticator.cpp \
         core/media/src/MediaHlsArtifactReader.cpp \
         core/media/src/RecordingMediaSessionRuntime.cpp \
+        core/daemon/src/LiveMediaSessionRuntime.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \

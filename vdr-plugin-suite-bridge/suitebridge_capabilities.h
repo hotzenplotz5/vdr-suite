@@ -21,7 +21,7 @@ public:
     return 1;
   }
 
-  static const std::array<SuiteBridgeCapabilityDescriptor, 7> &All() noexcept;
+  static const std::array<SuiteBridgeCapabilityDescriptor, 8> &All() noexcept;
   static const char *StateName(SuiteBridgeCapabilityState state) noexcept;
   static const SuiteBridgeCapabilityDescriptor *Find(const char *id) noexcept;
   static bool IsAvailable(const char *id) noexcept;

@@ -56,27 +56,26 @@ cString cPluginSuiteBridge::SVDRPCommand(
       [this]() {
         return statusMonitor_.CaptureSnapshot().MonitorActive();
       });
-  if (nativeProbe.handled) {
-    return ReturnResult(nativeProbe, ReplyCode);
-  }
+  if (nativeProbe.handled) return ReturnResult(nativeProbe, ReplyCode);
+
+  const SuiteBridgeCommandResult liveCapability =
+      liveCapability_.Handle(Command, Option);
+  if (liveCapability.handled) return ReturnResult(liveCapability, ReplyCode);
+
+  const SuiteBridgeCommandResult liveSource = liveSource_.Handle(Command, Option);
+  if (liveSource.handled) return ReturnResult(liveSource, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerCreate =
       nativeTimerCreate_.Handle(Command, Option);
-  if (nativeTimerCreate.handled) {
-    return ReturnResult(nativeTimerCreate, ReplyCode);
-  }
+  if (nativeTimerCreate.handled) return ReturnResult(nativeTimerCreate, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerDelete =
       nativeTimerDelete_.Handle(Command, Option);
-  if (nativeTimerDelete.handled) {
-    return ReturnResult(nativeTimerDelete, ReplyCode);
-  }
+  if (nativeTimerDelete.handled) return ReturnResult(nativeTimerDelete, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerModify =
       nativeTimerModify_.Handle(Command, Option);
-  if (nativeTimerModify.handled) {
-    return ReturnResult(nativeTimerModify, ReplyCode);
-  }
+  if (nativeTimerModify.handled) return ReturnResult(nativeTimerModify, ReplyCode);
 
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
@@ -87,9 +86,7 @@ cString cPluginSuiteBridge::SVDRPCommand(
   if (capabilityReply.Handled()) {
     ReplyCode = capabilityReply.ReplyCode();
     if (!capabilityReply.HasPayload()) {
-      esyslog(
-          "suitebridge: svdrp command=CAPS result=rejected reply=%d",
-          ReplyCode);
+      esyslog("suitebridge: svdrp command=CAPS result=rejected reply=%d", ReplyCode);
     } else {
       isyslog(
           "suitebridge: svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
@@ -130,9 +127,7 @@ cString cPluginSuiteBridge::SVDRPCommand(
 
   ReplyCode = snapshotReply.ReplyCode();
   if (!snapshotReply.HasPayload()) {
-    esyslog(
-        "suitebridge: svdrp command=SNAP result=rejected reply=%d",
-        ReplyCode);
+    esyslog("suitebridge: svdrp command=SNAP result=rejected reply=%d", ReplyCode);
   } else {
     isyslog(
         "suitebridge: svdrp command=SNAP result=served reply=%d bytes=%zu",

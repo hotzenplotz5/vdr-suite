@@ -6,6 +6,7 @@
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
+#include "SuiteBridgeLiveSourceTransport.h"
 
 #include <algorithm>
 #include <cctype>
@@ -38,7 +39,8 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
-    public IBackendAgentNativeProbeTransport
+    public IBackendAgentNativeProbeTransport,
+    public ISuiteBridgeLiveSourceTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -123,9 +125,40 @@ public:
         return executeRequest(wire.str());
     }
 
-    // Narrow typed raw-wire hooks used only by dedicated native Timer
-    // adapters. They are deliberately non-virtual so generic SuiteBridge
-    // users do not acquire native Timer mutation link dependencies.
+    SuiteBridgeCommandReply discoverLiveSource() override
+    {
+        return executeRequest("PLUG suitebridge NLCAP 1\r\n");
+    }
+
+    SuiteBridgeCommandReply openLiveSource(
+        const SuiteBridgeLiveSourceOpenRequest& request) override
+    {
+        if (!safeNativeToken(request.leaseId) ||
+            !safeNativeToken(request.channelId) ||
+            !safeNativeToken(request.pluginInstanceEpoch))
+        {
+            return {SuiteBridgeTransportStatus::Failed, 0, {},
+                "invalid typed live source open request"};
+        }
+        std::ostringstream wire;
+        wire << "PLUG suitebridge NLIVE OPEN 1 "
+             << request.leaseId << ' ' << request.channelId << ' '
+             << request.pluginInstanceEpoch << "\r\n";
+        return executeRequest(wire.str());
+    }
+
+    SuiteBridgeCommandReply closeLiveSource(
+        const SuiteBridgeLiveSourceLeaseRequest& request) override
+    {
+        return executeLiveLeaseRequest("CLOSE", request);
+    }
+
+    SuiteBridgeCommandReply statusLiveSource(
+        const SuiteBridgeLiveSourceLeaseRequest& request) override
+    {
+        return executeLiveLeaseRequest("STATUS", request);
+    }
+
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();
     SuiteBridgeCommandReply executeNativeTimerCreateContract(
         const BackendAgentNativeTimerCreateTransportRequest& request);
@@ -147,6 +180,24 @@ private:
                 return std::isalnum(character) != 0 || character == '-' ||
                     character == '_' || character == '.' || character == ':';
             });
+    }
+
+    SuiteBridgeCommandReply executeLiveLeaseRequest(
+        const char* operation,
+        const SuiteBridgeLiveSourceLeaseRequest& request)
+    {
+        if (operation == nullptr ||
+            !safeNativeToken(request.leaseId) ||
+            !safeNativeToken(request.pluginInstanceEpoch))
+        {
+            return {SuiteBridgeTransportStatus::Failed, 0, {},
+                "invalid typed live source lease request"};
+        }
+        std::ostringstream wire;
+        wire << "PLUG suitebridge NLIVE " << operation << " 1 "
+             << request.leaseId << ' ' << request.pluginInstanceEpoch
+             << "\r\n";
+        return executeRequest(wire.str());
     }
 
     SuiteBridgeCommandReply executeRequest(
