@@ -15,7 +15,7 @@ namespace
 {
 constexpr int MediaSessionLifetimeSeconds = 21600;
 constexpr const char* NativeLiveProviderId = "suitebridge-native-live";
-constexpr const char* PendingLiveProfileId = "live-hls-negotiating";
+constexpr const char* PendingLiveProfileId = "live-stream-negotiating";
 
 ApiResponse jsonError(int statusCode, const std::string& code)
 {
@@ -123,7 +123,7 @@ ApiResponse LiveMediaSessionController::stopSession(
         return jsonError(400, "invalid_live_resource_kind");
     const auto request = RecordingMediaSessionRequestParser().parseStop(body);
     if (!request.valid) return jsonError(400, request.reasonCode.empty()
-        ? "invalid_media_session_stop_request" : request.reasonCode);
+        ? "invalid_live_media_session_stop_request" : request.reasonCode);
     const auto stored = mediaSessionRepository_.findSession(request.sessionId);
     if (!stored.has_value() || stored->backendId != request.backendId ||
         stored->resourceKind != "live-channel")
@@ -187,7 +187,7 @@ ApiResponse LiveMediaSessionController::createSession(
         return jsonError(500, "media_access_credential_transport_failed");
     }
 
-    const auto provision = runtime_->provisionHls(
+    const auto provision = runtime_->provisionStream(
         issuance.session.sessionId,
         issuance.session.workspaceId,
         issuance.session.leaseId,
@@ -197,14 +197,20 @@ ApiResponse LiveMediaSessionController::createSession(
     if (!provision.ready) {
         issuance.session.clearSecret();
         return jsonError(503, provision.reasonCode.empty()
-            ? "live_media_hls_provision_failed" : provision.reasonCode);
+            ? "live_media_stream_provision_failed" : provision.reasonCode);
     }
+
     if (provision.presentation.profileId.empty() ||
         !mediaSessionRepository_.updateProvisioningPresentationProfile(
             issuance.session.sessionId, provision.presentation.profileId)) {
         runtime_->stop(issuance.session.sessionId, "presentation_profile_persistence_failed");
         issuance.session.clearSecret();
         return jsonError(503, "presentation_profile_persistence_failed");
+    }
+    if (!mediaSessionRepository_.activateBundle(issuance.session.sessionId)) {
+        runtime_->stop(issuance.session.sessionId, "media_session_activation_failed");
+        issuance.session.clearSecret();
+        return jsonError(503, "media_session_activation_failed");
     }
 
     const MediaVideoStreamDescriptor* video = provision.source.videoStreams.empty()
@@ -233,7 +239,7 @@ ApiResponse LiveMediaSessionController::createSession(
         "\"height\":" + std::to_string(video == nullptr ? 0 : video->height) + "," +
         "\"interlaced\":" + std::string(video != nullptr && video->interlaced ? "true" : "false") + "," +
         "\"mediaPath\":\"/api/media/sessions/" +
-            jsonEscape(issuance.session.sessionId) + "/hls/master.m3u8\"," +
+            jsonEscape(issuance.session.sessionId) + "/live/stream.mp4\"," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
     issuance.session.clearSecret();
     return response;
