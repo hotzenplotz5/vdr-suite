@@ -20,7 +20,9 @@ public:
         const std::string& outputPath) const
     {
         FfmpegLiveStreamCommandPlan plan;
-        if (!validAbsolutePath(unixSocketPath, 100)) {
+        // sockaddr_un.sun_path is 108 bytes on the yaVDR/Linux target and must
+        // remain NUL-terminated, so 107 pathname bytes are the hard maximum.
+        if (!validAbsolutePath(unixSocketPath, 107)) {
             plan.reasonCode = "invalid_live_source_socket";
             return plan;
         }
