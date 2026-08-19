@@ -345,18 +345,19 @@ public:
       input >> channelId >> instanceEpoch;
       std::string extra;
       if (!SafeToken(channelId, 96) || !SafeToken(instanceEpoch, 128) ||
-          (input >> extra) || instanceEpoch != pluginInstanceEpoch_) {
+          (input >> extra)) {
         return Invalid(result);
       }
+      if (instanceEpoch != pluginInstanceEpoch_) return Stale(result);
       return Open(result, leaseId, channelId);
     }
     if (operation == "CLOSE" || operation == "STATUS") {
       input >> instanceEpoch;
       std::string extra;
-      if (!SafeToken(instanceEpoch, 128) || (input >> extra) ||
-          instanceEpoch != pluginInstanceEpoch_) {
+      if (!SafeToken(instanceEpoch, 128) || (input >> extra)) {
         return Invalid(result);
       }
+      if (instanceEpoch != pluginInstanceEpoch_) return Stale(result);
       return operation == "CLOSE" ? Close(result, leaseId) : Status(result, leaseId);
     }
     return Invalid(result);
@@ -387,6 +388,13 @@ private:
   {
     result.replyCode = 501;
     result.payload = "Usage: NLIVE OPEN|CLOSE|STATUS 1 <lease-id> [channel-id] <plugin-instance-epoch>";
+    return result;
+  }
+
+  static SuiteBridgeCommandResult Stale(SuiteBridgeCommandResult result)
+  {
+    result.replyCode = 555;
+    result.payload = "live_source_plugin_instance_epoch_stale";
     return result;
   }
 
