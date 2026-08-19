@@ -358,11 +358,12 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         if (reasonCode.empty()) {
             const auto grant = repository_.findResolvedGrant(
                 candidate.grantId, idleTimeoutSeconds);
-            if (grant.has_value() && grant->sessionId == candidate.sessionId) {
-                if (!grant->active || grant->revoked) reasonCode = "media_access_revoked";
-                else if (grant->expired) reasonCode = "media_access_expired";
-                else if (grant->idleExpired) reasonCode = "media_access_idle_expired";
+            if (!grant.has_value() || grant->sessionId != candidate.sessionId) {
+                reasonCode = "media_access_grant_missing";
             }
+            else if (!grant->active || grant->revoked) reasonCode = "media_access_revoked";
+            else if (grant->expired) reasonCode = "media_access_expired";
+            else if (grant->idleExpired) reasonCode = "media_access_idle_expired";
         }
         if (reasonCode.empty()) continue;
 
