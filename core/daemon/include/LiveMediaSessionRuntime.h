@@ -2,6 +2,7 @@
 
 #include "BackendAgentLiveProviderRuntime.h"
 #include "MediaCapabilities.h"
+#include "MediaProcessRunner.h"
 #include "MediaTranscodePolicy.h"
 
 #include <chrono>
@@ -29,6 +30,11 @@ struct LiveMediaSessionProvisionResult
 class LiveMediaSessionRuntime
 {
 public:
+    using ProbeRunner = std::function<MediaProcessCaptureResult(
+        const std::vector<std::string>&,
+        const std::string&,
+        std::chrono::milliseconds,
+        std::size_t)>;
     using WorkerSpawner = std::function<pid_t(
         const std::vector<std::string>&,
         const std::string&,
@@ -44,6 +50,7 @@ public:
         MediaSessionRepository& repository,
         vdrsuite::agent::BackendAgentLiveProviderRuntime& providerRuntime,
         std::string workspaceRoot,
+        ProbeRunner probeRunner = {},
         WorkerSpawner workerSpawner = {},
         WorkerTerminator workerTerminator = {},
         ReadinessProbe readinessProbe = {},
@@ -91,6 +98,7 @@ private:
     MediaSessionRepository& repository_;
     vdrsuite::agent::BackendAgentLiveProviderRuntime& providerRuntime_;
     std::string workspaceRoot_;
+    ProbeRunner probeRunner_;
     WorkerSpawner workerSpawner_;
     WorkerTerminator workerTerminator_;
     ReadinessProbe readinessProbe_;
