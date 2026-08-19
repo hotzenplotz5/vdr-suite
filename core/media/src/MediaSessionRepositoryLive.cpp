@@ -31,7 +31,7 @@ bool MediaSessionRepository::updateProvisioningPresentationProfile(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "UPDATE media_sessions SET presentation_profile_id=?, updated_at=CURRENT_TIMESTAMP "
-        "WHERE session_id=? AND state='provisioning';";
+        "WHERE session_id=? AND state IN ('provisioning','ready');";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
         return false;
     const bool bound =
