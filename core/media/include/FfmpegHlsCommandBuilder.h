@@ -17,4 +17,8 @@ class FfmpegHlsCommandBuilder
 public:
     FfmpegHlsCommandPlan build(
         const MediaPresentationProfile& profile) const;
+
+    FfmpegHlsCommandPlan buildLive(
+        const MediaPresentationProfile& profile,
+        const std::string& unixSocketPath) const;
 };
