@@ -54,8 +54,10 @@ int main()
     const auto probePlan = probe.commandPlan(socket);
     assert(probePlan.valid);
     assert(pair(probePlan.argv, "-rw_timeout", "5000000"));
+    assert(pair(probePlan.argv, "-analyzeduration", "3000000"));
+    assert(pair(probePlan.argv, "-probesize", "2000000"));
     assert(pair(probePlan.argv, "-f", "mpegts"));
-    assert(pair(probePlan.argv, "-read_intervals", "%+3"));
+    assert(!contains(probePlan.argv, "-read_intervals"));
     assert(pair(probePlan.argv, "-of", "compact=p=0:nk=0"));
     assert(contains(probePlan.argv, unixUrl));
     assert(!contains(probePlan.argv, invalidQueryUrl));
