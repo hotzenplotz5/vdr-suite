@@ -170,7 +170,7 @@
       keepalive: true
     }).catch(function () {
       // Teardown is best-effort; daemon shutdown recovery remains the final
-      // ownership fence if the browser disappears before the request lands.
+      // fence for an ungraceful browser/process loss.
       return null;
     });
   }
@@ -287,6 +287,9 @@
   function artifactUrl(mediaPath, artifactName) {
     const name = safeArtifactName(artifactName);
     const manifest = safeMediaPath(mediaPath);
+    if (!manifest) {
+      throw new Error('MediaSession-Pfad liegt außerhalb des HLS-Gateways.');
+    }
     const slash = manifest.lastIndexOf('/');
     if (!name || slash <= 0) {
       throw new Error('Ungültiger MediaSession-Artefaktpfad.');
@@ -871,8 +874,8 @@
       });
       sessionCreationPromise = sessionPromise.then(function () {
         return activeSessionId;
-      }, function (error) {
-        throw error;
+      }, function () {
+        return '';
       });
 
       Promise.all([
