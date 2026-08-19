@@ -16,18 +16,13 @@ namespace
 
 bool safeWorkspaceId(const std::string& value)
 {
-    if (value.empty() || value.size() > 96) {
-        return false;
-    }
-
+    if (value.empty() || value.size() > 96) return false;
     for (unsigned char character : value) {
         const bool alphaNumeric =
             (character >= 'a' && character <= 'z') ||
             (character >= 'A' && character <= 'Z') ||
             (character >= '0' && character <= '9');
-        if (!alphaNumeric && character != '-' && character != '_') {
-            return false;
-        }
+        if (!alphaNumeric && character != '-' && character != '_') return false;
     }
     return true;
 }
@@ -36,7 +31,6 @@ std::string safeSourceName(std::size_t index, const std::string& sourcePath)
 {
     const std::filesystem::path path(sourcePath);
     const std::string extension = path.extension() == ".vdr" ? ".vdr" : ".ts";
-
     std::ostringstream name;
     name << "source-" << std::setw(6) << std::setfill('0') << (index + 1)
          << extension;
@@ -47,19 +41,12 @@ bool writeAll(int fd, const std::string& value)
 {
     std::size_t offset = 0;
     while (offset < value.size()) {
-        const ssize_t written = ::write(
-            fd,
-            value.data() + offset,
-            value.size() - offset);
+        const ssize_t written = ::write(fd, value.data() + offset, value.size() - offset);
         if (written < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
+            if (errno == EINTR) continue;
             return false;
         }
-        if (written == 0) {
-            return false;
-        }
+        if (written == 0) return false;
         offset += static_cast<std::size_t>(written);
     }
     return true;
@@ -77,19 +64,16 @@ MediaSessionWorkspace::~MediaSessionWorkspace()
     cleanup();
 }
 
-MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
-    const std::string& workspaceId,
-    const std::vector<std::string>& sourceSegments)
+MediaSessionWorkspaceResult MediaSessionWorkspace::prepareDirectory(
+    const std::string& workspaceId)
 {
     MediaSessionWorkspaceResult result;
     cleanup();
-
     const std::filesystem::path root(rootDirectory_);
-    if (!root.is_absolute() || !safeWorkspaceId(workspaceId) || sourceSegments.empty()) {
+    if (!root.is_absolute() || !safeWorkspaceId(workspaceId)) {
         result.reasonCode = "invalid_workspace_request";
         return result;
     }
-
     std::error_code error;
     std::filesystem::create_directories(root, error);
     if (error) {
@@ -97,7 +81,6 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
         return result;
     }
     ::chmod(root.c_str(), 0700);
-
     const std::filesystem::path workspace = root / workspaceId;
     if (!std::filesystem::create_directory(workspace, error) || error) {
         result.reasonCode = "workspace_create_failed";
@@ -105,74 +88,86 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
     }
     ::chmod(workspace.c_str(), 0700);
     directory_ = workspace.string();
+    result.ready = true;
+    return result;
+}
 
+MediaSessionWorkspaceResult MediaSessionWorkspace::prepareLive(
+    const std::string& workspaceId)
+{
+    return prepareDirectory(workspaceId);
+}
+
+MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
+    const std::string& workspaceId,
+    const std::vector<std::string>& sourceSegments)
+{
+    MediaSessionWorkspaceResult result;
+    if (sourceSegments.empty()) {
+        result.reasonCode = "invalid_workspace_request";
+        return result;
+    }
+    result = prepareDirectory(workspaceId);
+    if (!result.ready) return result;
+
+    const std::filesystem::path workspace(directory_);
+    std::error_code error;
     std::string concat = "ffconcat version 1.0\n";
-
     for (std::size_t index = 0; index < sourceSegments.size(); ++index) {
         const std::filesystem::path source(sourceSegments[index]);
         if (!source.is_absolute()) {
+            result.ready = false;
             result.reasonCode = "source_segment_not_absolute";
             cleanup();
             return result;
         }
-
         std::error_code typeError;
         if (!std::filesystem::is_regular_file(source, typeError) || typeError) {
+            result.ready = false;
             result.reasonCode = "source_segment_unavailable";
             cleanup();
             return result;
         }
-
         const std::string localName = safeSourceName(index, sourceSegments[index]);
         std::filesystem::create_symlink(source, workspace / localName, error);
         if (error) {
+            result.ready = false;
             result.reasonCode = "source_segment_link_failed";
             cleanup();
             return result;
         }
-
         concat += "file '" + localName + "'\n";
     }
 
     const std::filesystem::path concatFile = workspace / "input.ffconcat";
-    const int fd = ::open(
-        concatFile.c_str(),
-        O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
-        0600);
+    const int fd = ::open(concatFile.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (fd < 0) {
+        result.ready = false;
         result.reasonCode = "concat_create_failed";
         cleanup();
         return result;
     }
-
     const bool written = writeAll(fd, concat);
     const int closeResult = ::close(fd);
     if (!written || closeResult != 0) {
+        result.ready = false;
         result.reasonCode = "concat_write_failed";
         cleanup();
         return result;
     }
-
     result.ready = true;
+    result.reasonCode.clear();
     return result;
 }
 
 void MediaSessionWorkspace::cleanup()
 {
-    if (directory_.empty()) {
-        return;
-    }
-
+    if (directory_.empty()) return;
     const std::filesystem::path root(rootDirectory_);
     const std::filesystem::path workspace(directory_);
     std::error_code error;
-
-    if (root.is_absolute() &&
-        workspace.parent_path() == root &&
-        workspace != root) {
+    if (root.is_absolute() && workspace.parent_path() == root && workspace != root)
         std::filesystem::remove_all(workspace, error);
-    }
-
     directory_.clear();
 }
 
