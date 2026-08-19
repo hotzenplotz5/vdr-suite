@@ -95,7 +95,19 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepareDirectory(
 MediaSessionWorkspaceResult MediaSessionWorkspace::prepareLive(
     const std::string& workspaceId)
 {
-    return prepareDirectory(workspaceId);
+    MediaSessionWorkspaceResult result = prepareDirectory(workspaceId);
+    if (!result.ready) return result;
+
+    const std::filesystem::path fifo =
+        std::filesystem::path(directory_) / "live.fmp4";
+    if (::mkfifo(fifo.c_str(), 0600) != 0) {
+        result.ready = false;
+        result.reasonCode = "live_stream_pipe_create_failed";
+        cleanup();
+        return result;
+    }
+    result.reasonCode.clear();
+    return result;
 }
 
 MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
@@ -188,4 +200,11 @@ std::string MediaSessionWorkspace::logPath() const
     return directory_.empty()
         ? std::string{}
         : (std::filesystem::path(directory_) / "ffmpeg.log").string();
+}
+
+std::string MediaSessionWorkspace::liveStreamPath() const
+{
+    return directory_.empty()
+        ? std::string{}
+        : (std::filesystem::path(directory_) / "live.fmp4").string();
 }
