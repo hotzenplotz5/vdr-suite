@@ -1,32 +1,86 @@
 #include "LiveMediaSessionRuntime.h"
 
-#include "FfmpegHlsCommandBuilder.h"
-#include "FfprobeLiveSource.h"
-#include "MediaPresentationSelector.h"
+#include "FfmpegLiveStreamCommandBuilder.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <filesystem>
 #include <sys/wait.h>
-#include <thread>
 #include <utility>
 
 namespace
 {
-constexpr auto ProbeTimeout = std::chrono::seconds(8);
-constexpr std::size_t ProbeOutputLimit = 64U * 1024U;
-constexpr auto HlsReadinessTimeout = std::chrono::seconds(15);
-constexpr auto HlsReadinessPollInterval = std::chrono::milliseconds(100);
 constexpr auto WorkerShutdownGrace = std::chrono::milliseconds(500);
 
-bool nonEmptyFile(const std::filesystem::path& path)
+bool contains(
+    const std::vector<MediaDeliveryProtocol>& values,
+    MediaDeliveryProtocol wanted)
 {
-    std::error_code error;
-    if (!std::filesystem::is_regular_file(path, error) || error) return false;
-    const auto size = std::filesystem::file_size(path, error);
-    return !error && size > 0;
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool contains(
+    const std::vector<MediaContainer>& values,
+    MediaContainer wanted)
+{
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool contains(
+    const std::vector<MediaCodec>& values,
+    MediaCodec wanted)
+{
+    return std::find(values.begin(), values.end(), wanted) != values.end();
+}
+
+bool supportsDirectLive(const ClientMediaCapabilities& capabilities)
+{
+    return contains(capabilities.protocols, MediaDeliveryProtocol::Progressive) &&
+        contains(capabilities.containers, MediaContainer::Fmp4) &&
+        contains(capabilities.videoCodecs, MediaCodec::H264) &&
+        contains(capabilities.audioCodecs, MediaCodec::Aac) &&
+        capabilities.maxAudioChannels >= 2;
+}
+
+MediaPresentationProfile directLivePresentation()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "live-progressive-fmp4";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::Fmp4;
+    profile.adaptationClass = MediaAdaptationClass::Transcode;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.audioAction = MediaTrackAction::Transcode;
+    profile.sourceVideoStreamIndex = 0;
+    profile.sourceAudioStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
+    profile.reason = "live_progressive_fmp4_selected";
+    return profile;
+}
+
+MediaSourceDescriptor directLiveDescriptor()
+{
+    MediaSourceDescriptor source;
+    source.resourceKind = MediaResourceKind::LiveChannel;
+    source.container = MediaContainer::MpegTs;
+    source.seekable = false;
+    source.growing = true;
+
+    MediaVideoStreamDescriptor video;
+    video.codec = MediaCodec::H264;
+    source.videoStreams.push_back(video);
+
+    MediaAudioStreamDescriptor audio;
+    audio.codec = MediaCodec::Aac;
+    audio.channels = 2;
+    source.audioStreams.push_back(audio);
+    return source;
 }
 }
 
@@ -48,15 +102,6 @@ LiveMediaSessionRuntime::LiveMediaSessionRuntime(
       readinessProbe_(std::move(readinessProbe)),
       transcodePolicy_(std::move(transcodePolicy))
 {
-    if (!probeRunner_) {
-        probeRunner_ = [](const std::vector<std::string>& argv,
-                          const std::string& workingDirectory,
-                          std::chrono::milliseconds timeout,
-                          std::size_t maximumOutputBytes) {
-            return MediaProcessRunner().runAndCapture(
-                argv, workingDirectory, timeout, maximumOutputBytes);
-        };
-    }
     if (!workerSpawner_) {
         workerSpawner_ = [](const std::vector<std::string>& argv,
                             const std::string& workingDirectory,
@@ -69,7 +114,6 @@ LiveMediaSessionRuntime::LiveMediaSessionRuntime(
             return MediaProcessRunner().terminateAndWait(pid, grace);
         };
     }
-    if (!readinessProbe_) readinessProbe_ = &LiveMediaSessionRuntime::defaultReady;
 }
 
 LiveMediaSessionRuntime::~LiveMediaSessionRuntime()
@@ -81,17 +125,14 @@ bool LiveMediaSessionRuntime::defaultReady(
     const std::string& workspaceDirectory,
     MediaContainer container)
 {
-    const std::filesystem::path root(workspaceDirectory);
-    if (!root.is_absolute() || !nonEmptyFile(root / "master.m3u8")) return false;
-    if (container == MediaContainer::Fmp4)
-        return nonEmptyFile(root / "init.mp4") &&
-            nonEmptyFile(root / "segment-000000.m4s");
-    if (container == MediaContainer::MpegTs)
-        return nonEmptyFile(root / "segment-000000.ts");
-    return false;
+    if (container != MediaContainer::Fmp4) return false;
+    std::error_code error;
+    return std::filesystem::exists(
+        std::filesystem::path(workspaceDirectory) / "live.fmp4",
+        error) && !error;
 }
 
-LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
+LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
     const std::string& sessionId,
     const std::string& workspaceId,
     const std::string& leaseId,
@@ -102,7 +143,12 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
     LiveMediaSessionProvisionResult result;
     if (sessionId.empty() || workspaceId.empty() || leaseId.empty() || grantId.empty() ||
         !preparation.valid || !preparation.pin.valid) {
-        result.reasonCode = "invalid_live_hls_provision_request";
+        result.reasonCode = "invalid_live_stream_provision_request";
+        return result;
+    }
+    if (!supportsDirectLive(clientCapabilities)) {
+        result.reasonCode = "live_progressive_fmp4_unsupported";
+        repository_.failBundle(sessionId, result.reasonCode);
         return result;
     }
     {
@@ -134,53 +180,6 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
         providerRuntime_.close(preparation, leaseId, ignored);
     };
 
-    FfprobeLiveSource probe;
-    const auto probePlan = probe.commandPlan(opened.unixSocketPath);
-    if (!probePlan.valid) {
-        closeProvider();
-        result.reasonCode = probePlan.reasonCode.empty()
-            ? "live_probe_plan_invalid" : probePlan.reasonCode;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    const auto probeCapture = probeRunner_(
-        probePlan.argv, workspace->directory(), ProbeTimeout, ProbeOutputLimit);
-    if (!probeCapture.success) {
-        closeProvider();
-        result.reasonCode = probeCapture.reasonCode.empty()
-            ? "live_probe_failed" : probeCapture.reasonCode;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    const auto parsed = probe.parse(probeCapture.output);
-    if (!parsed.valid) {
-        closeProvider();
-        result.reasonCode = parsed.reasonCode.empty()
-            ? "live_probe_payload_invalid" : parsed.reasonCode;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    result.source = parsed.source;
-
-    MediaPresentationSelector selector;
-    MediaPresentationProfile profile = selector.select(result.source, clientCapabilities);
-    if (!profile.available || profile.protocol != MediaDeliveryProtocol::Hls) {
-        closeProvider();
-        result.reasonCode = profile.reason.empty()
-            ? "live_presentation_unavailable" : profile.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    profile = transcodePolicy_.apply(profile);
-    if (!profile.available) {
-        closeProvider();
-        result.reasonCode = profile.reason.empty()
-            ? "live_transcode_capacity_unproven" : profile.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    result.presentation = profile;
-
     std::string providerReason;
     if (!providerRuntime_.current(preparation, providerReason)) {
         closeProvider();
@@ -190,8 +189,11 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
         return result;
     }
 
-    const auto command = FfmpegHlsCommandBuilder().buildLive(
-        profile, opened.unixSocketPath);
+    result.presentation = directLivePresentation();
+    result.source = directLiveDescriptor();
+    const auto command = FfmpegLiveStreamCommandBuilder().build(
+        opened.unixSocketPath,
+        workspace->liveStreamPath());
     if (!command.valid) {
         closeProvider();
         result.reasonCode = command.reasonCode.empty()
@@ -199,7 +201,9 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
         repository_.failBundle(sessionId, result.reasonCode);
         return result;
     }
-    const pid_t pid = workerSpawner_(command.argv, workspace->directory(), workspace->logPath());
+
+    const pid_t pid = workerSpawner_(
+        command.argv, workspace->directory(), workspace->logPath());
     if (pid <= 0) {
         closeProvider();
         result.reasonCode = "live_worker_start_failed";
@@ -207,77 +211,61 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
         return result;
     }
 
-    const auto failRunning = [&](const std::string& reason, bool workerExited) {
-        if (!workerExited) workerTerminator_(pid, WorkerShutdownGrace);
+    int status = 0;
+    const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+    if (waited == pid) {
         closeProvider();
-        repository_.failBundle(sessionId, reason);
-    };
-
-    const auto deadline = std::chrono::steady_clock::now() + HlsReadinessTimeout;
-    while (std::chrono::steady_clock::now() < deadline) {
-        int status = 0;
-        const pid_t waited = ::waitpid(pid, &status, WNOHANG);
-        if (waited == pid) {
-            result.reasonCode = "live_worker_exited_before_ready";
-            failRunning(result.reasonCode, true);
-            return result;
-        }
-        if (waited < 0 && errno != EINTR) {
-            result.reasonCode = "live_worker_wait_failed";
-            failRunning(result.reasonCode, false);
-            return result;
-        }
-
-        const auto providerStatus = providerRuntime_.status(preparation, leaseId);
-        if (!providerStatus.current) {
-            result.reasonCode = providerStatus.reasonCode.empty()
-                ? "live_provider_terminal_before_ready" : providerStatus.reasonCode;
-            failRunning(result.reasonCode, false);
-            return result;
-        }
-
-        if (readinessProbe_(workspace->directory(), profile.container)) {
-            ActiveSession active;
-            active.pid = pid;
-            active.leaseId = leaseId;
-            active.grantId = grantId;
-            active.preparation = preparation;
-            active.workspace = std::move(workspace);
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                const auto inserted = active_.emplace(sessionId, std::move(active));
-                if (!inserted.second) {
-                    failRunning("media_session_already_owned", false);
-                    result.reasonCode = "media_session_already_owned";
-                    return result;
-                }
-            }
-            if (!repository_.activateBundle(sessionId)) {
-                ActiveSession failed;
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    auto found = active_.find(sessionId);
-                    if (found != active_.end()) {
-                        failed = std::move(found->second);
-                        active_.erase(found);
-                    }
-                }
-                finishTaken(sessionId, std::move(failed),
-                    "media_session_activation_failed", false);
-                result.reasonCode = "media_session_activation_failed";
-                return result;
-            }
-            result.ready = true;
-            result.workerPid = pid;
-            result.reasonCode = "live_media_session_active";
-            return result;
-        }
-        std::this_thread::sleep_for(HlsReadinessPollInterval);
+        result.reasonCode = "live_worker_exited_during_start";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+    if (waited < 0 && errno != EINTR) {
+        workerTerminator_(pid, WorkerShutdownGrace);
+        closeProvider();
+        result.reasonCode = "live_worker_wait_failed";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
     }
 
-    result.reasonCode = "live_hls_not_ready";
-    failRunning(result.reasonCode, false);
+    ActiveSession active;
+    active.pid = pid;
+    active.leaseId = leaseId;
+    active.grantId = grantId;
+    active.preparation = preparation;
+    active.workspace = std::move(workspace);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto inserted = active_.emplace(sessionId, std::move(active));
+        if (!inserted.second) {
+            workerTerminator_(pid, WorkerShutdownGrace);
+            closeProvider();
+            result.reasonCode = "media_session_already_owned";
+            repository_.failBundle(sessionId, result.reasonCode);
+            return result;
+        }
+    }
+
+    result.ready = true;
+    result.workerPid = pid;
+    result.reasonCode = "live_stream_worker_active";
     return result;
+}
+
+LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
+    const std::string& sessionId,
+    const std::string& workspaceId,
+    const std::string& leaseId,
+    const std::string& grantId,
+    const vdrsuite::agent::BackendAgentLiveProviderPreparation& preparation,
+    const ClientMediaCapabilities& clientCapabilities)
+{
+    ClientMediaCapabilities direct = clientCapabilities;
+    if (!contains(direct.protocols, MediaDeliveryProtocol::Progressive))
+        direct.protocols.push_back(MediaDeliveryProtocol::Progressive);
+    if (!contains(direct.containers, MediaContainer::Fmp4))
+        direct.containers.push_back(MediaContainer::Fmp4);
+    return provisionStream(
+        sessionId, workspaceId, leaseId, grantId, preparation, direct);
 }
 
 bool LiveMediaSessionRuntime::finishTaken(
@@ -339,6 +327,7 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
             leaseId = found->second.leaseId;
             pid = found->second.pid;
         }
+
         int status = 0;
         const pid_t waited = ::waitpid(pid, &status, WNOHANG);
         if (waited == pid) {
@@ -348,6 +337,7 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         else if (waited < 0 && errno != EINTR) {
             reasonCode = "live_worker_wait_failed";
         }
+
         if (reasonCode.empty()) {
             const auto providerStatus = providerRuntime_.status(preparation, leaseId);
             if (!providerStatus.current)
