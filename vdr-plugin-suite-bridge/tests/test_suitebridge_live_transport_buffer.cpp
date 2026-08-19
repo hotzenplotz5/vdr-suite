@@ -1,3 +1,4 @@
+#include "../suitebridge_live_replay_buffer.h"
 #include "../suitebridge_live_transport_buffer.h"
 
 #include <atomic>
@@ -80,8 +81,6 @@ void TestConsumerPausePreservesPacketOrder()
   assert(buffer.Pop(packet));
   assert(packet == first);
 
-  // Simulate a disconnected consumer: producer keeps buffering and no reconnect
-  // path is allowed to clear these packets.
   assert(buffer.Push(second.data(), second.size()) ==
          SuiteBridgeTsPacketBuffer::PushResult::Accepted);
   assert(buffer.Push(third.data(), third.size()) ==
@@ -129,6 +128,149 @@ void TestConcurrentProducerConsumerDoesNotSilentlyDrop()
   assert(buffer.Empty());
 }
 
+void TestReplayStartUnavailableUntilCleanBoundary()
+{
+  SuiteBridgeTsReplayBuffer buffer(4);
+  SuiteBridgeTsReplayBuffer::Sequence cursor = 99;
+
+  assert(buffer.Push(MakePacket(1), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(2), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(!buffer.StartCursor(cursor));
+
+  assert(buffer.Push(MakePacket(3), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.StartCursor(cursor));
+
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(cursor, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 3);
+}
+
+void TestReplayReconnectStartsAtLatestCleanBoundary()
+{
+  SuiteBridgeTsReplayBuffer buffer(8);
+  assert(buffer.Push(MakePacket(10), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(11), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(12), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Sequence probeCursor = 0;
+  assert(buffer.StartCursor(probeCursor));
+
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(probeCursor++, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 11);
+  assert(buffer.Read(probeCursor++, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 12);
+
+  assert(buffer.Push(MakePacket(13), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(14), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(15), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Sequence workerCursor = 0;
+  assert(buffer.StartCursor(workerCursor));
+  assert(buffer.Read(workerCursor++, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 14);
+  assert(buffer.Read(workerCursor++, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 15);
+}
+
+void TestReplayPreStartHistoryMayBeDiscarded()
+{
+  SuiteBridgeTsReplayBuffer buffer(3);
+  assert(buffer.Push(MakePacket(1), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(2), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(3), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(4), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(5), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Sequence cursor = 0;
+  assert(buffer.StartCursor(cursor));
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(cursor, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 5);
+}
+
+void TestReplayLatestCleanStartIsNeverSilentlyOverwritten()
+{
+  SuiteBridgeTsReplayBuffer buffer(3);
+  assert(buffer.Push(MakePacket(20), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(21), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(22), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(23), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::StartWindowExhausted);
+
+  SuiteBridgeTsReplayBuffer::Sequence cursor = 0;
+  assert(buffer.StartCursor(cursor));
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(cursor, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 20);
+}
+
+void TestReplayNewCleanStartMayReplaceOldWindow()
+{
+  SuiteBridgeTsReplayBuffer buffer(3);
+  assert(buffer.Push(MakePacket(30), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(31), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(32), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(33), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Sequence cursor = 0;
+  assert(buffer.StartCursor(cursor));
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(cursor, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Available);
+  assert(SequenceOf(packet) == 33);
+}
+
+void TestReplayLaggingReaderFailsClosedOnOverrun()
+{
+  SuiteBridgeTsReplayBuffer buffer(4);
+  assert(buffer.Push(MakePacket(40), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(41), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Sequence cursor = 0;
+  assert(buffer.StartCursor(cursor));
+  assert(buffer.Push(MakePacket(42), true) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(43), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+  assert(buffer.Push(MakePacket(44), false) ==
+         SuiteBridgeTsReplayBuffer::PushResult::Accepted);
+
+  SuiteBridgeTsReplayBuffer::Packet packet{};
+  assert(buffer.Read(cursor, packet) ==
+         SuiteBridgeTsReplayBuffer::ReadResult::Overrun);
+}
+
 }  // namespace
 
 int main()
@@ -137,6 +279,12 @@ int main()
   TestBoundedOverflowIsExplicit();
   TestConsumerPausePreservesPacketOrder();
   TestConcurrentProducerConsumerDoesNotSilentlyDrop();
+  TestReplayStartUnavailableUntilCleanBoundary();
+  TestReplayReconnectStartsAtLatestCleanBoundary();
+  TestReplayPreStartHistoryMayBeDiscarded();
+  TestReplayLatestCleanStartIsNeverSilentlyOverwritten();
+  TestReplayNewCleanStartMayReplaceOldWindow();
+  TestReplayLaggingReaderFailsClosedOnOverrun();
   std::cout << "suitebridge live TS transport buffer tests passed\n";
   return 0;
 }

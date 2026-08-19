@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_LIVE_SOURCE_H
 
 #include "suitebridge_command_result.h"
+#include "suitebridge_live_replay_buffer.h"
 #include "suitebridge_live_transport_buffer.h"
 
 #include <vdr/channels.h>
@@ -40,6 +41,9 @@ private:
     BackpressureOverflow,
     TsPacketContractViolation,
     ReceiverPreempted,
+    ReplayWindowExhausted,
+    FrameBoundaryUnavailable,
+    ClientReplayOverrun,
   };
 
   struct SharedState final {
@@ -104,12 +108,21 @@ private:
 
   struct Session final {
     using Packet = SuiteBridgeTsPacketBuffer::Packet;
+    using ReplaySequence = SuiteBridgeTsReplayBuffer::Sequence;
+
+    static constexpr std::size_t AnalysisMinimumBytes =
+        MIN_TS_PACKETS_FOR_FRAME_DETECTOR * SuiteBridgeTsPacketBuffer::PacketSize;
+    static constexpr std::size_t AnalysisMaximumBytes = SharedState::BufferBytes;
+    static constexpr std::size_t WorkPacketsPerCycle = 512;
 
     std::string leaseId;
     std::string channelId;
     std::string socketPath;
     std::shared_ptr<SharedState> state = std::make_shared<SharedState>();
     std::vector<Packet> startupPackets;
+    SuiteBridgeTsReplayBuffer replay{SharedState::BufferPackets};
+    std::unique_ptr<cFrameDetector> frameDetector;
+    std::vector<std::uint8_t> analysisBytes;
     cDevice *device = nullptr;
     std::unique_ptr<LiveReceiver> receiver;
     int listenFd = -1;
@@ -158,7 +171,7 @@ private:
       LOCK_CHANNELS_READ;
       const cChannel *channel = Channels->GetByChannelID(nativeId);
       if (channel == nullptr || channel->GroupSep()) return false;
-      if (!PrepareStartupPackets(channel)) return false;
+      if (!PrepareStartupPackets(channel) || !PrepareFrameDetector(channel)) return false;
       device = cDevice::GetDevice(channel, LIVEPRIORITY, false);
       if (device == nullptr || !device->SwitchChannel(channel, false)) {
         device = nullptr;
@@ -175,7 +188,10 @@ private:
 
     bool StartWriter()
     {
-      if (listenFd < 0 || receiver == nullptr || !receiver->IsAttached()) return false;
+      if (listenFd < 0 || receiver == nullptr || !receiver->IsAttached() ||
+          frameDetector == nullptr) {
+        return false;
+      }
       try {
         writer = std::thread([this]() { WriterLoop(); });
       } catch (...) {
@@ -198,6 +214,7 @@ private:
       if (listenFd >= 0) ::shutdown(listenFd, SHUT_RDWR);
       if (writer.joinable()) writer.join();
       receiver.reset();
+      frameDetector.reset();
       device = nullptr;
       CloseSocket();
     }
@@ -220,6 +237,12 @@ private:
           return "ts_packet_contract_violation";
         case TerminalReason::ReceiverPreempted:
           return "receiver_preempted";
+        case TerminalReason::ReplayWindowExhausted:
+          return "replay_window_exhausted";
+        case TerminalReason::FrameBoundaryUnavailable:
+          return "frame_boundary_unavailable";
+        case TerminalReason::ClientReplayOverrun:
+          return "client_replay_overrun";
         case TerminalReason::None:
           break;
       }
@@ -243,6 +266,30 @@ private:
       return havePmt;
     }
 
+    bool PrepareFrameDetector(const cChannel *channel)
+    {
+      int pid = channel->Vpid();
+      int type = channel->Vtype();
+      if (!pid && channel->Apid(0)) {
+        pid = channel->Apid(0);
+        type = 0x04;
+      }
+      if (!pid && channel->Dpid(0)) {
+        pid = channel->Dpid(0);
+        type = 0x06;
+      }
+      if (pid <= 0) return false;
+
+      try {
+        frameDetector = std::make_unique<cFrameDetector>(pid, type);
+        analysisBytes.reserve(AnalysisMinimumBytes * 4U);
+      } catch (...) {
+        frameDetector.reset();
+        return false;
+      }
+      return true;
+    }
+
     bool AppendStartupPacket(const uchar *data)
     {
       if (data == nullptr || data[0] != SuiteBridgeTsPacketBuffer::SyncByte) {
@@ -251,6 +298,51 @@ private:
       Packet packet{};
       std::memcpy(packet.data(), data, packet.size());
       startupPackets.push_back(packet);
+      return true;
+    }
+
+    bool QueueForFrameDetection(const Packet &packet)
+    {
+      if (analysisBytes.size() + packet.size() > AnalysisMaximumBytes) {
+        state->MarkTerminal(TerminalReason::FrameBoundaryUnavailable);
+        return false;
+      }
+      analysisBytes.insert(analysisBytes.end(), packet.begin(), packet.end());
+      return ProcessDetectedFrames();
+    }
+
+    bool ProcessDetectedFrames()
+    {
+      while (analysisBytes.size() >= AnalysisMinimumBytes) {
+        const int available = static_cast<int>(analysisBytes.size());
+        const int count = frameDetector->Analyze(
+            reinterpret_cast<const uchar *>(analysisBytes.data()), available);
+        if (count == 0) return true;
+        if (count < 0 || count > available ||
+            (count % static_cast<int>(SuiteBridgeTsPacketBuffer::PacketSize)) != 0) {
+          state->MarkTerminal(TerminalReason::TsPacketContractViolation);
+          return false;
+        }
+
+        const bool cleanStart =
+            frameDetector->Synced() && frameDetector->IndependentFrame();
+        for (int offset = 0; offset < count;
+             offset += static_cast<int>(SuiteBridgeTsPacketBuffer::PacketSize)) {
+          const auto result = replay.Push(
+              analysisBytes.data() + offset,
+              SuiteBridgeTsPacketBuffer::PacketSize,
+              cleanStart && offset == 0);
+          if (result == SuiteBridgeTsReplayBuffer::PushResult::InvalidPacket) {
+            state->MarkTerminal(TerminalReason::TsPacketContractViolation);
+            return false;
+          }
+          if (result == SuiteBridgeTsReplayBuffer::PushResult::StartWindowExhausted) {
+            state->MarkTerminal(TerminalReason::ReplayWindowExhausted);
+            return false;
+          }
+        }
+        analysisBytes.erase(analysisBytes.begin(), analysisBytes.begin() + count);
+      }
       return true;
     }
 
@@ -331,9 +423,33 @@ private:
              state->terminal.load(std::memory_order_acquire);
     }
 
+    bool TryAcceptClient(int &client)
+    {
+      pollfd descriptor {};
+      descriptor.fd = listenFd;
+      descriptor.events = POLLIN;
+      const int polled = ::poll(&descriptor, 1, 0);
+      if (polled < 0 && errno == EINTR) return false;
+      if (polled <= 0 || (descriptor.revents & POLLIN) == 0) return false;
+
+      client = ::accept(listenFd, nullptr, nullptr);
+      if (client < 0) return false;
+      const int flags = ::fcntl(client, F_GETFL, 0);
+      if (flags < 0 || ::fcntl(client, F_SETFL, flags | O_NONBLOCK) != 0) {
+        ::close(client);
+        client = -1;
+        return false;
+      }
+      SetClient(client);
+      return true;
+    }
+
     void WriterLoop()
     {
       int client = -1;
+      bool clientStarted = false;
+      ReplaySequence clientCursor = 0;
+
       while (true) {
         if (StoppingOrTerminal()) break;
         if (receiver == nullptr || !receiver->IsAttached()) {
@@ -341,42 +457,61 @@ private:
           break;
         }
 
-        if (client < 0) {
-          pollfd descriptor {};
-          descriptor.fd = listenFd;
-          descriptor.events = POLLIN;
-          const int polled = ::poll(&descriptor, 1, 100);
-          if (polled < 0 && errno == EINTR) continue;
-          if (polled > 0 && (descriptor.revents & POLLIN) != 0) {
-            client = ::accept(listenFd, nullptr, nullptr);
-            if (client >= 0) {
-              const int flags = ::fcntl(client, F_GETFL, 0);
-              if (flags < 0 || ::fcntl(client, F_SETFL, flags | O_NONBLOCK) != 0) {
-                ::close(client);
-                client = -1;
-              } else {
-                SetClient(client);
-                if (!SendStartupPackets(client)) {
-                  DisconnectClient(client);
-                  client = -1;
-                }
-              }
-            }
-          }
-          continue;
+        bool didWork = false;
+        for (std::size_t processed = 0; processed < WorkPacketsPerCycle; ++processed) {
+          Packet packet{};
+          if (!state->buffer.Pop(packet)) break;
+          didWork = true;
+          if (!QueueForFrameDetection(packet)) break;
+        }
+        if (StoppingOrTerminal()) break;
+
+        if (client < 0 && TryAcceptClient(client)) {
+          clientStarted = false;
+          clientCursor = 0;
+          didWork = true;
         }
 
-        Packet packet{};
-        if (!state->buffer.Pop(packet)) {
+        if (client >= 0 && !clientStarted) {
+          ReplaySequence start = 0;
+          if (replay.StartCursor(start)) {
+            if (!SendStartupPackets(client)) {
+              DisconnectClient(client);
+              client = -1;
+            } else {
+              clientCursor = start;
+              clientStarted = true;
+            }
+            didWork = true;
+          }
+        }
+
+        if (client >= 0 && clientStarted) {
+          for (std::size_t sent = 0; sent < WorkPacketsPerCycle; ++sent) {
+            Packet packet{};
+            const auto result = replay.Read(clientCursor, packet);
+            if (result == SuiteBridgeTsReplayBuffer::ReadResult::NotYetAvailable) break;
+            if (result == SuiteBridgeTsReplayBuffer::ReadResult::Overrun) {
+              state->MarkTerminal(TerminalReason::ClientReplayOverrun);
+              break;
+            }
+            if (!SendPacket(client, packet)) {
+              DisconnectClient(client);
+              client = -1;
+              clientStarted = false;
+              break;
+            }
+            ++clientCursor;
+            didWork = true;
+          }
+        }
+        if (StoppingOrTerminal()) break;
+
+        if (!didWork) {
           std::unique_lock<std::mutex> lock(state->waitMutex);
-          state->wake.wait_for(lock, std::chrono::milliseconds(100), [this]() {
+          state->wake.wait_for(lock, std::chrono::milliseconds(10), [this]() {
             return StoppingOrTerminal() || !state->buffer.Empty();
           });
-          continue;
-        }
-        if (!SendPacket(client, packet)) {
-          DisconnectClient(client);
-          client = -1;
         }
       }
       if (client >= 0) DisconnectClient(client);
