@@ -58,6 +58,10 @@ cString cPluginSuiteBridge::SVDRPCommand(
       });
   if (nativeProbe.handled) return ReturnResult(nativeProbe, ReplyCode);
 
+  const SuiteBridgeCommandResult liveCapability =
+      liveCapability_.Handle(Command, Option);
+  if (liveCapability.handled) return ReturnResult(liveCapability, ReplyCode);
+
   const SuiteBridgeCommandResult liveSource = liveSource_.Handle(Command, Option);
   if (liveSource.handled) return ReturnResult(liveSource, ReplyCode);
 
