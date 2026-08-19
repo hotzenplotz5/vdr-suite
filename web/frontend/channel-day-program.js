@@ -1,11 +1,11 @@
-// Canonical Channel browser: grouped channels, parity filters, inline programme and EPG artwork.
+// Canonical Channel browser: grouped channels, Live TV, parity filters, inline programme and EPG artwork.
 (function (global) {
   'use strict';
 
   const CSS = `
 #detail-data.channels2-mount{display:block!important;width:100%!important;max-width:none!important}
-.channels2{display:grid;width:100%;gap:1rem}.channels2 h3,.channels2 p{margin:0}.channels2-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}.channels2-toolbar>div:first-child{display:grid;gap:.2rem}.channels2-toolbar p{color:#94a3b8}.channels2-tools{display:flex;gap:.5rem;min-width:min(30rem,100%)}.channels2-search{flex:1 1 auto;min-height:2.75rem;padding:.65rem .8rem;border:1px solid #475569;border-radius:.72rem;background:#0f172a;color:#f8fafc;font:inherit}.channels2-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}.channels2-filter-group{display:grid;gap:.35rem;padding:.55rem .65rem;border:1px solid rgba(148,163,184,.2);border-radius:.78rem;background:rgba(15,23,42,.58)}.channels2-filter-label{color:#94a3b8;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.channels2-filter-buttons{display:flex;flex-wrap:wrap;gap:.35rem}.channels2-filter-button{min-height:2.25rem;padding:.38rem .62rem;border:1px solid rgba(148,163,184,.3);border-radius:999px;background:rgba(30,41,59,.78);color:#cbd5e1;font:inherit;font-size:.82rem;font-weight:750}.channels2-filter-button.active{border-color:rgba(56,189,248,.78);background:rgba(14,165,233,.2);color:#f0f9ff}.channels2-status{padding:.7rem .85rem;border:1px solid rgba(148,163,184,.24);border-radius:.75rem;background:rgba(15,23,42,.72);color:#cbd5e1}.channels2-list{display:grid;gap:.65rem}.channels2-group{border:1px solid rgba(148,163,184,.2);border-radius:.9rem;background:rgba(2,6,23,.58);overflow:hidden}.channels2-group>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.6rem;min-height:3.1rem;padding:.75rem .85rem;cursor:pointer;list-style:none;color:#f8fafc;font-weight:850}.channels2-group>summary::-webkit-details-marker{display:none}.channels2-group>summary::before{content:'›';font-size:1.4rem;color:#7dd3fc;transition:transform .15s ease}.channels2-group[open]>summary::before{transform:rotate(90deg)}.channels2-group-count{padding:.15rem .45rem;border:1px solid rgba(148,163,184,.25);border-radius:999px;color:#94a3b8;font-size:.72rem}.channels2-group-channels{display:grid;gap:.45rem;padding:.35rem .5rem .6rem}.channels2-channel-block{display:grid;gap:.45rem}.channels2-channel{display:grid;grid-template-columns:5.25rem minmax(0,1fr) auto;gap:.75rem;align-items:center;width:100%;min-height:4.5rem;padding:.55rem .65rem;border:1px solid transparent;border-radius:.78rem;background:rgba(15,23,42,.72);color:#f8fafc;text-align:left}.channels2-channel::after{content:'›';font-size:1.35rem;color:#7dd3fc}.channels2-channel.active{border-color:rgba(56,189,248,.7);background:rgba(14,165,233,.16)}.channels2-channel.active::after{transform:rotate(90deg)}.channels2-logo{display:grid;place-items:center;width:5.25rem;height:3.15rem;padding:.25rem;border-radius:.55rem;background:rgba(248,250,252,.95);overflow:hidden}.channels2-logo img,.channels2-logo .channel-logo{display:block;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}.channels2-title{display:block;font-weight:800}.channels2-meta{display:block;margin-top:.12rem;color:#94a3b8;font-size:.82rem}.channels2-now{display:block;margin-top:.2rem;color:#bae6fd;font-size:.8rem}.channels2-inline-program{display:grid;gap:.55rem;margin:.05rem .1rem .35rem;padding:.65rem;border:1px solid rgba(56,189,248,.3);border-radius:.82rem;background:rgba(2,6,23,.82)}.channels2-program-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}.channels2-date{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.35rem;min-width:min(31rem,100%)}.channels2-date button,.channels2-date input,.channels2-tools button{min-height:2.45rem;padding:.48rem .65rem;border-radius:.65rem}.channels2-date-current{grid-column:2;box-sizing:border-box;width:100%;max-width:100%;min-width:0;border:1px solid rgba(96,165,250,.72);background:#2563eb;color:#fff;font:inherit;font-weight:800;text-align:center;color-scheme:dark}.channels2-date-current::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.9}.channels2-date-today{grid-column:1/-1;width:100%;border:1px solid rgba(96,165,250,.6)!important;background:transparent!important;color:#bfdbfe!important}.channels2-day-heading{font-size:.95rem;color:#cbd5e1}.channels2-events{display:grid;gap:.4rem}.channels2-event-block{display:grid;gap:.35rem}.channels2-event{display:grid;grid-template-columns:5.2rem minmax(0,1fr) auto;gap:.6rem;align-items:center;width:100%;padding:.68rem .72rem;border:1px solid rgba(148,163,184,.18);border-radius:.75rem;background:rgba(15,23,42,.72);color:#f8fafc;text-align:left}.channels2-event.active,.channels2-event:hover{border-color:rgba(56,189,248,.6);background:rgba(14,165,233,.12)}.channels2-time{font-weight:800;color:#bae6fd}.channels2-badge{padding:.18rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;color:#cbd5e1;font-size:.7rem;font-weight:800}.channels2-detail{display:grid;grid-template-columns:minmax(0,1fr);gap:.7rem;margin:0 .15rem .35rem;padding:.8rem;border-left:3px solid rgba(56,189,248,.65);border-radius:.65rem;background:rgba(2,6,23,.92)}.channels2-artwork,.channels2-detail>.epg-detail-artwork{display:none;min-height:9rem;border-radius:.65rem;background:linear-gradient(135deg,rgba(30,64,175,.35),rgba(15,23,42,.95));background-size:cover;background-position:center}.channels2-detail.has-artwork,.channels2-detail.epg-has-artwork{grid-template-columns:minmax(10rem,16rem) minmax(0,1fr)}.channels2-detail.has-artwork>.channels2-artwork,.channels2-detail.epg-has-artwork>.epg-detail-artwork{display:block}.channels2-detail>.epg-metadata-tabs,.channels2-detail>.epg-metadata-panel,.channels2-detail>.epg-metadata-status,.channels2-detail>.channels2-actions,.channels2-detail>.channels2-feedback{grid-column:1/-1}.channels2-detail-copy{display:grid;gap:.55rem}.channels2-detail-time{color:#93c5fd;font-weight:700}.channels2-description{color:#dbe4f0;line-height:1.48;white-space:pre-line}.channels2-actions{display:flex;flex-wrap:wrap;gap:.45rem}.channels2-actions button{min-height:2.55rem;padding:.52rem .8rem;border-radius:.68rem}.channels2-secondary-action{background:transparent!important;border:1px solid rgba(96,165,250,.6)!important;color:#bfdbfe!important}.channels2-feedback{min-height:1.2rem;color:#cbd5e1}.channels2-feedback.error{color:#fecaca}.channels2-feedback.success{color:#bbf7d0}.channels2-empty{padding:.9rem;border:1px dashed rgba(148,163,184,.3);border-radius:.75rem;color:#94a3b8;text-align:center}
-@media(max-width:720px){.channels2-toolbar{align-items:stretch;flex-direction:column}.channels2-tools{display:grid;grid-template-columns:1fr}.channels2-filters{grid-template-columns:1fr}.channels2-filter-buttons{flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.channels2-filter-button{flex:0 0 auto}.channels2-group-channels{padding:.3rem}.channels2-inline-program{margin-inline:0;padding:.55rem}.channels2-program-head{align-items:stretch;flex-direction:column}.channels2-date{min-width:0;grid-template-columns:auto minmax(0,1fr) auto}.channels2-event{grid-template-columns:4.8rem minmax(0,1fr)}.channels2-event .channels2-badge{display:none}.channels2-detail.has-artwork,.channels2-detail.epg-has-artwork{grid-template-columns:1fr}.channels2-artwork,.channels2-detail>.epg-detail-artwork{min-height:10rem}.channels2-actions{display:grid;grid-template-columns:1fr 1fr}.channels2-actions button{width:100%;font-size:.9rem}}
+.channels2{display:grid;width:100%;gap:1rem}.channels2 h3,.channels2 p{margin:0}.channels2-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}.channels2-toolbar>div:first-child{display:grid;gap:.2rem}.channels2-toolbar p{color:#94a3b8}.channels2-tools{display:flex;gap:.5rem;min-width:min(30rem,100%)}.channels2-search{flex:1 1 auto;min-height:2.75rem;padding:.65rem .8rem;border:1px solid #475569;border-radius:.72rem;background:#0f172a;color:#f8fafc;font:inherit}.channels2-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}.channels2-filter-group{display:grid;gap:.35rem;padding:.55rem .65rem;border:1px solid rgba(148,163,184,.2);border-radius:.78rem;background:rgba(15,23,42,.58)}.channels2-filter-label{color:#94a3b8;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.channels2-filter-buttons{display:flex;flex-wrap:wrap;gap:.35rem}.channels2-filter-button{min-height:2.25rem;padding:.38rem .62rem;border:1px solid rgba(148,163,184,.3);border-radius:999px;background:rgba(30,41,59,.78);color:#cbd5e1;font:inherit;font-size:.82rem;font-weight:750}.channels2-filter-button.active{border-color:rgba(56,189,248,.78);background:rgba(14,165,233,.2);color:#f0f9ff}.channels2-status{padding:.7rem .85rem;border:1px solid rgba(148,163,184,.24);border-radius:.75rem;background:rgba(15,23,42,.72);color:#cbd5e1}.channels2-list{display:grid;gap:.65rem}.channels2-group{border:1px solid rgba(148,163,184,.2);border-radius:.9rem;background:rgba(2,6,23,.58);overflow:hidden}.channels2-group>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.6rem;min-height:3.1rem;padding:.75rem .85rem;cursor:pointer;list-style:none;color:#f8fafc;font-weight:850}.channels2-group>summary::-webkit-details-marker{display:none}.channels2-group>summary::before{content:'›';font-size:1.4rem;color:#7dd3fc;transition:transform .15s ease}.channels2-group[open]>summary::before{transform:rotate(90deg)}.channels2-group-count{padding:.15rem .45rem;border:1px solid rgba(148,163,184,.25);border-radius:999px;color:#94a3b8;font-size:.72rem}.channels2-group-channels{display:grid;gap:.45rem;padding:.35rem .5rem .6rem}.channels2-channel-block{display:grid;gap:.45rem}.channels2-channel{display:grid;grid-template-columns:5.25rem minmax(0,1fr) auto;gap:.75rem;align-items:center;width:100%;min-height:4.5rem;padding:.55rem .65rem;border:1px solid transparent;border-radius:.78rem;background:rgba(15,23,42,.72);color:#f8fafc;text-align:left}.channels2-channel::after{content:'›';font-size:1.35rem;color:#7dd3fc}.channels2-channel.active{border-color:rgba(56,189,248,.7);background:rgba(14,165,233,.16)}.channels2-channel.active::after{transform:rotate(90deg)}.channels2-logo{display:grid;place-items:center;width:5.25rem;height:3.15rem;padding:.25rem;border-radius:.55rem;background:rgba(248,250,252,.95);overflow:hidden}.channels2-logo img,.channels2-logo .channel-logo{display:block;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}.channels2-title{display:block;font-weight:800}.channels2-meta{display:block;margin-top:.12rem;color:#94a3b8;font-size:.82rem}.channels2-now{display:block;margin-top:.2rem;color:#bae6fd;font-size:.8rem}.channels2-inline-program{display:grid;gap:.55rem;margin:.05rem .1rem .35rem;padding:.65rem;border:1px solid rgba(56,189,248,.3);border-radius:.82rem;background:rgba(2,6,23,.82)}.channels2-program-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}.channels2-live{display:grid;gap:.55rem;padding:.7rem;border:1px solid rgba(34,211,238,.34);border-radius:.78rem;background:rgba(8,47,73,.38)}.channels2-live-head{display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap}.channels2-live-copy{display:grid;gap:.12rem}.channels2-live-copy p{color:#a5f3fc!important;font-size:.82rem}.channels2-live button,.channels2-live .recordings2-primary{min-height:2.55rem;padding:.52rem .8rem;border-radius:.68rem}.channels2-live-stop{background:transparent!important;border:1px solid rgba(248,113,113,.62)!important;color:#fecaca!important}.channels2-live-status{color:#cbd5e1}.channels2-live-status.error{color:#fecaca}.channels2-live .recordings2-playback{display:grid;gap:.55rem}.channels2-live .recordings2-section-title h4{margin:0}.channels2-live .recordings2-playback-status{color:#cbd5e1}.channels2-live .recordings2-playback-status.error{color:#fecaca}.channels2-date{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.35rem;min-width:min(31rem,100%)}.channels2-date button,.channels2-date input,.channels2-tools button{min-height:2.45rem;padding:.48rem .65rem;border-radius:.65rem}.channels2-date-current{grid-column:2;box-sizing:border-box;width:100%;max-width:100%;min-width:0;border:1px solid rgba(96,165,250,.72);background:#2563eb;color:#fff;font:inherit;font-weight:800;text-align:center;color-scheme:dark}.channels2-date-current::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.9}.channels2-date-today{grid-column:1/-1;width:100%;border:1px solid rgba(96,165,250,.6)!important;background:transparent!important;color:#bfdbfe!important}.channels2-day-heading{font-size:.95rem;color:#cbd5e1}.channels2-events{display:grid;gap:.4rem}.channels2-event-block{display:grid;gap:.35rem}.channels2-event{display:grid;grid-template-columns:5.2rem minmax(0,1fr) auto;gap:.6rem;align-items:center;width:100%;padding:.68rem .72rem;border:1px solid rgba(148,163,184,.18);border-radius:.75rem;background:rgba(15,23,42,.72);color:#f8fafc;text-align:left}.channels2-event.active,.channels2-event:hover{border-color:rgba(56,189,248,.6);background:rgba(14,165,233,.12)}.channels2-time{font-weight:800;color:#bae6fd}.channels2-badge{padding:.18rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;color:#cbd5e1;font-size:.7rem;font-weight:800}.channels2-detail{display:grid;grid-template-columns:minmax(0,1fr);gap:.7rem;margin:0 .15rem .35rem;padding:.8rem;border-left:3px solid rgba(56,189,248,.65);border-radius:.65rem;background:rgba(2,6,23,.92)}.channels2-artwork,.channels2-detail>.epg-detail-artwork{display:none;min-height:9rem;border-radius:.65rem;background:linear-gradient(135deg,rgba(30,64,175,.35),rgba(15,23,42,.95));background-size:cover;background-position:center}.channels2-detail.has-artwork,.channels2-detail.epg-has-artwork{grid-template-columns:minmax(10rem,16rem) minmax(0,1fr)}.channels2-detail.has-artwork>.channels2-artwork,.channels2-detail.epg-has-artwork>.epg-detail-artwork{display:block}.channels2-detail>.epg-metadata-tabs,.channels2-detail>.epg-metadata-panel,.channels2-detail>.epg-metadata-status,.channels2-detail>.channels2-actions,.channels2-detail>.channels2-feedback{grid-column:1/-1}.channels2-detail-copy{display:grid;gap:.55rem}.channels2-detail-time{color:#93c5fd;font-weight:700}.channels2-description{color:#dbe4f0;line-height:1.48;white-space:pre-line}.channels2-actions{display:flex;flex-wrap:wrap;gap:.45rem}.channels2-actions button{min-height:2.55rem;padding:.52rem .8rem;border-radius:.68rem}.channels2-secondary-action{background:transparent!important;border:1px solid rgba(96,165,250,.6)!important;color:#bfdbfe!important}.channels2-feedback{min-height:1.2rem;color:#cbd5e1}.channels2-feedback.error{color:#fecaca}.channels2-feedback.success{color:#bbf7d0}.channels2-empty{padding:.9rem;border:1px dashed rgba(148,163,184,.3);border-radius:.75rem;color:#94a3b8;text-align:center}
+@media(max-width:720px){.channels2-toolbar{align-items:stretch;flex-direction:column}.channels2-tools{display:grid;grid-template-columns:1fr}.channels2-filters{grid-template-columns:1fr}.channels2-filter-buttons{flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.channels2-filter-button{flex:0 0 auto}.channels2-group-channels{padding:.3rem}.channels2-inline-program{margin-inline:0;padding:.55rem}.channels2-program-head{align-items:stretch;flex-direction:column}.channels2-live-head{align-items:stretch;flex-direction:column}.channels2-live-head button{width:100%}.channels2-date{min-width:0;grid-template-columns:auto minmax(0,1fr) auto}.channels2-event{grid-template-columns:4.8rem minmax(0,1fr)}.channels2-event .channels2-badge{display:none}.channels2-detail.has-artwork,.channels2-detail.epg-has-artwork{grid-template-columns:1fr}.channels2-artwork,.channels2-detail>.epg-detail-artwork{min-height:10rem}.channels2-actions{display:grid;grid-template-columns:1fr 1fr}.channels2-actions button{width:100%;font-size:.9rem}}
   `;
 
   const state = {
@@ -22,7 +22,12 @@
     statusFilter: 'all',
     encryptionAvailable: false,
     sequence: 0,
-    openGroups: Object.create(null)
+    openGroups: Object.create(null),
+    livePlayback: null,
+    liveChannelId: '',
+    liveSwitching: false,
+    liveError: '',
+    liveSequence: 0
   };
 
   const platform = () => global.VdrSuitePlatform || null;
@@ -148,6 +153,157 @@
     document.head.appendChild(style);
   }
 
+  function ensureLivePlaybackRuntime() {
+    const playback = global.VdrSuiteRecordings2Playback;
+    if (playback && typeof playback.createLivePanel === 'function') return Promise.resolve(playback);
+    if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') {
+      return Promise.reject(new Error('MediaSession-Playback-Runtime ist nicht verfügbar.'));
+    }
+    return global.loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-playback-runtime',
+      '/frontend/recordings2-playback.js',
+      () => Boolean(
+        global.VdrSuiteRecordings2Playback &&
+        typeof global.VdrSuiteRecordings2Playback.createLivePanel === 'function'
+      )
+    ).then(() => {
+      const loaded = global.VdrSuiteRecordings2Playback;
+      if (!loaded || typeof loaded.createLivePanel !== 'function') {
+        throw new Error('MediaSession-Playback-Runtime wurde nicht registriert.');
+      }
+      return loaded;
+    });
+  }
+
+  function destroyLivePlayback() {
+    state.liveSequence += 1;
+    const playback = state.livePlayback;
+    state.livePlayback = null;
+    state.liveChannelId = '';
+    state.liveSwitching = false;
+    state.liveError = '';
+    if (playback && typeof playback.destroy === 'function') playback.destroy();
+  }
+
+  function createLivePlayback(channel, replacesSessionId, sequence) {
+    return ensureLivePlaybackRuntime().then(playbackApi => {
+      if (!state.active || sequence !== state.liveSequence || !state.channel ||
+          channelId(state.channel) !== channelId(channel)) return null;
+      const playback = playbackApi.createLivePanel(channel, backendId(), {
+        replacesSessionId: replacesSessionId || ''
+      });
+      if (!playback || !playback.element || typeof playback.start !== 'function') {
+        throw new Error('Live-TV-Playback konnte nicht erstellt werden.');
+      }
+      state.livePlayback = playback;
+      state.liveChannelId = channelId(channel);
+      state.liveSwitching = false;
+      state.liveError = '';
+      render();
+      playback.start();
+      return playback;
+    }).catch(error => {
+      if (sequence !== state.liveSequence) return null;
+      state.livePlayback = null;
+      state.liveChannelId = '';
+      state.liveSwitching = false;
+      state.liveError = error && error.message ? error.message : String(error || 'Live-TV konnte nicht gestartet werden.');
+      render();
+      return null;
+    });
+  }
+
+  function startLivePlayback(channel) {
+    if (!state.active || !channel || !channelIsEnabled(channel) || state.liveSwitching) return Promise.resolve(null);
+    if (state.livePlayback && state.liveChannelId === channelId(channel)) return Promise.resolve(state.livePlayback);
+
+    const previous = state.livePlayback;
+    const previousChannelId = state.liveChannelId;
+    const sequence = ++state.liveSequence;
+    state.liveSwitching = true;
+    state.liveError = '';
+    render();
+
+    if (!previous || !previousChannelId || previousChannelId === channelId(channel)) {
+      if (previous && typeof previous.destroy === 'function') previous.destroy();
+      state.livePlayback = null;
+      state.liveChannelId = '';
+      return createLivePlayback(channel, '', sequence);
+    }
+
+    if (typeof previous.relinquishForReplacement !== 'function') {
+      previous.destroy();
+      state.livePlayback = null;
+      state.liveChannelId = '';
+      return createLivePlayback(channel, '', sequence);
+    }
+
+    return previous.relinquishForReplacement().then(replacesSessionId => {
+      state.livePlayback = null;
+      state.liveChannelId = '';
+      if (!state.active || sequence !== state.liveSequence || !state.channel ||
+          channelId(state.channel) !== channelId(channel)) return null;
+      return createLivePlayback(channel, replacesSessionId, sequence);
+    }).catch(error => {
+      if (sequence !== state.liveSequence) return null;
+      state.livePlayback = null;
+      state.liveChannelId = '';
+      state.liveSwitching = false;
+      state.liveError = error && error.message ? error.message : String(error || 'Senderwechsel fehlgeschlagen.');
+      render();
+      return null;
+    });
+  }
+
+  function renderLivePlayback(channel) {
+    const box = document.createElement('section');
+    box.className = 'channels2-live';
+    const head = document.createElement('div');
+    head.className = 'channels2-live-head';
+    const copy = document.createElement('div');
+    copy.className = 'channels2-live-copy';
+    copy.appendChild(addText(document.createElement('h4'), 'Live-TV'));
+    copy.appendChild(addText(document.createElement('p'), 'VDR-Suite MediaSession · HLS/fMP4 · Bild und Ton'));
+    head.appendChild(copy);
+
+    const selectedId = channelId(channel);
+    if (state.livePlayback && state.liveChannelId === selectedId) {
+      const stop = addText(document.createElement('button'), 'Live-TV beenden');
+      stop.type = 'button';
+      stop.className = 'channels2-live-stop';
+      stop.onclick = () => { destroyLivePlayback(); render(); };
+      head.appendChild(stop);
+      box.appendChild(head);
+      box.appendChild(state.livePlayback.element);
+      return box;
+    }
+
+    const start = addText(
+      document.createElement('button'),
+      state.liveSwitching ? 'Senderwechsel läuft …' : '▶ Live-TV starten'
+    );
+    start.type = 'button';
+    start.disabled = state.liveSwitching || !channelIsEnabled(channel);
+    start.onclick = () => { startLivePlayback(channel); };
+    head.appendChild(start);
+    box.appendChild(head);
+
+    const status = addText(
+      document.createElement('p'),
+      state.liveError
+        ? state.liveError
+        : (state.liveSwitching
+            ? 'Die alte Live-Session wird kontrolliert freigegeben; danach startet der gewählte Sender.'
+            : (!channelIsEnabled(channel)
+                ? 'Dieser Kanal ist deaktiviert und kann nicht live gestartet werden.'
+                : 'Startet ausschließlich über das VDR-Suite MediaSession-Gateway.'))
+    );
+    status.className = 'channels2-live-status' + (state.liveError ? ' error' : '');
+    status.setAttribute('role', state.liveError ? 'alert' : 'status');
+    box.appendChild(status);
+    return box;
+  }
+
   function groupChannels(channels) {
     const groups = new Map();
     channels.slice().sort((left, right) => channelNumber(left) - channelNumber(right) || channelName(left).localeCompare(channelName(right), 'de-DE')).forEach(channel => {
@@ -174,6 +330,7 @@
   function filterChannels() {
     state.visible = state.channels.filter(channelMatchesFilters);
     if (state.channel && !state.visible.some(channel => channelId(channel) === channelId(state.channel))) {
+      if (state.livePlayback && state.liveChannelId === channelId(state.channel)) destroyLivePlayback();
       state.channel = null;
       state.event = null;
       state.events = [];
@@ -409,6 +566,7 @@
     }
     head.append(title, controls);
     section.appendChild(head);
+    section.appendChild(renderLivePlayback(channel));
     const day = addText(document.createElement('p'), selectedDay.toLocaleDateString('de-DE', {weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'}));
     day.className = 'channels2-day-heading';
     section.appendChild(day);
@@ -483,7 +641,7 @@
     const toolbar = document.createElement('header');
     toolbar.className = 'channels2-toolbar';
     const intro = document.createElement('div');
-    intro.append(addText(document.createElement('h3'), 'Kanäle'), addText(document.createElement('p'), 'Sender, Filter, Tagesprogramm und EPG direkt in einer Ansicht.'));
+    intro.append(addText(document.createElement('h3'), 'Kanäle'), addText(document.createElement('p'), 'Sender, Live-TV, Filter, Tagesprogramm und EPG direkt in einer Ansicht.'));
     const tools = document.createElement('div');
     tools.className = 'channels2-tools';
     const search = document.createElement('input');
@@ -538,6 +696,7 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'channels2-channel';
+        button.disabled = state.liveSwitching;
         if (state.channel && channelId(state.channel) === channelId(channel)) button.classList.add('active');
         const logo = document.createElement('span');
         logo.className = 'channels2-logo';
@@ -556,18 +715,26 @@
         }
         button.append(logo, copy);
         button.onclick = () => {
+          if (state.liveSwitching) return;
           if (state.channel && channelId(state.channel) === channelId(channel)) {
+            if (state.livePlayback && state.liveChannelId === channelId(channel)) destroyLivePlayback();
             state.channel = null;
             state.event = null;
             state.events = [];
             render();
             return;
           }
+          const switchLive = Boolean(
+            state.livePlayback &&
+            state.liveChannelId &&
+            state.liveChannelId !== channelId(channel)
+          );
           state.channel = channel;
           state.event = null;
           state.openGroups[groupName] = true;
           render();
           loadEvents();
+          if (switchLive) startLivePlayback(channel);
         };
         block.appendChild(button);
         if (state.channel && channelId(state.channel) === channelId(channel)) block.appendChild(renderInlineProgram(channel));
@@ -645,6 +812,7 @@
     deactivate() {
       state.active = false;
       state.sequence += 1;
+      destroyLivePlayback();
       const target = mount();
       if (target) target.classList.remove('channels2-mount');
     },
