@@ -57,6 +57,20 @@ public:
         MediaTranscodePolicy transcodePolicy = MediaTranscodePolicy::fromEnvironment());
     ~LiveMediaSessionRuntime();
 
+    // Primary Phase-65.B hot path. One conditioned native TS consumer is
+    // remuxed directly to a live fragmented-MP4 FIFO; there is no ffprobe or
+    // HLS readiness barrier before the browser can connect.
+    LiveMediaSessionProvisionResult provisionStream(
+        const std::string& sessionId,
+        const std::string& workspaceId,
+        const std::string& leaseId,
+        const std::string& grantId,
+        const vdrsuite::agent::BackendAgentLiveProviderPreparation& preparation,
+        const ClientMediaCapabilities& clientCapabilities);
+
+    // Compatibility entry point for branch-local callers while 65.B is being
+    // closed out. It provisions the same direct stream and must not re-enable
+    // the old probe/HLS hot path.
     LiveMediaSessionProvisionResult provisionHls(
         const std::string& sessionId,
         const std::string& workspaceId,
