@@ -125,6 +125,11 @@ public:
         return executeRequest(wire.str());
     }
 
+    SuiteBridgeCommandReply discoverLiveSource() override
+    {
+        return executeRequest("PLUG suitebridge NLCAP 1\r\n");
+    }
+
     SuiteBridgeCommandReply openLiveSource(
         const SuiteBridgeLiveSourceOpenRequest& request) override
     {
@@ -154,9 +159,6 @@ public:
         return executeLiveLeaseRequest("STATUS", request);
     }
 
-    // Narrow typed raw-wire hooks used only by dedicated native Timer
-    // adapters. They are deliberately non-virtual so generic SuiteBridge
-    // users do not acquire native Timer mutation link dependencies.
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();
     SuiteBridgeCommandReply executeNativeTimerCreateContract(
         const BackendAgentNativeTimerCreateTransportRequest& request);
