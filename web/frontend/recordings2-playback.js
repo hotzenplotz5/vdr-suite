@@ -1,4 +1,4 @@
-// Browser playback owner for Phase-65 Recording MediaSessions.
+// Browser playback owner for Phase-65 MediaSessions.
 (function (global) {
   'use strict';
 
@@ -15,6 +15,11 @@
   function recordingId(recording) {
     if (!recording || typeof recording !== 'object') return '';
     return text(recording.recordingId || recording.id).trim();
+  }
+
+  function liveChannelId(channel) {
+    if (!channel || typeof channel !== 'object') return '';
+    return text(channel.channelId || channel.id || channel.nativeId).trim();
   }
 
   function safeSessionId(value) {
@@ -66,6 +71,45 @@
     });
   }
 
+  function createLiveSession(backendId, channel, replacesSessionId) {
+    const api = global.VdrSuiteClientApi;
+    const id = liveChannelId(channel);
+    const replacementId = replacesSessionId ? safeSessionId(replacesSessionId) : '';
+    if (!api || typeof api.requestJson !== 'function') {
+      return Promise.reject(new Error('Client API für Live-TV ist nicht verfügbar.'));
+    }
+    if (!id) {
+      return Promise.reject(new Error('Der Kanal besitzt keine öffentliche Channel-ID.'));
+    }
+    if (replacesSessionId && !replacementId) {
+      return Promise.reject(new Error('Die zu ersetzende Live-Session-ID ist ungültig.'));
+    }
+
+    const payload = {
+      resourceKind: 'live-channel',
+      backendId: text(backendId || 'default'),
+      channelId: id,
+      capabilities: capabilities()
+    };
+    if (replacementId) payload.replacesSessionId = replacementId;
+
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).catch(function (error) {
+      // If a channel switch request never reached the daemon, the previous
+      // server-side Live MediaSession would otherwise remain orphaned. A
+      // best-effort stop is safe even when the daemon already replaced it.
+      if (replacementId) {
+        stopLiveSession(backendId, replacementId).catch(function () {});
+      }
+      throw error;
+    });
+  }
+
   function stopSession(backendId, sessionId) {
     const api = global.VdrSuiteClientApi;
     const id = safeSessionId(sessionId);
@@ -79,6 +123,26 @@
         operation: 'stop',
         backendId: text(backendId || 'default'),
         sessionId: id
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
+  function stopLiveSession(backendId, sessionId) {
+    const api = global.VdrSuiteClientApi;
+    const id = safeSessionId(sessionId);
+    if (!api || typeof api.requestJson !== 'function') return Promise.resolve(null);
+    if (!id) return Promise.resolve(null);
+
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        resourceKind: 'live-channel',
+        backendId: text(backendId || 'default'),
+        sessionId: id,
+        operation: 'stop'
       }),
       cache: 'no-store',
       credentials: 'same-origin'
@@ -109,6 +173,35 @@
       // ownership fence if the browser disappears before the request lands.
       return null;
     });
+  }
+
+  function stopLiveSessionKeepalive(backendId, sessionId) {
+    const id = safeSessionId(sessionId);
+    if (!id || typeof global.fetch !== 'function') return Promise.resolve(null);
+
+    return global.fetch('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        resourceKind: 'live-channel',
+        backendId: text(backendId || 'default'),
+        sessionId: id,
+        operation: 'stop'
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin',
+      keepalive: true
+    }).catch(function () {
+      return null;
+    });
+  }
+
+  function safeMediaPath(value) {
+    const path = text(value).trim();
+    if (!path || path.indexOf('?') !== -1 || path.indexOf('#') !== -1) return '';
+    return /^\/api\/media\/sessions\/[A-Za-z0-9._:-]+\/hls\/master\.m3u8$/.test(path)
+      ? path
+      : '';
   }
 
   function safeArtifactName(value) {
@@ -193,16 +286,12 @@
 
   function artifactUrl(mediaPath, artifactName) {
     const name = safeArtifactName(artifactName);
-    const manifest = text(mediaPath);
+    const manifest = safeMediaPath(mediaPath);
     const slash = manifest.lastIndexOf('/');
-    if (!name || slash <= 0 || manifest.indexOf('?') !== -1 || manifest.indexOf('#') !== -1) {
+    if (!name || slash <= 0) {
       throw new Error('Ungültiger MediaSession-Artefaktpfad.');
     }
-    const base = manifest.slice(0, slash + 1);
-    if (!/^\/api\/media\/sessions\/[A-Za-z0-9._:-]+\/hls\/$/.test(base)) {
-      throw new Error('MediaSession-Pfad liegt außerhalb des HLS-Gateways.');
-    }
-    return base + name;
+    return manifest.slice(0, slash + 1) + name;
   }
 
   function fetchText(url, signal) {
@@ -454,15 +543,29 @@
     });
   }
 
-  function createPanel(recording, backendId) {
+  function createPanel(recording, backendId, playbackOptions) {
+    const options = playbackOptions && typeof playbackOptions === 'object'
+      ? playbackOptions
+      : {};
+    const live = options.resourceKind === 'live-channel';
+    const sessionCreator = typeof options.createSession === 'function'
+      ? options.createSession
+      : function () { return createSession(backendId, recording); };
+    const sessionStopper = typeof options.stopSession === 'function'
+      ? options.stopSession
+      : function (sessionId) { return stopSession(backendId, sessionId); };
+    const keepaliveStopper = typeof options.stopSessionKeepalive === 'function'
+      ? options.stopSessionKeepalive
+      : function (sessionId) { return stopSessionKeepalive(backendId, sessionId); };
+
     const panel = document.createElement('section');
-    panel.className = 'recordings2-playback';
-    panel.setAttribute('aria-label', 'Aufnahme wiedergeben');
+    panel.className = 'recordings2-playback' + (live ? ' recordings2-live-playback' : '');
+    panel.setAttribute('aria-label', options.ariaLabel || (live ? 'Live-TV wiedergeben' : 'Aufnahme wiedergeben'));
 
     const heading = document.createElement('div');
     heading.className = 'recordings2-section-title';
     const title = document.createElement('h4');
-    title.textContent = 'Wiedergabe';
+    title.textContent = options.title || (live ? 'Live-TV' : 'Wiedergabe');
     heading.appendChild(title);
     panel.appendChild(heading);
 
@@ -475,7 +578,7 @@
     const startButton = document.createElement('button');
     startButton.type = 'button';
     startButton.className = 'recordings2-primary';
-    startButton.textContent = '▶ Aufnahme abspielen';
+    startButton.textContent = options.startLabel || (live ? '▶ Live-TV starten' : '▶ Aufnahme abspielen');
     panel.appendChild(startButton);
 
     const video = document.createElement('video');
@@ -486,7 +589,7 @@
     video.style.width = '100%';
     video.style.maxHeight = '70vh';
     video.style.background = '#000';
-    video.setAttribute('aria-label', 'VDR-Aufnahme');
+    video.setAttribute('aria-label', options.videoAriaLabel || (live ? 'VDR Live-TV' : 'VDR-Aufnahme'));
     panel.appendChild(video);
 
     let destroyed = false;
@@ -502,6 +605,7 @@
     let objectUrl = '';
     let abortController = null;
     let activeSourceBuffer = null;
+    let sessionCreationPromise = Promise.resolve('');
     const appendedSegments = new Set();
     let initAppended = false;
 
@@ -518,8 +622,8 @@
       if (stopIssued || !activeSessionId) return;
       stopIssued = true;
       const request = useKeepalive
-        ? stopSessionKeepalive(backendId, activeSessionId)
-        : stopSession(backendId, activeSessionId);
+        ? keepaliveStopper(activeSessionId)
+        : sessionStopper(activeSessionId);
       if (request && typeof request.catch === 'function') {
         request.catch(function () {
           // Browser teardown is best-effort. Daemon shutdown recovery remains
@@ -733,7 +837,7 @@
     }
 
     function start() {
-      if (started || destroyed) return;
+      if (started || destroyed) return sessionCreationPromise;
       started = true;
       startButton.disabled = true;
       setStatus('MediaSession wird vorbereitet …', false);
@@ -743,7 +847,7 @@
         started = false;
         startButton.disabled = false;
         setStatus('Dieser Browser unterstützt den benötigten MediaSource-Pfad nicht.', true);
-        return;
+        return Promise.resolve('');
       }
 
       abortController = new global.AbortController();
@@ -758,12 +862,17 @@
       const playRequest = video.play();
       if (playRequest && typeof playRequest.catch === 'function') playRequest.catch(function () {});
 
-      const sessionPromise = createSession(backendId, recording).then(function (session) {
+      const sessionPromise = Promise.resolve().then(sessionCreator).then(function (session) {
         const mediaSession = session && session.mediaSession;
         activeSessionId = safeSessionId(mediaSession && mediaSession.id);
         if (pageHidden) stopActiveSession(true);
         else if (destroyed || playbackFailed) stopActiveSession(false);
         return session;
+      });
+      sessionCreationPromise = sessionPromise.then(function () {
+        return activeSessionId;
+      }, function (error) {
+        throw error;
       });
 
       Promise.all([
@@ -773,9 +882,9 @@
         if (destroyed || pageHidden) return null;
         const session = results[0];
         const mediaSession = session && session.mediaSession;
-        const mediaPath = mediaSession && text(mediaSession.mediaPath);
+        const mediaPath = mediaSession && safeMediaPath(mediaSession.mediaPath);
         if (!activeSessionId || !mediaSession || mediaSession.state !== 'ready' || !mediaPath) {
-          throw new Error('MediaSession wurde nicht wiedergabebereit bereitgestellt.');
+          throw new Error('MediaSession wurde nicht wiedergabebereit oder mit ungültigem Media-Pfad bereitgestellt.');
         }
         return prepareSourceBuffer(mediaPath).then(function (prepared) {
           if (destroyed || pageHidden || !prepared) return;
@@ -788,6 +897,7 @@
           return pump(mediaPath, prepared.sourceBuffer);
         });
       }).catch(handlePlaybackError);
+      return sessionCreationPromise;
     }
 
     function destroy() {
@@ -813,6 +923,28 @@
       }
     }
 
+    function relinquishForReplacement() {
+      if (!started || destroyed) {
+        destroy();
+        return Promise.resolve('');
+      }
+      return sessionCreationPromise.catch(function () {
+        return '';
+      }).then(function (sessionId) {
+        const id = safeSessionId(sessionId);
+        if (!id) {
+          destroy();
+          return '';
+        }
+        // The browser releases MSE/local resources now, but deliberately does
+        // not send a stop: the daemon owns the strict STOP A -> OPEN B order
+        // through replacesSessionId.
+        stopIssued = true;
+        destroy();
+        return id;
+      });
+    }
+
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', handlePageHide);
     }
@@ -823,19 +955,51 @@
 
     return Object.freeze({
       element: panel,
-      destroy: destroy
+      destroy: destroy,
+      start: start,
+      sessionId: function () { return activeSessionId; },
+      relinquishForReplacement: relinquishForReplacement
+    });
+  }
+
+  function createLivePanel(channel, backendId, options) {
+    const settings = options && typeof options === 'object' ? options : {};
+    const replacementId = settings.replacesSessionId
+      ? safeSessionId(settings.replacesSessionId)
+      : '';
+    return createPanel(channel, backendId, {
+      resourceKind: 'live-channel',
+      ariaLabel: 'Live-TV wiedergeben',
+      title: 'Live-TV · ' + text(channel && (channel.name || channel.channelName || channel.title || liveChannelId(channel))),
+      startLabel: '▶ Live-TV starten',
+      videoAriaLabel: 'VDR Live-TV',
+      createSession: function () {
+        return createLiveSession(backendId, channel, replacementId);
+      },
+      stopSession: function (sessionId) {
+        return stopLiveSession(backendId, sessionId);
+      },
+      stopSessionKeepalive: function (sessionId) {
+        return stopLiveSessionKeepalive(backendId, sessionId);
+      }
     });
   }
 
   global.VdrSuiteRecordings2Playback = Object.freeze({
     createPanel: createPanel,
+    createLivePanel: createLivePanel,
     __test: Object.freeze({
       recordingId: recordingId,
+      liveChannelId: liveChannelId,
       safeSessionId: safeSessionId,
       capabilities: capabilities,
       createSession: createSession,
+      createLiveSession: createLiveSession,
       stopSession: stopSession,
+      stopLiveSession: stopLiveSession,
       stopSessionKeepalive: stopSessionKeepalive,
+      stopLiveSessionKeepalive: stopLiveSessionKeepalive,
+      safeMediaPath: safeMediaPath,
       safeArtifactName: safeArtifactName,
       parsePlaylist: parsePlaylist,
       startupBatch: startupBatch,
