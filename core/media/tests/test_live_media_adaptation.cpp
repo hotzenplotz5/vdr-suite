@@ -45,16 +45,20 @@ MediaPresentationProfile profile()
 int main()
 {
     const std::string socket = "/run/vdr/vdr-suite-live/lease_live_1.sock";
+    const std::string unixUrl =
+        "unix:///run/vdr/vdr-suite-live/lease_live_1.sock";
+    const std::string invalidQueryUrl =
+        unixUrl + "?timeout=5000000&type=stream";
 
     FfprobeLiveSource probe;
     const auto probePlan = probe.commandPlan(socket);
     assert(probePlan.valid);
+    assert(pair(probePlan.argv, "-rw_timeout", "5000000"));
     assert(pair(probePlan.argv, "-f", "mpegts"));
     assert(pair(probePlan.argv, "-read_intervals", "%+3"));
     assert(pair(probePlan.argv, "-of", "compact=p=0:nk=0"));
-    assert(contains(
-        probePlan.argv,
-        "unix:///run/vdr/vdr-suite-live/lease_live_1.sock?timeout=5000000&type=stream"));
+    assert(contains(probePlan.argv, unixUrl));
+    assert(!contains(probePlan.argv, invalidQueryUrl));
     assert(!probe.commandPlan("relative.sock").valid);
     assert(!probe.commandPlan("/run/vdr/../tmp/socket").valid);
 
@@ -81,10 +85,10 @@ int main()
     assert(!contains(copyPlan.argv, "-re"));
     assert(!contains(copyPlan.argv, "concat"));
     assert(!contains(copyPlan.argv, "input.ffconcat"));
+    assert(pair(copyPlan.argv, "-rw_timeout", "5000000"));
     assert(pair(copyPlan.argv, "-f", "mpegts"));
-    assert(contains(
-        copyPlan.argv,
-        "unix:///run/vdr/vdr-suite-live/lease_live_1.sock?timeout=5000000&type=stream"));
+    assert(contains(copyPlan.argv, unixUrl));
+    assert(!contains(copyPlan.argv, invalidQueryUrl));
     assert(pair(copyPlan.argv, "-c:v", "copy"));
     assert(pair(copyPlan.argv, "-c:a", "copy"));
     assert(pair(copyPlan.argv, "-hls_list_size", "8"));
@@ -97,6 +101,9 @@ int main()
     audioTranscode.targetAudioCodec = MediaCodec::Aac;
     const auto transcodePlan = builder.buildLive(audioTranscode, socket);
     assert(transcodePlan.valid);
+    assert(pair(transcodePlan.argv, "-rw_timeout", "5000000"));
+    assert(contains(transcodePlan.argv, unixUrl));
+    assert(!contains(transcodePlan.argv, invalidQueryUrl));
     assert(pair(transcodePlan.argv, "-c:v", "copy"));
     assert(pair(transcodePlan.argv, "-c:a", "aac"));
     assert(!contains(transcodePlan.argv, "-re"));
