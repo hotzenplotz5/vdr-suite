@@ -4,44 +4,79 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
-let request = null;
-let keepaliveRequest = null;
-let failNextRequest = false;
 const requests = [];
+const videos = [];
+
+function node(tagName) {
+  const listeners = {};
+  const value = {
+    tagName: String(tagName || '').toUpperCase(),
+    children: [],
+    className: '',
+    classList: {
+      toggle() {}, add() {}, remove() {}
+    },
+    style: {},
+    textContent: '',
+    hidden: false,
+    controls: false,
+    autoplay: false,
+    playsInline: false,
+    preload: '',
+    src: '',
+    appendChild(child) { this.children.push(child); return child; },
+    setAttribute() {},
+    removeAttribute(name) { if (name === 'src') this.src = ''; },
+    addEventListener(name, callback) { listeners[name] = callback; },
+    pause() { this.paused = true; },
+    load() { this.loaded = (this.loaded || 0) + 1; },
+    play() { this.played = (this.played || 0) + 1; return Promise.resolve(); }
+  };
+  if (value.tagName === 'VIDEO') videos.push(value);
+  return value;
+}
+
 const window = {
   VdrSuiteBrowserSession: {
-    csrfHeaders() { return {'X-CSRF-Token': 'csrf-live-token'}; }
+    csrfHeaders() { return {'X-CSRF-Token': 'csrf-live-token'}; },
+    subscribe() {}
   },
   VdrSuiteClientApi: {
     requestJson(path, options) {
-      request = {path, options};
-      requests.push(request);
-      if (failNextRequest) {
-        failNextRequest = false;
-        return Promise.reject(new Error('network failed'));
+      requests.push({path, options});
+      const body = JSON.parse(options.body);
+      if (body.operation === 'stop') {
+        return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
       }
       return Promise.resolve({
         mediaSession: {
           id: 'live_session_test',
           resourceKind: 'live-channel',
           state: 'ready',
-          mediaPath: '/api/media/sessions/live_session_test/hls/master.m3u8'
+          presentationProfileId: 'live-progressive-fmp4',
+          mediaPath: '/api/media/sessions/live_session_test/live/stream.mp4'
         }
       });
     }
   },
   fetch(path, options) {
-    keepaliveRequest = {path, options};
+    requests.push({path, options});
     return Promise.resolve({ok: true});
   },
-  MediaSource: {
-    isTypeSupported() { return true; }
-  }
+  document: {
+    readyState: 'complete',
+    visibilityState: 'visible',
+    createElement: node,
+    addEventListener() {}
+  },
+  addEventListener() {},
+  removeEventListener() {},
+  setTimeout
 };
 
 const context = vm.createContext({
   window,
-  document: {},
+  document: window.document,
   console,
   Object,
   String,
@@ -49,118 +84,106 @@ const context = vm.createContext({
   Array,
   Boolean,
   Promise,
-  Set,
   RegExp,
   Error,
   JSON,
-  Uint8Array
+  setTimeout
 });
 
-const source = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
-vm.runInContext(source, context, {filename: 'web/frontend/recordings2-playback.js'});
+const sourcePath = 'web/frontend/api/session-frontend-sync.js';
+const source = fs.readFileSync(sourcePath, 'utf8');
+vm.runInContext(source, context, {filename: sourcePath});
 
-const playback = window.VdrSuiteRecordings2Playback;
-assert.ok(playback);
-assert.strictEqual(typeof playback.createLivePanel, 'function');
-const test = playback.__test;
+assert.ok(window.VdrSuiteLivePlayback);
+assert.ok(window.VdrSuiteRecordings2Playback);
+assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
 
-assert.strictEqual(test.liveChannelId({channelId: 'C-1-1079-10351'}), 'C-1-1079-10351');
-assert.strictEqual(test.liveChannelId({id: 'C-1-1079-10351'}), 'C-1-1079-10351');
-assert.strictEqual(test.safeMediaPath('/api/media/sessions/live_session_test/hls/master.m3u8'), '/api/media/sessions/live_session_test/hls/master.m3u8');
-assert.strictEqual(test.safeMediaPath('unix:///run/vdr/vdr-suite-live/session.sock'), '');
-assert.strictEqual(test.safeMediaPath('/run/vdr/vdr-suite-live/session.sock'), '');
-assert.strictEqual(test.safeMediaPath('https://provider.invalid/live/master.m3u8'), '');
-assert.strictEqual(test.safeMediaPath('/api/media/sessions/live_session_test/hls/master.m3u8?token=secret'), '');
-assert.strictEqual(test.safeMediaPath('/api/media/sessions/live_session_test/hls/other.m3u8'), '');
+const test = window.VdrSuiteLivePlayback.__test;
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(test.liveCapabilities())),
+  {
+    protocols: ['progressive'],
+    containers: ['fmp4'],
+    videoCodecs: ['h264'],
+    audioCodecs: ['aac'],
+    supportsByteRanges: false,
+    maxVideoWidth: 1920,
+    maxVideoHeight: 1080,
+    maxAudioChannels: 2
+  }
+);
+assert.strictEqual(
+  test.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
+  '/api/media/sessions/live_session_test/live/stream.mp4'
+);
+assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test/hls/master.m3u8'), '');
+assert.strictEqual(test.safeLiveMediaPath('unix:///run/vdr/live.sock'), '');
+assert.strictEqual(test.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4?token=x'), '');
 
 (async function () {
   requests.length = 0;
-  await test.createLiveSession('living-room', {id: 'C-1-1079-10351'});
-  assert.strictEqual(request.path, '/api/media/sessions');
-  assert.strictEqual(request.options.method, 'POST');
-  assert.strictEqual(request.options.credentials, 'same-origin');
-  assert.strictEqual(request.options.cache, 'no-store');
-  assert.strictEqual(request.options.headers['Content-Type'], 'application/json');
-  assert.strictEqual(request.options.headers['X-CSRF-Token'], 'csrf-live-token');
-  assert.deepStrictEqual(JSON.parse(request.options.body), {
-    resourceKind: 'live-channel',
-    backendId: 'living-room',
-    channelId: 'C-1-1079-10351',
-    capabilities: {
-      protocols: ['hls'],
-      containers: ['fmp4'],
-      videoCodecs: ['h264'],
-      audioCodecs: ['aac'],
-      supportsByteRanges: false,
-      maxVideoWidth: 1920,
-      maxVideoHeight: 1080,
-      maxAudioChannels: 2
-    }
-  });
+  videos.length = 0;
 
-  await test.createLiveSession(
+  const playback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1079-10351', name: 'Das Erste HD'},
     'living-room',
-    {channelId: 'C-1-1079-10352'},
-    'live_session_a'
+    {replacesSessionId: 'live_session_a'}
   );
-  assert.deepStrictEqual(JSON.parse(request.options.body), {
-    resourceKind: 'live-channel',
-    backendId: 'living-room',
-    channelId: 'C-1-1079-10352',
-    capabilities: {
-      protocols: ['hls'],
-      containers: ['fmp4'],
-      videoCodecs: ['h264'],
-      audioCodecs: ['aac'],
-      supportsByteRanges: false,
-      maxVideoWidth: 1920,
-      maxVideoHeight: 1080,
-      maxAudioChannels: 2
-    },
-    replacesSessionId: 'live_session_a'
-  });
+  assert.ok(playback.element);
+  assert.strictEqual(typeof playback.start, 'function');
+  assert.strictEqual(typeof playback.relinquishForReplacement, 'function');
 
-  await test.stopLiveSession('living-room', 'live_session_test');
-  assert.strictEqual(request.path, '/api/media/sessions');
-  assert.deepStrictEqual(JSON.parse(request.options.body), {
-    resourceKind: 'live-channel',
-    backendId: 'living-room',
-    sessionId: 'live_session_test',
-    operation: 'stop'
-  });
+  const sessionId = await playback.start();
+  assert.strictEqual(sessionId, 'live_session_test');
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(requests[0].path, '/api/media/sessions');
+  const createBody = JSON.parse(requests[0].options.body);
+  assert.strictEqual(createBody.resourceKind, 'live-channel');
+  assert.strictEqual(createBody.backendId, 'living-room');
+  assert.strictEqual(createBody.channelId, 'C-1-1079-10351');
+  assert.strictEqual(createBody.replacesSessionId, 'live_session_a');
+  assert.deepStrictEqual(createBody.capabilities.protocols, ['progressive']);
+  assert.deepStrictEqual(createBody.capabilities.containers, ['fmp4']);
+  assert.strictEqual(requests[0].options.headers['X-CSRF-Token'], 'csrf-live-token');
 
-  keepaliveRequest = null;
-  await test.stopLiveSessionKeepalive('living-room', 'live_session_keepalive');
-  assert.ok(keepaliveRequest);
-  assert.strictEqual(keepaliveRequest.path, '/api/media/sessions');
-  assert.strictEqual(keepaliveRequest.options.keepalive, true);
-  assert.deepStrictEqual(JSON.parse(keepaliveRequest.options.body), {
-    resourceKind: 'live-channel',
-    backendId: 'living-room',
-    sessionId: 'live_session_keepalive',
-    operation: 'stop'
-  });
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0].src, '/api/media/sessions/live_session_test/live/stream.mp4');
+  assert.strictEqual(videos[0].autoplay, true);
+  assert.strictEqual(videos[0].played, 1);
 
-  const beforeFailure = requests.length;
-  failNextRequest = true;
-  await assert.rejects(
-    () => test.createLiveSession('living-room', {id: 'C-1-1079-10353'}, 'live_session_orphan'),
-    /network failed/
+  const relinquished = await playback.relinquishForReplacement();
+  assert.strictEqual(relinquished, 'live_session_test');
+  assert.strictEqual(requests.length, 1, 'replacement handoff must not STOP A in the browser');
+  playback.destroy();
+  assert.strictEqual(requests.length, 1);
+
+  // Loading the recording playback runtime later must preserve the direct
+  // Live-TV override while exposing the recording API alongside it.
+  window.VdrSuiteRecordings2Playback = Object.freeze({
+    createPanel() { return 'recording'; }
+  });
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+
+  const second = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10352', name: 'NDR FS HH HD'},
+    'living-room',
+    {}
   );
-  assert.strictEqual(requests.length, beforeFailure + 2);
-  assert.deepStrictEqual(JSON.parse(requests[requests.length - 1].options.body), {
-    resourceKind: 'live-channel',
-    backendId: 'living-room',
-    sessionId: 'live_session_orphan',
-    operation: 'stop'
-  });
+  await second.start();
+  second.destroy();
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'live_session_test';
+  }));
 
-  assert.ok(source.includes('relinquishForReplacement'));
-  assert.ok(source.includes('stopIssued = true'));
-  assert.ok(source.includes('safeMediaPath(mediaSession.mediaPath)'));
-  assert.ok(!source.includes('unix:///run/vdr'));
+  assert.ok(source.includes("protocols: ['progressive']"));
+  assert.ok(source.includes('stream\\.mp4'));
+  assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
+  assert.ok(!source.includes('master.m3u8'));
 
-  console.log('live TV browser MediaSession contract ok');
+  console.log('direct Live TV browser contract ok');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

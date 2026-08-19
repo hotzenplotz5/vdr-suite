@@ -324,8 +324,11 @@ private:
           return false;
         }
 
-        const bool cleanStart =
-            frameDetector->Synced() && frameDetector->IndependentFrame();
+        // Live-TV follows the VNSI start principle: publish as soon as VDR has
+        // identified an independently decodable frame. Recording-grade Synced()
+        // waits for additional timing evidence and is deliberately not a Live
+        // start barrier.
+        const bool cleanStart = frameDetector->IndependentFrame();
         for (int offset = 0; offset < count;
              offset += static_cast<int>(SuiteBridgeTsPacketBuffer::PacketSize)) {
           const auto result = replay.Push(

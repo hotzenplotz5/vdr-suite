@@ -30,6 +30,7 @@ public:
     const std::string& directory() const;
     std::string concatPath() const;
     std::string logPath() const;
+    std::string liveStreamPath() const;
 
 private:
     MediaSessionWorkspaceResult prepareDirectory(
