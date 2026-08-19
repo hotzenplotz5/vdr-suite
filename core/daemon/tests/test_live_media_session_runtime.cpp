@@ -8,6 +8,7 @@
 #include "SuiteBridgeLiveSourceTransport.h"
 
 #include <cassert>
+#include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <cstddef>
@@ -283,7 +284,7 @@ int main()
     const auto firstStored = sessions.findSession(first.session.sessionId);
     assert(firstStored.has_value());
     assert(firstStored->state == "ended");
-    assert(firstStored->terminalReason == "local_provider_instance_epoch_stale");
+    assert(firstStored->terminalReason == "local_provider_instance_epoch_changed");
     assert(!std::filesystem::exists(
         std::filesystem::path(workspaceRoot) / first.session.workspaceId));
 
