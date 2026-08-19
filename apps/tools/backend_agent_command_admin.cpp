@@ -42,16 +42,43 @@ std::string escape(const std::string& value)
     return output.str();
 }
 
+void printOwnershipStatus(
+    BackendAgentCommandRepository& commands,
+    const std::string& backendId,
+    const std::string& authorityDomain)
+{
+    const auto status = commands.localProviderOwnershipStatus(backendId, authorityDomain);
+    std::cout << "{\"present\":" << (status.present ? "true" : "false")
+              << ",\"active\":" << (status.active ? "true" : "false");
+    if (status.present)
+    {
+        const auto& ownership = status.ownership;
+        std::cout << ",\"authorityDomain\":\"" << escape(ownership.authorityDomain)
+                  << "\",\"providerId\":\"" << escape(ownership.providerId)
+                  << "\",\"providerKind\":\"" << escape(ownership.providerKind)
+                  << "\",\"ownershipGeneration\":" << ownership.ownershipGeneration
+                  << ",\"allowedCapabilities\":[";
+        for (std::size_t index = 0; index < ownership.allowedCapabilities.size(); ++index)
+        {
+            if (index != 0) std::cout << ',';
+            std::cout << '"' << escape(ownership.allowedCapabilities[index]) << '"';
+        }
+        std::cout << ']';
+    }
+    std::cout << "}" << std::endl;
+}
+
 void usage()
 {
     std::cerr
         << "usage: vdr-suite-backend-agent-command-admin "
            "[--database PATH] [--backend ID] "
-           "(--status | --provider-ownership-status | "
+           "(--status | --provider-ownership-status | --live-provider-ownership-status | "
            "--set-native-probe-owner | --clear-native-probe-owner | "
-           "--enqueue-probe | --enqueue-native-probe "
-           "[--deadline-seconds N] | --replay COMMAND_ID | "
-           "--arm-lost-receipt-response | --arm-lost-result-response)"
+           "--set-live-owner | --clear-live-owner | "
+           "--enqueue-probe | --enqueue-native-probe [--deadline-seconds N] | "
+           "--replay COMMAND_ID | --arm-lost-receipt-response | "
+           "--arm-lost-result-response)"
         << std::endl;
 }
 }
@@ -67,8 +94,11 @@ int main(int argc, char** argv)
         None,
         Status,
         ProviderOwnershipStatus,
+        LiveProviderOwnershipStatus,
         SetNativeProbeOwner,
         ClearNativeProbeOwner,
+        SetLiveOwner,
+        ClearLiveOwner,
         EnqueueLegacyProbe,
         EnqueueNativeProbe,
         Replay,
@@ -80,40 +110,35 @@ int main(int argc, char** argv)
     for (int index = 1; index < argc; ++index)
     {
         const std::string argument = argv[index];
-        if (argument == "--database" && index + 1 < argc)
-            databasePath = argv[++index];
-        else if (argument == "--backend" && index + 1 < argc)
-            backendId = argv[++index];
-        else if (argument == "--deadline-seconds" && index + 1 < argc)
-            deadlineSeconds = std::atoi(argv[++index]);
-        else if (argument == "--status")
-            action = action == Action::None ? Action::Status : Action::None;
+        if (argument == "--database" && index + 1 < argc) databasePath = argv[++index];
+        else if (argument == "--backend" && index + 1 < argc) backendId = argv[++index];
+        else if (argument == "--deadline-seconds" && index + 1 < argc) deadlineSeconds = std::atoi(argv[++index]);
+        else if (argument == "--status") action = action == Action::None ? Action::Status : Action::None;
         else if (argument == "--provider-ownership-status")
-            action = action == Action::None
-                ? Action::ProviderOwnershipStatus : Action::None;
+            action = action == Action::None ? Action::ProviderOwnershipStatus : Action::None;
+        else if (argument == "--live-provider-ownership-status")
+            action = action == Action::None ? Action::LiveProviderOwnershipStatus : Action::None;
         else if (argument == "--set-native-probe-owner")
-            action = action == Action::None
-                ? Action::SetNativeProbeOwner : Action::None;
+            action = action == Action::None ? Action::SetNativeProbeOwner : Action::None;
         else if (argument == "--clear-native-probe-owner")
-            action = action == Action::None
-                ? Action::ClearNativeProbeOwner : Action::None;
+            action = action == Action::None ? Action::ClearNativeProbeOwner : Action::None;
+        else if (argument == "--set-live-owner")
+            action = action == Action::None ? Action::SetLiveOwner : Action::None;
+        else if (argument == "--clear-live-owner")
+            action = action == Action::None ? Action::ClearLiveOwner : Action::None;
         else if (argument == "--enqueue-probe")
-            action = action == Action::None
-                ? Action::EnqueueLegacyProbe : Action::None;
+            action = action == Action::None ? Action::EnqueueLegacyProbe : Action::None;
         else if (argument == "--enqueue-native-probe")
-            action = action == Action::None
-                ? Action::EnqueueNativeProbe : Action::None;
+            action = action == Action::None ? Action::EnqueueNativeProbe : Action::None;
         else if (argument == "--replay" && index + 1 < argc)
         {
             action = action == Action::None ? Action::Replay : Action::None;
             replayId = argv[++index];
         }
         else if (argument == "--arm-lost-receipt-response")
-            action = action == Action::None
-                ? Action::FaultReceipt : Action::None;
+            action = action == Action::None ? Action::FaultReceipt : Action::None;
         else if (argument == "--arm-lost-result-response")
-            action = action == Action::None
-                ? Action::FaultResult : Action::None;
+            action = action == Action::None ? Action::FaultResult : Action::None;
         else
         {
             usage();
@@ -121,11 +146,9 @@ int main(int argc, char** argv)
         }
     }
 
-    if (action == Action::None ||
-        !backendAgentCommandSafeIdentifier(backendId) ||
+    if (action == Action::None || !backendAgentCommandSafeIdentifier(backendId) ||
         deadlineSeconds < 30 || deadlineSeconds > 3600 ||
-        (action == Action::Replay &&
-         !backendAgentCommandSafeIdentifier(replayId)))
+        (action == Action::Replay && !backendAgentCommandSafeIdentifier(replayId)))
     {
         usage();
         return 64;
@@ -140,45 +163,34 @@ int main(int argc, char** argv)
     AccountabilityEventRepository accountability(database);
     BackendAgentRepository agents(database);
     BackendAgentCommandRepository commands(database);
-    if (!accountability.ensureSchema() || !agents.ensureSchema() ||
-        !commands.ensureSchema())
+    if (!accountability.ensureSchema() || !agents.ensureSchema() || !commands.ensureSchema())
     {
-        std::cerr << "failed to initialize Backend Agent command repositories"
-                  << std::endl;
+        std::cerr << "failed to initialize Backend Agent command repositories" << std::endl;
         return 74;
     }
-    BackendAgentCommandDeliveryService service(
-        commands, agents, accountability);
+    BackendAgentCommandDeliveryService service(commands, agents, accountability);
     const auto now = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
     if (action == Action::Status)
     {
         const auto summary = service.summaryForBackend(backendId);
-        std::cout << "{\"present\":"
-                  << (summary.present ? "true" : "false");
+        std::cout << "{\"present\":" << (summary.present ? "true" : "false");
         if (summary.present)
         {
             std::cout
                 << ",\"commandId\":\"" << escape(summary.commandId)
                 << "\",\"commandType\":\"" << escape(summary.commandType)
                 << "\",\"state\":\"" << escape(summary.state)
-                << "\",\"receiptCategory\":\""
-                << escape(summary.receiptCategory)
-                << "\",\"resultCategory\":\""
-                << escape(summary.resultCategory)
-                << "\",\"dispatchState\":\""
-                << escape(summary.dispatchState)
-                << "\",\"verificationState\":\""
-                << escape(summary.verificationState)
-                << "\",\"backendGeneration\":"
-                << summary.backendGeneration
+                << "\",\"receiptCategory\":\"" << escape(summary.receiptCategory)
+                << "\",\"resultCategory\":\"" << escape(summary.resultCategory)
+                << "\",\"dispatchState\":\"" << escape(summary.dispatchState)
+                << "\",\"verificationState\":\"" << escape(summary.verificationState)
+                << "\",\"backendGeneration\":" << summary.backendGeneration
                 << ",\"claimEpoch\":" << summary.claimEpoch
                 << ",\"deliveryCount\":" << summary.deliveryCount
-                << ",\"receiptReplayCount\":"
-                << summary.receiptReplayCount
-                << ",\"resultReplayCount\":"
-                << summary.resultReplayCount
+                << ",\"receiptReplayCount\":" << summary.receiptReplayCount
+                << ",\"resultReplayCount\":" << summary.resultReplayCount
                 << ",\"deadline\":" << summary.deadline;
         }
         std::cout << "}" << std::endl;
@@ -187,42 +199,26 @@ int main(int argc, char** argv)
 
     if (action == Action::ProviderOwnershipStatus)
     {
-        const auto status = commands.localProviderOwnershipStatus(
-            backendId, "vdr.native");
-        std::cout << "{\"present\":" << (status.present ? "true" : "false")
-                  << ",\"active\":" << (status.active ? "true" : "false");
-        if (status.present)
-        {
-            const auto& ownership = status.ownership;
-            std::cout << ",\"authorityDomain\":\""
-                      << escape(ownership.authorityDomain)
-                      << "\",\"providerId\":\"" << escape(ownership.providerId)
-                      << "\",\"providerKind\":\"" << escape(ownership.providerKind)
-                      << "\",\"ownershipGeneration\":"
-                      << ownership.ownershipGeneration
-                      << ",\"allowedCapabilities\":[";
-            for (std::size_t index = 0;
-                 index < ownership.allowedCapabilities.size(); ++index)
-            {
-                if (index != 0) std::cout << ',';
-                std::cout << '"' << escape(ownership.allowedCapabilities[index]) << '"';
-            }
-            std::cout << ']';
-        }
-        std::cout << "}" << std::endl;
+        printOwnershipStatus(commands, backendId, "vdr.native");
+        return 0;
+    }
+    if (action == Action::LiveProviderOwnershipStatus)
+    {
+        printOwnershipStatus(commands, backendId, "vdr.live");
         return 0;
     }
 
-    if (action == Action::SetNativeProbeOwner)
+    if (action == Action::SetNativeProbeOwner || action == Action::SetLiveOwner)
     {
+        const bool live = action == Action::SetLiveOwner;
         vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
         std::string reason;
         if (!commands.setLocalProviderOwnership(
                 backendId,
-                "vdr.native",
+                live ? "vdr.live" : "vdr.native",
                 "suitebridge:local",
                 "suitebridge",
-                {"vdr.native.probe"},
+                {live ? "vdr.live.stream" : "vdr.native.probe"},
                 now,
                 ownership,
                 reason))
@@ -230,20 +226,21 @@ int main(int argc, char** argv)
             std::cerr << reason << std::endl;
             return 1;
         }
-        std::cout << "{\"accepted\":true,\"reasonCode\":\""
-                  << escape(reason)
+        std::cout << "{\"accepted\":true,\"reasonCode\":\"" << escape(reason)
+                  << "\",\"authorityDomain\":\"" << escape(ownership.authorityDomain)
                   << "\",\"providerId\":\"" << escape(ownership.providerId)
                   << "\",\"providerKind\":\"" << escape(ownership.providerKind)
-                  << "\",\"ownershipGeneration\":"
-                  << ownership.ownershipGeneration << "}" << std::endl;
+                  << "\",\"ownershipGeneration\":" << ownership.ownershipGeneration
+                  << "}" << std::endl;
         return 0;
     }
 
-    if (action == Action::ClearNativeProbeOwner)
+    if (action == Action::ClearNativeProbeOwner || action == Action::ClearLiveOwner)
     {
+        const bool live = action == Action::ClearLiveOwner;
         std::string reason;
         if (!commands.clearLocalProviderOwnership(
-                backendId, "vdr.native", now, reason))
+                backendId, live ? "vdr.live" : "vdr.native", now, reason))
         {
             std::cerr << reason << std::endl;
             return 1;
@@ -255,14 +252,11 @@ int main(int argc, char** argv)
 
     std::string reason;
     const auto context = administrator(backendId);
-    if (action == Action::EnqueueLegacyProbe ||
-        action == Action::EnqueueNativeProbe)
+    if (action == Action::EnqueueLegacyProbe || action == Action::EnqueueNativeProbe)
     {
         const auto assignment = action == Action::EnqueueNativeProbe
-            ? service.assignNativeProbe(
-                context, backendId, now, now + deadlineSeconds, reason)
-            : service.assignProbe(
-                context, backendId, now, now + deadlineSeconds, reason);
+            ? service.assignNativeProbe(context, backendId, now, now + deadlineSeconds, reason)
+            : service.assignProbe(context, backendId, now, now + deadlineSeconds, reason);
         if (!assignment)
         {
             std::cerr << reason << std::endl;
@@ -274,15 +268,13 @@ int main(int argc, char** argv)
             << "\",\"jobId\":\"" << escape(assignment->jobId)
             << "\",\"attemptId\":\"" << escape(assignment->attemptId)
             << "\",\"claimEpoch\":" << assignment->claimEpoch
-            << ",\"requestFingerprint\":\""
-            << escape(assignment->requestFingerprint) << "\"}"
-            << std::endl;
+            << ",\"requestFingerprint\":\"" << escape(assignment->requestFingerprint)
+            << "\"}" << std::endl;
         return 0;
     }
 
     const bool accepted = action == Action::Replay
-        ? service.requestReplay(
-            context, backendId, replayId, now, reason)
+        ? service.requestReplay(context, backendId, replayId, now, reason)
         : service.armFault(
             context,
             backendId,
