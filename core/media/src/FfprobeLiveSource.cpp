@@ -36,8 +36,8 @@ FfprobeLivePlan FfprobeLiveSource::commandPlan(
         "-f", "mpegts",
         "-read_intervals", "%+3",
         "-show_entries",
-        "stream=index,codec_type,codec_name,width,height,avg_frame_rate,field_order,channels:format=format_name",
-        "-of", "default=noprint_wrappers=0:nokey=0",
+        "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,channels:stream_tags=language",
+        "-of", "compact=p=0:nk=0",
         "-i", "unix://" + unixSocketPath + "?timeout=5000000&type=stream"
     };
     plan.valid = true;
