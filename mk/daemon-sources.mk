@@ -86,6 +86,7 @@ DAEMON_SRC := \
         core/http/src/MediaGatewayHttpServer.cpp \
         core/media/src/LocalVdrRecordingSourceResolver.cpp \
         core/media/src/FfprobeRecordingSource.cpp \
+        core/media/src/FfprobeLiveSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \
         core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
@@ -97,6 +98,7 @@ DAEMON_SRC := \
         core/media/src/MediaAccessGrantAuthenticator.cpp \
         core/media/src/MediaHlsArtifactReader.cpp \
         core/media/src/RecordingMediaSessionRuntime.cpp \
+        core/daemon/src/LiveMediaSessionRuntime.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
@@ -115,6 +117,7 @@ DAEMON_SRC := \
 
 DAEMON_SRC += $(SECURITY_SRC)
 DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
+DAEMON_SRC += $(AGENT_SVDRP_TRANSPORT_SRC)
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
