@@ -31,6 +31,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_runtime.js
 	node web/frontend/tests/test_recordings2_actions_genre.js
 	node web/frontend/tests/test_recordings2_playback.js
+	node web/frontend/tests/test_live_tv_playback.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
 	python3 tools/check_recordings2_runtime_wiring.py
