@@ -181,7 +181,8 @@ private:
 
     static bool mediaPermission(const std::string& permission)
     {
-        return permission == "media.recording.play";
+        return permission == "media.recording.play" ||
+            permission == "media.live.play";
     }
 
     static bool adminRoleGrants(const std::string& permission)
