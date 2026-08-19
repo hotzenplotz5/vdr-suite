@@ -314,8 +314,8 @@ int main()
     assert(!std::filesystem::exists(
         std::filesystem::path(workspaceRoot) / second.session.workspaceId));
 
-    // Daemon shutdown owns all remaining Live workers, provider leases and
-    // workspaces instead of leaving them available after process teardown.
+    // Loss of the durable grant row is an invariant failure and must not leave
+    // a native receiver or FFmpeg worker running without authorization state.
     auto third = issueLive(issuance);
     assert(third.issued);
     auto thirdProvision = runtime.provisionHls(
@@ -327,14 +327,39 @@ int main()
         browserCapabilities());
     assert(thirdProvision.ready);
     assert(runtime.activeCount() == 1);
-    runtime.stopAll();
+    assert(database.execute(
+        std::string("DELETE FROM media_access_grants WHERE grant_id='") +
+        third.session.grantId + "';"));
+    assert(runtime.reapInactive(60) == 1);
     assert(runtime.activeCount() == 0);
     const auto thirdStored = sessions.findSession(third.session.sessionId);
     assert(thirdStored.has_value());
     assert(thirdStored->state == "ended");
-    assert(thirdStored->terminalReason == "daemon_shutdown");
+    assert(thirdStored->terminalReason == "media_access_grant_missing");
     assert(!std::filesystem::exists(
         std::filesystem::path(workspaceRoot) / third.session.workspaceId));
+
+    // Daemon shutdown owns all remaining Live workers, provider leases and
+    // workspaces instead of leaving them available after process teardown.
+    auto fourth = issueLive(issuance);
+    assert(fourth.issued);
+    auto fourthProvision = runtime.provisionHls(
+        fourth.session.sessionId,
+        fourth.session.workspaceId,
+        fourth.session.leaseId,
+        fourth.session.grantId,
+        preparation,
+        browserCapabilities());
+    assert(fourthProvision.ready);
+    assert(runtime.activeCount() == 1);
+    runtime.stopAll();
+    assert(runtime.activeCount() == 0);
+    const auto fourthStored = sessions.findSession(fourth.session.sessionId);
+    assert(fourthStored.has_value());
+    assert(fourthStored->state == "ended");
+    assert(fourthStored->terminalReason == "daemon_shutdown");
+    assert(!std::filesystem::exists(
+        std::filesystem::path(workspaceRoot) / fourth.session.workspaceId));
 
     std::filesystem::remove_all(workspaceRoot);
     return 0;
