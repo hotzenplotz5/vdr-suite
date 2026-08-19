@@ -6,6 +6,9 @@
 namespace
 {
 constexpr std::size_t MaximumLiveSocketPathLength = 100;
+constexpr const char* LiveIoTimeoutMicros = "5000000";
+constexpr const char* LiveAnalyzeDurationMicros = "3000000";
+constexpr const char* LiveProbeSizeBytes = "2000000";
 
 bool validSocketPath(const std::string& value)
 {
@@ -33,9 +36,10 @@ FfprobeLivePlan FfprobeLiveSource::commandPlan(
     plan.argv = {
         "/usr/bin/ffprobe",
         "-v", "error",
-        "-rw_timeout", "5000000",
+        "-rw_timeout", LiveIoTimeoutMicros,
+        "-analyzeduration", LiveAnalyzeDurationMicros,
+        "-probesize", LiveProbeSizeBytes,
         "-f", "mpegts",
-        "-read_intervals", "%+3",
         "-show_entries",
         "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,channels:stream_tags=language",
         "-of", "compact=p=0:nk=0",
