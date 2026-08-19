@@ -137,7 +137,7 @@ test-install-staging:
 	grep -F 'CONTROL_PLANE_URL=https://' /tmp/vdr-suite-pkgroot/etc/vdr-suite/backend-agent.conf >/dev/null
 	! grep -E -i '(token|password|credential_secret|authorization|cookie|csrf)=' /tmp/vdr-suite-pkgroot/etc/vdr-suite/backend-agent.conf >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
-	grep -F 'VDR_SUITE_SUITE_BRIDGE_ENABLED=false' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
+	grep -F 'VDR_SUITE_SUITE_BRIDGE_ENABLED=true' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
 	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
