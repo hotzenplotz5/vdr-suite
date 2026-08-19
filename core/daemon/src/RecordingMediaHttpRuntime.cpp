@@ -99,8 +99,12 @@ int runRecordingMediaHttpRuntime(
             if (now >= nextMediaSessionReap) {
                 recordingMediaSessionController.reapInactiveSessions(
                     MediaAccessIdleTimeoutSeconds);
-                liveMediaSessionController.reapInactiveSessions(
-                    MediaAccessIdleTimeoutSeconds);
+                // A direct live response is one long authenticated GET. There
+                // is no HLS polling to refresh last_seen_at, so liveness is
+                // fenced by worker/provider/grant expiry rather than an idle
+                // request timeout. Browser disconnect makes the FIFO writer
+                // fail and the worker reaper closes the native receiver.
+                liveMediaSessionController.reapInactiveSessions(0);
                 nextMediaSessionReap = now + MediaSessionReapInterval;
             }
             if (onTick) onTick();
@@ -111,7 +115,8 @@ int runRecordingMediaHttpRuntime(
         std::move(httpServer),
         mediaAccessGrantAuthenticator,
         mediaRouteLeaseRepository,
-        mediaHlsArtifactReader);
+        mediaHlsArtifactReader,
+        MediaSessionWorkspaceRoot);
     httpListener = std::make_unique<SimpleHttpListener>(
         listenHost,
         listenPort,
