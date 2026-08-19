@@ -3,7 +3,6 @@
 #include "FfmpegHlsCommandBuilder.h"
 #include "FfprobeLiveSource.h"
 #include "MediaPresentationSelector.h"
-#include "MediaProcessRunner.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
 
@@ -35,6 +34,7 @@ LiveMediaSessionRuntime::LiveMediaSessionRuntime(
     MediaSessionRepository& repository,
     vdrsuite::agent::BackendAgentLiveProviderRuntime& providerRuntime,
     std::string workspaceRoot,
+    ProbeRunner probeRunner,
     WorkerSpawner workerSpawner,
     WorkerTerminator workerTerminator,
     ReadinessProbe readinessProbe,
@@ -42,11 +42,21 @@ LiveMediaSessionRuntime::LiveMediaSessionRuntime(
     : repository_(repository),
       providerRuntime_(providerRuntime),
       workspaceRoot_(std::move(workspaceRoot)),
+      probeRunner_(std::move(probeRunner)),
       workerSpawner_(std::move(workerSpawner)),
       workerTerminator_(std::move(workerTerminator)),
       readinessProbe_(std::move(readinessProbe)),
       transcodePolicy_(std::move(transcodePolicy))
 {
+    if (!probeRunner_) {
+        probeRunner_ = [](const std::vector<std::string>& argv,
+                          const std::string& workingDirectory,
+                          std::chrono::milliseconds timeout,
+                          std::size_t maximumOutputBytes) {
+            return MediaProcessRunner().runAndCapture(
+                argv, workingDirectory, timeout, maximumOutputBytes);
+        };
+    }
     if (!workerSpawner_) {
         workerSpawner_ = [](const std::vector<std::string>& argv,
                             const std::string& workingDirectory,
@@ -133,7 +143,7 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionHls(
         repository_.failBundle(sessionId, result.reasonCode);
         return result;
     }
-    const auto probeCapture = MediaProcessRunner().runAndCapture(
+    const auto probeCapture = probeRunner_(
         probePlan.argv, workspace->directory(), ProbeTimeout, ProbeOutputLimit);
     if (!probeCapture.success) {
         closeProvider();
@@ -318,26 +328,31 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
     for (const auto& candidate : candidates) {
         std::string reasonCode;
         bool workerExited = false;
+        vdrsuite::agent::BackendAgentLiveProviderPreparation preparation;
+        std::string leaseId;
+        pid_t pid = -1;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             const auto found = active_.find(candidate.sessionId);
             if (found == active_.end()) continue;
-            int status = 0;
-            const pid_t waited = ::waitpid(found->second.pid, &status, WNOHANG);
-            if (waited == found->second.pid) {
-                reasonCode = "live_worker_exited";
-                workerExited = true;
-            }
-            else if (waited < 0 && errno != EINTR) {
-                reasonCode = "live_worker_wait_failed";
-            }
-            if (reasonCode.empty()) {
-                const auto providerStatus = providerRuntime_.status(
-                    found->second.preparation, found->second.leaseId);
-                if (!providerStatus.current)
-                    reasonCode = providerStatus.reasonCode.empty()
-                        ? "live_provider_terminal" : providerStatus.reasonCode;
-            }
+            preparation = found->second.preparation;
+            leaseId = found->second.leaseId;
+            pid = found->second.pid;
+        }
+        int status = 0;
+        const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+        if (waited == pid) {
+            reasonCode = "live_worker_exited";
+            workerExited = true;
+        }
+        else if (waited < 0 && errno != EINTR) {
+            reasonCode = "live_worker_wait_failed";
+        }
+        if (reasonCode.empty()) {
+            const auto providerStatus = providerRuntime_.status(preparation, leaseId);
+            if (!providerStatus.current)
+                reasonCode = providerStatus.reasonCode.empty()
+                    ? "live_provider_terminal" : providerStatus.reasonCode;
         }
 
         if (reasonCode.empty()) {
