@@ -25,6 +25,7 @@ class ISuiteBridgeLiveSourceTransport
 public:
     virtual ~ISuiteBridgeLiveSourceTransport() = default;
 
+    virtual SuiteBridgeCommandReply discoverLiveSource() = 0;
     virtual SuiteBridgeCommandReply openLiveSource(
         const SuiteBridgeLiveSourceOpenRequest& request) = 0;
     virtual SuiteBridgeCommandReply closeLiveSource(
