@@ -33,12 +33,13 @@ FfprobeLivePlan FfprobeLiveSource::commandPlan(
     plan.argv = {
         "/usr/bin/ffprobe",
         "-v", "error",
+        "-rw_timeout", "5000000",
         "-f", "mpegts",
         "-read_intervals", "%+3",
         "-show_entries",
         "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,channels:stream_tags=language",
         "-of", "compact=p=0:nk=0",
-        "-i", "unix://" + unixSocketPath + "?timeout=5000000&type=stream"
+        "-i", "unix://" + unixSocketPath
     };
     plan.valid = true;
     return plan;
