@@ -62,8 +62,8 @@ int runRecordingMediaHttpRuntime(
         mediaSessionIssuanceService,
         MediaSessionWorkspaceRoot);
 
-    vdrsuite::agent::BackendAgentRepository agentRepository(database);
-    vdrsuite::agent::BackendAgentCommandRepository commandRepository(database);
+    BackendAgentRepository agentRepository(database);
+    BackendAgentCommandRepository commandRepository(database);
     vdrsuite::agent::SuiteBridgeSvdrpTransport suiteBridgeTransport;
     vdrsuite::agent::BackendAgentLiveProviderRuntime liveProviderRuntime(
         agentRepository, commandRepository, suiteBridgeTransport);
