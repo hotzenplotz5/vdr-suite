@@ -187,3 +187,31 @@ test-phase65-live-media-session-runtime:
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
 test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+
+.PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
+
+TMPFILESDIR ?= /usr/lib/tmpfiles.d
+
+# The SuiteBridge plugin runs inside VDR as the unprivileged vdr user. Its
+# private live transport cannot create a missing parent below root-owned /run,
+# so provision the volatile socket root through systemd-tmpfiles.
+install-systemd: install-phase65-live-socket-runtime
+
+install-phase65-live-socket-runtime:
+	$(INSTALL) -d $(DESTDIR)$(TMPFILESDIR)
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-live.conf \
+		$(DESTDIR)$(TMPFILESDIR)/vdr-suite-live.conf
+
+test-phase65-live-socket-runtime-install:
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
+	$(MAKE) install-phase65-live-socket-runtime \
+		DESTDIR=/tmp/vdr-suite-live-runtime-install
+	test -f /tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf
+	grep -Fx 'd /run/vdr/vdr-suite-live 0700 vdr vdr -' \
+		/tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf >/dev/null
+	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
+
+# Keep both the fast Phase-65 graph and the packaging staging graph aware of
+# this runtime dependency so the live source cannot regress back to ENOENT.
+test-fast: test-phase65-live-socket-runtime-install
+test-install-staging: test-phase65-live-socket-runtime-install
