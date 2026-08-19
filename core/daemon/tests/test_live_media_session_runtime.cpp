@@ -7,6 +7,7 @@
 #include "MediaSessionRepository.h"
 #include "SuiteBridgeLiveSourceTransport.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <chrono>
@@ -108,6 +109,20 @@ private:
     unsigned int counter_ = 1;
 };
 
+bool contains(const std::vector<std::string>& values, const std::string& value)
+{
+    return std::find(values.begin(), values.end(), value) != values.end();
+}
+
+bool pair(const std::vector<std::string>& values,
+          const std::string& option,
+          const std::string& value)
+{
+    for (std::size_t i = 0; i + 1 < values.size(); ++i)
+        if (values[i] == option && values[i + 1] == value) return true;
+    return false;
+}
+
 ClientMediaCapabilities browserCapabilities()
 {
     ClientMediaCapabilities client;
@@ -119,19 +134,6 @@ ClientMediaCapabilities browserCapabilities()
     client.maxVideoHeight = 1080;
     client.maxAudioChannels = 2;
     return client;
-}
-
-MediaProcessCaptureResult probeResult()
-{
-    MediaProcessCaptureResult result;
-    result.started = true;
-    result.completed = true;
-    result.success = true;
-    result.exitCode = 0;
-    result.output =
-        "codec_type=video|codec_name=h264|width=1920|height=1080|r_frame_rate=25/1|field_order=progressive\n"
-        "codec_type=audio|codec_name=aac|channels=2|tag:language=deu\n";
-    return result;
 }
 
 pid_t spawnIdleWorker()
@@ -246,18 +248,31 @@ int main()
         },
         [] { return std::chrono::system_clock::now(); });
 
+    int probeCalls = 0;
+    std::vector<std::string> lastWorkerArgv;
     const std::string workspaceRoot = temporaryRoot();
     LiveMediaSessionRuntime runtime(
         sessions,
         providerRuntime,
         workspaceRoot,
-        [](const std::vector<std::string>&,
-           const std::string&,
-           std::chrono::milliseconds,
-           std::size_t) { return probeResult(); },
-        [](const std::vector<std::string>&,
-           const std::string&,
-           const std::string&) { return spawnIdleWorker(); },
+        [&probeCalls](const std::vector<std::string>&,
+                      const std::string&,
+                      std::chrono::milliseconds,
+                      std::size_t) {
+            ++probeCalls;
+            MediaProcessCaptureResult result;
+            result.started = true;
+            result.completed = true;
+            result.success = false;
+            result.reasonCode = "probe_must_not_run_in_live_hot_path";
+            return result;
+        },
+        [&lastWorkerArgv](const std::vector<std::string>& argv,
+                          const std::string&,
+                          const std::string&) {
+            lastWorkerArgv = argv;
+            return spawnIdleWorker();
+        },
         [](pid_t pid, std::chrono::milliseconds) { return terminateWorker(pid); },
         [](const std::string&, MediaContainer) { return true; },
         MediaTranscodePolicy());
@@ -274,6 +289,20 @@ int main()
         preparation,
         browserCapabilities());
     assert(firstProvision.ready);
+    assert(probeCalls == 0);
+    assert(firstProvision.presentation.profileId == "live-progressive-fmp4");
+    assert(firstProvision.presentation.videoAction == MediaTrackAction::Transcode);
+    assert(firstProvision.presentation.deinterlaceVideo);
+    assert(firstProvision.presentation.videoTranscodeWorkload ==
+        MediaTranscodeWorkload::Deinterlace);
+    assert(firstProvision.presentation.targetVideoWidth == 0);
+    assert(firstProvision.presentation.targetVideoHeight == 0);
+    assert(pair(lastWorkerArgv, "-c:v", "libx264"));
+    assert(!pair(lastWorkerArgv, "-c:v", "copy"));
+    assert(contains(
+        lastWorkerArgv,
+        "bwdif=mode=send_frame:parity=auto:deint=interlaced"));
+    assert(pair(lastWorkerArgv, "-c:a", "aac"));
     assert(runtime.activeCount() == 1);
     assert(transport.openCount == 1);
     transport.epoch = "pie_2";
@@ -301,6 +330,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(secondProvision.ready);
+    assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
         std::string("UPDATE media_access_grants SET active=0, revoked_at=CURRENT_TIMESTAMP ") +
@@ -326,6 +356,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(thirdProvision.ready);
+    assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
         std::string("DELETE FROM media_access_grants WHERE grant_id='") +
@@ -351,6 +382,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(fourthProvision.ready);
+    assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     runtime.stopAll();
     assert(runtime.activeCount() == 0);
