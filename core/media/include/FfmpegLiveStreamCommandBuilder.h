@@ -62,10 +62,14 @@ public:
             });
         }
 
+        // This FFmpeg process is the one and only consumer of the native live
+        // socket. Give it enough probe budget to resolve DVB audio/video codec
+        // parameters without an earlier ffprobe consumer disconnecting from the
+        // SuiteBridge replay window.
         plan.argv.insert(plan.argv.end(), {
             "-fflags", "+nobuffer",
-            "-analyzeduration", "250000",
-            "-probesize", "262144",
+            "-analyzeduration", "1000000",
+            "-probesize", "1048576",
             "-rw_timeout", "5000000",
             "-f", "mpegts",
             "-i", "unix://" + unixSocketPath
@@ -98,9 +102,9 @@ public:
         return plan;
     }
 
-    // Branch-local compatibility overload. New Live-TV runtime code must pass
-    // the probed/adapted presentation explicitly so interlaced video can never
-    // silently fall back to browser-incompatible stream copy.
+    // Branch-local compatibility overload. Live-TV has exactly one native TS
+    // consumer: FFmpeg itself. Normalize video to browser-safe progressive H.264
+    // and only deinterlace frames that the decoder marks as interlaced.
     FfmpegLiveStreamCommandPlan build(
         const std::string& unixSocketPath,
         const std::string& outputPath) const
@@ -111,13 +115,19 @@ public:
         profile.protocol = MediaDeliveryProtocol::Progressive;
         profile.container = MediaContainer::Fmp4;
         profile.adaptationClass = MediaAdaptationClass::Transcode;
-        profile.videoAction = MediaTrackAction::Copy;
+        profile.videoAction = MediaTrackAction::Transcode;
         profile.audioAction = MediaTrackAction::Transcode;
         profile.sourceVideoStreamIndex = 0;
         profile.sourceAudioStreamIndex = 0;
         profile.targetVideoCodec = MediaCodec::H264;
         profile.targetAudioCodec = MediaCodec::Aac;
         profile.targetAudioChannels = 2;
+        profile.targetVideoWidth = 0;
+        profile.targetVideoHeight = 0;
+        profile.deinterlaceVideo = true;
+        profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
+        profile.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
+        profile.videoEncoderPreset = MediaSoftwareEncoderPreset::Superfast;
         return build(profile, unixSocketPath, outputPath);
     }
 
@@ -157,6 +167,11 @@ private:
             profile.targetVideoWidth % 2 == 0 && profile.targetVideoHeight % 2 == 0;
     }
 
+    static bool nativeVideoSize(const MediaPresentationProfile& profile)
+    {
+        return profile.targetVideoWidth == 0 && profile.targetVideoHeight == 0;
+    }
+
     static bool appendVideoPlan(
         std::vector<std::string>& argv,
         const MediaPresentationProfile& profile)
@@ -174,8 +189,12 @@ private:
             break;
         }
 
-        if (profile.targetVideoCodec != MediaCodec::H264 || !validVideoSize(profile))
+        if (profile.targetVideoCodec != MediaCodec::H264)
             return false;
+
+        const bool preserveNativeSize = nativeVideoSize(profile);
+        const bool resizeExplicitly = validVideoSize(profile);
+        if (!preserveNativeSize && !resizeExplicitly) return false;
 
         if (profile.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264) {
             const char* preset = x264PresetName(profile.videoEncoderPreset);
@@ -184,27 +203,31 @@ private:
                 "-c:v", "libx264",
                 "-preset", preset,
                 "-tune", "zerolatency",
-                "-crf", "20",
-                "-vf"
+                "-crf", "20"
             });
+
+            std::string filter;
             if (profile.deinterlaceVideo) {
-                argv.push_back(
-                    "bwdif=mode=send_frame:parity=auto:deint=all,scale=" +
-                    std::to_string(profile.targetVideoWidth) + ":" +
-                    std::to_string(profile.targetVideoHeight));
+                filter = "bwdif=mode=send_frame:parity=auto:deint=interlaced";
             }
-            else {
-                argv.push_back(
-                    "scale=" + std::to_string(profile.targetVideoWidth) + ":" +
-                    std::to_string(profile.targetVideoHeight));
+            if (resizeExplicitly) {
+                if (!filter.empty()) filter += ",";
+                filter += "scale=" + std::to_string(profile.targetVideoWidth) + ":" +
+                    std::to_string(profile.targetVideoHeight);
+            }
+            if (!filter.empty()) {
+                argv.push_back("-vf");
+                argv.push_back(filter);
             }
             argv.insert(argv.end(), {"-pix_fmt", "yuv420p"});
             return true;
         }
 
         if (profile.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi) {
-            if (profile.deinterlaceVideo || !validVaapiDevice(profile.videoHardwareDevice))
+            if (profile.deinterlaceVideo || !resizeExplicitly ||
+                !validVaapiDevice(profile.videoHardwareDevice)) {
                 return false;
+            }
             argv.insert(argv.end(), {
                 "-c:v", "h264_vaapi",
                 "-qp", "22",

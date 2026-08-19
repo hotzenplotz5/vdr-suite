@@ -57,10 +57,9 @@ public:
         MediaTranscodePolicy transcodePolicy = MediaTranscodePolicy::fromEnvironment());
     ~LiveMediaSessionRuntime();
 
-    // Primary Phase-65.B hot path. A bounded metadata probe classifies the
-    // source track before one conditioned native TS consumer is remuxed or,
-    // only when required for browser compatibility, deinterlaced/transcoded
-    // directly to the live fragmented-MP4 FIFO. No HLS readiness barrier or
+    // Primary Phase-65.B hot path. Exactly one FFmpeg consumer attaches to the
+    // conditioned SuiteBridge TS replay and continuously emits browser-safe
+    // fragmented MP4. No separate ffprobe consumer, HLS readiness barrier or
     // browser prebuffer is part of this path.
     LiveMediaSessionProvisionResult provisionStream(
         const std::string& sessionId,
@@ -72,7 +71,7 @@ public:
 
     // Compatibility entry point for branch-local callers while 65.B is being
     // closed out. It provisions the same direct stream and must not re-enable
-    // the old HLS hot path.
+    // the old probe/HLS hot path.
     LiveMediaSessionProvisionResult provisionHls(
         const std::string& sessionId,
         const std::string& workspaceId,

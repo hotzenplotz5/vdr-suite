@@ -1,8 +1,6 @@
 #include "LiveMediaSessionRuntime.h"
 
 #include "FfmpegLiveStreamCommandBuilder.h"
-#include "FfprobeLiveSource.h"
-#include "MediaPresentationSelector.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
 
@@ -15,8 +13,6 @@
 
 namespace
 {
-constexpr auto ProbeTimeout = std::chrono::seconds(3);
-constexpr std::size_t ProbeOutputLimit = 64U * 1024U;
 constexpr auto WorkerShutdownGrace = std::chrono::milliseconds(500);
 
 bool contains(
@@ -49,38 +45,54 @@ bool supportsDirectLive(const ClientMediaCapabilities& capabilities)
         capabilities.maxAudioChannels >= 2;
 }
 
-MediaPresentationProfile adaptedDirectLivePresentation(
-    const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& clientCapabilities)
+MediaPresentationProfile directLivePresentation()
 {
-    // Reuse the established Phase-65 track-compatibility contract. The HLS
-    // selector already encodes the important browser rule that interlaced
-    // source video is not directly playable and therefore needs H.264
-    // deinterlace/transcode. Only the delivery wrapper is changed below; no
-    // HLS artifacts or readiness barrier are reintroduced into the hot path.
-    ClientMediaCapabilities adaptationClient = clientCapabilities;
-    if (!contains(adaptationClient.protocols, MediaDeliveryProtocol::Hls))
-        adaptationClient.protocols.push_back(MediaDeliveryProtocol::Hls);
-
-    MediaPresentationProfile profile =
-        MediaPresentationSelector().select(source, adaptationClient);
-    if (!profile.available ||
-        profile.protocol != MediaDeliveryProtocol::Hls ||
-        profile.container != MediaContainer::Fmp4) {
-        profile.available = false;
-        if (profile.reason.empty())
-            profile.reason = "live_fmp4_track_adaptation_unavailable";
-        return profile;
-    }
-
+    MediaPresentationProfile profile;
+    profile.available = true;
     profile.profileId = "live-progressive-fmp4";
     profile.protocol = MediaDeliveryProtocol::Progressive;
     profile.container = MediaContainer::Fmp4;
-    profile.reason = profile.videoAction == MediaTrackAction::Transcode &&
-            profile.deinterlaceVideo
-        ? "live_progressive_fmp4_deinterlace_selected"
-        : "live_progressive_fmp4_selected";
+    profile.adaptationClass = MediaAdaptationClass::Transcode;
+    profile.videoAction = MediaTrackAction::Transcode;
+    profile.audioAction = MediaTrackAction::Transcode;
+    profile.sourceVideoStreamIndex = 0;
+    profile.sourceAudioStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
+
+    // A browser is not a VNSI/Kodi decoder. Keep the VNSI one-consumer start
+    // model, but normalize the decoded video in that same FFmpeg process.
+    // Native dimensions are preserved and bwdif only acts on frames that the
+    // decoder marks as interlaced.
+    profile.targetVideoWidth = 0;
+    profile.targetVideoHeight = 0;
+    profile.deinterlaceVideo = true;
+    profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
+    profile.reason = "live_progressive_fmp4_continuous_adaptation_selected";
     return profile;
+}
+
+MediaSourceDescriptor directLiveDescriptor()
+{
+    MediaSourceDescriptor source;
+    source.resourceKind = MediaResourceKind::LiveChannel;
+    source.container = MediaContainer::MpegTs;
+    source.seekable = false;
+    source.growing = true;
+
+    // This descriptor describes the conditioned browser-facing contract. The
+    // source itself is intentionally not consumed by a separate metadata probe.
+    MediaVideoStreamDescriptor video;
+    video.codec = MediaCodec::H264;
+    video.interlaced = false;
+    source.videoStreams.push_back(video);
+
+    MediaAudioStreamDescriptor audio;
+    audio.codec = MediaCodec::Aac;
+    audio.channels = 2;
+    source.audioStreams.push_back(audio);
+    return source;
 }
 }
 
@@ -102,15 +114,9 @@ LiveMediaSessionRuntime::LiveMediaSessionRuntime(
       readinessProbe_(std::move(readinessProbe)),
       transcodePolicy_(std::move(transcodePolicy))
 {
-    if (!probeRunner_) {
-        probeRunner_ = [](const std::vector<std::string>& argv,
-                          const std::string& workingDirectory,
-                          std::chrono::milliseconds timeout,
-                          std::size_t maximumOutputBytes) {
-            return MediaProcessRunner().runAndCapture(
-                argv, workingDirectory, timeout, maximumOutputBytes);
-        };
-    }
+    // ProbeRunner remains constructor-compatible with the Phase-65 runtime
+    // test seam, but Live-TV deliberately never invokes it. A separate probe
+    // would become a first socket consumer and reintroduce the zap race.
     if (!workerSpawner_) {
         workerSpawner_ = [](const std::vector<std::string>& argv,
                             const std::string& workingDirectory,
@@ -198,58 +204,24 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
         return result;
     }
 
-    FfprobeLiveSource probe;
-    const auto probePlan = probe.commandPlan(opened.unixSocketPath);
-    if (!probePlan.valid) {
+    result.source = directLiveDescriptor();
+    result.presentation = transcodePolicy_.apply(directLivePresentation());
+    if (!result.presentation.available) {
         closeProvider();
-        result.reasonCode = probePlan.reasonCode.empty()
-            ? "live_probe_plan_invalid" : probePlan.reasonCode;
+        result.reasonCode = result.presentation.reason.empty()
+            ? "live_transcode_capacity_unproven" : result.presentation.reason;
         repository_.failBundle(sessionId, result.reasonCode);
         return result;
     }
-    const auto probeCapture = probeRunner_(
-        probePlan.argv, workspace->directory(), ProbeTimeout, ProbeOutputLimit);
-    if (!probeCapture.success) {
-        closeProvider();
-        result.reasonCode = probeCapture.reasonCode.empty()
-            ? "live_probe_failed" : probeCapture.reasonCode;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    const auto parsed = probe.parse(probeCapture.output);
-    if (!parsed.valid) {
-        closeProvider();
-        result.reasonCode = parsed.reasonCode.empty()
-            ? "live_probe_payload_invalid" : parsed.reasonCode;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    result.source = parsed.source;
 
-    MediaPresentationProfile profile = adaptedDirectLivePresentation(
-        result.source, clientCapabilities);
-    if (!profile.available) {
-        closeProvider();
-        result.reasonCode = profile.reason.empty()
-            ? "live_presentation_unavailable" : profile.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    profile = transcodePolicy_.apply(profile);
-    if (!profile.available) {
-        closeProvider();
-        result.reasonCode = profile.reason.empty()
-            ? "live_transcode_capacity_unproven" : profile.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
-        return result;
-    }
-    result.presentation = profile;
-
+    // Re-check the authority immediately before starting the only socket
+    // consumer. There is intentionally no ffprobe connection between this
+    // fence and the FFmpeg worker.
     providerReason.clear();
     if (!providerRuntime_.current(preparation, providerReason)) {
         closeProvider();
         result.reasonCode = providerReason.empty()
-            ? "live_provider_fence_stale_after_probe" : providerReason;
+            ? "live_provider_fence_stale_before_worker" : providerReason;
         repository_.failBundle(sessionId, result.reasonCode);
         return result;
     }
