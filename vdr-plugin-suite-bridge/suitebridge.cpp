@@ -7,6 +7,7 @@
 
 cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
+      liveCapability_(nativeProbe_.PluginInstanceEpoch()),
       liveSource_(nativeProbe_.PluginInstanceEpoch()),
       nativeTimerCreate_(
           nativeProbe_.PluginInstanceEpoch(),
