@@ -73,6 +73,26 @@ MediaPresentationProfile hlsProfile()
     return profile;
 }
 
+MediaPresentationProfile progressiveFmp4Profile()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "progressive-fmp4";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::Fmp4;
+    profile.adaptationClass = MediaAdaptationClass::Remux;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.sourceVideoStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetVideoWidth = 1920;
+    profile.targetVideoHeight = 1080;
+    profile.audioAction = MediaTrackAction::Copy;
+    profile.sourceAudioStreamIndex = 0;
+    profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
+    return profile;
+}
+
 MediaPresentationProfile directProfile()
 {
     MediaPresentationProfile profile;
@@ -95,6 +115,13 @@ bool containsPair(
         if (argv[index] == option && argv[index + 1] == value) return true;
     }
     return false;
+}
+
+bool containsValue(
+    const std::vector<std::string>& argv,
+    const std::string& value)
+{
+    return std::find(argv.begin(), argv.end(), value) != argv.end();
 }
 
 } // namespace
@@ -249,6 +276,74 @@ int main()
     assert(idleEnded.has_value());
     assert(idleEnded->state == "ended");
     assert(idleEnded->terminalReason == "media_access_idle_expired");
+
+    {
+        auto streamIssued = issuer.issue(issuanceRequest("progressive-fmp4"));
+        assert(streamIssued.issued);
+        int streamSpawnCalls = 0;
+        int streamTerminateCalls = 0;
+        int streamReadinessCalls = 0;
+        RecordingMediaSessionRuntime streamRuntime(
+            repository,
+            root.string(),
+            [&streamSpawnCalls](const std::vector<std::string>& argv,
+                                const std::string& workingDirectory,
+                                const std::string& logPath) {
+                assert(!argv.empty());
+                assert(argv.front() == "/usr/bin/ffmpeg");
+                assert(containsPair(argv, "-f", "concat"));
+                assert(containsPair(argv, "-i", "input.ffconcat"));
+                assert(containsPair(argv, "-c:v", "copy"));
+                assert(containsPair(argv, "-c:a", "copy"));
+                assert(containsPair(
+                    argv,
+                    "-movflags",
+                    "+empty_moov+default_base_moof+frag_keyframe+omit_tfhd_offset"));
+                assert(containsPair(argv, "-frag_duration", "250000"));
+                assert(!containsValue(argv, "-re"));
+                assert(argv.back() == "recording.fmp4");
+                assert(std::filesystem::is_fifo(
+                    std::filesystem::path(workingDirectory) / "recording.fmp4"));
+                assert(!logPath.empty());
+                ++streamSpawnCalls;
+                return static_cast<pid_t>(5252);
+            },
+            [&streamTerminateCalls](pid_t pid, std::chrono::milliseconds grace) {
+                assert(pid == 5252);
+                assert(grace.count() >= 0);
+                ++streamTerminateCalls;
+                return true;
+            },
+            [&streamReadinessCalls](const std::string&, MediaContainer) {
+                ++streamReadinessCalls;
+                return false;
+            },
+            transcodePolicy);
+
+        const auto streamResult = streamRuntime.provisionStream(
+            streamIssued.session.sessionId,
+            streamIssued.session.workspaceId,
+            streamIssued.session.grantId,
+            progressiveFmp4Profile(),
+            {segment.string()});
+        assert(streamResult.ready);
+        assert(streamSpawnCalls == 1);
+        assert(streamReadinessCalls == 0);
+        assert(std::filesystem::is_fifo(
+            root / streamIssued.session.workspaceId / "recording.fmp4"));
+        const auto streamReady = repository.findSession(streamIssued.session.sessionId);
+        assert(streamReady.has_value());
+        assert(streamReady->state == "ready");
+
+        assert(streamRuntime.stop(streamIssued.session.sessionId, "client_closed"));
+        assert(streamTerminateCalls == 1);
+        assert(!std::filesystem::exists(root / streamIssued.session.workspaceId));
+        const auto streamStopped = repository.findSession(streamIssued.session.sessionId);
+        assert(streamStopped.has_value());
+        assert(streamStopped->state == "ended");
+        assert(streamStopped->terminalReason == "client_closed");
+        streamIssued.session.clearSecret();
+    }
 
     const std::vector<std::string> directSegments = {segment.string()};
     const RecordingSourceFingerprint fingerprint =

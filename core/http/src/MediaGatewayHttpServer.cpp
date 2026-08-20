@@ -23,6 +23,7 @@ constexpr const char* Prefix = "/api/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
 constexpr const char* LiveSuffix = "/live/stream.mp4";
 constexpr const char* RecordingDirectSuffix = "/recording/stream.ts";
+constexpr const char* RecordingStreamSuffix = "/recording/stream.mp4";
 
 bool safeIdentifier(const std::string& value)
 {
@@ -40,6 +41,7 @@ struct MediaPath
     bool valid = false;
     bool live = false;
     bool recordingDirect = false;
+    bool recordingStream = false;
     std::string sessionId;
     std::string artifactName;
 };
@@ -71,6 +73,20 @@ MediaPath parseMediaPath(const std::string& path)
         result.sessionId = path.substr(
             prefix.size(), path.size() - prefix.size() - directSuffix.size());
         result.recordingDirect = true;
+        result.valid = safeIdentifier(result.sessionId);
+        return result;
+    }
+
+    const std::string recordingStreamSuffix(RecordingStreamSuffix);
+    if (path.size() > prefix.size() + recordingStreamSuffix.size() &&
+        path.compare(
+            path.size() - recordingStreamSuffix.size(),
+            recordingStreamSuffix.size(),
+            recordingStreamSuffix) == 0) {
+        result.sessionId = path.substr(
+            prefix.size(),
+            path.size() - prefix.size() - recordingStreamSuffix.size());
+        result.recordingStream = true;
         result.valid = safeIdentifier(result.sessionId);
         return result;
     }
@@ -155,15 +171,16 @@ HttpServerResponse jsonError(int statusCode, const std::string& code)
     return response;
 }
 
-std::string liveStreamPath(
+std::string workspaceFifoPath(
     const std::string& workspaceRoot,
-    const std::string& workspaceId)
+    const std::string& workspaceId,
+    const std::string& streamName)
 {
-    if (!safeIdentifier(workspaceId)) return {};
+    if (!safeIdentifier(workspaceId) || !safeIdentifier(streamName)) return {};
     const std::filesystem::path root(workspaceRoot);
     if (!root.is_absolute()) return {};
     const std::filesystem::path workspace = root / workspaceId;
-    const std::filesystem::path stream = workspace / "live.fmp4";
+    const std::filesystem::path stream = workspace / streamName;
     if (workspace.parent_path() != root || stream.parent_path() != workspace)
         return {};
 
@@ -323,10 +340,33 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         if (lease->presentationProfileId != "live-progressive-fmp4") {
             return jsonError(409, "media_presentation_not_live_stream");
         }
-        const std::string streamPath = liveStreamPath(
-            workspaceRoot_, lease->workspaceId);
+        const std::string streamPath = workspaceFifoPath(
+            workspaceRoot_, lease->workspaceId, "live.fmp4");
         if (streamPath.empty()) {
             HttpServerResponse response = jsonError(404, "live_stream_not_ready");
+            response.headers["Retry-After"] = "1";
+            return response;
+        }
+
+        HttpServerResponse response;
+        response.statusCode = 200;
+        response.headers["Content-Type"] = "video/mp4";
+        response.headers["Cache-Control"] = "no-store";
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        response.headers["X-Accel-Buffering"] = "no";
+        response.streamBodyPath = streamPath;
+        return response;
+    }
+
+    if (mediaPath.recordingStream) {
+        if (lease->presentationProfileId != "progressive-fmp4") {
+            return jsonError(409, "media_presentation_not_recording_stream");
+        }
+        const std::string streamPath = workspaceFifoPath(
+            workspaceRoot_, lease->workspaceId, "recording.fmp4");
+        if (streamPath.empty()) {
+            HttpServerResponse response = jsonError(404, "recording_stream_not_ready");
             response.headers["Retry-After"] = "1";
             return response;
         }

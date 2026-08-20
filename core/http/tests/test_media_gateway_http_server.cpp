@@ -301,6 +301,74 @@ int main()
         assert(response.body.find("media_access_inactive") != std::string::npos);
     }
 
+    auto streamIssued = issuer.issue(recordingRequest("progressive-fmp4"));
+    assert(streamIssued.issued);
+    assert(sessionRepository.activateBundle(streamIssued.session.sessionId));
+    const auto streamWorkspace = root / streamIssued.session.workspaceId;
+    std::filesystem::create_directories(streamWorkspace);
+    const auto recordingFifo = streamWorkspace / "recording.fmp4";
+    assert(::mkfifo(recordingFifo.c_str(), 0600) == 0);
+    const std::string recordingStreamPath =
+        "/api/media/sessions/" + streamIssued.session.sessionId +
+        "/recording/stream.mp4";
+
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = recordingStreamPath;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = recordingStreamPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + streamIssued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 200);
+        assert(response.headers.at("Content-Type") == "video/mp4");
+        assert(response.headers.at("Cache-Control") == "no-store");
+        assert(response.headers.at("X-Accel-Buffering") == "no");
+        assert(response.headers.find("Accept-Ranges") == response.headers.end());
+        assert(response.headers.find("Content-Range") == response.headers.end());
+        assert(response.headers.find("Content-Length") == response.headers.end());
+        assert(response.body.empty());
+        assert(response.streamBodyPath == recordingFifo.string());
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = recordingStreamPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + streamIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=0-1023";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 200);
+        assert(response.headers.find("Accept-Ranges") == response.headers.end());
+        assert(response.headers.find("Content-Range") == response.headers.end());
+        assert(response.streamBodyPath == recordingFifo.string());
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = recordingStreamPath + "?token=forbidden";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 418);
+    }
+
+    assert(sessionRepository.endBundle(streamIssued.session.sessionId, "client_stop"));
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = recordingStreamPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + streamIssued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+        assert(response.body.find("media_access_inactive") != std::string::npos);
+    }
+
     assert(sessionRepository.endBundle(issued.session.sessionId, "client_stop"));
     {
         HttpServerRequest http;
@@ -356,6 +424,7 @@ int main()
     std::filesystem::remove_all(root);
     issued.session.clearSecret();
     directIssued.session.clearSecret();
+    streamIssued.session.clearSecret();
     live.session.clearSecret();
     return 0;
 }

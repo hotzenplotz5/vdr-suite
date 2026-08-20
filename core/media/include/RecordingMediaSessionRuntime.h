@@ -69,6 +69,13 @@ public:
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
+    RecordingMediaSessionProvisionResult provisionStream(
+        const std::string& sessionId,
+        const std::string& workspaceId,
+        const std::string& grantId,
+        const MediaPresentationProfile& profile,
+        const std::vector<std::string>& sourceSegments);
+
     RecordingMediaSessionProvisionResult provisionDirect(
         const std::string& sessionId,
         const std::string& grantId,

@@ -448,30 +448,56 @@ ApiResponse RecordingMediaSessionController::createSession(
     RecordingMediaSessionProvisionResult provision;
     std::string mediaPath;
     if (profile.protocol == MediaDeliveryProtocol::Progressive) {
-        if (directSourceRegistry_ == nullptr || sourceResolution.source.growing ||
-            !sourceResolution.source.progressiveDirectSafe ||
-            !request.capabilities.supportsByteRanges) {
+        if (profile.profileId == "progressive-direct") {
+            if (directSourceRegistry_ == nullptr || sourceResolution.source.growing ||
+                !sourceResolution.source.progressiveDirectSafe ||
+                !request.capabilities.supportsByteRanges) {
+                mediaSessionRepository_.endBundle(
+                    issuance.session.sessionId,
+                    "progressive_direct_source_not_safe");
+                issuance.session.clearSecret();
+                return jsonError(422, "media_progressive_direct_not_available");
+            }
+
+            RecordingDirectSourceRegistration registration;
+            registration.recordingDirectory =
+                sourceResolution.source.recordingDirectory;
+            registration.segmentPaths = sourceResolution.source.segmentPaths;
+            registration.sourceFingerprint =
+                sourceResolution.source.sourceFingerprint;
+            registration.readableBytes = sourceResolution.source.readableBytes;
+            provision = mediaSessionRuntime_->provisionDirect(
+                issuance.session.sessionId,
+                issuance.session.grantId,
+                profile,
+                registration);
+            mediaPath = "/api/media/sessions/" +
+                issuance.session.sessionId + "/recording/stream.ts";
+        }
+        else if (profile.profileId == "progressive-fmp4") {
+            if (sourceResolution.source.growing) {
+                mediaSessionRepository_.endBundle(
+                    issuance.session.sessionId,
+                    "recording_progressive_stream_source_is_growing");
+                issuance.session.clearSecret();
+                return jsonError(422, "media_progressive_stream_not_available");
+            }
+            provision = mediaSessionRuntime_->provisionStream(
+                issuance.session.sessionId,
+                issuance.session.workspaceId,
+                issuance.session.grantId,
+                profile,
+                sourceResolution.source.segmentPaths);
+            mediaPath = "/api/media/sessions/" +
+                issuance.session.sessionId + "/recording/stream.mp4";
+        }
+        else {
             mediaSessionRepository_.endBundle(
                 issuance.session.sessionId,
-                "progressive_direct_source_not_safe");
+                "media_progressive_profile_not_supported");
             issuance.session.clearSecret();
-            return jsonError(422, "media_progressive_direct_not_available");
+            return jsonError(422, "media_presentation_unavailable");
         }
-
-        RecordingDirectSourceRegistration registration;
-        registration.recordingDirectory =
-            sourceResolution.source.recordingDirectory;
-        registration.segmentPaths = sourceResolution.source.segmentPaths;
-        registration.sourceFingerprint =
-            sourceResolution.source.sourceFingerprint;
-        registration.readableBytes = sourceResolution.source.readableBytes;
-        provision = mediaSessionRuntime_->provisionDirect(
-            issuance.session.sessionId,
-            issuance.session.grantId,
-            profile,
-            registration);
-        mediaPath = "/api/media/sessions/" +
-            issuance.session.sessionId + "/recording/stream.ts";
     }
     else if (profile.protocol == MediaDeliveryProtocol::Hls) {
         provision = mediaSessionRuntime_->provisionHls(

@@ -30,6 +30,14 @@ ClientMediaCapabilities browserHlsCapabilities()
     return client;
 }
 
+ClientMediaCapabilities browserProgressiveCapabilities()
+{
+    ClientMediaCapabilities client = browserHlsCapabilities();
+    client.protocols = {MediaDeliveryProtocol::Progressive};
+    client.supportsByteRanges = false;
+    return client;
+}
+
 } // namespace
 
 int main()
@@ -78,6 +86,46 @@ int main()
         assert(profile.sourceAudioStreamIndex == 1);
         assert(profile.targetAudioCodec == MediaCodec::Aac);
         assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        const MediaSourceDescriptor source = h264Ac3Recording();
+        const auto profile = selector.select(source, browserProgressiveCapabilities());
+        assert(profile.available);
+        assert(profile.profileId == "progressive-fmp4");
+        assert(profile.protocol == MediaDeliveryProtocol::Progressive);
+        assert(profile.container == MediaContainer::Fmp4);
+        assert(profile.adaptationClass == MediaAdaptationClass::Transcode);
+        assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.targetVideoCodec == MediaCodec::H264);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.front().codec = MediaCodec::Aac;
+        source.audioStreams.front().channels = 2;
+        const auto profile = selector.select(source, browserProgressiveCapabilities());
+        assert(profile.available);
+        assert(profile.profileId == "progressive-fmp4");
+        assert(profile.adaptationClass == MediaAdaptationClass::Remux);
+        assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.audioAction == MediaTrackAction::Copy);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.growing = true;
+        source.resourceKind = MediaResourceKind::GrowingRecording;
+        source.seekable = false;
+        ClientMediaCapabilities client = browserProgressiveCapabilities();
+        client.protocols.push_back(MediaDeliveryProtocol::Hls);
+        const auto profile = selector.select(source, client);
+        assert(profile.available);
+        assert(profile.profileId == "hls-fmp4");
+        assert(profile.protocol == MediaDeliveryProtocol::Hls);
     }
 
     {
