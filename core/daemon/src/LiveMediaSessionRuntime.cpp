@@ -46,6 +46,17 @@ bool supportsDirectLive(const ClientMediaCapabilities& capabilities)
         capabilities.maxAudioChannels >= 2;
 }
 
+std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
+{
+    if (profile.reason.find("forced VAAPI does not support") != std::string::npos) {
+        return "forced_vaapi_transformation_unsupported";
+    }
+    if (profile.reason.find("forced VAAPI is unavailable") != std::string::npos) {
+        return "forced_vaapi_unavailable";
+    }
+    return "live_transcode_capacity_unproven";
+}
+
 MediaPresentationProfile directLivePresentation()
 {
     MediaPresentationProfile profile;
@@ -218,7 +229,9 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
         closeProvider();
         result.reasonCode = result.presentation.reason.empty()
             ? "live_transcode_capacity_unproven" : result.presentation.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
+        repository_.failBundle(
+            sessionId,
+            transcodePolicyReasonCode(result.presentation));
         return result;
     }
 
