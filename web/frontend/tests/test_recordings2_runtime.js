@@ -5,6 +5,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 const modules = new Map();
+const deferredRuntimeLoads = [];
 const document = {
   querySelector() { return null; },
   querySelectorAll() { return []; },
@@ -46,6 +47,31 @@ const window = {
     getSelectedBackendId() { return 'default'; },
     getMountTarget() { return null; },
     getClientApi() { return null; }
+  },
+  VdrSuiteRecordings2Playback: Object.freeze({
+    createLivePanel() {}
+  }),
+  loadVdrSuiteDeferredRuntime(key, path, ready) {
+    deferredRuntimeLoads.push({
+      key,
+      path,
+      readyBefore: ready()
+    });
+
+    if (path === '/frontend/api/session-frontend-sync.js') {
+      window.VdrSuiteRecordingFastPlayback = Object.freeze({});
+      window.VdrSuiteLivePlayback = Object.freeze({createLivePanel() {}});
+    } else if (path === '/frontend/recordings2-playback.js') {
+      window.VdrSuiteRecordings2Playback = Object.freeze({
+        createLivePanel() {},
+        createPanel() {}
+      });
+    } else {
+      throw new Error('Unexpected deferred runtime path: ' + path);
+    }
+
+    assert.strictEqual(ready(), true);
+    return Promise.resolve();
   }
 };
 
@@ -75,110 +101,140 @@ const context = vm.createContext({
   vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 });
 
-assert.ok(window.VdrSuiteRecordings2Shared);
-assert.ok(window.VdrSuiteRecordings2FolderArtwork);
-assert.ok(window.VdrSuiteRecordings2Actions);
-assert.ok(window.VdrSuiteRecordings2BrowserView);
-assert.ok(window.VdrSuiteRecordings2);
-assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
-assert.strictEqual(window.VdrSuiteRecordingBrowser, undefined);
+async function run() {
+  assert.ok(window.VdrSuiteRecordings2Shared);
+  assert.ok(window.VdrSuiteRecordings2FolderArtwork);
+  assert.ok(window.VdrSuiteRecordings2Actions);
+  assert.ok(window.VdrSuiteRecordings2BrowserView);
+  assert.ok(window.VdrSuiteRecordings2);
+  assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
+  assert.strictEqual(window.VdrSuiteRecordingBrowser, undefined);
 
-const test = window.VdrSuiteRecordings2.__test;
-const shared = window.VdrSuiteRecordings2Shared;
-assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
-assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
-assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
-assert.strictEqual(test.formatSize(1536), '1.5 GB');
+  const test = window.VdrSuiteRecordings2.__test;
+  await test.ensurePlaybackRuntime();
 
-const recording = {
-  title: 'Technischer_Titel',
-  path: '/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
-  backendNativeId: '/srv/vdr/video/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
-  metadata: {
-    provider: {
-      seriesTitle: 'Die Serie',
-      episodeTitle: 'Der Fall',
-      overview: 'Provider-Zusammenfassung'
+  assert.deepStrictEqual(deferredRuntimeLoads, [
+    {
+      key: 'vdr-suite-session-frontend-sync-runtime',
+      path: '/frontend/api/session-frontend-sync.js',
+      readyBefore: false
     },
-    presentation: {
-      title: 'Die Serie',
-      subtitle: 'S02E04 · Der Fall',
-      summary: 'Darstellungstext',
-      posterUrl: '/api/recordings/artwork?id=poster',
-      placeholderVariant: 4
+    {
+      key: 'vdr-suite-recordings2-playback-runtime',
+      path: '/frontend/recordings2-playback.js',
+      readyBefore: false
     }
-  }
-};
+  ]);
+  assert.strictEqual(typeof test.ensurePlaybackRuntime, 'function');
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+  assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
 
-assert.strictEqual(test.recordingPathTitle(recording), 'Tigeren Club gggg');
-assert.strictEqual(test.recordingNativeTitle(recording), 'Technischer Titel');
-assert.strictEqual(test.recordingMetadataTitle(recording), 'Die Serie');
-assert.strictEqual(test.recordingTitle(recording), 'Tigeren Club gggg');
-assert.strictEqual(test.recordingTitle({
-  title: 'Drama/Neuer_Name',
-  path: ''
-}), 'Neuer Name');
-assert.strictEqual(test.recordingTitle({
-  title: '',
-  path: '',
-  metadata: recording.metadata
-}), 'Die Serie');
-assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
-assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
-assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
+  const httpPaths = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
+  assert.ok(httpPaths.includes(
+    '{"/frontend/api/session-frontend-sync.js", "api/session-frontend-sync.js",'
+  ));
 
-const poster = shared.createPoster(recording);
-assert.strictEqual(poster.children.length, 1);
-assert.strictEqual(
-  poster.children[0].src,
-  '/vdr-suite/api/recordings/artwork?id=poster'
-);
+  const shared = window.VdrSuiteRecordings2Shared;
+  assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
+  assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
+  assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
+  assert.strictEqual(test.formatSize(1536), '1.5 GB');
 
-const manualRecording = {
-  title: 'Technischer_Titel',
-  path: '/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
-  backendNativeId: '/srv/vdr/video/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
-  metadata: {
-    provider: {
-      source: 'manual',
-      title: 'Face/Off – Im Körper des Feindes',
-      overview: 'Manuell ausgewählte Beschreibung'
-    },
-    presentation: {
-      title: 'Face/Off – Im Körper des Feindes',
-      summary: 'Manuell ausgewählte Beschreibung',
-      posterUrl: '/api/vdr/recordings/metadata/image?backend=default',
-      placeholderVariant: 2
-    },
-    manualAssignment: {
-      active: true,
-      relationshipLocked: true,
-      revision: 1
+  const recording = {
+    title: 'Technischer_Titel',
+    path: '/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
+    backendNativeId: '/srv/vdr/video/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
+    metadata: {
+      provider: {
+        seriesTitle: 'Die Serie',
+        episodeTitle: 'Der Fall',
+        overview: 'Provider-Zusammenfassung'
+      },
+      presentation: {
+        title: 'Die Serie',
+        subtitle: 'S02E04 · Der Fall',
+        summary: 'Darstellungstext',
+        posterUrl: '/api/recordings/artwork?id=poster',
+        placeholderVariant: 4
+      }
     }
-  }
-};
-assert.strictEqual(
-  test.recordingTitle(manualRecording),
-  'Face/Off – Im Körper des Feindes'
-);
-assert.strictEqual(
-  shared.createPoster(manualRecording).children[0].src,
-  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default'
-);
+  };
 
-const normalized = test.normalizeRecording(recording);
-assert.strictEqual(normalized.title, 'Tigeren Club gggg');
-assert.strictEqual(recording.title, 'Technischer_Titel');
+  assert.strictEqual(test.recordingPathTitle(recording), 'Tigeren Club gggg');
+  assert.strictEqual(test.recordingNativeTitle(recording), 'Technischer Titel');
+  assert.strictEqual(test.recordingMetadataTitle(recording), 'Die Serie');
+  assert.strictEqual(test.recordingTitle(recording), 'Tigeren Club gggg');
+  assert.strictEqual(test.recordingTitle({
+    title: 'Drama/Neuer_Name',
+    path: ''
+  }), 'Neuer Name');
+  assert.strictEqual(test.recordingTitle({
+    title: '',
+    path: '',
+    metadata: recording.metadata
+  }), 'Die Serie');
+  assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
+  assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
+  assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
 
-assert.throws(() => test.applyFolderData({recordingFolder: false}, false), /gültigen Aufnahmeordner/);
-test.applyFolderData({
-  recordingFolder: true,
-  path: 'Serien',
-  parentPath: '',
-  folders: [],
-  recordings: [recording],
-  recordingCount: 1,
-  returnedCount: 1
-}, false);
+  const poster = shared.createPoster(recording);
+  assert.strictEqual(poster.children.length, 1);
+  assert.strictEqual(
+    poster.children[0].src,
+    '/vdr-suite/api/recordings/artwork?id=poster'
+  );
 
-console.log('recordings2 modular runtime ok');
+  const manualRecording = {
+    title: 'Technischer_Titel',
+    path: '/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
+    backendNativeId: '/srv/vdr/video/Action/Alter_Titel/2026-05-07.07.21.1-0.rec',
+    metadata: {
+      provider: {
+        source: 'manual',
+        title: 'Face/Off – Im Körper des Feindes',
+        overview: 'Manuell ausgewählte Beschreibung'
+      },
+      presentation: {
+        title: 'Face/Off – Im Körper des Feindes',
+        summary: 'Manuell ausgewählte Beschreibung',
+        posterUrl: '/api/vdr/recordings/metadata/image?backend=default',
+        placeholderVariant: 2
+      },
+      manualAssignment: {
+        active: true,
+        relationshipLocked: true,
+        revision: 1
+      }
+    }
+  };
+  assert.strictEqual(
+    test.recordingTitle(manualRecording),
+    'Face/Off – Im Körper des Feindes'
+  );
+  assert.strictEqual(
+    shared.createPoster(manualRecording).children[0].src,
+    '/vdr-suite/api/vdr/recordings/metadata/image?backend=default'
+  );
+
+  const normalized = test.normalizeRecording(recording);
+  assert.strictEqual(normalized.title, 'Tigeren Club gggg');
+  assert.strictEqual(recording.title, 'Technischer_Titel');
+
+  assert.throws(() => test.applyFolderData({recordingFolder: false}, false), /gültigen Aufnahmeordner/);
+  test.applyFolderData({
+    recordingFolder: true,
+    path: 'Serien',
+    parentPath: '',
+    folders: [],
+    recordings: [recording],
+    recordingCount: 1,
+    returnedCount: 1
+  }, false);
+
+  console.log('recordings2 modular runtime ok');
+}
+
+run().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

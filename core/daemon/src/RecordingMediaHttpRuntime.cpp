@@ -14,6 +14,7 @@
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionController.h"
 #include "SimpleHttpListener.h"
 #include "SuiteBridgeSvdrpTransport.h"
@@ -56,10 +57,12 @@ int runRecordingMediaHttpRuntime(
 
     MediaRouteLeaseRepository mediaRouteLeaseRepository(database);
     MediaSessionIssuanceService mediaSessionIssuanceService(mediaSessionRepository);
+    RecordingDirectSourceRegistry recordingDirectSourceRegistry;
     RecordingMediaSessionController recordingMediaSessionController(
         recordingQueryService,
         mediaSessionRepository,
         mediaSessionIssuanceService,
+        recordingDirectSourceRegistry,
         MediaSessionWorkspaceRoot);
 
     BackendAgentRepository agentRepository(database);
@@ -116,7 +119,8 @@ int runRecordingMediaHttpRuntime(
         mediaAccessGrantAuthenticator,
         mediaRouteLeaseRepository,
         mediaHlsArtifactReader,
-        MediaSessionWorkspaceRoot);
+        MediaSessionWorkspaceRoot,
+        &recordingDirectSourceRegistry);
     httpListener = std::make_unique<SimpleHttpListener>(
         listenHost,
         listenPort,

@@ -17,6 +17,36 @@
 #define O_NOFOLLOW 0
 #endif
 
+namespace
+{
+
+bool sameOpenedSegment(
+    std::uint64_t device,
+    std::uint64_t inode,
+    std::uint64_t size,
+    std::int64_t mtimeSeconds,
+    std::int64_t mtimeNanoseconds,
+    const struct stat& metadata,
+    bool growing)
+{
+    if (!S_ISREG(metadata.st_mode) || metadata.st_size < 0 ||
+        static_cast<std::uint64_t>(metadata.st_dev) != device ||
+        static_cast<std::uint64_t>(metadata.st_ino) != inode) {
+        return false;
+    }
+
+    const std::uint64_t currentSize = static_cast<std::uint64_t>(metadata.st_size);
+    if (growing) {
+        return currentSize >= size;
+    }
+
+    return currentSize == size &&
+        static_cast<std::int64_t>(metadata.st_mtim.tv_sec) == mtimeSeconds &&
+        static_cast<std::int64_t>(metadata.st_mtim.tv_nsec) == mtimeNanoseconds;
+}
+
+} // namespace
+
 SegmentedRecordingByteSource::SegmentedRecordingByteSource(
     SegmentCatalog segmentCatalog,
     bool growing,
@@ -82,6 +112,11 @@ SegmentedRecordingByteSource::snapshot() const
         segment.path = path;
         segment.start = offset;
         segment.end = offset + size;
+        segment.device = static_cast<std::uint64_t>(metadata.st_dev);
+        segment.inode = static_cast<std::uint64_t>(metadata.st_ino);
+        segment.size = size;
+        segment.mtimeSeconds = static_cast<std::int64_t>(metadata.st_mtim.tv_sec);
+        segment.mtimeNanoseconds = static_cast<std::int64_t>(metadata.st_mtim.tv_nsec);
         result.segments.push_back(std::move(segment));
         offset += size;
     }
@@ -164,6 +199,22 @@ RecordingByteReadResult SegmentedRecordingByteSource::read(
             return result;
         }
 
+        struct stat openedMetadata {};
+        if (::fstat(fd, &openedMetadata) != 0 ||
+            !sameOpenedSegment(
+                segment.device,
+                segment.inode,
+                segment.size,
+                segment.mtimeSeconds,
+                segment.mtimeNanoseconds,
+                openedMetadata,
+                growing_)) {
+            close(fd);
+            result.reasonCode = "recording_segment_changed";
+            result.bytes.clear();
+            return result;
+        }
+
         const std::size_t oldSize = result.bytes.size();
         result.bytes.resize(oldSize + chunk);
         std::size_t chunkRead = 0;
@@ -184,9 +235,24 @@ RecordingByteReadResult SegmentedRecordingByteSource::read(
             chunkRead += static_cast<std::size_t>(count);
         }
 
+        struct stat finalMetadata {};
+        const bool stable = ::fstat(fd, &finalMetadata) == 0 &&
+            sameOpenedSegment(
+                segment.device,
+                segment.inode,
+                segment.size,
+                segment.mtimeSeconds,
+                segment.mtimeNanoseconds,
+                finalMetadata,
+                growing_);
         close(fd);
         result.bytes.resize(oldSize + chunkRead);
 
+        if (!stable) {
+            result.reasonCode = "recording_segment_changed";
+            result.bytes.clear();
+            return result;
+        }
         if (chunkRead == 0) {
             result.reasonCode = "recording_segment_read_failed";
             result.bytes.clear();

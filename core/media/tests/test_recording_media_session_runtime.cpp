@@ -3,15 +3,19 @@
 #include "Database.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "RecordingSourceFingerprint.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace
@@ -41,14 +45,15 @@ std::chrono::system_clock::time_point futureClock()
     return std::chrono::system_clock::from_time_t(timegm(&utc));
 }
 
-MediaSessionIssuanceRequest issuanceRequest()
+MediaSessionIssuanceRequest issuanceRequest(
+    const std::string& profileId = "hls-fmp4")
 {
     MediaSessionIssuanceRequest request;
     request.actorId = "actor-1";
     request.backendId = "default";
     request.resourceKind = "recording";
     request.resourceId = "recording-1";
-    request.presentationProfileId = "hls-fmp4";
+    request.presentationProfileId = profileId;
     request.providerId = "local-vdr-recording";
     return request;
 }
@@ -71,6 +76,39 @@ MediaPresentationProfile hlsProfile()
     return profile;
 }
 
+MediaPresentationProfile progressiveFmp4Profile()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "progressive-fmp4";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::Fmp4;
+    profile.adaptationClass = MediaAdaptationClass::Remux;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.sourceVideoStreamIndex = 0;
+    profile.targetVideoCodec = MediaCodec::H264;
+    profile.targetVideoWidth = 1920;
+    profile.targetVideoHeight = 1080;
+    profile.audioAction = MediaTrackAction::Copy;
+    profile.sourceAudioStreamIndex = 0;
+    profile.targetAudioCodec = MediaCodec::Aac;
+    profile.targetAudioChannels = 2;
+    return profile;
+}
+
+MediaPresentationProfile directProfile()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "progressive-direct";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::MpegTs;
+    profile.adaptationClass = MediaAdaptationClass::PassThrough;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.audioAction = MediaTrackAction::Copy;
+    return profile;
+}
+
 bool containsPair(
     const std::vector<std::string>& argv,
     const std::string& option,
@@ -80,6 +118,13 @@ bool containsPair(
         if (argv[index] == option && argv[index + 1] == value) return true;
     }
     return false;
+}
+
+bool containsValue(
+    const std::vector<std::string>& argv,
+    const std::string& value)
+{
+    return std::find(argv.begin(), argv.end(), value) != argv.end();
 }
 
 } // namespace
@@ -234,6 +279,173 @@ int main()
     assert(idleEnded.has_value());
     assert(idleEnded->state == "ended");
     assert(idleEnded->terminalReason == "media_access_idle_expired");
+
+    {
+        auto streamIssued = issuer.issue(issuanceRequest("progressive-fmp4"));
+        assert(streamIssued.issued);
+        int streamSpawnCalls = 0;
+        int streamTerminateCalls = 0;
+        int streamReadinessCalls = 0;
+        pid_t streamWorkerPid = -1;
+        RecordingMediaSessionRuntime streamRuntime(
+            repository,
+            root.string(),
+            [&streamSpawnCalls, &streamWorkerPid](
+                const std::vector<std::string>& argv,
+                const std::string& workingDirectory,
+                const std::string& logPath) {
+                assert(!argv.empty());
+                assert(argv.front() == "/usr/bin/ffmpeg");
+                assert(containsPair(argv, "-f", "concat"));
+                assert(containsPair(argv, "-i", "input.ffconcat"));
+                assert(containsPair(argv, "-c:v", "copy"));
+                assert(containsPair(argv, "-c:a", "copy"));
+                assert(containsPair(
+                    argv,
+                    "-movflags",
+                    "+empty_moov+default_base_moof+frag_keyframe+omit_tfhd_offset"));
+                assert(containsPair(argv, "-frag_duration", "250000"));
+                assert(!containsValue(argv, "-re"));
+                assert(argv.back() == "recording.fmp4");
+                assert(std::filesystem::is_fifo(
+                    std::filesystem::path(workingDirectory) / "recording.fmp4"));
+                assert(!logPath.empty());
+
+                const pid_t child = ::fork();
+                assert(child >= 0);
+                if (child == 0) {
+                    ::sleep(60);
+                    _exit(0);
+                }
+                streamWorkerPid = child;
+                ++streamSpawnCalls;
+                return child;
+            },
+            [&streamTerminateCalls, &streamWorkerPid](
+                pid_t pid,
+                std::chrono::milliseconds grace) {
+                assert(pid == streamWorkerPid);
+                assert(grace.count() >= 0);
+                assert(::kill(pid, SIGTERM) == 0);
+                int status = 0;
+                while (::waitpid(pid, &status, 0) < 0) {
+                    if (errno == EINTR) continue;
+                    assert(false);
+                }
+                ++streamTerminateCalls;
+                return true;
+            },
+            [&streamReadinessCalls](const std::string&, MediaContainer) {
+                ++streamReadinessCalls;
+                return false;
+            },
+            transcodePolicy);
+
+        const auto streamResult = streamRuntime.provisionStream(
+            streamIssued.session.sessionId,
+            streamIssued.session.workspaceId,
+            streamIssued.session.grantId,
+            progressiveFmp4Profile(),
+            {segment.string()});
+        assert(streamResult.ready);
+        assert(streamSpawnCalls == 1);
+        assert(streamReadinessCalls == 0);
+        assert(std::filesystem::is_fifo(
+            root / streamIssued.session.workspaceId / "recording.fmp4"));
+        const auto streamReady = repository.findSession(streamIssued.session.sessionId);
+        assert(streamReady.has_value());
+        assert(streamReady->state == "ready");
+
+        assert(database.execute(
+            "UPDATE media_access_grants SET "
+            "last_seen_at=datetime('now','-301 seconds'), "
+            "updated_at=CURRENT_TIMESTAMP "
+            "WHERE session_id='" + streamIssued.session.sessionId + "';"));
+        const auto streamWouldBeIdle = repository.findResolvedGrant(
+            streamIssued.session.grantId,
+            300);
+        assert(streamWouldBeIdle.has_value());
+        assert(streamWouldBeIdle->idleExpired);
+
+        // Continuous progressive playback has one authenticated GET and must
+        // not be killed merely because it has no HLS polling requests.
+        assert(streamRuntime.reapInactive(300) == 0);
+        assert(streamTerminateCalls == 0);
+        const auto streamStillReady = repository.findSession(
+            streamIssued.session.sessionId);
+        assert(streamStillReady.has_value());
+        assert(streamStillReady->state == "ready");
+        const auto streamGrantWithoutIdle = repository.findResolvedGrant(
+            streamIssued.session.grantId,
+            0);
+        assert(streamGrantWithoutIdle.has_value());
+        assert(!streamGrantWithoutIdle->idleExpired);
+
+        assert(streamRuntime.stop(streamIssued.session.sessionId, "client_closed"));
+        assert(streamTerminateCalls == 1);
+        assert(!std::filesystem::exists(root / streamIssued.session.workspaceId));
+        const auto streamStopped = repository.findSession(streamIssued.session.sessionId);
+        assert(streamStopped.has_value());
+        assert(streamStopped->state == "ended");
+        assert(streamStopped->terminalReason == "client_closed");
+        streamIssued.session.clearSecret();
+    }
+
+    const std::vector<std::string> directSegments = {segment.string()};
+    const RecordingSourceFingerprint fingerprint =
+        inspectRecordingSource(root.string(), directSegments);
+    assert(fingerprint.valid);
+    RecordingDirectSourceRegistration registration;
+    registration.recordingDirectory = root.string();
+    registration.segmentPaths = directSegments;
+    registration.sourceFingerprint = fingerprint.value;
+    registration.readableBytes = fingerprint.readableBytes;
+
+    RecordingDirectSourceRegistry directRegistry;
+    {
+        RecordingMediaSessionRuntime directRuntime(
+            repository,
+            root.string(),
+            directRegistry);
+
+        auto directIssued = issuer.issue(issuanceRequest("progressive-direct"));
+        assert(directIssued.issued);
+        const auto directResult = directRuntime.provisionDirect(
+            directIssued.session.sessionId,
+            directIssued.session.grantId,
+            directProfile(),
+            registration);
+        assert(directResult.ready);
+        assert(directRegistry.lookup(directIssued.session.sessionId).available);
+        assert(directRuntime.stop(directIssued.session.sessionId, "client_closed"));
+        assert(!directRegistry.lookup(directIssued.session.sessionId).available);
+        const auto directStopped = repository.findSession(directIssued.session.sessionId);
+        assert(directStopped.has_value());
+        assert(directStopped->state == "ended");
+        assert(directStopped->terminalReason == "client_closed");
+        directIssued.session.clearSecret();
+
+        auto directIdle = issuer.issue(issuanceRequest("progressive-direct"));
+        assert(directIdle.issued);
+        assert(directRuntime.provisionDirect(
+            directIdle.session.sessionId,
+            directIdle.session.grantId,
+            directProfile(),
+            registration).ready);
+        assert(directRegistry.lookup(directIdle.session.sessionId).available);
+        assert(database.execute(
+            "UPDATE media_access_grants SET "
+            "last_seen_at=datetime('now','-301 seconds'), "
+            "updated_at=CURRENT_TIMESTAMP "
+            "WHERE session_id='" + directIdle.session.sessionId + "';"));
+        assert(directRuntime.reapInactive(300) == 1);
+        assert(!directRegistry.lookup(directIdle.session.sessionId).available);
+        const auto directReaped = repository.findSession(directIdle.session.sessionId);
+        assert(directReaped.has_value());
+        assert(directReaped->state == "ended");
+        assert(directReaped->terminalReason == "media_access_idle_expired");
+        directIdle.session.clearSecret();
+    }
 
     issued.session.clearSecret();
     std::filesystem::remove_all(root);

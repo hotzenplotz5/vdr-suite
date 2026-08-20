@@ -2,6 +2,7 @@
 
 #include "MediaCapabilities.h"
 #include "MediaTranscodePolicy.h"
+#include "RecordingDirectSourceRegistry.h"
 
 #include <chrono>
 #include <cstddef>
@@ -46,6 +47,11 @@ public:
     RecordingMediaSessionRuntime(
         MediaSessionRepository& repository,
         std::string workspaceRoot,
+        RecordingDirectSourceRegistry& directSourceRegistry);
+
+    RecordingMediaSessionRuntime(
+        MediaSessionRepository& repository,
+        std::string workspaceRoot,
         WorkerSpawner workerSpawner,
         WorkerTerminator workerTerminator,
         ReadinessProbe readinessProbe,
@@ -63,6 +69,19 @@ public:
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
+    RecordingMediaSessionProvisionResult provisionStream(
+        const std::string& sessionId,
+        const std::string& workspaceId,
+        const std::string& grantId,
+        const MediaPresentationProfile& profile,
+        const std::vector<std::string>& sourceSegments);
+
+    RecordingMediaSessionProvisionResult provisionDirect(
+        const std::string& sessionId,
+        const std::string& grantId,
+        const MediaPresentationProfile& profile,
+        const RecordingDirectSourceRegistration& registration);
+
     bool stop(
         const std::string& sessionId,
         const std::string& reasonCode);
@@ -77,6 +96,7 @@ private:
         pid_t pid = -1;
         std::string grantId;
         std::unique_ptr<MediaSessionWorkspace> workspace;
+        bool direct = false;
     };
 
     static bool defaultReady(
@@ -89,6 +109,7 @@ private:
     WorkerTerminator workerTerminator_;
     ReadinessProbe readinessProbe_;
     MediaTranscodePolicy transcodePolicy_;
+    RecordingDirectSourceRegistry* directSourceRegistry_ = nullptr;
     std::mutex mutex_;
     std::map<std::string, ActiveSession> active_;
 };

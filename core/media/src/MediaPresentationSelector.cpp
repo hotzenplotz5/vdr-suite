@@ -225,33 +225,17 @@ MediaPresentationProfile directProfile(
     return profile;
 }
 
-MediaPresentationProfile hlsProfile(
+MediaPresentationProfile adaptedProfile(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+    const ClientMediaCapabilities& client,
+    MediaDeliveryProtocol protocol,
+    MediaContainer outputContainer,
+    const std::string& profileId)
 {
-    if (!contains(client.protocols, MediaDeliveryProtocol::Hls)) {
-        return unavailable("HLS is unsupported by the client");
-    }
-
-    MediaContainer outputContainer = MediaContainer::Unknown;
-    std::string profileId;
-
-    if (contains(client.containers, MediaContainer::Fmp4)) {
-        outputContainer = MediaContainer::Fmp4;
-        profileId = "hls-fmp4";
-    }
-    else if (contains(client.containers, MediaContainer::MpegTs)) {
-        outputContainer = MediaContainer::MpegTs;
-        profileId = "hls-ts";
-    }
-    else {
-        return unavailable("client exposes no supported HLS segment container");
-    }
-
     MediaPresentationProfile profile;
     profile.available = true;
     profile.profileId = profileId;
-    profile.protocol = MediaDeliveryProtocol::Hls;
+    profile.protocol = protocol;
     profile.container = outputContainer;
     profile.adaptationClass = MediaAdaptationClass::Remux;
 
@@ -342,10 +326,68 @@ MediaPresentationProfile hlsProfile(
         }
     }
 
-    profile.reason = profile.adaptationClass == MediaAdaptationClass::Transcode
-        ? "HLS packaging selected with only the selected incompatible tracks transcoded"
-        : "HLS packaging selected with compatible selected tracks copied";
+    if (protocol == MediaDeliveryProtocol::Progressive) {
+        profile.reason = profile.adaptationClass == MediaAdaptationClass::Transcode
+            ? "continuous fMP4 selected with only incompatible tracks transcoded"
+            : "continuous fMP4 remux selected with compatible selected tracks copied";
+    }
+    else {
+        profile.reason = profile.adaptationClass == MediaAdaptationClass::Transcode
+            ? "HLS packaging selected with only the selected incompatible tracks transcoded"
+            : "HLS packaging selected with compatible selected tracks copied";
+    }
     return profile;
+}
+
+MediaPresentationProfile progressiveFmp4Profile(
+    const MediaSourceDescriptor& source,
+    const ClientMediaCapabilities& client)
+{
+    if (source.growing) {
+        return unavailable("growing recording is not an immutable continuous fMP4 source");
+    }
+    if (!contains(client.protocols, MediaDeliveryProtocol::Progressive) ||
+        !contains(client.containers, MediaContainer::Fmp4)) {
+        return unavailable("continuous fMP4 transport is unsupported by the client");
+    }
+
+    return adaptedProfile(
+        source,
+        client,
+        MediaDeliveryProtocol::Progressive,
+        MediaContainer::Fmp4,
+        "progressive-fmp4");
+}
+
+MediaPresentationProfile hlsProfile(
+    const MediaSourceDescriptor& source,
+    const ClientMediaCapabilities& client)
+{
+    if (!contains(client.protocols, MediaDeliveryProtocol::Hls)) {
+        return unavailable("HLS is unsupported by the client");
+    }
+
+    MediaContainer outputContainer = MediaContainer::Unknown;
+    std::string profileId;
+
+    if (contains(client.containers, MediaContainer::Fmp4)) {
+        outputContainer = MediaContainer::Fmp4;
+        profileId = "hls-fmp4";
+    }
+    else if (contains(client.containers, MediaContainer::MpegTs)) {
+        outputContainer = MediaContainer::MpegTs;
+        profileId = "hls-ts";
+    }
+    else {
+        return unavailable("client exposes no supported HLS segment container");
+    }
+
+    return adaptedProfile(
+        source,
+        client,
+        MediaDeliveryProtocol::Hls,
+        outputContainer,
+        profileId);
 }
 
 } // namespace
@@ -361,6 +403,12 @@ MediaPresentationProfile MediaPresentationSelector::select(
     const MediaPresentationProfile direct = directProfile(source, client);
     if (direct.available) {
         return direct;
+    }
+
+    const MediaPresentationProfile progressiveFmp4 =
+        progressiveFmp4Profile(source, client);
+    if (progressiveFmp4.available) {
+        return progressiveFmp4;
     }
 
     return hlsProfile(source, client);

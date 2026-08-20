@@ -2,6 +2,7 @@
 
 #include "VdrRecording.h"
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -12,6 +13,10 @@ struct LocalVdrRecordingSource
     std::string recordingId;
     std::string recordingDirectory;
     std::vector<std::string> segmentPaths;
+    bool growing = false;
+    bool progressiveDirectSafe = false;
+    std::uint64_t readableBytes = 0;
+    std::string sourceFingerprint;
 };
 
 struct LocalVdrRecordingSourceResolution

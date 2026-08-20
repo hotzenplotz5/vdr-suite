@@ -8,6 +8,8 @@
 #include <cerrno>
 #include <chrono>
 #include <filesystem>
+#include <string>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <thread>
 #include <utility>
@@ -18,6 +20,7 @@ namespace
 constexpr auto HlsReadinessTimeout = std::chrono::seconds(15);
 constexpr auto HlsReadinessPollInterval = std::chrono::milliseconds(50);
 constexpr auto WorkerShutdownGrace = std::chrono::milliseconds(500);
+constexpr const char* RecordingStreamName = "recording.fmp4";
 
 bool nonEmptyFile(const std::filesystem::path& path)
 {
@@ -27,6 +30,235 @@ bool nonEmptyFile(const std::filesystem::path& path)
     }
     const auto size = std::filesystem::file_size(path, error);
     return !error && size > 0;
+}
+
+struct ProgressiveStreamPlan
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::vector<std::string> argv;
+};
+
+const char* x264PresetName(MediaSoftwareEncoderPreset preset)
+{
+    switch (preset)
+    {
+    case MediaSoftwareEncoderPreset::Superfast: return "superfast";
+    case MediaSoftwareEncoderPreset::Veryfast: return "veryfast";
+    case MediaSoftwareEncoderPreset::Faster: return "faster";
+    case MediaSoftwareEncoderPreset::Fast: return "fast";
+    }
+    return nullptr;
+}
+
+bool validTargetVideoSize(const MediaPresentationProfile& profile)
+{
+    return profile.targetVideoWidth >= 2 && profile.targetVideoHeight >= 2 &&
+        profile.targetVideoWidth <= 16384 && profile.targetVideoHeight <= 16384 &&
+        profile.targetVideoWidth % 2 == 0 && profile.targetVideoHeight % 2 == 0;
+}
+
+bool validVaapiDevice(const std::string& value)
+{
+    return !value.empty() && value.size() <= 512 &&
+        value.rfind("/dev/dri/", 0) == 0;
+}
+
+bool usesVaapiInput(const MediaPresentationProfile& profile)
+{
+    return profile.videoAction == MediaTrackAction::Transcode &&
+        profile.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi;
+}
+
+bool appendSelectedTrackMaps(
+    std::vector<std::string>& argv,
+    const MediaPresentationProfile& profile)
+{
+    if (profile.videoAction != MediaTrackAction::Omit) {
+        if (profile.sourceVideoStreamIndex < 0) return false;
+        argv.push_back("-map");
+        argv.push_back("0:v:" + std::to_string(profile.sourceVideoStreamIndex) + "?");
+    }
+    if (profile.audioAction != MediaTrackAction::Omit) {
+        if (profile.sourceAudioStreamIndex < 0) return false;
+        argv.push_back("-map");
+        argv.push_back("0:a:" + std::to_string(profile.sourceAudioStreamIndex) + "?");
+    }
+    return true;
+}
+
+bool appendProgressiveVideoPlan(
+    std::vector<std::string>& argv,
+    const MediaPresentationProfile& profile)
+{
+    switch (profile.videoAction) {
+    case MediaTrackAction::Omit:
+        argv.push_back("-vn");
+        return true;
+    case MediaTrackAction::Copy:
+        if (profile.targetVideoCodec != MediaCodec::H264 &&
+            profile.targetVideoCodec != MediaCodec::H265) {
+            return false;
+        }
+        argv.insert(argv.end(), {"-c:v", "copy"});
+        if (profile.targetVideoCodec == MediaCodec::H264) {
+            argv.insert(argv.end(), {"-bsf:v", "h264_metadata=level=auto"});
+        }
+        return true;
+    case MediaTrackAction::Transcode:
+        break;
+    }
+
+    if (profile.targetVideoCodec != MediaCodec::H264 ||
+        !validTargetVideoSize(profile)) {
+        return false;
+    }
+
+    if (profile.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264) {
+        const char* preset = x264PresetName(profile.videoEncoderPreset);
+        if (preset == nullptr) return false;
+        argv.insert(argv.end(), {
+            "-c:v", "libx264",
+            "-preset", preset,
+            "-tune", "zerolatency",
+            "-crf", "20",
+            "-vf"
+        });
+        if (profile.deinterlaceVideo) {
+            argv.push_back(
+                "bwdif=mode=send_frame:parity=auto:deint=all,scale=" +
+                std::to_string(profile.targetVideoWidth) + ":" +
+                std::to_string(profile.targetVideoHeight));
+        }
+        else {
+            argv.push_back(
+                "scale=" + std::to_string(profile.targetVideoWidth) + ":" +
+                std::to_string(profile.targetVideoHeight));
+        }
+        argv.insert(argv.end(), {"-pix_fmt", "yuv420p"});
+        return true;
+    }
+
+    if (profile.videoEncoderBackend == MediaVideoEncoderBackend::Vaapi) {
+        if (profile.deinterlaceVideo || !validVaapiDevice(profile.videoHardwareDevice)) {
+            return false;
+        }
+        argv.insert(argv.end(), {
+            "-c:v", "h264_vaapi",
+            "-qp", "22",
+            "-vf",
+            "scale_vaapi=w=" + std::to_string(profile.targetVideoWidth) +
+                ":h=" + std::to_string(profile.targetVideoHeight) + ":format=nv12"
+        });
+        return true;
+    }
+
+    return false;
+}
+
+bool appendProgressiveAudioPlan(
+    std::vector<std::string>& argv,
+    const MediaPresentationProfile& profile)
+{
+    switch (profile.audioAction) {
+    case MediaTrackAction::Omit:
+        argv.push_back("-an");
+        return true;
+    case MediaTrackAction::Copy:
+        if (profile.targetAudioCodec != MediaCodec::Aac &&
+            profile.targetAudioCodec != MediaCodec::Ac3 &&
+            profile.targetAudioCodec != MediaCodec::Eac3) {
+            return false;
+        }
+        argv.insert(argv.end(), {"-c:a", "copy"});
+        if (profile.targetAudioCodec == MediaCodec::Aac) {
+            argv.insert(argv.end(), {"-bsf:a", "aac_adtstoasc"});
+        }
+        return true;
+    case MediaTrackAction::Transcode:
+        if (profile.targetAudioCodec != MediaCodec::Aac ||
+            profile.targetAudioChannels < 0 || profile.targetAudioChannels > 32) {
+            return false;
+        }
+        argv.insert(argv.end(), {"-c:a", "aac", "-b:a", "192k"});
+        if (profile.targetAudioChannels > 0) {
+            argv.push_back("-ac");
+            argv.push_back(std::to_string(profile.targetAudioChannels));
+        }
+        return true;
+    }
+    return false;
+}
+
+ProgressiveStreamPlan buildProgressiveStreamPlan(
+    const MediaPresentationProfile& profile)
+{
+    ProgressiveStreamPlan plan;
+    if (!profile.available || profile.profileId != "progressive-fmp4" ||
+        profile.protocol != MediaDeliveryProtocol::Progressive ||
+        profile.container != MediaContainer::Fmp4 ||
+        profile.adaptationClass == MediaAdaptationClass::PassThrough) {
+        plan.reasonCode = "profile_is_not_recording_progressive_fmp4";
+        return plan;
+    }
+
+    plan.argv = {
+        "/usr/bin/ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel", "warning",
+        "-y"
+    };
+
+    if (usesVaapiInput(profile)) {
+        if (!validVaapiDevice(profile.videoHardwareDevice)) {
+            plan.reasonCode = "unsupported_recording_video_transformation";
+            return plan;
+        }
+        plan.argv.insert(plan.argv.end(), {
+            "-init_hw_device", "vaapi=va:" + profile.videoHardwareDevice,
+            "-filter_hw_device", "va",
+            "-hwaccel", "vaapi",
+            "-hwaccel_device", "va",
+            "-hwaccel_output_format", "vaapi"
+        });
+    }
+
+    // Deliberately no -re here. The browser-facing FIFO supplies natural
+    // backpressure, so a completed recording can produce the first fMP4 bytes
+    // as quickly as storage/demux/remux allows without running away from the
+    // consumer or creating an HLS deletion window.
+    plan.argv.insert(plan.argv.end(), {
+        "-f", "concat",
+        "-safe", "1",
+        "-i", "input.ffconcat"
+    });
+
+    if (!appendSelectedTrackMaps(plan.argv, profile)) {
+        plan.reasonCode = "selected_source_track_missing";
+        return plan;
+    }
+    plan.argv.push_back("-sn");
+
+    if (!appendProgressiveVideoPlan(plan.argv, profile)) {
+        plan.reasonCode = "unsupported_recording_video_transformation";
+        return plan;
+    }
+    if (!appendProgressiveAudioPlan(plan.argv, profile)) {
+        plan.reasonCode = "unsupported_recording_audio_transformation";
+        return plan;
+    }
+
+    plan.argv.insert(plan.argv.end(), {
+        "-f", "mp4",
+        "-movflags", "+empty_moov+default_base_moof+frag_keyframe+omit_tfhd_offset",
+        "-frag_duration", "250000",
+        "-min_frag_duration", "100000",
+        "-flush_packets", "1",
+        RecordingStreamName
+    });
+    plan.valid = true;
+    return plan;
 }
 
 } // namespace
@@ -45,6 +277,17 @@ RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
           std::move(readinessProbe),
           MediaTranscodePolicy::fromEnvironment())
 {
+}
+
+RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
+    MediaSessionRepository& repository,
+    std::string workspaceRoot,
+    RecordingDirectSourceRegistry& directSourceRegistry)
+    : RecordingMediaSessionRuntime(
+          repository,
+          std::move(workspaceRoot))
+{
+    directSourceRegistry_ = &directSourceRegistry;
 }
 
 RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
@@ -137,8 +380,6 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
         return result;
     }
 
-    // Resolve server performance policy exactly once before the worker starts.
-    // The selected encoder/preset remains stable for this MediaSession.
     const MediaPresentationProfile resolvedProfile = transcodePolicy_.apply(profile);
     const FfmpegHlsCommandPlan command =
         FfmpegHlsCommandBuilder().build(resolvedProfile);
@@ -223,6 +464,182 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     return result;
 }
 
+RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStream(
+    const std::string& sessionId,
+    const std::string& workspaceId,
+    const std::string& grantId,
+    const MediaPresentationProfile& profile,
+    const std::vector<std::string>& sourceSegments)
+{
+    RecordingMediaSessionProvisionResult result;
+    if (sessionId.empty() || workspaceId.empty() || grantId.empty() ||
+        sourceSegments.empty() || !profile.available ||
+        profile.profileId != "progressive-fmp4" ||
+        profile.protocol != MediaDeliveryProtocol::Progressive ||
+        profile.container != MediaContainer::Fmp4 ||
+        profile.adaptationClass == MediaAdaptationClass::PassThrough) {
+        result.reasonCode = "invalid_recording_stream_provision_request";
+        return result;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (active_.find(sessionId) != active_.end()) {
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    auto workspace = std::make_unique<MediaSessionWorkspace>(workspaceRoot_);
+    const MediaSessionWorkspaceResult workspaceResult =
+        workspace->prepare(workspaceId, sourceSegments);
+    if (!workspaceResult.ready) {
+        result.reasonCode = workspaceResult.reasonCode.empty()
+            ? "media_workspace_unavailable"
+            : workspaceResult.reasonCode;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const std::filesystem::path streamPath =
+        std::filesystem::path(workspace->directory()) / RecordingStreamName;
+    if (::mkfifo(streamPath.c_str(), 0600) != 0) {
+        result.reasonCode = "recording_stream_pipe_create_failed";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const MediaPresentationProfile resolvedProfile = transcodePolicy_.apply(profile);
+    if (!resolvedProfile.available) {
+        result.reasonCode = resolvedProfile.reason.empty()
+            ? "media_transcode_capacity_unproven"
+            : resolvedProfile.reason;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const ProgressiveStreamPlan command =
+        buildProgressiveStreamPlan(resolvedProfile);
+    if (!command.valid) {
+        result.reasonCode = command.reasonCode.empty()
+            ? "media_worker_plan_invalid"
+            : command.reasonCode;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    const pid_t pid = workerSpawner_(
+        command.argv,
+        workspace->directory(),
+        workspace->logPath());
+    if (pid <= 0) {
+        result.reasonCode = "media_worker_start_failed";
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    ActiveSession active;
+    active.pid = pid;
+    active.grantId = grantId;
+    active.workspace = std::move(workspace);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto inserted = active_.emplace(sessionId, std::move(active));
+        if (!inserted.second) {
+            workerTerminator_(pid, WorkerShutdownGrace);
+            repository_.failBundle(sessionId, "media_session_already_owned");
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    if (!repository_.activateBundle(sessionId)) {
+        ActiveSession failed;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto found = active_.find(sessionId);
+            if (found != active_.end()) {
+                failed = std::move(found->second);
+                active_.erase(found);
+            }
+        }
+        if (failed.pid > 0) {
+            workerTerminator_(failed.pid, WorkerShutdownGrace);
+        }
+        repository_.failBundle(sessionId, "media_session_activation_failed");
+        result.reasonCode = "media_session_activation_failed";
+        return result;
+    }
+
+    result.ready = true;
+    return result;
+}
+
+RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionDirect(
+    const std::string& sessionId,
+    const std::string& grantId,
+    const MediaPresentationProfile& profile,
+    const RecordingDirectSourceRegistration& registration)
+{
+    RecordingMediaSessionProvisionResult result;
+    if (directSourceRegistry_ == nullptr || sessionId.empty() || grantId.empty() ||
+        !profile.available || profile.protocol != MediaDeliveryProtocol::Progressive ||
+        profile.container != MediaContainer::MpegTs ||
+        profile.adaptationClass != MediaAdaptationClass::PassThrough ||
+        registration.readableBytes == 0) {
+        result.reasonCode = "invalid_direct_provision_request";
+        return result;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (active_.find(sessionId) != active_.end()) {
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    std::string registrationFailure;
+    if (!directSourceRegistry_->registerCompleted(
+            sessionId,
+            registration,
+            registrationFailure)) {
+        result.reasonCode = registrationFailure.empty()
+            ? "recording_direct_source_unavailable"
+            : registrationFailure;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    ActiveSession active;
+    active.grantId = grantId;
+    active.direct = true;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto inserted = active_.emplace(sessionId, std::move(active));
+        if (!inserted.second) {
+            directSourceRegistry_->remove(sessionId);
+            repository_.failBundle(sessionId, "media_session_already_owned");
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    if (!repository_.activateBundle(sessionId)) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            active_.erase(sessionId);
+        }
+        directSourceRegistry_->remove(sessionId);
+        repository_.failBundle(sessionId, "media_session_activation_failed");
+        result.reasonCode = "media_session_activation_failed";
+        return result;
+    }
+
+    result.ready = true;
+    return result;
+}
+
 bool RecordingMediaSessionRuntime::stop(
     const std::string& sessionId,
     const std::string& reasonCode)
@@ -242,6 +659,9 @@ bool RecordingMediaSessionRuntime::stop(
     if (active.pid > 0) {
         workerStopped = workerTerminator_(active.pid, WorkerShutdownGrace);
     }
+    if (active.direct && directSourceRegistry_ != nullptr) {
+        directSourceRegistry_->remove(sessionId);
+    }
 
     const bool bundleEnded = repository_.endBundle(sessionId, reasonCode);
     return workerStopped && bundleEnded;
@@ -253,21 +673,84 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         return 0;
     }
 
-    std::vector<std::pair<std::string, std::string>> candidates;
+    struct Candidate
+    {
+        std::string sessionId;
+        std::string grantId;
+        pid_t pid = -1;
+        bool continuousStream = false;
+    };
+
+    std::vector<Candidate> candidates;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         candidates.reserve(active_.size());
         for (const auto& entry : active_) {
-            candidates.emplace_back(entry.first, entry.second.grantId);
+            Candidate candidate;
+            candidate.sessionId = entry.first;
+            candidate.grantId = entry.second.grantId;
+            candidate.pid = entry.second.pid;
+            if (entry.second.workspace) {
+                std::error_code error;
+                const std::filesystem::path streamPath =
+                    std::filesystem::path(entry.second.workspace->directory()) /
+                    RecordingStreamName;
+                candidate.continuousStream =
+                    std::filesystem::is_fifo(streamPath, error) && !error;
+            }
+            candidates.push_back(std::move(candidate));
         }
     }
 
     std::size_t reaped = 0;
     for (const auto& candidate : candidates) {
+        if (candidate.continuousStream && candidate.pid > 0) {
+            int status = 0;
+            errno = 0;
+            const pid_t waited = ::waitpid(candidate.pid, &status, WNOHANG);
+            if (waited == candidate.pid || (waited < 0 && errno == ECHILD)) {
+                ActiveSession exited;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    const auto found = active_.find(candidate.sessionId);
+                    if (found == active_.end()) continue;
+                    exited = std::move(found->second);
+                    active_.erase(found);
+                }
+                if (exited.direct && directSourceRegistry_ != nullptr) {
+                    directSourceRegistry_->remove(candidate.sessionId);
+                }
+                if (repository_.endBundle(
+                        candidate.sessionId,
+                        "recording_stream_worker_exited")) {
+                    ++reaped;
+                }
+                continue;
+            }
+            if (waited < 0 && errno != EINTR) {
+                if (stop(candidate.sessionId, "recording_stream_worker_wait_failed")) {
+                    ++reaped;
+                }
+                continue;
+            }
+        }
+
+        // A continuous progressive response is one authenticated GET, just like
+        // Live-TV. It has no HLS polling cadence with which to refresh
+        // last_seen_at. Disable only idle expiry for that transport while still
+        // enforcing explicit revocation and the absolute grant expiry. Worker
+        // exit above is the transport-liveness fence for disconnect/EOF.
+        const int grantIdleTimeout = candidate.continuousStream
+            ? 0
+            : idleTimeoutSeconds;
         const auto grant = repository_.findResolvedGrant(
-            candidate.second,
-            idleTimeoutSeconds);
-        if (!grant.has_value() || grant->sessionId != candidate.first) {
+            candidate.grantId,
+            grantIdleTimeout);
+        if (!grant.has_value() || grant->sessionId != candidate.sessionId) {
+            if (candidate.continuousStream &&
+                stop(candidate.sessionId, "media_access_grant_missing")) {
+                ++reaped;
+            }
             continue;
         }
 
@@ -282,7 +765,7 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
             reasonCode = "media_access_idle_expired";
         }
 
-        if (!reasonCode.empty() && stop(candidate.first, reasonCode)) {
+        if (!reasonCode.empty() && stop(candidate.sessionId, reasonCode)) {
             ++reaped;
         }
     }
@@ -301,6 +784,9 @@ void RecordingMediaSessionRuntime::stopAll()
     for (auto& entry : active) {
         if (entry.second.pid > 0) {
             workerTerminator_(entry.second.pid, WorkerShutdownGrace);
+        }
+        if (entry.second.direct && directSourceRegistry_ != nullptr) {
+            directSourceRegistry_->remove(entry.first);
         }
         repository_.endBundle(entry.first, "daemon_shutdown");
     }
