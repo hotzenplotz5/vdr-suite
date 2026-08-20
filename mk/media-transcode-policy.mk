@@ -34,6 +34,7 @@ test-phase65-media-transcode-backend-settings:
 		-Icore/daemon/include -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaProcessRunner.cpp \
 		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
 		core/daemon/tests/test_media_transcode_backend_settings_service.cpp \
 		$(LDFLAGS) -lsqlite3 \
@@ -45,6 +46,7 @@ test-phase65-media-transcode-settings-api:
 		-Iapi/rest/include -Icore/daemon/include -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaProcessRunner.cpp \
 		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
 		api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
 		api/rest/tests/test_media_transcode_settings_api_runtime.cpp \
