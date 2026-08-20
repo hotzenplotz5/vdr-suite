@@ -14,6 +14,7 @@
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionController.h"
 #include "SimpleHttpListener.h"
@@ -52,6 +53,10 @@ int runRecordingMediaHttpRuntime(
     }
     if (!mediaSessionRepository.recoverNonTerminalBundles()) {
         std::cerr << "failed to recover MediaSession runtime ownership" << std::endl;
+        return 1;
+    }
+    if (!MediaTranscodeSettingsApiRuntime::instance().configure(database)) {
+        std::cerr << "failed to initialize media transcode settings runtime" << std::endl;
         return 1;
     }
 
@@ -132,6 +137,7 @@ int runRecordingMediaHttpRuntime(
     std::cout << "Media Gateway runtime initialized" << std::endl;
     std::cout << "Recording MediaSession API runtime initialized" << std::endl;
     std::cout << "Live MediaSession API runtime initialized" << std::endl;
+    std::cout << "Media transcode settings runtime initialized" << std::endl;
     std::cout << "vdr-suite-daemon runtime running" << std::endl;
     std::cout << "vdr-suite-daemon serving HTTP on "
               << listenHost << ":" << listenPort << std::endl;
@@ -141,5 +147,6 @@ int runRecordingMediaHttpRuntime(
     httpListener.reset();
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});
+    MediaTranscodeSettingsApiRuntime::instance().reset();
     return result;
 }
