@@ -76,6 +76,7 @@ private:
     Database& database_;
     std::string backendId_;
     VaapiHostCapabilityProbe vaapiHostCapabilityProbe_;
+    mutable std::string cachedVaapiHostCapabilityDevice_;
     mutable std::optional<bool> cachedVaapiHostCapability_;
     mutable std::mutex mutex_;
 };
