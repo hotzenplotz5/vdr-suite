@@ -11,8 +11,15 @@ const sourcePath = path.resolve(
   'settings-media-transcode.js'
 );
 const source = fs.readFileSync(sourcePath, 'utf8');
+const settingsBootstrapPath = path.resolve(
+  __dirname,
+  '..',
+  'settings-series-artwork.js'
+);
+const settingsBootstrapSource = fs.readFileSync(settingsBootstrapPath, 'utf8');
 
 new vm.Script(source, {filename: sourcePath});
+new vm.Script(settingsBootstrapSource, {filename: settingsBootstrapPath});
 
 assert.ok(source.includes("'/settings/media-transcode'"));
 assert.ok(source.includes("['deployment'"));
@@ -31,6 +38,10 @@ assert.ok(source.includes('vaapi.suitable'));
 assert.ok(!source.includes('/dev/dri/'));
 assert.ok(!source.includes('ffmpegArguments'));
 assert.ok(!source.includes('VDR_SUITE_MEDIA_VAAPI_DEVICE'));
+
+assert.ok(settingsBootstrapSource.includes('/frontend/settings-media-transcode.js'));
+assert.ok(settingsBootstrapSource.includes('VdrSuiteMediaTranscodeSettings'));
+assert.ok(settingsBootstrapSource.includes('loadMediaTranscodeSettingsRuntime()'));
 
 const document = {
   readyState: 'loading',
