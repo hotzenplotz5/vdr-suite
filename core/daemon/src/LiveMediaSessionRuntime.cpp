@@ -3,6 +3,7 @@
 #include "FfmpegLiveStreamCommandBuilder.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
+#include "MediaTranscodeSettingsApiRuntime.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -205,7 +206,14 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
     }
 
     result.source = directLiveDescriptor();
-    result.presentation = transcodePolicy_.apply(directLivePresentation());
+    MediaTranscodePolicy sessionPolicy = transcodePolicy_;
+    MediaTranscodeSettingsApiRuntime& settingsRuntime =
+        MediaTranscodeSettingsApiRuntime::instance();
+    if (settingsRuntime.configured()) {
+        sessionPolicy = settingsRuntime.resolvePolicy(
+            preparation.pin.channelFence.backendId);
+    }
+    result.presentation = sessionPolicy.apply(directLivePresentation());
     if (!result.presentation.available) {
         closeProvider();
         result.reasonCode = result.presentation.reason.empty()
