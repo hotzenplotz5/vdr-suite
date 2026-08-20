@@ -45,6 +45,10 @@ int main()
     assert(result.settings.configurationSource == "managed");
     assert(result.settings.effectiveMode == "vaapi");
 
+    MediaTranscodePolicy resolved;
+    assert(settings.resolvePolicy(resolved));
+    assert(resolved.videoEncoderMode() == MediaVideoEncoderMode::Vaapi);
+
     MediaTranscodeBackendSettingsService reopened(database, "backend-a");
     snapshot = reopened.get();
     assert(snapshot.managed);
@@ -63,6 +67,12 @@ int main()
     assert(!result.settings.managed);
     assert(result.settings.configurationSource == "environment");
     assert(result.settings.effectiveMode == "software");
+
+    database.close();
+    snapshot = settings.get();
+    assert(snapshot.backendId.empty());
+    MediaTranscodePolicy unavailable;
+    assert(!settings.resolvePolicy(unavailable));
 
     setEncoderEnvironment(nullptr);
     return 0;
