@@ -17,7 +17,7 @@ void append(std::string& out,const std::string& value) {
 }
 void append(std::string& out,std::uint64_t value) { append(out,std::to_string(value)); }
 void append(std::string& out,std::int32_t value) { append(out,std::to_string(value)); }
-void append(std::string& out,bool value) {
+void appendBoolean(std::string& out,bool value) {
     append(out,std::string(value ? "1" : "0"));
 }
 bool read(const std::string& in,std::size_t& pos,std::string& value) {
@@ -96,7 +96,8 @@ std::string backendAgentNativeTimerModifyPayload(
     const auto& s=p.specification;
     append(out,s.channelId); append(out,s.title); append(out,s.directory); append(out,s.day);
     append(out,s.weekdays); append(out,hhmm(s.startTime)); append(out,hhmm(s.endTime));
-    append(out,s.priority); append(out,s.lifetime); append(out,s.enabled); append(out,s.vps);
+    append(out,s.priority); append(out,s.lifetime);
+    appendBoolean(out,s.enabled); appendBoolean(out,s.vps);
     const auto& q=p.localProviderSelection;
     append(out,q.backendId); append(out,q.authorityDomain); append(out,q.providerId);
     append(out,q.providerKind); append(out,q.ownershipGeneration);
