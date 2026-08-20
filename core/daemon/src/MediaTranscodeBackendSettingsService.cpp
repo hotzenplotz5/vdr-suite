@@ -161,15 +161,19 @@ MediaTranscodeBackendSettingsSnapshot
 MediaTranscodeBackendSettingsService::snapshotLocked() const
 {
     MediaTranscodeBackendSettingsSnapshot snapshot;
-    snapshot.backendId = backendId_;
+    if (!validBackendId(backendId_)) return snapshot;
 
     std::string managedMode;
-    const bool managedRead = readManagedModeLocked(managedMode);
+    if (!readManagedModeLocked(managedMode)) return snapshot;
+
     std::optional<MediaVideoEncoderMode> managed;
-    if (managedRead && validManagedMode(managedMode)) {
+    if (!managedMode.empty()) {
+        if (!validManagedMode(managedMode)) return snapshot;
         managed = parsedMode(managedMode);
+        if (!managed.has_value()) return snapshot;
     }
 
+    snapshot.backendId = backendId_;
     snapshot.managed = managed.has_value();
     snapshot.managedMode = snapshot.managed ? managedMode : std::string();
 
@@ -238,21 +242,35 @@ MediaTranscodeBackendSettingsService::update(
         return result;
     }
 
+    result.settings = snapshotLocked();
+    if (result.settings.backendId.empty()) {
+        result.statusCode = 503;
+        result.errorCode = "media_transcode_settings_readback_failed";
+        result.message = "Media transcode settings could not be read back after persistence";
+        return result;
+    }
+
     result.success = true;
     result.statusCode = 200;
-    result.settings = snapshotLocked();
     return result;
 }
 
-MediaTranscodePolicy MediaTranscodeBackendSettingsService::resolvePolicy() const
+bool MediaTranscodeBackendSettingsService::resolvePolicy(
+    MediaTranscodePolicy& policy) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!validBackendId(backendId_)) return MediaTranscodePolicy::fromEnvironment();
+    if (!validBackendId(backendId_)) return false;
 
     std::string managedMode;
+    if (!readManagedModeLocked(managedMode)) return false;
+
     std::optional<MediaVideoEncoderMode> managed;
-    if (readManagedModeLocked(managedMode) && validManagedMode(managedMode)) {
+    if (!managedMode.empty()) {
+        if (!validManagedMode(managedMode)) return false;
         managed = parsedMode(managedMode);
+        if (!managed.has_value()) return false;
     }
-    return resolvePolicyLocked(managed);
+
+    policy = resolvePolicyLocked(managed);
+    return true;
 }
