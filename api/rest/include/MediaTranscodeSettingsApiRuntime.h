@@ -33,6 +33,9 @@ public:
         const std::string& backendId,
         MediaTranscodePolicy& policy) const;
 
+    MediaTranscodePolicy resolvePolicy(
+        const std::string& backendId) const;
+
 private:
     MediaTranscodeSettingsApiRuntime() = default;
 
