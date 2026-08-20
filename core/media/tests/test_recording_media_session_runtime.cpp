@@ -314,7 +314,8 @@ int main()
                 const pid_t child = ::fork();
                 assert(child >= 0);
                 if (child == 0) {
-                    for (;;) ::pause();
+                    ::sleep(60);
+                    _exit(0);
                 }
                 streamWorkerPid = child;
                 ++streamSpawnCalls;
