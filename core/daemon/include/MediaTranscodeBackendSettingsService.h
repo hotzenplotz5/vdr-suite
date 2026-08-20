@@ -3,6 +3,7 @@
 #include "Database.h"
 #include "MediaTranscodePolicy.h"
 
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -36,9 +37,12 @@ struct MediaTranscodeBackendSettingsUpdateResult
 class MediaTranscodeBackendSettingsService
 {
 public:
+    using VaapiHostCapabilityProbe = std::function<bool()>;
+
     MediaTranscodeBackendSettingsService(
         Database& database,
-        std::string backendId);
+        std::string backendId,
+        VaapiHostCapabilityProbe vaapiHostCapabilityProbe = {});
 
     bool ensureSchema();
 
@@ -62,11 +66,15 @@ private:
     bool readManagedModeLocked(std::string& mode) const;
     bool storeManagedModeLocked(const std::string& mode) const;
     bool clearManagedModeLocked() const;
+    bool vaapiHostCapabilityLocked() const;
+    static bool defaultVaapiEncoderCapability();
     MediaTranscodeBackendSettingsSnapshot snapshotLocked() const;
     MediaTranscodePolicy resolvePolicyLocked(
         const std::optional<MediaVideoEncoderMode>& managedMode) const;
 
     Database& database_;
     std::string backendId_;
+    VaapiHostCapabilityProbe vaapiHostCapabilityProbe_;
+    mutable std::optional<bool> cachedVaapiHostCapability_;
     mutable std::mutex mutex_;
 };
