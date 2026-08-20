@@ -30,8 +30,9 @@ int main()
         response));
     assert(response.statusCode == 200);
     assert(response.body.find("\"managedMode\":\"software\"") != std::string::npos);
-    assert(runtime.resolvePolicy("backend-a").videoEncoderMode() ==
-        MediaVideoEncoderMode::Software);
+    MediaTranscodePolicy resolved;
+    assert(runtime.resolvePolicy("backend-a", resolved));
+    assert(resolved.videoEncoderMode() == MediaVideoEncoderMode::Software);
 
     assert(runtime.tryHandlePost(
         "/api/backends/backend-a/settings/media-transcode",
@@ -59,6 +60,28 @@ int main()
         response));
     assert(response.statusCode == 200);
     assert(response.body.find("\"managed\":false") != std::string::npos);
+
+    database.close();
+    assert(runtime.configured());
+    assert(runtime.tryHandleGet(
+        "/api/backends/backend-a/settings/media-transcode", response));
+    assert(response.statusCode == 503);
+    MediaTranscodePolicy unavailable;
+    assert(!runtime.resolvePolicy("backend-a", unavailable));
+    const MediaTranscodePolicy compatibilityFallback =
+        runtime.resolvePolicy("backend-a");
+    assert(compatibilityFallback.videoEncoderMode() == MediaVideoEncoderMode::Auto);
+    assert(!compatibilityFallback.apply(
+        [] {
+            MediaPresentationProfile profile;
+            profile.available = true;
+            profile.videoAction = MediaTrackAction::Transcode;
+            profile.targetVideoCodec = MediaCodec::H264;
+            profile.targetVideoWidth = 1920;
+            profile.targetVideoHeight = 1080;
+            profile.videoTranscodeWorkload = MediaTranscodeWorkload::Standard;
+            return profile;
+        }()).available);
 
     runtime.reset();
     assert(!runtime.configured());
