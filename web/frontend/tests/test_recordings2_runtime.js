@@ -5,6 +5,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 const modules = new Map();
+const deferredPlaybackLoads = [];
 const document = {
   querySelector() { return null; },
   querySelectorAll() { return []; },
@@ -46,6 +47,22 @@ const window = {
     getSelectedBackendId() { return 'default'; },
     getMountTarget() { return null; },
     getClientApi() { return null; }
+  },
+  VdrSuiteRecordings2Playback: Object.freeze({
+    createLivePanel() {}
+  }),
+  loadVdrSuiteDeferredRuntime(key, path, ready) {
+    deferredPlaybackLoads.push({
+      key,
+      path,
+      readyBefore: ready()
+    });
+    window.VdrSuiteRecordings2Playback = Object.freeze({
+      createLivePanel() {},
+      createPanel() {}
+    });
+    assert.strictEqual(ready(), true);
+    return Promise.resolve();
   }
 };
 
@@ -82,6 +99,14 @@ assert.ok(window.VdrSuiteRecordings2BrowserView);
 assert.ok(window.VdrSuiteRecordings2);
 assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
 assert.strictEqual(window.VdrSuiteRecordingBrowser, undefined);
+assert.strictEqual(deferredPlaybackLoads.length, 1);
+assert.deepStrictEqual(deferredPlaybackLoads[0], {
+  key: 'vdr-suite-recordings2-playback-runtime',
+  path: '/frontend/recordings2-playback.js',
+  readyBefore: false
+});
+assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
 
 const test = window.VdrSuiteRecordings2.__test;
 const shared = window.VdrSuiteRecordings2Shared;
