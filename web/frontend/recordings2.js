@@ -27,6 +27,7 @@
     requestSequence: 0
   };
   let view;
+  let sessionFrontendRuntimePromise = null;
   let playbackRuntimePromise = null;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
@@ -45,9 +46,71 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
+  function sessionFrontendRuntimeReady() {
+    return Boolean(
+      global.VdrSuiteRecordingFastPlayback &&
+      global.VdrSuiteLivePlayback
+    );
+  }
   function playbackRuntimeReady() {
     const playback = global.VdrSuiteRecordings2Playback;
     return Boolean(playback && typeof playback.createPanel === 'function');
+  }
+  function loadSessionFrontendRuntimeDirect() {
+    if (sessionFrontendRuntimeReady()) return Promise.resolve();
+    const document = global.document;
+    if (!document || !document.head || typeof document.createElement !== 'function') {
+      return Promise.reject(new Error('MediaSession-Frontend-Runtime kann nicht geladen werden.'));
+    }
+    return new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.id = 'vdr-suite-session-frontend-sync-runtime-recovery';
+      script.src = '/frontend/api/session-frontend-sync.js';
+      script.async = false;
+      script.addEventListener('load', function () {
+        if (sessionFrontendRuntimeReady()) {
+          resolve();
+          return;
+        }
+        reject(new Error('MediaSession-Frontend-Runtime wurde nicht initialisiert.'));
+      }, {once: true});
+      script.addEventListener('error', function () {
+        reject(new Error('MediaSession-Frontend-Runtime konnte nicht geladen werden.'));
+      }, {once: true});
+      document.head.appendChild(script);
+    });
+  }
+  function ensureSessionFrontendRuntime() {
+    if (sessionFrontendRuntimeReady()) return Promise.resolve();
+    if (sessionFrontendRuntimePromise) return sessionFrontendRuntimePromise;
+
+    let deferred;
+    if (typeof global.loadVdrSuiteDeferredRuntime === 'function') {
+      deferred = global.loadVdrSuiteDeferredRuntime(
+        'vdr-suite-session-frontend-sync-runtime',
+        '/frontend/api/session-frontend-sync.js',
+        sessionFrontendRuntimeReady
+      );
+    } else {
+      deferred = Promise.resolve();
+    }
+
+    sessionFrontendRuntimePromise = Promise.resolve(deferred)
+      .then(function () {
+        return sessionFrontendRuntimeReady()
+          ? undefined
+          : loadSessionFrontendRuntimeDirect();
+      })
+      .then(function () {
+        if (!sessionFrontendRuntimeReady()) {
+          throw new Error('MediaSession-Frontend-Runtime ist nicht bereit.');
+        }
+      })
+      .catch(function (error) {
+        sessionFrontendRuntimePromise = null;
+        throw error;
+      });
+    return sessionFrontendRuntimePromise;
   }
   function loadPlaybackRuntimeDirect() {
     if (playbackRuntimeReady()) return Promise.resolve();
@@ -74,21 +137,21 @@
     });
   }
   function ensurePlaybackRuntime() {
-    if (playbackRuntimeReady()) return Promise.resolve();
+    if (sessionFrontendRuntimeReady() && playbackRuntimeReady()) return Promise.resolve();
     if (playbackRuntimePromise) return playbackRuntimePromise;
 
-    let deferred;
-    if (typeof global.loadVdrSuiteDeferredRuntime === 'function') {
-      deferred = global.loadVdrSuiteDeferredRuntime(
-        'vdr-suite-recordings2-playback-runtime',
-        '/frontend/recordings2-playback.js',
-        playbackRuntimeReady
-      );
-    } else {
-      deferred = Promise.resolve();
-    }
-
-    playbackRuntimePromise = Promise.resolve(deferred)
+    playbackRuntimePromise = ensureSessionFrontendRuntime()
+      .then(function () {
+        if (playbackRuntimeReady()) return undefined;
+        if (typeof global.loadVdrSuiteDeferredRuntime === 'function') {
+          return global.loadVdrSuiteDeferredRuntime(
+            'vdr-suite-recordings2-playback-runtime',
+            '/frontend/recordings2-playback.js',
+            playbackRuntimeReady
+          );
+        }
+        return loadPlaybackRuntimeDirect();
+      })
       .then(function () {
         return playbackRuntimeReady() ? undefined : loadPlaybackRuntimeDirect();
       })
@@ -104,7 +167,7 @@
     return playbackRuntimePromise;
   }
   function renderSelectedRecordingWhenPlaybackReady() {
-    if (playbackRuntimeReady()) {
+    if (sessionFrontendRuntimeReady() && playbackRuntimeReady()) {
       render();
       return;
     }
@@ -326,6 +389,8 @@
       normalizeRecording: normalizeRecording,
       applyFolderData: applyFolderData,
       resolveSingleRecordingLeaves: resolveSingleRecordingLeaves,
+      ensureSessionFrontendRuntime: ensureSessionFrontendRuntime,
+      sessionFrontendRuntimeReady: sessionFrontendRuntimeReady,
       ensurePlaybackRuntime: ensurePlaybackRuntime,
       playbackRuntimeReady: playbackRuntimeReady
     })
