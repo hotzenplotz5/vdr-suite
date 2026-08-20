@@ -110,6 +110,8 @@ assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'funct
 
 const test = window.VdrSuiteRecordings2.__test;
 const shared = window.VdrSuiteRecordings2Shared;
+assert.strictEqual(test.playbackRuntimeReady(), true);
+assert.strictEqual(typeof test.ensurePlaybackRuntime, 'function');
 assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
 assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
 assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
