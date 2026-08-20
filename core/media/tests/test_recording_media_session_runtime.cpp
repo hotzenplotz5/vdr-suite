@@ -7,12 +7,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace
@@ -283,12 +286,14 @@ int main()
         int streamSpawnCalls = 0;
         int streamTerminateCalls = 0;
         int streamReadinessCalls = 0;
+        pid_t streamWorkerPid = -1;
         RecordingMediaSessionRuntime streamRuntime(
             repository,
             root.string(),
-            [&streamSpawnCalls](const std::vector<std::string>& argv,
-                                const std::string& workingDirectory,
-                                const std::string& logPath) {
+            [&streamSpawnCalls, &streamWorkerPid](
+                const std::vector<std::string>& argv,
+                const std::string& workingDirectory,
+                const std::string& logPath) {
                 assert(!argv.empty());
                 assert(argv.front() == "/usr/bin/ffmpeg");
                 assert(containsPair(argv, "-f", "concat"));
@@ -305,12 +310,27 @@ int main()
                 assert(std::filesystem::is_fifo(
                     std::filesystem::path(workingDirectory) / "recording.fmp4"));
                 assert(!logPath.empty());
+
+                const pid_t child = ::fork();
+                assert(child >= 0);
+                if (child == 0) {
+                    for (;;) ::pause();
+                }
+                streamWorkerPid = child;
                 ++streamSpawnCalls;
-                return static_cast<pid_t>(5252);
+                return child;
             },
-            [&streamTerminateCalls](pid_t pid, std::chrono::milliseconds grace) {
-                assert(pid == 5252);
+            [&streamTerminateCalls, &streamWorkerPid](
+                pid_t pid,
+                std::chrono::milliseconds grace) {
+                assert(pid == streamWorkerPid);
                 assert(grace.count() >= 0);
+                assert(::kill(pid, SIGTERM) == 0);
+                int status = 0;
+                while (::waitpid(pid, &status, 0) < 0) {
+                    if (errno == EINTR) continue;
+                    assert(false);
+                }
                 ++streamTerminateCalls;
                 return true;
             },
@@ -334,6 +354,31 @@ int main()
         const auto streamReady = repository.findSession(streamIssued.session.sessionId);
         assert(streamReady.has_value());
         assert(streamReady->state == "ready");
+
+        assert(database.execute(
+            "UPDATE media_access_grants SET "
+            "last_seen_at=datetime('now','-301 seconds'), "
+            "updated_at=CURRENT_TIMESTAMP "
+            "WHERE session_id='" + streamIssued.session.sessionId + "';"));
+        const auto streamWouldBeIdle = repository.findResolvedGrant(
+            streamIssued.session.grantId,
+            300);
+        assert(streamWouldBeIdle.has_value());
+        assert(streamWouldBeIdle->idleExpired);
+
+        // Continuous progressive playback has one authenticated GET and must
+        // not be killed merely because it has no HLS polling requests.
+        assert(streamRuntime.reapInactive(300) == 0);
+        assert(streamTerminateCalls == 0);
+        const auto streamStillReady = repository.findSession(
+            streamIssued.session.sessionId);
+        assert(streamStillReady.has_value());
+        assert(streamStillReady->state == "ready");
+        const auto streamGrantWithoutIdle = repository.findResolvedGrant(
+            streamIssued.session.grantId,
+            0);
+        assert(streamGrantWithoutIdle.has_value());
+        assert(!streamGrantWithoutIdle->idleExpired);
 
         assert(streamRuntime.stop(streamIssued.session.sessionId, "client_closed"));
         assert(streamTerminateCalls == 1);
