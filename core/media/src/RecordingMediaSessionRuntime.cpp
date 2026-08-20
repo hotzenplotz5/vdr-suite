@@ -673,21 +673,84 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         return 0;
     }
 
-    std::vector<std::pair<std::string, std::string>> candidates;
+    struct Candidate
+    {
+        std::string sessionId;
+        std::string grantId;
+        pid_t pid = -1;
+        bool continuousStream = false;
+    };
+
+    std::vector<Candidate> candidates;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         candidates.reserve(active_.size());
         for (const auto& entry : active_) {
-            candidates.emplace_back(entry.first, entry.second.grantId);
+            Candidate candidate;
+            candidate.sessionId = entry.first;
+            candidate.grantId = entry.second.grantId;
+            candidate.pid = entry.second.pid;
+            if (entry.second.workspace) {
+                std::error_code error;
+                const std::filesystem::path streamPath =
+                    std::filesystem::path(entry.second.workspace->directory()) /
+                    RecordingStreamName;
+                candidate.continuousStream =
+                    std::filesystem::is_fifo(streamPath, error) && !error;
+            }
+            candidates.push_back(std::move(candidate));
         }
     }
 
     std::size_t reaped = 0;
     for (const auto& candidate : candidates) {
+        if (candidate.continuousStream && candidate.pid > 0) {
+            int status = 0;
+            errno = 0;
+            const pid_t waited = ::waitpid(candidate.pid, &status, WNOHANG);
+            if (waited == candidate.pid || (waited < 0 && errno == ECHILD)) {
+                ActiveSession exited;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    const auto found = active_.find(candidate.sessionId);
+                    if (found == active_.end()) continue;
+                    exited = std::move(found->second);
+                    active_.erase(found);
+                }
+                if (exited.direct && directSourceRegistry_ != nullptr) {
+                    directSourceRegistry_->remove(candidate.sessionId);
+                }
+                if (repository_.endBundle(
+                        candidate.sessionId,
+                        "recording_stream_worker_exited")) {
+                    ++reaped;
+                }
+                continue;
+            }
+            if (waited < 0 && errno != EINTR) {
+                if (stop(candidate.sessionId, "recording_stream_worker_wait_failed")) {
+                    ++reaped;
+                }
+                continue;
+            }
+        }
+
+        // A continuous progressive response is one authenticated GET, just like
+        // Live-TV. It has no HLS polling cadence with which to refresh
+        // last_seen_at. Disable only idle expiry for that transport while still
+        // enforcing explicit revocation and the absolute grant expiry. Worker
+        // exit above is the transport-liveness fence for disconnect/EOF.
+        const int grantIdleTimeout = candidate.continuousStream
+            ? 0
+            : idleTimeoutSeconds;
         const auto grant = repository_.findResolvedGrant(
-            candidate.second,
-            idleTimeoutSeconds);
-        if (!grant.has_value() || grant->sessionId != candidate.first) {
+            candidate.grantId,
+            grantIdleTimeout);
+        if (!grant.has_value() || grant->sessionId != candidate.sessionId) {
+            if (candidate.continuousStream &&
+                stop(candidate.sessionId, "media_access_grant_missing")) {
+                ++reaped;
+            }
             continue;
         }
 
@@ -702,7 +765,7 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
             reasonCode = "media_access_idle_expired";
         }
 
-        if (!reasonCode.empty() && stop(candidate.first, reasonCode)) {
+        if (!reasonCode.empty() && stop(candidate.sessionId, reasonCode)) {
             ++reaped;
         }
     }
