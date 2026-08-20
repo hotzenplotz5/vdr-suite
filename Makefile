@@ -36,6 +36,7 @@ include mk/phase63-runtime-acceptance.mk
 include mk/agent-tests.mk
 include mk/phase64-backend-agent-command-reservation-tests.mk
 include mk/phase64-native-timer-create-agent-contract-tests.mk
+include mk/phase64-native-timer-modify-agent-contract-tests.mk
 include mk/phase64-native-timer-create-reservation-tests.mk
 include mk/phase64-native-timer-create-dispatch-state-tests.mk
 include mk/phase64-native-timer-create-outcome-completion-tests.mk
