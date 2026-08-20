@@ -135,6 +135,7 @@ struct MediaPresentationProfile
     MediaVideoEncoderBackend videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
     MediaSoftwareEncoderPreset videoEncoderPreset = MediaSoftwareEncoderPreset::Veryfast;
     std::string videoHardwareDevice;
+    bool videoEncoderPolicyResolved = false;
     int targetAudioChannels = 0;
     std::string reason;
 };
