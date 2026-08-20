@@ -275,7 +275,7 @@ bool MediaTranscodeSettingsApiRuntime::configure(Database& database)
 bool MediaTranscodeSettingsApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    return database_ != nullptr && database_->isOpen();
+    return database_ != nullptr;
 }
 
 void MediaTranscodeSettingsApiRuntime::reset()
@@ -391,11 +391,10 @@ bool MediaTranscodeSettingsApiRuntime::tryHandlePost(
     return true;
 }
 
-MediaTranscodePolicy MediaTranscodeSettingsApiRuntime::resolvePolicy(
-    const std::string& backendId) const
+bool MediaTranscodeSettingsApiRuntime::resolvePolicy(
+    const std::string& backendId,
+    MediaTranscodePolicy& policy) const
 {
     MediaTranscodeBackendSettingsService* service = findOrCreateService(backendId);
-    return service == nullptr
-        ? MediaTranscodePolicy::fromEnvironment()
-        : service->resolvePolicy();
+    return service != nullptr && service->resolvePolicy(policy);
 }
