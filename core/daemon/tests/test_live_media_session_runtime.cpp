@@ -136,6 +136,13 @@ ClientMediaCapabilities browserCapabilities()
     return client;
 }
 
+MediaTranscodePolicy forcedSoftwarePolicy()
+{
+    MediaTranscodePolicyConfig config;
+    config.videoEncoderMode = MediaVideoEncoderMode::Software;
+    return MediaTranscodePolicy(config);
+}
+
 pid_t spawnIdleWorker()
 {
     const pid_t pid = ::fork();
@@ -275,7 +282,7 @@ int main()
         },
         [](pid_t pid, std::chrono::milliseconds) { return terminateWorker(pid); },
         [](const std::string&, MediaContainer) { return true; },
-        MediaTranscodePolicy());
+        forcedSoftwarePolicy());
 
     // Provider epoch replacement must reap the old receiver/worker/session
     // fail-closed. CLOSE on the old epoch is accepted as terminal evidence.
