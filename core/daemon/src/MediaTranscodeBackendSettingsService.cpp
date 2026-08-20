@@ -1,12 +1,20 @@
 #include "MediaTranscodeBackendSettingsService.h"
 
+#include "MediaProcessRunner.h"
+
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <sqlite3.h>
+#include <unistd.h>
 #include <utility>
 
 namespace
 {
+constexpr const char* FfmpegExecutable = "/usr/bin/ffmpeg";
+constexpr auto VaapiCapabilityProbeTimeout = std::chrono::seconds(3);
+constexpr std::size_t MaximumVaapiCapabilityProbeOutputBytes = 64U * 1024U;
+
 bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
 {
     return sqlite3_bind_text(
@@ -36,9 +44,11 @@ std::optional<MediaVideoEncoderMode> parsedMode(const std::string& value)
 
 MediaTranscodeBackendSettingsService::MediaTranscodeBackendSettingsService(
     Database& database,
-    std::string backendId)
+    std::string backendId,
+    VaapiHostCapabilityProbe vaapiHostCapabilityProbe)
     : database_(database),
-      backendId_(std::move(backendId))
+      backendId_(std::move(backendId)),
+      vaapiHostCapabilityProbe_(std::move(vaapiHostCapabilityProbe))
 {
 }
 
@@ -151,10 +161,64 @@ bool MediaTranscodeBackendSettingsService::clearManagedModeLocked() const
     return removed;
 }
 
+bool MediaTranscodeBackendSettingsService::defaultVaapiEncoderCapability(
+    const std::string& vaapiDevice)
+{
+    if (vaapiDevice.empty() ||
+        vaapiDevice.size() > 512U ||
+        vaapiDevice.rfind("/dev/dri/", 0) != 0 ||
+        ::access(vaapiDevice.c_str(), R_OK | W_OK) != 0)
+    {
+        return false;
+    }
+
+    const MediaProcessCaptureResult result = MediaProcessRunner().runAndCapture(
+        {
+            FfmpegExecutable,
+            "-hide_banner",
+            "-loglevel", "error",
+            "-init_hw_device", "vaapi=va:" + vaapiDevice,
+            "-h", "encoder=h264_vaapi"
+        },
+        "/",
+        VaapiCapabilityProbeTimeout,
+        MaximumVaapiCapabilityProbeOutputBytes);
+    return result.success;
+}
+
+bool MediaTranscodeBackendSettingsService::vaapiHostCapabilityLocked(
+    const std::string& vaapiDevice) const
+{
+    if (cachedVaapiHostCapability_.has_value() &&
+        cachedVaapiHostCapabilityDevice_ == vaapiDevice)
+    {
+        return cachedVaapiHostCapability_.value();
+    }
+
+    const bool available = vaapiHostCapabilityProbe_
+        ? vaapiHostCapabilityProbe_(vaapiDevice)
+        : defaultVaapiEncoderCapability(vaapiDevice);
+    cachedVaapiHostCapabilityDevice_ = vaapiDevice;
+    cachedVaapiHostCapability_ = available;
+    return available;
+}
+
 MediaTranscodePolicy MediaTranscodeBackendSettingsService::resolvePolicyLocked(
     const std::optional<MediaVideoEncoderMode>& managedMode) const
 {
-    return MediaTranscodePolicy::fromEnvironment(managedMode);
+    if (vaapiHostCapabilityProbe_) {
+        MediaTranscodePolicy injected = MediaTranscodePolicy::fromEnvironment(
+            managedMode,
+            true);
+        return MediaTranscodePolicy::fromEnvironment(
+            managedMode,
+            vaapiHostCapabilityLocked(injected.vaapiDevice()));
+    }
+
+    MediaTranscodePolicy policy = MediaTranscodePolicy::fromEnvironment(managedMode);
+    if (!policy.diagnostics().vaapiAvailable) return policy;
+    if (vaapiHostCapabilityLocked(policy.vaapiDevice())) return policy;
+    return MediaTranscodePolicy::fromEnvironment(managedMode, false);
 }
 
 MediaTranscodeBackendSettingsSnapshot
