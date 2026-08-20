@@ -6,6 +6,7 @@
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
+#include "MediaTranscodeSettingsApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
@@ -201,6 +202,13 @@ public:
             return response;
         }
 
+        if (MediaTranscodeSettingsApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         if (SeriesArtworkSettingsApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
@@ -260,6 +268,14 @@ public:
                 requestTarget,
                 body,
                 actorRef,
+                response))
+        {
+            return response;
+        }
+
+        if (MediaTranscodeSettingsApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
                 response))
         {
             return response;
