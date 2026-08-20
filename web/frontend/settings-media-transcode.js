@@ -200,8 +200,10 @@
 
   function diagnosticRow(list, label, attribute) {
     const item = element('div', {});
+    const value = element('dd', {}, '—');
+    value.setAttribute('data-media-transcode-' + attribute, 'true');
     item.appendChild(element('dt', {}, label));
-    item.appendChild(element('dd', {'data-media-transcode-' + attribute: 'true'}, '—'));
+    item.appendChild(value);
     list.appendChild(item);
   }
 
