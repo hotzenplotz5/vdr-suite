@@ -51,11 +51,25 @@ int main(){
  boolPayload.expectedSpecificationFingerprint=
    backendAgentNativeTimerCreateSpecificationFingerprint(boolPayload.specification);
  const auto boolEncoded=backendAgentNativeTimerModifyPayload(boolPayload);
+ require(!boolEncoded.empty(),"boolean payload serialization failed");
+ require(boolEncoded.find("|6:update|")!=std::string::npos,
+         "modify kind serialized through wrong overload");
  BackendAgentNativeTimerModifyPayload boolParsed;std::string boolReason;
- require(!boolEncoded.empty()&&
-         backendAgentNativeTimerModifyParsePayload(boolEncoded,boolParsed,boolReason)&&
-         !boolParsed.specification.enabled&&boolParsed.specification.vps,
-         "boolean payload roundtrip failed");
+ require(backendAgentNativeTimerModifyParsePayload(boolEncoded,boolParsed,boolReason),
+         "boolean payload parse failed");
+ require(!boolParsed.specification.enabled&&boolParsed.specification.vps,
+         "boolean payload values did not roundtrip");
+
+ auto togglePayload=payload();
+ togglePayload.kind=BackendAgentNativeTimerModifyKind::toggle;
+ togglePayload.localProviderSelection.requiredCapability="vdr.timer.toggle";
+ const auto toggleEncoded=backendAgentNativeTimerModifyPayload(togglePayload);
+ require(!toggleEncoded.empty()&&toggleEncoded.find("|6:toggle|")!=std::string::npos,
+         "toggle kind serialization failed");
+ BackendAgentNativeTimerModifyPayload toggleParsed;std::string toggleReason;
+ require(backendAgentNativeTimerModifyParsePayload(toggleEncoded,toggleParsed,toggleReason)&&
+         toggleParsed.kind==BackendAgentNativeTimerModifyKind::toggle,
+         "toggle payload roundtrip failed");
 
  auto a=assignment();BackendAgentNativeTimerModifyLocalState state;std::string reason;
  require(backendAgentNativeTimerModifyPrepareLocalStarting(a,101,state,reason),"prepare failed");
