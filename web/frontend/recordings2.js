@@ -45,14 +45,18 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
+  function playbackRuntimeReady() {
+    const playback = global.VdrSuiteRecordings2Playback;
+    return Boolean(playback && typeof playback.createPanel === 'function');
+  }
   function ensurePlaybackRuntime() {
-    if (global.VdrSuiteRecordings2Playback) return Promise.resolve();
+    if (playbackRuntimeReady()) return Promise.resolve();
     if (playbackRuntimePromise) return playbackRuntimePromise;
     if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve();
     playbackRuntimePromise = global.loadVdrSuiteDeferredRuntime(
       'vdr-suite-recordings2-playback-runtime',
       '/frontend/recordings2-playback.js',
-      function () { return Boolean(global.VdrSuiteRecordings2Playback); }
+      playbackRuntimeReady
     ).then(function () {
       if (state.active && state.selectedRecording) render();
     }).catch(function (error) {
