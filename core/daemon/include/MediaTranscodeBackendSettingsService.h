@@ -37,7 +37,8 @@ struct MediaTranscodeBackendSettingsUpdateResult
 class MediaTranscodeBackendSettingsService
 {
 public:
-    using VaapiHostCapabilityProbe = std::function<bool()>;
+    using VaapiHostCapabilityProbe =
+        std::function<bool(const std::string& vaapiDevice)>;
 
     MediaTranscodeBackendSettingsService(
         Database& database,
@@ -66,8 +67,8 @@ private:
     bool readManagedModeLocked(std::string& mode) const;
     bool storeManagedModeLocked(const std::string& mode) const;
     bool clearManagedModeLocked() const;
-    bool vaapiHostCapabilityLocked() const;
-    static bool defaultVaapiEncoderCapability();
+    bool vaapiHostCapabilityLocked(const std::string& vaapiDevice) const;
+    static bool defaultVaapiEncoderCapability(const std::string& vaapiDevice);
     MediaTranscodeBackendSettingsSnapshot snapshotLocked() const;
     MediaTranscodePolicy resolvePolicyLocked(
         const std::optional<MediaVideoEncoderMode>& managedMode) const;
