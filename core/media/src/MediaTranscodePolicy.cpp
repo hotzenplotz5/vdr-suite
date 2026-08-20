@@ -513,7 +513,8 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
     const MediaPresentationProfile& profile) const
 {
     MediaPresentationProfile result = profile;
-    if (!result.available || result.videoAction != MediaTrackAction::Transcode) {
+    if (result.videoEncoderPolicyResolved ||
+        !result.available || result.videoAction != MediaTrackAction::Transcode) {
         return result;
     }
 
@@ -535,6 +536,7 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
         result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
         result.videoEncoderPreset = selectPreset(workload);
         result.videoHardwareDevice.clear();
+        result.videoEncoderPolicyResolved = true;
         return result;
     }
 
@@ -555,6 +557,7 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
         }
         result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
         result.videoHardwareDevice = config_.vaapiDevice;
+        result.videoEncoderPolicyResolved = true;
         return result;
     }
 
@@ -565,6 +568,7 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
             measured.value() >= config_.minimumRealtimeSpeed) {
             result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
             result.videoHardwareDevice = config_.vaapiDevice;
+            result.videoEncoderPolicyResolved = true;
             return result;
         }
     }
@@ -575,6 +579,7 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
         result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
         result.videoEncoderPreset = measured.value();
         result.videoHardwareDevice.clear();
+        result.videoEncoderPolicyResolved = true;
         return result;
     }
 
