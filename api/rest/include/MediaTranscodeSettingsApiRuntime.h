@@ -29,8 +29,9 @@ public:
         const std::string& body,
         ApiResponse& response) const;
 
-    MediaTranscodePolicy resolvePolicy(
-        const std::string& backendId) const;
+    bool resolvePolicy(
+        const std::string& backendId,
+        MediaTranscodePolicy& policy) const;
 
 private:
     MediaTranscodeSettingsApiRuntime() = default;
