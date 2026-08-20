@@ -143,6 +143,14 @@ MediaTranscodePolicy forcedSoftwarePolicy()
     return MediaTranscodePolicy(config);
 }
 
+MediaTranscodePolicy forcedVaapiPolicy()
+{
+    MediaTranscodePolicyConfig config;
+    config.videoEncoderMode = MediaVideoEncoderMode::Vaapi;
+    config.vaapiAvailable = true;
+    return MediaTranscodePolicy(config);
+}
+
 pid_t spawnIdleWorker()
 {
     const pid_t pid = ::fork();
@@ -399,6 +407,48 @@ int main()
     assert(fourthStored->terminalReason == "daemon_shutdown");
     assert(!std::filesystem::exists(
         std::filesystem::path(workspaceRoot) / fourth.session.workspaceId));
+
+    // A forced-VAAPI policy rejection happens after issuance and provider open,
+    // so it must close the provider and persist a terminal failure instead of
+    // leaving the issued bundle stranded in provisioning. The human-readable
+    // policy message remains the API-facing reason while durable state uses the
+    // stable machine reason code shared with Recording policy rejection.
+    int rejectedWorkerStarts = 0;
+    LiveMediaSessionRuntime rejectedRuntime(
+        sessions,
+        providerRuntime,
+        workspaceRoot,
+        {},
+        [&rejectedWorkerStarts](const std::vector<std::string>&,
+                                const std::string&,
+                                const std::string&) {
+            ++rejectedWorkerStarts;
+            return spawnIdleWorker();
+        },
+        [](pid_t pid, std::chrono::milliseconds) { return terminateWorker(pid); },
+        [](const std::string&, MediaContainer) { return true; },
+        forcedVaapiPolicy());
+    auto fifth = issueLive(issuance);
+    assert(fifth.issued);
+    auto fifthProvision = rejectedRuntime.provisionHls(
+        fifth.session.sessionId,
+        fifth.session.workspaceId,
+        fifth.session.leaseId,
+        fifth.session.grantId,
+        preparation,
+        browserCapabilities());
+    assert(!fifthProvision.ready);
+    assert(fifthProvision.reasonCode ==
+        "forced VAAPI does not support the requested video transformation");
+    assert(rejectedWorkerStarts == 0);
+    assert(rejectedRuntime.activeCount() == 0);
+    const auto fifthStored = sessions.findSession(fifth.session.sessionId);
+    assert(fifthStored.has_value());
+    assert(fifthStored->state == "failed");
+    assert(fifthStored->terminalReason ==
+        "forced_vaapi_transformation_unsupported");
+    assert(!std::filesystem::exists(
+        std::filesystem::path(workspaceRoot) / fifth.session.workspaceId));
 
     std::filesystem::remove_all(workspaceRoot);
     return 0;
