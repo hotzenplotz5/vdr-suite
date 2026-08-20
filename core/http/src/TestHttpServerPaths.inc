@@ -10,6 +10,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"},
     {"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"},
     {"/frontend/api/genre-client-api.js", "api/genre-client-api.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/api/session-frontend-sync.js", "api/session-frontend-sync.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/public-url.js", "platform/public-url.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/bootstrap.js", "platform/bootstrap.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/i18n.js", "platform/i18n.js", "application/javascript; charset=utf-8", nullptr},
