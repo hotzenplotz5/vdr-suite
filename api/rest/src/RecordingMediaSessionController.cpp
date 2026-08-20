@@ -8,6 +8,7 @@
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
+#include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
@@ -173,6 +174,17 @@ void removeProgressiveCapability(ClientMediaCapabilities& capabilities)
             capabilities.protocols.end(),
             MediaDeliveryProtocol::Progressive),
         capabilities.protocols.end());
+}
+
+std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
+{
+    if (profile.reason.find("forced VAAPI does not support") != std::string::npos) {
+        return "forced_vaapi_transformation_unsupported";
+    }
+    if (profile.reason.find("forced VAAPI is unavailable") != std::string::npos) {
+        return "forced_vaapi_unavailable";
+    }
+    return "media_transcode_capacity_unproven";
 }
 
 } // namespace
@@ -406,10 +418,19 @@ ApiResponse RecordingMediaSessionController::createSession(
         removeProgressiveCapability(effectiveCapabilities);
     }
 
-    const MediaPresentationProfile profile =
+    MediaPresentationProfile profile =
         MediaPresentationSelector().select(source, effectiveCapabilities);
     if (!profile.available || profile.profileId.empty()) {
         return jsonError(422, "media_presentation_unavailable");
+    }
+    if (profile.videoAction == MediaTrackAction::Transcode) {
+        const MediaTranscodePolicy policy =
+            MediaTranscodeSettingsApiRuntime::instance().resolvePolicy(
+                request.backendId);
+        profile = policy.apply(profile);
+        if (!profile.available) {
+            return jsonError(503, transcodePolicyReasonCode(profile));
+        }
     }
     const auto presentationSelectedAt = std::chrono::steady_clock::now();
 
