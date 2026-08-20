@@ -69,11 +69,13 @@ VDR_SUITE_TMDB_NEGATIVE_CACHE_TTL_SECONDS=21600
 VDR_SUITE_TMDB_TRANSIENT_CACHE_TTL_SECONDS=300
 VDR_SUITE_TMDB_MAX_JSON_BYTES=524288
 
-# Recording software-transcode policy. Auto is resolved once before the FFmpeg
-# worker starts and stays stable for the complete media session. A trusted v3
-# calibration profile can choose a higher-compression x264 preset only when the
-# measured workload retains at least 1.25x real-time throughput. Otherwise the
-# typed fallbacks are deinterlace=superfast and standard/UHD=veryfast.
+# Recording/Live software-transcode policy. The deployment default for encoder
+# backend selection is auto. A backend-scoped managed setting in the Web UI can
+# override this for new sessions only; clearing that setting returns control to
+# this deployment value. Auto starts a video transcode only when calibration
+# proves an eligible encoder reaches at least 1.25x real-time throughput.
+VDR_SUITE_MEDIA_VIDEO_ENCODER=auto
+# VDR_SUITE_MEDIA_VAAPI_DEVICE=/dev/dri/renderD128
 VDR_SUITE_MEDIA_X264_PRESET=auto
 VDR_SUITE_MEDIA_TRANSCODE_PROFILE=/var/lib/vdr-suite/media-transcode-performance.conf
 # VDR_SUITE_MEDIA_X264_STANDARD_PRESET=auto
