@@ -1,4 +1,4 @@
-.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+.PHONY: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 CXXFLAGS += -Icore/media/include
 
@@ -18,6 +18,7 @@ test-phase65-media-transcode-policy:
 
 test-phase65-local-recording-source:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingSourceFingerprint.cpp \
 		core/media/src/LocalVdrRecordingSourceResolver.cpp \
 		core/media/tests/test_local_vdr_recording_source_resolver.cpp \
 		-o $(BUILD_DIR)/test_phase65_local_recording_source
@@ -29,6 +30,15 @@ test-phase65-segmented-recording-byte-source:
 		core/media/tests/test_segmented_recording_byte_source.cpp \
 		-o $(BUILD_DIR)/test_phase65_segmented_recording_byte_source
 	$(BUILD_DIR)/test_phase65_segmented_recording_byte_source
+
+test-phase65-recording-direct-source:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingSourceFingerprint.cpp \
+		core/media/src/SegmentedRecordingByteSource.cpp \
+		core/media/src/RecordingDirectSourceRegistry.cpp \
+		core/media/tests/test_recording_direct_source_registry.cpp \
+		-o $(BUILD_DIR)/test_phase65_recording_direct_source
+	$(BUILD_DIR)/test_phase65_recording_direct_source
 
 test-phase65-ffmpeg-hls-command-builder:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -86,6 +96,9 @@ test-phase65-media-gateway-http:
 		core/media/src/MediaSessionIssuanceService.cpp \
 		core/media/src/MediaAccessGrantAuthenticator.cpp \
 		core/media/src/MediaHlsArtifactReader.cpp \
+		core/media/src/RecordingSourceFingerprint.cpp \
+		core/media/src/SegmentedRecordingByteSource.cpp \
+		core/media/src/RecordingDirectSourceRegistry.cpp \
 		core/http/src/MediaGatewayHttpServer.cpp \
 		core/http/tests/test_media_gateway_http_server.cpp \
 		-lsqlite3 -lcrypt \
@@ -123,6 +136,9 @@ test-phase65-recording-media-session-runtime:
 		core/media/src/MediaSessionWorkspace.cpp \
 		core/media/src/MediaSessionRepository.cpp \
 		core/media/src/MediaSessionIssuanceService.cpp \
+		core/media/src/RecordingSourceFingerprint.cpp \
+		core/media/src/SegmentedRecordingByteSource.cpp \
+		core/media/src/RecordingDirectSourceRegistry.cpp \
 		core/media/src/RecordingMediaSessionRuntime.cpp \
 		core/media/tests/test_recording_media_session_runtime.cpp \
 		-lsqlite3 -lcrypt \
@@ -186,7 +202,7 @@ test-phase65-live-media-session-runtime:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 .PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
 

@@ -8,6 +8,7 @@
 class MediaAccessGrantAuthenticator;
 class MediaHlsArtifactReader;
 class MediaRouteLeaseRepository;
+class RecordingDirectSourceRegistry;
 
 class MediaGatewayHttpServer : public IHttpServer
 {
@@ -17,7 +18,8 @@ public:
         const MediaAccessGrantAuthenticator& authenticator,
         const MediaRouteLeaseRepository& routeLeaseRepository,
         const MediaHlsArtifactReader& artifactReader,
-        std::string workspaceRoot = "/var/cache/vdr-suite/media-sessions");
+        std::string workspaceRoot = "/var/cache/vdr-suite/media-sessions",
+        const RecordingDirectSourceRegistry* directSourceRegistry = nullptr);
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
@@ -28,4 +30,5 @@ private:
     const MediaRouteLeaseRepository& routeLeaseRepository_;
     const MediaHlsArtifactReader& artifactReader_;
     std::string workspaceRoot_;
+    const RecordingDirectSourceRegistry* directSourceRegistry_ = nullptr;
 };

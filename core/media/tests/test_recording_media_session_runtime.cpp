@@ -3,6 +3,7 @@
 #include "Database.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "RecordingSourceFingerprint.h"
 
 #include <algorithm>
 #include <cassert>
@@ -41,14 +42,15 @@ std::chrono::system_clock::time_point futureClock()
     return std::chrono::system_clock::from_time_t(timegm(&utc));
 }
 
-MediaSessionIssuanceRequest issuanceRequest()
+MediaSessionIssuanceRequest issuanceRequest(
+    const std::string& profileId = "hls-fmp4")
 {
     MediaSessionIssuanceRequest request;
     request.actorId = "actor-1";
     request.backendId = "default";
     request.resourceKind = "recording";
     request.resourceId = "recording-1";
-    request.presentationProfileId = "hls-fmp4";
+    request.presentationProfileId = profileId;
     request.providerId = "local-vdr-recording";
     return request;
 }
@@ -68,6 +70,19 @@ MediaPresentationProfile hlsProfile()
     profile.deinterlaceVideo = true;
     profile.videoTranscodeWorkload = MediaTranscodeWorkload::Deinterlace;
     profile.audioAction = MediaTrackAction::Omit;
+    return profile;
+}
+
+MediaPresentationProfile directProfile()
+{
+    MediaPresentationProfile profile;
+    profile.available = true;
+    profile.profileId = "progressive-direct";
+    profile.protocol = MediaDeliveryProtocol::Progressive;
+    profile.container = MediaContainer::MpegTs;
+    profile.adaptationClass = MediaAdaptationClass::PassThrough;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.audioAction = MediaTrackAction::Copy;
     return profile;
 }
 
@@ -234,6 +249,62 @@ int main()
     assert(idleEnded.has_value());
     assert(idleEnded->state == "ended");
     assert(idleEnded->terminalReason == "media_access_idle_expired");
+
+    const std::vector<std::string> directSegments = {segment.string()};
+    const RecordingSourceFingerprint fingerprint =
+        inspectRecordingSource(root.string(), directSegments);
+    assert(fingerprint.valid);
+    RecordingDirectSourceRegistration registration;
+    registration.recordingDirectory = root.string();
+    registration.segmentPaths = directSegments;
+    registration.sourceFingerprint = fingerprint.value;
+    registration.readableBytes = fingerprint.readableBytes;
+
+    RecordingDirectSourceRegistry directRegistry;
+    {
+        RecordingMediaSessionRuntime directRuntime(
+            repository,
+            root.string(),
+            directRegistry);
+
+        auto directIssued = issuer.issue(issuanceRequest("progressive-direct"));
+        assert(directIssued.issued);
+        const auto directResult = directRuntime.provisionDirect(
+            directIssued.session.sessionId,
+            directIssued.session.grantId,
+            directProfile(),
+            registration);
+        assert(directResult.ready);
+        assert(directRegistry.lookup(directIssued.session.sessionId).available);
+        assert(directRuntime.stop(directIssued.session.sessionId, "client_closed"));
+        assert(!directRegistry.lookup(directIssued.session.sessionId).available);
+        const auto directStopped = repository.findSession(directIssued.session.sessionId);
+        assert(directStopped.has_value());
+        assert(directStopped->state == "ended");
+        assert(directStopped->terminalReason == "client_closed");
+        directIssued.session.clearSecret();
+
+        auto directIdle = issuer.issue(issuanceRequest("progressive-direct"));
+        assert(directIdle.issued);
+        assert(directRuntime.provisionDirect(
+            directIdle.session.sessionId,
+            directIdle.session.grantId,
+            directProfile(),
+            registration).ready);
+        assert(directRegistry.lookup(directIdle.session.sessionId).available);
+        assert(database.execute(
+            "UPDATE media_access_grants SET "
+            "last_seen_at=datetime('now','-301 seconds'), "
+            "updated_at=CURRENT_TIMESTAMP "
+            "WHERE session_id='" + directIdle.session.sessionId + "';"));
+        assert(directRuntime.reapInactive(300) == 1);
+        assert(!directRegistry.lookup(directIdle.session.sessionId).available);
+        const auto directReaped = repository.findSession(directIdle.session.sessionId);
+        assert(directReaped.has_value());
+        assert(directReaped->state == "ended");
+        assert(directReaped->terminalReason == "media_access_idle_expired");
+        directIdle.session.clearSecret();
+    }
 
     issued.session.clearSecret();
     std::filesystem::remove_all(root);

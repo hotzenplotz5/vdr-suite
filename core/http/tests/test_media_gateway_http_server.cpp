@@ -6,6 +6,8 @@
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "RecordingDirectSourceRegistry.h"
+#include "RecordingSourceFingerprint.h"
 
 #include <cassert>
 #include <chrono>
@@ -60,14 +62,14 @@ void writeFile(const std::filesystem::path& path, const std::string& value)
     stream.write(value.data(), static_cast<std::streamsize>(value.size()));
 }
 
-MediaSessionIssuanceRequest recordingRequest()
+MediaSessionIssuanceRequest recordingRequest(const std::string& profile = "hls-fmp4")
 {
     MediaSessionIssuanceRequest value;
     value.actorId = "actor-1";
     value.backendId = "default";
     value.resourceKind = "recording";
     value.resourceId = "42";
-    value.presentationProfileId = "hls-fmp4";
+    value.presentationProfileId = profile;
     value.providerId = "local-vdr-recording";
     value.lifetimeSeconds = 21600;
     return value;
@@ -116,6 +118,33 @@ int main()
     writeFile(workspace / "master.m3u8", "#EXTM3U\nsegment-000001.m4s\n");
     writeFile(workspace / "segment-000001.m4s", "media-bytes");
 
+    const auto directDirectory = root / "direct.rec";
+    std::filesystem::create_directories(directDirectory);
+    const auto directFirst = directDirectory / "00001.ts";
+    const auto directSecond = directDirectory / "00002.ts";
+    writeFile(directFirst, "ABCDE");
+    writeFile(directSecond, "FGHIJ");
+    const std::vector<std::string> directSegments = {
+        directFirst.string(), directSecond.string()};
+    const RecordingSourceFingerprint directFingerprint =
+        inspectRecordingSource(directDirectory.string(), directSegments);
+    assert(directFingerprint.valid);
+
+    auto directIssued = issuer.issue(recordingRequest("progressive-direct"));
+    assert(directIssued.issued);
+    RecordingDirectSourceRegistry directRegistry;
+    RecordingDirectSourceRegistration directRegistration;
+    directRegistration.recordingDirectory = directDirectory.string();
+    directRegistration.segmentPaths = directSegments;
+    directRegistration.sourceFingerprint = directFingerprint.value;
+    directRegistration.readableBytes = directFingerprint.readableBytes;
+    std::string directFailure;
+    assert(directRegistry.registerCompleted(
+        directIssued.session.sessionId,
+        directRegistration,
+        directFailure));
+    assert(sessionRepository.activateBundle(directIssued.session.sessionId));
+
     MediaAccessGrantAuthenticator authenticator(sessionRepository, 300, 60);
     MediaHlsArtifactReader artifactReader(root.string());
     MediaGatewayHttpServer gateway(
@@ -123,7 +152,8 @@ int main()
         authenticator,
         routeRepository,
         artifactReader,
-        root.string());
+        root.string(),
+        &directRegistry);
 
     const std::string prefix =
         "/api/media/sessions/" + issued.session.sessionId + "/hls/";
@@ -170,6 +200,105 @@ int main()
         assert(response.statusCode == 200);
         assert(response.headers.at("Content-Type") == "video/iso.segment");
         assert(response.body == "media-bytes");
+    }
+
+    const std::string directPath =
+        "/api/media/sessions/" + directIssued.session.sessionId +
+        "/recording/stream.ts";
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Range"] = "bytes=0-4";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 400);
+        assert(response.headers.at("Accept-Ranges") == "bytes");
+        assert(response.body.find("media_byte_range_required") != std::string::npos);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=3-8";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 206);
+        assert(response.headers.at("Content-Type") == "video/mp2t");
+        assert(response.headers.at("Accept-Ranges") == "bytes");
+        assert(response.headers.at("Content-Range") == "bytes 3-8/10");
+        assert(response.body == "DEFGHI");
+        assert(response.body.find(directDirectory.string()) == std::string::npos);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=-3";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 206);
+        assert(response.headers.at("Content-Range") == "bytes 7-9/10");
+        assert(response.body == "HIJ");
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=10-";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 416);
+        assert(response.headers.at("Content-Range") == "bytes */10");
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=0-1,4-5";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 400);
+        assert(response.body.find("media_byte_range_invalid") != std::string::npos);
+    }
+
+    writeFile(directSecond, "changed");
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=0-1";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 409);
+        assert(response.body.find("recording_source_changed") != std::string::npos);
+        assert(response.body.find(directDirectory.string()) == std::string::npos);
+    }
+
+    assert(sessionRepository.endBundle(directIssued.session.sessionId, "client_stop"));
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = directPath;
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + directIssued.session.accessCredential;
+        http.headers["Range"] = "bytes=0-1";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+        assert(response.body.find("media_access_inactive") != std::string::npos);
     }
 
     assert(sessionRepository.endBundle(issued.session.sessionId, "client_stop"));
@@ -226,6 +355,7 @@ int main()
     assert(sessionRepository.endBundle(live.session.sessionId, "client_stop"));
     std::filesystem::remove_all(root);
     issued.session.clearSecret();
+    directIssued.session.clearSecret();
     live.session.clearSecret();
     return 0;
 }

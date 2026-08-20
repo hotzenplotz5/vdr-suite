@@ -87,6 +87,9 @@ DAEMON_SRC := \
         core/http/src/TestHttpServer.cpp \
         core/http/src/MediaGatewayHttpServer.cpp \
         core/media/src/LocalVdrRecordingSourceResolver.cpp \
+        core/media/src/RecordingSourceFingerprint.cpp \
+        core/media/src/SegmentedRecordingByteSource.cpp \
+        core/media/src/RecordingDirectSourceRegistry.cpp \
         core/media/src/FfprobeRecordingSource.cpp \
         core/media/src/FfprobeLiveSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \

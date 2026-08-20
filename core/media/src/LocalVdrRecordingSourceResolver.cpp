@@ -1,5 +1,7 @@
 #include "LocalVdrRecordingSourceResolver.h"
 
+#include "RecordingSourceFingerprint.h"
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -40,6 +42,18 @@ std::string preferredInternalDirectory(const VdrRecording& recording)
     }
 
     return recording.path;
+}
+
+bool modernTransportStreamSet(const std::vector<std::string>& segments)
+{
+    return !segments.empty() &&
+        std::all_of(
+            segments.begin(),
+            segments.end(),
+            [](const std::string& path) {
+                return isModernSegment(
+                    std::filesystem::path(path).filename().string());
+            });
 }
 
 } // namespace
@@ -86,11 +100,24 @@ LocalVdrRecordingSourceResolution LocalVdrRecordingSourceResolver::resolve(
         return resolution;
     }
 
+    const RecordingSourceFingerprint fingerprint =
+        inspectRecordingSource(directory, segments);
+    if (!fingerprint.valid) {
+        resolution.reasonCode = fingerprint.reasonCode.empty()
+            ? "recording_source_unavailable"
+            : fingerprint.reasonCode;
+        return resolution;
+    }
+
     resolution.resolved = true;
     resolution.source.backendId = backendId;
     resolution.source.recordingId = recordingId;
     resolution.source.recordingDirectory = directory;
     resolution.source.segmentPaths = segments;
+    resolution.source.growing = fingerprint.growing;
+    resolution.source.progressiveDirectSafe = modernTransportStreamSet(segments);
+    resolution.source.readableBytes = fingerprint.readableBytes;
+    resolution.source.sourceFingerprint = fingerprint.value;
     return resolution;
 }
 

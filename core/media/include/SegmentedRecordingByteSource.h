@@ -47,6 +47,11 @@ private:
         std::string path;
         std::uint64_t start = 0;
         std::uint64_t end = 0;
+        std::uint64_t device = 0;
+        std::uint64_t inode = 0;
+        std::uint64_t size = 0;
+        std::int64_t mtimeSeconds = 0;
+        std::int64_t mtimeNanoseconds = 0;
     };
 
     struct Snapshot

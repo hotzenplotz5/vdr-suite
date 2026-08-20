@@ -8,13 +8,16 @@
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
+#include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "VdrRecordingQueryService.h"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <sys/random.h>
@@ -148,6 +151,30 @@ MediaSessionWorkspaceResult prepareProbeWorkspace(
     return result;
 }
 
+std::string descriptorCacheKey(
+    const std::string& backendId,
+    const std::string& recordingId)
+{
+    return backendId + "\n" + recordingId;
+}
+
+long long elapsedMilliseconds(
+    std::chrono::steady_clock::time_point start,
+    std::chrono::steady_clock::time_point end)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+}
+
+void removeProgressiveCapability(ClientMediaCapabilities& capabilities)
+{
+    capabilities.protocols.erase(
+        std::remove(
+            capabilities.protocols.begin(),
+            capabilities.protocols.end(),
+            MediaDeliveryProtocol::Progressive),
+        capabilities.protocols.end());
+}
+
 } // namespace
 
 RecordingMediaSessionController::RecordingMediaSessionController(
@@ -158,9 +185,30 @@ RecordingMediaSessionController::RecordingMediaSessionController(
     : recordingQueryService_(recordingQueryService),
       mediaSessionRepository_(mediaSessionRepository),
       mediaSessionIssuanceService_(mediaSessionIssuanceService),
+      ownedDirectSourceRegistry_(std::make_unique<RecordingDirectSourceRegistry>()),
+      directSourceRegistry_(ownedDirectSourceRegistry_.get()),
       mediaSessionRuntime_(std::make_unique<RecordingMediaSessionRuntime>(
           mediaSessionRepository,
-          workspaceRoot)),
+          workspaceRoot,
+          *directSourceRegistry_)),
+      workspaceRoot_(std::move(workspaceRoot))
+{
+}
+
+RecordingMediaSessionController::RecordingMediaSessionController(
+    VdrRecordingQueryService& recordingQueryService,
+    MediaSessionRepository& mediaSessionRepository,
+    MediaSessionIssuanceService& mediaSessionIssuanceService,
+    RecordingDirectSourceRegistry& directSourceRegistry,
+    std::string workspaceRoot)
+    : recordingQueryService_(recordingQueryService),
+      mediaSessionRepository_(mediaSessionRepository),
+      mediaSessionIssuanceService_(mediaSessionIssuanceService),
+      directSourceRegistry_(&directSourceRegistry),
+      mediaSessionRuntime_(std::make_unique<RecordingMediaSessionRuntime>(
+          mediaSessionRepository,
+          workspaceRoot,
+          directSourceRegistry)),
       workspaceRoot_(std::move(workspaceRoot))
 {
 }
@@ -239,6 +287,7 @@ ApiResponse RecordingMediaSessionController::createSession(
     const std::string& body,
     const std::string& actorId) const
 {
+    const auto requestStartedAt = std::chrono::steady_clock::now();
     if (actorId.empty()) {
         return jsonError(401, "media_actor_required");
     }
@@ -278,49 +327,91 @@ ApiResponse RecordingMediaSessionController::createSession(
                 ? "recording_source_unavailable"
                 : sourceResolution.reasonCode);
     }
+    const auto sourceResolvedAt = std::chrono::steady_clock::now();
 
-    MediaSessionWorkspace probeWorkspace(workspaceRoot_);
-    const MediaSessionWorkspaceResult workspaceResult =
-        prepareProbeWorkspace(probeWorkspace, sourceResolution.source.segmentPaths);
-    if (!workspaceResult.ready) {
-        return jsonError(
-            503,
-            workspaceResult.reasonCode.empty()
-                ? "media_probe_workspace_unavailable"
-                : workspaceResult.reasonCode);
+    const std::string cacheKey = descriptorCacheKey(
+        request.backendId,
+        request.recordingId);
+    MediaSourceDescriptor source;
+    bool probeCacheHit = false;
+    if (!sourceResolution.source.growing) {
+        std::lock_guard<std::mutex> lock(descriptorCacheMutex_);
+        const auto cached = descriptorCache_.find(cacheKey);
+        if (cached != descriptorCache_.end() &&
+            cached->second.sourceFingerprint ==
+                sourceResolution.source.sourceFingerprint) {
+            source = cached->second.source;
+            probeCacheHit = true;
+        }
     }
 
-    const FfprobeRecordingSource probe;
-    const FfprobeRecordingPlan probePlan = probe.commandPlan();
-    const MediaProcessCaptureResult processResult = MediaProcessRunner().runAndCapture(
-        probePlan.argv,
-        probeWorkspace.directory(),
-        ProbeTimeout,
-        MaximumProbeOutputBytes);
-    if (!processResult.success) {
-        return jsonError(
-            503,
-            processResult.reasonCode.empty()
-                ? "media_source_probe_failed"
-                : processResult.reasonCode);
+    if (!probeCacheHit) {
+        MediaSessionWorkspace probeWorkspace(workspaceRoot_);
+        const MediaSessionWorkspaceResult workspaceResult =
+            prepareProbeWorkspace(
+                probeWorkspace,
+                sourceResolution.source.segmentPaths);
+        if (!workspaceResult.ready) {
+            return jsonError(
+                503,
+                workspaceResult.reasonCode.empty()
+                    ? "media_probe_workspace_unavailable"
+                    : workspaceResult.reasonCode);
+        }
+
+        const FfprobeRecordingSource probe;
+        const FfprobeRecordingPlan probePlan = probe.commandPlan();
+        const MediaProcessCaptureResult processResult = MediaProcessRunner().runAndCapture(
+            probePlan.argv,
+            probeWorkspace.directory(),
+            ProbeTimeout,
+            MaximumProbeOutputBytes);
+        if (!processResult.success) {
+            return jsonError(
+                503,
+                processResult.reasonCode.empty()
+                    ? "media_source_probe_failed"
+                    : processResult.reasonCode);
+        }
+
+        const FfprobeRecordingResult probeResult = probe.parse(processResult.output);
+        if (!probeResult.valid) {
+            return jsonError(
+                422,
+                probeResult.reasonCode.empty()
+                    ? "media_source_unsupported"
+                    : probeResult.reasonCode);
+        }
+        source = probeResult.source;
     }
 
-    const FfprobeRecordingResult probeResult = probe.parse(processResult.output);
-    if (!probeResult.valid) {
-        return jsonError(
-            422,
-            probeResult.reasonCode.empty()
-                ? "media_source_unsupported"
-                : probeResult.reasonCode);
+    source.resourceKind = sourceResolution.source.growing
+        ? MediaResourceKind::GrowingRecording
+        : MediaResourceKind::Recording;
+    source.growing = sourceResolution.source.growing;
+    source.seekable = !sourceResolution.source.growing;
+
+    if (!sourceResolution.source.growing && !probeCacheHit) {
+        CachedSourceDescriptor cached;
+        cached.sourceFingerprint = sourceResolution.source.sourceFingerprint;
+        cached.source = source;
+        std::lock_guard<std::mutex> lock(descriptorCacheMutex_);
+        descriptorCache_[cacheKey] = std::move(cached);
+    }
+    const auto descriptorReadyAt = std::chrono::steady_clock::now();
+
+    ClientMediaCapabilities effectiveCapabilities = request.capabilities;
+    if (sourceResolution.source.growing ||
+        !sourceResolution.source.progressiveDirectSafe) {
+        removeProgressiveCapability(effectiveCapabilities);
     }
 
     const MediaPresentationProfile profile =
-        MediaPresentationSelector().select(
-            probeResult.source,
-            request.capabilities);
+        MediaPresentationSelector().select(source, effectiveCapabilities);
     if (!profile.available || profile.profileId.empty()) {
         return jsonError(422, "media_presentation_unavailable");
     }
+    const auto presentationSelectedAt = std::chrono::steady_clock::now();
 
     MediaSessionIssuanceRequest issuanceRequest;
     issuanceRequest.actorId = actorId;
@@ -352,30 +443,77 @@ ApiResponse RecordingMediaSessionController::createSession(
         issuance.session.clearSecret();
         return jsonError(500, "media_access_credential_transport_failed");
     }
+    const auto sessionIssuedAt = std::chrono::steady_clock::now();
 
-    if (profile.protocol != MediaDeliveryProtocol::Hls) {
-        mediaSessionRepository_.endBundle(
+    RecordingMediaSessionProvisionResult provision;
+    std::string mediaPath;
+    if (profile.protocol == MediaDeliveryProtocol::Progressive) {
+        if (directSourceRegistry_ == nullptr || sourceResolution.source.growing ||
+            !sourceResolution.source.progressiveDirectSafe ||
+            !request.capabilities.supportsByteRanges) {
+            mediaSessionRepository_.endBundle(
+                issuance.session.sessionId,
+                "progressive_direct_source_not_safe");
+            issuance.session.clearSecret();
+            return jsonError(422, "media_progressive_direct_not_available");
+        }
+
+        RecordingDirectSourceRegistration registration;
+        registration.recordingDirectory =
+            sourceResolution.source.recordingDirectory;
+        registration.segmentPaths = sourceResolution.source.segmentPaths;
+        registration.sourceFingerprint =
+            sourceResolution.source.sourceFingerprint;
+        registration.readableBytes = sourceResolution.source.readableBytes;
+        provision = mediaSessionRuntime_->provisionDirect(
             issuance.session.sessionId,
-            "progressive_direct_not_yet_provisioned");
-        issuance.session.clearSecret();
-        return jsonError(422, "media_progressive_direct_not_available");
+            issuance.session.grantId,
+            profile,
+            registration);
+        mediaPath = "/api/media/sessions/" +
+            issuance.session.sessionId + "/recording/stream.ts";
     }
-
-    const RecordingMediaSessionProvisionResult provision =
-        mediaSessionRuntime_->provisionHls(
+    else if (profile.protocol == MediaDeliveryProtocol::Hls) {
+        provision = mediaSessionRuntime_->provisionHls(
             issuance.session.sessionId,
             issuance.session.workspaceId,
             issuance.session.grantId,
             profile,
             sourceResolution.source.segmentPaths);
+        mediaPath = "/api/media/sessions/" +
+            issuance.session.sessionId + "/hls/master.m3u8";
+    }
+    else {
+        mediaSessionRepository_.endBundle(
+            issuance.session.sessionId,
+            "media_delivery_protocol_not_supported");
+        issuance.session.clearSecret();
+        return jsonError(422, "media_presentation_unavailable");
+    }
+
     if (!provision.ready) {
         issuance.session.clearSecret();
         return jsonError(
             503,
             provision.reasonCode.empty()
-                ? "media_hls_provision_failed"
+                ? "media_provision_failed"
                 : provision.reasonCode);
     }
+    const auto provisionReadyAt = std::chrono::steady_clock::now();
+
+    std::clog
+        << "recording media startup"
+        << " session=" << issuance.session.sessionId
+        << " profile=" << profile.profileId
+        << " growing=" << (sourceResolution.source.growing ? "true" : "false")
+        << " probe_cache=" << (probeCacheHit ? "hit" : "miss")
+        << " source_ms=" << elapsedMilliseconds(requestStartedAt, sourceResolvedAt)
+        << " descriptor_ms=" << elapsedMilliseconds(sourceResolvedAt, descriptorReadyAt)
+        << " selection_ms=" << elapsedMilliseconds(descriptorReadyAt, presentationSelectedAt)
+        << " session_ms=" << elapsedMilliseconds(presentationSelectedAt, sessionIssuedAt)
+        << " provision_ms=" << elapsedMilliseconds(sessionIssuedAt, provisionReadyAt)
+        << " total_server_ms=" << elapsedMilliseconds(requestStartedAt, provisionReadyAt)
+        << std::endl;
 
     ApiResponse response;
     response.statusCode = 201;
@@ -390,8 +528,9 @@ ApiResponse RecordingMediaSessionController::createSession(
         "\"backendId\":\"" + jsonEscape(request.backendId) + "\"," +
         "\"recordingId\":\"" + jsonEscape(request.recordingId) + "\"," +
         "\"presentationProfileId\":\"" + jsonEscape(profile.profileId) + "\"," +
-        "\"mediaPath\":\"/api/media/sessions/" +
-            jsonEscape(issuance.session.sessionId) + "/hls/master.m3u8\"," +
+        "\"growing\":" + std::string(sourceResolution.source.growing ? "true" : "false") + "," +
+        "\"readableBytes\":" + std::to_string(sourceResolution.source.readableBytes) + "," +
+        "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
 
     issuance.session.clearSecret();

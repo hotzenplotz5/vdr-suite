@@ -4,10 +4,14 @@
 #include "MediaAccessGrantAuthenticator.h"
 #include "MediaHlsArtifactReader.h"
 #include "MediaRouteLeaseRepository.h"
+#include "RecordingDirectSourceRegistry.h"
+#include "SegmentedRecordingByteSource.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <sys/stat.h>
 #include <utility>
@@ -18,6 +22,7 @@ namespace
 constexpr const char* Prefix = "/api/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
 constexpr const char* LiveSuffix = "/live/stream.mp4";
+constexpr const char* RecordingDirectSuffix = "/recording/stream.ts";
 
 bool safeIdentifier(const std::string& value)
 {
@@ -34,6 +39,7 @@ struct MediaPath
 {
     bool valid = false;
     bool live = false;
+    bool recordingDirect = false;
     std::string sessionId;
     std::string artifactName;
 };
@@ -56,13 +62,29 @@ MediaPath parseMediaPath(const std::string& path)
         return result;
     }
 
-    const std::string suffix(LiveSuffix);
-    if (path.size() <= prefix.size() + suffix.size() ||
-        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0) {
+    const std::string directSuffix(RecordingDirectSuffix);
+    if (path.size() > prefix.size() + directSuffix.size() &&
+        path.compare(
+            path.size() - directSuffix.size(),
+            directSuffix.size(),
+            directSuffix) == 0) {
+        result.sessionId = path.substr(
+            prefix.size(), path.size() - prefix.size() - directSuffix.size());
+        result.recordingDirect = true;
+        result.valid = safeIdentifier(result.sessionId);
+        return result;
+    }
+
+    const std::string liveSuffix(LiveSuffix);
+    if (path.size() <= prefix.size() + liveSuffix.size() ||
+        path.compare(
+            path.size() - liveSuffix.size(),
+            liveSuffix.size(),
+            liveSuffix) != 0) {
         return result;
     }
     result.sessionId = path.substr(
-        prefix.size(), path.size() - prefix.size() - suffix.size());
+        prefix.size(), path.size() - prefix.size() - liveSuffix.size());
     result.live = true;
     result.valid = safeIdentifier(result.sessionId);
     return result;
@@ -151,6 +173,101 @@ std::string liveStreamPath(
     return stream.string();
 }
 
+bool decimalValue(const std::string& text, std::uint64_t& value)
+{
+    if (text.empty()) return false;
+    value = 0;
+    for (unsigned char character : text) {
+        if (!std::isdigit(character)) return false;
+        const unsigned digit = character - '0';
+        if (value > (std::numeric_limits<std::uint64_t>::max() - digit) / 10U)
+            return false;
+        value = value * 10U + digit;
+    }
+    return true;
+}
+
+enum class RangeState
+{
+    Valid,
+    Malformed,
+    Unsatisfiable
+};
+
+struct ByteRange
+{
+    RangeState state = RangeState::Malformed;
+    std::uint64_t first = 0;
+    std::uint64_t last = 0;
+};
+
+ByteRange parseSingleByteRange(
+    const std::string& header,
+    std::uint64_t length)
+{
+    ByteRange result;
+    constexpr const char* BytesPrefix = "bytes=";
+    if (header.rfind(BytesPrefix, 0) != 0 ||
+        header.find(',') != std::string::npos || length == 0) {
+        return result;
+    }
+
+    const std::string spec = header.substr(6);
+    const std::size_t dash = spec.find('-');
+    if (dash == std::string::npos || spec.find('-', dash + 1) != std::string::npos)
+        return result;
+
+    const std::string firstText = spec.substr(0, dash);
+    const std::string lastText = spec.substr(dash + 1);
+    if (firstText.empty()) {
+        std::uint64_t suffixLength = 0;
+        if (!decimalValue(lastText, suffixLength) || suffixLength == 0)
+            return result;
+        if (suffixLength >= length) {
+            result.first = 0;
+        }
+        else {
+            result.first = length - suffixLength;
+        }
+        result.last = length - 1;
+        result.state = RangeState::Valid;
+        return result;
+    }
+
+    std::uint64_t first = 0;
+    if (!decimalValue(firstText, first)) return result;
+    if (first >= length) {
+        result.state = RangeState::Unsatisfiable;
+        return result;
+    }
+
+    std::uint64_t last = length - 1;
+    if (!lastText.empty()) {
+        if (!decimalValue(lastText, last)) return result;
+        if (last < first) return result;
+        if (last >= length) last = length - 1;
+    }
+
+    result.first = first;
+    result.last = last;
+    result.state = RangeState::Valid;
+    return result;
+}
+
+HttpServerResponse rangeError(
+    int statusCode,
+    const std::string& code,
+    std::uint64_t readableBytes)
+{
+    HttpServerResponse response = jsonError(statusCode, code);
+    response.headers["Accept-Ranges"] = "bytes";
+    if (statusCode == 416) {
+        response.headers["Content-Range"] =
+            "bytes */" + std::to_string(readableBytes);
+    }
+    return response;
+}
+
 } // namespace
 
 MediaGatewayHttpServer::MediaGatewayHttpServer(
@@ -158,12 +275,14 @@ MediaGatewayHttpServer::MediaGatewayHttpServer(
     const MediaAccessGrantAuthenticator& authenticator,
     const MediaRouteLeaseRepository& routeLeaseRepository,
     const MediaHlsArtifactReader& artifactReader,
-    std::string workspaceRoot)
+    std::string workspaceRoot,
+    const RecordingDirectSourceRegistry* directSourceRegistry)
     : inner_(std::move(inner)),
       authenticator_(authenticator),
       routeLeaseRepository_(routeLeaseRepository),
       artifactReader_(artifactReader),
-      workspaceRoot_(std::move(workspaceRoot))
+      workspaceRoot_(std::move(workspaceRoot)),
+      directSourceRegistry_(directSourceRegistry)
 {
 }
 
@@ -220,6 +339,95 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin";
         response.headers["X-Accel-Buffering"] = "no";
         response.streamBodyPath = streamPath;
+        return response;
+    }
+
+    if (mediaPath.recordingDirect) {
+        if (lease->presentationProfileId != "progressive-direct") {
+            return jsonError(409, "media_presentation_not_progressive_direct");
+        }
+        if (directSourceRegistry_ == nullptr) {
+            return jsonError(503, "recording_direct_source_unavailable");
+        }
+
+        const RecordingDirectSourceLookup direct =
+            directSourceRegistry_->lookup(mediaPath.sessionId);
+        if (!direct.available) {
+            return jsonError(
+                409,
+                direct.reasonCode.empty()
+                    ? "recording_direct_source_unavailable"
+                    : direct.reasonCode);
+        }
+
+        const std::string rangeHeader = headerValue(request, "Range");
+        if (rangeHeader.empty()) {
+            return rangeError(
+                400,
+                "media_byte_range_required",
+                direct.readableBytes);
+        }
+
+        const ByteRange range = parseSingleByteRange(
+            rangeHeader,
+            direct.readableBytes);
+        if (range.state == RangeState::Malformed) {
+            return rangeError(
+                400,
+                "media_byte_range_invalid",
+                direct.readableBytes);
+        }
+        if (range.state == RangeState::Unsatisfiable) {
+            return rangeError(
+                416,
+                "media_byte_range_not_satisfiable",
+                direct.readableBytes);
+        }
+
+        const std::uint64_t requested64 = range.last - range.first + 1;
+        const std::size_t requested = requested64 >
+                static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())
+            ? std::numeric_limits<std::size_t>::max()
+            : static_cast<std::size_t>(requested64);
+        const RecordingByteReadResult read = directSourceRegistry_->read(
+            mediaPath.sessionId,
+            range.first,
+            requested);
+        if (!read.success || read.bytes.empty()) {
+            if (read.reasonCode == "recording_range_not_satisfiable") {
+                return rangeError(
+                    416,
+                    "media_byte_range_not_satisfiable",
+                    direct.readableBytes);
+            }
+            if (read.reasonCode == "recording_source_changed" ||
+                read.reasonCode == "recording_source_is_growing" ||
+                read.reasonCode == "recording_segment_changed") {
+                return jsonError(409, read.reasonCode);
+            }
+            return jsonError(
+                503,
+                read.reasonCode.empty()
+                    ? "recording_direct_read_failed"
+                    : read.reasonCode);
+        }
+
+        const std::uint64_t actualLast =
+            range.first + static_cast<std::uint64_t>(read.bytes.size()) - 1;
+        HttpServerResponse response;
+        response.statusCode = 206;
+        response.headers["Content-Type"] = "video/mp2t";
+        response.headers["Cache-Control"] = "no-store";
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        response.headers["Accept-Ranges"] = "bytes";
+        response.headers["Content-Range"] =
+            "bytes " + std::to_string(range.first) + "-" +
+            std::to_string(actualLast) + "/" +
+            std::to_string(direct.readableBytes);
+        response.body.assign(
+            reinterpret_cast<const char*>(read.bytes.data()),
+            read.bytes.size());
         return response;
     }
 

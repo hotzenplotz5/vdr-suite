@@ -50,6 +50,17 @@ RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
 RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
     MediaSessionRepository& repository,
     std::string workspaceRoot,
+    RecordingDirectSourceRegistry& directSourceRegistry)
+    : RecordingMediaSessionRuntime(
+          repository,
+          std::move(workspaceRoot))
+{
+    directSourceRegistry_ = &directSourceRegistry;
+}
+
+RecordingMediaSessionRuntime::RecordingMediaSessionRuntime(
+    MediaSessionRepository& repository,
+    std::string workspaceRoot,
     WorkerSpawner workerSpawner,
     WorkerTerminator workerTerminator,
     ReadinessProbe readinessProbe,
@@ -223,6 +234,71 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     return result;
 }
 
+RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionDirect(
+    const std::string& sessionId,
+    const std::string& grantId,
+    const MediaPresentationProfile& profile,
+    const RecordingDirectSourceRegistration& registration)
+{
+    RecordingMediaSessionProvisionResult result;
+    if (directSourceRegistry_ == nullptr || sessionId.empty() || grantId.empty() ||
+        !profile.available || profile.protocol != MediaDeliveryProtocol::Progressive ||
+        profile.container != MediaContainer::MpegTs ||
+        profile.adaptationClass != MediaAdaptationClass::PassThrough ||
+        registration.readableBytes == 0) {
+        result.reasonCode = "invalid_direct_provision_request";
+        return result;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (active_.find(sessionId) != active_.end()) {
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    std::string registrationFailure;
+    if (!directSourceRegistry_->registerCompleted(
+            sessionId,
+            registration,
+            registrationFailure)) {
+        result.reasonCode = registrationFailure.empty()
+            ? "recording_direct_source_unavailable"
+            : registrationFailure;
+        repository_.failBundle(sessionId, result.reasonCode);
+        return result;
+    }
+
+    ActiveSession active;
+    active.grantId = grantId;
+    active.direct = true;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto inserted = active_.emplace(sessionId, std::move(active));
+        if (!inserted.second) {
+            directSourceRegistry_->remove(sessionId);
+            repository_.failBundle(sessionId, "media_session_already_owned");
+            result.reasonCode = "media_session_already_owned";
+            return result;
+        }
+    }
+
+    if (!repository_.activateBundle(sessionId)) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            active_.erase(sessionId);
+        }
+        directSourceRegistry_->remove(sessionId);
+        repository_.failBundle(sessionId, "media_session_activation_failed");
+        result.reasonCode = "media_session_activation_failed";
+        return result;
+    }
+
+    result.ready = true;
+    return result;
+}
+
 bool RecordingMediaSessionRuntime::stop(
     const std::string& sessionId,
     const std::string& reasonCode)
@@ -241,6 +317,9 @@ bool RecordingMediaSessionRuntime::stop(
     bool workerStopped = true;
     if (active.pid > 0) {
         workerStopped = workerTerminator_(active.pid, WorkerShutdownGrace);
+    }
+    if (active.direct && directSourceRegistry_ != nullptr) {
+        directSourceRegistry_->remove(sessionId);
     }
 
     const bool bundleEnded = repository_.endBundle(sessionId, reasonCode);
@@ -301,6 +380,9 @@ void RecordingMediaSessionRuntime::stopAll()
     for (auto& entry : active) {
         if (entry.second.pid > 0) {
             workerTerminator_(entry.second.pid, WorkerShutdownGrace);
+        }
+        if (entry.second.direct && directSourceRegistry_ != nullptr) {
+            directSourceRegistry_->remove(entry.first);
         }
         repository_.endBundle(entry.first, "daemon_shutdown");
     }
