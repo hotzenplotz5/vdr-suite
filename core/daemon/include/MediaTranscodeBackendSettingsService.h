@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Database.h"
+#include "MediaTranscodeBackendSettingsRepository.h"
 #include "MediaTranscodePolicy.h"
 
 #include <functional>
@@ -73,7 +73,7 @@ private:
     MediaTranscodePolicy resolvePolicyLocked(
         const std::optional<MediaVideoEncoderMode>& managedMode) const;
 
-    Database& database_;
+    MediaTranscodeBackendSettingsRepository repository_;
     std::string backendId_;
     VaapiHostCapabilityProbe vaapiHostCapabilityProbe_;
     mutable std::string cachedVaapiHostCapabilityDevice_;

@@ -34,6 +34,7 @@ test-phase65-media-transcode-backend-settings:
 		-Icore/daemon/include -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
 		core/media/src/MediaProcessRunner.cpp \
 		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
 		core/daemon/tests/test_media_transcode_backend_settings_service.cpp \
@@ -46,6 +47,7 @@ test-phase65-media-transcode-settings-api:
 		-Iapi/rest/include -Icore/daemon/include -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
 		core/media/src/MediaProcessRunner.cpp \
 		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
 		api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
@@ -87,5 +89,6 @@ test-install-staging: test-phase65-media-transcode-settings-install
 # dependency without widening the production source ownership graph.
 test-phase65-live-media-session-runtime: CXXFLAGS += -Iapi/rest/include -Icore/daemon/include
 test-phase65-live-media-session-runtime: AGENT_CONTROL_PLANE_DOMAIN_SRC += \
+	core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
 	core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
 	api/rest/src/MediaTranscodeSettingsApiRuntime.cpp

@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
-#include <sqlite3.h>
 #include <unistd.h>
 #include <utility>
 
@@ -14,24 +13,6 @@ namespace
 constexpr const char* FfmpegExecutable = "/usr/bin/ffmpeg";
 constexpr auto VaapiCapabilityProbeTimeout = std::chrono::seconds(3);
 constexpr std::size_t MaximumVaapiCapabilityProbeOutputBytes = 64U * 1024U;
-
-bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
-{
-    return sqlite3_bind_text(
-        statement,
-        index,
-        value.c_str(),
-        -1,
-        SQLITE_TRANSIENT) == SQLITE_OK;
-}
-
-std::string columnText(sqlite3_stmt* statement, int column)
-{
-    const unsigned char* value = sqlite3_column_text(statement, column);
-    return value == nullptr
-        ? std::string()
-        : reinterpret_cast<const char*>(value);
-}
 
 std::optional<MediaVideoEncoderMode> parsedMode(const std::string& value)
 {
@@ -46,7 +27,7 @@ MediaTranscodeBackendSettingsService::MediaTranscodeBackendSettingsService(
     Database& database,
     std::string backendId,
     VaapiHostCapabilityProbe vaapiHostCapabilityProbe)
-    : database_(database),
+    : repository_(database),
       backendId_(std::move(backendId)),
       vaapiHostCapabilityProbe_(std::move(vaapiHostCapabilityProbe))
 {
@@ -82,83 +63,25 @@ bool MediaTranscodeBackendSettingsService::ensureSchema()
 
 bool MediaTranscodeBackendSettingsService::ensureSchemaLocked() const
 {
-    return database_.execute(
-        "CREATE TABLE IF NOT EXISTS backend_media_transcode_settings ("
-        "backend_id TEXT PRIMARY KEY,"
-        "video_encoder_mode TEXT NOT NULL,"
-        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-        "CHECK(video_encoder_mode IN ('auto','software','vaapi'))"
-        ");");
+    return repository_.ensureSchema();
 }
 
 bool MediaTranscodeBackendSettingsService::readManagedModeLocked(
     std::string& mode) const
 {
-    mode.clear();
-    if (!ensureSchemaLocked()) return false;
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT video_encoder_mode FROM backend_media_transcode_settings "
-        "WHERE backend_id=? LIMIT 1;";
-    if (sqlite3_prepare_v2(
-            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
-    {
-        return false;
-    }
-
-    const bool bound = bindText(statement, 1, backendId_);
-    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
-    if (step == SQLITE_ROW) mode = columnText(statement, 0);
-    sqlite3_finalize(statement);
-    return step == SQLITE_ROW || step == SQLITE_DONE;
+    return repository_.readManagedMode(backendId_, mode);
 }
 
 bool MediaTranscodeBackendSettingsService::storeManagedModeLocked(
     const std::string& mode) const
 {
-    if (!ensureSchemaLocked() || !validManagedMode(mode)) return false;
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "INSERT INTO backend_media_transcode_settings "
-        "(backend_id,video_encoder_mode,updated_at) "
-        "VALUES (?,?,CURRENT_TIMESTAMP) "
-        "ON CONFLICT(backend_id) DO UPDATE SET "
-        "video_encoder_mode=excluded.video_encoder_mode,"
-        "updated_at=CURRENT_TIMESTAMP;";
-    if (sqlite3_prepare_v2(
-            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
-    {
-        return false;
-    }
-
-    const bool stored =
-        bindText(statement, 1, backendId_) &&
-        bindText(statement, 2, mode) &&
-        sqlite3_step(statement) == SQLITE_DONE;
-    sqlite3_finalize(statement);
-    return stored;
+    return validManagedMode(mode) &&
+        repository_.storeManagedMode(backendId_, mode);
 }
 
 bool MediaTranscodeBackendSettingsService::clearManagedModeLocked() const
 {
-    if (!ensureSchemaLocked()) return false;
-
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "DELETE FROM backend_media_transcode_settings WHERE backend_id=?;";
-    if (sqlite3_prepare_v2(
-            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
-    {
-        return false;
-    }
-
-    const bool removed =
-        bindText(statement, 1, backendId_) &&
-        sqlite3_step(statement) == SQLITE_DONE;
-    sqlite3_finalize(statement);
-    return removed;
+    return repository_.clearManagedMode(backendId_);
 }
 
 bool MediaTranscodeBackendSettingsService::defaultVaapiEncoderCapability(
