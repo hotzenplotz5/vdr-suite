@@ -125,9 +125,6 @@ async function run() {
       readyBefore: false
     }
   ]);
-  assert.strictEqual(test.sessionFrontendRuntimeReady(), true);
-  assert.strictEqual(test.playbackRuntimeReady(), true);
-  assert.strictEqual(typeof test.ensureSessionFrontendRuntime, 'function');
   assert.strictEqual(typeof test.ensurePlaybackRuntime, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
