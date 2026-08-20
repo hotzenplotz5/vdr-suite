@@ -84,6 +84,11 @@ public:
         return config_.videoEncoderMode;
     }
 
+    const std::string& vaapiDevice() const
+    {
+        return config_.vaapiDevice;
+    }
+
     MediaTranscodePolicyDiagnostics diagnostics() const;
 
     static MediaTranscodePresetMode presetModeFromString(
