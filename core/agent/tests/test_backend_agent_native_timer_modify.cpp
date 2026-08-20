@@ -45,6 +45,18 @@ struct Transport final:IBackendAgentNativeTimerModifyTransport{
 };
 }
 int main(){
+ auto boolPayload=payload();
+ boolPayload.specification.enabled=false;
+ boolPayload.specification.vps=true;
+ boolPayload.expectedSpecificationFingerprint=
+   backendAgentNativeTimerCreateSpecificationFingerprint(boolPayload.specification);
+ const auto boolEncoded=backendAgentNativeTimerModifyPayload(boolPayload);
+ BackendAgentNativeTimerModifyPayload boolParsed;std::string boolReason;
+ require(!boolEncoded.empty()&&
+         backendAgentNativeTimerModifyParsePayload(boolEncoded,boolParsed,boolReason)&&
+         !boolParsed.specification.enabled&&boolParsed.specification.vps,
+         "boolean payload roundtrip failed");
+
  auto a=assignment();BackendAgentNativeTimerModifyLocalState state;std::string reason;
  require(backendAgentNativeTimerModifyPrepareLocalStarting(a,101,state,reason),"prepare failed");
  const auto encoded=backendAgentNativeTimerModifySerializeLocalState(state,reason);
