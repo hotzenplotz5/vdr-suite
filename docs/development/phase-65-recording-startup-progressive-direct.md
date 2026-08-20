@@ -108,9 +108,13 @@ A successful `progressive-fmp4` MediaSession is assigned directly to the native 
 
 The existing HLS Recording player remains intact as an automatic fallback. A failed or unavailable fast-path MediaSession therefore does not require weakening source truth, removing HLS, or special-casing a browser family.
 
-## Cleanup and authorization
+## Cleanup, liveness and authorization
 
-Direct and continuous Recording sessions remain owned by `RecordingMediaSessionRuntime`. Stop, grant idle expiry and daemon shutdown terminate any owned FFmpeg worker, remove the private workspace/FIFO or direct-source registration, and end the MediaSession bundle.
+Direct, HLS and continuous Recording sessions remain owned by `RecordingMediaSessionRuntime`. Explicit stop and daemon shutdown terminate any owned FFmpeg worker, remove the private workspace/FIFO or direct-source registration, and end the MediaSession bundle.
+
+HLS and native range-direct requests keep the existing request-idle expiry contract because their clients make repeated authenticated media requests. The continuous `progressive-fmp4` response is different: it is one long authenticated GET and therefore has no polling cadence with which to refresh `last_seen_at`. Its runtime disables only MediaAccessGrant **idle** expiry while that continuous worker is owned. Explicit grant revocation and the absolute grant expiry remain enforced.
+
+Continuous-stream transport liveness is fenced by the FFmpeg worker. The runtime checks the child process during the normal media-session reap cycle; browser disconnect/HTTP reader loss causes the FIFO writer to terminate, and the exited worker then closes the MediaSession bundle and workspace. This prevents a valid long playback from being killed at the ordinary 300-second request-idle boundary without turning the stream into an unbounded grant.
 
 Every media request re-enters MediaAccessGrant authentication and the active route lease. No permanent bearer URL is introduced. Credentials remain in the existing same-origin cookie/header transport and never appear in media URLs.
 
@@ -139,8 +143,9 @@ On the exact candidate commit, compare the same completed Recording before and a
 - absence of `-re` and HLS worker/playlist on a `progressive-fmp4` Recording;
 - native `progressive-direct` `206` range response and bounded response size for a range-capable client contract;
 - no advertised Range/Content-Length semantics on the continuous browser fMP4 stream;
+- continuous playback remaining alive beyond the ordinary 300-second request-idle threshold;
+- disconnect/stop cleanup and absence of stale workers/workspaces/direct registrations;
 - fallback playback for an incompatible or growing Recording;
-- stop/close cleanup and absence of stale workers/workspaces/direct registrations;
 - no public native VDR path leakage.
 
 A growing Recording must prove that neither immutable `progressive-direct` nor the completed-Recording `progressive-fmp4` fast path is selected as a false immutable source.
