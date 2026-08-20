@@ -47,7 +47,7 @@ public:
     MediaTranscodeBackendSettingsUpdateResult update(
         const MediaTranscodeBackendSettingsUpdate& request);
 
-    MediaTranscodePolicy resolvePolicy() const;
+    bool resolvePolicy(MediaTranscodePolicy& policy) const;
 
     const std::string& backendId() const
     {
