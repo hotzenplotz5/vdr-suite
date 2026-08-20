@@ -32,6 +32,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
+        api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
@@ -107,6 +108,7 @@ DAEMON_SRC := \
         core/media/src/RecordingMediaSessionRuntime.cpp \
         core/daemon/src/LiveMediaSessionRuntime.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
+        core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
