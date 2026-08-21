@@ -281,4 +281,4 @@ Never describe an acceptance item as passed merely because the daemon started or
 
 ## Credential and secret restrictions
 
-Never print, store or commit Authorization headers, plaintext passwords, password hashes/verifiers, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
