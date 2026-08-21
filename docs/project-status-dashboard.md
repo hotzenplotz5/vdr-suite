@@ -31,7 +31,7 @@ Exact active PRs, branch heads, CI runs, current checkpoint SHAs and the current
 | Backend Agent and multi-site trust | Established platform foundation | Enrolled identity, generation fencing, observations, durable commands/results and explicit local provider ownership. |
 | Protected native writes | Strong safety foundation | Idempotency, resource leases/fences, expected revisions, unknown outcome and authoritative readback. |
 | Timer orchestration | Numbered roadmap domain | `TimerIntent -> TimerAssignment -> NativeTimerBinding`; exact current implementation checkpoint is in `CURRENT.md`. |
-| Streaming Gateway / MediaSession | Numbered roadmap domain | Public media enforcement stays above private StreamProvider implementations. |
+| Streaming Gateway / MediaSession | Active numbered roadmap domain with accepted runtime foundation | Recording/Live MediaSessions, progressive delivery and backend-scoped output/transcode policy are implemented; current next scope is in `CURRENT.md`. |
 | Legacy OSD compatibility | Numbered roadmap domain | Isolated viewer/controller bridge; not conflated with LiveOverlay. |
 | Stable public API/SDK | Numbered roadmap domain | Independent version/error/compatibility contract. |
 | Recommendation/content graph | Later roadmap domain | Built only on mature Suite identity/provenance. |
@@ -41,7 +41,7 @@ Exact active PRs, branch heads, CI runs, current checkpoint SHAs and the current
 The project is evaluated through vertical outcomes, not only component completion:
 
 - Live TV selection must reach picture and sound through an authorized MediaSession and clean up the previous route/provider resources on channel change.
-- Recording playback must support truthful seek/growing-recording semantics and later durable Suite-owned resume state.
+- Recording playback must advertise seek/range/growing-recording capability truthfully: seek is used where supported, growing sources are not presented as immutable, and unsupported advanced seek remains explicitly unsupported until implemented. Durable Suite-owned resume/progress remains later capability work.
 - Recording creation must preserve the chain from EPG programme to TimerIntent, TimerAssignment, managed NativeTimerBinding and authoritative native VDR readback.
 - Multi-backend scheduling must reject stale, read-only, generation-mismatched or otherwise ineligible backends without exposing private providers to the user.
 - Failure must remain classified and visible without blind duplicate mutation or silent provider switching.
