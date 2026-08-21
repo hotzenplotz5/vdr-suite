@@ -27,6 +27,10 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Completed Phases](completed-phases.md)
 - [Completed Phase Archive](completed-phases/README.md)
 - [Phase 64 Final Closeout](phase-64-closeout.md)
+- [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
+- [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
+- [Phase 65.C Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Phase 62 Security Contract Index](phase-62-security-contract-index.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
@@ -50,9 +54,19 @@ Phase-64 Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `
 
 Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for the current repository checkpoint.
 
-## Next-domain planning
+## Current media-domain work
 
-Phase 65 - Streaming Gateway and Media Sessions is next but not started. Use ADR-0046, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing the first runtime vertical.
+Phase 65 - Streaming Gateway and Media Sessions is active.
+
+Accepted bounded verticals are:
+
+- 65.A Existing-Recording playback;
+- 65.B Live-TV playback;
+- 65.C Recording delivery performance and media output/transcode settings, implemented through the completed-Recording progressive path and the subsequently continued backend output-policy/Web-settings work.
+
+The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory while unimplemented advanced seek remains explicitly unsupported. The next planned Phase-65 vertical is **65.D Client playback abstraction**. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
+
+Use ADR-0046, ADR-0053, ADR-0055, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
 
 ## Developer references
 
