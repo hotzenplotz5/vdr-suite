@@ -12,11 +12,11 @@ Latest completed numbered runtime phase: **Phase 64 - Timer Intent and Multi-Bac
 
 Current active numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
 
-Completed Phase-65 verticals: **65.A - Existing-Recording playback**, **65.B - Live-TV playback**, **65.C - Recording startup / progressive-direct**, and **65.D - Media-transcode backend policy and output settings**.
+Completed Phase-65 verticals: **65.A - Existing-Recording playback**, **65.B - Live-TV playback**, and **65.C - Recording delivery performance and media output/transcode settings**.
 
-Next Phase-65 product vertical: **65.E - Client playback abstraction**.
+Next Phase-65 product vertical: **65.D - Client playback abstraction**.
 
-The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded. Truthful Range/seek/growing capability remains a Phase-65 requirement, but full time-seek and growing-Recording seek are not represented as the current 65.C implementation block.
+The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded. Truthful Range/seek/growing capability remains a Phase-65 requirement, but full time-seek and growing-Recording seek are not represented as the 65.C implementation block.
 
 Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, and Phase 63 - Backend Agent and Secure Multi-Site Runtime.
 
@@ -87,7 +87,7 @@ private source
   -> platform playback engine
 ```
 
-The implementation sequence that actually shipped is Recording playback, Live TV, completed-Recording startup/progressive delivery, then backend-scoped media-transcode policy/settings. Remux and transcode remain evidence-driven compatibility escalation, not default architecture.
+The implementation sequence that actually shipped is Recording playback, Live TV, then a Phase-65.C delivery/performance block that first accelerated completed Recording playback and then continued into backend-scoped media-transcode output policy/settings. Remux and transcode remain evidence-driven compatibility escalation, not default architecture.
 
 ## Phase 65.A Recording playback completion
 
@@ -136,11 +136,13 @@ The previous VDR restart remains causally unproven because no earlier stack trac
 
 See [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md) for the exact candidate, CI and real-system evidence.
 
-## Phase 65.C Recording startup / progressive-direct completion
+## Phase 65.C Recording delivery performance and media output/transcode settings
 
-Phase 65.C is the bounded completed-Recording startup/performance vertical merged through PR #206.
+Phase 65.C is the bounded media delivery/performance scope completed through PR #206 and the subsequently continued PR #208 work.
 
-The accepted path removes the HLS startup pipeline from compatible completed Recordings while keeping the least-transformation and source-truth boundaries:
+### Completed-Recording startup / progressive delivery
+
+The first 65.C block removes the HLS startup pipeline from compatible completed Recordings while keeping least-transformation and source-truth boundaries:
 
 ```text
 completed Recording
@@ -153,11 +155,9 @@ completed Recording
 
 The continuous progressive-fMP4 stream deliberately does not advertise byte-range, immutable content-length or browser time-seek semantics. Growing Recordings do not become immutable merely because a faster completed-Recording path exists.
 
-The exact accepted candidate and CI are recorded in [Current State](../CURRENT.md) and [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md).
+### Media-transcode backend policy and output settings
 
-## Phase 65.D media-transcode backend policy/settings completion
-
-Phase 65.D is the compatibility/performance escalation merged through PR #208 and governed by ADR-0055.
+The same authorized 65.C scope then continued into the backend settings/output-policy work governed by ADR-0055.
 
 Accepted capabilities include:
 
@@ -175,11 +175,11 @@ Accepted capabilities include:
 
 Real yaVDR acceptance covered Auto UHD -> VAAPI, Auto interlaced -> x264/`veryfast` + `bwdif`, persisted forced-Software settings, forced VAAPI UHD, forced VAAPI Live fail-closed, forced-Software Live recovery, Auto Live restoration and active-session stability.
 
-See [Phase 65 Media Transcode Performance Policy](phase-65-media-transcode-performance-policy.md), [ADR-0055](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md) and [Current State](../CURRENT.md).
+See [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md), [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md), [ADR-0055](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md) and [Current State](../CURRENT.md).
 
 ## Retained seek/growing-recording truthfulness boundary
 
-The obsolete 65.C heading is removed, but its important safety semantics are retained:
+The obsolete 65.C seek heading is removed, but its important safety semantics are retained:
 
 - advertise Range/seek only when the selected source/profile actually supports it;
 - completed versus growing state remains server-owned source truth;
@@ -189,7 +189,7 @@ The obsolete 65.C heading is removed, but its important safety semantics are ret
 
 This means Phase 65 can truthfully report a capability as unsupported instead of implementing fake seek merely because an old roadmap label named it.
 
-## Phase 65.E next direction
+## Phase 65.D next direction
 
 The next planned Phase-65 product vertical is the client playback abstraction:
 
@@ -273,9 +273,9 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Current authorization boundary
 
-Phase 65.A through 65.D are closed for their accepted bounded scopes. The next planned Phase-65 runtime/product direction is **65.E Client playback abstraction** while preserving all existing MediaSession, provider-privacy, least-transformation, output-policy and cleanup boundaries.
+Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. The next planned Phase-65 runtime/product direction is **65.D Client playback abstraction** while preserving all existing MediaSession, provider-privacy, least-transformation, output-policy and cleanup boundaries.
 
-Advanced seek/growing-recording behavior remains capability-driven and must be represented truthfully. It is not the current 65.C implementation target.
+Advanced seek/growing-recording behavior remains capability-driven and must be represented truthfully. It is not the Phase-65.C implementation target.
 
 Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an explicit kickoff.
 
@@ -289,7 +289,7 @@ Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an exp
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
-- [Phase 65 Media Transcode Performance Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [ADR-0055 Media Transcode Backend Selection](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
