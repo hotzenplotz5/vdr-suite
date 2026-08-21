@@ -1,6 +1,6 @@
-# Phase 65.D — Media Transcode Backend Policy and Output Settings
+# Phase 65.C — Media Transcode Backend Policy and Output Settings
 
-Status: **Accepted and closed for the bounded Phase-65.D media-transcode backend policy/settings scope.**
+Status: **Accepted and closed as the second/final bounded block of Phase-65.C delivery-performance/output-policy work.**
 
 Binding architecture: ADR-0046, ADR-0053 and ADR-0055.
 
@@ -15,10 +15,16 @@ The server does not infer capability from CPU/GPU model names. Virtualization,
 clocking, thermal limits, concurrent work, drivers and encoder/library versions
 make that unreliable. VDR-Suite uses typed workloads plus measured throughput.
 
-Phase 65.D also owns the backend-scoped operator/output settings that select the
-media-transcode backend for **new** MediaSessions. It does not retarget an active
-worker and does not expose arbitrary FFmpeg arguments or raw hardware paths to
-the browser.
+This Phase-65.C block also owns the backend-scoped operator/output settings that
+select the media-transcode backend for **new** MediaSessions. It continues the
+same bounded 65.C delivery/performance scope that first introduced the completed-
+Recording progressive fast path in PR #206. It does not retarget an active worker
+and does not expose arbitrary FFmpeg arguments or raw hardware paths to the
+browser.
+
+The old roadmap's separate `65.D - Compatibility escalation` planning block was
+not started independently; its demonstrated transcode/hardware-policy work was
+absorbed into this accepted 65.C continuation.
 
 ## Session-stable decision
 
@@ -155,7 +161,7 @@ VDR_SUITE_MEDIA_X264_UHD_PRESET
 
 ## VAAPI backend
 
-Phase 65.D implements VAAPI as the first hardware video backend. The current
+Phase 65.C implements VAAPI as the first hardware video backend. The current
 command implementation is intentionally narrower than the type system: it owns
 progressive H.264 output transformations with explicit positive dimensions and
 does not claim the current deinterlace path.
@@ -299,7 +305,7 @@ software threshold. Earlier sustained measurements for the required 1080i ->
 - x264 `veryfast`: `0.992x`;
 - x264 `superfast`: `1.54x`.
 
-The final version-4 profile used during the accepted Phase-65.D runtime gate had
+The final version-4 profile used during the accepted Phase-65.C runtime gate had
 newer measured values in which `veryfast` exceeded the 1.25x threshold. Auto
 therefore selected `veryfast` as the highest-quality measured preset meeting the
 current threshold, while preserving `bwdif` for the interlaced workload.
@@ -309,8 +315,8 @@ current threshold, while preserving `bwdif` for the interlaced workload.
 `/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec` exposed the unsafe UHD software
 fallback. Earlier sustained measurements showed that tested x264 variants could
 not sustain real time while VAAPI had substantial headroom. The accepted
-Phase-65.D run again selected the real VAAPI path for UHD and sustained playback
-far beyond the previous approximately 32-second HTTP cutoff.
+Phase-65.C output-policy run again selected the real VAAPI path for UHD and
+sustained playback far beyond the previous approximately 32-second HTTP cutoff.
 
 The actual worker used hardware VAAPI decode/filter/encode with `h264_vaapi` and
 `scale_vaapi`, and no silent x264 fallback was observed. The stream remained
@@ -320,13 +326,13 @@ This evidence is why automatic encoder selection requires measured real-time
 headroom and why calibrated VAAPI is permitted only where its hard transformation
 contract is implemented.
 
-## Accepted Phase-65.D closeout evidence
+## Accepted Phase-65.C output-policy closeout evidence
 
-PR #208 completed the bounded media-transcode backend policy/settings vertical on
-the exact accepted candidate:
+PR #208 completed the second/final bounded block of Phase-65.C on the exact
+accepted candidate:
 
 ```text
-accepted_65d_candidate=85478311b9af6c027a25980272a2acde551e5508
+accepted_65c_output_policy_candidate=85478311b9af6c027a25980272a2acde551e5508
 source_ci_workflow=VDR-Suite CI
 source_ci_run_number=7976
 source_ci_run_id=32415860281
@@ -350,6 +356,7 @@ VDR/SuiteBridge/media path:
 - returning to Auto restored the calibrated x264 Live path;
 - the daemon remained active throughout the acceptance sequence.
 
-Phase 65.D is therefore closed for its bounded output-policy/settings scope. The
-next planned Phase-65 vertical is 65.E Client playback abstraction; Phase 66 is
-not started by this closeout.
+With the earlier PR #206 startup/progressive block and this PR #208 output-policy
+block both accepted, Phase 65.C is closed for its bounded delivery-performance and
+output-settings scope. The next planned Phase-65 vertical is 65.D Client playback
+abstraction; Phase 66 is not started by this closeout.
