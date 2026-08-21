@@ -1,10 +1,12 @@
 # Phase 65.C Recording startup / progressive-direct vertical
 
-Status: **Accepted and closed for the bounded Phase-65.C Recording startup/performance scope.**
+Status: **Accepted and closed as the first bounded block of Phase-65.C delivery-performance work.**
 
 ## Scope
 
-This document records the accepted Phase-65.C product/safety vertical for existing-recording startup performance. Phase 65.C is **not** the old planning label `Recording seek and growing-recording semantics`; that label is superseded by the implementation history. The vertical was accepted through PR #206 and does not authorize Phase 66. Phase 65.B Live-TV remains closed and is intentionally unchanged.
+This document records the accepted first Phase-65.C product/safety block for existing-recording startup performance. Phase 65.C is **not** the old planning label `Recording seek and growing-recording semantics`; that label is superseded by the implementation history.
+
+PR #206 accepted this startup/progressive block. The same authorized Phase-65.C scope subsequently continued into the backend-scoped media-transcode/output policy and Web settings accepted through PR #208 and documented in [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md). Together those two blocks close the bounded Phase-65.C delivery-performance/output-settings scope.
 
 The vertical reuses ADR-0046 and ADR-0053. No new streaming protocol or architecture authority is introduced.
 
@@ -149,10 +151,10 @@ The existing 12-second HLS startup/rebuffer threshold and four-second HLS segmen
 
 ## Accepted closeout evidence
 
-PR #206 merged the bounded Phase-65.C Recording startup/performance vertical after exact-head GitHub CI and real yaVDR acceptance.
+PR #206 merged this first bounded Phase-65.C Recording startup/performance block after exact-head GitHub CI and real yaVDR acceptance.
 
 ```text
-accepted_65c_candidate=51de13337edd0a072308a9df1bad6e245a764ac2
+accepted_65c_startup_candidate=51de13337edd0a072308a9df1bad6e245a764ac2
 source_ci_workflow=VDR-Suite CI
 source_ci_run_number=7972
 source_ci_run_id=32350815560
@@ -168,4 +170,6 @@ Real yaVDR acceptance on the exact candidate established the user-visible closeo
 - picture and sound were clean;
 - the previous startup artifacts were absent.
 
-The closeout does not convert unimplemented time-seek or growing-Recording seek into implicit support. The retained safety rule is explicit capability truthfulness: advanced seek may remain unsupported until a later coherent implementation is justified.
+This first block did not convert unimplemented time-seek or growing-Recording seek into implicit support. The retained safety rule is explicit capability truthfulness: advanced seek may remain unsupported until a later coherent implementation is justified.
+
+Phase 65.C subsequently continued with the backend output/transcode policy and Web settings accepted through PR #208. That second block is documented separately; together both accepted blocks close the bounded 65.C delivery-performance/output-settings scope.
