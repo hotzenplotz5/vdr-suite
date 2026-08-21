@@ -1,4 +1,8 @@
-# Phase 65 — Media Transcode Performance Policy
+# Phase 65.C — Media Transcode Backend Policy and Output Settings
+
+Status: **Accepted and closed as the second/final bounded block of Phase-65.C delivery-performance/output-policy work.**
+
+Binding architecture: ADR-0046, ADR-0053 and ADR-0055.
 
 ## Purpose
 
@@ -10,6 +14,17 @@ high-resolution encode cost can change the server workload substantially.
 The server does not infer capability from CPU/GPU model names. Virtualization,
 clocking, thermal limits, concurrent work, drivers and encoder/library versions
 make that unreliable. VDR-Suite uses typed workloads plus measured throughput.
+
+This Phase-65.C block also owns the backend-scoped operator/output settings that
+select the media-transcode backend for **new** MediaSessions. It continues the
+same bounded 65.C delivery/performance scope that first introduced the completed-
+Recording progressive fast path in PR #206. It does not retarget an active worker
+and does not expose arbitrary FFmpeg arguments or raw hardware paths to the
+browser.
+
+The old roadmap's separate `65.D - Compatibility escalation` planning block was
+not started independently; its demonstrated transcode/hardware-policy work was
+absorbed into this accepted 65.C continuation.
 
 ## Session-stable decision
 
@@ -146,14 +161,14 @@ VDR_SUITE_MEDIA_X264_UHD_PRESET
 
 ## VAAPI backend
 
-Phase 65 implements VAAPI as the first hardware video backend. The current
+Phase 65.C implements VAAPI as the first hardware video backend. The current
 command implementation is intentionally narrower than the type system: it owns
 progressive H.264 output transformations with explicit positive dimensions and
 does not claim the current deinterlace path.
 
 A selected VAAPI session uses one trusted DRM render node and carries it as one
 argv value. The implementation uses the hardware decode/filter/encode path and
-H.264 VAAPI output while preserving the existing HLS keyframe/segment contract.
+H.264 VAAPI output while preserving the selected delivery profile contract.
 
 The default private device is:
 
@@ -172,7 +187,7 @@ an operator/deployment concern and are restricted to `/dev/dri/` by policy.
 
 QSV and NVENC remain represented by the typed backend enum but are not selectable
 by this Phase-65 implementation. Calibration entries for them cannot make them
-runtime candidates.
+runtime candidates. VDPAU is not introduced.
 
 ## Calibration
 
@@ -284,35 +299,64 @@ restores this deployment value. Running sessions are never mutated in place.
 
 The Phase-65 interlaced Recording acceptance case
 `/SciFi/Der_Wüstenplanet/2015-12-11.18.41.5-0.rec` established the sustained
-software threshold. For the required 1080i -> 1080p25 browser transform on the
-tested yaVDR host, a 30-second real-source benchmark measured:
+software threshold. Earlier sustained measurements for the required 1080i ->
+1080p25 browser transform included:
 
 - x264 `veryfast`: `0.992x`;
 - x264 `superfast`: `1.54x`.
 
-That evidence established the 1.25x policy and remains the reason the explicitly
-forced software deinterlace path uses its proven `superfast` fallback.
+The final version-4 profile used during the accepted Phase-65.C runtime gate had
+newer measured values in which `veryfast` exceeded the 1.25x threshold. Auto
+therefore selected `veryfast` as the highest-quality measured preset meeting the
+current threshold, while preserving `bwdif` for the interlaced workload.
 
 ## Real yaVDR evidence — UHD HEVC Main10
 
 `/Drama/A_Star_Is_Born/2026-04-21.19.16.1-0.rec` exposed the unsafe UHD software
-fallback. The HEVC Main10 3840x2160 source produced healthy four-second HLS
-segments, but the x264 worker could not generate them in real time and the browser
-forward buffer drained.
+fallback. Earlier sustained measurements showed that tested x264 variants could
+not sustain real time while VAAPI had substantial headroom. The accepted
+Phase-65.C output-policy run again selected the real VAAPI path for UHD and
+sustained playback far beyond the previous approximately 32-second HTTP cutoff.
 
-Sustained measurements on that source showed:
+The actual worker used hardware VAAPI decode/filter/encode with `h264_vaapi` and
+`scale_vaapi`, and no silent x264 fallback was observed. The stream remained
+stable without the previous Broken Pipe / mux / trailer / close-file failure.
 
-- 1080p x264 `veryfast`: `0.281x`;
-- 1080p x264 `superfast`: `0.356x`;
-- 720p x264 `veryfast`: `0.391x`;
-- 720p x264 `superfast`: `0.468x`.
-
-No tested software variant could sustain real time. The same source on the host's
-Intel UHD Graphics 605 using `/dev/dri/renderD128` measured the 4K HEVC -> 1080p
-H.264 VAAPI path at **3.825x**. A complete paced 40-second HLS reproduction then
-completed with H.264 1920x1080 + AAC, independent segments and ten consecutive
-approximately four-second fMP4 segments.
-
-This evidence is why automatic encoder selection now requires measured real-time
-headroom and why calibrated VAAPI is permitted where its hard transformation
+This evidence is why automatic encoder selection requires measured real-time
+headroom and why calibrated VAAPI is permitted only where its hard transformation
 contract is implemented.
+
+## Accepted Phase-65.C output-policy closeout evidence
+
+PR #208 completed the second/final bounded block of Phase-65.C on the exact
+accepted candidate:
+
+```text
+accepted_65c_output_policy_candidate=85478311b9af6c027a25980272a2acde551e5508
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=7976
+source_ci_run_id=32415860281
+source_ci_result=PASS
+merge_pr=208
+merge_commit=8716bbe9f1ab8ebd4cdf597d620419ef0fcf098a
+```
+
+Real yaVDR acceptance established all of the following on the production
+VDR/SuiteBridge/media path:
+
+- Auto UHD Recording selected VAAPI and sustained long playback without the prior Broken Pipe cutoff;
+- Auto interlaced HD selected `libx264 -preset veryfast` plus `bwdif` from valid calibration evidence;
+- backend-scoped Software selection survived page reload and daemon restart;
+- forced Software Recording and Live paths used x264 rather than VAAPI;
+- changing the backend setting did not retarget an already active worker;
+- forced VAAPI UHD used `h264_vaapi` with no x264 fallback;
+- forced VAAPI Live failed closed because the current Live deinterlace transform is unsupported by the VAAPI command path;
+- the failed Live MediaSession persisted `state=failed` with terminal reason `forced_vaapi_transformation_unsupported` and started no FFmpeg fallback worker;
+- switching the same Live path to forced Software restored playback with x264 + `bwdif`;
+- returning to Auto restored the calibrated x264 Live path;
+- the daemon remained active throughout the acceptance sequence.
+
+With the earlier PR #206 startup/progressive block and this PR #208 output-policy
+block both accepted, Phase 65.C is closed for its bounded delivery-performance and
+output-settings scope. The next planned Phase-65 vertical is 65.D Client playback
+abstraction; Phase 66 is not started by this closeout.

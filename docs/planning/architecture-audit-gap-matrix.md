@@ -53,7 +53,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-16 | EPG provenance and merge policy | Strong foundation | Provider/native evidence is retained; broader field-level cross-provider reconciliation remains explicit enrichment work. | ADR-0045, ADR-0038 |
 | G-17 | Suite-owned metadata entities and artwork | Closed foundation for accepted scope | Persistent metadata/people/Genre/artwork read models plus manual metadata/cast assignment exist behind Suite contracts. | ADR-0038, ADR-0051, ADR-0052 |
 | G-18 | Unified automation-provider boundary | Strong foundation | SearchTimer/epgsearch remain sources/proposals; central TimerIntent orchestration is authoritative. Broad automation-product unification remains separate. | ADR-0029, ADR-0044 |
-| G-19 | Streaming Gateway and authenticated MediaSession | Planned | ADR-0046 + ADR-0053 define server MediaSession/Gateway plus client playback/adaptation boundaries; Phase 65 runtime has not started. | ADR-0046, ADR-0053 / Phase 65 |
+| G-19 | Streaming Gateway and authenticated MediaSession | Strong foundation | Phase 65.A-C implement accepted Recording/Live MediaSession/Gateway runtime, provider privacy/leases, least-transformation delivery, completed-Recording progressive paths, calibrated transcode/output policy and deterministic lifecycle cleanup. Client-family abstraction and later hardening remain. | ADR-0046, ADR-0053, ADR-0055 / Phase 65 |
 | G-20 | Legacy OSD viewer/controller bridge | Planned | ADR-0047 is accepted; runtime is now sequenced after Broadcast Companion as Phase 67. RemoteAction/LiveOverlay is not the Legacy OSD plane. | ADR-0047 / Phase 67 |
 | G-21 | Central database is not a client/Agent protocol | Continuous invariant | Repository/service boundaries remain mandatory for clients, Agents and providers. | ADR-0038, ADR-0039, ADR-0050 |
 | G-22 | Agent authentication and credential lifecycle | Closed foundation | Agent identity, enrolled trust and credential generation/lifecycle are established. | ADR-0041 |
@@ -68,7 +68,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-31 | Authorized multi-backend search aggregation | Deferred enhancement | Backend-scoped global search exists; aggregation must authorize each backend independently and stay bounded. | ADR-0021, ADR-0038, ADR-0050 |
 | G-32 | Backend-neutral RemoteAction / LiveOverlay | Closed foundation | Useful interaction/state-update capability; explicitly separate from media streaming, Broadcast Companion and Legacy OSD. | ADR-0023, ADR-0030 |
 | G-33 | Recording-person payload bounds | Closed bounded contract | Current contract remains bounded/versioned; expansion requires explicit versioned change. | RMETA contract, ADR-0052 |
-| G-34 | Client playback engine / media adaptation boundary | Accepted decision; runtime planned | ADR-0053 is accepted: platform-native players behind a small Suite abstraction; least-transformation server delivery. Runtime proof belongs to Phase 65. | ADR-0053 / Phase 65 |
+| G-34 | Client playback engine / media adaptation boundary | Strong foundation | ADR-0053 is implemented through browser Recording/Live playback and typed least-transformation profile selection. The next Phase-65 vertical is the reusable semantic client playback abstraction for additional platform engines; one universal Suite decoder remains explicitly rejected. | ADR-0053 / Phase 65.D |
 | G-35 | Golden vertical product acceptance | Strong planning foundation | Component CI is complemented by real end-to-end Timer/media/failure journeys as capabilities land. | Golden User Journeys |
 | G-36 | Broad Timer Product UI | Planned cross-cutting milestone | Phase-64 engine is complete, but intent-first polished UI remains gated on required account/backend access administration. | Phase 62 + Phase 64 + Roadmap milestone |
 | G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
@@ -79,19 +79,23 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 
 ## Priority view
 
-### Next numbered runtime domain — Phase 65
+### Active numbered runtime domain — Phase 65
 
-Streaming work must preserve:
+The accepted media foundation already includes real Recording and Live playback, deterministic lifecycle cleanup, completed-Recording progressive delivery and backend-scoped media-transcode output policy/settings.
+
+Remaining Phase-65 work must preserve:
 
 - authenticated MediaSession ownership;
 - short-lived access grants;
-- explicit backend/Agent/provider route ownership;
+- explicit backend/Agent/provider route ownership where applicable;
 - route/generation fencing and deterministic cleanup;
 - private provider URLs/credentials;
 - pass-through first, remux only when needed, transcode only when materially required;
+- ADR-0055 session-stable output policy and fail-closed backend selection;
+- truthful Range/seek/growing capability, including explicit non-support for unimplemented advanced seek;
 - real browser/client picture-and-sound acceptance.
 
-Exact kickoff still requires a current-code gap review and explicit authorization.
+The next planned Phase-65 vertical is **65.D Client playback abstraction**. Exact implementation still requires a current-code gap review; Phase 66 is not authorized by this status.
 
 ### Following television product domain — Phase 66
 

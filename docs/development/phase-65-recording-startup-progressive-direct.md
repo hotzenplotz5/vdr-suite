@@ -1,12 +1,16 @@
 # Phase 65.C Recording startup / progressive-direct vertical
 
-Status: implementation candidate; real yaVDR acceptance required before closeout.
+Status: **Accepted and closed as the first bounded block of Phase-65.C delivery-performance work.**
 
 ## Scope
 
-This document records the first Phase-65.C product/safety vertical for existing-recording startup performance. It does not close Phase 65.C and it does not authorize Phase 66. Phase 65.B Live-TV remains closed and is intentionally unchanged.
+This document records the accepted first Phase-65.C product/safety block for existing-recording startup performance. Phase 65.C is **not** the old planning label `Recording seek and growing-recording semantics`; that label is superseded by the implementation history.
+
+PR #206 accepted this startup/progressive block. The same authorized Phase-65.C scope subsequently continued into the backend-scoped media-transcode/output policy and Web settings accepted through PR #208 and documented in [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md). Together those two blocks close the bounded Phase-65.C delivery-performance/output-settings scope.
 
 The vertical reuses ADR-0046 and ADR-0053. No new streaming protocol or architecture authority is introduced.
+
+Truthful seek/range/growing capability remains a hard Phase-65 invariant: unsupported functionality is reported as unsupported. This vertical does not claim arbitrary VOD time-seek, VDR-index time mapping or user-visible growing-Recording seek.
 
 ## Baseline hot path on main
 
@@ -131,23 +135,41 @@ The server records one stage breakdown for each successful Recording MediaSessio
 
 The fast browser owner additionally measures the user Play action to the `<video>` `playing` event and reports the value as `recording playback first-media ... startupMs=...` evidence in the browser console/status. Real picture and audible audio remain mandatory acceptance observations; a JavaScript event alone is not sufficient closeout evidence.
 
-## Required yaVDR acceptance before closeout
+## Acceptance contract
 
-On the exact candidate commit, compare the same completed Recording before and after the vertical and record at least:
+The implementation contract requires the fast path to preserve these truths:
 
-- Play request to MediaSession response;
-- server startup stage log;
-- Play to first visible picture and audible audio;
-- `recording playback first-media` timing;
-- selected presentation profile;
-- absence of `-re` and HLS worker/playlist on a `progressive-fmp4` Recording;
-- native `progressive-direct` `206` range response and bounded response size for a range-capable client contract;
-- no advertised Range/Content-Length semantics on the continuous browser fMP4 stream;
-- continuous playback remaining alive beyond the ordinary 300-second request-idle threshold;
-- disconnect/stop cleanup and absence of stale workers/workspaces/direct registrations;
-- fallback playback for an incompatible or growing Recording;
-- no public native VDR path leakage.
-
-A growing Recording must prove that neither immutable `progressive-direct` nor the completed-Recording `progressive-fmp4` fast path is selected as a false immutable source.
+- selected presentation profile is capability-driven;
+- `progressive-fmp4` runs without the old HLS readiness/startup-buffer dependency and without `-re` pacing;
+- `progressive-direct` keeps bounded truthful byte-range semantics when selected;
+- continuous fMP4 does not advertise fake Range/Content-Length semantics;
+- disconnect/stop cleanup does not strand workers/workspaces/direct registrations;
+- incompatible or growing sources do not get a false immutable completed-Recording fast path;
+- provider-native VDR paths remain private.
 
 The existing 12-second HLS startup/rebuffer threshold and four-second HLS segment policy remain unchanged because they now belong to the compatibility fallback rather than being blindly retuned. Any later HLS tuning requires separate real evidence.
+
+## Accepted closeout evidence
+
+PR #206 merged this first bounded Phase-65.C Recording startup/performance block after exact-head GitHub CI and real yaVDR acceptance.
+
+```text
+accepted_65c_startup_candidate=51de13337edd0a072308a9df1bad6e245a764ac2
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=7972
+source_ci_run_id=32350815560
+source_ci_result=PASS
+merge_pr=206
+merge_commit=0513edf6166e096aa60cf313b74a43073cacd786
+```
+
+Real yaVDR acceptance on the exact candidate established the user-visible closeout result recorded by PR #206:
+
+- the Recording playback control was present after the frontend runtime-wiring correction;
+- a representative completed Recording started without the previously visible startup delay;
+- picture and sound were clean;
+- the previous startup artifacts were absent.
+
+This first block did not convert unimplemented time-seek or growing-Recording seek into implicit support. The retained safety rule is explicit capability truthfulness: advanced seek may remain unsupported until a later coherent implementation is justified.
+
+Phase 65.C subsequently continued with the backend output/transcode policy and Web settings accepted through PR #208. That second block is documented separately; together both accepted blocks close the bounded 65.C delivery-performance/output-settings scope.
