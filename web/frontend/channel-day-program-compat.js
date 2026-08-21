@@ -858,7 +858,7 @@
 .vdr-suite-live-tv-view{display:grid;grid-column:1/-1;width:100%;gap:1rem}
 .vdr-suite-live-tv-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}.vdr-suite-live-tv-header h3,.vdr-suite-live-tv-header p{margin:0}.vdr-suite-live-tv-header h3{color:#f8fafc;font-size:clamp(1.35rem,3vw,2.15rem)}.vdr-suite-live-tv-header p{margin-top:.28rem;color:#94a3b8}
 .vdr-suite-live-tv-status{padding:.75rem .9rem;border:1px solid rgba(148,163,184,.25);border-radius:.8rem;background:rgba(15,23,42,.72);color:#cbd5e1}.vdr-suite-live-tv-status.error{border-color:rgba(248,113,113,.5);color:#fecaca}
-.vdr-suite-live-tv-player{display:grid;gap:.65rem;padding:.75rem;border:1px solid rgba(34,211,238,.42);border-radius:1rem;background:rgba(8,47,73,.42)}.vdr-suite-live-tv-player-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}.vdr-suite-live-tv-player-title{display:grid;gap:.15rem;color:#f8fafc;font-weight:850}.vdr-suite-live-tv-player-title span{color:#a5f3fc;font-size:.82rem;font-weight:650}.vdr-suite-live-tv-stop{min-height:2.5rem;padding:.5rem .8rem;border:1px solid rgba(248,113,113,.62)!important;border-radius:.68rem;background:transparent!important;color:#fecaca!important}.vdr-suite-live-tv-player-slot{overflow:hidden;border-radius:.85rem;background:#000}.vdr-suite-live-tv-player-slot video{display:block!important;width:100%!important;max-height:min(64vh,42rem)!important;background:#000}
+.vdr-suite-live-tv-player{display:grid;grid-column:1/-1;gap:.65rem;padding:.75rem;border:1px solid rgba(34,211,238,.42);border-radius:1rem;background:rgba(8,47,73,.42)}.vdr-suite-live-tv-player-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}.vdr-suite-live-tv-player-title{display:grid;gap:.15rem;color:#f8fafc;font-weight:850}.vdr-suite-live-tv-player-title span{color:#a5f3fc;font-size:.82rem;font-weight:650}.vdr-suite-live-tv-stop{min-height:2.5rem;padding:.5rem .8rem;border:1px solid rgba(248,113,113,.62)!important;border-radius:.68rem;background:transparent!important;color:#fecaca!important}.vdr-suite-live-tv-player-slot{overflow:hidden;border-radius:.85rem;background:#000}.vdr-suite-live-tv-player-slot video{display:block!important;width:100%!important;max-height:min(64vh,42rem)!important;background:#000}
 .vdr-suite-live-tv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13.5rem,1fr));gap:.8rem}.vdr-suite-live-tv-channel{position:relative;display:grid;grid-template-columns:5.25rem minmax(0,1fr);align-items:center;gap:.75rem;min-height:7rem;padding:.7rem;overflow:hidden;border:1px solid rgba(96,165,250,.28);border-radius:1rem;background:rgba(15,23,42,.82);color:#f8fafc;text-align:left;cursor:pointer;isolation:isolate}.vdr-suite-live-tv-channel:hover,.vdr-suite-live-tv-channel:focus-visible{border-color:#38bdf8;outline:none;box-shadow:0 .9rem 2rem rgba(2,132,199,.18);transform:translateY(-1px)}.vdr-suite-live-tv-channel.active{border-color:rgba(34,211,238,.8);background:rgba(8,47,73,.68)}.vdr-suite-live-tv-channel:disabled{cursor:not-allowed;opacity:.55}
 .vdr-suite-live-tv-logo{display:grid;place-items:center;width:5.25rem;height:3.3rem;padding:.25rem;border-radius:.62rem;background:rgba(248,250,252,.96);overflow:hidden}.vdr-suite-live-tv-logo .channel-logo-frame,.vdr-suite-live-tv-logo img,.vdr-suite-live-tv-logo .channel-logo{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}.vdr-suite-live-tv-copy{display:grid;gap:.18rem;min-width:0}.vdr-suite-live-tv-name{overflow:hidden;color:#f8fafc;font-weight:900;white-space:nowrap;text-overflow:ellipsis}.vdr-suite-live-tv-meta{color:#94a3b8;font-size:.78rem}.vdr-suite-live-tv-now{overflow:hidden;color:#bae6fd;font-size:.82rem;font-weight:750;white-space:nowrap;text-overflow:ellipsis}
 .vdr-suite-live-tv-preview{position:absolute;z-index:3;inset:0;display:grid;align-content:end;gap:.2rem;padding:.85rem;opacity:0;pointer-events:none;transform:translateY(.35rem);transition:opacity .16s ease,transform .16s ease;background-position:center;background-size:cover;color:#fff}.vdr-suite-live-tv-preview::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,rgba(2,6,23,.12),rgba(2,6,23,.94) 68%)}.vdr-suite-live-tv-channel:hover .vdr-suite-live-tv-preview,.vdr-suite-live-tv-channel:focus-visible .vdr-suite-live-tv-preview{opacity:1;transform:translateY(0)}.vdr-suite-live-tv-preview-title{font-size:1rem;font-weight:900;text-shadow:0 1px 4px #000}.vdr-suite-live-tv-preview-meta{color:#bae6fd;font-size:.78rem;font-weight:750}.vdr-suite-live-tv-preview-subtitle{overflow:hidden;color:#e2e8f0;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}
@@ -989,6 +989,7 @@
     const mount = mountTarget();
     if (!mount || typeof mount.replaceChildren !== 'function') return;
     installStyles();
+    synchronizePlaybackState();
     mount.replaceChildren();
     if (mount.classList) {
       mount.classList.remove('channels2-mount');
@@ -1003,7 +1004,6 @@
     copy.appendChild(addText(doc.createElement('p'), 'Sender wählen – die Wiedergabe startet sofort.'));
     header.appendChild(copy);
     root.appendChild(header);
-    renderPlayer(root);
     if (state.dataError) {
       const error = addText(doc.createElement('div'), state.dataError);
       error.className = 'vdr-suite-live-tv-status error';
@@ -1022,8 +1022,18 @@
       const grid = doc.createElement('section');
       grid.className = 'vdr-suite-live-tv-grid';
       grid.setAttribute('aria-label', 'Live-TV Sender');
-      state.channels.forEach(function(channel) { grid.appendChild(createChannelTile(channel)); });
+      let playerRendered = false;
+      state.channels.forEach(function(channel) {
+        grid.appendChild(createChannelTile(channel));
+        if (state.playback && state.liveChannelId === channelId(channel)) {
+          renderPlayer(grid);
+          playerRendered = true;
+        }
+      });
+      if (state.playback && !playerRendered) renderPlayer(grid);
       root.appendChild(grid);
+    } else if (state.playback) {
+      renderPlayer(root);
     }
     if (state.programError) {
       const warning = addText(doc.createElement('div'), state.programError);
@@ -1109,6 +1119,15 @@
     });
   }
 
+  function scrollPlayerIntoView() {
+    const mount = mountTarget();
+    if (!mount || typeof mount.querySelector !== 'function') return false;
+    const player = mount.querySelector('.vdr-suite-live-tv-player');
+    if (!player || typeof player.scrollIntoView !== 'function') return false;
+    player.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    return true;
+  }
+
   function createPlayback(channel, replacesSessionId, sequence) {
     const playback = playbackApi();
     if (!playback || typeof playback.createLivePanel !== 'function') {
@@ -1144,8 +1163,7 @@
     return Promise.resolve(created.start()).then(function() {
       if (state.active && sequence === state.switchSequence) {
         render();
-        const mount = mountTarget();
-        if (mount && typeof mount.scrollIntoView === 'function') mount.scrollIntoView({behavior: 'smooth', block: 'start'});
+        scrollPlayerIntoView();
       }
       return created;
     }).catch(function(error) {
@@ -1168,7 +1186,10 @@
       const shell = playbackShell();
       if (shell && typeof shell.attach === 'function') shell.attach(state.playback);
       render();
-      return Promise.resolve(state.playback.start()).then(function() { return state.playback; });
+      return Promise.resolve(state.playback.start()).then(function() {
+        scrollPlayerIntoView();
+        return state.playback;
+      });
     }
     const previous = state.playback;
     const sequence = ++state.switchSequence;
