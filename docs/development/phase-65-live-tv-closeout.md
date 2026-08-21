@@ -89,4 +89,13 @@ The accepted vertical preserves the Phase-65 MediaSession/Gateway boundaries:
 
 Phase 65.B is closed for its bounded Live-TV browser product scope.
 
-The next strict Phase-65 vertical is **65.C — Recording seek and growing-recording semantics**. Recording startup/performance work may proceed only as a coherent implementation of the already accepted Phase-65 architecture, including truthful range/seek semantics and the existing `progressive-direct` least-transformation path. Phase 66 remains blocked.
+### Superseded sequencing note
+
+At the time of the 65.B closeout, an older planning draft described the next Phase-65 block as `65.C — Recording seek and growing-recording semantics`. That label was superseded before the later work was closed:
+
+- PR #206 explicitly defined and closed **65.C — Recording startup / progressive-direct**;
+- PR #208 then closed **65.D — Media-transcode backend policy and output settings** under ADR-0055.
+
+Seek/range/growing-recording **truthfulness** remains a binding media invariant: unsupported seek must remain unsupported rather than be fabricated, and completed-only fast paths must not treat growing sources as immutable. Full arbitrary VOD time-seek and user-visible growing-Recording seek remain deferred until a coherent demonstrated gap promotes them.
+
+The current Phase-65 sequence and next vertical are authoritative in [Current State](../CURRENT.md) and the [Strict Roadmap](../planning/roadmap.md). Phase 66 remains blocked until Phase 65 closes.
