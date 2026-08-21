@@ -497,3 +497,39 @@ const channelD = {id: 'D', name: 'Sender D', enabled: true};
   console.error(error);
   process.exitCode = 1;
 });
+
+// Dedicated Live-TV product view remains separate from the Channels2 browser,
+// consumes typed first-party client APIs and resolves current-program artwork
+// without introducing a second media owner.
+const dedicatedLiveView = basicWindow.VdrSuiteLiveTvView;
+assert.ok(dedicatedLiveView);
+assert.strictEqual(typeof dedicatedLiveView.open, 'function');
+assert.strictEqual(typeof dedicatedLiveView.startChannel, 'function');
+const dedicatedNow = Math.floor(Date.now() / 1000);
+const dedicatedEvent = {
+  id: 'event-a',
+  channelId: 'A',
+  title: 'Aktuelle Sendung',
+  startTime: String(dedicatedNow - 60),
+  endTime: String(dedicatedNow + 600),
+  artwork: {available: true, url: '/api/epg/cache/artwork?channelId=A&eventId=event-a'}
+};
+assert.strictEqual(
+  dedicatedLiveView.__test.currentEventForChannel({id: 'A'}, [dedicatedEvent], dedicatedNow).title,
+  'Aktuelle Sendung'
+);
+assert.strictEqual(
+  dedicatedLiveView.__test.eventArtwork(dedicatedEvent),
+  '/api/epg/cache/artwork?channelId=A&eventId=event-a'
+);
+dedicatedLiveView.__test.applyChannels({channels: [
+  {id: 'radio', name: 'Radio', radio: true, number: 1},
+  {id: 'tv', name: 'TV', radio: false, number: 2}
+]});
+assert.strictEqual(dedicatedLiveView.snapshot().channelCount, 1);
+assert.ok(source.includes('global.VdrSuiteLiveTvView = api'));
+assert.ok(source.includes('fetchClientChannels'));
+assert.ok(source.includes('fetchClientEpgCacheWindow'));
+assert.ok(source.includes('.vdr-suite-live-tv-channel:hover .vdr-suite-live-tv-preview'));
+assert.ok(source.includes('@media(hover:none)'));
+assert.ok(source.includes("tab.dataset.module = 'livetv'"));
