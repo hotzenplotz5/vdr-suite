@@ -533,3 +533,6 @@ assert.ok(source.includes('fetchClientEpgCacheWindow'));
 assert.ok(source.includes('.vdr-suite-live-tv-channel:hover .vdr-suite-live-tv-preview'));
 assert.ok(source.includes('@media(hover:none)'));
 assert.ok(source.includes("tab.dataset.module = 'livetv'"));
+assert.ok(source.includes('.vdr-suite-live-tv-player{display:grid;grid-column:1/-1;'));
+assert.ok(source.includes("if (state.playback && state.liveChannelId === channelId(channel)) {\n          renderPlayer(grid);"));
+assert.ok(source.includes("player.scrollIntoView({behavior: 'smooth', block: 'nearest'});"));
