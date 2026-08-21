@@ -7,6 +7,7 @@ const vm = require('vm');
 
 const sourcePath = path.resolve(__dirname, '..', 'channel-day-program-compat.js');
 const source = fs.readFileSync(sourcePath, 'utf8');
+const indexSource = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
 
 function classList(initial) {
   const values = new Set(initial || []);
@@ -472,6 +473,18 @@ const channelD = {id: 'D', name: 'Sender D', enabled: true};
   assert.strictEqual(richWindow.VdrSuiteRecordings2Playback.createPanel().kind, 'recording-late');
   assert.strictEqual(recordingCalls, 2);
   assert.strictEqual(typeof richWindow.VdrSuiteRecordings2Playback.createLivePanel, 'function');
+
+  assert.ok(source.includes("if (global.VdrSuiteChannels2 && global.VdrSuiteLivePlayback) return;"));
+  assert.match(
+    indexSource,
+    /<article class="brand-feature" data-brand-module="channels2" tabindex="0" role="button" aria-label="Live TV" data-i18n-aria-label="shell\.liveTv">/
+  );
+  const channelRuntimePosition = indexSource.indexOf('<script src="../frontend/channel-day-program.js"></script>');
+  const compatPosition = indexSource.indexOf('<script src="../frontend/channel-day-program-compat.js"></script>');
+  const appPosition = indexSource.indexOf('<script src="../frontend/app.js"></script>');
+  assert.ok(channelRuntimePosition >= 0);
+  assert.ok(compatPosition > channelRuntimePosition);
+  assert.ok(appPosition > compatPosition);
 
   assert.ok(source.includes('global.VdrSuitePlaybackShell = api'));
   assert.ok(source.includes('replacesSessionId'));
