@@ -186,6 +186,7 @@ Every shell command intended for the user to copy or execute must be presented i
 - Keep explanations outside the code block.
 - Put complete, directly executable command sequences inside the code block.
 - Use separate code blocks for logically separate steps when that improves safe execution.
+- The established yaVDR checkout is exactly `/home/yavdr/vdr-suite`; do not derive or substitute checkout paths from a person's name or from an unverified chat assumption.
 - Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
 - When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
 - Do not use `set -e` or another user-facing errexit wrapper; use explicit error handling.
