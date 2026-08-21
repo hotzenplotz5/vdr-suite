@@ -30,14 +30,15 @@ Phase 65 - Streaming Gateway and Media Sessions
 Completed Phase-65 product verticals:
 65.A - Existing-Recording playback
 65.B - Live-TV playback
-65.C - Recording startup / progressive-direct
-65.D - Media-transcode backend policy and output settings
+65.C - Recording delivery performance and media output/transcode settings
 
 Next Phase-65 product vertical:
-65.E - Client playback abstraction
+65.D - Client playback abstraction
 ```
 
-Phase 65 is active. The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by the implementation history: PR #206 closed the bounded 65.C Recording startup/performance vertical, and PR #208 closed the media-transcode backend policy/settings work that corresponds to 65.D. Truthful range/seek/growing capability remains a Phase-65 invariant, but it is not the current 65.C product label.
+Phase 65 is active. The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by the implementation history. Phase 65.C actually continued from completed-Recording startup/progressive delivery into the backend-scoped media-transcode/output policy and Web settings accepted through PR #208. Truthful range/seek/growing capability remains a Phase-65 invariant, but it is not the 65.C product label.
+
+The old roadmap's separate 65.D compatibility-escalation block was absorbed by the demonstrated compatibility/performance work completed inside 65.C. Because that old 65.D block had not started independently, the next not-yet-started vertical is now **65.D - Client playback abstraction**.
 
 ## Revised strict forward sequence
 
