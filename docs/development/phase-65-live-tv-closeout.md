@@ -91,10 +91,12 @@ Phase 65.B is closed for its bounded Live-TV browser product scope.
 
 ### Superseded sequencing note
 
-At the time of the 65.B closeout, an older planning draft described the next Phase-65 block as `65.C — Recording seek and growing-recording semantics`. That label was superseded before the later work was closed:
+At the time of the 65.B closeout, an older planning draft described the next Phase-65 block as `65.C — Recording seek and growing-recording semantics`. That label was superseded by the work that actually followed:
 
-- PR #206 explicitly defined and closed **65.C — Recording startup / progressive-direct**;
-- PR #208 then closed **65.D — Media-transcode backend policy and output settings** under ADR-0055.
+- PR #206 began and accepted **65.C — Recording startup / progressive-direct**;
+- the authorized 65.C scope then continued through PR #208 with **media-transcode backend policy and output settings** under ADR-0055.
+
+Those two accepted blocks together close the bounded Phase-65.C delivery-performance/output-settings scope. The old separate 65.D compatibility-escalation planning block was consumed by the PR #208 work rather than started independently; current planning therefore uses **65.D — Client playback abstraction** as the next not-yet-started Phase-65 vertical.
 
 Seek/range/growing-recording **truthfulness** remains a binding media invariant: unsupported seek must remain unsupported rather than be fabricated, and completed-only fast paths must not treat growing sources as immutable. Full arbitrary VOD time-seek and user-visible growing-Recording seek remain deferred until a coherent demonstrated gap promotes them.
 
