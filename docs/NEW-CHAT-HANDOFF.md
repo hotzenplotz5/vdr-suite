@@ -31,7 +31,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by accepted implementation history. Phase 65.C actually combined the completed-Recording startup/progressive-delivery work from PR #206 with the subsequently continued backend-scoped media-transcode/output policy and Web settings from PR #208. Truthful seek/range/growing capability remains binding, but arbitrary VOD time-seek and user-visible growing-Recording seek are deferred until a demonstrated gap justifies a coherent implementation block.
 
-The old unstarted 65.D compatibility-escalation block was consumed inside completed 65.C; therefore the next not-yet-started Phase-65 vertical is 65.D Client playback abstraction.
+The old unstarted 65.D compatibility-escalation block was consumed inside completed 65.C; therefore the next Phase-65 vertical that is not started is 65.D Client playback abstraction.
 
 Do not paste a current branch SHA or active PR tip into this section. Read exact operational state from `CURRENT.md` and GitHub instead.
 
@@ -281,4 +281,4 @@ Never describe an acceptance item as passed merely because the daemon started or
 
 ## Credential and secret restrictions
 
-Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes/verifiers, cookies, CSRF tokens, raw session/verifier secrets, TMDB tokens, enrollment tokens, Agent credential secrets, secret-bearing login responses or process environments.
