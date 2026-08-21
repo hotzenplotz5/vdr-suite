@@ -117,6 +117,7 @@
 
   function requestLateDayProgrammeRuntime(root) {
     if (!root || root.dataset.channelDayProgramBound === 'true') return;
+    if (global.VdrSuiteChannels2 && global.VdrSuiteLivePlayback) return;
     if (root.dataset.channelDayProgramLateRequested === 'true') return;
 
     root.dataset.channelDayProgramLateRequested = 'true';
