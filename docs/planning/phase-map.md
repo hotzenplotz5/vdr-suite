@@ -44,19 +44,21 @@ Phase 65 - Streaming Gateway and Media Sessions
 Completed Phase-65 product verticals:
 65.A - Existing-Recording playback
 65.B - Live-TV playback
+65.C - Recording startup / progressive-direct
+65.D - Media-transcode backend policy and output settings
 
 Next Phase-65 product vertical:
-65.C - Recording seek and growing-recording semantics
+65.E - Client playback abstraction
 ```
 
-The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md), [Phase 64 Closeout](../development/phase-64-closeout.md), [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md) and [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md).
+The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md), [Phase 64 Closeout](../development/phase-64-closeout.md), [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md), [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md), [Phase 65.C Recording Startup](../development/phase-65-recording-startup-progressive-direct.md) and [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md).
 
 ## Revised numbered forward sequence
 
 | Order | Phase | Status | Track | Primary completion direction |
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable intent/assignment/binding orchestration, safe managed native fulfillment, authoritative readback, reconciliation, controlled reassignment and real-system write acceptance. |
-| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. Recording and Live-TV playback are accepted and closed; truthful seek/growing-Recording semantics are next. |
+| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. Recording playback, Live-TV, completed-Recording startup/progressive delivery and media-transcode backend policy/settings are accepted; client playback abstraction is next. |
 | 3 | Phase 66 | Planned after Phase 65 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext pages plus broadcast-application discovery/session runtime without reducing them to OSD proxying. |
 | 4 | Phase 67 | Planned after Phase 66 | Legacy OSD Compatibility Bridge | Isolated OSD observation, sequencing/resync, exclusive controller lease and allowlisted native input. |
 | 5 | Phase 68 | Planned after Phase 67 | Public API and Client Compatibility Hardening | Stabilized `/api/v1`, errors, revisions/preconditions, pagination, compatibility/deprecation and independent-client contracts. |
@@ -78,7 +80,7 @@ The broad polished Timer UI is not part of the Phase-64 completion gate.
 
 ## Phase 65 compact boundary
 
-Binding decisions: ADR-0046 + ADR-0053.
+Binding decisions: ADR-0046 + ADR-0053 + ADR-0055 for media-transcode backend selection.
 
 ```text
 private media source
@@ -90,26 +92,27 @@ private media source
   -> platform playback engine
 ```
 
-Product order:
+Product order now represented by accepted implementation history:
 
 ```text
 Recording playback [65.A CLOSED]
   -> Live TV [65.B CLOSED]
-  -> Recording seek/growing semantics [65.C NEXT]
-  -> remux only from demonstrated need
-  -> transcode only from demonstrated need
+  -> Recording startup / progressive-direct [65.C CLOSED]
+  -> Media-transcode backend policy and output settings [65.D CLOSED]
+  -> Client playback abstraction [65.E NEXT]
 ```
 
 Current implementation position:
 
 - existing-Recording browser playback, copy/transcode selection, interlace handling, HLS buffering/segmentation and calibrated VAAPI UHD adaptation have passed real yaVDR acceptance;
-- graceful stop/pagehide cleanup has passed real yaVDR acceptance;
-- server-owned hard-disconnect cleanup has passed real yaVDR acceptance: active playback remains alive while access continues, while idle expiry terminates the FFmpeg worker, removes the workspace and ends Session/Route/Lease/Grant state with `media_access_idle_expired`;
+- graceful stop/pagehide cleanup and server-owned hard-disconnect cleanup have passed real yaVDR acceptance;
 - 65.A existing-Recording playback is closed for its bounded scope;
-- 65.B Live-TV playback is closed for its bounded scope after exact-head CI plus real yaVDR picture/sound, repeated zap and 15-minute Pro7 stability acceptance;
-- the accepted Live-TV hot path uses one continuous FFmpeg consumer on the conditioned SuiteBridge replay and does not run a separate ffprobe socket consumer;
-- the previously observed VDR restart under Live-TV stress was not reproduced on the accepted 65.B candidate, without claiming a proven causal stack trace;
-- 65.C Recording seek and growing-recording semantics is the next authorized runtime vertical.
+- 65.B Live-TV playback is closed after exact-head CI plus real yaVDR picture/sound, repeated zap and 15-minute stability acceptance;
+- 65.C completed-Recording startup/performance is closed through the accepted progressive-fMP4/progressive-direct vertical from PR #206; the continuous fMP4 path deliberately does not advertise fake Range/Content-Length/time-seek semantics;
+- completed-versus-growing source truth remains explicit and the completed-Recording fast paths fail closed when immutable-source guarantees are not valid;
+- 65.D media-transcode backend policy/settings is closed through PR #208, including backend-scoped `auto` / `software` / `vaapi`, calibrated selection, hard VAAPI capability checks, session-stable settings, browser settings diagnostics and fail-closed forced-VAAPI behavior;
+- full arbitrary VOD time-seek/VDR-index mapping and user-visible growing-Recording seek remain deferred capability work, not the current 65.C label; Phase-65 acceptance requires truthful capability advertisement, not invented support;
+- 65.E Client playback abstraction is the next planned Phase-65 vertical.
 
 Browser is the initial first-party product-validation client. Streamdev may be an internal explicitly owned provider but is not the public media API. Android/Android TV, Kodi, desktop and television clients remain capability-driven and may select cheaper direct/remux profiles when supported.
 
@@ -190,6 +193,10 @@ Vertical product acceptance is maintained in [Golden User Journeys](golden-user-
 - Phase 65 is the active numbered runtime phase.
 - Phase 65.A existing-Recording playback is closed for its accepted scope.
 - Phase 65.B Live-TV playback is closed for its accepted scope.
+- Phase 65.C Recording startup / progressive-direct is closed for its accepted scope.
+- Phase 65.D media-transcode backend policy and output settings is closed for its accepted scope.
+- Phase 65.E Client playback abstraction is next in the current Phase-65 sequence.
+- Truthful range/seek/growing-recording capability remains a Phase-65 invariant even where advanced seek is not implemented.
 - Phase 65 does not close until the remaining required acceptance gates in the Strict Roadmap are satisfied.
 - Future phases 66+ may be reordered only before runtime starts and only through explicit repository planning/architecture reconciliation.
 - Broad Timer UI completion is not inserted as a numbered phase between 64 and 65.
@@ -211,6 +218,8 @@ make test-phase
 - [Phase 64 Closeout](../development/phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
+- [Phase 65.C Recording Startup](../development/phase-65-recording-startup-progressive-direct.md)
+- [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)
