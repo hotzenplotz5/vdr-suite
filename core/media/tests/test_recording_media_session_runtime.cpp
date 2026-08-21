@@ -163,7 +163,10 @@ int main()
         MediaSoftwareEncoderPreset::Veryfast] = 0.992;
     samples[MediaTranscodeWorkload::Deinterlace][
         MediaSoftwareEncoderPreset::Superfast] = 1.54;
-    MediaTranscodePolicy transcodePolicy(MediaTranscodePolicyConfig{}, samples);
+    MediaTranscodePolicyConfig transcodeConfig;
+    transcodeConfig.calibrationProfilePresent = true;
+    transcodeConfig.calibrationProfileValid = true;
+    MediaTranscodePolicy transcodePolicy(transcodeConfig, samples);
 
     int spawnCalls = 0;
     int terminateCalls = 0;

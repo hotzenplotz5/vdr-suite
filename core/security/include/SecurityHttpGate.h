@@ -133,6 +133,13 @@ public:
                 path.size() - std::string("/settings/series-artwork").size(),
                 std::string("/settings/series-artwork").size(),
                 "/settings/series-artwork") == 0;
+        std::string mediaTranscodeSettingsBackendId;
+        const bool isMediaTranscodeSettingsRoute =
+            mediaTranscodeSettingsRoute(path, mediaTranscodeSettingsBackendId);
+        const bool isMediaTranscodeSettingsGet =
+            request.method == "GET" && isMediaTranscodeSettingsRoute;
+        const bool isMediaTranscodeSettingsAction =
+            isPost && isMediaTranscodeSettingsRoute;
         std::string manualMetadataBackendId;
         std::string manualMetadataOperation;
         const bool isManualRecordingMetadataAction = isPost &&
@@ -155,9 +162,51 @@ public:
             isSearchTimerExecuteAction || isSearchTimerRealTestAction ||
             isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction || isNativeFuzzyStaleProbeDeleteAction ||
-            isSeriesArtworkSettingsAction || isManualRecordingMetadataAction;
+            isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
+            isManualRecordingMetadataAction;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
+
+        if (isMediaTranscodeSettingsGet)
+        {
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
+
+            AuthorizationRequest settingsRequest;
+            settingsRequest.permission = "backend.settings.media-transcode.read";
+            settingsRequest.backendId = mediaTranscodeSettingsBackendId;
+            settingsRequest.action = "backend.settings.media-transcode.read";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, settingsRequest);
+
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
 
         if (isSafePost)
         {
@@ -205,7 +254,13 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isMediaSessionMutation)
+        if (isMediaTranscodeSettingsAction)
+        {
+            requestToAuthorize.permission = "backend.settings.media-transcode.modify";
+            requestToAuthorize.action = "backend.settings.media-transcode.modify";
+            requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
+        }
+        else if (isMediaSessionMutation)
         {
             const std::string resourceKind = jsonStringValue(request.body, "resourceKind");
             if (resourceKind == "live-channel")
@@ -460,6 +515,34 @@ private:
     {
         const std::size_t query = target.find('?');
         return query == std::string::npos ? target : target.substr(0, query);
+    }
+
+    static bool mediaTranscodeSettingsRoute(
+        const std::string& path,
+        std::string& backendId)
+    {
+        backendId.clear();
+        const std::string prefix = "/api/backends/";
+        const std::string suffix = "/settings/media-transcode";
+        if (path.size() <= prefix.size() + suffix.size() ||
+            path.compare(0, prefix.size(), prefix) != 0 ||
+            path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        {
+            return false;
+        }
+
+        const std::string candidate = path.substr(
+            prefix.size(),
+            path.size() - prefix.size() - suffix.size());
+        const bool validBackend =
+            !candidate.empty() && candidate.size() <= 128U &&
+            std::all_of(candidate.begin(), candidate.end(),
+                [](unsigned char character) {
+                    return std::isalnum(character) || character == '.' ||
+                        character == '_' || character == '-';
+                });
+        if (validBackend) backendId = candidate;
+        return true;
     }
 
     static bool manualRecordingMetadataRoute(

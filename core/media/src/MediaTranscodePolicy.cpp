@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <utility>
@@ -49,10 +50,9 @@ MediaSoftwareEncoderPreset presetForMode(MediaTranscodePresetMode mode)
 
 MediaSoftwareEncoderPreset conservativeFallback(MediaTranscodeWorkload workload)
 {
-    if (workload == MediaTranscodeWorkload::Deinterlace) {
-        return MediaSoftwareEncoderPreset::Superfast;
-    }
-    return MediaSoftwareEncoderPreset::Veryfast;
+    return workload == MediaTranscodeWorkload::Deinterlace
+        ? MediaSoftwareEncoderPreset::Superfast
+        : MediaSoftwareEncoderPreset::Veryfast;
 }
 
 bool workloadFromString(
@@ -131,6 +131,8 @@ bool positiveFiniteDouble(const std::string& text, double& value)
 
 struct LoadedPerformanceProfile
 {
+    bool present = false;
+    bool valid = false;
     MediaTranscodePerformanceSamples software;
     MediaHardwareTranscodePerformanceSamples hardware;
     std::string vaapiDevice;
@@ -141,6 +143,7 @@ LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
     LoadedPerformanceProfile profile;
     std::ifstream input(path);
     if (!input.is_open()) return profile;
+    profile.present = true;
 
     std::vector<std::string> lines;
     std::string line;
@@ -153,13 +156,11 @@ LoadedPerformanceProfile loadPerformanceProfile(const std::string& path)
         }
     }
 
-    // Versions 1 and 2 were intentionally retired after real yaVDR evidence:
-    // v1 omitted source decode cost, while v2 allowed very short real-source
-    // samples whose damaged startup region could dominate the final speed.
-    // v3 remains valid for software-only calibration. v4 is an additive
-    // extension that can also carry measured hardware-backend throughput and
-    // the render device on which that throughput was measured.
+    // Versions 1 and 2 were intentionally retired after real yaVDR evidence.
+    // v3 remains valid for software calibration and v4 can additionally carry
+    // hardware measurements and the render device used for those measurements.
     if (!supportedVersion) return profile;
+    profile.valid = true;
 
     for (const std::string& rawLine : lines) {
         line = trim(rawLine);
@@ -214,6 +215,64 @@ std::optional<MediaTranscodePresetMode> optionalModeFromEnvironment(
     return valid ? std::optional<MediaTranscodePresetMode>(mode) : std::nullopt;
 }
 
+bool anySoftwareCalibration(const MediaTranscodePerformanceSamples& samples)
+{
+    for (const auto& workload : samples) {
+        if (!workload.second.empty()) return true;
+    }
+    return false;
+}
+
+bool anySoftwareSuitable(
+    const MediaTranscodePerformanceSamples& samples,
+    double minimumRealtimeSpeed)
+{
+    for (const auto& workload : samples) {
+        for (const auto& sample : workload.second) {
+            if (sample.second >= minimumRealtimeSpeed) return true;
+        }
+    }
+    return false;
+}
+
+bool anyVaapiCalibration(
+    const MediaHardwareTranscodePerformanceSamples& samples)
+{
+    for (const auto& workload : samples) {
+        const auto sample = workload.second.find(MediaVideoEncoderBackend::Vaapi);
+        if (sample != workload.second.end()) return true;
+    }
+    return false;
+}
+
+bool anyVaapiSuitable(
+    const MediaHardwareTranscodePerformanceSamples& samples,
+    double minimumRealtimeSpeed)
+{
+    for (const auto& workload : samples) {
+        const auto sample = workload.second.find(MediaVideoEncoderBackend::Vaapi);
+        if (sample != workload.second.end() &&
+            sample->second >= minimumRealtimeSpeed) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool anyVaapiBelowThreshold(
+    const MediaHardwareTranscodePerformanceSamples& samples,
+    double minimumRealtimeSpeed)
+{
+    for (const auto& workload : samples) {
+        const auto sample = workload.second.find(MediaVideoEncoderBackend::Vaapi);
+        if (sample != workload.second.end() &&
+            sample->second < minimumRealtimeSpeed) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 MediaTranscodePolicy::MediaTranscodePolicy(
@@ -245,9 +304,42 @@ MediaTranscodePresetMode MediaTranscodePolicy::presetModeFromString(
     return MediaTranscodePresetMode::Auto;
 }
 
-MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment()
+MediaVideoEncoderMode MediaTranscodePolicy::videoEncoderModeFromString(
+    const std::string& value,
+    bool& valid)
+{
+    valid = true;
+    if (value == "auto") return MediaVideoEncoderMode::Auto;
+    if (value == "software") return MediaVideoEncoderMode::Software;
+    if (value == "vaapi") return MediaVideoEncoderMode::Vaapi;
+    valid = false;
+    return MediaVideoEncoderMode::Auto;
+}
+
+const char* MediaTranscodePolicy::videoEncoderModeName(MediaVideoEncoderMode mode)
+{
+    switch (mode) {
+    case MediaVideoEncoderMode::Auto: return "auto";
+    case MediaVideoEncoderMode::Software: return "software";
+    case MediaVideoEncoderMode::Vaapi: return "vaapi";
+    }
+    return "auto";
+}
+
+MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment(
+    std::optional<MediaVideoEncoderMode> managedMode,
+    std::optional<bool> vaapiAvailable)
 {
     MediaTranscodePolicyConfig config;
+
+    if (managedMode.has_value()) {
+        config.videoEncoderMode = managedMode.value();
+    }
+    else if (const char* raw = std::getenv("VDR_SUITE_MEDIA_VIDEO_ENCODER")) {
+        bool valid = false;
+        const MediaVideoEncoderMode mode = videoEncoderModeFromString(raw, valid);
+        if (valid) config.videoEncoderMode = mode;
+    }
 
     if (const char* raw = std::getenv("VDR_SUITE_MEDIA_X264_PRESET")) {
         bool valid = false;
@@ -276,9 +368,21 @@ MediaTranscodePolicy MediaTranscodePolicy::fromEnvironment()
     }
 
     LoadedPerformanceProfile performance = loadPerformanceProfile(profilePath);
+    config.calibrationProfilePresent = performance.present;
+    config.calibrationProfileValid = performance.valid;
     if (!vaapiDeviceOverridden && !performance.vaapiDevice.empty()) {
         config.vaapiDevice = performance.vaapiDevice;
     }
+
+    if (vaapiAvailable.has_value()) {
+        config.vaapiAvailable = vaapiAvailable.value();
+    }
+    else {
+        std::error_code error;
+        config.vaapiAvailable = validVaapiDevice(config.vaapiDevice) &&
+            std::filesystem::exists(config.vaapiDevice, error) && !error;
+    }
+
     return MediaTranscodePolicy(
         std::move(config),
         std::move(performance.software),
@@ -311,6 +415,7 @@ MediaTranscodePresetMode MediaTranscodePolicy::modeFor(
 std::optional<MediaSoftwareEncoderPreset> MediaTranscodePolicy::selectMeasuredPreset(
     MediaTranscodeWorkload workload) const
 {
+    if (!config_.calibrationProfileValid) return std::nullopt;
     const auto workloadSamples = samples_.find(workload);
     if (workloadSamples == samples_.end()) return std::nullopt;
 
@@ -345,24 +450,77 @@ MediaSoftwareEncoderPreset MediaTranscodePolicy::selectPreset(
     return conservativeFallback(workload);
 }
 
-bool MediaTranscodePolicy::hardwareMeetsRealtimeThreshold(
+std::optional<double> MediaTranscodePolicy::hardwareSpeed(
     MediaTranscodeWorkload workload,
     MediaVideoEncoderBackend backend) const
 {
+    if (!config_.calibrationProfileValid) return std::nullopt;
     const auto workloadSamples = hardwareSamples_.find(workload);
-    if (workloadSamples == hardwareSamples_.end()) return false;
+    if (workloadSamples == hardwareSamples_.end()) return std::nullopt;
     const auto sample = workloadSamples->second.find(backend);
-    return sample != workloadSamples->second.end() &&
-        sample->second >= config_.minimumRealtimeSpeed;
+    if (sample == workloadSamples->second.end()) return std::nullopt;
+    return sample->second;
+}
+
+bool MediaTranscodePolicy::vaapiTransformationSupported(
+    const MediaPresentationProfile& profile) const
+{
+    return profile.targetVideoCodec == MediaCodec::H264 &&
+        !profile.deinterlaceVideo &&
+        profile.targetVideoWidth > 0 &&
+        profile.targetVideoHeight > 0;
+}
+
+MediaTranscodePolicyDiagnostics MediaTranscodePolicy::diagnostics() const
+{
+    MediaTranscodePolicyDiagnostics result;
+    result.videoEncoderMode = config_.videoEncoderMode;
+    result.calibrationProfilePresent = config_.calibrationProfilePresent;
+    result.calibrationProfileValid = config_.calibrationProfileValid;
+    result.minimumRealtimeSpeed = config_.minimumRealtimeSpeed;
+    result.softwareCalibrated = config_.calibrationProfileValid &&
+        anySoftwareCalibration(samples_);
+    result.softwareSuitable = config_.calibrationProfileValid &&
+        anySoftwareSuitable(samples_, config_.minimumRealtimeSpeed);
+    result.vaapiAvailable = config_.vaapiAvailable &&
+        validVaapiDevice(config_.vaapiDevice);
+    result.vaapiCalibrated = config_.calibrationProfileValid &&
+        anyVaapiCalibration(hardwareSamples_);
+    result.vaapiSuitable = result.vaapiAvailable &&
+        config_.calibrationProfileValid &&
+        anyVaapiSuitable(hardwareSamples_, config_.minimumRealtimeSpeed);
+    result.forcedVaapiBelowThreshold =
+        config_.videoEncoderMode == MediaVideoEncoderMode::Vaapi &&
+        result.vaapiAvailable && result.vaapiCalibrated &&
+        anyVaapiBelowThreshold(hardwareSamples_, config_.minimumRealtimeSpeed);
+
+    if (!result.vaapiAvailable) {
+        result.vaapiReason = "VAAPI device is not available on the execution host";
+    }
+    else if (!result.vaapiCalibrated) {
+        result.vaapiReason = "VAAPI has no valid calibration evidence";
+    }
+    else if (!result.vaapiSuitable) {
+        result.vaapiReason = "VAAPI calibration is below the automatic real-time threshold";
+    }
+    else {
+        result.vaapiReason = "VAAPI is eligible for calibrated automatic workloads";
+    }
+    return result;
 }
 
 MediaPresentationProfile MediaTranscodePolicy::apply(
     const MediaPresentationProfile& profile) const
 {
     MediaPresentationProfile result = profile;
-    if (!result.available ||
-        result.videoAction != MediaTrackAction::Transcode ||
-        result.targetVideoCodec != MediaCodec::H264) {
+    if (result.videoEncoderPolicyResolved ||
+        !result.available || result.videoAction != MediaTrackAction::Transcode) {
+        return result;
+    }
+
+    if (result.targetVideoCodec != MediaCodec::H264) {
+        result.available = false;
+        result.reason = "requested video transcode codec has no implemented encoder backend";
         return result;
     }
 
@@ -374,39 +532,59 @@ MediaPresentationProfile MediaTranscodePolicy::apply(
         result.videoTranscodeWorkload = workload;
     }
 
-    // UHD software fallback is not safe when calibration already proves that
-    // the host cannot sustain real-time decode/scale/encode. In auto mode only
-    // select implementations that meet the same measured headroom contract as
-    // ordinary x264 preset selection. VAAPI is the first implemented hardware
-    // backend; QSV/NVENC remain modeled but fail closed until their command
-    // plans and acceptance coverage exist.
-    if (workload == MediaTranscodeWorkload::UhdSource &&
-        modeFor(workload) == MediaTranscodePresetMode::Auto) {
-        if (validVaapiDevice(config_.vaapiDevice) &&
-            hardwareMeetsRealtimeThreshold(
-                workload, MediaVideoEncoderBackend::Vaapi)) {
-            result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
-            result.videoHardwareDevice = config_.vaapiDevice;
-            return result;
-        }
-
-        const std::optional<MediaSoftwareEncoderPreset> measured =
-            selectMeasuredPreset(workload);
-        if (measured.has_value()) {
-            result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
-            result.videoEncoderPreset = measured.value();
-            result.videoHardwareDevice.clear();
-            return result;
-        }
-
-        result.available = false;
-        result.reason =
-            "no calibrated UHD transcode backend reaches minimum real-time speed";
+    if (config_.videoEncoderMode == MediaVideoEncoderMode::Software) {
+        result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
+        result.videoEncoderPreset = selectPreset(workload);
+        result.videoHardwareDevice.clear();
+        result.videoEncoderPolicyResolved = true;
         return result;
     }
 
-    result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
-    result.videoEncoderPreset = selectPreset(workload);
-    result.videoHardwareDevice.clear();
+    const bool vaapiSupported = vaapiTransformationSupported(result);
+    const bool vaapiAvailable = config_.vaapiAvailable &&
+        validVaapiDevice(config_.vaapiDevice);
+
+    if (config_.videoEncoderMode == MediaVideoEncoderMode::Vaapi) {
+        if (!vaapiSupported) {
+            result.available = false;
+            result.reason = "forced VAAPI does not support the requested video transformation";
+            return result;
+        }
+        if (!vaapiAvailable) {
+            result.available = false;
+            result.reason = "forced VAAPI is unavailable on the execution host";
+            return result;
+        }
+        result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+        result.videoHardwareDevice = config_.vaapiDevice;
+        result.videoEncoderPolicyResolved = true;
+        return result;
+    }
+
+    if (vaapiSupported && vaapiAvailable) {
+        const std::optional<double> measured = hardwareSpeed(
+            workload, MediaVideoEncoderBackend::Vaapi);
+        if (measured.has_value() &&
+            measured.value() >= config_.minimumRealtimeSpeed) {
+            result.videoEncoderBackend = MediaVideoEncoderBackend::Vaapi;
+            result.videoHardwareDevice = config_.vaapiDevice;
+            result.videoEncoderPolicyResolved = true;
+            return result;
+        }
+    }
+
+    const std::optional<MediaSoftwareEncoderPreset> measured =
+        selectMeasuredPreset(workload);
+    if (measured.has_value()) {
+        result.videoEncoderBackend = MediaVideoEncoderBackend::SoftwareX264;
+        result.videoEncoderPreset = measured.value();
+        result.videoHardwareDevice.clear();
+        result.videoEncoderPolicyResolved = true;
+        return result;
+    }
+
+    result.available = false;
+    result.reason =
+        "no calibrated video encoder backend reaches minimum real-time speed";
     return result;
 }

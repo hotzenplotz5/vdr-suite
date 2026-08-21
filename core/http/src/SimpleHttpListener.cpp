@@ -485,6 +485,35 @@ private:
         return stopping_;
     }
 
+    bool writeStreamAll(int socketFd, const char* data, std::size_t size) const
+    {
+        std::size_t offset = 0;
+        while (offset < size) {
+            if (stopping()) return false;
+
+            const ssize_t written = send(
+                socketFd,
+                data + offset,
+                size - offset,
+                noSignalSendFlags());
+            if (written > 0) {
+                offset += static_cast<std::size_t>(written);
+                continue;
+            }
+            if (written < 0 && errno == EINTR) continue;
+            if (written < 0 &&
+                (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                // Long-lived media streams deliberately obey browser/network
+                // backpressure. The per-client SO_SNDTIMEO is a wake-up bound,
+                // not a media inactivity deadline. Retry until the peer really
+                // disconnects or listener shutdown is requested.
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
     void stream(Job& job)
     {
         if (!writeAll(job.socketFd, job.headers)) return;
@@ -519,7 +548,7 @@ private:
                 const ssize_t received = ::read(input, buffer, sizeof(buffer));
                 if (received > 0) {
                     sawData = true;
-                    if (!writeAll(
+                    if (!writeStreamAll(
                             job.socketFd,
                             buffer,
                             static_cast<std::size_t>(received))) {

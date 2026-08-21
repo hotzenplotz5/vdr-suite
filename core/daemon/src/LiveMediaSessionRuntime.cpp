@@ -3,6 +3,7 @@
 #include "FfmpegLiveStreamCommandBuilder.h"
 #include "MediaSessionRepository.h"
 #include "MediaSessionWorkspace.h"
+#include "MediaTranscodeSettingsApiRuntime.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -43,6 +44,17 @@ bool supportsDirectLive(const ClientMediaCapabilities& capabilities)
         contains(capabilities.videoCodecs, MediaCodec::H264) &&
         contains(capabilities.audioCodecs, MediaCodec::Aac) &&
         capabilities.maxAudioChannels >= 2;
+}
+
+std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
+{
+    if (profile.reason.find("forced VAAPI does not support") != std::string::npos) {
+        return "forced_vaapi_transformation_unsupported";
+    }
+    if (profile.reason.find("forced VAAPI is unavailable") != std::string::npos) {
+        return "forced_vaapi_unavailable";
+    }
+    return "live_transcode_capacity_unproven";
 }
 
 MediaPresentationProfile directLivePresentation()
@@ -205,12 +217,21 @@ LiveMediaSessionProvisionResult LiveMediaSessionRuntime::provisionStream(
     }
 
     result.source = directLiveDescriptor();
-    result.presentation = transcodePolicy_.apply(directLivePresentation());
+    MediaTranscodePolicy sessionPolicy = transcodePolicy_;
+    MediaTranscodeSettingsApiRuntime& settingsRuntime =
+        MediaTranscodeSettingsApiRuntime::instance();
+    if (settingsRuntime.configured()) {
+        sessionPolicy = settingsRuntime.resolvePolicy(
+            preparation.pin.channelFence.backendId);
+    }
+    result.presentation = sessionPolicy.apply(directLivePresentation());
     if (!result.presentation.available) {
         closeProvider();
         result.reasonCode = result.presentation.reason.empty()
             ? "live_transcode_capacity_unproven" : result.presentation.reason;
-        repository_.failBundle(sessionId, result.reasonCode);
+        repository_.failBundle(
+            sessionId,
+            transcodePolicyReasonCode(result.presentation));
         return result;
     }
 

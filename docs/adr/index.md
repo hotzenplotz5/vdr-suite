@@ -33,20 +33,20 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0054
+ADR-0055
 ```
 
 Latest accepted ADRs at the end of the sequence:
 
-- [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 - [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
 - [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
+- [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0055
+ADR-0056
 ```
 
 Rules:
@@ -127,6 +127,7 @@ Rules:
 - [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053: Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
 - [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
+- [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)

@@ -174,6 +174,7 @@ private:
             permission == "epgsearch.native-fuzzy.refresh" ||
             permission == "epgsearch.native-fuzzy.stale-probes.delete" ||
             permission == "backend.settings.series-artwork.modify" ||
+            permission == "backend.settings.media-transcode.modify" ||
             permission == "backend.agent.enroll" ||
             permission == "backend.agent.revoke" ||
             permission == "backend.agent.credential.rotate";
@@ -185,10 +186,16 @@ private:
             permission == "media.live.play";
     }
 
+    static bool adminSettingsReadPermission(const std::string& permission)
+    {
+        return permission == "backend.settings.media-transcode.read";
+    }
+
     static bool adminRoleGrants(const std::string& permission)
     {
         return protectedMutationPermission(permission) ||
-            mediaPermission(permission);
+            mediaPermission(permission) ||
+            adminSettingsReadPermission(permission);
     }
 
     static bool mutatingPermission(const std::string& permission)
