@@ -25,26 +25,32 @@ Latest completed numbered runtime phase:
 Phase 64 - Timer Intent and Multi-Backend Orchestration
 
 Current active numbered runtime phase:
-none - Phase 65 has not started
-
-Next strict numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
+
+Completed Phase-65 product verticals:
+65.A - Existing-Recording playback
+65.B - Live-TV playback
+65.C - Recording startup / progressive-direct
+65.D - Media-transcode backend policy and output settings
+
+Next Phase-65 product vertical:
+65.E - Client playback abstraction
 ```
 
-Phase 64 is complete, including managed native Timer fulfillment and controlled reassignment/failover. Phase 65 remains next but requires an explicit kickoff before runtime implementation.
+Phase 65 is active. The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by the implementation history: PR #206 closed the bounded 65.C Recording startup/performance vertical, and PR #208 closed the media-transcode backend policy/settings work that corresponds to 65.D. Truthful range/seek/growing capability remains a Phase-65 invariant, but it is not the current 65.C product label.
 
 ## Revised strict forward sequence
 
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
-  -> Phase 65 - Streaming Gateway and Media Sessions [NEXT, NOT STARTED]
+  -> Phase 65 - Streaming Gateway and Media Sessions [ACTIVE]
   -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV
   -> Phase 67 - Legacy OSD Compatibility Bridge
   -> Phase 68 - Public API and Client Compatibility Hardening
   -> Phase 69 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 66 is backed by accepted ADR-0054. Runtime remains blocked until Phase 66 is explicitly started after Phase 65.
+Phase 66 is backed by accepted ADR-0054. Runtime remains blocked until Phase 65 closes and Phase 66 is explicitly started.
 
 ## Cross-cutting product milestones
 
@@ -60,8 +66,8 @@ The Broad Timer Product UI depends on the completed Phase-62 identity/RBAC found
 
 ## Roadmap rule
 
-Completed phases are never renumbered or reopened merely because optional product surfaces remain.
+Completed phases and accepted Phase-65 verticals are not renumbered or reopened merely because optional product surfaces or more advanced seek behavior remain.
 
-Future not-yet-started phases may be reordered only through explicit repository planning/architecture reconciliation. Provider additions, diagnostics, administration products and frontend work must be classified explicitly rather than smuggled into a completed phase.
+Future not-yet-started phases may be reordered only through explicit repository planning/architecture reconciliation. Provider additions, diagnostics, administration products and frontend work must be classified explicitly rather than smuggled into a completed phase or vertical.
 
 For all details, use the [Strict Roadmap](docs/planning/roadmap.md).
