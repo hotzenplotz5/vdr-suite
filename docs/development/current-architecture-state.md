@@ -6,6 +6,10 @@
 - [Documentation Index](../index.md)
 - [Current State](../CURRENT.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
+- [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
+- [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
+- [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Strict Roadmap](../planning/roadmap.md)
 
@@ -83,7 +87,7 @@ The implemented Agent architecture includes bounded support for:
 - explicit local provider ownership and selection;
 - protected-write safety contracts that prevent silent provider fallback and stale-generation completion.
 
-This Phase-63 capability is a reusable platform foundation for completed Timer orchestration and future media execution.
+This Phase-63 capability is a reusable platform foundation for completed Timer orchestration and active media execution.
 
 ## Protected-write safety model
 
@@ -134,9 +138,9 @@ Exact final acceptance evidence belongs in [Phase 64 Closeout](phase-64-closeout
 
 A broad polished Timer UI remains outside the completed Phase-64 engine boundary and is separately gated on account/backend access management.
 
-## Media architecture state
+## Media architecture state — implemented Phase 65 foundation
 
-The accepted media target is defined by [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md):
+The accepted media target is defined by ADR-0046 and ADR-0053, with ADR-0055 defining media-transcode backend selection and hardware-acceleration policy:
 
 ```text
 Client
@@ -144,14 +148,30 @@ Client
   -> MediaSession
   -> Streaming Gateway
   -> MediaRoute
-  -> Backend Agent
-  -> explicitly owned ProviderStreamLease
+  -> Backend Agent / explicitly owned provider where required
+  -> ProviderStreamLease
   -> private media provider / VDR source
 ```
 
-Phase 65 is the next strict runtime phase but has not started. Existing playback/media-adaptation planning must be reconciled with the completed Phase-64 platform before runtime work begins.
+Phase 65 is active and has real accepted runtime implementation. Completed bounded verticals are:
 
-Streamdev remains a private possible provider rather than the public API/security boundary.
+- **65.A Existing-Recording playback** — authenticated MediaSession/Gateway playback, least-transformation adaptation, real picture/sound and deterministic lifecycle cleanup;
+- **65.B Live-TV playback** — bounded SuiteBridge live provider/replay, one continuous FFmpeg consumer, real picture/sound, repeated zap and stability acceptance;
+- **65.C Recording delivery performance and media output/transcode settings** — completed-Recording `progressive-direct`/`progressive-fmp4` startup optimization followed by backend-scoped `auto`/`software`/`vaapi` output policy/settings, calibrated selection, hard VAAPI capability checks, session-stable policy, fail-closed forced-VAAPI behavior and stream-backpressure hardening.
+
+Current accepted delivery rules remain:
+
+- pass-through first, then remux/repackage only where required, then transcode only where materially required;
+- provider-native URLs, paths, credentials and socket details remain private;
+- MediaSession, route, grant and provider lease remain Suite-owned authorization/lifecycle boundaries;
+- active sessions do not silently retarget provider or encoder policy;
+- Range/seek/growing capability is truthful; unsupported advanced seek is reported as unsupported rather than fabricated;
+- completed-only immutable fast paths fail closed when a Recording is growing or its source fingerprint changes;
+- Web output settings are backend-scoped policy controls for new sessions, not arbitrary FFmpeg/device configuration.
+
+The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains, while arbitrary VOD time-seek/VDR-index mapping and user-visible growing-Recording seek remain deferred until a demonstrated product gap justifies a coherent implementation.
+
+The next planned Phase-65 vertical is **65.D Client playback abstraction**, keeping platform-native/mature playback engines behind a small Suite semantic adapter. Streamdev remains a private possible provider rather than the public API/security boundary.
 
 ## Public API and client boundary
 
@@ -177,6 +197,10 @@ Exact historical acceptance heads/hashes belong in the closeout that accepted th
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](current-status.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
+- [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
+- [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
+- [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
+- [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
