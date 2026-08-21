@@ -162,11 +162,13 @@ The accepted scope includes browser picture/sound playback, least-transformation
 
 ### Later sequencing supersedes the original follow-on note
 
-After this 65.A closeout, Phase 65.B Live-TV was completed. The later implementation history then defined and closed:
+After this 65.A closeout, Phase 65.B Live-TV was completed. The later implementation history then defined Phase 65.C as a broader bounded delivery/performance continuation rather than the old seek-labelled block:
 
-- **65.C — Recording startup / progressive-direct** through PR #206;
-- **65.D — Media-transcode backend policy and output settings** through PR #208 and ADR-0055.
+- PR #206 began and accepted the **65.C Recording startup / progressive-direct** block;
+- the same authorized 65.C scope continued through PR #208 with **media-transcode backend policy and output settings** under ADR-0055.
 
-The earlier idea of making `Recording seek and growing-recording semantics` the 65.C product label is therefore obsolete. Its safety intent remains: Range/seek/growing capability must be truthful, and unsupported advanced seek must not be fabricated. Full arbitrary VOD time-seek, VDR-index mapping and user-visible growing-Recording seek remain deferred until a coherent demonstrated gap promotes them.
+Those accepted blocks together close Phase 65.C for its bounded delivery-performance/output-settings scope. The old separate 65.D compatibility-escalation planning block was consumed by that PR #208 work rather than started independently, so the next planned Phase-65 vertical is **65.D Client playback abstraction**.
+
+The earlier idea of making `Recording seek and growing-recording semantics` the 65.C product label is obsolete. Its safety intent remains: Range/seek/growing capability must be truthful, and unsupported advanced seek must not be fabricated. Full arbitrary VOD time-seek, VDR-index mapping and user-visible growing-Recording seek remain deferred until a coherent demonstrated gap promotes them.
 
 The current next Phase-65 vertical is maintained only in [Current State](../CURRENT.md) and the [Strict Roadmap](../planning/roadmap.md). Phase 66 remains blocked until the complete Phase-65 gate is satisfied.
