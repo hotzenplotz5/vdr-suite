@@ -11,21 +11,25 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 1. [Current State](CURRENT.md) — exact current repository checkpoint.
 2. [Strict Roadmap](planning/roadmap.md) — binding phase order and completion gates.
 3. [Phase 64 Final Closeout](development/phase-64-closeout.md) for the accepted Timer-engine boundary.
-4. [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md) and [ADR-0053 Client Playback / Media Adaptation](adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md) for Phase-65 media work.
-5. [Golden User Journeys](planning/golden-user-journeys.md) for vertical product acceptance.
-6. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [Architecture Decision Records](adr/index.md) as required by the task.
-7. If work concerns Teletext/HbbTV or future phase ordering, read accepted [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md); acceptance defines the architecture but does not authorize Phase-66 runtime.
-8. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+4. [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md), [ADR-0053 Client Playback / Media Adaptation](adr/ADR-0053-client-playback-engine-media-adaptation-strategy.md) and [ADR-0055 Media Transcode Backend Selection](adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md) for current Phase-65 media work.
+5. [Phase 65 Recording Playback Closeout](development/phase-65-recording-playback-closeout-readiness.md), [Phase 65 Live-TV Playback Closeout](development/phase-65-live-tv-closeout.md), [Phase 65.C Recording Startup / Progressive Direct](development/phase-65-recording-startup-progressive-direct.md) and [Phase 65 Media Transcode Performance Policy](development/phase-65-media-transcode-performance-policy.md) for accepted Phase-65 implementation history.
+6. [Golden User Journeys](planning/golden-user-journeys.md) for vertical product acceptance.
+7. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [Architecture Decision Records](adr/index.md) as required by the task.
+8. If work concerns Teletext/HbbTV or future phase ordering, read accepted [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md); acceptance defines the architecture but does not authorize Phase-66 runtime.
+9. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Completed Phases](development/completed-phases.md), [Phase 62 Final Closeout](development/phase-62-closeout.md) and the Phase-63 development records provide stable historical/narrative context.
 
 ## Stable project position
 
 - Latest completed numbered runtime phase: **Phase 64 - Timer Intent and Multi-Backend Orchestration**.
-- Current active numbered runtime phase: **none; Phase 65 has not started**.
-- Next strict numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
+- Current active numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
+- Completed Phase-65 verticals: **65.A Existing-Recording playback**, **65.B Live-TV playback**, **65.C Recording startup / progressive-direct**, **65.D media-transcode backend policy and output settings**.
+- Next Phase-65 product vertical: **65.E Client playback abstraction**.
 - Phase 58 - Frontend and Live Parity remains a historical umbrella track.
 - A broad polished Timer UI remains outside the Phase-64 completion gate and is a cross-cutting product milestone gated on the required account/backend access administration.
+
+The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by accepted implementation history. Truthful seek/range/growing capability remains binding, but arbitrary VOD time-seek and user-visible growing-Recording seek are deferred until a demonstrated gap justifies a coherent implementation block.
 
 Do not paste a current branch SHA or active PR tip into this section. Read exact operational state from `CURRENT.md` and GitHub instead.
 
@@ -47,32 +51,33 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-No numbered runtime phase is currently active.
+Phase 65 is active. Phase 65.A through 65.D are closed for their accepted bounded scopes.
 
-The next possible numbered implementation is Phase 65, but it is **not automatically authorized** by the Phase-64 merge, the roadmap reconciliation or this handoff. Before implementation begins:
+The next planned Phase-65 product direction is **65.E Client playback abstraction**. Before implementation:
 
 1. re-read live `main` and `CURRENT.md`;
-2. review ADR-0046 and ADR-0053 against the completed Phase-64 platform;
-3. inspect the current media/provider implementation gap;
-4. define the first coherent Phase-65 Recording-playback vertical and its acceptance boundary;
-5. obtain an explicit kickoff decision.
+2. review ADR-0046, ADR-0053 and ADR-0055 against the current client/media code;
+3. inspect the exact gap between Suite MediaSession semantics and the current first-party playback owner;
+4. choose the smallest coherent semantic playback-adapter vertical;
+5. preserve truthful capability reporting, provider privacy, least-transformation selection, output policy and deterministic cleanup;
+6. do not start Phase 66.
 
-Do not treat an old draft PR, historical “next slice” note, roadmap label or prior chat plan as current authorization.
+Do not treat an old draft PR, historical “next slice” note, obsolete 65.C seek label or prior chat plan as current authorization.
 
 ## Phase ordering and broad Timer UI
 
-The binding/planned order after completed Phase 64 is:
+The binding/planned order is:
 
 ```text
 Phase 64 reliable Timer orchestration engine [COMPLETED]
-  -> Phase 65 Streaming Gateway and Media Sessions [NEXT, NOT STARTED]
+  -> Phase 65 Streaming Gateway and Media Sessions [ACTIVE]
   -> Phase 66 Broadcast Companion Services: Teletext and HbbTV
   -> Phase 67 Legacy OSD Compatibility Bridge
   -> Phase 68 Public API and Client Compatibility Hardening
   -> Phase 69 Recommendation and Content Knowledge Graph
 ```
 
-Completed history is not renumbered. The post-Phase-65 sequence concerns only not-yet-started future phases. Phase 66 is backed by accepted ADR-0054 and remains runtime-blocked until Phase 66 is explicitly started after Phase 65.
+Completed history is not renumbered. The post-Phase-65 sequence concerns only not-yet-started future phases. Phase 66 is backed by accepted ADR-0054 and remains runtime-blocked until Phase 66 is explicitly started after Phase 65 closes.
 
 The broad polished Timer UI is not the Phase-64 completion gate and is not inserted as a numbered phase. Its prerequisite chain is:
 
@@ -88,7 +93,7 @@ Therefore Phase 65 Streaming may intentionally be implemented before the broad T
 
 Do not invent a second media architecture.
 
-Accepted ADR-0046 owns the server-side Streaming Gateway / MediaSession boundary. Accepted ADR-0053 owns the complementary client playback and media-adaptation strategy.
+Accepted ADR-0046 owns the server-side Streaming Gateway / MediaSession boundary. Accepted ADR-0053 owns the complementary client playback and media-adaptation strategy. Accepted ADR-0055 owns media-transcode backend selection and hardware-acceleration policy.
 
 The intended direction is provider-private and transformation-minimal:
 
@@ -104,7 +109,17 @@ private VDR / Recording source
 
 Prefer `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider; it is not the public API, universal platform foundation or implicit fallback.
 
-The preferred Phase-65 product order is Recording playback first, then Live TV, then truthful seek/growing-Recording semantics. Remux and transcoding are compatibility escalation only when real evidence requires them.
+Accepted product sequence to date:
+
+```text
+Recording playback [65.A CLOSED]
+  -> Live TV [65.B CLOSED]
+  -> completed-Recording startup / progressive-direct [65.C CLOSED]
+  -> media-transcode backend policy and output settings [65.D CLOSED]
+  -> client playback abstraction [65.E NEXT]
+```
+
+Seek/growing-recording truthfulness is a cross-cutting media contract rather than the current 65.C label. Continuous progressive fMP4 must not invent byte-range/time-seek semantics, completed-only fast paths must not treat growing sources as immutable, and unsupported advanced seek remains explicitly unsupported until implemented.
 
 ## Broadcast Companion planning
 
@@ -154,12 +169,13 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main`, the relevant PR/branch and exact-final-head CI before making a status claim.
-3. Treat Phase 64 as completed and Phase 65 as next but not started.
-4. For Phase-65 planning, reconcile ADR-0046, ADR-0053, current architecture and current code before suggesting implementation.
-5. Treat Phase-66 Teletext/HbbTV architecture as accepted via ADR-0054, but do not start its runtime before Phase 65 closes and Phase 66 is explicitly authorized.
-6. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 or block Streaming solely for that UI.
-7. Keep review/merge/retarget/close state changes behind explicit user approval.
-8. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes.
+3. Treat Phase 64 as completed and Phase 65 as active with 65.A through 65.D closed.
+4. Treat 65.E Client playback abstraction as the next planned Phase-65 product direction unless live repository state supersedes it.
+5. Preserve truthful Range/seek/growing capability; do not revive the obsolete 65.C seek label as implicit authorization.
+6. Treat Phase-66 Teletext/HbbTV architecture as accepted via ADR-0054, but do not start its runtime before Phase 65 closes and Phase 66 is explicitly authorized.
+7. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 or block Streaming solely for that UI.
+8. Keep review/merge/retarget/close state changes behind explicit user approval.
+9. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes.
 
 ## Command presentation contract
 
