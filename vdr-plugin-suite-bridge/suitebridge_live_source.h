@@ -3,6 +3,7 @@
 
 #include "suitebridge_command_result.h"
 #include "suitebridge_live_replay_buffer.h"
+#include "suitebridge_live_socket_writer.h"
 #include "suitebridge_live_transport_buffer.h"
 
 #include <vdr/channels.h>
@@ -360,36 +361,12 @@ private:
 
     bool SendPacket(int fd, const Packet &packet)
     {
-      std::size_t offset = 0;
-      while (offset < packet.size()) {
-        pollfd descriptor {};
-        descriptor.fd = fd;
-        descriptor.events = POLLOUT;
-        const int polled = ::poll(&descriptor, 1, 250);
-        if (polled < 0 && errno == EINTR) continue;
-        if (polled <= 0 || (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-          return false;
-        }
-        const ssize_t written = ::send(
-            fd,
-            packet.data() + offset,
-            packet.size() - offset,
-#ifdef MSG_NOSIGNAL
-            MSG_NOSIGNAL
-#else
-            0
-#endif
-        );
-        if (written > 0) {
-          offset += static_cast<std::size_t>(written);
-          continue;
-        }
-        if (written < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
-          continue;
-        }
-        return false;
-      }
-      return true;
+      return SuiteBridgeLiveSendAll(
+          fd,
+          packet.data(),
+          packet.size(),
+          state->stopping,
+          state->terminal);
     }
 
     bool SendStartupPackets(int fd)

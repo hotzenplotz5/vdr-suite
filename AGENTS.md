@@ -25,6 +25,14 @@ artificial confirmation pauses. Do not stop after analysis, after each file, or
 after each commit when the next operation is already covered by the user's
 instruction and the repository contract.
 
+Do not hand a candidate to the user for acceptance testing while the current
+branch head has a known implementation, runtime-wiring, packaging, deployment or
+validation gap that prevents the requested acceptance scenario from being tested
+truthfully. Such an intermediate head is not a testable candidate. Continue the
+approved implementation and stabilization work until the requested acceptance
+scope is actually runnable, unless a real decision or safety boundary below
+requires user input first.
+
 Stop only when a real decision or safety boundary is reached, including:
 
 - the remote branch moved unexpectedly;

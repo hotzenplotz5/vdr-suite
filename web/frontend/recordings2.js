@@ -26,8 +26,7 @@
     error: null,
     requestSequence: 0
   };
-  let view;
-  let playbackRuntimePromise = null;
+  let view; let playbackRuntimePromise = null;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -45,8 +44,9 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
+  function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); }
   function ensurePlaybackRuntime() {
-    if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') return Promise.resolve();
+    if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
     if (playbackRuntimePromise) return playbackRuntimePromise;
     if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve();
     playbackRuntimePromise = global.loadVdrSuiteDeferredRuntime('vdr-suite-session-frontend-sync-runtime',
@@ -56,7 +56,7 @@
       '/frontend/recordings2-playback.js',
       function () { return Boolean(global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function'); }
     ); }).then(function () {
-      if (state.active && state.selectedRecording) render();
+      installPlaybackShell(); if (state.active && state.selectedRecording) render();
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }

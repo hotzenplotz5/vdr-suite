@@ -31,7 +31,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by accepted implementation history. Phase 65.C actually combined the completed-Recording startup/progressive-delivery work from PR #206 with the subsequently continued backend-scoped media-transcode/output policy and Web settings from PR #208. Truthful seek/range/growing capability remains binding, but arbitrary VOD time-seek and user-visible growing-Recording seek are deferred until a demonstrated gap justifies a coherent implementation block.
 
-The old unstarted 65.D compatibility-escalation block was consumed inside completed 65.C; therefore the next not-yet-started Phase-65 vertical is 65.D Client playback abstraction.
+The old unstarted 65.D compatibility-escalation block was consumed inside completed 65.C; therefore the next Phase-65 vertical that is not started is 65.D Client playback abstraction.
 
 Do not paste a current branch SHA or active PR tip into this section. Read exact operational state from `CURRENT.md` and GitHub instead.
 
@@ -186,6 +186,7 @@ Every shell command intended for the user to copy or execute must be presented i
 - Keep explanations outside the code block.
 - Put complete, directly executable command sequences inside the code block.
 - Use separate code blocks for logically separate steps when that improves safe execution.
+- The established yaVDR checkout is exactly `/home/yavdr/vdr-suite`; do not derive or substitute checkout paths from a person's name or from an unverified chat assumption.
 - Preserve explicit checkout-path and repository-identity verification; never hide required setup in surrounding prose.
 - When the user asks for build, test, installation, rollback or diagnostic commands, the final answer must contain those commands in ordinary copyable Markdown code blocks.
 - Do not use `set -e` or another user-facing errexit wrapper; use explicit error handling.
