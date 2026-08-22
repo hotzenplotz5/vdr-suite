@@ -26,8 +26,7 @@
     error: null,
     requestSequence: 0
   };
-  let view;
-  let playbackRuntimePromise = null;
+  let view; let playbackRuntimePromise = null;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
