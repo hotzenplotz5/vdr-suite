@@ -1,12 +1,21 @@
 #include "../suitebridge_live_replay_buffer.h"
+#include "../suitebridge_live_socket_writer.h"
 #include "../suitebridge_live_transport_buffer.h"
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <cassert>
+#include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <fcntl.h>
 #include <iostream>
+#include <sys/socket.h>
 #include <thread>
+#include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -30,6 +39,32 @@ std::uint32_t SequenceOf(const SuiteBridgeTsPacketBuffer::Packet &packet)
          (static_cast<std::uint32_t>(packet[2]) << 16U) |
          (static_cast<std::uint32_t>(packet[3]) << 8U) |
          static_cast<std::uint32_t>(packet[4]);
+}
+
+int SendFlags()
+{
+#ifdef MSG_NOSIGNAL
+  return MSG_NOSIGNAL;
+#else
+  return 0;
+#endif
+}
+
+std::size_t FillSocketUntilBlocked(int fd)
+{
+  std::array<std::uint8_t, 4096> filler{};
+  std::size_t total = 0;
+  while (true) {
+    const ssize_t written = ::send(fd, filler.data(), filler.size(), SendFlags());
+    if (written > 0) {
+      total += static_cast<std::size_t>(written);
+      continue;
+    }
+    if (written < 0 && errno == EINTR) continue;
+    assert(written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
+    break;
+  }
+  return total;
 }
 
 void TestPacketContract()
@@ -126,6 +161,72 @@ void TestConcurrentProducerConsumerDoesNotSilentlyDrop()
   consumer.join();
   assert(!producerFailed.load(std::memory_order_acquire));
   assert(buffer.Empty());
+}
+
+void TestSocketWriterSurvivesTransientBackpressure()
+{
+  int sockets[2] = {-1, -1};
+  assert(::socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+
+  const int flags = ::fcntl(sockets[0], F_GETFL, 0);
+  assert(flags >= 0);
+  assert(::fcntl(sockets[0], F_SETFL, flags | O_NONBLOCK) == 0);
+  const int sendBuffer = 4096;
+  assert(::setsockopt(
+      sockets[0], SOL_SOCKET, SO_SNDBUF, &sendBuffer, sizeof(sendBuffer)) == 0);
+
+  const std::size_t filled = FillSocketUntilBlocked(sockets[0]);
+  assert(filled > 0);
+
+  const auto packet = MakePacket(77);
+  std::vector<std::uint8_t> received(filled + packet.size());
+  std::atomic<bool> stopping{false};
+  std::atomic<bool> terminal{false};
+
+  std::thread reader([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(350));
+    std::size_t offset = 0;
+    while (offset < received.size()) {
+      const ssize_t count = ::recv(
+          sockets[1], received.data() + offset, received.size() - offset, 0);
+      if (count < 0 && errno == EINTR) continue;
+      assert(count > 0);
+      offset += static_cast<std::size_t>(count);
+    }
+  });
+
+  const auto startedAt = std::chrono::steady_clock::now();
+  assert(SuiteBridgeLiveSendAll(
+      sockets[0], packet.data(), packet.size(), stopping, terminal));
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - startedAt);
+
+  reader.join();
+  assert(elapsed >= std::chrono::milliseconds(250));
+  assert(std::equal(
+      packet.begin(),
+      packet.end(),
+      received.end() - static_cast<std::ptrdiff_t>(packet.size())));
+
+  ::close(sockets[0]);
+  ::close(sockets[1]);
+}
+
+void TestSocketWriterFailsClosedOnDisconnect()
+{
+  int sockets[2] = {-1, -1};
+  assert(::socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+  const int flags = ::fcntl(sockets[0], F_GETFL, 0);
+  assert(flags >= 0);
+  assert(::fcntl(sockets[0], F_SETFL, flags | O_NONBLOCK) == 0);
+  ::close(sockets[1]);
+
+  const auto packet = MakePacket(78);
+  std::atomic<bool> stopping{false};
+  std::atomic<bool> terminal{false};
+  assert(!SuiteBridgeLiveSendAll(
+      sockets[0], packet.data(), packet.size(), stopping, terminal));
+  ::close(sockets[0]);
 }
 
 void TestReplayStartUnavailableUntilCleanBoundary()
@@ -279,6 +380,8 @@ int main()
   TestBoundedOverflowIsExplicit();
   TestConsumerPausePreservesPacketOrder();
   TestConcurrentProducerConsumerDoesNotSilentlyDrop();
+  TestSocketWriterSurvivesTransientBackpressure();
+  TestSocketWriterFailsClosedOnDisconnect();
   TestReplayStartUnavailableUntilCleanBoundary();
   TestReplayReconnectStartsAtLatestCleanBoundary();
   TestReplayPreStartHistoryMayBeDiscarded();
