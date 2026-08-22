@@ -96,11 +96,19 @@
 }(window));
 
 // Phase-65.B Live-TV and the first Phase-65.C completed-Recording startup
-// vertical use Suite-owned continuous fMP4 streams. The original Recording
-// HLS/MSE player remains available as a compatibility fallback for sources or
-// transformations that cannot use the low-latency continuous path.
+// vertical use Suite-owned continuous fMP4 streams. Browsers that expose MSE
+// plus streaming Fetch consume that exact stream through SourceBuffer so the
+// platform does not have to treat an open-ended fMP4 HTTP response as a native
+// progressive file. This is capability based (not UA based) and keeps exactly
+// one MediaSession / Gateway stream owner. The existing Recording HLS/MSE
+// player remains the compatibility fallback when even the continuous MSE path
+// cannot consume the selected stream.
 (function (global) {
   'use strict';
+
+  const CONTINUOUS_INIT_LIMIT_BYTES = 1024 * 1024;
+  const CONTINUOUS_PENDING_LIMIT_BYTES = 8 * 1024 * 1024;
+  const CONTINUOUS_BUFFER_HISTORY_SECONDS = 90;
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -176,6 +184,375 @@
 
   function recordingCapabilities() {
     return browserProgressiveCapabilities();
+  }
+
+  function supportsContinuousFmp4Mse() {
+    const MediaSource = global.MediaSource;
+    return Boolean(
+      MediaSource &&
+      typeof MediaSource.isTypeSupported === 'function' &&
+      typeof global.fetch === 'function' &&
+      typeof global.AbortController === 'function' &&
+      typeof global.ReadableStream === 'function' &&
+      global.URL &&
+      typeof global.URL.createObjectURL === 'function' &&
+      typeof global.URL.revokeObjectURL === 'function'
+    );
+  }
+
+  function bytesView(value) {
+    if (!value || typeof value.byteLength !== 'number') return null;
+    try {
+      if (value.buffer && typeof value.byteOffset === 'number') {
+        return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      }
+      return new Uint8Array(value);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function concatBytes(left, right) {
+    const first = bytesView(left);
+    const second = bytesView(right);
+    if (!first || !second) throw new Error('Ungültige fMP4-Bytedaten.');
+    const combined = new Uint8Array(first.byteLength + second.byteLength);
+    combined.set(first, 0);
+    combined.set(second, first.byteLength);
+    return combined;
+  }
+
+  function uint32At(bytes, offset) {
+    if (offset < 0 || offset + 4 > bytes.length) return 0;
+    return (((bytes[offset] << 24) >>> 0) +
+      (bytes[offset + 1] << 16) +
+      (bytes[offset + 2] << 8) +
+      bytes[offset + 3]) >>> 0;
+  }
+
+  function boxTypeAt(bytes, offset) {
+    if (offset < 0 || offset + 4 > bytes.length) return '';
+    return String.fromCharCode(
+      bytes[offset],
+      bytes[offset + 1],
+      bytes[offset + 2],
+      bytes[offset + 3]
+    );
+  }
+
+  function findCompleteInitEnd(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return 0;
+    let offset = 0;
+    while (offset + 8 <= bytes.length) {
+      const size = uint32At(bytes, offset);
+      const type = boxTypeAt(bytes, offset + 4);
+      if (size === 1) {
+        throw new Error('64-Bit-fMP4-Boxen sind im Browser-Startpfad nicht unterstützt.');
+      }
+      if (size === 0) return 0;
+      if (size < 8) throw new Error('Ungültige fMP4-Boxgröße.');
+      if (offset + size > bytes.length) return 0;
+      offset += size;
+      if (type === 'moov') return offset;
+    }
+    return 0;
+  }
+
+  function completeMediaPrefix(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return 0;
+    let offset = 0;
+    let lastMdatEnd = 0;
+    while (offset + 8 <= bytes.length) {
+      const size = uint32At(bytes, offset);
+      const type = boxTypeAt(bytes, offset + 4);
+      if (size === 1) {
+        throw new Error('64-Bit-fMP4-Boxen sind im Browser-Stream nicht unterstützt.');
+      }
+      if (size === 0) break;
+      if (size < 8) throw new Error('Ungültige fMP4-Boxgröße.');
+      if (offset + size > bytes.length) break;
+      offset += size;
+      if (type === 'mdat') lastMdatEnd = offset;
+    }
+    return lastMdatEnd;
+  }
+
+  function hexByte(value) {
+    return Number(value).toString(16).padStart(2, '0');
+  }
+
+  function findBox(bytes, type) {
+    for (let typeOffset = 4; typeOffset + 4 <= bytes.length; typeOffset += 1) {
+      if (boxTypeAt(bytes, typeOffset) !== type) continue;
+      const start = typeOffset - 4;
+      const size = uint32At(bytes, start);
+      if (size < 8 || start + size > bytes.length) continue;
+      return {payloadStart: start + 8, end: start + size};
+    }
+    return null;
+  }
+
+  function avcCodecFromInit(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return '';
+    const box = findBox(bytes, 'avcC');
+    if (!box || box.payloadStart + 4 > box.end || bytes[box.payloadStart] !== 1) return '';
+    return 'avc1.' +
+      hexByte(bytes[box.payloadStart + 1]) +
+      hexByte(bytes[box.payloadStart + 2]) +
+      hexByte(bytes[box.payloadStart + 3]);
+  }
+
+  function descriptorLength(bytes, offset, end) {
+    let length = 0;
+    for (let count = 0; count < 4 && offset < end; count += 1, offset += 1) {
+      const value = bytes[offset];
+      length = (length << 7) | (value & 0x7f);
+      if ((value & 0x80) === 0) return {length: length, next: offset + 1};
+    }
+    return null;
+  }
+
+  function audioObjectType(bytes, offset, end) {
+    if (offset >= end) return 0;
+    let type = bytes[offset] >> 3;
+    if (type === 31) {
+      if (offset + 1 >= end) return 0;
+      type = 32 + (((bytes[offset] & 0x07) << 3) | (bytes[offset + 1] >> 5));
+    }
+    return type;
+  }
+
+  function aacCodecFromInit(value) {
+    const bytes = bytesView(value);
+    if (!bytes) return '';
+    const box = findBox(bytes, 'esds');
+    if (!box) return '';
+    for (let offset = box.payloadStart + 4; offset < box.end; offset += 1) {
+      if (bytes[offset] !== 0x05) continue;
+      const descriptor = descriptorLength(bytes, offset + 1, box.end);
+      if (!descriptor || descriptor.length < 2 || descriptor.next + descriptor.length > box.end) continue;
+      const type = audioObjectType(bytes, descriptor.next, descriptor.next + descriptor.length);
+      if (type > 0 && type <= 63) return 'mp4a.40.' + String(type);
+    }
+    return '';
+  }
+
+  function mimeTypeFromContinuousInit(value) {
+    const bytes = bytesView(value);
+    if (!bytes || !findBox(bytes, 'moov')) return '';
+    const videoCodec = avcCodecFromInit(bytes);
+    const audioCodec = aacCodecFromInit(bytes);
+    if (!videoCodec && !audioCodec) return '';
+    const codecs = [];
+    if (videoCodec) codecs.push(videoCodec);
+    if (audioCodec) codecs.push(audioCodec);
+    return (videoCodec ? 'video/mp4' : 'audio/mp4') + '; codecs="' + codecs.join(',') + '"';
+  }
+
+  function waitForSourceOpen(mediaSource) {
+    if (mediaSource.readyState === 'open') return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      function opened() {
+        cleanup();
+        resolve();
+      }
+      function closed() {
+        cleanup();
+        reject(new Error('MediaSource wurde vor dem Öffnen geschlossen.'));
+      }
+      function cleanup() {
+        mediaSource.removeEventListener('sourceopen', opened);
+        mediaSource.removeEventListener('sourceclose', closed);
+      }
+      mediaSource.addEventListener('sourceopen', opened);
+      mediaSource.addEventListener('sourceclose', closed);
+    });
+  }
+
+  function sourceBufferOperation(sourceBuffer, action) {
+    return new Promise(function (resolve, reject) {
+      function done() {
+        cleanup();
+        resolve();
+      }
+      function failed() {
+        cleanup();
+        reject(new Error('Browser konnte kontinuierliche fMP4-Daten nicht verarbeiten.'));
+      }
+      function cleanup() {
+        sourceBuffer.removeEventListener('updateend', done);
+        sourceBuffer.removeEventListener('error', failed);
+      }
+      sourceBuffer.addEventListener('updateend', done);
+      sourceBuffer.addEventListener('error', failed);
+      try {
+        action();
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    });
+  }
+
+  function appendBytes(sourceBuffer, value) {
+    const bytes = bytesView(value);
+    if (!bytes || bytes.byteLength === 0) return Promise.resolve();
+    return sourceBufferOperation(sourceBuffer, function () {
+      sourceBuffer.appendBuffer(bytes);
+    });
+  }
+
+  function trimContinuousHistory(sourceBuffer, video) {
+    const currentTime = Math.max(0, Number(video && video.currentTime) || 0);
+    const removeUntil = currentTime - CONTINUOUS_BUFFER_HISTORY_SECONDS;
+    if (removeUntil <= 0 || !sourceBuffer.buffered || sourceBuffer.buffered.length === 0) {
+      return Promise.resolve();
+    }
+    const start = Number(sourceBuffer.buffered.start(0));
+    const end = Math.min(removeUntil, Number(sourceBuffer.buffered.end(0)));
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)) {
+      return Promise.resolve();
+    }
+    return sourceBufferOperation(sourceBuffer, function () {
+      sourceBuffer.remove(start, end);
+    });
+  }
+
+  function createContinuousFmp4Mse(video, mediaPath, onFailure) {
+    if (!supportsContinuousFmp4Mse()) return null;
+
+    const MediaSource = global.MediaSource;
+    const mediaSource = new MediaSource();
+    const abortController = new global.AbortController();
+    const objectUrl = global.URL.createObjectURL(mediaSource);
+    let reader = null;
+    let sourceBuffer = null;
+    let pending = new Uint8Array(0);
+    let destroyed = false;
+    let initAppended = false;
+
+    function destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      try { abortController.abort(); } catch (error) {}
+      if (reader && typeof reader.cancel === 'function') {
+        try {
+          const cancellation = reader.cancel();
+          if (cancellation && typeof cancellation.catch === 'function') {
+            cancellation.catch(function () {});
+          }
+        } catch (error) {}
+      }
+      try { global.URL.revokeObjectURL(objectUrl); } catch (error) {}
+    }
+
+    function fail(error) {
+      if (destroyed || (error && error.name === 'AbortError')) return;
+      if (typeof onFailure === 'function') onFailure(error);
+    }
+
+    function appendAvailableMedia() {
+      if (!sourceBuffer || pending.byteLength === 0) return Promise.resolve();
+      const prefixLength = completeMediaPrefix(pending);
+      if (prefixLength <= 0) {
+        if (pending.byteLength > CONTINUOUS_PENDING_LIMIT_BYTES) {
+          return Promise.reject(new Error('Kontinuierlicher fMP4-Puffer enthält kein vollständiges Medienfragment.'));
+        }
+        return Promise.resolve();
+      }
+      const ready = pending.slice(0, prefixLength);
+      pending = pending.slice(prefixLength);
+      return trimContinuousHistory(sourceBuffer, video).then(function () {
+        return appendBytes(sourceBuffer, ready);
+      });
+    }
+
+    function initializeSourceBuffer() {
+      if (initAppended) return Promise.resolve();
+      const initEnd = findCompleteInitEnd(pending);
+      if (initEnd <= 0) {
+        if (pending.byteLength > CONTINUOUS_INIT_LIMIT_BYTES) {
+          return Promise.reject(new Error('Kontinuierlicher fMP4-Stream liefert kein begrenztes Init-Segment.'));
+        }
+        return Promise.resolve();
+      }
+
+      const initBytes = pending.slice(0, initEnd);
+      const mimeType = mimeTypeFromContinuousInit(initBytes);
+      if (!mimeType || !MediaSource.isTypeSupported(mimeType)) {
+        return Promise.reject(new Error(
+          'Browser-MSE unterstützt die tatsächliche kontinuierliche fMP4-Codec-Konfiguration nicht' +
+          (mimeType ? ' (' + mimeType + ')' : '') + '.'
+        ));
+      }
+
+      sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+      sourceBuffer.mode = 'segments';
+      pending = pending.slice(initEnd);
+      return appendBytes(sourceBuffer, initBytes).then(function () {
+        initAppended = true;
+        return appendAvailableMedia();
+      });
+    }
+
+    function pump() {
+      if (destroyed || !reader) return Promise.resolve();
+      return reader.read().then(function (result) {
+        if (destroyed) return;
+        if (!result || result.done) {
+          return appendAvailableMedia().then(function () {
+            if (mediaSource.readyState === 'open' && sourceBuffer && !sourceBuffer.updating) {
+              try { mediaSource.endOfStream(); } catch (error) {}
+            }
+          });
+        }
+
+        const chunk = bytesView(result.value);
+        if (!chunk || chunk.byteLength === 0) return pump();
+        pending = concatBytes(pending, chunk);
+        return initializeSourceBuffer().then(function () {
+          if (!initAppended) return pump();
+          return appendAvailableMedia().then(pump);
+        });
+      });
+    }
+
+    video.src = objectUrl;
+    video.hidden = false;
+    if (typeof video.load === 'function') video.load();
+    const playRequest = video.play();
+
+    Promise.all([
+      waitForSourceOpen(mediaSource),
+      global.fetch(mediaPath, {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        signal: abortController.signal
+      }).then(function (response) {
+        if (!response || !response.ok) {
+          throw new Error('Kontinuierlicher fMP4-Stream konnte nicht geladen werden (' +
+            (response ? response.status : 'network') + ').');
+        }
+        if (!response.body || typeof response.body.getReader !== 'function') {
+          throw new Error('Browser stellt für den kontinuierlichen fMP4-Stream keinen Streaming-Reader bereit.');
+        }
+        return response.body.getReader();
+      })
+    ]).then(function (results) {
+      if (destroyed) return;
+      reader = results[1];
+      return pump();
+    }).catch(fail);
+
+    return Object.freeze({
+      playRequest: playRequest,
+      destroy: destroy,
+      objectUrl: objectUrl
+    });
   }
 
   function csrfHeaders() {
@@ -339,7 +716,9 @@
     let destroyed = false;
     let started = false;
     let stopIssued = false;
+    let playbackFailed = false;
     let activeSessionId = '';
+    let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
 
     function setStatus(message, error) {
@@ -355,11 +734,31 @@
     }
 
     function releaseVideo() {
+      if (continuousTransport) {
+        continuousTransport.destroy();
+        continuousTransport = null;
+      }
       try { video.pause(); } catch (error) {}
       try {
         video.removeAttribute('src');
         if (typeof video.load === 'function') video.load();
       } catch (error) {}
+    }
+
+    function failPlayback(error) {
+      if (destroyed || playbackFailed) return;
+      playbackFailed = true;
+      if (continuousTransport) {
+        continuousTransport.destroy();
+        continuousTransport = null;
+      }
+      stopActive(false);
+      setStatus(
+        error && error.message
+          ? error.message
+          : 'Browser konnte den Live-Stream nicht wiedergeben.',
+        true
+      );
     }
 
     function pageHide() {
@@ -380,22 +779,38 @@
           throw new Error('Live-MediaSession wurde nicht direkt wiedergabebereit bereitgestellt.');
         }
         activeSessionId = id;
-        video.src = mediaPath;
-        video.hidden = false;
-        if (typeof video.load === 'function') video.load();
-        setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
-        const playRequest = video.play();
+
+        continuousTransport = createContinuousFmp4Mse(video, mediaPath, function (error) {
+          failPlayback(error);
+        });
+
+        let playRequest = null;
+        if (continuousTransport) {
+          playRequest = continuousTransport.playRequest;
+          setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
+        }
+        else {
+          video.src = mediaPath;
+          video.hidden = false;
+          if (typeof video.load === 'function') video.load();
+          setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
+          playRequest = video.play();
+        }
+
         if (playRequest && typeof playRequest.catch === 'function') {
-          playRequest.catch(function () {
-            setStatus('Direktstream bereit · Wiedergabe über Player starten.', false);
+          playRequest.catch(function (error) {
+            if (error && error.name === 'NotSupportedError') {
+              failPlayback(error);
+              return;
+            }
+            if (!destroyed && !playbackFailed) {
+              setStatus('Direktstream bereit · Wiedergabe über Player starten.', false);
+            }
           });
         }
         return id;
       }).catch(function (error) {
-        if (!destroyed) {
-          setStatus(error && error.message ? error.message : String(error || 'Live-TV konnte nicht gestartet werden.'), true);
-          stopActive(false);
-        }
+        if (!destroyed) failPlayback(error);
         return '';
       });
 
@@ -435,13 +850,17 @@
     }
 
     video.addEventListener('playing', function () {
-      if (!destroyed) setStatus('Live-TV läuft.', false);
+      if (!destroyed && !playbackFailed) setStatus('Live-TV läuft.', false);
     });
     video.addEventListener('waiting', function () {
-      if (!destroyed) setStatus('Live-TV wartet auf Daten …', false);
+      if (!destroyed && !playbackFailed) setStatus('Live-TV wartet auf Daten …', false);
     });
     video.addEventListener('error', function () {
-      if (!destroyed) setStatus('Browser konnte den Live-Direktstream nicht wiedergeben.', true);
+      if (!destroyed && !playbackFailed) {
+        const mediaError = video.error;
+        const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
+        failPlayback(new Error('Browser konnte den Live-Stream nicht wiedergeben' + detail));
+      }
     });
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', pageHide);
@@ -509,6 +928,7 @@
     let firstMediaReported = false;
     let fallbackPanel = null;
     let fallbackActivation = null;
+    let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
 
     function setStatus(message, error) {
@@ -517,6 +937,10 @@
     }
 
     function releaseVideo() {
+      if (continuousTransport) {
+        continuousTransport.destroy();
+        continuousTransport = null;
+      }
       try { video.pause(); } catch (error) {}
       try {
         video.removeAttribute('src');
@@ -602,12 +1026,24 @@
           throw new Error('Schnelle Recording-MediaSession wurde nicht bereitgestellt.');
         }
 
-        video.src = mediaPath;
         video.hidden = false;
         startButton.hidden = true;
-        if (typeof video.load === 'function') video.load();
-        setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
-        const playRequest = video.play();
+        continuousTransport = createContinuousFmp4Mse(video, mediaPath, function (error) {
+          activateFallback(error);
+        });
+
+        let playRequest = null;
+        if (continuousTransport) {
+          setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
+          playRequest = continuousTransport.playRequest;
+        }
+        else {
+          video.src = mediaPath;
+          if (typeof video.load === 'function') video.load();
+          setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
+          playRequest = video.play();
+        }
+
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function () {
             activateFallback(new Error('Browser hat den schnellen Recording-Start abgelehnt.'));
@@ -655,7 +1091,7 @@
       }
     });
     video.addEventListener('stalled', function () {
-      if (!destroyed && !fallbackPanel && !firstMediaReported) {
+      if (!destroyed && !fallbackPanel && !firstMediaReported && !continuousTransport) {
         activateFallback(new Error('Schneller Recording-Stream ist vor dem ersten Frame stehen geblieben.'));
       }
     });
@@ -664,7 +1100,9 @@
     });
     video.addEventListener('error', function () {
       if (!destroyed && !fallbackPanel) {
-        activateFallback(new Error('Browser konnte den schnellen Recording-Stream nicht wiedergeben.'));
+        const mediaError = video.error;
+        const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
+        activateFallback(new Error('Browser konnte den schnellen Recording-Stream nicht wiedergeben' + detail));
       }
     });
     startButton.addEventListener('click', startPlayback);
@@ -725,7 +1163,11 @@
       safeLiveMediaPath: safeLiveMediaPath,
       publicLiveMediaPath: publicLiveMediaPath,
       safeSessionId: safeSessionId,
-      channelId: channelId
+      channelId: channelId,
+      supportsContinuousFmp4Mse: supportsContinuousFmp4Mse,
+      findCompleteInitEnd: findCompleteInitEnd,
+      completeMediaPrefix: completeMediaPrefix,
+      mimeTypeFromContinuousInit: mimeTypeFromContinuousInit
     })
   });
 
@@ -734,7 +1176,8 @@
       recordingCapabilities: recordingCapabilities,
       safeRecordingMediaPath: safeRecordingMediaPath,
       publicRecordingMediaPath: publicRecordingMediaPath,
-      recordingId: recordingId
+      recordingId: recordingId,
+      supportsContinuousFmp4Mse: supportsContinuousFmp4Mse
     })
   });
 }(window));
