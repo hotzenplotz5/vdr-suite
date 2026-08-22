@@ -6,6 +6,7 @@ const path = require('path');
 
 const frontend = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(frontend, 'live-tv-view.js'), 'utf8');
+const recordingsSource = fs.readFileSync(path.join(frontend, 'recordings2.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const installSource = fs.readFileSync(path.resolve(frontend, '..', '..', 'mk', 'install.mk'), 'utf8');
 
@@ -32,6 +33,25 @@ assert.ok(
   'successful startup must not disconnect/reinsert the just-started media element'
 );
 
+const ensurePlaybackStart = recordingsSource.indexOf('function ensurePlaybackRuntime()');
+const requestFolderStart = recordingsSource.indexOf('\n  function requestFolder(', ensurePlaybackStart);
+assert.ok(ensurePlaybackStart >= 0 && requestFolderStart > ensurePlaybackStart, 'Recordings2 playback loader must exist');
+const ensurePlaybackSource = recordingsSource.slice(ensurePlaybackStart, requestFolderStart);
+const deferredPlaybackPosition = ensurePlaybackSource.indexOf("'/frontend/recordings2-playback.js'");
+const lateShellInstallPosition = ensurePlaybackSource.indexOf(
+  'global.VdrSuitePlaybackShell.install();',
+  deferredPlaybackPosition
+);
+assert.ok(deferredPlaybackPosition >= 0, 'Recordings2 must defer-load the shared playback runtime');
+assert.ok(
+  lateShellInstallPosition > deferredPlaybackPosition,
+  'persistent playback shell must bind after the deferred playback owner becomes available'
+);
+assert.ok(
+  ensurePlaybackSource.indexOf('global.VdrSuitePlaybackShell.install();') >= 0,
+  'already-loaded playback owners must also be adopted by the persistent shell'
+);
+
 const liveViewPosition = indexSource.indexOf('<script src="../frontend/live-tv-view.js"></script>');
 const compatPosition = indexSource.indexOf('<script src="../frontend/channel-day-program-compat.js"></script>');
 assert.ok(liveViewPosition >= 0, 'index must load the stable Live-TV product runtime');
@@ -50,4 +70,4 @@ assert.ok(
   'install staging must syntax-check the stable Live-TV runtime'
 );
 
-console.log('Live-TV mounted player DOM stability contract ok');
+console.log('Live-TV mounted player DOM stability and deferred shell binding contract ok');
