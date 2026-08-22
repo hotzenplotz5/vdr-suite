@@ -46,7 +46,12 @@
     view.renderFolder();
   }
   function ensurePlaybackRuntime() {
-    if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') return Promise.resolve();
+    if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') {
+      if (global.VdrSuitePlaybackShell && typeof global.VdrSuitePlaybackShell.install === 'function') {
+        global.VdrSuitePlaybackShell.install();
+      }
+      return Promise.resolve();
+    }
     if (playbackRuntimePromise) return playbackRuntimePromise;
     if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve();
     playbackRuntimePromise = global.loadVdrSuiteDeferredRuntime('vdr-suite-session-frontend-sync-runtime',
@@ -56,6 +61,9 @@
       '/frontend/recordings2-playback.js',
       function () { return Boolean(global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function'); }
     ); }).then(function () {
+      if (global.VdrSuitePlaybackShell && typeof global.VdrSuitePlaybackShell.install === 'function') {
+        global.VdrSuitePlaybackShell.install();
+      }
       if (state.active && state.selectedRecording) render();
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
