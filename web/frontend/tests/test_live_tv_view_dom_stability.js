@@ -33,22 +33,26 @@ assert.ok(
   'successful startup must not disconnect/reinsert the just-started media element'
 );
 
+const shellHelperStart = recordingsSource.indexOf('function installPlaybackShell()');
 const ensurePlaybackStart = recordingsSource.indexOf('function ensurePlaybackRuntime()');
 const requestFolderStart = recordingsSource.indexOf('\n  function requestFolder(', ensurePlaybackStart);
+assert.ok(shellHelperStart >= 0 && ensurePlaybackStart > shellHelperStart, 'Recordings2 must expose the local shell-bind helper before its playback loader');
+assert.ok(
+  recordingsSource.slice(shellHelperStart, ensurePlaybackStart).includes('global.VdrSuitePlaybackShell') &&
+    recordingsSource.slice(shellHelperStart, ensurePlaybackStart).includes('shell.install()'),
+  'shell-bind helper must install the persistent shell when it becomes available'
+);
 assert.ok(ensurePlaybackStart >= 0 && requestFolderStart > ensurePlaybackStart, 'Recordings2 playback loader must exist');
 const ensurePlaybackSource = recordingsSource.slice(ensurePlaybackStart, requestFolderStart);
 const deferredPlaybackPosition = ensurePlaybackSource.indexOf("'/frontend/recordings2-playback.js'");
-const lateShellInstallPosition = ensurePlaybackSource.indexOf(
-  'global.VdrSuitePlaybackShell.install();',
-  deferredPlaybackPosition
-);
+const lateShellInstallPosition = ensurePlaybackSource.indexOf('installPlaybackShell();', deferredPlaybackPosition);
 assert.ok(deferredPlaybackPosition >= 0, 'Recordings2 must defer-load the shared playback runtime');
 assert.ok(
   lateShellInstallPosition > deferredPlaybackPosition,
   'persistent playback shell must bind after the deferred playback owner becomes available'
 );
 assert.ok(
-  ensurePlaybackSource.indexOf('global.VdrSuitePlaybackShell.install();') >= 0,
+  ensurePlaybackSource.indexOf('installPlaybackShell();') >= 0,
   'already-loaded playback owners must also be adopted by the persistent shell'
 );
 
