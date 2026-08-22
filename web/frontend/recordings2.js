@@ -1,4 +1,3 @@
-// Independent mobile-first recording browser runtime and state owner.
 (function (global) {
   'use strict';
   const shared = global.VdrSuiteRecordings2Shared;
