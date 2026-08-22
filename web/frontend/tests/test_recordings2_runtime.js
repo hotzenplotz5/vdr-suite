@@ -6,11 +6,19 @@ const vm = require('vm');
 
 const modules = new Map();
 const deferredRuntimeLoads = [];
+const documentListeners = Object.create(null);
+let pipMini = null;
 const document = {
   querySelector() { return null; },
   querySelectorAll() { return []; },
-  getElementById() { return null; },
-  addEventListener() {},
+  getElementById(id) {
+    if (id === 'vdr-suite-live-mini-player') return pipMini;
+    return null;
+  },
+  addEventListener(name, callback) {
+    if (!documentListeners[name]) documentListeners[name] = [];
+    documentListeners[name].push(callback);
+  },
   head: { appendChild() {} },
   createElement() {
     return {
@@ -112,6 +120,39 @@ async function run() {
 
   const test = window.VdrSuiteRecordings2.__test;
   await test.ensurePlaybackRuntime();
+
+  // Native PiP owns the visible video while active. The persistent Live mini
+  // shell must disappear completely, then return only if the same video still
+  // belongs to that mini shell when PiP is closed.
+  const pipVideo = {};
+  let pipVideoStillInMini = true;
+  pipMini = {
+    hidden: false,
+    dataset: {},
+    contains(candidate) {
+      return pipVideoStillInMini && candidate === pipVideo;
+    }
+  };
+  assert.strictEqual((documentListeners.enterpictureinpicture || []).length, 1);
+  assert.strictEqual((documentListeners.leavepictureinpicture || []).length, 1);
+  documentListeners.enterpictureinpicture[0]({target: pipVideo});
+  assert.strictEqual(pipMini.hidden, true);
+  assert.strictEqual(pipMini.dataset.vdrSuitePipSuppressed, 'true');
+  documentListeners.leavepictureinpicture[0]({target: pipVideo});
+  assert.strictEqual(pipMini.hidden, false);
+  assert.strictEqual(pipMini.dataset.vdrSuitePipSuppressed, undefined);
+
+  documentListeners.enterpictureinpicture[0]({target: pipVideo});
+  assert.strictEqual(pipMini.hidden, true);
+  pipVideoStillInMini = false;
+  documentListeners.leavepictureinpicture[0]({target: pipVideo});
+  assert.strictEqual(
+    pipMini.hidden,
+    true,
+    'leaving PiP must not resurrect a mini shell after the video was reparented'
+  );
+  assert.strictEqual(pipMini.dataset.vdrSuitePipSuppressed, undefined);
+  pipMini = null;
 
   assert.deepStrictEqual(deferredRuntimeLoads, [
     {
