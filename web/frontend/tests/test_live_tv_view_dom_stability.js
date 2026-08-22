@@ -7,7 +7,7 @@ const path = require('path');
 const frontend = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(frontend, 'live-tv-view.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
-const phase65Source = fs.readFileSync(path.resolve(frontend, '..', '..', 'mk', 'phase65-media-tests.mk'), 'utf8');
+const installSource = fs.readFileSync(path.resolve(frontend, '..', '..', 'mk', 'install.mk'), 'utf8');
 
 const renderStart = source.indexOf('function render()');
 const renderEnd = source.indexOf('\n  function applyChannels', renderStart);
@@ -38,16 +38,16 @@ assert.ok(liveViewPosition >= 0, 'index must load the stable Live-TV product run
 assert.ok(compatPosition > liveViewPosition, 'stable Live-TV runtime must preempt the compat fallback');
 
 assert.ok(
-  phase65Source.includes('install-runtime: install-phase65d1-live-tv-view'),
-  'install-runtime must depend on the stable Live-TV runtime install target'
+  installSource.includes('web/frontend/live-tv-view.js $(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js'),
+  'install-runtime must deploy the stable Live-TV runtime directly'
 );
 assert.ok(
-  phase65Source.includes('web/frontend/live-tv-view.js \\\n\t\t$(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js'),
-  'Phase-65 install target must deploy the stable Live-TV runtime'
-);
-assert.ok(
-  phase65Source.includes('test -f /tmp/vdr-suite-live-tv-view-install/usr/share/vdr-suite/web/frontend/live-tv-view.js'),
+  installSource.includes('test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js'),
   'install staging must assert the stable Live-TV runtime is packaged'
+);
+assert.ok(
+  installSource.includes('node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js'),
+  'install staging must syntax-check the stable Live-TV runtime'
 );
 
 console.log('Live-TV mounted player DOM stability contract ok');

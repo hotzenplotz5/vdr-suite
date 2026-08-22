@@ -242,29 +242,9 @@ test-phase65-live-ts-transport-buffer:
 
 test-fast: test-phase65-live-ts-transport-buffer
 
-.PHONY: install-phase65d1-live-tv-view test-phase65d1-live-tv-view-install test-phase65d1-live-tv-view-dom-stability
-
-# Phase 65.D.1 ships the dedicated Live-TV product view statically before the
-# compatibility shell. Keep its install/test wiring inside the Phase-65 media
-# graph so packaging cannot silently omit the runtime that index.html loads.
-install-runtime: install-phase65d1-live-tv-view
-
-install-phase65d1-live-tv-view:
-	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
-	$(INSTALL) -m 0644 web/frontend/live-tv-view.js \
-		$(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js
-
-test-phase65d1-live-tv-view-install:
-	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-tv-view-install", ignore_errors=True)'
-	$(MAKE) install-phase65d1-live-tv-view \
-		DESTDIR=/tmp/vdr-suite-live-tv-view-install PREFIX=/usr
-	test -f /tmp/vdr-suite-live-tv-view-install/usr/share/vdr-suite/web/frontend/live-tv-view.js
-	node --check /tmp/vdr-suite-live-tv-view-install/usr/share/vdr-suite/web/frontend/live-tv-view.js
-	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-tv-view-install", ignore_errors=True)'
+.PHONY: test-phase65d1-live-tv-view-dom-stability
 
 test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
-# Frontend and packaging gates both exercise the extracted runtime explicitly.
 test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
-test-install-staging: test-phase65d1-live-tv-view-install
