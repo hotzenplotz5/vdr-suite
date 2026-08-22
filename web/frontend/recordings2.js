@@ -26,7 +26,7 @@
     error: null,
     requestSequence: 0
   };
-  let view; let playbackRuntimePromise = null;
+  let view; let playbackRuntimePromise = null; let playbackPipUiBound = false;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -44,7 +44,40 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-  function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); }
+  function installPlaybackPipUi() {
+    if (playbackPipUiBound || typeof document === 'undefined' ||
+        typeof document.addEventListener !== 'function') return;
+    playbackPipUiBound = true;
+
+    function miniPlayer() {
+      return typeof document.getElementById === 'function'
+        ? document.getElementById('vdr-suite-live-mini-player')
+        : null;
+    }
+
+    document.addEventListener('enterpictureinpicture', function (event) {
+      const mini = miniPlayer();
+      const video = event && event.target;
+      if (!mini || !video || typeof mini.contains !== 'function' || !mini.contains(video)) return;
+      if (mini.dataset) mini.dataset.vdrSuitePipSuppressed = 'true';
+      mini.hidden = true;
+    });
+
+    document.addEventListener('leavepictureinpicture', function (event) {
+      const mini = miniPlayer();
+      if (!mini || !mini.dataset || mini.dataset.vdrSuitePipSuppressed !== 'true') return;
+      delete mini.dataset.vdrSuitePipSuppressed;
+      const video = event && event.target;
+      if (video && typeof mini.contains === 'function' && mini.contains(video)) {
+        mini.hidden = false;
+      }
+    });
+  }
+  function installPlaybackShell() {
+    const shell = global.VdrSuitePlaybackShell;
+    if (shell && typeof shell.install === 'function') shell.install();
+    installPlaybackPipUi();
+  }
   function ensurePlaybackRuntime() {
     if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
     if (playbackRuntimePromise) return playbackRuntimePromise;
