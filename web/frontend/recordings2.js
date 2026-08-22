@@ -44,40 +44,8 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-  function installPlaybackPipUi() {
-    if (playbackPipUiBound || typeof document === 'undefined' ||
-        typeof document.addEventListener !== 'function') return;
-    playbackPipUiBound = true;
-
-    function miniPlayer() {
-      return typeof document.getElementById === 'function'
-        ? document.getElementById('vdr-suite-live-mini-player')
-        : null;
-    }
-
-    document.addEventListener('enterpictureinpicture', function (event) {
-      const mini = miniPlayer();
-      const video = event && event.target;
-      if (!mini || !video || typeof mini.contains !== 'function' || !mini.contains(video)) return;
-      if (mini.dataset) mini.dataset.vdrSuitePipSuppressed = 'true';
-      mini.hidden = true;
-    });
-
-    document.addEventListener('leavepictureinpicture', function (event) {
-      const mini = miniPlayer();
-      if (!mini || !mini.dataset || mini.dataset.vdrSuitePipSuppressed !== 'true') return;
-      delete mini.dataset.vdrSuitePipSuppressed;
-      const video = event && event.target;
-      if (video && typeof mini.contains === 'function' && mini.contains(video)) {
-        mini.hidden = false;
-      }
-    });
-  }
-  function installPlaybackShell() {
-    const shell = global.VdrSuitePlaybackShell;
-    if (shell && typeof shell.install === 'function') shell.install();
-    installPlaybackPipUi();
-  }
+  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function' || !root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }); }
+  function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); installPlaybackPipUi(); }
   function ensurePlaybackRuntime() {
     if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
     if (playbackRuntimePromise) return playbackRuntimePromise;
