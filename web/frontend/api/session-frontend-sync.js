@@ -590,13 +590,18 @@
         if (destroyed) return '';
         const mediaSession = session && session.mediaSession;
         const id = safeSessionId(mediaSession && mediaSession.id);
-        const mediaPath = publicRecordingMediaPath(mediaSession && mediaSession.mediaPath);
-        if (!id || !mediaPath || !mediaSession || mediaSession.state !== 'ready' ||
-            mediaSession.presentationProfileId !== 'progressive-fmp4') {
+        if (!id || !mediaSession || mediaSession.state !== 'ready') {
+          throw new Error('Schnelle Recording-MediaSession wurde nicht bereitgestellt.');
+        }
+        // Own any successfully issued session before validating the fast-path
+        // presentation. If the server legitimately selected HLS instead, the
+        // fallback must STOP this provisional session before opening its own.
+        activeSessionId = id;
+        const mediaPath = publicRecordingMediaPath(mediaSession.mediaPath);
+        if (!mediaPath || mediaSession.presentationProfileId !== 'progressive-fmp4') {
           throw new Error('Schnelle Recording-MediaSession wurde nicht bereitgestellt.');
         }
 
-        activeSessionId = id;
         video.src = mediaPath;
         video.hidden = false;
         startButton.hidden = true;
@@ -605,7 +610,7 @@
         const playRequest = video.play();
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function () {
-            setStatus('Direktstream bereit · Wiedergabe über Player starten.', false);
+            activateFallback(new Error('Browser hat den schnellen Recording-Start abgelehnt.'));
           });
         }
         return id;
@@ -647,6 +652,11 @@
     video.addEventListener('waiting', function () {
       if (!destroyed && !fallbackPanel && firstMediaReported) {
         setStatus('Aufnahme wartet auf Daten …', false);
+      }
+    });
+    video.addEventListener('stalled', function () {
+      if (!destroyed && !fallbackPanel && !firstMediaReported) {
+        activateFallback(new Error('Schneller Recording-Stream ist vor dem ersten Frame stehen geblieben.'));
       }
     });
     video.addEventListener('ended', function () {
