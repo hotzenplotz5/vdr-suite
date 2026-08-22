@@ -15,9 +15,12 @@ const document = {
     if (id === 'vdr-suite-live-mini-player') return pipMini;
     return null;
   },
-  addEventListener(name, callback) {
+  addEventListener(name, callback, options) {
     if (!documentListeners[name]) documentListeners[name] = [];
-    documentListeners[name].push(callback);
+    documentListeners[name].push({
+      callback,
+      capture: options === true || Boolean(options && options.capture)
+    });
   },
   head: { appendChild() {} },
   createElement() {
@@ -123,7 +126,8 @@ async function run() {
 
   // Native PiP owns the visible video while active. The persistent Live mini
   // shell must disappear completely, then return only if the same video still
-  // belongs to that mini shell when PiP is closed.
+  // belongs to that mini shell when PiP is closed. PiP events do not bubble,
+  // so the document-level compatibility hook must use the capture phase.
   const pipVideo = {};
   let pipVideoStillInMini = true;
   pipMini = {
@@ -135,17 +139,19 @@ async function run() {
   };
   assert.strictEqual((documentListeners.enterpictureinpicture || []).length, 1);
   assert.strictEqual((documentListeners.leavepictureinpicture || []).length, 1);
-  documentListeners.enterpictureinpicture[0]({target: pipVideo});
+  assert.strictEqual(documentListeners.enterpictureinpicture[0].capture, true);
+  assert.strictEqual(documentListeners.leavepictureinpicture[0].capture, true);
+  documentListeners.enterpictureinpicture[0].callback({target: pipVideo});
   assert.strictEqual(pipMini.hidden, true);
   assert.strictEqual(pipMini.dataset.vdrSuitePipSuppressed, 'true');
-  documentListeners.leavepictureinpicture[0]({target: pipVideo});
+  documentListeners.leavepictureinpicture[0].callback({target: pipVideo});
   assert.strictEqual(pipMini.hidden, false);
   assert.strictEqual(pipMini.dataset.vdrSuitePipSuppressed, undefined);
 
-  documentListeners.enterpictureinpicture[0]({target: pipVideo});
+  documentListeners.enterpictureinpicture[0].callback({target: pipVideo});
   assert.strictEqual(pipMini.hidden, true);
   pipVideoStillInMini = false;
-  documentListeners.leavepictureinpicture[0]({target: pipVideo});
+  documentListeners.leavepictureinpicture[0].callback({target: pipVideo});
   assert.strictEqual(
     pipMini.hidden,
     true,
