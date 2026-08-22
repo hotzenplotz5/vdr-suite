@@ -7,6 +7,8 @@ const vm = require('vm');
 const requests = [];
 const videos = [];
 let failFastRecording = false;
+let returnHlsRecording = false;
+let rejectNextVideoPlay = false;
 let legacyStartCalls = 0;
 let clock = 1000;
 
@@ -37,7 +39,14 @@ function node(tagName) {
     replaceWith(replacement) { this.replacement = replacement; },
     pause() { this.paused = true; },
     load() { this.loaded = (this.loaded || 0) + 1; },
-    play() { this.played = (this.played || 0) + 1; return Promise.resolve(); }
+    play() {
+      this.played = (this.played || 0) + 1;
+      if (rejectNextVideoPlay) {
+        rejectNextVideoPlay = false;
+        return Promise.reject(new Error('play rejected'));
+      }
+      return Promise.resolve();
+    }
   };
   if (value.tagName === 'VIDEO') videos.push(value);
   return value;
@@ -76,6 +85,17 @@ const window = {
       }
       if (failFastRecording) {
         return Promise.reject(new Error('progressive recording unavailable'));
+      }
+      if (returnHlsRecording) {
+        return Promise.resolve({
+          mediaSession: {
+            id: 'recording_hls_session_test',
+            resourceKind: 'recording',
+            state: 'ready',
+            presentationProfileId: 'hls-fmp4',
+            mediaPath: '/api/media/sessions/recording_hls_session_test/hls/master.m3u8'
+          }
+        });
       }
       return Promise.resolve({
         mediaSession: {
@@ -277,8 +297,8 @@ assert.strictEqual(
   }));
   assert.strictEqual(legacyStartCalls, 0, 'successful fast recording must not enter HLS fallback');
 
-  // A source that cannot use progressive-fmp4 must fall back to the accepted
-  // existing Recording HLS player rather than weakening source truth.
+  // A request-level fast-path failure must fall back to the accepted existing
+  // Recording HLS player.
   requests.length = 0;
   failFastRecording = true;
   const fallbackPlayback = window.VdrSuiteRecordings2Playback.createPanel(
@@ -291,6 +311,64 @@ assert.strictEqual(
   assert.ok(fallbackPlayback.element.replacement);
   fallbackPlayback.destroy();
   failFastRecording = false;
+
+  // If the server already issued a valid Recording session but selected HLS,
+  // the fast facade must own and STOP that provisional session before opening
+  // the legacy HLS owner. It must not strand a second FFmpeg worker.
+  requests.length = 0;
+  returnHlsRecording = true;
+  const selectedHlsPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-hls-selected', title: 'HLS Auswahl'},
+    'living-room'
+  );
+  const selectedHlsSession = await selectedHlsPlayback.start();
+  assert.strictEqual(selectedHlsSession, 'legacy_session');
+  assert.strictEqual(legacyStartCalls, 2);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_hls_session_test';
+  }));
+  selectedHlsPlayback.destroy();
+  returnHlsRecording = false;
+
+  // A browser-level play() rejection is also a failed fast path and must
+  // recover through HLS instead of leaving a ready but unusable direct stream.
+  requests.length = 0;
+  videos.length = 0;
+  rejectNextVideoPlay = true;
+  const rejectedPlayPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-play-rejected', title: 'Play abgelehnt'},
+    'living-room'
+  );
+  await rejectedPlayPlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 3);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  rejectedPlayPlayback.destroy();
+
+  // A direct stream that stalls before its first playing event is likewise a
+  // failed fast path. No arbitrary startup timer is required for this signal.
+  requests.length = 0;
+  videos.length = 0;
+  const stalledPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-stalled', title: 'Fast Path Stall'},
+    'living-room'
+  );
+  await stalledPlayback.start();
+  videos[0].dispatch('stalled');
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 4);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  stalledPlayback.destroy();
 
   const second = window.VdrSuiteRecordings2Playback.createLivePanel(
     {channelId: 'C-1-1079-10352', name: 'NDR FS HH HD'},
@@ -310,6 +388,7 @@ assert.strictEqual(
   assert.ok(source.includes('publicRecordingMediaPath'));
   assert.ok(source.includes('recording\\/stream\\.mp4'));
   assert.ok(source.includes('recording playback first-media'));
+  assert.ok(source.includes("video.addEventListener('stalled'"));
   assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
   assert.ok(!source.includes('master.m3u8'));
 
