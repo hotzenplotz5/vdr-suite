@@ -81,7 +81,7 @@ test-remote-action-controller:
 		core/vdr/src/RemoteActionService.cpp \
 		api/rest/src/RemoteActionRequestParser.cpp \
 		api/rest/src/RemoteActionController.cpp \
-		core/vdr/tests/test_remote_action_controller.cpp \
+		api/rest/tests/test_remote_action_controller.cpp \
 		-o $(BUILD_DIR)/test_remote_action_controller
 	$(BUILD_DIR)/test_remote_action_controller
 
