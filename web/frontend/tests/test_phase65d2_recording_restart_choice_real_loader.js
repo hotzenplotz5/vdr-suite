@@ -9,25 +9,33 @@ const source = fs.readFileSync(
   'utf8'
 );
 
-assert.ok(
-  source.includes("global.document.getElementById(id)"),
-  'restart helper loader must deduplicate against an existing script element'
+const preloadCall = source.indexOf(
+  "if (typeof global.loadVdrSuiteDeferredRuntime === 'function') ensureRestartChoiceRuntime()"
 );
-assert.ok(
-  source.includes("global.document.createElement('script')"),
-  'recordings view must be able to create the restart helper script itself'
-);
-assert.ok(
-  source.includes("script.src = '/frontend/recording-playback-restart-choice.js'"),
-  'restart helper must use the installed public frontend path'
-);
-assert.ok(
-  source.includes("script.addEventListener('load', installRestartChoice"),
-  'restart helper must bind to the actual playback owner after script load'
-);
-assert.ok(
-  !source.includes("typeof global.loadVdrSuiteDeferredRuntime === 'function'"),
-  'restart choice must not depend on the optional global deferred loader'
+const firstViewFactory = source.indexOf('function createRecordingCard');
+const detailBinding = source.indexOf(
+  'ensureRestartChoiceRuntime().then(function (helper)'
 );
 
-console.log('phase65d2 recording restart choice real loader contract ok');
+assert.ok(
+  source.includes("'vdr-suite-recording-playback-restart-choice-runtime'"),
+  'restart helper preload must have a stable deduplication id'
+);
+assert.ok(
+  source.includes("'/frontend/recording-playback-restart-choice.js'"),
+  'restart helper preload must use the installed public frontend path'
+);
+assert.ok(
+  preloadCall >= 0 && firstViewFactory >= 0 && preloadCall < firstViewFactory,
+  'restart helper loading must start when the BrowserView runtime loads, before recording interaction'
+);
+assert.ok(
+  detailBinding >= 0,
+  'recording detail must bind the actual playback owner through the preloaded runtime promise'
+);
+assert.ok(
+  !source.includes("global.document.createElement('script')"),
+  'recording detail must not contain a second late ad-hoc script loader'
+);
+
+console.log('phase65d2 recording restart choice preload contract ok');
