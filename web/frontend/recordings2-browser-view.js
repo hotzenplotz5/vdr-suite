@@ -4,8 +4,7 @@
 
   const shared = global.VdrSuiteRecordings2Shared;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
-  const actions = global.VdrSuiteRecordings2Actions;
-  let restartChoiceRuntimePromise = null;
+  const actions = global.VdrSuiteRecordings2Actions; let restartChoiceRuntimePromise = null;
   if (!shared) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
