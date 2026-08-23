@@ -3,6 +3,7 @@
 #include "DaemonCacheRefreshExecutionGate.h"
 #include "GenreBrowserApiRuntime.h"
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingDuration.h"
 
 #include <chrono>
 #include <cstdint>
@@ -320,8 +321,10 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
             backendRuntimeContext->backendId);
 
         try {
-            const std::vector<VdrRecording> recordings =
+            std::vector<VdrRecording> recordings =
                 backendRuntimeContext->service->getRecordings();
+
+            vdrsuite::recording::normalizeForCatalog(recordings);
 
             const bool stored =
                 vdrRecordingCacheRepository_->replaceRecordingsForBackend(
