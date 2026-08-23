@@ -19,6 +19,7 @@ install-live-remote-frontend:
 		web/frontend/api/session-frontend-sync.js \
 		web/frontend/api/recording-fallback-restart-seek.js \
 		web/frontend/api/recording-fallback-controls.js \
+		web/frontend/api/recording-time-input-mask.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/api/.session-frontend-sync.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/api/.session-frontend-sync.js.tmp
 	mv -f \
@@ -131,7 +132,6 @@ test-live-remote-api-runtime:
 		api/rest/src/RemoteActionController.cpp \
 		api/rest/src/LiveOverlayController.cpp \
 		api/rest/src/LiveRemoteApiRuntime.cpp \
-		api/rest/tests/test_live_remote_api_runtime.cpp \
 		-o $(BUILD_DIR)/test_live_remote_api_runtime
 	$(BUILD_DIR)/test_live_remote_api_runtime
 
@@ -140,9 +140,11 @@ test-live-remote-frontend:
 	node --check web/frontend/api/session-frontend-sync.js
 	node --check web/frontend/api/recording-fallback-restart-seek.js
 	node --check web/frontend/api/recording-fallback-controls.js
+	node --check web/frontend/api/recording-time-input-mask.js
 	node --check web/frontend/platform/deferred-runtime-loader.js
 	node --check web/frontend/modules/remote.js
 	node web/frontend/tests/test_phase65d2_recording_fallback_restart_seek.js
+	node web/frontend/tests/test_phase65d2_recording_time_input_mask.js
 	node web/frontend/tests/test_remote_runtime.js
 	node web/frontend/tests/test_browser_session_runtime.js
 	node web/frontend/tests/test_session_frontend_sync.js
