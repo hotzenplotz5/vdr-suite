@@ -63,5 +63,5 @@ test-phase65d2-recording-stop-restart:
 test-phase65d2-recording-stop-resume-choice:
 	node web/frontend/tests/test_phase65d2_recording_stop_resume_choice.js
 
-test-fast: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-vdr-recording-query-service
+test-fast: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-vdr-recording-query-service test-vdr-recording-cache-repository
 test-frontend-i18n: test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice

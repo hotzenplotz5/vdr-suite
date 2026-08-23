@@ -280,6 +280,8 @@ VdrRecording readRecording(
     recording.metadata =
         VdrRecordingMetadataCacheCodec::decode(
             columnText(stmt, 8));
+    recording.recordingDurationKnown =
+        sqlite3_column_int(stmt, 9) != 0;
 
     return recording;
 }
@@ -308,6 +310,7 @@ bool VdrRecordingCacheRepository::ensureSchema()
             "duration_seconds INTEGER NOT NULL DEFAULT 0,"
             "size_mb INTEGER NOT NULL DEFAULT 0,"
             "metadata_payload TEXT NOT NULL DEFAULT '',"
+            "recording_duration_known INTEGER NOT NULL DEFAULT 0,"
             "created_at TEXT DEFAULT CURRENT_TIMESTAMP,"
             "updated_at TEXT DEFAULT CURRENT_TIMESTAMP,"
             "last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,"
@@ -337,10 +340,25 @@ bool VdrRecordingCacheRepository::ensureSchema()
             "vdr_recording_cache",
             "metadata_payload"))
     {
-        return database_.execute(
-            "ALTER TABLE vdr_recording_cache "
-            "ADD COLUMN metadata_payload TEXT NOT NULL DEFAULT '';"
-        );
+        if (!database_.execute(
+                "ALTER TABLE vdr_recording_cache "
+                "ADD COLUMN metadata_payload TEXT NOT NULL DEFAULT '';"))
+        {
+            return false;
+        }
+    }
+
+    if (!tableHasColumn(
+            database_.handle(),
+            "vdr_recording_cache",
+            "recording_duration_known"))
+    {
+        if (!database_.execute(
+                "ALTER TABLE vdr_recording_cache "
+                "ADD COLUMN recording_duration_known INTEGER NOT NULL DEFAULT 0;"))
+        {
+            return false;
+        }
     }
 
     return true;
@@ -478,8 +496,8 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackendLocked(
         "INSERT INTO vdr_recording_cache ("
         "backend_id, cache_key, recording_id, backend_native_id, "
         "title, path, start_time, duration_seconds, size_mb, metadata_payload, "
-        "updated_at, last_seen_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+        "recording_duration_known, updated_at, last_seen_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
         "ON CONFLICT(backend_id, cache_key) DO UPDATE SET "
         "recording_id = excluded.recording_id, "
         "backend_native_id = excluded.backend_native_id, "
@@ -489,6 +507,7 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackendLocked(
         "duration_seconds = excluded.duration_seconds, "
         "size_mb = excluded.size_mb, "
         "metadata_payload = excluded.metadata_payload, "
+        "recording_duration_known = excluded.recording_duration_known, "
         "updated_at = CURRENT_TIMESTAMP, "
         "last_seen_at = CURRENT_TIMESTAMP;";
 
@@ -529,6 +548,10 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackendLocked(
             10,
             VdrRecordingMetadataCacheCodec::encode(
                 recording.metadata));
+        sqlite3_bind_int(
+            stmt,
+            11,
+            recording.recordingDurationKnown ? 1 : 0);
 
         if (sqlite3_step(stmt) != SQLITE_DONE)
         {
@@ -554,7 +577,8 @@ std::vector<VdrRecording> VdrRecordingCacheRepository::findAllForBackend(
 
     const char* sql =
         "SELECT recording_id, backend_id, backend_native_id, "
-        "title, path, start_time, duration_seconds, size_mb, metadata_payload "
+        "title, path, start_time, duration_seconds, size_mb, metadata_payload, "
+        "recording_duration_known "
         "FROM vdr_recording_cache "
         "WHERE backend_id = ? "
         "ORDER BY title COLLATE NOCASE ASC, path COLLATE NOCASE ASC;";

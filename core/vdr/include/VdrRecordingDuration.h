@@ -21,6 +21,11 @@ namespace recording
 {
 
 constexpr std::uintmax_t VdrIndexEntryBytes = 8;
+constexpr std::uintmax_t VdrTsPacketBytes = 188;
+constexpr std::uintmax_t VdrMaximumFrameBytes =
+    (3 * 1024 * 1024 / VdrTsPacketBytes) * VdrTsPacketBytes;
+constexpr std::uintmax_t VdrMaximumIndexedTailBytes =
+    VdrMaximumFrameBytes + 64 * VdrTsPacketBytes;
 
 inline std::filesystem::path recordingDirectory(
     const VdrRecording& recording)
@@ -114,45 +119,6 @@ inline bool completedRecordingFiles(
     return !indexFile.empty() && !infoFile.empty();
 }
 
-inline int durationSecondsFromIndex(
-    const VdrRecording& recording)
-{
-    const std::filesystem::path directory = recordingDirectory(recording);
-    std::filesystem::path indexFile;
-    std::filesystem::path infoFile;
-    if (!completedRecordingFiles(directory, indexFile, infoFile))
-    {
-        return 0;
-    }
-
-    std::error_code sizeError;
-    const std::uintmax_t indexBytes =
-        std::filesystem::file_size(indexFile, sizeError);
-    if (sizeError || indexBytes < VdrIndexEntryBytes ||
-        indexBytes % VdrIndexEntryBytes != 0)
-    {
-        return 0;
-    }
-
-    const double fps = framesPerSecond(infoFile);
-    if (fps <= 0.0)
-    {
-        return 0;
-    }
-
-    const std::uintmax_t frameCount = indexBytes / VdrIndexEntryBytes;
-    const double durationSeconds =
-        static_cast<double>(frameCount) / fps;
-    if (!std::isfinite(durationSeconds) ||
-        durationSeconds < 1.0 ||
-        durationSeconds > static_cast<double>(std::numeric_limits<int>::max()))
-    {
-        return 0;
-    }
-
-    return static_cast<int>(durationSeconds);
-}
-
 inline int modernSegmentNumber(const std::string& path)
 {
     const std::string name =
@@ -176,6 +142,170 @@ inline int modernSegmentNumber(const std::string& path)
     return number > 0 && number <= 65535 ? number : 0;
 }
 
+inline bool littleEndianTsIndexLayout()
+{
+    const std::uint16_t endianProbe = 1;
+    return *reinterpret_cast<const unsigned char*>(&endianProbe) == 1;
+}
+
+inline bool modernTsIndexComplete(
+    const std::filesystem::path& directory,
+    const std::filesystem::path& indexFile)
+{
+    if (!littleEndianTsIndexLayout())
+    {
+        return false;
+    }
+
+    int finalSegmentNumber = 0;
+    std::filesystem::path finalSegmentPath;
+    std::error_code iteratorError;
+    std::filesystem::directory_iterator iterator(directory, iteratorError);
+    const std::filesystem::directory_iterator end;
+    if (iteratorError)
+    {
+        return false;
+    }
+
+    for (; iterator != end; iterator.increment(iteratorError))
+    {
+        if (iteratorError)
+        {
+            return false;
+        }
+
+        std::error_code regularError;
+        if (!iterator->is_regular_file(regularError) || regularError)
+        {
+            continue;
+        }
+
+        const int number = modernSegmentNumber(iterator->path().string());
+        if (number > finalSegmentNumber)
+        {
+            finalSegmentNumber = number;
+            finalSegmentPath = iterator->path();
+        }
+    }
+
+    if (iteratorError)
+    {
+        return false;
+    }
+
+    // Preserve the existing duration fallback for legacy PES recordings. The
+    // Phase-65.D.2 indexed seek path itself only accepts modern TS segments.
+    if (finalSegmentNumber <= 0 || finalSegmentPath.empty())
+    {
+        return true;
+    }
+
+    std::error_code indexSizeError;
+    const std::uintmax_t indexBytes =
+        std::filesystem::file_size(indexFile, indexSizeError);
+    if (indexSizeError || indexBytes < VdrIndexEntryBytes ||
+        indexBytes % VdrIndexEntryBytes != 0)
+    {
+        return false;
+    }
+
+    std::ifstream stream(indexFile, std::ios::binary);
+    if (!stream)
+    {
+        return false;
+    }
+
+    stream.seekg(
+        -static_cast<std::streamoff>(VdrIndexEntryBytes),
+        std::ios::end);
+    if (!stream)
+    {
+        return false;
+    }
+
+    std::array<unsigned char, VdrIndexEntryBytes> entry{};
+    stream.read(
+        reinterpret_cast<char*>(entry.data()),
+        static_cast<std::streamsize>(entry.size()));
+    if (stream.gcount() != static_cast<std::streamsize>(entry.size()))
+    {
+        return false;
+    }
+
+    std::uint64_t finalOffset = 0;
+    for (std::size_t index = 0; index < 5; ++index)
+    {
+        finalOffset |= static_cast<std::uint64_t>(entry[index]) << (index * 8U);
+    }
+    const int indexedSegmentNumber =
+        static_cast<int>(entry[6]) |
+        (static_cast<int>(entry[7]) << 8);
+
+    if (indexedSegmentNumber != finalSegmentNumber)
+    {
+        return false;
+    }
+
+    std::error_code segmentSizeError;
+    const std::uintmax_t segmentBytes =
+        std::filesystem::file_size(finalSegmentPath, segmentSizeError);
+    if (segmentSizeError || segmentBytes == 0 ||
+        finalOffset >= segmentBytes)
+    {
+        return false;
+    }
+
+    const std::uintmax_t trailingBytes =
+        segmentBytes - static_cast<std::uintmax_t>(finalOffset);
+
+    // VDR's tIndexTs stores the start offset of each frame. A completed index
+    // therefore ends at the start of the final frame in the final TS segment.
+    // VDR defines a single frame as at most ~3 MiB; the additional TS packets
+    // cover PAT/PMT data that may precede an independent frame. A substantially
+    // larger unindexed tail proves that the index is stale or incomplete.
+    return trailingBytes <= VdrMaximumIndexedTailBytes;
+}
+
+inline int durationSecondsFromIndex(
+    const VdrRecording& recording)
+{
+    const std::filesystem::path directory = recordingDirectory(recording);
+    std::filesystem::path indexFile;
+    std::filesystem::path infoFile;
+    if (!completedRecordingFiles(directory, indexFile, infoFile))
+    {
+        return 0;
+    }
+
+    std::error_code sizeError;
+    const std::uintmax_t indexBytes =
+        std::filesystem::file_size(indexFile, sizeError);
+    if (sizeError || indexBytes < VdrIndexEntryBytes ||
+        indexBytes % VdrIndexEntryBytes != 0 ||
+        !modernTsIndexComplete(directory, indexFile))
+    {
+        return 0;
+    }
+
+    const double fps = framesPerSecond(infoFile);
+    if (fps <= 0.0)
+    {
+        return 0;
+    }
+
+    const std::uintmax_t frameCount = indexBytes / VdrIndexEntryBytes;
+    const double durationSeconds =
+        static_cast<double>(frameCount) / fps;
+    if (!std::isfinite(durationSeconds) ||
+        durationSeconds < 1.0 ||
+        durationSeconds > static_cast<double>(std::numeric_limits<int>::max()))
+    {
+        return 0;
+    }
+
+    return static_cast<int>(durationSeconds);
+}
+
 inline std::vector<double> segmentDurationsSecondsFromIndex(
     const VdrRecording& recording,
     const std::vector<std::string>& segmentPaths)
@@ -185,11 +315,7 @@ inline std::vector<double> segmentDurationsSecondsFromIndex(
         return {};
     }
 
-    // VDR writes the packed tIndexTs layout natively. yaVDR and the supported
-    // VDR-Suite runtime are little-endian; fail closed instead of guessing on
-    // an incompatible layout.
-    const std::uint16_t endianProbe = 1;
-    if (*reinterpret_cast<const unsigned char*>(&endianProbe) != 1)
+    if (!littleEndianTsIndexLayout())
     {
         return {};
     }
@@ -197,7 +323,8 @@ inline std::vector<double> segmentDurationsSecondsFromIndex(
     const std::filesystem::path directory = recordingDirectory(recording);
     std::filesystem::path indexFile;
     std::filesystem::path infoFile;
-    if (!completedRecordingFiles(directory, indexFile, infoFile))
+    if (!completedRecordingFiles(directory, indexFile, infoFile) ||
+        !modernTsIndexComplete(directory, indexFile))
     {
         return {};
     }

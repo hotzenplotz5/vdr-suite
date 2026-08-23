@@ -1,4 +1,6 @@
+#include "Database.h"
 #include "MockVdrAdapter.h"
+#include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingDuration.h"
 #include "VdrRecordingQuery.h"
 #include "VdrRecordingQueryResult.h"
@@ -8,6 +10,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -52,18 +55,38 @@ void writeSizedFile(
 void appendTsIndexFrames(
     std::ofstream& stream,
     std::uint16_t fileNumber,
-    std::uint64_t frameCount)
+    std::uint64_t frameCount,
+    std::uint64_t finalFrameOffset = 0)
 {
-    std::array<unsigned char, 8> entry{};
-    entry[6] = static_cast<unsigned char>(fileNumber & 0xffU);
-    entry[7] = static_cast<unsigned char>((fileNumber >> 8U) & 0xffU);
     for (std::uint64_t frame = 0; frame < frameCount; ++frame)
     {
+        std::array<unsigned char, 8> entry{};
+        const std::uint64_t offset =
+            frame + 1 == frameCount ? finalFrameOffset : 0;
+        for (std::size_t byte = 0; byte < 5; ++byte)
+        {
+            entry[byte] = static_cast<unsigned char>(
+                (offset >> (byte * 8U)) & 0xffU);
+        }
+        entry[6] = static_cast<unsigned char>(fileNumber & 0xffU);
+        entry[7] = static_cast<unsigned char>((fileNumber >> 8U) & 0xffU);
         stream.write(
             reinterpret_cast<const char*>(entry.data()),
             static_cast<std::streamsize>(entry.size()));
     }
     assert(stream.good());
+}
+
+void writeCompleteIndex(
+    const std::filesystem::path& path,
+    std::uint64_t firstFrames,
+    std::uint64_t secondFrames,
+    std::uint64_t secondFinalOffset = 0)
+{
+    std::ofstream index(path, std::ios::binary | std::ios::trunc);
+    assert(index.good());
+    appendTsIndexFrames(index, 1, firstFrames);
+    appendTsIndexFrames(index, 2, secondFrames, secondFinalOffset);
 }
 
 void testVdrIndexDurationFallback()
@@ -90,18 +113,15 @@ void testVdrIndexDurationFallback()
     constexpr int ExpectedDurationSeconds =
         FirstSegmentSeconds + SecondSegmentSeconds;
     constexpr std::uint64_t FramesPerSecond = 50;
-    {
-        std::ofstream index(directory / "index", std::ios::binary | std::ios::trunc);
-        assert(index.good());
-        appendTsIndexFrames(
-            index,
-            1,
-            FirstSegmentSeconds * FramesPerSecond);
-        appendTsIndexFrames(
-            index,
-            2,
-            SecondSegmentSeconds * FramesPerSecond);
-    }
+    constexpr std::uint64_t FirstFrames =
+        FirstSegmentSeconds * FramesPerSecond;
+    constexpr std::uint64_t SecondFrames =
+        SecondSegmentSeconds * FramesPerSecond;
+
+    writeCompleteIndex(
+        directory / "index",
+        FirstFrames,
+        SecondFrames);
 
     VdrRecording recording;
     recording.id = "duration-fallback";
@@ -118,6 +138,44 @@ void testVdrIndexDurationFallback()
     assert(segmentDurations.size() == 2);
     assert(segmentDurations.at(0) == FirstSegmentSeconds);
     assert(segmentDurations.at(1) == SecondSegmentSeconds);
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) ==
+        ExpectedDurationSeconds);
+
+    // A syntactically valid index that never reaches the final TS segment is
+    // incomplete and must not become recording-duration or seek truth.
+    {
+        std::ofstream index(
+            directory / "index",
+            std::ios::binary | std::ios::trunc);
+        assert(index.good());
+        appendTsIndexFrames(index, 1, FirstFrames);
+    }
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 0);
+    assert(vdrsuite::recording::segmentDurationsSecondsFromIndex(
+        recording,
+        {segmentOne.string(), segmentTwo.string()}).empty());
+
+    // Even when the final segment number is present, a large unindexed tail in
+    // that segment proves that the index stopped before the recording ended.
+    writeSizedFile(
+        segmentTwo,
+        vdrsuite::recording::VdrMaximumIndexedTailBytes + 188);
+    writeCompleteIndex(
+        directory / "index",
+        FirstFrames,
+        SecondFrames,
+        0);
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 0);
+    assert(vdrsuite::recording::segmentDurationsSecondsFromIndex(
+        recording,
+        {segmentOne.string(), segmentTwo.string()}).empty());
+
+    // Restore a complete final segment for the normal duration/query checks.
+    writeSizedFile(segmentTwo, 188);
+    writeCompleteIndex(
+        directory / "index",
+        FirstFrames,
+        SecondFrames);
 
     DurationMockVdrAdapter adapter(recording);
     VdrService vdrService(adapter);
@@ -154,7 +212,16 @@ void testVdrIndexDurationFallback()
     providerDuration.durationSeconds = 77;
     DurationMockVdrAdapter providerAdapter(providerDuration);
     VdrService providerVdrService(providerAdapter);
-    VdrRecordingQueryService providerQueryService(providerVdrService);
+
+    const std::string cachePath =
+        "/tmp/test_vdr_recording_query_service_duration_cache.db";
+    std::remove(cachePath.c_str());
+    Database cacheDatabase;
+    assert(cacheDatabase.open(cachePath));
+    VdrRecordingCacheRepository cacheRepository(cacheDatabase);
+    VdrRecordingQueryService providerQueryService(
+        providerVdrService,
+        &cacheRepository);
 
     VdrRecording providerResolved;
     assert(providerQueryService.findRecordingById(
@@ -164,6 +231,21 @@ void testVdrIndexDurationFallback()
     assert(providerResolved.recordingDurationKnown);
     assert(providerResolved.durationSeconds == 77);
 
+    const std::vector<VdrRecording> cachedProvider =
+        cacheRepository.findAllForBackend("default");
+    assert(cachedProvider.size() == 1);
+    assert(cachedProvider.front().recordingDurationKnown);
+    assert(cachedProvider.front().durationSeconds == 77);
+
+    VdrRecording providerResolvedAgain;
+    assert(providerQueryService.findRecordingById(
+        "default",
+        providerDuration.id,
+        providerResolvedAgain));
+    assert(providerResolvedAgain.recordingDurationKnown);
+    assert(providerResolvedAgain.durationSeconds == 77);
+
+    std::remove(cachePath.c_str());
     std::filesystem::remove_all(directory, ignored);
 }
 
