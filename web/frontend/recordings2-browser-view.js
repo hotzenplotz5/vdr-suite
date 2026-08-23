@@ -226,7 +226,7 @@
       ));
       button.append(icon, copy, shared.node('span', 'recordings2-chevron', '›'));
       button.addEventListener('click', function () {
-        options.openFolder(shared.normalizePath(shared.first(folder, ['path'], ''));
+        options.openFolder(shared.normalizePath(shared.first(folder, ['path'], '')));
       });
       return button;
     }
