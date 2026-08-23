@@ -145,7 +145,7 @@ void appendVideoPlan(
         argv.push_back("-vf");
         argv.push_back(
             "scale_vaapi=w=" + std::to_string(profile.targetVideoWidth) +
-            ":h=" + std::to_string(profile.targetVideoHeight) + ":format=nv12");
+                ":h=" + std::to_string(profile.targetVideoHeight) + ":format=nv12");
     }
     else {
         valid = false;
@@ -191,15 +191,20 @@ void appendAudioPlan(
 
 FfmpegHlsCommandPlan buildPlan(
     const MediaPresentationProfile& profile,
-    const std::string* liveSocketPath)
+    const std::string* liveSocketPath,
+    int startPositionSeconds)
 {
     if (!profile.available || profile.protocol != MediaDeliveryProtocol::Hls)
         return invalid("profile_is_not_hls");
     if (profile.container != MediaContainer::Fmp4 &&
         profile.container != MediaContainer::MpegTs)
         return invalid("unsupported_hls_container");
+    if (startPositionSeconds < 0)
+        return invalid("invalid_recording_start_position");
     if (liveSocketPath != nullptr && !validLiveSocketPath(*liveSocketPath))
         return invalid("invalid_live_source_socket");
+    if (liveSocketPath != nullptr && startPositionSeconds != 0)
+        return invalid("live_hls_start_position_not_supported");
 
     FfmpegHlsCommandPlan plan;
     plan.argv = {
@@ -220,6 +225,13 @@ FfmpegHlsCommandPlan buildPlan(
     }
 
     if (liveSocketPath == nullptr) {
+        // A non-zero Recording start offset is meaningful only together with
+        // an index-derived ffconcat timeline. Keep -ss as an input option so
+        // FFmpeg seeks that timeline instead of decoding/discarding from zero.
+        if (startPositionSeconds > 0) {
+            plan.argv.push_back("-ss");
+            plan.argv.push_back(std::to_string(startPositionSeconds));
+        }
         plan.argv.insert(plan.argv.end(), {
             "-re", "-f", "concat", "-safe", "1", "-i", "input.ffconcat"
         });
@@ -289,14 +301,15 @@ FfmpegHlsCommandPlan buildPlan(
 } // namespace
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
-    const MediaPresentationProfile& profile) const
+    const MediaPresentationProfile& profile,
+    int startPositionSeconds) const
 {
-    return buildPlan(profile, nullptr);
+    return buildPlan(profile, nullptr, startPositionSeconds);
 }
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::buildLive(
     const MediaPresentationProfile& profile,
     const std::string& unixSocketPath) const
 {
-    return buildPlan(profile, &unixSocketPath);
+    return buildPlan(profile, &unixSocketPath, 0);
 }
