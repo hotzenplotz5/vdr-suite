@@ -83,10 +83,24 @@ function flush() {
 }
 
 function createRuntime(options) {
-  const settings = Object.assign({seekSupported: true, durationSeconds: 5530}, options || {});
+  const settings = Object.assign({
+    seekSupported: true,
+    durationSeconds: 5530,
+    indexPreparing: false,
+    immediateTimers: false,
+    indexReadyAfterStatusCalls: 1
+  }, options || {});
   const requests = [];
   const videos = [];
   let sessionSequence = 0;
+  let playbackStatusCalls = 0;
+
+  const schedule = settings.immediateTimers
+    ? function (callback) { Promise.resolve().then(callback); return 1; }
+    : setTimeout;
+  const cancelSchedule = settings.immediateTimers
+    ? function () {}
+    : clearTimeout;
 
   const document = {
     readyState: 'complete',
@@ -99,12 +113,19 @@ function createRuntime(options) {
     addEventListener() {}
   };
 
-  function playback(position) {
+  function playback(position, indexReady) {
+    if (settings.indexPreparing && !indexReady) {
+      return {
+        positionSeconds: position || 0,
+        durationSeconds: null,
+        seek: {supported: false, preparing: true}
+      };
+    }
     if (!settings.seekSupported) {
       return {
         positionSeconds: position || 0,
         durationSeconds: null,
-        seek: {supported: false}
+        seek: {supported: false, preparing: false}
       };
     }
     return {
@@ -112,7 +133,23 @@ function createRuntime(options) {
       durationSeconds: settings.durationSeconds,
       seek: {
         supported: true,
+        preparing: false,
         window: {startSeconds: 0, endSeconds: settings.durationSeconds}
+      }
+    };
+  }
+
+  function recordingSession(id, backendId, recordingId, playbackValue) {
+    return {
+      mediaSession: {
+        id,
+        state: 'ready',
+        backendId,
+        recordingId,
+        presentationProfileId: 'progressive-fmp4',
+        growing: false,
+        mediaPath: '/api/media/sessions/' + id + '/recording/stream.mp4',
+        playback: playbackValue
       }
     };
   }
@@ -122,7 +159,8 @@ function createRuntime(options) {
     document,
     performance: {now() { return 1000; }},
     Date,
-    setTimeout,
+    setTimeout: schedule,
+    clearTimeout: cancelSchedule,
     VdrSuitePublicUrl: {
       resolvePath(path) { return '/vdr-suite' + path; }
     },
@@ -148,33 +186,31 @@ function createRuntime(options) {
           return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
         }
         if (body.operation === 'seek') {
-          return Promise.resolve({
-            mediaSession: {
-              id: body.sessionId,
-              state: 'ready',
-              backendId: body.backendId,
-              recordingId: 'recording-42',
-              presentationProfileId: 'progressive-fmp4',
-              growing: false,
-              mediaPath: '/api/media/sessions/' + body.sessionId + '/recording/stream.mp4',
-              playback: playback(body.positionSeconds)
-            }
-          });
+          return Promise.resolve(recordingSession(
+            body.sessionId,
+            body.backendId,
+            'recording-42',
+            playback(body.positionSeconds, true)
+          ));
+        }
+        if (body.operation === 'playback-status') {
+          playbackStatusCalls += 1;
+          const ready = playbackStatusCalls >= settings.indexReadyAfterStatusCalls;
+          return Promise.resolve(recordingSession(
+            body.sessionId,
+            body.backendId,
+            'recording-42',
+            playback(0, ready)
+          ));
         }
         sessionSequence += 1;
         const id = 'recording_session_' + sessionSequence;
-        return Promise.resolve({
-          mediaSession: {
-            id,
-            state: 'ready',
-            backendId: body.backendId,
-            recordingId: body.recordingId,
-            presentationProfileId: 'progressive-fmp4',
-            growing: false,
-            mediaPath: '/api/media/sessions/' + id + '/recording/stream.mp4',
-            playback: playback(0)
-          }
-        });
+        return Promise.resolve(recordingSession(
+          id,
+          body.backendId,
+          body.recordingId,
+          playback(0, !settings.indexPreparing)
+        ));
       }
     },
     fetch() { return Promise.resolve({ok: true}); },
@@ -199,7 +235,8 @@ function createRuntime(options) {
     Math,
     Uint8Array,
     Date,
-    setTimeout
+    setTimeout: schedule,
+    clearTimeout: cancelSchedule
   });
   vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
@@ -319,7 +356,34 @@ function createRuntime(options) {
   assert.strictEqual(unsupported.requests.length, beforeUnsupportedSeek);
   unsupportedPlayback.destroy();
 
-  console.log('phase65d2 recording playback controls and truthful seek ok');
+  const preparing = createRuntime({indexPreparing: true, immediateTimers: true});
+  const preparingPlayback = preparing.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-missing-index'},
+    'living-room'
+  );
+  const preparingId = await preparingPlayback.start();
+  await flush();
+  await flush();
+  const createRequests = preparing.requests.filter(entry => !entry.body.operation);
+  const statusRequests = preparing.requests.filter(entry => entry.body.operation === 'playback-status');
+  assert.strictEqual(createRequests.length, 1, 'lazy index activation must not create a second MediaSession');
+  assert.strictEqual(statusRequests.length, 1, 'lazy index activation must poll the owned MediaSession');
+  assert.strictEqual(statusRequests[0].body.sessionId, preparingId);
+  assert.strictEqual(preparingPlayback.sessionId(), preparingId, 'index activation must preserve MediaSession identity');
+  assert.strictEqual(preparingPlayback.duration(), 5530, 'duration must become available after index activation');
+  const preparingTimeline = find(
+    preparingPlayback.element,
+    item => item.tagName === 'INPUT' && item.type === 'range'
+  );
+  assert.strictEqual(preparingTimeline.disabled, false, 'timeline must activate without reload');
+  assert.strictEqual(preparingTimeline.max, '5529');
+  await preparingPlayback.seekAbsolute(60);
+  const preparingSeek = preparing.requests.filter(entry => entry.body.operation === 'seek').at(-1);
+  assert.strictEqual(preparingSeek.body.sessionId, preparingId);
+  assert.strictEqual(preparingSeek.body.positionSeconds, 60);
+  preparingPlayback.destroy();
+
+  console.log('phase65d2 recording playback controls, truthful seek and lazy index activation ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
