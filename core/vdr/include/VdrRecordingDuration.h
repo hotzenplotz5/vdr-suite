@@ -2,12 +2,15 @@
 
 #include "VdrRecording.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <locale>
+#include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -81,20 +84,21 @@ inline double framesPerSecond(
     return 0.0;
 }
 
-inline int durationSecondsFromIndex(
-    const VdrRecording& recording)
+inline bool completedRecordingFiles(
+    const std::filesystem::path& directory,
+    std::filesystem::path& indexFile,
+    std::filesystem::path& infoFile)
 {
-    const std::filesystem::path directory = recordingDirectory(recording);
     if (directory.empty())
     {
-        return 0;
+        return false;
     }
 
     std::error_code directoryError;
     if (!std::filesystem::is_directory(directory, directoryError) ||
         directoryError)
     {
-        return 0;
+        return false;
     }
 
     std::error_code timerError;
@@ -102,16 +106,21 @@ inline int durationSecondsFromIndex(
         std::filesystem::exists(directory / ".timer", timerError);
     if (timerError || stillRecording)
     {
-        return 0;
+        return false;
     }
 
-    const std::filesystem::path indexFile = firstRegularFile(
-        directory,
-        {"index", "index.vdr"});
-    const std::filesystem::path infoFile = firstRegularFile(
-        directory,
-        {"info", "info.vdr"});
-    if (indexFile.empty() || infoFile.empty())
+    indexFile = firstRegularFile(directory, {"index", "index.vdr"});
+    infoFile = firstRegularFile(directory, {"info", "info.vdr"});
+    return !indexFile.empty() && !infoFile.empty();
+}
+
+inline int durationSecondsFromIndex(
+    const VdrRecording& recording)
+{
+    const std::filesystem::path directory = recordingDirectory(recording);
+    std::filesystem::path indexFile;
+    std::filesystem::path infoFile;
+    if (!completedRecordingFiles(directory, indexFile, infoFile))
     {
         return 0;
     }
@@ -142,6 +151,144 @@ inline int durationSecondsFromIndex(
     }
 
     return static_cast<int>(durationSeconds);
+}
+
+inline int modernSegmentNumber(const std::string& path)
+{
+    const std::string name =
+        std::filesystem::path(path).filename().string();
+    if (name.size() != 8 || name.substr(5) != ".ts")
+    {
+        return 0;
+    }
+
+    int number = 0;
+    for (std::size_t index = 0; index < 5; ++index)
+    {
+        const char character = name[index];
+        if (character < '0' || character > '9')
+        {
+            return 0;
+        }
+        number = number * 10 + (character - '0');
+    }
+
+    return number > 0 && number <= 65535 ? number : 0;
+}
+
+inline std::vector<double> segmentDurationsSecondsFromIndex(
+    const VdrRecording& recording,
+    const std::vector<std::string>& segmentPaths)
+{
+    if (segmentPaths.empty())
+    {
+        return {};
+    }
+
+    // VDR writes the packed tIndexTs layout natively. yaVDR and the supported
+    // VDR-Suite runtime are little-endian; fail closed instead of guessing on
+    // an incompatible layout.
+    const std::uint16_t endianProbe = 1;
+    if (*reinterpret_cast<const unsigned char*>(&endianProbe) != 1)
+    {
+        return {};
+    }
+
+    const std::filesystem::path directory = recordingDirectory(recording);
+    std::filesystem::path indexFile;
+    std::filesystem::path infoFile;
+    if (!completedRecordingFiles(directory, indexFile, infoFile))
+    {
+        return {};
+    }
+
+    const double fps = framesPerSecond(infoFile);
+    if (fps <= 0.0)
+    {
+        return {};
+    }
+
+    std::ifstream stream(indexFile, std::ios::binary);
+    if (!stream)
+    {
+        return {};
+    }
+
+    std::map<int, std::uint64_t> framesBySegment;
+    std::uint64_t totalFrames = 0;
+    std::array<unsigned char, VdrIndexEntryBytes> entry{};
+
+    while (true)
+    {
+        stream.read(
+            reinterpret_cast<char*>(entry.data()),
+            static_cast<std::streamsize>(entry.size()));
+        const std::streamsize bytesRead = stream.gcount();
+        if (bytesRead == 0)
+        {
+            break;
+        }
+        if (bytesRead != static_cast<std::streamsize>(entry.size()))
+        {
+            return {};
+        }
+
+        // tIndexTs is 8 packed bytes. On little-endian VDR the final two bytes
+        // are the uint16_t recording file number.
+        const int fileNumber =
+            static_cast<int>(entry[6]) |
+            (static_cast<int>(entry[7]) << 8);
+        if (fileNumber <= 0)
+        {
+            return {};
+        }
+
+        ++framesBySegment[fileNumber];
+        ++totalFrames;
+    }
+
+    if (totalFrames == 0)
+    {
+        return {};
+    }
+
+    std::vector<double> durations;
+    durations.reserve(segmentPaths.size());
+    std::set<int> seenSegments;
+    std::uint64_t mappedFrames = 0;
+
+    for (const std::string& segmentPath : segmentPaths)
+    {
+        const int fileNumber = modernSegmentNumber(segmentPath);
+        if (fileNumber <= 0 || !seenSegments.insert(fileNumber).second)
+        {
+            return {};
+        }
+
+        const auto found = framesBySegment.find(fileNumber);
+        if (found == framesBySegment.end() || found->second == 0)
+        {
+            return {};
+        }
+
+        const double durationSeconds =
+            static_cast<double>(found->second) / fps;
+        if (!std::isfinite(durationSeconds) || durationSeconds <= 0.0)
+        {
+            return {};
+        }
+
+        durations.push_back(durationSeconds);
+        mappedFrames += found->second;
+    }
+
+    if (mappedFrames != totalFrames ||
+        durations.size() != segmentPaths.size())
+    {
+        return {};
+    }
+
+    return durations;
 }
 
 inline bool enrichFromIndex(VdrRecording& recording)
