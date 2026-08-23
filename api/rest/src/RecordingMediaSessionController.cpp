@@ -12,6 +12,7 @@
 #include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
+#include "VdrRecordingDuration.h"
 #include "VdrRecordingQueryService.h"
 
 #include <algorithm>
@@ -555,9 +556,19 @@ ApiResponse RecordingMediaSessionController::createSession(
         recording.durationSeconds > 0
             ? recording.durationSeconds
             : 0;
+    const std::vector<double> indexedSegmentDurations =
+        truthfulDurationSeconds > 0
+            ? vdrsuite::recording::segmentDurationsSecondsFromIndex(
+                  recording,
+                  sourceResolution.source.segmentPaths)
+            : std::vector<double>{};
+    const bool indexedSeekTimeline =
+        !indexedSegmentDurations.empty() &&
+        indexedSegmentDurations.size() == sourceResolution.source.segmentPaths.size();
     const bool timeSeekSupported =
         profile.profileId == "progressive-fmp4" &&
-        truthfulDurationSeconds > 0;
+        truthfulDurationSeconds > 0 &&
+        indexedSeekTimeline;
 
     MediaSessionIssuanceRequest issuanceRequest;
     issuanceRequest.actorId = actorId;
@@ -634,7 +645,10 @@ ApiResponse RecordingMediaSessionController::createSession(
                 issuance.session.grantId,
                 profile,
                 sourceResolution.source.segmentPaths,
-                timeSeekSupported ? truthfulDurationSeconds : 0);
+                timeSeekSupported ? truthfulDurationSeconds : 0,
+                timeSeekSupported
+                    ? indexedSegmentDurations
+                    : std::vector<double>{});
             mediaPath = "/api/media/sessions/" +
                 issuance.session.sessionId + "/recording/stream.mp4";
         }
