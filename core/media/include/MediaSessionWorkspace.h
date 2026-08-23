@@ -17,8 +17,6 @@ public:
 
     MediaSessionWorkspace(const MediaSessionWorkspace&) = delete;
     MediaSessionWorkspace& operator=(const MediaSessionWorkspace&) = delete;
-    MediaSessionWorkspace(MediaSessionWorkspace&&) = default;
-    MediaSessionWorkspace& operator=(MediaSessionWorkspace&&) = default;
 
     MediaSessionWorkspaceResult prepare(
         const std::string& workspaceId,
@@ -40,9 +38,9 @@ public:
     std::string liveStreamPath() const;
 
 private:
-    std::string rootDirectory_;
-    std::string directory_;
-
     MediaSessionWorkspaceResult prepareDirectory(
         const std::string& workspaceId);
+
+    std::string rootDirectory_;
+    std::string directory_;
 };
