@@ -109,6 +109,8 @@
   const CONTINUOUS_INIT_LIMIT_BYTES = 1024 * 1024;
   const CONTINUOUS_PENDING_LIMIT_BYTES = 8 * 1024 * 1024;
   const CONTINUOUS_BUFFER_HISTORY_SECONDS = 90;
+  const RECORDING_INDEX_STATUS_POLL_MS = 750;
+  const RECORDING_INDEX_STATUS_MAX_FAILURES = 5;
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -703,6 +705,28 @@
     });
   }
 
+  function recordingPlaybackStatus(backendId, sessionId) {
+    const api = global.VdrSuiteClientApi;
+    const id = safeSessionId(sessionId);
+    if (!api || typeof api.requestJson !== 'function') {
+      return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
+    }
+    if (!id) {
+      return Promise.reject(new Error('Ungültige Recording-MediaSession-ID.'));
+    }
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        backendId: text(backendId || 'default'),
+        sessionId: id,
+        operation: 'playback-status'
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
   function createLivePanel(channel, backendId, options) {
     const settings = options && typeof options === 'object' ? options : {};
     const replacement = settings.replacesSessionId
@@ -1025,10 +1049,14 @@
     let sessionCreationPromise = Promise.resolve('');
     let durationSeconds = 0;
     let seekSupported = false;
+    let seekPreparing = false;
     let seekStartSeconds = 0;
     let seekEndSeconds = 0;
     let seekBaseSeconds = 0;
     let seekInFlight = false;
+    let indexStatusTimer = null;
+    let indexStatusInFlight = false;
+    let indexStatusFailures = 0;
 
     function formatTime(value) {
       const seconds = Math.max(0, Math.floor(Number(value) || 0));
@@ -1121,6 +1149,7 @@
         seek && seek.supported === true && durationSeconds > 0 &&
         Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
       );
+      seekPreparing = Boolean(seek && seek.preparing === true && !seekSupported);
       seekStartSeconds = seekSupported ? Math.floor(start) : 0;
       seekEndSeconds = seekSupported ? Math.min(durationSeconds, Math.floor(end)) : 0;
       if (seekSupported && seekEndSeconds <= seekStartSeconds) {
@@ -1128,6 +1157,7 @@
         seekStartSeconds = 0;
         seekEndSeconds = 0;
       }
+      if (seekSupported) seekPreparing = false;
       const position = Number(playback && playback.positionSeconds);
       seekBaseSeconds = Number.isFinite(position) && position >= 0 ? Math.floor(position) : 0;
       updateControls();
@@ -1136,6 +1166,78 @@
     function setStatus(message, error) {
       status.textContent = message;
       status.classList.toggle('error', Boolean(error));
+    }
+
+    function clearIndexStatusPoll() {
+      if (indexStatusTimer !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(indexStatusTimer); } catch (error) {}
+      }
+      indexStatusTimer = null;
+      indexStatusInFlight = false;
+    }
+
+    function scheduleIndexStatusPoll() {
+      if (!seekPreparing || destroyed || stopped || fallbackPanel || !activeSessionId ||
+          typeof global.setTimeout !== 'function' || indexStatusTimer !== null || indexStatusInFlight) {
+        return;
+      }
+      indexStatusTimer = global.setTimeout(function () {
+        indexStatusTimer = null;
+        pollIndexStatus();
+      }, RECORDING_INDEX_STATUS_POLL_MS);
+    }
+
+    function pollIndexStatus() {
+      if (!seekPreparing || destroyed || stopped || fallbackPanel || !activeSessionId || indexStatusInFlight) {
+        return Promise.resolve(false);
+      }
+      indexStatusInFlight = true;
+      return recordingPlaybackStatus(backendId, activeSessionId).then(function (session) {
+        indexStatusInFlight = false;
+        if (destroyed || stopped || fallbackPanel) return false;
+        const mediaSession = session && session.mediaSession;
+        const returnedId = safeSessionId(mediaSession && mediaSession.id);
+        const returnedPath = publicRecordingMediaPath(mediaSession && mediaSession.mediaPath);
+        if (!mediaSession || mediaSession.state !== 'ready' ||
+            returnedId !== activeSessionId ||
+            mediaSession.presentationProfileId !== 'progressive-fmp4' ||
+            !returnedPath || returnedPath !== activeMediaPath) {
+          throw new Error('MediaSession hat während der Index-Erstellung ihre Playback-Identität geändert.');
+        }
+
+        applyPlaybackContract(mediaSession);
+        indexStatusFailures = 0;
+        if (seekSupported) {
+          clearIndexStatusPoll();
+          setStatus('Aufnahme läuft · Index erstellt · Seek bereit.', false);
+          updateControls();
+          return true;
+        }
+        if (seekPreparing) {
+          setStatus('Aufnahme läuft · Index wird erstellt …', false);
+          scheduleIndexStatusPoll();
+          return false;
+        }
+
+        clearIndexStatusPoll();
+        setStatus('Aufnahme läuft · Index konnte nicht für Seek bereitgestellt werden.', true);
+        updateControls();
+        return false;
+      }).catch(function () {
+        indexStatusInFlight = false;
+        if (destroyed || stopped || fallbackPanel || !seekPreparing) return false;
+        indexStatusFailures += 1;
+        if (indexStatusFailures >= RECORDING_INDEX_STATUS_MAX_FAILURES) {
+          seekPreparing = false;
+          clearIndexStatusPoll();
+          setStatus('Aufnahme läuft · Indexstatus konnte nicht ermittelt werden.', true);
+          updateControls();
+          return false;
+        }
+        setStatus('Aufnahme läuft · Index wird erstellt …', false);
+        scheduleIndexStatusPoll();
+        return false;
+      });
     }
 
     function releaseVideo() {
@@ -1180,6 +1282,8 @@
       if (destroyed) return Promise.resolve('');
       if (fallbackActivation) return fallbackActivation;
 
+      seekPreparing = false;
+      clearIndexStatusPoll();
       stopActive(false).catch(function () {});
       releaseVideo();
       const legacy = replaceWithFallback();
@@ -1203,6 +1307,8 @@
       if (destroyed || stopped || fallbackPanel) return;
       stopped = true;
       seekInFlight = false;
+      seekPreparing = false;
+      clearIndexStatusPoll();
       stopActive(false).catch(function () {});
       releaseVideo();
       setStatus(
@@ -1236,6 +1342,8 @@
 
     function pageHide() {
       if (destroyed) return;
+      seekPreparing = false;
+      clearIndexStatusPoll();
       if (fallbackPanel && typeof fallbackPanel.destroy === 'function') {
         fallbackPanel.destroy();
         return;
@@ -1275,7 +1383,11 @@
         updateControls();
         const playRequest = connectRecordingStream(true, true);
 
-        if (continuousTransport) {
+        if (seekPreparing) {
+          setStatus('Direktstream verbunden · Index wird im Hintergrund erstellt …', false);
+          scheduleIndexStatusPoll();
+        }
+        else if (continuousTransport) {
           setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
         }
         else {
@@ -1309,7 +1421,7 @@
     function pausePlayback() {
       if (!started || destroyed || stopped || fallbackPanel || seekInFlight) return false;
       try { video.pause(); } catch (error) { return false; }
-      setStatus('Aufnahme pausiert.', false);
+      setStatus(seekPreparing ? 'Aufnahme pausiert · Index wird erstellt …' : 'Aufnahme pausiert.', false);
       updateControls();
       return true;
     }
@@ -1318,6 +1430,8 @@
       if (destroyed || fallbackPanel || stopped) return Promise.resolve(false);
       stopped = true;
       seekInFlight = false;
+      seekPreparing = false;
+      clearIndexStatusPoll();
       const stopRequest = stopActive(false);
       releaseVideo();
       setStatus('Wiedergabe gestoppt.', false);
@@ -1417,6 +1531,8 @@
     function destroy() {
       if (destroyed) return;
       destroyed = true;
+      seekPreparing = false;
+      clearIndexStatusPoll();
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
       }
@@ -1434,7 +1550,12 @@
       if (!firstMediaReported) {
         firstMediaReported = true;
         const elapsed = Math.max(0, nowMilliseconds() - startupStartedAt);
-        setStatus('Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s', false);
+        setStatus(
+          seekPreparing
+            ? 'Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s · Index wird erstellt …'
+            : 'Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s',
+          false
+        );
         if (global.console && typeof global.console.info === 'function') {
           global.console.info(
             'recording playback first-media',
@@ -1443,7 +1564,7 @@
         }
       }
       else {
-        setStatus('Aufnahme läuft.', false);
+        setStatus(seekPreparing ? 'Aufnahme läuft · Index wird erstellt …' : 'Aufnahme läuft.', false);
       }
       updateControls();
     });
@@ -1458,7 +1579,7 @@
     });
     video.addEventListener('waiting', function () {
       if (!destroyed && !fallbackPanel && !stopped && firstMediaReported) {
-        setStatus('Aufnahme wartet auf Daten …', false);
+        setStatus(seekPreparing ? 'Aufnahme wartet auf Daten · Index wird erstellt …' : 'Aufnahme wartet auf Daten …', false);
       }
     });
     video.addEventListener('stalled', function () {
@@ -1469,6 +1590,8 @@
     video.addEventListener('ended', function () {
       if (!destroyed && !fallbackPanel && !stopped) {
         stopped = true;
+        seekPreparing = false;
+        clearIndexStatusPoll();
         stopActive(false).catch(function () {});
         updateControls();
       }
@@ -1605,6 +1728,7 @@
       safeRecordingMediaPath: safeRecordingMediaPath,
       publicRecordingMediaPath: publicRecordingMediaPath,
       recordingId: recordingId,
+      recordingPlaybackStatus: recordingPlaybackStatus,
       supportsContinuousFmp4Mse: supportsContinuousFmp4Mse
     })
   });
