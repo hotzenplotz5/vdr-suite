@@ -1,4 +1,4 @@
-.PHONY: test-phase65d2-recording-media-session-seek
+.PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-playback-controls
 
 test-phase65d2-recording-media-session-seek:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
@@ -18,4 +18,8 @@ test-phase65d2-recording-media-session-seek:
 		-o $(BUILD_DIR)/test_phase65d2_recording_media_session_seek
 	$(BUILD_DIR)/test_phase65d2_recording_media_session_seek
 
+test-phase65d2-recording-playback-controls:
+	node web/frontend/tests/test_phase65d2_recording_playback_controls.js
+
 test-fast: test-phase65d2-recording-media-session-seek
+test-frontend-i18n: test-phase65d2-recording-playback-controls

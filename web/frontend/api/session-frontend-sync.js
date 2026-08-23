@@ -421,9 +421,10 @@
     });
   }
 
-  function createContinuousFmp4Mse(video, mediaPath, onFailure) {
+  function createContinuousFmp4Mse(video, mediaPath, onFailure, autoPlay) {
     if (!supportsContinuousFmp4Mse()) return null;
 
+    const shouldAutoPlay = autoPlay !== false;
     const MediaSource = global.MediaSource;
     const mediaSource = new MediaSource();
     const abortController = new global.AbortController();
@@ -523,7 +524,7 @@
     video.src = objectUrl;
     video.hidden = false;
     if (typeof video.load === 'function') video.load();
-    const playRequest = video.play();
+    const playRequest = shouldAutoPlay ? video.play() : null;
 
     Promise.all([
       waitForSourceOpen(mediaSource),
@@ -672,6 +673,31 @@
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: body,
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
+  function seekRecordingSession(backendId, sessionId, positionSeconds) {
+    const api = global.VdrSuiteClientApi;
+    const id = safeSessionId(sessionId);
+    const position = Number(positionSeconds);
+    if (!api || typeof api.requestJson !== 'function') {
+      return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
+    }
+    if (!id || !Number.isFinite(position) || position < 0 || Math.floor(position) !== position) {
+      return Promise.reject(new Error('Ungültige Recording-Seek-Anforderung.'));
+    }
+
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        backendId: text(backendId || 'default'),
+        sessionId: id,
+        operation: 'seek',
+        positionSeconds: position
+      }),
       cache: 'no-store',
       credentials: 'same-origin'
     });
@@ -920,16 +946,192 @@
     video.setAttribute('aria-label', 'VDR-Aufnahme');
     panel.appendChild(video);
 
+    const controls = global.document.createElement('div');
+    controls.className = 'recordings2-playback-controls';
+    controls.hidden = true;
+    controls.style.display = 'grid';
+    controls.style.gap = '0.65rem';
+    controls.style.marginTop = '0.75rem';
+
+    const transportRow = global.document.createElement('div');
+    transportRow.className = 'recordings2-playback-transport';
+    transportRow.style.display = 'flex';
+    transportRow.style.flexWrap = 'wrap';
+    transportRow.style.gap = '0.5rem';
+
+    function transportButton(label, titleText) {
+      const button = global.document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.title = titleText;
+      button.setAttribute('aria-label', titleText);
+      return button;
+    }
+
+    const back60Button = transportButton('−60', '60 Sekunden zurück');
+    const back10Button = transportButton('−10', '10 Sekunden zurück');
+    const playPauseButton = transportButton('Pause', 'Wiedergabe pausieren oder fortsetzen');
+    const forward10Button = transportButton('+10', '10 Sekunden vor');
+    const forward60Button = transportButton('+60', '60 Sekunden vor');
+    const stopButton = transportButton('Stop', 'Wiedergabe stoppen');
+    [back60Button, back10Button, playPauseButton, forward10Button, forward60Button, stopButton]
+      .forEach(function (button) { transportRow.appendChild(button); });
+    controls.appendChild(transportRow);
+
+    const positionLabel = global.document.createElement('div');
+    positionLabel.className = 'recordings2-playback-position';
+    positionLabel.setAttribute('aria-live', 'polite');
+    positionLabel.textContent = '00:00:00 / --:--:--';
+    controls.appendChild(positionLabel);
+
+    const timeline = global.document.createElement('input');
+    timeline.type = 'range';
+    timeline.min = '0';
+    timeline.max = '0';
+    timeline.step = '1';
+    timeline.value = '0';
+    timeline.disabled = true;
+    timeline.setAttribute('aria-label', 'Wiedergabeposition');
+    timeline.style.width = '100%';
+    controls.appendChild(timeline);
+
+    const directRow = global.document.createElement('div');
+    directRow.className = 'recordings2-playback-direct-seek';
+    directRow.style.display = 'flex';
+    directRow.style.flexWrap = 'wrap';
+    directRow.style.gap = '0.5rem';
+    const directTime = global.document.createElement('input');
+    directTime.type = 'text';
+    directTime.inputMode = 'numeric';
+    directTime.placeholder = 'HH:MM:SS';
+    directTime.setAttribute('aria-label', 'Direkte Wiedergabezeit');
+    const directButton = transportButton('Springen', 'Zur eingegebenen Wiedergabezeit springen');
+    directRow.appendChild(directTime);
+    directRow.appendChild(directButton);
+    controls.appendChild(directRow);
+    panel.appendChild(controls);
+
     let destroyed = false;
     let started = false;
     let stopIssued = false;
+    let stopped = false;
     let activeSessionId = '';
+    let activeMediaPath = '';
     let startupStartedAt = 0;
     let firstMediaReported = false;
     let fallbackPanel = null;
     let fallbackActivation = null;
     let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
+    let durationSeconds = 0;
+    let seekSupported = false;
+    let seekStartSeconds = 0;
+    let seekEndSeconds = 0;
+    let seekBaseSeconds = 0;
+    let seekInFlight = false;
+
+    function formatTime(value) {
+      const seconds = Math.max(0, Math.floor(Number(value) || 0));
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const remaining = seconds % 60;
+      return String(hours).padStart(2, '0') + ':' +
+        String(minutes).padStart(2, '0') + ':' +
+        String(remaining).padStart(2, '0');
+    }
+
+    function parseTime(value) {
+      const raw = text(value).trim();
+      if (!raw) return null;
+      if (/^\d+$/.test(raw)) return Number(raw);
+      const parts = raw.split(':');
+      if (parts.length < 2 || parts.length > 3 ||
+          parts.some(function (part) { return !/^\d+$/.test(part); })) {
+        return null;
+      }
+      const numbers = parts.map(Number);
+      const hours = parts.length === 3 ? numbers[0] : 0;
+      const minutes = parts.length === 3 ? numbers[1] : numbers[0];
+      const seconds = parts.length === 3 ? numbers[2] : numbers[1];
+      if (minutes >= 60 || seconds >= 60) return null;
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    function localPositionSeconds() {
+      const value = Number(video.currentTime);
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function positionSeconds() {
+      if (!started || stopped) return seekBaseSeconds;
+      return seekBaseSeconds + localPositionSeconds();
+    }
+
+    function seekMaximum() {
+      if (!seekSupported || seekEndSeconds <= seekStartSeconds) return 0;
+      return Math.max(seekStartSeconds, Math.ceil(seekEndSeconds) - 1);
+    }
+
+    function clampSeekTarget(value) {
+      const position = Math.floor(Number(value));
+      if (!Number.isFinite(position) || !seekSupported) return null;
+      const maximum = seekMaximum();
+      if (position < seekStartSeconds || position > maximum) return null;
+      return position;
+    }
+
+    function updatePositionDisplay(previewPosition) {
+      const current = previewPosition === undefined
+        ? Math.floor(positionSeconds())
+        : Math.floor(Number(previewPosition) || 0);
+      positionLabel.textContent = formatTime(current) + ' / ' +
+        (durationSeconds > 0 ? formatTime(durationSeconds) : '--:--:--');
+      if (!timeline.disabled && previewPosition === undefined) {
+        timeline.value = String(Math.max(seekStartSeconds, Math.min(seekMaximum(), current)));
+      }
+    }
+
+    function updateControls() {
+      const active = started && !destroyed && !fallbackPanel && !stopped;
+      const canSeek = active && seekSupported && !seekInFlight;
+      back60Button.disabled = !canSeek;
+      back10Button.disabled = !canSeek;
+      forward10Button.disabled = !canSeek;
+      forward60Button.disabled = !canSeek;
+      timeline.disabled = !canSeek;
+      directTime.disabled = !canSeek;
+      directButton.disabled = !canSeek;
+      playPauseButton.disabled = !active || seekInFlight;
+      stopButton.disabled = !active;
+      playPauseButton.textContent = video.paused ? 'Play' : 'Pause';
+      timeline.min = String(seekStartSeconds);
+      timeline.max = String(seekMaximum());
+      updatePositionDisplay();
+    }
+
+    function applyPlaybackContract(mediaSession) {
+      const playback = mediaSession && mediaSession.playback;
+      const duration = Number(playback && playback.durationSeconds);
+      durationSeconds = Number.isFinite(duration) && duration > 0 ? Math.floor(duration) : 0;
+      const seek = playback && playback.seek;
+      const windowValue = seek && seek.window;
+      const start = Number(windowValue && windowValue.startSeconds);
+      const end = Number(windowValue && windowValue.endSeconds);
+      seekSupported = Boolean(
+        seek && seek.supported === true && durationSeconds > 0 &&
+        Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
+      );
+      seekStartSeconds = seekSupported ? Math.floor(start) : 0;
+      seekEndSeconds = seekSupported ? Math.min(durationSeconds, Math.floor(end)) : 0;
+      if (seekSupported && seekEndSeconds <= seekStartSeconds) {
+        seekSupported = false;
+        seekStartSeconds = 0;
+        seekEndSeconds = 0;
+      }
+      const position = Number(playback && playback.positionSeconds);
+      seekBaseSeconds = Number.isFinite(position) && position >= 0 ? Math.floor(position) : 0;
+      updateControls();
+    }
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -945,14 +1147,17 @@
       try {
         video.removeAttribute('src');
         if (typeof video.load === 'function') video.load();
+        video.currentTime = 0;
       } catch (error) {}
     }
 
     function stopActive(keepalive) {
-      if (stopIssued || !activeSessionId) return;
+      if (stopIssued || !activeSessionId) return Promise.resolve(null);
       stopIssued = true;
       const request = stopRecordingSession(backendId, activeSessionId, keepalive);
-      if (request && typeof request.catch === 'function') request.catch(function () {});
+      if (!request || typeof request.then !== 'function') return Promise.resolve(request || null);
+      if (keepalive) return request.catch(function () { return null; });
+      return request;
     }
 
     function replaceWithFallback() {
@@ -975,7 +1180,7 @@
       if (destroyed) return Promise.resolve('');
       if (fallbackActivation) return fallbackActivation;
 
-      stopActive(false);
+      stopActive(false).catch(function () {});
       releaseVideo();
       const legacy = replaceWithFallback();
       if (!legacy || typeof legacy.start !== 'function') {
@@ -994,6 +1199,41 @@
       return fallbackActivation;
     }
 
+    function failRepositionedPlayback(error) {
+      if (destroyed || stopped || fallbackPanel) return;
+      stopped = true;
+      seekInFlight = false;
+      stopActive(false).catch(function () {});
+      releaseVideo();
+      setStatus(
+        error && error.message
+          ? 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden: ' + error.message
+          : 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden.',
+        true
+      );
+      updateControls();
+    }
+
+    function connectRecordingStream(autoPlay, initialConnection) {
+      const shouldPlay = autoPlay !== false;
+      continuousTransport = createContinuousFmp4Mse(
+        video,
+        activeMediaPath,
+        function (error) {
+          if (initialConnection) activateFallback(error);
+          else failRepositionedPlayback(error);
+        },
+        shouldPlay
+      );
+
+      if (continuousTransport) return continuousTransport.playRequest;
+
+      video.src = activeMediaPath;
+      video.hidden = false;
+      if (typeof video.load === 'function') video.load();
+      return shouldPlay ? video.play() : null;
+    }
+
     function pageHide() {
       if (destroyed) return;
       if (fallbackPanel && typeof fallbackPanel.destroy === 'function') {
@@ -1006,6 +1246,8 @@
     function startPlayback() {
       if (started || destroyed) return sessionCreationPromise;
       started = true;
+      stopped = false;
+      stopIssued = false;
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
@@ -1021,27 +1263,23 @@
         // presentation. If the server legitimately selected HLS instead, the
         // fallback must STOP this provisional session before opening its own.
         activeSessionId = id;
-        const mediaPath = publicRecordingMediaPath(mediaSession.mediaPath);
-        if (!mediaPath || mediaSession.presentationProfileId !== 'progressive-fmp4') {
+        activeMediaPath = publicRecordingMediaPath(mediaSession.mediaPath);
+        if (!activeMediaPath || mediaSession.presentationProfileId !== 'progressive-fmp4') {
           throw new Error('Schnelle Recording-MediaSession wurde nicht bereitgestellt.');
         }
 
+        applyPlaybackContract(mediaSession);
         video.hidden = false;
         startButton.hidden = true;
-        continuousTransport = createContinuousFmp4Mse(video, mediaPath, function (error) {
-          activateFallback(error);
-        });
+        controls.hidden = false;
+        updateControls();
+        const playRequest = connectRecordingStream(true, true);
 
-        let playRequest = null;
         if (continuousTransport) {
           setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
-          playRequest = continuousTransport.playRequest;
         }
         else {
-          video.src = mediaPath;
-          if (typeof video.load === 'function') video.load();
           setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
-          playRequest = video.play();
         }
 
         if (playRequest && typeof playRequest.catch === 'function') {
@@ -1058,6 +1296,124 @@
       return promise;
     }
 
+    function playPlayback() {
+      if (!started) return startPlayback();
+      if (destroyed || stopped || fallbackPanel || seekInFlight) return Promise.resolve(false);
+      const request = video.play();
+      updateControls();
+      return request && typeof request.then === 'function'
+        ? request.then(function () { return true; })
+        : Promise.resolve(true);
+    }
+
+    function pausePlayback() {
+      if (!started || destroyed || stopped || fallbackPanel || seekInFlight) return false;
+      try { video.pause(); } catch (error) { return false; }
+      setStatus('Aufnahme pausiert.', false);
+      updateControls();
+      return true;
+    }
+
+    function stopPlayback() {
+      if (destroyed || fallbackPanel || stopped) return Promise.resolve(false);
+      stopped = true;
+      seekInFlight = false;
+      const stopRequest = stopActive(false);
+      releaseVideo();
+      setStatus('Wiedergabe gestoppt.', false);
+      updateControls();
+      return Promise.resolve(stopRequest).then(function () { return true; }).catch(function (error) {
+        setStatus(
+          error && error.message
+            ? 'Wiedergabe lokal gestoppt · Server-Cleanup fehlgeschlagen: ' + error.message
+            : 'Wiedergabe lokal gestoppt · Server-Cleanup fehlgeschlagen.',
+          true
+        );
+        throw error;
+      });
+    }
+
+    function seekAbsolute(position) {
+      const target = clampSeekTarget(position);
+      if (target === null || destroyed || stopped || fallbackPanel || !activeSessionId) {
+        return Promise.reject(new Error('Seek ist für diese Wiedergabe oder Position nicht verfügbar.'));
+      }
+      if (seekInFlight) {
+        return Promise.reject(new Error('Ein Seek läuft bereits.'));
+      }
+
+      const shouldResume = !video.paused;
+      seekInFlight = true;
+      updateControls();
+      setStatus('Springe zu ' + formatTime(target) + ' …', false);
+
+      return seekRecordingSession(backendId, activeSessionId, target).then(function (session) {
+        if (destroyed || stopped) return false;
+        const mediaSession = session && session.mediaSession;
+        const returnedId = safeSessionId(mediaSession && mediaSession.id);
+        const returnedPath = publicRecordingMediaPath(mediaSession && mediaSession.mediaPath);
+        if (!mediaSession || mediaSession.state !== 'ready' ||
+            returnedId !== activeSessionId ||
+            mediaSession.presentationProfileId !== 'progressive-fmp4' ||
+            !returnedPath || returnedPath !== activeMediaPath) {
+          throw new Error('MediaSession hat nach dem Seek ihre Playback-Identität geändert.');
+        }
+
+        releaseVideo();
+        applyPlaybackContract(mediaSession);
+        if (!seekSupported || seekBaseSeconds !== target) {
+          throw new Error('MediaSession hat den angeforderten Seek nicht bestätigt.');
+        }
+
+        const playRequest = connectRecordingStream(shouldResume, false);
+        seekInFlight = false;
+        setStatus(
+          shouldResume
+            ? 'Seek abgeschlossen · Wiedergabe wird fortgesetzt.'
+            : 'Seek abgeschlossen · Wiedergabe bleibt pausiert.',
+          false
+        );
+        updateControls();
+        if (playRequest && typeof playRequest.catch === 'function') {
+          playRequest.catch(function () {
+            setStatus('Seek abgeschlossen · Wiedergabe über Play fortsetzen.', false);
+            updateControls();
+          });
+        }
+        return true;
+      }).catch(function (error) {
+        seekInFlight = false;
+        setStatus(
+          error && error.message ? 'Seek fehlgeschlagen: ' + error.message : 'Seek fehlgeschlagen.',
+          true
+        );
+        updateControls();
+        throw error;
+      });
+    }
+
+    function seekRelative(deltaSeconds) {
+      const delta = Number(deltaSeconds);
+      if (!Number.isFinite(delta)) {
+        return Promise.reject(new Error('Ungültiger relativer Zeitsprung.'));
+      }
+      const maximum = seekMaximum();
+      const target = Math.max(
+        seekStartSeconds,
+        Math.min(maximum, Math.floor(positionSeconds() + delta))
+      );
+      return seekAbsolute(target);
+    }
+
+    function playbackState() {
+      if (destroyed) return 'destroyed';
+      if (fallbackPanel) return 'fallback';
+      if (stopped) return 'stopped';
+      if (seekInFlight) return 'seeking';
+      if (!started) return 'idle';
+      return video.paused ? 'paused' : 'playing';
+    }
+
     function destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -1068,52 +1424,124 @@
         fallbackPanel.destroy();
       }
       else {
-        stopActive(false);
+        stopActive(false).catch(function () {});
         releaseVideo();
       }
     }
 
     video.addEventListener('playing', function () {
-      if (destroyed || fallbackPanel || firstMediaReported) return;
-      firstMediaReported = true;
-      const elapsed = Math.max(0, nowMilliseconds() - startupStartedAt);
-      setStatus('Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s', false);
-      if (global.console && typeof global.console.info === 'function') {
-        global.console.info(
-          'recording playback first-media',
-          {sessionId: activeSessionId, profile: 'progressive-fmp4', startupMs: Math.round(elapsed)}
-        );
+      if (destroyed || fallbackPanel || stopped) return;
+      if (!firstMediaReported) {
+        firstMediaReported = true;
+        const elapsed = Math.max(0, nowMilliseconds() - startupStartedAt);
+        setStatus('Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s', false);
+        if (global.console && typeof global.console.info === 'function') {
+          global.console.info(
+            'recording playback first-media',
+            {sessionId: activeSessionId, profile: 'progressive-fmp4', startupMs: Math.round(elapsed)}
+          );
+        }
+      }
+      else {
+        setStatus('Aufnahme läuft.', false);
+      }
+      updateControls();
+    });
+    video.addEventListener('play', updateControls);
+    video.addEventListener('pause', function () {
+      if (!destroyed && !fallbackPanel && !stopped && !seekInFlight) {
+        updateControls();
       }
     });
+    video.addEventListener('timeupdate', function () {
+      if (!destroyed && !fallbackPanel && !stopped) updatePositionDisplay();
+    });
     video.addEventListener('waiting', function () {
-      if (!destroyed && !fallbackPanel && firstMediaReported) {
+      if (!destroyed && !fallbackPanel && !stopped && firstMediaReported) {
         setStatus('Aufnahme wartet auf Daten …', false);
       }
     });
     video.addEventListener('stalled', function () {
-      if (!destroyed && !fallbackPanel && !firstMediaReported && !continuousTransport) {
+      if (!destroyed && !fallbackPanel && !stopped && !firstMediaReported && !continuousTransport) {
         activateFallback(new Error('Schneller Recording-Stream ist vor dem ersten Frame stehen geblieben.'));
       }
     });
     video.addEventListener('ended', function () {
-      if (!destroyed && !fallbackPanel) stopActive(false);
-    });
-    video.addEventListener('error', function () {
-      if (!destroyed && !fallbackPanel) {
-        const mediaError = video.error;
-        const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
-        activateFallback(new Error('Browser konnte den schnellen Recording-Stream nicht wiedergeben' + detail));
+      if (!destroyed && !fallbackPanel && !stopped) {
+        stopped = true;
+        stopActive(false).catch(function () {});
+        updateControls();
       }
     });
+    video.addEventListener('error', function () {
+      if (!destroyed && !fallbackPanel && !stopped) {
+        const mediaError = video.error;
+        const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
+        if (firstMediaReported || seekBaseSeconds > 0) {
+          failRepositionedPlayback(new Error('Browser konnte den Recording-Stream nicht wiedergeben' + detail));
+        }
+        else {
+          activateFallback(new Error('Browser konnte den schnellen Recording-Stream nicht wiedergeben' + detail));
+        }
+      }
+    });
+
     startButton.addEventListener('click', startPlayback);
+    playPauseButton.addEventListener('click', function () {
+      if (video.paused) {
+        playPlayback().catch(function () {});
+      }
+      else {
+        pausePlayback();
+      }
+    });
+    stopButton.addEventListener('click', function () {
+      stopPlayback().catch(function () {});
+    });
+    back60Button.addEventListener('click', function () { seekRelative(-60).catch(function () {}); });
+    back10Button.addEventListener('click', function () { seekRelative(-10).catch(function () {}); });
+    forward10Button.addEventListener('click', function () { seekRelative(10).catch(function () {}); });
+    forward60Button.addEventListener('click', function () { seekRelative(60).catch(function () {}); });
+    timeline.addEventListener('input', function () {
+      if (!timeline.disabled) updatePositionDisplay(Number(timeline.value));
+    });
+    timeline.addEventListener('change', function () {
+      if (timeline.disabled) return;
+      seekAbsolute(Number(timeline.value)).catch(function () { updatePositionDisplay(); });
+    });
+    directButton.addEventListener('click', function () {
+      const target = parseTime(directTime.value);
+      if (target === null) {
+        setStatus('Ungültige Zeit. Erwartet werden Sekunden, MM:SS oder HH:MM:SS.', true);
+        return;
+      }
+      seekAbsolute(target).then(function () {
+        directTime.value = formatTime(target);
+      }).catch(function () {});
+    });
+    directTime.addEventListener('keydown', function (event) {
+      if (event && event.key === 'Enter' && typeof directButton.click === 'function') {
+        directButton.click();
+      }
+    });
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', pageHide);
     }
+
+    updateControls();
 
     return Object.freeze({
       element: panel,
       destroy: destroy,
       start: startPlayback,
+      play: playPlayback,
+      pause: pausePlayback,
+      stop: stopPlayback,
+      position: function () { return Math.floor(positionSeconds()); },
+      duration: function () { return durationSeconds > 0 ? durationSeconds : null; },
+      state: playbackState,
+      seekAbsolute: seekAbsolute,
+      seekRelative: seekRelative,
       sessionId: function () {
         if (fallbackPanel && typeof fallbackPanel.sessionId === 'function') {
           return fallbackPanel.sessionId();
