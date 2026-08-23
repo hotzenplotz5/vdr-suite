@@ -32,6 +32,13 @@ struct RecordingMediaSessionSeekResult
     int durationSeconds = 0;
 };
 
+struct RecordingMediaSessionSeekCapabilityResult
+{
+    bool enabled = false;
+    std::string reasonCode;
+    int durationSeconds = 0;
+};
+
 class RecordingMediaSessionRuntime
 {
 public:
@@ -92,6 +99,12 @@ public:
         const std::string& grantId,
         const MediaPresentationProfile& profile,
         const RecordingDirectSourceRegistration& registration);
+
+    RecordingMediaSessionSeekCapabilityResult enableIndexedSeek(
+        const std::string& sessionId,
+        int durationSeconds,
+        const std::vector<std::string>& sourceSegments,
+        const std::vector<double>& segmentDurationsSeconds);
 
     RecordingMediaSessionSeekResult seekStream(
         const std::string& sessionId,

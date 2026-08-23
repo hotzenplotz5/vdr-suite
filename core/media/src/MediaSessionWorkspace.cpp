@@ -197,6 +197,87 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
     return result;
 }
 
+MediaSessionWorkspaceResult MediaSessionWorkspace::activateSeekTimeline(
+    const std::vector<std::string>& sourceSegments,
+    const std::vector<double>& segmentDurationsSeconds)
+{
+    MediaSessionWorkspaceResult result;
+    if (directory_.empty() || sourceSegments.empty() ||
+        segmentDurationsSeconds.size() != sourceSegments.size()) {
+        result.reasonCode = "invalid_seek_timeline_request";
+        return result;
+    }
+
+    const std::filesystem::path workspace(directory_);
+    std::string concat = "ffconcat version 1.0\n";
+    for (std::size_t index = 0; index < sourceSegments.size(); ++index) {
+        const std::filesystem::path source(sourceSegments[index]);
+        if (!source.is_absolute()) {
+            result.reasonCode = "source_segment_not_absolute";
+            return result;
+        }
+        std::error_code error;
+        if (!std::filesystem::is_regular_file(source, error) || error) {
+            result.reasonCode = "source_segment_unavailable";
+            return result;
+        }
+
+        const std::string localName = safeSourceName(index, sourceSegments[index]);
+        const std::filesystem::path localPath = workspace / localName;
+        if (!std::filesystem::is_symlink(localPath, error) || error) {
+            result.reasonCode = "source_segment_link_unavailable";
+            return result;
+        }
+        const std::filesystem::path target =
+            std::filesystem::read_symlink(localPath, error);
+        if (error || target != source) {
+            result.reasonCode = "source_segment_link_mismatch";
+            return result;
+        }
+
+        const std::string duration =
+            concatDuration(segmentDurationsSeconds[index]);
+        if (duration.empty()) {
+            result.reasonCode = "source_segment_duration_invalid";
+            return result;
+        }
+        concat += "file '" + localName + "'\n";
+        concat += "duration " + duration + "\n";
+    }
+
+    const std::filesystem::path targetFile = workspace / "input.ffconcat";
+    const std::filesystem::path temporaryFile = workspace / "input.seek.ffconcat";
+    const int fd = ::open(
+        temporaryFile.c_str(),
+        O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
+        0600);
+    if (fd < 0) {
+        result.reasonCode = "seek_concat_create_failed";
+        return result;
+    }
+    const bool written = writeAll(fd, concat);
+    const int closeResult = ::close(fd);
+    if (!written || closeResult != 0) {
+        std::error_code ignored;
+        std::filesystem::remove(temporaryFile, ignored);
+        result.reasonCode = "seek_concat_write_failed";
+        return result;
+    }
+
+    // Replace only the path used by future worker starts. The currently
+    // running FFmpeg process keeps its already opened old concat inode and
+    // therefore continues uninterrupted while seek capability becomes ready.
+    if (::rename(temporaryFile.c_str(), targetFile.c_str()) != 0) {
+        std::error_code ignored;
+        std::filesystem::remove(temporaryFile, ignored);
+        result.reasonCode = "seek_concat_activate_failed";
+        return result;
+    }
+
+    result.ready = true;
+    return result;
+}
+
 void MediaSessionWorkspace::cleanup()
 {
     if (directory_.empty()) return;

@@ -17,11 +17,17 @@ public:
 
     MediaSessionWorkspace(const MediaSessionWorkspace&) = delete;
     MediaSessionWorkspace& operator=(const MediaSessionWorkspace&) = delete;
+    MediaSessionWorkspace(MediaSessionWorkspace&&) = default;
+    MediaSessionWorkspace& operator=(MediaSessionWorkspace&&) = default;
 
     MediaSessionWorkspaceResult prepare(
         const std::string& workspaceId,
         const std::vector<std::string>& sourceSegments,
         const std::vector<double>& segmentDurationsSeconds = {});
+
+    MediaSessionWorkspaceResult activateSeekTimeline(
+        const std::vector<std::string>& sourceSegments,
+        const std::vector<double>& segmentDurationsSeconds);
 
     MediaSessionWorkspaceResult prepareLive(
         const std::string& workspaceId);
@@ -34,9 +40,9 @@ public:
     std::string liveStreamPath() const;
 
 private:
-    MediaSessionWorkspaceResult prepareDirectory(
-        const std::string& workspaceId);
-
     std::string rootDirectory_;
     std::string directory_;
+
+    MediaSessionWorkspaceResult prepareDirectory(
+        const std::string& workspaceId);
 };
