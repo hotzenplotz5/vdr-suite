@@ -21,5 +21,5 @@ test-phase65d2-recording-media-session-seek:
 test-phase65d2-recording-playback-controls:
 	node web/frontend/tests/test_phase65d2_recording_playback_controls.js
 
-test-fast: test-phase65d2-recording-media-session-seek
+test-fast: test-phase65d2-recording-media-session-seek test-vdr-recording-query-service
 test-frontend-i18n: test-phase65d2-recording-playback-controls
