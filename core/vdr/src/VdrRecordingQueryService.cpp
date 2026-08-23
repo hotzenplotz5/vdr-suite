@@ -140,6 +140,23 @@ bool VdrRecordingQueryService::findRecordingById(
     return true;
 }
 
+bool VdrRecordingQueryService::updateCachedRecording(
+    const VdrRecording& recording) const
+{
+    if (recordingCacheRepository_ == nullptr || recording.id.empty())
+    {
+        return false;
+    }
+
+    const std::string backendId =
+        recording.backendId.empty()
+            ? defaultBackendId_
+            : recording.backendId;
+    return recordingCacheRepository_->upsertRecordingsForBackend(
+        backendId,
+        {recording});
+}
+
 std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
     const VdrRecordingQuery& query) const
 {

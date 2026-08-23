@@ -13,6 +13,7 @@
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "VdrRecordingDuration.h"
+#include "VdrRecordingIndexUpdater.h"
 #include "VdrRecordingQueryService.h"
 
 #include <algorithm>
@@ -76,7 +77,9 @@ std::string jsonEscape(const std::string& value)
 std::string playbackJson(
     int positionSeconds,
     int durationSeconds,
-    bool seekSupported)
+    bool seekSupported,
+    bool seekPreparing = false,
+    const std::string& seekReason = {})
 {
     std::string result =
         "{\"positionSeconds\":" + std::to_string(std::max(0, positionSeconds)) +
@@ -89,10 +92,15 @@ std::string playbackJson(
     }
     result += ",\"seek\":{\"supported\":";
     result += seekSupported ? "true" : "false";
+    result += ",\"preparing\":";
+    result += seekPreparing ? "true" : "false";
     if (seekSupported && durationSeconds > 0) {
         result +=
             ",\"window\":{\"startSeconds\":0,\"endSeconds\":" +
             std::to_string(durationSeconds) + "}";
+    }
+    if (!seekReason.empty()) {
+        result += ",\"reason\":\"" + jsonEscape(seekReason) + "\"";
     }
     result += "}}";
     return result;
@@ -130,10 +138,13 @@ ApiResponse stopFailureResponse(
     return response;
 }
 
-ApiResponse seekedResponse(
+ApiResponse recordingPlaybackResponse(
     const StoredMediaSession& stored,
     int positionSeconds,
-    int durationSeconds)
+    int durationSeconds,
+    bool seekSupported,
+    bool seekPreparing = false,
+    const std::string& seekReason = {})
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -151,9 +162,26 @@ ApiResponse seekedResponse(
         "\"presentationProfileId\":\"progressive-fmp4\"," +
         "\"growing\":false," +
         "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
-        "\"playback\":" + playbackJson(positionSeconds, durationSeconds, true) +
+        "\"playback\":" + playbackJson(
+            positionSeconds,
+            durationSeconds,
+            seekSupported,
+            seekPreparing,
+            seekReason) +
         "}}";
     return response;
+}
+
+ApiResponse seekedResponse(
+    const StoredMediaSession& stored,
+    int positionSeconds,
+    int durationSeconds)
+{
+    return recordingPlaybackResponse(
+        stored,
+        positionSeconds,
+        durationSeconds,
+        true);
 }
 
 bool systemEntropy(unsigned char* output, std::size_t size)
@@ -255,6 +283,7 @@ RecordingMediaSessionController::RecordingMediaSessionController(
           mediaSessionRepository,
           workspaceRoot,
           *directSourceRegistry_)),
+      indexUpdater_(std::make_unique<VdrRecordingIndexUpdater>()),
       workspaceRoot_(std::move(workspaceRoot))
 {
 }
@@ -273,6 +302,7 @@ RecordingMediaSessionController::RecordingMediaSessionController(
           mediaSessionRepository,
           workspaceRoot,
           directSourceRegistry)),
+      indexUpdater_(std::make_unique<VdrRecordingIndexUpdater>()),
       workspaceRoot_(std::move(workspaceRoot))
 {
 }
@@ -291,6 +321,20 @@ ApiResponse RecordingMediaSessionController::handleRequest(
 {
     if (actorId.empty()) {
         return jsonError(401, "media_actor_required");
+    }
+
+    const RecordingMediaSessionPlaybackStatusRequest statusRequest =
+        RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
+    if (statusRequest.valid) {
+        return playbackStatus(body, actorId);
+    }
+    if (statusRequest.reasonCode !=
+        "media_session_playback_status_not_requested") {
+        return jsonError(
+            400,
+            statusRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : statusRequest.reasonCode);
     }
 
     const RecordingMediaSessionSeekRequest seekRequest =
@@ -342,6 +386,11 @@ ApiResponse RecordingMediaSessionController::stopSession(
     }
     if (stored->actorId != actorId) {
         return jsonError(403, "media_session_not_owned");
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        pendingIndex_.erase(request.sessionId);
     }
 
     if (stored->state == "ended" || stored->state == "failed") {
@@ -409,6 +458,143 @@ ApiResponse RecordingMediaSessionController::seekSession(
     }
 
     return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds);
+}
+
+ApiResponse RecordingMediaSessionController::playbackStatus(
+    const std::string& body,
+    const std::string& actorId) const
+{
+    const RecordingMediaSessionPlaybackStatusRequest request =
+        RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
+    if (!request.valid) {
+        return jsonError(
+            400,
+            request.reasonCode.empty()
+                ? "invalid_media_session_playback_status_request"
+                : request.reasonCode);
+    }
+
+    const auto stored = mediaSessionRepository_.findSession(request.sessionId);
+    if (!stored.has_value() || stored->backendId != request.backendId) {
+        return jsonError(404, "media_session_not_found");
+    }
+    if (stored->actorId != actorId) {
+        return jsonError(403, "media_session_not_owned");
+    }
+    if (stored->resourceKind != "recording" ||
+        stored->presentationProfileId != "progressive-fmp4") {
+        return jsonError(409, "recording_playback_status_not_supported");
+    }
+    if (stored->state != "ready") {
+        return jsonError(409, "media_session_not_active");
+    }
+
+    PendingIndexContext context;
+    {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        const auto found = pendingIndex_.find(request.sessionId);
+        if (found == pendingIndex_.end()) {
+            return jsonError(409, "recording_index_update_not_pending");
+        }
+        context = found->second;
+    }
+
+    const VdrRecordingIndexUpdateResult update =
+        indexUpdater_->status(context.recordingDirectory);
+    if (update.running()) {
+        return recordingPlaybackResponse(
+            *stored,
+            0,
+            0,
+            false,
+            true);
+    }
+
+    if (!update.succeeded()) {
+        {
+            std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+            pendingIndex_.erase(request.sessionId);
+        }
+        return recordingPlaybackResponse(
+            *stored,
+            0,
+            0,
+            false,
+            false,
+            update.reasonCode.empty()
+                ? "recording_index_update_failed"
+                : update.reasonCode);
+    }
+
+    VdrRecording recording;
+    if (!recordingQueryService_.findRecordingById(
+            context.backendId,
+            context.recordingId,
+            recording)) {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        pendingIndex_.erase(request.sessionId);
+        return recordingPlaybackResponse(
+            *stored,
+            0,
+            0,
+            false,
+            false,
+            "recording_index_result_unavailable");
+    }
+
+    const int durationSeconds =
+        recording.recordingDurationKnown && recording.durationSeconds > 0
+            ? recording.durationSeconds
+            : 0;
+    const std::vector<double> segmentDurations =
+        durationSeconds > 0
+            ? vdrsuite::recording::segmentDurationsSecondsFromIndex(
+                  recording,
+                  context.sourceSegments)
+            : std::vector<double>{};
+    if (durationSeconds <= 0 || segmentDurations.size() != context.sourceSegments.size()) {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        pendingIndex_.erase(request.sessionId);
+        return recordingPlaybackResponse(
+            *stored,
+            0,
+            durationSeconds,
+            false,
+            false,
+            "recording_index_timeline_unavailable");
+    }
+
+    const RecordingMediaSessionSeekCapabilityResult enabled =
+        mediaSessionRuntime_->enableIndexedSeek(
+            request.sessionId,
+            durationSeconds,
+            context.sourceSegments,
+            segmentDurations);
+    if (!enabled.enabled) {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        pendingIndex_.erase(request.sessionId);
+        return recordingPlaybackResponse(
+            *stored,
+            0,
+            durationSeconds,
+            false,
+            false,
+            enabled.reasonCode.empty()
+                ? "recording_seek_timeline_activation_failed"
+                : enabled.reasonCode);
+    }
+
+    recordingQueryService_.updateCachedRecording(recording);
+    {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        pendingIndex_.erase(request.sessionId);
+    }
+    return recordingPlaybackResponse(
+        *stored,
+        0,
+        enabled.durationSeconds,
+        true,
+        false);
 }
 
 ApiResponse RecordingMediaSessionController::createSession(
@@ -688,11 +874,33 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const auto provisionReadyAt = std::chrono::steady_clock::now();
 
+    bool indexPreparing = false;
+    if (profile.profileId == "progressive-fmp4" &&
+        !sourceResolution.source.growing &&
+        !timeSeekSupported) {
+        const VdrRecordingIndexUpdateResult update = indexUpdater_->ensure(
+            sourceResolution.source.recordingDirectory,
+            sourceResolution.source.segmentPaths);
+        if (update.running() || update.succeeded()) {
+            PendingIndexContext context;
+            context.backendId = request.backendId;
+            context.recordingId = request.recordingId;
+            context.recordingDirectory = sourceResolution.source.recordingDirectory;
+            context.sourceSegments = sourceResolution.source.segmentPaths;
+            {
+                std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+                pendingIndex_[issuance.session.sessionId] = std::move(context);
+            }
+            indexPreparing = true;
+        }
+    }
+
     std::clog
         << "recording media startup"
         << " session=" << issuance.session.sessionId
         << " profile=" << profile.profileId
         << " growing=" << (sourceResolution.source.growing ? "true" : "false")
+        << " index_preparing=" << (indexPreparing ? "true" : "false")
         << " probe_cache=" << (probeCacheHit ? "hit" : "miss")
         << " source_ms=" << elapsedMilliseconds(requestStartedAt, sourceResolvedAt)
         << " descriptor_ms=" << elapsedMilliseconds(sourceResolvedAt, descriptorReadyAt)
@@ -718,7 +926,11 @@ ApiResponse RecordingMediaSessionController::createSession(
         "\"growing\":" + std::string(sourceResolution.source.growing ? "true" : "false") + "," +
         "\"readableBytes\":" + std::to_string(sourceResolution.source.readableBytes) + "," +
         "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
-        "\"playback\":" + playbackJson(0, truthfulDurationSeconds, timeSeekSupported) + "," +
+        "\"playback\":" + playbackJson(
+            0,
+            truthfulDurationSeconds,
+            timeSeekSupported,
+            indexPreparing) + "," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
 
     issuance.session.clearSecret();

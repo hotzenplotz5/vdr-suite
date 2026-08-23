@@ -30,6 +30,14 @@ struct RecordingMediaSessionSeekRequest
     int positionSeconds = 0;
 };
 
+struct RecordingMediaSessionPlaybackStatusRequest
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::string backendId;
+    std::string sessionId;
+};
+
 class RecordingMediaSessionRequestParser
 {
 public:
@@ -40,5 +48,8 @@ public:
         const std::string& body) const;
 
     RecordingMediaSessionSeekRequest parseSeek(
+        const std::string& body) const;
+
+    RecordingMediaSessionPlaybackStatusRequest parsePlaybackStatus(
         const std::string& body) const;
 };
