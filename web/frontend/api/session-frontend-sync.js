@@ -1352,10 +1352,11 @@
     }
 
     function startPlayback() {
-      if (started || destroyed) return sessionCreationPromise;
+      if ((started && !stopped) || destroyed) return sessionCreationPromise;
       started = true;
       stopped = false;
       stopIssued = false;
+      firstMediaReported = false;
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
@@ -1427,16 +1428,28 @@
     }
 
     function stopPlayback() {
-      if (destroyed || fallbackPanel || stopped) return Promise.resolve(false);
+      if (!started || destroyed || fallbackPanel || stopped) return Promise.resolve(false);
       stopped = true;
       seekInFlight = false;
       seekPreparing = false;
       clearIndexStatusPoll();
       const stopRequest = stopActive(false);
       releaseVideo();
-      setStatus('Wiedergabe gestoppt.', false);
+      startButton.textContent = '▶ Wiedergabe erneut starten';
+      startButton.hidden = false;
+      startButton.disabled = true;
+      controls.hidden = true;
+      video.hidden = true;
+      setStatus('Wiedergabe wird gestoppt …', false);
       updateControls();
-      return Promise.resolve(stopRequest).then(function () { return true; }).catch(function (error) {
+      return Promise.resolve(stopRequest).then(function () {
+        activeSessionId = '';
+        activeMediaPath = '';
+        startButton.disabled = false;
+        setStatus('Wiedergabe gestoppt · erneut starten möglich.', false);
+        return true;
+      }).catch(function (error) {
+        startButton.disabled = true;
         setStatus(
           error && error.message
             ? 'Wiedergabe lokal gestoppt · Server-Cleanup fehlgeschlagen: ' + error.message
