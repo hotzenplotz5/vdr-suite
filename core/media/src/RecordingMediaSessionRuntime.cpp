@@ -250,6 +250,15 @@ ProgressiveStreamPlan buildProgressiveStreamPlan(
         });
     }
 
+    // Non-zero seeks are allowed only for a workspace whose ffconcat carries
+    // VDR-index-derived duration directives for every source segment. Place
+    // -ss before the concat input so FFmpeg can seek the indexed timeline
+    // instead of decoding/discarding the recording from time zero.
+    if (startPositionSeconds > 0) {
+        plan.argv.push_back("-ss");
+        plan.argv.push_back(std::to_string(startPositionSeconds));
+    }
+
     // Deliberately no -re here. The browser-facing FIFO supplies natural
     // backpressure, so a completed recording can produce the first fMP4 bytes
     // as quickly as storage/demux/remux allows without running away from the
@@ -259,15 +268,6 @@ ProgressiveStreamPlan buildProgressiveStreamPlan(
         "-safe", "1",
         "-i", "input.ffconcat"
     });
-
-    // This is intentionally an output-side seek. It makes FFmpeg discard the
-    // concatenated recording timeline up to the requested media time instead
-    // of pretending that a byte-range offset is a time mapping. The initial
-    // zero-position fast path remains byte-for-byte unchanged.
-    if (startPositionSeconds > 0) {
-        plan.argv.push_back("-ss");
-        plan.argv.push_back(std::to_string(startPositionSeconds));
-    }
 
     if (!appendSelectedTrackMaps(plan.argv, profile)) {
         plan.reasonCode = "selected_source_track_missing";
@@ -505,7 +505,8 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
     const std::string& grantId,
     const MediaPresentationProfile& profile,
     const std::vector<std::string>& sourceSegments,
-    int durationSeconds)
+    int durationSeconds,
+    const std::vector<double>& segmentDurationsSeconds)
 {
     RecordingMediaSessionProvisionResult result;
     if (sessionId.empty() || workspaceId.empty() || grantId.empty() ||
@@ -518,6 +519,10 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
         return result;
     }
 
+    const bool indexedSeekTimeline =
+        durationSeconds > 0 &&
+        segmentDurationsSeconds.size() == sourceSegments.size();
+
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (active_.find(sessionId) != active_.end()) {
@@ -528,7 +533,12 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
 
     auto workspace = std::make_unique<MediaSessionWorkspace>(workspaceRoot_);
     const MediaSessionWorkspaceResult workspaceResult =
-        workspace->prepare(workspaceId, sourceSegments);
+        workspace->prepare(
+            workspaceId,
+            sourceSegments,
+            indexedSeekTimeline
+                ? segmentDurationsSeconds
+                : std::vector<double>{});
     if (!workspaceResult.ready) {
         result.reasonCode = workspaceResult.reasonCode.empty()
             ? "media_workspace_unavailable"
@@ -577,7 +587,8 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
     active.grantId = grantId;
     active.workspace = std::move(workspace);
     active.continuousStream = true;
-    active.durationSeconds = durationSeconds;
+    active.indexedSeekTimeline = indexedSeekTimeline;
+    active.durationSeconds = indexedSeekTimeline ? durationSeconds : 0;
     active.streamGeneration = 1;
     active.streamProfile = resolvedProfile;
     {
@@ -700,6 +711,7 @@ RecordingMediaSessionSeekResult RecordingMediaSessionRuntime::seekStream(
 
         ActiveSession& active = found->second;
         if (!active.continuousStream || !active.workspace ||
+            !active.indexedSeekTimeline ||
             active.streamProfile.profileId != "progressive-fmp4" ||
             active.durationSeconds <= 0) {
             result.reasonCode = "recording_seek_not_supported";
