@@ -10,6 +10,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -90,6 +91,26 @@ bool containsValue(
     return std::find(argv.begin(), argv.end(), value) != argv.end();
 }
 
+bool optionBefore(
+    const std::vector<std::string>& argv,
+    const std::string& first,
+    const std::string& second)
+{
+    const auto firstPosition = std::find(argv.begin(), argv.end(), first);
+    const auto secondPosition = std::find(argv.begin(), argv.end(), second);
+    return firstPosition != argv.end() &&
+        secondPosition != argv.end() &&
+        firstPosition < secondPosition;
+}
+
+std::string readFile(const std::filesystem::path& path)
+{
+    std::ifstream input(path);
+    return std::string(
+        std::istreambuf_iterator<char>(input),
+        std::istreambuf_iterator<char>());
+}
+
 } // namespace
 
 int main()
@@ -157,12 +178,17 @@ int main()
         issued.session.grantId,
         progressiveFmp4Profile(),
         {segment.string()},
-        5400);
+        5400,
+        {5400.0});
     assert(provisioned.ready);
     assert(spawnCalls == 1);
     assert(!containsValue(commands.at(0), "-ss"));
     assert(std::filesystem::is_fifo(
         root / issued.session.workspaceId / "recording.fmp4"));
+    const std::string concat =
+        readFile(root / issued.session.workspaceId / "input.ffconcat");
+    assert(concat.find("file 'source-000001.ts'\n") != std::string::npos);
+    assert(concat.find("duration 5400.000000\n") != std::string::npos);
 
     const auto outside = runtime.seekStream(issued.session.sessionId, 5400);
     assert(!outside.repositioned);
@@ -186,6 +212,7 @@ int main()
     assert(terminatedPids.size() == 1);
     assert(terminatedPids.at(0) == 4101);
     assert(containsPair(commands.at(1), "-ss", "2530"));
+    assert(optionBefore(commands.at(1), "-ss", "-i"));
     assert(std::filesystem::is_fifo(
         root / issued.session.workspaceId / "recording.fmp4"));
     const auto stillReady = repository.findSession(issued.session.sessionId);
@@ -233,6 +260,29 @@ int main()
     assert(terminatedPids.size() == 4);
     assert(terminatedPids.at(3) == 4104);
     unknownDuration.session.clearSecret();
+
+    auto durationWithoutTimeline = issuer.issue(issuanceRequest());
+    assert(durationWithoutTimeline.issued);
+    assert(runtime.provisionStream(
+        durationWithoutTimeline.session.sessionId,
+        durationWithoutTimeline.session.workspaceId,
+        durationWithoutTimeline.session.grantId,
+        progressiveFmp4Profile(),
+        {segment.string()},
+        5400).ready);
+    assert(spawnCalls == 5);
+    const auto noTimelineSeek = runtime.seekStream(
+        durationWithoutTimeline.session.sessionId,
+        10);
+    assert(!noTimelineSeek.repositioned);
+    assert(noTimelineSeek.reasonCode == "recording_seek_not_supported");
+    assert(spawnCalls == 5);
+    assert(runtime.stop(
+        durationWithoutTimeline.session.sessionId,
+        "client_closed"));
+    assert(terminatedPids.size() == 5);
+    assert(terminatedPids.at(4) == 4105);
+    durationWithoutTimeline.session.clearSecret();
 
     std::filesystem::remove_all(root);
     return 0;
