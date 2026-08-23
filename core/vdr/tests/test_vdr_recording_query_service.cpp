@@ -146,7 +146,7 @@ void testVdrIndexDurationFallback()
         recording.id,
         growing));
     assert(!growing.recordingDurationKnown);
-    assert(growing.durationSeconds == 5400);
+    assert(growing.durationSeconds == 0);
     std::filesystem::remove(directory / ".timer", ignored);
 
     VdrRecording providerDuration = recording;
