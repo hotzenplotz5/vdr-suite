@@ -252,7 +252,27 @@
       render();
     },
     refreshDetailAddon: function () {
-      if (state.active && state.selectedRecording) render();
+      if (!state.active || !state.selectedRecording) return;
+
+      const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;
+      const target = shared.mountTarget();
+      const root = target && typeof target.querySelector === 'function'
+        ? target.querySelector('.recordings2-detail')
+        : null;
+
+      // When the metadata-detail runtime arrives after the detail view was
+      // already rendered, attach it to that exact DOM owner. A full detail
+      // render would destroy the active Recording playback panel and its
+      // controls. Once the addon is already attached, later explicit metadata
+      // mutations keep the existing full-refresh behavior.
+      if (metadataDetail && typeof metadataDetail.enhance === 'function' &&
+          root && root.dataset &&
+          root.dataset.recordings2MetadataDetail !== 'true') {
+        metadataDetail.enhance(root, state.selectedRecording, state.backendId);
+        return;
+      }
+
+      render();
     },
     __test: Object.freeze({
       normalizePath: shared.normalizePath,

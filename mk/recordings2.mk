@@ -35,6 +35,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_channel_live_playback_runtime.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
+	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
 	python3 tools/check_recordings2_runtime_wiring.py
 
 test-recordings2-install-staging: test-install-staging
