@@ -5,10 +5,14 @@
   const shared = global.VdrSuiteRecordings2Shared;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const actions = global.VdrSuiteRecordings2Actions;
+  let restartChoiceRuntimePromise = null;
   if (!shared) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
   }
+
+  function ensureRestartChoiceRuntime() { const ready = global.VdrSuiteRecordingPlaybackRestartChoice; if (ready && typeof ready.install === 'function') return Promise.resolve(ready); if (restartChoiceRuntimePromise) return restartChoiceRuntimePromise; if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.reject(new Error('Recording restart choice runtime loader is unavailable.')); restartChoiceRuntimePromise = global.loadVdrSuiteDeferredRuntime('vdr-suite-recording-playback-restart-choice-runtime', '/frontend/recording-playback-restart-choice.js', function () { return Boolean(global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'); }).then(function () { return global.VdrSuiteRecordingPlaybackRestartChoice; }); return restartChoiceRuntimePromise; }
+  if (typeof global.loadVdrSuiteDeferredRuntime === 'function') ensureRestartChoiceRuntime().catch(function (error) { console.error('VDR-Suite Recording restart choice preload failed', error); });
 
   function createRecordingCard(recording, onSelect) {
     const button = document.createElement('button');
@@ -365,9 +369,7 @@
         if (activePlayback && activePlayback.element) {
           root.appendChild(activePlayback.element);
           const ownedPlayback = activePlayback;
-          const installRestartChoice = function () { const helper = global.VdrSuiteRecordingPlaybackRestartChoice; if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); };
-          installRestartChoice();
-          if (!global.VdrSuiteRecordingPlaybackRestartChoice) { const id = 'vdr-suite-recording-playback-restart-choice-runtime'; const existing = global.document.getElementById(id); const script = existing || global.document.createElement('script'); script.addEventListener('load', installRestartChoice, {once: true}); if (!existing) { script.id = id; script.src = '/frontend/recording-playback-restart-choice.js'; script.async = false; global.document.head.appendChild(script); } }
+          ensureRestartChoiceRuntime().then(function (helper) { if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); }).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
         }
       }
 
