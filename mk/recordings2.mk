@@ -9,7 +9,14 @@ install-recordings2-runtime:
 	$(INSTALL) -m 0644 web/frontend/recordings2-actions.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-actions.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-playback.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-playback.js
 	$(INSTALL) -m 0644 web/frontend/recording-playback-restart-choice.js $(DESTDIR)$(DATADIR)/web/frontend/recording-playback-restart-choice.js
-	$(INSTALL) -m 0644 web/frontend/recordings2-browser-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-browser-view.js
+	cat \
+		web/frontend/recording-playback-restart-choice.js \
+		web/frontend/recordings2-browser-view.js \
+		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
+	mv -f \
+		$(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp \
+		$(DESTDIR)$(DATADIR)/web/frontend/recordings2-browser-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-person-search-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-person-search-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-assignment.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
@@ -47,6 +54,7 @@ test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-playback.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-playback-restart-choice.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js
+	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-person-search-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js
