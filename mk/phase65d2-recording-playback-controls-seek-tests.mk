@@ -5,7 +5,7 @@ DAEMON_SRC += \
 	api/rest/src/RecordingMediaSessionPlaybackStatus.cpp \
 	core/media/src/RecordingMediaSessionHlsResume.cpp
 
-.PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-command test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice
+.PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-command test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice test-phase65d2-recording-time-input-mask
 
 test-phase65d2-recording-media-session-seek:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
@@ -93,5 +93,9 @@ test-phase65d2-recording-fallback-controls:
 test-phase65d2-recording-fallback-resume-choice:
 	node web/frontend/tests/test_phase65d2_recording_fallback_resume_choice.js
 
+test-phase65d2-recording-time-input-mask:
+	node --check web/frontend/api/recording-time-input-mask.js
+	node web/frontend/tests/test_phase65d2_recording_time_input_mask.js
+
 test-fast: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-command test-vdr-recording-query-service test-vdr-recording-cache-repository
-test-frontend-i18n: test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice
+test-frontend-i18n: test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice test-phase65d2-recording-time-input-mask
