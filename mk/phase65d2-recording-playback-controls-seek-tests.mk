@@ -1,6 +1,11 @@
-DAEMON_SRC += api/rest/src/RecordingMediaSessionPlaybackStatusRequestParser.cpp
+DAEMON_SRC += \
+	api/rest/src/RecordingMediaSessionPlaybackStatusRequestParser.cpp \
+	api/rest/src/RecordingMediaSessionStartPosition.cpp \
+	api/rest/src/RecordingMediaSessionCreate.cpp \
+	api/rest/src/RecordingMediaSessionPlaybackStatus.cpp \
+	core/media/src/RecordingMediaSessionHlsResume.cpp
 
-.PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls
+.PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-command test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice
 
 test-phase65d2-recording-media-session-seek:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
@@ -54,6 +59,20 @@ test-phase65d2-recording-playback-status-request-parser:
 		-o $(BUILD_DIR)/test_phase65d2_recording_playback_status_request_parser
 	$(BUILD_DIR)/test_phase65d2_recording_playback_status_request_parser
 
+test-phase65d2-recording-start-position-parser:
+	$(BUILD_CXX) $(CXXFLAGS) -Iapi/rest/include \
+		api/rest/src/RecordingMediaSessionStartPosition.cpp \
+		api/rest/tests/test_recording_media_session_start_position.cpp \
+		-o $(BUILD_DIR)/test_phase65d2_recording_start_position_parser
+	$(BUILD_DIR)/test_phase65d2_recording_start_position_parser
+
+test-phase65d2-hls-resume-command:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/FfmpegHlsCommandBuilder.cpp \
+		core/media/tests/test_phase65d2_hls_resume_command.cpp \
+		-o $(BUILD_DIR)/test_phase65d2_hls_resume_command
+	$(BUILD_DIR)/test_phase65d2_hls_resume_command
+
 test-phase65d2-recording-playback-controls:
 	node web/frontend/tests/test_phase65d2_recording_playback_controls.js
 
@@ -70,5 +89,8 @@ test-phase65d2-recording-fallback-controls:
 	node --check web/frontend/api/recording-fallback-controls.js
 	node web/frontend/tests/test_phase65d2_recording_fallback_controls.js
 
-test-fast: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-vdr-recording-query-service test-vdr-recording-cache-repository
-test-frontend-i18n: test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls
+test-phase65d2-recording-fallback-resume-choice:
+	node web/frontend/tests/test_phase65d2_recording_fallback_resume_choice.js
+
+test-fast: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-command test-vdr-recording-query-service test-vdr-recording-cache-repository
+test-frontend-i18n: test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice
