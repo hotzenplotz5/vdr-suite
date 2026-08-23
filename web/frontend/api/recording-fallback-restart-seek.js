@@ -112,7 +112,7 @@
 
     function setNotice(message, error) {
       if (!notice) return;
-      notice.textContent = message;
+      if (notice.textContent !== message) notice.textContent = message;
       if (notice.classList && typeof notice.classList.toggle === 'function') {
         notice.classList.toggle('error', Boolean(error));
       }
