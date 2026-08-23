@@ -17,6 +17,7 @@ install-live-remote-frontend:
 	$(INSTALL) -m 0644 web/frontend/api/live-remote-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/live-remote-client-api.js
 	cat \
 		web/frontend/api/session-frontend-sync.js \
+		web/frontend/api/recording-fallback-restart-seek.js \
 		web/frontend/api/recording-fallback-controls.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/api/.session-frontend-sync.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/api/.session-frontend-sync.js.tmp
@@ -80,7 +81,7 @@ test-remote-action-controller:
 		core/vdr/src/RemoteActionService.cpp \
 		api/rest/src/RemoteActionRequestParser.cpp \
 		api/rest/src/RemoteActionController.cpp \
-		api/rest/tests/test_remote_action_controller.cpp \
+		core/vdr/tests/test_remote_action_controller.cpp \
 		-o $(BUILD_DIR)/test_remote_action_controller
 	$(BUILD_DIR)/test_remote_action_controller
 
@@ -137,9 +138,11 @@ test-live-remote-api-runtime:
 test-live-remote-frontend:
 	node --check web/frontend/api/live-remote-client-api.js
 	node --check web/frontend/api/session-frontend-sync.js
+	node --check web/frontend/api/recording-fallback-restart-seek.js
 	node --check web/frontend/api/recording-fallback-controls.js
 	node --check web/frontend/platform/deferred-runtime-loader.js
 	node --check web/frontend/modules/remote.js
+	node web/frontend/tests/test_phase65d2_recording_fallback_restart_seek.js
 	node web/frontend/tests/test_remote_runtime.js
 	node web/frontend/tests/test_browser_session_runtime.js
 	node web/frontend/tests/test_session_frontend_sync.js
