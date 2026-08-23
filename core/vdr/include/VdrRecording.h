@@ -17,6 +17,7 @@ struct VdrRecording
     std::string startTime;
 
     int durationSeconds = 0;
+    bool recordingDurationKnown = false;
     long long sizeMb = 0;
 
     VdrRecordingMetadata metadata;

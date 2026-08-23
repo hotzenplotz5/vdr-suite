@@ -472,6 +472,7 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
 
     int durationSeconds =
         getIntField(objectText, "duration", -1);
+    recording.recordingDurationKnown = durationSeconds > 0;
 
     if (durationSeconds <= 0) {
         durationSeconds =
