@@ -1,10 +1,12 @@
 #include "MediaSessionWorkspace.h"
 
 #include <cerrno>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fcntl.h>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
@@ -35,6 +37,15 @@ std::string safeSourceName(std::size_t index, const std::string& sourcePath)
     name << "source-" << std::setw(6) << std::setfill('0') << (index + 1)
          << extension;
     return name.str();
+}
+
+std::string concatDuration(double seconds)
+{
+    if (!std::isfinite(seconds) || seconds <= 0.0) return {};
+    std::ostringstream value;
+    value.imbue(std::locale::classic());
+    value << std::fixed << std::setprecision(6) << seconds;
+    return value.str();
 }
 
 bool writeAll(int fd, const std::string& value)
@@ -112,10 +123,13 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepareLive(
 
 MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
     const std::string& workspaceId,
-    const std::vector<std::string>& sourceSegments)
+    const std::vector<std::string>& sourceSegments,
+    const std::vector<double>& segmentDurationsSeconds)
 {
     MediaSessionWorkspaceResult result;
-    if (sourceSegments.empty()) {
+    if (sourceSegments.empty() ||
+        (!segmentDurationsSeconds.empty() &&
+         segmentDurationsSeconds.size() != sourceSegments.size())) {
         result.reasonCode = "invalid_workspace_request";
         return result;
     }
@@ -149,6 +163,17 @@ MediaSessionWorkspaceResult MediaSessionWorkspace::prepare(
             return result;
         }
         concat += "file '" + localName + "'\n";
+        if (!segmentDurationsSeconds.empty()) {
+            const std::string duration =
+                concatDuration(segmentDurationsSeconds[index]);
+            if (duration.empty()) {
+                result.ready = false;
+                result.reasonCode = "source_segment_duration_invalid";
+                cleanup();
+                return result;
+            }
+            concat += "duration " + duration + "\n";
+        }
     }
 
     const std::filesystem::path concatFile = workspace / "input.ffconcat";
