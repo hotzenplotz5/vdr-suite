@@ -141,6 +141,7 @@ std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
     recording1.path = "/Mock/Tagesschau/2026-06-01.20.00.1-0.rec";
     recording1.startTime = "2026-06-01T20:00:00";
     recording1.durationSeconds = 900;
+    recording1.recordingDurationKnown = true;
     recording1.sizeMb = 512;
 
     VdrRecording recording2;
@@ -149,6 +150,7 @@ std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
     recording2.path = "/Mock/Tatort/2026-06-01.20.15.1-0.rec";
     recording2.startTime = "2026-06-01T20:15:00";
     recording2.durationSeconds = 5400;
+    recording2.recordingDurationKnown = true;
     recording2.sizeMb = 4096;
 
     return { recording1, recording2 };
