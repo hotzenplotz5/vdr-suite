@@ -84,7 +84,8 @@ public:
         const std::string& grantId,
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments,
-        int durationSeconds = 0);
+        int durationSeconds = 0,
+        const std::vector<double>& segmentDurationsSeconds = {});
 
     RecordingMediaSessionProvisionResult provisionDirect(
         const std::string& sessionId,
@@ -112,6 +113,7 @@ private:
         std::unique_ptr<MediaSessionWorkspace> workspace;
         bool direct = false;
         bool continuousStream = false;
+        bool indexedSeekTimeline = false;
         int durationSeconds = 0;
         std::uint64_t streamGeneration = 0;
         MediaPresentationProfile streamProfile;
