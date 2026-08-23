@@ -7,7 +7,12 @@ const vm = require('vm');
 const requests = [];
 const videos = [];
 let failFastRecording = false;
+let returnHlsRecording = false;
+let rejectNextVideoPlay = false;
 let legacyStartCalls = 0;
+let continuousMseEnabled = false;
+let continuousFetchCalls = 0;
+let objectUrlSequence = 0;
 let clock = 1000;
 
 function node(tagName) {
@@ -29,6 +34,8 @@ function node(tagName) {
     preload: '',
     src: '',
     replacement: null,
+    error: null,
+    currentTime: 0,
     appendChild(child) { this.children.push(child); return child; },
     setAttribute() {},
     removeAttribute(name) { if (name === 'src') this.src = ''; },
@@ -37,10 +44,36 @@ function node(tagName) {
     replaceWith(replacement) { this.replacement = replacement; },
     pause() { this.paused = true; },
     load() { this.loaded = (this.loaded || 0) + 1; },
-    play() { this.played = (this.played || 0) + 1; return Promise.resolve(); }
+    play() {
+      this.played = (this.played || 0) + 1;
+      if (rejectNextVideoPlay) {
+        rejectNextVideoPlay = false;
+        return Promise.reject(new Error('play rejected'));
+      }
+      return Promise.resolve();
+    }
   };
   if (value.tagName === 'VIDEO') videos.push(value);
   return value;
+}
+
+function pendingStreamResponse() {
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader() {
+        return {
+          read() {
+            return new Promise(function () {});
+          },
+          cancel() {
+            return Promise.resolve();
+          }
+        };
+      }
+    }
+  };
 }
 
 const window = {
@@ -77,6 +110,17 @@ const window = {
       if (failFastRecording) {
         return Promise.reject(new Error('progressive recording unavailable'));
       }
+      if (returnHlsRecording) {
+        return Promise.resolve({
+          mediaSession: {
+            id: 'recording_hls_session_test',
+            resourceKind: 'recording',
+            state: 'ready',
+            presentationProfileId: 'hls-fmp4',
+            mediaPath: '/api/media/sessions/recording_hls_session_test/hls/master.m3u8'
+          }
+        });
+      }
       return Promise.resolve({
         mediaSession: {
           id: 'recording_session_test',
@@ -90,6 +134,10 @@ const window = {
   },
   fetch(path, options) {
     requests.push({path, options});
+    if (continuousMseEnabled && /\/stream\.mp4$/.test(String(path))) {
+      continuousFetchCalls += 1;
+      return Promise.resolve(pendingStreamResponse());
+    }
     return Promise.resolve({ok: true});
   },
   document: {
@@ -117,6 +165,7 @@ const context = vm.createContext({
   Error,
   JSON,
   Math,
+  Uint8Array,
   setTimeout
 });
 
@@ -143,6 +192,7 @@ assert.deepStrictEqual(
     maxAudioChannels: 2
   }
 );
+assert.strictEqual(liveTest.supportsContinuousFmp4Mse(), false);
 assert.strictEqual(
   liveTest.safeLiveMediaPath('/api/media/sessions/live_session_test/live/stream.mp4'),
   '/api/media/sessions/live_session_test/live/stream.mp4'
@@ -170,6 +220,7 @@ assert.deepStrictEqual(
     maxAudioChannels: 2
   }
 );
+assert.strictEqual(recordingTest.supportsContinuousFmp4Mse(), false);
 assert.strictEqual(
   recordingTest.safeRecordingMediaPath(
     '/api/media/sessions/recording_session_test/recording/stream.mp4'
@@ -277,8 +328,8 @@ assert.strictEqual(
   }));
   assert.strictEqual(legacyStartCalls, 0, 'successful fast recording must not enter HLS fallback');
 
-  // A source that cannot use progressive-fmp4 must fall back to the accepted
-  // existing Recording HLS player rather than weakening source truth.
+  // A request-level fast-path failure must fall back to the accepted existing
+  // Recording HLS player.
   requests.length = 0;
   failFastRecording = true;
   const fallbackPlayback = window.VdrSuiteRecordings2Playback.createPanel(
@@ -291,6 +342,65 @@ assert.strictEqual(
   assert.ok(fallbackPlayback.element.replacement);
   fallbackPlayback.destroy();
   failFastRecording = false;
+
+  // If the server already issued a valid Recording session but selected HLS,
+  // the fast facade must own and STOP that provisional session before opening
+  // the legacy HLS owner. It must not strand a second FFmpeg worker.
+  requests.length = 0;
+  returnHlsRecording = true;
+  const selectedHlsPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-hls-selected', title: 'HLS Auswahl'},
+    'living-room'
+  );
+  const selectedHlsSession = await selectedHlsPlayback.start();
+  assert.strictEqual(selectedHlsSession, 'legacy_session');
+  assert.strictEqual(legacyStartCalls, 2);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_hls_session_test';
+  }));
+  selectedHlsPlayback.destroy();
+  returnHlsRecording = false;
+
+  // A browser-level play() rejection is also a failed fast path and must
+  // recover through HLS instead of leaving a ready but unusable direct stream.
+  requests.length = 0;
+  videos.length = 0;
+  rejectNextVideoPlay = true;
+  const rejectedPlayPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-play-rejected', title: 'Play abgelehnt'},
+    'living-room'
+  );
+  await rejectedPlayPlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 3);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  rejectedPlayPlayback.destroy();
+
+  // A native direct stream that stalls before its first playing event is
+  // likewise a failed fast path. The MSE path deliberately does not reuse this
+  // signal because SourceBuffer can be waiting for the next complete fragment.
+  requests.length = 0;
+  videos.length = 0;
+  const stalledPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-stalled', title: 'Fast Path Stall'},
+    'living-room'
+  );
+  await stalledPlayback.start();
+  videos[0].dispatch('stalled');
+  await Promise.resolve();
+  assert.strictEqual(legacyStartCalls, 4);
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' && body.sessionId === 'recording_session_test';
+  }));
+  stalledPlayback.destroy();
 
   const second = window.VdrSuiteRecordings2Playback.createLivePanel(
     {channelId: 'C-1-1079-10352', name: 'NDR FS HH HD'},
@@ -305,15 +415,103 @@ assert.strictEqual(
     return body.operation === 'stop' && body.sessionId === 'live_session_test';
   }));
 
+  // Android Chromium demonstrated that native <video src=stream.mp4> can route
+  // open-ended fMP4 through Android MediaExtractor and fail with
+  // MEDIA_ERR_SRC_NOT_SUPPORTED. A browser that explicitly exposes MSE plus a
+  // streaming Fetch body must therefore keep the same one Gateway stream but
+  // consume it through MediaSource instead of handing the URL to MediaExtractor.
+  class FakeMediaSource {
+    constructor() {
+      this.readyState = 'open';
+    }
+    static isTypeSupported() { return true; }
+    addEventListener() {}
+    removeEventListener() {}
+    addSourceBuffer() {
+      throw new Error('test reader intentionally stays pending before init parsing');
+    }
+    endOfStream() {}
+  }
+  class FakeAbortController {
+    constructor() { this.signal = {}; }
+    abort() { this.aborted = true; }
+  }
+
+  window.MediaSource = FakeMediaSource;
+  window.AbortController = FakeAbortController;
+  window.ReadableStream = function ReadableStream() {};
+  window.URL = {
+    createObjectURL() {
+      objectUrlSequence += 1;
+      return 'blob:continuous-fmp4-test-' + objectUrlSequence;
+    },
+    revokeObjectURL() {}
+  };
+  continuousMseEnabled = true;
+  continuousFetchCalls = 0;
+  assert.strictEqual(liveTest.supportsContinuousFmp4Mse(), true);
+  assert.strictEqual(recordingTest.supportsContinuousFmp4Mse(), true);
+
+  requests.length = 0;
+  videos.length = 0;
+  const mseLivePlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10353', name: 'MSE Live'},
+    'living-room',
+    {}
+  );
+  assert.strictEqual(await mseLivePlayback.start(), 'live_session_test');
+  assert.strictEqual(videos.length, 1);
+  assert.ok(videos[0].src.startsWith('blob:continuous-fmp4-test-'));
+  assert.ok(requests.some(entry =>
+    entry.path === '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4' &&
+    entry.options && entry.options.credentials === 'same-origin'
+  ));
+  assert.strictEqual(continuousFetchCalls, 1);
+  mseLivePlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+  const mseRecordingPlayback = window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-mse', title: 'MSE Aufnahme'},
+    'living-room'
+  );
+  assert.strictEqual(await mseRecordingPlayback.start(), 'recording_session_test');
+  assert.strictEqual(videos.length, 1);
+  assert.ok(videos[0].src.startsWith('blob:continuous-fmp4-test-'));
+  assert.ok(requests.some(entry =>
+    entry.path === '/vdr-suite/api/media/sessions/recording_session_test/recording/stream.mp4' &&
+    entry.options && entry.options.credentials === 'same-origin'
+  ));
+  const legacyBeforeMseStall = legacyStartCalls;
+  videos[0].dispatch('stalled');
+  await Promise.resolve();
+  assert.strictEqual(
+    legacyStartCalls,
+    legacyBeforeMseStall,
+    'MSE startup must not misclassify SourceBuffer waiting as native progressive stall'
+  );
+  assert.strictEqual(continuousFetchCalls, 2);
+  mseRecordingPlayback.destroy();
+
+  continuousMseEnabled = false;
+  delete window.MediaSource;
+  delete window.AbortController;
+  delete window.ReadableStream;
+  delete window.URL;
+
   assert.ok(source.includes("protocols: ['progressive']"));
   assert.ok(source.includes('publicLiveMediaPath'));
   assert.ok(source.includes('publicRecordingMediaPath'));
   assert.ok(source.includes('recording\\/stream\\.mp4'));
   assert.ok(source.includes('recording playback first-media'));
+  assert.ok(source.includes("video.addEventListener('stalled'"));
+  assert.ok(source.includes('createContinuousFmp4Mse'));
+  assert.ok(source.includes('response.body.getReader'));
+  assert.ok(!source.includes('navigator.userAgent'));
   assert.ok(!source.includes('STARTUP_BUFFER_SECONDS'));
   assert.ok(!source.includes('master.m3u8'));
 
-  console.log('direct Live TV and low-latency Recording browser contracts ok');
+  console.log('direct and continuous-MSE Live TV / low-latency Recording browser contracts ok');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

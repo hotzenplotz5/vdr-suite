@@ -241,3 +241,10 @@ test-phase65-live-ts-transport-buffer:
 	$(BUILD_DIR)/test_phase65_live_ts_transport_buffer
 
 test-fast: test-phase65-live-ts-transport-buffer
+
+.PHONY: test-phase65d1-live-tv-view-dom-stability
+
+test-phase65d1-live-tv-view-dom-stability:
+	node web/frontend/tests/test_live_tv_view_dom_stability.js
+
+test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
