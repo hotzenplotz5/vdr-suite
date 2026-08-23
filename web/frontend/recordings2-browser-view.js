@@ -226,7 +226,7 @@
       ));
       button.append(icon, copy, shared.node('span', 'recordings2-chevron', '›'));
       button.addEventListener('click', function () {
-        options.openFolder(shared.normalizePath(shared.first(folder, ['path'], '')));
+        options.openFolder(shared.normalizePath(shared.first(folder, ['path'], ''));
       });
       return button;
     }
@@ -367,7 +367,7 @@
           const ownedPlayback = activePlayback;
           const installRestartChoice = function () { const helper = global.VdrSuiteRecordingPlaybackRestartChoice; if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); };
           installRestartChoice();
-          if (!global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.loadVdrSuiteDeferredRuntime === 'function') global.loadVdrSuiteDeferredRuntime('vdr-suite-recording-playback-restart-choice-runtime', '/frontend/recording-playback-restart-choice.js', function () { return Boolean(global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'); }).then(installRestartChoice).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
+          if (!global.VdrSuiteRecordingPlaybackRestartChoice) { const id = 'vdr-suite-recording-playback-restart-choice-runtime'; const existing = global.document.getElementById(id); const script = existing || global.document.createElement('script'); script.addEventListener('load', installRestartChoice, {once: true}); if (!existing) { script.id = id; script.src = '/frontend/recording-playback-restart-choice.js'; script.async = false; global.document.head.appendChild(script); } }
         }
       }
 
