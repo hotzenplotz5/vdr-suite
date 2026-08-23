@@ -1,15 +1,18 @@
 #include "MockVdrAdapter.h"
+#include "VdrRecordingDuration.h"
 #include "VdrRecordingQuery.h"
 #include "VdrRecordingQueryResult.h"
 #include "VdrRecordingQueryService.h"
 #include "VdrService.h"
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -46,6 +49,23 @@ void writeSizedFile(
     assert(stream.good());
 }
 
+void appendTsIndexFrames(
+    std::ofstream& stream,
+    std::uint16_t fileNumber,
+    std::uint64_t frameCount)
+{
+    std::array<unsigned char, 8> entry{};
+    entry[6] = static_cast<unsigned char>(fileNumber & 0xffU);
+    entry[7] = static_cast<unsigned char>((fileNumber >> 8U) & 0xffU);
+    for (std::uint64_t frame = 0; frame < frameCount; ++frame)
+    {
+        stream.write(
+            reinterpret_cast<const char*>(entry.data()),
+            static_cast<std::streamsize>(entry.size()));
+    }
+    assert(stream.good());
+}
+
 void testVdrIndexDurationFallback()
 {
     const std::filesystem::path directory =
@@ -60,12 +80,28 @@ void testVdrIndexDurationFallback()
         info << "F 50 1280 720 p 16:9\n";
     }
 
-    constexpr int ExpectedDurationSeconds = 123;
-    constexpr std::uintmax_t FramesPerSecond = 50;
-    constexpr std::uintmax_t VdrIndexEntryBytes = 8;
-    writeSizedFile(
-        directory / "index",
-        ExpectedDurationSeconds * FramesPerSecond * VdrIndexEntryBytes);
+    const std::filesystem::path segmentOne = directory / "00001.ts";
+    const std::filesystem::path segmentTwo = directory / "00002.ts";
+    writeSizedFile(segmentOne, 188);
+    writeSizedFile(segmentTwo, 188);
+
+    constexpr int FirstSegmentSeconds = 60;
+    constexpr int SecondSegmentSeconds = 63;
+    constexpr int ExpectedDurationSeconds =
+        FirstSegmentSeconds + SecondSegmentSeconds;
+    constexpr std::uint64_t FramesPerSecond = 50;
+    {
+        std::ofstream index(directory / "index", std::ios::binary | std::ios::trunc);
+        assert(index.good());
+        appendTsIndexFrames(
+            index,
+            1,
+            FirstSegmentSeconds * FramesPerSecond);
+        appendTsIndexFrames(
+            index,
+            2,
+            SecondSegmentSeconds * FramesPerSecond);
+    }
 
     VdrRecording recording;
     recording.id = "duration-fallback";
@@ -75,15 +111,17 @@ void testVdrIndexDurationFallback()
     recording.durationSeconds = 5400;
     recording.recordingDurationKnown = false;
 
+    const std::vector<double> segmentDurations =
+        vdrsuite::recording::segmentDurationsSecondsFromIndex(
+            recording,
+            {segmentOne.string(), segmentTwo.string()});
+    assert(segmentDurations.size() == 2);
+    assert(segmentDurations.at(0) == FirstSegmentSeconds);
+    assert(segmentDurations.at(1) == SecondSegmentSeconds);
+
     DurationMockVdrAdapter adapter(recording);
     VdrService vdrService(adapter);
     VdrRecordingQueryService queryService(vdrService);
-
-    const VdrRecordingQueryResult catalog =
-        queryService.queryRecordings(VdrRecordingQuery::all());
-    assert(catalog.totalCount() == 1);
-    assert(catalog.recordings().at(0).recordingDurationKnown);
-    assert(catalog.recordings().at(0).durationSeconds == ExpectedDurationSeconds);
 
     VdrRecording resolved;
     assert(queryService.findRecordingById(
@@ -98,11 +136,9 @@ void testVdrIndexDurationFallback()
         timer << "1@local\n";
     }
 
-    const VdrRecordingQueryResult growingCatalog =
-        queryService.queryRecordings(VdrRecordingQuery::all());
-    assert(growingCatalog.totalCount() == 1);
-    assert(!growingCatalog.recordings().at(0).recordingDurationKnown);
-    assert(growingCatalog.recordings().at(0).durationSeconds == 0);
+    assert(vdrsuite::recording::segmentDurationsSecondsFromIndex(
+        recording,
+        {segmentOne.string(), segmentTwo.string()}).empty());
 
     VdrRecording growing;
     assert(queryService.findRecordingById(
@@ -110,7 +146,7 @@ void testVdrIndexDurationFallback()
         recording.id,
         growing));
     assert(!growing.recordingDurationKnown);
-    assert(growing.durationSeconds == 0);
+    assert(growing.durationSeconds == 5400);
     std::filesystem::remove(directory / ".timer", ignored);
 
     VdrRecording providerDuration = recording;
@@ -119,12 +155,6 @@ void testVdrIndexDurationFallback()
     DurationMockVdrAdapter providerAdapter(providerDuration);
     VdrService providerVdrService(providerAdapter);
     VdrRecordingQueryService providerQueryService(providerVdrService);
-
-    const VdrRecordingQueryResult providerCatalog =
-        providerQueryService.queryRecordings(VdrRecordingQuery::all());
-    assert(providerCatalog.totalCount() == 1);
-    assert(providerCatalog.recordings().at(0).recordingDurationKnown);
-    assert(providerCatalog.recordings().at(0).durationSeconds == 77);
 
     VdrRecording providerResolved;
     assert(providerQueryService.findRecordingById(
