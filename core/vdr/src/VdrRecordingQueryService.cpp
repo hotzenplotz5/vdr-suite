@@ -5,7 +5,159 @@
 #include "VdrRecordingQueryMatcher.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <limits>
+#include <locale>
+#include <sstream>
+#include <string>
 #include <vector>
+
+namespace
+{
+
+constexpr std::uintmax_t VdrIndexEntryBytes = 8;
+
+std::filesystem::path recordingDirectory(const VdrRecording& recording)
+{
+    const std::string path = !recording.backendNativeId.empty()
+        ? recording.backendNativeId
+        : recording.path;
+    const std::filesystem::path directory(path);
+    return directory.is_absolute() ? directory : std::filesystem::path{};
+}
+
+std::filesystem::path firstRegularFile(
+    const std::filesystem::path& directory,
+    const std::vector<std::string>& names)
+{
+    for (const std::string& name : names)
+    {
+        const std::filesystem::path candidate = directory / name;
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error) && !error)
+        {
+            return candidate;
+        }
+    }
+
+    return {};
+}
+
+double recordingFramesPerSecond(const std::filesystem::path& infoFile)
+{
+    std::ifstream stream(infoFile);
+    if (!stream)
+    {
+        return 0.0;
+    }
+
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        if (line.size() < 3 || line.front() != 'F' ||
+            (line[1] != ' ' && line[1] != '\t'))
+        {
+            continue;
+        }
+
+        std::istringstream fields(line.substr(1));
+        fields.imbue(std::locale::classic());
+        double framesPerSecond = 0.0;
+        if (fields >> framesPerSecond &&
+            std::isfinite(framesPerSecond) &&
+            framesPerSecond > 0.0 &&
+            framesPerSecond <= 240.0)
+        {
+            return framesPerSecond;
+        }
+
+        return 0.0;
+    }
+
+    return 0.0;
+}
+
+int recordingDurationFromVdrIndex(const VdrRecording& recording)
+{
+    const std::filesystem::path directory = recordingDirectory(recording);
+    if (directory.empty())
+    {
+        return 0;
+    }
+
+    std::error_code directoryError;
+    if (!std::filesystem::is_directory(directory, directoryError) ||
+        directoryError)
+    {
+        return 0;
+    }
+
+    std::error_code timerError;
+    const bool stillRecording =
+        std::filesystem::exists(directory / ".timer", timerError);
+    if (timerError || stillRecording)
+    {
+        return 0;
+    }
+
+    const std::filesystem::path indexFile = firstRegularFile(
+        directory,
+        {"index", "index.vdr"});
+    const std::filesystem::path infoFile = firstRegularFile(
+        directory,
+        {"info", "info.vdr"});
+    if (indexFile.empty() || infoFile.empty())
+    {
+        return 0;
+    }
+
+    std::error_code sizeError;
+    const std::uintmax_t indexBytes =
+        std::filesystem::file_size(indexFile, sizeError);
+    if (sizeError || indexBytes < VdrIndexEntryBytes ||
+        indexBytes % VdrIndexEntryBytes != 0)
+    {
+        return 0;
+    }
+
+    const double framesPerSecond = recordingFramesPerSecond(infoFile);
+    if (framesPerSecond <= 0.0)
+    {
+        return 0;
+    }
+
+    const std::uintmax_t frameCount = indexBytes / VdrIndexEntryBytes;
+    const double durationSeconds =
+        static_cast<double>(frameCount) / framesPerSecond;
+    if (!std::isfinite(durationSeconds) ||
+        durationSeconds < 1.0 ||
+        durationSeconds > static_cast<double>(std::numeric_limits<int>::max()))
+    {
+        return 0;
+    }
+
+    return static_cast<int>(durationSeconds);
+}
+
+void enrichRecordingDurationFromVdrIndex(VdrRecording& recording)
+{
+    if (recording.recordingDurationKnown && recording.durationSeconds > 0)
+    {
+        return;
+    }
+
+    const int durationSeconds = recordingDurationFromVdrIndex(recording);
+    if (durationSeconds > 0)
+    {
+        recording.durationSeconds = durationSeconds;
+        recording.recordingDurationKnown = true;
+    }
+}
+
+} // namespace
 
 VdrRecordingQueryService::VdrRecordingQueryService(
     VdrService& vdrService,
@@ -135,6 +287,7 @@ bool VdrRecordingQueryService::findRecordingById(
     }
 
     recording = *match;
+    enrichRecordingDurationFromVdrIndex(recording);
     return true;
 }
 
