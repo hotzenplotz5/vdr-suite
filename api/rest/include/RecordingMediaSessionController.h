@@ -54,6 +54,10 @@ private:
         const std::string& body,
         const std::string& actorId) const;
 
+    ApiResponse seekSession(
+        const std::string& body,
+        const std::string& actorId) const;
+
     VdrRecordingQueryService& recordingQueryService_;
     MediaSessionRepository& mediaSessionRepository_;
     MediaSessionIssuanceService& mediaSessionIssuanceService_;

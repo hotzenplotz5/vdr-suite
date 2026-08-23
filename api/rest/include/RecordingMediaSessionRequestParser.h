@@ -21,6 +21,15 @@ struct RecordingMediaSessionStopRequest
     std::string sessionId;
 };
 
+struct RecordingMediaSessionSeekRequest
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::string backendId;
+    std::string sessionId;
+    int positionSeconds = 0;
+};
+
 class RecordingMediaSessionRequestParser
 {
 public:
@@ -28,5 +37,8 @@ public:
         const std::string& body) const;
 
     RecordingMediaSessionStopRequest parseStop(
+        const std::string& body) const;
+
+    RecordingMediaSessionSeekRequest parseSeek(
         const std::string& body) const;
 };

@@ -1,6 +1,7 @@
 #include "RecordingMediaSessionRequestParser.h"
 
 #include <cassert>
+#include <limits>
 #include <string>
 
 namespace
@@ -149,6 +150,11 @@ void stopRequestMapsOwnedSessionIdentity()
     assert(!notRequested.valid);
     assert(notRequested.reasonCode == "media_session_stop_not_requested");
 
+    const auto seekIsNotStop = RecordingMediaSessionRequestParser().parseStop(
+        R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_1","positionSeconds":12})json");
+    assert(!seekIsNotStop.valid);
+    assert(seekIsNotStop.reasonCode == "media_session_stop_not_requested");
+
     const auto badOperation = RecordingMediaSessionRequestParser().parseStop(
         R"json({"operation":"delete","backendId":"default","sessionId":"mediasess_1"})json");
     assert(!badOperation.valid);
@@ -158,6 +164,44 @@ void stopRequestMapsOwnedSessionIdentity()
         R"json({"operation":"stop","backendId":"default","sessionId":"../mediasess_1"})json");
     assert(!unsafeSession.valid);
     assert(unsafeSession.reasonCode == "invalid_media_session_id");
+}
+
+void seekRequestMapsAbsoluteRecordingPosition()
+{
+    const auto result = RecordingMediaSessionRequestParser().parseSeek(
+        R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_0123456789abcdef","positionSeconds":2530})json");
+    assert(result.valid);
+    assert(result.reasonCode.empty());
+    assert(result.backendId == "default");
+    assert(result.sessionId == "mediasess_0123456789abcdef");
+    assert(result.positionSeconds == 2530);
+
+    const auto longRecording = RecordingMediaSessionRequestParser().parseSeek(
+        R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_1","positionSeconds":86400})json");
+    assert(longRecording.valid);
+    assert(longRecording.positionSeconds == 86400);
+
+    const auto stopIsNotSeek = RecordingMediaSessionRequestParser().parseSeek(
+        R"json({"operation":"stop","backendId":"default","sessionId":"mediasess_1"})json");
+    assert(!stopIsNotSeek.valid);
+    assert(stopIsNotSeek.reasonCode == "media_session_seek_not_requested");
+
+    const auto negative = RecordingMediaSessionRequestParser().parseSeek(
+        R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_1","positionSeconds":-1})json");
+    assert(!negative.valid);
+    assert(negative.reasonCode == "invalid_recording_seek_position");
+
+    const auto fractional = RecordingMediaSessionRequestParser().parseSeek(
+        R"json({"operation":"seek","backendId":"default","sessionId":"mediasess_1","positionSeconds":12.5})json");
+    assert(!fractional.valid);
+    assert(fractional.reasonCode == "invalid_recording_seek_position");
+
+    const std::string overflow =
+        std::string("{\"operation\":\"seek\",\"backendId\":\"default\",\"sessionId\":\"mediasess_1\",\"positionSeconds\":") +
+        std::to_string(static_cast<long long>(std::numeric_limits<int>::max()) + 1LL) + "}";
+    const auto tooLarge = RecordingMediaSessionRequestParser().parseSeek(overflow);
+    assert(!tooLarge.valid);
+    assert(tooLarge.reasonCode == "invalid_recording_seek_position");
 }
 
 } // namespace
@@ -170,5 +214,6 @@ int main()
     malformedScalarsFailClosed();
     missingOrEmptyCapabilitiesFailClosed();
     stopRequestMapsOwnedSessionIdentity();
+    seekRequestMapsAbsoluteRecordingPosition();
     return 0;
 }

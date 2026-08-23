@@ -72,6 +72,31 @@ std::string jsonEscape(const std::string& value)
     return result;
 }
 
+std::string playbackJson(
+    int positionSeconds,
+    int durationSeconds,
+    bool seekSupported)
+{
+    std::string result =
+        "{\"positionSeconds\":" + std::to_string(std::max(0, positionSeconds)) +
+        ",\"durationSeconds\":";
+    if (durationSeconds > 0) {
+        result += std::to_string(durationSeconds);
+    }
+    else {
+        result += "null";
+    }
+    result += ",\"seek\":{\"supported\":";
+    result += seekSupported ? "true" : "false";
+    if (seekSupported && durationSeconds > 0) {
+        result +=
+            ",\"window\":{\"startSeconds\":0,\"endSeconds\":" +
+            std::to_string(durationSeconds) + "}";
+    }
+    result += "}}";
+    return result;
+}
+
 ApiResponse stoppedResponse(const std::string& sessionId)
 {
     ApiResponse response;
@@ -101,6 +126,32 @@ ApiResponse stopFailureResponse(
     if (!expiredCookie.empty()) {
         response.headers["Set-Cookie"] = expiredCookie;
     }
+    return response;
+}
+
+ApiResponse seekedResponse(
+    const StoredMediaSession& stored,
+    int positionSeconds,
+    int durationSeconds)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    const std::string mediaPath =
+        "/api/media/sessions/" + stored.sessionId + "/recording/stream.mp4";
+    response.body =
+        "{\"mediaSession\":{"
+        "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
+        "\"state\":\"ready\"," +
+        "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
+        "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
+        "\"presentationProfileId\":\"progressive-fmp4\"," +
+        "\"growing\":false," +
+        "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
+        "\"playback\":" + playbackJson(positionSeconds, durationSeconds, true) +
+        "}}";
     return response;
 }
 
@@ -241,6 +292,19 @@ ApiResponse RecordingMediaSessionController::handleRequest(
         return jsonError(401, "media_actor_required");
     }
 
+    const RecordingMediaSessionSeekRequest seekRequest =
+        RecordingMediaSessionRequestParser().parseSeek(body);
+    if (seekRequest.valid) {
+        return seekSession(body, actorId);
+    }
+    if (seekRequest.reasonCode != "media_session_seek_not_requested") {
+        return jsonError(
+            400,
+            seekRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : seekRequest.reasonCode);
+    }
+
     const RecordingMediaSessionStopRequest stopRequest =
         RecordingMediaSessionRequestParser().parseStop(body);
     if (stopRequest.valid) {
@@ -293,6 +357,57 @@ ApiResponse RecordingMediaSessionController::stopSession(
     }
 
     return stoppedResponse(request.sessionId);
+}
+
+ApiResponse RecordingMediaSessionController::seekSession(
+    const std::string& body,
+    const std::string& actorId) const
+{
+    const RecordingMediaSessionSeekRequest request =
+        RecordingMediaSessionRequestParser().parseSeek(body);
+    if (!request.valid) {
+        return jsonError(
+            400,
+            request.reasonCode.empty()
+                ? "invalid_recording_seek_request"
+                : request.reasonCode);
+    }
+
+    const auto stored = mediaSessionRepository_.findSession(request.sessionId);
+    if (!stored.has_value() || stored->backendId != request.backendId) {
+        return jsonError(404, "media_session_not_found");
+    }
+    if (stored->actorId != actorId) {
+        return jsonError(403, "media_session_not_owned");
+    }
+    if (stored->resourceKind != "recording" ||
+        stored->presentationProfileId != "progressive-fmp4") {
+        return jsonError(409, "recording_seek_not_supported");
+    }
+    if (stored->state != "ready") {
+        return jsonError(409, "media_session_not_active");
+    }
+
+    const RecordingMediaSessionSeekResult seek =
+        mediaSessionRuntime_->seekStream(
+            request.sessionId,
+            request.positionSeconds);
+    if (!seek.repositioned) {
+        if (seek.reasonCode == "recording_seek_not_supported") {
+            return jsonError(409, seek.reasonCode);
+        }
+        if (seek.reasonCode == "recording_seek_outside_window" ||
+            seek.reasonCode == "invalid_recording_seek_request") {
+            return jsonError(422, seek.reasonCode);
+        }
+        return jsonError(
+            503,
+            seek.reasonCode.empty()
+                ? "recording_seek_failed"
+                : seek.reasonCode);
+    }
+
+    return seekedResponse(*stored, seek.positionSeconds, seek.durationSeconds);
 }
 
 ApiResponse RecordingMediaSessionController::createSession(
@@ -434,6 +549,16 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const auto presentationSelectedAt = std::chrono::steady_clock::now();
 
+    const int truthfulDurationSeconds =
+        !sourceResolution.source.growing &&
+        recording.recordingDurationKnown &&
+        recording.durationSeconds > 0
+            ? recording.durationSeconds
+            : 0;
+    const bool timeSeekSupported =
+        profile.profileId == "progressive-fmp4" &&
+        truthfulDurationSeconds > 0;
+
     MediaSessionIssuanceRequest issuanceRequest;
     issuanceRequest.actorId = actorId;
     issuanceRequest.backendId = request.backendId;
@@ -508,7 +633,8 @@ ApiResponse RecordingMediaSessionController::createSession(
                 issuance.session.workspaceId,
                 issuance.session.grantId,
                 profile,
-                sourceResolution.source.segmentPaths);
+                sourceResolution.source.segmentPaths,
+                timeSeekSupported ? truthfulDurationSeconds : 0);
             mediaPath = "/api/media/sessions/" +
                 issuance.session.sessionId + "/recording/stream.mp4";
         }
@@ -578,6 +704,7 @@ ApiResponse RecordingMediaSessionController::createSession(
         "\"growing\":" + std::string(sourceResolution.source.growing ? "true" : "false") + "," +
         "\"readableBytes\":" + std::to_string(sourceResolution.source.readableBytes) + "," +
         "\"mediaPath\":\"" + jsonEscape(mediaPath) + "\"," +
+        "\"playback\":" + playbackJson(0, truthfulDurationSeconds, timeSeekSupported) + "," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
 
     issuance.session.clearSecret();
