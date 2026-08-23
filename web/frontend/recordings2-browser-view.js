@@ -360,18 +360,14 @@
       details.appendChild(detailField('Metadatenquelle', shared.first(provider, ['source'], 'VDR')));
       root.appendChild(details);
 
-      const playback = global.VdrSuiteRecordings2Playback;
-      if (playback && typeof playback.createPanel === 'function') {
+      const playback = global.VdrSuiteRecordings2Playback; if (playback && typeof playback.createPanel === 'function') {
         activePlayback = playback.createPanel(recording, currentState.backendId);
         if (activePlayback && activePlayback.element) {
           root.appendChild(activePlayback.element);
           const ownedPlayback = activePlayback;
           const installRestartChoice = function () { const helper = global.VdrSuiteRecordingPlaybackRestartChoice; if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); };
           installRestartChoice();
-          if (!global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.loadVdrSuiteDeferredRuntime === 'function') global.loadVdrSuiteDeferredRuntime(
-            'vdr-suite-recording-playback-restart-choice-runtime', '/frontend/recording-playback-restart-choice.js',
-            function () { return Boolean(global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'); }
-          ).then(installRestartChoice).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
+          if (!global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.loadVdrSuiteDeferredRuntime === 'function') global.loadVdrSuiteDeferredRuntime('vdr-suite-recording-playback-restart-choice-runtime', '/frontend/recording-playback-restart-choice.js', function () { return Boolean(global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'); }).then(installRestartChoice).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
         }
       }
 
