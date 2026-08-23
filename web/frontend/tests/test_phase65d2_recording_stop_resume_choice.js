@@ -39,14 +39,31 @@ function element(tagName) {
       });
       return child;
     },
-    addEventListener(name, callback, capture) {
+    addEventListener(name, callback, options) {
       if (!listeners[name]) listeners[name] = [];
-      listeners[name].push({callback: callback, capture: capture === true});
+      listeners[name].push({
+        callback: callback,
+        capture: options === true || Boolean(options && options.capture === true)
+      });
     },
     click() {
+      const event = {
+        target: this,
+        defaultPrevented: false,
+        immediateStopped: false,
+        preventDefault() { this.defaultPrevented = true; },
+        stopImmediatePropagation() { this.immediateStopped = true; }
+      };
       const entries = listeners.click || [];
-      entries.filter(value => value.capture).forEach(value => value.callback({target: this}));
-      entries.filter(value => !value.capture).forEach(value => value.callback({target: this}));
+      for (const value of entries.filter(entry => entry.capture)) {
+        value.callback(event);
+        if (event.immediateStopped) return event;
+      }
+      for (const value of entries.filter(entry => !entry.capture)) {
+        value.callback(event);
+        if (event.immediateStopped) return event;
+      }
+      return event;
     }
   };
 }
@@ -79,6 +96,8 @@ let state = 'playing';
 let sessionId = 'session-1';
 let position = 2537;
 let startCalls = 0;
+let stopCalls = 0;
+let ownerBubbleStopCalls = 0;
 const seekCalls = [];
 
 const playback = {
@@ -93,6 +112,17 @@ const playback = {
     startButton.disabled = true;
     return Promise.resolve(sessionId);
   },
+  stop() {
+    stopCalls += 1;
+    state = 'stopped';
+    sessionId = '';
+    startButton.hidden = false;
+    startButton.disabled = true;
+    return wait(20).then(function () {
+      startButton.disabled = false;
+      return true;
+    });
+  },
   seekAbsolute(target) {
     seekCalls.push(target);
     return Promise.resolve(true);
@@ -100,13 +130,12 @@ const playback = {
   sessionId() { return sessionId; }
 };
 
-// Existing Recording controller stop handler: the UI helper must capture the
-// logical position before this bubble-phase handler resets/replaces playback.
+// This represents the Recording owner's original bubble-phase Stop listener.
+// The choice adapter must own the user click in capture phase and call
+// playback.stop() itself exactly once, otherwise the old generic restart path
+// wins again on the real browser.
 stopButton.addEventListener('click', function () {
-  state = 'stopped';
-  sessionId = '';
-  startButton.hidden = false;
-  startButton.disabled = false;
+  ownerBubbleStopCalls += 1;
 });
 
 const document = {createElement: element};
@@ -124,8 +153,16 @@ vm.runInContext(source, context, {filename: 'recording-playback-restart-choice.j
   assert.ok(installed);
   assert.strictEqual(helper.install(playback), installed, 'installation must be idempotent');
 
-  stopButton.click();
-  await wait(50);
+  const firstStopEvent = stopButton.click();
+  assert.strictEqual(firstStopEvent.defaultPrevented, true);
+  assert.strictEqual(stopCalls, 1, 'choice adapter must invoke owner stop exactly once');
+  assert.strictEqual(ownerBubbleStopCalls, 0, 'old generic Stop click handler must not run as a second stop');
+  assert.strictEqual(startButton.hidden, true, 'generic restart button must stay hidden during server cleanup');
+  assert.strictEqual(installed.stopping(), true);
+  assert.strictEqual(installed.choices.hidden, true);
+
+  await wait(30);
+  assert.strictEqual(installed.stopping(), false);
   assert.strictEqual(installed.stopPosition(), 2537);
   assert.strictEqual(installed.canResume(), true);
   assert.strictEqual(installed.choices.hidden, false);
@@ -144,7 +181,9 @@ vm.runInContext(source, context, {filename: 'recording-playback-restart-choice.j
   position = 3012;
   timeline.disabled = false;
   stopButton.click();
-  await wait(50);
+  await wait(30);
+  assert.strictEqual(stopCalls, 2);
+  assert.strictEqual(ownerBubbleStopCalls, 0);
   assert.strictEqual(installed.resumeButton.textContent, '▶ Wiedergabe ab 00:50:12 fortsetzen');
   installed.fromStartButton.click();
   await wait(0);
@@ -154,13 +193,14 @@ vm.runInContext(source, context, {filename: 'recording-playback-restart-choice.j
   position = 600;
   timeline.disabled = true;
   stopButton.click();
-  await wait(50);
+  await wait(30);
+  assert.strictEqual(stopCalls, 3);
   assert.strictEqual(installed.canResume(), false);
   assert.strictEqual(installed.resumeButton.hidden, true, 'resume must not be advertised without a truthful seek contract');
   assert.strictEqual(installed.fromStartButton.disabled, false);
   assert.strictEqual(status.textContent, 'Wiedergabe gestoppt · Wiedergabe von vorn möglich.');
 
-  console.log('phase65d2 recording stop resume choice ok');
+  console.log('phase65d2 recording owned stop resume choice ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
