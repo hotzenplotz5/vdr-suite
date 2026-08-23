@@ -88,6 +88,7 @@ test-phase65d2-recording-restart-choice-real-loader:
 test-phase65d2-recording-fallback-controls:
 	node --check web/frontend/api/recording-fallback-controls.js
 	node web/frontend/tests/test_phase65d2_recording_fallback_controls.js
+	node web/frontend/tests/test_phase65d2_recording_fallback_restart_binding.js
 
 test-phase65d2-recording-fallback-resume-choice:
 	node web/frontend/tests/test_phase65d2_recording_fallback_resume_choice.js
