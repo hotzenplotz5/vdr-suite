@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -21,6 +22,14 @@ struct RecordingMediaSessionProvisionResult
 {
     bool ready = false;
     std::string reasonCode;
+};
+
+struct RecordingMediaSessionSeekResult
+{
+    bool repositioned = false;
+    std::string reasonCode;
+    int positionSeconds = 0;
+    int durationSeconds = 0;
 };
 
 class RecordingMediaSessionRuntime
@@ -74,13 +83,18 @@ public:
         const std::string& workspaceId,
         const std::string& grantId,
         const MediaPresentationProfile& profile,
-        const std::vector<std::string>& sourceSegments);
+        const std::vector<std::string>& sourceSegments,
+        int durationSeconds = 0);
 
     RecordingMediaSessionProvisionResult provisionDirect(
         const std::string& sessionId,
         const std::string& grantId,
         const MediaPresentationProfile& profile,
         const RecordingDirectSourceRegistration& registration);
+
+    RecordingMediaSessionSeekResult seekStream(
+        const std::string& sessionId,
+        int positionSeconds);
 
     bool stop(
         const std::string& sessionId,
@@ -97,6 +111,10 @@ private:
         std::string grantId;
         std::unique_ptr<MediaSessionWorkspace> workspace;
         bool direct = false;
+        bool continuousStream = false;
+        int durationSeconds = 0;
+        std::uint64_t streamGeneration = 0;
+        MediaPresentationProfile streamProfile;
     };
 
     static bool defaultReady(

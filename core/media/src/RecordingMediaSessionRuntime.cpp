@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 #include <utility>
 
 namespace
@@ -30,6 +31,29 @@ bool nonEmptyFile(const std::filesystem::path& path)
     }
     const auto size = std::filesystem::file_size(path, error);
     return !error && size > 0;
+}
+
+bool prepareRecordingStreamPipe(
+    const std::string& workspaceDirectory,
+    bool replaceExisting)
+{
+    const std::filesystem::path streamPath =
+        std::filesystem::path(workspaceDirectory) / RecordingStreamName;
+
+    struct stat status {};
+    if (::lstat(streamPath.c_str(), &status) == 0) {
+        if (!replaceExisting || !S_ISFIFO(status.st_mode)) {
+            return false;
+        }
+        if (::unlink(streamPath.c_str()) != 0) {
+            return false;
+        }
+    }
+    else if (errno != ENOENT) {
+        return false;
+    }
+
+    return ::mkfifo(streamPath.c_str(), 0600) == 0;
 }
 
 struct ProgressiveStreamPlan
@@ -191,10 +215,12 @@ bool appendProgressiveAudioPlan(
 }
 
 ProgressiveStreamPlan buildProgressiveStreamPlan(
-    const MediaPresentationProfile& profile)
+    const MediaPresentationProfile& profile,
+    int startPositionSeconds = 0)
 {
     ProgressiveStreamPlan plan;
-    if (!profile.available || profile.profileId != "progressive-fmp4" ||
+    if (startPositionSeconds < 0 || !profile.available ||
+        profile.profileId != "progressive-fmp4" ||
         profile.protocol != MediaDeliveryProtocol::Progressive ||
         profile.container != MediaContainer::Fmp4 ||
         profile.adaptationClass == MediaAdaptationClass::PassThrough) {
@@ -233,6 +259,15 @@ ProgressiveStreamPlan buildProgressiveStreamPlan(
         "-safe", "1",
         "-i", "input.ffconcat"
     });
+
+    // This is intentionally an output-side seek. It makes FFmpeg discard the
+    // concatenated recording timeline up to the requested media time instead
+    // of pretending that a byte-range offset is a time mapping. The initial
+    // zero-position fast path remains byte-for-byte unchanged.
+    if (startPositionSeconds > 0) {
+        plan.argv.push_back("-ss");
+        plan.argv.push_back(std::to_string(startPositionSeconds));
+    }
 
     if (!appendSelectedTrackMaps(plan.argv, profile)) {
         plan.reasonCode = "selected_source_track_missing";
@@ -469,11 +504,12 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
     const std::string& workspaceId,
     const std::string& grantId,
     const MediaPresentationProfile& profile,
-    const std::vector<std::string>& sourceSegments)
+    const std::vector<std::string>& sourceSegments,
+    int durationSeconds)
 {
     RecordingMediaSessionProvisionResult result;
     if (sessionId.empty() || workspaceId.empty() || grantId.empty() ||
-        sourceSegments.empty() || !profile.available ||
+        sourceSegments.empty() || durationSeconds < 0 || !profile.available ||
         profile.profileId != "progressive-fmp4" ||
         profile.protocol != MediaDeliveryProtocol::Progressive ||
         profile.container != MediaContainer::Fmp4 ||
@@ -501,9 +537,7 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
         return result;
     }
 
-    const std::filesystem::path streamPath =
-        std::filesystem::path(workspace->directory()) / RecordingStreamName;
-    if (::mkfifo(streamPath.c_str(), 0600) != 0) {
+    if (!prepareRecordingStreamPipe(workspace->directory(), false)) {
         result.reasonCode = "recording_stream_pipe_create_failed";
         repository_.failBundle(sessionId, result.reasonCode);
         return result;
@@ -542,6 +576,10 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionStre
     active.pid = pid;
     active.grantId = grantId;
     active.workspace = std::move(workspace);
+    active.continuousStream = true;
+    active.durationSeconds = durationSeconds;
+    active.streamGeneration = 1;
+    active.streamProfile = resolvedProfile;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto inserted = active_.emplace(sessionId, std::move(active));
@@ -640,6 +678,88 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionDire
     return result;
 }
 
+RecordingMediaSessionSeekResult RecordingMediaSessionRuntime::seekStream(
+    const std::string& sessionId,
+    int positionSeconds)
+{
+    RecordingMediaSessionSeekResult result;
+    if (sessionId.empty() || positionSeconds < 0) {
+        result.reasonCode = "invalid_recording_seek_request";
+        return result;
+    }
+
+    ActiveSession failed;
+    std::string failureReason;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        const auto found = active_.find(sessionId);
+        if (found == active_.end()) {
+            result.reasonCode = "recording_seek_runtime_not_found";
+            return result;
+        }
+
+        ActiveSession& active = found->second;
+        if (!active.continuousStream || !active.workspace ||
+            active.streamProfile.profileId != "progressive-fmp4" ||
+            active.durationSeconds <= 0) {
+            result.reasonCode = "recording_seek_not_supported";
+            return result;
+        }
+        if (positionSeconds >= active.durationSeconds) {
+            result.reasonCode = "recording_seek_outside_window";
+            result.durationSeconds = active.durationSeconds;
+            return result;
+        }
+
+        const ProgressiveStreamPlan command =
+            buildProgressiveStreamPlan(active.streamProfile, positionSeconds);
+        if (!command.valid) {
+            result.reasonCode = command.reasonCode.empty()
+                ? "recording_seek_worker_plan_invalid"
+                : command.reasonCode;
+            return result;
+        }
+
+        if (active.pid > 0 &&
+            !workerTerminator_(active.pid, WorkerShutdownGrace)) {
+            result.reasonCode = "recording_seek_worker_stop_failed";
+            return result;
+        }
+        active.pid = -1;
+
+        if (!prepareRecordingStreamPipe(active.workspace->directory(), true)) {
+            failureReason = "recording_seek_pipe_reset_failed";
+            failed = std::move(active);
+            active_.erase(found);
+        }
+        else {
+            const pid_t pid = workerSpawner_(
+                command.argv,
+                active.workspace->directory(),
+                active.workspace->logPath());
+            if (pid <= 0) {
+                failureReason = "recording_seek_worker_start_failed";
+                failed = std::move(active);
+                active_.erase(found);
+            }
+            else {
+                active.pid = pid;
+                ++active.streamGeneration;
+                result.repositioned = true;
+                result.positionSeconds = positionSeconds;
+                result.durationSeconds = active.durationSeconds;
+                return result;
+            }
+        }
+    }
+
+    if (!failureReason.empty()) {
+        repository_.failBundle(sessionId, failureReason);
+        result.reasonCode = failureReason;
+    }
+    return result;
+}
+
 bool RecordingMediaSessionRuntime::stop(
     const std::string& sessionId,
     const std::string& reasonCode)
@@ -679,6 +799,7 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         std::string grantId;
         pid_t pid = -1;
         bool continuousStream = false;
+        std::uint64_t streamGeneration = 0;
     };
 
     std::vector<Candidate> candidates;
@@ -690,14 +811,8 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
             candidate.sessionId = entry.first;
             candidate.grantId = entry.second.grantId;
             candidate.pid = entry.second.pid;
-            if (entry.second.workspace) {
-                std::error_code error;
-                const std::filesystem::path streamPath =
-                    std::filesystem::path(entry.second.workspace->directory()) /
-                    RecordingStreamName;
-                candidate.continuousStream =
-                    std::filesystem::is_fifo(streamPath, error) && !error;
-            }
+            candidate.continuousStream = entry.second.continuousStream;
+            candidate.streamGeneration = entry.second.streamGeneration;
             candidates.push_back(std::move(candidate));
         }
     }
@@ -713,7 +828,11 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
                     const auto found = active_.find(candidate.sessionId);
-                    if (found == active_.end()) continue;
+                    if (found == active_.end() ||
+                        found->second.pid != candidate.pid ||
+                        found->second.streamGeneration != candidate.streamGeneration) {
+                        continue;
+                    }
                     exited = std::move(found->second);
                     active_.erase(found);
                 }
@@ -728,7 +847,16 @@ std::size_t RecordingMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
                 continue;
             }
             if (waited < 0 && errno != EINTR) {
-                if (stop(candidate.sessionId, "recording_stream_worker_wait_failed")) {
+                bool stillCurrent = false;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    const auto found = active_.find(candidate.sessionId);
+                    stillCurrent = found != active_.end() &&
+                        found->second.pid == candidate.pid &&
+                        found->second.streamGeneration == candidate.streamGeneration;
+                }
+                if (stillCurrent &&
+                    stop(candidate.sessionId, "recording_stream_worker_wait_failed")) {
                     ++reaped;
                 }
                 continue;
