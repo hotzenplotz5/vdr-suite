@@ -79,6 +79,12 @@ void testVdrIndexDurationFallback()
     VdrService vdrService(adapter);
     VdrRecordingQueryService queryService(vdrService);
 
+    const VdrRecordingQueryResult catalog =
+        queryService.queryRecordings(VdrRecordingQuery::all());
+    assert(catalog.totalCount() == 1);
+    assert(catalog.recordings().at(0).recordingDurationKnown);
+    assert(catalog.recordings().at(0).durationSeconds == ExpectedDurationSeconds);
+
     VdrRecording resolved;
     assert(queryService.findRecordingById(
         "default",
@@ -92,13 +98,19 @@ void testVdrIndexDurationFallback()
         timer << "1@local\n";
     }
 
+    const VdrRecordingQueryResult growingCatalog =
+        queryService.queryRecordings(VdrRecordingQuery::all());
+    assert(growingCatalog.totalCount() == 1);
+    assert(!growingCatalog.recordings().at(0).recordingDurationKnown);
+    assert(growingCatalog.recordings().at(0).durationSeconds == 0);
+
     VdrRecording growing;
     assert(queryService.findRecordingById(
         "default",
         recording.id,
         growing));
     assert(!growing.recordingDurationKnown);
-    assert(growing.durationSeconds == 5400);
+    assert(growing.durationSeconds == 0);
     std::filesystem::remove(directory / ".timer", ignored);
 
     VdrRecording providerDuration = recording;
@@ -107,6 +119,12 @@ void testVdrIndexDurationFallback()
     DurationMockVdrAdapter providerAdapter(providerDuration);
     VdrService providerVdrService(providerAdapter);
     VdrRecordingQueryService providerQueryService(providerVdrService);
+
+    const VdrRecordingQueryResult providerCatalog =
+        providerQueryService.queryRecordings(VdrRecordingQuery::all());
+    assert(providerCatalog.totalCount() == 1);
+    assert(providerCatalog.recordings().at(0).recordingDurationKnown);
+    assert(providerCatalog.recordings().at(0).durationSeconds == 77);
 
     VdrRecording providerResolved;
     assert(providerQueryService.findRecordingById(
