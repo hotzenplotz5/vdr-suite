@@ -115,6 +115,37 @@
     return button;
   }
 
+  function bindRestartChoice(playback) {
+    if (!playback || !playback.element) return;
+
+    function installReadyHelper() {
+      const helper = global.VdrSuiteRecordingPlaybackRestartChoice;
+      if (!helper || typeof helper.install !== 'function') return false;
+      helper.install(playback);
+      return true;
+    }
+
+    if (installReadyHelper()) return;
+    if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return;
+
+    Promise.resolve(global.loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recording-playback-restart-choice-runtime',
+      '/frontend/recording-playback-restart-choice.js',
+      function () {
+        return Boolean(
+          global.VdrSuiteRecordingPlaybackRestartChoice &&
+          typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'
+        );
+      }
+    )).then(function () {
+      installReadyHelper();
+    }).catch(function (error) {
+      if (global.console && typeof global.console.error === 'function') {
+        global.console.error('VDR-Suite Recording fallback restart choice binding failed', error);
+      }
+    });
+  }
+
   function decoratePanel(factory, recording, backendId) {
     const host = global.document.createElement('div');
     host.className = 'recordings2-recording-fallback-shell';
@@ -506,7 +537,9 @@
     Object.keys(source).forEach(function (key) { decorated[key] = source[key]; });
     const factory = source.createPanel;
     decorated.createPanel = function (recording, backendId) {
-      return decoratePanel(factory, recording, backendId);
+      const playback = decoratePanel(factory, recording, backendId);
+      bindRestartChoice(playback);
+      return playback;
     };
     decorated.__vdrSuiteFallbackControlsDecorated = true;
     return Object.freeze(decorated);
