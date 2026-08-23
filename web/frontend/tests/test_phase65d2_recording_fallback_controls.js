@@ -14,25 +14,9 @@ function element(tagName) {
   const listeners = {};
   const node = {
     tagName: String(tagName || '').toUpperCase(),
-    children: [],
-    style: {},
-    dataset: {},
-    className: '',
-    textContent: '',
-    hidden: false,
-    disabled: false,
-    type: '',
-    title: '',
-    value: '',
-    min: '',
-    max: '',
-    step: '',
-    currentTime: 0,
-    duration: NaN,
-    paused: true,
-    controls: true,
-    firstChild: null,
-    parentNode: null,
+    children: [], style: {}, dataset: {}, className: '', textContent: '',
+    hidden: false, disabled: false, type: '', title: '', value: '', min: '', max: '', step: '',
+    currentTime: 0, duration: 999, paused: true, controls: true, firstChild: null, parentNode: null,
     appendChild(child) {
       child.parentNode = this;
       this.children.push(child);
@@ -53,28 +37,15 @@ function element(tagName) {
       if (!listeners[name]) listeners[name] = [];
       listeners[name].push(callback);
     },
-    dispatch(name) {
-      (listeners[name] || []).forEach(callback => callback({target: this}));
-    },
+    dispatch(name) { (listeners[name] || []).forEach(callback => callback({target: this})); },
     click() { this.dispatch('click'); },
-    play() {
-      this.paused = false;
-      this.dispatch('play');
-      return Promise.resolve();
-    },
-    pause() {
-      this.paused = true;
-      this.dispatch('pause');
-    },
+    play() { this.paused = false; this.dispatch('play'); return Promise.resolve(); },
+    pause() { this.paused = true; this.dispatch('pause'); },
     querySelector(selector) {
       const all = descendants(this);
-      if (selector === 'video') {
-        return all.find(value => value.tagName === 'VIDEO') || null;
-      }
+      if (selector === 'video') return all.find(value => value.tagName === 'VIDEO') || null;
       if (selector === 'button.recordings2-primary') {
-        return all.find(value =>
-          value.tagName === 'BUTTON' && value.className === 'recordings2-primary'
-        ) || null;
+        return all.find(value => value.tagName === 'BUTTON' && value.className === 'recordings2-primary') || null;
       }
       return null;
     }
@@ -92,141 +63,155 @@ function descendants(root) {
   return result;
 }
 
+function flush() {
+  return Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve()).then(() => Promise.resolve());
+}
+
+const requests = [];
+let createSequence = 0;
 const document = {createElement: element};
-const window = {document, console, Object, Number, String, Math, Promise};
+const window = {
+  document, console, Object, Number, String, Math, Promise, Error, Array,
+  VdrSuiteBrowserSession: {csrfHeaders() { return {'X-CSRF-Token': 'csrf-test'}; }},
+  VdrSuiteClientApi: {
+    requestJson(requestPath, options) {
+      const body = JSON.parse(options.body);
+      requests.push({path: requestPath, body});
+      if (body.operation === 'playback-status') {
+        return Promise.resolve({mediaSession: {
+          id: body.sessionId,
+          state: 'ready',
+          presentationProfileId: 'hls-fmp4',
+          mediaPath: '/api/media/sessions/' + body.sessionId + '/hls/master.m3u8',
+          playback: {
+            positionSeconds: 0,
+            durationSeconds: 7134,
+            seek: {supported: false, preparing: false},
+            resume: {supported: true, preparing: false}
+          }
+        }});
+      }
+      createSequence += 1;
+      const id = 'hls-session-' + createSequence;
+      const start = Number(body.startPositionSeconds) || 0;
+      return Promise.resolve({mediaSession: {
+        id,
+        state: 'ready',
+        presentationProfileId: 'hls-fmp4',
+        mediaPath: '/api/media/sessions/' + id + '/hls/master.m3u8',
+        playback: {
+          positionSeconds: start,
+          durationSeconds: createSequence === 1 ? null : 7134,
+          seek: {supported: false, preparing: false},
+          resume: createSequence === 1
+            ? {supported: false, preparing: true}
+            : {supported: true, preparing: false}
+        }
+      }});
+    }
+  }
+};
+let timerSequence = 0;
+window.setTimeout = function (callback) { timerSequence += 1; Promise.resolve().then(callback); return timerSequence; };
+window.clearTimeout = function () {};
 window.window = window;
 
 let currentPlayback = {};
 Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
-  configurable: true,
-  enumerable: true,
+  configurable: true, enumerable: true,
   get() { return currentPlayback; },
   set(value) { currentPlayback = value; }
 });
 
-const context = vm.createContext({
-  window,
-  document,
-  console,
-  Object,
-  Number,
-  String,
-  Math,
-  Promise,
-  Error,
-  Array
-});
+const context = vm.createContext({window, document, console, Object, Number, String, Math, Promise, Error, Array});
 vm.runInContext(source, context, {filename: 'recording-fallback-controls.js'});
 
 assert.strictEqual(window.__vdrSuiteRecordingFallbackControlsBound, true);
-assert.strictEqual(
-  window.VdrSuiteRecordingFallbackControls.__test.formatTime(2494),
-  '00:41:34'
-);
+assert.strictEqual(window.VdrSuiteRecordingFallbackControls.__test.formatTime(2494), '00:41:34');
 
 let creates = 0;
 let starts = 0;
 let destroys = 0;
 window.VdrSuiteRecordings2Playback = {
-  createPanel() {
+  createPanel(recording, backendId, options) {
     creates += 1;
+    assert.ok(options && typeof options.createSession === 'function');
     const panel = element('section');
     const startButton = element('button');
     startButton.className = 'recordings2-primary';
     panel.appendChild(startButton);
     const video = element('video');
-    video.duration = 7134;
     panel.appendChild(video);
     let sessionId = '';
     return {
       element: panel,
       start() {
         starts += 1;
-        sessionId = 'legacy-session-' + starts;
-        video.paused = false;
-        video.dispatch('play');
-        return Promise.resolve(sessionId);
+        return Promise.resolve(options.createSession()).then(session => {
+          sessionId = session.mediaSession.id;
+          video.paused = false;
+          video.dispatch('play');
+          return sessionId;
+        });
       },
-      destroy() {
-        destroys += 1;
-        sessionId = '';
-        video.paused = true;
-      },
+      destroy() { destroys += 1; sessionId = ''; video.paused = true; },
       sessionId() { return sessionId; }
     };
   }
 };
 
 (async function () {
-  const playbackFactory = window.VdrSuiteRecordings2Playback;
-  assert.strictEqual(playbackFactory.__vdrSuiteFallbackControlsDecorated, true);
-
-  const playback = playbackFactory.createPanel({id: 'recording-42'}, 'default');
+  const factory = window.VdrSuiteRecordings2Playback;
+  assert.strictEqual(factory.__vdrSuiteFallbackControlsDecorated, true);
+  const playback = factory.createPanel({id: 'recording-42'}, 'default');
   assert.ok(playback && playback.element);
-  assert.strictEqual(typeof playback.play, 'function');
-  assert.strictEqual(typeof playback.pause, 'function');
-  assert.strictEqual(typeof playback.stop, 'function');
-  assert.strictEqual(typeof playback.position, 'function');
-  assert.strictEqual(typeof playback.duration, 'function');
-  assert.strictEqual(typeof playback.state, 'function');
-  assert.strictEqual(typeof playback.seekAbsolute, 'function');
-  assert.strictEqual(typeof playback.seekRelative, 'function');
+  assert.strictEqual(typeof playback.resume, 'function');
+  assert.strictEqual(typeof playback.canResume, 'function');
 
   const buttons = descendants(playback.element).filter(value => value.tagName === 'BUTTON');
   const stopButton = buttons.find(value => value.textContent === 'Stop');
   const back60Button = buttons.find(value => value.textContent === '−60');
-  const playPauseButton = buttons.find(value => value.textContent === 'Play');
-  const restartButton = buttons.find(value => value.textContent === '↺ Wiedergabe von vorn');
-  const timeline = descendants(playback.element).find(value =>
-    value.tagName === 'INPUT' && value.type === 'range'
-  );
-  const positionLabel = descendants(playback.element).find(value =>
-    value.className === 'recordings2-playback-position'
-  );
+  const timeline = descendants(playback.element).find(value => value.tagName === 'INPUT' && value.type === 'range');
+  const positionLabel = descendants(playback.element).find(value => value.className === 'recordings2-playback-position');
+  assert.ok(stopButton && back60Button && timeline && positionLabel);
+  assert.strictEqual(back60Button.disabled, true);
+  assert.strictEqual(timeline.disabled, true, 'HLS random seek must remain fail-closed');
 
-  assert.ok(stopButton && back60Button && playPauseButton && restartButton && timeline && positionLabel);
-  assert.strictEqual(back60Button.disabled, true, 'fallback must not advertise unsupported time seek');
-  assert.strictEqual(timeline.disabled, true, 'fallback timeline must stay disabled without a truthful seek contract');
-  assert.strictEqual(restartButton.hidden, true);
-
-  const firstSession = await playback.start();
-  assert.strictEqual(firstSession, 'legacy-session-1');
-  assert.strictEqual(playback.state(), 'playing');
-  assert.strictEqual(stopButton.disabled, false, 'Stop must remain available after fallback activation');
+  assert.strictEqual(await playback.start(), 'hls-session-1');
+  await flush();
+  assert.strictEqual(playback.canResume(), true, 'index status must activate HLS resume without enabling seek');
+  assert.strictEqual(playback.duration(), 7134, 'duration must come from the Recording contract, not video.duration');
 
   const firstVideo = descendants(playback.element).find(value => value.tagName === 'VIDEO');
-  assert.ok(firstVideo);
-  assert.strictEqual(firstVideo.controls, false, 'suite-owned controls replace native fallback controls');
   firstVideo.currentTime = 2494;
   firstVideo.dispatch('timeupdate');
   assert.strictEqual(playback.position(), 2494);
-  assert.strictEqual(playback.duration(), 7134);
   assert.strictEqual(positionLabel.textContent, '00:41:34 / 01:58:54');
-
-  assert.strictEqual(playback.pause(), true);
-  assert.strictEqual(playback.state(), 'paused');
-  await playback.play();
-  assert.strictEqual(playback.state(), 'playing');
+  assert.strictEqual(firstVideo.controls, false);
 
   await playback.stop();
   assert.strictEqual(destroys, 1);
   assert.strictEqual(playback.state(), 'stopped');
   assert.strictEqual(playback.position(), 2494);
-  assert.strictEqual(restartButton.hidden, false, 'fallback Stop must offer an explicit from-start restart');
+  assert.strictEqual(playback.canResume(), true);
 
-  const secondSession = await playback.start();
-  assert.strictEqual(secondSession, 'legacy-session-2');
-  assert.strictEqual(creates, 2, 'restart must create a fresh legacy transport owner');
+  assert.strictEqual(await playback.resume(2494), 'hls-session-2');
+  assert.strictEqual(creates, 2, 'resume must create a fresh HLS transport owner');
   assert.strictEqual(starts, 2);
-  assert.strictEqual(playback.state(), 'playing');
+  const createRequests = requests.filter(entry => !entry.body.operation);
+  assert.strictEqual(createRequests.length, 2);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(createRequests[0].body, 'startPositionSeconds'), false);
+  assert.strictEqual(createRequests[1].body.startPositionSeconds, 2494);
 
-  await assert.rejects(
-    playback.seekAbsolute(10),
-    /Kompatibilitätspfad/,
-    'fallback must fail closed for unsupported time seek'
-  );
+  const secondVideo = descendants(playback.element).find(value => value.tagName === 'VIDEO');
+  secondVideo.currentTime = 3;
+  secondVideo.dispatch('timeupdate');
+  assert.strictEqual(playback.position(), 2497, 'resumed HLS position must be absolute Recording time');
+  assert.strictEqual(playback.duration(), 7134);
 
-  console.log('phase65d2 recording fallback controls remain stable and truthful');
+  await assert.rejects(playback.seekAbsolute(10), /Kompatibilitätspfad/);
+  assert.strictEqual(timeline.disabled, true);
+  console.log('phase65d2 fallback duration, index and HLS resume contract ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;

@@ -1,14 +1,30 @@
 // Preserve Recording playback controls when the fast continuous-fMP4 path
-// falls back to the legacy HLS/MSE transport.
+// falls back to the legacy HLS/MSE transport. The Recording index remains
+// source-owned, so this shell also consumes the server playback/resume contract
+// without pretending that the rolling HLS transport supports arbitrary seek.
 (function (global) {
   'use strict';
 
   const marker = '__vdrSuiteRecordingFallbackControlsBound';
+  const INDEX_POLL_MS = 750;
+  const INDEX_STATUS_MAX_FAILURES = 5;
   if (!global || !global.document || global[marker] === true) return;
 
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
-  if (!descriptor || typeof descriptor.get !== 'function' || typeof descriptor.set !== 'function') {
-    return;
+  if (!descriptor || typeof descriptor.get !== 'function' || typeof descriptor.set !== 'function') return;
+
+  function text(value) {
+    return value === undefined || value === null ? '' : String(value);
+  }
+
+  function recordingId(recording) {
+    if (!recording || typeof recording !== 'object') return '';
+    return text(recording.recordingId || recording.id).trim();
+  }
+
+  function safeSessionId(value) {
+    const id = text(value).trim();
+    return id && id.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(id) ? id : '';
   }
 
   function formatTime(value) {
@@ -19,6 +35,69 @@
     return String(hours).padStart(2, '0') + ':' +
       String(minutes).padStart(2, '0') + ':' +
       String(remaining).padStart(2, '0');
+  }
+
+  function csrfHeaders() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
+
+  function capabilities() {
+    return {
+      protocols: ['hls'],
+      containers: ['fmp4'],
+      videoCodecs: ['h264'],
+      audioCodecs: ['aac'],
+      supportsByteRanges: false,
+      maxVideoWidth: 1920,
+      maxVideoHeight: 1080,
+      maxAudioChannels: 2
+    };
+  }
+
+  function createSession(backendId, recording, startPositionSeconds) {
+    const api = global.VdrSuiteClientApi;
+    const id = recordingId(recording);
+    const start = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
+    if (!api || typeof api.requestJson !== 'function') {
+      return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
+    }
+    if (!id) return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+
+    const body = {
+      backendId: text(backendId || 'default'),
+      recordingId: id,
+      capabilities: capabilities()
+    };
+    if (start > 0) body.startPositionSeconds = start;
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+  }
+
+  function playbackStatus(backendId, sessionId) {
+    const api = global.VdrSuiteClientApi;
+    const id = safeSessionId(sessionId);
+    if (!api || typeof api.requestJson !== 'function' || !id) {
+      return Promise.reject(new Error('Recording-Indexstatus ist nicht verfügbar.'));
+    }
+    return api.requestJson('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'playback-status',
+        backendId: text(backendId || 'default'),
+        sessionId: id
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
   }
 
   function find(root, selector) {
@@ -40,12 +119,20 @@
     const host = global.document.createElement('div');
     host.className = 'recordings2-recording-fallback-shell';
 
+    // A direct primary button gives the shared Stop/restart-choice owner a
+    // stable anchor even though the real HLS start button lives inside the
+    // replaceable legacy transport panel.
+    const restartAnchor = createButton('▶ Aufnahme abspielen', 'Aufnahme abspielen');
+    restartAnchor.className = 'recordings2-primary';
+    restartAnchor.hidden = true;
+    host.appendChild(restartAnchor);
+
     const transportHost = global.document.createElement('div');
     transportHost.className = 'recordings2-recording-fallback-transport';
     host.appendChild(transportHost);
 
     const notice = global.document.createElement('p');
-    notice.className = 'recordings2-playback-status';
+    notice.className = 'recordings2-playback-status recordings2-fallback-contract-status';
     notice.setAttribute('role', 'status');
     notice.textContent = 'Kompatibilitätsmodus · Zeit-Sprung ist für diesen Wiedergabepfad nicht verfügbar.';
     host.appendChild(notice);
@@ -105,57 +192,122 @@
     directRow.appendChild(directTime);
     directRow.appendChild(directButton);
     controls.appendChild(directRow);
-
-    const restartButton = createButton('↺ Wiedergabe von vorn', 'Wiedergabe von vorn starten');
-    restartButton.hidden = true;
-    controls.appendChild(restartButton);
     host.appendChild(controls);
 
     let inner = null;
     let destroyed = false;
     let started = false;
     let stopped = false;
+    let activeSessionId = '';
+    let playbackBaseSeconds = 0;
+    let durationSeconds = 0;
+    let resumeSupported = false;
+    let resumePreparing = false;
     let stoppedPosition = 0;
+    let stoppedDuration = 0;
+    let stoppedResumeSupported = false;
+    let indexTimer = null;
+    let indexFailures = 0;
 
     function currentVideo() {
       return inner && inner.element ? find(inner.element, 'video') : null;
     }
 
-    function nativeDuration() {
-      const video = currentVideo();
-      const value = Number(video && video.duration);
-      return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
-    }
-
     function position() {
       if (stopped) return stoppedPosition;
       const video = currentVideo();
-      const value = Number(video && video.currentTime);
-      return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+      const local = Number(video && video.currentTime);
+      return playbackBaseSeconds + (Number.isFinite(local) && local > 0 ? Math.floor(local) : 0);
+    }
+
+    function duration() {
+      const value = stopped ? stoppedDuration : durationSeconds;
+      return value > 0 ? value : null;
     }
 
     function updatePosition() {
-      const duration = nativeDuration();
       positionLabel.textContent = formatTime(position()) + ' / ' +
-        (duration > 0 ? formatTime(duration) : '--:--:--');
+        (duration() ? formatTime(duration()) : '--:--:--');
+    }
+
+    function setContractNotice() {
+      if (stopped) return;
+      if (resumePreparing) {
+        notice.textContent = 'Kompatibilitätsmodus · Aufnahmeindex wird erstellt …';
+      }
+      else if (resumeSupported) {
+        notice.textContent = 'Kompatibilitätsmodus · Fortsetzen verfügbar · freier Zeit-Sprung bleibt deaktiviert.';
+      }
+      else {
+        notice.textContent = 'Kompatibilitätsmodus · Zeit-Sprung ist für diesen Wiedergabepfad nicht verfügbar.';
+      }
     }
 
     function updateControls() {
       const video = currentVideo();
       const active = started && !stopped && !destroyed && Boolean(video);
-      back60Button.disabled = true;
-      back10Button.disabled = true;
-      forward10Button.disabled = true;
-      forward60Button.disabled = true;
-      timeline.disabled = true;
-      directTime.disabled = true;
-      directButton.disabled = true;
+      [back60Button, back10Button, forward10Button, forward60Button, timeline, directTime, directButton]
+        .forEach(function (control) { control.disabled = true; });
       playPauseButton.disabled = !active;
       stopButton.disabled = !active;
       playPauseButton.textContent = video && video.paused ? 'Play' : 'Pause';
-      restartButton.hidden = !stopped;
-      restartButton.disabled = !stopped || destroyed;
       updatePosition();
+    }
+
+    function clearIndexPoll() {
+      if (indexTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(indexTimer);
+      }
+      indexTimer = null;
+    }
+
+    function scheduleIndexPoll() {
+      if (!resumePreparing || stopped || destroyed || !activeSessionId ||
+          indexTimer !== null || typeof global.setTimeout !== 'function') return;
+      indexTimer = global.setTimeout(function () {
+        indexTimer = null;
+        playbackStatus(backendId, activeSessionId).then(function (session) {
+          if (stopped || destroyed) return;
+          const mediaSession = session && session.mediaSession;
+          if (safeSessionId(mediaSession && mediaSession.id) !== activeSessionId) {
+            throw new Error('Recording-Indexstatus gehört zu einer anderen MediaSession.');
+          }
+          applyPlaybackContract(mediaSession, false);
+          indexFailures = 0;
+        }).catch(function () {
+          indexFailures += 1;
+          if (indexFailures >= INDEX_STATUS_MAX_FAILURES) {
+            resumePreparing = false;
+            setContractNotice();
+            updateControls();
+            return;
+          }
+          scheduleIndexPoll();
+        });
+      }, INDEX_POLL_MS);
+    }
+
+    function applyPlaybackContract(mediaSession, updateBase) {
+      const id = safeSessionId(mediaSession && mediaSession.id);
+      if (id) activeSessionId = id;
+      const playback = mediaSession && mediaSession.playback;
+      const serverDuration = Number(playback && playback.durationSeconds);
+      durationSeconds = Number.isFinite(serverDuration) && serverDuration > 0
+        ? Math.floor(serverDuration)
+        : 0;
+      const resume = playback && playback.resume;
+      resumeSupported = Boolean(resume && resume.supported === true && durationSeconds > 0);
+      resumePreparing = Boolean(resume && resume.preparing === true && !resumeSupported);
+      if (updateBase) {
+        const serverPosition = Number(playback && playback.positionSeconds);
+        playbackBaseSeconds = Number.isFinite(serverPosition) && serverPosition >= 0
+          ? Math.floor(serverPosition)
+          : 0;
+      }
+      setContractNotice();
+      updateControls();
+      if (resumePreparing) scheduleIndexPoll();
+      else clearIndexPoll();
     }
 
     function bindVideo() {
@@ -163,27 +315,34 @@
       if (!video || video.__vdrSuiteFallbackControlsBound === true) return;
       video.__vdrSuiteFallbackControlsBound = true;
       video.controls = false;
-      ['play', 'pause', 'playing', 'timeupdate', 'durationchange', 'loadedmetadata']
-        .forEach(function (name) {
-          video.addEventListener(name, updateControls);
-        });
+      ['play', 'pause', 'playing', 'timeupdate', 'loadedmetadata']
+        .forEach(function (name) { video.addEventListener(name, updateControls); });
       video.addEventListener('ended', function () {
         if (destroyed) return;
         stoppedPosition = position();
+        stoppedDuration = durationSeconds;
+        stoppedResumeSupported = false;
         started = false;
         stopped = true;
+        clearIndexPoll();
         notice.textContent = 'Wiedergabe beendet · Wiedergabe von vorn möglich.';
         updateControls();
       });
     }
 
-    function mountInner() {
-      const next = factory(recording, backendId);
+    function mountInner(startPositionSeconds) {
+      const target = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
+      const next = factory(recording, backendId, {
+        createSession: function () {
+          return createSession(backendId, recording, target).then(function (session) {
+            applyPlaybackContract(session && session.mediaSession, true);
+            return session;
+          });
+        }
+      });
       if (!next || !next.element || typeof next.start !== 'function') return null;
       inner = next;
-      if (typeof transportHost.replaceChildren === 'function') {
-        transportHost.replaceChildren(inner.element);
-      }
+      if (typeof transportHost.replaceChildren === 'function') transportHost.replaceChildren(inner.element);
       else {
         while (transportHost.firstChild && typeof transportHost.removeChild === 'function') {
           transportHost.removeChild(transportHost.firstChild);
@@ -196,23 +355,53 @@
       return inner;
     }
 
-    function start() {
+    function startAt(startPositionSeconds) {
       if (destroyed) return Promise.resolve('');
+      const target = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
       if (!inner || stopped) {
-        if (!mountInner()) return Promise.resolve('');
+        if (!mountInner(target)) return Promise.resolve('');
       }
       started = true;
       stopped = false;
+      activeSessionId = '';
+      playbackBaseSeconds = target;
+      durationSeconds = stoppedDuration || durationSeconds;
+      resumeSupported = false;
+      resumePreparing = false;
+      indexFailures = 0;
       stoppedPosition = 0;
-      restartButton.hidden = true;
-      notice.textContent = 'Kompatibilitätsmodus · Zeit-Sprung ist für diesen Wiedergabepfad nicht verfügbar.';
+      stoppedDuration = 0;
+      stoppedResumeSupported = false;
+      setContractNotice();
       bindVideo();
       updateControls();
       return Promise.resolve(inner.start()).then(function (sessionId) {
         bindVideo();
         updateControls();
         return sessionId;
+      }).catch(function (error) {
+        started = false;
+        stopped = true;
+        stoppedPosition = target;
+        stoppedDuration = durationSeconds;
+        notice.textContent = error && error.message
+          ? 'Fortsetzen fehlgeschlagen: ' + error.message
+          : 'Fortsetzen fehlgeschlagen.';
+        updateControls();
+        throw error;
       });
+    }
+
+    function start() {
+      return startAt(0);
+    }
+
+    function resume(positionSeconds) {
+      const target = Math.max(0, Math.floor(Number(positionSeconds) || 0));
+      if (!stopped || !stoppedResumeSupported || target <= 0) {
+        return Promise.reject(new Error('Fortsetzen ist im Recording-Kompatibilitätspfad nicht verfügbar.'));
+      }
+      return startAt(target);
     }
 
     function play() {
@@ -236,10 +425,16 @@
     function stop() {
       if (destroyed || stopped || !inner) return Promise.resolve(false);
       stoppedPosition = position();
+      stoppedDuration = durationSeconds;
+      stoppedResumeSupported = Boolean(resumeSupported && stoppedPosition > 0);
+      clearIndexPoll();
       if (typeof inner.destroy === 'function') inner.destroy();
       started = false;
       stopped = true;
-      notice.textContent = 'Wiedergabe gestoppt · Wiedergabe von vorn möglich.';
+      activeSessionId = '';
+      notice.textContent = stoppedResumeSupported
+        ? 'Wiedergabe gestoppt · ab ' + formatTime(stoppedPosition) + ' fortsetzen oder von vorn.'
+        : 'Wiedergabe gestoppt · Wiedergabe von vorn möglich.';
       updateControls();
       return Promise.resolve(true);
     }
@@ -251,6 +446,7 @@
     function destroy() {
       if (destroyed) return;
       destroyed = true;
+      clearIndexPoll();
       if (inner && typeof inner.destroy === 'function') inner.destroy();
       started = false;
       updateControls();
@@ -271,30 +467,29 @@
       else pause();
     });
     stopButton.addEventListener('click', function () { stop().catch(function () {}); });
-    restartButton.addEventListener('click', function () { start().catch(function () {}); });
 
-    if (!mountInner()) return null;
+    if (!mountInner(0)) return null;
     updateControls();
 
     return Object.freeze({
       element: host,
       start: start,
+      resume: resume,
+      canResume: function () { return stopped ? stoppedResumeSupported : resumeSupported; },
       play: play,
       pause: pause,
       stop: stop,
       destroy: destroy,
       position: position,
-      duration: function () {
-        const duration = nativeDuration();
-        return duration > 0 ? duration : null;
-      },
+      duration: duration,
       state: state,
       seekAbsolute: unsupportedSeek,
       seekRelative: unsupportedSeek,
       sessionId: function () {
-        return inner && typeof inner.sessionId === 'function' ? inner.sessionId() : '';
+        return inner && typeof inner.sessionId === 'function' ? inner.sessionId() : activeSessionId;
       },
       relinquishForReplacement: function () {
+        clearIndexPoll();
         if (inner && typeof inner.relinquishForReplacement === 'function') {
           return inner.relinquishForReplacement();
         }
@@ -306,9 +501,7 @@
 
   function decoratePlayback(value) {
     const source = value && typeof value === 'object' ? value : {};
-    if (typeof source.createPanel !== 'function' || source.__vdrSuiteFallbackControlsDecorated === true) {
-      return source;
-    }
+    if (typeof source.createPanel !== 'function' || source.__vdrSuiteFallbackControlsDecorated === true) return source;
     const decorated = {};
     Object.keys(source).forEach(function (key) { decorated[key] = source[key]; });
     const factory = source.createPanel;

@@ -59,6 +59,12 @@
     let canResume = false;
     let stopping = false;
 
+    function ownerCanResume() {
+      if (typeof playback.resume !== 'function') return false;
+      if (typeof playback.canResume !== 'function') return true;
+      try { return playback.canResume() === true; } catch (error) { return false; }
+    }
+
     function showChoices() {
       const time = formatTime(stopPosition);
       startButton.hidden = true;
@@ -80,15 +86,27 @@
       resumeButton.disabled = true;
       fromStartButton.disabled = true;
       startButton.hidden = true;
-      return Promise.resolve(playback.start()).then(function (sessionId) {
-        if (!sessionId) throw new Error('Neue Recording-MediaSession wurde nicht gestartet.');
-        if (target <= 0) return sessionId;
-        if (typeof playback.seekAbsolute !== 'function') {
-          throw new Error('Fortsetzen ist für diese Aufnahme nicht verfügbar.');
-        }
-        return Promise.resolve(playback.seekAbsolute(target)).then(function () {
-          return sessionId;
+
+      let request;
+      if (target > 0 && typeof playback.resume === 'function') {
+        request = playback.resume(target);
+      }
+      else {
+        request = Promise.resolve(playback.start()).then(function (sessionId) {
+          if (!sessionId) throw new Error('Neue Recording-MediaSession wurde nicht gestartet.');
+          if (target <= 0) return sessionId;
+          if (typeof playback.seekAbsolute !== 'function') {
+            throw new Error('Fortsetzen ist für diese Aufnahme nicht verfügbar.');
+          }
+          return Promise.resolve(playback.seekAbsolute(target)).then(function () {
+            return sessionId;
+          });
         });
+      }
+
+      return Promise.resolve(request).then(function (sessionId) {
+        if (!sessionId) throw new Error('Neue Recording-MediaSession wurde nicht gestartet.');
+        return sessionId;
       }).catch(function (error) {
         const state = typeof playback.state === 'function' ? playback.state() : '';
         if (state === 'stopped') showChoices();
@@ -109,8 +127,8 @@
       stopPosition = Number.isFinite(position) && position > 0 ? Math.floor(position) : 0;
       canResume = Boolean(
         stopPosition > 0 &&
-        timeline && timeline.disabled === false &&
-        typeof playback.seekAbsolute === 'function'
+        (ownerCanResume() ||
+          (timeline && timeline.disabled === false && typeof playback.seekAbsolute === 'function'))
       );
       stopping = true;
       choices.hidden = true;
