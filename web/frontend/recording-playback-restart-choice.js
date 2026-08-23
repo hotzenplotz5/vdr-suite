@@ -3,9 +3,6 @@
 (function (global) {
   'use strict';
 
-  const POLL_DELAY_MS = 25;
-  const MAX_POLL_ATTEMPTS = 240;
-
   function formatTime(value) {
     const seconds = Math.max(0, Math.floor(Number(value) || 0));
     const hours = Math.floor(seconds / 3600);
@@ -25,7 +22,9 @@
   }
 
   function install(playback) {
-    if (!playback || !playback.element || typeof playback.start !== 'function') return null;
+    if (!playback || !playback.element ||
+        typeof playback.start !== 'function' ||
+        typeof playback.stop !== 'function') return null;
     const panel = playback.element;
     if (panel.__vdrSuiteRestartChoice) return panel.__vdrSuiteRestartChoice;
     if (typeof panel.querySelector !== 'function') return null;
@@ -58,7 +57,7 @@
 
     let stopPosition = 0;
     let canResume = false;
-    let stopGeneration = 0;
+    let stopping = false;
 
     function showChoices() {
       const time = formatTime(stopPosition);
@@ -73,20 +72,6 @@
           ? 'Wiedergabe gestoppt · Wiedergabe ab ' + time + ' fortsetzen?'
           : 'Wiedergabe gestoppt · Wiedergabe von vorn möglich.';
       }
-    }
-
-    function waitForStopped(generation, attempt) {
-      if (generation !== stopGeneration) return;
-      const state = typeof playback.state === 'function' ? playback.state() : '';
-      if (state === 'destroyed' || state === 'fallback') return;
-      if (state === 'stopped' && startButton.hidden === false && startButton.disabled === false) {
-        showChoices();
-        return;
-      }
-      if (attempt >= MAX_POLL_ATTEMPTS || typeof global.setTimeout !== 'function') return;
-      global.setTimeout(function () {
-        waitForStopped(generation, attempt + 1);
-      }, POLL_DELAY_MS);
     }
 
     function begin(position) {
@@ -111,7 +96,13 @@
       });
     }
 
-    stopButton.addEventListener('click', function () {
+    stopButton.addEventListener('click', function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopImmediatePropagation === 'function') {
+        event.stopImmediatePropagation();
+      }
+      if (stopping) return;
+
       const position = typeof playback.position === 'function'
         ? Number(playback.position())
         : 0;
@@ -121,10 +112,38 @@
         timeline && timeline.disabled === false &&
         typeof playback.seekAbsolute === 'function'
       );
-      const generation = ++stopGeneration;
-      if (typeof global.setTimeout === 'function') {
-        global.setTimeout(function () { waitForStopped(generation, 0); }, 0);
+      stopping = true;
+      choices.hidden = true;
+      resumeButton.disabled = true;
+      fromStartButton.disabled = true;
+
+      let request;
+      try {
+        request = playback.stop();
       }
+      catch (error) {
+        stopping = false;
+        startButton.hidden = false;
+        return;
+      }
+
+      // The Recording owner exposes its generic restart button synchronously
+      // while server cleanup is still in flight. Keep that implementation
+      // detail hidden and wait for the owner's actual stop promise instead of
+      // polling DOM state with a timeout.
+      startButton.hidden = true;
+      Promise.resolve(request).then(function (stopped) {
+        stopping = false;
+        const state = typeof playback.state === 'function' ? playback.state() : '';
+        if (stopped === false || state !== 'stopped') {
+          startButton.hidden = false;
+          return;
+        }
+        showChoices();
+      }).catch(function () {
+        stopping = false;
+        startButton.hidden = false;
+      });
     }, true);
 
     resumeButton.addEventListener('click', function () {
@@ -139,7 +158,8 @@
       resumeButton: resumeButton,
       fromStartButton: fromStartButton,
       stopPosition: function () { return stopPosition; },
-      canResume: function () { return canResume; }
+      canResume: function () { return canResume; },
+      stopping: function () { return stopping; }
     });
     try {
       Object.defineProperty(panel, '__vdrSuiteRestartChoice', {
