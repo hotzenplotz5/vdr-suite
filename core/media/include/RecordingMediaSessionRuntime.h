@@ -85,6 +85,15 @@ public:
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
+    RecordingMediaSessionProvisionResult provisionHlsAt(
+        const std::string& sessionId,
+        const std::string& workspaceId,
+        const std::string& grantId,
+        const MediaPresentationProfile& profile,
+        const std::vector<std::string>& sourceSegments,
+        int startPositionSeconds,
+        const std::vector<double>& segmentDurationsSeconds);
+
     RecordingMediaSessionProvisionResult provisionStream(
         const std::string& sessionId,
         const std::string& workspaceId,
