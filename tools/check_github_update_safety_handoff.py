@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CURRENT_STATUS = ROOT / "docs/development/current-status.md"
 AGENT_RULES = ROOT / "AGENTS.md"
 NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
+CI_STATUS_HANDOFF = ROOT / "docs/development/github-actions-status-handoff.md"
 
 # GitHub update safety rules for future assistants:
 #
@@ -17,12 +18,18 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 #   updating the file or use a smaller safe edit strategy.
 # - After every GitHub file update, inspect the commit diff before treating
 #   the change as correct.
-# - Once a bounded workstream is authorized, do not voluntarily stop while
-#   authorized work remains. Status updates and ordinary turn boundaries are
-#   not handoff points.
+# - Once a bounded workstream is authorized, never voluntarily end the working
+#   response while authorized executable work remains. Status updates and
+#   ordinary turn boundaries are not handoff points.
+# - There is no generic repository permission to stop an authorized workstream.
+#   External dependencies are blocked wait states, not project completion.
 # - A fixable failed check is diagnosis/fix work, not a reason to stop.
 # - Existing authorization counts; do not ask again or stop at an already
 #   approved PR-state, merge, runtime or other gate.
+# - If relevant CI is required for the next already-approved gate, continue
+#   independent work and re-read that run before any response termination.
+# - Never finish with a stale queued/in-progress CI status when the run can be
+#   re-read and its result matters to the next authorized operation.
 # - Prefer GitHub-first execution when the connector can perform the complete
 #   bounded operation safely.
 # - Continue through already-approved steps without artificial confirmation
@@ -55,13 +62,15 @@ REQUIRED_CURRENT_STATUS_RULES = [
 
 REQUIRED_AGENT_RULES = [
     "## Top-level non-stop execution mandate",
-    "do not voluntarily stop,",
+    "never voluntarily stop,",
     "Status updates are progress reports, not stopping points.",
-    "ordinary turn boundary is never a",
-    "When a check fails, diagnose and",
-    "counts: do not stop again",
+    "There is no generic repository permission to stop an authorized workstream.",
+    "blocked wait state rather than permission to abandon the workstream",
+    "do not end the working response while that run is still known",
+    "re-read the run before any response termination",
     "## GitHub-first execution",
     "Continue through all already-approved steps of a bounded workstream",
+    "Potential blockers are not stop permissions.",
     "Push each completed",
     "Do not wait for GitHub Actions after every commit.",
     "Validation gates are surface-scoped during iterative implementation and runtime",
@@ -71,6 +80,13 @@ REQUIRED_AGENT_RULES = [
     "The complete repository-required CI graph is a gate for Ready-for-review, merge,",
     "Keep updates fast-forward-only.",
     "Do not mark a Draft pull request Ready",
+    "Before ending any working response, verify that the requested end state has",
+    "Never finish with a statement that the next step is",
+]
+
+FORBIDDEN_AGENT_RULES = [
+    "A hard stop is allowed",
+    "Stop only when a real decision or safety boundary",
 ]
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
@@ -96,6 +112,13 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "Never describe an acceptance item as passed merely because the daemon started or automated CI is green.",
 ]
 
+REQUIRED_CI_STATUS_HANDOFF_RULES = [
+    "A non-terminal CI snapshot is never a stopping point.",
+    "re-read that run before ending the working response",
+    "Continue independent already-approved work while the run is queued or in progress.",
+    "Do not return a stale queued/in-progress status as the final state",
+]
+
 REQUIRED_GUARDRAIL_RULES = [
     "Never replace a complete existing file through GitHub update_file from a",
     "truncated or partial fetch.",
@@ -103,9 +126,13 @@ REQUIRED_GUARDRAIL_RULES = [
     "small diff.",
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
-    "Once a bounded workstream is authorized, do not voluntarily stop while",
+    "Once a bounded workstream is authorized, never voluntarily end the working",
+    "There is no generic repository permission to stop an authorized workstream.",
+    "External dependencies are blocked wait states, not project completion.",
     "A fixable failed check is diagnosis/fix work, not a reason to stop.",
     "Existing authorization counts; do not ask again or stop at an already",
+    "re-read that run before any response termination.",
+    "Never finish with a stale queued/in-progress CI status",
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
     "Do not wait for GitHub Actions after every commit. Keep approved",
@@ -132,6 +159,8 @@ def main() -> int:
         missing.append("AGENTS.md is missing")
     if not NEW_CHAT_HANDOFF.exists():
         missing.append("docs/NEW-CHAT-HANDOFF.md is missing")
+    if not CI_STATUS_HANDOFF.exists():
+        missing.append("docs/development/github-actions-status-handoff.md is missing")
 
     current_status_text = (
         CURRENT_STATUS.read_text(encoding="utf-8")
@@ -148,6 +177,11 @@ def main() -> int:
         if NEW_CHAT_HANDOFF.exists()
         else ""
     )
+    ci_status_handoff_text = (
+        CI_STATUS_HANDOFF.read_text(encoding="utf-8")
+        if CI_STATUS_HANDOFF.exists()
+        else ""
+    )
     own_text = Path(__file__).read_text(encoding="utf-8")
 
     for item in REQUIRED_CURRENT_STATUS_RULES:
@@ -158,9 +192,17 @@ def main() -> int:
         if item not in agent_rules_text:
             missing.append("AGENTS.md missing rule: " + item)
 
+    for item in FORBIDDEN_AGENT_RULES:
+        if item in agent_rules_text:
+            missing.append("AGENTS.md contains forbidden stop permission: " + item)
+
     for item in REQUIRED_NEW_CHAT_HANDOFF_RULES:
         if item not in new_chat_handoff_text:
             missing.append("NEW-CHAT-HANDOFF.md missing rule: " + item)
+
+    for item in REQUIRED_CI_STATUS_HANDOFF_RULES:
+        if item not in ci_status_handoff_text:
+            missing.append("github-actions-status-handoff.md missing rule: " + item)
 
     for item in REQUIRED_GUARDRAIL_RULES:
         if item not in own_text:
