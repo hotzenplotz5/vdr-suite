@@ -305,6 +305,14 @@ MANUAL_REAL_TESTS := \
 	test-suite-bridge-svdrp-transport-live \
 	test-real-suite-bridge-embedded-runtime-live
 
+# The inventory and systemd/install contracts have dedicated CI jobs. Filter
+# them before test-ci-fast expands its prerequisites; filtering later from
+# local-test-groups.mk cannot remove prerequisites already attached by Make.
+CI_FAST_TESTS := $(filter-out \
+	test-make-inventory \
+	test-systemd-unit-contract, \
+	$(CI_FAST_TESTS))
+
 test-ci-fast: $(CI_FAST_TESTS)
 
 test-vdr: $(VDR_TESTS)
