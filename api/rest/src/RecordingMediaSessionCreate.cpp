@@ -10,6 +10,7 @@
 #include "MediaSessionWorkspace.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
+#include "RecordingSourceFingerprint.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "RecordingMediaSessionStartPosition.h"
@@ -241,7 +242,7 @@ ApiResponse RecordingMediaSessionController::createSession(
             }
             return std::vector<VdrRecording>{recording};
         });
-    const LocalVdrRecordingSourceResolution sourceResolution =
+    LocalVdrRecordingSourceResolution sourceResolution =
         trustedResolver.resolve(request.backendId, request.recordingId);
     if (!sourceResolution.resolved) {
         return jsonError(
@@ -257,14 +258,39 @@ ApiResponse RecordingMediaSessionController::createSession(
         request.recordingId);
     MediaSourceDescriptor source;
     bool probeCacheHit = false;
-    if (!sourceResolution.source.growing) {
+    bool indexMarkerReconciled = false;
+    const bool suiteIndexUpdateRunning =
+        sourceResolution.source.growing &&
+        indexUpdater_ != nullptr &&
+        indexUpdater_->status(sourceResolution.source.recordingDirectory).running();
+
+    if (!sourceResolution.source.growing || suiteIndexUpdateRunning) {
         std::lock_guard<std::mutex> lock(descriptorCacheMutex_);
         const auto cached = descriptorCache_.find(cacheKey);
-        if (cached != descriptorCache_.end() &&
-            cached->second.sourceFingerprint ==
-                sourceResolution.source.sourceFingerprint) {
-            source = cached->second.source;
-            probeCacheHit = true;
+        if (cached != descriptorCache_.end()) {
+            if (!sourceResolution.source.growing &&
+                cached->second.sourceFingerprint ==
+                    sourceResolution.source.sourceFingerprint) {
+                source = cached->second.source;
+                probeCacheHit = true;
+            }
+            else if (suiteIndexUpdateRunning &&
+                     !cached->second.source.growing &&
+                     sameRecordingSourceExtentIgnoringGrowthState(
+                         cached->second.sourceFingerprint,
+                         sourceResolution.source.sourceFingerprint)) {
+                // VDR's --updindex temporarily creates .timer itself. Only
+                // reconcile that marker when this controller owns a running
+                // updater for exactly this directory and the previously
+                // completed source extent is byte-for-byte/identity stable.
+                // Any real segment change therefore remains growing/fail-closed.
+                sourceResolution.source.growing = false;
+                sourceResolution.source.sourceFingerprint =
+                    cached->second.sourceFingerprint;
+                source = cached->second.source;
+                probeCacheHit = true;
+                indexMarkerReconciled = true;
+            }
         }
     }
 
@@ -538,6 +564,7 @@ ApiResponse RecordingMediaSessionController::createSession(
         << " session=" << issuance.session.sessionId
         << " profile=" << profile.profileId
         << " growing=" << (sourceResolution.source.growing ? "true" : "false")
+        << " index_marker_reconciled=" << (indexMarkerReconciled ? "true" : "false")
         << " start_position=" << startPositionSeconds
         << " index_preparing=" << (indexPreparing ? "true" : "false")
         << " probe_cache=" << (probeCacheHit ? "hit" : "miss")
