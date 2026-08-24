@@ -111,6 +111,7 @@ const window = {
       }
       createSequence += 1;
       const start = Number(body.startPositionSeconds) || 0;
+      const noIndex = body.recordingId === 'recording-no-index';
       return Promise.resolve({mediaSession: {
         id: 'hls-session-' + createSequence,
         state: 'ready',
@@ -120,7 +121,7 @@ const window = {
           positionSeconds: start,
           durationSeconds: 7134,
           seek: {supported: false, preparing: false},
-          resume: {supported: true, preparing: false}
+          resume: {supported: !noIndex, preparing: false}
         }
       }});
     }
@@ -178,6 +179,31 @@ window.VdrSuiteRecordings2Playback = {
 (async function () {
   const factory = window.VdrSuiteRecordings2Playback;
   assert.strictEqual(factory.__vdrSuiteFallbackRestartSeekDecorated, true);
+
+  // The direct-time field is input, not a seek operation. Desktop users must
+  // be able to focus/type a target while HLS playback is active even when no
+  // Recording index is available yet; execution remains fail-closed.
+  const noIndexPlayback = factory.createPanel({id: 'recording-no-index'}, 'default');
+  assert.ok(noIndexPlayback && noIndexPlayback.element);
+  const noIndexDirectTime = noIndexPlayback.element.querySelector('input[aria-label="Direkte Wiedergabezeit"]');
+  const noIndexDirectButton = noIndexPlayback.element.querySelector('button[aria-label="Zur eingegebenen Wiedergabezeit springen"]');
+  const noIndexTimeline = noIndexPlayback.element.querySelector('input[aria-label="Wiedergabeposition"]');
+  assert.ok(noIndexDirectTime && noIndexDirectButton && noIndexTimeline);
+  assert.strictEqual(noIndexDirectTime.disabled, true, 'direct-time input stays closed while playback is idle');
+  assert.strictEqual(await noIndexPlayback.start(), 'hls-session-1');
+  await flush();
+  assert.strictEqual(noIndexPlayback.canResume(), false);
+  assert.strictEqual(noIndexDirectTime.disabled, false, 'active HLS must keep direct-time input focusable before index readiness');
+  assert.strictEqual(noIndexDirectButton.disabled, true, 'seek execution must remain closed without index readiness');
+  assert.strictEqual(noIndexTimeline.disabled, true, 'timeline must remain closed without index readiness');
+  noIndexPlayback.destroy();
+
+  requests.length = 0;
+  createSequence = 0;
+  creates = 0;
+  starts = 0;
+  destroys = 0;
+
   const playback = factory.createPanel({id: 'recording-42'}, 'default');
   assert.ok(playback && playback.element);
   assert.strictEqual(typeof playback.seekAbsolute, 'function');
@@ -198,6 +224,7 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(playback.duration(), 7134);
   assert.strictEqual(timeline.disabled, false, 'indexed HLS restart-seek must enable the timeline');
   assert.strictEqual(forward60Button.disabled, false);
+  assert.strictEqual(directTime.disabled, false);
   assert.strictEqual(directButton.disabled, false);
   assert.strictEqual(timeline.max, '7133');
 
@@ -205,6 +232,7 @@ window.VdrSuiteRecordings2Playback = {
   video.currentTime = 120;
   video.dispatch('timeupdate', {target: video});
   assert.strictEqual(playback.position(), 120);
+  assert.strictEqual(directTime.disabled, false, 'timeupdate must not make the desktop direct-time field unfocusable');
 
   assert.strictEqual(await playback.seekRelative(60), true);
   assert.strictEqual(creates, 2, 'HLS seek must create a fresh transport owner');
