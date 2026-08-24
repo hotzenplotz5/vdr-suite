@@ -22,6 +22,22 @@ assert.ok(
   !connectRecordingSource.includes('if (initialConnection) activateFallback(error);'),
   'a late continuous-fMP4 failure must not silently switch an already-playing Recording to HLS'
 );
+assert.ok(
+  connectRecordingSource.includes('else failStartedPlayback(error, repositionedStream);'),
+  'post-start continuous-fMP4 failures must use classified playback failure semantics'
+);
+assert.ok(
+  source.includes("? 'Aufnahme-Wiedergabe wurde nach dem Start unterbrochen: ' + error.message"),
+  'ordinary post-start playback failures must not claim that a seek happened'
+);
+assert.ok(
+  source.includes("? 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden: ' + error.message"),
+  'a stream failure after an actually confirmed seek must retain specific reposition diagnostics'
+);
+assert.ok(
+  !source.includes('automatisch zurückgesetzt'),
+  'cleanup/reset consequences must not be presented as the Recording failure cause'
+);
 
 function node(tagName) {
   const listeners = {};
@@ -396,7 +412,66 @@ function createRuntime(options) {
   assert.strictEqual(preparingSeek.body.positionSeconds, 60);
   preparingPlayback.destroy();
 
-  console.log('phase65d2 recording playback controls, truthful seek and lazy index activation ok');
+  const startupFailure = createRuntime();
+  const startupPlayback = startupFailure.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-startup-failure'},
+    'living-room'
+  );
+  await startupPlayback.start();
+  const startupVideo = startupFailure.videos[0];
+  startupVideo.error = {message: 'decode before first frame'};
+  startupVideo.dispatch('error');
+  await flush();
+  assert.strictEqual(startupPlayback.state(), 'fallback', 'failure before first media must still activate startup fallback');
+
+  const lateFailure = createRuntime();
+  const latePlayback = lateFailure.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-late-failure'},
+    'living-room'
+  );
+  const lateId = await latePlayback.start();
+  const lateVideo = lateFailure.videos[0];
+  lateVideo.dispatch('playing');
+  lateVideo.error = {message: 'decoder stopped'};
+  lateVideo.dispatch('error');
+  await flush();
+  const lateStatus = find(latePlayback.element, item => item.className === 'recordings2-playback-status');
+  assert.ok(lateStatus.textContent.includes('Aufnahme-Wiedergabe wurde nach dem Start unterbrochen'));
+  assert.ok(lateStatus.textContent.includes('decoder stopped'), 'media/browser cause must remain visible');
+  assert.ok(!lateStatus.textContent.includes('Seek wurde'), 'ordinary late playback failure must not invent a seek');
+  assert.ok(!lateStatus.textContent.includes('Cleanup'), 'cleanup must not be presented as the playback cause');
+  assert.ok(!lateStatus.textContent.includes('zurückgesetzt'), 'reset/cleanup consequences must not be presented as the cause');
+  assert.strictEqual(latePlayback.state(), 'stopped');
+  assert.ok(
+    lateFailure.requests.some(entry => entry.body.operation === 'stop' && entry.body.sessionId === lateId),
+    'failure-stop must still clean up the active MediaSession'
+  );
+
+  const seekFailure = createRuntime();
+  const seekFailurePlayback = seekFailure.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-seek-stream-failure'},
+    'living-room'
+  );
+  const seekFailureId = await seekFailurePlayback.start();
+  const seekFailureVideo = seekFailure.videos[0];
+  seekFailureVideo.dispatch('playing');
+  await seekFailurePlayback.seekAbsolute(90);
+  seekFailureVideo.error = {message: 'repositioned stream decode failed'};
+  seekFailureVideo.dispatch('error');
+  await flush();
+  const seekFailureStatus = find(
+    seekFailurePlayback.element,
+    item => item.className === 'recordings2-playback-status'
+  );
+  assert.ok(seekFailureStatus.textContent.includes('Seek wurde serverseitig ausgeführt'));
+  assert.ok(seekFailureStatus.textContent.includes('repositioned stream decode failed'));
+  assert.strictEqual(seekFailurePlayback.state(), 'stopped');
+  assert.ok(
+    seekFailure.requests.some(entry => entry.body.operation === 'stop' && entry.body.sessionId === seekFailureId),
+    'post-seek stream failure must still clean up the active MediaSession'
+  );
+
+  console.log('phase65d2 recording playback controls, truthful seek, lazy index and failure semantics ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
