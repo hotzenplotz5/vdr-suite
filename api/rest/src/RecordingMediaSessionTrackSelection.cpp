@@ -1,14 +1,18 @@
 #include "RecordingMediaSessionController.h"
 
+#include "LocalVdrRecordingSourceResolver.h"
 #include "MediaPresentationSelector.h"
 #include "MediaSessionRepository.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "RecordingMediaTrackContract.h"
+#include "VdrRecordingDuration.h"
+#include "VdrRecordingQueryService.h"
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -112,6 +116,42 @@ ApiResponse selectedResponse(
     return response;
 }
 
+bool hlsRestartTimelineReady(
+    VdrRecordingQueryService& recordingQueryService,
+    const StoredMediaSession& stored)
+{
+    VdrRecording recording;
+    if (!recordingQueryService.findRecordingById(
+            stored.backendId,
+            stored.resourceId,
+            recording)) {
+        return false;
+    }
+
+    LocalVdrRecordingSourceResolver trustedResolver(
+        [recording](const std::string& backendId) {
+            if (recording.backendId != backendId &&
+                !(recording.backendId.empty() && backendId == "default")) {
+                return std::vector<VdrRecording>{};
+            }
+            return std::vector<VdrRecording>{recording};
+        });
+    const LocalVdrRecordingSourceResolution sourceResolution =
+        trustedResolver.resolve(stored.backendId, stored.resourceId);
+    if (!sourceResolution.resolved || sourceResolution.source.growing ||
+        !recording.recordingDurationKnown || recording.durationSeconds <= 0 ||
+        sourceResolution.source.segmentPaths.empty()) {
+        return false;
+    }
+
+    const std::vector<double> segmentDurations =
+        vdrsuite::recording::segmentDurationsSecondsFromIndex(
+            recording,
+            sourceResolution.source.segmentPaths);
+    return !segmentDurations.empty() &&
+        segmentDurations.size() == sourceResolution.source.segmentPaths.size();
+}
+
 } // namespace
 
 ApiResponse RecordingMediaSessionController::trackStatus(
@@ -149,20 +189,32 @@ ApiResponse RecordingMediaSessionController::trackStatus(
     const RecordingMediaSessionTrackState state =
         mediaSessionRuntime_->trackState(request.sessionId);
     int selectedAudioStreamIndex = -1;
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        const auto selected = selectedAudioStreamIndexes_.find(request.sessionId);
+        if (selected != selectedAudioStreamIndexes_.end()) {
+            selectedAudioStreamIndex = selected->second;
+        }
+    }
+    if (selectedAudioStreamIndex < 0 && state.available &&
+        state.profileId == stored->presentationProfileId) {
+        selectedAudioStreamIndex = state.sourceAudioStreamIndex;
+    }
+
     bool audioSelectionSupported = false;
     std::string audioSelectionReason;
 
+    bool preparing = false;
+    {
+        std::lock_guard<std::mutex> lock(pendingIndexMutex_);
+        preparing = pendingIndex_.find(request.sessionId) != pendingIndex_.end();
+    }
+
     if (stored->presentationProfileId == "progressive-fmp4") {
-        if (state.available) selectedAudioStreamIndex = state.sourceAudioStreamIndex;
         if (state.available && state.audioSelectionSupported) {
             audioSelectionSupported = true;
         }
         else {
-            bool preparing = false;
-            {
-                std::lock_guard<std::mutex> lock(pendingIndexMutex_);
-                preparing = pendingIndex_.find(request.sessionId) != pendingIndex_.end();
-            }
             audioSelectionReason = preparing
                 ? "recording_audio_track_selection_preparing"
                 : (state.available
@@ -170,10 +222,18 @@ ApiResponse RecordingMediaSessionController::trackStatus(
                     : "recording_audio_track_runtime_unavailable");
         }
     }
-    else {
-        if (state.available && state.profileId == stored->presentationProfileId) {
-            selectedAudioStreamIndex = state.sourceAudioStreamIndex;
+    else if (hlsProfile(stored->presentationProfileId)) {
+        if (preparing) {
+            audioSelectionReason = "recording_audio_track_selection_preparing";
         }
+        else if (hlsRestartTimelineReady(recordingQueryService_, *stored)) {
+            audioSelectionSupported = true;
+        }
+        else {
+            audioSelectionReason = "recording_audio_track_selection_timeline_unavailable";
+        }
+    }
+    else {
         audioSelectionReason = "recording_audio_track_selection_profile_not_supported";
     }
 
@@ -239,12 +299,12 @@ ApiResponse RecordingMediaSessionController::selectAudioTrack(
         mediaSessionRuntime_->trackState(request.sessionId);
     if (!state.available) return jsonError(503, "recording_audio_track_runtime_unavailable");
     if (!state.audioSelectionSupported) {
-        bool preparing = false;
+        bool selectionPreparing = false;
         {
             std::lock_guard<std::mutex> lock(pendingIndexMutex_);
-            preparing = pendingIndex_.find(request.sessionId) != pendingIndex_.end();
+            selectionPreparing = pendingIndex_.find(request.sessionId) != pendingIndex_.end();
         }
-        return jsonError(409, preparing
+        return jsonError(409, selectionPreparing
             ? "recording_audio_track_selection_preparing"
             : "recording_audio_track_selection_not_supported");
     }
@@ -281,6 +341,11 @@ ApiResponse RecordingMediaSessionController::selectAudioTrack(
         }
         return jsonError(503, selected.reasonCode.empty()
             ? "recording_audio_track_restart_failed" : selected.reasonCode);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        selectedAudioStreamIndexes_[request.sessionId] = selected.sourceAudioStreamIndex;
     }
 
     const std::string subtitleReason = source.subtitleStreams.empty()
