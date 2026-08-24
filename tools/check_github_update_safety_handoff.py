@@ -23,8 +23,12 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 #   pauses.
 # - Create and push coherent commits consecutively with fast-forward-only
 #   semantics.
-# - Do not wait for GitHub Actions after every commit. Evaluate CI at the final
-#   stabilization head or before a gated runtime/review/merge operation.
+# - Do not wait for GitHub Actions after every commit. Keep approved
+#   documentation and frontend work moving while unrelated CI jobs run.
+# - Use surface-scoped checks for iterative implementation and runtime
+#   acceptance. Require the complete repository CI graph only at
+#   Ready-for-review, merge, phase closeout or another explicit
+#   full-stabilization boundary.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
 # - Every executable command supplied to the user must remain inside an
@@ -48,7 +52,11 @@ REQUIRED_AGENT_RULES = [
     "Continue through all already-approved steps of a bounded workstream",
     "Push each completed",
     "Do not wait for GitHub Actions after every commit.",
-    "Evaluate CI at the end of the bounded workstream",
+    "Validation gates are surface-scoped during iterative implementation and runtime",
+    "frontend-only JavaScript/CSS/HTML changes require the focused frontend tests",
+    "documentation-only changes require documentation validation and do not",
+    "Do not block a targeted runtime installation or acceptance test on unrelated CI",
+    "The complete repository-required CI graph is a gate for Ready-for-review, merge,",
     "Keep updates fast-forward-only.",
     "Do not mark a Draft pull request Ready",
 ]
@@ -81,8 +89,11 @@ REQUIRED_GUARDRAIL_RULES = [
     "After every GitHub file update, inspect the commit diff",
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
-    "Do not wait for GitHub Actions after every commit.",
-    "Evaluate CI at the final",
+    "Do not wait for GitHub Actions after every commit. Keep approved",
+    "documentation and frontend work moving while unrelated CI jobs run.",
+    "Use surface-scoped checks for iterative implementation and runtime",
+    "acceptance. Require the complete repository CI graph only at",
+    "Ready-for-review, merge, phase closeout or another explicit",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
     "Every executable command supplied to the user must remain inside an",
     "ordinary fenced Markdown code block, preferably tagged bash.",

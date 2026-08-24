@@ -53,8 +53,6 @@ created and pushed consecutively while earlier workflow runs are still queued or
 running. Superseded intermediate runs do not need separate analysis unless they
 reveal a failure that also affects the current head.
 
-Evaluate CI at the end of the bounded workstream before Ready-for-review, merge,
-phase closeout, or another explicitly documented full-stabilization boundary.
 Validation gates are surface-scoped during iterative implementation and runtime
 acceptance. Require only the checks that can materially validate the changed
 surface and the next action:
