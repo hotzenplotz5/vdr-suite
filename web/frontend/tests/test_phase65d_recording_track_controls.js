@@ -229,8 +229,6 @@ function createRuntime(options) {
   });
   vm.runInContext(source, context, {filename: 'recording-track-controls.js'});
 
-  // Simulate the later recordings2 playback assignment. The real runtime has
-  // the same setter chain after session-frontend-sync and the fallback adapters.
   window.VdrSuiteRecordings2Playback = Object.freeze({
     createPanel() { return basePanel; }
   });
@@ -275,9 +273,10 @@ function createRuntime(options) {
   assert.strictEqual(audioRow.hidden, false, 'audio selector must be visible for multiple selectable tracks');
   assert.strictEqual(select.children.length, 2);
   assert.strictEqual(select.value, 'audio-1');
-  assert.ok(select.children[0].textContent.includes('DEU'));
+  assert.ok(select.children[0].textContent.includes('Deutsch'));
   assert.ok(select.children[0].textContent.includes('AC3'));
   assert.ok(select.children[0].textContent.includes('5.1(side)'));
+  assert.ok(select.children[1].textContent.includes('Englisch'));
   assert.ok(select.children[1].textContent.includes('Original'));
 
   const subtitle = find(
