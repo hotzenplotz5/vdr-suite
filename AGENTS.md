@@ -18,6 +18,19 @@ to end an already-approved workstream. When a check fails, diagnose and repair
 the demonstrated cause and continue; do not turn a fixable failure into a
 handoff to the user.
 
+An intermediate finding is never an end state. Never convert a diagnosis,
+hypothesis, partial validation, partial implementation, commit, CI result,
+runtime observation or progress summary into a final response while authorized
+executable work remains. Continue immediately with the next executable step.
+
+Every working response that is permitted to end must end with the heading
+`## Testblock` followed by exactly one ordinary fenced `bash` block containing
+the concrete branch-/head-specific commands the user can run to validate the
+current candidate. The test block is the final content; no prose, status, offer
+or summary may follow it. If no truthful test block can yet be produced because
+the candidate is not testable, the response is not permitted to end; continue
+working instead.
+
 There is no generic repository permission to stop an authorized workstream.
 A genuinely external dependency or genuinely new user decision may make the
 remaining requested operation temporarily impossible, but that is a blocked
