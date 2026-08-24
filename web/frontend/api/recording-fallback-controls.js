@@ -277,8 +277,10 @@
     function updateControls() {
       const video = currentVideo();
       const active = started && !stopped && !destroyed && Boolean(video);
-      [back60Button, back10Button, forward10Button, forward60Button, timeline, directTime, directButton]
-        .forEach(function (control) { control.disabled = true; });
+      if (host.__vdrSuiteFallbackRestartSeekControlsOwned !== true) {
+        [back60Button, back10Button, forward10Button, forward60Button, timeline, directTime, directButton]
+          .forEach(function (control) { control.disabled = true; });
+      }
       playPauseButton.disabled = !active;
       stopButton.disabled = !active;
       playPauseButton.textContent = video && video.paused ? 'Play' : 'Pause';

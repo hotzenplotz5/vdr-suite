@@ -71,6 +71,10 @@
     if (!back60Button || !back10Button || !forward10Button || !forward60Button ||
         !timeline || !directTime || !directButton || !positionLabel) return playback;
 
+    // Once restart-seek is active, it owns the seek-control disabled state.
+    // Briefly disabling a focused input makes desktop browsers drop its focus.
+    panel.__vdrSuiteFallbackRestartSeekControlsOwned = true;
+
     let seekInFlight = false;
     let capabilityTimer = null;
     let observedVideo = null;
