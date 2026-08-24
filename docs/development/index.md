@@ -31,6 +31,8 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
 - [Phase 65.C Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Phase 62 Security Contract Index](phase-62-security-contract-index.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
@@ -58,13 +60,15 @@ Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for ac
 
 Phase 65 - Streaming Gateway and Media Sessions is active.
 
-Accepted bounded verticals are:
+Accepted bounded verticals/slices are:
 
 - 65.A Existing-Recording playback;
 - 65.B Live-TV playback;
-- 65.C Recording delivery performance and media output/transcode settings, implemented through the completed-Recording progressive path and the subsequently continued backend output-policy/Web-settings work.
+- 65.C Recording delivery performance and media output/transcode settings, implemented through the completed-Recording progressive path and the subsequently continued backend output-policy/Web-settings work;
+- 65.D.1 Persistent Browser Playback Shell;
+- 65.D.2 Recording Playback Controls and Seek.
 
-The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory while unimplemented advanced seek remains explicitly unsupported. The next planned Phase-65 vertical is **65.D Client playback abstraction**. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
+Phase 65.D Client playback abstraction is active. The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory. Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported D.2 progressive-fMP4 and HLS restart-seek profiles. Remaining Phase-65.D work includes normalized audio/subtitle selection, discontinuity handling and classified playback failures, while growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond the accepted D.2 paths remain explicitly unsupported/deferred. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
 
 Use ADR-0046, ADR-0053, ADR-0055, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
 
