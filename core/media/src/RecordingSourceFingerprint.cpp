@@ -22,6 +22,34 @@ void appendTextField(std::ostringstream& stream, const std::string& value)
     stream << value.size() << ':' << value;
 }
 
+bool fingerprintExtent(
+    const std::string& value,
+    std::string& extent)
+{
+    static const std::string CompletedSuffix = "|growing=0";
+    static const std::string GrowingSuffix = "|growing=1";
+
+    const std::string* suffix = nullptr;
+    if (value.size() >= CompletedSuffix.size() &&
+        value.compare(
+            value.size() - CompletedSuffix.size(),
+            CompletedSuffix.size(),
+            CompletedSuffix) == 0) {
+        suffix = &CompletedSuffix;
+    }
+    else if (value.size() >= GrowingSuffix.size() &&
+             value.compare(
+                 value.size() - GrowingSuffix.size(),
+                 GrowingSuffix.size(),
+                 GrowingSuffix) == 0) {
+        suffix = &GrowingSuffix;
+    }
+
+    if (suffix == nullptr || value.size() == suffix->size()) return false;
+    extent.assign(value, 0, value.size() - suffix->size());
+    return extent.rfind("v1|directory=", 0) == 0;
+}
+
 } // namespace
 
 RecordingSourceFingerprint inspectRecordingSource(
@@ -85,4 +113,15 @@ RecordingSourceFingerprint inspectRecordingSource(
     result.value = fingerprint.str();
     result.valid = true;
     return result;
+}
+
+bool sameRecordingSourceExtentIgnoringGrowthState(
+    const std::string& left,
+    const std::string& right)
+{
+    std::string leftExtent;
+    std::string rightExtent;
+    return fingerprintExtent(left, leftExtent) &&
+        fingerprintExtent(right, rightExtent) &&
+        leftExtent == rightExtent;
 }
