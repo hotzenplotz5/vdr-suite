@@ -68,6 +68,38 @@ assert.strictEqual(
 assert.strictEqual(window.VdrSuiteLiveReplacementCleanup.__test.safeSessionId('../bad'), '');
 assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
 
+// Mirror the persistent playback shell: it installs another configurable
+// getter/setter around the already-hardened playback facade and refreshes that
+// outer facade whenever a later runtime assigns VdrSuiteRecordings2Playback.
+(function installOuterPlaybackWrapper() {
+  const descriptor = Object.getOwnPropertyDescriptor(window, 'VdrSuiteRecordings2Playback');
+  assert.ok(descriptor && typeof descriptor.get === 'function' && typeof descriptor.set === 'function');
+  const baseGet = descriptor.get;
+  const baseSet = descriptor.set;
+  let outer = null;
+
+  function refresh() {
+    const base = baseGet.call(window);
+    outer = Object.freeze({
+      createPanel: base && base.createPanel,
+      createLivePanel(channel, backendId, options) {
+        return base.createLivePanel(channel, backendId, options);
+      }
+    });
+  }
+
+  refresh();
+  Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
+    configurable: true,
+    enumerable: true,
+    get() { return outer; },
+    set(value) {
+      baseSet.call(window, value);
+      refresh();
+    }
+  });
+}());
+
 (async function () {
   requests.length = 0;
   const successful = window.VdrSuiteRecordings2Playback.createLivePanel(
@@ -122,7 +154,7 @@ assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'f
   assert.strictEqual(await ordinary.start(), '');
   assert.strictEqual(requests.length, 0, 'ordinary failed startup has no yielded session to cleanup');
 
-  console.log('live replacement cleanup contract ok');
+  console.log('live replacement cleanup and shell wrapping contract ok');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
