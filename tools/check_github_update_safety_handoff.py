@@ -17,14 +17,24 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 #   updating the file or use a smaller safe edit strategy.
 # - After every GitHub file update, inspect the commit diff before treating
 #   the change as correct.
+# - Once a bounded workstream is authorized, do not voluntarily stop while
+#   authorized work remains. Status updates and ordinary turn boundaries are
+#   not handoff points.
+# - A fixable failed check is diagnosis/fix work, not a reason to stop.
+# - Existing authorization counts; do not ask again or stop at an already
+#   approved PR-state, merge, runtime or other gate.
 # - Prefer GitHub-first execution when the connector can perform the complete
 #   bounded operation safely.
 # - Continue through already-approved steps without artificial confirmation
 #   pauses.
 # - Create and push coherent commits consecutively with fast-forward-only
 #   semantics.
-# - Do not wait for GitHub Actions after every commit. Evaluate CI at the final
-#   stabilization head or before a gated runtime/review/merge operation.
+# - Do not wait for GitHub Actions after every commit. Keep approved
+#   documentation and frontend work moving while unrelated CI jobs run.
+# - Use surface-scoped checks for iterative implementation and runtime
+#   acceptance. Require the complete repository CI graph only at
+#   Ready-for-review, merge, phase closeout or another explicit
+#   full-stabilization boundary.
 # - Do not create a temporary pull request solely to wait for GitHub Actions
 #   unless the user explicitly requests that workflow.
 # - Every executable command supplied to the user must remain inside an
@@ -44,16 +54,30 @@ REQUIRED_CURRENT_STATUS_RULES = [
 ]
 
 REQUIRED_AGENT_RULES = [
+    "## Top-level non-stop execution mandate",
+    "do not voluntarily stop,",
+    "Status updates are progress reports, not stopping points.",
+    "ordinary turn boundary is never a",
+    "When a check fails, diagnose and",
+    "counts: do not stop again",
     "## GitHub-first execution",
     "Continue through all already-approved steps of a bounded workstream",
     "Push each completed",
     "Do not wait for GitHub Actions after every commit.",
-    "Evaluate CI at the end of the bounded workstream",
+    "Validation gates are surface-scoped during iterative implementation and runtime",
+    "frontend-only JavaScript/CSS/HTML changes require the focused frontend tests",
+    "documentation-only changes require documentation validation and do not",
+    "Do not block a targeted runtime installation or acceptance test on unrelated CI",
+    "The complete repository-required CI graph is a gate for Ready-for-review, merge,",
     "Keep updates fast-forward-only.",
     "Do not mark a Draft pull request Ready",
 ]
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
+    "Root-level `AGENTS.md` is binding.",
+    "Status reports are progress updates, not stopping points.",
+    "unrelated queued/running CI does not block already-approved progress.",
+    "Continue the authorized workstream to its requested end state.",
     "## Command presentation contract",
     "Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block",
     "Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats",
@@ -79,10 +103,16 @@ REQUIRED_GUARDRAIL_RULES = [
     "small diff.",
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
+    "Once a bounded workstream is authorized, do not voluntarily stop while",
+    "A fixable failed check is diagnosis/fix work, not a reason to stop.",
+    "Existing authorization counts; do not ask again or stop at an already",
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
-    "Do not wait for GitHub Actions after every commit.",
-    "Evaluate CI at the final",
+    "Do not wait for GitHub Actions after every commit. Keep approved",
+    "documentation and frontend work moving while unrelated CI jobs run.",
+    "Use surface-scoped checks for iterative implementation and runtime",
+    "acceptance. Require the complete repository CI graph only at",
+    "Ready-for-review, merge, phase closeout or another explicit",
     "Do not create a temporary pull request solely to wait for GitHub Actions",
     "Every executable command supplied to the user must remain inside an",
     "ordinary fenced Markdown code block, preferably tagged bash.",

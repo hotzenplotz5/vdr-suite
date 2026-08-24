@@ -22,6 +22,7 @@ include mk/live-remote.mk
 include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/phase65-media-tests.mk
+include mk/phase65d2-recording-playback-controls-seek-tests.mk
 include mk/object-cache.mk
 include mk/recordings2.mk
 

@@ -43,6 +43,7 @@ DAEMON_SRC := \
         $(REST_LIVE_REMOTE_SRC) \
         core/vdr/src/EpgEventRepository.cpp \
         core/vdr/src/VdrRecordingCacheRepository.cpp \
+        core/vdr/src/VdrRecordingIndexUpdater.cpp \
         core/vdr/src/VdrRecordingArtworkService.cpp \
         core/vdr/src/EpgCacheService.cpp \
         core/vdr/src/SearchTimerResultJsonSerializer.cpp \
@@ -107,6 +108,7 @@ DAEMON_SRC := \
         core/media/src/MediaAccessGrantAuthenticator.cpp \
         core/media/src/MediaHlsArtifactReader.cpp \
         core/media/src/RecordingMediaSessionRuntime.cpp \
+        core/media/src/RecordingMediaSessionSeekTimeline.cpp \
         core/daemon/src/LiveMediaSessionRuntime.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/MediaTranscodeBackendSettingsService.cpp \

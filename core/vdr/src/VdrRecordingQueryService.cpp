@@ -1,6 +1,7 @@
 #include "VdrRecordingQueryService.h"
 
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingDuration.h"
 #include "VdrService.h"
 #include "VdrRecordingQueryMatcher.h"
 
@@ -135,7 +136,25 @@ bool VdrRecordingQueryService::findRecordingById(
     }
 
     recording = *match;
+    vdrsuite::recording::enrichFromIndex(recording);
     return true;
+}
+
+bool VdrRecordingQueryService::updateCachedRecording(
+    const VdrRecording& recording) const
+{
+    if (recordingCacheRepository_ == nullptr || recording.id.empty())
+    {
+        return false;
+    }
+
+    const std::string backendId =
+        recording.backendId.empty()
+            ? defaultBackendId_
+            : recording.backendId;
+    return recordingCacheRepository_->upsertRecordingsForBackend(
+        backendId,
+        {recording});
 }
 
 std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
@@ -158,6 +177,8 @@ std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
 
     std::vector<VdrRecording> liveRecordings =
         vdrService_.getRecordings();
+
+    vdrsuite::recording::normalizeForCatalog(liveRecordings);
 
     if (recordingCacheRepository_ != nullptr &&
         !liveRecordings.empty())

@@ -251,9 +251,7 @@
       state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
       render();
     },
-    refreshDetailAddon: function () {
-      if (state.active && state.selectedRecording) render();
-    },
+    refreshDetailAddon: function () { if (!state.active || !state.selectedRecording) return; const metadataDetail = global.VdrSuiteRecordings2MetadataDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (metadataDetail && typeof metadataDetail.enhance === 'function' && root && root.dataset && root.dataset.recordings2MetadataDetail !== 'true') { metadataDetail.enhance(root, state.selectedRecording, state.backendId); return; } render(); },
     __test: Object.freeze({
       normalizePath: shared.normalizePath,
       decodeDisplayText: shared.decodeDisplayText,

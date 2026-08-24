@@ -57,6 +57,7 @@ static void test_parse_recordings_maps_real_restfulapi_shape()
     assert(recordings[0].backendNativeId == "/srv/vdr/video/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec");
     assert(recordings[0].startTime == "1288488540");
     assert(recordings[0].durationSeconds == 5835);
+    assert(recordings[0].recordingDurationKnown);
     assert(recordings[0].sizeMb == 5555);
 
     assert(recordings[1].id == "840");
@@ -65,7 +66,29 @@ static void test_parse_recordings_maps_real_restfulapi_shape()
     assert(recordings[1].backendNativeId == "/srv/vdr/video/Serien/The_Walking_Dead/S08E08_Kampf_um_die_Zukunft/2017-12-11.21.01.4-0.rec");
     assert(recordings[1].startTime == "1513022400");
     assert(recordings[1].durationSeconds == 3551);
+    assert(recordings[1].recordingDurationKnown);
     assert(recordings[1].sizeMb == 4191);
+}
+
+static void test_parse_recordings_marks_event_duration_as_non_authoritative()
+{
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":9,"
+        "\"name\":\"Event duration fallback\","
+        "\"file_name\":\"/srv/vdr/video/Fallback/2026-06-01.20.00.1-0.rec\","
+        "\"duration\":-1,"
+        "\"event_duration\":3600,"
+        "\"filesize_mb\":42,"
+        "\"event_start_time\":1780000000}"
+        "]}";
+
+    const std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+
+    assert(recordings.size() == 1);
+    assert(recordings[0].durationSeconds == 3600);
+    assert(!recordings[0].recordingDurationKnown);
 }
 
 static void test_parse_recordings_falls_back_to_absolute_file_name()
@@ -170,6 +193,7 @@ static void test_parse_recordings_derives_start_time_from_rec_directory()
     assert(recordings[0].id == "226");
     assert(recordings[0].path == "/Action/48 Hrs/2026-06-21.10.08.1-0.rec");
     assert(recordings[0].durationSeconds == -1);
+    assert(!recordings[0].recordingDurationKnown);
     assert(recordings[0].startTime != "");
     assert(recordings[0].startTime != "-1");
     assert(std::stoll(recordings[0].startTime) > 1000000000);
@@ -253,6 +277,7 @@ int main()
 {
     test_parse_recordings_empty_array();
     test_parse_recordings_maps_real_restfulapi_shape();
+    test_parse_recordings_marks_event_duration_as_non_authoritative();
     test_parse_recordings_falls_back_to_absolute_file_name();
     test_parse_recordings_ignores_objects_without_number();
     test_parse_recordings_imports_additional_media_actors();

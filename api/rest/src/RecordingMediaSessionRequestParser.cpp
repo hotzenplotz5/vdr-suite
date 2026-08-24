@@ -10,6 +10,7 @@ namespace
 {
 
 constexpr int MaximumTypedAudioChannels = 32;
+constexpr int MaximumTypedMediaDimension = 16384;
 
 void skipWhitespace(const std::string& value, std::size_t& position)
 {
@@ -186,8 +187,11 @@ bool readBoolField(
 bool readNonNegativeIntField(
     const std::string& object,
     const std::string& key,
-    int& result)
+    int& result,
+    int maximum = MaximumTypedMediaDimension)
 {
+    if (maximum < 0) return false;
+
     std::size_t position = 0;
     if (!locateValue(object, key, position)) return false;
     if (position >= object.size() ||
@@ -195,12 +199,14 @@ bool readNonNegativeIntField(
         return false;
     }
 
-    long value = 0;
+    long long value = 0;
     std::size_t cursor = position;
     while (cursor < object.size() &&
         std::isdigit(static_cast<unsigned char>(object[cursor]))) {
         const int digit = object[cursor] - '0';
-        if (value > (16384 - digit) / 10) return false;
+        if (value > (static_cast<long long>(maximum) - digit) / 10) {
+            return false;
+        }
         value = value * 10 + digit;
         ++cursor;
     }
@@ -311,6 +317,13 @@ RecordingMediaSessionStopRequest invalidStop(const std::string& reasonCode)
     return result;
 }
 
+RecordingMediaSessionSeekRequest invalidSeek(const std::string& reasonCode)
+{
+    RecordingMediaSessionSeekRequest result;
+    result.reasonCode = reasonCode;
+    return result;
+}
+
 } // namespace
 
 RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
@@ -376,7 +389,13 @@ RecordingMediaSessionStopRequest RecordingMediaSessionRequestParser::parseStop(
     }
 
     std::string operation;
-    if (!readStringAt(body, operationPosition, operation) || operation != "stop") {
+    if (!readStringAt(body, operationPosition, operation)) {
+        return invalidStop("invalid_media_session_operation");
+    }
+    if (operation != "stop") {
+        if (operation == "seek") {
+            return invalidStop("media_session_stop_not_requested");
+        }
         return invalidStop("invalid_media_session_operation");
     }
 
@@ -388,6 +407,46 @@ RecordingMediaSessionStopRequest RecordingMediaSessionRequestParser::parseStop(
     if (!readStringField(body, "sessionId", request.sessionId) ||
         !safeSessionId(request.sessionId)) {
         return invalidStop("invalid_media_session_id");
+    }
+
+    request.valid = true;
+    return request;
+}
+
+RecordingMediaSessionSeekRequest RecordingMediaSessionRequestParser::parseSeek(
+    const std::string& body) const
+{
+    std::size_t operationPosition = 0;
+    if (!locateValue(body, "operation", operationPosition)) {
+        return invalidSeek("media_session_seek_not_requested");
+    }
+
+    std::string operation;
+    if (!readStringAt(body, operationPosition, operation)) {
+        return invalidSeek("invalid_media_session_operation");
+    }
+    if (operation != "seek") {
+        if (operation == "stop") {
+            return invalidSeek("media_session_seek_not_requested");
+        }
+        return invalidSeek("invalid_media_session_operation");
+    }
+
+    RecordingMediaSessionSeekRequest request;
+    if (!readStringField(body, "backendId", request.backendId) ||
+        !safeBackendId(request.backendId)) {
+        return invalidSeek("invalid_backend_id");
+    }
+    if (!readStringField(body, "sessionId", request.sessionId) ||
+        !safeSessionId(request.sessionId)) {
+        return invalidSeek("invalid_media_session_id");
+    }
+    if (!readNonNegativeIntField(
+            body,
+            "positionSeconds",
+            request.positionSeconds,
+            std::numeric_limits<int>::max())) {
+        return invalidSeek("invalid_recording_seek_position");
     }
 
     request.valid = true;

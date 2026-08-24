@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -21,6 +22,21 @@ struct RecordingMediaSessionProvisionResult
 {
     bool ready = false;
     std::string reasonCode;
+};
+
+struct RecordingMediaSessionSeekResult
+{
+    bool repositioned = false;
+    std::string reasonCode;
+    int positionSeconds = 0;
+    int durationSeconds = 0;
+};
+
+struct RecordingMediaSessionSeekCapabilityResult
+{
+    bool enabled = false;
+    std::string reasonCode;
+    int durationSeconds = 0;
 };
 
 class RecordingMediaSessionRuntime
@@ -69,18 +85,39 @@ public:
         const MediaPresentationProfile& profile,
         const std::vector<std::string>& sourceSegments);
 
+    RecordingMediaSessionProvisionResult provisionHlsAt(
+        const std::string& sessionId,
+        const std::string& workspaceId,
+        const std::string& grantId,
+        const MediaPresentationProfile& profile,
+        const std::vector<std::string>& sourceSegments,
+        int startPositionSeconds,
+        const std::vector<double>& segmentDurationsSeconds);
+
     RecordingMediaSessionProvisionResult provisionStream(
         const std::string& sessionId,
         const std::string& workspaceId,
         const std::string& grantId,
         const MediaPresentationProfile& profile,
-        const std::vector<std::string>& sourceSegments);
+        const std::vector<std::string>& sourceSegments,
+        int durationSeconds = 0,
+        const std::vector<double>& segmentDurationsSeconds = {});
 
     RecordingMediaSessionProvisionResult provisionDirect(
         const std::string& sessionId,
         const std::string& grantId,
         const MediaPresentationProfile& profile,
         const RecordingDirectSourceRegistration& registration);
+
+    RecordingMediaSessionSeekCapabilityResult enableIndexedSeek(
+        const std::string& sessionId,
+        int durationSeconds,
+        const std::vector<std::string>& sourceSegments,
+        const std::vector<double>& segmentDurationsSeconds);
+
+    RecordingMediaSessionSeekResult seekStream(
+        const std::string& sessionId,
+        int positionSeconds);
 
     bool stop(
         const std::string& sessionId,
@@ -97,6 +134,11 @@ private:
         std::string grantId;
         std::unique_ptr<MediaSessionWorkspace> workspace;
         bool direct = false;
+        bool continuousStream = false;
+        bool indexedSeekTimeline = false;
+        int durationSeconds = 0;
+        std::uint64_t streamGeneration = 0;
+        MediaPresentationProfile streamProfile;
     };
 
     static bool defaultReady(

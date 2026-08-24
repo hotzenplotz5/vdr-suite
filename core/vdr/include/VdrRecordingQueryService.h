@@ -26,6 +26,9 @@ public:
         const std::string& recordingId,
         VdrRecording& recording) const;
 
+    bool updateCachedRecording(
+        const VdrRecording& recording) const;
+
 private:
     VdrService& vdrService_;
     VdrRecordingCacheRepository* recordingCacheRepository_;

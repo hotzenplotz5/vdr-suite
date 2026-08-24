@@ -14,7 +14,8 @@ static VdrRecording makeRecording(
     const std::string& path,
     const std::string& startTime,
     int durationSeconds,
-    long long sizeMb)
+    long long sizeMb,
+    bool recordingDurationKnown = false)
 {
     VdrRecording recording;
 
@@ -24,6 +25,7 @@ static VdrRecording makeRecording(
     recording.path = path;
     recording.startTime = startTime;
     recording.durationSeconds = durationSeconds;
+    recording.recordingDurationKnown = recordingDurationKnown;
     recording.sizeMb = sizeMb;
 
     return recording;
@@ -40,6 +42,55 @@ static void test_recording_cache_repository_schema()
 
     assert(repository.ensureSchema());
     assert(database.tableExists("vdr_recording_cache"));
+}
+
+static void test_recording_cache_repository_migrates_duration_authority()
+{
+    const char* path =
+        "/tmp/test_vdr_recording_cache_repository_duration_migration.db";
+    std::remove(path);
+
+    Database database;
+    assert(database.open(path));
+    assert(database.execute(
+        "CREATE TABLE vdr_recording_cache ("
+        "backend_id TEXT NOT NULL,"
+        "cache_key TEXT NOT NULL,"
+        "recording_id TEXT NOT NULL DEFAULT '',"
+        "backend_native_id TEXT NOT NULL DEFAULT '',"
+        "title TEXT NOT NULL DEFAULT '',"
+        "path TEXT NOT NULL DEFAULT '',"
+        "start_time TEXT NOT NULL DEFAULT '',"
+        "duration_seconds INTEGER NOT NULL DEFAULT 0,"
+        "size_mb INTEGER NOT NULL DEFAULT 0,"
+        "metadata_payload TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TEXT DEFAULT CURRENT_TIMESTAMP,"
+        "last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,"
+        "PRIMARY KEY (backend_id, cache_key)"
+        ");"));
+
+    VdrRecordingCacheRepository repository(database);
+    assert(repository.ensureSchema());
+
+    const VdrRecording recording = makeRecording(
+        "duration-known",
+        "/srv/vdr/video/Movies/Known/2026-08-23.20.15.1-0.rec",
+        "Known duration",
+        "/Movies/Known/2026-08-23.20.15.1-0.rec",
+        "1787516100",
+        77,
+        512,
+        true);
+
+    assert(repository.upsertRecordingsForBackend(
+        "home-vdr",
+        {recording}));
+    const std::vector<VdrRecording> cached =
+        repository.findAllForBackend("home-vdr");
+    assert(cached.size() == 1);
+    assert(cached.front().durationSeconds == 77);
+    assert(cached.front().recordingDurationKnown);
 }
 
 static void test_recording_cache_repository_upserts_and_reads_recordings()
@@ -67,7 +118,8 @@ static void test_recording_cache_repository_upserts_and_reads_recordings()
             "/Movies/Alpha/2026-07-01.18.00.1-0.rec",
             "1782928800",
             7200,
-            8192)
+            8192,
+            true)
     };
 
     assert(repository.upsertRecordingsForBackend("home-vdr", recordings));
@@ -85,9 +137,11 @@ static void test_recording_cache_repository_upserts_and_reads_recordings()
     assert(cached.at(0).path == "/Movies/Alpha/2026-07-01.18.00.1-0.rec");
     assert(cached.at(0).startTime == "1782928800");
     assert(cached.at(0).durationSeconds == 7200);
+    assert(cached.at(0).recordingDurationKnown);
     assert(cached.at(0).sizeMb == 8192);
 
     assert(cached.at(1).title == "Zeta");
+    assert(!cached.at(1).recordingDurationKnown);
 }
 
 static void test_recording_cache_repository_replace_removes_stale_recordings()
@@ -132,7 +186,8 @@ static void test_recording_cache_repository_replace_removes_stale_recordings()
                 "/Series/Zeta/2026-07-01.20.15.1-0.rec",
                 "1782936900",
                 3660,
-                4100)
+                4100,
+                true)
         }));
 
     const std::vector<VdrRecording> cached =
@@ -143,6 +198,7 @@ static void test_recording_cache_repository_replace_removes_stale_recordings()
     assert(cached.at(0).id == "2");
     assert(cached.at(0).title == "Zeta Updated");
     assert(cached.at(0).durationSeconds == 3660);
+    assert(cached.at(0).recordingDurationKnown);
     assert(cached.at(0).sizeMb == 4100);
 }
 
@@ -181,6 +237,7 @@ static void test_recording_cache_repository_normalizes_empty_backend()
 int main()
 {
     test_recording_cache_repository_schema();
+    test_recording_cache_repository_migrates_duration_authority();
     test_recording_cache_repository_upserts_and_reads_recordings();
     test_recording_cache_repository_replace_removes_stale_recordings();
     test_recording_cache_repository_normalizes_empty_backend();

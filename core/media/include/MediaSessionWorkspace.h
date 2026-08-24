@@ -20,7 +20,12 @@ public:
 
     MediaSessionWorkspaceResult prepare(
         const std::string& workspaceId,
-        const std::vector<std::string>& sourceSegments);
+        const std::vector<std::string>& sourceSegments,
+        const std::vector<double>& segmentDurationsSeconds = {});
+
+    MediaSessionWorkspaceResult activateSeekTimeline(
+        const std::vector<std::string>& sourceSegments,
+        const std::vector<double>& segmentDurationsSeconds);
 
     MediaSessionWorkspaceResult prepareLive(
         const std::string& workspaceId);

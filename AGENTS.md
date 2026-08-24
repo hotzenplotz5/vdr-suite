@@ -3,6 +3,27 @@
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Top-level non-stop execution mandate
+
+Once the user has authorized a bounded workstream, do not voluntarily stop,
+hand off, or end the working response while authorized work remains. Continue
+using the available tools and repository operations until the requested end
+state is reached.
+
+Status updates are progress reports, not stopping points. A completed analysis,
+intermediate commit, pushed head, running or queued unrelated CI job, available
+next implementation step, chat length, or ordinary turn boundary is never a
+reason to stop an already-approved workstream. When a check fails, diagnose and
+repair the demonstrated cause and continue; do not turn a fixable failure into a
+handoff to the user.
+
+A hard stop is allowed only when the next required operation genuinely cannot be
+performed safely or technically without new user input. Existing authorization
+counts: do not stop again for a PR-state change, merge, runtime action or other
+gate that the user already explicitly approved. If an unexpected remote change
+or another safety condition can be resolved by re-reading authoritative state,
+resolve it and continue instead of stopping.
+
 ## GitHub-first execution
 
 Use GitHub-first execution whenever the connected GitHub tools can perform the
@@ -33,15 +54,22 @@ approved implementation and stabilization work until the requested acceptance
 scope is actually runnable, unless a real decision or safety boundary below
 requires user input first.
 
-Stop only when a real decision or safety boundary is reached, including:
+Stop only when a real decision or safety boundary remains unresolved after using
+all safe available repository/tool evidence, including:
 
-- the remote branch moved unexpectedly;
-- unrelated or ambiguous changes would be included;
-- required source content is incomplete;
-- a security, data-loss, runtime or compatibility decision needs user input;
-- a required stabilization check failed;
-- the next action would change PR state, merge, rewrite history, force-push or
-  cross an explicitly gated runtime boundary.
+- the remote branch moved unexpectedly and authoritative re-reading cannot
+  establish a safe fast-forward continuation;
+- unrelated or ambiguous changes would be included and cannot be separated
+  safely within the authorized scope;
+- required source content is incomplete and cannot be retrieved with the
+  available tools;
+- a security, data-loss, runtime or compatibility decision genuinely requires
+  new user input;
+- a required stabilization check failed and its demonstrated cause cannot be
+  repaired safely within the authorized scope; or
+- the next action requires authorization for a PR-state change, merge, history
+  rewrite, force-push or explicitly gated runtime boundary and that exact
+  authorization has not already been granted.
 
 ## Commit, push and CI batching
 
@@ -53,14 +81,32 @@ created and pushed consecutively while earlier workflow runs are still queued or
 running. Superseded intermediate runs do not need separate analysis unless they
 reveal a failure that also affects the current head.
 
-Evaluate CI at the end of the bounded workstream or before a gated runtime,
-review, readiness or merge step. The current head must pass every required job
-before real-runtime installation, runtime acceptance, Ready-for-review, merge or
-other phase-completion gates.
+Validation gates are surface-scoped during iterative implementation and runtime
+acceptance. Require only the checks that can materially validate the changed
+surface and the next action:
 
-A failed required check on the final stabilization head must be diagnosed and
-fixed before crossing that gate. Do not hide failures by adding unrelated
-commits or by bypassing required checks.
+- frontend-only JavaScript/CSS/HTML changes require the focused frontend tests
+  and `frontend-regression-test` before installing that frontend candidate;
+- frontend install or packaging wiring changes additionally require the relevant
+  packaging/install staging check;
+- backend, daemon, C++ or runtime-contract changes require the corresponding
+  build, fast-regression, architecture and other directly affected checks;
+- documentation-only changes require documentation validation and do not
+  invalidate already accepted product/runtime evidence.
+
+Do not block a targeted runtime installation or acceptance test on unrelated CI
+jobs merely because they belong to the same workflow. Such jobs may still be
+queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
+to establish that the failure is unrelated to the candidate being installed,
+then continue with the already-approved targeted acceptance path.
+
+The complete repository-required CI graph is a gate for Ready-for-review, merge,
+phase closeout, or another explicitly documented full-stabilization boundary. It
+is not a mandatory gate for every iterative real-runtime test.
+
+A failed check that is required for the current changed surface or current gate
+must be diagnosed and fixed before crossing that gate. Do not hide failures by
+adding unrelated commits or by bypassing genuinely relevant checks.
 
 ## Minimal necessary validation
 

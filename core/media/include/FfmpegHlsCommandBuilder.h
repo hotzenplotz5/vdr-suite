@@ -16,7 +16,8 @@ class FfmpegHlsCommandBuilder
 {
 public:
     FfmpegHlsCommandPlan build(
-        const MediaPresentationProfile& profile) const;
+        const MediaPresentationProfile& profile,
+        int startPositionSeconds = 0) const;
 
     FfmpegHlsCommandPlan buildLive(
         const MediaPresentationProfile& profile,

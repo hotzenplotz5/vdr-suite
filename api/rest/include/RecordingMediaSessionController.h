@@ -8,11 +8,13 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class MediaSessionIssuanceService;
 class MediaSessionRepository;
 class RecordingDirectSourceRegistry;
 class RecordingMediaSessionRuntime;
+class VdrRecordingIndexUpdater;
 class VdrRecordingQueryService;
 
 class RecordingMediaSessionController
@@ -50,7 +52,23 @@ private:
         MediaSourceDescriptor source;
     };
 
+    struct PendingIndexContext
+    {
+        std::string backendId;
+        std::string recordingId;
+        std::string recordingDirectory;
+        std::vector<std::string> sourceSegments;
+    };
+
     ApiResponse stopSession(
+        const std::string& body,
+        const std::string& actorId) const;
+
+    ApiResponse seekSession(
+        const std::string& body,
+        const std::string& actorId) const;
+
+    ApiResponse playbackStatus(
         const std::string& body,
         const std::string& actorId) const;
 
@@ -60,7 +78,10 @@ private:
     std::unique_ptr<RecordingDirectSourceRegistry> ownedDirectSourceRegistry_;
     RecordingDirectSourceRegistry* directSourceRegistry_ = nullptr;
     std::unique_ptr<RecordingMediaSessionRuntime> mediaSessionRuntime_;
+    std::unique_ptr<VdrRecordingIndexUpdater> indexUpdater_;
     mutable std::mutex descriptorCacheMutex_;
     mutable std::map<std::string, CachedSourceDescriptor> descriptorCache_;
+    mutable std::mutex pendingIndexMutex_;
+    mutable std::map<std::string, PendingIndexContext> pendingIndex_;
     std::string workspaceRoot_;
 };

@@ -69,7 +69,11 @@ const window = {
       readyBefore: ready()
     });
 
-    if (path === '/frontend/api/session-frontend-sync.js') {
+    if (path === '/frontend/recording-playback-restart-choice.js') {
+      window.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze({
+        install() {}
+      });
+    } else if (path === '/frontend/api/session-frontend-sync.js') {
       window.VdrSuiteRecordingFastPlayback = Object.freeze({});
       window.VdrSuiteLivePlayback = Object.freeze({createLivePanel() {}});
     } else if (path === '/frontend/recordings2-playback.js') {
@@ -162,6 +166,11 @@ async function run() {
 
   assert.deepStrictEqual(deferredRuntimeLoads, [
     {
+      key: 'vdr-suite-recording-playback-restart-choice-runtime',
+      path: '/frontend/recording-playback-restart-choice.js',
+      readyBefore: false
+    },
+    {
       key: 'vdr-suite-session-frontend-sync-runtime',
       path: '/frontend/api/session-frontend-sync.js',
       readyBefore: false
@@ -173,6 +182,7 @@ async function run() {
     }
   ]);
   assert.strictEqual(typeof test.ensurePlaybackRuntime, 'function');
+  assert.strictEqual(typeof window.VdrSuiteRecordingPlaybackRestartChoice.install, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');
 

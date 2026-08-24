@@ -10,6 +10,8 @@
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
 - [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Strict Roadmap](../planning/roadmap.md)
 
@@ -153,25 +155,29 @@ Client
   -> private media provider / VDR source
 ```
 
-Phase 65 is active and has real accepted runtime implementation. Completed bounded verticals are:
+Phase 65 is active and has real accepted runtime implementation. Completed bounded verticals/slices are:
 
 - **65.A Existing-Recording playback** — authenticated MediaSession/Gateway playback, least-transformation adaptation, real picture/sound and deterministic lifecycle cleanup;
 - **65.B Live-TV playback** — bounded SuiteBridge live provider/replay, one continuous FFmpeg consumer, real picture/sound, repeated zap and stability acceptance;
-- **65.C Recording delivery performance and media output/transcode settings** — completed-Recording `progressive-direct`/`progressive-fmp4` startup optimization followed by backend-scoped `auto`/`software`/`vaapi` output policy/settings, calibrated selection, hard VAAPI capability checks, session-stable policy, fail-closed forced-VAAPI behavior and stream-backpressure hardening.
+- **65.C Recording delivery performance and media output/transcode settings** — completed-Recording `progressive-direct`/`progressive-fmp4` startup optimization followed by backend-scoped `auto`/`software`/`vaapi` output policy/settings, calibrated selection, hard VAAPI capability checks, session-stable policy, fail-closed forced-VAAPI behavior and stream-backpressure hardening;
+- **65.D.1 Persistent Browser Playback Shell** — one persistent browser playback owner and the same HTML media element across internal first-party presentation changes, including native browser/Android Picture-in-Picture without a second MediaSession;
+- **65.D.2 Recording Playback Controls and Seek** — Play/Pause/Stop, truthful completed-Recording position/duration, relative/timeline/direct absolute seek, progressive-fMP4 MediaSession worker repositioning, HLS restart-seek through fresh authorized sessions, stop/resume semantics and Android direct-time entry.
 
-Current accepted delivery rules remain:
+Current accepted delivery/client rules remain:
 
 - pass-through first, then remux/repackage only where required, then transcode only where materially required;
 - provider-native URLs, paths, credentials and socket details remain private;
 - MediaSession, route, grant and provider lease remain Suite-owned authorization/lifecycle boundaries;
 - active sessions do not silently retarget provider or encoder policy;
-- Range/seek/growing capability is truthful; unsupported advanced seek is reported as unsupported rather than fabricated;
+- Range/seek/growing capability is truthful; completed-Recording seek is exposed only through the accepted D.2 profile contracts and unsupported growing/timeshift capability remains explicit;
+- continuous progressive fMP4 does not invent HTTP byte-range semantics merely because the owned MediaSession can reposition playback by time;
 - completed-only immutable fast paths fail closed when a Recording is growing or its source fingerprint changes;
-- Web output settings are backend-scoped policy controls for new sessions, not arbitrary FFmpeg/device configuration.
+- Web output settings are backend-scoped policy controls for new sessions, not arbitrary FFmpeg/device configuration;
+- the client semantic layer remains above mature platform playback engines rather than becoming a Suite-owned universal decoder/rendering core.
 
-The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains, while arbitrary VOD time-seek/VDR-index mapping and user-visible growing-Recording seek remain deferred until a demonstrated product gap justifies a coherent implementation.
+The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains. Phase 65.D.2 now provides accepted arbitrary completed-Recording time-seek and stop/resume for the supported progressive-fMP4 and HLS restart-seek profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred until a demonstrated product gap justifies a coherent implementation.
 
-The next planned Phase-65 vertical is **65.D Client playback abstraction**, keeping platform-native/mature playback engines behind a small Suite semantic adapter. Streamdev remains a private possible provider rather than the public API/security boundary.
+Phase 65.D Client playback abstraction is active. Remaining semantic work includes normalized audio/subtitle selection, discontinuity handling and classified playback failure behavior. Streamdev remains a private possible provider rather than the public API/security boundary.
 
 ## Public API and client boundary
 
@@ -201,6 +207,8 @@ Exact historical acceptance heads/hashes belong in the closeout that accepted th
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
 - [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
