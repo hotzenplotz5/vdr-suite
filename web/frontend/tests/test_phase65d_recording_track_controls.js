@@ -309,6 +309,8 @@ function createRuntime(options) {
   assert.strictEqual(runtime.seekCalls[0], 125, 'audio reconnect must preserve absolute Recording position');
   assert.strictEqual(playback.sessionId(), id, 'audio selection must preserve MediaSession identity');
   assert.strictEqual(select.value, 'audio-2');
+  assert.strictEqual(runtime.metrics.pauseCalls(), 1, 'playing audio switch must pause the old transport before server restart');
+  assert.strictEqual(runtime.metrics.playCalls(), 1, 'playing audio switch must resume only after reconnect');
   assert.strictEqual(runtime.metrics.state(), 'playing', 'playing state must remain playing');
 
   const paused = createRuntime({initialState: 'paused'});
@@ -353,6 +355,9 @@ function createRuntime(options) {
   assert.ok(rejectedNote.textContent.includes('Tonspurwechsel fehlgeschlagen'));
   assert.ok(rejectedNote.textContent.includes('server rejected track'));
   assert.strictEqual(rejected.metrics.stopCalls(), 0, 'server rejection keeps the current playback owner alive');
+  assert.strictEqual(rejected.metrics.pauseCalls(), 1, 'playing selection must be stabilized before request');
+  assert.strictEqual(rejected.metrics.playCalls(), 1, 'rejected selection must resume the old playback');
+  assert.strictEqual(rejected.metrics.state(), 'playing');
 
   const reconnectFailure = createRuntime({reconnectFails: true});
   await reconnectFailure.playback.start();
