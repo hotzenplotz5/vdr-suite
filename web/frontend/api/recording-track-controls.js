@@ -1,11 +1,10 @@
 // Phase 65.D Recording audio-track controls.
 //
 // This adapter deliberately wraps the existing persistent Recording playback
-// owner instead of creating another player or MediaSession. Track inventory and
-// selection stay scoped to the owned MediaSession. A successful server-side
-// audio restart is followed by the existing D.2 seek/reconnect operation at the
-// same absolute position. This deliberately reuses the established playback
-// owner for transport replacement and keeps the selected profile/session intact.
+// owner instead of creating another player architecture. Progressive-fMP4 keeps
+// the same MediaSession and uses the established D.2 seek/reconnect operation.
+// HLS uses the established D.2 stop/resume replacement owner at the same
+// absolute Recording position. Track IDs remain normalized Suite session IDs.
 (function (global) {
   'use strict';
 
@@ -109,10 +108,20 @@
     }
   }
 
+  function languageLabel(language) {
+    const value = text(language).trim();
+    const normalized = value.toLowerCase();
+    if (normalized === 'deu' || normalized === 'ger' || normalized === 'de') return 'Deutsch';
+    if (normalized === 'eng' || normalized === 'en') return 'Englisch';
+    if (normalized === 'und' || normalized === 'unknown') return '';
+    return value ? value.toUpperCase() : '';
+  }
+
   function audioTrackLabel(track, index) {
     const source = track && typeof track === 'object' ? track : {};
     const parts = [];
     const language = text(source.language).trim();
+    const displayLanguage = languageLabel(language);
     const label = text(source.label).trim();
     const codec = text(source.codec).trim();
     const layout = text(source.layout).trim();
@@ -121,8 +130,9 @@
       ? source.roles.map(roleLabel).filter(Boolean)
       : [];
 
-    if (language) parts.push(language.toUpperCase());
-    if (label && label.toLowerCase() !== language.toLowerCase()) parts.push(label);
+    if (displayLanguage) parts.push(displayLanguage);
+    if (label && label.toLowerCase() !== language.toLowerCase() &&
+        label.toLowerCase() !== displayLanguage.toLowerCase()) parts.push(label);
     if (codec && codec !== 'unknown' && codec !== 'none') parts.push(codec.toUpperCase());
     if (layout) parts.push(layout);
     else if (Number.isFinite(channels) && channels > 0) parts.push(String(channels) + ' Kanäle');
@@ -143,6 +153,10 @@
     if (node.options && typeof node.options.length === 'number') {
       node.options.length = 0;
     }
+  }
+
+  function hlsProfile(profileId) {
+    return profileId === 'hls-fmp4' || profileId === 'hls-ts';
   }
 
   function decoratePanel(panel, recording, backendId) {
@@ -188,6 +202,7 @@
     let pollTimer = null;
     let pollFailures = 0;
     let activeSessionId = '';
+    let activeProfileId = '';
 
     function clearPoll() {
       if (pollTimer !== null && typeof global.clearTimeout === 'function') {
@@ -213,6 +228,7 @@
     }
 
     function renderTracks(mediaSession) {
+      activeProfileId = text(mediaSession && mediaSession.presentationProfileId).trim();
       const tracks = mediaSession && mediaSession.tracks;
       const audio = tracks && tracks.audio;
       const available = audio && Array.isArray(audio.availableTracks)
@@ -233,8 +249,10 @@
 
       selectedTrackId = nextSelected;
       if (selectedTrackId) audioSelect.value = selectedTrackId;
+      const transportCanSelect = activeProfileId === 'progressive-fmp4' ||
+        (hlsProfile(activeProfileId) && typeof panel.selectAudioTrack === 'function');
       const audioSelectable = Boolean(
-        audio && audio.selectionSupported === true &&
+        transportCanSelect && audio && audio.selectionSupported === true &&
         available.filter(function (track) { return Boolean(safeAudioTrackId(track && track.id)); }).length > 1
       );
       audioRow.hidden = !audioSelectable;
@@ -274,7 +292,7 @@
         }
         pollFailures = 0;
         renderTracks(mediaSession);
-        return true;
+        return mediaSession;
       }).catch(function (error) {
         if (disposed) return false;
         pollFailures += 1;
@@ -290,32 +308,75 @@
       });
     }
 
-    function performSelection() {
-      if (disposed || selectionInFlight) return Promise.resolve(false);
-      const targetTrackId = safeAudioTrackId(audioSelect.value);
-      const previousTrackId = selectedTrackId;
-      if (!targetTrackId || targetTrackId === previousTrackId) return Promise.resolve(false);
+    function performHlsSelection(targetTrackId, previousTrackId, id, playbackState) {
+      let replacementStarted = false;
+      return Promise.resolve(panel.selectAudioTrack(targetTrackId)).then(function (newSessionId) {
+        const replacementId = safeSessionId(newSessionId) || safeSessionId(panel.sessionId());
+        if (!replacementId || replacementId === id) {
+          throw new Error('HLS-Tonspurwechsel hat keine neue MediaSession erzeugt.');
+        }
+        replacementStarted = true;
+        activeSessionId = replacementId;
+        return trackStatus(backendId, replacementId);
+      }).then(function (session) {
+        if (disposed) return false;
+        const mediaSession = session && session.mediaSession;
+        if (!mediaSession || mediaSession.state !== 'ready' ||
+            safeSessionId(mediaSession.id) !== activeSessionId ||
+            !hlsProfile(text(mediaSession.presentationProfileId))) {
+          throw new Error('HLS-Replacement-Trackstatus ist ungültig.');
+        }
+        renderTracks(mediaSession);
+        if (selectedTrackId !== targetTrackId) {
+          throw new Error('Server hat für den HLS-Replacement-Stream eine andere Tonspur bestätigt.');
+        }
+        const stateAfterReplacement = text(panel.state());
+        if (stateAfterReplacement !== playbackState) {
+          throw new Error('Play/Pause-Zustand wurde beim HLS-Tonspurwechsel nicht erhalten.');
+        }
+        return true;
+      }).catch(function (error) {
+        if (replacementStarted) {
+          audioRow.hidden = true;
+          audioSelect.disabled = true;
+          if (typeof panel.stop === 'function') {
+            try {
+              const stopped = panel.stop();
+              if (stopped && typeof stopped.catch === 'function') stopped.catch(function () {});
+            } catch (stopError) {}
+          }
+          setNote(
+            'Tonspur-Replacement konnte nicht verifiziert werden. Wiedergabe wurde gestoppt.',
+            true
+          );
+        }
+        else {
+          selectedTrackId = previousTrackId;
+          audioSelect.value = previousTrackId;
+          setNote(
+            error && error.message
+              ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
+              : 'Tonspurwechsel fehlgeschlagen.',
+            true
+          );
+        }
+        host.hidden = false;
+        throw error;
+      });
+    }
 
-      const id = safeSessionId(panel.sessionId()) || activeSessionId;
-      const playbackState = text(panel.state());
-      const position = Math.max(0, Math.floor(Number(panel.position()) || 0));
-      if (!id || (playbackState !== 'playing' && playbackState !== 'paused')) {
-        audioSelect.value = previousTrackId;
-        return Promise.reject(new Error('Tonspur kann nur während aktiver Recording-Wiedergabe gewechselt werden.'));
-      }
-
-      activeSessionId = id;
-      selectionInFlight = true;
-      audioSelect.disabled = true;
-      setNote('Tonspur wird gewechselt …', false);
-      host.hidden = false;
+    function performProgressiveSelection(
+      targetTrackId,
+      previousTrackId,
+      id,
+      playbackState,
+      position
+    ) {
       let serverSelected = false;
       let pausedForSelection = false;
 
       if (playbackState === 'playing') {
         if (typeof panel.pause !== 'function' || panel.pause() !== true) {
-          selectionInFlight = false;
-          audioSelect.disabled = audioRow.hidden;
           audioSelect.value = previousTrackId;
           return Promise.reject(new Error('Wiedergabe konnte für den Tonspurwechsel nicht stabil pausiert werden.'));
         }
@@ -346,11 +407,6 @@
           throw new Error('Server hat eine andere Tonspur bestätigt.');
         }
 
-        // The server already restarted its worker with the selected profile.
-        // Reuse the existing D.2 owner for the same-position reconnect. The D.2
-        // seek restarts the current selected profile again, but keeps the same
-        // MediaSession and gives the established owner sole responsibility for
-        // replacing the browser transport and preserving play/pause state.
         return Promise.resolve(panel.seekAbsolute(position)).then(function () {
           if (disposed) return false;
           if (safeSessionId(panel.sessionId()) !== id) {
@@ -368,19 +424,10 @@
           }
           return true;
         });
-      }).then(function (result) {
-        if (disposed || result === false) return result;
-        selectionInFlight = false;
-        audioSelect.disabled = audioRow.hidden;
-        setNote('Tonspur gewechselt.', false);
-        host.hidden = false;
-        return true;
       }).catch(function (error) {
-        selectionInFlight = false;
         if (serverSelected) {
           audioRow.hidden = true;
           audioSelect.disabled = true;
-          host.hidden = false;
           setNote(
             'Tonspur wurde serverseitig gewechselt, aber der Player konnte nicht neu verbunden werden. Wiedergabe wurde gestoppt.',
             true
@@ -395,7 +442,6 @@
         else {
           selectedTrackId = previousTrackId;
           audioSelect.value = previousTrackId;
-          audioSelect.disabled = audioRow.hidden;
           if (pausedForSelection && typeof panel.play === 'function') {
             try {
               const resumed = panel.play();
@@ -410,6 +456,50 @@
           );
           host.hidden = false;
         }
+        throw error;
+      });
+    }
+
+    function performSelection() {
+      if (disposed || selectionInFlight) return Promise.resolve(false);
+      const targetTrackId = safeAudioTrackId(audioSelect.value);
+      const previousTrackId = selectedTrackId;
+      if (!targetTrackId || targetTrackId === previousTrackId) return Promise.resolve(false);
+
+      const id = safeSessionId(panel.sessionId()) || activeSessionId;
+      const playbackState = text(panel.state());
+      const position = Math.max(0, Math.floor(Number(panel.position()) || 0));
+      if (!id || (playbackState !== 'playing' && playbackState !== 'paused')) {
+        audioSelect.value = previousTrackId;
+        return Promise.reject(new Error('Tonspur kann nur während aktiver Recording-Wiedergabe gewechselt werden.'));
+      }
+
+      activeSessionId = id;
+      selectionInFlight = true;
+      audioSelect.disabled = true;
+      setNote('Tonspur wird gewechselt …', false);
+      host.hidden = false;
+
+      const operation = hlsProfile(activeProfileId) && typeof panel.selectAudioTrack === 'function'
+        ? performHlsSelection(targetTrackId, previousTrackId, id, playbackState)
+        : performProgressiveSelection(
+            targetTrackId,
+            previousTrackId,
+            id,
+            playbackState,
+            position
+          );
+
+      return Promise.resolve(operation).then(function (result) {
+        if (disposed || result === false) return result;
+        selectionInFlight = false;
+        audioSelect.disabled = audioRow.hidden;
+        setNote('Tonspur gewechselt.', false);
+        host.hidden = false;
+        return true;
+      }).catch(function (error) {
+        selectionInFlight = false;
+        audioSelect.disabled = audioRow.hidden;
         throw error;
       });
     }
@@ -440,6 +530,7 @@
         note.hidden = true;
         host.hidden = true;
         activeSessionId = '';
+        activeProfileId = '';
         return panel.stop.apply(panel, arguments);
       };
     }
@@ -448,6 +539,7 @@
       wrapped.relinquishForReplacement = function () {
         clearPoll();
         activeSessionId = '';
+        activeProfileId = '';
         return panel.relinquishForReplacement.apply(panel, arguments);
       };
     }
@@ -501,6 +593,7 @@
       safeAudioTrackId: safeAudioTrackId,
       recordingCapabilities: recordingCapabilities,
       audioTrackLabel: audioTrackLabel,
+      languageLabel: languageLabel,
       trackStatus: trackStatus,
       selectAudioTrack: selectAudioTrack
     })
