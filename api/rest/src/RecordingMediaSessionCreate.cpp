@@ -291,6 +291,11 @@ ApiResponse RecordingMediaSessionController::createSession(
                      sameRecordingSourceExtentIgnoringGrowthState(
                          cached->second.sourceFingerprint,
                          sourceResolution.source.sourceFingerprint)) {
+                // VDR's --updindex temporarily creates .timer itself. Only
+                // reconcile that marker when this controller owns a running
+                // updater for exactly this directory and the previously
+                // completed source extent is byte-for-byte/identity stable.
+                // Any real segment change therefore remains growing/fail-closed.
                 sourceResolution.source.growing = false;
                 sourceResolution.source.sourceFingerprint =
                     cached->second.sourceFingerprint;
@@ -559,6 +564,18 @@ ApiResponse RecordingMediaSessionController::createSession(
                 ? "media_provision_failed"
                 : provision.reasonCode);
     }
+
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        if (profile.sourceAudioStreamIndex >= 0) {
+            selectedAudioStreamIndexes_[issuance.session.sessionId] =
+                profile.sourceAudioStreamIndex;
+        }
+        else {
+            selectedAudioStreamIndexes_.erase(issuance.session.sessionId);
+        }
+    }
+
     const auto provisionReadyAt = std::chrono::steady_clock::now();
 
     bool indexPreparing = false;
