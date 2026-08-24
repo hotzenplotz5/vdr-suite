@@ -99,6 +99,29 @@ bool parseBooleanToken(const std::string& value, bool& parsed)
     return false;
 }
 
+bool liveOpenFailureReason(
+    const SuiteBridgeCommandReply& reply,
+    std::string& reasonCode)
+{
+    if (!reply.transportSucceeded() ||
+        (reply.replyCode != 550 && reply.replyCode != 555)) {
+        return false;
+    }
+    static const std::vector<std::string> allowed = {
+        "live_source_lease_conflict",
+        "live_source_capacity_exhausted",
+        "live_source_socket_unavailable",
+        "live_source_receiver_unavailable",
+        "live_source_writer_unavailable",
+        "live_source_plugin_instance_epoch_stale"
+    };
+    if (std::find(allowed.begin(), allowed.end(), reply.payload) == allowed.end()) {
+        return false;
+    }
+    reasonCode = reply.payload;
+    return true;
+}
+
 }
 
 BackendAgentLiveProviderRuntime::BackendAgentLiveProviderRuntime(
@@ -236,7 +259,9 @@ BackendAgentLiveProviderOpenResult BackendAgentLiveProviderRuntime::open(
         preparation.pin.providerSelection.providerInstanceEpoch;
     const auto reply = transport_.openLiveSource(request);
     if (!reply.transportSucceeded() || reply.replyCode != 250) {
-        result.reasonCode = "live_provider_open_failed";
+        if (!liveOpenFailureReason(reply, result.reasonCode)) {
+            result.reasonCode = "live_provider_open_failed";
+        }
         return result;
     }
     std::string state;
