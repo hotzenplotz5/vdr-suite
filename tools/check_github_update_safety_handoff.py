@@ -59,7 +59,7 @@ REQUIRED_AGENT_RULES = [
     "Status updates are progress reports, not stopping points.",
     "ordinary turn boundary is never a",
     "When a check fails, diagnose and",
-    "Existing authorization counts: do not stop again",
+    "counts: do not stop again",
     "## GitHub-first execution",
     "Continue through all already-approved steps of a bounded workstream",
     "Push each completed",
@@ -74,6 +74,10 @@ REQUIRED_AGENT_RULES = [
 ]
 
 REQUIRED_NEW_CHAT_HANDOFF_RULES = [
+    "Root-level `AGENTS.md` is binding.",
+    "Status reports are progress updates, not stopping points.",
+    "unrelated queued/running CI does not block already-approved progress.",
+    "Continue the authorized workstream to its requested end state.",
     "## Command presentation contract",
     "Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block",
     "Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats",
