@@ -11,7 +11,8 @@ DAEMON_SRC += \
 	test-phase65d-recording-audio-track-selection-request-parser \
 	test-phase65d-recording-audio-track-preference-parser \
 	test-phase65d-recording-audio-track-selection-runtime \
-	test-phase65d-recording-track-controls
+	test-phase65d-recording-track-controls \
+	test-phase65d-recording-hls-audio-replacement
 
 install-runtime: install-phase65d-recording-track-controls
 
@@ -72,5 +73,9 @@ test-phase65d-recording-track-controls:
 	node --check web/frontend/api/recording-track-controls.js
 	node web/frontend/tests/test_phase65d_recording_track_controls.js
 
+test-phase65d-recording-hls-audio-replacement:
+	node --check web/frontend/api/recording-fallback-controls.js
+	node web/frontend/tests/test_phase65d_recording_hls_audio_replacement.js
+
 test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
-test-frontend-i18n: test-phase65d-recording-track-controls
+test-frontend-i18n: test-phase65d-recording-track-controls test-phase65d-recording-hls-audio-replacement
