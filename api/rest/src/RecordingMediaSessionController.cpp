@@ -165,7 +165,21 @@ RecordingMediaSessionController::~RecordingMediaSessionController() = default;
 std::size_t RecordingMediaSessionController::reapInactiveSessions(
     int idleTimeoutSeconds) const
 {
-    return mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
+    const std::size_t reaped =
+        mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
+
+    std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+    for (auto it = selectedAudioStreamIndexes_.begin();
+         it != selectedAudioStreamIndexes_.end();) {
+        const auto stored = mediaSessionRepository_.findSession(it->first);
+        if (!stored.has_value() || stored->state != "ready") {
+            it = selectedAudioStreamIndexes_.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+    return reaped;
 }
 
 ApiResponse RecordingMediaSessionController::handleRequest(
@@ -271,6 +285,10 @@ ApiResponse RecordingMediaSessionController::stopSession(
     {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
+    }
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        selectedAudioStreamIndexes_.erase(request.sessionId);
     }
 
     if (stored->state == "ended" || stored->state == "failed") {
