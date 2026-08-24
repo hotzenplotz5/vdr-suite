@@ -119,9 +119,15 @@
     }
 
     function syncControls(previewPosition) {
+      const playbackActive = active();
       const enabled = canSeek();
-      [back60Button, back10Button, forward10Button, forward60Button, timeline, directTime, directButton]
+      [back60Button, back10Button, forward10Button, forward60Button, timeline, directButton]
         .forEach(function (control) { control.disabled = !enabled; });
+      // Entering a target time is not itself a seek operation. Keep the text
+      // field focusable during active HLS playback even while the Recording
+      // index is still unavailable; the execution button remains fail-closed
+      // until canSeek() is truthful.
+      directTime.disabled = !playbackActive || seekInFlight;
       timeline.min = '0';
       timeline.max = String(maximum());
       timeline.step = '1';
@@ -134,7 +140,7 @@
           positionLabel.textContent = formatTime(preview) + ' / ' + formatTime(duration());
         }
       }
-      if (enabled && !seekInFlight && notice && active()) {
+      if (enabled && !seekInFlight && notice && playbackActive) {
         setNotice('Kompatibilitätsmodus · Zeit-Sprung verfügbar · Stream wird beim Springen neu aufgebaut.', false);
       }
     }
