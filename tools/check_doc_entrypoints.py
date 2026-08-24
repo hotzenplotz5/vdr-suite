@@ -58,7 +58,7 @@ BASE_REQUIRED_TEXT = {
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "## Current implementation boundary",
-        "not started",
+        "do not start Phase 66.",
     ],
 }
 
