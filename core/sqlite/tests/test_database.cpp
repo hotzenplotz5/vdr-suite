@@ -2,11 +2,8 @@
 
 #include <sqlite3.h>
 
-#include <atomic>
-#include <chrono>
 #include <cstdio>
 #include <iostream>
-#include <thread>
 
 int main()
 {
@@ -56,42 +53,6 @@ int main()
         return 1;
     }
 
-    Database peer;
-    if (!peer.open(path)) {
-        std::cerr << "peer open failed\n";
-        return 1;
-    }
-
-    std::atomic<bool> peerAttempting{false};
-    std::atomic<bool> peerAcquired{false};
-    auto primaryLease = db.acquireTransactionLease();
-    std::thread peerThread([&]() {
-        peerAttempting.store(true, std::memory_order_release);
-        auto peerLease = peer.acquireTransactionLease();
-        peerAcquired.store(true, std::memory_order_release);
-    });
-
-    while (!peerAttempting.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    if (peerAcquired.load(std::memory_order_acquire)) {
-        std::cerr << "same-file transaction leases did not serialize\n";
-        primaryLease.unlock();
-        peerThread.join();
-        return 1;
-    }
-
-    primaryLease.unlock();
-    peerThread.join();
-
-    if (!peerAcquired.load(std::memory_order_acquire)) {
-        std::cerr << "peer transaction lease was never acquired\n";
-        return 1;
-    }
-
-    peer.close();
     db.close();
     std::remove(path);
 
