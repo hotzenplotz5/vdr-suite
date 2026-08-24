@@ -10,10 +10,12 @@
 #include "MediaSessionWorkspace.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
-#include "RecordingSourceFingerprint.h"
+#include "RecordingMediaSessionAudioTrackPreference.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "RecordingMediaSessionStartPosition.h"
+#include "RecordingMediaTrackContract.h"
+#include "RecordingSourceFingerprint.h"
 #include "VdrRecordingDuration.h"
 #include "VdrRecordingIndexUpdater.h"
 #include "VdrRecordingQueryService.h"
@@ -226,6 +228,16 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const int startPositionSeconds = requestedStart.seconds;
 
+    const RecordingMediaSessionAudioTrackPreference requestedAudioTrack =
+        RecordingMediaSessionAudioTrackPreferenceParser().parse(body);
+    if (!requestedAudioTrack.valid) {
+        return jsonError(
+            400,
+            requestedAudioTrack.reasonCode.empty()
+                ? "invalid_audio_track_id"
+                : requestedAudioTrack.reasonCode);
+    }
+
     VdrRecording recording;
     if (!recordingQueryService_.findRecordingById(
             request.backendId,
@@ -279,11 +291,6 @@ ApiResponse RecordingMediaSessionController::createSession(
                      sameRecordingSourceExtentIgnoringGrowthState(
                          cached->second.sourceFingerprint,
                          sourceResolution.source.sourceFingerprint)) {
-                // VDR's --updindex temporarily creates .timer itself. Only
-                // reconcile that marker when this controller owns a running
-                // updater for exactly this directory and the previously
-                // completed source extent is byte-for-byte/identity stable.
-                // Any real segment change therefore remains growing/fail-closed.
                 sourceResolution.source.growing = false;
                 sourceResolution.source.sourceFingerprint =
                     cached->second.sourceFingerprint;
@@ -349,6 +356,15 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const auto descriptorReadyAt = std::chrono::steady_clock::now();
 
+    int preferredAudioStreamIndex = -1;
+    if (!requestedAudioTrack.audioTrackId.empty() &&
+        !RecordingMediaTrackContract::audioStreamIndexForTrackId(
+            requestedAudioTrack.audioTrackId,
+            source,
+            preferredAudioStreamIndex)) {
+        return jsonError(404, "recording_audio_track_not_found");
+    }
+
     ClientMediaCapabilities effectiveCapabilities = request.capabilities;
     if (sourceResolution.source.growing ||
         !sourceResolution.source.progressiveDirectSafe) {
@@ -356,9 +372,16 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
 
     MediaPresentationProfile profile =
-        MediaPresentationSelector().select(source, effectiveCapabilities);
+        MediaPresentationSelector().select(
+            source,
+            effectiveCapabilities,
+            preferredAudioStreamIndex);
     if (!profile.available || profile.profileId.empty()) {
-        return jsonError(422, "media_presentation_unavailable");
+        return jsonError(
+            requestedAudioTrack.audioTrackId.empty() ? 422 : 409,
+            requestedAudioTrack.audioTrackId.empty()
+                ? "media_presentation_unavailable"
+                : "recording_audio_track_selection_unsupported");
     }
     if (profile.videoAction == MediaTrackAction::Transcode) {
         const MediaTranscodePolicy policy =
@@ -565,6 +588,9 @@ ApiResponse RecordingMediaSessionController::createSession(
         << " profile=" << profile.profileId
         << " growing=" << (sourceResolution.source.growing ? "true" : "false")
         << " index_marker_reconciled=" << (indexMarkerReconciled ? "true" : "false")
+        << " audio_track=" << (requestedAudioTrack.audioTrackId.empty()
+            ? "auto"
+            : requestedAudioTrack.audioTrackId)
         << " start_position=" << startPositionSeconds
         << " index_preparing=" << (indexPreparing ? "true" : "false")
         << " probe_cache=" << (probeCacheHit ? "hit" : "miss")
