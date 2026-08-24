@@ -10,6 +10,19 @@ const source = fs.readFileSync(
   'utf8'
 );
 
+const connectRecordingStart = source.indexOf('function connectRecordingStream(autoPlay, initialConnection)');
+const pageHideStart = source.indexOf('\n    function pageHide()', connectRecordingStart);
+assert.ok(connectRecordingStart >= 0 && pageHideStart > connectRecordingStart, 'Recording stream connection owner must exist');
+const connectRecordingSource = source.slice(connectRecordingStart, pageHideStart);
+assert.ok(
+  connectRecordingSource.includes('if (initialConnection && !firstMediaReported) activateFallback(error);'),
+  'continuous-fMP4 fallback must remain a startup-only rescue before first media'
+);
+assert.ok(
+  !connectRecordingSource.includes('if (initialConnection) activateFallback(error);'),
+  'a late continuous-fMP4 failure must not silently switch an already-playing Recording to HLS'
+);
+
 function node(tagName) {
   const listeners = {};
   const value = {

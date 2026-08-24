@@ -1326,7 +1326,7 @@
         video,
         activeMediaPath,
         function (error) {
-          if (initialConnection) activateFallback(error);
+          if (initialConnection && !firstMediaReported) activateFallback(error);
           else failRepositionedPlayback(error);
         },
         shouldPlay
