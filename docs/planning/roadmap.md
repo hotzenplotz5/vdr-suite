@@ -58,17 +58,21 @@ Completed Phase-65 product verticals:
 65.B - Live-TV playback
 65.C - Recording delivery performance and media output/transcode settings
 
-Next Phase-65 product vertical:
+Current Phase-65 product vertical:
 65.D - Client playback abstraction
+
+Completed Phase-65.D slices:
+65.D.1 - Persistent Browser Playback Shell
+65.D.2 - Recording Playback Controls and Seek
 ```
 
-Phase 64 is complete. Durable evidence is maintained in [Phase 64 Closeout](../development/phase-64-closeout.md). Phase 65 is active; 65.A through 65.C are accepted and closed. Operational status and exact evidence are maintained in [Current State](../CURRENT.md).
+Phase 64 is complete. Durable evidence is maintained in [Phase 64 Closeout](../development/phase-64-closeout.md). Phase 65 is active; 65.A through 65.C are accepted and closed, while 65.D is active with 65.D.1 and 65.D.2 accepted and closed. Operational status and exact evidence are maintained in [Current State](../CURRENT.md).
 
 The earlier roadmap label `65.C - Recording seek and growing-recording semantics` is superseded by the actual accepted implementation history. Phase 65.C first delivered completed-Recording startup/progressive performance through PR #206 and then continued, within the same authorized 65.C scope, into the backend-scoped media-transcode/output policy and settings accepted through PR #208.
 
-The old separate 65.D compatibility-escalation planning block was absorbed by that demonstrated 65.C compatibility/performance work and never started independently. Because it was still future planning, the next not-yet-started vertical is now **65.D - Client playback abstraction**.
+The old separate 65.D compatibility-escalation planning block was absorbed by that demonstrated 65.C compatibility/performance work and never started independently. **65.D - Client playback abstraction is now active.** Its first two bounded slices establish persistent playback ownership and accepted completed-Recording controls/seek while leaving the remaining ADR-0053 semantics open.
 
-Truthful seek/range/growing semantics remain mandatory cross-cutting media invariants; unsupported advanced seek is represented as unsupported rather than fabricated.
+Truthful seek/range/growing semantics remain mandatory cross-cutting media invariants; unsupported capabilities are represented as unsupported rather than fabricated.
 
 ---
 
@@ -154,7 +158,7 @@ Later accepted Phase-64 work superseded those implementation limitations without
 
 ## Phase 65 — Streaming Gateway and Media Sessions
 
-Status: **Active. Phase 65.A through 65.C are accepted and closed; Phase 65.D is next.**
+Status: **Active. Phase 65.A through 65.C are accepted and closed; Phase 65.D is active with 65.D.1 and 65.D.2 closed.**
 
 ### Binding architecture
 
@@ -304,9 +308,9 @@ The earlier `65.C - Recording seek and growing-recording semantics` heading is o
 - never treat a still-growing source as immutable merely to enable a fast path;
 - normalize public media/track identity independently of provider-native paths/PIDs where required.
 
-Full arbitrary VOD time-seek, VDR-index time mapping, user-visible growing-Recording seek and durable resume/progress remain deferred until a demonstrated product gap justifies a coherent implementation vertical. Truthful non-support satisfies the safety contract; fabricated seek support does not.
+Phase 65.D.2 now provides accepted arbitrary time-seek and stop/resume semantics for supported completed-Recording progressive-fMP4 and HLS restart-seek paths. User-visible growing-Recording seek and broader VDR-index mapping beyond what those accepted paths require remain deferred until a demonstrated product gap justifies a coherent implementation block. Truthful non-support satisfies the safety contract; fabricated support does not.
 
-#### 65.D — Client playback abstraction — NEXT
+#### 65.D — Client playback abstraction — ACTIVE
 
 Provide a small semantic first-party abstraction around platform playback engines:
 
@@ -325,6 +329,34 @@ Browser is the initial product-validation client. Android/Android TV, Kodi, desk
 
 The abstraction must consume typed Suite media capabilities and selected MediaSession profiles. It must not introduce browser-brand/user-agent routing, bypass ADR-0055 output policy, expose provider-native URLs or vendor one universal Suite decoder core.
 
+**65.D.1 — Persistent Browser Playback Shell — CLOSED**
+
+- one persistent browser playback owner across first-party internal navigation;
+- the same HTML media element moves between the active presentation owner and the persistent shell;
+- native browser/Android Picture-in-Picture remains tied to the same element/session;
+- no second MediaSession or universal player core is introduced.
+
+Durable evidence: [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md).
+
+**65.D.2 — Recording Playback Controls and Seek — CLOSED**
+
+- Play/Pause/Stop and truthful completed-Recording position/duration;
+- relative, timeline and direct absolute seek;
+- progressive-fMP4 MediaSession worker repositioning without fake HTTP byte ranges;
+- HLS/transcoding restart-seek through a fresh authorized MediaSession with `startPositionSeconds`;
+- stop/resume versus start-from-beginning choice;
+- Android-friendly direct-time entry;
+- real yaVDR/browser acceptance for the supported progressive-fMP4 and HLS fallback paths.
+
+Durable evidence: [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md).
+
+**Remaining Phase-65.D semantic work**
+
+- normalized audio/subtitle selection;
+- discontinuity handling;
+- classified playback failure behavior;
+- any additional client semantic gaps demonstrated against the accepted ADR-0053 abstraction without crossing into Phase 66.
+
 ### Phase-65 acceptance gate
 
 Phase 65 closes only when all required supported paths prove:
@@ -336,7 +368,7 @@ Phase 65 closes only when all required supported paths prove:
 5. explicit route/provider/generation fencing;
 6. pass-through chosen when valid;
 7. remux/transcode not selected unnecessarily;
-8. truthful range/seek/growing-recording capability advertisement for implemented Recording playback, including explicit non-support where advanced seek is not implemented;
+8. truthful range/seek/growing-recording capability advertisement for implemented Recording playback, including accepted completed-Recording seek and explicit non-support where growing/other advanced seek is not implemented;
 9. browser/client classified failure behavior;
 10. real yaVDR acceptance of the first native live source and Recording source;
 11. Golden User Journeys 1, 2 and the media portion of Journey 5 pass for the implemented scope;
@@ -349,14 +381,13 @@ Phase 65 closes only when all required supported paths prove:
 - Teletext/HbbTV application-domain runtime;
 - public third-party `/api/v1` stabilization;
 - universal transcoding support beyond demonstrated supported workloads/backends;
-- full arbitrary VOD time-seek and VDR-index time mapping when unsupported capability is reported truthfully;
 - user-visible growing-Recording seek when unsupported capability is reported truthfully;
-- durable playback resume/progress unless explicitly promoted into a coherent Phase-65 product block;
+- broader VDR-index time mapping beyond the accepted completed-Recording seek paths when not required by a supported profile;
 - global timeshift architecture unless explicitly promoted by a later accepted contract;
 - extraction/vendorization of Kodi VideoPlayer;
 - one universal Suite-owned decoder/rendering core.
 
-Phase 65 is already active. Phase 65.A through 65.C are closed for their bounded accepted scopes; Phase 65.D is the next planned Phase-65 vertical. Phase 66 remains blocked until the complete Phase-65 gate is satisfied and a separate Phase-66 kickoff is explicit.
+Phase 65 is already active. Phase 65.A through 65.C are closed for their bounded accepted scopes; Phase 65.D is active with 65.D.1 and 65.D.2 closed. Remaining ADR-0053 client-playback semantics must close before the complete Phase-65 gate can be satisfied. Phase 66 remains blocked until that gate is satisfied and a separate Phase-66 kickoff is explicit.
 
 ---
 
@@ -924,11 +955,11 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 ## Next authorization boundary
 
-Phase 65 is active. Phase 65.A through 65.C are closed for their accepted bounded scopes.
+Phase 65 is active. Phase 65.A through 65.C are closed for their accepted bounded scopes. Phase 65.D is active; Phase 65.D.1 and Phase 65.D.2 are accepted and closed.
 
-The next planned Phase-65 vertical is **65.D — Client playback abstraction**. Before implementation, read live `main`, `CURRENT.md`, ADR-0046, ADR-0053, ADR-0055 and the current client/media code gap, then choose the smallest coherent product/safety change that advances the semantic playback adapter without starting Phase 66.
+The remaining Phase-65.D work is the not-yet-closed ADR-0053 client semantic layer: normalized audio/subtitle selection, discontinuity handling, classified playback failure behavior and any additional demonstrated semantic gap that stays inside the accepted playback abstraction. Before each new runtime block, read live `main`, `CURRENT.md`, ADR-0046, ADR-0053, ADR-0055 and the current client/media code gap, then choose the smallest coherent product/safety change without starting Phase 66.
 
-Advanced arbitrary Recording time-seek, VDR-index mapping, growing-Recording seek and resume/progress are not silently authorized as leftover 65.C work. They remain deferred until current code/product evidence demonstrates a coherent gap; meanwhile unsupported capability must remain explicit and fail-safe.
+Completed-Recording arbitrary time-seek and stop/resume are no longer deferred: they are accepted in Phase 65.D.2 for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
 Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly started.
 
@@ -947,6 +978,8 @@ Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly starte
 - [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65-recording-startup-progressive-direct.md)
 - [Phase 65 Media Transcode Performance / Output Policy](../development/phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md)
 - [ADR-0030 Domain-First UI](../adr/ADR-0030-domain-first-ui-over-osd-proxy.md)
 - [ADR-0044 Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
