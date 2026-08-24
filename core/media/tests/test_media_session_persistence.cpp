@@ -5,11 +5,14 @@
 
 #include "Database.h"
 
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <cstdio>
 #include <ctime>
 #include <string>
+#include <thread>
 
 namespace
 {
@@ -52,10 +55,46 @@ MediaSessionIssuanceRequest request()
     return value;
 }
 
+void assertSameFileTransactionLeasesSerialize()
+{
+    const char* path = "/tmp/vdr-suite-phase65-media-session-lock-test.db";
+    std::remove(path);
+
+    Database first;
+    Database second;
+    assert(first.open(path));
+    assert(second.open(path));
+
+    std::atomic<bool> secondAttempting{false};
+    std::atomic<bool> secondAcquired{false};
+    auto firstLease = first.acquireTransactionLease();
+    std::thread secondThread([&]() {
+        secondAttempting.store(true, std::memory_order_release);
+        auto secondLease = second.acquireTransactionLease();
+        secondAcquired.store(true, std::memory_order_release);
+    });
+
+    while (!secondAttempting.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    assert(!secondAcquired.load(std::memory_order_acquire));
+
+    firstLease.unlock();
+    secondThread.join();
+    assert(secondAcquired.load(std::memory_order_acquire));
+
+    second.close();
+    first.close();
+    std::remove(path);
+}
+
 } // namespace
 
 int main()
 {
+    assertSameFileTransactionLeasesSerialize();
+
     Database database;
     assert(database.open(":memory:"));
 
