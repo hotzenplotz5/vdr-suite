@@ -93,7 +93,11 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "Root-level `AGENTS.md` is binding.",
     "Status reports are progress updates, not stopping points.",
     "unrelated queued/running CI does not block already-approved progress.",
+    "A genuinely external dependency is a blocked wait state, not project completion",
+    "re-read relevant repository/CI state before reporting it",
+    "re-read that run before ending the working response",
     "Continue the authorized workstream to its requested end state.",
+    "Never end with an executable next step still available through the current tools",
     "## Command presentation contract",
     "Every shell command intended for the user to copy or execute must be presented inside a normal fenced Markdown code block",
     "Never place executable commands in prose, inline-code fragments, writing blocks, generated UI controls or custom code-block formats",
@@ -110,6 +114,10 @@ REQUIRED_NEW_CHAT_HANDOFF_RULES = [
     "## Prüfung des installierten Ergebnisses",
     "A successful build, file installation and `active (running)` service state prove only that deployment completed.",
     "Never describe an acceptance item as passed merely because the daemon started or automated CI is green.",
+]
+
+FORBIDDEN_NEW_CHAT_HANDOFF_RULES = [
+    "unless a genuine unresolved safety/technical boundary requires new user input",
 ]
 
 REQUIRED_CI_STATUS_HANDOFF_RULES = [
@@ -199,6 +207,10 @@ def main() -> int:
     for item in REQUIRED_NEW_CHAT_HANDOFF_RULES:
         if item not in new_chat_handoff_text:
             missing.append("NEW-CHAT-HANDOFF.md missing rule: " + item)
+
+    for item in FORBIDDEN_NEW_CHAT_HANDOFF_RULES:
+        if item in new_chat_handoff_text:
+            missing.append("NEW-CHAT-HANDOFF.md contains forbidden stop exception: " + item)
 
     for item in REQUIRED_CI_STATUS_HANDOFF_RULES:
         if item not in ci_status_handoff_text:
