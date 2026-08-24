@@ -17,6 +17,7 @@ install-live-remote-frontend:
 	$(INSTALL) -m 0644 web/frontend/api/live-remote-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/live-remote-client-api.js
 	cat \
 		web/frontend/api/session-frontend-sync.js \
+		web/frontend/api/live-replacement-cleanup.js \
 		web/frontend/api/recording-fallback-restart-seek.js \
 		web/frontend/api/recording-fallback-controls.js \
 		web/frontend/api/recording-time-input-mask.js \
@@ -139,11 +140,13 @@ test-live-remote-api-runtime:
 test-live-remote-frontend:
 	node --check web/frontend/api/live-remote-client-api.js
 	node --check web/frontend/api/session-frontend-sync.js
+	node --check web/frontend/api/live-replacement-cleanup.js
 	node --check web/frontend/api/recording-fallback-restart-seek.js
 	node --check web/frontend/api/recording-fallback-controls.js
 	node --check web/frontend/api/recording-time-input-mask.js
 	node --check web/frontend/platform/deferred-runtime-loader.js
 	node --check web/frontend/modules/remote.js
+	node web/frontend/tests/test_live_replacement_cleanup.js
 	node web/frontend/tests/test_phase65d2_recording_fallback_restart_seek.js
 	node web/frontend/tests/test_phase65d2_recording_time_input_mask.js
 	node web/frontend/tests/test_remote_runtime.js
