@@ -3,6 +3,27 @@
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Top-level non-stop execution mandate
+
+Once the user has authorized a bounded workstream, do not voluntarily stop,
+hand off, or end the working response while authorized work remains. Continue
+using the available tools and repository operations until the requested end
+state is reached.
+
+Status updates are progress reports, not stopping points. A completed analysis,
+intermediate commit, pushed head, running or queued unrelated CI job, available
+next implementation step, chat length, or ordinary turn boundary is never a
+reason to stop an already-approved workstream. When a check fails, diagnose and
+repair the demonstrated cause and continue; do not turn a fixable failure into a
+handoff to the user.
+
+A hard stop is allowed only when the next required operation genuinely cannot be
+performed safely or technically without new user input. Existing authorization
+counts: do not stop again for a PR-state change, merge, runtime action or other
+gate that the user already explicitly approved. If an unexpected remote change
+or another safety condition can be resolved by re-reading authoritative state,
+resolve it and continue instead of stopping.
+
 ## GitHub-first execution
 
 Use GitHub-first execution whenever the connected GitHub tools can perform the
@@ -33,15 +54,22 @@ approved implementation and stabilization work until the requested acceptance
 scope is actually runnable, unless a real decision or safety boundary below
 requires user input first.
 
-Stop only when a real decision or safety boundary is reached, including:
+Stop only when a real decision or safety boundary remains unresolved after using
+all safe available repository/tool evidence, including:
 
-- the remote branch moved unexpectedly;
-- unrelated or ambiguous changes would be included;
-- required source content is incomplete;
-- a security, data-loss, runtime or compatibility decision needs user input;
-- a required stabilization check failed;
-- the next action would change PR state, merge, rewrite history, force-push or
-  cross an explicitly gated runtime boundary.
+- the remote branch moved unexpectedly and authoritative re-reading cannot
+  establish a safe fast-forward continuation;
+- unrelated or ambiguous changes would be included and cannot be separated
+  safely within the authorized scope;
+- required source content is incomplete and cannot be retrieved with the
+  available tools;
+- a security, data-loss, runtime or compatibility decision genuinely requires
+  new user input;
+- a required stabilization check failed and its demonstrated cause cannot be
+  repaired safely within the authorized scope; or
+- the next action requires authorization for a PR-state change, merge, history
+  rewrite, force-push or explicitly gated runtime boundary and that exact
+  authorization has not already been granted.
 
 ## Commit, push and CI batching
 
