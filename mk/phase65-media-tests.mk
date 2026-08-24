@@ -50,7 +50,7 @@ test-phase65-ffmpeg-hls-command-builder:
 test-phase65-ffprobe-recording-source:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
 		core/media/src/FfprobeRecordingSource.cpp \
-		core/media/tests/test_ffprobe_recording_source.cpp \
+		core/media/tests/test_live_media_adaptation.cpp \
 		-o $(BUILD_DIR)/test_phase65_ffprobe_recording_source
 	$(BUILD_DIR)/test_phase65_ffprobe_recording_source
 
@@ -242,9 +242,12 @@ test-phase65-live-ts-transport-buffer:
 
 test-fast: test-phase65-live-ts-transport-buffer
 
-.PHONY: test-phase65d1-live-tv-view-dom-stability
+.PHONY: test-phase65d1-live-tv-view-dom-stability test-phase65d-live-tv-encryption-context
 
 test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
-test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
+test-phase65d-live-tv-encryption-context:
+	node web/frontend/tests/test_live_tv_encryption_context.js
+
+test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability test-phase65d-live-tv-encryption-context
