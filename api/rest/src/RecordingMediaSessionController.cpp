@@ -176,6 +176,33 @@ ApiResponse RecordingMediaSessionController::handleRequest(
         return jsonError(401, "media_actor_required");
     }
 
+    const RecordingMediaSessionTrackStatusRequest trackStatusRequest =
+        RecordingMediaSessionRequestParser().parseTrackStatus(body);
+    if (trackStatusRequest.valid) {
+        return trackStatus(body, actorId);
+    }
+    if (trackStatusRequest.reasonCode != "media_session_track_status_not_requested") {
+        return jsonError(
+            400,
+            trackStatusRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : trackStatusRequest.reasonCode);
+    }
+
+    const RecordingMediaSessionAudioTrackSelectionRequest audioTrackRequest =
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(body);
+    if (audioTrackRequest.valid) {
+        return selectAudioTrack(body, actorId);
+    }
+    if (audioTrackRequest.reasonCode !=
+        "media_session_audio_track_selection_not_requested") {
+        return jsonError(
+            400,
+            audioTrackRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : audioTrackRequest.reasonCode);
+    }
+
     const RecordingMediaSessionPlaybackStatusRequest statusRequest =
         RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
     if (statusRequest.valid) {

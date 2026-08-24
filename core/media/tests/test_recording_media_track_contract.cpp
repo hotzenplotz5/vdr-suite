@@ -87,5 +87,18 @@ int main()
     assert(json.find("\"selectionSupported\":false") != std::string::npos);
     assert(json.find("profile_does_not_deliver_selectable_subtitles") != std::string::npos);
 
+    const std::string directJson = RecordingMediaTrackContract::json(
+        source,
+        -1,
+        false,
+        "recording_audio_track_selection_profile_not_supported",
+        false,
+        "profile_does_not_deliver_selectable_subtitles",
+        false,
+        -1);
+    assert(directJson.find("\"selectedTrackId\":null") != std::string::npos);
+    assert(directJson.find("\"offSupported\":false") != std::string::npos);
+    assert(directJson.find("\"offSelected\":null") != std::string::npos);
+
     return 0;
 }

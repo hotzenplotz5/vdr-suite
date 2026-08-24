@@ -124,7 +124,15 @@ bool safeAudioTrackId(const std::string& value)
     return true;
 }
 
-RecordingMediaSessionAudioTrackSelectionRequest invalid(
+RecordingMediaSessionTrackStatusRequest invalidTrackStatus(
+    const std::string& reasonCode)
+{
+    RecordingMediaSessionTrackStatusRequest result;
+    result.reasonCode = reasonCode;
+    return result;
+}
+
+RecordingMediaSessionAudioTrackSelectionRequest invalidSelection(
     const std::string& reasonCode)
 {
     RecordingMediaSessionAudioTrackSelectionRequest result;
@@ -134,44 +142,87 @@ RecordingMediaSessionAudioTrackSelectionRequest invalid(
 
 } // namespace
 
+RecordingMediaSessionTrackStatusRequest
+RecordingMediaSessionRequestParser::parseTrackStatus(
+    const std::string& body) const
+{
+    std::size_t operationPosition = 0;
+    if (!locateValue(body, "operation", operationPosition)) {
+        return invalidTrackStatus("media_session_track_status_not_requested");
+    }
+
+    std::string operationName;
+    if (!readStringAt(body, operationPosition, operationName)) {
+        return invalidTrackStatus("invalid_media_session_operation");
+    }
+    if (operationName != "track-status") {
+        if (operationName == "stop" || operationName == "seek" ||
+            operationName == "playback-status" ||
+            operationName == "select-audio-track") {
+            return invalidTrackStatus("media_session_track_status_not_requested");
+        }
+        return invalidTrackStatus("invalid_media_session_operation");
+    }
+
+    RecordingMediaSessionTrackStatusRequest request;
+    if (!readStringField(body, "backendId", request.backendId) ||
+        !safeBackendId(request.backendId)) {
+        return invalidTrackStatus("invalid_backend_id");
+    }
+    if (!readStringField(body, "sessionId", request.sessionId) ||
+        !safeSessionId(request.sessionId)) {
+        return invalidTrackStatus("invalid_media_session_id");
+    }
+    request.valid = true;
+    return request;
+}
+
 RecordingMediaSessionAudioTrackSelectionRequest
 RecordingMediaSessionRequestParser::parseAudioTrackSelection(
     const std::string& body) const
 {
     std::size_t operationPosition = 0;
     if (!locateValue(body, "operation", operationPosition)) {
-        return invalid("media_session_audio_track_selection_not_requested");
+        return invalidSelection("media_session_audio_track_selection_not_requested");
     }
 
-    std::string operation;
-    if (!readStringAt(body, operationPosition, operation)) {
-        return invalid("invalid_media_session_operation");
+    std::string operationName;
+    if (!readStringAt(body, operationPosition, operationName)) {
+        return invalidSelection("invalid_media_session_operation");
     }
-    if (operation != "select-audio-track") {
-        if (operation == "stop" || operation == "seek" ||
-            operation == "playback-status") {
-            return invalid("media_session_audio_track_selection_not_requested");
+    if (operationName != "select-audio-track") {
+        if (operationName == "stop" || operationName == "seek" ||
+            operationName == "playback-status" || operationName == "track-status") {
+            return invalidSelection("media_session_audio_track_selection_not_requested");
         }
-        return invalid("invalid_media_session_operation");
+        return invalidSelection("invalid_media_session_operation");
     }
 
     RecordingMediaSessionAudioTrackSelectionRequest request;
     if (!readStringField(body, "backendId", request.backendId) ||
         !safeBackendId(request.backendId)) {
-        return invalid("invalid_backend_id");
+        return invalidSelection("invalid_backend_id");
     }
     if (!readStringField(body, "sessionId", request.sessionId) ||
         !safeSessionId(request.sessionId)) {
-        return invalid("invalid_media_session_id");
+        return invalidSelection("invalid_media_session_id");
     }
     if (!readStringField(body, "audioTrackId", request.audioTrackId) ||
         !safeAudioTrackId(request.audioTrackId)) {
-        return invalid("invalid_audio_track_id");
+        return invalidSelection("invalid_audio_track_id");
     }
     if (!readNonNegativeIntField(body, "positionSeconds", request.positionSeconds)) {
-        return invalid("invalid_recording_audio_track_position");
+        return invalidSelection("invalid_recording_audio_track_position");
     }
 
+    const RecordingMediaSessionRequest mediaRequest = parse(body);
+    if (!mediaRequest.valid) {
+        return invalidSelection(mediaRequest.reasonCode.empty()
+            ? "invalid_media_capabilities"
+            : mediaRequest.reasonCode);
+    }
+    request.recordingId = mediaRequest.recordingId;
+    request.capabilities = mediaRequest.capabilities;
     request.valid = true;
     return request;
 }

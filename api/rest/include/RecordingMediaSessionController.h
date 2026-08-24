@@ -72,6 +72,14 @@ private:
         const std::string& body,
         const std::string& actorId) const;
 
+    ApiResponse trackStatus(
+        const std::string& body,
+        const std::string& actorId) const;
+
+    ApiResponse selectAudioTrack(
+        const std::string& body,
+        const std::string& actorId) const;
+
     VdrRecordingQueryService& recordingQueryService_;
     MediaSessionRepository& mediaSessionRepository_;
     MediaSessionIssuanceService& mediaSessionIssuanceService_;

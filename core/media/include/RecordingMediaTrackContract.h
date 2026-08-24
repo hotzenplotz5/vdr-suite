@@ -16,6 +16,7 @@ public:
         const MediaSourceDescriptor& source,
         int& sourceAudioStreamIndex);
 
+    // subtitleOffSelectedState: -1 unknown, 0 not off, 1 off.
     static std::string json(
         const MediaSourceDescriptor& source,
         int selectedAudioStreamIndex,
@@ -23,5 +24,7 @@ public:
         const std::string& audioSelectionReason,
         bool subtitleSelectionSupported = false,
         const std::string& subtitleSelectionReason =
-            "profile_does_not_deliver_selectable_subtitles");
+            "profile_does_not_deliver_selectable_subtitles",
+        bool subtitleOffSupported = true,
+        int subtitleOffSelectedState = 1);
 };

@@ -166,7 +166,9 @@ std::string RecordingMediaTrackContract::json(
     bool audioSelectionSupported,
     const std::string& audioSelectionReason,
     bool subtitleSelectionSupported,
-    const std::string& subtitleSelectionReason)
+    const std::string& subtitleSelectionReason,
+    bool subtitleOffSupported,
+    int subtitleOffSelectedState)
 {
     std::string result = "{\"audio\":{";
     result += "\"selectionSupported\":";
@@ -201,8 +203,11 @@ std::string RecordingMediaTrackContract::json(
     result += "\"selectionSupported\":";
     result += subtitleSelectionSupported ? "true" : "false";
     result += ",\"selectionReason\":" + nullableString(subtitleSelectionReason);
-    result += ",\"offSupported\":true,\"offSelected\":true,";
-    result += "\"availableTracks\":[";
+    result += ",\"offSupported\":" + std::string(subtitleOffSupported ? "true" : "false");
+    result += ",\"offSelected\":";
+    if (subtitleOffSelectedState < 0) result += "null";
+    else result += subtitleOffSelectedState == 0 ? "false" : "true";
+    result += ",\"availableTracks\":[";
     for (std::size_t index = 0; index < source.subtitleStreams.size(); ++index) {
         if (index > 0) result += ',';
         const auto& track = source.subtitleStreams[index];
