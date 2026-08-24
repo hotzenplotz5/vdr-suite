@@ -171,6 +171,10 @@ REQUIRED_GUARDRAIL_RULES = [
 ]
 
 
+def normalize_whitespace(text: str) -> str:
+    return " ".join(text.split())
+
+
 def main() -> int:
     missing = []
 
@@ -205,32 +209,38 @@ def main() -> int:
     )
     own_text = Path(__file__).read_text(encoding="utf-8")
 
+    current_status_text = normalize_whitespace(current_status_text)
+    agent_rules_text = normalize_whitespace(agent_rules_text)
+    new_chat_handoff_text = normalize_whitespace(new_chat_handoff_text)
+    ci_status_handoff_text = normalize_whitespace(ci_status_handoff_text)
+    own_text = normalize_whitespace(own_text)
+
     for item in REQUIRED_CURRENT_STATUS_RULES:
-        if item not in current_status_text:
+        if normalize_whitespace(item) not in current_status_text:
             missing.append("current-status.md missing rule: " + item)
 
     for item in REQUIRED_AGENT_RULES:
-        if item not in agent_rules_text:
+        if normalize_whitespace(item) not in agent_rules_text:
             missing.append("AGENTS.md missing rule: " + item)
 
     for item in FORBIDDEN_AGENT_RULES:
-        if item in agent_rules_text:
+        if normalize_whitespace(item) in agent_rules_text:
             missing.append("AGENTS.md contains forbidden stop permission: " + item)
 
     for item in REQUIRED_NEW_CHAT_HANDOFF_RULES:
-        if item not in new_chat_handoff_text:
+        if normalize_whitespace(item) not in new_chat_handoff_text:
             missing.append("NEW-CHAT-HANDOFF.md missing rule: " + item)
 
     for item in FORBIDDEN_NEW_CHAT_HANDOFF_RULES:
-        if item in new_chat_handoff_text:
+        if normalize_whitespace(item) in new_chat_handoff_text:
             missing.append("NEW-CHAT-HANDOFF.md contains forbidden stop exception: " + item)
 
     for item in REQUIRED_CI_STATUS_HANDOFF_RULES:
-        if item not in ci_status_handoff_text:
+        if normalize_whitespace(item) not in ci_status_handoff_text:
             missing.append("github-actions-status-handoff.md missing rule: " + item)
 
     for item in REQUIRED_GUARDRAIL_RULES:
-        if item not in own_text:
+        if normalize_whitespace(item) not in own_text:
             missing.append("guardrail missing workflow rule: " + item)
 
     if missing:
