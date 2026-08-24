@@ -65,7 +65,7 @@ REQUIRED_AGENT_RULES = [
     "never voluntarily stop,",
     "Status updates are progress reports, not stopping points.",
     "There is no generic repository permission to stop an authorized workstream.",
-    "blocked wait state rather than permission to abandon the workstream",
+    "wait state rather than permission to abandon the workstream",
     "do not end the working response while that run is still known",
     "re-read the run before any response termination",
     "## GitHub-first execution",
