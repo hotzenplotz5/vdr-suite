@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const frontend = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(frontend, 'live-tv-view.js'), 'utf8');
@@ -31,6 +32,14 @@ assert.ok(
 assert.ok(
   !createPlaybackSource.includes("if (state.active && sequence === state.switchSequence) {\n        render();"),
   'successful startup must not disconnect/reinsert the just-started media element'
+);
+assert.ok(
+  createPlaybackSource.includes("state.liveError = liveErrorForChannel(error, channel, 'Live-TV konnte nicht gestartet werden.');"),
+  'failed Live-TV startup must classify the error with the selected channel metadata in the owning view'
+);
+assert.ok(
+  source.includes("const meta = addText(doc.createElement('span'), channelAvailabilityText(channel));"),
+  'Live-TV tiles must expose known encryption state before playback starts'
 );
 
 const shellHelperStart = recordingsSource.indexOf('function installPlaybackShell()');
@@ -74,4 +83,100 @@ assert.ok(
   'install staging must syntax-check the stable Live-TV runtime'
 );
 
-console.log('Live-TV mounted player DOM stability and deferred shell binding contract ok');
+function testNode() {
+  return {
+    id: '',
+    className: '',
+    dataset: {},
+    style: {},
+    textContent: '',
+    hidden: false,
+    appendChild() {},
+    setAttribute() {},
+    addEventListener() {},
+    classList: {add() {}, remove() {}}
+  };
+}
+
+const document = {
+  readyState: 'complete',
+  head: {appendChild() {}},
+  createElement() { return testNode(); },
+  getElementById() { return null; },
+  querySelector() { return null; },
+  querySelectorAll() { return []; },
+  addEventListener() {}
+};
+const window = {document};
+
+vm.runInNewContext(source, {
+  window,
+  document,
+  Object,
+  String,
+  Number,
+  Array,
+  Boolean,
+  Promise,
+  RegExp,
+  Error,
+  Date,
+  Math
+}, {filename: 'live-tv-view.js'});
+
+assert.ok(window.VdrSuiteLiveTvView);
+const liveTest = window.VdrSuiteLiveTvView.__test;
+assert.strictEqual(liveTest.channelHasEncryptionInfo({encrypted: true}), true);
+assert.strictEqual(liveTest.channelHasEncryptionInfo({encrypted: false}), true);
+assert.strictEqual(liveTest.channelHasEncryptionInfo({caids: ['09C7']}), true);
+assert.strictEqual(liveTest.channelHasEncryptionInfo({}), false);
+assert.strictEqual(liveTest.channelIsEncrypted({encrypted: true}), true);
+assert.strictEqual(liveTest.channelIsEncrypted({encrypted: false}), false);
+assert.strictEqual(liveTest.channelIsEncrypted({encrypted: 'false'}), false);
+assert.strictEqual(liveTest.channelIsEncrypted({scrambled: '1'}), true);
+assert.strictEqual(liveTest.channelIsEncrypted({caids: ['09C7', '09EF']}), true);
+assert.strictEqual(liveTest.channelIsEncrypted({caids: []}), false);
+assert.strictEqual(
+  liveTest.channelAvailabilityText({number: 46, encrypted: true, enabled: true}),
+  'Kanal 46 · verschlüsselt'
+);
+assert.strictEqual(
+  liveTest.channelAvailabilityText({number: 1, encrypted: false, enabled: true}),
+  'Kanal 1 · frei'
+);
+assert.strictEqual(
+  liveTest.channelAvailabilityText({number: 2, enabled: true}),
+  'Kanal 2 · verfügbar'
+);
+assert.strictEqual(
+  liveTest.channelAvailabilityText({number: 3, encrypted: true, enabled: false}),
+  'Kanal 3 · deaktiviert'
+);
+
+const encryptedError = liveTest.liveErrorForChannel(
+  new Error('live_source_receiver_unavailable'),
+  {name: 'Sky Test', encrypted: true},
+  'fallback'
+);
+assert.ok(encryptedError.includes('Sky Test'));
+assert.ok(encryptedError.includes('verschlüsselt'));
+assert.ok(encryptedError.includes('VDR konnte aktuell keinen Live-Empfang'));
+assert.ok(!encryptedError.includes('live_source_receiver_unavailable'));
+assert.strictEqual(
+  liveTest.liveErrorForChannel(
+    new Error('live_source_receiver_unavailable'),
+    {name: 'Das Erste HD', encrypted: false},
+    'fallback'
+  ),
+  'live_source_receiver_unavailable'
+);
+assert.strictEqual(
+  liveTest.liveErrorForChannel(
+    new Error('Security accountability persistence is unavailable'),
+    {name: 'Sky Test', encrypted: true},
+    'fallback'
+  ),
+  'Security accountability persistence is unavailable'
+);
+
+console.log('Live-TV mounted player stability, encryption context and deferred shell binding contract ok');
