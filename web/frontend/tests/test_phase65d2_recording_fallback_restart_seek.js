@@ -26,10 +26,11 @@ function descendants(root) {
 
 function element(tagName) {
   const listeners = {};
+  let disabled = false;
   const node = {
     tagName: String(tagName || '').toUpperCase(),
     children: [], style: {}, dataset: {}, className: '', textContent: '',
-    hidden: false, disabled: false, type: '', title: '', value: '', min: '', max: '', step: '',
+    hidden: false, focused: false, type: '', title: '', value: '', min: '', max: '', step: '',
     currentTime: 0, paused: true, controls: true, firstChild: null, parentNode: null,
     classList: {toggle() {}},
     appendChild(child) {
@@ -57,6 +58,7 @@ function element(tagName) {
       (listeners[name] || []).forEach(callback => callback(payload));
     },
     click() { this.dispatch('click', {target: this}); },
+    focus() { if (!disabled) this.focused = true; },
     play() { this.paused = false; this.dispatch('play', {target: this}); return Promise.resolve(); },
     pause() { this.paused = true; this.dispatch('pause', {target: this}); },
     querySelector(selector) {
@@ -78,6 +80,15 @@ function element(tagName) {
       return null;
     }
   };
+  Object.defineProperty(node, 'disabled', {
+    enumerable: true,
+    configurable: true,
+    get() { return disabled; },
+    set(value) {
+      disabled = Boolean(value);
+      if (disabled) node.focused = false;
+    }
+  });
   return node;
 }
 
@@ -202,9 +213,17 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(timeline.max, '7133');
 
   let video = playback.element.querySelector('video');
+  directTime.focus();
+  assert.strictEqual(directTime.focused, true, 'direct seek input must accept focus when restart-seek is available');
   video.currentTime = 120;
   video.dispatch('timeupdate', {target: video});
   assert.strictEqual(playback.position(), 120);
+  assert.strictEqual(directTime.disabled, false);
+  assert.strictEqual(
+    directTime.focused,
+    true,
+    'fallback timeupdate must not transiently disable and blur the restart-seek input'
+  );
 
   assert.strictEqual(await playback.seekRelative(60), true);
   assert.strictEqual(creates, 2, 'HLS seek must create a fresh transport owner');
@@ -237,7 +256,7 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(playback.position(), 1200);
   assert.strictEqual(starts, 5);
 
-  console.log('phase65d2 HLS fallback restart-seek controls ok');
+  console.log('phase65d2 HLS fallback restart-seek controls and focus ownership ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
