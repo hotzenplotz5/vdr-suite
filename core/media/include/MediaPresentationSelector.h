@@ -7,5 +7,6 @@ class MediaPresentationSelector
 public:
     MediaPresentationProfile select(
         const MediaSourceDescriptor& source,
-        const ClientMediaCapabilities& client) const;
+        const ClientMediaCapabilities& client,
+        int preferredAudioStreamIndex = -1) const;
 };
