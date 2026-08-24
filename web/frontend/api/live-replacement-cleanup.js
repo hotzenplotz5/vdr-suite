@@ -20,6 +20,43 @@
     return /^[A-Za-z0-9._:-]+$/.test(id) ? id : '';
   }
 
+  function booleanFlag(value) {
+    if (value === true || value === 1 || value === '1') return true;
+    if (value === false || value === 0 || value === '0') return false;
+    const normalized = text(value).toLowerCase();
+    if (normalized === 'true' || normalized === 'yes' || normalized === 'ja' || normalized === 'on') return true;
+    return false;
+  }
+
+  function channelIsEncrypted(channel) {
+    if (!channel || typeof channel !== 'object') return false;
+    const keys = ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled'];
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      if (Object.prototype.hasOwnProperty.call(channel, key)) {
+        return booleanFlag(channel[key]);
+      }
+    }
+    return false;
+  }
+
+  function channelName(channel) {
+    if (!channel || typeof channel !== 'object') return '';
+    return text(channel.name || channel.channelName || channel.title || channel.displayName || '');
+  }
+
+  function contextualLiveError(error, channel) {
+    const message = error && error.message ? text(error.message) : text(error);
+    if (!channelIsEncrypted(channel) || message.indexOf('live_source_receiver_unavailable') === -1) {
+      return error;
+    }
+    const name = channelName(channel);
+    return new Error(
+      (name ? name + ': ' : '') +
+      'Dieser Sender ist verschlüsselt. VDR konnte aktuell keinen Live-Empfang dafür bereitstellen.'
+    );
+  }
+
   function csrfHeaders() {
     const session = global.VdrSuiteBrowserSession;
     if (!session || typeof session.csrfHeaders !== 'function') return {};
@@ -49,9 +86,11 @@
     });
   }
 
-  function wrapLivePanel(panel, backendId, replacementId) {
+  function wrapLivePanel(panel, backendId, replacementId, channel) {
     const id = safeSessionId(replacementId);
-    if (!id || !panel || typeof panel !== 'object' || typeof panel.start !== 'function') {
+    const contextualizeEncryptedFailure = channelIsEncrypted(channel);
+    if ((!id && !contextualizeEncryptedFailure) ||
+        !panel || typeof panel !== 'object' || typeof panel.start !== 'function') {
       return panel;
     }
 
@@ -72,13 +111,13 @@
         result = start.apply(panel, arguments);
       } catch (error) {
         cleanupOnce();
-        throw error;
+        throw contextualLiveError(error, channel);
       }
       return Promise.resolve(result).then(function (newSessionId) {
         if (safeSessionId(newSessionId)) return newSessionId;
         return cleanupOnce().then(function () { return newSessionId; });
       }, function (error) {
-        return cleanupOnce().then(function () { throw error; });
+        return cleanupOnce().then(function () { throw contextualLiveError(error, channel); });
       });
     };
     return Object.freeze(wrapped);
@@ -94,7 +133,7 @@
     wrapped.createLivePanel = function (channel, backendId, options) {
       const settings = options && typeof options === 'object' ? options : {};
       const panel = createLivePanel.call(source, channel, backendId, settings);
-      return wrapLivePanel(panel, backendId, settings.replacesSessionId || '');
+      return wrapLivePanel(panel, backendId, settings.replacesSessionId || '', channel);
     };
     return Object.freeze(wrapped);
   }
@@ -123,6 +162,8 @@
   global.VdrSuiteLiveReplacementCleanup = Object.freeze({
     __test: Object.freeze({
       safeSessionId: safeSessionId,
+      channelIsEncrypted: channelIsEncrypted,
+      contextualLiveError: contextualLiveError,
       cleanupReplacement: cleanupReplacement,
       wrapLivePanel: wrapLivePanel,
       wrapPlayback: wrapPlayback
