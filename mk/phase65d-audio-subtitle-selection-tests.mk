@@ -1,6 +1,7 @@
 DAEMON_SRC += \
 	api/rest/src/RecordingMediaSessionTrackSelectionRequestParser.cpp \
 	api/rest/src/RecordingMediaSessionTrackSelection.cpp \
+	api/rest/src/RecordingMediaSessionAudioTrackPreference.cpp \
 	core/media/src/RecordingMediaTrackContract.cpp \
 	core/media/src/RecordingMediaSessionAudioTrackSelection.cpp \
 	core/media/src/RecordingMediaSessionTrackState.cpp
@@ -8,6 +9,7 @@ DAEMON_SRC += \
 .PHONY: install-phase65d-recording-track-controls \
 	test-phase65d-recording-media-track-contract \
 	test-phase65d-recording-audio-track-selection-request-parser \
+	test-phase65d-recording-audio-track-preference-parser \
 	test-phase65d-recording-audio-track-selection-runtime \
 	test-phase65d-recording-track-controls
 
@@ -38,6 +40,13 @@ test-phase65d-recording-audio-track-selection-request-parser:
 		-o $(BUILD_DIR)/test_phase65d_recording_audio_track_selection_request_parser
 	$(BUILD_DIR)/test_phase65d_recording_audio_track_selection_request_parser
 
+test-phase65d-recording-audio-track-preference-parser:
+	$(BUILD_CXX) $(CXXFLAGS) -Iapi/rest/include \
+		api/rest/src/RecordingMediaSessionAudioTrackPreference.cpp \
+		api/rest/tests/test_recording_media_session_audio_track_preference.cpp \
+		-o $(BUILD_DIR)/test_phase65d_recording_audio_track_preference_parser
+	$(BUILD_DIR)/test_phase65d_recording_audio_track_preference_parser
+
 test-phase65d-recording-audio-track-selection-runtime:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include -Icore/sqlite/include \
 		core/sqlite/src/Database.cpp \
@@ -63,5 +72,5 @@ test-phase65d-recording-track-controls:
 	node --check web/frontend/api/recording-track-controls.js
 	node web/frontend/tests/test_phase65d_recording_track_controls.js
 
-test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-audio-track-selection-runtime
+test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
 test-frontend-i18n: test-phase65d-recording-track-controls
