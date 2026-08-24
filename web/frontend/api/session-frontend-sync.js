@@ -1054,6 +1054,7 @@
     let seekEndSeconds = 0;
     let seekBaseSeconds = 0;
     let seekInFlight = false;
+    let repositionedStream = false;
     let indexStatusTimer = null;
     let indexStatusInFlight = false;
     let indexStatusFailures = 0;
@@ -1303,7 +1304,7 @@
       return fallbackActivation;
     }
 
-    function failRepositionedPlayback(error) {
+    function failStartedPlayback(error, afterSeek) {
       if (destroyed || stopped || fallbackPanel) return;
       stopped = true;
       seekInFlight = false;
@@ -1311,12 +1312,22 @@
       clearIndexStatusPoll();
       stopActive(false).catch(function () {});
       releaseVideo();
-      setStatus(
-        error && error.message
-          ? 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden: ' + error.message
-          : 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden.',
-        true
-      );
+      if (afterSeek) {
+        setStatus(
+          error && error.message
+            ? 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden: ' + error.message
+            : 'Seek wurde serverseitig ausgeführt, aber der neue Stream konnte nicht wiedergegeben werden.',
+          true
+        );
+      }
+      else {
+        setStatus(
+          error && error.message
+            ? 'Aufnahme-Wiedergabe wurde nach dem Start unterbrochen: ' + error.message
+            : 'Aufnahme-Wiedergabe wurde nach dem Start unterbrochen.',
+          true
+        );
+      }
       updateControls();
     }
 
@@ -1327,7 +1338,7 @@
         activeMediaPath,
         function (error) {
           if (initialConnection && !firstMediaReported) activateFallback(error);
-          else failRepositionedPlayback(error);
+          else failStartedPlayback(error, repositionedStream);
         },
         shouldPlay
       );
@@ -1357,6 +1368,7 @@
       stopped = false;
       stopIssued = false;
       firstMediaReported = false;
+      repositionedStream = false;
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
@@ -1492,6 +1504,7 @@
           throw new Error('MediaSession hat den angeforderten Seek nicht bestätigt.');
         }
 
+        repositionedStream = true;
         const playRequest = connectRecordingStream(shouldResume, false);
         seekInFlight = false;
         setStatus(
@@ -1613,8 +1626,11 @@
       if (!destroyed && !fallbackPanel && !stopped) {
         const mediaError = video.error;
         const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
-        if (firstMediaReported || seekBaseSeconds > 0) {
-          failRepositionedPlayback(new Error('Browser konnte den Recording-Stream nicht wiedergeben' + detail));
+        if (firstMediaReported) {
+          failStartedPlayback(
+            new Error('Browser konnte den Recording-Stream nicht wiedergeben' + detail),
+            repositionedStream
+          );
         }
         else {
           activateFallback(new Error('Browser konnte den schnellen Recording-Stream nicht wiedergeben' + detail));
