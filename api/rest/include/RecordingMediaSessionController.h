@@ -91,5 +91,7 @@ private:
     mutable std::map<std::string, CachedSourceDescriptor> descriptorCache_;
     mutable std::mutex pendingIndexMutex_;
     mutable std::map<std::string, PendingIndexContext> pendingIndex_;
+    mutable std::mutex selectedAudioStreamMutex_;
+    mutable std::map<std::string, int> selectedAudioStreamIndexes_;
     std::string workspaceRoot_;
 };
