@@ -53,14 +53,32 @@ created and pushed consecutively while earlier workflow runs are still queued or
 running. Superseded intermediate runs do not need separate analysis unless they
 reveal a failure that also affects the current head.
 
-Evaluate CI at the end of the bounded workstream or before a gated runtime,
-review, readiness or merge step. The current head must pass every required job
-before real-runtime installation, runtime acceptance, Ready-for-review, merge or
-other phase-completion gates.
+Validation gates are surface-scoped during iterative implementation and runtime
+acceptance. Require only the checks that can materially validate the changed
+surface and the next action:
 
-A failed required check on the final stabilization head must be diagnosed and
-fixed before crossing that gate. Do not hide failures by adding unrelated
-commits or by bypassing required checks.
+- frontend-only JavaScript/CSS/HTML changes require the focused frontend tests
+  and `frontend-regression-test` before installing that frontend candidate;
+- frontend install or packaging wiring changes additionally require the relevant
+  packaging/install staging check;
+- backend, daemon, C++ or runtime-contract changes require the corresponding
+  build, fast-regression, architecture and other directly affected checks;
+- documentation-only changes require documentation validation and do not
+  invalidate already accepted product/runtime evidence.
+
+Do not block a targeted runtime installation or acceptance test on unrelated CI
+jobs merely because they belong to the same workflow. Such jobs may still be
+queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
+to establish that the failure is unrelated to the candidate being installed,
+then continue with the already-approved targeted acceptance path.
+
+The complete repository-required CI graph is a gate for Ready-for-review, merge,
+phase closeout, or another explicitly documented full-stabilization boundary. It
+is not a mandatory gate for every iterative real-runtime test.
+
+A failed check that is required for the current changed surface or current gate
+must be diagnosed and fixed before crossing that gate. Do not hide failures by
+adding unrelated commits or by bypassing genuinely relevant checks.
 
 ## Minimal necessary validation
 
