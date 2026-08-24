@@ -6,7 +6,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 **Do not use this file as a second copy of active PR tips or transient CI state.** Volatile operational truth belongs only in [Current State](CURRENT.md), and live GitHub state must still be re-read before any action.
 
-Root-level `AGENTS.md` is binding. In particular, once the user has authorized a bounded workstream, continue it without voluntary handoff or artificial stopping until the requested end state is reached. Status reports are progress updates, not stopping points. Surface-scoped validation governs iterative documentation/frontend/runtime work; unrelated queued/running CI does not block already-approved progress.
+Root-level `AGENTS.md` is binding. In particular, once the user has authorized a bounded workstream, continue it without voluntary handoff or artificial stopping until the requested end state is reached. Status reports are progress updates, not stopping points. Surface-scoped validation governs iterative documentation/frontend/runtime work; unrelated queued/running CI does not block already-approved progress. A genuinely external dependency is a blocked wait state, not project completion: exhaust all independent approved work and re-read relevant repository/CI state before reporting it. If a relevant CI result is required for the next already-authorized gate, re-read that run before ending the working response rather than returning a stale queued/in-progress snapshot.
 
 ## Mandatory reading order
 
@@ -150,7 +150,7 @@ Phase-65 MediaSession/provider-ownership semantics remain authoritative when Sui
 
 - A chat discussion is not a binding project decision until represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract.
 - `CURRENT.md` is the sole repository copy of volatile operational status.
-- Root-level `AGENTS.md` owns the top-level non-stop execution rule: already-authorized work continues until the requested end state unless a genuine unresolved safety/technical boundary requires new user input.
+- Root-level `AGENTS.md` owns the top-level non-stop execution rule: already-authorized work continues until the requested end state. A genuine external dependency is recorded as a blocked wait state only after all independent approved work and authoritative state reads are exhausted; it is not a generic permission to end or declare the workstream complete.
 - Status updates, intermediate commits and unrelated queued/running CI are not handoff points.
 - Validation during iterative work is surface-scoped; a complete repository CI graph is reserved for the documented Ready/merge/phase-closeout full-stabilization boundary.
 - A slice is the smallest **coherent** safety/product change, not the smallest mechanically possible diff.
@@ -178,7 +178,7 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 ## Exact action for a new chat
 
 1. Read `CURRENT.md` first.
-2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link, but do not wait on unrelated jobs before continuing already-approved surface-scoped work.
+2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
 3. Treat Phase 64 as completed and Phase 65 as active with 65.A through 65.C closed and 65.D active.
 4. Treat Phase 65.D.1 and Phase 65.D.2 as accepted/closed unless live repository state supersedes that durable evidence; derive the next 65.D block from the remaining ADR-0053 code/product gap rather than reviving a stale “65.D next” label.
 5. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported D.2 profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
@@ -186,7 +186,7 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 7. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 or block Streaming solely for that UI.
 8. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
 9. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
-10. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit or an ordinary response boundary into a voluntary stop.
+10. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
 
 ## Command presentation contract
 

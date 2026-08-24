@@ -173,8 +173,16 @@ private:
       const cChannel *channel = Channels->GetByChannelID(nativeId);
       if (channel == nullptr || channel->GroupSep()) return false;
       if (!PrepareStartupPackets(channel) || !PrepareFrameDetector(channel)) return false;
-      device = cDevice::GetDevice(channel, LIVEPRIORITY, false);
-      if (device == nullptr || !device->SwitchChannel(channel, false)) {
+
+      // Match VDR's normal live-channel control path exactly. Both SVDRP CHAN
+      // and RESTfulAPI's /remote/switch end up in cChannels::SwitchTo(), which
+      // delegates to PrimaryDevice()->SwitchChannel(channel, true) and lets VDR
+      // own device selection, receiver detachment and Transfer Mode. The Suite
+      // receiver then attaches to the device VDR actually selected instead of
+      // tuning a second non-live-view device in parallel.
+      if (!Channels->SwitchTo(channel->Number())) return false;
+      device = cDevice::ActualDevice();
+      if (device == nullptr || !device->IsTunedToTransponder(channel)) {
         device = nullptr;
         return false;
       }

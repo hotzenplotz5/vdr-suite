@@ -5,24 +5,49 @@ They supplement the technical, security and phase-specific contracts in `docs/`.
 
 ## Top-level non-stop execution mandate
 
-Once the user has authorized a bounded workstream, do not voluntarily stop,
-hand off, or end the working response while authorized work remains. Continue
-using the available tools and repository operations until the requested end
-state is reached.
+Once the user has authorized a bounded workstream, never voluntarily stop,
+hand off, or end the working response while any authorized implementation,
+diagnosis, validation, CI resolution, runtime preparation, repository operation
+or other executable step remains. Continue using the available tools and
+repository operations until the requested end state is reached.
 
 Status updates are progress reports, not stopping points. A completed analysis,
-intermediate commit, pushed head, running or queued unrelated CI job, available
-next implementation step, chat length, or ordinary turn boundary is never a
-reason to stop an already-approved workstream. When a check fails, diagnose and
-repair the demonstrated cause and continue; do not turn a fixable failure into a
+intermediate commit, pushed head, running or queued CI job, available next
+implementation step, chat length, or ordinary turn boundary is never a reason
+to end an already-approved workstream. When a check fails, diagnose and repair
+the demonstrated cause and continue; do not turn a fixable failure into a
 handoff to the user.
 
-A hard stop is allowed only when the next required operation genuinely cannot be
-performed safely or technically without new user input. Existing authorization
-counts: do not stop again for a PR-state change, merge, runtime action or other
-gate that the user already explicitly approved. If an unexpected remote change
-or another safety condition can be resolved by re-reading authoritative state,
-resolve it and continue instead of stopping.
+An intermediate finding is never an end state. Never convert a diagnosis,
+hypothesis, partial validation, partial implementation, commit, CI result,
+runtime observation or progress summary into a final response while authorized
+executable work remains. Continue immediately with the next executable step.
+
+Every working response that is permitted to end must end with the heading
+`## Testblock` followed by exactly one ordinary fenced `bash` block containing
+the concrete branch-/head-specific commands the user can run to validate the
+current candidate. The test block is the final content; no prose, status, offer
+or summary may follow it. If no truthful test block can yet be produced because
+the candidate is not testable, the response is not permitted to end; continue
+working instead.
+
+There is no generic repository permission to stop an authorized workstream.
+A genuinely external dependency or genuinely new user decision may make the
+remaining requested operation temporarily impossible, but that is a blocked
+wait state rather than permission to abandon the workstream. Before reporting
+such a blocker, exhaust every independent approved operation, re-read all
+available authoritative repository and CI state, and identify the exact external
+event or input without treating the response boundary as project completion.
+Existing authorization counts: do not ask again or stop at a PR-state change,
+merge, runtime action or other gate that the user already explicitly approved.
+If an unexpected remote change or another safety condition can be resolved by
+re-reading authoritative state, resolve it and continue.
+
+If a GitHub Actions run for the relevant head is required for the next already-
+authorized gate, do not end the working response while that run is still known
+to be queued or in progress. Continue independent approved work while it runs
+and re-read the run before any response termination. Never report a stale
+non-terminal CI snapshot as though it were the end of the workstream.
 
 ## GitHub-first execution
 
@@ -51,25 +76,17 @@ branch head has a known implementation, runtime-wiring, packaging, deployment or
 validation gap that prevents the requested acceptance scenario from being tested
 truthfully. Such an intermediate head is not a testable candidate. Continue the
 approved implementation and stabilization work until the requested acceptance
-scope is actually runnable, unless a real decision or safety boundary below
-requires user input first.
+scope is actually runnable.
 
-Stop only when a real decision or safety boundary remains unresolved after using
-all safe available repository/tool evidence, including:
-
-- the remote branch moved unexpectedly and authoritative re-reading cannot
-  establish a safe fast-forward continuation;
-- unrelated or ambiguous changes would be included and cannot be separated
-  safely within the authorized scope;
-- required source content is incomplete and cannot be retrieved with the
-  available tools;
-- a security, data-loss, runtime or compatibility decision genuinely requires
-  new user input;
-- a required stabilization check failed and its demonstrated cause cannot be
-  repaired safely within the authorized scope; or
-- the next action requires authorization for a PR-state change, merge, history
-  rewrite, force-push or explicitly gated runtime boundary and that exact
-  authorization has not already been granted.
+Potential blockers are not stop permissions. They matter only when they make
+every remaining authorized operation impossible after all safe evidence and
+independent work have been exhausted. Examples include an unrecoverable remote
+branch conflict, inseparable unrelated changes, unavailable required source
+content, a genuine security/data-loss/runtime compatibility decision requiring
+new input, an irreparable required stabilization failure, or an exact gated
+operation for which authorization has genuinely never been granted. In each
+case, continue every other approved operation first and preserve the workstream
+as blocked rather than declaring it complete.
 
 ## Commit, push and CI batching
 
@@ -165,3 +182,9 @@ for the run manually. This applies while the run is queued, running, failed,
 retried or completed. Do not provide only a textual CI status. When no run has
 been assigned yet, state that explicitly and provide the link as soon as the run
 exists.
+
+Before ending any working response, verify that the requested end state has
+actually been reached. If a relevant CI run exists for the current head and its
+result matters to the next already-authorized gate, re-read that run immediately
+before the response ends. Never finish with a statement that the next step is
+still executable with the available tools; perform that step instead.

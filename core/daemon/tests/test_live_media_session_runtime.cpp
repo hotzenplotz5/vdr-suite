@@ -32,6 +32,8 @@ public:
     int openCount = 0;
     int closeCount = 0;
     int staleCloseCount = 0;
+    int forcedOpenReplyCode = 250;
+    std::string forcedOpenPayload;
 
     vdrsuite::agent::SuiteBridgeCommandReply discoverLiveSource() override
     {
@@ -52,6 +54,8 @@ public:
         if (request.pluginInstanceEpoch != epoch || request.channelId != ChannelId)
             return success(555, "live_source_plugin_instance_epoch_stale");
         ++openCount;
+        if (forcedOpenReplyCode != 250)
+            return success(forcedOpenReplyCode, forcedOpenPayload);
         return success(
             250,
             std::string("vdr-suite-live/1 state=active receiverAttached=true channelId=") +
@@ -254,6 +258,25 @@ int main()
     auto preparation = providerRuntime.prepare(BackendId, ChannelId);
     assert(preparation.valid);
     assert(preparation.reasonCode == "live_provider_pinned");
+
+    // Preserve only the fixed SuiteBridge public OPEN reason vocabulary. This
+    // makes real runtime failures actionable without surfacing arbitrary
+    // provider payload text through the public MediaSession reason code.
+    transport.forcedOpenReplyCode = 550;
+    transport.forcedOpenPayload = "live_source_receiver_unavailable";
+    const auto knownOpenFailure = providerRuntime.open(
+        preparation, "lease_known_open_failure");
+    assert(!knownOpenFailure.opened);
+    assert(knownOpenFailure.reasonCode == "live_source_receiver_unavailable");
+
+    transport.forcedOpenPayload = "provider internal free-form detail";
+    const auto unknownOpenFailure = providerRuntime.open(
+        preparation, "lease_unknown_open_failure");
+    assert(!unknownOpenFailure.opened);
+    assert(unknownOpenFailure.reasonCode == "live_provider_open_failed");
+    transport.forcedOpenReplyCode = 250;
+    transport.forcedOpenPayload.clear();
+    transport.openCount = 0;
 
     Entropy entropy;
     MediaSessionIssuanceService issuance(

@@ -2,10 +2,30 @@
 
 #include <sqlite3.h>
 #include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
 
 namespace
 {
 constexpr int kBusyTimeoutMilliseconds = 5000;
+
+std::recursive_mutex& transactionMutexForFilename(
+    const std::string& filename)
+{
+    static std::mutex registryMutex;
+    static std::map<
+        std::string,
+        std::unique_ptr<std::recursive_mutex>> transactionMutexes;
+
+    std::lock_guard<std::mutex> registryLock(registryMutex);
+    auto& mutex = transactionMutexes[filename];
+    if (!mutex)
+    {
+        mutex = std::make_unique<std::recursive_mutex>();
+    }
+    return *mutex;
+}
 }
 
 Database::Database()
@@ -163,7 +183,22 @@ bool Database::tableExists(const std::string& tableName)
 
 Database::TransactionLease Database::acquireTransactionLease()
 {
-    return TransactionLease(transactionMutex_);
+    const std::string databaseFilename = filename();
+    if (databaseFilename.empty())
+    {
+        return TransactionLease(transactionMutex_);
+    }
+
+    // The daemon intentionally owns more than one SQLite connection to the
+    // same state file (notably the HTTP security/accountability connection and
+    // the primary runtime connection). SQLite permits only one writer at a
+    // time, so per-Database mutexes allow those in-process writers to race and
+    // surface SQLITE_BUSY despite the normal busy timeout. Key the transaction
+    // lease by the actual SQLite filename so same-file writers serialize before
+    // they enter SQLite, while genuinely separate database files remain
+    // independent.
+    return TransactionLease(
+        transactionMutexForFilename(databaseFilename));
 }
 
 sqlite3* Database::handle() const
