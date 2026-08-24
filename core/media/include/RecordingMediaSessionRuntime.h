@@ -39,6 +39,16 @@ struct RecordingMediaSessionSeekCapabilityResult
     int durationSeconds = 0;
 };
 
+struct RecordingMediaSessionAudioTrackSelectionResult
+{
+    bool selected = false;
+    bool restarted = false;
+    std::string reasonCode;
+    int sourceAudioStreamIndex = -1;
+    int positionSeconds = 0;
+    int durationSeconds = 0;
+};
+
 class RecordingMediaSessionRuntime
 {
 public:
@@ -117,6 +127,11 @@ public:
 
     RecordingMediaSessionSeekResult seekStream(
         const std::string& sessionId,
+        int positionSeconds);
+
+    RecordingMediaSessionAudioTrackSelectionResult selectAudioTrack(
+        const std::string& sessionId,
+        const MediaPresentationProfile& profile,
         int positionSeconds);
 
     bool stop(
