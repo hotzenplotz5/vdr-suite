@@ -27,6 +27,11 @@
     return id && id.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(id) ? id : '';
   }
 
+  function safeAudioTrackId(value) {
+    const id = text(value).trim();
+    return /^audio-[1-9][0-9]{0,9}$/.test(id) && id.length <= 16 ? id : '';
+  }
+
   function formatTime(value) {
     const seconds = Math.max(0, Math.floor(Number(value) || 0));
     const hours = Math.floor(seconds / 3600);
@@ -57,14 +62,18 @@
     };
   }
 
-  function createSession(backendId, recording, startPositionSeconds) {
+  function createSession(backendId, recording, startPositionSeconds, audioTrackId) {
     const api = global.VdrSuiteClientApi;
     const id = recordingId(recording);
     const start = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
+    const selectedAudioTrackId = safeAudioTrackId(audioTrackId);
     if (!api || typeof api.requestJson !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahme-Wiedergabe ist nicht verfügbar.'));
     }
     if (!id) return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
+    if (audioTrackId && !selectedAudioTrackId) {
+      return Promise.reject(new Error('Ungültige normalisierte Tonspur-ID.'));
+    }
 
     const body = {
       backendId: text(backendId || 'default'),
@@ -72,6 +81,7 @@
       capabilities: capabilities()
     };
     if (start > 0) body.startPositionSeconds = start;
+    if (selectedAudioTrackId) body.audioTrackId = selectedAudioTrackId;
     return api.requestJson('/api/media/sessions', {
       method: 'POST',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
@@ -239,6 +249,8 @@
     let stoppedResumeSupported = false;
     let indexTimer = null;
     let indexFailures = 0;
+    let preferredAudioTrackId = '';
+    let audioSelectionInFlight = false;
 
     function currentVideo() {
       return inner && inner.element ? find(inner.element, 'video') : null;
@@ -367,7 +379,12 @@
       const target = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
       const next = factory(recording, backendId, {
         createSession: function () {
-          return createSession(backendId, recording, target).then(function (session) {
+          return createSession(
+            backendId,
+            recording,
+            target,
+            preferredAudioTrackId
+          ).then(function (session) {
             applyPlaybackContract(session && session.mediaSession, true);
             return session;
           });
@@ -472,6 +489,50 @@
       return Promise.resolve(true);
     }
 
+    function selectAudioTrack(audioTrackId) {
+      const targetTrackId = safeAudioTrackId(audioTrackId);
+      if (!targetTrackId) {
+        return Promise.reject(new Error('Ungültige normalisierte Tonspur-ID.'));
+      }
+      if (destroyed || stopped || !started || audioSelectionInFlight || !resumeSupported) {
+        return Promise.reject(new Error('Tonspurwechsel ist für diesen HLS-Wiedergabestand nicht verfügbar.'));
+      }
+      if (targetTrackId === preferredAudioTrackId) {
+        return Promise.resolve(activeSessionId);
+      }
+
+      const currentState = state();
+      const targetPosition = position();
+      const wasPaused = currentState === 'paused';
+      if ((currentState !== 'playing' && currentState !== 'paused') || targetPosition < 0) {
+        return Promise.reject(new Error('Tonspurwechsel benötigt aktive Recording-Wiedergabe.'));
+      }
+
+      const previousTrackId = preferredAudioTrackId;
+      audioSelectionInFlight = true;
+      return Promise.resolve(stop()).then(function (stoppedCleanly) {
+        if (stoppedCleanly === false || state() !== 'stopped') {
+          throw new Error('Der bisherige HLS-Stream konnte nicht sauber gestoppt werden.');
+        }
+        preferredAudioTrackId = targetTrackId;
+        if (targetPosition > 0) return resume(targetPosition);
+        return startAt(0);
+      }).then(function (sessionId) {
+        if (!safeSessionId(sessionId)) {
+          throw new Error('Die HLS-Replacement-MediaSession wurde nicht gestartet.');
+        }
+        if (wasPaused && !pause()) {
+          throw new Error('Pause-Zustand konnte nach dem Tonspurwechsel nicht erhalten werden.');
+        }
+        audioSelectionInFlight = false;
+        return sessionId;
+      }).catch(function (error) {
+        preferredAudioTrackId = previousTrackId;
+        audioSelectionInFlight = false;
+        throw error;
+      });
+    }
+
     function unsupportedSeek() {
       return Promise.reject(new Error('Zeit-Sprung ist im Recording-Kompatibilitätspfad nicht verfügbar.'));
     }
@@ -516,6 +577,10 @@
       position: position,
       duration: duration,
       state: state,
+      selectAudioTrack: selectAudioTrack,
+      canSelectAudioTrack: function () {
+        return !destroyed && !stopped && started && !audioSelectionInFlight && resumeSupported;
+      },
       seekAbsolute: unsupportedSeek,
       seekRelative: unsupportedSeek,
       sessionId: function () {
@@ -556,6 +621,6 @@
 
   global[marker] = true;
   global.VdrSuiteRecordingFallbackControls = Object.freeze({
-    __test: Object.freeze({formatTime: formatTime})
+    __test: Object.freeze({formatTime: formatTime, safeAudioTrackId: safeAudioTrackId})
   });
 }(window));
