@@ -14,9 +14,11 @@ Current active numbered runtime phase: **Phase 65 - Streaming Gateway and Media 
 
 Completed Phase-65 verticals: **65.A - Existing-Recording playback**, **65.B - Live-TV playback**, and **65.C - Recording delivery performance and media output/transcode settings**.
 
-Next Phase-65 product vertical: **65.D - Client playback abstraction**.
+Current Phase-65 product vertical: **65.D - Client playback abstraction**.
 
-The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded. Truthful Range/seek/growing capability remains a Phase-65 requirement, but full time-seek and growing-Recording seek are not represented as the 65.C implementation block.
+Completed Phase-65.D slices: **65.D.1 - Persistent Browser Playback Shell** and **65.D.2 - Recording Playback Controls and Seek**.
+
+The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded. Truthful Range/seek/growing capability remains a Phase-65 requirement. Phase 65.D.2 now implements arbitrary completed-Recording time-seek and stop/resume for the accepted progressive-fMP4 and HLS restart-seek profiles; growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain explicit deferred capability work.
 
 Historical completed context remains relevant, including Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, and Phase 63 - Backend Agent and Secure Multi-Site Runtime.
 
@@ -87,7 +89,7 @@ private source
   -> platform playback engine
 ```
 
-The implementation sequence that actually shipped is Recording playback, Live TV, then a Phase-65.C delivery/performance block that first accelerated completed Recording playback and then continued into backend-scoped media-transcode output policy/settings. Remux and transcode remain evidence-driven compatibility escalation, not default architecture.
+The implementation sequence that actually shipped is Recording playback, Live TV, then a Phase-65.C delivery/performance block that first accelerated completed Recording playback and then continued into backend-scoped media-transcode output policy/settings. Phase 65.D is now active and layers stable first-party playback semantics over those accepted MediaSession contracts. Remux and transcode remain evidence-driven compatibility escalation, not default architecture.
 
 ## Phase 65.A Recording playback completion
 
@@ -153,7 +155,7 @@ completed Recording
   -> HLS compatibility fallback when required
 ```
 
-The continuous progressive-fMP4 stream deliberately does not advertise byte-range, immutable content-length or browser time-seek semantics. Growing Recordings do not become immutable merely because a faster completed-Recording path exists.
+The continuous progressive-fMP4 stream deliberately does not advertise byte-range or immutable content-length semantics. Growing Recordings do not become immutable merely because a faster completed-Recording path exists.
 
 ### Media-transcode backend policy and output settings
 
@@ -183,15 +185,16 @@ The obsolete 65.C seek heading is removed, but its important safety semantics ar
 
 - advertise Range/seek only when the selected source/profile actually supports it;
 - completed versus growing state remains server-owned source truth;
-- continuous progressive-fMP4 is not presented as an immutable random-access representation;
+- continuous progressive-fMP4 is not presented as an immutable HTTP byte-range representation;
 - native `progressive-direct` is available only when its byte-range/source-fingerprint contract is valid;
-- full arbitrary VOD time-seek, VDR-index time mapping, user-visible growing-Recording seek and durable resume/progress remain deferred until a coherent demonstrated gap authorizes them.
+- Phase 65.D.2 provides accepted arbitrary completed-Recording time-seek and stop/resume for supported progressive-fMP4 and HLS restart-seek profiles;
+- user-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred until a coherent demonstrated gap authorizes them.
 
-This means Phase 65 can truthfully report a capability as unsupported instead of implementing fake seek merely because an old roadmap label named it.
+This means Phase 65 truthfully reports unsupported capability instead of fabricating seek merely because an old roadmap label named it.
 
-## Phase 65.D next direction
+## Phase 65.D active direction
 
-The next planned Phase-65 product vertical is the client playback abstraction:
+Phase 65.D is the active client playback abstraction vertical:
 
 ```text
 Suite MediaSession
@@ -199,9 +202,15 @@ Suite MediaSession
   -> platform playback engine
 ```
 
-The abstraction should expose only stable playback semantics such as open, play/pause/stop, seek where supported, track selection, position/state, discontinuity/failure and close. Browser remains the initial product validator; Android/Android TV, Windows, Kodi-style, Apple and television clients keep mature platform engines behind the Suite adapter rather than sharing a Suite-owned decoder core.
+The abstraction exposes stable playback semantics such as open, play/pause/stop, seek where supported, track selection, position/state, discontinuity/failure and close. Browser remains the initial product validator; Android/Android TV, Windows, Kodi-style, Apple and television clients keep mature platform engines behind the Suite adapter rather than sharing a Suite-owned decoder core.
 
-Client capability negotiation, least-transformation selection and ADR-0055 transcode policy must remain independent of browser/device brand or user-agent strings.
+Phase 65.D.1 is accepted and closed for the Persistent Browser Playback Shell. It establishes one persistent browser playback owner across internal navigation and preserves native browser/Android Picture-in-Picture on the same HTML media element and MediaSession.
+
+Phase 65.D.2 is accepted and closed for Recording Playback Controls and Seek. It provides Play/Pause/Stop, truthful completed-Recording position/duration, relative/timeline/direct absolute seek, progressive-fMP4 MediaSession worker repositioning, HLS restart-seek through fresh authorized sessions, stop/resume versus start-from-beginning choice and Android-friendly direct-time entry.
+
+Remaining Phase-65.D semantic work includes normalized audio/subtitle selection, discontinuity handling and classified playback failure behavior. Client capability negotiation, least-transformation selection and ADR-0055 transcode policy remain independent of browser/device brand or user-agent strings.
+
+See [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md) and [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md).
 
 ## Broadcast Companion direction
 
@@ -246,10 +255,10 @@ The key vertical journeys cover:
 
 ## Development rules
 
-- Root-level `AGENTS.md` is binding.
+- Root-level `AGENTS.md` is binding, including its top-level non-stop execution mandate.
 - `CURRENT.md` is the sole repository copy of volatile operational phase status.
-- Verify live `main`, exact PR head and exact-final-head CI before writes or status claims.
-- Keep review/merge/retarget/close state changes behind explicit user approval.
+- Verify live `main` and the exact PR head before writes or status claims. During approved iterative work, validation is surface-scoped and unrelated CI does not block progress; the complete repository CI graph is evaluated only at the documented Ready/merge/phase-closeout full-stabilization boundary.
+- Keep review/merge/retarget/close state changes behind explicit user approval; existing explicit authorization remains valid and must not trigger a second artificial stop.
 - A slice is the smallest coherent safety/product change, not the smallest mechanically possible diff.
 - Avoid artificial intermediate states and unnecessary long dependency stacks unless a real safety, concurrency, compatibility or acceptance boundary requires them.
 - Provider availability never creates execution authority and active work never silently switches provider.
@@ -273,9 +282,9 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Current authorization boundary
 
-Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. The next planned Phase-65 runtime/product direction is **65.D Client playback abstraction** while preserving all existing MediaSession, provider-privacy, least-transformation, output-policy and cleanup boundaries.
+Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D is active; Phase 65.D.1 and Phase 65.D.2 are accepted and closed.** Remaining Phase-65.D work stays inside the accepted client playback abstraction and must preserve all existing MediaSession, provider-privacy, least-transformation, output-policy and cleanup boundaries.
 
-Advanced seek/growing-recording behavior remains capability-driven and must be represented truthfully. It is not the Phase-65.C implementation target.
+Completed-Recording arbitrary seek and stop/resume are accepted for the supported D.2 profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain capability-driven and must be represented truthfully rather than fabricated.
 
 Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an explicit kickoff.
 
@@ -290,6 +299,8 @@ Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an exp
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
 - [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
+- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
 - [ADR-0055 Media Transcode Backend Selection](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
