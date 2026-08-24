@@ -17,6 +17,12 @@ NEW_CHAT_HANDOFF = ROOT / "docs/NEW-CHAT-HANDOFF.md"
 #   updating the file or use a smaller safe edit strategy.
 # - After every GitHub file update, inspect the commit diff before treating
 #   the change as correct.
+# - Once a bounded workstream is authorized, do not voluntarily stop while
+#   authorized work remains. Status updates and ordinary turn boundaries are
+#   not handoff points.
+# - A fixable failed check is diagnosis/fix work, not a reason to stop.
+# - Existing authorization counts; do not ask again or stop at an already
+#   approved PR-state, merge, runtime or other gate.
 # - Prefer GitHub-first execution when the connector can perform the complete
 #   bounded operation safely.
 # - Continue through already-approved steps without artificial confirmation
@@ -48,6 +54,12 @@ REQUIRED_CURRENT_STATUS_RULES = [
 ]
 
 REQUIRED_AGENT_RULES = [
+    "## Top-level non-stop execution mandate",
+    "do not voluntarily stop,",
+    "Status updates are progress reports, not stopping points.",
+    "ordinary turn boundary is never a",
+    "When a check fails, diagnose and",
+    "Existing authorization counts: do not stop again",
     "## GitHub-first execution",
     "Continue through all already-approved steps of a bounded workstream",
     "Push each completed",
@@ -87,6 +99,9 @@ REQUIRED_GUARDRAIL_RULES = [
     "small diff.",
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
+    "Once a bounded workstream is authorized, do not voluntarily stop while",
+    "A fixable failed check is diagnosis/fix work, not a reason to stop.",
+    "Existing authorization counts; do not ask again or stop at an already",
     "Prefer GitHub-first execution when the connector can perform",
     "Continue through already-approved steps without artificial confirmation",
     "Do not wait for GitHub Actions after every commit. Keep approved",
