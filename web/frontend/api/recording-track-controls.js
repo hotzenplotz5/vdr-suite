@@ -310,6 +310,17 @@
       setNote('Tonspur wird gewechselt …', false);
       host.hidden = false;
       let serverSelected = false;
+      let pausedForSelection = false;
+
+      if (playbackState === 'playing') {
+        if (typeof panel.pause !== 'function' || panel.pause() !== true) {
+          selectionInFlight = false;
+          audioSelect.disabled = audioRow.hidden;
+          audioSelect.value = previousTrackId;
+          return Promise.reject(new Error('Wiedergabe konnte für den Tonspurwechsel nicht stabil pausiert werden.'));
+        }
+        pausedForSelection = true;
+      }
 
       return selectAudioTrack(
         backendId,
@@ -385,6 +396,12 @@
           selectedTrackId = previousTrackId;
           audioSelect.value = previousTrackId;
           audioSelect.disabled = audioRow.hidden;
+          if (pausedForSelection && typeof panel.play === 'function') {
+            try {
+              const resumed = panel.play();
+              if (resumed && typeof resumed.catch === 'function') resumed.catch(function () {});
+            } catch (resumeError) {}
+          }
           setNote(
             error && error.message
               ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
