@@ -61,11 +61,16 @@ vm.runInNewContext(source, {
 }, {filename: sourcePath});
 
 assert.ok(window.VdrSuiteLiveReplacementCleanup);
+const cleanupTest = window.VdrSuiteLiveReplacementCleanup.__test;
 assert.strictEqual(
-  window.VdrSuiteLiveReplacementCleanup.__test.safeSessionId('live-session:A_1.2'),
+  cleanupTest.safeSessionId('live-session:A_1.2'),
   'live-session:A_1.2'
 );
-assert.strictEqual(window.VdrSuiteLiveReplacementCleanup.__test.safeSessionId('../bad'), '');
+assert.strictEqual(cleanupTest.safeSessionId('../bad'), '');
+assert.strictEqual(cleanupTest.channelIsEncrypted({encrypted: true}), true);
+assert.strictEqual(cleanupTest.channelIsEncrypted({encrypted: false}), false);
+assert.strictEqual(cleanupTest.channelIsEncrypted({encrypted: 'false'}), false);
+assert.strictEqual(cleanupTest.channelIsEncrypted({scrambled: '1'}), true);
 assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
 
 // Mirror the persistent playback shell: it installs another configurable
@@ -154,7 +159,49 @@ assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'f
   assert.strictEqual(await ordinary.start(), '');
   assert.strictEqual(requests.length, 0, 'ordinary failed startup has no yielded session to cleanup');
 
-  console.log('live replacement cleanup and shell wrapping contract ok');
+  currentPlayback = playbackWith(new Error('live_source_receiver_unavailable'));
+  window.VdrSuiteRecordings2Playback = currentPlayback;
+  requests.length = 0;
+  const encrypted = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'PAY', name: 'Sky Test', encrypted: true},
+    'living-room',
+    {}
+  );
+  await assert.rejects(encrypted.start(), error => {
+    assert.ok(error.message.includes('Sky Test'));
+    assert.ok(error.message.includes('verschlüsselt'));
+    assert.ok(error.message.includes('VDR konnte aktuell keinen Live-Empfang'));
+    assert.ok(!error.message.includes('live_source_receiver_unavailable'));
+    return true;
+  });
+  assert.strictEqual(requests.length, 0, 'encrypted initial failure has no yielded session to cleanup');
+
+  currentPlayback = playbackWith(new Error('live_source_receiver_unavailable'));
+  window.VdrSuiteRecordings2Playback = currentPlayback;
+  requests.length = 0;
+  const free = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'FREE', name: 'Free TV', encrypted: false},
+    'living-room',
+    {}
+  );
+  await assert.rejects(free.start(), /live_source_receiver_unavailable/);
+  assert.strictEqual(requests.length, 0, 'free-channel receiver failures must not trigger replacement cleanup');
+
+  currentPlayback = playbackWith(new Error('Security accountability persistence is unavailable'));
+  window.VdrSuiteRecordings2Playback = currentPlayback;
+  requests.length = 0;
+  const encryptedSecurityFailure = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'PAY-SECURITY', name: 'Encrypted Security Test', encrypted: true},
+    'living-room',
+    {}
+  );
+  await assert.rejects(
+    encryptedSecurityFailure.start(),
+    /Security accountability persistence is unavailable/
+  );
+  assert.strictEqual(requests.length, 0, 'unrelated encrypted-channel failures must keep their real cause');
+
+  console.log('live replacement cleanup, encryption context and shell wrapping contract ok');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
