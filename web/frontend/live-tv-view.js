@@ -70,6 +70,50 @@
   function channelIsRadio(channel) { return boolValue(pick(channel, ['radio', 'isRadio'], false), false); }
   function channelIsEnabled(channel) { return boolValue(pick(channel, ['enabled', 'active'], true), true); }
 
+  function channelHasUsableCaids(channel) {
+    if (!channel || typeof channel !== 'object') return false;
+    const caids = channel.caids || channel.CAIDs || channel.caid || channel.CAID;
+    if (Array.isArray(caids)) return caids.length > 0;
+    return caids !== undefined && caids !== null && text(caids) !== '';
+  }
+
+  function channelHasEncryptionInfo(channel) {
+    if (!channel || typeof channel !== 'object') return false;
+    const keys = ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled'];
+    return keys.some(function(key) {
+      return Object.prototype.hasOwnProperty.call(channel, key);
+    }) || channelHasUsableCaids(channel);
+  }
+
+  function channelIsEncrypted(channel) {
+    if (!channel || typeof channel !== 'object') return false;
+    const keys = ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled'];
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      if (Object.prototype.hasOwnProperty.call(channel, key)) {
+        return boolValue(channel[key], false);
+      }
+    }
+    return channelHasUsableCaids(channel);
+  }
+
+  function channelAvailabilityText(channel) {
+    const prefix = channelNumber(channel) ? 'Kanal ' + channelNumber(channel) : 'TV';
+    if (!channelIsEnabled(channel)) return prefix + ' · deaktiviert';
+    if (channelIsEncrypted(channel)) return prefix + ' · verschlüsselt';
+    if (channelHasEncryptionInfo(channel)) return prefix + ' · frei';
+    return prefix + ' · verfügbar';
+  }
+
+  function liveErrorForChannel(error, channel, fallback) {
+    const message = error && error.message ? text(error.message) : text(error);
+    if (channelIsEncrypted(channel) && message.indexOf('live_source_receiver_unavailable') !== -1) {
+      return (channelName(channel) ? channelName(channel) + ': ' : '') +
+        'Dieser Sender ist verschlüsselt. VDR konnte aktuell keinen Live-Empfang dafür bereitstellen.';
+    }
+    return message || fallback || 'Live-TV konnte nicht gestartet werden.';
+  }
+
   function epoch(value) {
     const number = Number(value);
     if (Number.isFinite(number) && number > 0) return number > 1e11 ? Math.floor(number / 1000) : Math.floor(number);
@@ -223,7 +267,7 @@
     const name = addText(doc.createElement('span'), channelName(channel));
     name.className = 'vdr-suite-live-tv-name';
     copy.appendChild(name);
-    const meta = addText(doc.createElement('span'), (channelNumber(channel) ? 'Kanal ' + channelNumber(channel) : 'TV') + (channelIsEnabled(channel) ? ' · verfügbar' : ' · deaktiviert'));
+    const meta = addText(doc.createElement('span'), channelAvailabilityText(channel));
     meta.className = 'vdr-suite-live-tv-meta';
     copy.appendChild(meta);
     const now = addText(doc.createElement('span'), event ? eventTitle(event) : (state.loadingPrograms ? 'Programm wird geladen …' : 'Keine Programminformation'));
@@ -459,7 +503,7 @@
       created = playback.createLivePanel(channel, state.backendId || selectedBackend(), {replacesSessionId: replacesSessionId || ''});
     } catch (error) {
       state.liveSwitching = false;
-      state.liveError = error && error.message ? error.message : String(error || 'Live-TV konnte nicht gestartet werden.');
+      state.liveError = liveErrorForChannel(error, channel, 'Live-TV konnte nicht gestartet werden.');
       render();
       return Promise.resolve(null);
     }
@@ -487,7 +531,7 @@
       state.playback = null;
       state.liveChannelId = '';
       state.liveSwitching = false;
-      state.liveError = error && error.message ? error.message : String(error || 'Live-TV konnte nicht gestartet werden.');
+      state.liveError = liveErrorForChannel(error, channel, 'Live-TV konnte nicht gestartet werden.');
       render();
       return null;
     });
@@ -692,7 +736,7 @@
     startChannel,
     stop,
     snapshot,
-    __test: Object.freeze({channelId, channelName, channelIsRadio, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, setActive: function(value) { state.active = Boolean(value); }})
+    __test: Object.freeze({channelId, channelName, channelIsRadio, channelHasEncryptionInfo, channelIsEncrypted, channelAvailabilityText, liveErrorForChannel, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, setActive: function(value) { state.active = Boolean(value); }})
   });
 
   global.VdrSuiteLiveTvView = api;
