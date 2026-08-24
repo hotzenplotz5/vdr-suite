@@ -132,6 +132,7 @@ test-live-remote-api-runtime:
 		api/rest/src/RemoteActionController.cpp \
 		api/rest/src/LiveOverlayController.cpp \
 		api/rest/src/LiveRemoteApiRuntime.cpp \
+		api/rest/tests/test_live_remote_api_runtime.cpp \
 		-o $(BUILD_DIR)/test_live_remote_api_runtime
 	$(BUILD_DIR)/test_live_remote_api_runtime
 
