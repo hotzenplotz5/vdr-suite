@@ -21,6 +21,10 @@ CI_STATUS_HANDOFF = ROOT / "docs/development/github-actions-status-handoff.md"
 # - Once a bounded workstream is authorized, never voluntarily end the working
 #   response while authorized executable work remains. Status updates and
 #   ordinary turn boundaries are not handoff points.
+# - An intermediate finding is never an end state.
+# - Every working response that is permitted to end must end with ## Testblock.
+# - The Testblock must be exactly one ordinary fenced bash block and final content.
+# - If the candidate is not truthfully testable, continue working instead of ending.
 # - There is no generic repository permission to stop an authorized workstream.
 #   External dependencies are blocked wait states, not project completion.
 # - A fixable failed check is diagnosis/fix work, not a reason to stop.
@@ -64,6 +68,11 @@ REQUIRED_AGENT_RULES = [
     "## Top-level non-stop execution mandate",
     "never voluntarily stop,",
     "Status updates are progress reports, not stopping points.",
+    "An intermediate finding is never an end state.",
+    "Every working response that is permitted to end must end with the heading",
+    "`## Testblock` followed by exactly one ordinary fenced `bash` block",
+    "The test block is the final content; no prose, status, offer",
+    "the candidate is not testable, the response is not permitted to end",
     "There is no generic repository permission to stop an authorized workstream.",
     "wait state rather than permission to abandon the workstream",
     "do not end the working response while that run is still known",
@@ -135,6 +144,10 @@ REQUIRED_GUARDRAIL_RULES = [
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
     "Once a bounded workstream is authorized, never voluntarily end the working",
+    "An intermediate finding is never an end state.",
+    "Every working response that is permitted to end must end with ## Testblock.",
+    "The Testblock must be exactly one ordinary fenced bash block and final content.",
+    "If the candidate is not truthfully testable, continue working instead of ending.",
     "There is no generic repository permission to stop an authorized workstream.",
     "External dependencies are blocked wait states, not project completion.",
     "A fixable failed check is diagnosis/fix work, not a reason to stop.",
