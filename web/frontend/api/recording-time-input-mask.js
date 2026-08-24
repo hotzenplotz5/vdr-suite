@@ -1,7 +1,7 @@
 // Mobile-friendly numeric entry for Recording direct time seek.
 // Android numeric keyboards often do not expose ':'. Keep the existing
 // HH:MM:SS contract, but format digit-only entry as HH:MM[:SS] and default
-// omitted seconds to 00 immediately before the existing seek handler runs.
+// omitted minutes/seconds immediately before the existing seek handler runs.
 (function (global) {
   'use strict';
 
@@ -37,7 +37,8 @@
 
   function formatDigits(value) {
     const digits = digitsOnly(value);
-    if (digits.length <= 2) return digits;
+    if (digits.length <= 1) return digits;
+    if (digits.length === 2) return digits + ':';
     if (digits.length <= 4) return digits.slice(0, 2) + ':' + digits.slice(2);
     return digits.slice(0, 2) + ':' + digits.slice(2, 4) + ':' + digits.slice(4);
   }
@@ -50,17 +51,22 @@
     if (node && node.dataset) node.dataset.vdrSuiteTimeMask = 'true';
   }
 
-  function formatInput(node) {
+  function formatInput(node, inputType) {
     if (!isDirectTimeInput(node)) return;
     const value = text(node.value);
     const alreadyMasked = masked(node);
+    const deleting = text(inputType).indexOf('delete') === 0;
+
+    // Never fight Android/desktop backspace. In particular, deleting the
+    // automatically inserted ':' after HH must be able to reach HH and H.
+    if (deleting) return;
 
     // Respect explicit desktop/pasted HH:MM:SS input. Once digit-only entry has
     // entered mask mode, inserted separators are ours and can be rebuilt safely.
     if (!alreadyMasked && value.indexOf(':') !== -1) return;
 
     const digits = digitsOnly(value);
-    if (!alreadyMasked && digits.length < 3) return;
+    if (!alreadyMasked && digits.length < 2) return;
     markMasked(node);
     node.value = formatDigits(digits);
     try { node.maxLength = 8; } catch (error) {}
@@ -71,7 +77,12 @@
   function normalizeMaskedValue(node) {
     if (!isDirectTimeInput(node) || !masked(node)) return;
     const digits = digitsOnly(node.value);
-    if (digits.length < 3) return;
+    if (digits.length < 2) return;
+
+    if (digits.length === 2) {
+      node.value = digits + ':00:00';
+      return;
+    }
 
     if (digits.length <= 4) {
       const hours = digits.slice(0, 2);
@@ -95,7 +106,7 @@
   }
 
   document.addEventListener('input', function (event) {
-    formatInput(event && event.target);
+    formatInput(event && event.target, event && event.inputType);
   }, true);
 
   // Capture runs before the existing target click/keydown listeners parse the
