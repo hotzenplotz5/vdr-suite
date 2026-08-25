@@ -75,6 +75,12 @@
     // Briefly disabling a focused input makes desktop browsers drop its focus.
     panel.__vdrSuiteFallbackRestartSeekControlsOwned = true;
 
+    // Mirror the already accepted mobile Volume range interaction contract:
+    // keep a generous touch target while leaving vertical page scrolling to
+    // the browser so horizontal movement remains owned by the native range.
+    timeline.style.minHeight = '2.75rem';
+    timeline.style.touchAction = 'pan-y';
+
     let seekInFlight = false;
     let timelineDragging = false;
     let capabilityTimer = null;
