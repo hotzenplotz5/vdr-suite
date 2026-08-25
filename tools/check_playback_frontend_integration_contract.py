@@ -186,16 +186,20 @@ def main() -> int:
         "Volume/Mute must derive state from the active HTMLMediaElement",
     )
     require(
-        "observer.observe(panel.element, {childList: true, subtree: true});" in volume_owner,
-        "Volume/Mute replacement observer must be scoped to the transport-owned playback element",
+        "panel.replaceWith(fallbackPanel.element);" in fast_owner,
+        "production Recording fallback must remain modeled as complete panel replacement",
     )
     require(
-        "observer.observe(shell, {childList: true, subtree: true});" not in volume_owner,
-        "Volume/Mute must never observe its own control shell because textContent UI updates are childList mutations",
+        "const next = firstVideo(shell);" in volume_owner,
+        "Volume/Mute must resolve the active media element across complete panel replacement",
     )
     require(
-        "if (firstVideo(panel.element) !== activeVideo) bindCurrentVideo();" in volume_owner,
-        "Volume/Mute replacement observer must rebind only when the active media element actually changes",
+        "observer.observe(shell, {childList: true, subtree: true});" in volume_owner,
+        "Volume/Mute replacement observer must watch the stable owner shell across fallback replacement",
+    )
+    require(
+        "if (firstVideo(shell) !== activeVideo) bindCurrentVideo();" in volume_owner,
+        "Volume/Mute shell observer must remain inert unless the active media element actually changes",
     )
     for forbidden, message in (
         ("VdrSuiteClientApi", "Volume/Mute must not call the Suite server API"),
@@ -209,13 +213,14 @@ def main() -> int:
     for token, message in (
         ("api.volumeFromPercent(25), 0.25", "volume test must prove UI 0..100 to media 0..1 mapping"),
         ("recordingMute.dispatch('click');", "volume test must exercise mute/unmute through visible UI"),
-        ("recording.element.replaceChild(replacement, oldPresentation);", "volume test must exercise HLS/transport media-element replacement"),
+        ("recording.element.replaceChild(replacement, oldPresentation);", "volume test must exercise complete progressive-to-HLS panel replacement"),
+        ("fake browser must deliver Volume/Mute textContent mutations", "volume test must model real-browser observer delivery from control text updates"),
+        ("must not create an observer feedback loop", "volume test must fail on a self-triggering shell observer"),
+        ("replacement observer must watch the stable outer owner shell", "volume test must keep replacement observation on the persistent owner shell"),
         ("miniPlayer.appendChild(live.element);", "volume test must exercise persistent presentation reparenting"),
         ("replacement Live owner must keep confirmed volume", "volume test must exercise clean Live owner replacement handoff"),
         ("runtime.metrics.startCalls(), 0", "volume test must prove changes do not start/restart playback"),
         ("volume decorator must not create a second media element", "volume test must prove single-media-element ownership"),
-        ("replacement observer must watch only the underlying playback element", "volume test must guard against real-browser MutationObserver self-trigger freeze"),
-        ("replacement observer must not watch the Volume/Mute control shell", "volume test must exclude the control shell from replacement observation"),
         ("ignoreVolumeWrites", "volume test must cover capability/read-back failure handling"),
     ):
         require(token in volume_lifecycle_test, message)
