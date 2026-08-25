@@ -26,10 +26,13 @@ bool validWebVtt(const std::string& value)
     return value.rfind("WEBVTT", 0) == 0;
 }
 
-std::string cacheKey(int sourceSubtitleStreamIndex, int streamBasePositionSeconds)
+std::string cacheKey(
+    int sourceSubtitleStreamIndex,
+    int streamBasePositionSeconds,
+    const std::string& externalSourcePath)
 {
     return std::to_string(sourceSubtitleStreamIndex) + ":" +
-        std::to_string(streamBasePositionSeconds);
+        std::to_string(streamBasePositionSeconds) + ":" + externalSourcePath;
 }
 
 } // namespace
@@ -39,7 +42,8 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
     const std::string& sessionId,
     int sourceSubtitleStreamIndex,
     MediaSubtitleFormat format,
-    int streamBasePositionSeconds)
+    int streamBasePositionSeconds,
+    const std::string& externalSourcePath)
 {
     RecordingMediaSessionSubtitleWebVttResult result;
     result.sourceSubtitleStreamIndex = sourceSubtitleStreamIndex;
@@ -49,7 +53,8 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
         RecordingSubtitleWebVtt::build(
             sourceSubtitleStreamIndex,
             format,
-            streamBasePositionSeconds);
+            streamBasePositionSeconds,
+            externalSourcePath);
     if (!plan.valid) {
         result.reasonCode = plan.reasonCode.empty()
             ? "recording_subtitle_delivery_not_supported"
@@ -59,7 +64,8 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
 
     const std::string key = cacheKey(
         sourceSubtitleStreamIndex,
-        streamBasePositionSeconds);
+        streamBasePositionSeconds,
+        externalSourcePath);
     std::string workspaceDirectory;
     {
         std::lock_guard<std::mutex> lock(mutex_);
