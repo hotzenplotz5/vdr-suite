@@ -547,7 +547,16 @@
       if (!targetTrackId || targetTrackId === previousTrackId) return Promise.resolve(false);
 
       const id = safeSessionId(panel.sessionId()) || activeSessionId;
-      const playbackState = text(panel.state());
+      const hlsOwner = hlsProfile(activeProfileId) ? activeFallbackOwner() : null;
+      const usingHlsOwner = Boolean(
+        hlsOwner &&
+        typeof hlsOwner.selectAudioTrack === 'function' &&
+        typeof hlsOwner.state === 'function'
+      );
+      // The outer fast owner intentionally reports `fallback` after HLS takes
+      // over. Playback truth for a track replacement then belongs to the
+      // published HLS owner, which exposes the real playing/paused state.
+      const playbackState = usingHlsOwner ? text(hlsOwner.state()) : text(panel.state());
       const position = Math.max(0, Math.floor(Number(panel.position()) || 0));
       if (!id || (playbackState !== 'playing' && playbackState !== 'paused')) {
         audioSelect.value = previousTrackId;
@@ -560,7 +569,7 @@
       setNote('Tonspur wird gewechselt …', false);
       host.hidden = false;
 
-      const operation = hlsProfile(activeProfileId) && activeFallbackOwner()
+      const operation = usingHlsOwner
         ? performHlsSelection(targetTrackId, previousTrackId, id, playbackState)
         : performProgressiveSelection(
             targetTrackId,
