@@ -178,7 +178,8 @@ function trackContract(audioTrackId, subtitleTrackId) {
   let activeProfileId = 'progressive-fmp4';
   let activeAudioTrackId = 'audio-1';
   let activeSubtitleTrackId = '';
-  let absolutePosition = 0;
+  let outerPosition = 0;
+  let fallbackAbsolutePosition = 0;
   let fallbackSelections = 0;
   let inFallback = false;
   const statusRequests = [];
@@ -196,7 +197,8 @@ function trackContract(audioTrackId, subtitleTrackId) {
     activeProfileId = 'progressive-fmp4';
     activeAudioTrackId = 'audio-1';
     activeSubtitleTrackId = '';
-    absolutePosition = 0;
+    outerPosition = 0;
+    fallbackAbsolutePosition = 0;
     progressiveVideo.currentTime = 0;
     inFallback = false;
   });
@@ -217,6 +219,7 @@ function trackContract(audioTrackId, subtitleTrackId) {
       hlsVideo = replacementVideo;
       return Promise.resolve(activeSessionId);
     },
+    position() { return fallbackAbsolutePosition; },
     state() { return 'playing'; },
     stop() { return Promise.resolve(true); }
   });
@@ -228,7 +231,7 @@ function trackContract(audioTrackId, subtitleTrackId) {
       throw new Error('production-style subtitle lifecycle test must not use wrapped start()');
     },
     sessionId() { return activeSessionId; },
-    position() { return absolutePosition; },
+    position() { return outerPosition; },
     state() { return inFallback ? 'fallback' : (activeSessionId ? 'playing' : 'idle'); },
     seekAbsolute() { return Promise.resolve(true); },
     play() { return Promise.resolve(true); },
@@ -391,7 +394,7 @@ function trackContract(audioTrackId, subtitleTrackId) {
   assert.ok(mountedTrack);
   const beforeSeekUrl = mountedTrack.src;
 
-  absolutePosition = 120;
+  outerPosition = 120;
   progressiveVideo.currentTime = 0;
   await runNextTimer('same-session stream-base change must be observed');
   await flush(20);
@@ -409,10 +412,11 @@ function trackContract(audioTrackId, subtitleTrackId) {
   const beforeHlsUrl = mountedTrack.src;
   activeSessionId = 'hls-session-1';
   activeProfileId = 'hls-fmp4';
-  absolutePosition = 300;
+  fallbackAbsolutePosition = 300;
   hlsVideo.currentTime = 0;
   inFallback = true;
   fastElement.replaceWith(fallbackElement);
+  assert.strictEqual(outerPosition, 120, 'outer fast-owner position intentionally stays stale after fallback');
   assert.strictEqual(ownerShell.children[0], fallbackElement, 'HLS replaces only the inner transport');
   assert.ok(
     find(ownerShell, item => item.className === 'recordings2-track-controls'),
@@ -426,13 +430,26 @@ function trackContract(audioTrackId, subtitleTrackId) {
     request.subtitleTrackId === 'subtitle-1' &&
     request.streamBasePositionSeconds === 300
   );
-  assert.ok(hlsSubtitleRequest, 'subtitle preference must rebind against replacement session/base');
+  assert.ok(hlsSubtitleRequest, 'subtitle base must come from the active HLS owner, not stale outer position');
   mountedTrack = find(hlsVideo, item => item.tagName === 'TRACK');
   assert.ok(mountedTrack, 'replacement video must receive a fresh WebVTT track');
   assert.strictEqual(mountedTrack.track.mode, 'showing');
   assert.ok(revokedUrls.includes(beforeHlsUrl), 'transport replacement must revoke the previous Blob URL');
   assert.strictEqual(subtitleSelect.value, 'subtitle-1', 'stable owner must preserve subtitle preference');
   assert.strictEqual(audioSelect.value, 'audio-1', 'subtitle rebinding must not change audio selection');
+
+  // Advancing within the same HLS stream changes absolute and local position
+  // equally, so the stream base remains 300 and no WebVTT re-extraction occurs.
+  const requestsBeforeHlsProgress = subtitleRequests.length;
+  fallbackAbsolutePosition = 337;
+  hlsVideo.currentTime = 37;
+  await runNextTimer('same HLS stream progress must keep its stream base stable');
+  await flush(20);
+  assert.strictEqual(
+    subtitleRequests.length,
+    requestsBeforeHlsProgress,
+    'normal HLS playback progress must not continuously regenerate WebVTT'
+  );
 
   // The accepted HLS audio path remains the owner of audio replacement. A
   // subtitle preference may follow that replacement, but must not duplicate it.
@@ -446,9 +463,9 @@ function trackContract(audioTrackId, subtitleTrackId) {
   const audioReplacementSubtitleRequest = subtitleRequests.find(request =>
     request.sessionId === 'hls-session-2' &&
     request.subtitleTrackId === 'subtitle-1' &&
-    request.streamBasePositionSeconds === 300
+    request.streamBasePositionSeconds === 337
   );
-  assert.ok(audioReplacementSubtitleRequest, 'subtitle preference must follow the audio replacement session');
+  assert.ok(audioReplacementSubtitleRequest, 'subtitle preference must follow the audio replacement session/base');
   mountedTrack = find(hlsVideo, item => item.tagName === 'TRACK');
   assert.ok(mountedTrack);
   assert.ok(revokedUrls.includes(beforeAudioReplacementUrl));
