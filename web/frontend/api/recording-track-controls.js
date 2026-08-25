@@ -159,12 +159,31 @@
     return profileId === 'hls-fmp4' || profileId === 'hls-ts';
   }
 
+  function fallbackOwner(root) {
+    if (!root) return null;
+    if (root.__vdrSuiteRecordingFallbackOwner) {
+      return root.__vdrSuiteRecordingFallbackOwner;
+    }
+    if (typeof root.querySelector !== 'function') return null;
+    const fallback = root.querySelector('.recordings2-recording-fallback-shell');
+    return fallback && fallback.__vdrSuiteRecordingFallbackOwner
+      ? fallback.__vdrSuiteRecordingFallbackOwner
+      : null;
+  }
+
   function decoratePanel(panel, recording, backendId) {
     if (!panel || !panel.element || typeof panel.start !== 'function' ||
         typeof panel.sessionId !== 'function' || typeof panel.position !== 'function' ||
         typeof panel.state !== 'function' || typeof panel.seekAbsolute !== 'function') {
       return panel;
     }
+
+    // The fast progressive panel replaces its own DOM node when it falls back
+    // to HLS. Keep track controls in a stable owner shell around that replaceable
+    // transport so they survive the transition instead of disappearing with it.
+    const shell = global.document.createElement('div');
+    shell.className = 'recordings2-track-owner-shell';
+    shell.appendChild(panel.element);
 
     const host = global.document.createElement('div');
     host.className = 'recordings2-track-controls';
@@ -194,7 +213,7 @@
     subtitleInfo.hidden = true;
     host.appendChild(subtitleInfo);
 
-    panel.element.appendChild(host);
+    shell.appendChild(host);
 
     let disposed = false;
     let selectionInFlight = false;
@@ -203,12 +222,39 @@
     let pollFailures = 0;
     let activeSessionId = '';
     let activeProfileId = '';
+    let sessionWatchTimer = null;
+
+    function activeFallbackOwner() {
+      return fallbackOwner(shell);
+    }
 
     function clearPoll() {
       if (pollTimer !== null && typeof global.clearTimeout === 'function') {
         try { global.clearTimeout(pollTimer); } catch (error) {}
       }
       pollTimer = null;
+    }
+
+    function clearSessionWatch() {
+      if (sessionWatchTimer !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(sessionWatchTimer); } catch (error) {}
+      }
+      sessionWatchTimer = null;
+    }
+
+    function scheduleSessionWatch() {
+      if (disposed || sessionWatchTimer !== null || typeof global.setTimeout !== 'function') return;
+      sessionWatchTimer = global.setTimeout(function () {
+        sessionWatchTimer = null;
+        if (disposed) return;
+        const currentId = safeSessionId(panel.sessionId());
+        if (currentId && activeSessionId && currentId !== activeSessionId) {
+          activeSessionId = currentId;
+          pollFailures = 0;
+          refreshTracks();
+        }
+        scheduleSessionWatch();
+      }, TRACK_STATUS_POLL_MS);
     }
 
     function setNote(message, error) {
@@ -249,8 +295,9 @@
 
       selectedTrackId = nextSelected;
       if (selectedTrackId) audioSelect.value = selectedTrackId;
+      const hlsOwner = activeFallbackOwner();
       const transportCanSelect = activeProfileId === 'progressive-fmp4' ||
-        (hlsProfile(activeProfileId) && typeof panel.selectAudioTrack === 'function');
+        (hlsProfile(activeProfileId) && hlsOwner && typeof hlsOwner.selectAudioTrack === 'function');
       const audioSelectable = Boolean(
         transportCanSelect && audio && audio.selectionSupported === true &&
         available.filter(function (track) { return Boolean(safeAudioTrackId(track && track.id)); }).length > 1
@@ -290,6 +337,12 @@
             !mediaSession || mediaSession.state !== 'ready') {
           throw new Error('Track-Status gehört nicht zur aktiven Recording-MediaSession.');
         }
+        const currentId = safeSessionId(panel.sessionId());
+        if (currentId && currentId !== id) {
+          activeSessionId = currentId;
+          scheduleRefresh();
+          return false;
+        }
         pollFailures = 0;
         renderTracks(mediaSession);
         return mediaSession;
@@ -309,8 +362,12 @@
     }
 
     function performHlsSelection(targetTrackId, previousTrackId, id, playbackState) {
+      const hlsOwner = activeFallbackOwner();
+      if (!hlsOwner || typeof hlsOwner.selectAudioTrack !== 'function') {
+        return Promise.reject(new Error('Aktiver HLS-Playback-Owner ist für Tonspurwechsel nicht verfügbar.'));
+      }
       let replacementStarted = false;
-      return Promise.resolve(panel.selectAudioTrack(targetTrackId)).then(function (newSessionId) {
+      return Promise.resolve(hlsOwner.selectAudioTrack(targetTrackId)).then(function (newSessionId) {
         const replacementId = safeSessionId(newSessionId) || safeSessionId(panel.sessionId());
         if (!replacementId || replacementId === id) {
           throw new Error('HLS-Tonspurwechsel hat keine neue MediaSession erzeugt.');
@@ -330,7 +387,7 @@
         if (selectedTrackId !== targetTrackId) {
           throw new Error('Server hat für den HLS-Replacement-Stream eine andere Tonspur bestätigt.');
         }
-        const stateAfterReplacement = text(panel.state());
+        const stateAfterReplacement = text(hlsOwner.state());
         if (stateAfterReplacement !== playbackState) {
           throw new Error('Play/Pause-Zustand wurde beim HLS-Tonspurwechsel nicht erhalten.');
         }
@@ -339,9 +396,9 @@
         if (replacementStarted) {
           audioRow.hidden = true;
           audioSelect.disabled = true;
-          if (typeof panel.stop === 'function') {
+          if (typeof hlsOwner.stop === 'function') {
             try {
-              const stopped = panel.stop();
+              const stopped = hlsOwner.stop();
               if (stopped && typeof stopped.catch === 'function') stopped.catch(function () {});
             } catch (stopError) {}
           }
@@ -480,7 +537,7 @@
       setNote('Tonspur wird gewechselt …', false);
       host.hidden = false;
 
-      const operation = hlsProfile(activeProfileId) && typeof panel.selectAudioTrack === 'function'
+      const operation = hlsProfile(activeProfileId) && activeFallbackOwner()
         ? performHlsSelection(targetTrackId, previousTrackId, id, playbackState)
         : performProgressiveSelection(
             targetTrackId,
@@ -510,6 +567,7 @@
 
     const wrapped = {};
     Object.keys(panel).forEach(function (key) { wrapped[key] = panel[key]; });
+    wrapped.element = shell;
 
     wrapped.start = function () {
       const result = panel.start.apply(panel, arguments);
@@ -517,6 +575,7 @@
         activeSessionId = safeSessionId(id) || safeSessionId(panel.sessionId());
         pollFailures = 0;
         refreshTracks();
+        scheduleSessionWatch();
         return id;
       });
     };
@@ -524,6 +583,7 @@
     if (typeof panel.stop === 'function') {
       wrapped.stop = function () {
         clearPoll();
+        clearSessionWatch();
         audioRow.hidden = true;
         audioSelect.disabled = true;
         subtitleInfo.hidden = true;
@@ -538,6 +598,7 @@
     if (typeof panel.relinquishForReplacement === 'function') {
       wrapped.relinquishForReplacement = function () {
         clearPoll();
+        clearSessionWatch();
         activeSessionId = '';
         activeProfileId = '';
         return panel.relinquishForReplacement.apply(panel, arguments);
@@ -549,6 +610,7 @@
         if (disposed) return;
         disposed = true;
         clearPoll();
+        clearSessionWatch();
         panel.destroy.apply(panel, arguments);
       };
     }
@@ -594,6 +656,7 @@
       recordingCapabilities: recordingCapabilities,
       audioTrackLabel: audioTrackLabel,
       languageLabel: languageLabel,
+      fallbackOwner: fallbackOwner,
       trackStatus: trackStatus,
       selectAudioTrack: selectAudioTrack
     })
