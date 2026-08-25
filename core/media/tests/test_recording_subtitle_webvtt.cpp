@@ -63,6 +63,44 @@ int main()
     assert(containsPair(shifted.argv, "-map", "0:s:1"));
     assert(tokenPosition(shifted.argv, "-ss") < tokenPosition(shifted.argv, "-i"));
 
+    const std::string sidecarPath = "/srv/vdr/video/Test/00001.srt";
+    const auto sidecar = RecordingSubtitleWebVtt::build(
+        3,
+        MediaSubtitleFormat::SubRip,
+        0,
+        sidecarPath);
+    assert(sidecar.valid);
+    assert(sidecar.reasonCode.empty());
+    assert(containsPair(sidecar.argv, "-i", sidecarPath));
+    assert(containsPair(sidecar.argv, "-map", "0:s:0"));
+    assert(containsPair(sidecar.argv, "-c:s", "webvtt"));
+    assert(!containsPair(sidecar.argv, "-f", "concat"));
+
+    const auto shiftedSidecar = RecordingSubtitleWebVtt::build(
+        4,
+        MediaSubtitleFormat::SubRip,
+        42,
+        sidecarPath);
+    assert(shiftedSidecar.valid);
+    assert(containsPair(shiftedSidecar.argv, "-ss", "42"));
+    assert(tokenPosition(shiftedSidecar.argv, "-ss") < tokenPosition(shiftedSidecar.argv, "-i"));
+
+    const auto relativeSidecar = RecordingSubtitleWebVtt::build(
+        0,
+        MediaSubtitleFormat::SubRip,
+        0,
+        "00001.srt");
+    assert(!relativeSidecar.valid);
+    assert(relativeSidecar.reasonCode == "invalid_recording_subtitle_external_source");
+
+    const auto unsupportedSidecar = RecordingSubtitleWebVtt::build(
+        0,
+        MediaSubtitleFormat::Ass,
+        0,
+        sidecarPath);
+    assert(!unsupportedSidecar.valid);
+    assert(unsupportedSidecar.reasonCode == "recording_subtitle_external_format_not_supported");
+
     const auto bitmap = RecordingSubtitleWebVtt::build(0, MediaSubtitleFormat::Dvb);
     assert(!bitmap.valid);
     assert(bitmap.reasonCode == "recording_subtitle_format_not_webvtt_convertible");
