@@ -58,6 +58,16 @@ struct RecordingMediaSessionAudioTrackSelectionRequest
     ClientMediaCapabilities capabilities;
 };
 
+struct RecordingMediaSessionSubtitleTrackSelectionRequest
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::string backendId;
+    std::string sessionId;
+    std::string subtitleTrackId;
+    int streamBasePositionSeconds = 0;
+};
+
 class RecordingMediaSessionRequestParser
 {
 public:
@@ -77,5 +87,8 @@ public:
         const std::string& body) const;
 
     RecordingMediaSessionAudioTrackSelectionRequest parseAudioTrackSelection(
+        const std::string& body) const;
+
+    RecordingMediaSessionSubtitleTrackSelectionRequest parseSubtitleTrackSelection(
         const std::string& body) const;
 };

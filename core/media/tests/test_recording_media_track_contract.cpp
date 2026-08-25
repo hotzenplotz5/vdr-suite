@@ -41,6 +41,13 @@ int main()
     hearing.defaultTrack = true;
     source.subtitleStreams.push_back(hearing);
 
+    MediaSubtitleStreamDescriptor englishText;
+    englishText.format = MediaSubtitleFormat::SubRip;
+    englishText.language = "eng";
+    englishText.label = "English CC";
+    englishText.hearingImpaired = true;
+    source.subtitleStreams.push_back(englishText);
+
     assert(RecordingMediaTrackContract::audioTrackId(0) == "audio-1");
     assert(RecordingMediaTrackContract::audioTrackId(2) == "audio-3");
     assert(RecordingMediaTrackContract::subtitleTrackId(1) == "subtitle-2");
@@ -56,13 +63,33 @@ int main()
     assert(!RecordingMediaTrackContract::audioStreamIndexForTrackId(
         "pid-1234", source, sourceIndex));
 
+    assert(RecordingMediaTrackContract::subtitleStreamIndexForTrackId(
+        "subtitle-3", source, sourceIndex));
+    assert(sourceIndex == 2);
+    assert(!RecordingMediaTrackContract::subtitleStreamIndexForTrackId(
+        "subtitle-0", source, sourceIndex));
+    assert(!RecordingMediaTrackContract::subtitleStreamIndexForTrackId(
+        "subtitle-4", source, sourceIndex));
+    assert(!RecordingMediaTrackContract::subtitleStreamIndexForTrackId(
+        "spid-1234", source, sourceIndex));
+
+    assert(!RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::Dvb));
+    assert(!RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::Teletext));
+    assert(RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::WebVtt));
+    assert(RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::SubRip));
+    assert(RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::Ass));
+    assert(RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat::MovText));
+
     const std::string json = RecordingMediaTrackContract::json(
         source,
         1,
         true,
         "",
-        false,
-        "profile_does_not_deliver_selectable_subtitles");
+        true,
+        "",
+        true,
+        0,
+        2);
 
     assert(json.find("\"id\":\"audio-1\"") != std::string::npos);
     assert(json.find("\"id\":\"audio-2\"") != std::string::npos);
@@ -78,14 +105,15 @@ int main()
     assert(json.find("\"roles\":[\"commentary\"]") != std::string::npos);
 
     assert(json.find("\"id\":\"subtitle-1\"") != std::string::npos);
-    assert(json.find("\"format\":\"dvb-subtitle\"") != std::string::npos);
+    assert(json.find("\"format\":\"dvb-subtitle\",\"selectable\":false,\"deliveryFormat\":null") != std::string::npos);
     assert(json.find("\"roles\":[\"forced\"]") != std::string::npos);
-    assert(json.find("\"format\":\"teletext\"") != std::string::npos);
+    assert(json.find("\"format\":\"teletext\",\"selectable\":false,\"deliveryFormat\":null") != std::string::npos);
     assert(json.find("\"roles\":[\"hearing-impaired\"]") != std::string::npos);
+    assert(json.find("\"format\":\"subrip\",\"selectable\":true,\"deliveryFormat\":\"webvtt\"") != std::string::npos);
+    assert(json.find("\"selectedTrackId\":\"subtitle-3\"") != std::string::npos);
     assert(json.find("\"offSupported\":true") != std::string::npos);
-    assert(json.find("\"offSelected\":true") != std::string::npos);
-    assert(json.find("\"selectionSupported\":false") != std::string::npos);
-    assert(json.find("profile_does_not_deliver_selectable_subtitles") != std::string::npos);
+    assert(json.find("\"offSelected\":false") != std::string::npos);
+    assert(json.find("\"selectionSupported\":true") != std::string::npos);
 
     const std::string directJson = RecordingMediaTrackContract::json(
         source,
