@@ -1,5 +1,7 @@
 #include "RecordingMediaTrackContract.h"
 
+#include "RecordingSubtitleWebVtt.h"
+
 #include <cctype>
 #include <limits>
 
@@ -118,6 +120,36 @@ std::string defaultSubtitleTrackId(const MediaSourceDescriptor& source)
     return {};
 }
 
+bool streamIndexForTrackId(
+    const std::string& trackId,
+    const std::string& prefix,
+    std::size_t streamCount,
+    int& sourceStreamIndex)
+{
+    sourceStreamIndex = -1;
+    if (trackId.rfind(prefix, 0) != 0 ||
+        trackId.size() <= prefix.size() || trackId.size() > 20) {
+        return false;
+    }
+
+    unsigned long long value = 0;
+    for (std::size_t index = prefix.size(); index < trackId.size(); ++index) {
+        const unsigned char character = static_cast<unsigned char>(trackId[index]);
+        if (!std::isdigit(character)) return false;
+        const unsigned digit = static_cast<unsigned>(character - '0');
+        if (value > (std::numeric_limits<unsigned long long>::max() - digit) / 10ULL) {
+            return false;
+        }
+        value = value * 10ULL + digit;
+    }
+    if (value == 0 || value > streamCount ||
+        value - 1ULL > static_cast<unsigned long long>(std::numeric_limits<int>::max())) {
+        return false;
+    }
+    sourceStreamIndex = static_cast<int>(value - 1ULL);
+    return true;
+}
+
 } // namespace
 
 std::string RecordingMediaTrackContract::audioTrackId(
@@ -137,27 +169,28 @@ bool RecordingMediaTrackContract::audioStreamIndexForTrackId(
     const MediaSourceDescriptor& source,
     int& sourceAudioStreamIndex)
 {
-    sourceAudioStreamIndex = -1;
-    constexpr const char* Prefix = "audio-";
-    if (trackId.rfind(Prefix, 0) != 0 || trackId.size() <= 6 || trackId.size() > 16) {
-        return false;
-    }
-    unsigned long long value = 0;
-    for (std::size_t index = 6; index < trackId.size(); ++index) {
-        const unsigned char character = static_cast<unsigned char>(trackId[index]);
-        if (!std::isdigit(character)) return false;
-        const unsigned digit = static_cast<unsigned>(character - '0');
-        if (value > (std::numeric_limits<unsigned long long>::max() - digit) / 10ULL) {
-            return false;
-        }
-        value = value * 10ULL + digit;
-    }
-    if (value == 0 || value > source.audioStreams.size() ||
-        value - 1ULL > static_cast<unsigned long long>(std::numeric_limits<int>::max())) {
-        return false;
-    }
-    sourceAudioStreamIndex = static_cast<int>(value - 1ULL);
-    return true;
+    return streamIndexForTrackId(
+        trackId,
+        "audio-",
+        source.audioStreams.size(),
+        sourceAudioStreamIndex);
+}
+
+bool RecordingMediaTrackContract::subtitleStreamIndexForTrackId(
+    const std::string& trackId,
+    const MediaSourceDescriptor& source,
+    int& sourceSubtitleStreamIndex)
+{
+    return streamIndexForTrackId(
+        trackId,
+        "subtitle-",
+        source.subtitleStreams.size(),
+        sourceSubtitleStreamIndex);
+}
+
+bool RecordingMediaTrackContract::subtitleTrackSelectable(MediaSubtitleFormat format)
+{
+    return RecordingSubtitleWebVtt::supports(format);
 }
 
 std::string RecordingMediaTrackContract::json(
@@ -168,7 +201,8 @@ std::string RecordingMediaTrackContract::json(
     bool subtitleSelectionSupported,
     const std::string& subtitleSelectionReason,
     bool subtitleOffSupported,
-    int subtitleOffSelectedState)
+    int subtitleOffSelectedState,
+    int selectedSubtitleStreamIndex)
 {
     std::string result = "{\"audio\":{";
     result += "\"selectionSupported\":";
@@ -211,15 +245,27 @@ std::string RecordingMediaTrackContract::json(
     for (std::size_t index = 0; index < source.subtitleStreams.size(); ++index) {
         if (index > 0) result += ',';
         const auto& track = source.subtitleStreams[index];
+        const bool selectable = subtitleTrackSelectable(track.format);
         result += "{\"id\":\"" + subtitleTrackId(index) + "\",";
         result += "\"language\":" + nullableString(track.language) + ',';
         result += "\"label\":" + nullableString(track.label) + ',';
         result += "\"format\":\"" + std::string(subtitleFormatName(track.format)) + "\",";
-        result += "\"roles\":" + subtitleRoles(track) + ',';
+        result += "\"selectable\":" + std::string(selectable ? "true" : "false") + ',';
+        result += "\"deliveryFormat\":";
+        result += selectable ? "\"webvtt\"" : "null";
+        result += ",\"roles\":" + subtitleRoles(track) + ',';
         result += "\"default\":" + std::string(track.defaultTrack ? "true" : "false") + ',';
-        result += "\"forced\":" + std::string(track.forced ? "true" : "false") + '}';
+        result += "\"forced\":" + std::string(track.forced ? "true" : "false") + ',';
+        result += "\"selected\":" + std::string(
+            selectedSubtitleStreamIndex == static_cast<int>(index) ? "true" : "false") + '}';
     }
-    result += "],\"selectedTrackId\":null";
+    result += "],\"selectedTrackId\":";
+    if (selectedSubtitleStreamIndex >= 0 &&
+        static_cast<std::size_t>(selectedSubtitleStreamIndex) < source.subtitleStreams.size()) {
+        result += "\"" + subtitleTrackId(
+            static_cast<std::size_t>(selectedSubtitleStreamIndex)) + "\"";
+    }
+    else result += "null";
     const std::string subtitleDefault = defaultSubtitleTrackId(source);
     result += ",\"defaultTrackId\":" + nullableString(subtitleDefault) + "}}";
     return result;
