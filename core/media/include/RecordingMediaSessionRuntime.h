@@ -157,7 +157,8 @@ public:
         const std::string& sessionId,
         int sourceSubtitleStreamIndex,
         MediaSubtitleFormat format,
-        int streamBasePositionSeconds);
+        int streamBasePositionSeconds,
+        const std::string& externalSourcePath = {});
 
     RecordingMediaSessionTrackState trackState(
         const std::string& sessionId) const;
