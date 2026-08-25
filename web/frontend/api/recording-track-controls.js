@@ -314,7 +314,11 @@
 
     function streamBasePosition() {
       const video = currentVideo();
-      const absolute = Math.max(0, Math.floor(Number(panel.position()) || 0));
+      const hlsOwner = activeFallbackOwner();
+      const positionOwner = hlsOwner && typeof hlsOwner.position === 'function'
+        ? hlsOwner
+        : panel;
+      const absolute = Math.max(0, Math.floor(Number(positionOwner.position()) || 0));
       const local = Number(video && video.currentTime);
       const localSeconds = Number.isFinite(local) && local > 0 ? Math.floor(local) : 0;
       return Math.max(0, absolute - localSeconds);
