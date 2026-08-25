@@ -73,6 +73,7 @@ test-phase65d-recording-track-controls:
 	node --check web/frontend/api/recording-track-controls.js
 	node web/frontend/tests/test_phase65d_recording_track_controls.js
 	node web/frontend/tests/test_phase65d_recording_hls_track_controls.js
+	node web/frontend/tests/test_phase65d_recording_progressive_hls_track_owner.js
 
 test-phase65d-recording-hls-audio-replacement:
 	node --check web/frontend/api/recording-fallback-controls.js
