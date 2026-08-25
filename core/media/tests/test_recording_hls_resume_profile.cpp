@@ -1,5 +1,7 @@
 #include "RecordingHlsResumeProfile.h"
 
+#include "MediaTranscodePolicy.h"
+
 #include <cassert>
 
 namespace
@@ -53,6 +55,34 @@ int main()
     assert(resumed.targetAudioChannels == 2);
     assert(resumed.sourceVideoStreamIndex == 0);
     assert(resumed.sourceAudioStreamIndex == 0);
+
+    // createSession() resolves the backend-scoped policy before provisionHlsAt().
+    // The runtime owns a separate environment-derived policy and applies it again.
+    // A resolved managed choice must therefore be immutable across that second pass.
+    MediaTranscodePolicyConfig managedConfig;
+    managedConfig.videoEncoderMode = MediaVideoEncoderMode::Software;
+    managedConfig.globalPresetMode = MediaTranscodePresetMode::Fast;
+    const MediaPresentationProfile managedResolved =
+        MediaTranscodePolicy(managedConfig).apply(resumed);
+    assert(managedResolved.available);
+    assert(managedResolved.videoEncoderPolicyResolved);
+    assert(managedResolved.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264);
+    assert(managedResolved.videoEncoderPreset == MediaSoftwareEncoderPreset::Fast);
+    assert(managedResolved.videoHardwareDevice.empty());
+
+    MediaTranscodePolicyConfig conflictingRuntimeConfig;
+    conflictingRuntimeConfig.videoEncoderMode = MediaVideoEncoderMode::Vaapi;
+    conflictingRuntimeConfig.vaapiAvailable = true;
+    conflictingRuntimeConfig.vaapiDevice = "/dev/dri/renderD128";
+    const MediaPresentationProfile runtimeResolved =
+        MediaTranscodePolicy(conflictingRuntimeConfig).apply(managedResolved);
+    assert(runtimeResolved.available);
+    assert(runtimeResolved.videoEncoderPolicyResolved);
+    assert(runtimeResolved.videoEncoderBackend == MediaVideoEncoderBackend::SoftwareX264);
+    assert(runtimeResolved.videoEncoderPreset == MediaSoftwareEncoderPreset::Fast);
+    assert(runtimeResolved.videoHardwareDevice.empty());
+    assert(runtimeResolved.videoAction == MediaTrackAction::Transcode);
+    assert(runtimeResolved.audioAction == MediaTrackAction::Transcode);
 
     MediaPresentationProfile mixed = copyProfile();
     mixed.adaptationClass = MediaAdaptationClass::Transcode;
