@@ -168,15 +168,30 @@ std::size_t RecordingMediaSessionController::reapInactiveSessions(
     const std::size_t reaped =
         mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
 
-    std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
-    for (auto it = selectedAudioStreamIndexes_.begin();
-         it != selectedAudioStreamIndexes_.end();) {
-        const auto stored = mediaSessionRepository_.findSession(it->first);
-        if (!stored.has_value() || stored->state != "ready") {
-            it = selectedAudioStreamIndexes_.erase(it);
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        for (auto it = selectedAudioStreamIndexes_.begin();
+             it != selectedAudioStreamIndexes_.end();) {
+            const auto stored = mediaSessionRepository_.findSession(it->first);
+            if (!stored.has_value() || stored->state != "ready") {
+                it = selectedAudioStreamIndexes_.erase(it);
+            }
+            else {
+                ++it;
+            }
         }
-        else {
-            ++it;
+    }
+    {
+        std::lock_guard<std::mutex> lock(selectedSubtitleStreamMutex_);
+        for (auto it = selectedSubtitleStreamIndexes_.begin();
+             it != selectedSubtitleStreamIndexes_.end();) {
+            const auto stored = mediaSessionRepository_.findSession(it->first);
+            if (!stored.has_value() || stored->state != "ready") {
+                it = selectedSubtitleStreamIndexes_.erase(it);
+            }
+            else {
+                ++it;
+            }
         }
     }
     return reaped;
@@ -215,6 +230,20 @@ ApiResponse RecordingMediaSessionController::handleRequest(
             audioTrackRequest.reasonCode.empty()
                 ? "invalid_media_session_operation"
                 : audioTrackRequest.reasonCode);
+    }
+
+    const RecordingMediaSessionSubtitleTrackSelectionRequest subtitleTrackRequest =
+        RecordingMediaSessionRequestParser().parseSubtitleTrackSelection(body);
+    if (subtitleTrackRequest.valid) {
+        return selectSubtitleTrack(body, actorId);
+    }
+    if (subtitleTrackRequest.reasonCode !=
+        "media_session_subtitle_track_selection_not_requested") {
+        return jsonError(
+            400,
+            subtitleTrackRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : subtitleTrackRequest.reasonCode);
     }
 
     const RecordingMediaSessionPlaybackStatusRequest statusRequest =
@@ -289,6 +318,10 @@ ApiResponse RecordingMediaSessionController::stopSession(
     {
         std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
         selectedAudioStreamIndexes_.erase(request.sessionId);
+    }
+    {
+        std::lock_guard<std::mutex> lock(selectedSubtitleStreamMutex_);
+        selectedSubtitleStreamIndexes_.erase(request.sessionId);
     }
 
     if (stored->state == "ended" || stored->state == "failed") {
