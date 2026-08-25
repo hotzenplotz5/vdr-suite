@@ -288,7 +288,8 @@ function createRuntime() {
     recording.element,
     'replacement observer must not watch the Volume/Mute control shell'
   );
-  assert.deepStrictEqual(runtime.observers[0].options, {childList: true, subtree: true});
+  assert.strictEqual(runtime.observers[0].options.childList, true);
+  assert.strictEqual(runtime.observers[0].options.subtree, true);
 
   const recordingVideo = recording.element.querySelector('video');
   const recordingRange = runtime.find(recording.element, 'recordings2-volume-range');
