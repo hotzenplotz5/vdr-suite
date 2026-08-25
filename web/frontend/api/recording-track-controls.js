@@ -1,10 +1,9 @@
-// Phase 65.D Recording audio-track controls.
+// Phase 65.D Recording audio/subtitle track controls.
 //
-// This adapter deliberately wraps the existing persistent Recording playback
-// owner instead of creating another player architecture. Progressive-fMP4 keeps
-// the same MediaSession and uses the established D.2 seek/reconnect operation.
-// HLS uses the established D.2 stop/resume replacement owner at the same
-// absolute Recording position. Track IDs remain normalized Suite session IDs.
+// This adapter decorates the existing persistent Recording playback owner. It
+// never creates a second player or restart architecture. Audio selection reuses
+// the accepted D.2 owner paths. Browser-text subtitles are delivered as
+// session-bound WebVTT and mounted on the currently active video element.
 (function (global) {
   'use strict';
 
@@ -28,6 +27,12 @@
   function safeAudioTrackId(value) {
     const id = text(value).trim();
     return /^audio-[1-9][0-9]{0,9}$/.test(id) && id.length <= 16 ? id : '';
+  }
+
+  function safeSubtitleTrackId(value) {
+    const id = text(value).trim();
+    if (id === 'off') return 'off';
+    return /^subtitle-[1-9][0-9]{0,9}$/.test(id) && id.length <= 20 ? id : '';
   }
 
   function recordingId(recording) {
@@ -98,12 +103,60 @@
     });
   }
 
+  function selectSubtitleTrack(backendId, sessionId, trackId, streamBasePositionSeconds) {
+    const id = safeSessionId(sessionId);
+    const subtitleTrackId = safeSubtitleTrackId(trackId);
+    const streamBase = Math.max(0, Math.floor(Number(streamBasePositionSeconds) || 0));
+    if (!id || !subtitleTrackId || typeof global.fetch !== 'function') {
+      return Promise.reject(new Error('Recording-Untertitelauswahl ist nicht verfügbar.'));
+    }
+    return global.fetch('/api/media/sessions', {
+      method: 'POST',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'select-subtitle-track',
+        backendId: text(backendId || 'default'),
+        sessionId: id,
+        subtitleTrackId: subtitleTrackId,
+        streamBasePositionSeconds: streamBase
+      }),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      if (!response || response.ok !== true) {
+        return Promise.resolve(response && typeof response.json === 'function' ? response.json() : null)
+          .catch(function () { return null; })
+          .then(function (payload) {
+            const code = payload && payload.error && payload.error.code;
+            throw new Error(code || 'Recording-Untertitelauswahl fehlgeschlagen.');
+          });
+      }
+      if (subtitleTrackId === 'off') {
+        return Promise.resolve(typeof response.json === 'function' ? response.json() : {})
+          .then(function (payload) { return {off: true, payload: payload}; });
+      }
+      const contentType = response.headers && typeof response.headers.get === 'function'
+        ? text(response.headers.get('Content-Type')).toLowerCase()
+        : '';
+      if (contentType.indexOf('text/vtt') < 0 || typeof response.text !== 'function') {
+        throw new Error('Server hat keine WebVTT-Untertitelspur geliefert.');
+      }
+      return response.text().then(function (webVtt) {
+        if (text(webVtt).indexOf('WEBVTT') !== 0) {
+          throw new Error('WebVTT-Untertitelspur ist ungültig.');
+        }
+        return {off: false, webVtt: webVtt};
+      });
+    });
+  }
+
   function roleLabel(role) {
     switch (text(role)) {
     case 'original': return 'Original';
     case 'commentary': return 'Kommentar';
     case 'descriptive': return 'Audiodeskription';
     case 'hearing-impaired': return 'Hörgeschädigt';
+    case 'forced': return 'Erzwungen';
     default: return '';
     }
   }
@@ -117,6 +170,13 @@
     return value ? value.toUpperCase() : '';
   }
 
+  function languageCode(language) {
+    const normalized = text(language).trim().toLowerCase();
+    if (normalized === 'deu' || normalized === 'ger' || normalized === 'de') return 'de';
+    if (normalized === 'eng' || normalized === 'en') return 'en';
+    return /^[a-z]{2}$/.test(normalized) ? normalized : '';
+  }
+
   function audioTrackLabel(track, index) {
     const source = track && typeof track === 'object' ? track : {};
     const parts = [];
@@ -126,10 +186,7 @@
     const codec = text(source.codec).trim();
     const layout = text(source.layout).trim();
     const channels = Number(source.channels);
-    const roles = Array.isArray(source.roles)
-      ? source.roles.map(roleLabel).filter(Boolean)
-      : [];
-
+    const roles = Array.isArray(source.roles) ? source.roles.map(roleLabel).filter(Boolean) : [];
     if (displayLanguage) parts.push(displayLanguage);
     if (label && label.toLowerCase() !== language.toLowerCase() &&
         label.toLowerCase() !== displayLanguage.toLowerCase()) parts.push(label);
@@ -141,18 +198,29 @@
     return parts.length ? parts.join(' · ') : 'Tonspur ' + String(index + 1);
   }
 
+  function subtitleTrackLabel(track, index) {
+    const source = track && typeof track === 'object' ? track : {};
+    const parts = [];
+    const language = text(source.language).trim();
+    const displayLanguage = languageLabel(language);
+    const label = text(source.label).trim();
+    const roles = Array.isArray(source.roles) ? source.roles.map(roleLabel).filter(Boolean) : [];
+    if (displayLanguage) parts.push(displayLanguage);
+    if (label && label.toLowerCase() !== language.toLowerCase() &&
+        label.toLowerCase() !== displayLanguage.toLowerCase()) parts.push(label);
+    roles.forEach(function (role) { parts.push(role); });
+    if (source.default === true) parts.push('Standard');
+    return parts.length ? parts.join(' · ') : 'Untertitel ' + String(index + 1);
+  }
+
   function clearChildren(node) {
     if (!node) return;
     if (typeof node.replaceChildren === 'function') {
       node.replaceChildren();
       return;
     }
-    while (node.firstChild && typeof node.removeChild === 'function') {
-      node.removeChild(node.firstChild);
-    }
-    if (node.options && typeof node.options.length === 'number') {
-      node.options.length = 0;
-    }
+    while (node.firstChild && typeof node.removeChild === 'function') node.removeChild(node.firstChild);
+    if (node.options && typeof node.options.length === 'number') node.options.length = 0;
   }
 
   function hlsProfile(profileId) {
@@ -161,9 +229,7 @@
 
   function fallbackOwner(root) {
     if (!root) return null;
-    if (root.__vdrSuiteRecordingFallbackOwner) {
-      return root.__vdrSuiteRecordingFallbackOwner;
-    }
+    if (root.__vdrSuiteRecordingFallbackOwner) return root.__vdrSuiteRecordingFallbackOwner;
     if (typeof root.querySelector !== 'function') return null;
     const fallback = root.querySelector('.recordings2-recording-fallback-shell');
     return fallback && fallback.__vdrSuiteRecordingFallbackOwner
@@ -174,13 +240,8 @@
   function decoratePanel(panel, recording, backendId) {
     if (!panel || !panel.element || typeof panel.start !== 'function' ||
         typeof panel.sessionId !== 'function' || typeof panel.position !== 'function' ||
-        typeof panel.state !== 'function' || typeof panel.seekAbsolute !== 'function') {
-      return panel;
-    }
+        typeof panel.state !== 'function' || typeof panel.seekAbsolute !== 'function') return panel;
 
-    // The fast progressive panel replaces its own DOM node when it falls back
-    // to HLS. Keep track controls in a stable owner shell around that replaceable
-    // transport so they survive the transition instead of disappearing with it.
     const shell = global.document.createElement('div');
     shell.className = 'recordings2-track-owner-shell';
     shell.appendChild(panel.element);
@@ -202,6 +263,16 @@
     audioRow.appendChild(audioSelect);
     host.appendChild(audioRow);
 
+    const subtitleRow = global.document.createElement('label');
+    subtitleRow.className = 'recordings2-subtitle-track-control';
+    subtitleRow.hidden = true;
+    subtitleRow.textContent = 'Untertitel ';
+    const subtitleSelect = global.document.createElement('select');
+    subtitleSelect.setAttribute('aria-label', 'Untertitel auswählen');
+    subtitleSelect.disabled = true;
+    subtitleRow.appendChild(subtitleSelect);
+    host.appendChild(subtitleRow);
+
     const note = global.document.createElement('p');
     note.className = 'recordings2-track-status';
     note.setAttribute('role', 'status');
@@ -212,7 +283,6 @@
     subtitleInfo.className = 'recordings2-subtitle-track-status';
     subtitleInfo.hidden = true;
     host.appendChild(subtitleInfo);
-
     shell.appendChild(host);
 
     let disposed = false;
@@ -224,8 +294,30 @@
     let activeProfileId = '';
     let sessionWatchTimer = null;
 
+    let subtitleSelectionInFlight = false;
+    let subtitlePreferenceTrackId = 'off';
+    let selectedSubtitleTrackId = '';
+    let subtitleTracks = [];
+    let subtitleSelectionSupported = false;
+    let managedSubtitleElement = null;
+    let managedSubtitleUrl = '';
+    let appliedSubtitleSessionId = '';
+    let appliedSubtitleBase = -1;
+
     function activeFallbackOwner() {
       return fallbackOwner(shell);
+    }
+
+    function currentVideo() {
+      return typeof shell.querySelector === 'function' ? shell.querySelector('video') : null;
+    }
+
+    function streamBasePosition() {
+      const video = currentVideo();
+      const absolute = Math.max(0, Math.floor(Number(panel.position()) || 0));
+      const local = Number(video && video.currentTime);
+      const localSeconds = Number.isFinite(local) && local > 0 ? Math.floor(local) : 0;
+      return Math.max(0, absolute - localSeconds);
     }
 
     function clearPoll() {
@@ -242,21 +334,145 @@
       sessionWatchTimer = null;
     }
 
+    function revokeManagedSubtitleUrl() {
+      if (managedSubtitleUrl && global.URL && typeof global.URL.revokeObjectURL === 'function') {
+        try { global.URL.revokeObjectURL(managedSubtitleUrl); } catch (error) {}
+      }
+      managedSubtitleUrl = '';
+    }
+
+    function detachManagedSubtitle() {
+      if (managedSubtitleElement) {
+        try {
+          if (managedSubtitleElement.track) managedSubtitleElement.track.mode = 'disabled';
+          if (managedSubtitleElement.parentNode &&
+              typeof managedSubtitleElement.parentNode.removeChild === 'function') {
+            managedSubtitleElement.parentNode.removeChild(managedSubtitleElement);
+          }
+        } catch (error) {}
+      }
+      managedSubtitleElement = null;
+      revokeManagedSubtitleUrl();
+      appliedSubtitleSessionId = '';
+      appliedSubtitleBase = -1;
+    }
+
     function resetTrackPresentation() {
       clearPoll();
+      detachManagedSubtitle();
       pollFailures = 0;
       activeSessionId = '';
       activeProfileId = '';
       selectedTrackId = '';
       selectionInFlight = false;
+      selectedSubtitleTrackId = '';
+      subtitleTracks = [];
+      subtitleSelectionSupported = false;
+      subtitleSelectionInFlight = false;
       clearChildren(audioSelect);
+      clearChildren(subtitleSelect);
       audioRow.hidden = true;
       audioSelect.disabled = true;
+      subtitleRow.hidden = true;
+      subtitleSelect.disabled = true;
       subtitleInfo.hidden = true;
       subtitleInfo.textContent = '';
       note.hidden = true;
       note.textContent = '';
       host.hidden = true;
+    }
+
+    function findSubtitle(trackId) {
+      return subtitleTracks.find(function (track) {
+        return safeSubtitleTrackId(track && track.id) === trackId;
+      }) || null;
+    }
+
+    function mountWebVtt(track, webVtt, sessionId, basePosition) {
+      const video = currentVideo();
+      if (!video || !global.Blob || !global.URL || typeof global.URL.createObjectURL !== 'function') {
+        throw new Error('Browser kann die WebVTT-Untertitelspur nicht einbinden.');
+      }
+      detachManagedSubtitle();
+      const blob = new global.Blob([webVtt], {type: 'text/vtt'});
+      const url = global.URL.createObjectURL(blob);
+      const element = global.document.createElement('track');
+      element.kind = 'subtitles';
+      element.label = subtitleTrackLabel(track, 0);
+      const code = languageCode(track && track.language);
+      if (code) element.srclang = code;
+      element.src = url;
+      element.default = true;
+      video.appendChild(element);
+      if (element.track) element.track.mode = 'showing';
+      managedSubtitleElement = element;
+      managedSubtitleUrl = url;
+      appliedSubtitleSessionId = sessionId;
+      appliedSubtitleBase = basePosition;
+    }
+
+    function setNote(message, error) {
+      note.textContent = text(message);
+      note.hidden = !note.textContent;
+      if (note.classList && typeof note.classList.toggle === 'function') {
+        note.classList.toggle('error', Boolean(error));
+      }
+    }
+
+    function applySubtitlePreference(userInitiated) {
+      if (disposed || subtitleSelectionInFlight) return Promise.resolve(false);
+      const id = safeSessionId(panel.sessionId()) || activeSessionId;
+      const targetTrackId = safeSubtitleTrackId(subtitlePreferenceTrackId);
+      if (!id || !targetTrackId || !subtitleSelectionSupported) return Promise.resolve(false);
+      const base = streamBasePosition();
+      if (targetTrackId !== 'off' && appliedSubtitleSessionId === id &&
+          appliedSubtitleBase === base && managedSubtitleElement) return Promise.resolve(true);
+
+      const track = targetTrackId === 'off' ? null : findSubtitle(targetTrackId);
+      if (targetTrackId !== 'off' && (!track || track.selectable !== true ||
+          text(track.deliveryFormat) !== 'webvtt')) return Promise.resolve(false);
+
+      subtitleSelectionInFlight = true;
+      subtitleSelect.disabled = true;
+      if (userInitiated) setNote(
+        targetTrackId === 'off' ? 'Untertitel werden ausgeschaltet …' : 'Untertitel werden geladen …',
+        false
+      );
+
+      return selectSubtitleTrack(backendId, id, targetTrackId, base).then(function (result) {
+        if (disposed) return false;
+        const currentId = safeSessionId(panel.sessionId());
+        const currentBase = streamBasePosition();
+        if (currentId !== id || currentBase !== base) {
+          detachManagedSubtitle();
+          return false;
+        }
+        if (targetTrackId === 'off' || result.off === true) {
+          detachManagedSubtitle();
+          selectedSubtitleTrackId = '';
+          subtitlePreferenceTrackId = 'off';
+          subtitleSelect.value = 'off';
+          if (userInitiated) setNote('Untertitel ausgeschaltet.', false);
+        }
+        else {
+          mountWebVtt(track, result.webVtt, id, base);
+          selectedSubtitleTrackId = targetTrackId;
+          subtitleSelect.value = targetTrackId;
+          if (userInitiated) setNote('Untertitel gewechselt.', false);
+        }
+        return true;
+      }).catch(function (error) {
+        if (userInitiated) {
+          setNote(error && error.message
+            ? 'Untertitelwechsel fehlgeschlagen: ' + error.message
+            : 'Untertitelwechsel fehlgeschlagen.', true);
+        }
+        throw error;
+      }).finally(function () {
+        subtitleSelectionInFlight = false;
+        subtitleSelect.disabled = subtitleRow.hidden;
+        host.hidden = audioRow.hidden && subtitleRow.hidden && subtitleInfo.hidden && note.hidden;
+      });
     }
 
     function scheduleSessionWatch() {
@@ -269,22 +485,23 @@
           resetTrackPresentation();
         }
         else if (currentId && currentId !== activeSessionId) {
+          detachManagedSubtitle();
           activeSessionId = currentId;
           pollFailures = 0;
           refreshTracks();
+        }
+        else if (currentId && subtitlePreferenceTrackId !== 'off' &&
+                 subtitleSelectionSupported && !subtitleSelectionInFlight) {
+          const currentBase = streamBasePosition();
+          if (appliedSubtitleSessionId !== currentId || appliedSubtitleBase !== currentBase) {
+            detachManagedSubtitle();
+            applySubtitlePreference(false).catch(function () {});
+          }
         }
         scheduleSessionWatch();
       }, TRACK_STATUS_POLL_MS);
       sessionWatchTimer = handle;
       if (handle && typeof handle.unref === 'function') handle.unref();
-    }
-
-    function setNote(message, error) {
-      note.textContent = text(message);
-      note.hidden = !note.textContent;
-      if (note.classList && typeof note.classList.toggle === 'function') {
-        note.classList.toggle('error', Boolean(error));
-      }
     }
 
     function scheduleRefresh() {
@@ -300,9 +517,7 @@
       activeProfileId = text(mediaSession && mediaSession.presentationProfileId).trim();
       const tracks = mediaSession && mediaSession.tracks;
       const audio = tracks && tracks.audio;
-      const available = audio && Array.isArray(audio.availableTracks)
-        ? audio.availableTracks
-        : [];
+      const available = audio && Array.isArray(audio.availableTracks) ? audio.availableTracks : [];
       const nextSelected = safeAudioTrackId(audio && audio.selectedTrackId);
 
       clearChildren(audioSelect);
@@ -315,7 +530,6 @@
         option.selected = trackId === nextSelected;
         audioSelect.appendChild(option);
       });
-
       selectedTrackId = nextSelected;
       if (selectedTrackId) audioSelect.value = selectedTrackId;
       const hlsOwner = activeFallbackOwner();
@@ -329,22 +543,58 @@
       audioSelect.disabled = !audioSelectable || selectionInFlight;
 
       const subtitle = tracks && tracks.subtitles;
-      const subtitleTracks = subtitle && Array.isArray(subtitle.availableTracks)
-        ? subtitle.availableTracks
-        : [];
-      const truthfulOff = Boolean(subtitle && subtitle.offSelected === true);
-      subtitleInfo.hidden = !(subtitleTracks.length > 0 && truthfulOff);
-      subtitleInfo.textContent = subtitleInfo.hidden
-        ? ''
-        : 'Untertitel: Aus · Auswahl ist in diesem Wiedergabepfad nicht verfügbar.';
+      const allSubtitleTracks = subtitle && Array.isArray(subtitle.availableTracks)
+        ? subtitle.availableTracks : [];
+      subtitleTracks = allSubtitleTracks.filter(function (track) {
+        return Boolean(safeSubtitleTrackId(track && track.id)) &&
+          track.selectable === true && text(track.deliveryFormat) === 'webvtt';
+      });
+      subtitleSelectionSupported = Boolean(
+        subtitle && subtitle.selectionSupported === true && subtitle.offSupported === true &&
+        subtitleTracks.length > 0
+      );
+      selectedSubtitleTrackId = safeSubtitleTrackId(subtitle && subtitle.selectedTrackId);
+      if (selectedSubtitleTrackId === 'off') selectedSubtitleTrackId = '';
 
-      host.hidden = audioRow.hidden && subtitleInfo.hidden && note.hidden;
-      const reason = text(audio && audio.selectionReason);
-      if (!audioSelectable && reason === 'recording_audio_track_selection_preparing') {
-        scheduleRefresh();
+      clearChildren(subtitleSelect);
+      const offOption = global.document.createElement('option');
+      offOption.value = 'off';
+      offOption.textContent = 'Aus';
+      subtitleSelect.appendChild(offOption);
+      subtitleTracks.forEach(function (track, index) {
+        const option = global.document.createElement('option');
+        option.value = safeSubtitleTrackId(track.id);
+        option.textContent = subtitleTrackLabel(track, index);
+        subtitleSelect.appendChild(option);
+      });
+      if (subtitlePreferenceTrackId !== 'off' && findSubtitle(subtitlePreferenceTrackId)) {
+        subtitleSelect.value = subtitlePreferenceTrackId;
+      }
+      else if (selectedSubtitleTrackId && findSubtitle(selectedSubtitleTrackId)) {
+        subtitlePreferenceTrackId = selectedSubtitleTrackId;
+        subtitleSelect.value = selectedSubtitleTrackId;
       }
       else {
-        clearPoll();
+        subtitleSelect.value = 'off';
+      }
+      subtitleRow.hidden = !subtitleSelectionSupported;
+      subtitleSelect.disabled = !subtitleSelectionSupported || subtitleSelectionInFlight;
+
+      const unsupportedPresent = allSubtitleTracks.length > 0 && subtitleTracks.length === 0;
+      subtitleInfo.hidden = !unsupportedPresent;
+      subtitleInfo.textContent = unsupportedPresent
+        ? 'Untertitel vorhanden, aber in diesem Browser-Wiedergabepfad nicht als Textspur verfügbar.'
+        : '';
+
+      host.hidden = audioRow.hidden && subtitleRow.hidden && subtitleInfo.hidden && note.hidden;
+      const reason = text(audio && audio.selectionReason);
+      if (!audioSelectable && reason === 'recording_audio_track_selection_preparing') scheduleRefresh();
+      else clearPoll();
+
+      if (subtitleSelectionSupported && subtitlePreferenceTrackId !== 'off') {
+        Promise.resolve().then(function () {
+          return applySubtitlePreference(false);
+        }).catch(function () {});
       }
     }
 
@@ -369,15 +619,13 @@
         pollFailures = 0;
         renderTracks(mediaSession);
         return mediaSession;
-      }).catch(function (error) {
+      }).catch(function () {
         if (disposed) return false;
         pollFailures += 1;
-        if (pollFailures < TRACK_STATUS_MAX_FAILURES) {
-          scheduleRefresh();
-        }
+        if (pollFailures < TRACK_STATUS_MAX_FAILURES) scheduleRefresh();
         else {
           clearPoll();
-          setNote('Tonspurinformationen konnten nicht geladen werden.', true);
+          setNote('Track-Informationen konnten nicht geladen werden.', true);
           host.hidden = false;
         }
         return false;
@@ -396,6 +644,7 @@
           throw new Error('HLS-Tonspurwechsel hat keine neue MediaSession erzeugt.');
         }
         replacementStarted = true;
+        detachManagedSubtitle();
         activeSessionId = replacementId;
         return trackStatus(backendId, replacementId);
       }).then(function (session) {
@@ -425,36 +674,23 @@
               if (stopped && typeof stopped.catch === 'function') stopped.catch(function () {});
             } catch (stopError) {}
           }
-          setNote(
-            'Tonspur-Replacement konnte nicht verifiziert werden. Wiedergabe wurde gestoppt.',
-            true
-          );
+          setNote('Tonspur-Replacement konnte nicht verifiziert werden. Wiedergabe wurde gestoppt.', true);
         }
         else {
           selectedTrackId = previousTrackId;
           audioSelect.value = previousTrackId;
-          setNote(
-            error && error.message
-              ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
-              : 'Tonspurwechsel fehlgeschlagen.',
-            true
-          );
+          setNote(error && error.message
+            ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
+            : 'Tonspurwechsel fehlgeschlagen.', true);
         }
         host.hidden = false;
         throw error;
       });
     }
 
-    function performProgressiveSelection(
-      targetTrackId,
-      previousTrackId,
-      id,
-      playbackState,
-      position
-    ) {
+    function performProgressiveSelection(targetTrackId, previousTrackId, id, playbackState, position) {
       let serverSelected = false;
       let pausedForSelection = false;
-
       if (playbackState === 'playing') {
         if (typeof panel.pause !== 'function' || panel.pause() !== true) {
           audioSelect.value = previousTrackId;
@@ -463,13 +699,7 @@
         pausedForSelection = true;
       }
 
-      return selectAudioTrack(
-        backendId,
-        recording,
-        id,
-        targetTrackId,
-        position
-      ).then(function (session) {
+      return selectAudioTrack(backendId, recording, id, targetTrackId, position).then(function (session) {
         if (disposed) return false;
         const mediaSession = session && session.mediaSession;
         const returnedId = safeSessionId(mediaSession && mediaSession.id);
@@ -480,23 +710,18 @@
             !Number.isFinite(confirmedPosition) || Math.floor(confirmedPosition) !== position) {
           throw new Error('Tonspurwechsel hat die Recording-Playback-Identität nicht erhalten.');
         }
-
         serverSelected = true;
+        detachManagedSubtitle();
         renderTracks(mediaSession);
-        if (selectedTrackId !== targetTrackId) {
-          throw new Error('Server hat eine andere Tonspur bestätigt.');
-        }
-
+        if (selectedTrackId !== targetTrackId) throw new Error('Server hat eine andere Tonspur bestätigt.');
         return Promise.resolve(panel.seekAbsolute(position)).then(function () {
           if (disposed) return false;
-          if (safeSessionId(panel.sessionId()) !== id) {
+          if (safeSessionId(panel.sessionId()) !== id)
             throw new Error('MediaSession-ID hat sich beim Tonspur-Reconnect geändert.');
-          }
           const stateAfterReconnect = text(panel.state());
           if (playbackState === 'paused' && stateAfterReconnect !== 'paused') {
-            if (typeof panel.pause !== 'function' || panel.pause() !== true) {
+            if (typeof panel.pause !== 'function' || panel.pause() !== true)
               throw new Error('Pause-Zustand konnte nach dem Tonspurwechsel nicht erhalten werden.');
-            }
           }
           else if (playbackState === 'playing' && stateAfterReconnect === 'paused' &&
                    typeof panel.play === 'function') {
@@ -508,10 +733,7 @@
         if (serverSelected) {
           audioRow.hidden = true;
           audioSelect.disabled = true;
-          setNote(
-            'Tonspur wurde serverseitig gewechselt, aber der Player konnte nicht neu verbunden werden. Wiedergabe wurde gestoppt.',
-            true
-          );
+          setNote('Tonspur wurde serverseitig gewechselt, aber der Player konnte nicht neu verbunden werden. Wiedergabe wurde gestoppt.', true);
           if (typeof panel.stop === 'function') {
             try {
               const stopped = panel.stop();
@@ -528,12 +750,9 @@
               if (resumed && typeof resumed.catch === 'function') resumed.catch(function () {});
             } catch (resumeError) {}
           }
-          setNote(
-            error && error.message
-              ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
-              : 'Tonspurwechsel fehlgeschlagen.',
-            true
-          );
+          setNote(error && error.message
+            ? 'Tonspurwechsel fehlgeschlagen: ' + error.message
+            : 'Tonspurwechsel fehlgeschlagen.', true);
           host.hidden = false;
         }
         throw error;
@@ -545,40 +764,24 @@
       const targetTrackId = safeAudioTrackId(audioSelect.value);
       const previousTrackId = selectedTrackId;
       if (!targetTrackId || targetTrackId === previousTrackId) return Promise.resolve(false);
-
       const id = safeSessionId(panel.sessionId()) || activeSessionId;
       const hlsOwner = hlsProfile(activeProfileId) ? activeFallbackOwner() : null;
       const usingHlsOwner = Boolean(
-        hlsOwner &&
-        typeof hlsOwner.selectAudioTrack === 'function' &&
-        typeof hlsOwner.state === 'function'
-      );
-      // The outer fast owner intentionally reports `fallback` after HLS takes
-      // over. Playback truth for a track replacement then belongs to the
-      // published HLS owner, which exposes the real playing/paused state.
+        hlsOwner && typeof hlsOwner.selectAudioTrack === 'function' && typeof hlsOwner.state === 'function');
       const playbackState = usingHlsOwner ? text(hlsOwner.state()) : text(panel.state());
       const position = Math.max(0, Math.floor(Number(panel.position()) || 0));
       if (!id || (playbackState !== 'playing' && playbackState !== 'paused')) {
         audioSelect.value = previousTrackId;
         return Promise.reject(new Error('Tonspur kann nur während aktiver Recording-Wiedergabe gewechselt werden.'));
       }
-
       activeSessionId = id;
       selectionInFlight = true;
       audioSelect.disabled = true;
       setNote('Tonspur wird gewechselt …', false);
       host.hidden = false;
-
       const operation = usingHlsOwner
         ? performHlsSelection(targetTrackId, previousTrackId, id, playbackState)
-        : performProgressiveSelection(
-            targetTrackId,
-            previousTrackId,
-            id,
-            playbackState,
-            position
-          );
-
+        : performProgressiveSelection(targetTrackId, previousTrackId, id, playbackState, position);
       return Promise.resolve(operation).then(function (result) {
         if (disposed || result === false) return result;
         selectionInFlight = false;
@@ -597,14 +800,21 @@
       performSelection().catch(function () {});
     });
 
+    subtitleSelect.addEventListener('change', function () {
+      const target = safeSubtitleTrackId(subtitleSelect.value);
+      if (!target) return;
+      const previousPreference = subtitlePreferenceTrackId;
+      subtitlePreferenceTrackId = target;
+      applySubtitlePreference(true).catch(function () {
+        subtitlePreferenceTrackId = previousPreference;
+        subtitleSelect.value = previousPreference;
+      });
+    });
+
     const wrapped = {};
     Object.keys(panel).forEach(function (key) { wrapped[key] = panel[key]; });
     wrapped.element = shell;
 
-    // Method wrapping remains only a latency optimization for callers that use
-    // the public owner method. Correctness comes from the lifetime session
-    // observer below because owner-internal DOM handlers may call their closure
-    // directly and bypass this wrapper.
     wrapped.start = function () {
       const result = panel.start.apply(panel, arguments);
       return Promise.resolve(result).then(function (id) {
@@ -629,6 +839,7 @@
       wrapped.relinquishForReplacement = function () {
         clearPoll();
         clearSessionWatch();
+        detachManagedSubtitle();
         activeSessionId = '';
         activeProfileId = '';
         return panel.relinquishForReplacement.apply(panel, arguments);
@@ -641,16 +852,13 @@
         disposed = true;
         clearPoll();
         clearSessionWatch();
+        detachManagedSubtitle();
+        subtitlePreferenceTrackId = 'off';
         panel.destroy.apply(panel, arguments);
       };
     }
 
-    // Start observing immediately at owner creation. This is local-only while
-    // idle: no track-status request is issued until panel.sessionId() exposes a
-    // new active MediaSession. The observer therefore covers delayed user Start,
-    // internal button bindings, stop/restart and progressive-to-HLS replacement.
     scheduleSessionWatch();
-
     return Object.freeze(wrapped);
   }
 
@@ -661,7 +869,6 @@
     const value = source && typeof source === 'object' ? source : {};
     if (value === cachedSource && cachedDecorated) return cachedDecorated;
     if (typeof value.createPanel !== 'function') return value;
-
     const decorated = {};
     Object.keys(value).forEach(function (key) { decorated[key] = value[key]; });
     const factory = value.createPanel;
@@ -689,12 +896,16 @@
   global.VdrSuiteRecordingTrackControls = Object.freeze({
     __test: Object.freeze({
       safeAudioTrackId: safeAudioTrackId,
+      safeSubtitleTrackId: safeSubtitleTrackId,
       recordingCapabilities: recordingCapabilities,
       audioTrackLabel: audioTrackLabel,
+      subtitleTrackLabel: subtitleTrackLabel,
       languageLabel: languageLabel,
+      languageCode: languageCode,
       fallbackOwner: fallbackOwner,
       trackStatus: trackStatus,
-      selectAudioTrack: selectAudioTrack
+      selectAudioTrack: selectAudioTrack,
+      selectSubtitleTrack: selectSubtitleTrack
     })
   });
 }(window));
