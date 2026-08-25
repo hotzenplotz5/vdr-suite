@@ -113,15 +113,37 @@ bool safeSessionId(const std::string& value)
     return true;
 }
 
-bool safeAudioTrackId(const std::string& value)
+bool safeNormalizedTrackId(
+    const std::string& value,
+    const std::string& prefix,
+    std::size_t maximumLength)
 {
-    if (value.size() < 7 || value.size() > 16 || value.rfind("audio-", 0) != 0)
+    if (value.size() <= prefix.size() || value.size() > maximumLength ||
+        value.rfind(prefix, 0) != 0 || value[prefix.size()] == '0') {
         return false;
-    if (value[6] == '0') return false;
-    for (std::size_t index = 6; index < value.size(); ++index) {
+    }
+    for (std::size_t index = prefix.size(); index < value.size(); ++index) {
         if (!std::isdigit(static_cast<unsigned char>(value[index]))) return false;
     }
     return true;
+}
+
+bool safeAudioTrackId(const std::string& value)
+{
+    return safeNormalizedTrackId(value, "audio-", 16);
+}
+
+bool safeSubtitleTrackId(const std::string& value)
+{
+    return value == "off" || safeNormalizedTrackId(value, "subtitle-", 20);
+}
+
+bool knownDifferentOperation(const std::string& operationName)
+{
+    return operationName == "stop" || operationName == "seek" ||
+        operationName == "playback-status" || operationName == "track-status" ||
+        operationName == "select-audio-track" ||
+        operationName == "select-subtitle-track";
 }
 
 RecordingMediaSessionTrackStatusRequest invalidTrackStatus(
@@ -132,10 +154,18 @@ RecordingMediaSessionTrackStatusRequest invalidTrackStatus(
     return result;
 }
 
-RecordingMediaSessionAudioTrackSelectionRequest invalidSelection(
+RecordingMediaSessionAudioTrackSelectionRequest invalidAudioSelection(
     const std::string& reasonCode)
 {
     RecordingMediaSessionAudioTrackSelectionRequest result;
+    result.reasonCode = reasonCode;
+    return result;
+}
+
+RecordingMediaSessionSubtitleTrackSelectionRequest invalidSubtitleSelection(
+    const std::string& reasonCode)
+{
+    RecordingMediaSessionSubtitleTrackSelectionRequest result;
     result.reasonCode = reasonCode;
     return result;
 }
@@ -156,12 +186,9 @@ RecordingMediaSessionRequestParser::parseTrackStatus(
         return invalidTrackStatus("invalid_media_session_operation");
     }
     if (operationName != "track-status") {
-        if (operationName == "stop" || operationName == "seek" ||
-            operationName == "playback-status" ||
-            operationName == "select-audio-track") {
-            return invalidTrackStatus("media_session_track_status_not_requested");
-        }
-        return invalidTrackStatus("invalid_media_session_operation");
+        return invalidTrackStatus(knownDifferentOperation(operationName)
+            ? "media_session_track_status_not_requested"
+            : "invalid_media_session_operation");
     }
 
     RecordingMediaSessionTrackStatusRequest request;
@@ -183,46 +210,81 @@ RecordingMediaSessionRequestParser::parseAudioTrackSelection(
 {
     std::size_t operationPosition = 0;
     if (!locateValue(body, "operation", operationPosition)) {
-        return invalidSelection("media_session_audio_track_selection_not_requested");
+        return invalidAudioSelection("media_session_audio_track_selection_not_requested");
     }
 
     std::string operationName;
     if (!readStringAt(body, operationPosition, operationName)) {
-        return invalidSelection("invalid_media_session_operation");
+        return invalidAudioSelection("invalid_media_session_operation");
     }
     if (operationName != "select-audio-track") {
-        if (operationName == "stop" || operationName == "seek" ||
-            operationName == "playback-status" || operationName == "track-status") {
-            return invalidSelection("media_session_audio_track_selection_not_requested");
-        }
-        return invalidSelection("invalid_media_session_operation");
+        return invalidAudioSelection(knownDifferentOperation(operationName)
+            ? "media_session_audio_track_selection_not_requested"
+            : "invalid_media_session_operation");
     }
 
     RecordingMediaSessionAudioTrackSelectionRequest request;
     if (!readStringField(body, "backendId", request.backendId) ||
         !safeBackendId(request.backendId)) {
-        return invalidSelection("invalid_backend_id");
+        return invalidAudioSelection("invalid_backend_id");
     }
     if (!readStringField(body, "sessionId", request.sessionId) ||
         !safeSessionId(request.sessionId)) {
-        return invalidSelection("invalid_media_session_id");
+        return invalidAudioSelection("invalid_media_session_id");
     }
     if (!readStringField(body, "audioTrackId", request.audioTrackId) ||
         !safeAudioTrackId(request.audioTrackId)) {
-        return invalidSelection("invalid_audio_track_id");
+        return invalidAudioSelection("invalid_audio_track_id");
     }
     if (!readNonNegativeIntField(body, "positionSeconds", request.positionSeconds)) {
-        return invalidSelection("invalid_recording_audio_track_position");
+        return invalidAudioSelection("invalid_recording_audio_track_position");
     }
 
     const RecordingMediaSessionRequest mediaRequest = parse(body);
     if (!mediaRequest.valid) {
-        return invalidSelection(mediaRequest.reasonCode.empty()
+        return invalidAudioSelection(mediaRequest.reasonCode.empty()
             ? "invalid_media_capabilities"
             : mediaRequest.reasonCode);
     }
     request.recordingId = mediaRequest.recordingId;
     request.capabilities = mediaRequest.capabilities;
+    request.valid = true;
+    return request;
+}
+
+RecordingMediaSessionSubtitleTrackSelectionRequest
+RecordingMediaSessionRequestParser::parseSubtitleTrackSelection(
+    const std::string& body) const
+{
+    std::size_t operationPosition = 0;
+    if (!locateValue(body, "operation", operationPosition)) {
+        return invalidSubtitleSelection(
+            "media_session_subtitle_track_selection_not_requested");
+    }
+
+    std::string operationName;
+    if (!readStringAt(body, operationPosition, operationName)) {
+        return invalidSubtitleSelection("invalid_media_session_operation");
+    }
+    if (operationName != "select-subtitle-track") {
+        return invalidSubtitleSelection(knownDifferentOperation(operationName)
+            ? "media_session_subtitle_track_selection_not_requested"
+            : "invalid_media_session_operation");
+    }
+
+    RecordingMediaSessionSubtitleTrackSelectionRequest request;
+    if (!readStringField(body, "backendId", request.backendId) ||
+        !safeBackendId(request.backendId)) {
+        return invalidSubtitleSelection("invalid_backend_id");
+    }
+    if (!readStringField(body, "sessionId", request.sessionId) ||
+        !safeSessionId(request.sessionId)) {
+        return invalidSubtitleSelection("invalid_media_session_id");
+    }
+    if (!readStringField(body, "subtitleTrackId", request.subtitleTrackId) ||
+        !safeSubtitleTrackId(request.subtitleTrackId)) {
+        return invalidSubtitleSelection("invalid_subtitle_track_id");
+    }
     request.valid = true;
     return request;
 }
