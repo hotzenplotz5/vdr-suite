@@ -19,5 +19,6 @@ public:
 
     static RecordingSubtitleWebVttPlan build(
         int sourceSubtitleStreamIndex,
-        MediaSubtitleFormat format);
+        MediaSubtitleFormat format,
+        int streamBasePositionSeconds = 0);
 };
