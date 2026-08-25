@@ -220,7 +220,7 @@
 
     function bindCurrentVideo() {
       if (disposed) return null;
-      const next = firstVideo(panel.element);
+      const next = firstVideo(shell);
       if (next === activeVideo) {
         updateUiFromVideo();
         return next;
@@ -303,12 +303,13 @@
     bindCurrentVideo();
     if (typeof global.MutationObserver === 'function') {
       observer = new global.MutationObserver(function () {
-        // Observe only transport-owned DOM. The Volume/Mute UI itself updates
-        // textContent, which is a childList mutation in real browsers; watching
-        // the outer shell would therefore self-trigger indefinitely.
-        if (firstVideo(panel.element) !== activeVideo) bindCurrentVideo();
+        // The production progressive-to-HLS path can replace panel.element
+        // itself, so the stable outer shell is the necessary observation root.
+        // Volume/Mute UI text updates also appear below this shell; therefore
+        // the callback must be inert unless the actual media element changed.
+        if (firstVideo(shell) !== activeVideo) bindCurrentVideo();
       });
-      observer.observe(panel.element, {childList: true, subtree: true});
+      observer.observe(shell, {childList: true, subtree: true});
     }
 
     const wrapped = {};
