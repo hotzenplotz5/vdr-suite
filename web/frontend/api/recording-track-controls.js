@@ -11,6 +11,7 @@
   const marker = '__vdrSuiteRecordingTrackControlsBound';
   const TRACK_STATUS_POLL_MS = 750;
   const TRACK_STATUS_MAX_FAILURES = 5;
+  const SESSION_WATCH_MAX_ATTEMPTS = 12;
   if (!global || !global.document || global[marker] === true) return;
 
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
@@ -223,6 +224,7 @@
     let activeSessionId = '';
     let activeProfileId = '';
     let sessionWatchTimer = null;
+    let sessionWatchAttempts = 0;
 
     function activeFallbackOwner() {
       return fallbackOwner(shell);
@@ -240,11 +242,15 @@
         try { global.clearTimeout(sessionWatchTimer); } catch (error) {}
       }
       sessionWatchTimer = null;
+      sessionWatchAttempts = 0;
     }
 
     function scheduleSessionWatch() {
-      if (disposed || sessionWatchTimer !== null || typeof global.setTimeout !== 'function') return;
-      sessionWatchTimer = global.setTimeout(function () {
+      if (disposed || sessionWatchTimer !== null ||
+          sessionWatchAttempts >= SESSION_WATCH_MAX_ATTEMPTS ||
+          typeof global.setTimeout !== 'function') return;
+      sessionWatchAttempts += 1;
+      const handle = global.setTimeout(function () {
         sessionWatchTimer = null;
         if (disposed) return;
         const currentId = safeSessionId(panel.sessionId());
@@ -255,6 +261,8 @@
         }
         scheduleSessionWatch();
       }, TRACK_STATUS_POLL_MS);
+      sessionWatchTimer = handle;
+      if (handle && typeof handle.unref === 'function') handle.unref();
     }
 
     function setNote(message, error) {
@@ -271,6 +279,7 @@
         pollTimer = null;
         refreshTracks();
       }, TRACK_STATUS_POLL_MS);
+      if (pollTimer && typeof pollTimer.unref === 'function') pollTimer.unref();
     }
 
     function renderTracks(mediaSession) {
@@ -570,6 +579,7 @@
     wrapped.element = shell;
 
     wrapped.start = function () {
+      clearSessionWatch();
       const result = panel.start.apply(panel, arguments);
       return Promise.resolve(result).then(function (id) {
         activeSessionId = safeSessionId(id) || safeSessionId(panel.sessionId());
