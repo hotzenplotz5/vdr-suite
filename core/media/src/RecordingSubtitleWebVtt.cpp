@@ -12,11 +12,16 @@ bool RecordingSubtitleWebVtt::supports(MediaSubtitleFormat format)
 
 RecordingSubtitleWebVttPlan RecordingSubtitleWebVtt::build(
     int sourceSubtitleStreamIndex,
-    MediaSubtitleFormat format)
+    MediaSubtitleFormat format,
+    int streamBasePositionSeconds)
 {
     RecordingSubtitleWebVttPlan plan;
     if (sourceSubtitleStreamIndex < 0) {
         plan.reasonCode = "invalid_recording_subtitle_stream_index";
+        return plan;
+    }
+    if (streamBasePositionSeconds < 0) {
+        plan.reasonCode = "invalid_recording_subtitle_stream_base";
         return plan;
     }
     if (!supports(format)) {
@@ -28,7 +33,13 @@ RecordingSubtitleWebVttPlan RecordingSubtitleWebVtt::build(
         "/usr/bin/ffmpeg",
         "-nostdin",
         "-hide_banner",
-        "-loglevel", "error",
+        "-loglevel", "error"
+    };
+    if (streamBasePositionSeconds > 0) {
+        plan.argv.push_back("-ss");
+        plan.argv.push_back(std::to_string(streamBasePositionSeconds));
+    }
+    plan.argv.insert(plan.argv.end(), {
         "-f", "concat",
         "-safe", "1",
         "-i", "input.ffconcat",
@@ -36,7 +47,7 @@ RecordingSubtitleWebVttPlan RecordingSubtitleWebVtt::build(
         "-c:s", "webvtt",
         "-f", "webvtt",
         "pipe:1"
-    };
+    });
     plan.valid = true;
     return plan;
 }
