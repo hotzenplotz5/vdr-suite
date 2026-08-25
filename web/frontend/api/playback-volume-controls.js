@@ -220,7 +220,7 @@
 
     function bindCurrentVideo() {
       if (disposed) return null;
-      const next = firstVideo(shell);
+      const next = firstVideo(panel.element);
       if (next === activeVideo) {
         updateUiFromVideo();
         return next;
@@ -303,9 +303,12 @@
     bindCurrentVideo();
     if (typeof global.MutationObserver === 'function') {
       observer = new global.MutationObserver(function () {
-        bindCurrentVideo();
+        // Observe only transport-owned DOM. The Volume/Mute UI itself updates
+        // textContent, which is a childList mutation in real browsers; watching
+        // the outer shell would therefore self-trigger indefinitely.
+        if (firstVideo(panel.element) !== activeVideo) bindCurrentVideo();
       });
-      observer.observe(shell, {childList: true, subtree: true});
+      observer.observe(panel.element, {childList: true, subtree: true});
     }
 
     const wrapped = {};
