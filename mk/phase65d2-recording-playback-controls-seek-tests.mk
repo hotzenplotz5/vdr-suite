@@ -76,6 +76,7 @@ test-phase65d2-recording-start-position-parser:
 
 test-phase65d2-hls-resume-profile:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaTranscodePolicy.cpp \
 		core/media/src/RecordingHlsResumeProfile.cpp \
 		core/media/tests/test_recording_hls_resume_profile.cpp \
 		-o $(BUILD_DIR)/test_phase65d2_hls_resume_profile
