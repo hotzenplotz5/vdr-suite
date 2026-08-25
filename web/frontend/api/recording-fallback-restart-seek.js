@@ -130,7 +130,10 @@
       timeline.min = '0';
       timeline.max = String(maximum());
       timeline.step = '1';
-      if (enabled && previewPosition === undefined && !timelineDragging) {
+      if (previewPosition === undefined && timelineDragging) {
+        previewPosition = Number(timeline.value);
+      }
+      if (enabled && previewPosition === undefined) {
         timeline.value = String(Math.max(0, Math.min(maximum(), position())));
       }
       if (previewPosition !== undefined) {
