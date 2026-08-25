@@ -20,5 +20,6 @@ public:
     static RecordingSubtitleWebVttPlan build(
         int sourceSubtitleStreamIndex,
         MediaSubtitleFormat format,
-        int streamBasePositionSeconds = 0);
+        int streamBasePositionSeconds = 0,
+        const std::string& externalSourcePath = {});
 };
