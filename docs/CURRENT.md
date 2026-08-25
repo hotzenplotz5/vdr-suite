@@ -57,16 +57,21 @@ Current Phase-65 product vertical:
 Completed Phase-65.D slices:
 65.D.1 - Persistent Browser Playback Shell
 65.D.2 - Recording Playback Controls and Seek
+normalized Recording audio-track selection
+normalized Recording subtitle selection including browser WebVTT delivery
 
-Remaining Phase-65.D semantic work:
-normalized audio/subtitle selection
+Current Phase-65.D candidate block:
+browser-local Volume/Mute controls - real browser acceptance pending
+
+Remaining mandatory Phase-65.D semantic work:
 discontinuity handling
 classified playback failures
+additional client semantic gaps only when demonstrated against ADR-0053
 ```
 
 Phase 65 is active. The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by the implementation history. PR #206 explicitly implemented the first bounded Phase-65.C Recording startup/performance vertical, and the subsequently authorized Phase-65.C work continued through PR #208 with the backend-scoped media-transcode/output policy and Web settings.
 
-The old roadmap's separate `65.D - Compatibility escalation` planning block was absorbed by the demonstrated compatibility/performance work completed inside 65.C and never started as an independent vertical. **65.D - Client playback abstraction is now active.** Phase 65.D.1 and Phase 65.D.2 are accepted and closed for their bounded scopes; the complete Phase 65.D vertical remains open for the remaining ADR-0053 client-playback semantics.
+The old roadmap's separate `65.D - Compatibility escalation` planning block was absorbed by the demonstrated compatibility/performance work completed inside 65.C and never started as an independent vertical. **65.D - Client playback abstraction is now active.** Phase 65.D.1, Phase 65.D.2 and the normalized Recording audio/subtitle-selection slices are accepted and closed for their bounded scopes; the complete Phase 65.D vertical remains open for discontinuity handling, classified playback failure behavior and any additional demonstrated ADR-0053 client gap.
 
 Truthful range/seek/growing-recording capability remains a binding Phase-65 invariant. The implementation must not advertise Range, time-seek or immutable-source behavior where the selected source/profile cannot support it. Phase 65.D.2 now provides accepted arbitrary time-seek and stop/resume semantics for supported completed-Recording progressive-fMP4 and HLS restart-seek paths. User-visible growing-Recording seek, Live-TV timeshift and any broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
 
@@ -326,7 +331,7 @@ Phase 65.C is therefore closed for this bounded combined delivery-performance/ou
 
 ## Phase 65.D Client playback abstraction
 
-Phase 65.D is active. Two bounded slices are accepted and closed while the vertical remains open for the remaining ADR-0053 client-playback semantics.
+Phase 65.D is active. Phase 65.D.1, Phase 65.D.2 and the normalized Recording audio/subtitle-selection slices are accepted and closed while the vertical remains open for the remaining ADR-0053 client-playback semantics.
 
 ### 65.D.1 Persistent Browser Playback Shell — CLOSED
 
@@ -351,7 +356,19 @@ The accepted runtime candidate is `fd1e64c3c28b3e184fb120d71ce692061b282c82`. La
 
 See [Phase 65.D.2 Recording Playback Controls and Seek Closeout](development/phase-65d2-recording-playback-controls-seek-closeout.md).
 
-Phase 65.D remains open for normalized audio/subtitle selection, discontinuity handling and classified playback failure behavior. Growing-Recording seek and Live-TV timeshift remain outside the accepted D.2 scope.
+### Normalized Recording audio/subtitle selection — CLOSED
+
+PR #216 established the normalized Recording track contract and explicit audio-track selection without provider/PID leakage. Its accepted head was `c41a510e2ad6947e744fc4a688276bdbe22cc477`; VDR-Suite CI #8183 passed and the PR merged as `71a59fea4615729d9eba170890d312423adf98a2`.
+
+PR #217 completed browser-selectable Recording subtitles for the proven VDR/vdr-rectools sidecar shape. The accepted head was `482de6529b87e21cdd8dfe4bd4791376c012fb02`; VDR-Suite CI #8225 (`32862649168`) passed and the PR merged as `736d7833318eee3ec11335fdffc72de2f578c032`.
+
+Real yaVDR/browser acceptance proved normalized audio selection and the Recording SRT path with browser-native WebVTT delivery. The real inventory contained 179 `00001.srt` sidecars directly in their `.rec` directories. Normalized `subtitle-N`/`off` semantics remain public; DVB bitmap subtitles and Teletext are not falsely advertised as browser-selectable text tracks, and provider/PID details remain private.
+
+### Browser-local Volume/Mute — ACTIVE CANDIDATE
+
+The next bounded Phase-65.D client gap is browser-local Volume/Mute. ADR-0053 classifies volume as transient client-local player state, so this block must remain attached to the persistent playback owner and currently active `HTMLMediaElement`. It must not create a second player/MediaSession, mutate VDR system volume or add a server-side volume API. Real browser/yaVDR acceptance is required before this candidate can be marked accepted or merged.
+
+Phase 65.D remains open for discontinuity handling, classified playback failure behavior and any additional client semantic gap demonstrated against ADR-0053. Growing-Recording seek and Live-TV timeshift remain outside the accepted D.2 scope and outside this Volume/Mute candidate.
 
 ## Binding execution-governance decisions
 
@@ -365,9 +382,9 @@ Phase 65.D remains open for normalized audio/subtitle selection, discontinuity h
 
 ## Current authorization boundary
 
-Phase 65 is **active**. Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D is active; Phase 65.D.1 and Phase 65.D.2 are accepted and closed.**
+Phase 65 is **active**. Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D is active; Phase 65.D.1, Phase 65.D.2 and normalized Recording audio/subtitle selection are accepted and closed. Browser-local Volume/Mute is the current bounded candidate and remains acceptance-pending.**
 
-The remaining Phase-65.D work stays inside the small Suite semantic layer around platform playback engines rather than creating a universal Suite-owned decoder/player core. The first-party abstraction may expose operations such as open, play/pause/stop, seek where actually supported, track selection, position/state, classified failure and close while continuing to consume Suite-owned MediaSession semantics.
+The remaining Phase-65.D work stays inside the small Suite semantic layer around platform playback engines rather than creating a universal Suite-owned decoder/player core. The first-party abstraction may expose operations such as open, play/pause/stop, seek where actually supported, track selection, position/state, classified failure and close while continuing to consume Suite-owned MediaSession semantics. Transient browser-local state such as Volume/Mute remains on the active platform media element and does not become a server media-domain mutation.
 
 The media truthfulness boundary remains binding throughout 65.D and later client work:
 
