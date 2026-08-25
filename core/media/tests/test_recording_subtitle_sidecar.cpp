@@ -1,6 +1,7 @@
 #include "RecordingSubtitleSidecar.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
