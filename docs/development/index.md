@@ -70,6 +70,8 @@ Accepted bounded verticals/slices are:
 
 Phase 65.D Client playback abstraction is active. The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory. Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported D.2 progressive-fMP4 and HLS restart-seek profiles. Remaining Phase-65.D work includes normalized audio/subtitle selection, discontinuity handling and classified playback failures, while growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond the accepted D.2 paths remain explicitly unsupported/deferred. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
 
+A reproducible HEVC recording-duration anomaly discovered during this work is recorded separately as a deferred investigation: [HEVC Recording Frame-Rate / VDR Length Investigation](hevc-recording-framerate-investigation.md). It is evidence only, not an accepted architecture decision, and does not block the current subtitle work.
+
 Use ADR-0046, ADR-0053, ADR-0055, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
 
 ## Developer references
