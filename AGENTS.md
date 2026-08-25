@@ -64,6 +64,32 @@ complete content or use a bounded edit strategy. Recheck the remote branch head
 before every write and inspect the resulting commit or diff before treating the
 change as complete.
 
+## Frontend lifecycle and composition gates
+
+For cross-cutting frontend behavior, prove the real production composition and
+lifecycle before treating an isolated implementation as integrated. Playback
+work must follow `docs/development/frontend-playback-integration-contract.md`.
+
+A wrapper around an exported method is not proof that the real browser action
+passes through that wrapper. Owners may bind DOM controls directly to internal
+closures before decorators are installed. Session-bound extensions must observe
+the canonical owner/session lifecycle or an explicit ownership event from owner
+creation through replacement, stop/restart and destroy; they must not rely only
+on intercepting `start()`, `stop()`, seek or selection methods.
+
+Tests for a new cross-cutting control must exercise the same composition root and
+owner topology used by the production view, including transport replacement
+when production can perform it. A direct unit call to the decorator method is
+useful but insufficient as the integration test. At least one regression must
+prove the user-style action -> canonical owner/session transition -> expected
+Suite request/state change chain.
+
+Keep owner-level UI outside replaceable transport DOM and extend established
+owners instead of adding parallel player, request, restart or cleanup paths.
+When persistent browser objects are involved, installed bundle identity and
+syntax are deployment evidence only; runtime acceptance must recreate the
+relevant owner before claiming the new lifecycle integration is active.
+
 ## Continuous approved work
 
 Continue through all already-approved steps of a bounded workstream without
