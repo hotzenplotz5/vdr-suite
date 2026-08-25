@@ -333,6 +333,7 @@ window.VdrSuiteRecordings2Playback = {
   video = playback.element.querySelector('video');
   video.currentTime = 12;
   video.dispatch('timeupdate', {target: video});
+  await flush();
   assert.strictEqual(
     timeline.value,
     '1200',
