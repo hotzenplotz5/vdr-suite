@@ -202,6 +202,16 @@ window.VdrSuiteRecordings2Playback = {
   const positionLabel = playback.element.querySelector('.recordings2-playback-position');
   assert.ok(back10Button && forward60Button && timeline && directTime && directButton && positionLabel);
   assert.strictEqual(timeline.disabled, true, 'restart-seek stays closed before playback is active');
+  assert.strictEqual(
+    timeline.style.minHeight,
+    '2.75rem',
+    'compatibility timeline must expose the same mobile-sized touch target as the accepted volume range'
+  );
+  assert.strictEqual(
+    timeline.style.touchAction,
+    'pan-y',
+    'compatibility timeline must reserve horizontal drag for the native range control on touch browsers'
+  );
 
   assert.strictEqual(await playback.start(), 'hls-session-1');
   await flush();
