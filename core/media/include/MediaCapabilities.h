@@ -116,6 +116,7 @@ struct MediaSubtitleStreamDescriptor
     MediaSubtitleFormat format = MediaSubtitleFormat::Unknown;
     std::string language;
     std::string label;
+    std::string externalSourcePath;
     bool defaultTrack = false;
     bool forced = false;
     bool hearingImpaired = false;
