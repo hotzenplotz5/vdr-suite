@@ -38,6 +38,17 @@ enum class MediaCodec
     MpegAudio
 };
 
+enum class MediaSubtitleFormat
+{
+    Unknown,
+    Dvb,
+    Teletext,
+    WebVtt,
+    SubRip,
+    Ass,
+    MovText
+};
+
 enum class MediaAdaptationClass
 {
     PassThrough,
@@ -91,6 +102,23 @@ struct MediaAudioStreamDescriptor
     MediaCodec codec = MediaCodec::Unknown;
     int channels = 0;
     std::string language;
+    std::string label;
+    std::string channelLayout;
+    bool defaultTrack = false;
+    bool original = false;
+    bool commentary = false;
+    bool descriptive = false;
+    bool hearingImpaired = false;
+};
+
+struct MediaSubtitleStreamDescriptor
+{
+    MediaSubtitleFormat format = MediaSubtitleFormat::Unknown;
+    std::string language;
+    std::string label;
+    bool defaultTrack = false;
+    bool forced = false;
+    bool hearingImpaired = false;
 };
 
 struct MediaSourceDescriptor
@@ -99,6 +127,7 @@ struct MediaSourceDescriptor
     MediaContainer container = MediaContainer::Unknown;
     std::vector<MediaVideoStreamDescriptor> videoStreams;
     std::vector<MediaAudioStreamDescriptor> audioStreams;
+    std::vector<MediaSubtitleStreamDescriptor> subtitleStreams;
     bool seekable = false;
     bool growing = false;
 };

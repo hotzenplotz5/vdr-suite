@@ -38,6 +38,26 @@ struct RecordingMediaSessionPlaybackStatusRequest
     std::string sessionId;
 };
 
+struct RecordingMediaSessionTrackStatusRequest
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::string backendId;
+    std::string sessionId;
+};
+
+struct RecordingMediaSessionAudioTrackSelectionRequest
+{
+    bool valid = false;
+    std::string reasonCode;
+    std::string backendId;
+    std::string recordingId;
+    std::string sessionId;
+    std::string audioTrackId;
+    int positionSeconds = 0;
+    ClientMediaCapabilities capabilities;
+};
+
 class RecordingMediaSessionRequestParser
 {
 public:
@@ -51,5 +71,11 @@ public:
         const std::string& body) const;
 
     RecordingMediaSessionPlaybackStatusRequest parsePlaybackStatus(
+        const std::string& body) const;
+
+    RecordingMediaSessionTrackStatusRequest parseTrackStatus(
+        const std::string& body) const;
+
+    RecordingMediaSessionAudioTrackSelectionRequest parseAudioTrackSelection(
         const std::string& body) const;
 };

@@ -39,6 +39,26 @@ struct RecordingMediaSessionSeekCapabilityResult
     int durationSeconds = 0;
 };
 
+struct RecordingMediaSessionAudioTrackSelectionResult
+{
+    bool selected = false;
+    bool restarted = false;
+    std::string reasonCode;
+    int sourceAudioStreamIndex = -1;
+    int positionSeconds = 0;
+    int durationSeconds = 0;
+};
+
+struct RecordingMediaSessionTrackState
+{
+    bool available = false;
+    bool audioSelectionSupported = false;
+    std::string reasonCode;
+    std::string profileId;
+    int sourceAudioStreamIndex = -1;
+    int durationSeconds = 0;
+};
+
 class RecordingMediaSessionRuntime
 {
 public:
@@ -119,6 +139,14 @@ public:
         const std::string& sessionId,
         int positionSeconds);
 
+    RecordingMediaSessionAudioTrackSelectionResult selectAudioTrack(
+        const std::string& sessionId,
+        const MediaPresentationProfile& profile,
+        int positionSeconds);
+
+    RecordingMediaSessionTrackState trackState(
+        const std::string& sessionId) const;
+
     bool stop(
         const std::string& sessionId,
         const std::string& reasonCode);
@@ -152,6 +180,6 @@ private:
     ReadinessProbe readinessProbe_;
     MediaTranscodePolicy transcodePolicy_;
     RecordingDirectSourceRegistry* directSourceRegistry_ = nullptr;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::map<std::string, ActiveSession> active_;
 };

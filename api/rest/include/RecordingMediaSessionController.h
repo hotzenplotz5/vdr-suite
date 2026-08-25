@@ -72,6 +72,14 @@ private:
         const std::string& body,
         const std::string& actorId) const;
 
+    ApiResponse trackStatus(
+        const std::string& body,
+        const std::string& actorId) const;
+
+    ApiResponse selectAudioTrack(
+        const std::string& body,
+        const std::string& actorId) const;
+
     VdrRecordingQueryService& recordingQueryService_;
     MediaSessionRepository& mediaSessionRepository_;
     MediaSessionIssuanceService& mediaSessionIssuanceService_;
@@ -83,5 +91,7 @@ private:
     mutable std::map<std::string, CachedSourceDescriptor> descriptorCache_;
     mutable std::mutex pendingIndexMutex_;
     mutable std::map<std::string, PendingIndexContext> pendingIndex_;
+    mutable std::mutex selectedAudioStreamMutex_;
+    mutable std::map<std::string, int> selectedAudioStreamIndexes_;
     std::string workspaceRoot_;
 };

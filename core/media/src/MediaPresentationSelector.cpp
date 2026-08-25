@@ -26,16 +26,10 @@ bool fitsVideoLimits(
     const MediaVideoStreamDescriptor& video,
     const ClientMediaCapabilities& client)
 {
-    if (client.maxVideoWidth > 0) {
-        if (video.width <= 0 || video.width > client.maxVideoWidth) {
-            return false;
-        }
-    }
-    if (client.maxVideoHeight > 0) {
-        if (video.height <= 0 || video.height > client.maxVideoHeight) {
-            return false;
-        }
-    }
+    if (client.maxVideoWidth > 0 &&
+        (video.width <= 0 || video.width > client.maxVideoWidth)) return false;
+    if (client.maxVideoHeight > 0 &&
+        (video.height <= 0 || video.height > client.maxVideoHeight)) return false;
     return true;
 }
 
@@ -43,10 +37,22 @@ bool fitsAudioLimits(
     const MediaAudioStreamDescriptor& audio,
     const ClientMediaCapabilities& client)
 {
-    if (client.maxAudioChannels <= 0) {
-        return true;
-    }
+    if (client.maxAudioChannels <= 0) return true;
     return audio.channels > 0 && audio.channels <= client.maxAudioChannels;
+}
+
+bool validAudioIndex(const MediaSourceDescriptor& source, int index)
+{
+    return index >= 0 && static_cast<std::size_t>(index) < source.audioStreams.size();
+}
+
+bool directlyPlayableAudio(
+    const MediaAudioStreamDescriptor& audio,
+    const ClientMediaCapabilities& client)
+{
+    return validSourceCodec(audio.codec) &&
+        contains(client.audioCodecs, audio.codec) &&
+        fitsAudioLimits(audio, client);
 }
 
 struct TargetVideoSize
@@ -61,9 +67,7 @@ TargetVideoSize selectedTargetVideoSize(
     const ClientMediaCapabilities& client)
 {
     TargetVideoSize result;
-    if (!knownVideoDimensions(video)) {
-        return result;
-    }
+    if (!knownVideoDimensions(video)) return result;
 
     long long width = video.width;
     long long height = video.height;
@@ -72,7 +76,6 @@ TargetVideoSize selectedTargetVideoSize(
         height = (height * client.maxVideoWidth) / width;
         width = client.maxVideoWidth;
     }
-
     if (client.maxVideoHeight > 0 && height > client.maxVideoHeight) {
         width = (width * client.maxVideoHeight) / height;
         height = client.maxVideoHeight;
@@ -80,16 +83,9 @@ TargetVideoSize selectedTargetVideoSize(
 
     width -= width % 2;
     height -= height % 2;
-
-    if (width < 2 || height < 2) {
-        return result;
-    }
-    if (client.maxVideoWidth > 0 && width > client.maxVideoWidth) {
-        return result;
-    }
-    if (client.maxVideoHeight > 0 && height > client.maxVideoHeight) {
-        return result;
-    }
+    if (width < 2 || height < 2) return result;
+    if (client.maxVideoWidth > 0 && width > client.maxVideoWidth) return result;
+    if (client.maxVideoHeight > 0 && height > client.maxVideoHeight) return result;
 
     result.valid = true;
     result.width = static_cast<int>(width);
@@ -101,12 +97,8 @@ int selectedTargetAudioChannels(
     const MediaAudioStreamDescriptor& audio,
     const ClientMediaCapabilities& client)
 {
-    if (client.maxAudioChannels <= 0) {
-        return 0;
-    }
-    if (audio.channels <= 0) {
-        return client.maxAudioChannels;
-    }
+    if (client.maxAudioChannels <= 0) return 0;
+    if (audio.channels <= 0) return client.maxAudioChannels;
     return std::min(audio.channels, client.maxAudioChannels);
 }
 
@@ -116,25 +108,35 @@ int firstDirectVideoIndex(
 {
     for (std::size_t index = 0; index < source.videoStreams.size(); ++index) {
         const auto& video = source.videoStreams[index];
-        if (validSourceCodec(video.codec) &&
-            !video.interlaced &&
-            contains(client.videoCodecs, video.codec) &&
-            fitsVideoLimits(video, client)) {
+        if (validSourceCodec(video.codec) && !video.interlaced &&
+            contains(client.videoCodecs, video.codec) && fitsVideoLimits(video, client)) {
             return static_cast<int>(index);
         }
     }
     return -1;
 }
 
-int firstDirectAudioIndex(
+int directAudioIndex(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+    const ClientMediaCapabilities& client,
+    int preferredAudioStreamIndex)
 {
+    if (preferredAudioStreamIndex >= 0) {
+        if (!validAudioIndex(source, preferredAudioStreamIndex)) return -1;
+        return directlyPlayableAudio(
+            source.audioStreams[static_cast<std::size_t>(preferredAudioStreamIndex)], client)
+                ? preferredAudioStreamIndex
+                : -1;
+    }
+
     for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
         const auto& audio = source.audioStreams[index];
-        if (validSourceCodec(audio.codec) &&
-            contains(client.audioCodecs, audio.codec) &&
-            fitsAudioLimits(audio, client)) {
+        if (audio.defaultTrack && directlyPlayableAudio(audio, client)) {
+            return static_cast<int>(index);
+        }
+    }
+    for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
+        if (directlyPlayableAudio(source.audioStreams[index], client)) {
             return static_cast<int>(index);
         }
     }
@@ -152,8 +154,24 @@ int firstValidVideoIndex(const MediaSourceDescriptor& source)
     return -1;
 }
 
-int firstValidAudioIndex(const MediaSourceDescriptor& source)
+int validAudioIndexForAdaptation(
+    const MediaSourceDescriptor& source,
+    int preferredAudioStreamIndex)
 {
+    if (preferredAudioStreamIndex >= 0) {
+        if (!validAudioIndex(source, preferredAudioStreamIndex)) return -1;
+        return validSourceCodec(
+            source.audioStreams[static_cast<std::size_t>(preferredAudioStreamIndex)].codec)
+                ? preferredAudioStreamIndex
+                : -1;
+    }
+
+    for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
+        const auto& audio = source.audioStreams[index];
+        if (audio.defaultTrack && validSourceCodec(audio.codec)) {
+            return static_cast<int>(index);
+        }
+    }
     for (std::size_t index = 0; index < source.audioStreams.size(); ++index) {
         if (validSourceCodec(source.audioStreams[index].codec)) {
             return static_cast<int>(index);
@@ -172,13 +190,13 @@ MediaPresentationProfile unavailable(const std::string& reason)
 
 MediaPresentationProfile directProfile(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+    const ClientMediaCapabilities& client,
+    int preferredAudioStreamIndex)
 {
     if (!contains(client.protocols, MediaDeliveryProtocol::Progressive) ||
         !contains(client.containers, source.container)) {
         return unavailable("progressive transport or source container unsupported");
     }
-
     if (source.seekable && !client.supportsByteRanges) {
         return unavailable("seekable recording requires byte-range support");
     }
@@ -188,9 +206,9 @@ MediaPresentationProfile directProfile(
         return unavailable("no directly playable source video track is available");
     }
 
-    const int audioIndex = firstDirectAudioIndex(source, client);
+    const int audioIndex = directAudioIndex(source, client, preferredAudioStreamIndex);
     if (!source.audioStreams.empty() && audioIndex < 0) {
-        return unavailable("no directly playable source audio track is available");
+        return unavailable("no directly playable selected source audio track is available");
     }
 
     MediaPresentationProfile profile;
@@ -201,12 +219,8 @@ MediaPresentationProfile directProfile(
     profile.adaptationClass = MediaAdaptationClass::PassThrough;
     profile.sourceVideoStreamIndex = videoIndex;
     profile.sourceAudioStreamIndex = audioIndex;
-    profile.videoAction = videoIndex < 0
-        ? MediaTrackAction::Omit
-        : MediaTrackAction::Copy;
-    profile.audioAction = audioIndex < 0
-        ? MediaTrackAction::Omit
-        : MediaTrackAction::Copy;
+    profile.videoAction = videoIndex < 0 ? MediaTrackAction::Omit : MediaTrackAction::Copy;
+    profile.audioAction = audioIndex < 0 ? MediaTrackAction::Omit : MediaTrackAction::Copy;
     profile.targetVideoCodec = videoIndex < 0
         ? MediaCodec::None
         : source.videoStreams[static_cast<std::size_t>(videoIndex)].codec;
@@ -221,7 +235,7 @@ MediaPresentationProfile directProfile(
     profile.targetAudioChannels = audioIndex < 0
         ? 0
         : source.audioStreams[static_cast<std::size_t>(audioIndex)].channels;
-    profile.reason = "client can consume one selected source video/audio track without transformation";
+    profile.reason = "client can consume the selected source video/audio track without transformation";
     return profile;
 }
 
@@ -230,7 +244,8 @@ MediaPresentationProfile adaptedProfile(
     const ClientMediaCapabilities& client,
     MediaDeliveryProtocol protocol,
     MediaContainer outputContainer,
-    const std::string& profileId)
+    const std::string& profileId,
+    int preferredAudioStreamIndex)
 {
     MediaPresentationProfile profile;
     profile.available = true;
@@ -246,8 +261,7 @@ MediaPresentationProfile adaptedProfile(
     else {
         int videoIndex = firstDirectVideoIndex(source, client);
         if (videoIndex >= 0) {
-            const auto& sourceVideo =
-                source.videoStreams[static_cast<std::size_t>(videoIndex)];
+            const auto& sourceVideo = source.videoStreams[static_cast<std::size_t>(videoIndex)];
             profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Copy;
             profile.targetVideoCodec = sourceVideo.codec;
@@ -256,21 +270,15 @@ MediaPresentationProfile adaptedProfile(
         }
         else {
             videoIndex = firstValidVideoIndex(source);
-            if (videoIndex < 0) {
-                return unavailable("no valid source video track is available");
-            }
+            if (videoIndex < 0) return unavailable("no valid source video track is available");
             if (!contains(client.videoCodecs, MediaCodec::H264)) {
                 return unavailable("no allowed video codec path is available");
             }
-
-            const auto& sourceVideo =
-                source.videoStreams[static_cast<std::size_t>(videoIndex)];
-            const TargetVideoSize targetSize =
-                selectedTargetVideoSize(sourceVideo, client);
+            const auto& sourceVideo = source.videoStreams[static_cast<std::size_t>(videoIndex)];
+            const TargetVideoSize targetSize = selectedTargetVideoSize(sourceVideo, client);
             if (!targetSize.valid) {
                 return unavailable("source video dimensions cannot satisfy requested client limits");
             }
-
             profile.sourceVideoStreamIndex = videoIndex;
             profile.videoAction = MediaTrackAction::Transcode;
             profile.targetVideoCodec = MediaCodec::H264;
@@ -291,44 +299,39 @@ MediaPresentationProfile adaptedProfile(
     }
 
     if (source.audioStreams.empty()) {
+        if (preferredAudioStreamIndex >= 0) {
+            return unavailable("requested audio track is unavailable");
+        }
         profile.audioAction = MediaTrackAction::Omit;
         profile.targetAudioCodec = MediaCodec::None;
         profile.targetAudioChannels = 0;
     }
     else {
-        int audioIndex = firstDirectAudioIndex(source, client);
-        if (audioIndex >= 0) {
-            profile.sourceAudioStreamIndex = audioIndex;
+        const int directIndex = directAudioIndex(source, client, preferredAudioStreamIndex);
+        if (directIndex >= 0) {
+            profile.sourceAudioStreamIndex = directIndex;
             profile.audioAction = MediaTrackAction::Copy;
-            profile.targetAudioCodec =
-                source.audioStreams[static_cast<std::size_t>(audioIndex)].codec;
-            profile.targetAudioChannels =
-                source.audioStreams[static_cast<std::size_t>(audioIndex)].channels;
+            profile.targetAudioCodec = source.audioStreams[static_cast<std::size_t>(directIndex)].codec;
+            profile.targetAudioChannels = source.audioStreams[static_cast<std::size_t>(directIndex)].channels;
         }
         else {
-            audioIndex = firstValidAudioIndex(source);
-            if (audioIndex < 0) {
-                return unavailable("source audio codec is unknown");
-            }
+            const int audioIndex = validAudioIndexForAdaptation(source, preferredAudioStreamIndex);
+            if (audioIndex < 0) return unavailable("selected source audio codec is unknown");
             if (!contains(client.audioCodecs, MediaCodec::Aac)) {
                 return unavailable("no allowed audio codec path is available");
             }
-
-            const auto& sourceAudio =
-                source.audioStreams[static_cast<std::size_t>(audioIndex)];
-            const int targetChannels = selectedTargetAudioChannels(sourceAudio, client);
-
+            const auto& sourceAudio = source.audioStreams[static_cast<std::size_t>(audioIndex)];
             profile.sourceAudioStreamIndex = audioIndex;
             profile.audioAction = MediaTrackAction::Transcode;
             profile.targetAudioCodec = MediaCodec::Aac;
-            profile.targetAudioChannels = targetChannels;
+            profile.targetAudioChannels = selectedTargetAudioChannels(sourceAudio, client);
             profile.adaptationClass = MediaAdaptationClass::Transcode;
         }
     }
 
     if (protocol == MediaDeliveryProtocol::Progressive) {
         profile.reason = profile.adaptationClass == MediaAdaptationClass::Transcode
-            ? "continuous fMP4 selected with only incompatible tracks transcoded"
+            ? "continuous fMP4 selected with only incompatible selected tracks transcoded"
             : "continuous fMP4 remux selected with compatible selected tracks copied";
     }
     else {
@@ -341,7 +344,8 @@ MediaPresentationProfile adaptedProfile(
 
 MediaPresentationProfile progressiveFmp4Profile(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+    const ClientMediaCapabilities& client,
+    int preferredAudioStreamIndex)
 {
     if (source.growing) {
         return unavailable("growing recording is not an immutable continuous fMP4 source");
@@ -350,18 +354,19 @@ MediaPresentationProfile progressiveFmp4Profile(
         !contains(client.containers, MediaContainer::Fmp4)) {
         return unavailable("continuous fMP4 transport is unsupported by the client");
     }
-
     return adaptedProfile(
         source,
         client,
         MediaDeliveryProtocol::Progressive,
         MediaContainer::Fmp4,
-        "progressive-fmp4");
+        "progressive-fmp4",
+        preferredAudioStreamIndex);
 }
 
 MediaPresentationProfile hlsProfile(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client)
+    const ClientMediaCapabilities& client,
+    int preferredAudioStreamIndex)
 {
     if (!contains(client.protocols, MediaDeliveryProtocol::Hls)) {
         return unavailable("HLS is unsupported by the client");
@@ -369,7 +374,6 @@ MediaPresentationProfile hlsProfile(
 
     MediaContainer outputContainer = MediaContainer::Unknown;
     std::string profileId;
-
     if (contains(client.containers, MediaContainer::Fmp4)) {
         outputContainer = MediaContainer::Fmp4;
         profileId = "hls-fmp4";
@@ -387,29 +391,32 @@ MediaPresentationProfile hlsProfile(
         client,
         MediaDeliveryProtocol::Hls,
         outputContainer,
-        profileId);
+        profileId,
+        preferredAudioStreamIndex);
 }
 
 } // namespace
 
 MediaPresentationProfile MediaPresentationSelector::select(
     const MediaSourceDescriptor& source,
-    const ClientMediaCapabilities& client) const
+    const ClientMediaCapabilities& client,
+    int preferredAudioStreamIndex) const
 {
     if (source.container == MediaContainer::Unknown) {
         return unavailable("source container is unknown");
     }
-
-    const MediaPresentationProfile direct = directProfile(source, client);
-    if (direct.available) {
-        return direct;
+    if (preferredAudioStreamIndex >= 0 &&
+        !validAudioIndex(source, preferredAudioStreamIndex)) {
+        return unavailable("requested audio track is unavailable");
     }
+
+    const MediaPresentationProfile direct =
+        directProfile(source, client, preferredAudioStreamIndex);
+    if (direct.available) return direct;
 
     const MediaPresentationProfile progressiveFmp4 =
-        progressiveFmp4Profile(source, client);
-    if (progressiveFmp4.available) {
-        return progressiveFmp4;
-    }
+        progressiveFmp4Profile(source, client, preferredAudioStreamIndex);
+    if (progressiveFmp4.available) return progressiveFmp4;
 
-    return hlsProfile(source, client);
+    return hlsProfile(source, client, preferredAudioStreamIndex);
 }

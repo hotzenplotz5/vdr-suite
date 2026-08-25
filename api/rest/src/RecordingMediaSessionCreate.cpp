@@ -10,9 +10,12 @@
 #include "MediaSessionWorkspace.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
+#include "RecordingMediaSessionAudioTrackPreference.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "RecordingMediaSessionStartPosition.h"
+#include "RecordingMediaTrackContract.h"
+#include "RecordingSourceFingerprint.h"
 #include "VdrRecordingDuration.h"
 #include "VdrRecordingIndexUpdater.h"
 #include "VdrRecordingQueryService.h"
@@ -225,6 +228,16 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const int startPositionSeconds = requestedStart.seconds;
 
+    const RecordingMediaSessionAudioTrackPreference requestedAudioTrack =
+        RecordingMediaSessionAudioTrackPreferenceParser().parse(body);
+    if (!requestedAudioTrack.valid) {
+        return jsonError(
+            400,
+            requestedAudioTrack.reasonCode.empty()
+                ? "invalid_audio_track_id"
+                : requestedAudioTrack.reasonCode);
+    }
+
     VdrRecording recording;
     if (!recordingQueryService_.findRecordingById(
             request.backendId,
@@ -241,7 +254,7 @@ ApiResponse RecordingMediaSessionController::createSession(
             }
             return std::vector<VdrRecording>{recording};
         });
-    const LocalVdrRecordingSourceResolution sourceResolution =
+    LocalVdrRecordingSourceResolution sourceResolution =
         trustedResolver.resolve(request.backendId, request.recordingId);
     if (!sourceResolution.resolved) {
         return jsonError(
@@ -257,14 +270,39 @@ ApiResponse RecordingMediaSessionController::createSession(
         request.recordingId);
     MediaSourceDescriptor source;
     bool probeCacheHit = false;
-    if (!sourceResolution.source.growing) {
+    bool indexMarkerReconciled = false;
+    const bool suiteIndexUpdateRunning =
+        sourceResolution.source.growing &&
+        indexUpdater_ != nullptr &&
+        indexUpdater_->status(sourceResolution.source.recordingDirectory).running();
+
+    if (!sourceResolution.source.growing || suiteIndexUpdateRunning) {
         std::lock_guard<std::mutex> lock(descriptorCacheMutex_);
         const auto cached = descriptorCache_.find(cacheKey);
-        if (cached != descriptorCache_.end() &&
-            cached->second.sourceFingerprint ==
-                sourceResolution.source.sourceFingerprint) {
-            source = cached->second.source;
-            probeCacheHit = true;
+        if (cached != descriptorCache_.end()) {
+            if (!sourceResolution.source.growing &&
+                cached->second.sourceFingerprint ==
+                    sourceResolution.source.sourceFingerprint) {
+                source = cached->second.source;
+                probeCacheHit = true;
+            }
+            else if (suiteIndexUpdateRunning &&
+                     !cached->second.source.growing &&
+                     sameRecordingSourceExtentIgnoringGrowthState(
+                         cached->second.sourceFingerprint,
+                         sourceResolution.source.sourceFingerprint)) {
+                // VDR's --updindex temporarily creates .timer itself. Only
+                // reconcile that marker when this controller owns a running
+                // updater for exactly this directory and the previously
+                // completed source extent is byte-for-byte/identity stable.
+                // Any real segment change therefore remains growing/fail-closed.
+                sourceResolution.source.growing = false;
+                sourceResolution.source.sourceFingerprint =
+                    cached->second.sourceFingerprint;
+                source = cached->second.source;
+                probeCacheHit = true;
+                indexMarkerReconciled = true;
+            }
         }
     }
 
@@ -323,6 +361,15 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
     const auto descriptorReadyAt = std::chrono::steady_clock::now();
 
+    int preferredAudioStreamIndex = -1;
+    if (!requestedAudioTrack.audioTrackId.empty() &&
+        !RecordingMediaTrackContract::audioStreamIndexForTrackId(
+            requestedAudioTrack.audioTrackId,
+            source,
+            preferredAudioStreamIndex)) {
+        return jsonError(404, "recording_audio_track_not_found");
+    }
+
     ClientMediaCapabilities effectiveCapabilities = request.capabilities;
     if (sourceResolution.source.growing ||
         !sourceResolution.source.progressiveDirectSafe) {
@@ -330,9 +377,16 @@ ApiResponse RecordingMediaSessionController::createSession(
     }
 
     MediaPresentationProfile profile =
-        MediaPresentationSelector().select(source, effectiveCapabilities);
+        MediaPresentationSelector().select(
+            source,
+            effectiveCapabilities,
+            preferredAudioStreamIndex);
     if (!profile.available || profile.profileId.empty()) {
-        return jsonError(422, "media_presentation_unavailable");
+        return jsonError(
+            requestedAudioTrack.audioTrackId.empty() ? 422 : 409,
+            requestedAudioTrack.audioTrackId.empty()
+                ? "media_presentation_unavailable"
+                : "recording_audio_track_selection_unsupported");
     }
     if (profile.videoAction == MediaTrackAction::Transcode) {
         const MediaTranscodePolicy policy =
@@ -510,6 +564,18 @@ ApiResponse RecordingMediaSessionController::createSession(
                 ? "media_provision_failed"
                 : provision.reasonCode);
     }
+
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        if (profile.sourceAudioStreamIndex >= 0) {
+            selectedAudioStreamIndexes_[issuance.session.sessionId] =
+                profile.sourceAudioStreamIndex;
+        }
+        else {
+            selectedAudioStreamIndexes_.erase(issuance.session.sessionId);
+        }
+    }
+
     const auto provisionReadyAt = std::chrono::steady_clock::now();
 
     bool indexPreparing = false;
@@ -538,6 +604,10 @@ ApiResponse RecordingMediaSessionController::createSession(
         << " session=" << issuance.session.sessionId
         << " profile=" << profile.profileId
         << " growing=" << (sourceResolution.source.growing ? "true" : "false")
+        << " index_marker_reconciled=" << (indexMarkerReconciled ? "true" : "false")
+        << " audio_track=" << (requestedAudioTrack.audioTrackId.empty()
+            ? "auto"
+            : requestedAudioTrack.audioTrackId)
         << " start_position=" << startPositionSeconds
         << " index_preparing=" << (indexPreparing ? "true" : "false")
         << " probe_cache=" << (probeCacheHit ? "hit" : "miss")

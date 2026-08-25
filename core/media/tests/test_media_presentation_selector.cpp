@@ -230,6 +230,51 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+        source.audioStreams[1].defaultTrack = true;
+        const auto profile = selector.select(source, browserProgressiveCapabilities());
+        assert(profile.available);
+        assert(profile.profileId == "progressive-fmp4");
+        assert(profile.sourceAudioStreamIndex == 1);
+        assert(profile.audioAction == MediaTrackAction::Copy);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+        source.audioStreams[1].defaultTrack = true;
+        const auto profile = selector.select(source, browserProgressiveCapabilities(), 0);
+        assert(profile.available);
+        assert(profile.profileId == "progressive-fmp4");
+        assert(profile.sourceVideoStreamIndex == 0);
+        assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.sourceAudioStreamIndex == 0);
+        assert(profile.audioAction == MediaTrackAction::Transcode);
+        assert(profile.targetAudioCodec == MediaCodec::Aac);
+        assert(profile.targetAudioChannels == 2);
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+        const auto profile = selector.select(source, browserProgressiveCapabilities(), 1);
+        assert(profile.available);
+        assert(profile.sourceVideoStreamIndex == 0);
+        assert(profile.videoAction == MediaTrackAction::Copy);
+        assert(profile.sourceAudioStreamIndex == 1);
+        assert(profile.audioAction == MediaTrackAction::Copy);
+    }
+
+    {
+        const auto profile = selector.select(
+            h264Ac3Recording(), browserProgressiveCapabilities(), 4);
+        assert(!profile.available);
+        assert(profile.reason == "requested audio track is unavailable");
+    }
+
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
         ClientMediaCapabilities client = browserHlsCapabilities();
         client.maxAudioChannels = 6;
 
@@ -260,8 +305,7 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
-        source.videoStreams.front() =
-            {MediaCodec::H265, 3840, 2160, 23.976, false};
+        source.videoStreams.front() = {MediaCodec::H265, 3840, 2160, 23.976, false};
         source.audioStreams.clear();
         source.audioStreams.push_back({MediaCodec::Aac, 6, "ger"});
         source.audioStreams.push_back({MediaCodec::Aac, 8, "eng"});
@@ -285,8 +329,7 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
-        source.videoStreams.front() =
-            {MediaCodec::H265, 3840, 1600, 24.0, false};
+        source.videoStreams.front() = {MediaCodec::H265, 3840, 1600, 24.0, false};
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(profile.available);
         assert(profile.videoAction == MediaTrackAction::Transcode);
@@ -297,8 +340,7 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
-        source.videoStreams.front() =
-            {MediaCodec::H265, 1280, 720, 24.0, false};
+        source.videoStreams.front() = {MediaCodec::H265, 1280, 720, 24.0, false};
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(profile.available);
         assert(profile.videoAction == MediaTrackAction::Transcode);
@@ -309,8 +351,7 @@ int main()
 
     {
         MediaSourceDescriptor source = h264Ac3Recording();
-        source.videoStreams.front() =
-            {MediaCodec::H265, 0, 0, 24.0, false};
+        source.videoStreams.front() = {MediaCodec::H265, 0, 0, 24.0, false};
         const auto profile = selector.select(source, browserHlsCapabilities());
         assert(!profile.available);
     }

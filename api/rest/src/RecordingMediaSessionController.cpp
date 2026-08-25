@@ -165,7 +165,21 @@ RecordingMediaSessionController::~RecordingMediaSessionController() = default;
 std::size_t RecordingMediaSessionController::reapInactiveSessions(
     int idleTimeoutSeconds) const
 {
-    return mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
+    const std::size_t reaped =
+        mediaSessionRuntime_->reapInactive(idleTimeoutSeconds);
+
+    std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+    for (auto it = selectedAudioStreamIndexes_.begin();
+         it != selectedAudioStreamIndexes_.end();) {
+        const auto stored = mediaSessionRepository_.findSession(it->first);
+        if (!stored.has_value() || stored->state != "ready") {
+            it = selectedAudioStreamIndexes_.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+    return reaped;
 }
 
 ApiResponse RecordingMediaSessionController::handleRequest(
@@ -174,6 +188,33 @@ ApiResponse RecordingMediaSessionController::handleRequest(
 {
     if (actorId.empty()) {
         return jsonError(401, "media_actor_required");
+    }
+
+    const RecordingMediaSessionTrackStatusRequest trackStatusRequest =
+        RecordingMediaSessionRequestParser().parseTrackStatus(body);
+    if (trackStatusRequest.valid) {
+        return trackStatus(body, actorId);
+    }
+    if (trackStatusRequest.reasonCode != "media_session_track_status_not_requested") {
+        return jsonError(
+            400,
+            trackStatusRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : trackStatusRequest.reasonCode);
+    }
+
+    const RecordingMediaSessionAudioTrackSelectionRequest audioTrackRequest =
+        RecordingMediaSessionRequestParser().parseAudioTrackSelection(body);
+    if (audioTrackRequest.valid) {
+        return selectAudioTrack(body, actorId);
+    }
+    if (audioTrackRequest.reasonCode !=
+        "media_session_audio_track_selection_not_requested") {
+        return jsonError(
+            400,
+            audioTrackRequest.reasonCode.empty()
+                ? "invalid_media_session_operation"
+                : audioTrackRequest.reasonCode);
     }
 
     const RecordingMediaSessionPlaybackStatusRequest statusRequest =
@@ -244,6 +285,10 @@ ApiResponse RecordingMediaSessionController::stopSession(
     {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
+    }
+    {
+        std::lock_guard<std::mutex> lock(selectedAudioStreamMutex_);
+        selectedAudioStreamIndexes_.erase(request.sessionId);
     }
 
     if (stored->state == "ended" || stored->state == "failed") {
