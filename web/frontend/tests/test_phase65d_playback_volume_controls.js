@@ -17,6 +17,19 @@ function createRuntime() {
   let destroyCalls = 0;
   let assignedFacade = {};
 
+  function isWithin(node, root) {
+    let current = node;
+    while (current) {
+      if (current === root) return true;
+      current = current.parentNode;
+    }
+    return false;
+  }
+
+  function notifyChildList(target) {
+    observers.forEach(observer => observer.notify(target));
+  }
+
   function matches(node, selector) {
     if (!node) return false;
     if (selector === 'video') return node.tagName === 'VIDEO';
@@ -28,12 +41,12 @@ function createRuntime() {
 
   function node(tagName) {
     const listeners = {};
+    let textContentValue = '';
     const value = {
       tagName: String(tagName || '').toUpperCase(),
       children: [],
       className: '',
       style: {},
-      textContent: '',
       hidden: false,
       disabled: false,
       value: '',
@@ -50,12 +63,14 @@ function createRuntime() {
         }
         child.parentNode = this;
         this.children.push(child);
+        notifyChildList(this);
         return child;
       },
       removeChild(child) {
         const index = this.children.indexOf(child);
         if (index >= 0) this.children.splice(index, 1);
         child.parentNode = null;
+        notifyChildList(this);
         return child;
       },
       replaceChild(next, previous) {
@@ -64,7 +79,7 @@ function createRuntime() {
         previous.parentNode = null;
         next.parentNode = this;
         this.children[index] = next;
-        observers.forEach(observer => observer.notify());
+        notifyChildList(this);
         return previous;
       },
       replaceWith(next) {
@@ -103,6 +118,16 @@ function createRuntime() {
         (listeners[name] || []).slice().forEach(callback => callback({target: this}));
       }
     };
+
+    Object.defineProperty(value, 'textContent', {
+      configurable: true,
+      get() { return textContentValue; },
+      set(next) {
+        textContentValue = next === undefined || next === null ? '' : String(next);
+        // Browser MutationObserver reports textContent replacement as childList.
+        notifyChildList(value);
+      }
+    });
 
     if (value.tagName === 'VIDEO') {
       mediaElementsCreated += 1;
@@ -149,6 +174,7 @@ function createRuntime() {
       this.connected = false;
       this.target = null;
       this.options = null;
+      this.notifications = 0;
       observers.push(this);
     }
     observe(target, options) {
@@ -157,8 +183,15 @@ function createRuntime() {
       this.connected = true;
     }
     disconnect() { this.connected = false; }
-    notify() {
-      if (this.connected) this.callback([{type: 'childList'}]);
+    notify(target) {
+      if (!this.connected || !this.target || !target) return;
+      const subtree = Boolean(this.options && this.options.subtree);
+      if (target !== this.target && !(subtree && isWithin(target, this.target))) return;
+      this.notifications += 1;
+      if (this.notifications > 1000) {
+        throw new Error('runaway MutationObserver feedback loop');
+      }
+      this.callback([{type: 'childList', target: target}]);
     }
   }
 
@@ -273,20 +306,15 @@ function createRuntime() {
     'volume decorator must not create a second media element'
   );
 
-  // Real browsers report textContent changes in the Volume/Mute controls as
-  // childList mutations. The replacement observer must therefore be scoped to
-  // the underlying playback element, never the outer shell containing those
-  // controls, or its own UI synchronization can self-trigger indefinitely.
+  // Production replaces the complete progressive panel with the HLS fallback,
+  // so the stable shell is the required observation root. At the same time the
+  // fake DOM reports Volume/Mute textContent changes just like a real browser;
+  // the guarded callback must therefore remain bounded instead of self-looping.
   assert.strictEqual(runtime.observers.length, 1);
   assert.strictEqual(
     runtime.observers[0].target,
-    recording.element.children[0],
-    'replacement observer must watch only the underlying playback element'
-  );
-  assert.notStrictEqual(
-    runtime.observers[0].target,
     recording.element,
-    'replacement observer must not watch the Volume/Mute control shell'
+    'replacement observer must watch the stable outer owner shell'
   );
   assert.strictEqual(runtime.observers[0].options.childList, true);
   assert.strictEqual(runtime.observers[0].options.subtree, true);
@@ -296,10 +324,15 @@ function createRuntime() {
   const recordingMute = runtime.find(recording.element, 'recordings2-volume-mute');
   const recordingOutput = runtime.find(recording.element, 'recordings2-volume-output');
 
+  const notificationsBeforeVolume = runtime.observers[0].notifications;
   recordingRange.value = '35';
   recordingRange.dispatch('input');
   assert.strictEqual(recordingVideo.volume, 0.35);
   assert.strictEqual(recordingOutput.textContent, '35 %');
+  assert(runtime.observers[0].notifications > notificationsBeforeVolume,
+    'fake browser must deliver Volume/Mute textContent mutations to the shell observer');
+  assert(runtime.observers[0].notifications - notificationsBeforeVolume < 50,
+    'Volume/Mute UI synchronization must not create an observer feedback loop');
   assert.strictEqual(runtime.metrics.startCalls(), 0, 'volume change must not restart playback');
 
   recordingMute.dispatch('click');
