@@ -147,9 +147,15 @@ function createRuntime() {
     constructor(callback) {
       this.callback = callback;
       this.connected = false;
+      this.target = null;
+      this.options = null;
       observers.push(this);
     }
-    observe() { this.connected = true; }
+    observe(target, options) {
+      this.target = target;
+      this.options = options;
+      this.connected = true;
+    }
     disconnect() { this.connected = false; }
     notify() {
       if (this.connected) this.callback([{type: 'childList'}]);
@@ -266,6 +272,23 @@ function createRuntime() {
     1,
     'volume decorator must not create a second media element'
   );
+
+  // Real browsers report textContent changes in the Volume/Mute controls as
+  // childList mutations. The replacement observer must therefore be scoped to
+  // the underlying playback element, never the outer shell containing those
+  // controls, or its own UI synchronization can self-trigger indefinitely.
+  assert.strictEqual(runtime.observers.length, 1);
+  assert.strictEqual(
+    runtime.observers[0].target,
+    recording.element.children[0],
+    'replacement observer must watch only the underlying playback element'
+  );
+  assert.notStrictEqual(
+    runtime.observers[0].target,
+    recording.element,
+    'replacement observer must not watch the Volume/Mute control shell'
+  );
+  assert.deepStrictEqual(runtime.observers[0].options, {childList: true, subtree: true});
 
   const recordingVideo = recording.element.querySelector('video');
   const recordingRange = runtime.find(recording.element, 'recordings2-volume-range');
