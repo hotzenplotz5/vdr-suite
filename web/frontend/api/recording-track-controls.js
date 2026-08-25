@@ -581,10 +581,11 @@
       subtitleSelect.disabled = !subtitleSelectionSupported || subtitleSelectionInFlight;
 
       const unsupportedPresent = allSubtitleTracks.length > 0 && subtitleTracks.length === 0;
-      subtitleInfo.hidden = !unsupportedPresent;
-      subtitleInfo.textContent = unsupportedPresent
-        ? 'Untertitel vorhanden, aber in diesem Browser-Wiedergabepfad nicht als Textspur verfügbar.'
-        : '';
+      const truthfulOff = Boolean(subtitle && subtitle.offSelected === true);
+      subtitleInfo.hidden = !(unsupportedPresent && truthfulOff);
+      subtitleInfo.textContent = subtitleInfo.hidden
+        ? ''
+        : 'Untertitel: Aus · Auswahl ist in diesem Wiedergabepfad nicht als Textspur verfügbar.';
 
       host.hidden = audioRow.hidden && subtitleRow.hidden && subtitleInfo.hidden && note.hidden;
       const reason = text(audio && audio.selectionReason);
