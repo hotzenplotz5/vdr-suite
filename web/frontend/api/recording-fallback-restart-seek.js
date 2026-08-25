@@ -173,6 +173,15 @@
 
     function handlePlaybackEvent() {
       syncControls();
+      // The fallback owner also listens to the same media element. Depending on
+      // replacement timing its handler can run after this one and restore the
+      // live playback position. Re-assert an active drag preview after the
+      // complete event-listener stack, before the browser paints the next frame.
+      if (timelineDragging) {
+        Promise.resolve().then(function () {
+          if (timelineDragging) syncControls(Number(timeline.value));
+        });
+      }
       scheduleCapabilityPoll();
     }
 
