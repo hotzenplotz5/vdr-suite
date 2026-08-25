@@ -565,7 +565,7 @@
     if (!mountInner(0)) return null;
     updateControls();
 
-    return Object.freeze({
+    const playback = Object.freeze({
       element: host,
       start: start,
       resume: resume,
@@ -595,6 +595,8 @@
         return Promise.resolve('');
       }
     });
+    host.__vdrSuiteRecordingFallbackOwner = playback;
+    return playback;
   }
 
   function decoratePlayback(value) {
