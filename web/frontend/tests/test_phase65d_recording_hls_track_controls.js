@@ -41,6 +41,12 @@ function node(tagName) {
       child.parentNode = null;
       return child;
     },
+    querySelector(selector) {
+      if (selector !== '.recordings2-recording-fallback-shell') return null;
+      return descendants(this).find(item =>
+        String(item.className || '').split(/\s+/).includes('recordings2-recording-fallback-shell')
+      ) || null;
+    },
     setAttribute(name, val) { this[name] = String(val); },
     addEventListener(name, callback) {
       if (!listeners[name]) listeners[name] = [];
@@ -117,6 +123,27 @@ let activeTrackId = 'audio-1';
 let playbackState = 'playing';
 const document = {createElement: node};
 const root = node('section');
+root.className = 'recordings2-recording-fallback-shell';
+
+const hlsOwner = Object.freeze({
+  element: root,
+  start() { return Promise.resolve(activeSessionId); },
+  sessionId() { return activeSessionId; },
+  position() { return 125; },
+  state() { return playbackState; },
+  seekAbsolute() { throw new Error('HLS selection must not use progressive seek'); },
+  selectAudioTrack(trackId) {
+    selectionCalls.push({trackId, state: playbackState});
+    activeTrackId = trackId;
+    activeSessionId = 'hls-track-' + String(selectionCalls.length + 1);
+    return Promise.resolve(activeSessionId);
+  },
+  pause() { playbackState = 'paused'; return true; },
+  play() { playbackState = 'playing'; return Promise.resolve(true); },
+  stop() { playbackState = 'stopped'; return Promise.resolve(true); },
+  destroy() { playbackState = 'destroyed'; }
+});
+root.__vdrSuiteRecordingFallbackOwner = hlsOwner;
 
 const window = {
   document,
@@ -173,26 +200,7 @@ const context = vm.createContext({
 vm.runInContext(source, context, {filename: 'recording-track-controls.js'});
 
 window.VdrSuiteRecordings2Playback = Object.freeze({
-  createPanel() {
-    return Object.freeze({
-      element: root,
-      start() { return Promise.resolve(activeSessionId); },
-      sessionId() { return activeSessionId; },
-      position() { return 125; },
-      state() { return playbackState; },
-      seekAbsolute() { throw new Error('HLS selection must not use progressive seek'); },
-      selectAudioTrack(trackId) {
-        selectionCalls.push({trackId, state: playbackState});
-        activeTrackId = trackId;
-        activeSessionId = 'hls-track-' + String(selectionCalls.length + 1);
-        return Promise.resolve(activeSessionId);
-      },
-      pause() { playbackState = 'paused'; return true; },
-      play() { playbackState = 'playing'; return Promise.resolve(true); },
-      stop() { playbackState = 'stopped'; return Promise.resolve(true); },
-      destroy() { playbackState = 'destroyed'; }
-    });
-  }
+  createPanel() { return hlsOwner; }
 });
 
 (async function () {
@@ -200,15 +208,17 @@ window.VdrSuiteRecordings2Playback = Object.freeze({
     {id: 'cloverfield'},
     'default'
   );
+  const ownerRoot = playback.element;
+  assert.strictEqual(ownerRoot.className, 'recordings2-track-owner-shell');
   assert.strictEqual(await playback.start(), 'hls-track-1');
   await flush();
 
   const select = find(
-    root,
+    ownerRoot,
     item => item.tagName === 'SELECT' && item['aria-label'] === 'Tonspur auswählen'
   );
   assert.ok(select, 'HLS Recording must expose the normalized selector when restart-ready');
-  const row = find(root, item => item.className === 'recordings2-audio-track-control');
+  const row = find(ownerRoot, item => item.className === 'recordings2-audio-track-control');
   assert.strictEqual(row.hidden, false);
   assert.strictEqual(select.disabled, false);
   assert.strictEqual(select.children.length, 2);
@@ -246,7 +256,8 @@ window.VdrSuiteRecordings2Playback = Object.freeze({
   assert.strictEqual(api.languageLabel('eng'), 'Englisch');
   assert.strictEqual(api.languageLabel('fra'), 'FRA');
 
-  console.log('phase65d HLS normalized track selector uses D.2 replacement and friendly language labels ok');
+  playback.destroy();
+  console.log('phase65d HLS normalized track selector uses published D.2 fallback owner and friendly language labels ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
