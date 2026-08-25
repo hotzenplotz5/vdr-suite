@@ -585,7 +585,7 @@
       subtitleInfo.hidden = !(unsupportedPresent && truthfulOff);
       subtitleInfo.textContent = subtitleInfo.hidden
         ? ''
-        : 'Untertitel: Aus · Auswahl ist in diesem Wiedergabepfad nicht als Textspur verfügbar.';
+        : 'Untertitel: Aus · Auswahl ist in diesem Wiedergabepfad nicht verfügbar.';
 
       host.hidden = audioRow.hidden && subtitleRow.hidden && subtitleInfo.hidden && note.hidden;
       const reason = text(audio && audio.selectionReason);
