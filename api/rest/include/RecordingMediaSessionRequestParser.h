@@ -65,6 +65,7 @@ struct RecordingMediaSessionSubtitleTrackSelectionRequest
     std::string backendId;
     std::string sessionId;
     std::string subtitleTrackId;
+    int streamBasePositionSeconds = 0;
 };
 
 class RecordingMediaSessionRequestParser
