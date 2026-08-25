@@ -15,6 +15,16 @@
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
   if (!descriptor || typeof descriptor.get !== 'function' || typeof descriptor.set !== 'function') return;
 
+  // This is intentionally page-local, not persisted Suite domain state. It is
+  // updated only from a real owned media element and lets a clean owner handoff
+  // (for example Live channel replacement) retain the user's confirmed local
+  // player state without turning Volume/Mute into a MediaSession mutation.
+  const clientPreference = {
+    initialized: false,
+    volume: 1,
+    muted: false
+  };
+
   function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -73,6 +83,7 @@
 
     const controls = document.createElement('div');
     controls.className = 'recordings2-volume-controls';
+    controls.setAttribute('role', 'group');
     controls.setAttribute('aria-label', 'Lautstärke');
 
     const muteButton = document.createElement('button');
@@ -116,9 +127,6 @@
 
     let disposed = false;
     let activeVideo = null;
-    let preferenceInitialized = false;
-    let preferredVolume = 1;
-    let preferredMuted = false;
     let volumeWritable = true;
     let mutedWritable = true;
     let observer = null;
@@ -150,9 +158,9 @@
 
     function rememberFromVideo(video) {
       if (!video) return;
-      preferredVolume = normalizeVolume(video.volume);
-      preferredMuted = Boolean(video.muted);
-      preferenceInitialized = true;
+      clientPreference.volume = normalizeVolume(video.volume);
+      clientPreference.muted = Boolean(video.muted);
+      clientPreference.initialized = true;
     }
 
     function handleVolumeChange() {
@@ -163,7 +171,6 @@
 
     function unbindVideo() {
       if (!activeVideo) return;
-      rememberFromVideo(activeVideo);
       if (typeof activeVideo.removeEventListener === 'function') {
         activeVideo.removeEventListener('volumechange', handleVolumeChange);
       }
@@ -187,14 +194,14 @@
     }
 
     function applyPreference(video) {
-      if (!video || !preferenceInitialized) return;
+      if (!video || !clientPreference.initialized) return;
       volumeWritable = typeof video.volume === 'number';
       mutedWritable = typeof video.muted === 'boolean';
 
       if (volumeWritable) {
         try {
-          video.volume = preferredVolume;
-          verifyVolume(preferredVolume);
+          video.volume = clientPreference.volume;
+          verifyVolume(clientPreference.volume);
         } catch (error) {
           volumeWritable = false;
           setStatus('Dieser Browser erlaubt keine programmatische Player-Lautstärke; Systemlautstärke verwenden.');
@@ -202,8 +209,8 @@
       }
       if (mutedWritable) {
         try {
-          video.muted = preferredMuted;
-          verifyMuted(preferredMuted);
+          video.muted = clientPreference.muted;
+          verifyMuted(clientPreference.muted);
         } catch (error) {
           mutedWritable = false;
           setStatus('Dieser Browser erlaubt keine programmatische Stummschaltung.');
@@ -230,7 +237,7 @@
         return null;
       }
 
-      if (preferenceInitialized) applyPreference(activeVideo);
+      if (clientPreference.initialized) applyPreference(activeVideo);
       else rememberFromVideo(activeVideo);
       if (typeof activeVideo.addEventListener === 'function') {
         activeVideo.addEventListener('volumechange', handleVolumeChange);
