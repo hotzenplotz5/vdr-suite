@@ -1,5 +1,6 @@
 #include "RecordingSubtitleWebVtt.h"
 
+#include <filesystem>
 #include <string>
 
 bool RecordingSubtitleWebVtt::supports(MediaSubtitleFormat format)
@@ -13,7 +14,8 @@ bool RecordingSubtitleWebVtt::supports(MediaSubtitleFormat format)
 RecordingSubtitleWebVttPlan RecordingSubtitleWebVtt::build(
     int sourceSubtitleStreamIndex,
     MediaSubtitleFormat format,
-    int streamBasePositionSeconds)
+    int streamBasePositionSeconds,
+    const std::string& externalSourcePath)
 {
     RecordingSubtitleWebVttPlan plan;
     if (sourceSubtitleStreamIndex < 0) {
@@ -39,15 +41,39 @@ RecordingSubtitleWebVttPlan RecordingSubtitleWebVtt::build(
         plan.argv.push_back("-ss");
         plan.argv.push_back(std::to_string(streamBasePositionSeconds));
     }
-    plan.argv.insert(plan.argv.end(), {
-        "-f", "concat",
-        "-safe", "1",
-        "-i", "input.ffconcat",
-        "-map", "0:s:" + std::to_string(sourceSubtitleStreamIndex),
-        "-c:s", "webvtt",
-        "-f", "webvtt",
-        "pipe:1"
-    });
+
+    if (!externalSourcePath.empty()) {
+        const std::filesystem::path external =
+            std::filesystem::path(externalSourcePath).lexically_normal();
+        if (!external.is_absolute()) {
+            plan.reasonCode = "invalid_recording_subtitle_external_source";
+            plan.argv.clear();
+            return plan;
+        }
+        if (format != MediaSubtitleFormat::SubRip) {
+            plan.reasonCode = "recording_subtitle_external_format_not_supported";
+            plan.argv.clear();
+            return plan;
+        }
+        plan.argv.insert(plan.argv.end(), {
+            "-i", external.string(),
+            "-map", "0:s:0",
+            "-c:s", "webvtt",
+            "-f", "webvtt",
+            "pipe:1"
+        });
+    }
+    else {
+        plan.argv.insert(plan.argv.end(), {
+            "-f", "concat",
+            "-safe", "1",
+            "-i", "input.ffconcat",
+            "-map", "0:s:" + std::to_string(sourceSubtitleStreamIndex),
+            "-c:s", "webvtt",
+            "-f", "webvtt",
+            "pipe:1"
+        });
+    }
     plan.valid = true;
     return plan;
 }
