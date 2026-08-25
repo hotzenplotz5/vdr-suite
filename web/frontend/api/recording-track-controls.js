@@ -11,7 +11,6 @@
   const marker = '__vdrSuiteRecordingTrackControlsBound';
   const TRACK_STATUS_POLL_MS = 750;
   const TRACK_STATUS_MAX_FAILURES = 5;
-  const SESSION_WATCH_MAX_ATTEMPTS = 12;
   if (!global || !global.document || global[marker] === true) return;
 
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
@@ -224,7 +223,6 @@
     let activeSessionId = '';
     let activeProfileId = '';
     let sessionWatchTimer = null;
-    let sessionWatchAttempts = 0;
 
     function activeFallbackOwner() {
       return fallbackOwner(shell);
@@ -242,19 +240,35 @@
         try { global.clearTimeout(sessionWatchTimer); } catch (error) {}
       }
       sessionWatchTimer = null;
-      sessionWatchAttempts = 0;
+    }
+
+    function resetTrackPresentation() {
+      clearPoll();
+      pollFailures = 0;
+      activeSessionId = '';
+      activeProfileId = '';
+      selectedTrackId = '';
+      selectionInFlight = false;
+      clearChildren(audioSelect);
+      audioRow.hidden = true;
+      audioSelect.disabled = true;
+      subtitleInfo.hidden = true;
+      subtitleInfo.textContent = '';
+      note.hidden = true;
+      note.textContent = '';
+      host.hidden = true;
     }
 
     function scheduleSessionWatch() {
-      if (disposed || sessionWatchTimer !== null ||
-          sessionWatchAttempts >= SESSION_WATCH_MAX_ATTEMPTS ||
-          typeof global.setTimeout !== 'function') return;
-      sessionWatchAttempts += 1;
+      if (disposed || sessionWatchTimer !== null || typeof global.setTimeout !== 'function') return;
       const handle = global.setTimeout(function () {
         sessionWatchTimer = null;
         if (disposed) return;
         const currentId = safeSessionId(panel.sessionId());
-        if (currentId && activeSessionId && currentId !== activeSessionId) {
+        if (!currentId && activeSessionId) {
+          resetTrackPresentation();
+        }
+        else if (currentId && currentId !== activeSessionId) {
           activeSessionId = currentId;
           pollFailures = 0;
           refreshTracks();
@@ -578,8 +592,11 @@
     Object.keys(panel).forEach(function (key) { wrapped[key] = panel[key]; });
     wrapped.element = shell;
 
+    // Method wrapping remains only a latency optimization for callers that use
+    // the public owner method. Correctness comes from the lifetime session
+    // observer below because owner-internal DOM handlers may call their closure
+    // directly and bypass this wrapper.
     wrapped.start = function () {
-      clearSessionWatch();
       const result = panel.start.apply(panel, arguments);
       return Promise.resolve(result).then(function (id) {
         activeSessionId = safeSessionId(id) || safeSessionId(panel.sessionId());
@@ -593,14 +610,8 @@
     if (typeof panel.stop === 'function') {
       wrapped.stop = function () {
         clearPoll();
-        clearSessionWatch();
-        audioRow.hidden = true;
-        audioSelect.disabled = true;
-        subtitleInfo.hidden = true;
-        note.hidden = true;
-        host.hidden = true;
-        activeSessionId = '';
-        activeProfileId = '';
+        resetTrackPresentation();
+        scheduleSessionWatch();
         return panel.stop.apply(panel, arguments);
       };
     }
@@ -624,6 +635,12 @@
         panel.destroy.apply(panel, arguments);
       };
     }
+
+    // Start observing immediately at owner creation. This is local-only while
+    // idle: no track-status request is issued until panel.sessionId() exposes a
+    // new active MediaSession. The observer therefore covers delayed user Start,
+    // internal button bindings, stop/restart and progressive-to-HLS replacement.
+    scheduleSessionWatch();
 
     return Object.freeze(wrapped);
   }
