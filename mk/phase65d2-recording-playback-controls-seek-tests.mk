@@ -3,6 +3,7 @@ DAEMON_SRC += \
 	api/rest/src/RecordingMediaSessionStartPosition.cpp \
 	api/rest/src/RecordingMediaSessionCreate.cpp \
 	api/rest/src/RecordingMediaSessionPlaybackStatus.cpp \
+	core/media/src/RecordingHlsResumeProfile.cpp \
 	core/media/src/RecordingMediaSessionHlsResume.cpp
 
 .PHONY: test-phase65d2-recording-media-session-seek test-phase65d2-recording-media-session-seek-activation test-phase65d2-vdr-recording-index-updater test-phase65d2-recording-index-marker-fingerprint test-phase65d2-recording-playback-status-request-parser test-phase65d2-recording-start-position-parser test-phase65d2-hls-resume-profile test-phase65d2-hls-resume-command test-phase65d2-recording-playback-controls test-phase65d2-recording-stop-restart test-phase65d2-recording-stop-resume-choice test-phase65d2-recording-restart-choice-real-loader test-phase65d2-recording-fallback-controls test-phase65d2-recording-fallback-resume-choice test-phase65d2-recording-time-input-mask
