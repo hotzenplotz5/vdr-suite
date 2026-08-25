@@ -2,7 +2,7 @@
 
 Status: **Binding for Phase 65.D playback frontend work and later playback UI changes.**
 
-This contract prevents a recurring integration failure class: a feature can be locally correct, installed, and covered by isolated tests while the real browser production lifecycle never enters the new code. Playback controls, track selection, seek/restart helpers and later subtitle controls must therefore prove their integration at the actual playback ownership boundary, not only at an isolated adapter or DOM fragment.
+This contract prevents a recurring integration failure class: a feature can be locally correct, installed, and covered by isolated tests while the real browser production lifecycle never enters the new code. Playback controls, track selection, seek/restart helpers, subtitle controls and browser-local Volume/Mute must therefore prove their integration at the actual playback ownership boundary, not only at an isolated adapter or DOM fragment.
 
 The contract supplements ADR-0046, ADR-0053, ADR-0055 and the accepted Phase-65.D.1 persistent browser playback shell. It does not create a second playback architecture or change MediaSession authority.
 
@@ -24,6 +24,8 @@ Recordings 2 module
 Cross-cutting playback features attach to the persistent playback owner. They must not attach their correctness to a replaceable progressive or HLS DOM node.
 
 Audio and subtitle controls share this same track-control lifecycle boundary. Subtitle work must extend the established track owner rather than create a separate subtitle player, restart path or MediaSession lifecycle.
+
+Browser-local Volume/Mute is deliberately different from session-bound track controls: ADR-0053 classifies volume as transient client-local player state. Its source of truth is therefore the currently active owned `HTMLMediaElement`, not a Suite MediaSession field and not VDR system volume. Recording and Live must reuse one common client-local control decorator where they share the same playback-facade/media-element ownership family.
 
 ## Binding integration invariants
 
@@ -73,6 +75,8 @@ A control is visible/enabled only when the active MediaSession and active transp
 
 Unknown language, role, default state or subtitle format remains unknown. Provider IDs/PIDs are not promoted to the public client contract.
 
+Client-local controls that are not MediaSession operations follow the owning browser API instead. For Volume/Mute, the active `HTMLMediaElement.volume`, `.muted` and `volumechange` state are authoritative. A platform that rejects or fails to reflect a requested local write must be handled by read-back/fail-safe UI, not by inventing a server mutation or user-agent-specific route.
+
 ### 8. Real action-to-request proof
 
 For every session-bound browser feature, at least one integration test must prove the real chain:
@@ -86,6 +90,8 @@ production-style user action
 ```
 
 For features whose owner binds controls directly to internal closures, tests must exercise that internal-button path or an equivalent production entry. Calling only a decorator's `wrapped.start()` is explicitly insufficient.
+
+For purely client-local controls such as Volume/Mute, the equivalent proof ends at the active owned `HTMLMediaElement`: the test must prove the user action changes the real media-element state and specifically must prove that no MediaSession request, playback restart or second media element is introduced.
 
 ### 9. Replacement paths are first-class test cases
 
@@ -110,6 +116,19 @@ The Recording track-control regression must include a case where:
 
 This test is the minimum lifecycle regression for both audio and the subsequent subtitle-selection slice.
 
+## Required test shape for client-local Volume/Mute
+
+The browser Volume/Mute regression must prove all of the following against the same production ownership family:
+
+1. UI values `0..100` map deterministically to `HTMLMediaElement.volume` values `0..1` and back;
+2. mute/unmute changes only the active element's `muted` state and UI reflects `volumechange` updates from that element;
+3. adjusting Volume/Mute while playback is active does not invoke `start()`, seek/restart, `play()`, `pause()` or a Suite MediaSession API;
+4. a progressive-to-HLS or other replaceable transport switch may supply a new owned media element, and the stable Volume/Mute owner transfers only its last confirmed client-local state to that new active element;
+5. a persistent presentation move/reparent such as the Live-TV full-view-to-shell transition retains the exact same media element and therefore the same local state without duplication;
+6. the decorator itself creates no `<video>`/`<audio>` element and no second MediaSession owner;
+7. owner destruction/relinquish removes local observation and does not weaken existing playback cleanup;
+8. if a platform does not accept a requested volume/mute write, the control reads back the actual media-element state and fails safely without user-agent routing or server/VDR-volume fallback.
+
 ## Subtitle pre-implementation gate
 
 Before adding selectable subtitle UI, verify all of the following against this same owner path:
@@ -131,8 +150,10 @@ A playback frontend change is not considered integrated merely because its unit 
 - exact installed candidate;
 - active production profile;
 - real browser action;
-- resulting owner/session identity transition;
-- relevant Suite API operation;
+- resulting owner/session identity transition where the feature is session-bound;
+- relevant Suite API operation, or explicit proof that none exists for a client-local operation;
 - preserved playback invariants such as position, pause state and deterministic old-stream cleanup.
+
+For browser-local Volume/Mute, real acceptance additionally verifies audible volume reduction/increase, mute/unmute, preserved seek and subtitle behavior, HLS replacement behavior and Live-TV behavior when the same common owner is active.
 
 This contract stays inside Phase 65.D. It does not authorize Phase 66, Live-TV timeshift or unrelated discontinuity work.

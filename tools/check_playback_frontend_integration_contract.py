@@ -25,11 +25,15 @@ def main() -> int:
     fast_owner = read(FRONTEND / "api/session-frontend-sync.js")
     fallback_owner = read(FRONTEND / "api/recording-fallback-controls.js")
     track_owner = read(FRONTEND / "api/recording-track-controls.js")
+    volume_owner = read(FRONTEND / "api/playback-volume-controls.js")
     lifecycle_test = read(
         FRONTEND / "tests/test_phase65d_recording_progressive_hls_track_owner.js"
     )
     subtitle_lifecycle_test = read(
         FRONTEND / "tests/test_phase65d_recording_subtitle_track_controls.js"
+    )
+    volume_lifecycle_test = read(
+        FRONTEND / "tests/test_phase65d_playback_volume_controls.js"
     )
 
     require(
@@ -40,6 +44,7 @@ def main() -> int:
         "Method interception is not a lifecycle contract",
         "Observe the whole owner lifetime",
         "Real action-to-request proof",
+        "Required test shape for client-local Volume/Mute",
         "Subtitle pre-implementation gate",
     ):
         require(token in contract, f"binding contract is missing section: {token}")
@@ -162,6 +167,63 @@ def main() -> int:
         and "streamBasePositionSeconds" in track_owner,
         "track owner must use the normalized session-bound subtitle selection contract",
     )
+
+    # Volume/Mute is deliberately not session-bound. ADR-0053 makes it local
+    # HTMLMediaElement state, so the shared decorator must wrap both Recording
+    # and Live factories without acquiring server or transport authority.
+    require(
+        "decorated.createPanel" in volume_owner and "decorated.createLivePanel" in volume_owner,
+        "Volume/Mute must use one shared Recording/Live playback decorator",
+    )
+    require(
+        "const clientPreference" in volume_owner,
+        "Volume/Mute must retain confirmed page-local state across clean owner replacement",
+    )
+    require(
+        "video.volume" in volume_owner
+        and "video.muted" in volume_owner
+        and "volumechange" in volume_owner,
+        "Volume/Mute must derive state from the active HTMLMediaElement",
+    )
+    require(
+        "panel.replaceWith(fallbackPanel.element);" in fast_owner,
+        "production Recording fallback must remain modeled as complete panel replacement",
+    )
+    require(
+        "const next = firstVideo(shell);" in volume_owner,
+        "Volume/Mute must resolve the active media element across complete panel replacement",
+    )
+    require(
+        "observer.observe(shell, {childList: true, subtree: true});" in volume_owner,
+        "Volume/Mute replacement observer must watch the stable owner shell across fallback replacement",
+    )
+    require(
+        "if (firstVideo(shell) !== activeVideo) bindCurrentVideo();" in volume_owner,
+        "Volume/Mute shell observer must remain inert unless the active media element actually changes",
+    )
+    for forbidden, message in (
+        ("VdrSuiteClientApi", "Volume/Mute must not call the Suite server API"),
+        ("/api/media/sessions", "Volume/Mute must not mutate MediaSessions"),
+        ("video.play(", "Volume/Mute must not start playback"),
+        ("video.pause(", "Volume/Mute must not pause playback"),
+        ("video.load(", "Volume/Mute must not reload playback"),
+    ):
+        require(forbidden not in volume_owner, message)
+
+    for token, message in (
+        ("api.volumeFromPercent(25), 0.25", "volume test must prove UI 0..100 to media 0..1 mapping"),
+        ("recordingMute.dispatch('click');", "volume test must exercise mute/unmute through visible UI"),
+        ("recording.element.replaceChild(replacement, oldPresentation);", "volume test must exercise complete progressive-to-HLS panel replacement"),
+        ("fake browser must deliver Volume/Mute textContent mutations", "volume test must model real-browser observer delivery from control text updates"),
+        ("must not create an observer feedback loop", "volume test must fail on a self-triggering shell observer"),
+        ("replacement observer must watch the stable outer owner shell", "volume test must keep replacement observation on the persistent owner shell"),
+        ("miniPlayer.appendChild(live.element);", "volume test must exercise persistent presentation reparenting"),
+        ("replacement Live owner must keep confirmed volume", "volume test must exercise clean Live owner replacement handoff"),
+        ("runtime.metrics.startCalls(), 0", "volume test must prove changes do not start/restart playback"),
+        ("volume decorator must not create a second media element", "volume test must prove single-media-element ownership"),
+        ("ignoreVolumeWrites", "volume test must cover capability/read-back failure handling"),
+    ):
+        require(token in volume_lifecycle_test, message)
 
     print("playback frontend integration contracts ok")
     return 0
