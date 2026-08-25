@@ -139,6 +139,7 @@ function flush(count = 8) {
   let activeProfileId = 'progressive-fmp4';
   let activeTrackId = 'audio-1';
   let fallbackSelections = 0;
+  let inFallback = false;
   const requests = [];
 
   const fastElement = node('section');
@@ -149,6 +150,7 @@ function flush(count = 8) {
   internalStartButton.addEventListener('click', function () {
     activeSessionId = 'progressive-session-1';
     activeProfileId = 'progressive-fmp4';
+    inFallback = false;
   });
 
   const fallbackElement = node('section');
@@ -171,11 +173,15 @@ function flush(count = 8) {
     start() {
       activeSessionId = 'progressive-session-1';
       activeProfileId = 'progressive-fmp4';
+      inFallback = false;
       return Promise.resolve(activeSessionId);
     },
     sessionId() { return activeSessionId; },
     position() { return 42; },
-    state() { return activeSessionId ? 'playing' : 'idle'; },
+    // Production's outer fast owner deliberately reports `fallback` once the
+    // inner HLS owner has taken over. Track selection must therefore consult
+    // the active HLS owner for playing/paused state instead of rejecting here.
+    state() { return inFallback ? 'fallback' : (activeSessionId ? 'playing' : 'idle'); },
     seekAbsolute() { return Promise.resolve(true); },
     stop() {
       activeSessionId = '';
@@ -261,7 +267,9 @@ function flush(count = 8) {
 
   activeProfileId = 'hls-fmp4';
   activeSessionId = 'hls-session-1';
+  inFallback = true;
   fastElement.replaceWith(fallbackElement);
+  assert.strictEqual(basePanel.state(), 'fallback', 'outer fast owner must mirror production fallback state');
   assert.strictEqual(ownerShell.children[0], fallbackElement, 'HLS transport must replace only the inner fast node');
   assert.ok(find(ownerShell, item => item.className === 'recordings2-track-controls'), 'track controls must survive replacement');
 
@@ -280,12 +288,12 @@ function flush(count = 8) {
   select.value = 'audio-2';
   select.dispatch('change');
   await flush(16);
-  assert.strictEqual(fallbackSelections, 1, 'selection must delegate to the existing HLS D.2 owner');
+  assert.strictEqual(fallbackSelections, 1, 'selection must delegate to the existing HLS D.2 owner despite outer fallback state');
   assert.strictEqual(activeTrackId, 'audio-2');
   assert.strictEqual(select.value, 'audio-2');
   assert.ok(requests.some(body => body.sessionId === 'hls-session-2'), 'replacement session must be verified');
 
-  console.log('phase65d production-style internal Start and progressive-to-HLS track owner lifecycle covered');
+  console.log('phase65d production-style internal Start, outer fallback state and HLS track owner lifecycle covered');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
