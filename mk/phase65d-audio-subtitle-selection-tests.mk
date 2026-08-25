@@ -70,6 +70,7 @@ test-phase65d-recording-audio-track-selection-runtime:
 	$(BUILD_DIR)/test_phase65d_recording_audio_track_selection_runtime
 
 test-phase65d-recording-track-controls:
+	python3 tools/check_playback_frontend_integration_contract.py
 	node --check web/frontend/api/recording-track-controls.js
 	node web/frontend/tests/test_phase65d_recording_track_controls.js
 	node web/frontend/tests/test_phase65d_recording_hls_track_controls.js
