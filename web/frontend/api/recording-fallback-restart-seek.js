@@ -74,10 +74,9 @@
     // Once restart-seek is active, it owns the seek-control disabled state.
     // Briefly disabling a focused input makes desktop browsers drop its focus.
     panel.__vdrSuiteFallbackRestartSeekControlsOwned = true;
-
-    // Mirror the already accepted mobile Volume range interaction contract:
-    // keep a generous touch target while leaving vertical page scrolling to
-    // the browser so horizontal movement remains owned by the native range.
+    // Match the already accepted browser-local Volume range interaction: keep a
+    // finger-sized native range target and reserve horizontal drag for it while
+    // allowing the surrounding page to continue vertical scrolling.
     timeline.style.minHeight = '2.75rem';
     timeline.style.touchAction = 'pan-y';
 
@@ -145,7 +144,8 @@
       if (previewPosition !== undefined) {
         const preview = clampTarget(previewPosition);
         if (preview !== null) {
-          positionLabel.textContent = formatTime(preview) + ' / ' + formatTime(duration());
+          const previewText = formatTime(preview) + ' / ' + formatTime(duration());
+          if (positionLabel.textContent !== previewText) positionLabel.textContent = previewText;
         }
       }
       if (enabled && !seekInFlight && notice && active()) {
@@ -178,10 +178,12 @@
 
     function bindVideo() {
       const video = find(panel, 'video');
-      if (!video || video === observedVideo || typeof video.addEventListener !== 'function') return;
-      observedVideo = video;
+      if (video === observedVideo) return false;
+      observedVideo = video || null;
+      if (!video || typeof video.addEventListener !== 'function') return true;
       ['play', 'pause', 'playing', 'timeupdate', 'loadedmetadata']
         .forEach(function (name) { video.addEventListener(name, handlePlaybackEvent); });
+      return true;
     }
 
     function restartAt(value) {
@@ -277,7 +279,10 @@
 
     if (typeof global.MutationObserver === 'function') {
       observer = new global.MutationObserver(function () {
-        bindVideo();
+        // This observer exists only to follow transport/media-element
+        // replacement. Status text and timeline preview mutations are not
+        // lifecycle changes and must never feed back into syncControls().
+        if (!bindVideo()) return;
         syncControls();
         scheduleCapabilityPoll();
       });
