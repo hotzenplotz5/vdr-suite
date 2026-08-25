@@ -49,6 +49,14 @@ struct RecordingMediaSessionAudioTrackSelectionResult
     int durationSeconds = 0;
 };
 
+struct RecordingMediaSessionSubtitleWebVttResult
+{
+    bool ready = false;
+    std::string reasonCode;
+    int sourceSubtitleStreamIndex = -1;
+    std::string webVtt;
+};
+
 struct RecordingMediaSessionTrackState
 {
     bool available = false;
@@ -144,6 +152,11 @@ public:
         const MediaPresentationProfile& profile,
         int positionSeconds);
 
+    RecordingMediaSessionSubtitleWebVttResult subtitleWebVtt(
+        const std::string& sessionId,
+        int sourceSubtitleStreamIndex,
+        MediaSubtitleFormat format);
+
     RecordingMediaSessionTrackState trackState(
         const std::string& sessionId) const;
 
@@ -167,6 +180,7 @@ private:
         int durationSeconds = 0;
         std::uint64_t streamGeneration = 0;
         MediaPresentationProfile streamProfile;
+        std::map<int, std::string> subtitleWebVttCache;
     };
 
     static bool defaultReady(
