@@ -76,6 +76,7 @@
     panel.__vdrSuiteFallbackRestartSeekControlsOwned = true;
 
     let seekInFlight = false;
+    let timelineDragging = false;
     let capabilityTimer = null;
     let observedVideo = null;
     let observer = null;
@@ -129,7 +130,7 @@
       timeline.min = '0';
       timeline.max = String(maximum());
       timeline.step = '1';
-      if (enabled && previewPosition === undefined) {
+      if (enabled && previewPosition === undefined && !timelineDragging) {
         timeline.value = String(Math.max(0, Math.min(maximum(), position())));
       }
       if (previewPosition !== undefined) {
@@ -180,6 +181,7 @@
         return Promise.reject(new Error('Zeit-Sprung ist für diese Aufnahme noch nicht verfügbar.'));
       }
       const wasPaused = state() === 'paused';
+      timelineDragging = false;
       seekInFlight = true;
       clearCapabilityPoll();
       syncControls();
@@ -206,6 +208,7 @@
         return true;
       }).catch(function (error) {
         seekInFlight = false;
+        timelineDragging = false;
         syncControls();
         setNotice(
           error && error.message ? 'Zeit-Sprung fehlgeschlagen: ' + error.message : 'Zeit-Sprung fehlgeschlagen.',
@@ -232,11 +235,22 @@
     forward10Button.addEventListener('click', function () { seekRelative(10).catch(function () {}); });
     forward60Button.addEventListener('click', function () { seekRelative(60).catch(function () {}); });
     timeline.addEventListener('input', function () {
-      if (!timeline.disabled) syncControls(Number(timeline.value));
+      if (timeline.disabled) return;
+      timelineDragging = true;
+      syncControls(Number(timeline.value));
     });
     timeline.addEventListener('change', function () {
-      if (timeline.disabled) return;
-      seekAbsolute(Number(timeline.value)).catch(function () { syncControls(); });
+      const target = Number(timeline.value);
+      timelineDragging = false;
+      if (timeline.disabled) {
+        syncControls();
+        return;
+      }
+      seekAbsolute(target).catch(function () { syncControls(); });
+    });
+    timeline.addEventListener('pointercancel', function () {
+      timelineDragging = false;
+      syncControls();
     });
     directButton.addEventListener('click', function () {
       const target = parseTime(directTime.value);
@@ -262,6 +276,7 @@
     }
 
     function start() {
+      timelineDragging = false;
       return Promise.resolve(playback.start()).then(function (sessionId) {
         bindVideo();
         syncControls();
@@ -271,6 +286,7 @@
     }
 
     function resume(value) {
+      timelineDragging = false;
       return Promise.resolve(playback.resume(value)).then(function (sessionId) {
         bindVideo();
         syncControls();
@@ -280,6 +296,7 @@
     }
 
     function destroy() {
+      timelineDragging = false;
       clearCapabilityPoll();
       if (observer && typeof observer.disconnect === 'function') observer.disconnect();
       observer = null;
