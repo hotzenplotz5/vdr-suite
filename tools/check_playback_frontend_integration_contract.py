@@ -27,6 +27,9 @@ def main() -> int:
     lifecycle_test = read(
         FRONTEND / "tests/test_phase65d_recording_progressive_hls_track_owner.js"
     )
+    subtitle_lifecycle_test = read(
+        FRONTEND / "tests/test_phase65d_recording_subtitle_track_controls.js"
+    )
 
     require(
         "docs/development/frontend-playback-integration-contract.md" in agents,
@@ -71,10 +74,22 @@ def main() -> int:
             "await playback.start();" not in lifecycle_test,
             "integration test must not shortcut initial lifecycle coverage through decorated start()",
         )
+        require(
+            "internalStartButton.dispatch('click');" in subtitle_lifecycle_test,
+            "subtitle integration test must exercise the owner-internal production-style Start path",
+        )
+        require(
+            "await playback.start();" not in subtitle_lifecycle_test,
+            "subtitle integration test must not shortcut initial lifecycle coverage through decorated start()",
+        )
 
     require(
         "fastElement.replaceWith(fallbackElement);" in lifecycle_test,
         "integration test must cover progressive-to-HLS transport replacement",
+    )
+    require(
+        "fastElement.replaceWith(fallbackElement);" in subtitle_lifecycle_test,
+        "subtitle integration test must cover progressive-to-HLS transport replacement",
     )
 
     # Once HLS owns the transport, the outer fast owner intentionally reports
@@ -101,6 +116,34 @@ def main() -> int:
     require(
         "fallbackSelections, 1" in lifecycle_test,
         "integration test must prove audio selection delegates to the existing HLS owner",
+    )
+
+    # Subtitle delivery is session- and stream-base-bound. The production-style
+    # test must prove normalized IDs, explicit OFF, browser-native WebVTT,
+    # same-session base rebinding and replacement-session preference retention.
+    for token, message in (
+        ("['off', 'subtitle-1']", "subtitle test must keep unsupported DVB/Teletext tracks out of the selector"),
+        ("subtitleTrackId, 'subtitle-1'", "subtitle test must prove normalized subtitle-N request IDs"),
+        ("subtitleTrackId, 'off'", "subtitle test must prove explicit OFF request semantics"),
+        ("streamBasePositionSeconds, 0", "subtitle test must prove initial Recording stream base"),
+        ("streamBasePositionSeconds === 120", "subtitle test must prove same-session seek/base rebinding"),
+        ("streamBasePositionSeconds === 300", "subtitle test must prove replacement-session stream base"),
+        ("revokeObjectURL", "subtitle test must prove stale WebVTT Blob cleanup"),
+        ("mountedTrack.track.mode, 'showing'", "subtitle test must prove browser-native text-track activation"),
+        ("fallbackSelections, 1", "subtitle test must keep HLS audio selection on the existing fallback owner"),
+    ):
+        require(token in subtitle_lifecycle_test, message)
+
+    require(
+        "subtitlePreferenceTrackId" in track_owner
+        and "managedSubtitleElement" in track_owner
+        and "streamBasePosition()" in track_owner,
+        "subtitle delivery must remain attached to the established Recording track owner",
+    )
+    require(
+        "select-subtitle-track" in track_owner
+        and "streamBasePositionSeconds" in track_owner,
+        "track owner must use the normalized session-bound subtitle selection contract",
     )
 
     print("playback frontend integration contracts ok")
