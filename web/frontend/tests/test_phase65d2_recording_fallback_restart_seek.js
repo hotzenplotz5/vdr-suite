@@ -246,9 +246,25 @@ window.VdrSuiteRecordings2Playback = {
   createRequests = requests.filter(entry => !entry.body.operation);
   assert.strictEqual(createRequests[3].body.startPositionSeconds, 600, 'direct time seek must restart at requested time');
 
+  // Real Android regression: while the user drags the range input, playback
+  // continues to emit timeupdate. That event must not snap the thumb back to
+  // the current playback position before the range control emits change.
   timeline.value = '1200';
   timeline.dispatch('input', {target: timeline});
   assert.strictEqual(positionLabel.textContent, '00:20:00 / 01:58:54');
+  video = playback.element.querySelector('video');
+  video.currentTime = 12;
+  video.dispatch('timeupdate', {target: video});
+  assert.strictEqual(
+    timeline.value,
+    '1200',
+    'timeupdate must not overwrite the user-selected timeline value while dragging'
+  );
+  assert.strictEqual(
+    positionLabel.textContent,
+    '00:20:00 / 01:58:54',
+    'timeupdate must preserve the timeline preview while dragging'
+  );
   timeline.dispatch('change', {target: timeline});
   await flush();
   createRequests = requests.filter(entry => !entry.body.operation);
