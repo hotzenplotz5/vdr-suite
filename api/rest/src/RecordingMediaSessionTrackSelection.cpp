@@ -7,6 +7,7 @@
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
 #include "RecordingMediaTrackContract.h"
+#include "RecordingSubtitleSidecar.h"
 #include "VdrRecordingDuration.h"
 #include "VdrRecordingQueryService.h"
 
@@ -73,6 +74,36 @@ std::string subtitleSelectionReason(
     if (selectableSubtitleCount(source) == 0) return "no_browser_text_subtitle_tracks";
     if (!adaptedProfile) return "profile_does_not_deliver_selectable_subtitles";
     return {};
+}
+
+bool appendRecordingSubtitleSidecar(
+    VdrRecordingQueryService& recordingQueryService,
+    const StoredMediaSession& stored,
+    MediaSourceDescriptor& source)
+{
+    VdrRecording recording;
+    if (!recordingQueryService.findRecordingById(
+            stored.backendId,
+            stored.resourceId,
+            recording)) {
+        return false;
+    }
+
+    LocalVdrRecordingSourceResolver trustedResolver(
+        [recording](const std::string& backendId) {
+            if (recording.backendId != backendId &&
+                !(recording.backendId.empty() && backendId == "default")) {
+                return std::vector<VdrRecording>{};
+            }
+            return std::vector<VdrRecording>{recording};
+        });
+    const LocalVdrRecordingSourceResolution resolved =
+        trustedResolver.resolve(stored.backendId, stored.resourceId);
+    if (!resolved.resolved || resolved.source.growing) return false;
+
+    return RecordingSubtitleSidecar::appendTo(
+        source,
+        resolved.source.recordingDirectory);
 }
 
 std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
@@ -218,6 +249,7 @@ ApiResponse RecordingMediaSessionController::trackStatus(
             return jsonError(409, "recording_track_metadata_unavailable");
         source = found->second.source;
     }
+    appendRecordingSubtitleSidecar(recordingQueryService_, *stored, source);
 
     const RecordingMediaSessionTrackState state = mediaSessionRuntime_->trackState(request.sessionId);
     int selectedAudioStreamIndex = -1;
@@ -304,6 +336,7 @@ ApiResponse RecordingMediaSessionController::selectAudioTrack(
             return jsonError(409, "recording_track_metadata_unavailable");
         source = found->second.source;
     }
+    appendRecordingSubtitleSidecar(recordingQueryService_, *stored, source);
 
     int sourceAudioStreamIndex = -1;
     if (!RecordingMediaTrackContract::audioStreamIndexForTrackId(
@@ -398,6 +431,7 @@ ApiResponse RecordingMediaSessionController::selectSubtitleTrack(
             return jsonError(409, "recording_track_metadata_unavailable");
         source = found->second.source;
     }
+    appendRecordingSubtitleSidecar(recordingQueryService_, *stored, source);
 
     if (request.subtitleTrackId == "off") {
         std::lock_guard<std::mutex> lock(selectedSubtitleStreamMutex_);
@@ -413,22 +447,25 @@ ApiResponse RecordingMediaSessionController::selectSubtitleTrack(
         static_cast<std::size_t>(sourceSubtitleStreamIndex) >= source.subtitleStreams.size())
         return jsonError(404, "recording_subtitle_track_not_found");
 
-    const MediaSubtitleFormat format =
-        source.subtitleStreams[static_cast<std::size_t>(sourceSubtitleStreamIndex)].format;
-    if (!RecordingMediaTrackContract::subtitleTrackSelectable(format))
+    const MediaSubtitleStreamDescriptor& subtitleTrack =
+        source.subtitleStreams[static_cast<std::size_t>(sourceSubtitleStreamIndex)];
+    if (!RecordingMediaTrackContract::subtitleTrackSelectable(subtitleTrack.format))
         return jsonError(409, "recording_subtitle_track_not_browser_text");
 
     const RecordingMediaSessionSubtitleWebVttResult subtitle =
         mediaSessionRuntime_->subtitleWebVtt(
             request.sessionId,
             sourceSubtitleStreamIndex,
-            format,
-            request.streamBasePositionSeconds);
+            subtitleTrack.format,
+            request.streamBasePositionSeconds,
+            subtitleTrack.externalSourcePath);
     if (!subtitle.ready) {
         if (subtitle.reasonCode == "invalid_recording_subtitle_stream_index" ||
-            subtitle.reasonCode == "invalid_recording_subtitle_stream_base")
+            subtitle.reasonCode == "invalid_recording_subtitle_stream_base" ||
+            subtitle.reasonCode == "invalid_recording_subtitle_external_source")
             return jsonError(422, subtitle.reasonCode);
         if (subtitle.reasonCode == "recording_subtitle_format_not_webvtt_convertible" ||
+            subtitle.reasonCode == "recording_subtitle_external_format_not_supported" ||
             subtitle.reasonCode == "recording_subtitle_delivery_not_supported")
             return jsonError(409, subtitle.reasonCode);
         return jsonError(503, subtitle.reasonCode.empty()
