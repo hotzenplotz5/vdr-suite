@@ -18,6 +18,16 @@ bool containsPair(
     return false;
 }
 
+std::size_t tokenPosition(
+    const std::vector<std::string>& argv,
+    const std::string& token)
+{
+    const auto found = std::find(argv.begin(), argv.end(), token);
+    return found == argv.end()
+        ? argv.size()
+        : static_cast<std::size_t>(std::distance(argv.begin(), found));
+}
+
 } // namespace
 
 int main()
@@ -39,7 +49,18 @@ int main()
     assert(containsPair(valid.argv, "-i", "input.ffconcat"));
     assert(containsPair(valid.argv, "-map", "0:s:2"));
     assert(containsPair(valid.argv, "-c:s", "webvtt"));
+    assert(!containsPair(valid.argv, "-ss", "0"));
     assert(valid.argv.back() == "pipe:1");
+
+    const auto shifted = RecordingSubtitleWebVtt::build(
+        1,
+        MediaSubtitleFormat::SubRip,
+        125);
+    assert(shifted.valid);
+    assert(shifted.reasonCode.empty());
+    assert(containsPair(shifted.argv, "-ss", "125"));
+    assert(containsPair(shifted.argv, "-map", "0:s:1"));
+    assert(tokenPosition(shifted.argv, "-ss") < tokenPosition(shifted.argv, "-i"));
 
     const auto bitmap = RecordingSubtitleWebVtt::build(0, MediaSubtitleFormat::Dvb);
     assert(!bitmap.valid);
@@ -52,6 +73,13 @@ int main()
     const auto negative = RecordingSubtitleWebVtt::build(-1, MediaSubtitleFormat::SubRip);
     assert(!negative.valid);
     assert(negative.reasonCode == "invalid_recording_subtitle_stream_index");
+
+    const auto negativeBase = RecordingSubtitleWebVtt::build(
+        0,
+        MediaSubtitleFormat::SubRip,
+        -1);
+    assert(!negativeBase.valid);
+    assert(negativeBase.reasonCode == "invalid_recording_subtitle_stream_base");
 
     return 0;
 }
