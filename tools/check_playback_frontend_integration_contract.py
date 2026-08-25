@@ -76,6 +76,20 @@ def main() -> int:
         "fastElement.replaceWith(fallbackElement);" in lifecycle_test,
         "integration test must cover progressive-to-HLS transport replacement",
     )
+
+    # Once HLS owns the transport, the outer fast owner intentionally reports
+    # only the presentation state `fallback`. Cross-cutting controls must use
+    # the published HLS owner for actual playing/paused truth.
+    if "if (fallbackPanel) return 'fallback';" in fast_owner:
+        require(
+            "const playbackState = usingHlsOwner ? text(hlsOwner.state()) : text(panel.state());" in track_owner,
+            "HLS track selection must resolve playing/paused from the active HLS owner",
+        )
+        require(
+            "assert.strictEqual(basePanel.state(), 'fallback'" in lifecycle_test,
+            "integration test must model the outer fast owner's production fallback state",
+        )
+
     require(
         "requests.some(body => body.sessionId === 'progressive-session-1')" in lifecycle_test,
         "integration test must prove first-session track-status request",
