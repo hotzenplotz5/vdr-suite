@@ -109,6 +109,8 @@
   const CONTINUOUS_INIT_LIMIT_BYTES = 1024 * 1024;
   const CONTINUOUS_PENDING_LIMIT_BYTES = 8 * 1024 * 1024;
   const CONTINUOUS_BUFFER_HISTORY_SECONDS = 90;
+  const CONTINUOUS_BUFFER_FORWARD_SECONDS = 12;
+  const CONTINUOUS_BUFFER_EPSILON_SECONDS = 0.25;
   const RECORDING_INDEX_STATUS_POLL_MS = 750;
   const RECORDING_INDEX_STATUS_MAX_FAILURES = 5;
 
@@ -423,6 +425,28 @@
     });
   }
 
+  function continuousBufferedAheadSeconds(sourceBuffer, video) {
+    const buffered = sourceBuffer && sourceBuffer.buffered;
+    if (!buffered || buffered.length === 0) return 0;
+    const currentTime = Math.max(0, Number(video && video.currentTime) || 0);
+
+    for (let index = 0; index < buffered.length; index += 1) {
+      const start = Number(buffered.start(index));
+      const end = Number(buffered.end(index));
+      if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)) continue;
+      if (currentTime + CONTINUOUS_BUFFER_EPSILON_SECONDS >= start && currentTime <= end) {
+        return Math.max(0, end - Math.max(currentTime, start));
+      }
+    }
+
+    const firstStart = Number(buffered.start(0));
+    const firstEnd = Number(buffered.end(0));
+    if (Number.isFinite(firstStart) && Number.isFinite(firstEnd) && currentTime < firstStart) {
+      return Math.max(0, firstEnd - firstStart);
+    }
+    return 0;
+  }
+
   function createContinuousFmp4Mse(video, mediaPath, onFailure, autoPlay) {
     if (!supportsContinuousFmp4Mse()) return null;
 
@@ -436,10 +460,53 @@
     let pending = new Uint8Array(0);
     let destroyed = false;
     let initAppended = false;
+    let bufferRoomWait = null;
+
+    function releaseBufferRoomWait() {
+      const wait = bufferRoomWait;
+      if (!wait) return;
+      bufferRoomWait = null;
+      if (video && typeof video.removeEventListener === 'function') {
+        video.removeEventListener('timeupdate', wait.check);
+        video.removeEventListener('seeking', wait.check);
+      }
+      wait.resolve();
+    }
+
+    function waitForContinuousBufferRoom() {
+      if (destroyed || !sourceBuffer ||
+          continuousBufferedAheadSeconds(sourceBuffer, video) + CONTINUOUS_BUFFER_EPSILON_SECONDS <
+            CONTINUOUS_BUFFER_FORWARD_SECONDS) {
+        return Promise.resolve();
+      }
+      if (bufferRoomWait) return bufferRoomWait.promise;
+
+      let resolveWait = null;
+      const promise = new Promise(function (resolve) { resolveWait = resolve; });
+      const wait = {
+        promise: promise,
+        resolve: resolveWait,
+        check: null
+      };
+      wait.check = function () {
+        if (destroyed ||
+            continuousBufferedAheadSeconds(sourceBuffer, video) + CONTINUOUS_BUFFER_EPSILON_SECONDS <
+              CONTINUOUS_BUFFER_FORWARD_SECONDS) {
+          releaseBufferRoomWait();
+        }
+      };
+      bufferRoomWait = wait;
+      if (video && typeof video.addEventListener === 'function') {
+        video.addEventListener('timeupdate', wait.check);
+        video.addEventListener('seeking', wait.check);
+      }
+      return promise;
+    }
 
     function destroy() {
       if (destroyed) return;
       destroyed = true;
+      releaseBufferRoomWait();
       try { abortController.abort(); } catch (error) {}
       if (reader && typeof reader.cancel === 'function') {
         try {
@@ -503,9 +570,12 @@
 
     function pump() {
       if (destroyed || !reader) return Promise.resolve();
-      return reader.read().then(function (result) {
-        if (destroyed) return;
-        if (!result || result.done) {
+      return waitForContinuousBufferRoom().then(function () {
+        if (destroyed || !reader) return;
+        return reader.read();
+      }).then(function (result) {
+        if (destroyed || !result) return;
+        if (result.done) {
           return appendAvailableMedia().then(function () {
             if (mediaSource.readyState === 'open' && sourceBuffer && !sourceBuffer.updating) {
               try { mediaSource.endOfStream(); } catch (error) {}
