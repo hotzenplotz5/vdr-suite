@@ -3,6 +3,7 @@ DAEMON_SRC += \
 	api/rest/src/RecordingMediaSessionTrackSelection.cpp \
 	api/rest/src/RecordingMediaSessionAudioTrackPreference.cpp \
 	core/media/src/RecordingMediaTrackContract.cpp \
+	core/media/src/RecordingSubtitleSidecar.cpp \
 	core/media/src/RecordingSubtitleWebVtt.cpp \
 	core/media/src/RecordingMediaSessionSubtitle.cpp \
 	core/media/src/RecordingMediaSessionAudioTrackSelection.cpp \
@@ -10,6 +11,7 @@ DAEMON_SRC += \
 
 .PHONY: install-phase65d-recording-track-controls \
 	test-phase65d-recording-media-track-contract \
+	test-phase65d-recording-subtitle-sidecar \
 	test-phase65d-recording-subtitle-webvtt \
 	test-phase65d-recording-audio-track-selection-request-parser \
 	test-phase65d-recording-subtitle-track-selection-request-parser \
@@ -37,6 +39,13 @@ test-phase65d-recording-media-track-contract:
 		core/media/tests/test_recording_media_track_contract.cpp \
 		-o $(BUILD_DIR)/test_phase65d_recording_media_track_contract
 	$(BUILD_DIR)/test_phase65d_recording_media_track_contract
+
+test-phase65d-recording-subtitle-sidecar:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingSubtitleSidecar.cpp \
+		core/media/tests/test_recording_subtitle_sidecar.cpp \
+		-o $(BUILD_DIR)/test_phase65d_recording_subtitle_sidecar
+	$(BUILD_DIR)/test_phase65d_recording_subtitle_sidecar
 
 test-phase65d-recording-subtitle-webvtt:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -101,5 +110,5 @@ test-phase65d-recording-hls-audio-replacement:
 	node --check web/frontend/api/recording-fallback-controls.js
 	node web/frontend/tests/test_phase65d_recording_hls_audio_replacement.js
 
-test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-subtitle-webvtt test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-subtitle-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
+test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-subtitle-sidecar test-phase65d-recording-subtitle-webvtt test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-subtitle-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
 test-frontend-i18n: test-phase65d-recording-track-controls test-phase65d-recording-hls-audio-replacement
