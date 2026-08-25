@@ -44,6 +44,7 @@ def main() -> int:
         "Method interception is not a lifecycle contract",
         "Observe the whole owner lifetime",
         "Real action-to-request proof",
+        "Required test shape for client-local Volume/Mute",
         "Subtitle pre-implementation gate",
     ):
         require(token in contract, f"binding contract is missing section: {token}")
@@ -175,6 +176,10 @@ def main() -> int:
         "Volume/Mute must use one shared Recording/Live playback decorator",
     )
     require(
+        "const clientPreference" in volume_owner,
+        "Volume/Mute must retain confirmed page-local state across clean owner replacement",
+    )
+    require(
         "video.volume" in volume_owner
         and "video.muted" in volume_owner
         and "volumechange" in volume_owner,
@@ -198,6 +203,7 @@ def main() -> int:
         ("recordingMute.dispatch('click');", "volume test must exercise mute/unmute through visible UI"),
         ("recording.element.replaceChild(replacement, oldPresentation);", "volume test must exercise HLS/transport media-element replacement"),
         ("miniPlayer.appendChild(live.element);", "volume test must exercise persistent presentation reparenting"),
+        ("replacement Live owner must keep confirmed volume", "volume test must exercise clean Live owner replacement handoff"),
         ("runtime.metrics.startCalls(), 0", "volume test must prove changes do not start/restart playback"),
         ("volume decorator must not create a second media element", "volume test must prove single-media-element ownership"),
         ("ignoreVolumeWrites", "volume test must cover capability/read-back failure handling"),
