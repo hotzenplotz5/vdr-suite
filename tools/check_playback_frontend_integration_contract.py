@@ -186,8 +186,16 @@ def main() -> int:
         "Volume/Mute must derive state from the active HTMLMediaElement",
     )
     require(
-        "observer.observe(shell, {childList: true, subtree: true});" in volume_owner,
-        "Volume/Mute owner must observe replaceable transport presentation changes",
+        "observer.observe(panel.element, {childList: true, subtree: true});" in volume_owner,
+        "Volume/Mute replacement observer must be scoped to the transport-owned playback element",
+    )
+    require(
+        "observer.observe(shell, {childList: true, subtree: true});" not in volume_owner,
+        "Volume/Mute must never observe its own control shell because textContent UI updates are childList mutations",
+    )
+    require(
+        "if (firstVideo(panel.element) !== activeVideo) bindCurrentVideo();" in volume_owner,
+        "Volume/Mute replacement observer must rebind only when the active media element actually changes",
     )
     for forbidden, message in (
         ("VdrSuiteClientApi", "Volume/Mute must not call the Suite server API"),
@@ -206,6 +214,8 @@ def main() -> int:
         ("replacement Live owner must keep confirmed volume", "volume test must exercise clean Live owner replacement handoff"),
         ("runtime.metrics.startCalls(), 0", "volume test must prove changes do not start/restart playback"),
         ("volume decorator must not create a second media element", "volume test must prove single-media-element ownership"),
+        ("replacement observer must watch only the underlying playback element", "volume test must guard against real-browser MutationObserver self-trigger freeze"),
+        ("replacement observer must not watch the Volume/Mute control shell", "volume test must exclude the control shell from replacement observation"),
         ("ignoreVolumeWrites", "volume test must cover capability/read-back failure handling"),
     ):
         require(token in volume_lifecycle_test, message)
