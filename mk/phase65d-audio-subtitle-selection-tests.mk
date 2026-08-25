@@ -3,12 +3,16 @@ DAEMON_SRC += \
 	api/rest/src/RecordingMediaSessionTrackSelection.cpp \
 	api/rest/src/RecordingMediaSessionAudioTrackPreference.cpp \
 	core/media/src/RecordingMediaTrackContract.cpp \
+	core/media/src/RecordingSubtitleWebVtt.cpp \
+	core/media/src/RecordingMediaSessionSubtitle.cpp \
 	core/media/src/RecordingMediaSessionAudioTrackSelection.cpp \
 	core/media/src/RecordingMediaSessionTrackState.cpp
 
 .PHONY: install-phase65d-recording-track-controls \
 	test-phase65d-recording-media-track-contract \
+	test-phase65d-recording-subtitle-webvtt \
 	test-phase65d-recording-audio-track-selection-request-parser \
+	test-phase65d-recording-subtitle-track-selection-request-parser \
 	test-phase65d-recording-audio-track-preference-parser \
 	test-phase65d-recording-audio-track-selection-runtime \
 	test-phase65d-recording-track-controls \
@@ -28,10 +32,18 @@ install-phase65d-recording-track-controls: install-live-remote-frontend
 
 test-phase65d-recording-media-track-contract:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingSubtitleWebVtt.cpp \
 		core/media/src/RecordingMediaTrackContract.cpp \
 		core/media/tests/test_recording_media_track_contract.cpp \
 		-o $(BUILD_DIR)/test_phase65d_recording_media_track_contract
 	$(BUILD_DIR)/test_phase65d_recording_media_track_contract
+
+test-phase65d-recording-subtitle-webvtt:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingSubtitleWebVtt.cpp \
+		core/media/tests/test_recording_subtitle_webvtt.cpp \
+		-o $(BUILD_DIR)/test_phase65d_recording_subtitle_webvtt
+	$(BUILD_DIR)/test_phase65d_recording_subtitle_webvtt
 
 test-phase65d-recording-audio-track-selection-request-parser:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include -Iapi/rest/include \
@@ -40,6 +52,14 @@ test-phase65d-recording-audio-track-selection-request-parser:
 		api/rest/tests/test_recording_media_session_audio_track_selection_request_parser.cpp \
 		-o $(BUILD_DIR)/test_phase65d_recording_audio_track_selection_request_parser
 	$(BUILD_DIR)/test_phase65d_recording_audio_track_selection_request_parser
+
+test-phase65d-recording-subtitle-track-selection-request-parser:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include -Iapi/rest/include \
+		api/rest/src/RecordingMediaSessionRequestParser.cpp \
+		api/rest/src/RecordingMediaSessionTrackSelectionRequestParser.cpp \
+		api/rest/tests/test_recording_media_session_subtitle_track_selection_request_parser.cpp \
+		-o $(BUILD_DIR)/test_phase65d_recording_subtitle_track_selection_request_parser
+	$(BUILD_DIR)/test_phase65d_recording_subtitle_track_selection_request_parser
 
 test-phase65d-recording-audio-track-preference-parser:
 	$(BUILD_CXX) $(CXXFLAGS) -Iapi/rest/include \
@@ -75,10 +95,11 @@ test-phase65d-recording-track-controls:
 	node web/frontend/tests/test_phase65d_recording_track_controls.js
 	node web/frontend/tests/test_phase65d_recording_hls_track_controls.js
 	node web/frontend/tests/test_phase65d_recording_progressive_hls_track_owner.js
+	node web/frontend/tests/test_phase65d_recording_subtitle_track_controls.js
 
 test-phase65d-recording-hls-audio-replacement:
 	node --check web/frontend/api/recording-fallback-controls.js
 	node web/frontend/tests/test_phase65d_recording_hls_audio_replacement.js
 
-test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
+test-fast: test-phase65d-recording-media-track-contract test-phase65d-recording-subtitle-webvtt test-phase65d-recording-audio-track-selection-request-parser test-phase65d-recording-subtitle-track-selection-request-parser test-phase65d-recording-audio-track-preference-parser test-phase65d-recording-audio-track-selection-runtime
 test-frontend-i18n: test-phase65d-recording-track-controls test-phase65d-recording-hls-audio-replacement
