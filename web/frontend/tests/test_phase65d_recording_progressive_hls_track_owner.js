@@ -131,7 +131,11 @@ function flush(count = 8) {
   }
   function clearTimeoutFake() {}
 
-  let activeSessionId = 'progressive-session-1';
+  // The production fast owner binds its visible Start button directly to an
+  // internal startPlayback closure. The outer track decorator therefore must
+  // discover the first session from canonical owner state; calling only the
+  // decorator's wrapped start() would not exercise the real browser path.
+  let activeSessionId = '';
   let activeProfileId = 'progressive-fmp4';
   let activeTrackId = 'audio-1';
   let fallbackSelections = 0;
@@ -139,6 +143,14 @@ function flush(count = 8) {
 
   const fastElement = node('section');
   fastElement.className = 'recordings2-fast-player';
+  const internalStartButton = node('button');
+  internalStartButton.className = 'recordings2-primary';
+  fastElement.appendChild(internalStartButton);
+  internalStartButton.addEventListener('click', function () {
+    activeSessionId = 'progressive-session-1';
+    activeProfileId = 'progressive-fmp4';
+  });
+
   const fallbackElement = node('section');
   fallbackElement.className = 'recordings2-recording-fallback-shell';
 
@@ -156,12 +168,19 @@ function flush(count = 8) {
 
   const basePanel = Object.freeze({
     element: fastElement,
-    start() { return Promise.resolve(activeSessionId); },
+    start() {
+      activeSessionId = 'progressive-session-1';
+      activeProfileId = 'progressive-fmp4';
+      return Promise.resolve(activeSessionId);
+    },
     sessionId() { return activeSessionId; },
     position() { return 42; },
-    state() { return 'playing'; },
+    state() { return activeSessionId ? 'playing' : 'idle'; },
     seekAbsolute() { return Promise.resolve(true); },
-    stop() { return Promise.resolve(true); },
+    stop() {
+      activeSessionId = '';
+      return Promise.resolve(true);
+    },
     destroy() {},
     relinquishForReplacement() { return Promise.resolve(activeSessionId); }
   });
@@ -221,12 +240,24 @@ function flush(count = 8) {
   const ownerShell = playback.element;
   assert.strictEqual(ownerShell.className, 'recordings2-track-owner-shell');
   assert.strictEqual(ownerShell.children[0], fastElement);
+  assert.strictEqual(requests.length, 0, 'idle owner must not issue track-status traffic');
 
-  await playback.start();
+  // This is deliberately NOT `playback.start()`: production's visible Start
+  // control enters the inner owner closure directly. The track integration must
+  // still observe the new canonical session and become active.
+  assert.ok(timers.length > 0, 'track owner must observe session identity for its whole lifetime');
+  internalStartButton.dispatch('click');
+  const initialSessionWatch = timers.shift();
+  initialSessionWatch();
   await flush();
+
   let select = find(ownerShell, item => item.tagName === 'SELECT');
   assert.ok(select, 'selector must be mounted in stable owner shell');
-  assert.strictEqual(select.disabled, false);
+  assert.strictEqual(select.disabled, false, 'internal Start path must activate track selection');
+  assert.ok(
+    requests.some(body => body.sessionId === 'progressive-session-1'),
+    'production-style internal Start must trigger track-status for the first active session'
+  );
 
   activeProfileId = 'hls-fmp4';
   activeSessionId = 'hls-session-1';
@@ -234,7 +265,7 @@ function flush(count = 8) {
   assert.strictEqual(ownerShell.children[0], fallbackElement, 'HLS transport must replace only the inner fast node');
   assert.ok(find(ownerShell, item => item.className === 'recordings2-track-controls'), 'track controls must survive replacement');
 
-  assert.ok(timers.length > 0, 'session watcher must be scheduled');
+  assert.ok(timers.length > 0, 'lifetime session watcher must continue after first session');
   const sessionWatch = timers.shift();
   sessionWatch();
   await flush();
@@ -254,7 +285,7 @@ function flush(count = 8) {
   assert.strictEqual(select.value, 'audio-2');
   assert.ok(requests.some(body => body.sessionId === 'hls-session-2'), 'replacement session must be verified');
 
-  console.log('phase65d progressive-to-HLS track owner survives DOM replacement and delegates selection');
+  console.log('phase65d production-style internal Start and progressive-to-HLS track owner lifecycle covered');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
