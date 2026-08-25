@@ -54,6 +54,7 @@ struct RecordingMediaSessionSubtitleWebVttResult
     bool ready = false;
     std::string reasonCode;
     int sourceSubtitleStreamIndex = -1;
+    int streamBasePositionSeconds = 0;
     std::string webVtt;
 };
 
@@ -155,7 +156,8 @@ public:
     RecordingMediaSessionSubtitleWebVttResult subtitleWebVtt(
         const std::string& sessionId,
         int sourceSubtitleStreamIndex,
-        MediaSubtitleFormat format);
+        MediaSubtitleFormat format,
+        int streamBasePositionSeconds);
 
     RecordingMediaSessionTrackState trackState(
         const std::string& sessionId) const;
@@ -180,7 +182,7 @@ private:
         int durationSeconds = 0;
         std::uint64_t streamGeneration = 0;
         MediaPresentationProfile streamProfile;
-        std::map<int, std::string> subtitleWebVttCache;
+        std::map<std::string, std::string> subtitleWebVttCache;
     };
 
     static bool defaultReady(
