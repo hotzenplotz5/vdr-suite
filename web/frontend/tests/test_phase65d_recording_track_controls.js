@@ -243,7 +243,7 @@ function createRuntime(options) {
     playback,
     requests,
     seekCalls,
-    root,
+    root: playback.element,
     metrics: {
       stopCalls: () => stopCalls,
       playCalls: () => playCalls,
