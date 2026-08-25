@@ -26,19 +26,30 @@ bool validWebVtt(const std::string& value)
     return value.rfind("WEBVTT", 0) == 0;
 }
 
+std::string cacheKey(int sourceSubtitleStreamIndex, int streamBasePositionSeconds)
+{
+    return std::to_string(sourceSubtitleStreamIndex) + ":" +
+        std::to_string(streamBasePositionSeconds);
+}
+
 } // namespace
 
 RecordingMediaSessionSubtitleWebVttResult
 RecordingMediaSessionRuntime::subtitleWebVtt(
     const std::string& sessionId,
     int sourceSubtitleStreamIndex,
-    MediaSubtitleFormat format)
+    MediaSubtitleFormat format,
+    int streamBasePositionSeconds)
 {
     RecordingMediaSessionSubtitleWebVttResult result;
     result.sourceSubtitleStreamIndex = sourceSubtitleStreamIndex;
+    result.streamBasePositionSeconds = streamBasePositionSeconds;
 
     const RecordingSubtitleWebVttPlan plan =
-        RecordingSubtitleWebVtt::build(sourceSubtitleStreamIndex, format);
+        RecordingSubtitleWebVtt::build(
+            sourceSubtitleStreamIndex,
+            format,
+            streamBasePositionSeconds);
     if (!plan.valid) {
         result.reasonCode = plan.reasonCode.empty()
             ? "recording_subtitle_delivery_not_supported"
@@ -46,6 +57,9 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
         return result;
     }
 
+    const std::string key = cacheKey(
+        sourceSubtitleStreamIndex,
+        streamBasePositionSeconds);
     std::string workspaceDirectory;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -55,8 +69,7 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
             result.reasonCode = "recording_subtitle_session_not_available";
             return result;
         }
-        const auto cached = found->second.subtitleWebVttCache.find(
-            sourceSubtitleStreamIndex);
+        const auto cached = found->second.subtitleWebVttCache.find(key);
         if (cached != found->second.subtitleWebVttCache.end()) {
             result.ready = true;
             result.webVtt = cached->second;
@@ -93,7 +106,7 @@ RecordingMediaSessionRuntime::subtitleWebVtt(
             result.reasonCode = "recording_subtitle_session_changed";
             return result;
         }
-        found->second.subtitleWebVttCache[sourceSubtitleStreamIndex] = process.output;
+        found->second.subtitleWebVttCache[key] = process.output;
     }
 
     result.ready = true;
