@@ -258,12 +258,9 @@ function createRuntime() {
 
   const facade = runtime.window.VdrSuiteRecordings2Playback;
   const recording = facade.createPanel({id: 'recording-1'}, 'default');
-  const live = facade.createLivePanel({id: 'S19.2E-1-1011-11100'}, 'default');
 
   assert.strictEqual(recording.__vdrSuiteVolumeControlsDecorated, true);
-  assert.strictEqual(live.__vdrSuiteVolumeControlsDecorated, true);
   assert(runtime.find(recording.element, 'recordings2-volume-controls'));
-  assert(runtime.find(live.element, 'recordings2-volume-controls'));
   assert.strictEqual(
     runtime.descendants(recording.element).filter(item => item.tagName === 'VIDEO').length,
     1,
@@ -310,19 +307,38 @@ function createRuntime() {
   assert.strictEqual(recordingRange.value, '62');
   assert.strictEqual(recordingMute.getAttribute('aria-pressed'), 'true');
 
+  // The common client-local owner spans clean factory/owner replacement too.
+  // This is the shape used when the persistent Live shell hands off from one
+  // channel owner to another after relinquishing the old MediaSession.
+  const live = facade.createLivePanel({id: 'S19.2E-1-1011-11100'}, 'default');
+  assert.strictEqual(live.__vdrSuiteVolumeControlsDecorated, true);
+  assert(runtime.find(live.element, 'recordings2-volume-controls'));
+  const liveVideo = live.element.querySelector('video');
+  const liveRange = runtime.find(live.element, 'recordings2-volume-range');
+  const liveMute = runtime.find(live.element, 'recordings2-volume-mute');
+  assert.strictEqual(liveVideo.volume, 0.62, 'new Live owner must inherit confirmed client-local volume');
+  assert.strictEqual(liveVideo.muted, true, 'new Live owner must inherit confirmed client-local mute state');
+
   // Persistent presentation switch: reparenting the owner shell keeps exactly
   // the same media element and therefore cannot reset local volume state.
   const fullView = runtime.node('div');
   const miniPlayer = runtime.node('div');
   fullView.appendChild(live.element);
-  const liveVideo = live.element.querySelector('video');
-  const liveRange = runtime.find(live.element, 'recordings2-volume-range');
   liveRange.value = '47';
   liveRange.dispatch('input');
+  liveMute.dispatch('click');
+  assert.strictEqual(liveVideo.muted, false);
   miniPlayer.appendChild(live.element);
   assert.strictEqual(live.element.querySelector('video'), liveVideo);
   assert.strictEqual(liveVideo.volume, 0.47);
   assert.strictEqual(runtime.descendants(live.element).filter(item => item.tagName === 'VIDEO').length, 1);
+
+  const yieldedSession = await live.relinquishForReplacement();
+  assert.strictEqual(yieldedSession, 'live-session');
+  const liveReplacement = facade.createLivePanel({id: 'S19.2E-1-1011-11101'}, 'default');
+  const liveReplacementVideo = liveReplacement.element.querySelector('video');
+  assert.strictEqual(liveReplacementVideo.volume, 0.47, 'replacement Live owner must keep confirmed volume');
+  assert.strictEqual(liveReplacementVideo.muted, false, 'replacement Live owner must keep confirmed mute state');
 
   // Capability-based fail-safe: if a platform refuses a volume write, the UI
   // reads back the actual element state and disables only that unavailable
@@ -338,10 +354,10 @@ function createRuntime() {
   assert(status.textContent.includes('Systemlautstärke'));
 
   assert.strictEqual(runtime.metrics.startCalls(), 0);
-  assert.strictEqual(runtime.metrics.mediaElementsCreated(), 3, 'only base/replacement owners may create videos');
+  assert.strictEqual(runtime.metrics.mediaElementsCreated(), 4, 'only base/replacement owners may create videos');
 
   recording.destroy();
-  live.destroy();
+  liveReplacement.destroy();
   assert.strictEqual(runtime.metrics.destroyCalls(), 2);
 
   console.log('phase65d playback volume controls ok');
