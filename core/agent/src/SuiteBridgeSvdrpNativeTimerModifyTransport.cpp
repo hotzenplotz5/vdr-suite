@@ -20,12 +20,19 @@ bool safeToken(const std::string& value,std::size_t max=512){
  [](unsigned char c){return std::isalnum(c)||c=='-'||c=='_'||c=='.'||c==':';});}
 std::vector<std::string> split(const std::string& in,std::size_t max){
  std::vector<std::string> out;std::size_t pos=0;while(pos<in.size()){
- while(pos<in.size()&&in[pos]==' ')++pos;if(pos==in.size())break;
- auto end=in.find(' ',pos);out.push_back(in.substr(pos,end==std::string::npos?end:end-pos));
- if(out.size()>max)return {};if(end==std::string::npos)break;pos=end+1;}return out;}
+  while(pos<in.size()&&in[pos]==' '){++pos;}
+  if(pos==in.size())break;
+  auto end=in.find(' ',pos);out.push_back(in.substr(pos,end==std::string::npos?end:end-pos));
+  if(out.size()>max){return {};}
+  if(end==std::string::npos)break;
+  pos=end+1;}
+ return out;}
 bool number(const std::string& s,std::uint64_t& n){if(s.empty())return false;n=0;for(char c:s){
- if(c<'0'||c>'9')return false;auto d=static_cast<std::uint64_t>(c-'0');
- if(n>(std::numeric_limits<std::uint64_t>::max()-d)/10)return false;n=n*10+d;}return n>0;}
+ if(c<'0'||c>'9'){return false;}
+ auto d=static_cast<std::uint64_t>(c-'0');
+ if(n>(std::numeric_limits<std::uint64_t>::max()-d)/10){return false;}
+ n=n*10+d;}
+ return n>0;}
 char hd(unsigned n){return n<10?static_cast<char>('0'+n):static_cast<char>('a'+n-10);}
 std::string hexText(const std::string& value){if(value.empty())return "-";std::string out;
  out.reserve(value.size()*2);for(unsigned char c:value){out.push_back(hd(c>>4));out.push_back(hd(c&15));}return out;}
