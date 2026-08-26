@@ -21,6 +21,9 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Current State](CURRENT.md) — sole repository authority for volatile operational status.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite work session.
 - [Current Project Status](development/current-status.md) — stable narrative context around the current platform direction.
+- [Current Architecture State](development/current-architecture-state.md) — durable implemented ownership/capability summary.
+- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md) — active bounded implementation contract under ADR-0056.
+- [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md) — binding production-owner/lifecycle proof rules for playback frontend work.
 - [Phase 64 Final Closeout](development/phase-64-closeout.md) — accepted Timer-engine completion boundary and exact evidence.
 - [Project Overview](project-overview.md) — compact product and architecture overview.
 - [Project Principles](project-principles.md) — binding product and engineering principles.
@@ -32,6 +35,7 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Current Architecture State](development/current-architecture-state.md)
+- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Domain Dependency Map](planning/domain-dependency-map.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
@@ -40,6 +44,8 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 ## Development and history
 
 - [Development Documentation](development/index.md)
+- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md)
+- [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md)
 - [Completed Phases](development/completed-phases.md)
 - [Completed Phase Archive](development/completed-phases/README.md)
 - [Phase 64 Final Closeout](development/phase-64-closeout.md)
@@ -54,6 +60,7 @@ Historical closeouts may contain exact accepted SHAs, CI runs, runtime fingerpri
 - [Planning Documentation](planning/index.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [VDR Ecosystem Parity and Product Gaps](planning/parity-audit-and-frontend-gap-roadmap.md)
 
