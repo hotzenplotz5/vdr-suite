@@ -22,10 +22,14 @@ def main() -> int:
     agents = read(ROOT / "AGENTS.md")
     contract = read(ROOT / "docs/development/frontend-playback-integration-contract.md")
     browser_view = read(FRONTEND / "recordings2-browser-view.js")
+    lifecycle_publisher = read(FRONTEND / "api/playback-owner-lifecycle.js")
     fast_owner = read(FRONTEND / "api/session-frontend-sync.js")
     fallback_owner = read(FRONTEND / "api/recording-fallback-controls.js")
     track_owner = read(FRONTEND / "api/recording-track-controls.js")
     volume_owner = read(FRONTEND / "api/playback-volume-controls.js")
+    lifecycle_publication_test = read(
+        FRONTEND / "tests/test_phase65d_playback_owner_lifecycle.js"
+    )
     lifecycle_test = read(
         FRONTEND / "tests/test_phase65d_recording_progressive_hls_track_owner.js"
     )
@@ -55,30 +59,72 @@ def main() -> int:
         "Recordings 2 detail view must compose the public Recording playback owner",
     )
 
-    # The current production owner binds its visible initial Start directly to
-    # the internal closure. As long as that topology exists, extensions cannot
-    # rely on interception of the exported start() method for lifecycle truth.
+    # ADR-0056 Slice 2 publishes lifecycle directly from the persistent owner.
+    # A local monotonic lifecycle revision is observation ordering only; it must
+    # not be confused with Slice-3 playback-presentation generation semantics.
+    for token, message in (
+        ("lifecycleVersion: LIFECYCLE_VERSION", "lifecycle snapshots must be versioned"),
+        ("lifecycleRevision: revision", "lifecycle snapshots must expose local publication ordering"),
+        ("function snapshot()", "lifecycle publisher must expose snapshot()"),
+        ("function subscribe(listener)", "lifecycle publisher must expose subscribe()"),
+        ("listeners.forEach", "lifecycle publisher must notify subscribers without server polling"),
+    ):
+        require(token in lifecycle_publisher, message)
+    for forbidden, message in (
+        ("VdrSuiteClientApi", "lifecycle publisher must not call the Suite API"),
+        ("/api/media/sessions", "lifecycle publisher must not own MediaSessions"),
+        ("generation:", "Slice 2 lifecycle publisher must not invent presentation generation"),
+    ):
+        require(forbidden not in lifecycle_publisher, message)
+
+    # The production owner still binds its visible initial Start directly to an
+    # internal closure. Lifecycle truth must therefore come from the owner
+    # itself rather than exported-method interception or timer reconstruction.
     direct_internal_start = "startButton.addEventListener('click', startPlayback);" in fast_owner
     if direct_internal_start:
         require(
-            "scheduleSessionWatch();" in track_owner,
-            "track owner must start canonical session observation at owner creation",
+            "snapshot: lifecycleSnapshot" in fast_owner
+            and "subscribe: subscribeLifecycle" in fast_owner,
+            "persistent Recording owner must publish snapshot()/subscribe()",
         )
         require(
-            "else if (currentId && currentId !== activeSessionId)" in track_owner,
-            "track owner must discover the first internally-started MediaSession",
+            "publishLifecycle('start-requested'" in fast_owner
+            and "publishSession(id, 'progressive-fmp4'" in fast_owner,
+            "owner-internal Start path must publish lifecycle and the first MediaSession",
+        )
+        require(
+            "snapshot: lifecycleSnapshot" in fallback_owner
+            and "subscribe: subscribeLifecycle" in fallback_owner,
+            "HLS compatibility owner must publish the same lifecycle interface",
+        )
+        require(
+            "panel.subscribe(handleOwnerLifecycle)" in track_owner
+            and "function bindOwnerLifecycle()" in track_owner,
+            "session-bound track controls must consume canonical owner publication",
+        )
+        require(
+            "if (!bindOwnerLifecycle()) scheduleSessionWatch();" in track_owner,
+            "legacy sessionId polling may remain only as compatibility fallback",
+        )
+        require(
+            "if (usingCanonicalLifecycle) return result;" in track_owner,
+            "canonical track integration must not depend on wrapped start() completion",
         )
         require(
             "SESSION_WATCH_MAX_ATTEMPTS" not in track_owner,
-            "track owner observation must not expire before a delayed user Start",
+            "compatibility observation must not expire before a delayed user Start",
         )
         require(
-            "internalStartButton.dispatch('click');" in lifecycle_test,
-            "integration test must exercise the owner-internal production-style Start path",
+            "internalStartButton.dispatch('click');" in lifecycle_publication_test,
+            "lifecycle publication test must exercise the owner-internal visible Start path",
         )
         require(
-            "await playback.start();" not in lifecycle_test,
-            "integration test must not shortcut initial lifecycle coverage through decorated start()",
+            "await playback.start();" not in lifecycle_publication_test,
+            "lifecycle publication test must not shortcut initial coverage through decorated start()",
+        )
+        require(
+            "timerCalls, 0" in lifecycle_publication_test,
+            "canonical lifecycle test must prove session discovery does not use a watch timer",
         )
         require(
             "internalStartButton.dispatch('click');" in subtitle_lifecycle_test,
@@ -90,8 +136,21 @@ def main() -> int:
         )
 
     require(
+        "publishLifecycle('transport-replaced'" in fast_owner
+        and "followFallbackLifecycle(fallbackPanel)" in fast_owner,
+        "persistent owner must publish progressive-to-HLS transport replacement and follow child lifecycle",
+    )
+    require(
+        "fastElement.replaceWith(fallbackElement);" in lifecycle_publication_test,
+        "canonical lifecycle test must cover progressive-to-HLS transport replacement",
+    )
+    require(
+        "transition: 'session-replaced'" in lifecycle_publication_test,
+        "canonical lifecycle test must publish replacement MediaSession identity",
+    )
+    require(
         "fastElement.replaceWith(fallbackElement);" in lifecycle_test,
-        "integration test must cover progressive-to-HLS transport replacement",
+        "legacy topology integration test must retain progressive-to-HLS transport replacement coverage",
     )
     require(
         "fastElement.replaceWith(fallbackElement);" in subtitle_lifecycle_test,
@@ -126,16 +185,24 @@ def main() -> int:
         )
 
     require(
-        "requests.some(body => body.sessionId === 'progressive-session-1')" in lifecycle_test,
-        "integration test must prove first-session track-status request",
+        "requests.some(body => body.sessionId === 'progressive-session-1')" in lifecycle_publication_test,
+        "canonical lifecycle test must prove first-session track-status request",
     )
     require(
-        "requests.some(body => body.sessionId === 'hls-session-1')" in lifecycle_test,
-        "integration test must prove replacement-session track-status request",
+        "requests.some(body => body.sessionId === 'hls-session-1')" in lifecycle_publication_test,
+        "canonical lifecycle test must prove replacement-session track-status request",
     )
     require(
-        "fallbackSelections, 1" in lifecycle_test,
-        "integration test must prove audio selection delegates to the existing HLS owner",
+        "requests.some(body => body.sessionId === 'hls-session-2')" in lifecycle_publication_test,
+        "canonical lifecycle test must verify a session replaced by HLS track selection",
+    )
+    require(
+        "fallbackSelections, 1" in lifecycle_publication_test,
+        "canonical lifecycle test must prove audio selection delegates to the established HLS owner",
+    )
+    require(
+        "snapshot.generation === undefined" in lifecycle_publication_test,
+        "Slice 2 test must prove publication does not invent Slice-3 generation",
     )
 
     # Subtitle delivery is session- and stream-base-bound. The production-style
