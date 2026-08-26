@@ -16,6 +16,7 @@ Before any implementation, review-state change, installation or status claim, re
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Current Project Status](development/current-status.md)
+- [Current Architecture State](development/current-architecture-state.md)
 - [Phase 64 Closeout](development/phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](development/phase-65-live-tv-closeout.md)
@@ -24,7 +25,10 @@ Before any implementation, review-state change, installation or status claim, re
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](development/phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Phase 65.D Browser-local Volume/Mute Closeout](development/phase-65d-browser-volume-mute-closeout.md)
+- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md)
+- [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md)
 - [ADR-0055 Media Transcode Backend Selection](adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
+- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
@@ -55,28 +59,33 @@ Completed Phase-65 product verticals:
 Current Phase-65 product vertical:
 65.D - Client playback abstraction
 
-Completed Phase-65.D slices:
+Accepted Phase-65.D bounded work:
 65.D.1 - Persistent Browser Playback Shell
 65.D.2 - Recording Playback Controls and Seek
 normalized Recording audio-track selection
 normalized Recording subtitle selection including browser WebVTT delivery
 browser-local Volume/Mute controls
-
-Demonstrated next Phase-65.D client gap:
 continuous-fMP4 browser MSE forward-buffer/backpressure
+compatibility timeline drag ownership
+exact non-zero HLS Recording resume synchronization
+
+Current Phase-65.D architecture gate:
+ADR-0056 playback semantic consolidation
 
 Remaining mandatory Phase-65.D semantic work:
-discontinuity handling
+normalized MediaPlaybackContract
+canonical playback-owner lifecycle publication
+continuity/discontinuity and playback-presentation generation semantics
 classified playback failures
-continuous-fMP4 browser MSE forward-buffer/backpressure
-additional client semantic gaps only when demonstrated against ADR-0053
 ```
 
 Phase 65 is active. The earlier planning label `65.C - Recording seek and growing-recording semantics` is superseded by the implementation history. PR #206 explicitly implemented the first bounded Phase-65.C Recording startup/performance vertical, and the subsequently authorized Phase-65.C work continued through PR #208 with the backend-scoped media-transcode/output policy and Web settings.
 
-The old roadmap's separate `65.D - Compatibility escalation` planning block was absorbed by the demonstrated compatibility/performance work completed inside 65.C and never started as an independent vertical. **65.D - Client playback abstraction is now active.** Phase 65.D.1, Phase 65.D.2, normalized Recording audio/subtitle selection and browser-local Volume/Mute are accepted and closed for their bounded scopes; the complete Phase 65.D vertical remains open for discontinuity handling, classified playback failure behavior, the demonstrated continuous-fMP4 browser MSE forward-buffer/backpressure gap and any additional demonstrated ADR-0053 client gap.
+The old roadmap's separate `65.D - Compatibility escalation` planning block was absorbed by the demonstrated compatibility/performance work completed inside 65.C and never started as an independent vertical. **65.D - Client playback abstraction remains active.** Phase 65.D.1, Phase 65.D.2, normalized Recording audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 browser forward-buffer control, compatibility timeline ownership and exact non-zero HLS Recording resume synchronization are accepted for their bounded scopes.
 
-Truthful range/seek/growing-recording capability remains a binding Phase-65 invariant. The implementation must not advertise Range, time-seek or immutable-source behavior where the selected source/profile cannot support it. Phase 65.D.2 now provides accepted arbitrary time-seek and stop/resume semantics for supported completed-Recording progressive-fMP4 and HLS restart-seek paths. User-visible growing-Recording seek, Live-TV timeshift and any broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
+The next coherent Phase-65.D direction is the accepted ADR-0056 consolidation layer. The client-facing semantic contract must no longer accumulate new lifecycle/capability rules only as distributed `presentationProfileId`, transport-DOM or timer conventions. Remaining mandatory work is the normalized provider-free `MediaPlaybackContract`, canonical playback-owner lifecycle publication, explicit continuity/discontinuity semantics and classified playback failures. Read-only media diagnostics are sequenced after those semantic contracts. Shared fMP4/MSE helper deduplication is technical debt, not a Phase-65.D completion gate.
+
+Truthful range/seek/growing-recording capability remains a binding Phase-65 invariant. The implementation must not advertise Range, time-seek or immutable-source behavior where the selected source/profile cannot support it. Completed-Recording arbitrary time-seek and stop/resume are accepted for supported progressive-fMP4 and HLS restart-seek paths. Compatibility timeline interactions must preserve the canonical absolute Recording position across transport-local time, and exact non-zero HLS video resume must provide a synchronized random-access start through an implemented adaptation path or fail closed. User-visible growing-Recording seek, Live-TV timeshift and any broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
 
 Phase 66 remains blocked until Phase 65 is completely closed and Phase 66 is explicitly started.
 
@@ -176,19 +185,23 @@ Phase 65 may proceed before the broad Timer UI is completed.
 
 ## Active Phase 65 architecture
 
-ADR-0046 and ADR-0053 jointly define the accepted server/client media direction. ADR-0055 adds the accepted media-transcode backend-selection and hardware-acceleration contract.
+ADR-0046 and ADR-0053 jointly define the accepted server/client media direction. ADR-0055 adds the accepted media-transcode backend-selection and hardware-acceleration contract. ADR-0056 adds the accepted normalized playback presentation, timeline, continuity and failure-semantics layer.
 
 ```text
 private VDR / Recording source
   -> explicitly owned StreamProvider
   -> ProviderStreamLease
   -> least-transformation media adaptation
-  -> Streaming Gateway / selected MediaSession profile
-  -> client playback adapter
+  -> Streaming Gateway / MediaSession
+  -> normalized MediaPlaybackContract
+  -> persistent client playback owner
+  -> replaceable transport adapter
   -> platform playback engine
 ```
 
-Transformation preference is `pass-through -> remux/repackage -> transcode`. Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain.
+`MediaPresentationProfile` remains the internal adaptation/execution plan. `MediaPlaybackContract` is the provider-free first-party semantic contract. Transformation preference remains `pass-through -> remux/repackage -> transcode`, except where a demonstrated operation requires stronger transformation for correctness. Exact non-zero HLS video resume is one accepted operation-specific example: ordinary start-at-zero retains copy/remux when valid, while an exact non-zero resume must use the implemented synchronized transcode path or fail closed.
+
+Streamdev may be an explicitly owned private provider, but it is not the public playback API or an implicit fallback chain.
 
 Browser playback is the first real-system validator, not the architecture authority; the same media/session/source contracts must remain usable by Android/Android TV, Apple platforms, Windows, Kodi-style clients and television runtimes.
 
@@ -334,7 +347,7 @@ Phase 65.C is therefore closed for this bounded combined delivery-performance/ou
 
 ## Phase 65.D Client playback abstraction
 
-Phase 65.D is active. Phase 65.D.1, Phase 65.D.2, normalized Recording audio/subtitle selection and browser-local Volume/Mute are accepted and closed while the vertical remains open for the remaining ADR-0053 client-playback semantics.
+Phase 65.D is active. Its accepted bounded implementation now includes the persistent shell, Recording controls/seek, normalized track selection, browser-local Volume/Mute, continuous-fMP4 MSE forward-buffer control, compatibility timeline ownership and exact non-zero HLS resume synchronization. The vertical remains open for ADR-0056 semantic consolidation.
 
 ### 65.D.1 Persistent Browser Playback Shell — CLOSED
 
@@ -377,15 +390,101 @@ The first runtime candidate exposed a real browser freeze because a `MutationObs
 
 See [Phase 65.D Browser-local Volume/Mute Closeout](development/phase-65d-browser-volume-mute-closeout.md).
 
-### Demonstrated continuous-fMP4 browser MSE forward-buffer gap
+### Continuous-fMP4 browser MSE forward-buffer/backpressure — CLOSED
 
-Broader acceptance on the same yaVDR/browser environment demonstrated an additional client transport gap outside the Volume/Mute implementation: the progressive-fMP4 browser path can eventually fail with `SourceBuffer is full` because its browser-side MSE pump bounds old history but does not bound how far it reads/appends ahead of the current playback position.
+PR #219 closed the demonstrated browser-side continuous-fMP4 forward-buffer defect while preserving one MediaSession, one Gateway stream and one HTML media owner.
 
-The same continuous-fMP4 pump shape predates this Volume/Mute slice and was already present on the accepted Phase-65.D.2 runtime candidate. The HLS compatibility path retained working Stop/Resume semantics, and the error was reproduced again after Recording index generation had completed. This is therefore recorded as a separate demonstrated Phase-65.D client gap rather than attributed to Volume/Mute.
+The accepted candidate and hosted CI were:
 
-The earlier Phase-65.C `HTTP_BACKPRESSURE_LONG_PLAYBACK=PASS` evidence covers the server/HTTP slow-reader resource boundary; it does not prove bounded browser MSE `SourceBuffer` forward buffering.
+```text
+accepted_65d_mse_backpressure_candidate=bcb8b1a0cdbc874de296eb57967d260038d70ed8
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=8243
+source_ci_run_id=32885936866
+source_ci_result=PASS
+merge_pr=219
+merge_commit=5a5789e09bbf79d0e87a25f09ebadce72918f68b
 
-Phase 65.D remains open for discontinuity handling, classified playback failure behavior, this demonstrated continuous-fMP4 browser MSE forward-buffer/backpressure gap and any further client semantic gap demonstrated against ADR-0053. Growing-Recording seek and Live-TV timeshift remain outside the accepted D.2 and Volume/Mute scopes.
+REAL_YAVDR_ANDROID_ACCEPTANCE=PASS
+SOURCEBUFFER_FULL_REPRODUCED_ON_PREVIOUS_PATH=YES
+FORWARD_HIGH_WATER_SECONDS=12
+RECORDING_SEEK_REGRESSION=PASS
+STOP_RESUME_REGRESSION=PASS
+VOLUME_MUTE_REGRESSION=PASS
+```
+
+The browser MSE owner now stops pulling the continuous HTTP stream while its SourceBuffer is at the accepted 12-second forward high-water mark and resumes only when playback/seeking creates room. This is separate from the Phase-65.C HTTP slow-reader/backpressure contract, which protects the server/HTTP resource boundary.
+
+The later HLS Resume A/V-sync defect was explicitly isolated as a separate compatibility-path follow-up and is not attributed to this continuous-fMP4 fix.
+
+### Compatibility timeline ownership and exact HLS Recording resume — CLOSED
+
+PR #220 closed the Android compatibility-mode timeline drag race and merged the stacked exact HLS resume synchronization work from PR #221.
+
+The timeline defect was ownership-specific: while the user dragged the HLS fallback range input, active playback updates could overwrite the preview target before the commit event. The accepted fix preserves the user-owned drag target until commit/cancel. This establishes the durable distinction between:
+
+```text
+user-owned seek preview
+transport-local presentation time
+canonical absolute Recording position
+```
+
+PR #221 separately captured the exact non-zero HLS resume startup defect. On a fresh HLS restart-seek the measured first packet/keyframe timing was:
+
+```text
+audio_first_pts=0.000s
+video_first_pts=1.350s
+first_video_keyframe=1.350s
+audio_lead_before_first_decodable_video_rap=1.350s
+```
+
+The source and later generated HLS media remained aligned within tens of milliseconds, and playback from the beginning was synchronized. The unsafe worker used input `-ss` with copied A/V. Exact arbitrary stream-copy cuts were therefore not sync-safe at this restart boundary.
+
+The accepted implementation keeps ordinary HLS start at position zero on the least-transformation copy/remux path. For an exact non-zero HLS Recording resume with video, implemented H.264/AAC copied tracks are promoted to transcode, video encoder selection remains under ADR-0055 backend-scoped policy, unsupported exact-resume codec paths fail closed, and the lower HLS worker-plan guard rejects an unsafe copied-A/V non-zero video resume.
+
+Durable repository evidence:
+
+```text
+accepted_65d_exact_hls_resume_candidate=870609e7b9a00949448aca1ea1c4db97399bf949
+stacked_merge_commit=0d237855188ca2483649a72e5a6bb93c4c4b86f1
+stacked_merge_tree_equivalent_to_candidate=YES
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=8256
+source_ci_run_id=32929643924
+source_ci_result=PASS
+parent_merge_pr=220
+parent_merge_commit=5f9ecc3b1c0af831d8017204da9da63c9ad62610
+```
+
+The user supplied real yaVDR verification that remote `main` resolved exactly to the PR-#220 merge commit after the timeline/exact-resume work went online.
+
+### ADR-0056 Playback Semantics Consolidation — ACTIVE
+
+The accepted implementation above proved that the existing architecture needs one explicit semantic layer above internal presentation/worker planning. ADR-0056 therefore defines:
+
+```text
+internal MediaPresentationProfile
+  -> normalized MediaPlaybackContract
+  -> persistent client playback owner
+  -> replaceable transport adapter
+  -> platform playback engine
+```
+
+`MediaPresentationProfile` remains internal execution/adaptation state. The normalized first-party contract must express canonical absolute timeline, seek mode, track capability, continuity/presentation generation and classified failure without exposing provider/encoder implementation details.
+
+The active implementation sequence is:
+
+```text
+1. normalized MediaPlaybackContract
+2. canonical owner lifecycle snapshot/subscription
+3. timeline + continuity/discontinuity semantics
+4. classified playback failure semantics
+5. read-only media diagnostics after semantic correctness
+```
+
+Steps 1-4 are mandatory remaining Phase-65.D semantic work. Read-only diagnostics are sequenced after them and remain observational only. Shared fMP4/MSE helper extraction is separate technical debt and must not merge continuous-stream and HLS lifecycles into a universal player.
+
+See [ADR-0056](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md), [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md) and [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md).
 
 ## Binding execution-governance decisions
 
@@ -399,9 +498,9 @@ Phase 65.D remains open for discontinuity handling, classified playback failure 
 
 ## Current authorization boundary
 
-Phase 65 is **active**. Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D is active; Phase 65.D.1, Phase 65.D.2, normalized Recording audio/subtitle selection and browser-local Volume/Mute are accepted and closed. The demonstrated continuous-fMP4 browser MSE forward-buffer/backpressure gap remains open together with discontinuity and classified-failure semantics.**
+Phase 65 is **active**. Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D remains active. D.1/D.2, normalized Recording audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 browser MSE forward-buffer control, compatibility timeline ownership and exact non-zero HLS Recording resume synchronization are accepted for their bounded scopes.**
 
-The remaining Phase-65.D work stays inside the small Suite semantic layer around platform playback engines rather than creating a universal Suite-owned decoder/player core. The first-party abstraction may expose operations such as open, play/pause/stop, seek where actually supported, track selection, position/state, classified failure and close while continuing to consume Suite-owned MediaSession semantics. Transient browser-local state such as Volume/Mute remains on the active platform media element and does not become a server media-domain mutation.
+The next coherent Phase-65.D work is ADR-0056 playback semantic consolidation. It stays inside the small Suite semantic layer around mature platform playback engines rather than creating a universal Suite-owned decoder/player core.
 
 The media truthfulness boundary remains binding throughout 65.D and later client work:
 
@@ -410,8 +509,12 @@ The media truthfulness boundary remains binding throughout 65.D and later client
 3. do not invent immutable length or HTTP byte-range semantics for continuous progressive fMP4;
 4. preserve normalized Suite media/track identity independently of provider-native paths/PIDs where public semantics require it;
 5. keep ADR-0053 least-transformation selection and ADR-0055 transcode policy independent of client brand/user-agent;
-6. keep provider-native paths private and preserve MediaSession/Gateway authorization and deterministic cleanup.
+6. allow operation-specific stronger adaptation only when demonstrated correctness requires it and the implemented path remains policy-governed/fail-closed;
+7. keep user-owned preview, transport-local time and canonical absolute Recording position distinct;
+8. keep MediaSession identity, route epoch and playback presentation generation distinct;
+9. keep provider-native paths private and preserve MediaSession/Gateway authorization and deterministic cleanup;
+10. classified failures must preserve detailed reason evidence and may not themselves trigger silent provider/profile/session recovery.
 
-Completed-Recording arbitrary time-seek and stop/resume are now accepted for the supported Phase-65.D.2 profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred until a demonstrated gap justifies a coherent implementation scope. Their absence must be represented truthfully rather than silently fabricated.
+Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported completed-Recording profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred until a demonstrated gap justifies a coherent implementation scope. Their absence must be represented truthfully rather than silently fabricated.
 
 Phase 66 Broadcast Companion, Legacy OSD and broad Timer UI are not authorized by this Phase-65 boundary.

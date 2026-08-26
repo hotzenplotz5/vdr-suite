@@ -49,19 +49,27 @@ Completed Phase-65 product verticals:
 Current Phase-65 product vertical:
 65.D - Client playback abstraction
 
-Completed Phase-65.D slices:
+Accepted Phase-65.D bounded work:
 65.D.1 - Persistent Browser Playback Shell
 65.D.2 - Recording Playback Controls and Seek
+normalized Recording audio/subtitle selection
+browser-local Volume/Mute
+continuous-fMP4 browser MSE forward-buffer control
+compatibility timeline ownership
+exact non-zero HLS Recording resume synchronization
+
+Active Phase-65.D architecture gate:
+ADR-0056 playback semantic consolidation
 ```
 
-The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md), [Phase 64 Closeout](../development/phase-64-closeout.md), [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md), [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md), [Phase 65.C Recording Startup](../development/phase-65-recording-startup-progressive-direct.md), [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md), [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md) and [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md).
+The exact merged checkpoint and completion evidence are intentionally not duplicated here. Read [Current State](../CURRENT.md), [Phase 64 Closeout](../development/phase-64-closeout.md), [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md), [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md), [Phase 65.C Recording Startup](../development/phase-65-recording-startup-progressive-direct.md), [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md), [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md), [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md), [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) and [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md).
 
 ## Revised numbered forward sequence
 
 | Order | Phase | Status | Track | Primary completion direction |
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable intent/assignment/binding orchestration, safe managed native fulfillment, authoritative readback, reconciliation, controlled reassignment and real-system write acceptance. |
-| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. Recording playback, Live-TV, completed-Recording startup/progressive delivery and backend-scoped media-transcode output policy/settings are accepted; Phase 65.D is active with persistent playback ownership and completed-Recording controls/seek accepted. |
+| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions | Authorized Recording + Live playback through MediaSession/Gateway, explicit provider leases, least-transformation delivery and real picture/sound acceptance. Recording playback, Live-TV, completed-Recording startup/progressive delivery, backend-scoped media-transcode policy and the accepted Phase-65.D playback/control/track/buffer/timeline/resume work are complete for their bounded scopes; ADR-0056 semantic consolidation remains active. |
 | 3 | Phase 66 | Planned after Phase 65 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext pages plus broadcast-application discovery/session runtime without reducing them to OSD proxying. |
 | 4 | Phase 67 | Planned after Phase 66 | Legacy OSD Compatibility Bridge | Isolated OSD observation, sequencing/resync, exclusive controller lease and allowlisted native input. |
 | 5 | Phase 68 | Planned after Phase 67 | Public API and Client Compatibility Hardening | Stabilized `/api/v1`, errors, revisions/preconditions, pagination, compatibility/deprecation and independent-client contracts. |
@@ -83,15 +91,17 @@ The broad polished Timer UI is not part of the Phase-64 completion gate.
 
 ## Phase 65 compact boundary
 
-Binding decisions: ADR-0046 + ADR-0053 + ADR-0055 for media-transcode backend selection.
+Binding decisions: ADR-0046 + ADR-0053 + ADR-0055 + ADR-0056.
 
 ```text
 private media source
   -> explicitly owned provider
   -> ProviderStreamLease
-  -> least-transformation adaptation
-  -> Streaming Gateway / MediaSession profile
-  -> client playback adapter
+  -> least-transformation adaptation / internal MediaPresentationProfile
+  -> Streaming Gateway / MediaSession
+  -> normalized MediaPlaybackContract
+  -> persistent client playback owner
+  -> replaceable transport adapter
   -> platform playback engine
 ```
 
@@ -102,9 +112,13 @@ Recording playback [65.A CLOSED]
   -> Live TV [65.B CLOSED]
   -> Recording delivery performance + media output/transcode settings [65.C CLOSED]
   -> Client playback abstraction [65.D ACTIVE]
-       -> Persistent Browser Playback Shell [65.D.1 CLOSED]
-       -> Recording Playback Controls and Seek [65.D.2 CLOSED]
-       -> remaining ADR-0053 client semantics [OPEN]
+       -> Persistent Browser Playback Shell [CLOSED]
+       -> Recording Playback Controls and Seek [CLOSED]
+       -> normalized audio/subtitle selection [CLOSED]
+       -> browser-local Volume/Mute [CLOSED]
+       -> continuous-fMP4 MSE forward buffering [CLOSED]
+       -> compatibility timeline + exact HLS resume [CLOSED]
+       -> ADR-0056 playback semantic consolidation [ACTIVE]
 ```
 
 Current implementation position:
@@ -116,11 +130,13 @@ Current implementation position:
 - 65.C first closed the completed-Recording startup/performance path through PR #206, with truthful `progressive-direct`, low-latency `progressive-fmp4` and HLS fallback semantics;
 - the same authorized 65.C scope then continued through PR #208 with backend-scoped `auto` / `software` / `vaapi` output settings, calibrated selection, hard VAAPI capability checks, session-stable settings, browser diagnostics, fail-closed forced-VAAPI behavior and progressive-fMP4 backpressure hardening;
 - the old separate `65.D - Compatibility escalation` planning block was thereby consumed by demonstrated compatibility/performance work inside 65.C and never started as an independent vertical;
-- 65.D Client playback abstraction is active;
-- 65.D.1 Persistent Browser Playback Shell is closed for its bounded accepted scope;
-- 65.D.2 Recording Playback Controls and Seek is closed after real yaVDR/browser acceptance of completed-Recording Play/Pause/Stop, position/duration, relative/timeline/direct seek, progressive-fMP4 repositioning, HLS restart-seek, stop/resume and Android direct-time entry;
-- completed-Recording arbitrary time-seek and stop/resume are therefore implemented for the supported D.2 profiles, while user-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred;
-- remaining 65.D work includes normalized audio/subtitle selection, discontinuity handling and classified playback failure behavior.
+- 65.D.1 Persistent Browser Playback Shell and 65.D.2 Recording Playback Controls and Seek are closed for their accepted scopes;
+- normalized Recording audio/subtitle selection and browser-local Volume/Mute are accepted;
+- PR #219 closed the continuous-fMP4 browser MSE forward-buffer/backpressure gap;
+- PR #220/#221 closed compatibility timeline drag ownership and exact non-zero HLS Recording resume synchronization;
+- completed-Recording arbitrary time-seek and stop/resume are implemented for the supported profiles, while user-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred;
+- active 65.D work is now the ADR-0056 semantic consolidation: normalized `MediaPlaybackContract`, canonical owner lifecycle publication, continuity/discontinuity and presentation-generation semantics, and classified playback failures;
+- read-only media diagnostics follow semantic correctness; shared fMP4/MSE helper deduplication is technical debt rather than a Phase-65 gate.
 
 Browser is the initial first-party product-validation client. Streamdev may be an internal explicitly owned provider but is not the public media API. Android/Android TV, Kodi, desktop and television clients remain capability-driven and may select cheaper direct/remux profiles when supported.
 
@@ -203,14 +219,15 @@ Vertical product acceptance is maintained in [Golden User Journeys](golden-user-
 - Phase 65.B Live-TV playback is closed for its accepted scope.
 - Phase 65.C Recording delivery performance and media output/transcode settings is closed for its accepted scope.
 - The old unstarted 65.D Compatibility escalation label is absorbed into completed 65.C; 65.D Client playback abstraction is active.
-- Phase 65.D.1 Persistent Browser Playback Shell is closed for its accepted scope.
-- Phase 65.D.2 Recording Playback Controls and Seek is closed for its accepted scope.
+- Phase 65.D.1 Persistent Browser Playback Shell and Phase 65.D.2 Recording Playback Controls and Seek are closed for their accepted scopes.
+- normalized Recording track selection, browser-local Volume/Mute, continuous-fMP4 MSE forward-buffer control and compatibility timeline/exact-HLS-resume work are accepted for their bounded scopes.
+- ADR-0056 playback semantic consolidation remains the active 65.D architecture gate.
 - Truthful range/seek/growing-recording capability remains a Phase-65 invariant; completed-Recording seek/resume is implemented where accepted while unsupported growing/timeshift capability remains explicit.
 - Phase 65 does not close until the remaining required acceptance gates in the Strict Roadmap are satisfied.
 - Future phases 66+ may be reordered only before runtime starts and only through explicit repository planning/architecture reconciliation.
 - Broad Timer UI completion is not inserted as a numbered phase between 64 and 65.
 - Cross-cutting product/admin work does not silently advance the numbered runtime phase.
-- Draft planning or ADR work does not by itself authorize runtime implementation.
+- Accepted ADR architecture does not by itself prove runtime completion.
 
 ## Verification
 
@@ -231,6 +248,8 @@ make test-phase
 - [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md)
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md)
+- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
+- [ADR-0056 Playback Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)

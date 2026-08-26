@@ -33,6 +33,7 @@ It does **not** own volatile operational state. Exact current phase position, ac
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Domain Dependency Map](domain-dependency-map.md)
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md)
+- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR Index](../adr/index.md)
 
 ### Product and ecosystem parity
@@ -77,17 +78,28 @@ Phase 62 — Identity, RBAC and Accountability
   -> Phase 63 — Backend Agent and Secure Multi-Site Runtime
   -> Phase 64 — Timer Intent and Multi-Backend Orchestration
   -> Phase 65 — Streaming Gateway and Media Sessions
-  -> Phase 66 — Legacy OSD Compatibility Bridge
-  -> Phase 67 — Public API and Client Compatibility Hardening
-  -> Phase 68 — Recommendation and Content Knowledge Graph
+  -> Phase 66 — Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 67 — Legacy OSD Compatibility Bridge
+  -> Phase 68 — Public API and Client Compatibility Hardening
+  -> Phase 69 — Recommendation and Content Knowledge Graph
 ```
 
 Which of these phases is currently completed, active or next is intentionally not repeated here. See [Current State](../CURRENT.md).
 
+## Current Phase-65 planning anchor
+
+Phase-65 runtime status remains owned by `CURRENT.md`. Stable planning for the active client-playback semantic boundary is now:
+
+- [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) — normalized playback presentation/timeline/continuity/failure architecture;
+- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md) — bounded implementation sequence;
+- [Frontend Playback Integration Contract](../development/frontend-playback-integration-contract.md) — production owner/lifecycle proof rules.
+
+These documents do not authorize Phase 66 and do not reopen already accepted Phase-65.D transport/control slices.
+
 ## Planning cautions
 
 - A completed phase is not reopened merely because later work reuses or hardens its contracts.
-- A proposed ADR does not authorize runtime work by itself.
+- An accepted ADR defines architecture but does not by itself prove runtime implementation or phase completion.
 - A historical slice document may name a once-proposed successor; that does not make the successor currently authorized.
 - A broad polished UI may have different product prerequisites from the underlying engine phase and must not silently become an engine completion dependency.
 - Later phases may prepare bounded internal contracts only when they do not publish, activate or bypass earlier prerequisites.
@@ -102,6 +114,7 @@ Useful entry points:
 - [Completed Phases](../development/completed-phases.md)
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Phase 63 development/closeout documents](../development/index.md)
+- [Phase 64 Final Closeout](../development/phase-64-closeout.md)
 
 ## Historical and superseded planning evidence
 
@@ -113,6 +126,7 @@ Useful entry points:
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](../development/current-status.md)
 - [Current Architecture State](../development/current-architecture-state.md)
+- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
 
 ## Back
 
