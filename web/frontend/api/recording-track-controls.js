@@ -10,7 +10,6 @@
   const marker = '__vdrSuiteRecordingTrackControlsBound';
   const TRACK_STATUS_POLL_MS = 750;
   const TRACK_STATUS_MAX_FAILURES = 5;
-  const SUBTITLE_REBIND_MAX_RETRIES = 2;
   if (!global || !global.document || global[marker] === true) return;
 
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
@@ -306,8 +305,6 @@
     let managedSubtitleUrl = '';
     let appliedSubtitleSessionId = '';
     let appliedSubtitleBase = -1;
-    let subtitleRebindRetries = 0;
-    let subtitleRebindRequested = false;
 
     function activeFallbackOwner() {
       return fallbackOwner(shell);
@@ -386,8 +383,6 @@
       subtitleTracks = [];
       subtitleSelectionSupported = false;
       subtitleSelectionInFlight = false;
-      subtitleRebindRetries = 0;
-      subtitleRebindRequested = false;
       clearChildren(audioSelect);
       clearChildren(subtitleSelect);
       audioRow.hidden = true;
@@ -428,8 +423,6 @@
       managedSubtitleUrl = url;
       appliedSubtitleSessionId = sessionId;
       appliedSubtitleBase = basePosition;
-      subtitleRebindRetries = 0;
-      subtitleRebindRequested = false;
     }
 
     function setNote(message, error) {
@@ -453,10 +446,6 @@
       if (targetTrackId !== 'off' && (!track || track.selectable !== true ||
           text(track.deliveryFormat) !== 'webvtt')) return Promise.resolve(false);
 
-      if (userInitiated) {
-        subtitleRebindRetries = 0;
-        subtitleRebindRequested = false;
-      }
       subtitleSelectionInFlight = true;
       subtitleSelect.disabled = true;
       if (userInitiated) setNote(
@@ -470,15 +459,6 @@
         const currentBase = streamBasePosition();
         if (currentId !== id || currentBase !== base) {
           detachManagedSubtitle();
-          if (currentId === id && targetTrackId !== 'off' &&
-              subtitlePreferenceTrackId === targetTrackId &&
-              subtitleRebindRetries < SUBTITLE_REBIND_MAX_RETRIES) {
-            subtitleRebindRetries += 1;
-            subtitleRebindRequested = true;
-          }
-          else {
-            subtitleRebindRequested = false;
-          }
           return false;
         }
         if (targetTrackId === 'off' || result.off === true) {
@@ -486,8 +466,6 @@
           selectedSubtitleTrackId = '';
           subtitlePreferenceTrackId = 'off';
           subtitleSelect.value = 'off';
-          subtitleRebindRetries = 0;
-          subtitleRebindRequested = false;
           if (userInitiated) setNote('Untertitel ausgeschaltet.', false);
         }
         else {
@@ -498,7 +476,6 @@
         }
         return true;
       }).catch(function (error) {
-        subtitleRebindRequested = false;
         if (userInitiated) {
           setNote(error && error.message
             ? 'Untertitelwechsel fehlgeschlagen: ' + error.message
@@ -506,16 +483,9 @@
         }
         throw error;
       }).finally(function () {
-        const rebind = subtitleRebindRequested && !disposed;
-        subtitleRebindRequested = false;
         subtitleSelectionInFlight = false;
         subtitleSelect.disabled = subtitleRow.hidden;
         host.hidden = audioRow.hidden && subtitleRow.hidden && subtitleInfo.hidden && note.hidden;
-        if (rebind) {
-          Promise.resolve().then(function () {
-            return applySubtitlePreference(false);
-          }).catch(function () {});
-        }
       });
     }
 
@@ -537,8 +507,6 @@
 
       if (currentId && currentId !== activeSessionId) {
         detachManagedSubtitle();
-        subtitleRebindRetries = 0;
-        subtitleRebindRequested = false;
         activeSessionId = currentId;
         pollFailures = 0;
         refreshTracks();
@@ -552,8 +520,6 @@
         const currentBase = streamBasePosition();
         if (appliedSubtitleSessionId !== currentId || appliedSubtitleBase !== currentBase) {
           detachManagedSubtitle();
-          subtitleRebindRetries = 0;
-          subtitleRebindRequested = false;
           applySubtitlePreference(false).catch(function () {});
         }
       }
@@ -581,8 +547,6 @@
         }
         else if (currentId && currentId !== activeSessionId) {
           detachManagedSubtitle();
-          subtitleRebindRetries = 0;
-          subtitleRebindRequested = false;
           activeSessionId = currentId;
           pollFailures = 0;
           refreshTracks();
@@ -592,8 +556,6 @@
           const currentBase = streamBasePosition();
           if (appliedSubtitleSessionId !== currentId || appliedSubtitleBase !== currentBase) {
             detachManagedSubtitle();
-            subtitleRebindRetries = 0;
-            subtitleRebindRequested = false;
             applySubtitlePreference(false).catch(function () {});
           }
         }
@@ -905,8 +867,6 @@
       if (!target) return;
       const previousPreference = subtitlePreferenceTrackId;
       subtitlePreferenceTrackId = target;
-      subtitleRebindRetries = 0;
-      subtitleRebindRequested = false;
       applySubtitlePreference(true).catch(function () {
         subtitlePreferenceTrackId = previousPreference;
         subtitleSelect.value = previousPreference;
@@ -946,8 +906,6 @@
         clearSessionWatch();
         clearOwnerLifecycle();
         detachManagedSubtitle();
-        subtitleRebindRetries = 0;
-        subtitleRebindRequested = false;
         activeSessionId = '';
         activeProfileId = '';
         return panel.relinquishForReplacement.apply(panel, arguments);
@@ -962,8 +920,6 @@
         clearSessionWatch();
         clearOwnerLifecycle();
         detachManagedSubtitle();
-        subtitleRebindRetries = 0;
-        subtitleRebindRequested = false;
         subtitlePreferenceTrackId = 'off';
         panel.destroy.apply(panel, arguments);
       };
