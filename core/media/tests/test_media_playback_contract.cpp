@@ -1,0 +1,120 @@
+#include "MediaPlaybackContract.h"
+
+#include <cassert>
+#include <string>
+
+int main()
+{
+    MediaPlaybackTrackCapabilities tracks;
+    tracks.audioSelectionSupported = true;
+    tracks.subtitleSelectionSupported = true;
+    tracks.subtitleOffSupported = true;
+
+    const MediaPlaybackContract progressive = MediaPlaybackContractFactory::recording(
+        "progressive-fmp4",
+        false,
+        120,
+        5530,
+        120,
+        true,
+        false,
+        tracks);
+    assert(progressive.resourceMode == MediaPlaybackResourceMode::CompletedRecording);
+    assert(progressive.seek.supported);
+    assert(progressive.seek.mode == MediaPlaybackSeekMode::InSessionReposition);
+    assert(progressive.seek.windowStartSeconds == 0);
+    assert(progressive.seek.windowEndSeconds == 5530);
+    assert(progressive.restartSupported);
+
+    const std::string progressiveJson = MediaPlaybackContractFactory::json(progressive);
+    assert(progressiveJson.find("\"contractVersion\":1") != std::string::npos);
+    assert(progressiveJson.find("\"resourceMode\":\"recording\"") != std::string::npos);
+    assert(progressiveJson.find("\"presentationProfileId\":\"progressive-fmp4\"") != std::string::npos);
+    assert(progressiveJson.find("\"presentationBasePositionSeconds\":120") != std::string::npos);
+    assert(progressiveJson.find("\"mode\":\"in-session-reposition\"") != std::string::npos);
+    assert(progressiveJson.find("\"audioSelection\":{\"supported\":true}") != std::string::npos);
+    assert(progressiveJson.find("\"subtitleSelection\":{\"supported\":true}") != std::string::npos);
+    assert(progressiveJson.find("\"subtitleOff\":{\"supported\":true}") != std::string::npos);
+    assert(progressiveJson.find("\"generation\":null") != std::string::npos);
+    assert(progressiveJson.find("\"state\":\"unpublished\"") != std::string::npos);
+    assert(progressiveJson.find("\"failure\":null") != std::string::npos);
+    assert(progressiveJson.find("videoEncoder") == std::string::npos);
+    assert(progressiveJson.find("hardwareDevice") == std::string::npos);
+    assert(progressiveJson.find("provider") == std::string::npos);
+    assert(progressiveJson.find("ffmpeg") == std::string::npos);
+
+    const std::string progressiveLegacy =
+        MediaPlaybackContractFactory::legacyPlaybackJson(progressive);
+    assert(progressiveLegacy.find("\"seek\":{\"supported\":true") != std::string::npos);
+    assert(progressiveLegacy.find("\"resume\":{\"supported\":true") != std::string::npos);
+
+    const MediaPlaybackContract hls = MediaPlaybackContractFactory::recording(
+        "hls-fmp4",
+        false,
+        2832,
+        5530,
+        2832,
+        true,
+        false,
+        tracks);
+    assert(hls.seek.supported);
+    assert(hls.seek.mode == MediaPlaybackSeekMode::ReplacementSessionRestart);
+    assert(hls.presentationBasePositionSeconds == 2832);
+    const std::string hlsJson = MediaPlaybackContractFactory::json(hls);
+    assert(hlsJson.find("\"mode\":\"replacement-session-restart\"") != std::string::npos);
+    assert(hlsJson.find("\"positionSeconds\":2832") != std::string::npos);
+    assert(hlsJson.find("\"presentationBasePositionSeconds\":2832") != std::string::npos);
+    const std::string hlsLegacy = MediaPlaybackContractFactory::legacyPlaybackJson(hls);
+    assert(hlsLegacy.find("\"seek\":{\"supported\":false") != std::string::npos);
+    assert(hlsLegacy.find("\"resume\":{\"supported\":true") != std::string::npos);
+
+    const MediaPlaybackContract preparingHls = MediaPlaybackContractFactory::recording(
+        "hls-fmp4",
+        false,
+        0,
+        0,
+        0,
+        false,
+        true);
+    assert(!preparingHls.seek.supported);
+    assert(preparingHls.seek.preparing);
+    assert(preparingHls.seek.mode == MediaPlaybackSeekMode::ReplacementSessionRestart);
+    assert(!preparingHls.restartSupported);
+    assert(preparingHls.restartPreparing);
+
+    const MediaPlaybackContract growing = MediaPlaybackContractFactory::recording(
+        "hls-fmp4",
+        true,
+        0,
+        5530,
+        0,
+        true,
+        true,
+        tracks);
+    assert(growing.resourceMode == MediaPlaybackResourceMode::GrowingRecording);
+    assert(growing.durationSeconds == 0);
+    assert(!growing.seek.supported);
+    assert(!growing.seek.preparing);
+    assert(!growing.restartSupported);
+    assert(!growing.restartPreparing);
+    const std::string growingJson = MediaPlaybackContractFactory::json(growing);
+    assert(growingJson.find("\"resourceMode\":\"growing-recording\"") != std::string::npos);
+    assert(growingJson.find("\"durationSeconds\":null") != std::string::npos);
+
+    const MediaPlaybackContract live = MediaPlaybackContractFactory::live("progressive-fmp4");
+    assert(live.resourceMode == MediaPlaybackResourceMode::Live);
+    assert(live.seek.mode == MediaPlaybackSeekMode::Unsupported);
+    assert(!live.seek.supported);
+    const std::string liveJson = MediaPlaybackContractFactory::json(live);
+    assert(liveJson.find("\"resourceMode\":\"live\"") != std::string::npos);
+    assert(liveJson.find("\"mode\":\"unsupported\"") != std::string::npos);
+
+    MediaPlaybackContract failed = progressive;
+    failed.failureClass = "transport";
+    failed.failureReasonCode = "media_stream_disconnected";
+    const std::string failedJson = MediaPlaybackContractFactory::json(failed);
+    assert(failedJson.find("\"failure\":{\"class\":\"transport\"") != std::string::npos);
+    assert(failedJson.find("\"reasonCode\":\"media_stream_disconnected\"") != std::string::npos);
+
+    return 0;
+}
