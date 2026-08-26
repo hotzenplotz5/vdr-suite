@@ -12,6 +12,9 @@
 - [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
+- [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md)
+- [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Strict Roadmap](../planning/roadmap.md)
 
@@ -142,7 +145,7 @@ A broad polished Timer UI remains outside the completed Phase-64 engine boundary
 
 ## Media architecture state — implemented Phase 65 foundation
 
-The accepted media target is defined by ADR-0046 and ADR-0053, with ADR-0055 defining media-transcode backend selection and hardware-acceleration policy:
+The accepted media target is defined by ADR-0046 and ADR-0053, with ADR-0055 defining media-transcode backend selection/hardware-acceleration policy and ADR-0056 defining normalized playback presentation, timeline, continuity and failure semantics:
 
 ```text
 Client
@@ -153,35 +156,60 @@ Client
   -> Backend Agent / explicitly owned provider where required
   -> ProviderStreamLease
   -> private media provider / VDR source
+
+source + client capabilities + Suite policy
+  -> internal MediaPresentationProfile
+  -> normalized MediaPlaybackContract
+  -> persistent client playback owner
+  -> replaceable transport adapter
+  -> platform playback engine
 ```
 
 Phase 65 is active and has real accepted runtime implementation. Completed bounded verticals/slices are:
 
 - **65.A Existing-Recording playback** — authenticated MediaSession/Gateway playback, least-transformation adaptation, real picture/sound and deterministic lifecycle cleanup;
 - **65.B Live-TV playback** — bounded SuiteBridge live provider/replay, one continuous FFmpeg consumer, real picture/sound, repeated zap and stability acceptance;
-- **65.C Recording delivery performance and media output/transcode settings** — completed-Recording `progressive-direct`/`progressive-fmp4` startup optimization followed by backend-scoped `auto`/`software`/`vaapi` output policy/settings, calibrated selection, hard VAAPI capability checks, session-stable policy, fail-closed forced-VAAPI behavior and stream-backpressure hardening;
+- **65.C Recording delivery performance and media output/transcode settings** — completed-Recording `progressive-direct`/`progressive-fMP4` startup optimization followed by backend-scoped `auto`/`software`/`vaapi` output policy/settings, calibrated selection, hard VAAPI capability checks, session-stable policy, fail-closed forced-VAAPI behavior and stream-backpressure hardening;
 - **65.D.1 Persistent Browser Playback Shell** — one persistent browser playback owner and the same HTML media element across internal first-party presentation changes, including native browser/Android Picture-in-Picture without a second MediaSession;
-- **65.D.2 Recording Playback Controls and Seek** — Play/Pause/Stop, truthful completed-Recording position/duration, relative/timeline/direct absolute seek, progressive-fMP4 MediaSession worker repositioning, HLS restart-seek through fresh authorized sessions, stop/resume semantics and Android direct-time entry.
+- **65.D.2 Recording Playback Controls and Seek** — Play/Pause/Stop, truthful completed-Recording position/duration, relative/timeline/direct absolute seek, progressive-fMP4 MediaSession worker repositioning, HLS restart-seek through fresh authorized sessions, stop/resume semantics and Android direct-time entry;
+- **normalized Recording track selection** — public audio/subtitle identities, progressive/HLS owner integration and supported browser SRT/WebVTT delivery without PID/provider leakage;
+- **browser-local Volume/Mute** — client-local `HTMLMediaElement` state across the accepted persistent/replaceable owner topology without server/VDR volume mutation;
+- **continuous-fMP4 MSE forward-buffer control** — bounded browser read/append-ahead behavior without changing MediaSession/provider ownership;
+- **compatibility timeline and exact HLS resume follow-up** — user-owned timeline drag target survives active playback updates, and exact non-zero HLS video resume uses a sync-safe implemented transcode path or fails closed while ordinary start-at-zero retains least-transformation copy/remux.
 
 Current accepted delivery/client rules remain:
 
 - pass-through first, then remux/repackage only where required, then transcode only where materially required;
+- operation-specific correctness may require stronger adaptation, as proven by exact non-zero HLS video resume where arbitrary stream-copy startup was not sync-safe;
 - provider-native URLs, paths, credentials and socket details remain private;
 - MediaSession, route, grant and provider lease remain Suite-owned authorization/lifecycle boundaries;
 - active sessions do not silently retarget provider or encoder policy;
-- Range/seek/growing capability is truthful; completed-Recording seek is exposed only through the accepted D.2 profile contracts and unsupported growing/timeshift capability remains explicit;
+- Range/seek/growing capability is truthful; completed-Recording seek is exposed only through accepted profile/semantic contracts and unsupported growing/timeshift capability remains explicit;
 - continuous progressive fMP4 does not invent HTTP byte-range semantics merely because the owned MediaSession can reposition playback by time;
 - completed-only immutable fast paths fail closed when a Recording is growing or its source fingerprint changes;
 - Web output settings are backend-scoped policy controls for new sessions, not arbitrary FFmpeg/device configuration;
+- user-owned seek preview, transport-local presentation time and canonical absolute Recording position are separate state domains;
+- MediaSession identity, route epoch and playback presentation generation are separate concepts and must not be conflated;
 - the client semantic layer remains above mature platform playback engines rather than becoming a Suite-owned universal decoder/rendering core.
 
-The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains. Phase 65.D.2 now provides accepted arbitrary completed-Recording time-seek and stop/resume for the supported progressive-fMP4 and HLS restart-seek profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred until a demonstrated product gap justifies a coherent implementation.
+The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains. Phase 65.D.2 and follow-up fixes provide accepted arbitrary completed-Recording time-seek and stop/resume for the supported progressive-fMP4 and HLS restart-seek profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred until a demonstrated product gap justifies a coherent implementation.
 
-Phase 65.D Client playback abstraction is active. Remaining semantic work includes normalized audio/subtitle selection, discontinuity handling and classified playback failure behavior. Streamdev remains a private possible provider rather than the public API/security boundary.
+Phase 65.D Client playback abstraction is active. The remaining required architecture is now the ADR-0056 consolidation layer:
+
+- one normalized provider-free `MediaPlaybackContract` above internal `MediaPresentationProfile` execution detail;
+- canonical persistent-owner lifecycle snapshot/subscription for new session-bound extensions;
+- explicit continuity/discontinuity and presentation-generation semantics;
+- classified playback failure behavior that preserves detailed reason codes without silent provider/profile/session recovery.
+
+Read-only media diagnostics are allowed after those semantics and remain observational only. Shared fMP4/MSE primitive extraction is technical debt, not an architecture gate.
+
+Streamdev remains a private possible provider rather than the public API/security boundary.
 
 ## Public API and client boundary
 
 Current first-party clients use Suite-owned REST/client-wrapper semantics rather than private provider contracts. Stable independent third-party `/api/v1` compatibility remains governed by its separate roadmap/ADR boundary and must not be inferred from internal transition endpoints.
+
+`MediaPlaybackContract` is first-party Phase-65 semantic architecture. ADR-0056 does not by itself promote the current internal media endpoints to a stable third-party `/api/v1` contract.
 
 ## Acceptance model
 
@@ -197,6 +225,8 @@ Implementation claims require the appropriate combination of:
 
 Exact historical acceptance heads/hashes belong in the closeout that accepted them.
 
+For Phase-65.D semantic work, the production ownership topology is itself part of acceptance: user-style action -> canonical owner/session transition -> expected Suite request/state chain must be proven rather than inferred from isolated wrappers.
+
 ## Related documents
 
 - [Current State](../CURRENT.md)
@@ -209,6 +239,9 @@ Exact historical acceptance heads/hashes belong in the closeout that accepted th
 - [Phase 65 Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
+- [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md)
+- [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
@@ -218,5 +251,3 @@ Exact historical acceptance heads/hashes belong in the closeout that accepted th
 
 - [Back to Development Index](index.md)
 - [Back to Documentation Index](../index.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to README](../../README.md)
