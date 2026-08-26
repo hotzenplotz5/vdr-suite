@@ -41,7 +41,7 @@ std::string nullableString(const std::string& value)
 const char* resourceModeName(MediaPlaybackResourceMode mode)
 {
     switch (mode) {
-    case MediaPlaybackResourceMode::CompletedRecording: return "recording";
+    case MediaPlaybackResourceMode::Recording: return "recording";
     case MediaPlaybackResourceMode::GrowingRecording: return "growing-recording";
     case MediaPlaybackResourceMode::Live: return "live";
     }
@@ -63,9 +63,27 @@ bool hlsProfile(const std::string& profileId)
     return profileId == "hls-fmp4" || profileId == "hls-ts";
 }
 
-std::string booleanJson(bool value)
+std::string optionalBoolJson(const std::optional<bool>& value)
 {
-    return value ? "true" : "false";
+    if (!value.has_value()) return "null";
+    return *value ? "true" : "false";
+}
+
+std::string optionalIntJson(const std::optional<int>& value)
+{
+    if (!value.has_value()) return "null";
+    return std::to_string(std::max(0, *value));
+}
+
+std::string optionalStringJson(const std::optional<std::string>& value)
+{
+    if (!value.has_value()) return "null";
+    return nullableString(*value);
+}
+
+bool optionalTrue(const std::optional<bool>& value)
+{
+    return value.has_value() && *value;
 }
 
 } // namespace
@@ -80,42 +98,81 @@ MediaPlaybackContract MediaPlaybackContractFactory::recording(
     bool indexPreparing,
     const MediaPlaybackTrackCapabilities& tracks)
 {
-    MediaPlaybackContract contract;
-    contract.resourceMode = growing
-        ? MediaPlaybackResourceMode::GrowingRecording
-        : MediaPlaybackResourceMode::CompletedRecording;
-    contract.presentationProfileId = presentationProfileId;
-    contract.positionSeconds = std::max(0, positionSeconds);
-    contract.durationSeconds = growing ? 0 : std::max(0, durationSeconds);
-    contract.presentationBasePositionSeconds = std::max(0, presentationBasePositionSeconds);
-    contract.tracks = tracks;
-
     const bool completedTimelineReady =
-        !growing && contract.durationSeconds > 0 && indexedTimelineReady;
+        !growing && durationSeconds > 0 && indexedTimelineReady;
     const bool progressiveFmp4 = presentationProfileId == "progressive-fmp4";
     const bool hls = hlsProfile(presentationProfileId);
     const bool restartProfile = progressiveFmp4 || hls;
-
-    contract.restartSupported = restartProfile && completedTimelineReady;
-    contract.restartPreparing =
+    const bool restartSupported = restartProfile && completedTimelineReady;
+    const bool restartPreparing =
         restartProfile && !growing && !completedTimelineReady && indexPreparing;
+    const bool legacySeekSupported = progressiveFmp4 && completedTimelineReady;
+    const bool legacySeekPreparing =
+        progressiveFmp4 && !growing && !completedTimelineReady && indexPreparing;
 
-    if (progressiveFmp4) {
+    return recordingFromLegacy(
+        presentationProfileId,
+        growing,
+        positionSeconds,
+        growing || durationSeconds <= 0
+            ? std::optional<int>{}
+            : std::optional<int>{durationSeconds},
+        presentationBasePositionSeconds,
+        legacySeekSupported,
+        legacySeekPreparing,
+        restartSupported,
+        restartPreparing,
+        tracks);
+}
+
+MediaPlaybackContract MediaPlaybackContractFactory::recordingFromLegacy(
+    const std::string& presentationProfileId,
+    std::optional<bool> growing,
+    std::optional<int> positionSeconds,
+    std::optional<int> durationSeconds,
+    std::optional<int> presentationBasePositionSeconds,
+    std::optional<bool> legacySeekSupported,
+    std::optional<bool> legacySeekPreparing,
+    std::optional<bool> restartSupported,
+    std::optional<bool> restartPreparing,
+    const MediaPlaybackTrackCapabilities& tracks)
+{
+    MediaPlaybackContract contract;
+    contract.resourceMode = growing.has_value() && *growing
+        ? MediaPlaybackResourceMode::GrowingRecording
+        : MediaPlaybackResourceMode::Recording;
+    contract.presentationProfileId = presentationProfileId;
+    contract.positionSeconds = positionSeconds;
+    contract.durationSeconds = growing.has_value() && *growing
+        ? std::optional<int>{}
+        : durationSeconds;
+    contract.presentationBasePositionSeconds = presentationBasePositionSeconds;
+    contract.pauseSupported = true;
+    contract.resumePlaybackSupported = true;
+    contract.restartSupported = restartSupported;
+    contract.restartPreparing = restartPreparing;
+    contract.tracks = tracks;
+
+    if (presentationProfileId == "progressive-fmp4") {
         contract.seek.mode = MediaPlaybackSeekMode::InSessionReposition;
-        contract.seek.supported = completedTimelineReady;
-        contract.seek.preparing =
-            !growing && !completedTimelineReady && indexPreparing;
+        contract.seek.supported = legacySeekSupported;
+        contract.seek.preparing = legacySeekPreparing;
     }
-    else if (hls) {
+    else if (hlsProfile(presentationProfileId)) {
         contract.seek.mode = MediaPlaybackSeekMode::ReplacementSessionRestart;
-        contract.seek.supported = completedTimelineReady;
-        contract.seek.preparing =
-            !growing && !completedTimelineReady && indexPreparing;
+        contract.seek.supported = restartSupported;
+        contract.seek.preparing = restartPreparing;
+    }
+    else {
+        contract.seek.mode = MediaPlaybackSeekMode::Unsupported;
+        contract.seek.supported = false;
+        contract.seek.preparing = false;
     }
 
-    if (contract.seek.supported) {
+    if (optionalTrue(contract.seek.supported) &&
+        contract.durationSeconds.has_value() && *contract.durationSeconds > 0) {
         contract.seek.windowStartSeconds = 0;
-        contract.seek.windowEndSeconds = contract.durationSeconds;
+        contract.seek.windowEndSeconds = *contract.durationSeconds;
     }
 
     return contract;
@@ -128,6 +185,9 @@ MediaPlaybackContract MediaPlaybackContractFactory::live(
     MediaPlaybackContract contract;
     contract.resourceMode = MediaPlaybackResourceMode::Live;
     contract.presentationProfileId = presentationProfileId;
+    contract.seek.mode = MediaPlaybackSeekMode::Unsupported;
+    contract.seek.supported = false;
+    contract.seek.preparing = false;
     contract.tracks = tracks;
     return contract;
 }
@@ -139,63 +199,55 @@ std::string MediaPlaybackContractFactory::json(const MediaPlaybackContract& cont
         ",\"resourceMode\":\"" + std::string(resourceModeName(contract.resourceMode)) + "\"" +
         ",\"presentationProfileId\":" + nullableString(contract.presentationProfileId) +
         ",\"playback\":{"
-            "\"positionSeconds\":" + std::to_string(std::max(0, contract.positionSeconds)) +
-            ",\"durationSeconds\":";
-    if (contract.durationSeconds > 0) result += std::to_string(contract.durationSeconds);
-    else result += "null";
-    result +=
-        ",\"presentationBasePositionSeconds\":" +
-            std::to_string(std::max(0, contract.presentationBasePositionSeconds)) +
-        ",\"pauseSupported\":" + booleanJson(contract.pauseSupported) +
-        ",\"resumeSupported\":" + booleanJson(contract.resumePlaybackSupported) +
-        ",\"restart\":{"
-            "\"supported\":" + booleanJson(contract.restartSupported) +
-            ",\"preparing\":" + booleanJson(contract.restartPreparing) +
-        "}}";
+            "\"positionSeconds\":" + optionalIntJson(contract.positionSeconds) +
+            ",\"durationSeconds\":" + optionalIntJson(contract.durationSeconds) +
+            ",\"presentationBasePositionSeconds\":" +
+                optionalIntJson(contract.presentationBasePositionSeconds) +
+            ",\"pauseSupported\":" + optionalBoolJson(contract.pauseSupported) +
+            ",\"resumeSupported\":" + optionalBoolJson(contract.resumePlaybackSupported) +
+            ",\"restart\":{"
+                "\"supported\":" + optionalBoolJson(contract.restartSupported) +
+                ",\"preparing\":" + optionalBoolJson(contract.restartPreparing) +
+            "}}";
 
     result +=
         ",\"seek\":{"
-            "\"supported\":" + booleanJson(contract.seek.supported) +
+            "\"supported\":" + optionalBoolJson(contract.seek.supported) +
             ",\"mode\":\"" + std::string(seekModeName(contract.seek.mode)) + "\"" +
-            ",\"preparing\":" + booleanJson(contract.seek.preparing);
-    if (contract.seek.supported &&
-        contract.seek.windowEndSeconds > contract.seek.windowStartSeconds) {
+            ",\"preparing\":" + optionalBoolJson(contract.seek.preparing);
+    if (contract.seek.windowStartSeconds.has_value() &&
+        contract.seek.windowEndSeconds.has_value() &&
+        *contract.seek.windowEndSeconds > *contract.seek.windowStartSeconds) {
         result +=
             ",\"window\":{\"startSeconds\":" +
-                std::to_string(std::max(0, contract.seek.windowStartSeconds)) +
+                optionalIntJson(contract.seek.windowStartSeconds) +
             ",\"endSeconds\":" +
-                std::to_string(std::max(0, contract.seek.windowEndSeconds)) + "}";
+                optionalIntJson(contract.seek.windowEndSeconds) + "}";
     }
     result += "}";
 
     result +=
         ",\"tracks\":{"
             "\"audioSelection\":{\"supported\":" +
-                booleanJson(contract.tracks.audioSelectionSupported) + "}," +
+                optionalBoolJson(contract.tracks.audioSelectionSupported) + "}," +
             "\"subtitleSelection\":{\"supported\":" +
-                booleanJson(contract.tracks.subtitleSelectionSupported) + "}," +
+                optionalBoolJson(contract.tracks.subtitleSelectionSupported) + "}," +
             "\"subtitleOff\":{\"supported\":" +
-                booleanJson(contract.tracks.subtitleOffSupported) + "}}";
+                optionalBoolJson(contract.tracks.subtitleOffSupported) + "}}";
 
-    result += " ,\"continuity\":{";
-    result += "\"generation\":";
-    if (contract.continuityGeneration > 0) {
-        result += std::to_string(contract.continuityGeneration);
-    }
-    else {
-        result += "null";
-    }
     result +=
-        ",\"state\":" + nullableString(contract.continuityState) + "}";
+        ",\"continuity\":{"
+            "\"generation\":" + optionalIntJson(contract.continuityGeneration) +
+            ",\"state\":" + optionalStringJson(contract.continuityState) + "}";
 
     result += ",\"failure\":";
-    if (contract.failureClass.empty()) {
+    if (!contract.failureClass.has_value()) {
         result += "null";
     }
     else {
         result +=
-            "{\"class\":\"" + jsonEscape(contract.failureClass) + "\"," +
-            "\"reasonCode\":" + nullableString(contract.failureReasonCode) + "}";
+            "{\"class\":" + optionalStringJson(contract.failureClass) + "," +
+            "\"reasonCode\":" + optionalStringJson(contract.failureReasonCode) + "}";
     }
     result += "}";
     return result;
@@ -206,28 +258,29 @@ std::string MediaPlaybackContractFactory::legacyPlaybackJson(
 {
     const bool inSessionSeek =
         contract.seek.mode == MediaPlaybackSeekMode::InSessionReposition;
-    const bool seekSupported = inSessionSeek && contract.seek.supported;
-    const bool seekPreparing = inSessionSeek && contract.seek.preparing;
+    const std::optional<bool> seekSupported = inSessionSeek
+        ? contract.seek.supported
+        : std::optional<bool>{false};
+    const std::optional<bool> seekPreparing = inSessionSeek
+        ? contract.seek.preparing
+        : std::optional<bool>{false};
 
     std::string result =
-        "{\"positionSeconds\":" + std::to_string(std::max(0, contract.positionSeconds)) +
-        ",\"durationSeconds\":";
-    if (contract.durationSeconds > 0) result += std::to_string(contract.durationSeconds);
-    else result += "null";
-
-    result +=
-        ",\"seek\":{\"supported\":" + booleanJson(seekSupported) +
-        ",\"preparing\":" + booleanJson(seekPreparing);
-    if (seekSupported &&
-        contract.seek.windowEndSeconds > contract.seek.windowStartSeconds) {
+        "{\"positionSeconds\":" + optionalIntJson(contract.positionSeconds) +
+        ",\"durationSeconds\":" + optionalIntJson(contract.durationSeconds) +
+        ",\"seek\":{\"supported\":" + optionalBoolJson(seekSupported) +
+        ",\"preparing\":" + optionalBoolJson(seekPreparing);
+    if (inSessionSeek && optionalTrue(seekSupported) &&
+        contract.seek.windowStartSeconds.has_value() &&
+        contract.seek.windowEndSeconds.has_value()) {
         result +=
             ",\"window\":{\"startSeconds\":" +
-                std::to_string(std::max(0, contract.seek.windowStartSeconds)) +
+                optionalIntJson(contract.seek.windowStartSeconds) +
             ",\"endSeconds\":" +
-                std::to_string(std::max(0, contract.seek.windowEndSeconds)) + "}";
+                optionalIntJson(contract.seek.windowEndSeconds) + "}";
     }
     result +=
-        "},\"resume\":{\"supported\":" + booleanJson(contract.restartSupported) +
-        ",\"preparing\":" + booleanJson(contract.restartPreparing) + "}}";
+        "},\"resume\":{\"supported\":" + optionalBoolJson(contract.restartSupported) +
+        ",\"preparing\":" + optionalBoolJson(contract.restartPreparing) + "}}";
     return result;
 }

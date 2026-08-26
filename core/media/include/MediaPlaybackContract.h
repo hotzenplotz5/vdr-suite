@@ -1,10 +1,11 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 enum class MediaPlaybackResourceMode
 {
-    CompletedRecording,
+    Recording,
     GrowingRecording,
     Live
 };
@@ -18,18 +19,18 @@ enum class MediaPlaybackSeekMode
 
 struct MediaPlaybackSeekContract
 {
-    bool supported = false;
-    bool preparing = false;
+    std::optional<bool> supported;
+    std::optional<bool> preparing;
     MediaPlaybackSeekMode mode = MediaPlaybackSeekMode::Unsupported;
-    int windowStartSeconds = 0;
-    int windowEndSeconds = 0;
+    std::optional<int> windowStartSeconds;
+    std::optional<int> windowEndSeconds;
 };
 
 struct MediaPlaybackTrackCapabilities
 {
-    bool audioSelectionSupported = false;
-    bool subtitleSelectionSupported = false;
-    bool subtitleOffSupported = false;
+    std::optional<bool> audioSelectionSupported;
+    std::optional<bool> subtitleSelectionSupported;
+    std::optional<bool> subtitleOffSupported;
 };
 
 struct MediaPlaybackContract
@@ -37,21 +38,21 @@ struct MediaPlaybackContract
     static constexpr int CurrentVersion = 1;
 
     int contractVersion = CurrentVersion;
-    MediaPlaybackResourceMode resourceMode = MediaPlaybackResourceMode::CompletedRecording;
+    MediaPlaybackResourceMode resourceMode = MediaPlaybackResourceMode::Recording;
     std::string presentationProfileId;
-    int positionSeconds = 0;
-    int durationSeconds = 0;
-    int presentationBasePositionSeconds = 0;
-    bool pauseSupported = true;
-    bool resumePlaybackSupported = true;
-    bool restartSupported = false;
-    bool restartPreparing = false;
+    std::optional<int> positionSeconds;
+    std::optional<int> durationSeconds;
+    std::optional<int> presentationBasePositionSeconds;
+    std::optional<bool> pauseSupported;
+    std::optional<bool> resumePlaybackSupported;
+    std::optional<bool> restartSupported;
+    std::optional<bool> restartPreparing;
     MediaPlaybackSeekContract seek;
     MediaPlaybackTrackCapabilities tracks;
-    int continuityGeneration = 0;
-    std::string continuityState = "unpublished";
-    std::string failureClass;
-    std::string failureReasonCode;
+    std::optional<int> continuityGeneration;
+    std::optional<std::string> continuityState;
+    std::optional<std::string> failureClass;
+    std::optional<std::string> failureReasonCode;
 };
 
 class MediaPlaybackContractFactory
@@ -65,6 +66,18 @@ public:
         int presentationBasePositionSeconds,
         bool indexedTimelineReady,
         bool indexPreparing,
+        const MediaPlaybackTrackCapabilities& tracks = {});
+
+    static MediaPlaybackContract recordingFromLegacy(
+        const std::string& presentationProfileId,
+        std::optional<bool> growing,
+        std::optional<int> positionSeconds,
+        std::optional<int> durationSeconds,
+        std::optional<int> presentationBasePositionSeconds,
+        std::optional<bool> legacySeekSupported,
+        std::optional<bool> legacySeekPreparing,
+        std::optional<bool> restartSupported,
+        std::optional<bool> restartPreparing,
         const MediaPlaybackTrackCapabilities& tracks = {});
 
     static MediaPlaybackContract live(
