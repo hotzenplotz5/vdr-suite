@@ -68,12 +68,14 @@ int main()
         "\"id\":\"recording-3\","
         "\"state\":\"ready\","
         "\"presentationProfileId\":\"hls-fmp4\","
+        "\"growing\":true,"
         "\"tracks\":{"
             "\"audio\":{\"selectionSupported\":false},"
             "\"subtitles\":{\"selectionSupported\":true,\"offSupported\":true}}"
         "}}"
     );
     tracksOnly = MediaPlaybackContractResponse::augment(std::move(tracksOnly), false);
+    assert(tracksOnly.body.find("\"resourceMode\":\"growing-recording\"") != std::string::npos);
     assert(tracksOnly.body.find("\"positionSeconds\":null") != std::string::npos);
     assert(tracksOnly.body.find("\"supported\":null,\"mode\":\"replacement-session-restart\"") != std::string::npos);
     assert(tracksOnly.body.find("\"audioSelection\":{\"supported\":false}") != std::string::npos);
