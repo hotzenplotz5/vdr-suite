@@ -1115,6 +1115,7 @@
     let firstMediaReported = false;
     let fallbackPanel = null;
     let fallbackActivation = null;
+    let fallbackLifecycleUnsubscribe = null;
     let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
     let durationSeconds = 0;
@@ -1128,6 +1129,77 @@
     let indexStatusTimer = null;
     let indexStatusInFlight = false;
     let indexStatusFailures = 0;
+    let publishedSessionCount = 0;
+
+    const lifecycleApi = global.VdrSuitePlaybackOwnerLifecycle;
+    const lifecycle = lifecycleApi && typeof lifecycleApi.create === 'function'
+      ? lifecycleApi.create({state: 'idle', sessionId: null, transport: 'none'})
+      : null;
+
+    function lifecycleSnapshot() {
+      if (lifecycle) return lifecycle.snapshot();
+      return Object.freeze({
+        lifecycleVersion: 1,
+        lifecycleRevision: 0,
+        state: playbackState(),
+        sessionId: safeSessionId(activeSessionId) || null,
+        transport: fallbackPanel ? 'hls-compatibility' : (activeSessionId ? 'progressive-fmp4' : 'none'),
+        transition: 'snapshot'
+      });
+    }
+
+    function publishLifecycle(transition, change) {
+      if (!lifecycle) return lifecycleSnapshot();
+      return lifecycle.publish(Object.assign({transition: transition}, change || {}));
+    }
+
+    function subscribeLifecycle(listener) {
+      if (lifecycle) return lifecycle.subscribe(listener);
+      if (typeof listener === 'function') {
+        try { listener(lifecycleSnapshot()); } catch (error) {}
+      }
+      return function () {};
+    }
+
+    function publishSession(sessionId, transport, stateValue) {
+      const id = safeSessionId(sessionId);
+      if (!id) return;
+      const transition = publishedSessionCount === 0 ? 'session-started' : 'session-replaced';
+      publishedSessionCount += 1;
+      publishLifecycle(transition, {
+        state: stateValue || playbackState(),
+        sessionId: id,
+        transport: transport || 'progressive-fmp4'
+      });
+    }
+
+    function clearFallbackLifecycle() {
+      if (typeof fallbackLifecycleUnsubscribe === 'function') {
+        try { fallbackLifecycleUnsubscribe(); } catch (error) {}
+      }
+      fallbackLifecycleUnsubscribe = null;
+    }
+
+    function followFallbackLifecycle(owner) {
+      clearFallbackLifecycle();
+      if (!owner || typeof owner.subscribe !== 'function') return;
+      fallbackLifecycleUnsubscribe = owner.subscribe(function (snapshot) {
+        if (!snapshot || snapshot.transition === 'snapshot') return;
+        const childId = safeSessionId(snapshot.sessionId);
+        const current = lifecycle ? lifecycle.snapshot() : null;
+        const currentId = safeSessionId(current && current.sessionId);
+        let transition = text(snapshot.transition) || 'state-changed';
+        if (childId && childId !== currentId) {
+          transition = publishedSessionCount === 0 ? 'session-started' : 'session-replaced';
+          publishedSessionCount += 1;
+        }
+        publishLifecycle(transition, {
+          state: text(snapshot.state) || 'fallback',
+          sessionId: childId || null,
+          transport: 'hls-compatibility'
+        });
+      });
+    }
 
     function formatTime(value) {
       const seconds = Math.max(0, Math.floor(Number(value) || 0));
@@ -1340,12 +1412,18 @@
         fallbackPanel = null;
         return null;
       }
+      followFallbackLifecycle(fallbackPanel);
       if (typeof panel.replaceWith === 'function') {
         panel.replaceWith(fallbackPanel.element);
       }
       else if (panel.parentNode && typeof panel.parentNode.replaceChild === 'function') {
         panel.parentNode.replaceChild(fallbackPanel.element, panel);
       }
+      publishLifecycle('transport-replaced', {
+        state: 'starting',
+        sessionId: null,
+        transport: 'hls-compatibility'
+      });
       return fallbackPanel;
     }
 
@@ -1355,6 +1433,11 @@
 
       seekPreparing = false;
       clearIndexStatusPoll();
+      publishLifecycle('transport-replacing', {
+        state: 'replacing',
+        sessionId: activeSessionId || null,
+        transport: activeSessionId ? 'progressive-fmp4' : 'none'
+      });
       stopActive(false).catch(function () {});
       releaseVideo();
       const legacy = replaceWithFallback();
@@ -1365,6 +1448,7 @@
             : 'Schneller Aufnahme-Pfad ist nicht verfügbar.',
           true
         );
+        publishLifecycle('stopped', {state: 'stopped', sessionId: null, transport: 'none'});
         return Promise.resolve('');
       }
 
@@ -1399,6 +1483,11 @@
         );
       }
       updateControls();
+      publishLifecycle('stopped', {
+        state: 'stopped',
+        sessionId: activeSessionId || null,
+        transport: 'progressive-fmp4'
+      });
     }
 
     function connectRecordingStream(autoPlay, initialConnection) {
@@ -1425,6 +1514,11 @@
       if (destroyed) return;
       seekPreparing = false;
       clearIndexStatusPoll();
+      publishLifecycle('page-teardown', {
+        state: 'stopping',
+        sessionId: safeSessionId(activeSessionId) || null,
+        transport: fallbackPanel ? 'hls-compatibility' : (activeSessionId ? 'progressive-fmp4' : 'none')
+      });
       if (fallbackPanel && typeof fallbackPanel.destroy === 'function') {
         fallbackPanel.destroy();
         return;
@@ -1442,6 +1536,7 @@
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
+      publishLifecycle('start-requested', {state: 'starting', sessionId: null, transport: 'none'});
 
       const promise = createRecordingSession(backendId, recording).then(function (session) {
         if (destroyed) return '';
@@ -1460,6 +1555,7 @@
         }
 
         applyPlaybackContract(mediaSession);
+        publishSession(id, 'progressive-fmp4', 'starting');
         video.hidden = false;
         startButton.hidden = true;
         controls.hidden = false;
@@ -1506,6 +1602,7 @@
       try { video.pause(); } catch (error) { return false; }
       setStatus(seekPreparing ? 'Aufnahme pausiert · Index wird erstellt …' : 'Aufnahme pausiert.', false);
       updateControls();
+      publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId, transport: 'progressive-fmp4'});
       return true;
     }
 
@@ -1515,6 +1612,11 @@
       seekInFlight = false;
       seekPreparing = false;
       clearIndexStatusPoll();
+      publishLifecycle('stop-requested', {
+        state: 'stopping',
+        sessionId: activeSessionId,
+        transport: 'progressive-fmp4'
+      });
       const stopRequest = stopActive(false);
       releaseVideo();
       startButton.textContent = '▶ Wiedergabe erneut starten';
@@ -1529,6 +1631,7 @@
         activeMediaPath = '';
         startButton.disabled = false;
         setStatus('Wiedergabe gestoppt · erneut starten möglich.', false);
+        publishLifecycle('stopped', {state: 'stopped', sessionId: null, transport: 'none'});
         return true;
       }).catch(function (error) {
         startButton.disabled = true;
@@ -1538,6 +1641,11 @@
             : 'Wiedergabe lokal gestoppt · Server-Cleanup fehlgeschlagen.',
           true
         );
+        publishLifecycle('stopped', {
+          state: 'stopped',
+          sessionId: activeSessionId || null,
+          transport: 'progressive-fmp4'
+        });
         throw error;
       });
     }
@@ -1553,6 +1661,11 @@
 
       const shouldResume = !video.paused;
       seekInFlight = true;
+      publishLifecycle('seek-started', {
+        state: 'seeking',
+        sessionId: activeSessionId,
+        transport: 'progressive-fmp4'
+      });
       updateControls();
       setStatus('Springe zu ' + formatTime(target) + ' …', false);
 
@@ -1584,6 +1697,11 @@
           false
         );
         updateControls();
+        publishLifecycle('seek-completed', {
+          state: shouldResume ? 'playing' : 'paused',
+          sessionId: activeSessionId,
+          transport: 'progressive-fmp4'
+        });
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function () {
             setStatus('Seek abgeschlossen · Wiedergabe über Play fortsetzen.', false);
@@ -1598,6 +1716,11 @@
           true
         );
         updateControls();
+        publishLifecycle('state-changed', {
+          state: playbackState(),
+          sessionId: activeSessionId,
+          transport: 'progressive-fmp4'
+        });
         throw error;
       });
     }
@@ -1629,6 +1752,7 @@
       destroyed = true;
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearFallbackLifecycle();
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
       }
@@ -1639,10 +1763,17 @@
         stopActive(false).catch(function () {});
         releaseVideo();
       }
+      publishLifecycle('destroyed', {state: 'destroyed', sessionId: null, transport: 'none'});
+      if (lifecycle) lifecycle.clear();
     }
 
     video.addEventListener('playing', function () {
       if (destroyed || fallbackPanel || stopped) return;
+      publishLifecycle('play', {
+        state: 'playing',
+        sessionId: activeSessionId,
+        transport: 'progressive-fmp4'
+      });
       if (!firstMediaReported) {
         firstMediaReported = true;
         const elapsed = Math.max(0, nowMilliseconds() - startupStartedAt);
@@ -1664,10 +1795,16 @@
       }
       updateControls();
     });
-    video.addEventListener('play', updateControls);
+    video.addEventListener('play', function () {
+      updateControls();
+      if (!destroyed && !fallbackPanel && !stopped) {
+        publishLifecycle('play', {state: 'playing', sessionId: activeSessionId, transport: 'progressive-fmp4'});
+      }
+    });
     video.addEventListener('pause', function () {
       if (!destroyed && !fallbackPanel && !stopped && !seekInFlight) {
         updateControls();
+        publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId, transport: 'progressive-fmp4'});
       }
     });
     video.addEventListener('timeupdate', function () {
@@ -1690,6 +1827,7 @@
         clearIndexStatusPoll();
         stopActive(false).catch(function () {});
         updateControls();
+        publishLifecycle('stopped', {state: 'stopped', sessionId: null, transport: 'none'});
       }
     });
     video.addEventListener('error', function () {
@@ -1762,6 +1900,8 @@
       position: function () { return Math.floor(positionSeconds()); },
       duration: function () { return durationSeconds > 0 ? durationSeconds : null; },
       state: playbackState,
+      snapshot: lifecycleSnapshot,
+      subscribe: subscribeLifecycle,
       seekAbsolute: seekAbsolute,
       seekRelative: seekRelative,
       sessionId: function () {
@@ -1771,6 +1911,11 @@
         return activeSessionId;
       },
       relinquishForReplacement: function () {
+        publishLifecycle('relinquishing', {
+          state: 'replacing',
+          sessionId: safeSessionId(activeSessionId) || null,
+          transport: fallbackPanel ? 'hls-compatibility' : (activeSessionId ? 'progressive-fmp4' : 'none')
+        });
         destroy();
         return Promise.resolve('');
       }
