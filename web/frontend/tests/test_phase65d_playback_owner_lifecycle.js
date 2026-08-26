@@ -300,15 +300,20 @@ function flush(count = 10) {
   assert.strictEqual(select.disabled, false);
 
   // Model the production progressive -> HLS transport replacement on the same
-  // persistent outer owner. The temporary no-session transport event clears
-  // session-bound presentation; the replacement session then drives a new
-  // track-status request through the same subscription.
+  // persistent outer owner. The real fast owner publishes `transport-replaced`
+  // as `starting` with no session until the HLS owner reports its replacement
+  // MediaSession. That event must immediately clear stale progressive controls.
   lifecycle.publish({
-    state: 'replacing',
+    state: 'starting',
     sessionId: null,
     transport: 'hls-compatibility',
     transition: 'transport-replaced'
   });
+  select = find(ownerShell, item => item.tagName === 'SELECT');
+  assert.strictEqual(select.disabled, true, 'sessionless transport replacement must disable stale track selection');
+  assert.strictEqual(select.children.length, 0, 'sessionless transport replacement must clear stale track options');
+  assert.strictEqual(timerCalls, 0, 'transport replacement cleanup must remain event-driven');
+
   activeProfileId = 'hls-fmp4';
   activeSessionId = 'hls-session-1';
   fastElement.replaceWith(fallbackElement);
