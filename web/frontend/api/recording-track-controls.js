@@ -494,9 +494,13 @@
       const currentId = safeSessionId(snapshot.sessionId);
       const ownerState = text(snapshot.state);
       const transition = text(snapshot.transition);
+      const sessionDetached = !currentId && (
+        transition === 'transport-replaced' ||
+        ownerState === 'idle' || ownerState === 'stopped' ||
+        ownerState === 'destroyed' || ownerState === 'stopping' || ownerState === 'replacing'
+      );
 
-      if (!currentId && (ownerState === 'idle' || ownerState === 'stopped' ||
-          ownerState === 'destroyed' || ownerState === 'stopping' || ownerState === 'replacing')) {
+      if (sessionDetached) {
         if (activeSessionId) resetTrackPresentation();
         return;
       }
