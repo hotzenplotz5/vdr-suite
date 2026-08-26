@@ -14,6 +14,8 @@ const fallbackSource = fs.readFileSync(
   'utf8'
 );
 
+const observers = [];
+
 function descendants(root) {
   const result = [];
   (function walk(value) {
@@ -24,12 +26,26 @@ function descendants(root) {
   return result;
 }
 
+function isWithin(node, root) {
+  let current = node;
+  while (current) {
+    if (current === root) return true;
+    current = current.parentNode;
+  }
+  return false;
+}
+
+function notifyChildList(target) {
+  observers.forEach(observer => observer.notify(target));
+}
+
 function element(tagName) {
   const listeners = {};
   let disabled = false;
+  let textContentValue = '';
   const node = {
     tagName: String(tagName || '').toUpperCase(),
-    children: [], style: {}, dataset: {}, className: '', textContent: '',
+    children: [], style: {}, dataset: {}, className: '',
     hidden: false, focused: false, type: '', title: '', value: '', min: '', max: '', step: '',
     currentTime: 0, paused: true, controls: true, firstChild: null, parentNode: null,
     classList: {toggle() {}},
@@ -37,16 +53,21 @@ function element(tagName) {
       child.parentNode = this;
       this.children.push(child);
       this.firstChild = this.children[0] || null;
+      notifyChildList(this);
       return child;
     },
     replaceChildren() {
+      this.children.forEach(child => { child.parentNode = null; });
       this.children = [];
       Array.from(arguments).forEach(child => this.appendChild(child));
       this.firstChild = this.children[0] || null;
+      notifyChildList(this);
     },
     removeChild(child) {
       this.children = this.children.filter(value => value !== child);
+      child.parentNode = null;
       this.firstChild = this.children[0] || null;
+      notifyChildList(this);
     },
     setAttribute(name, value) { this[name] = String(value); },
     addEventListener(name, callback) {
@@ -55,7 +76,7 @@ function element(tagName) {
     },
     dispatch(name, event) {
       const payload = event || {target: this};
-      (listeners[name] || []).forEach(callback => callback(payload));
+      (listeners[name] || []).slice().forEach(callback => callback(payload));
     },
     click() { this.dispatch('click', {target: this}); },
     focus() { if (!disabled) this.focused = true; },
@@ -80,6 +101,16 @@ function element(tagName) {
       return null;
     }
   };
+  Object.defineProperty(node, 'textContent', {
+    enumerable: true,
+    configurable: true,
+    get() { return textContentValue; },
+    set(value) {
+      textContentValue = value === undefined || value === null ? '' : String(value);
+      // Browser MutationObserver reports textContent replacement as childList.
+      notifyChildList(node);
+    }
+  });
   Object.defineProperty(node, 'disabled', {
     enumerable: true,
     configurable: true,
@@ -92,6 +123,33 @@ function element(tagName) {
   return node;
 }
 
+class MutationObserver {
+  constructor(callback) {
+    this.callback = callback;
+    this.connected = false;
+    this.target = null;
+    this.options = null;
+    this.notifications = 0;
+    observers.push(this);
+  }
+  observe(target, options) {
+    this.target = target;
+    this.options = options;
+    this.connected = true;
+  }
+  disconnect() { this.connected = false; }
+  notify(target) {
+    if (!this.connected || !this.target || !target) return;
+    const subtree = Boolean(this.options && this.options.subtree);
+    if (target !== this.target && !(subtree && isWithin(target, this.target))) return;
+    this.notifications += 1;
+    if (this.notifications > 1000) {
+      throw new Error('runaway fallback timeline MutationObserver feedback loop');
+    }
+    this.callback([{type: 'childList', target: target}]);
+  }
+}
+
 function flush() {
   let chain = Promise.resolve();
   for (let index = 0; index < 12; index += 1) chain = chain.then(() => Promise.resolve());
@@ -102,7 +160,7 @@ const requests = [];
 let createSequence = 0;
 const document = {createElement: element};
 const window = {
-  document, console, Object, Number, String, Math, Promise, Error, Array,
+  document, MutationObserver, console, Object, Number, String, Math, Promise, Error, Array,
   VdrSuiteBrowserSession: {csrfHeaders() { return {'X-CSRF-Token': 'csrf-test'}; }},
   VdrSuiteClientApi: {
     requestJson(requestPath, options) {
@@ -148,7 +206,9 @@ Object.defineProperty(window, 'VdrSuiteRecordings2Playback', {
   set(value) { currentPlayback = value; }
 });
 
-const context = vm.createContext({window, document, console, Object, Number, String, Math, Promise, Error, Array});
+const context = vm.createContext({
+  window, document, MutationObserver, console, Object, Number, String, Math, Promise, Error, Array
+});
 vm.runInContext(restartSeekSource, context, {filename: 'recording-fallback-restart-seek.js'});
 vm.runInContext(fallbackSource, context, {filename: 'recording-fallback-controls.js'});
 
@@ -202,6 +262,16 @@ window.VdrSuiteRecordings2Playback = {
   const positionLabel = playback.element.querySelector('.recordings2-playback-position');
   assert.ok(back10Button && forward60Button && timeline && directTime && directButton && positionLabel);
   assert.strictEqual(timeline.disabled, true, 'restart-seek stays closed before playback is active');
+  assert.strictEqual(
+    timeline.style.minHeight,
+    '2.75rem',
+    'compatibility timeline must expose the same mobile-sized touch target as the accepted volume range'
+  );
+  assert.strictEqual(
+    timeline.style.touchAction,
+    'pan-y',
+    'compatibility timeline must reserve horizontal drag for the native range control on touch browsers'
+  );
 
   assert.strictEqual(await playback.start(), 'hls-session-1');
   await flush();
@@ -246,9 +316,34 @@ window.VdrSuiteRecordings2Playback = {
   createRequests = requests.filter(entry => !entry.body.operation);
   assert.strictEqual(createRequests[3].body.startPositionSeconds, 600, 'direct time seek must restart at requested time');
 
+  // Real Android regression: while the user drags the range input, playback
+  // continues to emit timeupdate. Browser textContent replacement also emits
+  // childList mutations, so the replacement observer must not feed the preview
+  // update back into syncControls indefinitely.
+  const observer = observers[0];
+  assert.ok(observer && observer.connected, 'fallback timeline must model the production replacement observer');
+  const notificationsBeforeDrag = observer.notifications;
   timeline.value = '1200';
   timeline.dispatch('input', {target: timeline});
+  assert.ok(
+    observer.notifications - notificationsBeforeDrag < 20,
+    'timeline preview must not create a MutationObserver feedback loop'
+  );
   assert.strictEqual(positionLabel.textContent, '00:20:00 / 01:58:54');
+  video = playback.element.querySelector('video');
+  video.currentTime = 12;
+  video.dispatch('timeupdate', {target: video});
+  await flush();
+  assert.strictEqual(
+    timeline.value,
+    '1200',
+    'timeupdate must not overwrite the user-selected timeline value while dragging'
+  );
+  assert.strictEqual(
+    positionLabel.textContent,
+    '00:20:00 / 01:58:54',
+    'timeupdate must preserve the timeline preview while dragging'
+  );
   timeline.dispatch('change', {target: timeline});
   await flush();
   createRequests = requests.filter(entry => !entry.body.operation);

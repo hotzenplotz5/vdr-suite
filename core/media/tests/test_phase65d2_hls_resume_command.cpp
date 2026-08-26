@@ -39,6 +39,15 @@ MediaPresentationProfile hlsProfile()
     return profile;
 }
 
+MediaPresentationProfile copyHlsProfile()
+{
+    MediaPresentationProfile profile = hlsProfile();
+    profile.adaptationClass = MediaAdaptationClass::Remux;
+    profile.videoAction = MediaTrackAction::Copy;
+    profile.audioAction = MediaTrackAction::Copy;
+    return profile;
+}
+
 } // namespace
 
 int main()
@@ -48,6 +57,15 @@ int main()
     const auto ordinary = builder.build(hlsProfile());
     assert(ordinary.valid);
     assert(indexOf(ordinary.argv, "-ss") == ordinary.argv.size());
+
+    const auto ordinaryCopy = builder.build(copyHlsProfile());
+    assert(ordinaryCopy.valid);
+    assert(indexOf(ordinaryCopy.argv, "-ss") == ordinaryCopy.argv.size());
+    assert(indexOf(ordinaryCopy.argv, "copy") < ordinaryCopy.argv.size());
+
+    const auto unsafeCopyResume = builder.build(copyHlsProfile(), 2494);
+    assert(!unsafeCopyResume.valid);
+    assert(unsafeCopyResume.reasonCode == "hls_resume_stream_copy_not_sync_safe");
 
     const auto resumed = builder.build(hlsProfile(), 2494);
     assert(resumed.valid);

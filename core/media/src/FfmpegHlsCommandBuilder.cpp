@@ -206,6 +206,21 @@ FfmpegHlsCommandPlan buildPlan(
     if (liveSocketPath != nullptr && startPositionSeconds != 0)
         return invalid("live_hls_start_position_not_supported");
 
+    // Input -ss can be exact only when FFmpeg decodes the selected streams.
+    // With video stream-copy, FFmpeg preserves the preroll between the closest
+    // seek point and the requested position. A copied audio stream can then
+    // start at zero while the first decodable video frame/keyframe appears much
+    // later, which is not a sync-safe arbitrary Recording resume. Require every
+    // mapped A/V stream to be transcoded whenever a video HLS session resumes at
+    // a non-zero absolute position. Audio-only HLS remains copy-safe.
+    if (liveSocketPath == nullptr && startPositionSeconds > 0 &&
+        profile.videoAction != MediaTrackAction::Omit &&
+        (profile.videoAction != MediaTrackAction::Transcode ||
+         (profile.audioAction != MediaTrackAction::Omit &&
+          profile.audioAction != MediaTrackAction::Transcode))) {
+        return invalid("hls_resume_stream_copy_not_sync_safe");
+    }
+
     FfmpegHlsCommandPlan plan;
     plan.argv = {
         "/usr/bin/ffmpeg", "-nostdin", "-hide_banner",
@@ -228,6 +243,8 @@ FfmpegHlsCommandPlan buildPlan(
         // A non-zero Recording start offset is meaningful only together with
         // an index-derived ffconcat timeline. Keep -ss as an input option so
         // FFmpeg seeks that timeline instead of decoding/discarding from zero.
+        // For non-zero video resumes the sync-safety guard above guarantees
+        // that accurate seek can decode and discard preroll for every A/V track.
         if (startPositionSeconds > 0) {
             plan.argv.push_back("-ss");
             plan.argv.push_back(std::to_string(startPositionSeconds));

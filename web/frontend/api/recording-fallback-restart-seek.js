@@ -74,8 +74,14 @@
     // Once restart-seek is active, it owns the seek-control disabled state.
     // Briefly disabling a focused input makes desktop browsers drop its focus.
     panel.__vdrSuiteFallbackRestartSeekControlsOwned = true;
+    // Match the already accepted browser-local Volume range interaction: keep a
+    // finger-sized native range target and reserve horizontal drag for it while
+    // allowing the surrounding page to continue vertical scrolling.
+    timeline.style.minHeight = '2.75rem';
+    timeline.style.touchAction = 'pan-y';
 
     let seekInFlight = false;
+    let timelineDragging = false;
     let capabilityTimer = null;
     let observedVideo = null;
     let observer = null;
@@ -129,13 +135,17 @@
       timeline.min = '0';
       timeline.max = String(maximum());
       timeline.step = '1';
+      if (previewPosition === undefined && timelineDragging) {
+        previewPosition = Number(timeline.value);
+      }
       if (enabled && previewPosition === undefined) {
         timeline.value = String(Math.max(0, Math.min(maximum(), position())));
       }
       if (previewPosition !== undefined) {
         const preview = clampTarget(previewPosition);
         if (preview !== null) {
-          positionLabel.textContent = formatTime(preview) + ' / ' + formatTime(duration());
+          const previewText = formatTime(preview) + ' / ' + formatTime(duration());
+          if (positionLabel.textContent !== previewText) positionLabel.textContent = previewText;
         }
       }
       if (enabled && !seekInFlight && notice && active()) {
@@ -163,15 +173,26 @@
 
     function handlePlaybackEvent() {
       syncControls();
+      // The fallback owner also listens to the same media element. Depending on
+      // replacement timing its handler can run after this one and restore the
+      // live playback position. Re-assert an active drag preview after the
+      // complete event-listener stack, before the browser paints the next frame.
+      if (timelineDragging) {
+        Promise.resolve().then(function () {
+          if (timelineDragging) syncControls(Number(timeline.value));
+        });
+      }
       scheduleCapabilityPoll();
     }
 
     function bindVideo() {
       const video = find(panel, 'video');
-      if (!video || video === observedVideo || typeof video.addEventListener !== 'function') return;
-      observedVideo = video;
+      if (video === observedVideo) return false;
+      observedVideo = video || null;
+      if (!video || typeof video.addEventListener !== 'function') return true;
       ['play', 'pause', 'playing', 'timeupdate', 'loadedmetadata']
         .forEach(function (name) { video.addEventListener(name, handlePlaybackEvent); });
+      return true;
     }
 
     function restartAt(value) {
@@ -180,6 +201,7 @@
         return Promise.reject(new Error('Zeit-Sprung ist für diese Aufnahme noch nicht verfügbar.'));
       }
       const wasPaused = state() === 'paused';
+      timelineDragging = false;
       seekInFlight = true;
       clearCapabilityPoll();
       syncControls();
@@ -206,6 +228,7 @@
         return true;
       }).catch(function (error) {
         seekInFlight = false;
+        timelineDragging = false;
         syncControls();
         setNotice(
           error && error.message ? 'Zeit-Sprung fehlgeschlagen: ' + error.message : 'Zeit-Sprung fehlgeschlagen.',
@@ -232,11 +255,22 @@
     forward10Button.addEventListener('click', function () { seekRelative(10).catch(function () {}); });
     forward60Button.addEventListener('click', function () { seekRelative(60).catch(function () {}); });
     timeline.addEventListener('input', function () {
-      if (!timeline.disabled) syncControls(Number(timeline.value));
+      if (timeline.disabled) return;
+      timelineDragging = true;
+      syncControls(Number(timeline.value));
     });
     timeline.addEventListener('change', function () {
-      if (timeline.disabled) return;
-      seekAbsolute(Number(timeline.value)).catch(function () { syncControls(); });
+      const target = Number(timeline.value);
+      timelineDragging = false;
+      if (timeline.disabled) {
+        syncControls();
+        return;
+      }
+      seekAbsolute(target).catch(function () { syncControls(); });
+    });
+    timeline.addEventListener('pointercancel', function () {
+      timelineDragging = false;
+      syncControls();
     });
     directButton.addEventListener('click', function () {
       const target = parseTime(directTime.value);
@@ -254,7 +288,10 @@
 
     if (typeof global.MutationObserver === 'function') {
       observer = new global.MutationObserver(function () {
-        bindVideo();
+        // This observer exists only to follow transport/media-element
+        // replacement. Status text and timeline preview mutations are not
+        // lifecycle changes and must never feed back into syncControls().
+        if (!bindVideo()) return;
         syncControls();
         scheduleCapabilityPoll();
       });
@@ -262,6 +299,7 @@
     }
 
     function start() {
+      timelineDragging = false;
       return Promise.resolve(playback.start()).then(function (sessionId) {
         bindVideo();
         syncControls();
@@ -271,6 +309,7 @@
     }
 
     function resume(value) {
+      timelineDragging = false;
       return Promise.resolve(playback.resume(value)).then(function (sessionId) {
         bindVideo();
         syncControls();
@@ -280,6 +319,7 @@
     }
 
     function destroy() {
+      timelineDragging = false;
       clearCapabilityPoll();
       if (observer && typeof observer.disconnect === 'function') observer.disconnect();
       observer = null;
