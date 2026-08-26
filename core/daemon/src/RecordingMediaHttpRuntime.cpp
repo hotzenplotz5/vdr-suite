@@ -11,6 +11,7 @@
 #include "MediaAccessGrantAuthenticator.h"
 #include "MediaGatewayHttpServer.h"
 #include "MediaHlsArtifactReader.h"
+#include "MediaPlaybackContractResponse.h"
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
@@ -91,10 +92,14 @@ int runRecordingMediaHttpRuntime(
             const std::string& body,
             const std::string& actorRef)
         {
-            if (LiveMediaSessionRequestParser::requestsLiveChannel(body)) {
-                return liveMediaSessionController.handleRequest(body, actorRef);
-            }
-            return recordingMediaSessionController.handleRequest(body, actorRef);
+            const bool liveResource =
+                LiveMediaSessionRequestParser::requestsLiveChannel(body);
+            ApiResponse response = liveResource
+                ? liveMediaSessionController.handleRequest(body, actorRef)
+                : recordingMediaSessionController.handleRequest(body, actorRef);
+            return MediaPlaybackContractResponse::augment(
+                std::move(response),
+                liveResource);
         });
 
     auto nextMediaSessionReap = std::chrono::steady_clock::now();
