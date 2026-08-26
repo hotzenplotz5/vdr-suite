@@ -10,6 +10,7 @@
 #include "MediaSessionWorkspace.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
+#include "RecordingHlsResumeProfile.h"
 #include "RecordingMediaSessionAudioTrackPreference.h"
 #include "RecordingMediaSessionRequestParser.h"
 #include "RecordingMediaSessionRuntime.h"
@@ -397,7 +398,6 @@ ApiResponse RecordingMediaSessionController::createSession(
             return jsonError(503, transcodePolicyReasonCode(profile));
         }
     }
-    const auto presentationSelectedAt = std::chrono::steady_clock::now();
 
     const int truthfulDurationSeconds =
         !sourceResolution.source.growing &&
@@ -434,7 +434,25 @@ ApiResponse RecordingMediaSessionController::createSession(
         if (startPositionSeconds >= truthfulDurationSeconds) {
             return jsonError(422, "recording_resume_outside_window");
         }
+
+        profile = RecordingHlsResumeProfile::prepare(
+            profile,
+            startPositionSeconds);
+        if (!profile.available) {
+            return jsonError(409, "recording_resume_sync_profile_unavailable");
+        }
+        if (profile.videoAction == MediaTrackAction::Transcode &&
+            !profile.videoEncoderPolicyResolved) {
+            const MediaTranscodePolicy policy =
+                MediaTranscodeSettingsApiRuntime::instance().resolvePolicy(
+                    request.backendId);
+            profile = policy.apply(profile);
+            if (!profile.available) {
+                return jsonError(503, transcodePolicyReasonCode(profile));
+            }
+        }
     }
+    const auto presentationSelectedAt = std::chrono::steady_clock::now();
 
     MediaSessionIssuanceRequest issuanceRequest;
     issuanceRequest.actorId = actorId;
