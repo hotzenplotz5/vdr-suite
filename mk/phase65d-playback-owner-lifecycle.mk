@@ -20,6 +20,7 @@ install-phase65d-playback-owner-lifecycle: install-phase65d-playback-contract-co
 test-phase65d-playback-owner-lifecycle:
 	node --check web/frontend/api/playback-owner-lifecycle.js
 	node web/frontend/tests/test_phase65d_playback_owner_lifecycle.js
+	node web/frontend/tests/test_phase65d_restart_choice_owner_shell.js
 	python3 tools/check_playback_frontend_integration_contract.py
 
 test-phase65d-playback-owner-lifecycle-install: test-install-staging
