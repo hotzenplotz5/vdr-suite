@@ -18,17 +18,24 @@ std::string hex(const std::string& value){std::string out;out.reserve(value.size
 int hexValue(char c){if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;return -1;}
 bool unhex(const std::string& in,std::string& out){out.clear();if(in.size()%2)return false;
  for(std::size_t i=0;i<in.size();i+=2){int h=hexValue(in[i]),l=hexValue(in[i+1]);
-  if(h<0||l<0)return false;out.push_back(static_cast<char>((h<<4)|l));}return true;}
+  if(h<0||l<0){return false;}
+  out.push_back(static_cast<char>((h<<4)|l));}
+ return true;}
 bool number(const std::string& s,std::uint64_t& n){if(s.empty())return false;n=0;
  for(char c:s){if(c<'0'||c>'9')return false;auto d=static_cast<std::uint64_t>(c-'0');
- if(n>(static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())-d)/10)return false;n=n*10+d;}return true;}
+  if(n>(static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())-d)/10){return false;}
+  n=n*10+d;}
+ return true;}
 const std::vector<std::string>& keys(){static const std::vector<std::string> k={
  "schema","phase","command_id","request_fingerprint","operation_id","payload_hex",
  "job_id","attempt_id","claim_epoch","agent_id","agent_instance_id",
  "local_starting_persisted_at","outcome","dispatch_started_at","completed_at",
  "evidence_reference"};return k;}
 bool exact(const std::map<std::string,std::string>& v){if(v.size()!=keys().size())return false;
- for(const auto& k:keys())if(v.count(k)!=1)return false;return true;}
+ for(const auto& k:keys()){
+  if(v.count(k)!=1)return false;
+ }
+ return true;}
 const char* outcome(BackendAgentNativeTimerModifyOutcomeCategory o){switch(o){
  case BackendAgentNativeTimerModifyOutcomeCategory::rejectedWithoutEffect:return "rejected_without_effect";
  case BackendAgentNativeTimerModifyOutcomeCategory::acceptedUnverified:return "accepted_unverified";
@@ -37,7 +44,8 @@ bool parseOutcome(const std::string& s,BackendAgentNativeTimerModifyOutcomeCateg
  if(s=="rejected_without_effect")o=BackendAgentNativeTimerModifyOutcomeCategory::rejectedWithoutEffect;
  else if(s=="accepted_unverified")o=BackendAgentNativeTimerModifyOutcomeCategory::acceptedUnverified;
  else if(s=="outcome_unknown")o=BackendAgentNativeTimerModifyOutcomeCategory::outcomeUnknown;
- else return false;return true;}
+ else{return false;}
+ return true;}
 bool emptyEvidence(const BackendAgentNativeTimerModifyEvidence& e){
  return e.commandId.empty()&&e.evidenceReference.empty()&&e.completedAt==0&&
    e.localStartingPersistedAt==0&&e.dispatchStartedAt==0;}
