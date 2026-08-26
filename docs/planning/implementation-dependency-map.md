@@ -9,6 +9,7 @@
 - [Phase Map](phase-map.md)
 - [Domain Dependency Map](domain-dependency-map.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
+- [ADR-0056 Playback Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 
 ---
 
@@ -26,6 +27,7 @@ identity, authorization and accountability
   -> durable command/result and protected-write safety
   -> Timer Intent and Multi-Backend Orchestration [completed]
   -> Streaming Gateway and Media Sessions
+       -> normalized playback semantics
   -> Broadcast Companion Services: Teletext and HbbTV
   -> Legacy OSD Compatibility Bridge
   -> stable Public API and Client Compatibility Hardening
@@ -58,7 +60,8 @@ The implementation must continue to reuse rather than duplicate:
 - Backend Agent enrollment/lifecycle/generation fencing;
 - Agent observation ingestion, durable commands/results and explicit provider ownership;
 - shared mutation-operation persistence, no-blind-retry and unknown-outcome reconciliation;
-- completed TimerIntent/TimerAssignment/NativeTimerBinding orchestration and failover.
+- completed TimerIntent/TimerAssignment/NativeTimerBinding orchestration and failover;
+- accepted MediaSession/Gateway/provider-lease ownership plus the persistent Phase-65 playback-owner topology.
 
 These foundations may be hardened/generalized only when a concrete domain requires it. Do not create parallel frontend-, plugin- or provider-owned systems.
 
@@ -164,16 +167,18 @@ Rules retained for later work:
 
 ---
 
-## Dependency E — Streaming Gateway and Media Sessions
+## Dependency E — Streaming Gateway, Media Sessions and Playback Semantics
 
 Phase 65 depends on A-D plus stable Recording/Channel identity and current Agent/provider capabilities.
+
+Server/media ownership:
 
 ```text
 MediaResourceRef
   -> authenticated playback request
   -> authorization + admission
   -> MediaSession
-  -> compatible selected media profile
+  -> internal MediaPresentationProfile
   -> MediaRoute + routeEpoch
   -> short-lived MediaAccessGrant
   -> Gateway connection
@@ -183,25 +188,44 @@ MediaResourceRef
   -> bytes
 ```
 
+First-party client semantics then depend on that accepted ownership rather than replacing it:
+
+```text
+MediaSession + selected internal presentation
+  -> normalized MediaPlaybackContract
+  -> persistent canonical playback owner
+  -> replaceable transport adapter
+  -> platform-native/mature playback engine
+```
+
 Required rules:
 
 - no permanent private provider URL is public;
 - provider identity is not client-selectable;
 - route replacement gets a new epoch and fences the old route;
+- MediaSession identity, route epoch and playback presentation generation are different concepts;
 - disconnect/revocation releases bounded resources;
 - slow clients/media processing stay outside VDR callbacks/locks;
 - transformation preference is pass-through, then remux/repackage, then transcode only when needed;
+- operation-specific stronger adaptation is allowed only when demonstrated correctness requires it and the implemented path remains policy-governed/fail-closed;
+- exact non-zero HLS video Recording resume is sync-safe through the accepted adaptation path or fails closed; ordinary start-at-zero remains least-transformation when valid;
 - growing Recording/range/seek capability is truthful;
+- user-owned seek preview, transport-local time and canonical absolute Recording position are separate state domains;
 - ordinary Live playback does not silently imply timeshift;
+- classified failure semantics do not themselves trigger silent provider/profile/session recovery;
 - product acceptance proves real picture/sound and cleanup.
 
-Client execution direction:
+ADR-0056 adds an implementation dependency inside active Phase 65.D:
 
 ```text
-selected MediaSession profile
-  -> small Suite playback abstraction
-  -> platform-native/mature playback engine
+normalized MediaPlaybackContract
+  -> canonical owner lifecycle publication
+  -> continuity/discontinuity + presentation generation
+  -> classified playback failure semantics
+  -> optional read-only media diagnostics
 ```
+
+The first four semantic steps are required to close the active Phase-65.D architecture gap. Diagnostics are sequenced after semantic correctness and are observational only. Shared fMP4/MSE helper deduplication is technical debt and is not a dependency gate.
 
 VDR-Suite does not vendor one universal decoder/rendering core.
 
@@ -308,7 +332,7 @@ Legacy OSD frame/input schemas
 plugin-local contracts
 ```
 
-Internal transition routes and first-party wrappers are not automatically stable public API commitments.
+Internal transition routes, first-party playback semantics and first-party wrappers are not automatically stable public API commitments.
 
 ---
 
@@ -395,10 +419,11 @@ A slice should be reviewable but not mechanically tiny if that would create an a
 - no Timer failover while prior dispatch is unresolved;
 - no silent provider fallback based on reachability alone;
 - no public permanent private-provider URL;
+- no client semantic capability inferred only from private provider details or transport DOM topology once a normalized playback semantic exists;
 - no HbbTV public arbitrary URL/JavaScript/plugin command tunnel;
 - no Teletext product contract defined as OSD pixels/cache files when structured page data can be modeled;
 - no Legacy OSD shortcut for normal domain-first EPG/Timer/Recording/Streaming/Teletext/HbbTV surfaces;
-- no accepted/proposed ADR presented as completed runtime without evidence;
+- no accepted ADR presented as completed runtime without evidence;
 - no historical slice document treated as current implementation authorization;
 - no active PR/head/CI checkpoint copied into this dependency map.
 
@@ -417,6 +442,8 @@ For current completed/active/next phase position use [Current State](../CURRENT.
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [Golden User Journeys](golden-user-journeys.md)
 - [Current Architecture State](../development/current-architecture-state.md)
+- [ADR-0056 Playback Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 
 ## Back
