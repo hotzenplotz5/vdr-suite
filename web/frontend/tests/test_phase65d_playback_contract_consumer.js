@@ -83,10 +83,8 @@ function progressive() {
   assert.strictEqual(projected.mediaSession.playback.seek.supported, true,
     'normalized in-session seek must override contradictory legacy capability');
   assert.strictEqual(projected.mediaSession.playback.seek.preparing, false);
-  assert.deepStrictEqual(
-    projected.mediaSession.playback.seek.window,
-    {startSeconds: 0, endSeconds: 5530}
-  );
+  assert.strictEqual(projected.mediaSession.playback.seek.window.startSeconds, 0);
+  assert.strictEqual(projected.mediaSession.playback.seek.window.endSeconds, 5530);
   assert.strictEqual(projected.mediaSession.playback.resume.supported, true);
   assert.strictEqual(projected.mediaSession.tracks.audio.selectionSupported, true);
   assert.strictEqual(projected.mediaSession.tracks.subtitles.selectionSupported, true);
