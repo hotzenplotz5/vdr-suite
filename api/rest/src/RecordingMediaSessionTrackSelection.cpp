@@ -115,7 +115,10 @@ std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
     return "media_transcode_capacity_unproven";
 }
 
-ApiResponse trackResponse(const StoredMediaSession& stored, const std::string& tracksJson)
+ApiResponse trackResponse(
+    const StoredMediaSession& stored,
+    bool growing,
+    const std::string& tracksJson)
 {
     ApiResponse response;
     response.statusCode = 200;
@@ -129,6 +132,7 @@ ApiResponse trackResponse(const StoredMediaSession& stored, const std::string& t
         "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
         "\"recordingId\":\"" + jsonEscape(stored.resourceId) + "\"," +
         "\"presentationProfileId\":\"" + jsonEscape(stored.presentationProfileId) + "\"," +
+        "\"growing\":" + std::string(growing ? "true" : "false") + "," +
         "\"tracks\":" + tracksJson + "}}";
     return response;
 }
@@ -306,7 +310,7 @@ ApiResponse RecordingMediaSessionController::trackStatus(
         adaptedProfile,
         adaptedProfile ? (selectedSubtitleStreamIndex < 0 ? 1 : 0) : -1,
         selectedSubtitleStreamIndex);
-    return trackResponse(*stored, tracks);
+    return trackResponse(*stored, source.growing, tracks);
 }
 
 ApiResponse RecordingMediaSessionController::selectAudioTrack(
