@@ -21,6 +21,8 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Current Architecture State](current-architecture-state.md)
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [Phase 65.D Playback Semantics Consolidation Contract](phase-65d-playback-semantics-consolidation.md)
 
 ## Completed and historical evidence
 
@@ -33,6 +35,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Phase 65.C Media Transcode Performance / Output Policy](phase-65-media-transcode-performance-policy.md)
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
+- [Phase 65.D Browser-local Volume/Mute Closeout](phase-65d-browser-volume-mute-closeout.md)
 - [Phase 62 Security Contract Index](phase-62-security-contract-index.md)
 - [Phase 62 Final Closeout](phase-62-closeout.md)
 - [Post-Phase-62 Security Review](post-phase-62-security-review.md)
@@ -66,13 +69,21 @@ Accepted bounded verticals/slices are:
 - 65.B Live-TV playback;
 - 65.C Recording delivery performance and media output/transcode settings, implemented through the completed-Recording progressive path and the subsequently continued backend output-policy/Web-settings work;
 - 65.D.1 Persistent Browser Playback Shell;
-- 65.D.2 Recording Playback Controls and Seek.
+- 65.D.2 Recording Playback Controls and Seek;
+- normalized Recording audio/subtitle selection, including browser WebVTT delivery;
+- browser-local Volume/Mute;
+- bounded continuous-fMP4 browser MSE forward buffering/backpressure;
+- compatibility timeline-drag ownership and exact non-zero HLS Recording resume synchronization through the existing ADR-0055 encoder policy.
 
-Phase 65.D Client playback abstraction is active. The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory. Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported D.2 progressive-fMP4 and HLS restart-seek profiles. Remaining Phase-65.D work includes normalized audio/subtitle selection, discontinuity handling and classified playback failures, while growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond the accepted D.2 paths remain explicitly unsupported/deferred. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
+Phase 65.D Client playback abstraction remains active. The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory. Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported D.2 progressive-fMP4 and HLS restart-seek profiles. PR #220/#221 further established that user-owned seek preview, transport-local time and canonical Recording position are separate state domains, and that exact non-zero HLS video resume must provide a synchronized random-access start or fail closed.
 
-A reproducible HEVC recording-duration anomaly discovered during this work is recorded separately as a deferred investigation: [HEVC Recording Frame-Rate / VDR Length Investigation](hevc-recording-framerate-investigation.md). It is evidence only, not an accepted architecture decision, and does not block the current subtitle work.
+The active architecture consolidation is now governed by [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md). Remaining mandatory semantic work is to implement the normalized `MediaPlaybackContract`, publish canonical playback-owner lifecycle state/events, complete continuity/discontinuity semantics and implement classified playback failures. Read-only media diagnostics are sequenced after those semantic contracts; shared fMP4/MSE helper deduplication is technical debt rather than a Phase-65.D completion gate.
 
-Use ADR-0046, ADR-0053, ADR-0055, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
+Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond the accepted completed-Recording paths remain explicitly unsupported/deferred. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
+
+A reproducible HEVC recording-duration anomaly discovered during this work is recorded separately as a deferred investigation: [HEVC Recording Frame-Rate / VDR Length Investigation](hevc-recording-framerate-investigation.md). It is evidence only, not an accepted architecture decision, and does not block the current Phase-65.D semantic consolidation.
+
+Use ADR-0046, ADR-0053, ADR-0055, ADR-0056, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
 
 ## Developer references
 
@@ -87,6 +98,7 @@ Use ADR-0046, ADR-0053, ADR-0055, the Strict Roadmap, Current State and Golden U
 - volatile operational truth -> `docs/CURRENT.md`
 - stable architecture -> `docs/architecture/` and accepted ADRs
 - future order and gates -> `docs/planning/`
+- active bounded implementation contracts -> `docs/development/`
 - completed exact evidence -> historical development closeouts
 - completed Phase-62 security slice navigation -> `phase-62-security-contract-index.md`
 
