@@ -80,7 +80,18 @@ function flush() {
   return Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve());
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return {promise, resolve, reject};
+}
+
 const requests = [];
+const stopResponses = [];
 const videos = [];
 let sessionSequence = 0;
 
@@ -145,7 +156,9 @@ const window = {
       const body = JSON.parse(options.body);
       requests.push({path: requestPath, body});
       if (body.operation === 'stop') {
-        return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
+        const response = deferred();
+        stopResponses.push({body, response});
+        return response.promise;
       }
       sessionSequence += 1;
       const id = 'recording_session_' + sessionSequence;
@@ -199,7 +212,26 @@ vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
   assert.strictEqual(startButton.hidden, true);
   assert.strictEqual(controls.hidden, false);
 
-  const firstStop = await playback.stop();
+  const firstMediaPath = video.src;
+  const firstLoadCount = video.loaded || 0;
+  const firstStopPromise = playback.stop();
+  await flush();
+
+  assert.strictEqual(stopResponses.length, 1, 'Stop must issue exactly one server request');
+  assert.strictEqual(video.paused, true, 'Stop must pause local playback immediately');
+  assert.strictEqual(
+    video.src,
+    firstMediaPath,
+    'Progressive transport must remain connected until the server confirms cleanup'
+  );
+  assert.strictEqual(
+    video.loaded || 0,
+    firstLoadCount,
+    'Stop must not reset the media element before the server response'
+  );
+
+  stopResponses[0].response.resolve({mediaSession: {id: firstId, state: 'ended'}});
+  const firstStop = await firstStopPromise;
   assert.strictEqual(firstStop, true);
   assert.strictEqual(playback.state(), 'stopped');
   assert.strictEqual(playback.sessionId(), '', 'stopped session must no longer be panel owner');
@@ -208,6 +240,11 @@ vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
   assert.strictEqual(startButton.textContent, '▶ Wiedergabe erneut starten');
   assert.strictEqual(controls.hidden, true);
   assert.strictEqual(video.hidden, true);
+  assert.strictEqual(video.src, '', 'confirmed server stop must release the local media transport');
+  assert.ok(
+    (video.loaded || 0) > firstLoadCount,
+    'confirmed server stop must reset the media element exactly after cleanup confirmation'
+  );
 
   let createRequests = requests.filter(value => !value.body.operation);
   let stopRequests = requests.filter(value => value.body.operation === 'stop');
@@ -225,13 +262,17 @@ vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
   assert.strictEqual(controls.hidden, false);
   assert.strictEqual(video.hidden, false);
 
-  const secondStop = await playback.stop();
+  const secondStopPromise = playback.stop();
+  await flush();
+  assert.strictEqual(stopResponses.length, 2);
+  stopResponses[1].response.resolve({mediaSession: {id: 'recording_session_2', state: 'ended'}});
+  const secondStop = await secondStopPromise;
   assert.strictEqual(secondStop, true);
   stopRequests = requests.filter(value => value.body.operation === 'stop');
   assert.strictEqual(stopRequests.length, 2);
   assert.strictEqual(stopRequests[1].body.sessionId, 'recording_session_2');
 
-  console.log('phase65d2 recording stop restart lifecycle ok');
+  console.log('phase65d2 recording stop restart and cleanup ordering ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
