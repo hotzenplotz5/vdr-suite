@@ -27,7 +27,7 @@
         typeof playback.stop !== 'function') return null;
     const panel = playback.element;
     if (panel.__vdrSuiteRestartChoice) return panel.__vdrSuiteRestartChoice;
-    if (typeof panel.querySelector !== 'function') return null;
+    if (typeof panel.querySelector !== 'function' || typeof panel.appendChild !== 'function') return null;
 
     const startButton = panel.querySelector('button.recordings2-primary');
     const stopButton = panel.querySelector('button[aria-label="Wiedergabe stoppen"]');
@@ -48,12 +48,12 @@
     choices.appendChild(resumeButton);
     choices.appendChild(fromStartButton);
 
-    if (typeof panel.insertBefore === 'function') {
-      panel.insertBefore(choices, startButton.nextSibling || null);
-    }
-    else {
-      panel.appendChild(choices);
-    }
+    // `playback.element` is the stable owner shell. Other accepted playback
+    // decorators (for example Volume/Mute and track controls) can put the
+    // transport's Start button several DOM levels below this shell. Anchoring
+    // the restart choice directly to that nested button would either throw a
+    // NotFoundError or put owner-level UI inside replaceable transport DOM.
+    panel.appendChild(choices);
 
     let stopPosition = 0;
     let canResume = false;

@@ -251,6 +251,50 @@
     let indexFailures = 0;
     let preferredAudioTrackId = '';
     let audioSelectionInFlight = false;
+    let publishedSessionCount = 0;
+
+    const lifecycleApi = global.VdrSuitePlaybackOwnerLifecycle;
+    const lifecycle = lifecycleApi && typeof lifecycleApi.create === 'function'
+      ? lifecycleApi.create({state: 'idle', sessionId: null, transport: 'hls-compatibility'})
+      : null;
+
+    function lifecycleSnapshot() {
+      if (lifecycle) return lifecycle.snapshot();
+      return Object.freeze({
+        lifecycleVersion: 1,
+        lifecycleRevision: 0,
+        state: state(),
+        sessionId: safeSessionId(activeSessionId) || null,
+        transport: 'hls-compatibility',
+        transition: 'snapshot'
+      });
+    }
+
+    function publishLifecycle(transition, change) {
+      if (!lifecycle) return lifecycleSnapshot();
+      return lifecycle.publish(Object.assign({transition: transition}, change || {}));
+    }
+
+    function subscribeLifecycle(listener) {
+      if (lifecycle) return lifecycle.subscribe(listener);
+      if (typeof listener === 'function') {
+        try { listener(lifecycleSnapshot()); } catch (error) {}
+      }
+      return function () {};
+    }
+
+    function publishSession(sessionId) {
+      const id = safeSessionId(sessionId);
+      if (!id) return;
+      activeSessionId = id;
+      const transition = publishedSessionCount === 0 ? 'session-started' : 'session-replaced';
+      publishedSessionCount += 1;
+      publishLifecycle(transition, {
+        state: state(),
+        sessionId: id,
+        transport: 'hls-compatibility'
+      });
+    }
 
     function currentVideo() {
       return inner && inner.element ? find(inner.element, 'video') : null;
@@ -360,8 +404,22 @@
       if (!video || video.__vdrSuiteFallbackControlsBound === true) return;
       video.__vdrSuiteFallbackControlsBound = true;
       video.controls = false;
-      ['play', 'pause', 'playing', 'timeupdate', 'loadedmetadata']
-        .forEach(function (name) { video.addEventListener(name, updateControls); });
+      ['timeupdate', 'loadedmetadata'].forEach(function (name) {
+        video.addEventListener(name, updateControls);
+      });
+      video.addEventListener('play', function () {
+        updateControls();
+        if (!destroyed && !stopped) {
+          publishLifecycle('play', {state: 'playing', sessionId: activeSessionId});
+        }
+      });
+      video.addEventListener('pause', function () {
+        updateControls();
+        if (!destroyed && !stopped) {
+          publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId});
+        }
+      });
+      video.addEventListener('playing', updateControls);
       video.addEventListener('ended', function () {
         if (destroyed) return;
         stoppedPosition = position();
@@ -372,6 +430,7 @@
         clearIndexPoll();
         notice.textContent = 'Wiedergabe beendet · Wiedergabe von vorn möglich.';
         updateControls();
+        publishLifecycle('stopped', {state: 'stopped', sessionId: null});
       });
     }
 
@@ -402,6 +461,11 @@
       const innerStart = find(inner.element, 'button.recordings2-primary');
       if (innerStart) innerStart.hidden = true;
       bindVideo();
+      publishLifecycle('transport-replaced', {
+        state: 'starting',
+        sessionId: null,
+        transport: 'hls-compatibility'
+      });
       return inner;
     }
 
@@ -425,9 +489,15 @@
       setContractNotice();
       bindVideo();
       updateControls();
+      publishLifecycle('start-requested', {
+        state: 'starting',
+        sessionId: null,
+        transport: 'hls-compatibility'
+      });
       return Promise.resolve(inner.start()).then(function (sessionId) {
         bindVideo();
         updateControls();
+        publishSession(sessionId || activeSessionId);
         return sessionId;
       }).catch(function (error) {
         started = false;
@@ -438,6 +508,7 @@
           ? 'Fortsetzen fehlgeschlagen: ' + error.message
           : 'Fortsetzen fehlgeschlagen.';
         updateControls();
+        publishLifecycle('stopped', {state: 'stopped', sessionId: null});
         throw error;
       });
     }
@@ -469,6 +540,7 @@
       if (!video || destroyed || stopped) return false;
       try { video.pause(); } catch (error) { return false; }
       updateControls();
+      publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId});
       return true;
     }
 
@@ -478,6 +550,7 @@
       stoppedDuration = durationSeconds;
       stoppedResumeSupported = Boolean(resumeSupported && stoppedPosition > 0);
       clearIndexPoll();
+      publishLifecycle('stop-requested', {state: 'stopping', sessionId: activeSessionId});
       if (typeof inner.destroy === 'function') inner.destroy();
       started = false;
       stopped = true;
@@ -486,6 +559,7 @@
         ? 'Wiedergabe gestoppt · ab ' + formatTime(stoppedPosition) + ' fortsetzen oder von vorn.'
         : 'Wiedergabe gestoppt · Wiedergabe von vorn möglich.';
       updateControls();
+      publishLifecycle('stopped', {state: 'stopped', sessionId: null});
       return Promise.resolve(true);
     }
 
@@ -510,6 +584,7 @@
 
       const previousTrackId = preferredAudioTrackId;
       audioSelectionInFlight = true;
+      publishLifecycle('session-replacing', {state: 'replacing', sessionId: activeSessionId});
       return Promise.resolve(stop()).then(function (stoppedCleanly) {
         if (stoppedCleanly === false || state() !== 'stopped') {
           throw new Error('Der bisherige HLS-Stream konnte nicht sauber gestoppt werden.');
@@ -537,13 +612,23 @@
       return Promise.reject(new Error('Zeit-Sprung ist im Recording-Kompatibilitätspfad nicht verfügbar.'));
     }
 
+    function pageHide() {
+      if (destroyed) return;
+      publishLifecycle('page-teardown', {state: 'stopping', sessionId: activeSessionId});
+    }
+
     function destroy() {
       if (destroyed) return;
       destroyed = true;
       clearIndexPoll();
+      if (typeof global.removeEventListener === 'function') {
+        global.removeEventListener('pagehide', pageHide);
+      }
       if (inner && typeof inner.destroy === 'function') inner.destroy();
       started = false;
       updateControls();
+      publishLifecycle('destroyed', {state: 'destroyed', sessionId: null});
+      if (lifecycle) lifecycle.clear();
     }
 
     function state() {
@@ -561,6 +646,9 @@
       else pause();
     });
     stopButton.addEventListener('click', function () { stop().catch(function () {}); });
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pagehide', pageHide);
+    }
 
     if (!mountInner(0)) return null;
     updateControls();
@@ -577,6 +665,8 @@
       position: position,
       duration: duration,
       state: state,
+      snapshot: lifecycleSnapshot,
+      subscribe: subscribeLifecycle,
       selectAudioTrack: selectAudioTrack,
       canSelectAudioTrack: function () {
         return !destroyed && !stopped && started && !audioSelectionInFlight && resumeSupported;
@@ -588,8 +678,17 @@
       },
       relinquishForReplacement: function () {
         clearIndexPoll();
+        publishLifecycle('relinquishing', {state: 'replacing', sessionId: activeSessionId});
         if (inner && typeof inner.relinquishForReplacement === 'function') {
-          return inner.relinquishForReplacement();
+          return Promise.resolve(inner.relinquishForReplacement()).then(function (sessionId) {
+            destroyed = true;
+            if (typeof global.removeEventListener === 'function') {
+              global.removeEventListener('pagehide', pageHide);
+            }
+            publishLifecycle('relinquished', {state: 'destroyed', sessionId: null});
+            if (lifecycle) lifecycle.clear();
+            return sessionId;
+          });
         }
         destroy();
         return Promise.resolve('');

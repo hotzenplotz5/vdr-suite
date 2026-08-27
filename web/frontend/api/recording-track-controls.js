@@ -293,6 +293,8 @@
     let activeSessionId = '';
     let activeProfileId = '';
     let sessionWatchTimer = null;
+    let ownerLifecycleUnsubscribe = null;
+    let usingCanonicalLifecycle = false;
 
     let subtitleSelectionInFlight = false;
     let subtitlePreferenceTrackId = 'off';
@@ -336,6 +338,14 @@
         try { global.clearTimeout(sessionWatchTimer); } catch (error) {}
       }
       sessionWatchTimer = null;
+    }
+
+    function clearOwnerLifecycle() {
+      if (typeof ownerLifecycleUnsubscribe === 'function') {
+        try { ownerLifecycleUnsubscribe(); } catch (error) {}
+      }
+      ownerLifecycleUnsubscribe = null;
+      usingCanonicalLifecycle = false;
     }
 
     function revokeManagedSubtitleUrl() {
@@ -479,11 +489,58 @@
       });
     }
 
+    function handleOwnerLifecycle(snapshot) {
+      if (disposed || !snapshot) return;
+      const currentId = safeSessionId(snapshot.sessionId);
+      const ownerState = text(snapshot.state);
+      const transition = text(snapshot.transition);
+      const sessionDetached = !currentId && (
+        transition === 'transport-replaced' ||
+        ownerState === 'idle' || ownerState === 'stopped' ||
+        ownerState === 'destroyed' || ownerState === 'stopping' || ownerState === 'replacing'
+      );
+
+      if (sessionDetached) {
+        if (activeSessionId) resetTrackPresentation();
+        return;
+      }
+
+      if (currentId && currentId !== activeSessionId) {
+        detachManagedSubtitle();
+        activeSessionId = currentId;
+        pollFailures = 0;
+        refreshTracks();
+        return;
+      }
+
+      if (currentId && subtitlePreferenceTrackId !== 'off' &&
+          subtitleSelectionSupported && !subtitleSelectionInFlight &&
+          (transition === 'seek-completed' || transition === 'transport-replaced' ||
+           transition === 'session-replaced')) {
+        const currentBase = streamBasePosition();
+        if (appliedSubtitleSessionId !== currentId || appliedSubtitleBase !== currentBase) {
+          detachManagedSubtitle();
+          applySubtitlePreference(false).catch(function () {});
+        }
+      }
+    }
+
+    function bindOwnerLifecycle() {
+      if (typeof panel.subscribe !== 'function') return false;
+      clearSessionWatch();
+      ownerLifecycleUnsubscribe = panel.subscribe(handleOwnerLifecycle);
+      usingCanonicalLifecycle = true;
+      return true;
+    }
+
+    // Compatibility only for an older/test owner that does not yet publish the
+    // canonical ADR-0056 lifecycle. Production Recording owners use subscribe().
     function scheduleSessionWatch() {
-      if (disposed || sessionWatchTimer !== null || typeof global.setTimeout !== 'function') return;
+      if (usingCanonicalLifecycle || disposed || sessionWatchTimer !== null ||
+          typeof global.setTimeout !== 'function') return;
       const handle = global.setTimeout(function () {
         sessionWatchTimer = null;
-        if (disposed) return;
+        if (disposed || usingCanonicalLifecycle) return;
         const currentId = safeSessionId(panel.sessionId());
         if (!currentId && activeSessionId) {
           resetTrackPresentation();
@@ -822,6 +879,7 @@
 
     wrapped.start = function () {
       const result = panel.start.apply(panel, arguments);
+      if (usingCanonicalLifecycle) return result;
       return Promise.resolve(result).then(function (id) {
         activeSessionId = safeSessionId(id) || safeSessionId(panel.sessionId());
         pollFailures = 0;
@@ -834,8 +892,10 @@
     if (typeof panel.stop === 'function') {
       wrapped.stop = function () {
         clearPoll();
-        resetTrackPresentation();
-        scheduleSessionWatch();
+        if (!usingCanonicalLifecycle) {
+          resetTrackPresentation();
+          scheduleSessionWatch();
+        }
         return panel.stop.apply(panel, arguments);
       };
     }
@@ -844,6 +904,7 @@
       wrapped.relinquishForReplacement = function () {
         clearPoll();
         clearSessionWatch();
+        clearOwnerLifecycle();
         detachManagedSubtitle();
         activeSessionId = '';
         activeProfileId = '';
@@ -857,13 +918,14 @@
         disposed = true;
         clearPoll();
         clearSessionWatch();
+        clearOwnerLifecycle();
         detachManagedSubtitle();
         subtitlePreferenceTrackId = 'off';
         panel.destroy.apply(panel, arguments);
       };
     }
 
-    scheduleSessionWatch();
+    if (!bindOwnerLifecycle()) scheduleSessionWatch();
     return Object.freeze(wrapped);
   }
 
