@@ -1617,8 +1617,8 @@
         sessionId: activeSessionId,
         transport: 'progressive-fmp4'
       });
+      try { video.pause(); } catch (error) {}
       const stopRequest = stopActive(false);
-      releaseVideo();
       startButton.textContent = '▶ Wiedergabe erneut starten';
       startButton.hidden = false;
       startButton.disabled = true;
@@ -1627,6 +1627,7 @@
       setStatus('Wiedergabe wird gestoppt …', false);
       updateControls();
       return Promise.resolve(stopRequest).then(function () {
+        releaseVideo();
         activeSessionId = '';
         activeMediaPath = '';
         startButton.disabled = false;
@@ -1634,6 +1635,7 @@
         publishLifecycle('stopped', {state: 'stopped', sessionId: null, transport: 'none'});
         return true;
       }).catch(function (error) {
+        releaseVideo();
         startButton.disabled = true;
         setStatus(
           error && error.message
