@@ -43,6 +43,14 @@ int main()
     assert(progressiveJson.find("provider") == std::string::npos);
     assert(progressiveJson.find("ffmpeg") == std::string::npos);
 
+    MediaPlaybackContract continuity = progressive;
+    continuity.continuityGeneration = 7;
+    continuity.continuityState = "stable";
+    const std::string continuityJson = MediaPlaybackContractFactory::json(continuity);
+    assert(continuityJson.find("\"continuity\":{\"generation\":7,\"state\":\"stable\"}") != std::string::npos);
+    assert(continuityJson.find("routeEpoch") == std::string::npos);
+    assert(continuityJson.find("lifecycleRevision") == std::string::npos);
+
     const std::string progressiveLegacy =
         MediaPlaybackContractFactory::legacyPlaybackJson(progressive);
     assert(progressiveLegacy.find("\"seek\":{\"supported\":true") != std::string::npos);
