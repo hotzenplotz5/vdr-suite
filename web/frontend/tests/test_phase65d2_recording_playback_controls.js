@@ -9,6 +9,14 @@ const source = fs.readFileSync(
   path.join(__dirname, '..', 'api', 'session-frontend-sync.js'),
   'utf8'
 );
+const lifecycleSource = fs.readFileSync(
+  path.join(__dirname, '..', 'api', 'playback-owner-lifecycle.js'),
+  'utf8'
+);
+const failureClassificationSource = fs.readFileSync(
+  path.join(__dirname, '..', 'api', 'playback-failure-classification.js'),
+  'utf8'
+);
 
 const connectRecordingStart = source.indexOf('function connectRecordingStream(autoPlay, initialConnection)');
 const pageHideStart = source.indexOf('\n    function pageHide()', connectRecordingStart);
@@ -23,8 +31,12 @@ assert.ok(
   'a late continuous-fMP4 failure must not silently switch an already-playing Recording to HLS'
 );
 assert.ok(
-  connectRecordingSource.includes('else failStartedPlayback(error, repositionedStream);'),
-  'post-start continuous-fMP4 failures must use classified playback failure semantics'
+  connectRecordingSource.includes('classifyClientTransportError(error)'),
+  'post-start continuous-fMP4 failures must publish classified transport/buffer evidence'
+);
+assert.ok(
+  connectRecordingSource.includes('else failStartedPlayback('),
+  'post-start continuous-fMP4 failures must remain terminal owner actions'
 );
 assert.ok(
   source.includes("? 'Aufnahme-Wiedergabe wurde nach dem Start unterbrochen: ' + error.message"),
@@ -264,9 +276,16 @@ function createRuntime(options) {
     Math,
     Uint8Array,
     Date,
+    Set,
     setTimeout: schedule,
     clearTimeout: cancelSchedule
   });
+  vm.runInContext(lifecycleSource, context, {filename: 'playback-owner-lifecycle.js'});
+  vm.runInContext(
+    failureClassificationSource,
+    context,
+    {filename: 'playback-failure-classification.js'}
+  );
   vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
   return {window, requests, videos};
@@ -419,10 +438,15 @@ function createRuntime(options) {
   );
   await startupPlayback.start();
   const startupVideo = startupFailure.videos[0];
-  startupVideo.error = {message: 'decode before first frame'};
+  startupVideo.error = {code: 3, message: 'decode before first frame'};
   startupVideo.dispatch('error');
   await flush();
   assert.strictEqual(startupPlayback.state(), 'fallback', 'failure before first media must still activate startup fallback');
+  assert.strictEqual(
+    startupPlayback.snapshot().failure,
+    null,
+    'classification must not turn the existing startup fallback decision into a terminal failure publication'
+  );
 
   const lateFailure = createRuntime();
   const latePlayback = lateFailure.window.VdrSuiteRecordings2Playback.createPanel(
@@ -432,7 +456,7 @@ function createRuntime(options) {
   const lateId = await latePlayback.start();
   const lateVideo = lateFailure.videos[0];
   lateVideo.dispatch('playing');
-  lateVideo.error = {message: 'decoder stopped'};
+  lateVideo.error = {code: 3, message: 'decoder stopped'};
   lateVideo.dispatch('error');
   await flush();
   const lateStatus = find(latePlayback.element, item => item.className === 'recordings2-playback-status');
@@ -442,9 +466,26 @@ function createRuntime(options) {
   assert.ok(!lateStatus.textContent.includes('Cleanup'), 'cleanup must not be presented as the playback cause');
   assert.ok(!lateStatus.textContent.includes('zurückgesetzt'), 'reset/cleanup consequences must not be presented as the cause');
   assert.strictEqual(latePlayback.state(), 'stopped');
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(latePlayback.snapshot().failure)),
+    {
+      category: 'decoder',
+      origin: 'platform-player',
+      stage: 'decode',
+      terminal: true,
+      recoveryClass: 'none',
+      reasonCode: 'client_media_decode_error'
+    },
+    'post-start platform decoder error must publish canonical Slice-4 failure evidence'
+  );
   assert.ok(
     lateFailure.requests.some(entry => entry.body.operation === 'stop' && entry.body.sessionId === lateId),
     'failure-stop must still clean up the active MediaSession'
+  );
+  assert.strictEqual(
+    lateFailure.requests.filter(entry => !entry.body.operation).length,
+    1,
+    'failure classification must not create a replacement MediaSession'
   );
 
   const seekFailure = createRuntime();
@@ -456,7 +497,7 @@ function createRuntime(options) {
   const seekFailureVideo = seekFailure.videos[0];
   seekFailureVideo.dispatch('playing');
   await seekFailurePlayback.seekAbsolute(90);
-  seekFailureVideo.error = {message: 'repositioned stream decode failed'};
+  seekFailureVideo.error = {code: 3, message: 'repositioned stream decode failed'};
   seekFailureVideo.dispatch('error');
   await flush();
   const seekFailureStatus = find(
@@ -466,12 +507,23 @@ function createRuntime(options) {
   assert.ok(seekFailureStatus.textContent.includes('Seek wurde serverseitig ausgeführt'));
   assert.ok(seekFailureStatus.textContent.includes('repositioned stream decode failed'));
   assert.strictEqual(seekFailurePlayback.state(), 'stopped');
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(seekFailurePlayback.snapshot().failure)),
+    {
+      category: 'decoder',
+      origin: 'platform-player',
+      stage: 'decode',
+      terminal: true,
+      recoveryClass: 'none',
+      reasonCode: 'client_media_decode_error'
+    }
+  );
   assert.ok(
     seekFailure.requests.some(entry => entry.body.operation === 'stop' && entry.body.sessionId === seekFailureId),
     'post-seek stream failure must still clean up the active MediaSession'
   );
 
-  console.log('phase65d2 recording playback controls, truthful seek, lazy index and failure semantics ok');
+  console.log('phase65d2 recording playback controls, truthful seek, lazy index and classified failure semantics ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
