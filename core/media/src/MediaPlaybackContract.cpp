@@ -1,6 +1,7 @@
 #include "MediaPlaybackContract.h"
 
 #include <algorithm>
+#include <initializer_list>
 
 namespace
 {
@@ -84,6 +85,34 @@ std::string optionalStringJson(const std::optional<std::string>& value)
 bool optionalTrue(const std::optional<bool>& value)
 {
     return value.has_value() && *value;
+}
+
+bool reasonIs(
+    const std::string& reasonCode,
+    std::initializer_list<const char*> candidates)
+{
+    for (const char* candidate : candidates) {
+        if (reasonCode == candidate) return true;
+    }
+    return false;
+}
+
+MediaPlaybackFailureContract failure(
+    const std::string& category,
+    const std::string& origin,
+    const std::string& stage,
+    bool terminal,
+    const std::string& recoveryClass,
+    const std::string& reasonCode)
+{
+    MediaPlaybackFailureContract result;
+    result.category = category;
+    result.origin = origin;
+    result.stage = stage;
+    result.terminal = terminal;
+    result.recoveryClass = recoveryClass;
+    result.reasonCode = reasonCode;
+    return result;
 }
 
 } // namespace
@@ -192,6 +221,171 @@ MediaPlaybackContract MediaPlaybackContractFactory::live(
     return contract;
 }
 
+std::optional<MediaPlaybackFailureContract>
+MediaPlaybackContractFactory::classifyFailure(const std::string& reasonCode)
+{
+    if (reasonCode.empty()) return std::nullopt;
+
+    if (reasonIs(reasonCode, {
+            "media_access_credential_required",
+            "invalid_media_access_credential",
+            "media_access_denied",
+            "media_access_inactive",
+            "media_access_fence_mismatch",
+            "media_access_state_unavailable"})) {
+        return failure(
+            "authorization",
+            "gateway",
+            "access-authorization",
+            true,
+            "new-authorization",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "media_actor_required",
+            "media_session_not_owned"})) {
+        return failure(
+            "authorization",
+            "control-plane",
+            "session-authorization",
+            true,
+            "new-authorization",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "recording_not_found",
+            "recording_source_unavailable"})) {
+        return failure(
+            "source",
+            "control-plane",
+            "source-resolution",
+            true,
+            "none",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "media_probe_workspace_unavailable",
+            "media_source_probe_failed",
+            "media_source_unsupported"})) {
+        return failure(
+            "source",
+            "control-plane",
+            "source-probe",
+            true,
+            "none",
+            reasonCode);
+    }
+
+    if (reasonCode == "recording_resume_growing_not_supported") {
+        return failure(
+            "source",
+            "control-plane",
+            "exact-resume",
+            true,
+            "none",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "media_presentation_unavailable",
+            "recording_audio_track_selection_unsupported",
+            "recording_resume_profile_not_supported",
+            "recording_resume_sync_profile_unavailable",
+            "forced_vaapi_transformation_unsupported",
+            "forced_vaapi_unavailable",
+            "media_transcode_capacity_unproven"})) {
+        return failure(
+            "adaptation",
+            "control-plane",
+            "presentation-selection",
+            true,
+            "new-authorized-contract",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "media_worker_plan_invalid",
+            "selected_source_track_missing",
+            "unsupported_recording_video_transformation",
+            "unsupported_recording_audio_transformation",
+            "profile_is_not_recording_progressive_fmp4"})) {
+        return failure(
+            "adaptation",
+            "media-worker",
+            "provision-plan",
+            true,
+            "new-authorized-contract",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "media_worker_start_failed",
+            "media_worker_exited_before_ready",
+            "media_worker_wait_failed",
+            "media_hls_not_ready",
+            "recording_stream_pipe_create_failed",
+            "media_provision_failed"})) {
+        return failure(
+            "transport",
+            "media-worker",
+            "provision-start",
+            true,
+            "new-authorized-contract",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "recording_resume_not_ready",
+            "recording_resume_outside_window"})) {
+        return failure(
+            "timeline",
+            "control-plane",
+            "exact-resume",
+            true,
+            "none",
+            reasonCode);
+    }
+
+    if (reasonCode == "recording_seek_outside_window") {
+        return failure(
+            "timeline",
+            "control-plane",
+            "seek",
+            false,
+            "none",
+            reasonCode);
+    }
+
+    if (reasonIs(reasonCode, {
+            "recording_index_update_failed",
+            "recording_index_result_unavailable",
+            "recording_index_timeline_unavailable",
+            "recording_seek_timeline_activation_failed"})) {
+        return failure(
+            "timeline",
+            "control-plane",
+            "timeline-preparation",
+            false,
+            "none",
+            reasonCode);
+    }
+
+    return std::nullopt;
+}
+
+MediaPlaybackContract MediaPlaybackContractFactory::failed(
+    MediaPlaybackResourceMode resourceMode,
+    const std::string& reasonCode)
+{
+    MediaPlaybackContract contract;
+    contract.resourceMode = resourceMode;
+    contract.failure = classifyFailure(reasonCode);
+    return contract;
+}
+
 std::string MediaPlaybackContractFactory::json(const MediaPlaybackContract& contract)
 {
     std::string result =
@@ -241,13 +435,17 @@ std::string MediaPlaybackContractFactory::json(const MediaPlaybackContract& cont
             ",\"state\":" + optionalStringJson(contract.continuityState) + "}";
 
     result += ",\"failure\":";
-    if (!contract.failureClass.has_value()) {
+    if (!contract.failure.has_value()) {
         result += "null";
     }
     else {
         result +=
-            "{\"class\":" + optionalStringJson(contract.failureClass) + "," +
-            "\"reasonCode\":" + optionalStringJson(contract.failureReasonCode) + "}";
+            "{\"category\":\"" + jsonEscape(contract.failure->category) + "\"," +
+            "\"origin\":\"" + jsonEscape(contract.failure->origin) + "\"," +
+            "\"stage\":\"" + jsonEscape(contract.failure->stage) + "\"," +
+            "\"terminal\":" + std::string(contract.failure->terminal ? "true" : "false") + "," +
+            "\"recoveryClass\":\"" + jsonEscape(contract.failure->recoveryClass) + "\"," +
+            "\"reasonCode\":\"" + jsonEscape(contract.failure->reasonCode) + "\"}";
     }
     result += "}";
     return result;

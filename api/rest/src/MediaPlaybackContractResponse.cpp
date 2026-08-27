@@ -39,6 +39,15 @@ std::optional<std::size_t> matchingBrace(
     return std::nullopt;
 }
 
+std::optional<Span> rootObject(const std::string& json)
+{
+    const std::size_t open = json.find('{');
+    if (open == std::string::npos) return std::nullopt;
+    const auto close = matchingBrace(json, open, json.size());
+    if (!close.has_value()) return std::nullopt;
+    return Span{open, *close + 1};
+}
+
 std::optional<Span> objectField(
     const std::string& json,
     const std::string& key,
@@ -92,7 +101,9 @@ std::optional<int> intField(
     const std::size_t found = json.find(token, scope.begin);
     if (found == std::string::npos || found >= scope.end) return std::nullopt;
     std::size_t pos = found + token.size();
-    if (json.compare(pos, 4, "null") == 0 || pos >= scope.end || !std::isdigit(static_cast<unsigned char>(json[pos]))) {
+    if (json.compare(pos, 4, "null") == 0 ||
+        pos >= scope.end ||
+        !std::isdigit(static_cast<unsigned char>(json[pos]))) {
         return std::nullopt;
     }
     int value = 0;
@@ -122,17 +133,56 @@ MediaPlaybackTrackCapabilities tracksFrom(
     return tracks;
 }
 
+bool alreadyHasPlaybackContract(
+    const std::string& json,
+    const Span& scope)
+{
+    const std::size_t found = json.find("\"playbackContract\":", scope.begin);
+    return found != std::string::npos && found < scope.end;
+}
+
+ApiResponse augmentFailureResponse(ApiResponse response, bool liveResource)
+{
+    const auto root = rootObject(response.body);
+    if (!root.has_value() || alreadyHasPlaybackContract(response.body, *root)) {
+        return response;
+    }
+    const auto error = objectField(
+        response.body,
+        "error",
+        root->begin,
+        root->end);
+    if (!error.has_value()) return response;
+    const auto reasonCode = stringField(response.body, "code", *error);
+    if (!reasonCode.has_value()) return response;
+
+    MediaPlaybackContract contract = MediaPlaybackContractFactory::failed(
+        liveResource
+            ? MediaPlaybackResourceMode::Live
+            : MediaPlaybackResourceMode::Recording,
+        *reasonCode);
+    if (!contract.failure.has_value()) return response;
+
+    response.body.insert(
+        root->end - 1,
+        ",\"playbackContract\":" + MediaPlaybackContractFactory::json(contract));
+    return response;
+}
+
 } // namespace
 
 ApiResponse MediaPlaybackContractResponse::augment(ApiResponse response, bool liveResource)
 {
-    if (response.statusCode < 200 || response.statusCode >= 300 ||
-        response.contentType.rfind("application/json", 0) != 0) {
+    if (response.contentType.rfind("application/json", 0) != 0) {
         return response;
     }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+        return augmentFailureResponse(std::move(response), liveResource);
+    }
+
     const auto mediaSession = objectField(response.body, "mediaSession", 0, response.body.size());
-    if (!mediaSession.has_value() ||
-        response.body.find("\"playbackContract\":", mediaSession->begin) < mediaSession->end) {
+    if (!mediaSession.has_value() || alreadyHasPlaybackContract(response.body, *mediaSession)) {
         return response;
     }
     const auto state = stringField(response.body, "state", *mediaSession);
@@ -155,9 +205,11 @@ ApiResponse MediaPlaybackContractResponse::augment(ApiResponse response, bool li
         std::optional<bool> seekPreparing;
         std::optional<bool> restartSupported;
         std::optional<bool> restartPreparing;
+        std::optional<std::string> playbackFailureReason;
         if (playback.has_value()) {
             position = intField(response.body, "positionSeconds", *playback);
             duration = intField(response.body, "durationSeconds", *playback);
+            playbackFailureReason = stringField(response.body, "reason", *playback);
             const auto seek = objectField(response.body, "seek", playback->begin, playback->end);
             if (seek.has_value()) {
                 seekSupported = boolField(response.body, "supported", *seek);
@@ -180,6 +232,10 @@ ApiResponse MediaPlaybackContractResponse::augment(ApiResponse response, bool li
             restartSupported,
             restartPreparing,
             tracks);
+        if (playbackFailureReason.has_value()) {
+            contract.failure =
+                MediaPlaybackContractFactory::classifyFailure(*playbackFailureReason);
+        }
     }
 
     response.body.insert(
