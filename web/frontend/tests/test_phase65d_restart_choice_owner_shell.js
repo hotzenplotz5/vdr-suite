@@ -144,25 +144,25 @@ function flush(count = 8) {
 
   let state = 'playing';
   let stopCalls = 0;
-  const resumeCalls = [];
+  let startCalls = 0;
+  const seekCalls = [];
   const playback = {
     element: outerOwner,
     state() { return state; },
     position() { return 137; },
-    canResume() { return true; },
     stop() {
       stopCalls += 1;
       state = 'stopped';
       return Promise.resolve(true);
     },
     start() {
+      startCalls += 1;
       state = 'playing';
-      return Promise.resolve('fresh-session');
+      return Promise.resolve('fresh-progressive-session');
     },
-    resume(position) {
-      resumeCalls.push(position);
-      state = 'playing';
-      return Promise.resolve('resume-session');
+    seekAbsolute(position) {
+      seekCalls.push(position);
+      return Promise.resolve(true);
     }
   };
 
@@ -185,15 +185,25 @@ function flush(count = 8) {
 
   assert.strictEqual(stopCalls, 1, 'user Stop must invoke the playback owner once');
   assert.strictEqual(installed.choices.hidden, false, 'successful Stop must expose restart choices');
-  assert.strictEqual(installed.resumeButton.hidden, false, 'truthful resume capability must stay visible');
+  assert.strictEqual(
+    installed.resumeButton.hidden,
+    false,
+    'Progressive seek timeline must expose resume even without owner resume()/canResume() helpers'
+  );
   assert.strictEqual(installed.resumeButton.textContent, '▶ Wiedergabe ab 00:02:17 fortsetzen');
   assert.strictEqual(status.textContent, 'Wiedergabe gestoppt · Wiedergabe ab 00:02:17 fortsetzen?');
 
   installed.resumeButton.click();
   await flush();
-  assert.deepStrictEqual(resumeCalls, [137], 'resume choice must call the established owner resume path');
 
-  console.log('phase65d restart choice stable owner shell ok');
+  assert.strictEqual(startCalls, 1, 'Progressive resume must create exactly one fresh MediaSession');
+  assert.deepStrictEqual(
+    seekCalls,
+    [137],
+    'Progressive resume must seek the fresh session to the captured stop position'
+  );
+
+  console.log('phase65d restart choice stable Progressive owner shell ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
