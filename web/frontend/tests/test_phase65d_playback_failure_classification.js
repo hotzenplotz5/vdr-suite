@@ -158,7 +158,10 @@ assert.ok(
   'transport classification must be data passed to terminal owner handling, not a fallback predicate'
 );
 
-const mediaErrorStart = ownerSource.indexOf("video.addEventListener('error', function () {");
+const mediaErrorStart = ownerSource.indexOf(
+  "video.addEventListener('error', function () {",
+  connectionStart
+);
 const mediaErrorEnd = ownerSource.indexOf('\n    });', mediaErrorStart) + '\n    });'.length;
 assert.ok(mediaErrorStart >= 0 && mediaErrorEnd > mediaErrorStart);
 const mediaErrorBlock = ownerSource.slice(mediaErrorStart, mediaErrorEnd);
