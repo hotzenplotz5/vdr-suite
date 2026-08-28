@@ -227,12 +227,12 @@
       reachabilityTimer = null;
     }
 
-    function scheduleReachabilityCheck() {
+    function scheduleReachabilityCheck(forceProbe) {
       if (disposed || !armed || recoveryInFlight || reachabilityTimer !== null) return;
       if (typeof global.setTimeout !== 'function') return;
       reachabilityTimer = global.setTimeout(function () {
         reachabilityTimer = null;
-        recoverWhenReachable();
+        recoverWhenReachable(Boolean(forceProbe));
       }, REACHABILITY_PROBE_INTERVAL_MS);
     }
 
@@ -334,10 +334,22 @@
       });
     }
 
-    function recoverWhenReachable() {
+    function recoverWhenReachable(forceProbe) {
       if (disposed || !armed || recoveryInFlight) return Promise.resolve(false);
       if (attemptedEpoch === networkEpoch) return Promise.resolve(false);
       if (reachabilityProbeInFlight) return Promise.resolve(false);
+
+      // navigator.onLine=false is useful negative evidence and avoids an
+      // immediate pointless request. It is not authoritative: a bounded forced
+      // probe follows, so a stale browser flag cannot block recovery forever.
+      if (!forceProbe && !browserOnline()) {
+        setStatus(
+          'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
+          false
+        );
+        scheduleReachabilityCheck(true);
+        return Promise.resolve(false);
+      }
 
       reachabilityProbeInFlight = true;
       return probeReachability().then(function (reachable) {
@@ -348,7 +360,7 @@
             'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
             false
           );
-          scheduleReachabilityCheck();
+          scheduleReachabilityCheck(true);
           return false;
         }
         offlineEvidence = false;
@@ -360,7 +372,7 @@
             'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
             false
           );
-          scheduleReachabilityCheck();
+          scheduleReachabilityCheck(true);
         }
         return false;
       });
@@ -378,7 +390,7 @@
           : 'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
         false
       );
-      recoverWhenReachable();
+      recoverWhenReachable(false);
     }
 
     function ownerChanged(snapshot) {
@@ -400,7 +412,7 @@
           'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
           false
         );
-        scheduleReachabilityCheck();
+        scheduleReachabilityCheck(true);
       } else if (recoveryInFlight) {
         setStatus(
           'Verbindung erneut unterbrochen · Wiedergabe wartet auf das Netzwerk.',
@@ -414,7 +426,7 @@
       offlineEvidence = false;
       if (armed && !recoveryInFlight) {
         clearReachabilityTimer();
-        recoverWhenReachable();
+        recoverWhenReachable(false);
       }
     }
 
