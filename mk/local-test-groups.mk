@@ -67,6 +67,7 @@ test-backend-node:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/tests/test_backend_node.cpp \
 		-o $(BUILD_DIR)/test_backend_node
 	$(BUILD_DIR)/test_backend_node
 
@@ -75,6 +76,7 @@ test-backend-registry:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/tests/test_backend_registry.cpp \
 		-o $(BUILD_DIR)/test_backend_registry
 	$(BUILD_DIR)/test_backend_registry
 
@@ -84,6 +86,7 @@ test-backend-registry-service:
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/tests/test_backend_registry_service.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_service
 	$(BUILD_DIR)/test_backend_registry_service
 
@@ -93,6 +96,7 @@ test-backend-registry-json-serializer:
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryJsonSerializer.cpp \
+		core/vdr/tests/test_backend_registry_json_serializer.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_json_serializer
 	$(BUILD_DIR)/test_backend_registry_json_serializer
 
@@ -100,6 +104,7 @@ test-backend-registry-json-serializer:
 test-search-timer-preview-epg-cache:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+		core/vdr/tests/test_search_timer_preview_epg_cache.cpp \
 		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache
 	$(BUILD_DIR)/test_search_timer_preview_epg_cache
 
@@ -111,6 +116,7 @@ test-vdr-snapshot-read-service:
 		core/vdr/src/SnapshotAccessService.cpp \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
+		core/vdr/tests/test_vdr_snapshot_read_service.cpp \
 		-o $(BUILD_DIR)/test_vdr_snapshot_read_service
 	$(BUILD_DIR)/test_vdr_snapshot_read_service
 
@@ -122,6 +128,7 @@ test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
 		core/vdr/src/SnapshotAccessService.cpp \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
+		core/vdr/tests/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache.cpp \
 		-o $(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
 	$(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
 
@@ -138,6 +145,7 @@ test-api-router-searchtimer-preview-epg-cache:
 		api/rest/src/SearchTimerDeleteRequestParser.cpp \
 		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/SearchTimerController.cpp \
+		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
 	$(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
