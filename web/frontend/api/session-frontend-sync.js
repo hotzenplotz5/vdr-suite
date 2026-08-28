@@ -204,6 +204,20 @@
     );
   }
 
+  function classifyClientTransportError(error) {
+    const classifier = global.VdrSuitePlaybackFailureClassification;
+    return classifier && typeof classifier.classifyClientTransportError === 'function'
+      ? classifier.classifyClientTransportError(error)
+      : null;
+  }
+
+  function classifyPlatformMediaError(mediaError) {
+    const classifier = global.VdrSuitePlaybackFailureClassification;
+    return classifier && typeof classifier.classifyPlatformMediaError === 'function'
+      ? classifier.classifyPlatformMediaError(mediaError)
+      : null;
+  }
+
   function bytesView(value) {
     if (!value || typeof value.byteLength !== 'number') return null;
     try {
@@ -1133,7 +1147,7 @@
 
     const lifecycleApi = global.VdrSuitePlaybackOwnerLifecycle;
     const lifecycle = lifecycleApi && typeof lifecycleApi.create === 'function'
-      ? lifecycleApi.create({state: 'idle', sessionId: null, transport: 'none'})
+      ? lifecycleApi.create({state: 'idle', sessionId: null, transport: 'none', failure: null})
       : null;
 
     function lifecycleSnapshot() {
@@ -1144,7 +1158,8 @@
         state: playbackState(),
         sessionId: safeSessionId(activeSessionId) || null,
         transport: fallbackPanel ? 'hls-compatibility' : (activeSessionId ? 'progressive-fmp4' : 'none'),
-        transition: 'snapshot'
+        transition: 'snapshot',
+        failure: null
       });
     }
 
@@ -1458,7 +1473,7 @@
       return fallbackActivation;
     }
 
-    function failStartedPlayback(error, afterSeek) {
+    function failStartedPlayback(error, afterSeek, failure) {
       if (destroyed || stopped || fallbackPanel) return;
       stopped = true;
       seekInFlight = false;
@@ -1486,7 +1501,8 @@
       publishLifecycle('stopped', {
         state: 'stopped',
         sessionId: activeSessionId || null,
-        transport: 'progressive-fmp4'
+        transport: 'progressive-fmp4',
+        failure: failure || null
       });
     }
 
@@ -1497,7 +1513,11 @@
         activeMediaPath,
         function (error) {
           if (initialConnection && !firstMediaReported) activateFallback(error);
-          else failStartedPlayback(error, repositionedStream);
+          else failStartedPlayback(
+            error,
+            repositionedStream,
+            classifyClientTransportError(error)
+          );
         },
         shouldPlay
       );
@@ -1536,7 +1556,12 @@
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
-      publishLifecycle('start-requested', {state: 'starting', sessionId: null, transport: 'none'});
+      publishLifecycle('start-requested', {
+        state: 'starting',
+        sessionId: null,
+        transport: 'none',
+        failure: null
+      });
 
       const promise = createRecordingSession(backendId, recording).then(function (session) {
         if (destroyed) return '';
@@ -1839,7 +1864,8 @@
         if (firstMediaReported) {
           failStartedPlayback(
             new Error('Browser konnte den Recording-Stream nicht wiedergeben' + detail),
-            repositionedStream
+            repositionedStream,
+            classifyPlatformMediaError(mediaError)
           );
         }
         else {

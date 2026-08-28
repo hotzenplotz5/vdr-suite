@@ -33,6 +33,16 @@ struct MediaPlaybackTrackCapabilities
     std::optional<bool> subtitleOffSupported;
 };
 
+struct MediaPlaybackFailureContract
+{
+    std::string category;
+    std::string origin;
+    std::string stage;
+    bool terminal = false;
+    std::string recoveryClass;
+    std::string reasonCode;
+};
+
 struct MediaPlaybackContract
 {
     static constexpr int CurrentVersion = 1;
@@ -51,8 +61,7 @@ struct MediaPlaybackContract
     MediaPlaybackTrackCapabilities tracks;
     std::optional<int> continuityGeneration;
     std::optional<std::string> continuityState;
-    std::optional<std::string> failureClass;
-    std::optional<std::string> failureReasonCode;
+    std::optional<MediaPlaybackFailureContract> failure;
 };
 
 class MediaPlaybackContractFactory
@@ -83,6 +92,13 @@ public:
     static MediaPlaybackContract live(
         const std::string& presentationProfileId,
         const MediaPlaybackTrackCapabilities& tracks = {});
+
+    static std::optional<MediaPlaybackFailureContract> classifyFailure(
+        const std::string& reasonCode);
+
+    static MediaPlaybackContract failed(
+        MediaPlaybackResourceMode resourceMode,
+        const std::string& reasonCode);
 
     static std::string json(const MediaPlaybackContract& contract);
     static std::string legacyPlaybackJson(const MediaPlaybackContract& contract);

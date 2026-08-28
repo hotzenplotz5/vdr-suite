@@ -99,6 +99,28 @@ int main()
     assert(growing.body.find("\"durationSeconds\":null") != std::string::npos);
     assert(growing.body.find("\"seek\":{\"supported\":false,\"mode\":\"replacement-session-restart\"") != std::string::npos);
 
+    ApiResponse timeline = response(
+        "{\"mediaSession\":{"
+        "\"id\":\"recording-5\","
+        "\"state\":\"ready\","
+        "\"presentationProfileId\":\"progressive-fmp4\","
+        "\"growing\":false,"
+        "\"playback\":{"
+            "\"positionSeconds\":0,"
+            "\"durationSeconds\":5530,"
+            "\"seek\":{\"supported\":false,\"preparing\":false,"
+                "\"reason\":\"recording_index_update_failed\"},"
+            "\"resume\":{\"supported\":false,\"preparing\":false}}"
+        "}}"
+    );
+    timeline = MediaPlaybackContractResponse::augment(std::move(timeline), false);
+    assert(timeline.body.find("\"reason\":\"recording_index_update_failed\"") != std::string::npos);
+    assert(timeline.body.find(
+        "\"failure\":{\"category\":\"timeline\",\"origin\":\"control-plane\","
+        "\"stage\":\"timeline-preparation\",\"terminal\":false,"
+        "\"recoveryClass\":\"none\","
+        "\"reasonCode\":\"recording_index_update_failed\"}") != std::string::npos);
+
     ApiResponse live = response(
         "{\"mediaSession\":{"
         "\"id\":\"live-1\","
@@ -114,7 +136,7 @@ int main()
     assert(live.body.find("\"positionSeconds\":null") != std::string::npos);
 
     ApiResponse ended = response(
-        "{\"mediaSession\":{\"id\":\"recording-5\",\"state\":\"ended\"}}"
+        "{\"mediaSession\":{\"id\":\"recording-6\",\"state\":\"ended\"}}"
     );
     const std::string endedBefore = ended.body;
     ended = MediaPlaybackContractResponse::augment(std::move(ended), false);
@@ -123,10 +145,38 @@ int main()
     ApiResponse failure;
     failure.statusCode = 503;
     failure.contentType = "application/json";
-    failure.body = "{\"error\":{\"code\":\"media_provision_failed\"}}";
-    const std::string failureBefore = failure.body;
+    failure.body = "{\"error\":{\"code\":\"media_worker_start_failed\"}}";
     failure = MediaPlaybackContractResponse::augment(std::move(failure), false);
-    assert(failure.body == failureBefore);
+    assert(failure.body.find("\"error\":{\"code\":\"media_worker_start_failed\"}") != std::string::npos);
+    assert(failure.body.find("\"playbackContract\":{") != std::string::npos);
+    assert(failure.body.find(
+        "\"failure\":{\"category\":\"transport\",\"origin\":\"media-worker\","
+        "\"stage\":\"provision-start\",\"terminal\":true,"
+        "\"recoveryClass\":\"new-authorized-contract\","
+        "\"reasonCode\":\"media_worker_start_failed\"}") != std::string::npos);
+
+    ApiResponse accessFailure;
+    accessFailure.statusCode = 403;
+    accessFailure.contentType = "application/json";
+    accessFailure.body = "{\"error\":{\"code\":\"media_session_not_owned\"}}";
+    accessFailure = MediaPlaybackContractResponse::augment(
+        std::move(accessFailure),
+        false);
+    assert(accessFailure.body.find(
+        "\"failure\":{\"category\":\"authorization\",\"origin\":\"control-plane\","
+        "\"stage\":\"session-authorization\",\"terminal\":true,"
+        "\"recoveryClass\":\"new-authorization\","
+        "\"reasonCode\":\"media_session_not_owned\"}") != std::string::npos);
+
+    ApiResponse unknownFailure;
+    unknownFailure.statusCode = 503;
+    unknownFailure.contentType = "application/json";
+    unknownFailure.body = "{\"error\":{\"code\":\"future_unclassified_failure\"}}";
+    const std::string unknownBefore = unknownFailure.body;
+    unknownFailure = MediaPlaybackContractResponse::augment(
+        std::move(unknownFailure),
+        false);
+    assert(unknownFailure.body == unknownBefore);
 
     return 0;
 }

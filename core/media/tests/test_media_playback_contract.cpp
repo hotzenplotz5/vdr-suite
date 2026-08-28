@@ -72,7 +72,8 @@ int main()
     assert(hlsJson.find("\"mode\":\"replacement-session-restart\"") != std::string::npos);
     assert(hlsJson.find("\"positionSeconds\":2832") != std::string::npos);
     assert(hlsJson.find("\"presentationBasePositionSeconds\":2832") != std::string::npos);
-    const std::string hlsLegacy = MediaPlaybackContractFactory::legacyPlaybackJson(hls);
+    const std::string hlsLegacy =
+        MediaPlaybackContractFactory::legacyPlaybackJson(hls);
     assert(hlsLegacy.find("\"seek\":{\"supported\":false") != std::string::npos);
     assert(hlsLegacy.find("\"resume\":{\"supported\":true") != std::string::npos);
 
@@ -138,12 +139,66 @@ int main()
     assert(liveJson.find("\"mode\":\"unsupported\"") != std::string::npos);
     assert(liveJson.find("\"positionSeconds\":null") != std::string::npos);
 
-    MediaPlaybackContract failed = progressive;
-    failed.failureClass = "transport";
-    failed.failureReasonCode = "media_stream_disconnected";
+    const auto authorization =
+        MediaPlaybackContractFactory::classifyFailure("media_access_denied");
+    assert(authorization.has_value());
+    assert(authorization->category == "authorization");
+    assert(authorization->origin == "gateway");
+    assert(authorization->stage == "access-authorization");
+    assert(authorization->terminal);
+    assert(authorization->recoveryClass == "new-authorization");
+    assert(authorization->reasonCode == "media_access_denied");
+
+    const auto source =
+        MediaPlaybackContractFactory::classifyFailure("media_source_unsupported");
+    assert(source.has_value());
+    assert(source->category == "source");
+    assert(source->origin == "control-plane");
+    assert(source->stage == "source-probe");
+    assert(source->terminal);
+    assert(source->reasonCode == "media_source_unsupported");
+
+    const auto exactResume =
+        MediaPlaybackContractFactory::classifyFailure("recording_resume_profile_not_supported");
+    assert(exactResume.has_value());
+    assert(exactResume->category == "adaptation");
+    assert(exactResume->stage == "presentation-selection");
+    assert(exactResume->terminal);
+    assert(exactResume->reasonCode == "recording_resume_profile_not_supported");
+
+    const auto worker =
+        MediaPlaybackContractFactory::classifyFailure("media_worker_start_failed");
+    assert(worker.has_value());
+    assert(worker->category == "transport");
+    assert(worker->origin == "media-worker");
+    assert(worker->stage == "provision-start");
+    assert(worker->terminal);
+    assert(worker->reasonCode == "media_worker_start_failed");
+
+    const auto timeline =
+        MediaPlaybackContractFactory::classifyFailure("recording_index_update_failed");
+    assert(timeline.has_value());
+    assert(timeline->category == "timeline");
+    assert(timeline->origin == "control-plane");
+    assert(timeline->stage == "timeline-preparation");
+    assert(!timeline->terminal);
+    assert(timeline->recoveryClass == "none");
+    assert(timeline->reasonCode == "recording_index_update_failed");
+
+    assert(!MediaPlaybackContractFactory::classifyFailure(
+        "unobserved_future_failure").has_value());
+
+    const MediaPlaybackContract failed = MediaPlaybackContractFactory::failed(
+        MediaPlaybackResourceMode::Recording,
+        "media_worker_start_failed");
     const std::string failedJson = MediaPlaybackContractFactory::json(failed);
-    assert(failedJson.find("\"failure\":{\"class\":\"transport\"") != std::string::npos);
-    assert(failedJson.find("\"reasonCode\":\"media_stream_disconnected\"") != std::string::npos);
+    assert(failedJson.find(
+        "\"failure\":{\"category\":\"transport\",\"origin\":\"media-worker\","
+        "\"stage\":\"provision-start\",\"terminal\":true,"
+        "\"recoveryClass\":\"new-authorized-contract\","
+        "\"reasonCode\":\"media_worker_start_failed\"}") != std::string::npos);
+    assert(failedJson.find("routeEpoch") == std::string::npos);
+    assert(failedJson.find("lifecycleRevision") == std::string::npos);
 
     return 0;
 }
