@@ -99,7 +99,7 @@ Rules:
 
 - [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0026: External Orchestration Layer Above VDR](ADR-0026-external-orchestration-layer-above-vdr.md)
-- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-future-media-federation.md)
+- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-with-future-media-federation.md)
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
 - [ADR-0029: Backend-Neutral SearchTimer Architecture](ADR-0029-backend-neutral-searchtimer-architecture.md)
 - [ADR-0030: Domain-First UI Over OSD Proxy](ADR-0030-domain-first-ui-over-osd-proxy.md)
