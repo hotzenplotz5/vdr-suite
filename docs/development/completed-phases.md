@@ -8,22 +8,22 @@ This is the compact authoritative entry point for completed implementation. Deta
 
 ```text
 Latest completed numbered runtime phase:
-Phase 64 - Timer Intent and Multi-Backend Orchestration
-
-Final Phase-64 accepted candidate:
-bdd70d527d640dc115a7c141e505140ce8cdba9a
-
-Phase-64 merge on main:
-PR #195 -> 72e298a76f7879ea7fc58f6a502e32eca7399f5a
-
-Next strict runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 
+Final Phase-65 runtime-sensitive accepted candidate:
+7193797368cd1ff637062d02d0d7c9e5bf435ebe
+
+Phase-65 final runtime merge on main:
+PR #228 -> 131f669c0f4e360f3306cfb34f50380653a9fdfc
+
+Next strict runtime phase:
+Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+
 Current active numbered runtime phase:
-none - Phase 65 has not started
+none - Phase 66 has not started
 ```
 
-See [Phase 64 Final Closeout](phase-64-closeout.md) for exact CI and real yaVDR acceptance evidence.
+See [Phase 65 Final Closeout](phase-65-closeout.md) for the complete gate, CI and real yaVDR/browser acceptance evidence.
 
 ## Completed range overview
 
@@ -42,6 +42,7 @@ See [Phase 64 Final Closeout](phase-64-closeout.md) for exact CI and real yaVDR 
 | Phase 62 | Completed | Persistent identity, scoped RBAC, browser-session lifecycle/CSRF, protected central mutations and append-only authorization/outcome evidence. | [Phase 62 closeout](phase-62-closeout.md) / [Slice 2X runtime closeout](phase-62-slice-2x-runtime-closeout.md) |
 | Phase 63 | Completed | Secure Backend Agent lifecycle, fenced observation/command/native execution, explicit provider ownership/selection and protected-write foundation. | Phase-63 development/acceptance records |
 | Phase 64 | Completed | TimerIntent/TimerAssignment/NativeTimerBinding orchestration, managed native fulfillment, authoritative reconciliation and controlled failover. | [Phase 64 closeout](phase-64-closeout.md) |
+| Phase 65 | Completed | Authenticated Recording/Live MediaSession/Gateway playback, least-transformation delivery/output policy and normalized persistent first-party playback semantics with classified failure and bounded Recording network recovery. | [Phase 65 closeout](phase-65-closeout.md) |
 | B1-B4 | Completed, non-numbered | EPG/metadata query, transaction, no-op and snapshot-cadence hardening. | [Performance closeout](phase-61-metadata-genre-performance-closeout.md#post-phase-61-performance-hardening) |
 | PR #110 | Completed cross-cutting feature | Mobile Remote pressed-state and duplicate-dispatch behaviour. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
 | PR #111 | Completed cross-cutting feature | Backend-scoped global search over persisted Recording/EPG titles, subtitles and people. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
@@ -50,7 +51,24 @@ See [Phase 64 Final Closeout](phase-64-closeout.md) for exact CI and real yaVDR 
 | PR #123 | Completed post-Phase-62 correction | EPG artwork resolution beneath configured public base paths. | Repository history |
 | PR #132 | Completed post-Phase-62 platform feature | Guarded external series-artwork fallback, secure backend settings and deterministic provider identity. | [Post-Phase-62 Security Review](post-phase-62-security-review.md) |
 
-## Phase 64 durable completion marker
+## Phase 65 durable completion marker
+
+```text
+accepted_final_phase65_runtime_candidate=7193797368cd1ff637062d02d0d7c9e5bf435ebe
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=8303
+source_ci_run_id=33166818230
+source_ci_result=PASS
+YAVDR_EXACT_INSTALL_RUNTIME_IDENTITY=PASS
+REAL_ANDROID_EDGE_LONG_OUTAGE_RECOVERY=PASS
+NETWORK_RECOVERY_USER_ACTION_REQUIRED=NO
+merge_pr=228
+merge_commit=131f669c0f4e360f3306cfb34f50380653a9fdfc
+```
+
+The exact final runtime candidate was accepted before PR #228 was merged. The documentation-only final Phase-65 closeout does not alter that runtime tree and must pass the complete repository CI before merge.
+
+## Previous Phase 64 durable completion marker
 
 ```text
 accepted_candidate=bdd70d527d640dc115a7c141e505140ce8cdba9a
@@ -66,25 +84,25 @@ PUBLIC_SVDRP_TIMER_WRITES=closed
 merge_commit=72e298a76f7879ea7fc58f6a502e32eca7399f5a
 ```
 
-The final acceptance was executed on the exact accepted candidate before PR #195 was merged.
-
 ## Completion boundaries
 
 - Phase 61 is not reopened by provider adapters, diagnostics or recommendation work.
 - Phase 62 is not reopened by later protected feature routes that continue to use its identity, authorization, CSRF and accountability model.
 - Phase 63 is not reopened by Timer or media features that use the accepted Agent/provider foundation.
-- Phase 64 is not reopened by a later broad Timer UI or Phase-65 media work that consumes the accepted Timer orchestration contracts.
+- Phase 64 is not reopened by a later broad Timer UI or media work that consumes the accepted Timer orchestration contracts.
+- Phase 65 is not reopened by optional read-only media diagnostics, shared fMP4/MSE helper deduplication, future client-family adapters, Teletext/HbbTV, Legacy OSD or later public-API hardening that consume its accepted MediaSession/playback contracts.
+- Growing-Recording seek and Live-TV timeshift remain explicitly deferred capability work; truthful non-support does not reopen Phase 65.
 - Historical runtime fingerprints must remain distinguishable from later daemon evidence.
 - ADR acceptance remains separate from runtime completion.
-- Phase 65 has not started merely because Phase 64 is complete.
+- Phase 66 has not started merely because Phase 65 is complete.
 
 ## Next work
 
 ```text
-Phase 65 - Streaming Gateway and Media Sessions
+Phase 66 - Broadcast Companion Services: Teletext and HbbTV
 ```
 
-Before Phase-65 runtime implementation starts, reconcile ADR-0046 and existing playback/media-adaptation planning with current `main`, define the first coherent vertical and explicitly authorize it.
+Phase 66 is the next strict numbered runtime phase but remains not started. Accepted ADR-0054 defines its architecture; a separate explicit kickoff is required before any Phase-66 runtime implementation begins.
 
 ## Verification
 
@@ -101,4 +119,5 @@ make test-phase-map-coverage
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase 64 Final Closeout](phase-64-closeout.md)
+- [Phase 65 Final Closeout](phase-65-closeout.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
