@@ -21,6 +21,8 @@ assert(heroSource.includes('fetchClientEpgCacheWindow'));
 assert(heroSource.includes('VdrSuiteLiveTvView'));
 assert(heroSource.includes("event.key === 'ArrowLeft'"));
 assert(heroSource.includes("event.key === 'ArrowRight'"));
+assert(heroSource.includes("root.setAttribute('tabindex', '0')"));
+assert(heroSource.includes('focusHeroRoot(root)'));
 assert(heroSource.includes("root.addEventListener('touchstart'"));
 assert(heroSource.includes("root.addEventListener('touchend'"));
 assert(heroSource.includes('@media(max-width:46rem)'));
@@ -55,6 +57,7 @@ function createNode(tagName) {
     textContent: '',
     disabled: false,
     hidden: false,
+    focused: false,
     parentNode: null,
     appendChild(child) {
       child.parentNode = this;
@@ -264,21 +267,39 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert.strictEqual(hero.snapshot().nextEventTitle, 'Danach Heute Eins');
   assert(flattenText(heroRoot).includes('Eins'));
   assert(findByClass(heroRoot, 'media-home-live-artwork'));
+  assert.strictEqual(heroRoot.tabIndex, 0);
 
   const dataRequestBaseline = channelFetchCount + epgFetchCount;
 
-  // Rapid browsing is presentation state only: no data reload, no session work.
+  // Pointer activation gives the persistent Hero root keyboard ownership.
+  heroRoot.focused = false;
+  heroRoot.dispatch('click', {target: findByClass(heroRoot, 'media-home-live-focus')});
+  assert.strictEqual(heroRoot.focused, true);
+
+  // Rapid browsing is presentation state only. Re-rendering must return focus to
+  // the persistent Hero root so repeated real-browser Arrow events keep working.
+  heroRoot.focused = false;
   heroRoot.dispatch('keydown', {key: 'ArrowRight'});
   assert.strictEqual(hero.snapshot().selectedChannelId, 'C2');
   assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Zwei');
+  assert.strictEqual(heroRoot.focused, true);
+  assert.strictEqual(liveStartCount, 0);
+  assert.strictEqual(sessionRequestCount, 0);
+  assert.strictEqual(channelFetchCount + epgFetchCount, dataRequestBaseline);
+
+  heroRoot.focused = false;
+  heroRoot.dispatch('keydown', {key: 'ArrowRight'});
+  assert.strictEqual(hero.snapshot().selectedChannelId, 'C20');
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Zwanzig');
+  assert.strictEqual(heroRoot.focused, true);
   assert.strictEqual(liveStartCount, 0);
   assert.strictEqual(sessionRequestCount, 0);
   assert.strictEqual(channelFetchCount + epgFetchCount, dataRequestBaseline);
 
   heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
   heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
-  assert.strictEqual(hero.snapshot().selectedChannelId, 'C20');
-  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Zwanzig');
+  assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');
   assert.strictEqual(liveStartCount, 0);
   assert.strictEqual(sessionRequestCount, 0);
   assert.strictEqual(channelFetchCount + epgFetchCount, dataRequestBaseline);
@@ -294,7 +315,7 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   findButton(heroRoot, 'Live ansehen').click();
   assert.strictEqual(liveNavigationCount, 1);
   assert.strictEqual(liveStartCount, 1);
-  assert.strictEqual(window.lastStartedChannelId, 'C20');
+  assert.strictEqual(window.lastStartedChannelId, 'C1');
 
   // EPG remains the existing owning navigation flow.
   findButton(heroRoot, 'EPG').click();
