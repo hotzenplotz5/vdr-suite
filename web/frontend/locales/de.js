@@ -13,7 +13,7 @@
   "module.channelSort": "Kanäle sortieren",
   "module.channels": "Kanäle",
   "module.epg": "EPG Zeitleiste",
-  "module.overview": "Übersicht",
+  "module.overview": "Home",
   "module.recordings": "Aufnahmen",
   "module.searchTimers": "SearchTimer",
   "module.timers": "Timer",
