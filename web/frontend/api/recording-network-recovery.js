@@ -176,7 +176,7 @@
 
     function stopRecoverySession() {
       const state = ownerState();
-      if (state === 'stopped' || state === 'destroyed' || state === 'fallback' || state === 'idle') {
+      if (state === 'destroyed' || state === 'fallback' || state === 'idle') {
         return Promise.resolve(false);
       }
       try {
