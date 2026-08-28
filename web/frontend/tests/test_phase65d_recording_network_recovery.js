@@ -394,7 +394,7 @@ async function failedRecoveryDoesNotFallback() {
   const status = panel.element.querySelector('.recordings2-playback-status');
   assert.strictEqual(runtime.createAttempts(), 2, 'one recovery authorization attempt is allowed for the network epoch');
   assert.strictEqual(runtime.legacyStarts(), 0, 'failed automatic recovery must not activate compatibility HLS');
-  assert.strictEqual(panel.state(), 'stopped');
+  assert.strictEqual(panel.snapshot().state, 'stopped', 'canonical lifecycle must remain terminal after failed recovery');
   assert.ok(status.textContent.includes('nicht automatisch fortgesetzt'), 'failed online recovery must become terminal and visible');
   runtime.dispatchGlobal('online');
   await flush();
