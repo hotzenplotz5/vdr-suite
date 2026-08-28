@@ -3,37 +3,36 @@
 ## Latest completed numbered runtime phase
 
 ```text
-Phase 64 - Timer Intent and Multi-Backend Orchestration
+Phase 65 - Streaming Gateway and Media Sessions
 ```
 
-Phase 64 is completed and merged through PR #195. It provides the durable TimerIntent -> TimerAssignment -> NativeTimerBinding model, deterministic multi-backend assignment, managed native Timer fulfillment, authoritative readback/reconciliation and controlled reassignment/failover.
+Phase 65 is completed. It establishes the authenticated Recording/Live MediaSession and Streaming Gateway boundary, least-transformation media delivery/output policy and the normalized persistent first-party playback semantics required by ADR-0056. The final runtime-sensitive follow-up was the bounded completed-Recording network-interruption recovery accepted through PR #228.
 
-Final Phase-64 completion marker:
+Final Phase-65 runtime marker:
 
 ```text
-accepted_candidate=bdd70d527d640dc115a7c141e505140ce8cdba9a
-source_ci_run_number=7689
-source_ci_run_id=32023780598
+accepted_final_phase65_runtime_candidate=7193797368cd1ff637062d02d0d7c9e5bf435ebe
+source_ci_run_number=8303
+source_ci_run_id=33166818230
 source_ci_result=PASS
-
-PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS
-PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS
-ADVERTISEMENT=timer-commands-activated
-REASSIGNMENT=atomic-fail-closed
-OUTCOME_UNKNOWN=reconciliation-only
-PUBLIC_SVDRP_TIMER_WRITES=closed
-
-merge_pr=195
-merge_commit=72e298a76f7879ea7fc58f6a502e32eca7399f5a
+YAVDR_EXACT_INSTALL_RUNTIME_IDENTITY=PASS
+REAL_ANDROID_EDGE_LONG_OUTAGE_RECOVERY=PASS
+NETWORK_RECOVERY_USER_ACTION_REQUIRED=NO
+merge_pr=228
+merge_commit=131f669c0f4e360f3306cfb34f50380653a9fdfc
 ```
 
-See [Phase 64 Final Closeout](phase-64-closeout.md).
+See [Phase 65 Final Closeout](phase-65-closeout.md).
 
 ## Previous completed numbered runtime phases
 
+### Phase 64 - Timer Intent and Multi-Backend Orchestration
+
+Phase 64 established TimerIntent -> TimerAssignment -> NativeTimerBinding, deterministic multi-backend assignment, managed native Timer fulfillment, authoritative readback/reconciliation and controlled reassignment/failover.
+
 ### Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Phase 63 established secure Agent enrollment/identity, backend generation and lease fencing, observation ingestion, durable command/result handling, fenced native execution, explicit provider ownership/selection and the generic protected-write foundation used by Phase 64.
+Phase 63 established secure Agent enrollment/identity, backend generation and lease fencing, observation ingestion, durable command/result handling, fenced native execution, explicit provider ownership/selection and the generic protected-write foundation used by Phases 64 and 65.
 
 ### Phase 62 - Identity, RBAC and Accountability Foundation
 
@@ -61,14 +60,16 @@ These features do not create new numbered phases.
 ## Next strict runtime phase
 
 ```text
-Phase 65 - Streaming Gateway and Media Sessions
+Phase 66 - Broadcast Companion Services: Teletext and HbbTV
 ```
 
-Phase 65 is next but **not started**. Its first runtime vertical requires an explicit kickoff after the Phase-64 documentation closeout and a bounded review of ADR-0046 plus current playback/media-adaptation planning.
+Phase 66 is next but **not started**. Accepted ADR-0054 defines its architecture, but the Phase-65 closeout does not authorize Teletext/HbbTV runtime implementation. A separate explicit kickoff is required.
 
 ## Evidence boundary
 
-Historical acceptance hashes remain tied to their accepted candidates. Later daemon/plugin work requires its own CI and runtime evidence and does not rewrite the historical Phase-62, Phase-63 or Phase-64 completion records.
+Historical acceptance hashes remain tied to their accepted candidates. The documentation-only Phase-65 closeout does not change the final accepted Phase-65 runtime tree. Later daemon, client or broadcast work requires its own CI and runtime evidence and does not rewrite historical Phase-62 through Phase-65 completion records.
+
+Optional read-only media pipeline diagnostics and shared fMP4/MSE helper deduplication are not Phase-65 completion gates. Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work rather than unfinished Phase 65.
 
 ## Maintenance rules
 
@@ -77,3 +78,4 @@ Historical acceptance hashes remain tied to their accepted candidates. Later dae
 - Do not promote planned phases or accepted ADRs to completed runtime without implementation and evidence.
 - Keep historical acceptance heads/hashes separate from later runtime fingerprints.
 - Update the matching closeout whenever a phase or bounded platform slice closes.
+- Do not treat Phase 66 as started until an explicit Phase-66 kickoff is recorded.
