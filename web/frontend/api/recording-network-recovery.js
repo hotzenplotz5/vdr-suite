@@ -1,14 +1,18 @@
 // ADR-0057 bounded Recording network interruption recovery policy.
 //
 // This decorator observes the canonical Recording playback owner and delegates
-// every recovery command back to that same owner. Browser online/offline and
-// media-element events are only transport-local evidence. They never become a
-// second MediaSession, lifecycle or provider authority.
+// every recovery command back to that same owner. Browser online/offline events
+// are only advisory hints. A canonical classified network failure arms recovery,
+// while a same-origin reachability probe proves when VDR-Suite is reachable
+// enough to attempt a fresh authorized Recording session.
 (function (global) {
   'use strict';
 
   const marker = '__vdrSuiteRecordingNetworkRecoveryBound';
   const RECOVERY_MEDIA_TIMEOUT_MS = 20000;
+  const REACHABILITY_PROBE_TIMEOUT_MS = 3000;
+  const REACHABILITY_PROBE_INTERVAL_MS = 2000;
+  const REACHABILITY_PROBE_PATH = '/api/vdr/health';
   if (!global || !global.document || global[marker] === true) return;
 
   const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
@@ -55,6 +59,46 @@
       : value;
   }
 
+  function probeReachability() {
+    if (typeof global.fetch !== 'function') {
+      return Promise.resolve(browserOnline());
+    }
+
+    let controller = null;
+    let timeout = null;
+    if (typeof global.AbortController === 'function') {
+      try { controller = new global.AbortController(); } catch (error) { controller = null; }
+    }
+
+    if (controller && typeof global.setTimeout === 'function') {
+      timeout = global.setTimeout(function () {
+        try { controller.abort(); } catch (error) {}
+      }, REACHABILITY_PROBE_TIMEOUT_MS);
+    }
+
+    const requestOptions = {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {'X-VDR-Suite-Recovery-Probe': '1'}
+    };
+    if (controller) requestOptions.signal = controller.signal;
+
+    return Promise.resolve(global.fetch(
+      REACHABILITY_PROBE_PATH + '?recoveryProbe=' + String(Date.now()),
+      requestOptions
+    )).then(function () {
+      return true;
+    }, function () {
+      return false;
+    }).then(function (reachable) {
+      if (timeout !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(timeout); } catch (error) {}
+      }
+      return reachable;
+    });
+  }
+
   function decoratePanel(panel, recording, backendId) {
     if (!panel || !panel.element ||
         typeof panel.start !== 'function' ||
@@ -72,7 +116,7 @@
     const shell = panel.element;
     let disposed = false;
     let offlineEvidence = !browserOnline();
-    let networkEpoch = offlineEvidence ? 1 : 0;
+    let networkEpoch = 0;
     let attemptedEpoch = -1;
     let armed = false;
     let recoveryInFlight = false;
@@ -83,6 +127,8 @@
     let mediaWaitResolve = null;
     let mediaWaitReject = null;
     let mediaWaitTimer = null;
+    let reachabilityTimer = null;
+    let reachabilityProbeInFlight = false;
     let observer = null;
     let unsubscribe = null;
 
@@ -155,7 +201,7 @@
 
     function handlePlaying() {
       trackPosition();
-      if (!recoveryInFlight || !awaitingRecoveredMedia || !browserOnline()) return;
+      if (!recoveryInFlight || !awaitingRecoveredMedia) return;
       setStatus('Verbindung wiederhergestellt · Aufnahme läuft weiter.', false);
       resolveMediaWait();
     }
@@ -172,6 +218,22 @@
       video.addEventListener('timeupdate', trackPosition);
       video.addEventListener('playing', handlePlaying);
       return true;
+    }
+
+    function clearReachabilityTimer() {
+      if (reachabilityTimer !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(reachabilityTimer); } catch (error) {}
+      }
+      reachabilityTimer = null;
+    }
+
+    function scheduleReachabilityCheck() {
+      if (disposed || !armed || recoveryInFlight || reachabilityTimer !== null) return;
+      if (typeof global.setTimeout !== 'function') return;
+      reachabilityTimer = global.setTimeout(function () {
+        reachabilityTimer = null;
+        recoverWhenReachable();
+      }, REACHABILITY_PROBE_INTERVAL_MS);
     }
 
     function stopRecoverySession() {
@@ -193,17 +255,14 @@
         if (!startedSessionId) {
           throw new Error('Neue Recording-MediaSession wurde nicht bereitgestellt.');
         }
-        if (!browserOnline()) {
-          throw new Error('Netzwerk wurde während der Wiederherstellung erneut unterbrochen.');
-        }
         if (panel.pause() !== true) {
           throw new Error('Neue Recording-MediaSession konnte vor dem Resume nicht pausiert werden.');
         }
         if (interruptedPosition <= 0) return true;
         return panel.seekAbsolute(interruptedPosition);
       }).then(function () {
-        if (!startedSessionId || !browserOnline()) {
-          throw new Error('Netzwerk wurde während der Wiederherstellung erneut unterbrochen.');
+        if (!startedSessionId) {
+          throw new Error('Neue Recording-MediaSession wurde nicht bereitgestellt.');
         }
         awaitingRecoveredMedia = true;
         const mediaReady = waitForRecoveredMedia();
@@ -228,23 +287,18 @@
       offlineEvidence = false;
       interruptedPosition = 0;
       attemptedEpoch = networkEpoch;
+      reachabilityProbeInFlight = false;
+      clearReachabilityTimer();
       trackPosition();
     }
 
     function finishRecoveryFailure(error) {
       recoveryInFlight = false;
       awaitingRecoveredMedia = false;
-      if (!browserOnline()) {
-        armed = true;
-        offlineEvidence = true;
-        setStatus(
-          'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
-          false
-        );
-        return;
-      }
+      reachabilityProbeInFlight = false;
+      clearReachabilityTimer();
       armed = false;
-      offlineEvidence = false;
+      offlineEvidence = !browserOnline();
       const detail = error && error.message ? ': ' + error.message : '';
       setStatus(
         'Aufnahme-Wiedergabe konnte nach der Netzwerkunterbrechung nicht automatisch fortgesetzt werden' + detail,
@@ -252,8 +306,8 @@
       );
     }
 
-    function recover() {
-      if (disposed || !armed || recoveryInFlight || !browserOnline()) return Promise.resolve(false);
+    function beginAuthorizedRecovery() {
+      if (disposed || !armed || recoveryInFlight) return Promise.resolve(false);
       if (attemptedEpoch === networkEpoch) return Promise.resolve(false);
 
       const guard = global.VdrSuiteRecordingNetworkRecoveryGuard;
@@ -264,9 +318,10 @@
       }
 
       attemptedEpoch = networkEpoch;
-      offlineEvidence = false;
       recoveryInFlight = true;
       awaitingRecoveredMedia = false;
+      reachabilityProbeInFlight = false;
+      clearReachabilityTimer();
       setStatus('Verbindung wiederhergestellt · Wiedergabe wird fortgesetzt …', false);
 
       return guard.withoutCompatibilityFallback(recording, backendId, recoverySequence).then(function () {
@@ -279,23 +334,56 @@
       });
     }
 
+    function recoverWhenReachable() {
+      if (disposed || !armed || recoveryInFlight) return Promise.resolve(false);
+      if (attemptedEpoch === networkEpoch) return Promise.resolve(false);
+      if (reachabilityProbeInFlight) return Promise.resolve(false);
+
+      reachabilityProbeInFlight = true;
+      return probeReachability().then(function (reachable) {
+        reachabilityProbeInFlight = false;
+        if (disposed || !armed || recoveryInFlight) return false;
+        if (!reachable) {
+          setStatus(
+            'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
+            false
+          );
+          scheduleReachabilityCheck();
+          return false;
+        }
+        offlineEvidence = false;
+        return beginAuthorizedRecovery();
+      }, function () {
+        reachabilityProbeInFlight = false;
+        if (!disposed && armed && !recoveryInFlight) {
+          setStatus(
+            'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
+            false
+          );
+          scheduleReachabilityCheck();
+        }
+        return false;
+      });
+    }
+
     function armRecovery() {
+      if (disposed || armed || recoveryInFlight) return;
+      networkEpoch += 1;
       interruptedPosition = lastPosition;
       armed = true;
-      recoveryInFlight = false;
       awaitingRecoveredMedia = false;
       setStatus(
         browserOnline()
-          ? 'Netzwerkunterbrechung erkannt · Wiedergabe wird fortgesetzt …'
+          ? 'Netzwerkunterbrechung erkannt · VDR-Suite-Erreichbarkeit wird geprüft …'
           : 'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
         false
       );
-      if (browserOnline()) recover();
+      recoverWhenReachable();
     }
 
     function ownerChanged(snapshot) {
       if (disposed) return;
-      if (networkFailure(snapshot) && offlineEvidence) {
+      if (networkFailure(snapshot)) {
         armRecovery();
         return;
       }
@@ -306,10 +394,14 @@
 
     function wentOffline() {
       if (disposed) return;
-      if (browserOnline()) return;
-      if (!offlineEvidence) networkEpoch += 1;
       offlineEvidence = true;
-      if (recoveryInFlight) {
+      if (armed && !recoveryInFlight) {
+        setStatus(
+          'Verbindung unterbrochen · Wiedergabe wird fortgesetzt, sobald das Netzwerk wieder verfügbar ist.',
+          false
+        );
+        scheduleReachabilityCheck();
+      } else if (recoveryInFlight) {
         setStatus(
           'Verbindung erneut unterbrochen · Wiedergabe wartet auf das Netzwerk.',
           false
@@ -318,8 +410,12 @@
     }
 
     function cameOnline() {
-      if (disposed || !browserOnline()) return;
-      if (armed && !recoveryInFlight) recover();
+      if (disposed) return;
+      offlineEvidence = false;
+      if (armed && !recoveryInFlight) {
+        clearReachabilityTimer();
+        recoverWhenReachable();
+      }
     }
 
     bindVideo();
@@ -339,6 +435,8 @@
       armed = false;
       recoveryInFlight = false;
       awaitingRecoveredMedia = false;
+      reachabilityProbeInFlight = false;
+      clearReachabilityTimer();
       rejectMediaWait(new Error('Playback owner destroyed.'));
       if (typeof unsubscribe === 'function') unsubscribe();
       unsubscribe = null;
