@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0056
+ADR-0057
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -43,11 +43,12 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0057
+ADR-0058
 ```
 
 Rules:
@@ -98,17 +99,17 @@ Rules:
 
 - [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0026: External Orchestration Layer Above VDR](ADR-0026-external-orchestration-layer-above-vdr.md)
-- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-with-future-media-federation.md)
+- [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-future-media-federation.md)
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
 - [ADR-0029: Backend-Neutral SearchTimer Architecture](ADR-0029-backend-neutral-searchtimer-architecture.md)
 - [ADR-0030: Domain-First UI Over OSD Proxy](ADR-0030-domain-first-ui-over-osd-proxy.md)
-- [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-and-external-filmography.md)
+- [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-external-filmography.md)
 - [ADR-0032: EPGSearch Regex Mode Safety](ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](ADR-0033-epgsearch-fuzzy-mode-decision.md)
-- [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
-- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
+- [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-change-invalidation.md)
+- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
-- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-external-provider-strategy.md)
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
 - [ADR-0052: Manual Recording Cast Ingestion and Search Integration](ADR-0052-manual-recording-cast-ingestion-search.md)
 
@@ -130,6 +131,7 @@ Rules:
 - [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
@@ -173,7 +175,7 @@ ADR-0037-suite-metadata-database-and-external-scraper-strategy.md
 
 was replaced by the canonical:
 
-- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-external-provider-strategy.md)
 
 `ADR-0037` remains assigned only to Packaging, Install Layout and API Boundary.
 
