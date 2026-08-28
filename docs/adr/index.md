@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0057
+ADR-0058
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -45,10 +45,10 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 
-Next available canonical ADR:
+Next available canonical ADR after the current proposal:
 
 ```text
-ADR-0058
+ADR-0059
 ```
 
 Rules:
@@ -78,7 +78,7 @@ Rules:
 - [ADR-0006: VDR Backend Architecture](ADR-0006-vdr-backend-architecture.md)
 - [ADR-0007: RESTfulAPI Adapter Boundary](ADR-0007-restfulapi-adapter-boundary.md)
 - [ADR-0008: Real HTTP Server Strategy](ADR-0008-real-http-server-strategy.md)
-- [ADR-0009: HTTP Server Factory Strategy](ADR-0009-http-server-factory-strategy.md)
+- [ADR-0009: HTTP Server Factory Strategy](ADR-0009-real-http-server-strategy.md)
 - [ADR-0010: Library First VDR Architecture](ADR-0010-library-first-vdr-architecture.md)
 - [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
 - [ADR-0012: Source Capability Model](ADR-0012-source-capability-model.md)
@@ -106,8 +106,8 @@ Rules:
 - [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-and-external-filmography.md)
 - [ADR-0032: EPGSearch Regex Mode Safety](ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](ADR-0033-epgsearch-fuzzy-mode-decision.md)
-- [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
-- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
+- [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-change-invalidation.md)
+- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 - [ADR-0051: Manual Recording Metadata Assignment](ADR-0051-manual-recording-metadata-assignment.md)
@@ -140,7 +140,7 @@ Rules:
 
 ## Proposed Canonical ADRs
 
-None currently.
+- [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
 
 ---
 
@@ -183,7 +183,7 @@ was replaced by the canonical:
 
 ## Future-phase sequencing note
 
-The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 establishes the post-Phase-65 sequence:
+The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 currently establishes the post-Phase-65 sequence:
 
 ```text
 65 Streaming
@@ -193,7 +193,18 @@ The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 establishes the
 69 Recommendation / Knowledge Graph
 ```
 
-ADR-0054's sequencing clause supersedes only older future phase-number statements inside ADR-0047/ADR-0048. Their architecture decisions remain accepted.
+Proposed ADR-0058 would, if accepted through explicit roadmap reconciliation, change only the not-yet-started future sequence to:
+
+```text
+65 Streaming [completed]
+66 Media Home and Browse Experience
+67 Broadcast Companion: Teletext + HbbTV
+68 Legacy OSD
+69 Public API Hardening
+70 Recommendation / Knowledge Graph
+```
+
+ADR-0054, ADR-0047 and ADR-0048 retain their architecture decisions. Until ADR-0058 is accepted and the Strict Roadmap/Phase Map are updated, the currently accepted ADR-0054 sequencing remains authoritative.
 
 ---
 
@@ -205,6 +216,7 @@ ADR-0054's sequencing clause supersedes only older future phase-number statement
 - [Current Project Status](../development/current-status.md)
 - [Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
+- [Proposed Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md)
 
 ---
 
