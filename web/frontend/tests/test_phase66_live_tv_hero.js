@@ -7,11 +7,14 @@ const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
-const heroSource = fs.readFileSync(path.join(frontendRoot, 'channel-logos.js'), 'utf8');
+const logoSource = fs.readFileSync(path.join(frontendRoot, 'channel-logos.js'), 'utf8');
+const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'), 'utf8');
 
 assert(indexSource.includes('class="media-home-only media-home-hero"'));
 assert(indexSource.includes('data-home-zone="hero"'));
 assert(indexSource.includes('<script src="../frontend/channel-logos.js"></script>'));
+assert(indexSource.includes('<script src="../frontend/home-live-hero.js"></script>'));
+assert(logoSource.includes('createChannelLogoElement'));
 assert(heroSource.includes('VdrSuiteHomeLiveHero'));
 assert(heroSource.includes('fetchClientChannels'));
 assert(heroSource.includes('fetchClientEpgCacheWindow'));
@@ -243,7 +246,8 @@ const context = vm.createContext({
   }
 });
 
-vm.runInContext(heroSource, context, {filename: 'web/frontend/channel-logos.js'});
+vm.runInContext(logoSource, context, {filename: 'web/frontend/channel-logos.js'});
+vm.runInContext(heroSource, context, {filename: 'web/frontend/home-live-hero.js'});
 assert.ok(window.VdrSuiteHomeLiveHero);
 
 (async function () {
