@@ -264,6 +264,7 @@
       }
 
       attemptedEpoch = networkEpoch;
+      offlineEvidence = false;
       recoveryInFlight = true;
       awaitingRecoveredMedia = false;
       setStatus('Verbindung wiederhergestellt · Wiedergabe wird fortgesetzt …', false);
