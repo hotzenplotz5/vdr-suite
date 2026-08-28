@@ -40,6 +40,11 @@
     return false;
   }
 
+  function removeScope(scope) {
+    const index = scopes.lastIndexOf(scope);
+    if (index >= 0) scopes.splice(index, 1);
+  }
+
   function guardPlayback(value) {
     const source = value && typeof value === 'object' ? value : null;
     if (!source || source.__vdrSuiteRecordingNetworkRecoveryGuarded === true ||
@@ -91,15 +96,15 @@
     try {
       result = callback();
     } catch (error) {
-      scopes.pop();
+      removeScope(scope);
       return Promise.reject(error);
     }
 
     return Promise.resolve(result).then(function (value) {
-      scopes.pop();
+      removeScope(scope);
       return value;
     }, function (error) {
-      scopes.pop();
+      removeScope(scope);
       throw error;
     });
   }
