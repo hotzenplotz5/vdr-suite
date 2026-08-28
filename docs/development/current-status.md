@@ -10,13 +10,15 @@ Before continuing work, always read `CURRENT.md`, the Strict Roadmap, the applic
 
 Latest completed numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
 
-Current active numbered runtime phase: **none; Phase 66 has not started**.
+Current active numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
 
 Next strict numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
 
+Current active runtime slice: **Slice 66.1 - Home Shell and Responsive Information Architecture**.
+
 Phase 65.A through 65.D are completed for their accepted bounded scopes. The final runtime-sensitive follow-up was ADR-0057 bounded completed-Recording network recovery. Durable evidence is in [Phase 65 Closeout](phase-65-closeout.md).
 
-Accepted ADR-0058 and [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md) define the responsive Home / Browse architecture and bounded implementation sequence. Phase 66 remains runtime-not-started pending a separate kickoff. ADR-0054 remains Broadcast Companion architecture for Phase 67.
+Accepted ADR-0058 and [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md) define the responsive Home / Browse architecture and bounded implementation sequence. Phase 66 is active only for Slice 66.1; Slice 66.2 and later Phase-66 semantics remain outside the current authorization. ADR-0054 remains Broadcast Companion architecture for Phase 67.
 
 Historical completed context includes Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, Phase 63 - Backend Agent and Secure Multi-Site Runtime, and Phase 64 - Timer Intent and Multi-Backend Orchestration.
 
@@ -24,7 +26,7 @@ Historical completed context includes Phase 58 - Frontend and Live Parity, Phase
 
 Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract.
 
-That foundation remains authoritative beneath completed Phase-64 orchestration and active Phase-65 media execution.
+That foundation remains authoritative beneath completed Phase-64 orchestration, completed Phase-65 media execution and active Phase-66 product composition.
 
 ## Phase 64 completion
 
@@ -61,18 +63,18 @@ The Phase-64 completion retains the protected-write rules established across Pha
 ```text
 Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 Media Home and Browse Experience [NEXT; NOT STARTED]
+  -> Phase 66 Media Home and Browse Experience [ACTIVE; SLICE 66.1]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV
   -> Phase 68 Legacy OSD Compatibility Bridge
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
 
-Completed history through Phase 65 is unchanged. ADR-0058 owns the new future sequence. Phase 66 has not started and requires a separate explicit runtime kickoff.
+Completed history through Phase 65 is unchanged. ADR-0058 owns the Phase-66 architecture and sequence; the explicit runtime kickoff authorizes only Slice 66.1.
 
 ## Completed Phase 65 streaming architecture
 
-Accepted ADR-0046 defines the server-side Streaming Gateway and MediaSession boundary. Accepted ADR-0053 defines the complementary client-playback/media-adaptation direction. Accepted ADR-0055 defines the media-transcode backend-selection and hardware-acceleration contract. Accepted ADR-0056 now defines normalized playback presentation, timeline, continuity and failure semantics above the internal presentation/worker plan.
+Accepted ADR-0046 defines the server-side Streaming Gateway and MediaSession boundary. Accepted ADR-0053 defines the complementary client-playback/media-adaptation direction. Accepted ADR-0055 defines the media-transcode backend-selection and hardware-acceleration contract. Accepted ADR-0056 defines normalized playback presentation, timeline, continuity and failure semantics above the internal presentation/worker plan. Accepted ADR-0057 defines the bounded completed-Recording interruption-recovery contract.
 
 The accepted Phase-65 media direction is provider-private and transformation-minimal:
 
@@ -88,7 +90,7 @@ private source
   -> platform playback engine
 ```
 
-The implementation sequence that actually shipped is Recording playback, Live TV, then a Phase-65.C delivery/performance block that first accelerated completed Recording playback and then continued into backend-scoped media-transcode output policy/settings. Phase 65.D is active and layers stable first-party playback semantics over those accepted MediaSession contracts. Remux and transcode remain evidence-driven compatibility escalation, not default architecture; exact non-zero HLS video resume is an accepted operation-specific case where stream-copy is not sync-safe and stronger adaptation is therefore required.
+The implementation sequence that actually shipped is Recording playback, Live TV, then a Phase-65.C delivery/performance block that first accelerated completed Recording playback and then continued into backend-scoped media-transcode output policy/settings. Phase 65.D completed the stable first-party playback semantics layered over those accepted MediaSession contracts. Remux and transcode remain evidence-driven compatibility escalation, not default architecture; exact non-zero HLS video resume is an accepted operation-specific case where stream-copy is not sync-safe and stronger adaptation is therefore required.
 
 ## Phase 65.A Recording playback completion
 
@@ -193,7 +195,7 @@ The obsolete 65.C seek heading is removed, but its important safety semantics ar
 
 This means Phase 65 truthfully reports unsupported capability instead of fabricating seek merely because an old roadmap label named it.
 
-## Phase 65.D active direction
+## Phase 65.D completed direction
 
 Phase 65.D is the completed client playback abstraction vertical:
 
@@ -213,18 +215,26 @@ Phase 65.D.2 is accepted and closed for Recording Playback Controls and Seek. It
 
 Subsequent accepted Phase-65.D work adds normalized audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 MSE forward-buffer control, compatibility timeline drag ownership and exact HLS resume synchronization. The latter proves that user preview position, transport-local time and canonical Recording position are distinct state domains, and that exact non-zero HLS video resume may require operation-specific transcode despite ordinary start-at-zero remaining copy/remux.
 
-The remaining mandatory semantic consolidation is now governed by [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md):
+The mandatory semantic consolidation governed by [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md) is complete:
 
-- implement one normalized provider-free `MediaPlaybackContract` rather than reassembling capability from profile-name conventions;
-- publish canonical playback-owner lifecycle snapshots/events so new session-bound extensions do not depend on timer/DOM/method-interception lifecycle reconstruction;
-- complete explicit continuity/discontinuity and presentation-generation semantics without conflating `mediaSessionId`, `routeEpoch` and worker generation;
-- implement classified playback failures while preserving detailed `reasonCode` evidence and the no-silent-recovery rule.
+- one normalized provider-free `MediaPlaybackContract` rather than profile-name reconstruction;
+- canonical playback-owner lifecycle snapshots/events;
+- explicit continuity/discontinuity and presentation-generation semantics without conflating `mediaSessionId`, `routeEpoch` and worker generation;
+- classified playback failures while preserving detailed `reasonCode` evidence and the no-silent-recovery rule.
 
-Read-only media diagnostics are sequenced after those semantics. Shared fMP4/MSE helper deduplication is technical debt, not a Phase-65.D completion gate.
+Read-only media diagnostics remain optional observational follow-up. Shared fMP4/MSE helper deduplication is technical debt, not a Phase-65 completion gate.
 
 Client capability negotiation, least-transformation selection and ADR-0055 transcode policy remain independent of browser/device brand or user-agent strings.
 
 See [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md), [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md), [Frontend Playback Integration Contract](frontend-playback-integration-contract.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md).
+
+## Phase 66 active direction
+
+Phase 66 is the active product-composition phase under accepted ADR-0058. The current authorization is limited to **Slice 66.1 — Home Shell and Responsive Information Architecture**.
+
+Slice 66.1 extends the existing installed browser composition root instead of creating a second Home application. The existing `overview` module state and `app.js` navigation owner remain canonical; Home adds semantic Hero / primary-rail / additional-section layout zones and responsive recomposition while reusing real backend snapshot data for the initial rail.
+
+No Live-TV hero-carousel semantics, deferred preview, Home-triggered MediaSession creation, Continue Watching, history or recommendation authority is introduced by Slice 66.1. Existing Phase-65 playback ownership remains canonical across Home navigation.
 
 ## Broadcast Companion direction
 
@@ -249,7 +259,7 @@ Phase 62 identity/RBAC [DONE]
 
 The product UI must remain intent-first and preserve assignment, readback, reconciliation, failover and unknown-outcome semantics.
 
-Phase 65 intentionally proceeds before the broad Timer UI is complete.
+The broad Timer UI remains an independent cross-cutting milestone and does not silently advance active Phase-66 runtime work.
 
 ## Product acceptance
 
@@ -259,6 +269,7 @@ The key vertical journeys cover:
 
 - Live TV playback;
 - Recording playback;
+- Media Home browsing and responsive navigation;
 - record-one-programme orchestration;
 - multi-backend scheduling without provider knowledge;
 - fail-closed recovery;
@@ -279,7 +290,7 @@ The key vertical journeys cover:
 - Require real-system acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes.
 - Broad Timer UI work must not bypass the account/backend access-management gate.
 - Accepted ADR work defines architecture but does not by itself prove or complete runtime implementation.
-- Phase 65 is active; Phase 66 runtime remains blocked until Phase 65 closes and Phase 66 is explicitly started.
+- Phase 65 is completed; Phase 66 is active only for the explicitly authorized Slice 66.1 scope.
 
 ### Preferred edit path for new chats
 
@@ -296,13 +307,13 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Current authorization boundary
 
-Phase 65.A, 65.B and 65.C are closed for their accepted bounded scopes. **Phase 65.D is completed.** Accepted Phase-65.D scope now includes D.1/D.2, normalized Recording audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 browser MSE forward-buffer control, compatibility timeline-drag ownership and exact non-zero HLS Recording resume synchronization.
+Phase 65.A through 65.D are closed for their accepted bounded scopes, including normalized Recording tracks, browser-local Volume/Mute, continuous-fMP4 browser MSE forward-buffer control, compatibility timeline ownership, exact non-zero HLS Recording resume synchronization, ADR-0056 playback semantics and bounded completed-Recording interruption recovery.
 
-The next bounded architecture/implementation direction is ADR-0056 playback semantic consolidation: normalized `MediaPlaybackContract`, canonical playback-owner lifecycle publication, continuity/discontinuity semantics and classified playback failures. These changes must preserve all existing MediaSession, provider-privacy, least-transformation, output-policy and cleanup boundaries.
+**Phase 66 is active only for Slice 66.1 — Home Shell and Responsive Information Architecture.** The current slice may change the real browser composition, responsive navigation/layout foundation and structural loading/empty/error presentation while preserving the existing `app.js` module owner and canonical Phase-65 playback lifecycle.
+
+Slice 66.2 Live-TV Hero Carousel, Slice 66.3 Deferred Live Preview, Continue Watching, Recently Watched/history, recommendation intelligence and every later Phase-66 semantic block remain outside the current authorization. Phase 67 Broadcast Companion remains not started.
 
 Completed-Recording arbitrary seek and stop/resume are accepted for the supported profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain capability-driven and must be represented truthfully rather than fabricated.
-
-Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an explicit kickoff.
 
 ## Authoritative links
 
@@ -311,6 +322,7 @@ Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an exp
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
+- [Phase 65 Closeout](phase-65-closeout.md)
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](phase-65-recording-startup-progressive-direct.md)
@@ -319,9 +331,11 @@ Phase 66 remains out of scope until Phase 65 closes and Phase 66 receives an exp
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Phase 65.D Browser-local Volume/Mute Closeout](phase-65d-browser-volume-mute-closeout.md)
 - [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md)
+- [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
 - [ADR-0055 Media Transcode Backend Selection](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0058 Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
