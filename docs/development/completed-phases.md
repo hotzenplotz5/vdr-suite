@@ -17,7 +17,7 @@ Phase-65 final runtime merge on main:
 PR #228 -> 131f669c0f4e360f3306cfb34f50380653a9fdfc
 
 Next strict runtime phase:
-Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+Phase 66 - Media Home and Browse Experience
 
 Current active numbered runtime phase:
 none - Phase 66 has not started
@@ -99,10 +99,10 @@ merge_commit=72e298a76f7879ea7fc58f6a502e32eca7399f5a
 ## Next work
 
 ```text
-Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+Phase 66 - Media Home and Browse Experience
 ```
 
-Phase 66 is the next strict numbered runtime phase but remains not started. Accepted ADR-0054 defines its architecture; a separate explicit kickoff is required before any Phase-66 runtime implementation begins.
+Phase 66 is the next strict numbered runtime phase but remains not started. Accepted ADR-0058 defines its Media Home / Browse architecture; a separate explicit kickoff is required before any Phase-66 runtime implementation begins.
 
 ## Verification
 

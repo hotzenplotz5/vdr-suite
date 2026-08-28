@@ -60,10 +60,10 @@ These features do not create new numbered phases.
 ## Next strict runtime phase
 
 ```text
-Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+Phase 66 - Media Home and Browse Experience
 ```
 
-Phase 66 is next but **not started**. Accepted ADR-0054 defines its architecture, but the Phase-65 closeout does not authorize Teletext/HbbTV runtime implementation. A separate explicit kickoff is required.
+Phase 66 is next but **not started**. Accepted ADR-0058 defines its Media Home / Browse architecture, but the Phase-65 closeout does not authorize Media Home runtime implementation. A separate explicit kickoff is required.
 
 ## Evidence boundary
 

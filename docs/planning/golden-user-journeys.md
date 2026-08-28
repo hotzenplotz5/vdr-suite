@@ -134,148 +134,94 @@ Examples include:
 
 The journey preserves the distinction between definitive no-effect failure, unknown outcome and verified success.
 
-This is cross-cutting and reused by Phases 64–68.
+This is cross-cutting and reused by Phases 64–69.
 
 ---
 
-## Journey 6 — Teletext while watching Live TV
+## Journey 6 — Browse Media Home on desktop
 
 ```text
-Live TV
-  -> Teletext available indication
-  -> open Teletext
-  -> page 100
-  -> numeric page selection
-  -> page/subpage navigation
-  -> supported color/link navigation
-  -> close Teletext
-  -> Live TV remains usable
+open VDR-Suite
+  -> Home useful before preview
+  -> browse Live hero rapidly
+  -> Now/Next and artwork follow focus immediately
+  -> focus settles
+  -> one delayed Live preview attaches
+  -> explicit Watch Live
+  -> return Home
+  -> Continue Watching / Recording discovery rail
 ```
 
-Acceptance proves:
+Acceptance proves browse focus is independent of playback/session state, rapid movement creates no preview sessions, stale preview cannot attach after focus changes, preview relinquishes through the canonical Phase-65 owner, existing domain identities are reused, and keyboard/reduced-motion behavior remains usable.
 
-- client consumes Suite Teletext service/page contracts, not OSD screenshots or provider cache paths;
-- page identity is tied to the correct backend/channel/service;
-- stale/incomplete cached data is marked truthfully;
-- channel change invalidates or replaces the Teletext service context correctly;
-- page/subpage navigation is deterministic;
-- no raw VDR remote/plugin command channel is required for normal Teletext browsing.
-
-This is a Phase-66 product journey under accepted ADR-0054; runtime remains not started until Phase 66 is explicitly authorized.
+This is a Phase-66 product journey under ADR-0058. Runtime remains not started until separately authorized.
 
 ---
 
-## Journey 7 — Launch one HbbTV broadcast application
+## Journey 7 — Browse Media Home on a phone
 
 ```text
-Live Channel
-  -> HbbTV application available
-  -> user launches application
-  -> authorized BroadcastApplicationSession
-  -> isolated HbbTV-capable runtime
-  -> application becomes usable
-  -> normalized remote/color-key interaction
-  -> close or channel change
-  -> deterministic application cleanup
+open VDR-Suite on phone
+  -> one dominant Live hero with neighbor peeks
+  -> swipe channels
+  -> Now/Next follows focus immediately
+  -> settled focus may preview inside hero
+  -> Watch Live / EPG touch actions
+  -> Continue Watching rail
+  -> bottom navigation Home / Live / Recordings / Search / More
 ```
 
-Acceptance proves:
+Acceptance proves mobile is semantic recomposition rather than scaled desktop, swipe/touch never waits on MediaSession startup, obsolete preview work is canceled/relinquished, no persistent floating mini-player steals the viewport, and canonical content/playback identities are shared with desktop.
 
-- application discovery comes from bounded backend-local broadcast evidence;
-- browser/client never receives an unrestricted local plugin control endpoint;
-- no general public arbitrary URL/JavaScript/raw-key API exists;
-- application runtime is isolated from Suite administrative/session secrets;
-- stale application context is fenced after channel/backend-generation changes;
-- Suite-owned Live/Recording media continues to use Phase-65 MediaSession semantics;
-- application close/channel change releases local runtime/provider resources.
-
-External broadcaster/network failure is reported distinctly from Suite discovery/session failure.
-
-This is a Phase-66 product journey under accepted ADR-0054; runtime remains not started until Phase 66 is explicitly authorized.
+This is a Phase-66 product journey under ADR-0058.
 
 ---
 
-## Journey 8 — Use one legacy native OSD workflow safely
+## Journey 8 — Teletext while watching Live TV
 
-```text
-open explicitly labeled Legacy OSD compatibility surface
-  -> authorized LegacyOsdSession
-  -> full authoritative OSD frame
-  -> view-only navigation state
-  -> optional controller lease for an authorized user
-  -> allowlisted input
-  -> observed resulting frame
-  -> release/close
-```
+Live TV -> Teletext indication -> open -> page/subpage navigation -> close -> Live remains usable.
 
-Acceptance proves:
-
-- normal EPG/Timer/Recording/Streaming/Teletext/HbbTV functions are not routed through this journey when domain APIs exist;
-- `osd.view` and `osd.control` are separate;
-- read-only backend cannot obtain controller authority;
-- one native surface has at most one active Suite controller lease;
-- stale lease/generation/OSD epoch commands fail closed;
-- sequence gaps force full resync rather than guessed display state;
-- no shell, raw SVDRP, unrestricted plugin service or arbitrary key-code tunnel exists;
-- OSD frame contents do not enter normal audit/log storage.
-
-This is a Phase-67 product journey.
+Acceptance uses Suite Teletext service/page contracts, truthful freshness, correct backend/channel identity and no raw VDR/plugin command channel. This is a Phase-67 journey under ADR-0054.
 
 ---
 
-## Journey 9 — Manage a Timer safely through the broad Timer UI
+## Journey 9 — Launch one HbbTV broadcast application
 
-This is a cross-cutting product milestone rather than a numbered phase.
+Live Channel -> discovered app -> authorized BroadcastApplicationSession -> isolated runtime -> normalized input -> close/channel change -> cleanup.
 
-```text
-EPG or Timer screen
-  -> authenticated actor/backend permission
-  -> create/update/disable/cancel TimerIntent
-  -> revision-safe request
-  -> assignment/fulfillment state visible
-  -> native readback/reconciliation visible
-  -> final user-visible state
-```
+Acceptance proves bounded discovery, no unrestricted browser/plugin control endpoint, isolation from Suite secrets, stale-context fencing and reuse of Phase-65 MediaSession semantics for Suite-owned media. This is a Phase-67 journey under ADR-0054.
 
-Acceptance proves:
+---
 
-- UI is intent-first rather than native-Timer-first;
-- stale revision produces conflict instead of overwrite;
-- read-only/permission denial is clear and server-enforced;
-- `outcome_unknown` is not shown as verified failure or success;
-- unsafe blind retry is not offered;
-- primary/replica/failover state reflects durable engine truth;
-- browser never calls private SuiteBridge/SVDRP Timer commands.
+## Journey 10 — Use one legacy native OSD workflow safely
 
-Prerequisites are completed Phase 62, completed Phase 64 and required account/backend access administration.
+Explicit Legacy OSD -> authorized session -> authoritative frame -> optional fenced controller lease -> allowlisted input -> resulting frame -> close.
+
+Acceptance proves domain-first features are not routed through OSD when normal contracts exist, view/control remain separate and no arbitrary command tunnel exists. This is a Phase-68 journey.
+
+---
+
+## Journey 11 — Manage a Timer safely through the broad Timer UI
+
+This remains a cross-cutting product milestone. EPG/Timer -> permission -> revision-safe TimerIntent mutation -> visible assignment/fulfillment -> authoritative readback/reconciliation -> final state.
+
+Acceptance preserves intent-first ownership, read-only enforcement, truthful `outcome_unknown`, no unsafe blind retry and no browser use of private SuiteBridge/SVDRP Timer writes.
 
 ---
 
 ## Relationship to phase completion
 
 ```text
-Phase 64 [completed]
-  -> engine portions of Journeys 3, 4 and Timer-related Journey 5
-
-Phase 65
-  -> Journeys 1 and 2
-  -> media portion of Journey 5
-
-Phase 66
-  -> Journeys 6 and 7
-
-Phase 67
-  -> Journey 8
-
-Broad Timer Product UI milestone
-  -> Journey 9
-  -> user-facing completion of Journey 3
-
-Phase 68
-  -> hardens the public/client compatibility contracts underlying the implemented domains
+Phase 64 [completed] -> engine portions of Journeys 3, 4 and Timer-related Journey 5
+Phase 65 [completed] -> Journeys 1 and 2 + media Journey 5
+Phase 66 [next; not started] -> Journeys 6 and 7
+Phase 67 -> Journeys 8 and 9
+Phase 68 -> Journey 10
+Broad Timer Product UI -> Journey 11 + user-facing Journey 3
+Phase 69 -> public/client compatibility hardening
 ```
 
-Phase 69 recommendation work must add its own user-visible journey before runtime acceptance.
+Phase 70 recommendation work must add its own user-visible journey before runtime acceptance.
 
 ## Change rule
 

@@ -71,30 +71,29 @@ No planning index or dependency document should copy an exact active branch head
 
 ## Stable phase dependency chain
 
-The numbered architecture sequence is:
-
 ```text
 Phase 62 — Identity, RBAC and Accountability
   -> Phase 63 — Backend Agent and Secure Multi-Site Runtime
   -> Phase 64 — Timer Intent and Multi-Backend Orchestration
   -> Phase 65 — Streaming Gateway and Media Sessions
-  -> Phase 66 — Broadcast Companion Services: Teletext and HbbTV
-  -> Phase 67 — Legacy OSD Compatibility Bridge
-  -> Phase 68 — Public API and Client Compatibility Hardening
-  -> Phase 69 — Recommendation and Content Knowledge Graph
+  -> Phase 66 — Media Home and Browse Experience
+  -> Phase 67 — Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 68 — Legacy OSD Compatibility Bridge
+  -> Phase 69 — Public API and Client Compatibility Hardening
+  -> Phase 70 — Recommendation and Content Knowledge Graph
 ```
 
-Which of these phases is currently completed, active or next is intentionally not repeated here. See [Current State](../CURRENT.md).
+Current completed/active/next state belongs only in [Current State](../CURRENT.md).
 
-## Current Phase-65 planning anchor
+## Current Phase-66 planning anchor
 
-Phase-65 runtime status remains owned by `CURRENT.md`. Stable planning for the active client-playback semantic boundary is now:
+Accepted planning for the next Media Home boundary is:
 
-- [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) — normalized playback presentation/timeline/continuity/failure architecture;
-- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md) — bounded implementation sequence;
-- [Frontend Playback Integration Contract](../development/frontend-playback-integration-contract.md) — production owner/lifecycle proof rules.
+- [ADR-0058](../adr/ADR-0058-media-home-responsive-browse-preview.md) — responsive browse-first/deferred-preview architecture;
+- [Phase 66 Media Home and Browse Experience](../development/phase-66-media-home-browse-experience.md) — bounded Slice 66.1-66.8 contract;
+- [Golden User Journeys](golden-user-journeys.md) — desktop/mobile Home acceptance.
 
-These documents do not authorize Phase 66 and do not reopen already accepted Phase-65.D transport/control slices.
+Phase 65 is completed. Accepted planning does not itself start Phase 66 runtime.
 
 ## Planning cautions
 
@@ -115,6 +114,7 @@ Useful entry points:
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Phase 63 development/closeout documents](../development/index.md)
 - [Phase 64 Final Closeout](../development/phase-64-closeout.md)
+- [Phase 65 Closeout](../development/phase-65-closeout.md)
 
 ## Historical and superseded planning evidence
 

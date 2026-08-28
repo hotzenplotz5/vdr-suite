@@ -22,7 +22,10 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite work session.
 - [Current Project Status](development/current-status.md) — stable narrative context around the current platform direction.
 - [Current Architecture State](development/current-architecture-state.md) — durable implemented ownership/capability summary.
-- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md) — active bounded implementation contract under ADR-0056.
+- [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and final acceptance evidence.
+- [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted next-phase architecture.
+- [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — accepted bounded implementation contract; runtime not started.
+- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md) — completed Phase-65 semantic contract/history.
 - [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md) — binding production-owner/lifecycle proof rules for playback frontend work.
 - [Phase 64 Final Closeout](development/phase-64-closeout.md) — accepted Timer-engine completion boundary and exact evidence.
 - [Project Overview](project-overview.md) — compact product and architecture overview.

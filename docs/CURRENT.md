@@ -18,7 +18,7 @@ Before any implementation, review-state change, installation or status claim, re
 - [Current Project Status](development/current-status.md)
 - [Current Architecture State](development/current-architecture-state.md)
 - [Phase 64 Closeout](development/phase-64-closeout.md)
-- [Phase 65 Final Closeout](development/phase-65-closeout.md)
+- [Phase 65 Closeout](development/phase-65-closeout.md)
 - [Phase 65 Recording Playback Closeout](development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](development/phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](development/phase-65-recording-startup-progressive-direct.md)
@@ -31,6 +31,8 @@ Before any implementation, review-state change, installation or status claim, re
 - [ADR-0055 Media Transcode Backend Selection](adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057 Recording Network Interruption Recovery](adr/ADR-0057-recording-network-interruption-recovery.md)
+- [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
@@ -51,7 +53,7 @@ Current active numbered runtime phase:
 none - Phase 66 has not started
 
 Next strict numbered runtime phase:
-Phase 66 - Broadcast Companion Services: Teletext and HbbTV
+Phase 66 - Media Home and Browse Experience
 
 Completed Phase-65 product verticals:
 65.A - Existing-Recording playback
@@ -89,7 +91,7 @@ The ADR-0056 mandatory semantic sequence is complete: normalized provider-free `
 
 Truthful range/seek/growing-recording capability remains binding after Phase 65 closeout. Completed-Recording arbitrary time-seek and stop/resume are accepted for supported progressive-fMP4 and HLS restart-seek paths. Compatibility timeline interactions preserve canonical absolute Recording position across transport-local time, and exact non-zero HLS video resume uses a synchronized implemented adaptation path or fails closed. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
 
-Phase 66 is the next strict numbered runtime phase but is **not started**. Accepted ADR-0054 defines its architecture only. Teletext/HbbTV runtime remains blocked until a separate explicit Phase-66 kickoff.
+Phase 66 is the next strict numbered runtime phase but is **not started**. Accepted ADR-0058 defines the Media Home / Browse architecture and bounded Phase-66 implementation contract. Architecture acceptance does not authorize runtime; a separate explicit Phase-66 kickoff is required. Accepted ADR-0054 remains the Broadcast Companion architecture for the now-following Phase 67.
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
@@ -159,15 +161,16 @@ The strict numbered order is now:
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
-  -> Phase 67 - Legacy OSD Compatibility Bridge
-  -> Phase 68 - Public API and Client Compatibility Hardening
-  -> Phase 69 - Recommendation and Content Knowledge Graph
+  -> Phase 66 - Media Home and Browse Experience [NEXT; NOT STARTED]
+  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 68 - Legacy OSD Compatibility Bridge
+  -> Phase 69 - Public API and Client Compatibility Hardening
+  -> Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
 Future phases 66+ are not runtime-authorized merely because they are named here. The strict details and gates live in the [Roadmap](planning/roadmap.md).
 
-The Phase-66 Broadcast Companion architecture is defined by accepted ADR-0054. Teletext/HbbTV runtime remains blocked until Phase 66 is explicitly started.
+The Phase-66 Media Home architecture is defined by accepted ADR-0058. Runtime remains blocked until Phase 66 is explicitly started. Broadcast Companion architecture remains defined by ADR-0054 for Phase 67.
 
 ## Timer Product UI decision
 
