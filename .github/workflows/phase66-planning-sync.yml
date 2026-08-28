@@ -18,6 +18,20 @@ jobs:
           ref: docs/phase66-media-home-planning
           fetch-depth: 0
 
+      - name: Patch ADR-0054 H1 boundary in one-shot helper
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("tools/phase66_planning_sync_once.py")
+          text = path.read_text(encoding="utf-8")
+          old = 'start, end = section_bounds(text, "Sequencing Decision")'
+          new = 'start = text.find("# Sequencing Decision")\nend = text.find("\\n# Implementation Direction", start)\nif start < 0 or end < 0:\n    raise SystemExit("ADR-0054: missing H1 sequencing boundary")'
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one ADR-0054 section-boundary call")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Reconcile accepted Phase 66 planning
         run: python3 tools/phase66_planning_sync_once.py
 
