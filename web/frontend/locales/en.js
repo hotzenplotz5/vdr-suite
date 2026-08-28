@@ -13,7 +13,7 @@
   "module.channelSort": "Sort channels",
   "module.channels": "Channels",
   "module.epg": "EPG timeline",
-  "module.overview": "Overview",
+  "module.overview": "Home",
   "module.recordings": "Recordings",
   "module.searchTimers": "Search timers",
   "module.timers": "Timers",

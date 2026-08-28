@@ -95,8 +95,8 @@ require("state.scrollTop" in frontend and "state.query" in frontend, "search ret
 require("global-search-scroll" in frontend and "overflow-y:auto" in frontend, "mobile search scrolling is missing")
 
 remote_placeholder = index.find('<article class="brand-feature">', index.find('data-brand-module="epg"'))
-search_card = index.find('data-brand-module="search"')
-settings_card = index.find('data-brand-module="settings"')
+search_card = index.find('data-brand-module="search"', remote_placeholder)
+settings_card = index.find('data-brand-module="settings"', search_card)
 require(remote_placeholder >= 0 and remote_placeholder < search_card < settings_card, "search launcher is not directly after the remote placeholder")
 require("features[3]" not in remote, "unexpected remote implementation shape")
 require("if(f[3])" in remote and "VDR - Fernbedienung" in remote, "existing remote launcher ownership changed")
