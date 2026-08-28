@@ -8,18 +8,42 @@
   <link rel="icon" type="image/svg+xml" href="../channel-logos/vdr-suite-brand/favicon.svg">
   <link rel="stylesheet" href="../frontend/style.css">
   <style>
+    .media-app-shell {
+      min-width: 0;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 50% -18rem, rgba(14, 165, 233, 0.14), transparent 34rem),
+        linear-gradient(180deg, #020617 0%, #07101e 42%, #0b1220 100%);
+    }
+
+    .media-app-shell main {
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .media-app-shell .layout {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: min(118rem, calc(100vw - 2.5rem));
+      margin: 0 auto;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+    }
+
     .brand-shell {
       box-sizing: border-box;
       grid-column: 1 / -1;
       width: 100%;
+      min-width: 0;
       margin: 0;
       overflow: hidden;
-      border: 1px solid rgba(96, 165, 250, 0.38);
-      border-radius: 1rem;
+      border: 1px solid rgba(96, 165, 250, 0.24);
+      border-radius: 1.15rem;
       background:
-        radial-gradient(circle at 12% 0%, rgba(14, 165, 233, 0.28), transparent 28%),
-        linear-gradient(135deg, #020617 0%, #07111f 52%, #0f172a 100%);
-      box-shadow: 0 1.25rem 2.8rem rgba(2, 6, 23, 0.34);
+        radial-gradient(circle at 12% -20%, rgba(14, 165, 233, 0.22), transparent 30%),
+        linear-gradient(135deg, rgba(2, 6, 23, 0.96), rgba(8, 19, 35, 0.96) 58%, rgba(15, 23, 42, 0.96));
+      box-shadow: 0 1.3rem 3.2rem rgba(2, 6, 23, 0.3);
+      backdrop-filter: blur(1rem);
     }
 
     #status {
@@ -31,13 +55,14 @@
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding: 0.78rem 1rem 0.68rem;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 0.74rem 1rem 0.62rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      background: transparent;
     }
 
     .app-logo {
-      width: min(20.5rem, 66vw);
-      max-height: 3.6rem;
+      width: min(18rem, 58vw);
+      max-height: 3.25rem;
       object-fit: contain;
       flex: 0 1 auto;
     }
@@ -62,58 +87,62 @@
 
     .app-header-text p {
       margin: 0;
-      color: #93c5fd;
-      font-size: 0.88rem;
-      font-weight: 650;
-      letter-spacing: 0.035em;
+      color: #7dd3fc;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       white-space: nowrap;
     }
 
     .brand-feature-strip {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(10.8rem, 1fr));
-      gap: 0.55rem;
-      padding: 0.62rem 0.9rem 0.78rem;
+      grid-template-columns: minmax(14rem, 1.8fr) repeat(5, minmax(7rem, 1fr));
+      gap: 0.48rem;
+      padding: 0.62rem 0.78rem 0.78rem;
       overflow: visible;
     }
 
     .brand-feature {
       display: flex;
       align-items: center;
-      gap: 0.48rem;
+      gap: 0.46rem;
       min-width: 0;
-      padding: 0.55rem 0.58rem;
-      border: 1px solid rgba(96, 165, 250, 0.18);
-      border-radius: 0.82rem;
-      background: rgba(15, 23, 42, 0.58);
+      min-height: 2.85rem;
+      box-sizing: border-box;
+      padding: 0.48rem 0.58rem;
+      border: 1px solid rgba(148, 163, 184, 0.13);
+      border-radius: 0.8rem;
+      background: rgba(15, 23, 42, 0.44);
       color: #cbd5e1;
       overflow: hidden;
     }
 
     .brand-feature svg {
-      width: 1.55rem;
-      height: 1.55rem;
-      flex: 0 0 1.55rem;
+      width: 1.35rem;
+      height: 1.35rem;
+      flex: 0 0 1.35rem;
       color: #38bdf8;
-      filter: drop-shadow(0 0 0.45rem rgba(56, 189, 248, 0.24));
+      filter: drop-shadow(0 0 0.35rem rgba(56, 189, 248, 0.18));
     }
 
     .brand-feature[data-brand-module] {
       cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
     }
 
     .brand-feature[data-brand-module]:hover,
-    .brand-feature[data-brand-module]:focus {
-      border-color: rgba(56, 189, 248, 0.42);
-      background: rgba(14, 165, 233, 0.12);
+    .brand-feature[data-brand-module]:focus-visible {
+      border-color: rgba(56, 189, 248, 0.44);
+      background: rgba(14, 165, 233, 0.1);
       outline: none;
+      transform: translateY(-1px);
     }
 
     .brand-feature-title {
       color: #f8fafc;
       font-size: 0.72rem;
-      font-weight: 850;
+      font-weight: 800;
       letter-spacing: 0.038em;
       text-transform: uppercase;
       white-space: nowrap;
@@ -124,130 +153,489 @@
     .brand-feature-text {
       margin-top: 0.04rem;
       color: #94a3b8;
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       line-height: 1.14;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    @media (min-width: 72rem) {
-      .layout {
-        max-width: min(118rem, calc(100vw - 2.5rem));
-        grid-template-columns: minmax(0, 1fr);
-        align-items: start;
+    .brand-feature-backends {
+      min-width: 0;
+    }
+
+    .brand-feature-backends .brand-feature-copy {
+      flex: 0 0 auto;
+    }
+
+    .brand-backend-list {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .brand-backend-list .backend-card {
+      min-width: 0;
+      padding: 0.42rem 0.52rem;
+      border-radius: 0.64rem;
+      box-shadow: none;
+    }
+
+    .brand-backend-list .backend-header {
+      margin: 0;
+      gap: 0.45rem;
+    }
+
+    .brand-backend-list .backend-title {
+      font-size: 0.84rem;
+    }
+
+    .brand-backend-list .backend-subtitle,
+    .brand-backend-list .badge-row,
+    .brand-backend-list .backend-summary-row {
+      display: none;
+    }
+
+    .brand-backend-list .status-pill {
+      padding: 0.18rem 0.44rem;
+      font-size: 0.7rem;
+    }
+
+    #detail {
+      min-width: 0;
+      grid-column: 1 / -1;
+      overflow: hidden;
+    }
+
+    #detail .detail-header,
+    #detail .detail-meta,
+    #detail .module-nav,
+    #detail #detail-data {
+      min-width: 0;
+    }
+
+    .media-home-only {
+      display: none;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) {
+      padding: 0;
+      border-color: rgba(96, 165, 250, 0.18);
+      background: rgba(2, 6, 23, 0.72);
+      box-shadow: 0 1.8rem 4rem rgba(2, 6, 23, 0.24);
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .detail-header {
+      margin: 0;
+      padding: 0.8rem 1rem 0.55rem;
+      border-bottom: 0;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .detail-header h2 {
+      color: #94a3b8;
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .detail-meta {
+      margin: 0;
+      padding: 0 1rem 0.72rem;
+      color: #64748b;
+      font-size: 0.84rem;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .module-nav {
+      margin: 0;
+      padding: 0 1rem 0.85rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .media-home-only {
+      display: block;
+    }
+
+    .media-home-hero {
+      position: relative;
+      isolation: isolate;
+      min-height: 19rem;
+      margin: 0;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      background:
+        linear-gradient(90deg, rgba(2, 6, 23, 0.98) 0%, rgba(2, 6, 23, 0.84) 42%, rgba(2, 6, 23, 0.28) 72%, rgba(2, 6, 23, 0.54) 100%),
+        radial-gradient(circle at 78% 36%, rgba(14, 165, 233, 0.3), transparent 22%),
+        radial-gradient(circle at 86% 68%, rgba(37, 99, 235, 0.22), transparent 24%),
+        linear-gradient(135deg, #020617 0%, #071427 55%, #0f2743 100%);
+    }
+
+    .media-home-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -8% -48% 42%;
+      height: 92%;
+      z-index: -1;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.08);
+      filter: blur(2.8rem);
+    }
+
+    .media-home-hero-copy {
+      box-sizing: border-box;
+      display: flex;
+      min-height: 19rem;
+      max-width: 48rem;
+      padding: clamp(2rem, 6vw, 5rem) clamp(1.1rem, 5vw, 4.5rem);
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .media-home-eyebrow {
+      margin: 0 0 0.55rem;
+      color: #7dd3fc;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .media-home-hero h3 {
+      max-width: 13ch;
+      margin: 0;
+      color: #f8fafc;
+      font-size: clamp(2.05rem, 5vw, 4.4rem);
+      font-weight: 850;
+      letter-spacing: -0.045em;
+      line-height: 0.98;
+      text-wrap: balance;
+    }
+
+    .media-home-hero p:last-child {
+      max-width: 42rem;
+      margin: 1rem 0 0;
+      color: #cbd5e1;
+      font-size: clamp(0.98rem, 1.6vw, 1.16rem);
+      line-height: 1.55;
+      text-wrap: pretty;
+    }
+
+    .media-home-section-heading {
+      display: none;
+      padding: 1.45rem 1rem 0.82rem;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) .media-home-section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .media-home-section-heading h3 {
+      margin: 0;
+      color: #f8fafc;
+      font-size: clamp(1.2rem, 2vw, 1.55rem);
+      letter-spacing: -0.02em;
+    }
+
+    .media-home-section-heading p {
+      max-width: 42rem;
+      margin: 0;
+      color: #94a3b8;
+      font-size: 0.88rem;
+      text-align: right;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data {
+      display: flex;
+      grid-template-columns: none;
+      gap: 0.78rem;
+      width: auto;
+      min-height: 8.5rem;
+      padding: 0 1rem 1.5rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-padding-inline: 1rem;
+      scroll-snap-type: x proximity;
+      overscroll-behavior-inline: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card {
+      box-sizing: border-box;
+      min-width: clamp(10.5rem, 17vw, 15.5rem);
+      min-height: 7.6rem;
+      scroll-snap-align: start;
+      border-color: rgba(148, 163, 184, 0.16);
+      border-radius: 1rem;
+      background:
+        linear-gradient(150deg, rgba(30, 41, 59, 0.86), rgba(2, 6, 23, 0.92));
+      box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.025);
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card .metric-value {
+      color: #e0f2fe;
+      font-size: clamp(2rem, 3vw, 2.7rem);
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card .metric-label {
+      color: #94a3b8;
+    }
+
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .module-placeholder,
+    #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .media-home-state {
+      box-sizing: border-box;
+      min-width: min(36rem, 100%);
+      width: 100%;
+      align-self: stretch;
+      scroll-snap-align: start;
+    }
+
+    .media-home-state {
+      display: grid;
+      place-items: center start;
+      min-height: 7.6rem;
+      padding: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.52);
+      color: #94a3b8;
+    }
+
+    .media-home-additional-sections {
+      min-height: 0;
+    }
+
+    .module-tab,
+    .brand-feature[data-brand-module],
+    #refresh-detail {
+      min-height: 2.75rem;
+    }
+
+    .module-tab:focus-visible,
+    #refresh-detail:focus-visible {
+      outline: 3px solid rgba(125, 211, 252, 0.86);
+      outline-offset: 2px;
+    }
+
+    @media (min-width: 72.01rem) {
+      .media-home-hero {
+        min-height: 24rem;
       }
 
-      .brand-shell,
-      #status {
-        grid-column: 1 / -1;
+      .media-home-hero-copy {
+        min-height: 24rem;
       }
 
-      .brand-backend-list {
-        grid-column: auto;
-      }
-
-      #detail {
-        grid-column: 1 / -1;
-      }
-
-      .brand-feature-strip {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 0.72rem;
-        padding: 0.86rem 1.05rem 1rem;
-      }
-
-      .brand-feature {
-        gap: 0.78rem;
-        padding: 0.82rem 0.95rem;
-        border-radius: 0.95rem;
-      }
-
-      .brand-feature svg {
-        width: 2.35rem;
-        height: 2.35rem;
-        flex-basis: 2.35rem;
-      }
-
-      .brand-feature-title {
-        font-size: 0.9rem;
-        letter-spacing: 0.045em;
-      }
-
-      .brand-feature-text {
-        display: block;
-        font-size: 0.78rem;
-        line-height: 1.2;
+      #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card {
+        min-width: clamp(12rem, 16vw, 17rem);
       }
     }
 
-    @media (max-width: 760px) {
-      .brand-shell {
+    @media (min-width: 46.01rem) and (max-width: 72rem) {
+      .media-app-shell .layout {
+        max-width: calc(100vw - 1.5rem);
+      }
+
+      .brand-feature-strip {
+        grid-template-columns: minmax(13rem, 1.6fr) repeat(3, minmax(8rem, 1fr));
+      }
+
+      .brand-feature[data-brand-module="recordings2"],
+      .brand-feature[data-brand-module="search"],
+      .brand-feature[data-brand-module="settings"] {
+        grid-row: 2;
+      }
+
+      .media-home-hero,
+      .media-home-hero-copy {
+        min-height: 20rem;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card {
+        min-width: 16rem;
+      }
+    }
+
+    @media (max-width: 46rem) {
+      .media-app-shell main {
+        padding: 0.65rem;
+      }
+
+      .media-app-shell .layout {
+        max-width: 100%;
+        gap: 0.7rem;
+      }
+
+      .brand-shell,
+      #detail {
         border-radius: 0.95rem;
       }
 
       .app-header {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 0.35rem;
-        padding: 0.72rem 0.85rem 0.62rem;
+        gap: 0.45rem;
+        padding: 0.68rem 0.72rem 0.56rem;
       }
 
       .app-logo {
-        width: min(19.8rem, 82vw);
-        max-height: 3.35rem;
-      }
-
-      .app-header-text {
-        text-align: left;
+        width: min(15.5rem, 64vw);
+        max-height: 2.75rem;
       }
 
       .app-header-text p {
-        font-size: 0.75rem;
-        letter-spacing: 0.03em;
+        font-size: 0.66rem;
+        letter-spacing: 0.06em;
       }
 
       .brand-feature-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem;
-        padding: 0.58rem 0.65rem 0.7rem;
+        display: flex;
+        gap: 0.42rem;
+        padding: 0.52rem 0.6rem 0.64rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: none;
+      }
+
+      .brand-feature-strip::-webkit-scrollbar,
+      .module-nav::-webkit-scrollbar,
+      #detail:has(.module-tab.active[data-module="overview"]) #detail-data::-webkit-scrollbar {
+        display: none;
       }
 
       .brand-feature {
-        gap: 0.42rem;
-        padding: 0.48rem 0.48rem;
-        border-radius: 0.72rem;
+        flex: 0 0 auto;
+        min-width: 6.9rem;
+        min-height: 3rem;
+        scroll-snap-align: start;
       }
 
-      .brand-feature svg {
-        width: 1.35rem;
-        height: 1.35rem;
-        flex-basis: 1.35rem;
-      }
-
-      .brand-feature-title {
-        font-size: 0.66rem;
-        letter-spacing: 0.026em;
+      .brand-feature-backends {
+        min-width: min(15rem, 78vw);
       }
 
       .brand-feature-text {
         display: none;
       }
+
+      .module-nav {
+        flex-wrap: nowrap;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: none;
+      }
+
+      .module-tab {
+        flex: 0 0 auto;
+        min-height: 2.9rem;
+        scroll-snap-align: start;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) .detail-header {
+        padding: 0.72rem 0.78rem 0.42rem;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) .detail-meta {
+        padding: 0 0.78rem 0.58rem;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) .module-nav {
+        padding: 0 0.78rem 0.72rem;
+      }
+
+      .media-home-hero,
+      .media-home-hero-copy {
+        min-height: 18.5rem;
+      }
+
+      .media-home-hero-copy {
+        padding: 2.15rem 1.05rem 2.35rem;
+      }
+
+      .media-home-hero h3 {
+        max-width: 10ch;
+        font-size: clamp(2.35rem, 12vw, 3.75rem);
+      }
+
+      .media-home-hero p:last-child {
+        max-width: 32rem;
+        font-size: 0.97rem;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) .media-home-section-heading {
+        align-items: start;
+        padding: 1.2rem 0.78rem 0.72rem;
+        flex-direction: column;
+        gap: 0.28rem;
+      }
+
+      .media-home-section-heading p {
+        text-align: left;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) #detail-data {
+        gap: 0.62rem;
+        padding: 0 0.78rem 1.25rem;
+        scroll-padding-inline: 0.78rem;
+      }
+
+      #detail:has(.module-tab.active[data-module="overview"]) #detail-data > .metric-card {
+        min-width: min(78vw, 19rem);
+        min-height: 8rem;
+      }
+    }
+
+    @media (max-height: 34rem) and (min-width: 40rem) and (max-width: 64rem) {
+      .media-home-hero,
+      .media-home-hero-copy {
+        min-height: 13rem;
+      }
+
+      .media-home-hero-copy {
+        max-width: 58%;
+        padding-top: 1.35rem;
+        padding-bottom: 1.45rem;
+      }
+
+      .media-home-hero h3 {
+        font-size: clamp(2rem, 6vw, 3.25rem);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .brand-feature[data-brand-module] {
+        transition: none;
+      }
+
+      .brand-feature[data-brand-module]:hover,
+      .brand-feature[data-brand-module]:focus-visible {
+        transform: none;
+      }
+
+      .brand-feature-strip,
+      .module-nav,
+      #detail-data {
+        scroll-behavior: auto;
+      }
     }
   </style>
 </head>
-<body>
+<body class="media-app-shell">
   <main>
     <section class="layout">
-      <section class="brand-shell" aria-label="VDR-Suite Branding">
+      <section class="brand-shell" aria-label="VDR-Suite Navigation">
         <header class="app-header">
           <img class="app-logo" src="../channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg" alt="vdr-suite">
           <div class="app-header-text">
             <h1>vdr-suite</h1>
-            <p data-i18n="shell.webFrontend">VDR Webfrontend</p>
+            <p>Media Home</p>
           </div>
         </header>
-        <section class="brand-feature-strip" aria-label="VDR-Suite Merkmale" data-i18n-aria-label="shell.features">
+        <nav class="brand-feature-strip" aria-label="Primäre VDR-Suite Navigation">
           <article class="brand-feature brand-feature-backends">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="6" y="9" width="20" height="8" rx="2"/>
@@ -260,6 +648,14 @@
             <div class="brand-feature-copy"><div class="brand-feature-title" data-i18n="shell.multiBackend">Multi-Backend</div><div class="brand-feature-text" data-i18n="shell.multiBackendDescription">Flexible & skalierbar</div></div>
             <section id="backends" class="backend-list brand-backend-list" aria-label="Backend-Auswahl" data-i18n-aria-label="shell.backendSelection"></section>
           </article>
+          <article class="brand-feature" data-brand-module="overview" tabindex="0" role="button" aria-label="Home öffnen">
+            <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 23 L24 9 L40 23"/>
+              <path d="M12 21 V40 H36 V21"/>
+              <path d="M20 40 V29 H28 V40"/>
+            </svg>
+            <div><div class="brand-feature-title">Home</div><div class="brand-feature-text">Media Home</div></div>
+          </article>
           <article class="brand-feature" data-brand-module="channels2" tabindex="0" role="button" aria-label="Live TV" data-i18n-aria-label="shell.liveTv">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="24" cy="24" r="3" fill="currentColor"/>
@@ -270,34 +666,20 @@
             </svg>
             <div><div class="brand-feature-title" data-i18n="shell.liveTv">Live TV</div><div class="brand-feature-text" data-i18n="shell.liveTvDescription">Echtzeit & Streaming</div></div>
           </article>
-          <article class="brand-feature" data-brand-module="epg" tabindex="0" role="button" aria-label="EPG Zeitleiste öffnen" data-i18n-aria-label="shell.openEpg">
+          <article class="brand-feature" data-brand-module="recordings2" tabindex="0" role="button" aria-label="Aufnahmen öffnen">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="8" y="10" width="32" height="30" rx="4"/>
-              <path d="M15 7 V14"/>
-              <path d="M33 7 V14"/>
-              <path d="M8 20 H40"/>
-              <path d="M16 27 H18"/>
-              <path d="M23 27 H25"/>
-              <path d="M30 27 H32"/>
-              <path d="M16 34 H18"/>
-              <path d="M23 34 H25"/>
-              <path d="M30 34 H32"/>
+              <rect x="7" y="11" width="34" height="27" rx="5"/>
+              <circle cx="18" cy="24.5" r="5"/>
+              <path d="M27 20 H36"/>
+              <path d="M27 25 H36"/>
+              <path d="M27 30 H33"/>
             </svg>
-            <div><div class="brand-feature-title" data-i18n="shell.epgFeature">EPG Zeitleiste</div><div class="brand-feature-text" data-i18n="shell.epgFeatureDescription">Zeitachse & Programm</div></div>
-          </article>
-          <article class="brand-feature">
-            <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 7 H30 V16 H39 V27 H31 V39 H19 V31 H9 V20 H20 Z"/>
-              <path d="M20 16 H30"/>
-              <path d="M19 31 H31"/>
-            </svg>
-            <div><div class="brand-feature-title" data-i18n="shell.modularSuite">Modular Suite</div><div class="brand-feature-text" data-i18n="shell.modularSuiteDescription">Erweiterbar & anpassbar</div></div>
+            <div><div class="brand-feature-title" data-i18n="module.recordings">Aufnahmen</div><div class="brand-feature-text">Bibliothek</div></div>
           </article>
           <article class="brand-feature brand-feature-search" data-brand-module="search" tabindex="0" role="button" aria-label="VDR-Suite Suche öffnen" data-i18n-aria-label="shell.openSearch">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="21" cy="21" r="11"/>
               <path d="M29 29 L40 40"/>
-              <path d="M16 21 H26"/>
             </svg>
             <div><div class="brand-feature-title" data-i18n="shell.search">Suche</div><div class="brand-feature-text" data-i18n="shell.searchDescription">Aufnahmen, EPG & Personen</div></div>
           </article>
@@ -315,7 +697,7 @@
             </svg>
             <div><div class="brand-feature-title" data-i18n="shell.settings">Einstellungen</div><div class="brand-feature-text" data-i18n="shell.settingsDescription">Backend & System</div></div>
           </article>
-        </section>
+        </nav>
       </section>
       <p id="status" class="status" data-i18n="shell.loadBackendSelection">Lade Backend-Auswahl...</p>
       <section id="detail" class="detail-card" aria-live="polite">
@@ -325,7 +707,7 @@
         </div>
         <div id="detail-meta" class="detail-meta" data-i18n="shell.noBackendSelected">Noch kein Backend ausgewählt.</div>
         <nav id="module-nav" class="module-nav" aria-label="Backend-Module" data-i18n-aria-label="shell.backendModules">
-          <button type="button" class="module-tab active" data-module="overview" data-i18n="module.overview">Übersicht</button>
+          <button type="button" class="module-tab active" data-module="overview" data-i18n="module.overview">Home</button>
           <button type="button" class="module-tab" data-module="channels2" data-i18n="module.channels">Kanäle</button>
           <button type="button" class="module-tab" data-module="recordings2" data-i18n="module.recordings">Aufnahmen</button>
           <button type="button" class="module-tab" data-module="genres">Genres</button>
@@ -334,7 +716,19 @@
           <button type="button" class="module-tab" data-module="timers" data-i18n="module.timers">Timer</button>
           <button type="button" class="module-tab" data-module="searchtimers" data-i18n="module.searchTimers">SearchTimer</button>
         </nav>
-        <section id="detail-data" class="metric-grid" data-i18n="shell.clickBackend">Klicke auf eine Backend-Karte.</section>
+        <section class="media-home-only media-home-hero" data-home-zone="hero" aria-labelledby="media-home-title">
+          <div class="media-home-hero-copy">
+            <p class="media-home-eyebrow">VDR-Suite Media Home</p>
+            <h3 id="media-home-title">Fernsehen und Aufnahmen beginnen hier.</h3>
+            <p>Ein ruhiger, responsiver Einstieg in die vorhandenen VDR-Suite-Inhalte. Navigation und Browsing bleiben unmittelbar; Medienwiedergabe behält ihre bestehende, getrennte Verantwortung.</p>
+          </div>
+        </section>
+        <section class="media-home-only media-home-section-heading" data-home-zone="primary-rail" aria-labelledby="media-home-primary-title">
+          <h3 id="media-home-primary-title">Aktueller Bestand</h3>
+          <p>Reale Backend-Daten in einer wiederverwendbaren horizontalen Home-Rail.</p>
+        </section>
+        <section id="detail-data" class="metric-grid" data-i18n="shell.clickBackend"><div class="media-home-state">Wähle ein Backend, um Media Home zu laden.</div></section>
+        <section class="media-home-only media-home-additional-sections" data-home-zone="additional-sections" aria-label="Weitere Media-Home-Bereiche"></section>
       </section>
     </section>
   </main>
