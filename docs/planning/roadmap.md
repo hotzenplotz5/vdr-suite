@@ -51,13 +51,16 @@ Latest completed numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 
 Current active numbered runtime phase:
-none - Phase 66 has not started
+Phase 66 - Media Home and Browse Experience
 
 Next strict numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
+
+Current active runtime slice:
+Slice 66.1 - Home Shell and Responsive Information Architecture
 ```
 
-Phase 65 is completed. Durable evidence lives in [Phase 65 Closeout](../development/phase-65-closeout.md). ADR-0058 is accepted and defines the next Media Home / Browse architecture, but Phase 66 runtime has not started and still requires a separate explicit kickoff.
+Phase 65 is completed. Durable evidence lives in [Phase 65 Closeout](../development/phase-65-closeout.md). ADR-0058 is accepted and Phase 66 is active only for Slice 66.1 under the explicit runtime kickoff. Later Phase-66 slices remain gated by the coherent implementation sequence below.
 
 Future order: Phase 66 Media Home -> Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -449,13 +452,13 @@ Phase 65 closes only when all required supported paths prove:
 - shared fMP4/MSE helper deduplication;
 - read-only media-pipeline diagnostics beyond what is required to prove semantic correctness.
 
-Phase 65 is completed. Phase 65.A through 65.D are closed for their bounded accepted scopes. See [Phase 65 Closeout](../development/phase-65-closeout.md). Phase 66 Media Home remains runtime-blocked until a separate explicit kickoff.
+Phase 65 is completed. Phase 65.A through 65.D are closed for their bounded accepted scopes. See [Phase 65 Closeout](../development/phase-65-closeout.md). Phase 66 is now active only for its explicitly kicked-off Slice 66.1 scope.
 
 ---
 
 ## Phase 66 — Media Home and Browse Experience
 
-Status: **Next; not started.**
+Status: **Active; Slice 66.1 - Home Shell and Responsive Information Architecture.**
 
 Binding architecture: [ADR-0058: Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md).
 
@@ -480,6 +483,8 @@ Core rule: **Browse first, playback second.** Browse focus updates immediately; 
 66.8 Golden User Journey and Real-System Acceptance
 ```
 
+Only 66.1 is currently authorized. Slice 66.2 and every later Phase-66 slice remain outside the active scope until separately advanced under the accepted sequence.
+
 ### Hard invariants
 
 - Home projects existing Channel, ProgramEvent, Recording, Metadata, Genre and artwork truth.
@@ -495,7 +500,7 @@ Core rule: **Browse first, playback second.** Browse focus updates immediately; 
 
 Phase 66 closes only when Home is the accepted first-party landing experience, responsive desktop/mobile browse works without waiting for preview, deferred preview uses canonical Phase-65 ownership/cleanup, Continue Watching and Recording rails are truthful, history has explicit semantics if durable, Golden Home journeys pass on real supported environments, and exact final CI/packaging/rollback gates pass.
 
-Architecture acceptance does not start this phase. A separate explicit runtime kickoff is required before Slice 66.1.
+The explicit Phase-66 runtime kickoff has occurred for Slice 66.1 only. Architecture acceptance still does not authorize Slice 66.2 or later work automatically.
 
 ---
 
@@ -883,7 +888,7 @@ Required product capability:
 - no secret material is returned after issuance where the credential contract forbids it;
 - operator recovery/migration is documented.
 
-This milestone may proceed alongside Phase 65 when implemented as a coherent security/admin product slice.
+This milestone may proceed alongside numbered runtime work when implemented as a coherent security/admin product slice.
 
 ## Milestone B — Broad Timer Product UI
 
@@ -926,7 +931,7 @@ The broad Timer UI must be intent-first, not a return to native VDR Timer owners
 
 The user-facing portion of Golden Journey 3 must pass from real EPG interaction through TimerIntent, assignment, native readback and visible final state. Permission/read-only/conflict and at least one reconciliation/failover presentation path must also be demonstrated.
 
-The milestone is independent of Phase-65 completion and should not block Streaming.
+The milestone is independent of active Phase-66 runtime work and should not block Media Home execution.
 
 ## Milestone C — Audit, Security and Operations Product Surfaces
 
@@ -1046,11 +1051,12 @@ A user-visible milestone is not complete from component CI alone.
 
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
-  -> Phase 65 - Streaming Gateway and Media Sessions [ACTIVE]
-  -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV
-  -> Phase 67 - Legacy OSD Compatibility Bridge
-  -> Phase 68 - Public API and Client Compatibility Hardening
-  -> Phase 69 - Recommendation and Content Knowledge Graph
+  -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
+  -> Phase 66 - Media Home and Browse Experience [ACTIVE; SLICE 66.1]
+  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 68 - Legacy OSD Compatibility Bridge
+  -> Phase 69 - Public API and Client Compatibility Hardening
+  -> Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
 Cross-cutting, non-numbered product milestones:
@@ -1070,22 +1076,17 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 ## Next authorization boundary
 
-Phase 65 is active. Phase 65.A through 65.C are closed for their accepted bounded scopes. Phase 65.D remains active; D.1/D.2, normalized Recording audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 browser MSE forward-buffer control and the compatibility timeline/exact-HLS-resume follow-up are accepted for their bounded scopes.
+Phase 65 is completed. Phase 65.A through 65.D are closed for their accepted bounded scopes, including ADR-0056 playback semantic consolidation and bounded ADR-0057 completed-Recording interruption recovery.
 
-The next coherent Phase-65.D runtime work is governed by ADR-0056 and [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md):
+**Phase 66 - Media Home and Browse Experience is active only for Slice 66.1 - Home Shell and Responsive Information Architecture.** The current coherent runtime work may establish the real browser Home composition, responsive information architecture, navigation/focus/touch foundations, structural states and production-composition regression proof while reusing existing domain and Phase-65 playback owners.
 
-```text
-normalized MediaPlaybackContract
-  -> canonical playback-owner lifecycle publication
-  -> continuity/discontinuity + presentation generation semantics
-  -> classified playback failures
-```
+Slice 66.2 Live-TV Hero Carousel, Slice 66.3 Deferred Live Preview, Continue Watching, Recording discovery semantics beyond existing truth, Recently Watched/history, recommendation intelligence and all later Phase-66 slices remain outside the current authorization.
 
-Before each new runtime block, read live `main`, `CURRENT.md`, ADR-0046, ADR-0053, ADR-0055, ADR-0056, the frontend playback integration contract and the current client/media code gap, then choose the smallest coherent semantic change without starting Phase 66.
+Before each new runtime block, read live `main`, `CURRENT.md`, ADR-0058, the Phase-66 implementation contract, the frontend playback integration contract and the current browser/domain code gap, then choose the smallest coherent change without crossing into the next accepted slice.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
-Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly started.
+Phase 67 remains blocked until Phase 66 closes and Phase 67 is explicitly started.
 
 ---
 
@@ -1098,6 +1099,7 @@ Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly starte
 - [Golden User Journeys](golden-user-journeys.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Phase 64 Closeout](../development/phase-64-closeout.md)
+- [Phase 65 Closeout](../development/phase-65-closeout.md)
 - [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
 - [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65-recording-startup-progressive-direct.md)
@@ -1106,6 +1108,7 @@ Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly starte
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md)
 - [Phase 65.D Browser-local Volume/Mute Closeout](../development/phase-65d-browser-volume-mute-closeout.md)
 - [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
+- [Phase 66 Media Home and Browse Experience](../development/phase-66-media-home-browse-experience.md)
 - [Frontend Playback Integration Contract](../development/frontend-playback-integration-contract.md)
 - [ADR-0030 Domain-First UI](../adr/ADR-0030-domain-first-ui-over-osd-proxy.md)
 - [ADR-0044 Timer Model](../adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
@@ -1114,6 +1117,7 @@ Phase 66 remains blocked until Phase 65 closes and Phase 66 is explicitly starte
 - [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0055 Media Transcode Backend Selection](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0058 Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0047 Legacy OSD](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049 Audit/Security](../adr/ADR-0049-audit-security-event-model.md)
