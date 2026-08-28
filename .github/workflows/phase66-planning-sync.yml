@@ -37,6 +37,11 @@ jobs:
               raise SystemExit("expected exactly one incompatible roadmap/phase-map block-status loop")
           text = text.replace(old, '', 1)
 
+          old = 'for rel in ["docs/NEW-CHAT-HANDOFF.md", "docs/development/current-status.md"]:\n    replace_inline_status(p(rel), COMPLETED, ACTIVE, NEXT)\n'
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one incompatible handoff/current-status inline loop")
+          text = text.replace(old, '', 1)
+
           path.write_text(text, encoding="utf-8")
           PY
 
