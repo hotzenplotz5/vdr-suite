@@ -40,9 +40,9 @@
     return false;
   }
 
-  function decoratePlayback(value) {
-    const source = value && typeof value === 'object' ? value : {};
-    if (source.__vdrSuiteRecordingNetworkRecoveryGuarded === true ||
+  function guardPlayback(value) {
+    const source = value && typeof value === 'object' ? value : null;
+    if (!source || source.__vdrSuiteRecordingNetworkRecoveryGuarded === true ||
         typeof source.createPanel !== 'function') {
       return source;
     }
@@ -58,14 +58,14 @@
     return Object.freeze(decorated);
   }
 
-  let currentPlayback = decoratePlayback(global.VdrSuiteRecordings2Playback);
+  let currentPlayback = guardPlayback(global.VdrSuiteRecordings2Playback);
 
   try {
     Object.defineProperty(global, 'VdrSuiteRecordings2Playback', {
       configurable: true,
       enumerable: true,
       get: function () { return currentPlayback; },
-      set: function (value) { currentPlayback = decoratePlayback(value); }
+      set: function (value) { currentPlayback = guardPlayback(value); }
     });
   } catch (error) {
     if (global.VdrSuiteRecordings2Playback) {
@@ -106,6 +106,7 @@
 
   global[marker] = true;
   global.VdrSuiteRecordingNetworkRecoveryGuard = Object.freeze({
+    guardPlayback: guardPlayback,
     withoutCompatibilityFallback: withoutCompatibilityFallback,
     isCompatibilityFallbackSuppressed: suppressed
   });
