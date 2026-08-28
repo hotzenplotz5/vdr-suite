@@ -48,6 +48,28 @@ jobs:
       - name: Reconcile accepted Phase 66 planning
         run: python3 tools/phase66_planning_sync_once.py
 
+      - name: Preserve required completed-phase history markers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          handoff = Path("docs/NEW-CHAT-HANDOFF.md")
+          text = handoff.read_text(encoding="utf-8")
+          old = "[Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context."
+          new = "[Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context."
+          if text.count(old) != 1:
+              raise SystemExit("handoff historical closeout anchor mismatch")
+          handoff.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          current = Path("docs/development/current-status.md")
+          text = current.read_text(encoding="utf-8")
+          old = "Historical completed context includes Phases 58, 61, 62, 63 and 64."
+          new = "Historical completed context includes Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, Phase 63 - Backend Agent and Secure Multi-Site Runtime, and Phase 64 - Timer Intent and Multi-Backend Orchestration."
+          if text.count(old) != 1:
+              raise SystemExit("current-status Phase 62 historical anchor mismatch")
+          current.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Validate reconciled documentation
         run: |
           git diff --check
