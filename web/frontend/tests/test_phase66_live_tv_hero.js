@@ -11,7 +11,7 @@ const heroSource = fs.readFileSync(path.join(frontendRoot, 'channel-logos.js'), 
 
 assert(indexSource.includes('class="media-home-only media-home-hero"'));
 assert(indexSource.includes('data-home-zone="hero"'));
-assert(indexSource.includes('<script src="/frontend/channel-logos.js"></script>'));
+assert(indexSource.includes('<script src="../frontend/channel-logos.js"></script>'));
 assert(heroSource.includes('VdrSuiteHomeLiveHero'));
 assert(heroSource.includes('fetchClientChannels'));
 assert(heroSource.includes('fetchClientEpgCacheWindow'));
