@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
@@ -37,16 +38,12 @@ assert(!indexSource.includes('continue-watching'));
 assert(!indexSource.includes('MediaSession'));
 assert(!indexSource.includes('startPositionSeconds'));
 
-// Production app.js remains the sole view/navigation state owner. A user
-// action on either the existing module tab or the shell navigation therefore
-// reaches selectModule(), toggles the real active module DOM state and renders
-// the existing real backend snapshot into the same mount.
+// Production app.js remains the sole view/navigation state owner.
 assert(appSource.includes("let selectedModule = 'overview';"));
 assert(appSource.includes('function selectModule(moduleName)'));
 assert(appSource.includes("document.querySelectorAll('.module-tab').forEach(button =>"));
 assert(appSource.includes("button.addEventListener('click', () => selectModule(button.dataset.module));"));
 assert(appSource.includes("document.querySelectorAll('[data-brand-module]').forEach(button =>"));
-assert(appSource.includes('const moduleName = button.dataset.brandModule;'));
 assert(appSource.includes('selectModule(moduleName);'));
 assert(appSource.includes("button.classList.toggle('active', button.dataset.module === moduleName);"));
 assert(appSource.includes("if (selectedModule === 'overview')"));
@@ -72,5 +69,99 @@ assert(indexSource.includes('@media (prefers-reduced-motion: reduce)'));
 assert(indexSource.includes('overflow-x: hidden;'));
 assert(indexSource.includes('min-height: 2.75rem;'));
 assert(indexSource.includes('min-width: min(78vw, 19rem);'));
+
+// Composition-root regression: build the navigation nodes from the production
+// index markup, then execute the exact selectModule() and event-wiring source
+// from production app.js. This proves a user-style click/keyboard action reaches
+// the canonical production navigation owner and mutates the real module state.
+function classList(initial) {
+  const values = new Set(String(initial || '').split(/\s+/).filter(Boolean));
+  return {
+    contains(name) { return values.has(name); },
+    add(name) { values.add(name); },
+    remove(name) { values.delete(name); },
+    toggle(name, enabled) {
+      if (enabled === undefined) {
+        enabled = !values.has(name);
+      }
+      if (enabled) values.add(name); else values.delete(name);
+      return enabled;
+    }
+  };
+}
+
+function productionNodes(source, tag, attribute) {
+  const expression = new RegExp(`<${tag}[^>]*class="([^"]*)"[^>]*${attribute}="([^"]+)"[^>]*>`, 'g');
+  const nodes = [];
+  let match;
+  while ((match = expression.exec(source)) !== null) {
+    const listeners = Object.create(null);
+    nodes.push({
+      dataset: {[attribute.replace('data-', '').replace(/-([a-z])/g, (_, c) => c.toUpperCase())]: match[2]},
+      classList: classList(match[1]),
+      addEventListener(type, listener) {
+        (listeners[type] ||= []).push(listener);
+      },
+      dispatch(type, event = {}) {
+        (listeners[type] || []).forEach(listener => listener(Object.assign({preventDefault() {}}, event)));
+      }
+    });
+  }
+  return nodes;
+}
+
+const moduleTabs = productionNodes(indexSource, 'button', 'data-module');
+const brandButtons = productionNodes(indexSource, 'article', 'data-brand-module');
+assert(moduleTabs.length >= 8);
+assert(brandButtons.length >= 5);
+
+const selectStart = appSource.indexOf('function selectModule(moduleName)');
+const selectEnd = appSource.indexOf('\nfunction markSelected(', selectStart);
+const bindingStart = appSource.indexOf("document.querySelectorAll('.module-tab').forEach(button =>", selectEnd);
+const bindingEnd = appSource.indexOf('\nrefreshDetailButton.addEventListener(', bindingStart);
+assert(selectStart >= 0 && selectEnd > selectStart);
+assert(bindingStart >= 0 && bindingEnd > bindingStart);
+
+const detailDataElement = {scrollIntoView() { this.scrolled = true; }};
+const document = {
+  querySelectorAll(selector) {
+    if (selector === '.module-tab') return moduleTabs;
+    if (selector === '[data-brand-module]') return brandButtons;
+    return [];
+  }
+};
+const context = {
+  window: {VdrSuiteChannels2: null},
+  document,
+  detailDataElement,
+  currentSnapshot: null,
+  selectedModule: 'overview',
+  renderSelectedModule() {}
+};
+vm.createContext(context);
+vm.runInContext(
+  `var selectedModule = 'overview';\n${appSource.slice(selectStart, selectEnd)}\n${appSource.slice(bindingStart, bindingEnd)}`,
+  context
+);
+
+function moduleTab(name) {
+  return moduleTabs.find(node => node.dataset.module === name);
+}
+function brandButton(name) {
+  return brandButtons.find(node => node.dataset.brandModule === name);
+}
+
+brandButton('recordings2').dispatch('click');
+assert(moduleTab('recordings2').classList.contains('active'));
+assert(!moduleTab('overview').classList.contains('active'));
+assert.strictEqual(detailDataElement.scrolled, true);
+
+brandButton('overview').dispatch('keydown', {key: 'Enter'});
+assert(moduleTab('overview').classList.contains('active'));
+assert(!moduleTab('recordings2').classList.contains('active'));
+
+brandButton('settings').dispatch('keydown', {key: ' '});
+assert(!moduleTab('overview').classList.contains('active'));
+assert(moduleTabs.every(node => !node.classList.contains('active')));
 
 console.log('phase66 home shell production composition ok');
