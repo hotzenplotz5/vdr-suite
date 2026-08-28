@@ -18,12 +18,20 @@ const recoverySource = source('recording-network-recovery.js');
 
 assert.ok(recoverySource.includes('panel.subscribe(ownerChanged)'), 'recovery must observe canonical owner lifecycle');
 assert.ok(recoverySource.includes('panel.seekAbsolute(interruptedPosition)'), 'recovery must restore canonical absolute position through owner seek');
-assert.ok(recoverySource.includes('panel.start()'), 'recovery must delegate fresh authorization to the existing owner');
+assert.ok(recoverySource.includes('panel.start({autoPlay: false})'), 'recovery must delegate fresh authorization without start-time autoplay');
 assert.ok(recoverySource.includes('withoutCompatibilityFallback'), 'recovery must suppress hidden HLS fallback during the recovery attempt');
 assert.ok(!recoverySource.includes('VdrSuiteClientApi'), 'recovery policy must not create a parallel client API/session path');
 assert.ok(!recoverySource.includes('/api/media/sessions'), 'recovery policy must not issue MediaSession requests directly');
 assert.ok(!recoverySource.includes('createRecordingSession'), 'recovery policy must not duplicate the Recording session owner');
 assert.ok(!recoverySource.includes('activateFallback'), 'recovery policy must not own compatibility fallback');
+assert.ok(syncSource.includes('function startPlayback(options)'), 'canonical Recording owner must expose bounded start options');
+const recoverySequenceStart = recoverySource.indexOf('function recoverySequence()');
+const recoverySequenceEnd = recoverySource.indexOf('\n    function finishRecoverySuccess()', recoverySequenceStart);
+assert.ok(recoverySequenceStart >= 0 && recoverySequenceEnd > recoverySequenceStart);
+assert.ok(
+  !recoverySource.slice(recoverySequenceStart, recoverySequenceEnd).includes('panel.pause()'),
+  'recovery must not interrupt its own pending play request with pause()'
+);
 
 function descendants(root) {
   const values = [];

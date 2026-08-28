@@ -48,10 +48,12 @@ test-phase65d-timeline-continuity:
 	python3 tools/check_playback_frontend_integration_contract.py
 
 test-phase65d-recording-network-recovery:
+	node --check web/frontend/api/session-frontend-sync.js
 	node --check web/frontend/api/recording-network-recovery-guard.js
 	node --check web/frontend/api/recording-network-recovery.js
 	node web/frontend/tests/test_phase65d_recording_network_recovery.js
 	node web/frontend/tests/test_phase65d_recording_network_recovery_reachability.js
+	node web/frontend/tests/test_phase65d_recording_network_recovery_stall.js
 	python3 tools/check_playback_frontend_integration_contract.py
 
 test-phase65d-playback-owner-lifecycle-install: test-install-staging

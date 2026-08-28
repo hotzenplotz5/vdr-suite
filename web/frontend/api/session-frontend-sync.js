@@ -113,6 +113,9 @@
   const CONTINUOUS_BUFFER_EPSILON_SECONDS = 0.25;
   const RECORDING_INDEX_STATUS_POLL_MS = 750;
   const RECORDING_INDEX_STATUS_MAX_FAILURES = 5;
+  const RECORDING_POST_START_WAITING_LIVENESS_MS = 8000;
+  const RECORDING_LIVENESS_PROBE_TIMEOUT_MS = 3000;
+  const RECORDING_LIVENESS_PROBE_PATH = '/api/vdr/health';
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -216,6 +219,43 @@
     return classifier && typeof classifier.classifyPlatformMediaError === 'function'
       ? classifier.classifyPlatformMediaError(mediaError)
       : null;
+  }
+
+  function probeRecordingOriginReachability() {
+    if (typeof global.fetch !== 'function') return Promise.resolve(true);
+
+    let controller = null;
+    let timeout = null;
+    if (typeof global.AbortController === 'function') {
+      try { controller = new global.AbortController(); } catch (error) { controller = null; }
+    }
+    if (controller && typeof global.setTimeout === 'function') {
+      timeout = global.setTimeout(function () {
+        try { controller.abort(); } catch (error) {}
+      }, RECORDING_LIVENESS_PROBE_TIMEOUT_MS);
+    }
+
+    const requestOptions = {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {'X-VDR-Suite-Playback-Liveness-Probe': '1'}
+    };
+    if (controller) requestOptions.signal = controller.signal;
+
+    return Promise.resolve(global.fetch(
+      RECORDING_LIVENESS_PROBE_PATH + '?playbackLivenessProbe=' + String(Date.now()),
+      requestOptions
+    )).then(function () {
+      return true;
+    }, function () {
+      return false;
+    }).then(function (reachable) {
+      if (timeout !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(timeout); } catch (error) {}
+      }
+      return reachable;
+    });
   }
 
   function bytesView(value) {
@@ -1143,6 +1183,9 @@
     let indexStatusTimer = null;
     let indexStatusInFlight = false;
     let indexStatusFailures = 0;
+    let waitingLivenessTimer = null;
+    let waitingLivenessEpoch = 0;
+    let waitingLivenessStartPosition = null;
     let publishedSessionCount = 0;
 
     const lifecycleApi = global.VdrSuitePlaybackOwnerLifecycle;
@@ -1334,6 +1377,61 @@
       indexStatusInFlight = false;
     }
 
+    function clearWaitingLiveness() {
+      waitingLivenessEpoch += 1;
+      if (waitingLivenessTimer !== null && typeof global.clearTimeout === 'function') {
+        try { global.clearTimeout(waitingLivenessTimer); } catch (error) {}
+      }
+      waitingLivenessTimer = null;
+      waitingLivenessStartPosition = null;
+    }
+
+    function waitingStillStalled(startPosition) {
+      if (destroyed || fallbackPanel || stopped || !firstMediaReported || seekInFlight || video.paused) {
+        return false;
+      }
+      const current = positionSeconds();
+      return Math.abs(current - startPosition) < 0.5;
+    }
+
+    function scheduleWaitingLivenessCheck() {
+      if (destroyed || fallbackPanel || stopped || !firstMediaReported || seekInFlight || video.paused ||
+          waitingLivenessTimer !== null || waitingLivenessStartPosition !== null ||
+          typeof global.setTimeout !== 'function') {
+        return;
+      }
+
+      const startPosition = positionSeconds();
+      const epoch = waitingLivenessEpoch + 1;
+      waitingLivenessEpoch = epoch;
+      waitingLivenessStartPosition = startPosition;
+      waitingLivenessTimer = global.setTimeout(function () {
+        waitingLivenessTimer = null;
+        if (epoch !== waitingLivenessEpoch || !waitingStillStalled(startPosition)) {
+          if (epoch === waitingLivenessEpoch) waitingLivenessStartPosition = null;
+          return;
+        }
+
+        probeRecordingOriginReachability().then(function (reachable) {
+          if (epoch !== waitingLivenessEpoch) return;
+          if (reachable || !waitingStillStalled(startPosition)) {
+            clearWaitingLiveness();
+            return;
+          }
+
+          clearWaitingLiveness();
+          const error = new Error(
+            'Kontinuierlicher Recording-Stream liefert nach nachgewiesenem Netzwerkverlust keine Daten mehr.'
+          );
+          failStartedPlayback(
+            error,
+            repositionedStream,
+            classifyClientTransportError(error)
+          );
+        });
+      }, RECORDING_POST_START_WAITING_LIVENESS_MS);
+    }
+
     function scheduleIndexStatusPoll() {
       if (!seekPreparing || destroyed || stopped || fallbackPanel || !activeSessionId ||
           typeof global.setTimeout !== 'function' || indexStatusTimer !== null || indexStatusInFlight) {
@@ -1399,6 +1497,7 @@
     }
 
     function releaseVideo() {
+      clearWaitingLiveness();
       if (continuousTransport) {
         continuousTransport.destroy();
         continuousTransport = null;
@@ -1448,6 +1547,7 @@
 
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearWaitingLiveness();
       publishLifecycle('transport-replacing', {
         state: 'replacing',
         sessionId: activeSessionId || null,
@@ -1479,6 +1579,7 @@
       seekInFlight = false;
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearWaitingLiveness();
       stopActive(false).catch(function () {});
       releaseVideo();
       if (afterSeek) {
@@ -1534,6 +1635,7 @@
       if (destroyed) return;
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearWaitingLiveness();
       publishLifecycle('page-teardown', {
         state: 'stopping',
         sessionId: safeSessionId(activeSessionId) || null,
@@ -1546,13 +1648,16 @@
       stopActive(true);
     }
 
-    function startPlayback() {
+    function startPlayback(options) {
       if ((started && !stopped) || destroyed) return sessionCreationPromise;
+      const settings = options && typeof options === 'object' ? options : {};
+      const shouldAutoPlay = settings.autoPlay !== false;
       started = true;
       stopped = false;
       stopIssued = false;
       firstMediaReported = false;
       repositionedStream = false;
+      clearWaitingLiveness();
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
       setStatus('MediaSession wird vorbereitet …', false);
@@ -1585,11 +1690,14 @@
         startButton.hidden = true;
         controls.hidden = false;
         updateControls();
-        const playRequest = connectRecordingStream(true, true);
+        const playRequest = connectRecordingStream(shouldAutoPlay, true);
 
         if (seekPreparing) {
           setStatus('Direktstream verbunden · Index wird im Hintergrund erstellt …', false);
           scheduleIndexStatusPoll();
+        }
+        else if (!shouldAutoPlay) {
+          setStatus('Direktstream verbunden · Wiederherstellungsposition wird vorbereitet …', false);
         }
         else if (continuousTransport) {
           setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
@@ -1624,6 +1732,7 @@
 
     function pausePlayback() {
       if (!started || destroyed || stopped || fallbackPanel || seekInFlight) return false;
+      clearWaitingLiveness();
       try { video.pause(); } catch (error) { return false; }
       setStatus(seekPreparing ? 'Aufnahme pausiert · Index wird erstellt …' : 'Aufnahme pausiert.', false);
       updateControls();
@@ -1637,6 +1746,7 @@
       seekInFlight = false;
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearWaitingLiveness();
       publishLifecycle('stop-requested', {
         state: 'stopping',
         sessionId: activeSessionId,
@@ -1686,6 +1796,7 @@
         return Promise.reject(new Error('Ein Seek läuft bereits.'));
       }
 
+      clearWaitingLiveness();
       const shouldResume = !video.paused;
       seekInFlight = true;
       publishLifecycle('seek-started', {
@@ -1779,6 +1890,7 @@
       destroyed = true;
       seekPreparing = false;
       clearIndexStatusPoll();
+      clearWaitingLiveness();
       clearFallbackLifecycle();
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
@@ -1796,6 +1908,7 @@
 
     video.addEventListener('playing', function () {
       if (destroyed || fallbackPanel || stopped) return;
+      clearWaitingLiveness();
       publishLifecycle('play', {
         state: 'playing',
         sessionId: activeSessionId,
@@ -1829,17 +1942,23 @@
       }
     });
     video.addEventListener('pause', function () {
+      clearWaitingLiveness();
       if (!destroyed && !fallbackPanel && !stopped && !seekInFlight) {
         updateControls();
         publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId, transport: 'progressive-fmp4'});
       }
     });
     video.addEventListener('timeupdate', function () {
+      if (waitingLivenessStartPosition !== null &&
+          positionSeconds() > waitingLivenessStartPosition + 0.5) {
+        clearWaitingLiveness();
+      }
       if (!destroyed && !fallbackPanel && !stopped) updatePositionDisplay();
     });
     video.addEventListener('waiting', function () {
       if (!destroyed && !fallbackPanel && !stopped && firstMediaReported) {
         setStatus(seekPreparing ? 'Aufnahme wartet auf Daten · Index wird erstellt …' : 'Aufnahme wartet auf Daten …', false);
+        scheduleWaitingLivenessCheck();
       }
     });
     video.addEventListener('stalled', function () {
@@ -1852,6 +1971,7 @@
         stopped = true;
         seekPreparing = false;
         clearIndexStatusPoll();
+        clearWaitingLiveness();
         stopActive(false).catch(function () {});
         updateControls();
         publishLifecycle('stopped', {state: 'stopped', sessionId: null, transport: 'none'});
@@ -1859,6 +1979,7 @@
     });
     video.addEventListener('error', function () {
       if (!destroyed && !fallbackPanel && !stopped) {
+        clearWaitingLiveness();
         const mediaError = video.error;
         const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
         if (firstMediaReported) {

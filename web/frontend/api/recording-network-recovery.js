@@ -250,13 +250,10 @@
 
     function recoverySequence() {
       let startedSessionId = '';
-      return Promise.resolve(panel.start()).then(function (sessionId) {
+      return Promise.resolve(panel.start({autoPlay: false})).then(function (sessionId) {
         startedSessionId = text(sessionId).trim();
         if (!startedSessionId) {
           throw new Error('Neue Recording-MediaSession wurde nicht bereitgestellt.');
-        }
-        if (panel.pause() !== true) {
-          throw new Error('Neue Recording-MediaSession konnte vor dem Resume nicht pausiert werden.');
         }
         if (interruptedPosition <= 0) return true;
         return panel.seekAbsolute(interruptedPosition);
