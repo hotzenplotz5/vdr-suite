@@ -23,7 +23,8 @@ jobs:
           python3 tools/update_phase_status.py \
             --completed "Phase 65 - Streaming Gateway and Media Sessions" \
             --active "none - Phase 66 has not started" \
-            --next "Phase 66 - Broadcast Companion Services: Teletext and HbbTV"
+            --next "Phase 66 - Broadcast Companion Services: Teletext and HbbTV" \
+            --summary "Streaming Gateway and MediaSession delivery for Recording and Live TV, least-transformation adaptation, normalized client playback semantics and accepted bounded network-interruption recovery."
       - name: Complete closeout navigation and remove stale active wording
         shell: bash
         run: |
@@ -76,7 +77,6 @@ jobs:
           ], append='[Phase 65 Closeout](../development/phase-65-closeout.md) records the final accepted Phase-65 boundary. Phase 66 is next but has not started; runtime requires a separate explicit kickoff.')
 
           edit('docs/planning/phase-map.md', [
-              ('| Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration |', '| Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration |'),
               ('| 2 | Phase 65 | Active | Streaming Gateway and Media Sessions |', '| 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions |'),
               ('| 3 | Phase 66 | Planned after Phase 65 |', '| 3 | Phase 66 | Next; not started |'),
               ('ADR-0056 semantic consolidation remains active.', 'ADR-0056 semantic consolidation is completed.'),
