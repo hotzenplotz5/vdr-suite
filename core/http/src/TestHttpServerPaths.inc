@@ -21,6 +21,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/locales/de.js", "locales/de.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/en.js", "locales/en.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-logos.js", "channel-logos.js", "application/javascript; charset=utf-8", "epg-cache.js"},
+    {"/frontend/home-live-hero.js", "home-live-hero.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-day-program.js", "channel-day-program.js", "application/javascript; charset=utf-8", "api/session-frontend-sync.js"},
     {"/frontend/live-tv-view.js", "live-tv-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-day-program-compat.js", "channel-day-program-compat.js", "application/javascript; charset=utf-8", nullptr},
