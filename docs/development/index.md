@@ -22,7 +22,9 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
-- [Phase 65.D Playback Semantics Consolidation Contract](phase-65d-playback-semantics-consolidation.md)
+- [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
+- [ADR-0058 Media Home Architecture](../adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [Phase 65 Closeout](phase-65-closeout.md)
 
 ## Completed and historical evidence
 
@@ -59,31 +61,15 @@ Phase-64 Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `
 
 Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for the current repository checkpoint.
 
-## Current media-domain work
+## Current media/home work
 
-Phase 65 - Streaming Gateway and Media Sessions is active.
+Phase 65 - Streaming Gateway and Media Sessions is completed. Use [Phase 65 Closeout](phase-65-closeout.md) and Phase-65.D contracts for durable evidence/history.
 
-Accepted bounded verticals/slices are:
+Phase 66 - Media Home and Browse Experience is next but not started. Accepted [ADR-0058](../adr/ADR-0058-media-home-responsive-browse-preview.md) and the [Phase 66 implementation contract](phase-66-media-home-browse-experience.md) define bounded responsive Home work.
 
-- 65.A Existing-Recording playback;
-- 65.B Live-TV playback;
-- 65.C Recording delivery performance and media output/transcode settings, implemented through the completed-Recording progressive path and the subsequently continued backend output-policy/Web-settings work;
-- 65.D.1 Persistent Browser Playback Shell;
-- 65.D.2 Recording Playback Controls and Seek;
-- normalized Recording audio/subtitle selection, including browser WebVTT delivery;
-- browser-local Volume/Mute;
-- bounded continuous-fMP4 browser MSE forward buffering/backpressure;
-- compatibility timeline-drag ownership and exact non-zero HLS Recording resume synchronization through the existing ADR-0055 encoder policy.
+After a separate runtime kickoff, the first slice is 66.1 Home Shell and Responsive Information Architecture. It preserves completed Phase-65 playback ownership and existing Channel/EPG/Recording/Metadata ownership. Deferred preview, durable history, Teletext/HbbTV and later compatibility/API work do not enter Slice 66.1 by implication.
 
-Phase 65.D Client playback abstraction remains active. The old 65.C seek/growing-recording planning label is superseded; truthful capability reporting remains mandatory. Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported D.2 progressive-fMP4 and HLS restart-seek profiles. PR #220/#221 further established that user-owned seek preview, transport-local time and canonical Recording position are separate state domains, and that exact non-zero HLS video resume must provide a synchronized random-access start or fail closed.
-
-The active architecture consolidation is now governed by [ADR-0056](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md). Remaining mandatory semantic work is to implement the normalized `MediaPlaybackContract`, publish canonical playback-owner lifecycle state/events, complete continuity/discontinuity semantics and implement classified playback failures. Read-only media diagnostics are sequenced after those semantic contracts; shared fMP4/MSE helper deduplication is technical debt rather than a Phase-65.D completion gate.
-
-Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond the accepted completed-Recording paths remain explicitly unsupported/deferred. Phase 66 remains blocked until Phase 65 closes and receives its own explicit kickoff.
-
-A reproducible HEVC recording-duration anomaly discovered during this work is recorded separately as a deferred investigation: [HEVC Recording Frame-Rate / VDR Length Investigation](hevc-recording-framerate-investigation.md). It is evidence only, not an accepted architecture decision, and does not block the current Phase-65.D semantic consolidation.
-
-Use ADR-0046, ADR-0053, ADR-0055, ADR-0056, the Strict Roadmap, Current State and Golden User Journeys before defining or authorizing further runtime work.
+Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work and do not reopen Phase 65.
 
 ## Developer references
 

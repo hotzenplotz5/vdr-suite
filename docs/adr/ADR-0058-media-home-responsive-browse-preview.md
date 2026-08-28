@@ -21,11 +21,11 @@
 
 ## Status
 
-**Proposed**
+**Accepted**
 
 Date: 2026-08-28
 
-This ADR proposes the product and architecture boundary for a Media Home / Browse experience after completed Phase 65. It does not by itself start Phase 66 runtime work. If accepted, the Strict Roadmap and Phase Map must be reconciled explicitly before implementation begins.
+This ADR defines the accepted product and architecture boundary for the Media Home / Browse experience after completed Phase 65. Acceptance establishes the Phase-66 planning boundary and future phase sequence; it does not start Phase 66 runtime work. Runtime still requires a separate explicit kickoff.
 
 ---
 
@@ -350,11 +350,11 @@ Artwork failure must degrade to deterministic branded/metadata fallbacks rather 
 
 ---
 
-# Proposed numbered-phase reconciliation
+# Accepted numbered-phase reconciliation
 
 Phase 65 is completed. No future phase from the current 66+ sequence has started runtime implementation.
 
-If this ADR is accepted, the proposed sequence becomes:
+The accepted future sequence is:
 
 ```text
 Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
@@ -380,11 +380,11 @@ Completed history is never renumbered.
 
 ---
 
-# Proposed Phase-66 slices
+# Phase-66 slices
 
 The implementation contract is maintained in [Phase 66 Media Home and Browse Experience](../development/phase-66-media-home-browse-experience.md).
 
-Proposed order:
+Accepted implementation order:
 
 ```text
 66.1 Home Shell and Responsive Information Architecture
@@ -444,9 +444,9 @@ This ADR does not authorize:
 
 ---
 
-# Acceptance requirements for this ADR
+# Acceptance record for this ADR
 
-Before this ADR becomes **Accepted**:
+ADR-0058 is accepted because the following planning conditions are satisfied:
 
 1. Phase 65 remains verified closed on current `main`.
 2. Phase 66 Broadcast Companion runtime has not started.
@@ -456,7 +456,7 @@ Before this ADR becomes **Accepted**:
 6. Golden User Journey coverage is defined for desktop and mobile Home browsing.
 7. No runtime/frontend code is included in the architecture-acceptance change.
 
-After acceptance, Phase 66 still requires a separate explicit runtime kickoff before implementation starts.
+Acceptance does not start runtime work. Phase 66 still requires a separate explicit runtime kickoff before implementation starts.
 
 ---
 
@@ -464,7 +464,7 @@ After acceptance, Phase 66 still requires a separate explicit runtime kickoff be
 
 ```text
 ADR-0058
-  -> proposes Media Home architecture and future sequencing reconciliation
+  -> accepts Media Home architecture and future sequencing reconciliation
   -> does not start Phase 66 runtime
   -> preserves Phase-65 media ownership
   -> preserves ADR-0054 Broadcast Companion architecture at later phase number

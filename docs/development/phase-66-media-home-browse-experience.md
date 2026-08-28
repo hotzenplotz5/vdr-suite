@@ -1,6 +1,6 @@
 # Phase 66 — Media Home and Browse Experience
 
-Status: **Proposed implementation contract under ADR-0058. Runtime not started.**
+Status: **Accepted implementation contract under ADR-0058. Runtime not started.**
 
 This document defines the bounded implementation plan for a new VDR-Suite Media Home after completed Phase 65. It is intentionally a product-composition phase, not a replacement for existing Channel, EPG, Recording, Metadata or MediaSession architecture.
 
@@ -588,9 +588,9 @@ A Windows/Android/TV application may therefore use large backdrop-driven, remote
 
 ---
 
-# Proposed future phase sequence
+# Accepted future phase sequence
 
-If ADR-0058 is accepted, the intended numbered sequence is:
+Under accepted ADR-0058, the numbered sequence is:
 
 ```text
 Phase 66 - Media Home and Browse Experience
@@ -606,7 +606,7 @@ ADR-0054/0047/0048 retain their architecture. Only not-yet-started future number
 
 # Runtime kickoff rule
 
-Merging this planning contract does not implicitly authorize Phase-66 runtime implementation unless the accompanying ADR/roadmap reconciliation explicitly marks ADR-0058 accepted and a separate Phase-66 kickoff is given.
+Merging this accepted planning contract does not implicitly authorize Phase-66 runtime implementation. ADR-0058 and the roadmap establish architecture and phase order; a separate explicit Phase-66 runtime kickoff is still required.
 
 Before Slice 66.1 implementation:
 

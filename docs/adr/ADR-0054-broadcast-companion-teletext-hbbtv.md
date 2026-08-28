@@ -25,7 +25,7 @@
 
 Date: 2026-08-17
 
-Accepted during the post-Phase-64 roadmap reconciliation. Acceptance establishes the architecture and future phase sequencing only; it does not start Phase-66 runtime implementation.
+Accepted during the post-Phase-64 roadmap reconciliation. The Broadcast Companion architecture remains accepted. Its original future phase numbering is superseded by accepted ADR-0058: Broadcast Companion runtime is now Phase 67 and is not started by this ADR.
 
 ---
 
@@ -444,29 +444,24 @@ Therefore:
 
 # Sequencing Decision
 
-This ADR changes only the **future not-yet-started phase sequencing** after Phase 65:
+Accepted ADR-0058 now owns the not-yet-started future sequence after completed Phase 65:
 
 ```text
-Phase 65 - Streaming Gateway and Media Sessions
-  -> Phase 66 - Broadcast Companion Services: Teletext and HbbTV
-  -> Phase 67 - Legacy OSD Compatibility Bridge
-  -> Phase 68 - Public API and Client Compatibility Hardening
-  -> Phase 69 - Recommendation and Content Knowledge Graph
+Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
+  -> Phase 66 - Media Home and Browse Experience
+  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 68 - Legacy OSD Compatibility Bridge
+  -> Phase 69 - Public API and Client Compatibility Hardening
+  -> Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
-This supersedes older future phase-number references that placed ADR-0047 runtime in Phase 66 and ADR-0048 runtime in Phase 67.
+This supersedes only ADR-0054's former phase-number sequencing statement. It does **not** supersede the Broadcast Companion architecture in this ADR, nor ADR-0047 or ADR-0048.
 
-It does **not** supersede the architecture decisions of ADR-0047 or ADR-0048.
-
-Completed phases through Phase 64 are unchanged.
-
-Phase 65 remains the next strict runtime phase and is not started by acceptance of this ADR.
-
----
+Completed history through Phase 65 is unchanged. Phase 66 Media Home is next and remains not started until a separate explicit kickoff. Broadcast Companion runtime follows as Phase 67.
 
 # Implementation Direction
 
-After Phase 65 closes and Phase 66 is explicitly authorized, Phase 66 should use coherent verticals rather than micro-slices.
+After Phase 66 Media Home closes and Phase 67 Broadcast Companion is explicitly authorized, Broadcast Companion implementation should use coherent verticals rather than micro-slices.
 
 ## Vertical 1 — Teletext read path
 

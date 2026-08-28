@@ -16,7 +16,7 @@
 
 ## Purpose
 
-This document defines dependency direction between VDR-Suite domain models. Accepted architecture remains authoritative; ADR-0054 is represented as accepted architecture while runtime completion remains separately governed by the Strict Roadmap.
+This document defines dependency direction between VDR-Suite domain models. Accepted architecture remains authoritative. ADR-0058 Media Home is a projection over existing domains rather than a new source of truth; ADR-0054 Broadcast Companion remains accepted architecture for later Phase 67.
 
 It answers:
 
@@ -549,9 +549,25 @@ PlaybackConnection -x-> persistent Recording mutation right
 
 ---
 
-# 10A. Broadcast Companion Domain — ADR-0054
+# 10A. Media Home Projection — ADR-0058
 
-This section reflects accepted architecture. Runtime remains planned for Phase 66 after Phase 65 and requires an explicit Phase-66 start.
+Media Home is a first-party composition/projection, not a new domain source of truth.
+
+```text
+Channel + ProgramEvent + Recording + MetadataEntity + ArtworkAsset
+  -> Home browse projection
+  -> client focus / rail state
+  -> optional preview intent
+  -> existing MediaSession / playback owner when media is requested
+```
+
+Forbidden: content identity depending on Home card position, MediaSession authority depending on DOM focus/animation, or cross-client resume/history truth depending on browser-local storage by implication.
+
+---
+
+# 10B. Broadcast Companion Domain — ADR-0054
+
+This section reflects accepted architecture. Runtime is planned for Phase 67 after Phase 66 Media Home and requires an explicit Phase-67 start.
 
 ```text
 TeletextServiceRef

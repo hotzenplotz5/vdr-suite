@@ -48,44 +48,18 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ```text
 Latest completed numbered runtime phase:
-Phase 64 - Timer Intent and Multi-Backend Orchestration
-
-Current active numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
 
-Completed Phase-65 product verticals:
-65.A - Existing-Recording playback
-65.B - Live-TV playback
-65.C - Recording delivery performance and media output/transcode settings
+Current active numbered runtime phase:
+none - Phase 66 has not started
 
-Current Phase-65 product vertical:
-65.D - Client playback abstraction
-
-Accepted Phase-65.D bounded work:
-65.D.1 - Persistent Browser Playback Shell
-65.D.2 - Recording Playback Controls and Seek
-normalized Recording audio-track selection
-normalized Recording subtitle selection including browser WebVTT delivery
-browser-local Volume/Mute controls
-continuous-fMP4 browser MSE forward-buffer/backpressure
-compatibility timeline drag ownership
-exact non-zero HLS Recording resume synchronization
-
-Active Phase-65.D architecture gate:
-ADR-0056 playback semantic consolidation
+Next strict numbered runtime phase:
+Phase 66 - Media Home and Browse Experience
 ```
 
-Phase 64 is complete. Durable evidence is maintained in [Phase 64 Closeout](../development/phase-64-closeout.md). Phase 65 is active; 65.A through 65.C are accepted and closed, while 65.D remains active with the bounded work above accepted for its implemented scopes. Operational exact evidence is maintained in [Current State](../CURRENT.md).
+Phase 65 is completed. Durable evidence lives in [Phase 65 Closeout](../development/phase-65-closeout.md). ADR-0058 is accepted and defines the next Media Home / Browse architecture, but Phase 66 runtime has not started and still requires a separate explicit kickoff.
 
-The earlier roadmap label `65.C - Recording seek and growing-recording semantics` is superseded by the actual accepted implementation history. Phase 65.C first delivered completed-Recording startup/progressive performance through PR #206 and then continued, within the same authorized 65.C scope, into the backend-scoped media-transcode/output policy and settings accepted through PR #208.
-
-The old separate 65.D compatibility-escalation planning block was absorbed by that demonstrated 65.C compatibility/performance work and never started independently. **65.D - Client playback abstraction remains active.** PR #219 closed the demonstrated continuous-fMP4 browser MSE forward-buffer/backpressure gap. PR #220/#221 closed compatibility timeline-drag ownership and exact non-zero HLS Recording resume synchronization. Remaining mandatory Phase-65.D work is now the ADR-0056 semantic consolidation rather than those already-closed individual gaps.
-
-Truthful seek/range/growing semantics remain mandatory cross-cutting media invariants; unsupported capabilities are represented as unsupported rather than fabricated.
-
----
-
-# Completed platform foundation
+Future order: Phase 66 Media Home -> Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
 ## Phase 61 - Suite Metadata and Genre Platform
 
@@ -167,7 +141,7 @@ Later accepted Phase-64 work superseded those implementation limitations without
 
 ## Phase 65 — Streaming Gateway and Media Sessions
 
-Status: **Active. Phase 65.A through 65.C are accepted and closed; Phase 65.D is active with its implemented playback/control/track/buffer/timeline/resume work accepted and ADR-0056 semantic consolidation remaining.**
+Status: **Completed.**
 
 ### Binding architecture
 
@@ -325,7 +299,7 @@ The earlier `65.C - Recording seek and growing-recording semantics` heading is o
 
 Phase 65.D.2 and accepted follow-ups provide arbitrary time-seek and stop/resume semantics for supported completed-Recording progressive-fMP4 and HLS restart-seek paths. Compatibility timeline interactions commit canonical absolute Recording positions rather than transport-local guesses. Exact non-zero HLS video resume provides a synchronized random-access start through the implemented adaptation path or fails closed. User-visible growing-Recording seek and broader VDR-index mapping beyond what those accepted paths require remain deferred until a demonstrated product gap justifies a coherent implementation block. Truthful non-support satisfies the safety contract; fabricated support does not.
 
-#### 65.D — Client playback abstraction — ACTIVE
+#### 65.D — Client playback abstraction — CLOSED
 
 Provide a small semantic first-party abstraction around platform playback engines:
 
@@ -412,7 +386,7 @@ UI preview position remains separately user-owned during an active seek interact
 
 Durable exact candidate/CI/merge evidence is maintained in [Current State](../CURRENT.md).
 
-**ADR-0056 Playback semantic consolidation — ACTIVE**
+**ADR-0056 Playback semantic consolidation — CLOSED**
 
 ADR-0056 introduces no new player or MediaSession owner. It normalizes the semantic layer above internal `MediaPresentationProfile` execution detail:
 
@@ -435,7 +409,7 @@ The bounded implementation sequence is:
 5. read-only media diagnostics after semantic correctness
 ```
 
-Mandatory Phase-65.D work is 1-4. Read-only diagnostics are sequenced afterward and remain observational only. Shared fMP4/MSE helper extraction is separate technical debt and is not a Phase-65.D completion gate.
+Mandatory Phase-65.D work was 1-4 and is completed. Read-only diagnostics are sequenced afterward and remain observational only. Shared fMP4/MSE helper extraction is separate technical debt and is not a Phase-65.D completion gate.
 
 Binding implementation contract: [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md).
 
@@ -475,17 +449,63 @@ Phase 65 closes only when all required supported paths prove:
 - shared fMP4/MSE helper deduplication;
 - read-only media-pipeline diagnostics beyond what is required to prove semantic correctness.
 
-Phase 65 is already active. Phase 65.A through 65.C are closed for their bounded accepted scopes; Phase 65.D remains active under ADR-0056. Phase 66 remains blocked until the complete Phase-65 gate is satisfied and a separate Phase-66 kickoff is explicit.
+Phase 65 is completed. Phase 65.A through 65.D are closed for their bounded accepted scopes. See [Phase 65 Closeout](../development/phase-65-closeout.md). Phase 66 Media Home remains runtime-blocked until a separate explicit kickoff.
 
 ---
 
-## Phase 66 — Broadcast Companion Services: Teletext and HbbTV
+## Phase 66 — Media Home and Browse Experience
 
-Status: **Planned after Phase 65; architecture accepted, runtime not started.**
+Status: **Next; not started.**
+
+Binding architecture: [ADR-0058: Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md).
+
+Binding implementation contract: [Phase 66 Media Home and Browse Experience](../development/phase-66-media-home-browse-experience.md).
+
+### Phase goal
+
+Turn completed Phase-65 media and existing Channel/EPG/Recording/Metadata domains into one responsive first-party landing/browse experience without creating a second source of truth or playback lifecycle.
+
+Core rule: **Browse first, playback second.** Browse focus updates immediately; optional Live preview is deferred, cancelable and attached only through the existing Phase-65 MediaSession / canonical playback owner.
+
+### Coherent implementation sequence
+
+```text
+66.1 Home Shell and Responsive Information Architecture
+66.2 Live-TV Hero Carousel
+66.3 Deferred Live Preview
+66.4 Continue Watching
+66.5 Recording Discovery Rails
+66.6 Recently Watched / History
+66.7 Visual Polish and Accessibility
+66.8 Golden User Journey and Real-System Acceptance
+```
+
+### Hard invariants
+
+- Home projects existing Channel, ProgramEvent, Recording, Metadata, Genre and artwork truth.
+- No Home-specific media identity, metadata database, MediaSession owner, restart path or cleanup engine.
+- Browse focus, preview intent and explicit `Watch Live` remain distinct.
+- Rapid focus movement creates no preview session; stale preview startup cannot attach after focus moves.
+- Desktop/tablet/mobile use responsive recomposition, not a scaled desktop page.
+- Continue Watching requires truthful resume evidence; Recently Watched is separate history semantics.
+- Browser-local state is not silently promoted to cross-client truth.
+- Teletext/HbbTV, Legacy OSD, public API hardening, recommendations, native apps and Live timeshift are outside Phase 66.
+
+### Phase-66 acceptance gate
+
+Phase 66 closes only when Home is the accepted first-party landing experience, responsive desktop/mobile browse works without waiting for preview, deferred preview uses canonical Phase-65 ownership/cleanup, Continue Watching and Recording rails are truthful, history has explicit semantics if durable, Golden Home journeys pass on real supported environments, and exact final CI/packaging/rollback gates pass.
+
+Architecture acceptance does not start this phase. A separate explicit runtime kickoff is required before Slice 66.1.
+
+---
+
+## Phase 67 — Broadcast Companion Services: Teletext and HbbTV
+
+Status: **Planned after Phase 66; architecture accepted, runtime not started.**
 
 Binding architecture: [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md).
 
-ADR-0054 establishes the domain-first Teletext/HbbTV boundary and the future sequencing. Runtime implementation remains blocked until Phase 65 closes and Phase 66 is explicitly started.
+ADR-0054 establishes the domain-first Teletext/HbbTV boundary and the future sequencing. Runtime implementation follows completed Phase 66 Media Home and remains blocked until Phase 67 is explicitly started.
 
 ### Why this phase exists before Legacy OSD
 
@@ -508,7 +528,7 @@ Live Channel / ProgramEvent
 
 Both reuse Phase-62/63 identity, authorization, Agent and generation boundaries and Phase-65 media semantics where video playback is required.
 
-### 66.A — Teletext data plane
+### 67.A — Teletext data plane
 
 Target domain concepts:
 
@@ -547,7 +567,7 @@ Live TV
 
 Teletext subtitles may reuse decoded Teletext data but require explicit subtitle/timing semantics before being advertised as a media subtitle track.
 
-### 66.B — HbbTV application discovery
+### 67.B — HbbTV application discovery
 
 Target domain concepts:
 
@@ -572,7 +592,7 @@ Required rules:
 - origin/navigation/security policy is explicit;
 - app lifecycle and media playback remain separately identifiable.
 
-### 66.C — HbbTV client/application runtime
+### 67.C — HbbTV client/application runtime
 
 Initial first-party direction:
 
@@ -590,7 +610,7 @@ The HbbTV application runtime is not the general VDR-Suite Web frontend and not 
 
 A client may need HbbTV compatibility/polyfill facilities, but the public Suite contract remains application/session oriented rather than exposing one implementation library.
 
-### Phase-66 safety invariants
+### Phase-67 safety invariants
 
 - no arbitrary broadcaster/plugin URL or JavaScript execution endpoint becomes a general public API;
 - no direct browser access to local VDR/plugin ports;
@@ -601,7 +621,7 @@ A client may need HbbTV compatibility/polyfill facilities, but the public Suite 
 - closing/changing channel invalidates stale application sessions;
 - Teletext and HbbTV remain distinct capabilities even when one client presents them together.
 
-### Phase-66 acceptance gate
+### Phase-67 acceptance gate
 
 Phase 66 closes only when:
 
@@ -615,7 +635,7 @@ Phase 66 closes only when:
 8. representative real yaVDR/broadcast acceptance and rollback pass;
 9. Golden Teletext and HbbTV user journeys pass for the supported deployment profile.
 
-### Explicitly deferred / not required to close Phase 66
+### Explicitly deferred / not required to close Phase 67
 
 - pixel-perfect support for every broadcaster/HbbTV profile;
 - unrestricted arbitrary-web browsing;
@@ -626,9 +646,11 @@ Phase 66 closes only when:
 
 ---
 
-## Phase 67 — Legacy OSD Compatibility Bridge
+---
 
-Status: **Planned after Phase 66.**
+## Phase 68 — Legacy OSD Compatibility Bridge
+
+Status: **Planned after Phase 67.**
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -652,7 +674,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ### Coherent implementation verticals
 
-#### 67.A — Read-only OSD observation
+#### 68.A — Read-only OSD observation
 
 - OsdSurfaceRef identity and OSD epoch;
 - immutable full-frame contract;
@@ -660,7 +682,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - sequence/freshness metadata;
 - no input.
 
-#### 67.B — Sequence, delta and resynchronization
+#### 68.B — Sequence, delta and resynchronization
 
 - full-frame authority;
 - deltas only against exact base sequence;
@@ -668,7 +690,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - `resync_required` instead of guessed state;
 - bounded queues/backpressure.
 
-#### 67.C — Agent transport and viewer sessions
+#### 68.C — Agent transport and viewer sessions
 
 - authenticated Agent path;
 - `osd.view` authorization;
@@ -676,7 +698,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - backend-generation fencing;
 - privacy/stale-state handling.
 
-#### 67.D — Controller lease
+#### 68.D — Controller lease
 
 - separate `osd.control` permission;
 - exactly one active Suite controller per native surface scope;
@@ -684,7 +706,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - read-only backend denial;
 - no native input yet until the lease boundary passes.
 
-#### 67.E — Allowlisted input
+#### 68.E — Allowlisted input
 
 - normalized safe key vocabulary;
 - generation/OSD-epoch/lease fencing;
@@ -692,7 +714,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - no raw SVDRP, shell, plugin-service or arbitrary key-code tunnel;
 - no delayed replay after Agent disconnect.
 
-### Phase-67 acceptance gate
+### Phase-68 acceptance gate
 
 - domain-first product surfaces remain primary;
 - view and control permissions are independent;
@@ -709,9 +731,11 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ---
 
-## Phase 68 — Public API and Client Compatibility Hardening
+---
 
-Status: **Planned after Phase 67.**
+## Phase 69 — Public API and Client Compatibility Hardening
+
+Status: **Planned after Phase 68.**
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -735,13 +759,13 @@ without confusing it with:
 
 ### Coherent implementation verticals
 
-#### 68.A — Public resource and route inventory
+#### 69.A — Public resource and route inventory
 
 - classify existing routes as public v1, internal/transition, deprecated alias or private;
 - define stable Suite identities for every public representation;
 - prevent backend/provider implementation details from leaking into public contracts.
 
-#### 68.B — Common request/response metadata and errors
+#### 69.B — Common request/response metadata and errors
 
 - request/correlation IDs;
 - stable problem/error codes;
@@ -749,14 +773,14 @@ without confusing it with:
 - retry/deprecation metadata;
 - no machine logic based on human error strings.
 
-#### 68.C — Revision/precondition/idempotency exposure
+#### 69.C — Revision/precondition/idempotency exposure
 
 - resource-specific revisions;
 - ETag/conditional requests where appropriate;
 - explicit idempotency for mutation submission;
 - no unsafe client fallback after ambiguous mutation errors.
 
-#### 68.D — Collections, pagination and partial results
+#### 69.D — Collections, pagination and partial results
 
 - stable ordering;
 - pagination/cursors;
@@ -764,7 +788,7 @@ without confusing it with:
 - multi-backend partial-result semantics;
 - source failure is explicit rather than silently omitted.
 
-#### 68.E — Compatibility and deprecation policy
+#### 69.E — Compatibility and deprecation policy
 
 - additive versus breaking schema rules;
 - versioned capability negotiation;
@@ -772,14 +796,14 @@ without confusing it with:
 - deprecation headers/metadata;
 - compatibility matrix and contract tests.
 
-#### 68.F — First-party and third-party client hardening
+#### 69.F — First-party and third-party client hardening
 
 - common client error representation;
 - no fallback probing after arbitrary errors;
 - client wrappers consume stable v1 contracts;
 - browser, TV, mobile, desktop and Kodi integrations receive a documented stable boundary for supported domains.
 
-### Phase-68 acceptance gate
+### Phase-69 acceptance gate
 
 - `/api/v1` exists for the declared stable domain set;
 - stable error and HTTP semantics are verified;
@@ -793,7 +817,9 @@ without confusing it with:
 
 ---
 
-## Phase 69 — Recommendation and Content Knowledge Graph
+---
+
+## Phase 70 — Recommendation and Content Knowledge Graph
 
 Status: **Later vision; no runtime authorization.**
 
@@ -805,7 +831,7 @@ A dedicated accepted ADR is required before implementation.
 - mature people/genre/metadata graph foundations;
 - actor privacy/preferences and authorization;
 - accountability boundaries;
-- stable public resource semantics from Phase 68;
+- stable public resource semantics from Phase 69;
 - explicit correction and explainability behavior.
 
 ### Direction
@@ -939,7 +965,7 @@ Status: **Progressive.**
 - Android/Android TV should use a mature platform engine such as Media3/ExoPlayer behind the Suite playback abstraction.
 - Kodi integration should obtain authorized Suite resources and delegate playback to Kodi's own player; Kodi VideoPlayer is not vendored as the Suite player core.
 - Desktop/Apple/native clients select mature platform-appropriate engines.
-- Independent/third-party client compatibility becomes a formal Phase-68 contract.
+- Independent/third-party client compatibility becomes a formal Phase-69 contract.
 
 ---
 

@@ -44,8 +44,9 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
+- [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
 
-Next available canonical ADR after the current proposal:
+Next available canonical ADR:
 
 ```text
 ADR-0059
@@ -132,6 +133,7 @@ Rules:
 - [ADR-0055: Media Transcode Backend Selection and Hardware Acceleration Policy](ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
+- [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
@@ -140,7 +142,7 @@ Rules:
 
 ## Proposed Canonical ADRs
 
-- [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
+None.
 
 ---
 
@@ -183,17 +185,7 @@ was replaced by the canonical:
 
 ## Future-phase sequencing note
 
-The Strict Roadmap owns phase numbering/order. Accepted ADR-0054 currently establishes the post-Phase-65 sequence:
-
-```text
-65 Streaming
-66 Broadcast Companion: Teletext + HbbTV
-67 Legacy OSD
-68 Public API Hardening
-69 Recommendation / Knowledge Graph
-```
-
-Proposed ADR-0058 would, if accepted through explicit roadmap reconciliation, change only the not-yet-started future sequence to:
+The Strict Roadmap owns phase numbering/order. Accepted ADR-0058 establishes the not-yet-started post-Phase-65 sequence:
 
 ```text
 65 Streaming [completed]
@@ -204,9 +196,7 @@ Proposed ADR-0058 would, if accepted through explicit roadmap reconciliation, ch
 70 Recommendation / Knowledge Graph
 ```
 
-ADR-0054, ADR-0047 and ADR-0048 retain their architecture decisions. Until ADR-0058 is accepted and the Strict Roadmap/Phase Map are updated, the currently accepted ADR-0054 sequencing remains authoritative.
-
----
+ADR-0054, ADR-0047 and ADR-0048 retain their architecture decisions. ADR-0058 supersedes only their older not-yet-started phase-number statements. Phase 66 Media Home remains runtime-not-started until a separate explicit kickoff.
 
 ## Related Documents
 
@@ -216,7 +206,7 @@ ADR-0054, ADR-0047 and ADR-0048 retain their architecture decisions. Until ADR-0
 - [Current Project Status](../development/current-status.md)
 - [Roadmap](../planning/roadmap.md)
 - [Phase Map](../planning/phase-map.md)
-- [Proposed Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md)
+- [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md)
 
 ---
 

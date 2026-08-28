@@ -26,8 +26,9 @@ identity, authorization and accountability
   -> secure Backend Agent lifecycle and observation continuity
   -> durable command/result and protected-write safety
   -> Timer Intent and Multi-Backend Orchestration [completed]
-  -> Streaming Gateway and Media Sessions
-       -> normalized playback semantics
+  -> Streaming Gateway and Media Sessions [completed]
+       -> normalized playback semantics [completed]
+  -> Media Home and Browse Experience
   -> Broadcast Companion Services: Teletext and HbbTV
   -> Legacy OSD Compatibility Bridge
   -> stable Public API and Client Compatibility Hardening
@@ -231,11 +232,27 @@ VDR-Suite does not vendor one universal decoder/rendering core.
 
 ---
 
-## Dependency F — Broadcast Companion Services
+## Dependency F — Media Home and Browse Experience
 
-Phase 66 depends on A-B and on Phase-65 media semantics where HbbTV/application media uses Suite-owned resources.
+Phase 66 depends on completed Phase-65 media semantics plus stable Channel, ProgramEvent, Recording, Metadata, Genre and artwork identities.
 
-Architecture is defined by accepted ADR-0054; runtime remains unauthorized until Phase 65 closes and Phase 66 is explicitly started.
+```text
+existing Suite read models
+  -> responsive Home projection
+  -> browse focus / rail selection
+  -> optional deferred preview intent
+  -> canonical Phase-65 MediaSession / playback owner when preview settles
+```
+
+Home does not own parallel content identity; browsing does not depend on preview startup; stale preview cannot attach after focus changes; Continue Watching consumes truthful resume evidence; durable history needs explicit actor/privacy/retention semantics.
+
+---
+
+## Dependency G — Broadcast Companion Services
+
+Phase 67 depends on A-B, completed Phase-65 media semantics where HbbTV/application media uses Suite-owned resources, and follows completed Phase 66 Home.
+
+Architecture is defined by ADR-0054; runtime remains not started and requires an explicit Phase-67 kickoff after Phase 66 closes.
 
 ### Teletext dependency direction
 
@@ -286,9 +303,11 @@ Required rules:
 
 ---
 
-## Dependency G — Legacy OSD Compatibility Bridge
+---
 
-Phase 67 depends on identity/authorization and backend generation/sequence fencing. It follows Broadcast Companion so structured television-domain features are not prematurely treated as opaque OSD compatibility.
+## Dependency H — Legacy OSD Compatibility Bridge
+
+Phase 68 depends on identity/authorization and backend generation/sequence fencing. It follows Broadcast Companion so structured television-domain features are not prematurely treated as opaque OSD compatibility.
 
 ```text
 read-only native OSD observation
@@ -306,9 +325,11 @@ Viewing precedes control. No arbitrary command tunnel is created. This subsystem
 
 ---
 
-## Dependency H — Stable Public API and Client Hardening
+---
 
-Phase 68 depends on mature implemented resources from earlier domains. It should stabilize what exists rather than freeze transitional internals prematurely.
+## Dependency I — Stable Public API and Client Hardening
+
+Phase 69 depends on mature implemented resources from earlier domains. It should stabilize what exists rather than freeze transitional internals prematurely.
 
 ```text
 request/correlation context
@@ -336,9 +357,11 @@ Internal transition routes, first-party playback semantics and first-party wrapp
 
 ---
 
-## Dependency I — Recommendation and Content Knowledge Graph
+---
 
-Phase 69 requires a dedicated accepted ADR and depends on mature content identity/provenance, actor privacy/preferences and stable resource semantics.
+## Dependency J — Recommendation and Content Knowledge Graph
+
+Phase 70 requires a dedicated accepted ADR and depends on mature content identity/provenance, actor privacy/preferences and stable resource semantics.
 
 ```text
 stable content identities
@@ -383,7 +406,7 @@ Append-only accountability is already a foundation. Reader/filter/export/redacti
 
 ## First-party clients
 
-Browser validates Phase-65 media first. TV/native/Kodi adapters reuse Suite semantics and platform-appropriate playback/application engines. Third-party public compatibility is formalized in Phase 68.
+Browser validates Phase-65 media first. TV/native/Kodi adapters reuse Suite semantics and platform-appropriate playback/application engines. Third-party public compatibility is formalized in Phase 69.
 
 ---
 
