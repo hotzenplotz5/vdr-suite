@@ -40,7 +40,7 @@ assert(syncSource.includes('unsubscribeLifecycle = owner.subscribe(lifecycleChan
 assert(!syncSource.includes('decorated.stop = function'));
 assert(!syncSource.includes('decorated.destroy = function'));
 assert(!syncSource.includes('decorated.relinquishForReplacement = function'));
-assert(syncSource.includes('canResume()'));
+assert(syncSource.includes("return typeof owner.canResume === 'function' && owner.canResume() === true;"));
 assert(syncSource.includes('resumeSupported: true'));
 assert(!source.includes('playbackCapable'));
 assert(!continueApiSource.includes('playbackCapable'));
