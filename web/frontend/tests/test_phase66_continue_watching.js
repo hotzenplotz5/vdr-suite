@@ -103,18 +103,10 @@ assert.strictEqual(unknown.hasPercent, false);
 assert.strictEqual(unknown.percent, null);
 
 // Continue and From beginning both route through the same Recordings2 playback owner.
-let opened = [];
+const opened = [];
 context.window.VdrSuiteRecordings2 = {
     openRecording(recording, options) { opened.push({recording, options}); }
 };
-api._test.openItem(base, true);
-api._test.openItem(base, false);
-assert.strictEqual(opened.length, 2);
-assert.strictEqual(opened[0].recording.id, 'r1');
-assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 120);
-assert.strictEqual(opened[0].options.autoStartPlayback, true);
-assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
-assert.strictEqual(opened[1].options.autoStartPlayback, true);
 
 const syncRequests = [];
 const scheduled = [];
@@ -166,6 +158,15 @@ function flush(count = 8) {
 }
 
 (async function () {
+    assert.strictEqual(await api._test.openItem(base, true), true);
+    assert.strictEqual(await api._test.openItem(base, false), true);
+    assert.strictEqual(opened.length, 2);
+    assert.strictEqual(opened[0].recording.id, 'r1');
+    assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 120);
+    assert.strictEqual(opened[0].options.autoStartPlayback, true);
+    assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
+    assert.strictEqual(opened[1].options.autoStartPlayback, true);
+
     const hlsCalls = [];
     await syncApi.__test.startAtAbsolute({
         startAtAbsolute(position) {
