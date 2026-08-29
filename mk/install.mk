@@ -57,6 +57,7 @@ install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-adm
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/home-live-hero.js $(DESTDIR)$(DATADIR)/web/frontend/home-live-hero.js
+	$(INSTALL) -m 0644 web/frontend/home-live-preview.js $(DESTDIR)$(DATADIR)/web/frontend/home-live-preview.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
 	$(INSTALL) -m 0644 web/frontend/live-tv-view.js $(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
@@ -154,6 +155,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/genre-client-api.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-hero.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-preview.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-series-artwork.js
 	! grep -F '/frontend/channel-day-program.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/live-tv-view.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
@@ -174,6 +176,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/genres.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/global-search.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-hero.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-preview.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-detail-owner.js
