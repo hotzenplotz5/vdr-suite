@@ -29,6 +29,11 @@ assert(!source.includes("document.createElement('video')"));
 assert(!syncSource.includes("document.createElement('video')"));
 assert(syncSource.includes('startAtAbsolute'));
 assert(!syncSource.includes('owner.resume(target)'));
+assert(syncSource.includes("typeof owner.snapshot !== 'function' || typeof owner.subscribe !== 'function'"));
+assert(syncSource.includes('unsubscribeLifecycle = owner.subscribe(lifecycleChanged)'));
+assert(!syncSource.includes('decorated.stop = function'));
+assert(!syncSource.includes('decorated.destroy = function'));
+assert(!syncSource.includes('decorated.relinquishForReplacement = function'));
 assert(fallbackSource.includes('startAtAbsolute: startAt'));
 assert(indexSource.includes('data-home-zone="additional-sections"'));
 assert(source.includes('VdrSuiteBrowserSession'));
@@ -36,6 +41,10 @@ assert(syncSource.includes('VdrSuiteBrowserSession'));
 assert(frontendHttpPaths.includes(
     '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", "api/continue-watching-sync.js"}'
 ));
+assert(frontendHttpPaths.includes(
+    '{"/frontend/channel-day-program.js", "channel-day-program.js", "application/javascript; charset=utf-8", "api/session-frontend-sync.js"}'
+));
+assert(indexSource.indexOf('../frontend/channel-day-program.js') < indexSource.indexOf('../frontend/app.js'));
 assert(httpServerSource.includes('ContinueWatchingSecurityRequest::forAuthorization'));
 assert(securityRequestSource.includes('/api/media/continue-watching'));
 assert(securityRequestSource.includes('scoped.path = "/api/media/sessions"'));
@@ -97,10 +106,16 @@ assert.strictEqual(opened[0].options.autoStartPlayback, true);
 assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
 assert.strictEqual(opened[1].options.autoStartPlayback, true);
 
-// Execute the canonical absolute-start helper itself. HLS exposes the existing
-// server-side startAt path; fast playback stays on the same owner and performs
-// its already-supported absolute seek after start. Position zero is a normal start.
 const syncRequests = [];
+const scheduled = [];
+let assignedPlayback = {};
+function setTimeoutFake(callback, delay) {
+    scheduled.push({callback, delay, active: true});
+    return scheduled.length;
+}
+function clearTimeoutFake(id) {
+    if (scheduled[id - 1]) scheduled[id - 1].active = false;
+}
 const syncContext = {
     window: {},
     fetch: async (requestPath, options) => {
@@ -108,8 +123,8 @@ const syncContext = {
         return {ok: true};
     },
     console,
-    setTimeout,
-    clearTimeout,
+    setTimeout: setTimeoutFake,
+    clearTimeout: clearTimeoutFake,
     MutationObserver: class {
         observe() {}
         disconnect() {}
@@ -117,16 +132,28 @@ const syncContext = {
 };
 syncContext.window.window = syncContext.window;
 syncContext.window.fetch = syncContext.fetch;
-syncContext.window.setTimeout = setTimeout;
-syncContext.window.clearTimeout = clearTimeout;
+syncContext.window.setTimeout = setTimeoutFake;
+syncContext.window.clearTimeout = clearTimeoutFake;
 syncContext.window.MutationObserver = syncContext.MutationObserver;
 syncContext.window.VdrSuiteBrowserSession = {
     csrfHeaders() { return {'X-VDR-Suite-CSRF': 'phase66-csrf-token'}; }
 };
+Object.defineProperty(syncContext.window, 'VdrSuiteRecordings2Playback', {
+    configurable: true,
+    enumerable: true,
+    get() { return assignedPlayback; },
+    set(value) { assignedPlayback = value; }
+});
 vm.createContext(syncContext);
 vm.runInContext(syncSource, syncContext);
 const syncApi = syncContext.window.VdrSuiteContinueWatchingSync;
 assert(syncApi && syncApi.__test);
+
+function flush(count = 8) {
+    let promise = Promise.resolve();
+    for (let index = 0; index < count; index += 1) promise = promise.then(() => Promise.resolve());
+    return promise;
+}
 
 (async function () {
     const hlsCalls = [];
@@ -173,6 +200,76 @@ assert(syncApi && syncApi.__test);
     assert.strictEqual(syncRequests[0].options.credentials, 'same-origin');
     assert.strictEqual(syncRequests[0].options.headers['Content-Type'], 'application/json');
     assert.strictEqual(syncRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-csrf-token');
+
+    // Same-client mutations are serialized, so an older in-flight progress write
+    // cannot arrive after a later progress/clear mutation and recreate stale truth.
+    const serialized = [];
+    let releaseFirst;
+    syncContext.window.fetch = function (requestPath, options) {
+        const body = JSON.parse(options.body);
+        serialized.push(body.operation + ':' + (body.positionSeconds || 0));
+        if (serialized.length === 1) {
+            return new Promise(resolve => { releaseFirst = () => resolve({ok: true}); });
+        }
+        return Promise.resolve({ok: true});
+    };
+    const firstMutation = syncApi.__test.enqueue({operation: 'progress', backendId: 'default', recordingId: 'r1', positionSeconds: 30, resumeSupported: true, operationId: 'queue-1'});
+    const secondMutation = syncApi.__test.enqueue({operation: 'clear', backendId: 'default', recordingId: 'r1', operationId: 'queue-2'});
+    await flush();
+    assert.deepStrictEqual(serialized, ['progress:30']);
+    releaseFirst();
+    await firstMutation;
+    await secondMutation;
+    assert.deepStrictEqual(serialized, ['progress:30', 'clear:0']);
+
+    // Lifecycle truth comes from the canonical snapshot/subscribe publication.
+    // The production-style internal action below never calls a decorated start/stop method.
+    const lifecycleListeners = [];
+    let ownerSnapshot = {state: 'idle', sessionId: null, transition: 'snapshot'};
+    let absolutePosition = 0;
+    let startCalls = 0;
+    const owner = {
+        element: {querySelectorAll() { return []; }},
+        start() { startCalls += 1; return Promise.resolve('unexpected'); },
+        position() { return absolutePosition; },
+        duration() { return 600; },
+        canResume() { return true; },
+        snapshot() { return ownerSnapshot; },
+        subscribe(callback) {
+            lifecycleListeners.push(callback);
+            callback(ownerSnapshot);
+            return function () {
+                const index = lifecycleListeners.indexOf(callback);
+                if (index >= 0) lifecycleListeners.splice(index, 1);
+            };
+        }
+    };
+    function publish(change) {
+        ownerSnapshot = Object.assign({}, ownerSnapshot, change);
+        lifecycleListeners.slice().forEach(listener => listener(ownerSnapshot));
+    }
+    syncContext.window.fetch = async function (requestPath, options) {
+        syncRequests.push({path: requestPath, options});
+        return {ok: true};
+    };
+    const decoratedOwner = syncApi.__test.decorateOwner(owner, {id: 'r-lifecycle'}, 'default');
+    assert.notStrictEqual(decoratedOwner, owner);
+    assert.strictEqual(decoratedOwner.start, owner.start, 'Continue Watching must not intercept start() as lifecycle truth');
+    assert.strictEqual(lifecycleListeners.length, 1);
+    const beforeLifecycleRequests = syncRequests.length;
+    absolutePosition = 47;
+    publish({state: 'playing', sessionId: 'session-1', transition: 'session-started'});
+    assert.strictEqual(startCalls, 0, 'owner publication must not synthesize playback commands');
+    publish({state: 'stopped', sessionId: null, transition: 'stopped'});
+    await flush(16);
+    assert.strictEqual(syncRequests.length, beforeLifecycleRequests + 1);
+    const lifecycleBody = JSON.parse(syncRequests[syncRequests.length - 1].options.body);
+    assert.strictEqual(lifecycleBody.operation, 'progress');
+    assert.strictEqual(lifecycleBody.recordingId, 'r-lifecycle');
+    assert.strictEqual(lifecycleBody.positionSeconds, 47);
+
+    publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
+    assert.strictEqual(lifecycleListeners.length, 0, 'destroyed lifecycle publication must release observation');
 
     const homeRequests = [];
     context.window.VdrSuiteBrowserSession = {

@@ -1,14 +1,14 @@
 (function (global) {
   'use strict';
 
-  const descriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback') || {
-    configurable: true,
-    enumerable: true,
-    value: global.VdrSuiteRecordings2Playback
-  };
-  let currentValue = descriptor.get ? descriptor.get.call(global) : descriptor.value;
+  const playbackDescriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2Playback');
+  if (!playbackDescriptor || typeof playbackDescriptor.get !== 'function' || typeof playbackDescriptor.set !== 'function') {
+    return;
+  }
+
   const pending = {backendId: '', recordingId: '', positionSeconds: 0, autoStart: false};
   let operationCounter = 0;
+  let mutationQueue = Promise.resolve();
 
   function text(value) { return value == null ? '' : String(value); }
   function recordingId(recording) { return text(recording && (recording.id || recording.recordingId)); }
@@ -34,6 +34,13 @@
       return true;
     });
   }
+  function enqueue(body) {
+    const operation = mutationQueue.catch(function () {}).then(function () {
+      return post(body);
+    });
+    mutationQueue = operation.catch(function () {});
+    return operation;
+  }
   function rememberOpen(recording, options) {
     const settings = options && typeof options === 'object' ? options : {};
     if (settings.continueWatching !== true || settings.autoStartPlayback !== true) return;
@@ -42,8 +49,12 @@
     pending.positionSeconds = Math.max(0, Math.floor(Number(settings.playbackStartPositionSeconds) || 0));
     pending.autoStart = Boolean(pending.recordingId);
   }
+
+  let cachedRecordingsSource = null;
+  let cachedRecordingsDecorated = null;
   function decorateRecordings2(value) {
     if (!value || typeof value.openRecording !== 'function' || value.__vdrSuiteContinueWatchingOpenDecorated) return value;
+    if (value === cachedRecordingsSource && cachedRecordingsDecorated) return cachedRecordingsDecorated;
     const copy = {};
     Object.keys(value).forEach(function (key) { copy[key] = value[key]; });
     const open = value.openRecording;
@@ -52,7 +63,9 @@
       return open.call(value, recording, options);
     };
     copy.__vdrSuiteContinueWatchingOpenDecorated = true;
-    return Object.freeze(copy);
+    cachedRecordingsSource = value;
+    cachedRecordingsDecorated = Object.freeze(copy);
+    return cachedRecordingsDecorated;
   }
 
   const recordingsDescriptor = Object.getOwnPropertyDescriptor(global, 'VdrSuiteRecordings2') || {
@@ -60,18 +73,23 @@
     enumerable: true,
     value: global.VdrSuiteRecordings2
   };
-  let recordingsValue = recordingsDescriptor.get ? recordingsDescriptor.get.call(global) : recordingsDescriptor.value;
+  let recordingsValue = recordingsDescriptor.get ? null : recordingsDescriptor.value;
   Object.defineProperty(global, 'VdrSuiteRecordings2', {
     configurable: recordingsDescriptor.configurable !== false,
     enumerable: recordingsDescriptor.enumerable !== false,
-    get: function () { return recordingsDescriptor.get ? recordingsDescriptor.get.call(global) : recordingsValue; },
+    get: function () {
+      const value = recordingsDescriptor.get
+        ? recordingsDescriptor.get.call(global)
+        : recordingsValue;
+      return decorateRecordings2(value);
+    },
     set: function (value) {
-      const decorated = decorateRecordings2(value);
-      recordingsValue = decorated;
-      if (recordingsDescriptor.set) recordingsDescriptor.set.call(global, decorated);
+      cachedRecordingsSource = null;
+      cachedRecordingsDecorated = null;
+      if (recordingsDescriptor.set) recordingsDescriptor.set.call(global, value);
+      else recordingsValue = value;
     }
   });
-  if (recordingsValue) global.VdrSuiteRecordings2 = recordingsValue;
 
   function startAtAbsolute(owner, positionSeconds) {
     const target = Math.max(0, Math.floor(Number(positionSeconds) || 0));
@@ -93,27 +111,46 @@
 
   function decorateOwner(owner, recording, backendId) {
     if (!owner || owner.__vdrSuiteContinueWatchingOwner) return owner;
-    let timer = null;
+    if (typeof owner.snapshot !== 'function' || typeof owner.subscribe !== 'function') return owner;
+
+    let sampleTimer = null;
+    let disposed = false;
+    let latestSnapshot = owner.snapshot();
     let lastPosition = -1;
-    let destroyed = false;
+    let unsubscribeLifecycle = null;
     let mediaObserver = null;
     const boundMedia = [];
 
+    function snapshotActive(snapshot) {
+      const state = snapshot && text(snapshot.state);
+      return Boolean(snapshot && snapshot.sessionId) &&
+        state !== 'idle' &&
+        state !== 'stopped' &&
+        state !== 'destroyed' &&
+        state !== 'relinquished';
+    }
     function canResume() {
       return typeof owner.canResume !== 'function' || owner.canResume() === true;
     }
-    function flush(forceClear) {
-      if (destroyed && !forceClear) return;
-      const position = typeof owner.position === 'function'
+    function readPosition() {
+      return typeof owner.position === 'function'
         ? Math.max(0, Math.floor(Number(owner.position()) || 0))
         : 0;
-      const duration = typeof owner.duration === 'function'
+    }
+    function readDuration() {
+      return typeof owner.duration === 'function'
         ? Math.max(0, Math.floor(Number(owner.duration()) || 0))
         : 0;
+    }
+    function syncProgress(forceClear, allowInactive) {
+      if (disposed && !forceClear) return Promise.resolve(false);
+      if (!forceClear && !allowInactive && !snapshotActive(latestSnapshot)) return Promise.resolve(false);
+      const position = readPosition();
+      const duration = readDuration();
       const complete = forceClear || (duration > 0 && position >= duration);
-      if (!complete && (!position || !canResume() || position === lastPosition)) return;
+      if (!complete && (!position || !canResume() || position === lastPosition)) return Promise.resolve(false);
       lastPosition = position;
-      post(complete ? {
+      return enqueue(complete ? {
         operation: 'clear',
         backendId,
         recordingId: recordingId(recording),
@@ -125,15 +162,27 @@
         positionSeconds: position,
         resumeSupported: true,
         operationId: nextOperationId('progress')
-      }).catch(function () {});
+      }).then(function () { return true; }, function () { return false; });
     }
-    function poll() {
-      if (destroyed) return;
-      flush(false);
-      timer = global.setTimeout(poll, 5000);
+    function stopSampling() {
+      if (sampleTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(sampleTimer);
+      }
+      sampleTimer = null;
     }
-    function ensurePolling() {
-      if (timer === null && !destroyed) timer = global.setTimeout(poll, 5000);
+    function sample() {
+      sampleTimer = null;
+      if (disposed || !snapshotActive(latestSnapshot)) return;
+      syncProgress(false, false).then(function () {
+        if (!disposed && snapshotActive(latestSnapshot) && typeof global.setTimeout === 'function') {
+          sampleTimer = global.setTimeout(sample, 5000);
+        }
+      });
+    }
+    function ensureSampling() {
+      if (sampleTimer === null && !disposed && snapshotActive(latestSnapshot) && typeof global.setTimeout === 'function') {
+        sampleTimer = global.setTimeout(sample, 5000);
+      }
     }
     function bindEnded() {
       const root = owner.element;
@@ -142,85 +191,78 @@
       Array.prototype.forEach.call(media || [], function (element) {
         if (!element || boundMedia.indexOf(element) >= 0 || typeof element.addEventListener !== 'function') return;
         boundMedia.push(element);
-        element.addEventListener('ended', function () { flush(true); });
+        element.addEventListener('ended', function () {
+          stopSampling();
+          syncProgress(true, true);
+        });
       });
       if (mediaObserver || typeof global.MutationObserver !== 'function') return;
       mediaObserver = new global.MutationObserver(bindEnded);
       mediaObserver.observe(root, {childList: true, subtree: true});
     }
-    function cleanupTracking() {
-      destroyed = true;
-      if (timer !== null) global.clearTimeout(timer);
-      timer = null;
+    function disposeTracking() {
+      if (disposed) return;
+      disposed = true;
+      stopSampling();
       if (mediaObserver && typeof mediaObserver.disconnect === 'function') mediaObserver.disconnect();
       mediaObserver = null;
+      if (unsubscribeLifecycle) unsubscribeLifecycle();
+      unsubscribeLifecycle = null;
+    }
+    function lifecycleChanged(snapshot) {
+      const previous = latestSnapshot;
+      const wasActive = snapshotActive(previous);
+      latestSnapshot = snapshot || {};
+      const active = snapshotActive(latestSnapshot);
+      bindEnded();
+
+      if (wasActive && !active) {
+        // Owner publication, not an intercepted method, is the lifecycle truth.
+        // Read the canonical absolute position once while the owner still exists.
+        syncProgress(false, true);
+      }
+      if (active) ensureSampling();
+      else stopSampling();
+
+      const transition = text(latestSnapshot.transition);
+      if (transition === 'destroyed' || transition === 'relinquished') {
+        disposeTracking();
+      }
     }
 
     const decorated = {};
     Object.keys(owner).forEach(function (key) { decorated[key] = owner[key]; });
     decorated.startAtAbsolute = function (positionSeconds) {
-      bindEnded();
-      ensurePolling();
-      return startAtAbsolute(owner, positionSeconds).then(function (result) {
-        bindEnded();
-        return result;
-      });
+      return startAtAbsolute(owner, positionSeconds);
     };
-    if (typeof owner.start === 'function') {
-      decorated.start = function () {
-        bindEnded();
-        ensurePolling();
-        const result = owner.start();
-        Promise.resolve(result).then(bindEnded).catch(function () {});
-        return result;
-      };
-    }
-    if (typeof owner.resume === 'function') {
-      decorated.resume = function (positionSeconds) {
-        bindEnded();
-        ensurePolling();
-        const result = owner.resume(positionSeconds);
-        Promise.resolve(result).then(bindEnded).catch(function () {});
-        return result;
-      };
-    }
-    if (typeof owner.stop === 'function') {
-      decorated.stop = function () {
-        flush(false);
-        return owner.stop();
-      };
-    }
-    if (typeof owner.destroy === 'function') {
-      decorated.destroy = function () {
-        flush(false);
-        cleanupTracking();
-        return owner.destroy();
-      };
-    }
-    if (typeof owner.relinquishForReplacement === 'function') {
-      decorated.relinquishForReplacement = function () {
-        flush(false);
-        cleanupTracking();
-        return owner.relinquishForReplacement();
-      };
-    }
     decorated.__vdrSuiteContinueWatchingOwner = true;
     const result = Object.freeze(decorated);
+
     bindEnded();
+    unsubscribeLifecycle = owner.subscribe(lifecycleChanged);
 
     if (pending.autoStart && pending.backendId === backendId && pending.recordingId === recordingId(recording)) {
       const position = pending.positionSeconds;
       pending.autoStart = false;
-      global.setTimeout(function () {
-        result.startAtAbsolute(position).catch(function () {});
-      }, 0);
+      if (typeof global.setTimeout === 'function') {
+        global.setTimeout(function () {
+          result.startAtAbsolute(position).catch(function () {});
+        }, 0);
+      }
     }
     return result;
   }
 
+  let cachedPlaybackSource = null;
+  let cachedPlaybackDecorated = null;
   function decoratePlayback(value) {
     const source = value && typeof value === 'object' ? value : {};
-    if (typeof source.createPanel !== 'function' || source.__vdrSuiteContinueWatchingDecorated) return source;
+    if (source === cachedPlaybackSource && cachedPlaybackDecorated) return cachedPlaybackDecorated;
+    if (typeof source.createPanel !== 'function' || source.__vdrSuiteContinueWatchingDecorated) {
+      cachedPlaybackSource = source;
+      cachedPlaybackDecorated = source;
+      return source;
+    }
     const decorated = {};
     Object.keys(source).forEach(function (key) { decorated[key] = source[key]; });
     const factory = source.createPanel;
@@ -228,22 +270,32 @@
       return decorateOwner(factory.apply(source, arguments), recording, backendId);
     };
     decorated.__vdrSuiteContinueWatchingDecorated = true;
-    return Object.freeze(decorated);
+    cachedPlaybackSource = source;
+    cachedPlaybackDecorated = Object.freeze(decorated);
+    return cachedPlaybackDecorated;
   }
 
   Object.defineProperty(global, 'VdrSuiteRecordings2Playback', {
-    configurable: descriptor.configurable !== false,
-    enumerable: descriptor.enumerable !== false,
-    get: function () { return descriptor.get ? descriptor.get.call(global) : currentValue; },
+    configurable: playbackDescriptor.configurable !== false,
+    enumerable: playbackDescriptor.enumerable !== false,
+    get: function () {
+      return decoratePlayback(playbackDescriptor.get.call(global));
+    },
     set: function (value) {
-      const decorated = decoratePlayback(value);
-      currentValue = decorated;
-      if (descriptor.set) descriptor.set.call(global, decorated);
+      cachedPlaybackSource = null;
+      cachedPlaybackDecorated = null;
+      playbackDescriptor.set.call(global, value);
     }
   });
-  if (currentValue) global.VdrSuiteRecordings2Playback = currentValue;
 
   global.VdrSuiteContinueWatchingSync = Object.freeze({
-    __test: Object.freeze({startAtAbsolute, rememberOpen, decorateOwner, post})
+    __test: Object.freeze({
+      startAtAbsolute,
+      rememberOpen,
+      decorateOwner,
+      post,
+      enqueue,
+      snapshotActive
+    })
   });
 }(window));
