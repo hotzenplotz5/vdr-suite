@@ -191,44 +191,6 @@ static void test_backend_cache_is_backend_scoped()
     assert(remoteEvents.at(0).id == "snapshot-remote");
 }
 
-static void test_recording_projection_updates_snapshot_without_losing_events()
-{
-    SnapshotCache snapshotCache;
-    SnapshotCacheService snapshotCacheService(snapshotCache);
-    SnapshotAccessService snapshotAccessService(snapshotCacheService);
-    VdrSnapshotReadService readService(snapshotAccessService);
-
-    snapshotCache.updateForBackend(
-        "default",
-        make_snapshot(
-            "default",
-            "snapshot-event",
-            "Snapshot Event"));
-
-    VdrRecording first;
-    first.id = "recording-1";
-    first.title = "Recording One";
-
-    VdrRecording second;
-    second.id = "recording-2";
-    second.title = "Recording Two";
-
-    snapshotCacheService.updateRecordingsForBackend(
-        "default",
-        std::vector<VdrRecording>{first, second});
-
-    const std::vector<VdrRecording> recordings =
-        readService.getRecordingsForBackend("default");
-    const std::vector<VdrEvent> events =
-        readService.getEventsForBackend("default");
-
-    assert(recordings.size() == 2);
-    assert(recordings.at(0).id == "recording-1");
-    assert(recordings.at(1).id == "recording-2");
-    assert(events.size() == 1);
-    assert(events.at(0).id == "snapshot-event");
-}
-
 int main()
 {
     test_unknown_cache_falls_back_to_snapshot_events();
@@ -236,7 +198,6 @@ int main()
     test_ready_cache_remains_preview_scoped();
     test_stale_cache_falls_back_to_snapshot_events();
     test_backend_cache_is_backend_scoped();
-    test_recording_projection_updates_snapshot_without_losing_events();
 
     return 0;
 }

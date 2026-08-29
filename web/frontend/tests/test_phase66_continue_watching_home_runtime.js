@@ -6,6 +6,7 @@ const path = require('path');
 const vm = require('vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'home-continue-watching.js'), 'utf8');
+const clientApiSource = fs.readFileSync(path.join(__dirname, '..', 'api', 'client-api.js'), 'utf8');
 
 function runtime(overrides) {
   const window = {};
@@ -36,6 +37,39 @@ function runtime(overrides) {
   vm.createContext(context);
   vm.runInContext(source, context, {filename: 'home-continue-watching.js'});
   return {window, api: window.VdrSuiteHomeContinueWatching};
+}
+
+function clientApiRuntime(fetchHandler) {
+  const requests = [];
+  const window = {};
+  const context = {
+    window,
+    fetch: async (url, options) => {
+      requests.push({url, options});
+      return fetchHandler(url, options);
+    },
+    console,
+    Promise,
+    Object,
+    String,
+    Number,
+    Array,
+    Boolean,
+    JSON,
+    URLSearchParams
+  };
+  window.window = window;
+  vm.createContext(context);
+  vm.runInContext(clientApiSource, context, {filename: 'client-api.js'});
+  return {api: window.VdrSuiteClientApi, requests};
+}
+
+function jsonResponse(status, payload) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => JSON.stringify(payload)
+  };
 }
 
 const item = {
@@ -151,6 +185,66 @@ const item = {
   });
   assert.strictEqual(await testOnlyPreview.api._test.openItem(item, true), true);
   assert.strictEqual(testOnlyCancels, 0, 'production Continue Watching must not call preview __test hooks');
+
+  const composed = clientApiRuntime(async url => {
+    if (url === '/api/backends/default/snapshot') {
+      return jsonResponse(200, {
+        snapshotAvailable: true,
+        channelCount: 12,
+        eventCount: 24,
+        timerCount: 3,
+        recordingCount: 0
+      });
+    }
+    if (url === '/api/vdr/recordings/cache/status?backend=default') {
+      return jsonResponse(200, {
+        backendId: 'default',
+        state: 'ready',
+        cacheReady: true,
+        totalCount: 39
+      });
+    }
+    return jsonResponse(404, {error: 'unexpected request ' + url});
+  });
+
+  const composedSnapshot = await composed.api.fetchClientBackendSnapshot('default', {
+    cache: 'no-store'
+  });
+  assert.strictEqual(
+    composedSnapshot.recordingCount,
+    39,
+    'Media Home snapshot adapter must project the authoritative recording-cache total'
+  );
+  assert.deepStrictEqual(
+    composed.requests.map(request => request.url),
+    [
+      '/api/backends/default/snapshot',
+      '/api/vdr/recordings/cache/status?backend=default'
+    ],
+    'Home snapshot adapter must read the matching backend cache truth without another VDR live read'
+  );
+
+  const fallback = clientApiRuntime(async url => {
+    if (url === '/api/backends/default/snapshot') {
+      return jsonResponse(200, {
+        snapshotAvailable: true,
+        recordingCount: 0
+      });
+    }
+    if (url === '/api/vdr/recordings/cache/status?backend=default') {
+      return jsonResponse(503, {error: 'recording cache unavailable'});
+    }
+    return jsonResponse(404, {error: 'unexpected request ' + url});
+  });
+
+  const fallbackSnapshot = await fallback.api.fetchClientBackendSnapshot('default', {
+    cache: 'no-store'
+  });
+  assert.strictEqual(
+    fallbackSnapshot.recordingCount,
+    0,
+    'recording-cache status failure must not make the existing backend snapshot unreadable'
+  );
 
   console.log('phase66 continue watching Home runtime composition ok');
 }()).catch(error => {

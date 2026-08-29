@@ -337,12 +337,6 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     backendRuntimeContext->backendId,
                     static_cast<int>(recordings.size()));
 
-                if (snapshotCacheService_) {
-                    snapshotCacheService_->updateRecordingsForBackend(
-                        backendRuntimeContext->backendId,
-                        recordings);
-                }
-
                 runRecordingMetadataEnrichment(
                     *backendRuntimeContext,
                     recordings,
