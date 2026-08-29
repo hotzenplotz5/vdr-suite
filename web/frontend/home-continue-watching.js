@@ -90,6 +90,15 @@
       sync && typeof sync.clear === 'function'
     );
   }
+  function selectShellModule(moduleName) {
+    if (typeof global.selectModule !== 'function') return false;
+    global.selectModule(moduleName);
+    return true;
+  }
+  function returnHome() {
+    selectShellModule('overview');
+    if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+  }
   function ensureContinueWatchingPlaybackRuntime() {
     if (continueWatchingPlaybackReady()) return Promise.resolve(true);
     if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve(false);
@@ -129,15 +138,19 @@
     releasePreview();
     return ensureRecordings2().then(function (ready) {
       if (!ready) return false;
+      selectShellModule('recordings2');
       if (!resume) clearBeforeRestart(normalized);
       global.VdrSuiteRecordings2.openRecording({
         id: normalized.recordingId,
         backendId: normalized.backendId,
         title: normalized.title
       }, {
+        backendId: normalized.backendId,
         autoStartPlayback: true,
         playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
-        continueWatching: true
+        continueWatching: true,
+        backLabel: '← Zurück zu Home',
+        onClose: returnHome
       });
       return true;
     });
@@ -238,7 +251,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, returnHome})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
