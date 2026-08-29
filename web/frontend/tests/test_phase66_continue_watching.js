@@ -28,6 +28,8 @@ assert(!syncSource.includes('localStorage'));
 assert(source.includes('VdrSuiteRecordings2.openRecording'));
 assert(source.includes('releasePreview()'));
 assert(source.includes("typeof preview.cancel === 'function'"));
+assert(source.includes('clearBeforeRestart(normalized)'));
+assert(syncSource.includes('clear: clearCurrent'));
 assert(!source.includes('__test.cancelPreview'));
 assert(homePreviewSource.includes('cancel: cancelPreview'));
 assert(!source.includes('MediaSession'));
@@ -150,6 +152,7 @@ vm.createContext(syncContext);
 vm.runInContext(syncSource, syncContext);
 const syncApi = syncContext.window.VdrSuiteContinueWatchingSync;
 assert(syncApi && syncApi.__test);
+assert.strictEqual(typeof syncApi.clear, 'function');
 
 function flush(count = 8) {
     let promise = Promise.resolve();
@@ -213,11 +216,13 @@ function flush(count = 8) {
     assert.strictEqual(syncRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-csrf-token');
 
     // Same-client mutations are serialized, so an older in-flight progress write
-    // cannot arrive after a later progress/clear mutation and recreate stale truth.
+    // cannot arrive after the public restart clear and recreate stale truth.
     const serialized = [];
+    const serializedBodies = [];
     let releaseFirst;
     syncContext.window.fetch = function (requestPath, options) {
         const body = JSON.parse(options.body);
+        serializedBodies.push(body);
         serialized.push(body.operation + ':' + (body.positionSeconds || 0));
         if (serialized.length === 1) {
             return new Promise(resolve => { releaseFirst = () => resolve({ok: true}); });
@@ -225,13 +230,16 @@ function flush(count = 8) {
         return Promise.resolve({ok: true});
     };
     const firstMutation = syncApi.__test.enqueue({operation: 'progress', backendId: 'default', recordingId: 'r1', positionSeconds: 30, resumeSupported: true, operationId: 'queue-1'});
-    const secondMutation = syncApi.__test.enqueue({operation: 'clear', backendId: 'default', recordingId: 'r1', operationId: 'queue-2'});
+    const secondMutation = syncApi.clear('default', 'r1');
     await flush();
     assert.deepStrictEqual(serialized, ['progress:30']);
     releaseFirst();
     await firstMutation;
     await secondMutation;
     assert.deepStrictEqual(serialized, ['progress:30', 'clear:0']);
+    assert.strictEqual(serializedBodies[1].backendId, 'default');
+    assert.strictEqual(serializedBodies[1].recordingId, 'r1');
+    assert.match(serializedBodies[1].operationId, /^cw-clear-/);
 
     // Lifecycle truth comes from the canonical snapshot/subscribe publication.
     // The production-style internal action below never calls a decorated start/stop method.
