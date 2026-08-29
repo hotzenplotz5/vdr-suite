@@ -27,6 +27,7 @@ test-continue-watching-security-request:
 test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching.js
 	node web/frontend/tests/test_phase66_continue_watching_home_runtime.js
+	node web/frontend/tests/test_phase66_continue_watching_fast_owner_contract.js
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
 test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
