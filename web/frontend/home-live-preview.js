@@ -127,6 +127,18 @@
     return element;
   }
 
+  function restoreFullPlaybackElement(playback) {
+    const element = playback && playback.element;
+    if (!element || typeof element.querySelector !== 'function') return element || null;
+    const video = element.querySelector('video');
+    if (video) {
+      video.muted = false;
+      video.controls = true;
+      if (typeof video.removeAttribute === 'function') video.removeAttribute('muted');
+    }
+    return element;
+  }
+
   function mountPreview(playback) {
     const host = ensureHost();
     const element = preparePreviewElement(playback);
@@ -323,6 +335,8 @@
   function promotePreviewToFull() {
     cancelPendingPreview();
     state.focusToken += 1;
+    const playback = state.previewPlayback || (state.previewStarting && state.previewStarting.playback);
+    restoreFullPlaybackElement(playback);
     if (state.previewStarting) {
       state.previewStarting.promoted = true;
       state.previewStarting = null;
