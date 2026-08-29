@@ -1173,6 +1173,9 @@
     let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
     let durationSeconds = 0;
+    let resumeSupported = false;
+    let stoppedPositionSeconds = 0;
+    let stoppedResumeSupported = false;
     let seekSupported = false;
     let seekPreparing = false;
     let seekStartSeconds = 0;
@@ -1292,7 +1295,8 @@
     }
 
     function positionSeconds() {
-      if (!started || stopped) return seekBaseSeconds;
+      if (stopped || destroyed) return stoppedPositionSeconds;
+      if (!started) return seekBaseSeconds;
       return seekBaseSeconds + localPositionSeconds();
     }
 
@@ -1342,6 +1346,8 @@
       const playback = mediaSession && mediaSession.playback;
       const duration = Number(playback && playback.durationSeconds);
       durationSeconds = Number.isFinite(duration) && duration > 0 ? Math.floor(duration) : 0;
+      const resume = playback && playback.resume;
+      resumeSupported = Boolean(resume && resume.supported === true && durationSeconds > 0);
       const seek = playback && playback.seek;
       const windowValue = seek && seek.window;
       const start = Number(windowValue && windowValue.startSeconds);
@@ -1575,6 +1581,8 @@
 
     function failStartedPlayback(error, afterSeek, failure) {
       if (destroyed || stopped || fallbackPanel) return;
+      stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
+      stoppedResumeSupported = Boolean(resumeSupported && stoppedPositionSeconds > 0);
       stopped = true;
       seekInFlight = false;
       seekPreparing = false;
@@ -1657,6 +1665,9 @@
       stopIssued = false;
       firstMediaReported = false;
       repositionedStream = false;
+      resumeSupported = false;
+      stoppedPositionSeconds = 0;
+      stoppedResumeSupported = false;
       clearWaitingLiveness();
       startButton.disabled = true;
       startupStartedAt = nowMilliseconds();
@@ -1742,6 +1753,8 @@
 
     function stopPlayback() {
       if (!started || destroyed || fallbackPanel || stopped) return Promise.resolve(false);
+      stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
+      stoppedResumeSupported = Boolean(resumeSupported && stoppedPositionSeconds > 0);
       stopped = true;
       seekInFlight = false;
       seekPreparing = false;
@@ -1887,6 +1900,10 @@
 
     function destroy() {
       if (destroyed) return;
+      if (!stopped && started && !fallbackPanel) {
+        stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
+        stoppedResumeSupported = Boolean(resumeSupported && stoppedPositionSeconds > 0);
+      }
       destroyed = true;
       seekPreparing = false;
       clearIndexStatusPoll();
@@ -1968,6 +1985,8 @@
     });
     video.addEventListener('ended', function () {
       if (!destroyed && !fallbackPanel && !stopped) {
+        stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
+        stoppedResumeSupported = false;
         stopped = true;
         seekPreparing = false;
         clearIndexStatusPoll();
@@ -2048,6 +2067,10 @@
       stop: stopPlayback,
       position: function () { return Math.floor(positionSeconds()); },
       duration: function () { return durationSeconds > 0 ? durationSeconds : null; },
+      canResume: function () {
+        if (fallbackPanel) return false;
+        return (stopped || destroyed) ? stoppedResumeSupported : resumeSupported;
+      },
       state: playbackState,
       snapshot: lifecycleSnapshot,
       subscribe: subscribeLifecycle,
