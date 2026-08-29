@@ -6,10 +6,14 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
+const repositoryRoot = path.join(frontendRoot, '..', '..');
 const source = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
 const syncSource = fs.readFileSync(path.join(frontendRoot, 'api', 'continue-watching-sync.js'), 'utf8');
 const fallbackSource = fs.readFileSync(path.join(frontendRoot, 'api', 'recording-fallback-controls.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
+const frontendHttpPaths = fs.readFileSync(path.join(repositoryRoot, 'core', 'http', 'src', 'TestHttpServerPaths.inc'), 'utf8');
+const httpServerSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'http', 'src', 'TestHttpServer.cpp'), 'utf8');
+const securityRequestSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'security', 'include', 'ContinueWatchingSecurityRequest.h'), 'utf8');
 
 // Architectural fences: server/actor truth, canonical existing playback owner,
 // preview release before ownership transfer, and no browser-local cross-client truth.
@@ -27,6 +31,14 @@ assert(syncSource.includes('startAtAbsolute'));
 assert(!syncSource.includes('owner.resume(target)'));
 assert(fallbackSource.includes('startAtAbsolute: startAt'));
 assert(indexSource.includes('data-home-zone="additional-sections"'));
+assert(source.includes('VdrSuiteBrowserSession'));
+assert(syncSource.includes('VdrSuiteBrowserSession'));
+assert(frontendHttpPaths.includes(
+    '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", "api/continue-watching-sync.js"}'
+));
+assert(httpServerSource.includes('ContinueWatchingSecurityRequest::forAuthorization'));
+assert(securityRequestSource.includes('/api/media/continue-watching'));
+assert(securityRequestSource.includes('scoped.path = "/api/media/sessions"'));
 
 const context = {
     window: {},
@@ -88,9 +100,13 @@ assert.strictEqual(opened[1].options.autoStartPlayback, true);
 // Execute the canonical absolute-start helper itself. HLS exposes the existing
 // server-side startAt path; fast playback stays on the same owner and performs
 // its already-supported absolute seek after start. Position zero is a normal start.
+const syncRequests = [];
 const syncContext = {
     window: {},
-    fetch: async () => ({ok: true}),
+    fetch: async (requestPath, options) => {
+        syncRequests.push({path: requestPath, options});
+        return {ok: true};
+    },
     console,
     setTimeout,
     clearTimeout,
@@ -104,6 +120,9 @@ syncContext.window.fetch = syncContext.fetch;
 syncContext.window.setTimeout = setTimeout;
 syncContext.window.clearTimeout = clearTimeout;
 syncContext.window.MutationObserver = syncContext.MutationObserver;
+syncContext.window.VdrSuiteBrowserSession = {
+    csrfHeaders() { return {'X-VDR-Suite-CSRF': 'phase66-csrf-token'}; }
+};
 vm.createContext(syncContext);
 vm.runInContext(syncSource, syncContext);
 const syncApi = syncContext.window.VdrSuiteContinueWatchingSync;
@@ -140,6 +159,35 @@ assert(syncApi && syncApi.__test);
         }
     }, 0);
     assert.deepStrictEqual(restartCalls, ['start']);
+
+    await syncApi.__test.post({
+        operation: 'progress',
+        backendId: 'default',
+        recordingId: 'r1',
+        positionSeconds: 120,
+        resumeSupported: true,
+        operationId: 'phase66-progress-test'
+    });
+    assert.strictEqual(syncRequests.length, 1);
+    assert.strictEqual(syncRequests[0].path, '/api/media/continue-watching');
+    assert.strictEqual(syncRequests[0].options.credentials, 'same-origin');
+    assert.strictEqual(syncRequests[0].options.headers['Content-Type'], 'application/json');
+    assert.strictEqual(syncRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-csrf-token');
+
+    const homeRequests = [];
+    context.window.VdrSuiteBrowserSession = {
+        csrfHeaders() { return {'X-VDR-Suite-CSRF': 'phase66-home-csrf'}; }
+    };
+    context.window.fetch = async function (requestPath, options) {
+        homeRequests.push({path: requestPath, options});
+        return {ok: true, json: async () => ({items: []})};
+    };
+    await api._test.post({operation: 'list', backendId: 'default'});
+    assert.strictEqual(homeRequests.length, 1);
+    assert.strictEqual(homeRequests[0].path, '/api/media/continue-watching');
+    assert.strictEqual(homeRequests[0].options.credentials, 'same-origin');
+    assert.strictEqual(homeRequests[0].options.headers['Content-Type'], 'application/json');
+    assert.strictEqual(homeRequests[0].options.headers['X-VDR-Suite-CSRF'], 'phase66-home-csrf');
 
     console.log('phase66 continue watching contract ok');
 }()).catch(function (error) {

@@ -16,12 +16,18 @@
     operationCounter += 1;
     return 'cw-' + prefix + '-' + Date.now().toString(36) + '-' + operationCounter.toString(36);
   }
+  function csrfHeaders() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
   function post(body) {
     const fetcher = global.fetch || fetch;
     return fetcher('/api/media/continue-watching', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: {'Content-Type': 'application/json'},
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body)
     }).then(function (response) {
       if (!response || !response.ok) throw new Error('continue watching sync failed');
@@ -238,6 +244,6 @@
   if (currentValue) global.VdrSuiteRecordings2Playback = currentValue;
 
   global.VdrSuiteContinueWatchingSync = Object.freeze({
-    __test: Object.freeze({startAtAbsolute, rememberOpen, decorateOwner})
+    __test: Object.freeze({startAtAbsolute, rememberOpen, decorateOwner, post})
   });
 }(window));

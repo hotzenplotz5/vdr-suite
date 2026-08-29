@@ -54,12 +54,18 @@
       ? hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0')
       : minutes + ':' + String(secs).padStart(2, '0');
   }
+  function csrfHeaders() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
   function post(body) {
     const fetcher = global.fetch || fetch;
     return fetcher(ENDPOINT, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: {'Content-Type': 'application/json'},
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body)
     }).then(function (response) {
       if (!response || !response.ok) throw new Error('Continue Watching unavailable');
@@ -183,7 +189,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});

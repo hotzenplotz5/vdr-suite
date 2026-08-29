@@ -65,7 +65,7 @@ const frontendHttpPaths = fs.readFileSync(
 );
 assert.ok(
   frontendHttpPaths.includes(
-    '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", nullptr}'
+    '{"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8",'
   ),
   'recordings2 playback runtime must be exposed by the daemon frontend asset router'
 );

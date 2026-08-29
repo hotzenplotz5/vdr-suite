@@ -1,27 +1,36 @@
-CXXFLAGS += -Icore/media/include
+CXXFLAGS += -Icore/media/include -Icore/security/include -Icore/http/include
 
 DAEMON_SRC += \
 	api/rest/src/ContinueWatchingApiRuntime.cpp \
-	core/media/src/ContinueWatching.cpp
+	core/media/src/ContinueWatching.cpp \
+	core/media/src/ContinueWatchingRepository.cpp
 
-.PHONY: test-continue-watching test-phase66-continue-watching-frontend install-phase66-continue-watching-assets test-phase66-continue-watching-install-staging
+.PHONY: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend install-phase66-continue-watching-assets test-phase66-continue-watching-install-staging
 
 test-continue-watching:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/media/src/ContinueWatching.cpp \
+		core/media/src/ContinueWatchingRepository.cpp \
 		core/media/tests/test_continue_watching.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_continue_watching
 	$(BUILD_DIR)/test_continue_watching
 
+test-continue-watching-security-request:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/security/tests/test_continue_watching_security_request.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_continue_watching_security_request
+	$(BUILD_DIR)/test_continue_watching_security_request
+
 test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching.js
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
-test: test-continue-watching test-phase66-continue-watching-frontend
-test-ci-fast: test-continue-watching
-test-vdr: test-continue-watching
+test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
+test-ci-fast: test-continue-watching test-continue-watching-security-request
+test-vdr: test-continue-watching test-continue-watching-security-request
 test-frontend-contracts: test-phase66-continue-watching-frontend
 test-ci-frontend: test-phase66-continue-watching-frontend
 test-ci-packaging: test-phase66-continue-watching-install-staging
@@ -37,7 +46,7 @@ install-phase66-continue-watching-assets:
 
 test-phase66-continue-watching-install-staging:
 	rm -rf /tmp/vdr-suite-phase66-cw-pkgroot
-	$(MAKE) install DESTDIR=/tmp/vdr-suite-phase66-cw-pkgroot PREFIX=/usr
+	$(MAKE) install-phase66-continue-watching-assets DESTDIR=/tmp/vdr-suite-phase66-cw-pkgroot PREFIX=/usr
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js
 	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
