@@ -51,6 +51,8 @@ const item = {
   let previewCancels = 0;
   let loads = 0;
   const opened = [];
+  const restartClears = [];
+  const events = [];
   const first = runtime({
     VdrSuiteHomeLivePreview: {
       cancel(reason) {
@@ -62,8 +64,18 @@ const item = {
   first.window.VdrSuiteDeferredFrontendRuntimes = {
     loadRecordings2() {
       loads += 1;
+      first.window.VdrSuiteContinueWatchingSync = {
+        clear(backendId, recordingId) {
+          restartClears.push({backendId, recordingId});
+          events.push('clear:' + backendId + ':' + recordingId);
+          return Promise.resolve(true);
+        }
+      };
       first.window.VdrSuiteRecordings2 = {
-        openRecording(recording, options) { opened.push({recording, options}); }
+        openRecording(recording, options) {
+          opened.push({recording, options});
+          events.push('open:' + options.playbackStartPositionSeconds);
+        }
       };
       return Promise.resolve();
     }
@@ -78,11 +90,18 @@ const item = {
   assert.strictEqual(opened[0].options.autoStartPlayback, true);
   assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 93);
   assert.strictEqual(opened[0].options.continueWatching, true);
+  assert.strictEqual(restartClears.length, 0, 'Continue must preserve the saved resume state');
 
   assert.strictEqual(await first.api._test.openItem(item, false), true);
   assert.strictEqual(loads, 1, 'already loaded Recordings runtime must not be loaded twice');
   assert.strictEqual(opened.length, 2);
   assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
+  assert.deepStrictEqual(restartClears, [{backendId: 'default', recordingId: 'rec-deferred'}]);
+  assert.deepStrictEqual(events, [
+    'open:93',
+    'clear:default:rec-deferred',
+    'open:0'
+  ], 'From beginning must clear the old resume truth before opening canonical playback at zero');
 
   const unavailable = runtime({
     VdrSuiteHomeLivePreview: {cancel() {}}
