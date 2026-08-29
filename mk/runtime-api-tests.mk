@@ -115,6 +115,14 @@ test-test-http-server: prepare-test-db
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/ContinueWatchingApiRuntime.cpp \
+		core/media/src/ContinueWatching.cpp \
+		core/media/src/ContinueWatchingRepository.cpp \
+		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
+		api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
 		api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
 		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
 		api/rest/src/VdrRecordingFolderController.cpp \
