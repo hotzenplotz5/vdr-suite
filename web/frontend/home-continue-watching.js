@@ -74,24 +74,44 @@
   }
   function releasePreview() {
     const preview = global.VdrSuiteHomeLivePreview;
-    if (preview && preview.__test && typeof preview.__test.cancelPreview === 'function') {
-      preview.__test.cancelPreview('Continue Watching geöffnet');
+    if (preview && typeof preview.cancel === 'function') {
+      preview.cancel('Continue Watching geöffnet');
+      return true;
     }
+    if (preview && preview.__test && typeof preview.__test.cancelPreview === 'function') {
+      // Compatibility with the accepted Slice-66.3 runtime until its public
+      // release method is present on the installed asset.
+      preview.__test.cancelPreview('Continue Watching geöffnet');
+      return true;
+    }
+    return false;
+  }
+  function recordings2Ready() {
+    return Boolean(global.VdrSuiteRecordings2 && typeof global.VdrSuiteRecordings2.openRecording === 'function');
+  }
+  function ensureRecordings2() {
+    if (recordings2Ready()) return Promise.resolve(true);
+    const runtimes = global.VdrSuiteDeferredFrontendRuntimes;
+    if (!runtimes || typeof runtimes.loadRecordings2 !== 'function') return Promise.resolve(false);
+    return Promise.resolve(runtimes.loadRecordings2()).then(recordings2Ready).catch(function () { return false; });
   }
   function openItem(item, resume) {
     const normalized = normalizeItem(item);
-    if (!normalized || !global.VdrSuiteRecordings2 || typeof global.VdrSuiteRecordings2.openRecording !== 'function') return false;
+    if (!normalized) return Promise.resolve(false);
     releasePreview();
-    global.VdrSuiteRecordings2.openRecording({
-      id: normalized.recordingId,
-      backendId: normalized.backendId,
-      title: normalized.title
-    }, {
-      autoStartPlayback: true,
-      playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
-      continueWatching: true
+    return ensureRecordings2().then(function (ready) {
+      if (!ready) return false;
+      global.VdrSuiteRecordings2.openRecording({
+        id: normalized.recordingId,
+        backendId: normalized.backendId,
+        title: normalized.title
+      }, {
+        autoStartPlayback: true,
+        playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
+        continueWatching: true
+      });
+      return true;
     });
-    return true;
   }
   function render(items) {
     if (!doc || typeof doc.querySelector !== 'function') return false;
@@ -189,7 +209,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, releasePreview})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
