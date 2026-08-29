@@ -56,10 +56,10 @@ Next strict numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Latest completed Phase-66 slice:
-Slice 66.1 - Home Shell and Responsive Information Architecture
+Slice 66.2 - Live-TV Hero Carousel (PR #232 plus focus fix PR #233)
 
 Current active runtime slice:
-Slice 66.2 - Live-TV Hero Carousel
+Slice 66.3 - Deferred Live Preview
 
 Completed Phase-65 product verticals:
 65.A - Existing-Recording playback
@@ -97,7 +97,7 @@ The ADR-0056 mandatory semantic sequence is complete: normalized provider-free `
 
 Truthful range/seek/growing-recording capability remains binding after Phase 65 closeout. Completed-Recording arbitrary time-seek and stop/resume are accepted for supported progressive-fMP4 and HLS restart-seek paths. Compatibility timeline interactions preserve canonical absolute Recording position across transport-local time, and exact non-zero HLS video resume uses a synchronized implemented adaptation path or fails closed. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
 
-Phase 66 is **active for Slice 66.2 — Live-TV Hero Carousel** after Slice 66.1 was accepted on the real yaVDR system and merged through PR #231. The active slice is limited to immediate browse-only Live-TV hero selection, canonical Channel/EPG projection, responsive neighbor context and explicit delegation to the existing Live-TV/EPG owners. Selection must remain separate from playback state. Slice 66.3 delayed preview and every later Phase-66 semantic remain outside the current authorization. Accepted ADR-0054 remains the Broadcast Companion architecture for the following Phase 67.
+Phase 66 is **active for Slice 66.3 — Deferred Live Preview** after Slice 66.1 was accepted on the real yaVDR system and merged through PR #231, and Slice 66.2 was merged through PR #232 with the real-browser keyboard-focus correction in PR #233. The active Slice-66.3 scope is limited to browse-first delayed Live preview through the existing authorized media/session path and canonical playback owner, with bounded settle, stale-focus fencing, deterministic relinquish and non-blocking failure semantics. Slice 66.4 Continue Watching and every later Phase-66 semantic remain outside the current authorization. Accepted ADR-0054 remains the Broadcast Companion architecture for the following Phase 67.
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
@@ -167,7 +167,7 @@ The strict numbered order is now:
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 - Media Home and Browse Experience [ACTIVE; SLICE 66.2]
+  -> Phase 66 - Media Home and Browse Experience [ACTIVE; SLICE 66.3]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV
   -> Phase 68 - Legacy OSD Compatibility Bridge
   -> Phase 69 - Public API and Client Compatibility Hardening
@@ -176,7 +176,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 Future phases 67+ are not runtime-authorized merely because they are named here. The strict details and gates live in the [Roadmap](planning/roadmap.md).
 
-The Phase-66 Media Home architecture is defined by accepted ADR-0058. Runtime is currently authorized only for Slice 66.2. Slice 66.1 is completed; later Phase-66 slices remain gated by the accepted sequence and current scope. Broadcast Companion architecture remains defined by ADR-0054 for Phase 67.
+The Phase-66 Media Home architecture is defined by accepted ADR-0058. Runtime is currently authorized only for Slice 66.3. Slice 66.1 and Slice 66.2 are completed; Slice 66.4 and later Phase-66 slices remain gated by the accepted sequence and current scope. Broadcast Companion architecture remains defined by ADR-0054 for Phase 67.
 
 ## Timer Product UI decision
 
@@ -505,9 +505,9 @@ Real yaVDR install/runtime identity passed. Real Android/Edge acceptance reprodu
 
 ## Current authorization boundary
 
-Phase 65 is **completed**. **Phase 66 - Media Home and Browse Experience is active, with only Slice 66.2 - Live-TV Hero Carousel currently authorized.**
+Phase 65 is **completed**. **Phase 66 - Media Home and Browse Experience is active, with only Slice 66.3 - Deferred Live Preview currently authorized.**
 
-Slice 66.1 - Home Shell and Responsive Information Architecture is completed and merged. The next strict numbered runtime phase remains Phase 66 until its completion gate closes. Slice 66.3 Deferred Live Preview and every later Phase-66 slice remain outside the current Slice-2 authorization. Phase 67 Broadcast Companion Services: Teletext and HbbTV remains not started.
+Slice 66.1 - Home Shell and Responsive Information Architecture is completed and merged. Slice 66.2 - Live-TV Hero Carousel is completed through PR #232 plus focus-fix PR #233. The next strict numbered runtime phase remains Phase 66 until its completion gate closes. Slice 66.4 Continue Watching and every later Phase-66 slice remain outside the current Slice-66.3 authorization. Phase 67 Broadcast Companion Services: Teletext and HbbTV remains not started.
 
 The media truthfulness boundary remains binding after closeout:
 
@@ -524,4 +524,4 @@ The media truthfulness boundary remains binding after closeout:
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported completed-Recording profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred until a demonstrated gap justifies a coherent future scope. Their absence must remain truthful rather than silently fabricated.
 
-Phase 66 Slice 2 does not authorize delayed Live preview, focus-triggered MediaSession creation, Continue Watching persistence, Recently Watched history, Broadcast Companion, Legacy OSD or broad Timer UI work.
+Phase 66 Slice 66.3 authorizes only the bounded deferred Live preview described by ADR-0058 and the Phase-66 implementation contract. It does not authorize Continue Watching persistence, Recording discovery rails, Recently Watched/history, general Visual Polish, final Golden-Journey closeout, Broadcast Companion, Legacy OSD, broad Timer UI work, native apps or Live-TV timeshift.

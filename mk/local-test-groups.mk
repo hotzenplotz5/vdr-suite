@@ -156,6 +156,7 @@ test-frontend-contracts: test-frontend-i18n
 	python3 tools/check_frontend_platform_runtime_context.py
 	node web/frontend/tests/test_phase66_home_shell_composition.js
 	node web/frontend/tests/test_phase66_live_tv_hero.js
+	node web/frontend/tests/test_phase66_deferred_live_preview.js
 
 
 # Transitive runtime test source loaded by test_deferred_frontend_runtime_loader.js:

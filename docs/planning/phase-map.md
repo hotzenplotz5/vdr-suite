@@ -45,13 +45,13 @@ Next strict numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Latest completed Phase-66 slice:
-Slice 66.1 - Home Shell and Responsive Information Architecture
+Slice 66.2 - Live-TV Hero Carousel (PR #232 plus focus fix PR #233)
 
 Current active slice:
-Slice 66.2 - Live-TV Hero Carousel
+Slice 66.3 - Deferred Live Preview
 ```
 
-Read [Current State](../CURRENT.md) and [Phase 65 Closeout](../development/phase-65-closeout.md) for exact operational/evidence state. ADR-0058 and the [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md) define the accepted architecture; runtime is active only for Slice 66.2.
+Read [Current State](../CURRENT.md) and [Phase 65 Closeout](../development/phase-65-closeout.md) for exact operational/evidence state. ADR-0058 and the [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md) define the accepted architecture; runtime is active only for Slice 66.3.
 
 ## Revised numbered forward sequence
 
@@ -59,7 +59,7 @@ Read [Current State](../CURRENT.md) and [Phase 65 Closeout](../development/phase
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable Timer intent/assignment/binding orchestration and controlled failover. |
 | 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback, least-transformation delivery/output policy and normalized persistent playback semantics. |
-| 3 | Phase 66 | Active; Slice 66.2 | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching and product acceptance. |
+| 3 | Phase 66 | Active; Slice 66.3 | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching and product acceptance. |
 | 4 | Phase 67 | Planned after Phase 66 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext and broadcast-application runtime. |
 | 5 | Phase 68 | Planned after Phase 67 | Legacy OSD Compatibility Bridge | Isolated OSD observation/control compatibility. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
@@ -108,7 +108,7 @@ existing Channel / EPG / Recording / Metadata truth
   -> explicit full playback through existing owners
 ```
 
-Phase 66 is active only for Slice 66.2 — Live-TV Hero Carousel. Slice 66.1 is completed; Slice 66.3 and later semantics remain sequenced but outside the current authorization.
+Phase 66 is active only for Slice 66.3 — Deferred Live Preview. Slice 66.1 and Slice 66.2 are completed; Slice 66.2 includes the merged Hero delivery in PR #232 and the real-browser keyboard-focus correction in PR #233. Slice 66.4 and later semantics remain sequenced but outside the current authorization.
 
 ## Phase 67 compact boundary
 
@@ -161,9 +161,9 @@ See [Golden User Journeys](golden-user-journeys.md).
 
 - Completed history is never renumbered.
 - Phases 61 through 65 are closed for their accepted scopes.
-- Phase 66 Media Home and Browse Experience is active only for Slice 66.2.
-- Slice 66.1 is completed; ADR-0058 acceptance plus the explicit runtime authorization permit only the current bounded Slice 66.2 scope.
-- Slice 66.3 and later Phase-66 work remains gated.
+- Phase 66 Media Home and Browse Experience is active only for Slice 66.3.
+- Slice 66.1 and Slice 66.2 are completed; ADR-0058 acceptance plus the explicit runtime authorization permit only the current bounded Slice 66.3 scope.
+- Slice 66.4 and later Phase-66 work remains gated.
 - Phase 67 Broadcast Companion retains ADR-0054 architecture.
 - Phase 68 Legacy OSD retains ADR-0047 architecture.
 - Phase 69 Public API hardening retains ADR-0048 architecture.
