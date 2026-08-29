@@ -130,7 +130,7 @@
         state !== 'relinquished';
     }
     function canResume() {
-      return typeof owner.canResume !== 'function' || owner.canResume() === true;
+      return typeof owner.canResume === 'function' && owner.canResume() === true;
     }
     function readPosition() {
       return typeof owner.position === 'function'
