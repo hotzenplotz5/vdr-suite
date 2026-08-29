@@ -1,6 +1,6 @@
 # Phase 66 — Media Home and Browse Experience
 
-Status: **Runtime active — Slice 66.3 Deferred Live Preview. Slices 66.1 and 66.2 are completed; Slice 66.4+ is not authorized.**
+Status: **Runtime active — Slice 66.4 Continue Watching. Slices 66.1, 66.2 and 66.3 are completed; Slice 66.5+ is not authorized.**
 
 This document defines the bounded implementation plan for a new VDR-Suite Media Home after completed Phase 65. It is intentionally a product-composition phase, not a replacement for existing Channel, EPG, Recording, Metadata or MediaSession architecture.
 
@@ -272,7 +272,7 @@ At minimum:
 
 # Slice 66.3 — Deferred Live Preview
 
-Status: **Active runtime slice. Draft PR #234. Not complete until exact-head hosted CI and mandatory real yaVDR browser acceptance pass.**
+Status: **Completed through PR #234 after exact-head hosted CI and mandatory real yaVDR browser acceptance.**
 
 ## Goal
 
@@ -338,6 +338,8 @@ Real yaVDR browser acceptance is mandatory because this slice changes actual Liv
 ---
 
 # Slice 66.4 — Continue Watching
+
+Status: **Active runtime slice. Draft PR #235. Real-system acceptance is pending.**
 
 ## Goal
 
@@ -612,12 +614,12 @@ ADR-0054/0047/0048 retain their architecture. Only not-yet-started future number
 
 # Current runtime boundary
 
-Phase 66 runtime is active. Slice 66.1 and Slice 66.2 are completed; Slice 66.3 is the only currently authorized runtime scope.
+Phase 66 runtime is active. Slice 66.1, Slice 66.2 and Slice 66.3 are completed; Slice 66.4 is the only currently authorized runtime scope.
 
-Before every Slice-66.3 implementation or status mutation:
+Before every Slice-66.4 implementation or status mutation:
 
 1. re-read current GitHub `main` and the Slice branch;
 2. verify there is no competing work that would be overwritten;
 3. preserve ADR-0058 browse-first and canonical playback-owner boundaries;
-4. keep Slice 66.4+ and Phase 67+ closed;
-5. require exact-head hosted CI plus real yaVDR browser acceptance before Slice 66.3 may be marked completed or merged.
+4. keep Slice 66.5+ and Phase 67+ closed;
+5. require exact-head hosted CI plus real yaVDR browser acceptance before Slice 66.4 may be marked completed or merged.
