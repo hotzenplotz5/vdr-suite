@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ContinueWatchingApiRuntime.h"
 #include "DashboardController.h"
 #include "EpgCacheController.h"
 #include "GenreBrowserApiRuntime.h"
@@ -260,6 +261,15 @@ public:
             }
 
             return recordingMediaSessionHandler_(body, actorRef);
+        }
+
+        if (ContinueWatchingApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                actorRef,
+                response))
+        {
+            return response;
         }
 
         ManualRecordingMetadataApiRuntime::instance().registerController(
