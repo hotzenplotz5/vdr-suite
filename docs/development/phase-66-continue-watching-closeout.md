@@ -36,6 +36,20 @@ The Recording cache does **not** manufacture or project a `playbackCapable` / re
 
 The browser does not use `localStorage` as cross-client truth. The authenticated actor is supplied by the trusted HTTP/session boundary and is never accepted from the Continue Watching request payload.
 
+## Recording inventory truth used by Media Home
+
+The real-system `Aktueller Bestand / 0 Aufnahmen` symptom was traced independently of Continue Watching persistence before changing the production composition.
+
+The production daemon owns one `VdrRecordingCacheRepository` backed by the same daemon `Database` object. That same repository instance is used by the Recording query/folder controllers and is supplied to `ContinueWatchingApiRuntime`. The packaged daemon defaults also align the production data source and backend partition: `VDR_SUITE_DATABASE_PATH=/var/lib/vdr-suite/vdr-suite.db` and SuiteBridge backend id `default`.
+
+Recording cache refresh loads the live Recording vector once from the configured backend service, normalizes it, commits it through `replaceRecordingsForBackend(backendId, recordings)`, and passes that same vector to metadata enrichment. Periodic metadata enrichment reads the persisted rows back through `findAllForBackend(backendId)`. Recordings2 folder/status reads and Continue Watching Recording resolution use that same backend-partitioned repository. The repository therefore was not where the real Recording quantity was being reduced to zero.
+
+The zero instead came from a separate UI projection. `PollingService` intentionally establishes a lightweight startup snapshot through `buildStartupSnapshot()`, and the startup-snapshot contract deliberately performs no Recording read. Media Home's existing Overview rail was rendering `recordingCount` from `/api/backends/{id}/snapshot`, so a valid Recording cache could contain the real inventory while the deliberately lightweight snapshot still reported zero Recordings.
+
+The correction keeps those authority boundaries intact. The server snapshot contract is not redefined and the startup snapshot still avoids a live Recording read. Instead, the existing browser client-API composition for `fetchClientBackendSnapshot(backendId, ...)` also reads the already-existing `/api/vdr/recordings/cache/status?backend=<same-backend>` projection. A valid non-negative `totalCount` replaces only the Home-facing `recordingCount`; if cache status is unavailable or invalid, the raw backend snapshot remains readable unchanged. No second Recording catalog and no additional live VDR Recording fetch are introduced.
+
+A worker-thread attempt to write refreshed Recordings back into `SnapshotCache` was explicitly rejected during the root-cause review: Recording warmup runs on a separate worker while the existing Snapshot cache/service has no synchronization contract for concurrent mutation. The final candidate therefore does not introduce worker-to-snapshot mutation or weaken the intentional startup-snapshot contract.
+
 ## Resume-capability truth
 
 Continue Watching state is created only after the existing canonical Recording playback owner confirms real resume support through its established `canResume()` contract. That owner derives the capability from the normalized server playback contract; Slice 66.4 does not add a second capability resolver.
@@ -201,6 +215,8 @@ The Slice-66.4 regression covers at least:
 - production Continue Watching uses the public Live Preview `cancel()` API, never preview `__test` hooks;
 - HLS uses its canonical absolute server-start path;
 - fast playback keeps the canonical owner and established absolute-seek path;
+- Home Recording inventory count is composed from the matching backend Recording-cache status rather than the intentionally lightweight startup snapshot;
+- an unavailable Recording-cache status does not make the existing backend snapshot unreadable;
 - install staging contains the Continue Watching frontend/runtime assets.
 
 ## Candidate evidence
