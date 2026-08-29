@@ -217,8 +217,6 @@
       bindEnded();
 
       if (wasActive && !active) {
-        // Owner publication, not an intercepted method, is the lifecycle truth.
-        // Read the canonical absolute position once while the owner still exists.
         syncProgress(false, true);
       }
       if (active) ensureSampling();
@@ -294,8 +292,7 @@
       rememberOpen,
       decorateOwner,
       post,
-      enqueue,
-      snapshotActive
+      enqueue
     })
   });
 }(window));
