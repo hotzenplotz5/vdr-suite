@@ -202,6 +202,39 @@ static void test_snapshot_read_service_returns_all_backend_snapshots()
     assert(foundParents);
 }
 
+static void test_recording_projection_updates_existing_backend_snapshot()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot startupSnapshot = makeTestSnapshot();
+    startupSnapshot.recordings.clear();
+    cache.updateForBackend("default", startupSnapshot);
+
+    VdrRecording first;
+    first.id = "recording-projected-1";
+    first.title = "Projected Recording One";
+
+    VdrRecording second;
+    second.id = "recording-projected-2";
+    second.title = "Projected Recording Two";
+
+    cacheService.updateRecordingsForBackend(
+        "default",
+        std::vector<VdrRecording>{first, second});
+
+    VdrSnapshotReadService readService(accessService);
+    const auto recordings = readService.getRecordingsForBackend("default");
+
+    assert(recordings.size() == 2);
+    assert(recordings[0].id == "recording-projected-1");
+    assert(recordings[1].id == "recording-projected-2");
+    assert(readService.getChannelsForBackend("default").size() == 1);
+    assert(readService.getEventsForBackend("default").size() == 1);
+    assert(readService.getTimersForBackend("default").size() == 1);
+}
+
 static void test_snapshot_read_service_ignores_preview_cache_for_event_reads()
 {
     SnapshotCache cache;
@@ -262,6 +295,7 @@ int main()
     test_snapshot_read_service_reads_matching_backend();
     test_snapshot_read_service_rejects_non_matching_backend();
     test_snapshot_read_service_returns_all_backend_snapshots();
+    test_recording_projection_updates_existing_backend_snapshot();
     test_snapshot_read_service_ignores_preview_cache_for_event_reads();
     test_snapshot_read_service_ignores_preview_cache_for_backend_event_reads();
 
