@@ -30,7 +30,7 @@ test-phase66-continue-watching-frontend:
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
 test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
-test-ci-fast: test-continue-watching test-continue-watching-security-request
+test-ci-fast: test-continue-watching test-continue-watching-security-request test-test-http-server
 test-vdr: test-continue-watching test-continue-watching-security-request
 test-frontend-contracts: test-phase66-continue-watching-frontend
 test-ci-frontend: test-phase66-continue-watching-frontend
