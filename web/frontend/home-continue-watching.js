@@ -20,7 +20,7 @@
     const position = positiveInt(value.resumePositionSeconds);
     const durationKnown = value.durationKnown === true;
     const duration = durationKnown ? positiveInt(value.durationSeconds) : 0;
-    if (!backendId || !recordingId || !position || value.playbackCapable !== true) return null;
+    if (!backendId || !recordingId || !position) return null;
     if (durationKnown && duration > 0 && position >= duration) return null;
     return {
       backendId,
@@ -30,7 +30,6 @@
       resumePositionSeconds: position,
       durationKnown,
       durationSeconds: duration,
-      playbackCapable: true,
       lastActivityAt: text(value.lastActivityAt)
     };
   }

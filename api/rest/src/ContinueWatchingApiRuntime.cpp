@@ -151,7 +151,6 @@ std::string serialize(const std::vector<ContinueWatchingItem>& items)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
-            << ",\"playbackCapable\":" << (item.recording.playbackCapable ? "true" : "false")
             << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt) << "\"}";
     }
     out << "]}";
@@ -188,7 +187,6 @@ bool ContinueWatchingApiRuntime::configure(
                 truth.title = recording.title;
                 truth.durationSeconds = recording.durationSeconds;
                 truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
-                truth.playbackCapable = true;
                 return truth;
             }
             return std::nullopt;

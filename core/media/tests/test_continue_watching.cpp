@@ -15,8 +15,7 @@ ContinueWatchingRecordingTruth recording(
     const std::string& backendId,
     const std::string& recordingId,
     int durationSeconds,
-    bool durationKnown = true,
-    bool playbackCapable = true)
+    bool durationKnown = true)
 {
     ContinueWatchingRecordingTruth value;
     value.backendId = backendId;
@@ -25,7 +24,6 @@ ContinueWatchingRecordingTruth recording(
     value.subtitle = "Episode";
     value.durationSeconds = durationSeconds;
     value.durationKnown = durationKnown;
-    value.playbackCapable = playbackCapable;
     return value;
 }
 
@@ -53,14 +51,13 @@ int main()
     put(recording("default", "r1", 1800));
     put(recording("default", "r2", 0, false));
     put(recording("other", "r1", 1800));
-    put(recording("default", "no-resume", 1800, true, false));
 
     ContinueWatchingService service(repository, resolve);
 
-    // Position zero and non-resumable playback never become Continue Watching truth.
+    // Position zero and playback without canonical resume support never become Continue Watching truth.
     assert(service.recordProgress("actor-a", "default", "r1", 0, true, "op-zero"));
     assert(service.list("actor-a", "default").empty());
-    assert(service.recordProgress("actor-a", "default", "no-resume", 120, false, "op-no-resume"));
+    assert(service.recordProgress("actor-a", "default", "r1", 120, false, "op-no-resume"));
     assert(service.list("actor-a", "default").empty());
 
     // A real unfinished canonical absolute position is persisted and projected.

@@ -15,6 +15,9 @@ const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8
 const frontendHttpPaths = fs.readFileSync(path.join(repositoryRoot, 'core', 'http', 'src', 'TestHttpServerPaths.inc'), 'utf8');
 const httpServerSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'http', 'src', 'TestHttpServer.cpp'), 'utf8');
 const securityRequestSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'security', 'include', 'ContinueWatchingSecurityRequest.h'), 'utf8');
+const continueApiSource = fs.readFileSync(path.join(repositoryRoot, 'api', 'rest', 'src', 'ContinueWatchingApiRuntime.cpp'), 'utf8');
+const continueHeaderSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'media', 'include', 'ContinueWatching.h'), 'utf8');
+const continueServiceSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'media', 'src', 'ContinueWatching.cpp'), 'utf8');
 
 // Architectural fences: server/actor truth, canonical existing playback owner,
 // preview release before ownership transfer, and no browser-local cross-client truth.
@@ -37,6 +40,12 @@ assert(syncSource.includes('unsubscribeLifecycle = owner.subscribe(lifecycleChan
 assert(!syncSource.includes('decorated.stop = function'));
 assert(!syncSource.includes('decorated.destroy = function'));
 assert(!syncSource.includes('decorated.relinquishForReplacement = function'));
+assert(syncSource.includes('canResume()'));
+assert(syncSource.includes('resumeSupported: true'));
+assert(!source.includes('playbackCapable'));
+assert(!continueApiSource.includes('playbackCapable'));
+assert(!continueHeaderSource.includes('playbackCapable'));
+assert(!continueServiceSource.includes('playbackCapable'));
 assert(fallbackSource.includes('startAtAbsolute: startAt'));
 assert(indexSource.includes('data-home-zone="additional-sections"'));
 assert(source.includes('VdrSuiteBrowserSession'));
@@ -80,13 +89,11 @@ const base = {
     title: 'Film',
     resumePositionSeconds: 120,
     durationKnown: true,
-    durationSeconds: 600,
-    playbackCapable: true
+    durationSeconds: 600
 };
 assert.strictEqual(api._test.normalizeItem(base).recordingId, 'r1');
 assert.strictEqual(api._test.normalizeItem({...base, resumePositionSeconds: 0}), null);
 assert.strictEqual(api._test.normalizeItem({...base, resumePositionSeconds: 600}), null);
-assert.strictEqual(api._test.normalizeItem({...base, playbackCapable: false}), null);
 
 const known = api._test.progressModel(base);
 assert.strictEqual(known.percent, 20);

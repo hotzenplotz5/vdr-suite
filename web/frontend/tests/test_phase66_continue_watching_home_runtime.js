@@ -44,8 +44,7 @@ const item = {
   title: 'Deferred Recording',
   resumePositionSeconds: 93,
   durationKnown: true,
-  durationSeconds: 600,
-  playbackCapable: true
+  durationSeconds: 600
 };
 
 (async function () {

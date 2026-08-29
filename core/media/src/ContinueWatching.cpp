@@ -36,7 +36,6 @@ bool ContinueWatchingService::recordProgress(
 
     const auto current = resolver_ ? resolver_(backendId, recordingId) : std::nullopt;
     if (!current.has_value() ||
-        !current->playbackCapable ||
         !resumeSupported ||
         positionSeconds <= 0 ||
         (current->durationKnown && current->durationSeconds > 0 &&
@@ -74,7 +73,6 @@ std::vector<ContinueWatchingItem> ContinueWatchingService::list(
         const auto current = resolver_ ? resolver_(state.backendId, state.recordingId) : std::nullopt;
         const bool invalid =
             !current.has_value() ||
-            !current->playbackCapable ||
             state.positionSeconds <= 0 ||
             (current->durationKnown && current->durationSeconds > 0 &&
              state.positionSeconds >= current->durationSeconds);

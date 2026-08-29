@@ -25,7 +25,6 @@ struct ContinueWatchingRecordingTruth
     std::string subtitle;
     int durationSeconds = 0;
     bool durationKnown = false;
-    bool playbackCapable = true;
 };
 
 struct ContinueWatchingItem
