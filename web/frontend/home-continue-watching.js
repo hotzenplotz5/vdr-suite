@@ -88,12 +88,19 @@
     if (!runtimes || typeof runtimes.loadRecordings2 !== 'function') return Promise.resolve(false);
     return Promise.resolve(runtimes.loadRecordings2()).then(recordings2Ready).catch(function () { return false; });
   }
+  function clearBeforeRestart(item) {
+    const sync = global.VdrSuiteContinueWatchingSync;
+    if (!sync || typeof sync.clear !== 'function') return false;
+    Promise.resolve(sync.clear(item.backendId, item.recordingId)).catch(function () {});
+    return true;
+  }
   function openItem(item, resume) {
     const normalized = normalizeItem(item);
     if (!normalized) return Promise.resolve(false);
     releasePreview();
     return ensureRecordings2().then(function (ready) {
       if (!ready) return false;
+      if (!resume) clearBeforeRestart(normalized);
       global.VdrSuiteRecordings2.openRecording({
         id: normalized.recordingId,
         backendId: normalized.backendId,
@@ -202,7 +209,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, releasePreview})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, releasePreview, clearBeforeRestart})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
