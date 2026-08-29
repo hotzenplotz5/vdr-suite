@@ -23,6 +23,7 @@ requires(previewSource, /cancelPendingPreview/, '66.3 superseded pending preview
 requires(previewSource, /VdrSuitePlaybackShell/, '66.3 must consult canonical shell ownership before preview startup');
 requires(previewSource, /VdrSuiteRecordings2Playback/, '66.3 must use the existing canonical Live playback facade');
 requires(previewSource, /ownerIntent\s*:\s*['"]preview['"]/, '66.3 preview intent must be explicit at the existing playback boundary');
+requires(previewSource, /restoreFullPlaybackElement/, '66.3 Watch Live promotion must restore full-playback presentation state');
 assert(!previewSource.includes('/api/media/sessions'), '66.3 Home preview must not call MediaSession REST directly');
 assert(!previewSource.includes('createLiveSession('), '66.3 Home preview must not own MediaSession creation');
 assert(!previewSource.includes("createElement('video')"), '66.3 Home preview must not create a second media element');
@@ -50,7 +51,7 @@ function makeHarness(options) {
     miniVisible: false,
     lastStopReason: ''
   };
-  const metrics = {creates: 0, starts: 0, destroys: 0};
+  const metrics = {creates: 0, starts: 0, destroys: 0, videos: []};
   const timers = new Map();
   let nextTimerId = 1;
   let deferredResolve = null;
@@ -102,9 +103,22 @@ function makeHarness(options) {
         shell.channelName = String(channel.name || shell.channelId);
         shell.sessionId = '';
 
+        const video = {
+          muted: false,
+          controls: true,
+          autoplay: true,
+          playsInline: true,
+          attributes: new Map(),
+          setAttribute(name, value) { this.attributes.set(String(name), String(value)); },
+          removeAttribute(name) { this.attributes.delete(String(name)); }
+        };
+        metrics.videos.push(video);
+
         let destroyed = false;
         return {
-          element: {querySelector() { return null; }},
+          element: {
+            querySelector(selector) { return selector === 'video' ? video : null; }
+          },
           start() {
             metrics.starts += 1;
             if (settings.failStart) return Promise.reject(new Error('preview failed'));
@@ -267,15 +281,43 @@ async function startSettled(harness) {
 
   // Watch Live promotion is intentionally different from browse replacement:
   // Home drops its preview intent without destroying the canonical same-channel
-  // owner, allowing VdrSuiteLiveTvView.startChannel() to adopt the same proxy.
+  // owner, restores full-playback presentation on the same video, and allows
+  // VdrSuiteLiveTvView.startChannel() to adopt the same proxy/session.
   {
     const h = makeHarness();
     await startSettled(h);
     assert.strictEqual(h.shell.active, true, 'preview should own canonical shell before promotion');
+    const video = h.metrics.videos[0];
+    assert(video, 'preview must use the canonical adapter video');
+    assert.strictEqual(video.muted, true, 'preview must be muted for browse-safe autoplay');
+    assert.strictEqual(video.controls, false, 'preview must suppress full-player controls in Home');
+    assert.strictEqual(video.attributes.has('muted'), true, 'preview must carry a muted media attribute');
+
     h.api.__test.promotePreviewToFull();
     assert.strictEqual(h.api.snapshot().active, false, 'Home must cease preview ownership on explicit Watch Live');
     assert.strictEqual(h.metrics.destroys, 0, 'promotion must not tear down the same canonical playback owner');
     assert.strictEqual(h.shell.active, true, 'canonical shell owner must remain available for explicit adoption');
+    assert.strictEqual(video.muted, false, 'Watch Live promotion must restore audible full playback');
+    assert.strictEqual(video.controls, true, 'Watch Live promotion must restore full-player controls');
+    assert.strictEqual(video.attributes.has('muted'), false, 'Watch Live promotion must remove preview-only muted attribute');
+  }
+
+  // The same presentation restoration is required while preview startup is
+  // still in flight; promotion must not wait for MediaSession readiness.
+  {
+    const h = makeHarness({deferredStart: true});
+    h.api.sync();
+    h.runTimers();
+    const video = h.metrics.videos[0];
+    assert.strictEqual(h.api.snapshot().starting, true, 'preview should still be starting before in-flight promotion');
+    assert.strictEqual(video.muted, true, 'in-flight preview starts muted');
+    h.api.__test.promotePreviewToFull();
+    assert.strictEqual(video.muted, false, 'in-flight Watch Live promotion must restore audible presentation immediately');
+    assert.strictEqual(video.controls, true, 'in-flight Watch Live promotion must restore controls immediately');
+    assert.strictEqual(h.metrics.destroys, 0, 'in-flight promotion must preserve canonical owner for full playback adoption');
+    h.resolveDeferred('promoted-session');
+    await flushPromises();
+    assert.strictEqual(h.metrics.destroys, 0, 'promoted in-flight owner must survive session readiness');
   }
 
   // Preview failure remains local evidence. It must neither throw into browsing
