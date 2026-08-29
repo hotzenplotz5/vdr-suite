@@ -193,6 +193,6 @@ make test-phase
 - [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
 - [ADR-0056 Playback Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
-- [Golden User Journeys](planning/golden-user-journeys.md)
+- [Golden User Journeys](golden-user-journeys.md)
 - [Completed Phases](../development/completed-phases.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
