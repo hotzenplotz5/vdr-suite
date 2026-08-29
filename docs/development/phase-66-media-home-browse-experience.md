@@ -1,6 +1,6 @@
 # Phase 66 — Media Home and Browse Experience
 
-Status: **Accepted implementation contract under ADR-0058. Runtime not started.**
+Status: **Runtime active — Slice 66.3 Deferred Live Preview. Slices 66.1 and 66.2 are completed; Slice 66.4+ is not authorized.**
 
 This document defines the bounded implementation plan for a new VDR-Suite Media Home after completed Phase 65. It is intentionally a product-composition phase, not a replacement for existing Channel, EPG, Recording, Metadata or MediaSession architecture.
 
@@ -175,6 +175,8 @@ Personalized rail reordering is explicitly deferred. Version 1 uses a determinis
 
 # Slice 66.1 — Home Shell and Responsive Information Architecture
 
+Status: **Completed through PR #231.**
+
 ## Goal
 
 Create the new Home composition and responsive navigation without introducing Live preview or new history persistence.
@@ -218,6 +220,8 @@ At minimum:
 ---
 
 # Slice 66.2 — Live-TV Hero Carousel
+
+Status: **Completed through PR #232 plus the real-browser keyboard-focus correction in PR #233.**
 
 ## Goal
 
@@ -267,6 +271,8 @@ At minimum:
 ---
 
 # Slice 66.3 — Deferred Live Preview
+
+Status: **Active runtime slice. Draft PR #234. Not complete until exact-head hosted CI and mandatory real yaVDR browser acceptance pass.**
 
 ## Goal
 
@@ -604,14 +610,14 @@ ADR-0054/0047/0048 retain their architecture. Only not-yet-started future number
 
 ---
 
-# Runtime kickoff rule
+# Current runtime boundary
 
-Merging this accepted planning contract does not implicitly authorize Phase-66 runtime implementation. ADR-0058 and the roadmap establish architecture and phase order; a separate explicit Phase-66 runtime kickoff is still required.
+Phase 66 runtime is active. Slice 66.1 and Slice 66.2 are completed; Slice 66.3 is the only currently authorized runtime scope.
 
-Before Slice 66.1 implementation:
+Before every Slice-66.3 implementation or status mutation:
 
-1. re-read current `main`;
-2. verify Phase 66 has not started elsewhere;
-3. verify ADR-0058 status and Strict Roadmap sequence;
-4. create a fresh runtime branch from the accepted planning baseline;
-5. implement only Slice 66.1 first.
+1. re-read current GitHub `main` and the Slice branch;
+2. verify there is no competing work that would be overwritten;
+3. preserve ADR-0058 browse-first and canonical playback-owner boundaries;
+4. keep Slice 66.4+ and Phase 67+ closed;
+5. require exact-head hosted CI plus real yaVDR browser acceptance before Slice 66.3 may be marked completed or merged.
