@@ -82,11 +82,40 @@
   function recordings2Ready() {
     return Boolean(global.VdrSuiteRecordings2 && typeof global.VdrSuiteRecordings2.openRecording === 'function');
   }
+  function continueWatchingPlaybackReady() {
+    const playback = global.VdrSuiteRecordings2Playback;
+    const sync = global.VdrSuiteContinueWatchingSync;
+    return Boolean(
+      playback && typeof playback.createPanel === 'function' &&
+      sync && typeof sync.clear === 'function'
+    );
+  }
+  function ensureContinueWatchingPlaybackRuntime() {
+    if (continueWatchingPlaybackReady()) return Promise.resolve(true);
+    if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve(false);
+    return Promise.resolve(global.loadVdrSuiteDeferredRuntime(
+      'vdr-suite-session-frontend-sync-runtime',
+      '/frontend/api/session-frontend-sync.js',
+      function () { return Boolean(global.VdrSuiteRecordingFastPlayback && global.VdrSuiteLivePlayback); }
+    )).then(function () {
+      return global.loadVdrSuiteDeferredRuntime(
+        'vdr-suite-recordings2-playback-runtime',
+        '/frontend/recordings2-playback.js',
+        continueWatchingPlaybackReady
+      );
+    }).then(continueWatchingPlaybackReady).catch(function () { return false; });
+  }
   function ensureRecordings2() {
-    if (recordings2Ready()) return Promise.resolve(true);
-    const runtimes = global.VdrSuiteDeferredFrontendRuntimes;
-    if (!runtimes || typeof runtimes.loadRecordings2 !== 'function') return Promise.resolve(false);
-    return Promise.resolve(runtimes.loadRecordings2()).then(recordings2Ready).catch(function () { return false; });
+    const ready = recordings2Ready()
+      ? Promise.resolve(true)
+      : (function () {
+          const runtimes = global.VdrSuiteDeferredFrontendRuntimes;
+          if (!runtimes || typeof runtimes.loadRecordings2 !== 'function') return Promise.resolve(false);
+          return Promise.resolve(runtimes.loadRecordings2()).then(recordings2Ready).catch(function () { return false; });
+        }());
+    return ready.then(function (recordingsReady) {
+      return recordingsReady ? ensureContinueWatchingPlaybackRuntime() : false;
+    });
   }
   function clearBeforeRestart(item) {
     const sync = global.VdrSuiteContinueWatchingSync;
@@ -209,7 +238,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, releasePreview, clearBeforeRestart})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
