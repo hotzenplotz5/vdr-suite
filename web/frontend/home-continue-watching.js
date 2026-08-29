@@ -78,12 +78,6 @@
       preview.cancel('Continue Watching geöffnet');
       return true;
     }
-    if (preview && preview.__test && typeof preview.__test.cancelPreview === 'function') {
-      // Compatibility with the accepted Slice-66.3 runtime until its public
-      // release method is present on the installed asset.
-      preview.__test.cancelPreview('Continue Watching geöffnet');
-      return true;
-    }
     return false;
   }
   function recordings2Ready() {

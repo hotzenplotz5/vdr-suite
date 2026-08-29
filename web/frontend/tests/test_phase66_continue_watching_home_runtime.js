@@ -90,19 +90,19 @@ const item = {
   });
   assert.strictEqual(await unavailable.api._test.openItem(item, true), false);
 
-  let compatibilityCancels = 0;
-  const compatibility = runtime({
+  let testOnlyCancels = 0;
+  const testOnlyPreview = runtime({
     VdrSuiteHomeLivePreview: {
       __test: {
-        cancelPreview() { compatibilityCancels += 1; }
+        cancelPreview() { testOnlyCancels += 1; }
       }
     },
     VdrSuiteRecordings2: {
       openRecording() {}
     }
   });
-  assert.strictEqual(await compatibility.api._test.openItem(item, true), true);
-  assert.strictEqual(compatibilityCancels, 1, 'accepted Slice-66.3 runtime remains compatible during additive upgrade');
+  assert.strictEqual(await testOnlyPreview.api._test.openItem(item, true), true);
+  assert.strictEqual(testOnlyCancels, 0, 'production Continue Watching must not call preview __test hooks');
 
   console.log('phase66 continue watching Home runtime composition ok');
 }()).catch(error => {
