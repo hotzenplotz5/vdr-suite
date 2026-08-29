@@ -29,6 +29,9 @@ assert(source.includes('VdrSuiteRecordings2.openRecording'));
 assert(source.includes('releasePreview()'));
 assert(source.includes("typeof preview.cancel === 'function'"));
 assert(source.includes('clearBeforeRestart(normalized)'));
+assert(source.includes("'/frontend/api/session-frontend-sync.js'"));
+assert(source.includes("'/frontend/recordings2-playback.js'"));
+assert(source.includes('continueWatchingPlaybackReady'));
 assert(syncSource.includes('clear: clearCurrent'));
 assert(!source.includes('__test.cancelPreview'));
 assert(homePreviewSource.includes('cancel: cancelPreview'));
@@ -106,8 +109,18 @@ assert.strictEqual(unknown.percent, null);
 
 // Continue and From beginning both route through the same Recordings2 playback owner.
 const opened = [];
+const homeRestartClears = [];
 context.window.VdrSuiteRecordings2 = {
     openRecording(recording, options) { opened.push({recording, options}); }
+};
+context.window.VdrSuiteRecordings2Playback = {
+    createPanel() {}
+};
+context.window.VdrSuiteContinueWatchingSync = {
+    clear(backendId, recordingId) {
+        homeRestartClears.push({backendId, recordingId});
+        return Promise.resolve(true);
+    }
 };
 
 const syncRequests = [];
@@ -169,6 +182,7 @@ function flush(count = 8) {
     assert.strictEqual(opened[0].options.autoStartPlayback, true);
     assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
     assert.strictEqual(opened[1].options.autoStartPlayback, true);
+    assert.deepStrictEqual(homeRestartClears, [{backendId: 'default', recordingId: 'r1'}]);
 
     const hlsCalls = [];
     await syncApi.__test.startAtAbsolute({
