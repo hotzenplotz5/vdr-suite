@@ -41,6 +41,16 @@
     mutationQueue = operation.catch(function () {});
     return operation;
   }
+  function clearCurrent(backendId, currentRecordingId) {
+    const id = text(currentRecordingId);
+    if (!id) return Promise.resolve(false);
+    return enqueue({
+      operation: 'clear',
+      backendId: text(backendId) || 'default',
+      recordingId: id,
+      operationId: nextOperationId('clear')
+    }).then(function () { return true; }, function () { return false; });
+  }
   function rememberOpen(recording, options) {
     const settings = options && typeof options === 'object' ? options : {};
     if (settings.continueWatching !== true || settings.autoStartPlayback !== true) return;
@@ -287,12 +297,14 @@
   });
 
   global.VdrSuiteContinueWatchingSync = Object.freeze({
+    clear: clearCurrent,
     __test: Object.freeze({
       startAtAbsolute,
       rememberOpen,
       decorateOwner,
       post,
-      enqueue
+      enqueue,
+      clearCurrent
     })
   });
 }(window));
