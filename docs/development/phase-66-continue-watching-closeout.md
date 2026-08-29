@@ -68,6 +68,8 @@ Unknown duration does not fabricate completion or percentage evidence. The row m
 
 A same-client mutation queue serializes progress/clear writes so an older in-flight progress update cannot arrive after a newer clear and recreate stale state.
 
+`From beginning` enqueues an explicit clear on that same mutation queue before the canonical Recording open intent at absolute position zero. This prevents the previously saved resume point from remaining current truth if the restarted playback has not yet advanced far enough to publish a new truthful positive position. Later resumable playback progress may create current state again normally.
+
 ## API and security boundary
 
 The bounded first-party endpoint is:
@@ -106,7 +108,9 @@ From beginning
   -> absolute position 0
 ```
 
-A fresh Media Home does not eagerly instantiate a second Recording runtime. `openItem()` uses the established deferred frontend loader `VdrSuiteDeferredFrontendRuntimes.loadRecordings2()` when necessary and then delegates only to `VdrSuiteRecordings2.openRecording(...)`.
+A fresh Media Home does not eagerly instantiate a second Recording runtime. `openItem()` first uses the established deferred frontend loader `VdrSuiteDeferredFrontendRuntimes.loadRecordings2()` when the Recordings2 shell is not already present. It then awaits the existing canonical session/frontend and Recordings2 playback deferred runtime through the established `loadVdrSuiteDeferredRuntime` script identities before delegating to `VdrSuiteRecordings2.openRecording(...)`.
+
+That ordering is required because the Continue Watching sync adapter is composed onto the served canonical `recordings2-playback.js` runtime. A fresh Home must therefore prove that the canonical playback owner and its Continue Watching adapter are installed before emitting the Recording open intent; it must not rely on an asynchronous playback-runtime race started indirectly by the Recordings2 shell.
 
 No Home-specific `MediaSession`, `<video>` element, transport adapter or cleanup engine is created.
 
@@ -185,6 +189,7 @@ The Slice-66.4 regression covers at least:
 - activity ordering;
 - stale/deleted Recording cleanup;
 - scoped explicit clear;
+- `From beginning` clears the old resume truth through the same serialized mutation queue before opening at zero;
 - no browser-local cross-client truth;
 - CSRF and existing Recording-play authorization boundary reuse;
 - actor identity remains trusted-server-context only;
@@ -192,7 +197,7 @@ The Slice-66.4 regression covers at least:
 - progress sampling happens only under published active ownership;
 - no Home-created MediaSession/video owner;
 - Continue and From beginning use `VdrSuiteRecordings2`;
-- fresh Home loads the canonical deferred Recordings2 runtime before opening;
+- fresh Home loads the canonical deferred Recordings2 shell and awaits the canonical Recording playback/sync runtime before opening;
 - production Continue Watching uses the public Live Preview `cancel()` API, never preview `__test` hooks;
 - HLS uses its canonical absolute server-start path;
 - fast playback keeps the canonical owner and established absolute-seek path;
