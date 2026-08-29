@@ -1,16 +1,16 @@
 // Phase 66.3: deferred Live-TV preview for Media Home.
 //
-// Preview is deliberately an intent controller, not a playback owner. It waits
-// for a stable Home selection, then asks the already-authoritative
-// VdrSuiteRecordings2Playback facade for the canonical Live-TV adapter. The
-// Phase-65 playback shell therefore remains the only MediaSession/player owner.
+// Preview is an intent controller, not a playback owner. It waits for a stable
+// Home selection, then asks the existing VdrSuiteRecordings2Playback facade for
+// the canonical Live-TV adapter. The Phase-65 playback shell remains the only
+// MediaSession/player lifecycle authority.
 (function (global) {
   'use strict';
 
   if (!global || global.VdrSuiteHomeLivePreview) return;
 
   const doc = global.document || (typeof document !== 'undefined' ? document : null);
-  const previewSettleMs = 650; // private UX tuning value; not an architecture/API constant
+  const previewSettleMs = 650; // private UX tuning value; not a public contract
   const state = {
     focusToken: 0,
     pendingTimer: null,
@@ -24,7 +24,6 @@
     rootObserver: null,
     shellObserver: null,
     inputBound: false,
-    installed: false,
     syncScheduled: false,
     host: null,
     status: ''
@@ -34,22 +33,14 @@
     return value === undefined || value === null ? '' : String(value).trim();
   }
 
-  function heroApi() {
-    return global.VdrSuiteHomeLiveHero || null;
-  }
-
   function heroSnapshot() {
-    const hero = heroApi();
+    const hero = global.VdrSuiteHomeLiveHero;
     if (!hero || typeof hero.snapshot !== 'function') return null;
     try { return hero.snapshot(); } catch (_) { return null; }
   }
 
-  function playbackShell() {
-    return global.VdrSuitePlaybackShell || null;
-  }
-
   function shellSnapshot() {
-    const shell = playbackShell();
+    const shell = global.VdrSuitePlaybackShell;
     if (!shell || typeof shell.snapshot !== 'function') return null;
     try { return shell.snapshot(); } catch (_) { return null; }
   }
@@ -63,11 +54,17 @@
     return doc.querySelector('.media-home-hero[data-home-zone="hero"]');
   }
 
+  function cssEscape(value) {
+    if (global.CSS && typeof global.CSS.escape === 'function') return global.CSS.escape(String(value));
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, function (character) {
+      return '\\' + character.charCodeAt(0).toString(16) + ' ';
+    });
+  }
+
   function selectedChannelDescriptor(snapshot) {
     const value = snapshot || heroSnapshot();
     const id = text(value && value.selectedChannelId);
     if (!id) return null;
-
     let name = id;
     const root = heroRoot();
     if (root && typeof root.querySelector === 'function') {
@@ -76,13 +73,6 @@
       if (heading && text(heading.textContent)) name = text(heading.textContent);
     }
     return {channelId: id, id: id, name: name};
-  }
-
-  function cssEscape(value) {
-    if (global.CSS && typeof global.CSS.escape === 'function') return global.CSS.escape(String(value));
-    return String(value).replace(/[^a-zA-Z0-9_-]/g, function (character) {
-      return '\\' + character.charCodeAt(0).toString(16) + ' ';
-    });
   }
 
   function removeHost() {
@@ -95,10 +85,10 @@
   function ensureHost() {
     if (!doc || typeof doc.createElement !== 'function') return null;
     const root = heroRoot();
-    if (!root || typeof root.querySelector !== 'function') return null;
-    const focus = root.querySelector('.media-home-live-focus');
+    const focus = root && typeof root.querySelector === 'function'
+      ? root.querySelector('.media-home-live-focus')
+      : null;
     if (!focus) return null;
-
     if (!state.host) {
       state.host = doc.createElement('section');
       state.host.className = 'media-home-live-preview';
@@ -170,10 +160,9 @@
   }
 
   function cancelStartingPreview(reason) {
-    const request = state.previewStarting;
-    if (!request) return false;
-    request.cancelled = true;
-    request.cancelReason = text(reason) || 'superseded';
+    if (!state.previewStarting) return false;
+    state.previewStarting.cancelled = true;
+    state.previewStarting.cancelReason = text(reason) || 'superseded';
     removeHost();
     return true;
   }
@@ -213,11 +202,16 @@
     const backendId = text(snapshot.backendId);
     const channelId = text(snapshot.selectedChannelId);
     if (!backendId || !channelId || state.failedToken === state.focusToken) return false;
+
     if (state.previewPlayback && state.previewBackendId === backendId && state.previewChannelId === channelId) {
       mountPreview(state.previewPlayback);
       return true;
     }
-    if (state.previewStarting && !state.previewStarting.cancelled) return true;
+
+    // A cancelled in-flight request still owns the canonical shell until its
+    // asynchronous session creation resolves and can be destroyed. Never start
+    // a competing preview while that handoff is unresolved.
+    if (state.previewStarting) return true;
 
     const token = state.focusToken;
     const schedule = typeof global.setTimeout === 'function' ? global.setTimeout : setTimeout;
@@ -229,10 +223,13 @@
   }
 
   function startPreview(token, backendId, channelId) {
-    if (!currentIntentMatches(token, backendId, channelId)) return Promise.resolve('');
+    if (!currentIntentMatches(token, backendId, channelId) || state.previewStarting) {
+      return Promise.resolve('');
+    }
 
     const shell = shellSnapshot();
     if (shell && shell.active === true && !ownsShellPreview(shell)) {
+      state.failedToken = token;
       setPreviewStatus('Live-Vorschau pausiert · explizite Wiedergabe ist aktiv.', false);
       return Promise.resolve('');
     }
@@ -275,21 +272,21 @@
     }
 
     return Promise.resolve(startRequest).then(function (sessionId) {
-      const currentRequest = state.previewStarting === request;
-      const stale = request.cancelled || !currentIntentMatches(token, backendId, channelId);
-      if (currentRequest) state.previewStarting = null;
+      if (state.previewStarting === request) state.previewStarting = null;
 
       if (request.promoted) {
         removeHost();
         return text(sessionId);
       }
 
+      const stale = request.cancelled || !currentIntentMatches(token, backendId, channelId);
       if (stale) {
         if (playback && typeof playback.destroy === 'function') {
           try { playback.destroy(); } catch (_) {}
         }
         removeHost();
-        if (heroSnapshot() && heroSnapshot().active === true) schedulePreview();
+        const latest = heroSnapshot();
+        if (latest && latest.active === true) schedulePreview();
         return '';
       }
 
@@ -315,6 +312,9 @@
       if (!request.cancelled && currentIntentMatches(token, backendId, channelId)) {
         state.failedToken = token;
         setPreviewStatus(error && error.message ? error.message : 'Live-Vorschau konnte nicht gestartet werden.', true);
+      } else {
+        const latest = heroSnapshot();
+        if (latest && latest.active === true) schedulePreview();
       }
       return '';
     });
@@ -335,9 +335,8 @@
   }
 
   function selectionChanged(snapshot) {
-    const nextBackend = text(snapshot && snapshot.backendId);
-    const nextChannel = text(snapshot && snapshot.selectedChannelId);
-    return nextBackend !== state.lastBackendId || nextChannel !== state.lastChannelId;
+    return text(snapshot && snapshot.backendId) !== state.lastBackendId ||
+      text(snapshot && snapshot.selectedChannelId) !== state.lastChannelId;
   }
 
   function sync() {
@@ -386,7 +385,7 @@
     const key = event && event.key;
     if (key !== 'ArrowLeft' && key !== 'ArrowRight') return;
     const root = heroRoot();
-    if (!root || event.target !== root && !(root.contains && root.contains(event.target))) return;
+    if (!root || (event.target !== root && !(root.contains && root.contains(event.target)))) return;
     state.focusToken += 1;
     cancelPreview('Senderauswahl bewegt');
   }
@@ -394,8 +393,7 @@
   function captureAction(event) {
     const target = event && event.target;
     if (!target || typeof target.closest !== 'function') return;
-    const watch = target.closest('[data-home-live-action="watch"]');
-    if (watch) {
+    if (target.closest('[data-home-live-action="watch"]')) {
       promotePreviewToFull();
       return;
     }
@@ -407,19 +405,14 @@
     }
   }
 
-  function captureTouchStart(event) {
-    const root = heroRoot();
-    if (!root || !event || !event.target || !(root.contains && root.contains(event.target))) return;
-    state.focusToken += 1;
-    cancelPreview('Touch-Browsing');
-  }
-
   function bindInput() {
     if (state.inputBound || !doc || typeof doc.addEventListener !== 'function') return;
     state.inputBound = true;
     doc.addEventListener('keydown', preemptForBrowse, true);
     doc.addEventListener('click', captureAction, true);
-    doc.addEventListener('touchstart', captureTouchStart, {capture: true, passive: true});
+    // The Hero applies swipe selection on touchend. Schedule after bubbling so
+    // the updated focus token/channel can be observed without cancelling taps.
+    doc.addEventListener('touchend', scheduleSync, {passive: true});
   }
 
   function installStyles() {
@@ -457,7 +450,6 @@
 
   function install() {
     if (!doc) return false;
-    state.installed = true;
     installStyles();
     bindInput();
     installObservers();
