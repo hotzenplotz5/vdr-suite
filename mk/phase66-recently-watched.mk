@@ -1,5 +1,9 @@
 CXXFLAGS += -Icore/media/include
 
+DAEMON_SRC += \
+	core/media/src/RecentlyWatched.cpp \
+	core/media/src/RecentlyWatchedRepository.cpp
+
 .PHONY: test-recently-watched
 
 test-recently-watched:

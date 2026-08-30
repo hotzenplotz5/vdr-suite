@@ -9,6 +9,8 @@
 class ContinueWatchingRepository;
 class ContinueWatchingService;
 class Database;
+class RecentlyWatchedRepository;
+class RecentlyWatchedService;
 class VdrRecordingCacheRepository;
 
 class ContinueWatchingApiRuntime
@@ -31,5 +33,7 @@ private:
     mutable std::mutex mutex_;
     std::unique_ptr<ContinueWatchingRepository> repository_;
     std::unique_ptr<ContinueWatchingService> service_;
+    std::unique_ptr<RecentlyWatchedRepository> recentlyWatchedRepository_;
+    std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
 };
