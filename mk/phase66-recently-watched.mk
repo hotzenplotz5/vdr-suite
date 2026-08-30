@@ -4,6 +4,13 @@ DAEMON_SRC += \
 	core/media/src/RecentlyWatched.cpp \
 	core/media/src/RecentlyWatchedRepository.cpp
 
+# test-test-http-server compiles ContinueWatchingApiRuntime.cpp directly rather
+# than through DAEMON_SRC. Extend only that target's existing source list so the
+# Slice-66.6 symbols referenced by the shared runtime are linked there as well.
+test-test-http-server: REST_ROUTER_SRC += \
+	core/media/src/RecentlyWatched.cpp \
+	core/media/src/RecentlyWatchedRepository.cpp
+
 .PHONY: test-recently-watched test-phase66-recently-watched-frontend install-phase66-recently-watched-assets test-phase66-recently-watched-install-staging
 
 test-recently-watched:
