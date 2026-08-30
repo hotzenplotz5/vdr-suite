@@ -31,4 +31,5 @@ private:
     mutable std::mutex mutex_;
     std::unique_ptr<ContinueWatchingRepository> repository_;
     std::unique_ptr<ContinueWatchingService> service_;
+    VdrRecordingCacheRepository* recordings_ = nullptr;
 };
