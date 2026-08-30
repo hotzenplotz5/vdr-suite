@@ -147,6 +147,7 @@ std::string serialize(const std::vector<ContinueWatchingItem>& items)
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
+            << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
             << "\",\"title\":\"" << jsonEscape(item.recording.title)
             << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(item.recording.posterUrl)
@@ -186,6 +187,7 @@ bool ContinueWatchingApiRuntime::configure(
                 ContinueWatchingRecordingTruth truth;
                 truth.backendId = recording.backendId;
                 truth.recordingId = recording.id;
+                truth.backendNativeId = recording.backendNativeId;
                 truth.title = recording.title;
                 const VdrRecordingArtworkRef* preferredArtwork =
                     VdrRecordingArtworkIdentity::preferredArtwork(recording);
