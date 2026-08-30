@@ -477,8 +477,8 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
-      const recordings = list(payload, 'items');
-      if (!recordings.length || !recordings.some(isSeriesRecording)) {
+      const recordings = canonicalRecordings(payload, backendId).filter(isSeriesRecording);
+      if (!recordings.length) {
         clearRail('series');
         return false;
       }
