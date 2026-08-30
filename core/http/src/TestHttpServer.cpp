@@ -2,6 +2,7 @@
 
 #include "ApiRouter.h"
 #include "BrowserSessionCsrfRecoveryService.h"
+#include "ContinueWatchingSecurityRequest.h"
 #include "SecurityConfiguration.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
@@ -301,7 +302,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
 
     const HttpServerRequest securityRequest =
-        SeriesArtworkSettingsSecurityRequest::forAuthorization(request);
+        ContinueWatchingSecurityRequest::forAuthorization(
+            SeriesArtworkSettingsSecurityRequest::forAuthorization(request));
     SecurityGateDecision gate;
     {
         const HttpServerRequest& request = securityRequest;

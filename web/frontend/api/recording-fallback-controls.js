@@ -177,7 +177,6 @@
     notice.setAttribute('role', 'status');
     notice.textContent = 'Kompatibilitätsmodus · Zeit-Sprung ist für diesen Wiedergabepfad nicht verfügbar.';
     host.appendChild(notice);
-
     const controls = global.document.createElement('div');
     controls.className = 'recordings2-playback-controls';
     controls.style.display = 'grid';
@@ -656,6 +655,7 @@
     const playback = Object.freeze({
       element: host,
       start: start,
+      startAtAbsolute: startAt,
       resume: resume,
       canResume: function () { return stopped ? stoppedResumeSupported : resumeSupported; },
       play: play,

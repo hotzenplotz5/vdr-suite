@@ -487,6 +487,7 @@
     install: install,
     sync: sync,
     snapshot: snapshot,
+    cancel: cancelPreview,
     __test: Object.freeze({
       previewSettleMs: previewSettleMs,
       schedulePreview: schedulePreview,

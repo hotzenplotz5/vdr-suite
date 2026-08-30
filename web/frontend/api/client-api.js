@@ -322,7 +322,35 @@
 
   function fetchClientBackendSnapshot(backendId, options) {
     const id = backendId ? String(backendId) : 'default';
-    return requestJson('/api/backends/' + encodeURIComponent(id) + '/snapshot', options);
+    const snapshotRequest = requestJson(
+      '/api/backends/' + encodeURIComponent(id) + '/snapshot',
+      options
+    );
+    const recordingStatusRequest = fetchClientRecordingCacheStatus(
+      Object.assign({}, normalizeOptions(options), {backendId: id})
+    ).catch(function () {
+      return null;
+    });
+
+    return Promise.all([snapshotRequest, recordingStatusRequest])
+      .then(function (results) {
+        const snapshot = results[0];
+        const recordingStatus = results[1];
+
+        if (!snapshot || typeof snapshot !== 'object' ||
+            !recordingStatus || typeof recordingStatus !== 'object') {
+          return snapshot;
+        }
+
+        const recordingCount = Number(recordingStatus.totalCount);
+        if (!Number.isFinite(recordingCount) || recordingCount < 0) {
+          return snapshot;
+        }
+
+        return Object.assign({}, snapshot, {
+          recordingCount: recordingCount
+        });
+      });
   }
 
   function fetchClientEpgWindow(options) {
