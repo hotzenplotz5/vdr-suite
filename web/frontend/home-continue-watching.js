@@ -9,6 +9,13 @@
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
   }
+  function publicPath(path) {
+    const value = text(path);
+    const resolver = global.VdrSuitePublicUrl;
+    return value && resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(value)
+      : value;
+  }
   function selectedBackendId() {
     const selected = doc && doc.querySelector ? doc.querySelector('#backends .backend-card.selected, #backends [aria-selected="true"]') : null;
     return text(selected && selected.dataset && selected.dataset.backendId) || 'default';
@@ -27,6 +34,7 @@
       recordingId,
       title: text(value.title) || 'Aufnahme',
       subtitle: text(value.subtitle),
+      posterUrl: text(value.posterUrl),
       resumePositionSeconds: position,
       durationKnown,
       durationSeconds: duration,
@@ -52,6 +60,26 @@
     return hours > 0
       ? hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0')
       : minutes + ':' + String(secs).padStart(2, '0');
+  }
+  function createArtwork(item) {
+    const artwork = doc.createElement('div');
+    artwork.className = 'media-home-continue-artwork';
+    const fallback = text(item && item.title).slice(0, 1).toUpperCase() || '▶';
+    const posterUrl = text(item && item.posterUrl);
+    if (!posterUrl) {
+      artwork.textContent = fallback;
+      return artwork;
+    }
+    const image = doc.createElement('img');
+    image.src = publicPath(posterUrl);
+    image.alt = 'Poster zu ' + (text(item && item.title) || 'Aufnahme');
+    image.loading = 'lazy';
+    image.addEventListener('error', function () {
+      image.remove();
+      artwork.textContent = fallback;
+    });
+    artwork.appendChild(image);
+    return artwork;
   }
   function csrfHeaders() {
     const session = global.VdrSuiteBrowserSession;
@@ -185,10 +213,7 @@
       card.className = 'media-home-continue-card';
       card.dataset.recordingId = item.recordingId;
       card.dataset.backendId = item.backendId;
-      const artwork = doc.createElement('div');
-      artwork.className = 'media-home-continue-artwork';
-      artwork.textContent = item.title.slice(0, 1).toUpperCase();
-      card.appendChild(artwork);
+      card.appendChild(createArtwork(item));
       const copy = doc.createElement('div');
       copy.className = 'media-home-continue-copy';
       const name = doc.createElement('h4'); name.textContent = item.title; copy.appendChild(name);
@@ -221,7 +246,7 @@
     if (!doc || !doc.head || doc.getElementById('vdr-suite-continue-watching-style')) return;
     const style = doc.createElement('style');
     style.id = 'vdr-suite-continue-watching-style';
-    style.textContent = '.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.24);border-radius:1rem;background:rgba(15,23,42,.78)}.media-home-continue-artwork{display:grid;place-items:center;min-height:6rem;border-radius:.75rem;background:linear-gradient(135deg,#1e293b,#334155);font-size:2rem;font-weight:700}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}';
+    style.textContent = '.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.24);border-radius:1rem;background:rgba(15,23,42,.78)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(135deg,#1e293b,#334155);font-size:2rem;font-weight:700}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}';
     doc.head.appendChild(style);
   }
   function refresh() {
@@ -251,7 +276,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, returnHome})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, returnHome, publicPath, createArtwork})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});

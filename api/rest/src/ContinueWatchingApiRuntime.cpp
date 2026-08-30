@@ -3,6 +3,7 @@
 #include "ContinueWatching.h"
 #include "Database.h"
 #include "VdrRecording.h"
+#include "VdrRecordingArtworkIdentity.h"
 #include "VdrRecordingCacheRepository.h"
 
 #include <cctype>
@@ -148,6 +149,7 @@ std::string serialize(const std::vector<ContinueWatchingItem>& items)
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
             << "\",\"title\":\"" << jsonEscape(item.recording.title)
             << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
+            << "\",\"posterUrl\":\"" << jsonEscape(item.recording.posterUrl)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
@@ -185,6 +187,13 @@ bool ContinueWatchingApiRuntime::configure(
                 truth.backendId = recording.backendId;
                 truth.recordingId = recording.id;
                 truth.title = recording.title;
+                const VdrRecordingArtworkRef* preferredArtwork =
+                    VdrRecordingArtworkIdentity::preferredArtwork(recording);
+                if (preferredArtwork != nullptr) {
+                    truth.posterUrl = VdrRecordingArtworkIdentity::publicUrl(
+                        recording,
+                        *preferredArtwork);
+                }
                 truth.durationSeconds = recording.durationSeconds;
                 truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
                 return truth;

@@ -23,6 +23,7 @@ struct ContinueWatchingRecordingTruth
     std::string recordingId;
     std::string title;
     std::string subtitle;
+    std::string posterUrl;
     int durationSeconds = 0;
     bool durationKnown = false;
 };
