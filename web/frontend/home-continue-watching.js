@@ -30,17 +30,26 @@
     const duration = durationKnown ? positiveInt(value.durationSeconds) : 0;
     if (!backendId || !recordingId || !position) return null;
     if (durationKnown && duration > 0 && position >= duration) return null;
+    const projected = value.recording && typeof value.recording === 'object'
+      ? Object.assign({}, value.recording)
+      : {};
+    projected.id = text(projected.id) || recordingId;
+    projected.recordingId = text(projected.recordingId) || recordingId;
+    projected.backendId = text(projected.backendId) || backendId;
+    projected.backendNativeId = text(projected.backendNativeId) || backendNativeId;
+    projected.title = text(projected.title) || text(value.title) || 'Aufnahme';
     return {
       backendId,
       recordingId,
-      backendNativeId,
-      title: text(value.title) || 'Aufnahme',
+      backendNativeId: projected.backendNativeId,
+      title: text(value.title) || projected.title || 'Aufnahme',
       subtitle: text(value.subtitle),
       posterUrl: text(value.posterUrl),
       resumePositionSeconds: position,
       durationKnown,
       durationSeconds: duration,
-      lastActivityAt: text(value.lastActivityAt)
+      lastActivityAt: text(value.lastActivityAt),
+      recording: projected
     };
   }
   function progressModel(item) {
@@ -170,12 +179,14 @@
       if (!ready) return false;
       selectShellModule('recordings2');
       if (!resume) clearBeforeRestart(normalized);
-      global.VdrSuiteRecordings2.openRecording({
+      const recording = Object.assign({}, normalized.recording, {
         id: normalized.recordingId,
+        recordingId: normalized.recordingId,
         backendId: normalized.backendId,
         backendNativeId: normalized.backendNativeId,
-        title: normalized.title
-      }, {
+        title: normalized.recording.title || normalized.title
+      });
+      global.VdrSuiteRecordings2.openRecording(recording, {
         backendId: normalized.backendId,
         autoStartPlayback: true,
         playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
