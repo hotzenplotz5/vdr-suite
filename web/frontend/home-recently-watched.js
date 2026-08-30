@@ -5,7 +5,7 @@
 
   const doc = global.document;
   const LIMIT = 12;
-  const state = {generation: 0, placementObserver: null};
+  const state = {generation: 0, placementObserver: null, moduleObserver: null};
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value).trim();
@@ -254,9 +254,38 @@
     });
     state.placementObserver.observe(target, {childList: true});
   }
+  function installModuleObserver() {
+    if (!doc || state.moduleObserver || typeof global.MutationObserver !== 'function' || !doc.querySelector) return;
+    const navigation = doc.querySelector('#module-nav');
+    if (!navigation) return;
+
+    // The canonical shell owns module state by toggling the active module-tab.
+    // Observe that state only as a refresh trigger. Viewing-history truth still
+    // comes exclusively from the server-side actor-scoped history projection.
+    state.moduleObserver = new global.MutationObserver(function (mutations) {
+      const enteredHome = Array.prototype.some.call(mutations || [], function (mutation) {
+        const target = mutation && mutation.target;
+        return Boolean(
+          target &&
+          target.dataset &&
+          target.dataset.module === 'overview' &&
+          target.classList &&
+          typeof target.classList.contains === 'function' &&
+          target.classList.contains('active')
+        );
+      });
+      if (enteredHome && typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+    });
+    state.moduleObserver.observe(navigation, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
   function install() {
     if (!doc) return false;
     installPlacementObserver();
+    installModuleObserver();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener('click', function (event) {
         const target = event && event.target;
@@ -273,7 +302,13 @@
   global.VdrSuiteHomeRecentlyWatched = Object.freeze({
     install: install,
     refresh: refresh,
-    _test: Object.freeze({normalizeItem: normalizeItem, activityLabel: activityLabel, openItem: openItem, post: post})
+    _test: Object.freeze({
+      normalizeItem: normalizeItem,
+      activityLabel: activityLabel,
+      openItem: openItem,
+      post: post,
+      installModuleObserver: installModuleObserver
+    })
   });
 
   if (doc) {
