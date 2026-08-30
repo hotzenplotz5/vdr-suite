@@ -60,6 +60,7 @@
       backendId: scopedBackend,
       recordingId: recordingId,
       recording: recording,
+      posterUrl: text(item.posterUrl),
       positionKnown: item.positionKnown === true,
       positionSeconds: Math.max(0, Math.floor(Number(item.positionSeconds) || 0)),
       completionKnown: item.completionKnown === true,
