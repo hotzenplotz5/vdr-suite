@@ -377,6 +377,10 @@
       state.view = 'movie-genres';
     } else {
       resetNavigation();
+      if (!state.overview) {
+        loadOverview();
+        return;
+      }
     }
     render();
   }
@@ -698,6 +702,19 @@
       state.active = true;
       if (state.view === 'results') beginResultLoad();
       else loadOverview();
+    },
+    openRecordingGenre: function (entry, options) {
+      const config = options && typeof options === 'object' ? options : {};
+      const genreId = text(entry && entry.id);
+      if (!genreId) return false;
+      state.active = true;
+      state.backendId = text(config.backendId, backendId());
+      state.scope = 'recordings';
+      state.selectedCategory = null;
+      state.selectedGenre = Object.assign({}, entry, {id:genreId});
+      installStyles();
+      beginResultLoad();
+      return true;
     },
     __test: Object.freeze({
       genreArtworkUrl:genreArtworkUrl,
