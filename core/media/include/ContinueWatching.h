@@ -21,6 +21,7 @@ struct ContinueWatchingRecordingTruth
 {
     std::string backendId;
     std::string recordingId;
+    std::string backendNativeId;
     std::string title;
     std::string subtitle;
     std::string posterUrl;
