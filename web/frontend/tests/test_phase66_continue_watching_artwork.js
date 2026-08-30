@@ -12,9 +12,11 @@ const apiSource = fs.readFileSync(path.join(repositoryRoot, 'api', 'rest', 'src'
 const identitySource = fs.readFileSync(path.join(repositoryRoot, 'core', 'vdr', 'src', 'VdrRecordingArtworkIdentity.cpp'), 'utf8');
 
 assert(apiSource.includes('#include "VdrRecordingArtworkIdentity.h"'));
+assert(apiSource.includes('#include "VdrRecordingMetadataJsonSerializer.h"'));
 assert(apiSource.includes('VdrRecordingArtworkIdentity::preferredArtwork(recording)'));
 assert(apiSource.includes('VdrRecordingArtworkIdentity::publicUrl('));
-assert(apiSource.includes('\\",\\\"posterUrl\\\":\\\"" << jsonEscape(item.recording.posterUrl)'));
+assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::serialize(recording)'));
+assert(apiSource.includes('\\",\\\"recording\\\":" << serializeRecording(*currentRecording)'));
 assert(apiSource.includes('jsonEscape(item.recording.backendNativeId)'));
 assert(apiSource.includes('truth.backendNativeId = recording.backendNativeId;'));
 assert(identitySource.includes('"/recording-artwork/"'));
@@ -76,11 +78,34 @@ const item = api._test.normalizeItem({
   posterUrl,
   resumePositionSeconds: 238,
   durationKnown: true,
-  durationSeconds: 7000
+  durationSeconds: 7000,
+  recording: {
+    id: 'recording-1',
+    backendId: 'default',
+    backendNativeId,
+    title: 'Ein unmoralisches Angebot',
+    path: 'Filme/Ein unmoralisches Angebot',
+    startTime: '2026-08-30T07:00:00Z',
+    durationSeconds: 7000,
+    sizeMb: 4096,
+    metadata: {
+      provider: {
+        available: true,
+        source: 'restfulapi-scraper-bridge',
+        genreText: 'Drama',
+        releaseDate: '1993-04-07',
+        rating: 7.2
+      }
+    }
+  }
 });
 assert(item);
 assert.strictEqual(item.posterUrl, posterUrl);
 assert.strictEqual(item.backendNativeId, backendNativeId);
+assert.strictEqual(item.recording.path, 'Filme/Ein unmoralisches Angebot');
+assert.strictEqual(item.recording.startTime, '2026-08-30T07:00:00Z');
+assert.strictEqual(item.recording.sizeMb, 4096);
+assert.strictEqual(item.recording.metadata.provider.genreText, 'Drama');
 
 const artwork = api._test.createArtwork(item);
 assert.strictEqual(artwork.textContent, '');
