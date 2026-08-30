@@ -1,6 +1,6 @@
 # Phase 66.6 — Recently Watched / History
 
-Status: **AUTHORIZED / ACTIVE**
+Status: **COMPLETED / ACCEPTED**
 
 This document records the bounded runtime contract for Slice 66.6. It complements the Phase-66 plan and ADR-0058; it does not authorize Slice 66.7 or later work.
 
@@ -124,6 +124,8 @@ The Home section is a projection only. It:
 
 The section is composed after the existing Recording Discovery runtime and reuses its established rail/card presentation classes. It creates no second navigation owner.
 
+Programmatic return from Recordings2 to the canonical Home module triggers a History refresh by observing the shell-owned active module-tab state. That observation is only a refresh trigger; it does not become viewing-history evidence or data authority.
+
 ## Explicit non-goals
 
 Slice 66.6 does **not** introduce:
@@ -138,9 +140,26 @@ Slice 66.6 does **not** introduce:
 - browser-local cross-client truth;
 - Slice 66.7 or later Phase-66 behavior.
 
+## Acceptance evidence
+
+The accepted runtime-sensitive product candidate is:
+
+```text
+accepted_product_candidate=6747682fd84f70c437937eb5311e72048593c73b
+source_ci_workflow=VDR-Suite CI
+source_ci_run_number=8412
+source_ci_run_id=33334217608
+source_ci_result=PASS
+real_system_acceptance=PASS
+```
+
+Real yaVDR/Android-browser acceptance demonstrated both sides of the required semantic split: `1917` first appeared in `Zuletzt angesehen` as `Fortsetzbar · 1:34`; after natural completion it disappeared from `Weiterschauen` while remaining in `Zuletzt angesehen` as `Angesehen`. The acceptance-discovered programmatic Home-return refresh defect was corrected before final acceptance and is covered by a dedicated frontend regression test.
+
+The durable evidence and gate rationale are recorded in [Phase 66.6 Recently Watched / History Closeout](phase-66-recently-watched-history-closeout.md).
+
 ## Verification surfaces
 
-Repository tests must prove at minimum:
+Repository tests prove at minimum:
 
 - actor/backend isolation;
 - Recording identity validation;
@@ -154,6 +173,7 @@ Repository tests must prove at minimum:
 - production frontend composition loads the History rail;
 - canonical playback-owner lifecycle is the activity source;
 - existing Recording playback flow remains the only explicit playback owner;
+- programmatic canonical Home return refreshes the History projection;
 - authorization/CSRF and packaging/install wiring are preserved.
 
-A real yaVDR/browser acceptance block is only valid for an exact-head candidate after the relevant hosted CI gates are green.
+Slice 66.6 is accepted. Slice 66.7 and later Phase-66 work remain unauthorized unless explicitly opened by the user.
