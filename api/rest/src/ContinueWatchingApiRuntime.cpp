@@ -5,12 +5,14 @@
 #include "VdrRecording.h"
 #include "VdrRecordingArtworkIdentity.h"
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingMetadataJsonSerializer.h"
 
 #include <cctype>
 #include <map>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -137,12 +139,47 @@ private:
     std::map<std::string, long long> numbers_;
 };
 
-std::string serialize(const std::vector<ContinueWatchingItem>& items)
+const VdrRecording* findRecording(
+    const std::vector<VdrRecording>& recordings,
+    const ContinueWatchingItem& item)
+{
+    for (const auto& recording : recordings) {
+        if (recording.backendId == item.recording.backendId &&
+            recording.id == item.recording.recordingId) {
+            return &recording;
+        }
+    }
+    return nullptr;
+}
+
+std::string serializeRecording(const VdrRecording& recording)
+{
+    std::ostringstream out;
+    out << "{\"id\":\"" << jsonEscape(recording.id)
+        << "\",\"recordingId\":\"" << jsonEscape(recording.id)
+        << "\",\"backendId\":\"" << jsonEscape(recording.backendId)
+        << "\",\"title\":\"" << jsonEscape(recording.title)
+        << "\",\"path\":\"" << jsonEscape(recording.path)
+        << "\",\"recordingPath\":\"" << jsonEscape(recording.path)
+        << "\",\"backendNativeId\":\"" << jsonEscape(recording.backendNativeId)
+        << "\",\"startTime\":\"" << jsonEscape(recording.startTime)
+        << "\",\"durationSeconds\":" << recording.durationSeconds
+        << ",\"sizeMb\":" << recording.sizeMb
+        << ",\"metadata\":" << VdrRecordingMetadataJsonSerializer::serialize(recording)
+        << "}";
+    return out.str();
+}
+
+std::string serialize(
+    const std::vector<ContinueWatchingItem>& items,
+    const std::vector<VdrRecording>& recordings)
 {
     std::ostringstream out;
     out << "{\"items\":[";
     bool first = true;
     for (const auto& item : items) {
+        const VdrRecording* currentRecording = findRecording(recordings, item);
+        if (currentRecording == nullptr) continue;
         if (!first) out << ',';
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
@@ -154,7 +191,9 @@ std::string serialize(const std::vector<ContinueWatchingItem>& items)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
-            << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt) << "\"}";
+            << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
+            << "\",\"recording\":" << serializeRecording(*currentRecording)
+            << "}";
     }
     out << "]}";
     return out.str();
@@ -175,6 +214,8 @@ bool ContinueWatchingApiRuntime::configure(
     repository_ = std::make_unique<ContinueWatchingRepository>(database);
     if (!repository_->ensureSchema()) {
         repository_.reset();
+        service_.reset();
+        recordings_ = nullptr;
         return false;
     }
     service_ = std::make_unique<ContinueWatchingService>(
@@ -202,6 +243,7 @@ bool ContinueWatchingApiRuntime::configure(
             }
             return std::nullopt;
         });
+    recordings_ = &recordings;
     return true;
 }
 
@@ -210,6 +252,7 @@ void ContinueWatchingApiRuntime::reset()
     std::lock_guard<std::mutex> lock(mutex_);
     service_.reset();
     repository_.reset();
+    recordings_ = nullptr;
 }
 
 bool ContinueWatchingApiRuntime::tryHandlePost(
@@ -239,16 +282,18 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!service_) {
+    if (!service_ || !recordings_) {
         response = errorResponse(503, "continue_watching_unavailable");
         return true;
     }
 
     if (operation == "list") {
+        const auto items = service_->list(actorRef, backendId);
+        const auto currentRecordings = recordings_->findAllForBackend(backendId);
         response.statusCode = 200;
         response.contentType = "application/json";
         response.headers["Cache-Control"] = "no-store";
-        response.body = serialize(service_->list(actorRef, backendId));
+        response.body = serialize(items, currentRecordings);
         return true;
     }
 
