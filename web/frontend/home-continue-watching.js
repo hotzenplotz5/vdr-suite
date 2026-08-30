@@ -24,6 +24,7 @@
     if (!value || typeof value !== 'object') return null;
     const backendId = text(value.backendId);
     const recordingId = text(value.recordingId);
+    const backendNativeId = text(value.backendNativeId);
     const position = positiveInt(value.resumePositionSeconds);
     const durationKnown = value.durationKnown === true;
     const duration = durationKnown ? positiveInt(value.durationSeconds) : 0;
@@ -32,6 +33,7 @@
     return {
       backendId,
       recordingId,
+      backendNativeId,
       title: text(value.title) || 'Aufnahme',
       subtitle: text(value.subtitle),
       posterUrl: text(value.posterUrl),
@@ -171,6 +173,7 @@
       global.VdrSuiteRecordings2.openRecording({
         id: normalized.recordingId,
         backendId: normalized.backendId,
+        backendNativeId: normalized.backendNativeId,
         title: normalized.title
       }, {
         backendId: normalized.backendId,
