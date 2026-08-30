@@ -75,6 +75,7 @@ function jsonResponse(status, payload) {
 const item = {
   backendId: 'default',
   recordingId: 'rec-deferred',
+  backendNativeId: '/srv/vdr/video/Deferred/2026-08-30.07.00.00-0.rec',
   title: 'Deferred Recording',
   resumePositionSeconds: 93,
   durationKnown: true,
@@ -140,6 +141,11 @@ const item = {
   assert.strictEqual(opened.length, 1);
   assert.strictEqual(opened[0].recording.id, 'rec-deferred');
   assert.strictEqual(opened[0].recording.backendId, 'default');
+  assert.strictEqual(
+    opened[0].recording.backendNativeId,
+    item.backendNativeId,
+    'Continue Watching must preserve the stable backend identity required by canonical Recording metadata'
+  );
   assert.strictEqual(opened[0].options.autoStartPlayback, true);
   assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 93);
   assert.strictEqual(opened[0].options.continueWatching, true);
@@ -154,6 +160,7 @@ const item = {
   assert.strictEqual(loads, 1, 'already loaded Recordings runtime must not be loaded twice');
   assert.strictEqual(playbackLoads.length, 2, 'ready playback runtime must not be loaded twice');
   assert.strictEqual(opened.length, 2);
+  assert.strictEqual(opened[1].recording.backendNativeId, item.backendNativeId);
   assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
   assert.deepStrictEqual(restartClears, [{backendId: 'default', recordingId: 'rec-deferred'}]);
   assert.deepStrictEqual(events.slice(-2), [
