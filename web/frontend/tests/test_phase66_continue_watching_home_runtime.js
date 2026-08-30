@@ -72,14 +72,49 @@ function jsonResponse(status, payload) {
   };
 }
 
+const backendNativeId = '/srv/vdr/video/Deferred/2026-08-30.07.00.00-0.rec';
 const item = {
   backendId: 'default',
   recordingId: 'rec-deferred',
-  backendNativeId: '/srv/vdr/video/Deferred/2026-08-30.07.00.00-0.rec',
+  backendNativeId,
   title: 'Deferred Recording',
   resumePositionSeconds: 93,
   durationKnown: true,
-  durationSeconds: 600
+  durationSeconds: 600,
+  recording: {
+    id: 'rec-deferred',
+    recordingId: 'rec-deferred',
+    backendId: 'default',
+    backendNativeId,
+    title: 'Deferred Recording',
+    path: 'Filme/Deferred Recording',
+    recordingPath: 'Filme/Deferred Recording',
+    startTime: '2026-08-30T07:00:00Z',
+    durationSeconds: 600,
+    sizeMb: 1536,
+    metadata: {
+      native: {
+        eventTitle: 'Deferred Recording',
+        shortText: 'Native subtitle',
+        description: 'Native description'
+      },
+      provider: {
+        available: true,
+        source: 'restfulapi-scraper-bridge',
+        contentKind: 'movie',
+        title: 'Deferred Recording',
+        genreText: 'Drama',
+        releaseDate: '1993-04-07',
+        rating: 7.2
+      },
+      presentation: {
+        title: 'Deferred Recording',
+        subtitle: 'Native subtitle',
+        summary: 'Native description',
+        posterUrl: '/recording-artwork/default/deferred'
+      }
+    }
+  }
 };
 
 (async function () {
@@ -146,6 +181,14 @@ const item = {
     item.backendNativeId,
     'Continue Watching must preserve the stable backend identity required by canonical Recording metadata'
   );
+  assert.strictEqual(opened[0].recording.path, item.recording.path);
+  assert.strictEqual(opened[0].recording.startTime, item.recording.startTime);
+  assert.strictEqual(opened[0].recording.durationSeconds, item.recording.durationSeconds);
+  assert.strictEqual(opened[0].recording.sizeMb, item.recording.sizeMb);
+  assert.strictEqual(opened[0].recording.metadata.provider.genreText, 'Drama');
+  assert.strictEqual(opened[0].recording.metadata.provider.releaseDate, '1993-04-07');
+  assert.strictEqual(opened[0].recording.metadata.provider.rating, 7.2);
+  assert.strictEqual(opened[0].recording.metadata.provider.source, 'restfulapi-scraper-bridge');
   assert.strictEqual(opened[0].options.autoStartPlayback, true);
   assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 93);
   assert.strictEqual(opened[0].options.continueWatching, true);
@@ -161,6 +204,8 @@ const item = {
   assert.strictEqual(playbackLoads.length, 2, 'ready playback runtime must not be loaded twice');
   assert.strictEqual(opened.length, 2);
   assert.strictEqual(opened[1].recording.backendNativeId, item.backendNativeId);
+  assert.strictEqual(opened[1].recording.path, item.recording.path);
+  assert.strictEqual(opened[1].recording.metadata.provider.genreText, 'Drama');
   assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
   assert.deepStrictEqual(restartClears, [{backendId: 'default', recordingId: 'rec-deferred'}]);
   assert.deepStrictEqual(events.slice(-2), [
