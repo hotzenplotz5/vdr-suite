@@ -1,8 +1,8 @@
 # Phase 66.4 — Continue Watching Closeout
 
-Status: **ACTIVE implementation candidate. Exact final-head hosted CI and real-system acceptance are still mandatory before Slice 66.4 is accepted.**
+Status: **COMPLETED. Real-system acceptance passed on the runtime-sensitive candidate `d382928f84f72da3ac132d4da1e78039d6b7887f`; PR #235 is authorized for final exact-head CI and merge.**
 
-Draft PR: **#235 — Phase 66.4: Continue Watching**
+PR: **#235 — Phase 66.4: Continue Watching**
 
 This document records the bounded Slice-66.4 architecture and acceptance contract. It does not authorize Slice 66.5 or later Phase-66 work.
 
@@ -219,29 +219,31 @@ The Slice-66.4 regression covers at least:
 - an unavailable Recording-cache status does not make the existing backend snapshot unreadable;
 - install staging contains the Continue Watching frontend/runtime assets.
 
-## Candidate evidence
+## Candidate and acceptance evidence
 
-The final candidate evidence is intentionally not frozen until the exact final branch head has completed hosted CI.
+The runtime-sensitive accepted product candidate is immutable at `d382928f84f72da3ac132d4da1e78039d6b7887f`. Documentation-only closeout commits after that candidate do not alter runtime behavior; their own exact-head hosted CI remains a merge gate and is verified live immediately before PR merge rather than copied here as volatile branch state.
 
 ```text
-final_candidate_sha=PENDING
+accepted_product_candidate=d382928f84f72da3ac132d4da1e78039d6b7887f
 source_ci_workflow=VDR-Suite CI
-source_ci_run_number=PENDING
-source_ci_run_id=PENDING
-source_ci_result=PENDING
-real_system_acceptance=PENDING
+source_ci_run_number=8401
+source_ci_run_id=33301330762
+source_ci_result=PASS
+real_system_acceptance=PASS
 ```
 
-A green CI run for any earlier intermediate SHA is not Slice-66.4 completion evidence.
+Real yaVDR/browser acceptance covered the bounded Continue Watching path through the canonical Recording owner. The final Android browser re-test after the metadata-identity/projection fixes confirmed that `Fortsetzen` resumes playback, the Recording detail remains on the canonical Recordings2 path, canonical artwork is displayed, the prior metadata-identity error is absent, and the Recording's persisted metadata/description is projected instead of the reduced Home-only placeholder object.
+
+The earlier acceptance work had already established the remaining Slice-66.4 behaviors; the metadata projection was the last reported real-system defect before merge authorization. Hosted CI #8401 was fully green on the accepted runtime-sensitive candidate after the final production and regression changes.
 
 ## Acceptance gate
 
-Slice 66.4 is not accepted merely because the code is committed or a PR exists. Acceptance requires:
+Slice 66.4 is accepted because the required gates were satisfied:
 
-1. exact-head hosted CI green for the final candidate;
-2. install/staging and repository-derived installation path verified for that same candidate;
-3. real yaVDR browser validation of persistence, cross-browser/device resume truth, Resume, From-beginning, preview-to-Recording ownership transfer, stale Recording behavior and completion cleanup;
-4. no regression to the existing Phase-65 Recording/Live playback ownership contracts;
-5. no work from Slice 66.5 or later Phase-66 slices.
+1. exact-head hosted CI was green for the runtime-sensitive accepted candidate;
+2. install/staging and repository-derived installation path were verified for that candidate;
+3. real yaVDR/browser validation passed for the bounded Continue Watching behavior, including the final resume/detail/artwork/metadata re-test;
+4. the existing Phase-65 Recording/Live playback ownership contracts remain unchanged and covered by the hosted regression graph;
+5. no work from Slice 66.5 or later Phase-66 slices was included.
 
-Only after those gates may Slice 66.4 be recorded as completed. Until real yaVDR acceptance passes, this document and `docs/CURRENT.md` must continue to report Slice 66.4 as active/PENDING.
+Slice 66.5 and later Phase-66 work remain unauthorized until separately opened by the repository workflow.
