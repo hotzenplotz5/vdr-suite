@@ -15,6 +15,8 @@ assert(apiSource.includes('#include "VdrRecordingArtworkIdentity.h"'));
 assert(apiSource.includes('VdrRecordingArtworkIdentity::preferredArtwork(recording)'));
 assert(apiSource.includes('VdrRecordingArtworkIdentity::publicUrl('));
 assert(apiSource.includes('\\",\\\"posterUrl\\\":\\\"" << jsonEscape(item.recording.posterUrl)'));
+assert(apiSource.includes('jsonEscape(item.recording.backendNativeId)'));
+assert(apiSource.includes('truth.backendNativeId = recording.backendNativeId;'));
 assert(identitySource.includes('"/recording-artwork/"'));
 
 function element(tagName) {
@@ -65,9 +67,11 @@ const api = context.window.VdrSuiteHomeContinueWatching;
 assert(api && api._test);
 
 const posterUrl = '/recording-artwork/default/0123456789abcdef0123456789abcdef';
+const backendNativeId = '/srv/vdr/video/Ein_unmoralisches_Angebot/2026-08-30.07.00.00-0.rec';
 const item = api._test.normalizeItem({
   backendId: 'default',
   recordingId: 'recording-1',
+  backendNativeId,
   title: 'Ein unmoralisches Angebot',
   posterUrl,
   resumePositionSeconds: 238,
@@ -76,6 +80,7 @@ const item = api._test.normalizeItem({
 });
 assert(item);
 assert.strictEqual(item.posterUrl, posterUrl);
+assert.strictEqual(item.backendNativeId, backendNativeId);
 
 const artwork = api._test.createArtwork(item);
 assert.strictEqual(artwork.textContent, '');
