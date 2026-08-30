@@ -6,6 +6,8 @@
     return;
   }
 
+  const RESUME_READY_POLL_MS = 100;
+  const RESUME_READY_MAX_ATTEMPTS = 300;
   const pending = {backendId: '', recordingId: '', positionSeconds: 0, autoStart: false};
   let operationCounter = 0;
   let mutationQueue = Promise.resolve();
@@ -101,6 +103,34 @@
     }
   });
 
+  function ownerState(owner) {
+    if (!owner || typeof owner.state !== 'function') return '';
+    try { return text(owner.state()); } catch (error) { return ''; }
+  }
+
+  function waitForResumeReady(owner, attempt) {
+    if (!owner || typeof owner.canResume !== 'function') return Promise.resolve(true);
+    try {
+      if (owner.canResume() === true) return Promise.resolve(true);
+    } catch (error) {}
+
+    const state = ownerState(owner);
+    if (state === 'stopped' || state === 'destroyed' || state === 'relinquished') {
+      return Promise.reject(new Error('Canonical Recording owner stopped before resume became ready.'));
+    }
+
+    const currentAttempt = Math.max(0, Math.floor(Number(attempt) || 0));
+    if (currentAttempt >= RESUME_READY_MAX_ATTEMPTS || typeof global.setTimeout !== 'function') {
+      return Promise.reject(new Error('Canonical Recording resume did not become ready in time.'));
+    }
+
+    return new Promise(function (resolve) {
+      global.setTimeout(resolve, RESUME_READY_POLL_MS);
+    }).then(function () {
+      return waitForResumeReady(owner, currentAttempt + 1);
+    });
+  }
+
   function startAtAbsolute(owner, positionSeconds) {
     const target = Math.max(0, Math.floor(Number(positionSeconds) || 0));
     if (!owner) return Promise.reject(new Error('Canonical Recording owner is unavailable.'));
@@ -112,7 +142,10 @@
       return Promise.resolve(owner.startAtAbsolute(target));
     }
     if (typeof owner.start === 'function' && typeof owner.seekAbsolute === 'function') {
-      return Promise.resolve(owner.start()).then(function () {
+      return Promise.resolve(owner.start()).then(function (sessionId) {
+        if (!sessionId) throw new Error('Canonical Recording session did not start.');
+        return waitForResumeReady(owner, 0);
+      }).then(function () {
         return owner.seekAbsolute(target);
       });
     }
@@ -300,6 +333,7 @@
     clear: clearCurrent,
     __test: Object.freeze({
       startAtAbsolute,
+      waitForResumeReady,
       rememberOpen,
       decorateOwner,
       post,

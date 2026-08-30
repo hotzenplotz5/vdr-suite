@@ -27,6 +27,7 @@ test-continue-watching-security-request:
 test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching.js
 	node web/frontend/tests/test_phase66_continue_watching_artwork.js
+	node web/frontend/tests/test_phase66_continue_watching_resume_ready.js
 	node web/frontend/tests/test_phase66_continue_watching_home_runtime.js
 	node web/frontend/tests/test_phase66_continue_watching_fast_owner_contract.js
 	node web/frontend/tests/test_phase66_continue_watching_navigation_contract.js
