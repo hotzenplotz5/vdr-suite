@@ -60,6 +60,12 @@
     historyMutationQueue = operation.catch(function () {});
     return operation;
   }
+  function flushPending() {
+    return Promise.all([
+      mutationQueue.catch(function () {}),
+      historyMutationQueue.catch(function () {})
+    ]).then(function () { return true; });
+  }
   function clearCurrent(backendId, currentRecordingId) {
     const id = text(currentRecordingId);
     if (!id) return Promise.resolve(false);
@@ -366,6 +372,7 @@
 
   global.VdrSuiteContinueWatchingSync = Object.freeze({
     clear: clearCurrent,
+    flush: flushPending,
     __test: Object.freeze({
       startAtAbsolute,
       waitForResumeReady,
@@ -375,6 +382,7 @@
       postHistory,
       enqueue,
       enqueueHistory,
+      flushPending,
       clearCurrent
     })
   });
