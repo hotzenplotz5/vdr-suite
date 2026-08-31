@@ -35,6 +35,8 @@ Before any implementation, review-state change, installation or status claim, re
 - [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md)
 - [Phase 66.4 Continue Watching Closeout](development/phase-66-continue-watching-closeout.md)
 - [Phase 66.5 Recording Discovery Rails Closeout](development/phase-66-recording-discovery-rails-closeout.md)
+- [Phase 66.6 Recently Watched / History](development/phase-66-recently-watched-history.md)
+- [Phase 66.6 Recently Watched / History Closeout](development/phase-66-recently-watched-history-closeout.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [ADR-0044 Timer Model](adr/ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0046 Streaming Gateway](adr/ADR-0046-streaming-gateway-media-session-boundary.md)
@@ -47,6 +49,7 @@ Before any implementation, review-state change, installation or status claim, re
 ```text
 Repository: hotzenplotz5/vdr-suite
 Branch authority: main
+Current Slice-66.6 work branch: work/phase66-recently-watched-history
 
 Latest completed numbered runtime phase:
 Phase 65 - Streaming Gateway and Media Sessions
@@ -58,10 +61,10 @@ Next strict numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Latest completed Phase-66 slice:
-Slice 66.5 - Recording Discovery Rails (PR #236)
+Slice 66.6 - Recently Watched / History (PR #237, Draft)
 
 Current active runtime slice:
-None - Slice 66.6 is not authorized
+NONE - Slice 66.7 has not been authorized
 
 Slice 66.4 Real-System Acceptance:
 PASS
@@ -69,10 +72,16 @@ PASS
 Slice 66.5 Real-System Acceptance:
 PASS
 
-Slice 66.5:
-COMPLETED / ACCEPTED
+Slice 66.6 Real-System Acceptance:
+PASS
 
-Slice 66.6 and later Phase-66 slices:
+Slice 66.5:
+COMPLETED / ACCEPTED / MERGED
+
+Slice 66.6:
+COMPLETED / ACCEPTED; PR #237 remains Draft
+
+Slice 66.7 and later Phase-66 slices:
 NOT AUTHORIZED
 
 Completed Phase-65 product verticals:
@@ -111,7 +120,7 @@ The ADR-0056 mandatory semantic sequence is complete: normalized provider-free `
 
 Truthful range/seek/growing-recording capability remains binding after Phase 65 closeout. Completed-Recording arbitrary time-seek and stop/resume are accepted for supported progressive-fMP4 and HLS restart-seek paths. Compatibility timeline interactions preserve canonical absolute Recording position across transport-local time, and exact non-zero HLS video resume uses a synchronized implemented adaptation path or fails closed. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by the accepted completed-Recording paths remain deferred and must not be fabricated.
 
-Phase 66 has completed **Slice 66.5 — Recording Discovery Rails** after Slice 66.1 was accepted on the real yaVDR system and merged through PR #231, Slice 66.2 was merged through PR #232 with the real-browser keyboard-focus correction in PR #233, Slice 66.3 Deferred Live Preview was completed through PR #234, and Slice 66.4 Continue Watching was completed through PR #235. Slice 66.5 projects existing Recording, Genre and folder truth into lazy Home discovery rails without creating a second content catalog or navigation owner. The accepted runtime-sensitive candidate is `cd8133a814ba5325638fef0407915e294f8d125c`; VDR-Suite CI #8405 / run `33307208279` passed on that candidate and real yaVDR/Android-browser acceptance passed after exact install identity verification. Series remains conditional and fail-closed on canonical series evidence rather than Home-side heuristics. PR #236 intentionally remains Draft; Ready-for-review and merge are not authorized. Slice 66.6 and every later Phase-66 semantic remain **NOT AUTHORIZED**. Accepted ADR-0054 remains the Broadcast Companion architecture for the following Phase 67.
+Phase 66 has completed **Slice 66.6 — Recently Watched / History** after Slice 66.1 was accepted on the real yaVDR system and merged through PR #231, Slice 66.2 was merged through PR #232 with the real-browser keyboard-focus correction in PR #233, Slice 66.3 Deferred Live Preview was completed through PR #234, Slice 66.4 Continue Watching was completed through PR #235, and Slice 66.5 Recording Discovery Rails was completed through PR #236. Slice 66.6 keeps Recently Watched semantically separate from Continue Watching, persists actor/backend/Recording-scoped latest activity with bounded retention, and uses the canonical Recording playback owner as its sole viewing-evidence authority. The accepted runtime-sensitive candidate is `6747682fd84f70c437937eb5311e72048593c73b`; VDR-Suite CI #8412 / run `33334217608` passed completely on that exact candidate, including the daemon build, and real yaVDR/Android-browser acceptance passed. Acceptance demonstrated `1917` first as `Fortsetzbar · 1:34` in `Zuletzt angesehen`, then after natural completion absent from `Weiterschauen` while retained in `Zuletzt angesehen` as `Angesehen`. The first real-browser attempt exposed a missing refresh after programmatic return to Home; that defect was corrected on the accepted candidate and is covered by a dedicated regression test. PR #237 intentionally remains Draft. Ready-for-review, merge, Slice 66.7 and every later Phase-66 semantic remain **NOT AUTHORIZED**. Accepted ADR-0054 remains the Broadcast Companion architecture for the following Phase 67.
 
 Phase 64 closed through PR #195. The exact accepted implementation candidate was `bdd70d527d640dc115a7c141e505140ce8cdba9a`; PR #195 merged that candidate into `main` as `72e298a76f7879ea7fc58f6a502e32eca7399f5a`.
 
@@ -181,7 +190,7 @@ The strict numbered order is now:
 ```text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 - Media Home and Browse Experience [ACTIVE; SLICE 66.5 COMPLETED]
+  -> Phase 66 - Media Home and Browse Experience [ACTIVE; SLICE 66.6 COMPLETED; 66.7 NOT AUTHORIZED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV
   -> Phase 68 - Legacy OSD Compatibility Bridge
   -> Phase 69 - Public API and Client Compatibility Hardening
@@ -190,4 +199,4 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 Future phases 67+ are not runtime-authorized merely because they are named here. The strict details and gates live in the [Roadmap](planning/roadmap.md).
 
-The Phase-66 Media Home architecture is defined by accepted ADR-0058. Runtime authorization has completed Slice 66.5. Slice 66.1, Slice 66.2, Slice 66.3, Slice 66.4 and Slice 66.5 are completed. Slice 66.6 and later Phase-66 slices remain gated by the accepted sequence and current scope. Broadcast Companion architecture remains defined by ADR-0054 for Phase 67.
+The Phase-66 Media Home architecture is defined by accepted ADR-0058. Slice 66.1, Slice 66.2, Slice 66.3, Slice 66.4, Slice 66.5 and Slice 66.6 are completed. There is currently no authorized active Phase-66 runtime slice. Slice 66.7 and later Phase-66 slices remain gated by the accepted sequence and explicit user authorization. Broadcast Companion architecture remains defined by ADR-0054 for Phase 67.

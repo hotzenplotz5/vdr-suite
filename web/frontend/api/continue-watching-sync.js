@@ -8,9 +8,13 @@
 
   const RESUME_READY_POLL_MS = 100;
   const RESUME_READY_MAX_ATTEMPTS = 300;
+  const CONTINUE_ENDPOINT = '/api/media/continue-watching';
+  const HISTORY_ENDPOINT = '/api/media/recently-watched';
   const pending = {backendId: '', recordingId: '', positionSeconds: 0, autoStart: false};
   let operationCounter = 0;
+  let historyOperationCounter = 0;
   let mutationQueue = Promise.resolve();
+  let historyMutationQueue = Promise.resolve();
 
   function text(value) { return value == null ? '' : String(value); }
   function recordingId(recording) { return text(recording && (recording.id || recording.recordingId)); }
@@ -18,29 +22,42 @@
     operationCounter += 1;
     return 'cw-' + prefix + '-' + Date.now().toString(36) + '-' + operationCounter.toString(36);
   }
+  function nextHistoryOperationId(prefix) {
+    historyOperationCounter += 1;
+    return 'rw-' + prefix + '-' + Date.now().toString(36) + '-' + historyOperationCounter.toString(36);
+  }
   function csrfHeaders() {
     const session = global.VdrSuiteBrowserSession;
     if (!session || typeof session.csrfHeaders !== 'function') return {};
     const headers = session.csrfHeaders();
     return headers && typeof headers === 'object' ? headers : {};
   }
-  function post(body) {
+  function postTo(endpoint, body, errorText) {
     const fetcher = global.fetch || fetch;
-    return fetcher('/api/media/continue-watching', {
+    return fetcher(endpoint, {
       method: 'POST',
       credentials: 'same-origin',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body)
     }).then(function (response) {
-      if (!response || !response.ok) throw new Error('continue watching sync failed');
+      if (!response || !response.ok) throw new Error(errorText);
       return true;
     });
   }
+  function post(body) {
+    return postTo(CONTINUE_ENDPOINT, body, 'continue watching sync failed');
+  }
+  function postHistory(body) {
+    return postTo(HISTORY_ENDPOINT, body, 'recently watched sync failed');
+  }
   function enqueue(body) {
-    const operation = mutationQueue.catch(function () {}).then(function () {
-      return post(body);
-    });
+    const operation = mutationQueue.catch(function () {}).then(function () { return post(body); });
     mutationQueue = operation.catch(function () {});
+    return operation;
+  }
+  function enqueueHistory(body) {
+    const operation = historyMutationQueue.catch(function () {}).then(function () { return postHistory(body); });
+    historyMutationQueue = operation.catch(function () {});
     return operation;
   }
   function clearCurrent(backendId, currentRecordingId) {
@@ -90,9 +107,7 @@
     configurable: recordingsDescriptor.configurable !== false,
     enumerable: recordingsDescriptor.enumerable !== false,
     get: function () {
-      const value = recordingsDescriptor.get
-        ? recordingsDescriptor.get.call(global)
-        : recordingsValue;
+      const value = recordingsDescriptor.get ? recordingsDescriptor.get.call(global) : recordingsValue;
       return decorateRecordings2(value);
     },
     set: function (value) {
@@ -138,16 +153,12 @@
       if (typeof owner.start !== 'function') return Promise.reject(new Error('Canonical Recording start is unavailable.'));
       return Promise.resolve(owner.start());
     }
-    if (typeof owner.startAtAbsolute === 'function') {
-      return Promise.resolve(owner.startAtAbsolute(target));
-    }
+    if (typeof owner.startAtAbsolute === 'function') return Promise.resolve(owner.startAtAbsolute(target));
     if (typeof owner.start === 'function' && typeof owner.seekAbsolute === 'function') {
       return Promise.resolve(owner.start()).then(function (sessionId) {
         if (!sessionId) throw new Error('Canonical Recording session did not start.');
         return waitForResumeReady(owner, 0);
-      }).then(function () {
-        return owner.seekAbsolute(target);
-      });
+      }).then(function () { return owner.seekAbsolute(target); });
     }
     return Promise.reject(new Error('Canonical Recording absolute start is unavailable.'));
   }
@@ -160,6 +171,9 @@
     let disposed = false;
     let latestSnapshot = owner.snapshot();
     let lastPosition = -1;
+    let lastHistoryPosition = -1;
+    let historyObserved = false;
+    let historyStartTimer = null;
     let unsubscribeLifecycle = null;
     let mediaObserver = null;
     const boundMedia = [];
@@ -167,23 +181,18 @@
     function snapshotActive(snapshot) {
       const state = snapshot && text(snapshot.state);
       return Boolean(snapshot && snapshot.sessionId) &&
-        state !== 'idle' &&
-        state !== 'stopped' &&
-        state !== 'destroyed' &&
-        state !== 'relinquished';
+        state !== 'idle' && state !== 'stopped' && state !== 'destroyed' && state !== 'relinquished';
     }
     function canResume() {
       return typeof owner.canResume === 'function' && owner.canResume() === true;
     }
     function readPosition() {
       return typeof owner.position === 'function'
-        ? Math.max(0, Math.floor(Number(owner.position()) || 0))
-        : 0;
+        ? Math.max(0, Math.floor(Number(owner.position()) || 0)) : 0;
     }
     function readDuration() {
       return typeof owner.duration === 'function'
-        ? Math.max(0, Math.floor(Number(owner.duration()) || 0))
-        : 0;
+        ? Math.max(0, Math.floor(Number(owner.duration()) || 0)) : 0;
     }
     function syncProgress(forceClear, allowInactive) {
       if (disposed && !forceClear) return Promise.resolve(false);
@@ -194,29 +203,48 @@
       if (!complete && (!position || !canResume() || position === lastPosition)) return Promise.resolve(false);
       lastPosition = position;
       return enqueue(complete ? {
-        operation: 'clear',
-        backendId,
-        recordingId: recordingId(recording),
-        operationId: nextOperationId('clear')
+        operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
       } : {
-        operation: 'progress',
-        backendId,
-        recordingId: recordingId(recording),
-        positionSeconds: position,
-        resumeSupported: true,
-        operationId: nextOperationId('progress')
+        operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
+        resumeSupported: true, operationId: nextOperationId('progress')
       }).then(function () { return true; }, function () { return false; });
     }
-    function stopSampling() {
-      if (sampleTimer !== null && typeof global.clearTimeout === 'function') {
-        global.clearTimeout(sampleTimer);
+    function syncHistory(ended, allowInactive) {
+      if (disposed && !ended) return Promise.resolve(false);
+      if (!ended && !allowInactive && !snapshotActive(latestSnapshot)) return Promise.resolve(false);
+      const id = recordingId(recording);
+      if (!id) return Promise.resolve(false);
+      const positionKnown = typeof owner.position === 'function';
+      const position = readPosition();
+      if (!ended && positionKnown && historyObserved && position === lastHistoryPosition) return Promise.resolve(false);
+      if (!ended && !positionKnown && historyObserved) return Promise.resolve(false);
+      historyObserved = true;
+      lastHistoryPosition = position;
+      const resumeSupportKnown = typeof owner.canResume === 'function';
+      let resumeSupported = false;
+      if (resumeSupportKnown) {
+        try { resumeSupported = owner.canResume() === true; } catch (error) {}
       }
+      const body = {
+        operation: 'activity', backendId, recordingId: id,
+        resumeSupportKnown, resumeSupported, ended: ended === true,
+        operationId: nextHistoryOperationId(ended ? 'ended' : 'activity')
+      };
+      if (positionKnown) body.positionSeconds = position;
+      return enqueueHistory(body).then(function () { return true; }, function () { return false; });
+    }
+    function stopSampling() {
+      if (sampleTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(sampleTimer);
       sampleTimer = null;
+    }
+    function stopHistoryStart() {
+      if (historyStartTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(historyStartTimer);
+      historyStartTimer = null;
     }
     function sample() {
       sampleTimer = null;
       if (disposed || !snapshotActive(latestSnapshot)) return;
-      syncProgress(false, false).then(function () {
+      Promise.all([syncProgress(false, false), syncHistory(false, false)]).then(function () {
         if (!disposed && snapshotActive(latestSnapshot) && typeof global.setTimeout === 'function') {
           sampleTimer = global.setTimeout(sample, 5000);
         }
@@ -227,6 +255,14 @@
         sampleTimer = global.setTimeout(sample, 5000);
       }
     }
+    function ensureInitialHistory() {
+      if (historyObserved || historyStartTimer !== null || disposed || !snapshotActive(latestSnapshot) ||
+          typeof global.setTimeout !== 'function') return;
+      historyStartTimer = global.setTimeout(function () {
+        historyStartTimer = null;
+        syncHistory(false, false);
+      }, 0);
+    }
     function bindEnded() {
       const root = owner.element;
       if (!root || typeof root.querySelectorAll !== 'function') return;
@@ -236,7 +272,9 @@
         boundMedia.push(element);
         element.addEventListener('ended', function () {
           stopSampling();
+          stopHistoryStart();
           syncProgress(true, true);
+          syncHistory(true, true);
         });
       });
       if (mediaObserver || typeof global.MutationObserver !== 'function') return;
@@ -247,6 +285,7 @@
       if (disposed) return;
       disposed = true;
       stopSampling();
+      stopHistoryStart();
       if (mediaObserver && typeof mediaObserver.disconnect === 'function') mediaObserver.disconnect();
       mediaObserver = null;
       if (unsubscribeLifecycle) unsubscribeLifecycle();
@@ -260,22 +299,22 @@
       bindEnded();
 
       if (wasActive && !active) {
+        stopHistoryStart();
         syncProgress(false, true);
+        if (historyObserved) syncHistory(false, true);
       }
-      if (active) ensureSampling();
-      else stopSampling();
+      if (active) {
+        ensureInitialHistory();
+        ensureSampling();
+      } else stopSampling();
 
       const transition = text(latestSnapshot.transition);
-      if (transition === 'destroyed' || transition === 'relinquished') {
-        disposeTracking();
-      }
+      if (transition === 'destroyed' || transition === 'relinquished') disposeTracking();
     }
 
     const decorated = {};
     Object.keys(owner).forEach(function (key) { decorated[key] = owner[key]; });
-    decorated.startAtAbsolute = function (positionSeconds) {
-      return startAtAbsolute(owner, positionSeconds);
-    };
+    decorated.startAtAbsolute = function (positionSeconds) { return startAtAbsolute(owner, positionSeconds); };
     decorated.__vdrSuiteContinueWatchingOwner = true;
     const result = Object.freeze(decorated);
 
@@ -286,9 +325,7 @@
       const position = pending.positionSeconds;
       pending.autoStart = false;
       if (typeof global.setTimeout === 'function') {
-        global.setTimeout(function () {
-          result.startAtAbsolute(position).catch(function () {});
-        }, 0);
+        global.setTimeout(function () { result.startAtAbsolute(position).catch(function () {}); }, 0);
       }
     }
     return result;
@@ -319,9 +356,7 @@
   Object.defineProperty(global, 'VdrSuiteRecordings2Playback', {
     configurable: playbackDescriptor.configurable !== false,
     enumerable: playbackDescriptor.enumerable !== false,
-    get: function () {
-      return decoratePlayback(playbackDescriptor.get.call(global));
-    },
+    get: function () { return decoratePlayback(playbackDescriptor.get.call(global)); },
     set: function (value) {
       cachedPlaybackSource = null;
       cachedPlaybackDecorated = null;
@@ -337,7 +372,9 @@
       rememberOpen,
       decorateOwner,
       post,
+      postHistory,
       enqueue,
+      enqueueHistory,
       clearCurrent
     })
   });

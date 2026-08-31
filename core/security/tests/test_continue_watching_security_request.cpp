@@ -25,6 +25,22 @@ int main()
     assert(ContinueWatchingSecurityRequest::forAuthorization(queried).path ==
         "/api/media/sessions");
 
+    HttpServerRequest history = progress;
+    history.path = "/api/media/recently-watched";
+    history.body =
+        "{\"operation\":\"activity\",\"backendId\":\"default\","
+        "\"recordingId\":\"rec-1\"}";
+    const HttpServerRequest historyAuthorized =
+        ContinueWatchingSecurityRequest::forAuthorization(history);
+    assert(ContinueWatchingSecurityRequest::matches(history));
+    assert(historyAuthorized.path == "/api/media/sessions");
+    assert(historyAuthorized.body == history.body);
+    assert(historyAuthorized.headers == history.headers);
+
+    HttpServerRequest historyQueried = history;
+    historyQueried.path = "/api/media/recently-watched?unused=1";
+    assert(ContinueWatchingSecurityRequest::matches(historyQueried));
+
     HttpServerRequest get = progress;
     get.method = "GET";
     assert(!ContinueWatchingSecurityRequest::matches(get));

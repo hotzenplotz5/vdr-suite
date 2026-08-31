@@ -23,6 +23,7 @@ include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/phase66-continue-watching.mk
 include mk/phase66-recording-discovery.mk
+include mk/phase66-recently-watched.mk
 include mk/phase65-media-tests.mk
 include mk/phase65d-media-playback-contract.mk
 include mk/phase65d-playback-owner-lifecycle.mk
