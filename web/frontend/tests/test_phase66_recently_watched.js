@@ -29,6 +29,16 @@ assert(pathsSource.includes(
 ));
 assert(apiSource.includes('RecentlyWatchedRoute = "/api/media/recently-watched"'));
 assert(apiSource.includes('recentlyWatchedService_->recordActivity'));
+
+// History remains its own durable activity source, but its Home projection is
+// mutually exclusive with the current canonical Continue-Watching set. The API
+// runtime owns both existing services and filters only the list representation;
+// it does not derive resume truth from History itself or delete History rows.
+assert(apiSource.includes('bool isContinueWatchingRecording('));
+assert(apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
+assert(apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
+assert(apiSource.includes('serializeRecentlyWatched(items, continueWatchingItems, currentRecordings)'));
+
 assert(securitySource.includes('/api/media/recently-watched'));
 assert(historyHeader.includes('MaxItemsPerActorBackend = 100'));
 assert(historyHeader.includes('canonical-recording-playback-owner'));

@@ -22,7 +22,17 @@ assert(fastOwner.includes('const resume = playback && playback.resume;'));
 assert(fastOwner.includes('resumeSupported = Boolean(resume && resume.supported === true && durationSeconds > 0);'));
 assert(fastOwner.includes('canResume: function () {'));
 assert(fastOwner.includes("return (stopped || destroyed) ? stoppedResumeSupported : resumeSupported;"));
-assert(fastOwner.includes('if (fallbackPanel) return false;'));
+
+// When the persistent owner has replaced its progressive transport with the
+// canonical HLS compatibility owner, all playback truth must be projected from
+// that child owner. Lifecycle/session delegation alone is insufficient because
+// Continue Watching samples position/duration/canResume from the persistent owner.
+assert(fastOwner.includes("typeof fallbackPanel.position === 'function'"));
+assert(fastOwner.includes('Number(fallbackPanel.position())'));
+assert(fastOwner.includes("typeof fallbackPanel.duration !== 'function'"));
+assert(fastOwner.includes('Number(fallbackPanel.duration())'));
+assert(fastOwner.includes("typeof fallbackPanel.canResume === 'function' && fallbackPanel.canResume() === true"));
+assert(!fastOwner.includes('if (fallbackPanel) return false;'));
 
 // The existing HLS owner remains its own canonical transport owner and already
 // publishes the same fail-closed resume contract.

@@ -2065,10 +2065,28 @@
       play: playPlayback,
       pause: pausePlayback,
       stop: stopPlayback,
-      position: function () { return Math.floor(positionSeconds()); },
-      duration: function () { return durationSeconds > 0 ? durationSeconds : null; },
+      position: function () {
+        if (fallbackPanel) {
+          return typeof fallbackPanel.position === 'function'
+            ? Math.max(0, Math.floor(Number(fallbackPanel.position()) || 0))
+            : 0;
+        }
+        return Math.floor(positionSeconds());
+      },
+      duration: function () {
+        if (fallbackPanel) {
+          if (typeof fallbackPanel.duration !== 'function') return null;
+          const fallbackDuration = Number(fallbackPanel.duration());
+          return Number.isFinite(fallbackDuration) && fallbackDuration > 0
+            ? Math.floor(fallbackDuration)
+            : null;
+        }
+        return durationSeconds > 0 ? durationSeconds : null;
+      },
       canResume: function () {
-        if (fallbackPanel) return false;
+        if (fallbackPanel) {
+          return typeof fallbackPanel.canResume === 'function' && fallbackPanel.canResume() === true;
+        }
         return (stopped || destroyed) ? stoppedResumeSupported : resumeSupported;
       },
       state: playbackState,
