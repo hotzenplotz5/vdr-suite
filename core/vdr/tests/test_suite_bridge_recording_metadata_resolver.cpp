@@ -151,6 +151,35 @@ int main()
     assert(found.images.size() == 1);
     assert(found.images[0].orientation == "landscape");
 
+    transport.reply.payload = foundPayload(key);
+    const std::string movieType = "\"mediaType\":\"movie\"";
+    const std::string seriesType = "\"mediaType\":\"series\"";
+    const std::string positiveProviderId = "\"providerId\":13";
+    const std::string negativeProviderId = "\"providerId\":-1399";
+    transport.reply.payload.replace(
+        transport.reply.payload.find(movieType),
+        movieType.size(),
+        seriesType);
+    transport.reply.payload.replace(
+        transport.reply.payload.find(positiveProviderId),
+        positiveProviderId.size(),
+        negativeProviderId);
+    const VdrRecordingNativeMetadata series = resolver.resolve(key);
+    assert(series.availability ==
+        VdrRecordingNativeMetadataAvailability::Found);
+    assert(series.found);
+    assert(series.mediaType == "series");
+    assert(series.providerId == -1399);
+
+    transport.reply.payload = foundPayload(key);
+    transport.reply.payload.replace(
+        transport.reply.payload.find(positiveProviderId),
+        positiveProviderId.size(),
+        "\"providerId\":0");
+    const VdrRecordingNativeMetadata zeroIdentity = resolver.resolve(key);
+    assert(zeroIdentity.availability ==
+        VdrRecordingNativeMetadataAvailability::InvalidPayload);
+
     transport.reply.payload =
         notFoundPayload(key, "provider-no-match");
     const VdrRecordingNativeMetadata negative =
