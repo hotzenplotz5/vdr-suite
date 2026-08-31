@@ -90,7 +90,7 @@ bool MetadataValid(const SuiteBridgeRecordingMetadata &metadata) noexcept
 
   if (metadata.reason != SuiteBridgeRecordingMetadataReason::None ||
       metadata.mediaType == SuiteBridgeRecordingMediaType::None ||
-      metadata.providerId <= 0) {
+      metadata.providerId == 0) {
     return false;
   }
 

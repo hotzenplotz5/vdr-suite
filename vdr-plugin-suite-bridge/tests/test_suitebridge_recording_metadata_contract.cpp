@@ -87,6 +87,27 @@ int main()
   assert(json.find("/srv/vdr/video") == std::string::npos);
   assert(json.back() == '}');
 
+  SuiteBridgeRecordingMetadata series = metadata;
+  series.mediaType = SuiteBridgeRecordingMediaType::Series;
+  series.providerId = -1399;
+  series.seasonNumber = 10;
+  series.episodeNumber = 14;
+  series.title = "The Walking Dead";
+  series.people.clear();
+  SuiteBridgeRecordingMetadataPayload seriesPayload(series);
+  assert(seriesPayload.Complete());
+  const std::string seriesJson(seriesPayload.Data(), seriesPayload.Size());
+  assert(seriesJson.find("\"mediaType\":\"series\"") != std::string::npos);
+  assert(seriesJson.find("\"providerId\":-1399") != std::string::npos);
+  assert(seriesJson.find("\"seasonNumber\":10") != std::string::npos);
+  assert(seriesJson.find("\"episodeNumber\":14") != std::string::npos);
+
+  SuiteBridgeRecordingMetadata zeroIdentity = series;
+  zeroIdentity.providerId = 0;
+  SuiteBridgeRecordingMetadataPayload zeroIdentityPayload(zeroIdentity);
+  assert(!zeroIdentityPayload.Complete());
+  assert(zeroIdentityPayload.Size() == 0);
+
   SuiteBridgeRecordingMetadata pulpFiction = metadata;
   pulpFiction.providerId = 680;
   pulpFiction.title = "Pulp Fiction";
