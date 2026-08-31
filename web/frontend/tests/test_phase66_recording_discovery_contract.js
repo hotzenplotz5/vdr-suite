@@ -45,7 +45,7 @@ assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recording
 assert(genres.includes('client.fetchClientGenreRecordings(options)'));
 assert(genres.includes('openRecordingGenre: function (entry, options)'));
 
-// Series membership is projection-only: the canonical `series` endpoint is the sole membership authority.
+// Series membership is projection-only: the canonical `series` endpoint remains the sole membership authority.
 assert(source.includes("text(entry.id).toLowerCase() === 'series'"));
 assert(source.includes('canonicalRecordings(payload, backendId)'));
 assert(source.includes('limit: SERIES_PAGE_LIMIT'));
@@ -58,7 +58,19 @@ assert(!source.includes('homeSeriesId'));
 assert(!source.includes('seriesCatalog'));
 assert(!source.includes('SERIES_MEMBER_LIMIT'));
 assert(!source.includes('SERIES_LIMIT'));
-assert(!source.includes("'/api/vdr/recordings/metadata'"));
+
+// Persisted Native Recording Metadata enriches canonical members only, via backendNativeId and bounded concurrency.
+assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
+assert(source.includes('backendNativeId: candidate.nativeId'));
+assert(source.includes("cache: 'no-store'"));
+assert(source.includes("credentials: 'same-origin'"));
+assert(source.includes('const SERIES_METADATA_CONCURRENCY = 4'));
+assert(source.includes('Math.min(SERIES_METADATA_CONCURRENCY, queue.length)'));
+assert(source.includes('richProviderId !== 0'));
+assert(source.includes('rich.get(nativeId) || null'));
+assert(!source.includes('fetch("https://'));
+assert(!source.includes('tmdb.org'));
+assert(!source.includes('tvmaze'));
 
 // Recording identity and navigation remain owned by Recordings 2; Home does not synthesize a second ID.
 assert(source.includes("return text(recording && (recording.recordingId || recording.id))"));
@@ -70,6 +82,7 @@ assert(!source.includes('homeRecordingId'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
 assert(source.includes('presentation(recording).posterUrl || artwork.preferredUrl'));
+assert(source.includes('member.posterUrl || recordingPosterUrl(recording)'));
 assert(source.includes("image.loading = 'lazy'"));
 assert(!source.includes('resolveArtwork'));
 assert(!source.includes('fetchArtwork'));
