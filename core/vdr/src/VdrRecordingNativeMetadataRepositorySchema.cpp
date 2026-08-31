@@ -88,7 +88,20 @@ bool VdrRecordingNativeMetadataRepository::ensureSchemaLocked() const
         "CREATE TABLE IF NOT EXISTS vdr_recording_native_artwork ("
         "backend_id TEXT NOT NULL, recording_key TEXT NOT NULL, ordinal INTEGER NOT NULL, orientation TEXT NOT NULL, provider TEXT NOT NULL,"
         "path TEXT NOT NULL, width INTEGER NOT NULL DEFAULT 0, height INTEGER NOT NULL DEFAULT 0,"
-        "PRIMARY KEY (backend_id, recording_key, ordinal));");
+        "PRIMARY KEY (backend_id, recording_key, ordinal));"
+        "CREATE TABLE IF NOT EXISTS vdr_recording_native_metadata_migration ("
+        "name TEXT PRIMARY KEY,"
+        "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "UPDATE vdr_recording_native_metadata "
+        "SET negative_expires_at = 0, updated_at = CURRENT_TIMESTAMP "
+        "WHERE content_state = 'not_found' AND reason = 'provider-no-match' "
+        "AND NOT EXISTS ("
+        "SELECT 1 FROM vdr_recording_native_metadata_migration "
+        "WHERE name = 'tvscraper-signed-series-provider-id-v1'"
+        ");"
+        "INSERT OR IGNORE INTO vdr_recording_native_metadata_migration (name) "
+        "VALUES ('tvscraper-signed-series-provider-id-v1');");
 
     if (ready) schemaReady_ = true;
     return ready;
