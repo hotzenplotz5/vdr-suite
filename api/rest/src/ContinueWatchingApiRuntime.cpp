@@ -153,6 +153,19 @@ const VdrRecording* findRecording(
     return nullptr;
 }
 
+bool isContinueWatchingRecording(
+    const RecentlyWatchedItem& item,
+    const std::vector<ContinueWatchingItem>& continueWatchingItems)
+{
+    for (const auto& current : continueWatchingItems) {
+        if (current.recording.backendId == item.recording.backendId &&
+            current.recording.recordingId == item.recording.recordingId) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string serializeRecording(const VdrRecording& recording)
 {
     std::ostringstream out;
@@ -203,12 +216,14 @@ std::string serializeContinueWatching(
 
 std::string serializeRecentlyWatched(
     const std::vector<RecentlyWatchedItem>& items,
+    const std::vector<ContinueWatchingItem>& continueWatchingItems,
     const std::vector<VdrRecording>& recordings)
 {
     std::ostringstream out;
     out << "{\"items\":[";
     bool first = true;
     for (const auto& item : items) {
+        if (isContinueWatchingRecording(item, continueWatchingItems)) continue;
         const VdrRecording* currentRecording = findRecording(
             recordings, item.recording.backendId, item.recording.recordingId);
         if (currentRecording == nullptr) continue;
@@ -361,11 +376,12 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     if (recentlyWatched) {
         if (operation == "list") {
             const auto items = recentlyWatchedService_->list(actorRef, backendId);
+            const auto continueWatchingItems = service_->list(actorRef, backendId);
             const auto currentRecordings = recordings_->findAllForBackend(backendId);
             response.statusCode = 200;
             response.contentType = "application/json";
             response.headers["Cache-Control"] = "no-store";
-            response.body = serializeRecentlyWatched(items, currentRecordings);
+            response.body = serializeRecentlyWatched(items, continueWatchingItems, currentRecordings);
             return true;
         }
         if (operation != "activity") {
