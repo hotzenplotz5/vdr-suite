@@ -864,9 +864,7 @@
     const heading = global.document.createElement('div');
     heading.className = 'recordings2-section-title';
     const title = global.document.createElement('h4');
-    title.textContent = 'Live-TV · ' + text(
-      channel && (channel.name || channel.channelName || channel.title || channelId(channel))
-    );
+    title.textContent = 'Wiedergabe';
     heading.appendChild(title);
     panel.appendChild(heading);
 
@@ -2065,10 +2063,28 @@
       play: playPlayback,
       pause: pausePlayback,
       stop: stopPlayback,
-      position: function () { return Math.floor(positionSeconds()); },
-      duration: function () { return durationSeconds > 0 ? durationSeconds : null; },
+      position: function () {
+        if (fallbackPanel) {
+          return typeof fallbackPanel.position === 'function'
+            ? Math.max(0, Math.floor(Number(fallbackPanel.position()) || 0))
+            : 0;
+        }
+        return Math.floor(positionSeconds());
+      },
+      duration: function () {
+        if (fallbackPanel) {
+          if (typeof fallbackPanel.duration !== 'function') return null;
+          const fallbackDuration = Number(fallbackPanel.duration());
+          return Number.isFinite(fallbackDuration) && fallbackDuration > 0
+            ? Math.floor(fallbackDuration)
+            : null;
+        }
+        return durationSeconds > 0 ? durationSeconds : null;
+      },
       canResume: function () {
-        if (fallbackPanel) return false;
+        if (fallbackPanel) {
+          return typeof fallbackPanel.canResume === 'function' && fallbackPanel.canResume() === true;
+        }
         return (stopped || destroyed) ? stoppedResumeSupported : resumeSupported;
       },
       state: playbackState,
