@@ -24,8 +24,8 @@ assert(previewSource.includes('video.controls = true'));
 assert(previewSource.includes("video.removeAttribute('muted')"));
 assert(heroSource.includes('VdrSuiteLiveTvView'));
 assert(heroSource.includes('startChannel(channel)'));
-assert(heroSource.includes("data-home-live-action=\"watch\""));
-assert(heroSource.includes("data-home-live-action=\"epg\""));
+assert(heroSource.includes("watch.setAttribute('data-home-live-action', 'watch')"));
+assert(heroSource.includes("epg.setAttribute('data-home-live-action', 'epg')"));
 
 // Entering the real Live-TV view reprojects an already-active shell session
 // through the ordinary Live panel factory with no preview intent. Therefore the
@@ -195,6 +195,7 @@ const preview = facade.createLivePanel({id: 'C1'}, 'backend-a', {ownerIntent: 'p
 const previewVideo = preview.element.querySelector('video');
 assert(previewVideo, 'preview must keep the canonical Live media element');
 assert.strictEqual(preview.__vdrSuiteVolumeControlsDecorated, undefined, 'preview must not get full-player audio decoration');
+assert.strictEqual(runtime.find(preview.element, 'recordings2-volume-owner-shell'), undefined, 'preview must not reserve a full-player audio shell');
 assert.strictEqual(runtime.find(preview.element, 'recordings2-volume-controls'), undefined, 'preview must contain no Volume/Mute control area');
 assert.strictEqual(runtime.find(preview.element, 'recordings2-volume-mute'), undefined, 'preview must contain no mute button');
 assert.strictEqual(runtime.find(preview.element, 'recordings2-volume-range'), undefined, 'preview must contain no volume slider');
