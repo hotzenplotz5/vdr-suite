@@ -47,12 +47,18 @@ assert(genres.includes('openRecordingGenre: function (entry, options)'));
 
 // Series membership is projection-only: the canonical `series` endpoint is the sole membership authority.
 assert(source.includes("text(entry.id).toLowerCase() === 'series'"));
-assert(source.includes('const recordings = canonicalRecordings(payload, backendId);'));
+assert(source.includes('canonicalRecordings(payload, backendId)'));
+assert(source.includes('limit: SERIES_PAGE_LIMIT'));
+assert(source.includes('offset: offset'));
+assert(source.includes('page.hasMore') || source.includes('payload.hasMore'));
 assert(!source.includes('filter(isSeriesRecording)'));
 assert(!source.includes('function isSeriesRecording'));
 assert(!source.includes("text(value.contentKind) === 'series-episode'"));
 assert(!source.includes('homeSeriesId'));
 assert(!source.includes('seriesCatalog'));
+assert(!source.includes('SERIES_MEMBER_LIMIT'));
+assert(!source.includes('SERIES_LIMIT'));
+assert(!source.includes("'/api/vdr/recordings/metadata'"));
 
 // Recording identity and navigation remain owned by Recordings 2; Home does not synthesize a second ID.
 assert(source.includes("return text(recording && (recording.recordingId || recording.id))"));
