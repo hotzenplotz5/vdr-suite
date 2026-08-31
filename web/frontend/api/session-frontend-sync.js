@@ -397,7 +397,6 @@
     }
     return '';
   }
-
   function mimeTypeFromContinuousInit(value) {
     const bytes = bytesView(value);
     if (!bytes || !findBox(bytes, 'moov')) return '';
@@ -864,7 +863,9 @@
     const heading = global.document.createElement('div');
     heading.className = 'recordings2-section-title';
     const title = global.document.createElement('h4');
-    title.textContent = 'Wiedergabe';
+    title.textContent = 'Live-TV · ' + text(
+      channel && (channel.name || channel.channelName || channel.title || channelId(channel))
+    );
     heading.appendChild(title);
     panel.appendChild(heading);
 
