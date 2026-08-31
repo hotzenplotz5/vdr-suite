@@ -249,12 +249,12 @@
       const matches = resolved.filter(Boolean);
       const paths = new Set(matches.map(function (entry) { return entry.path; }));
       return {
-        folders: folders.filter(function (folder) {
-          return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
-        }).map(function (folder, index) {
+        folders: folders.map(function (folder, index) {
           return representatives[index]
             ? Object.assign({}, folder, {representativeRecording: representatives[index]})
             : folder;
+        }).filter(function (folder) {
+          return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
         }),
         recordings: matches.map(function (entry) { return entry.recording; })
       };
