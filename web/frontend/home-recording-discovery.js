@@ -141,12 +141,6 @@
     });
   }
 
-  function isSeriesRecording(recording) {
-    const value = provider(recording);
-    return text(value.contentKind) === 'series-episode' &&
-      Boolean(text(value.seriesId) || text(value.seriesTitle));
-  }
-
   function sectionFor(key) {
     const target = host();
     if (!target) return null;
@@ -477,7 +471,7 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
-      const recordings = canonicalRecordings(payload, backendId).filter(isSeriesRecording);
+      const recordings = canonicalRecordings(payload, backendId);
       if (!recordings.length) {
         clearRail('series');
         return false;
@@ -649,7 +643,6 @@
       canonicalRecordings: canonicalRecordings,
       canonicalGenres: canonicalGenres,
       canonicalFolders: canonicalFolders,
-      isSeriesRecording: isSeriesRecording,
       recordingPosterUrl: recordingPosterUrl,
       openRecording: openRecording,
       openFolder: openFolder,
