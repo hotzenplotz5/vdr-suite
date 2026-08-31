@@ -14,6 +14,9 @@ assert(source.includes('fetchClientRecordingFolder({'));
 assert(source.includes("'media-home-discovery-rail media-home-inline-rail'"));
 assert(source.includes("card.setAttribute('aria-expanded'"));
 assert(source.includes("global.VdrSuiteRecordings2.openRecording(recording"));
+assert(source.includes('entry.singleRecordingLeaf !== true'));
+assert(source.includes('folderHasMoreRecordings(payload, nextOffset, raw.length)'));
+assert(source.includes('const recordingCount = Number(payload && payload.recordingCount)'));
 assert(!source.includes("selectModule('genres')"));
 assert(!source.includes("selectModule('recordings2');\n      global.VdrSuiteRecordings2.openFolder"));
 assert(!source.includes('/api/media/sessions'));
@@ -244,19 +247,37 @@ const client = {
       return Promise.resolve({
         recordingFolder: true,
         path: currentPath,
-        folders: [{path: 'Action/Marvel', name: 'Marvel', recordingCount: 1}],
-        recordings: [recording('f1', 'Ordner Film')],
-        recordingCount: 1,
-        hasMore: false
+        totalCount: 2,
+        folderCount: 2,
+        recordingCount: 0,
+        returnedCount: 0,
+        folders: [
+          {
+            path: 'Action/Leaf Film',
+            name: 'Leaf Film',
+            recordingCount: 1,
+            singleRecordingLeaf: true,
+            singleRecording: recording('f1', 'Ordner Film')
+          },
+          {
+            path: 'Action/Marvel',
+            name: 'Marvel',
+            recordingCount: 2,
+            singleRecordingLeaf: false
+          }
+        ],
+        recordings: []
       });
     }
     return Promise.resolve({
       recordingFolder: true,
       path: currentPath,
-      folders: [],
-      recordings: [recording('f2', 'Marvel Film')],
+      totalCount: 1,
+      folderCount: 0,
       recordingCount: 1,
-      hasMore: false
+      returnedCount: 1,
+      folders: [],
+      recordings: [recording('f2', 'Marvel Film')]
     });
   }
 };
@@ -341,8 +362,10 @@ function settle() {
 
   let folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
   assert(folderExpansion, 'folder contents must appear directly below the folder rail');
-  assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'subfolders must stay inline');
-  assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'direct recordings must stay inline');
+  assert.strictEqual(folderCalls.length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
+  assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
+  assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
+  assert.strictEqual(folderExpansion.querySelector('.media-home-discovery-card.recording').dataset.recordingId, 'f1');
   assert.strictEqual(folderCalls[0].query.path, 'Action');
 
   const nestedFolder = folderExpansion.querySelector('.media-home-inline-folder');
