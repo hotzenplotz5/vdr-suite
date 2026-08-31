@@ -365,7 +365,10 @@
     if (typeof value.createLivePanel === 'function') {
       const liveFactory = value.createLivePanel;
       decorated.createLivePanel = function () {
-        return decoratePanel(liveFactory.apply(value, arguments));
+        const panel = liveFactory.apply(value, arguments);
+        const options = arguments.length > 2 ? arguments[2] : null;
+        if (options && options.ownerIntent === 'preview') return panel;
+        return decoratePanel(panel);
       };
     }
     decorated.__vdrSuitePlaybackVolumeDecorated = true;
