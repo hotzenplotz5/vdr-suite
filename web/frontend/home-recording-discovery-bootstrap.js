@@ -385,6 +385,25 @@
     });
   }
 
+  function embeddedLeafRecording(entry, backendId) {
+    if (!entry || entry.singleRecordingLeaf !== true) return null;
+    const recording = entry.singleRecording;
+    if (!recording || typeof recording !== 'object') return null;
+    if (!recordingId(recording) || recordingBackendId(recording, backendId) !== backendId) return null;
+    return recording;
+  }
+
+  function projectFolderEntries(payload, backendId) {
+    const folders = [];
+    const recordings = [];
+    canonicalFolders(payload).forEach(function (entry) {
+      const embedded = embeddedLeafRecording(entry, backendId);
+      if (embedded) recordings.push(embedded);
+      else folders.push(entry);
+    });
+    return {folders: folders, recordings: recordings};
+  }
+
   function createInlineArtwork(recording) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
@@ -515,6 +534,15 @@
     return Number(returnedCount || 0) >= INLINE_PAGE_LIMIT;
   }
 
+  function folderHasMoreRecordings(payload, nextOffset, returnedCount) {
+    if (payload && typeof payload.hasMore === 'boolean') return payload.hasMore;
+    const recordingCount = Number(payload && payload.recordingCount);
+    if (Number.isFinite(recordingCount) && recordingCount >= 0) {
+      return nextOffset < Math.floor(recordingCount);
+    }
+    return Number(returnedCount || 0) >= INLINE_PAGE_LIMIT;
+  }
+
   function fetchAllGenreRecordings(client, backendId, genreId) {
     const recordings = [];
 
@@ -555,11 +583,15 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
-        if (offset === 0) folders = canonicalFolders(payload);
+        if (offset === 0) {
+          const projected = projectFolderEntries(payload, backendId);
+          folders = projected.folders;
+          Array.prototype.push.apply(recordings, projected.recordings);
+        }
         const raw = list(payload, 'recordings');
         Array.prototype.push.apply(recordings, canonicalRecordings(payload, backendId));
         const nextOffset = offset + raw.length;
-        const hasMore = pageHasMore(payload, nextOffset, raw.length);
+        const hasMore = folderHasMoreRecordings(payload, nextOffset, raw.length);
         if (!hasMore) return {folders: folders, recordings: recordings, path: path};
         if (!raw.length || nextOffset <= offset) throw new Error('folder inline pagination made no progress');
         return page(nextOffset);
