@@ -108,12 +108,16 @@ assert.strictEqual(folders[1].path, 'Serien');
 const seriesRecording = {
   recordingId: 'series-1',
   backendId: 'default',
+  backendNativeId: '/srv/vdr/video/Serien/The_Walking_Dead/S10E15.rec',
+  path: 'Serien/The Walking Dead/S10E15 Prinzessin',
   metadata: {
     provider: {
       contentKind: 'series-episode',
       seriesId: 'series:42',
-      seriesTitle: 'Beispielserie',
-      episodeTitle: 'Pilot'
+      seriesTitle: 'The Walking Dead',
+      episodeTitle: 'Prinzessin',
+      seasonNumber: 10,
+      episodeNumber: 15
     },
     presentation: {
       posterUrl: '/api/vdr/recordings/metadata/image?kind=preferred'
@@ -124,6 +128,66 @@ assert.strictEqual(api._test.recordingPosterUrl(seriesRecording), '/api/vdr/reco
 assert.strictEqual(api._test.recordingPosterUrl({
   metadata: {artwork: {preferredUrl: '/cached/poster.jpg'}}
 }), '/cached/poster.jpg');
+assert.strictEqual(api._test.canonicalSeriesPath(seriesRecording), 'Serien/The Walking Dead');
+
+const projectedFromRichMetadata = api._test.seriesMemberProjection({
+  recordingId: 'rich-1',
+  backendId: 'default',
+  backendNativeId: 'native-rich-1',
+  path: 'Serien/The Walking Dead/S10E14 Abschiede',
+  metadata: {provider: {}}
+}, {
+  available: true,
+  mediaType: 'episode',
+  provider: 'tvscraper',
+  providerId: 1402,
+  title: 'The Walking Dead',
+  episodeName: 'Abschiede',
+  seasonNumber: 10,
+  episodeNumber: 14,
+  preferredArtwork: {
+    available: true,
+    url: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=native-rich-1&kind=preferred&index=0'
+  }
+}, 'default');
+assert(projectedFromRichMetadata);
+assert.strictEqual(projectedFromRichMetadata.seriesTitle, 'The Walking Dead');
+assert.strictEqual(projectedFromRichMetadata.seasonNumber, 10);
+assert.strictEqual(projectedFromRichMetadata.episodeNumber, 14);
+assert.strictEqual(projectedFromRichMetadata.episodeTitle, 'Abschiede');
+assert(projectedFromRichMetadata.posterUrl.includes('kind=preferred'));
+
+const projectedFromCanonicalPath = api._test.seriesMemberProjection({
+  recordingId: 'path-1',
+  backendId: 'default',
+  backendNativeId: 'native-path-1',
+  path: 'Serien/The Walking Dead/S10E15 Prinzessin',
+  metadata: {provider: {}}
+}, null, 'default');
+assert(projectedFromCanonicalPath);
+assert.strictEqual(projectedFromCanonicalPath.seriesTitle, 'The Walking Dead');
+assert.strictEqual(projectedFromCanonicalPath.seasonNumber, 10);
+assert.strictEqual(projectedFromCanonicalPath.episodeNumber, 15);
+assert.strictEqual(projectedFromCanonicalPath.episodeTitle, 'Prinzessin');
+
+const grouped = api._test.buildSeriesProjection([
+  projectedFromRichMetadata,
+  projectedFromCanonicalPath,
+  api._test.seriesMemberProjection({
+    recordingId: 'other-1',
+    backendId: 'default',
+    path: 'Serien/Andor/S01E03 Abrechnung',
+    metadata: {provider: {}}
+  }, null, 'default')
+]);
+assert.strictEqual(grouped.length, 2);
+const walkingDead = grouped.find((entry) => entry.title === 'The Walking Dead');
+assert(walkingDead);
+assert.strictEqual(walkingDead.episodes.length, 2);
+assert.strictEqual(walkingDead.seasons.length, 1);
+assert.strictEqual(walkingDead.seasons[0].number, 10);
+assert.strictEqual(walkingDead.seasons[0].episodes[0].episodeNumber, 14);
+assert.strictEqual(walkingDead.seasons[0].episodes[1].episodeNumber, 15);
 
 class FakeElement {
   constructor(tagName) {
@@ -135,6 +199,10 @@ class FakeElement {
     this.parentNode = null;
     this.className = '';
     this.textContent = '';
+    this.src = '';
+    this.alt = '';
+    this.loading = '';
+    this.type = '';
   }
 
   setAttribute(name, value) {
@@ -201,6 +269,23 @@ function findRecordingCard(root, recordingId) {
     element.dataset && element.dataset.recordingId === recordingId);
 }
 
+function findSeriesCard(root, seriesKey) {
+  if (!root) return null;
+  return findElement(root, (element) =>
+    element.dataset && element.dataset.seriesKey === seriesKey);
+}
+
+function findSeasonButton(root, seasonNumber) {
+  if (!root) return null;
+  return findElement(root, (element) =>
+    element.dataset && element.dataset.seasonNumber === String(seasonNumber));
+}
+
+function findImage(root) {
+  if (!root) return null;
+  return findElement(root, (element) => element.tagName === 'IMG');
+}
+
 function createProductionHarness(options) {
   const config = options || {};
   const host = new FakeElement('div');
@@ -208,7 +293,8 @@ function createProductionHarness(options) {
     recordings: [],
     genres: [],
     genreRecordings: [],
-    folders: []
+    folders: [],
+    metadata: []
   };
   const productionOpenedRecordings = [];
   const modules = [];
@@ -231,6 +317,16 @@ function createProductionHarness(options) {
     fetchClientRecordingFolder(request) {
       calls.folders.push(request);
       return Promise.resolve(config.folders || {folders: []});
+    },
+    requestJson(route, request) {
+      assert.strictEqual(route, '/api/vdr/recordings/metadata');
+      calls.metadata.push(request);
+      const nativeId = request.query.backendNativeId;
+      if (config.metadataErrors && config.metadataErrors.includes(nativeId)) {
+        return Promise.reject(new Error('metadata unavailable'));
+      }
+      const payload = config.metadata && config.metadata[nativeId];
+      return Promise.resolve(payload || {available: false, status: 'not-found'});
     }
   };
 
@@ -281,16 +377,36 @@ function createProductionHarness(options) {
   };
 }
 
-async function proveCanonicalSeriesProductionPath() {
-  const canonicalSeries = {
-    recordingId: 'series-canonical',
+async function proveCanonicalSeriesHierarchyProductionPath() {
+  const episode14 = {
+    recordingId: 'twd-s10e14',
     backendId: 'default',
-    title: 'Kanonische Serie',
+    backendNativeId: 'native-twd-14',
+    path: 'Serien/The Walking Dead/S10E14 Abschiede',
+    title: 'Serien/The Walking Dead/S10E14 Abschiede',
+    metadata: {provider: {}}
+  };
+  const episode15 = {
+    recordingId: 'twd-s10e15',
+    backendId: 'default',
+    backendNativeId: 'native-twd-15',
+    path: 'Serien/The Walking Dead/S10E15 Prinzessin',
+    title: 'Serien/The Walking Dead/S10E15 Prinzessin',
+    metadata: {provider: {}}
+  };
+  const andor = {
+    recordingId: 'andor-s01e03',
+    backendId: 'default',
+    backendNativeId: 'native-andor-3',
+    path: 'Serien/Andor/S01E03 Abrechnung',
+    title: 'Serien/Andor/S01E03 Abrechnung',
     metadata: {provider: {}}
   };
   const foreignSeries = {
     recordingId: 'series-foreign',
     backendId: 'remote-b',
+    backendNativeId: 'native-foreign',
+    path: 'Serien/Fremd/S01E01 Fremd',
     title: 'Fremde Serie',
     metadata: {provider: {}}
   };
@@ -311,32 +427,105 @@ async function proveCanonicalSeriesProductionPath() {
     newly: {recordings: [heuristicOnly]},
     genres: {genres: [
       {id: 'movie', label: 'Film', count: 1},
-      {id: 'series', label: 'Serien', count: 2}
+      {id: 'series', label: 'Serien', count: 4}
     ]},
-    series: {recordings: [canonicalSeries, foreignSeries]},
-    folders: {folders: [{name: 'Filme', path: 'Filme', count: 1}]}
+    series: {recordings: [episode14, episode15, andor, foreignSeries]},
+    folders: {folders: [{name: 'Filme', path: 'Filme', count: 1}]},
+    metadata: {
+      'native-twd-14': {
+        available: true,
+        mediaType: 'episode',
+        provider: 'tvscraper',
+        providerId: 1402,
+        title: 'The Walking Dead',
+        episodeName: 'Abschiede',
+        seasonNumber: 10,
+        episodeNumber: 14,
+        preferredArtwork: {available: true, url: '/poster/twd.jpg'}
+      },
+      'native-twd-15': {
+        available: true,
+        mediaType: 'episode',
+        provider: 'tvscraper',
+        providerId: 1402,
+        title: 'The Walking Dead',
+        episodeName: 'Prinzessin',
+        seasonNumber: 10,
+        episodeNumber: 15,
+        preferredArtwork: {available: true, url: '/poster/twd.jpg'}
+      },
+      'native-andor-3': {
+        available: true,
+        mediaType: 'episode',
+        provider: 'tvscraper',
+        providerId: 83867,
+        title: 'Andor',
+        episodeName: 'Abrechnung',
+        seasonNumber: 1,
+        episodeNumber: 3,
+        preferredArtwork: {available: true, url: '/poster/andor.jpg'}
+      }
+    }
   });
 
   assert.strictEqual(await production.api.refresh(), true);
   assert.strictEqual(production.calls.genreRecordings.length, 1);
   assert.strictEqual(production.calls.genreRecordings[0].backendId, 'default');
   assert.strictEqual(production.calls.genreRecordings[0].genreId, 'series');
+  assert.strictEqual(production.calls.genreRecordings[0].limit, 240);
+  assert.strictEqual(production.calls.metadata.length, 3);
+  assert(production.calls.metadata.every((call) => call.query.backend === 'default'));
 
   const seriesRail = findRail(production.host, 'series');
   assert(seriesRail);
-  const seriesCard = findRecordingCard(seriesRail, canonicalSeries.recordingId);
-  assert(seriesCard);
+  const twdCard = findSeriesCard(seriesRail, 'folder:serien/the walking dead');
+  const andorCard = findSeriesCard(seriesRail, 'folder:serien/andor');
+  assert(twdCard);
+  assert(andorCard);
+  assert.strictEqual(findRecordingCard(seriesRail, episode14.recordingId), null);
+  assert.strictEqual(findRecordingCard(seriesRail, episode15.recordingId), null);
   assert.strictEqual(findRecordingCard(seriesRail, foreignSeries.recordingId), null);
   assert.strictEqual(findRecordingCard(seriesRail, heuristicOnly.recordingId), null);
+  const twdPoster = findImage(twdCard);
+  assert(twdPoster);
+  assert.strictEqual(twdPoster.src, '/poster/twd.jpg');
 
-  assert.strictEqual(typeof seriesCard.listeners.click[0], 'function');
-  seriesCard.listeners.click[0]();
+  twdCard.listeners.click[0]();
+  const season10 = findSeasonButton(findRail(production.host, 'series'), 10);
+  assert(season10);
+  assert(String(season10.textContent).includes('Staffel 10'));
+  assert.strictEqual(findRecordingCard(findRail(production.host, 'series'), episode14.recordingId), null);
+
+  season10.listeners.click[0]();
+  const episode14Card = findRecordingCard(findRail(production.host, 'series'), episode14.recordingId);
+  const episode15Card = findRecordingCard(findRail(production.host, 'series'), episode15.recordingId);
+  assert(episode14Card);
+  assert(episode15Card);
+
+  episode15Card.listeners.click[0]();
   await Promise.resolve();
   await Promise.resolve();
   assert.strictEqual(production.openedRecordings.length, 1);
-  assert.strictEqual(production.openedRecordings[0].recording, canonicalSeries);
+  assert.strictEqual(production.openedRecordings[0].recording, episode15);
   assert.strictEqual(production.openedRecordings[0].options.backendId, 'default');
   assert.strictEqual(production.modules[0], 'recordings2');
+
+  const failingMetadata = createProductionHarness({
+    genres: {genres: [{id: 'series', label: 'Serien', count: 2}]},
+    series: {recordings: [episode14, episode15]},
+    metadataErrors: ['native-twd-14', 'native-twd-15']
+  });
+  assert.strictEqual(await failingMetadata.api.refresh(), true);
+  const fallbackRail = findRail(failingMetadata.host, 'series');
+  assert(fallbackRail);
+  const fallbackTwd = findSeriesCard(fallbackRail, 'folder:serien/the walking dead');
+  assert(fallbackTwd);
+  fallbackTwd.listeners.click[0]();
+  const fallbackSeason10 = findSeasonButton(findRail(failingMetadata.host, 'series'), 10);
+  assert(fallbackSeason10);
+  fallbackSeason10.listeners.click[0]();
+  assert(findRecordingCard(findRail(failingMetadata.host, 'series'), episode14.recordingId));
+  assert(findRecordingCard(findRail(failingMetadata.host, 'series'), episode15.recordingId));
 
   const failingSeries = createProductionHarness({
     newly: {recordings: [sameBackend]},
@@ -354,11 +543,12 @@ async function proveCanonicalSeriesProductionPath() {
   const noCanonicalSeries = createProductionHarness({
     newly: {recordings: [heuristicOnly]},
     genres: {genres: [{id: 'movie', label: 'Film', count: 1}]},
-    series: {recordings: [canonicalSeries]},
+    series: {recordings: [episode14]},
     folders: {folders: [{name: 'Filme', path: 'Filme', count: 1}]}
   });
   assert.strictEqual(await noCanonicalSeries.api.refresh(), true);
   assert.strictEqual(noCanonicalSeries.calls.genreRecordings.length, 0);
+  assert.strictEqual(noCanonicalSeries.calls.metadata.length, 0);
   assert.strictEqual(findRail(noCanonicalSeries.host, 'series'), null);
 
   const emptyCanonicalSeries = createProductionHarness({
@@ -397,9 +587,9 @@ async function proveCanonicalSeriesProductionPath() {
   assert.strictEqual(transitions[3], 'overview');
   assert.strictEqual(scheduled.length, 1);
 
-  await proveCanonicalSeriesProductionPath();
+  await proveCanonicalSeriesHierarchyProductionPath();
 
-  console.log('phase66 recording discovery ownership and canonical series coverage ok');
+  console.log('phase66 recording discovery ownership and canonical series hierarchy coverage ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
