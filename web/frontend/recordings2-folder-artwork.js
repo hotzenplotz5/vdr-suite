@@ -13,42 +13,21 @@
   const LEAF_CONCURRENCY = 4;
   const REPRESENTATIVE_DEPTH = 4;
   const GENRES = Object.freeze({
-    horror: {slug: 'horror', sprite: '0% 0%'},
-    grusel: {slug: 'horror', sprite: '0% 0%'},
-    katastrophe: {slug: 'katastrophenfilm', sprite: '50% 0%'},
-    katastrophenfilm: {slug: 'katastrophenfilm', sprite: '50% 0%'},
-    fantasy: {slug: 'fantasy', sprite: '100% 0%'},
-    historie: {slug: 'historienfilm', sprite: '0% 100%'},
-    historienfilm: {slug: 'historienfilm', sprite: '0% 100%'},
-    comedy: {slug: 'komoedie', sprite: '50% 100%'},
-    komodie: {slug: 'komoedie', sprite: '50% 100%'},
-    krieg: {slug: 'krieg', sprite: '100% 100%'},
-    kriegsfilm: {slug: 'krieg', sprite: '100% 100%'},
-    thriller: {slug: 'thriller'},
-    musik: {slug: 'musik'},
-    music: {slug: 'musik'},
-    drama: {slug: 'drama'},
-    mystery: {slug: 'mystery'},
-    mysterium: {slug: 'mystery'},
-    scifi: {slug: 'scifi'},
-    sciencefiction: {slug: 'scifi'},
-    serie: {slug: 'serien'},
-    serien: {slug: 'serien'},
-    series: {slug: 'serien'},
-    western: {slug: 'western'},
-    doku: {slug: 'doku'},
-    dokumentation: {slug: 'doku'},
-    documentary: {slug: 'doku'},
-    action: {slug: 'action'},
-    musical: {slug: 'musical'}
+    horror: {slug: 'horror', sprite: '0% 0%'}, grusel: {slug: 'horror', sprite: '0% 0%'},
+    katastrophe: {slug: 'katastrophenfilm', sprite: '50% 0%'}, katastrophenfilm: {slug: 'katastrophenfilm', sprite: '50% 0%'},
+    fantasy: {slug: 'fantasy', sprite: '100% 0%'}, historie: {slug: 'historienfilm', sprite: '0% 100%'},
+    historienfilm: {slug: 'historienfilm', sprite: '0% 100%'}, comedy: {slug: 'komoedie', sprite: '50% 100%'},
+    komodie: {slug: 'komoedie', sprite: '50% 100%'}, krieg: {slug: 'krieg', sprite: '100% 100%'},
+    kriegsfilm: {slug: 'krieg', sprite: '100% 100%'}, thriller: {slug: 'thriller'}, musik: {slug: 'musik'},
+    music: {slug: 'musik'}, drama: {slug: 'drama'}, mystery: {slug: 'mystery'}, mysterium: {slug: 'mystery'},
+    scifi: {slug: 'scifi'}, sciencefiction: {slug: 'scifi'}, serie: {slug: 'serien'}, serien: {slug: 'serien'},
+    series: {slug: 'serien'}, western: {slug: 'western'}, doku: {slug: 'doku'}, dokumentation: {slug: 'doku'},
+    documentary: {slug: 'doku'}, action: {slug: 'action'}, musical: {slug: 'musical'}
   });
 
   function normalizeName(value) {
-    return String(value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase('de-DE')
-      .replace(/[^a-z0-9]+/g, '');
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('de-DE').replace(/[^a-z0-9]+/g, '');
   }
 
   function forFolderName(value) {
@@ -58,9 +37,7 @@
 
   function publicPath(path) {
     const resolver = global.VdrSuitePublicUrl;
-    return resolver && typeof resolver.resolvePath === 'function'
-      ? resolver.resolvePath(path)
-      : path;
+    return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
   }
 
   function installStyles() {
@@ -86,17 +63,13 @@
 
   function createRepresentativeArtwork(folder) {
     const recording = representativeRecording(folder);
-    const url = recording && typeof shared.recordingPosterUrl === 'function'
-      ? shared.recordingPosterUrl(recording)
-      : '';
+    const url = recording && typeof shared.recordingPosterUrl === 'function' ? shared.recordingPosterUrl(recording) : '';
     if (!url) return null;
-
     installStyles();
     const artwork = document.createElement('span');
     artwork.className = 'recordings2-folder-artwork is-native';
     artwork.setAttribute('aria-hidden', 'true');
     artwork.textContent = '📁';
-
     const image = document.createElement('img');
     image.src = publicPath(url);
     image.alt = '';
@@ -110,34 +83,27 @@
   function create(folder) {
     const representative = createRepresentativeArtwork(folder);
     if (representative) return representative;
-
     const name = shared.decodeDisplayText(shared.first(folder, ['name'], ''));
     const genre = forFolderName(name);
     if (!genre) return null;
-
     installStyles();
     const artwork = document.createElement('span');
     artwork.className = 'recordings2-folder-artwork';
     artwork.setAttribute('aria-hidden', 'true');
     artwork.dataset.genre = genre.slug;
-
     if (genre.sprite) {
       artwork.classList.add('is-sprite');
       artwork.style.backgroundImage = 'url("' + publicPath(SPRITE) + '")';
       artwork.style.backgroundPosition = genre.sprite;
     } else {
-      artwork.style.backgroundImage = 'url("' + publicPath(
-        '/channel-logos/vdr-suite-brand/recording-genre-' + genre.slug + '.svg'
-      ) + '")';
+      artwork.style.backgroundImage = 'url("' + publicPath('/channel-logos/vdr-suite-brand/recording-genre-' + genre.slug + '.svg') + '")';
     }
-
     return artwork;
   }
 
   function isSingleRecordingLeaf(data) {
     const recordings = shared.recordingList(data);
-    return Boolean(data && data.recordingFolder === true) &&
-      shared.folderList(data).length === 0 && recordings.length === 1;
+    return Boolean(data && data.recordingFolder === true) && shared.folderList(data).length === 0 && recordings.length === 1;
   }
 
   function embeddedLeafRecording(folder) {
@@ -158,22 +124,16 @@
     const recordings = shared.recordingList(page);
     if (recordings.length) return Promise.resolve(recordings[0]);
     if (depth <= 0 || typeof loader !== 'function') return Promise.resolve(null);
-
     const folders = shared.folderList(page);
     let index = 0;
     function nextFolder() {
       if (index >= folders.length) return Promise.resolve(null);
-      const folder = folders[index++];
-      const path = shared.normalizePath(shared.first(folder, ['path'], ''));
+      const path = shared.normalizePath(shared.first(folders[index++], ['path'], ''));
       if (!path || visited.has(path)) return nextFolder();
       visited.add(path);
       return Promise.resolve(loader(path, 0)).then(function (childPage) {
         return findRepresentative(childPage, loader, depth - 1, visited);
-      }).catch(function () {
-        return null;
-      }).then(function (recording) {
-        return recording || nextFolder();
-      });
+      }).catch(function () { return null; }).then(function (recording) { return recording || nextFolder(); });
     }
     return nextFolder();
   }
@@ -184,38 +144,31 @@
     const representatives = new Array(folders.length);
     const candidates = [];
     const seriesFolderPage = isSeriesFolderPage(data);
-
     folders.forEach(function (folder, folderIndex) {
       const path = shared.normalizePath(shared.first(folder, ['path'], ''));
       const embedded = embeddedLeafRecording(folder);
-
       if (path && embedded) {
         resolved[folderIndex] = {path: path, recording: embedded};
         return;
       }
-
       if (!path) return;
-      if (shared.number(folder.recordingCount, 0) === 1 || seriesFolderPage) {
-        candidates.push({
-          folder: folder,
-          folderIndex: folderIndex,
-          path: path,
-          tryLeaf: shared.number(folder.recordingCount, 0) === 1,
-          tryRepresentative: seriesFolderPage
-        });
-      }
+      const tryLeaf = shared.number(folder.recordingCount, 0) === 1;
+      if (tryLeaf || seriesFolderPage) candidates.push({folderIndex, path, tryLeaf, tryRepresentative: seriesFolderPage});
     });
 
-    if (!candidates.length || typeof loader !== 'function') {
+    function result() {
       const matches = resolved.filter(Boolean);
       const paths = new Set(matches.map(function (entry) { return entry.path; }));
-      return Promise.resolve({
-        folders: folders.filter(function (folder) {
+      return {
+        folders: folders.map(function (folder, index) {
+          return representatives[index] ? Object.assign({}, folder, {representativeRecording: representatives[index]}) : folder;
+        }).filter(function (folder) {
           return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
         }),
         recordings: matches.map(function (entry) { return entry.recording; })
-      });
+      };
     }
+    if (!candidates.length || typeof loader !== 'function') return Promise.resolve(result());
 
     let cursor = 0;
     function worker() {
@@ -224,54 +177,23 @@
       const candidate = candidates[candidateIndex];
       return Promise.resolve(loader(candidate.path, 0)).then(function (page) {
         if (candidate.tryLeaf && isSingleRecordingLeaf(page)) {
-          resolved[candidate.folderIndex] = {
-            path: candidate.path,
-            recording: shared.recordingList(page)[0]
-          };
+          resolved[candidate.folderIndex] = {path: candidate.path, recording: shared.recordingList(page)[0]};
           return null;
         }
         if (!candidate.tryRepresentative) return null;
-        return findRepresentative(
-          page,
-          loader,
-          REPRESENTATIVE_DEPTH,
-          new Set([candidate.path])
-        ).then(function (recording) {
+        return findRepresentative(page, loader, REPRESENTATIVE_DEPTH, new Set([candidate.path])).then(function (recording) {
           if (recording) representatives[candidate.folderIndex] = recording;
         });
       }).catch(function (error) {
         console.warn('Recordings 2 folder could not be resolved:', candidate.path, error);
       }).then(worker);
     }
-
     const workers = Array.from({length: Math.min(LEAF_CONCURRENCY, candidates.length)}, worker);
-    return Promise.all(workers).then(function () {
-      const matches = resolved.filter(Boolean);
-      const paths = new Set(matches.map(function (entry) { return entry.path; }));
-      return {
-        folders: folders.map(function (folder, index) {
-          return representatives[index]
-            ? Object.assign({}, folder, {representativeRecording: representatives[index]})
-            : folder;
-        }).filter(function (folder) {
-          return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
-        }),
-        recordings: matches.map(function (entry) { return entry.recording; })
-      };
-    });
+    return Promise.all(workers).then(result);
   }
 
   global.VdrSuiteRecordings2FolderArtwork = Object.freeze({
-    normalizeName,
-    forFolderName,
-    installStyles,
-    representativeRecording,
-    createRepresentativeArtwork,
-    create,
-    isSingleRecordingLeaf,
-    embeddedLeafRecording,
-    isSeriesFolderPage,
-    findRepresentative,
-    resolveLeaves
+    normalizeName, forFolderName, installStyles, representativeRecording, createRepresentativeArtwork, create,
+    isSingleRecordingLeaf, embeddedLeafRecording, isSeriesFolderPage, findRepresentative, resolveLeaves
   });
 }(window));
