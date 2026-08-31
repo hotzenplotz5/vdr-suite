@@ -135,6 +135,44 @@ RecordingEvidenceSignature desiredRecordingEvidenceSignature(
     return signature;
 }
 
+RecordingEvidenceSignature desiredRecordingEvidenceSignature(
+    const std::vector<GenreEvidenceInput>& inputs)
+{
+    RecordingEvidenceSignature signature;
+
+    for (const GenreEvidenceInput& input : inputs)
+    {
+        RecordingEvidenceSignature part =
+            desiredRecordingEvidenceSignature(input);
+        if (signature.nativeId.empty())
+        {
+            signature.nativeId = part.nativeId;
+            signature.lifecycleState = part.lifecycleState;
+        }
+        signature.assignments.insert(
+            signature.assignments.end(),
+            part.assignments.begin(),
+            part.assignments.end());
+    }
+
+    std::sort(
+        signature.assignments.begin(),
+        signature.assignments.end(),
+        [](const RecordingAssignmentSignature& left,
+           const RecordingAssignmentSignature& right)
+        {
+            if (left.ordinal != right.ordinal)
+                return left.ordinal < right.ordinal;
+            if (left.providerId != right.providerId)
+                return left.providerId < right.providerId;
+            if (left.genreId != right.genreId)
+                return left.genreId < right.genreId;
+            return left.originalValue < right.originalValue;
+        });
+
+    return signature;
+}
+
 bool readRecordingEvidenceSignatures(
     sqlite3* database,
     const std::string& backendId,
@@ -226,8 +264,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         ? "SELECT c.cache_key,c.backend_native_id,c.title,c.path,"
           "COALESCE(m.content_state,''),"
           "COALESCE(m.last_attempt_state,''),"
-          "COALESCE(m.provider,''),"
-          "COALESCE(m.media_type,''),COALESCE(l.value,'') "
+          "COALESCE(m.provider,''),COALESCE(l.value,'') "
           "FROM vdr_recording_cache c "
           "LEFT JOIN vdr_recording_native_metadata m "
           "ON m.backend_id=c.backend_id "
@@ -239,7 +276,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
           "WHERE c.backend_id=? "
           "ORDER BY c.cache_key,l.ordinal;"
         : "SELECT c.cache_key,c.backend_native_id,"
-          "c.title,c.path,'','','','','' "
+          "c.title,c.path,'','','','' "
           "FROM vdr_recording_cache c "
           "WHERE c.backend_id=? ORDER BY c.cache_key;";
 
@@ -264,7 +301,6 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         std::string contentState;
         std::string attemptState;
         std::string provider;
-        std::string mediaType;
         std::vector<std::string> genres;
     };
 
@@ -282,16 +318,16 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         row.contentState = columnText(statement, 4);
         row.attemptState = columnText(statement, 5);
         row.provider = columnText(statement, 6);
-        row.mediaType = columnText(statement, 7);
 
-        const std::string genre = columnText(statement, 8);
+        const std::string genre = columnText(statement, 7);
         if (!genre.empty()) row.genres.push_back(genre);
     }
 
     sqlite3_finalize(statement);
     if (sourceResult != SQLITE_DONE) return false;
 
-    std::map<std::string, GenreEvidenceInput> desiredRows;
+    std::map<std::string, std::vector<GenreEvidenceInput>>
+        desiredRows;
     std::map<std::string, RecordingEvidenceSignature>
         desiredSignatures;
 
@@ -301,60 +337,62 @@ bool GenreIndexRepository::synchronizeRecordingCache(
             recordingFolderGenreCandidate(
                 entry.second.title,
                 entry.second.path);
+        std::vector<GenreEvidenceInput> inputs;
 
-        std::vector<std::string> metadataValues =
-            entry.second.genres;
-        if (entry.second.contentState == "found" &&
-            entry.second.mediaType == "series")
+        if (!entry.second.genres.empty() || folderGenre.empty())
         {
-            metadataValues.push_back(entry.second.mediaType);
-        }
-
-        const bool useFolderGenre =
-            metadataValues.empty() &&
-            !folderGenre.empty();
-
-        GenreEvidenceInput input;
-        input.backendId = normalizedBackend;
-        input.targetType = "recording";
-        input.resourceKey = entry.first;
-        input.nativeId = entry.second.nativeId;
-        input.providerId = useFolderGenre
-            ? "recording-folder"
-            : providerIdFor(
+            GenreEvidenceInput metadataInput;
+            metadataInput.backendId = normalizedBackend;
+            metadataInput.targetType = "recording";
+            metadataInput.resourceKey = entry.first;
+            metadataInput.nativeId = entry.second.nativeId;
+            metadataInput.providerId = providerIdFor(
                 entry.second.provider,
                 "recording-native");
-        input.sourceKind = useFolderGenre
-            ? "recording-folder-genre"
-            : "recording-metadata";
-        input.originalValues = useFolderGenre
-            ? std::vector<std::string>{folderGenre}
-            : metadataValues;
-        input.confidence = useFolderGenre
-            ? 0.70
-            : (entry.second.contentState == "found"
-                ? 0.9
-                : 0.0);
+            metadataInput.sourceKind = "recording-metadata";
+            metadataInput.originalValues = entry.second.genres;
+            metadataInput.confidence =
+                entry.second.contentState == "found"
+                    ? 0.9
+                    : 0.0;
 
-        if (!useFolderGenre &&
-            entry.second.attemptState == "failure" &&
-            !metadataValues.empty())
-        {
-            input.state = "stale";
+            if (entry.second.attemptState == "failure" &&
+                !entry.second.genres.empty())
+            {
+                metadataInput.state = "stale";
+            }
+            else
+            {
+                metadataInput.state =
+                    metadataInput.originalValues.empty()
+                        ? "missing"
+                        : "active";
+            }
+
+            inputs.push_back(std::move(metadataInput));
         }
-        else
+
+        if (!folderGenre.empty())
         {
-            input.state = input.originalValues.empty()
-                ? "missing"
-                : "active";
+            GenreEvidenceInput folderInput;
+            folderInput.backendId = normalizedBackend;
+            folderInput.targetType = "recording";
+            folderInput.resourceKey = entry.first;
+            folderInput.nativeId = entry.second.nativeId;
+            folderInput.providerId = "recording-folder";
+            folderInput.sourceKind = "recording-folder-genre";
+            folderInput.originalValues = {folderGenre};
+            folderInput.state = "active";
+            folderInput.confidence = 0.70;
+            inputs.push_back(std::move(folderInput));
         }
 
         desiredSignatures.emplace(
             entry.first,
-            desiredRecordingEvidenceSignature(input));
+            desiredRecordingEvidenceSignature(inputs));
         desiredRows.emplace(
             entry.first,
-            std::move(input));
+            std::move(inputs));
     }
 
     auto transactionLease =
@@ -441,8 +479,20 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         sqlite3_clear_bindings(clearRecordingEvidence);
         bindText(clearRecordingEvidence, 1, targetId);
 
-        if (!stepDone(clearRecordingEvidence) ||
-            !replaceEvidenceLocked(desiredRows.at(key)))
+        bool replaced = stepDone(clearRecordingEvidence);
+        if (replaced)
+        {
+            for (const GenreEvidenceInput& input : desiredRows.at(key))
+            {
+                if (!replaceEvidenceLocked(input))
+                {
+                    replaced = false;
+                    break;
+                }
+            }
+        }
+
+        if (!replaced)
         {
             sqlite3_finalize(clearRecordingEvidence);
             database_.execute("ROLLBACK;");

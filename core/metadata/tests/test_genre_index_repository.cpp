@@ -30,18 +30,21 @@ void seed(Database& database)
         "('a','r4','id5','native5','Late metadata','Movies/Late','350',3600,500,'{}'),"
         "('a','r5','id6','native6','Action/Folder Fallback','Action/Folder Fallback','375',3600,500,'{}'),"
         "('a','r6','id7','native7','Serien/Prestige/S01E01 Pilot','Serien/Prestige/S01E01_Pilot','390',3600,700,'{}'),"
+        "('a','r7','id8','native8','Doku/Action','Doku/Action','395',3600,700,'{}'),"
         "('b','r1','id4','native4','Other backend','Movies/Space','400',3600,500,'{}');"
         "INSERT INTO vdr_recording_native_metadata VALUES"
         "('a','m1','native1','found','success','tvscraper',''),"
         "('a','m2','native2','found','failure','tvscraper',''),"
         "('a','m3','native3','not-found','success','tvscraper',''),"
         "('a','m6','native7','found','success','tvscraper','series'),"
+        "('a','m7','native8','found','success','tvscraper','series'),"
         "('b','m4','native4','found','success','tvscraper','');"
         "INSERT INTO vdr_recording_native_text_list VALUES"
         "('a','m1','genre',0,'Science Fiction'),"
         "('a','m1','genre',1,'Drama'),"
         "('a','m2','genre',0,'Komödie'),"
         "('a','m6','genre',0,'Drama'),"
+        "('a','m7','genre',0,'History'),"
         "('b','m4','genre',0,'Sci-Fi');"
         "INSERT INTO epg_events VALUES"
         "('a','C1','10','News','Heute','Text','1000','2000',1000,'News'),"
@@ -149,7 +152,7 @@ int main()
         assert(repository.synchronizeEpgCache("b", 900, 8000));
 
         GenreOverview recordings = repository.overview("a", "recording", 0, 0);
-        assert(recordings.distinctItemCount == 6);
+        assert(recordings.distinctItemCount == 7);
 
         GenreRecordingPage science = repository.recordingsByGenre(
             "a", "science-fiction", 10, 0);
@@ -176,6 +179,24 @@ int main()
         }
         assert(recordingSeriesHasDrama);
         assert(recordingSeriesHasSeries);
+
+        GenreRecordingPage recordingDocumentary = repository.recordingsByGenre(
+            "a", "documentary", 10, 0);
+        assert(recordingDocumentary.totalCount == 1);
+        assert(recordingDocumentary.recordings.front().title == "Doku/Action");
+        bool recordingDocumentaryHasHistory = false;
+        bool recordingDocumentaryHasDocumentary = false;
+        bool recordingDocumentaryHasSeries = false;
+        for (const std::string& genreId :
+             recordingDocumentary.recordings.front().genreIds)
+        {
+            if (genreId == "history") recordingDocumentaryHasHistory = true;
+            if (genreId == "documentary") recordingDocumentaryHasDocumentary = true;
+            if (genreId == "series") recordingDocumentaryHasSeries = true;
+        }
+        assert(recordingDocumentaryHasHistory);
+        assert(recordingDocumentaryHasDocumentary);
+        assert(!recordingDocumentaryHasSeries);
 
         GenreRecordingPage unclassifiedBefore = repository.recordingsByGenre(
             "a", "unclassified", 10, 0);
