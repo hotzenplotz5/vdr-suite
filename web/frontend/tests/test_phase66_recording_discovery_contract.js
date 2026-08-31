@@ -42,11 +42,15 @@ assert(source.includes('fetchClientGenreRecordings({'));
 assert(source.includes("global.VdrSuiteGenres.openRecordingGenre(entry"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres'"));
 assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recordings'"));
+assert(genres.includes('fetchClientGenreRecordings({'));
 assert(genres.includes('openRecordingGenre: function (entry, options)'));
 
-// Series is projection-only: only canonical same-backend recordings truthfully classified as episodes render.
-assert(source.includes("text(value.contentKind) === 'series-episode'"));
-assert(source.includes('canonicalRecordings(payload, backendId).filter(isSeriesRecording)'));
+// Series membership is projection-only: the canonical `series` endpoint is the sole membership authority.
+assert(source.includes("text(entry.id).toLowerCase() === 'series'"));
+assert(source.includes('const recordings = canonicalRecordings(payload, backendId);'));
+assert(!source.includes('filter(isSeriesRecording)'));
+assert(!source.includes('function isSeriesRecording'));
+assert(!source.includes("text(value.contentKind) === 'series-episode'"));
 assert(!source.includes('homeSeriesId'));
 assert(!source.includes('seriesCatalog'));
 
@@ -85,7 +89,7 @@ assert(httpPaths.includes('{"/frontend/platform/deferred-runtime-loader.js", "pl
 assert(httpPaths.includes('{"/frontend/home-live-hero.js", "home-live-hero.js", "application/javascript; charset=utf-8", "home-continue-watching.js"}'));
 assert(!continueWatching.includes('VdrSuiteHomeRecordingDiscovery'));
 
-// No new playback/history/recommendation owner is introduced by this slice.
+// No new playback/history/recommendation owner is introduced by this follow-up.
 assert(!source.includes('MediaSession'));
 assert(!source.includes('navigator.mediaSession'));
 assert(!source.includes('localStorage'));
