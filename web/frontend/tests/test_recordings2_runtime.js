@@ -192,6 +192,7 @@ async function run() {
   ));
 
   const shared = window.VdrSuiteRecordings2Shared;
+  const folderArtwork = window.VdrSuiteRecordings2FolderArtwork;
   assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
   assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
   assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
@@ -276,6 +277,69 @@ async function run() {
   const normalized = test.normalizeRecording(recording);
   assert.strictEqual(normalized.title, 'Tigeren Club gggg');
   assert.strictEqual(recording.title, 'Technischer_Titel');
+
+  assert.strictEqual(folderArtwork.isSeriesFolderPage({path: 'Serien'}), true);
+  assert.strictEqual(folderArtwork.isSeriesFolderPage({path: 'Action'}), false);
+  const bandOfBrothersRecording = {
+    title: '01_Currahee',
+    path: '/Serien/Band_of_Brothers/01_Currahee/2016.rec',
+    backendNativeId: '/srv/vdr/video/Serien/Band_of_Brothers/01_Currahee/2016.rec',
+    metadata: {
+      presentation: {
+        posterUrl: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=band&kind=preferred&index=0'
+      }
+    }
+  };
+  const singleEpisode = {
+    title: 'Pilot',
+    path: '/Serien/Einzelfolge/Pilot/2026.rec',
+    backendNativeId: '/srv/vdr/video/Serien/Einzelfolge/Pilot/2026.rec',
+    metadata: {presentation: {posterUrl: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=single&kind=preferred&index=0'}}
+  };
+  const seriesResolved = await folderArtwork.resolveLeaves({
+    recordingFolder: true,
+    path: 'Serien',
+    folders: [
+      {name: 'Band of Brothers', path: 'Serien/Band_of_Brothers', recordingCount: 10},
+      {name: 'Einzelfolge', path: 'Serien/Einzelfolge', recordingCount: 1}
+    ],
+    recordings: []
+  }, function (path) {
+    if (path === 'Serien/Band_of_Brothers') {
+      return Promise.resolve({
+        recordingFolder: true,
+        path,
+        folders: [],
+        recordings: [bandOfBrothersRecording, Object.assign({}, bandOfBrothersRecording, {title: '02_Der_Erste_Tag'})]
+      });
+    }
+    if (path === 'Serien/Einzelfolge') {
+      return Promise.resolve({
+        recordingFolder: true,
+        path,
+        folders: [],
+        recordings: [singleEpisode]
+      });
+    }
+    throw new Error('Unexpected folder lookup: ' + path);
+  });
+  assert.strictEqual(seriesResolved.folders.length, 1);
+  assert.strictEqual(seriesResolved.folders[0].name, 'Band of Brothers');
+  assert.strictEqual(
+    seriesResolved.folders[0].representativeRecording,
+    bandOfBrothersRecording
+  );
+  assert.strictEqual(seriesResolved.recordings.length, 1);
+  assert.strictEqual(seriesResolved.recordings[0], singleEpisode);
+
+  const seriesCover = folderArtwork.create(seriesResolved.folders[0]);
+  assert.ok(seriesCover);
+  assert.ok(seriesCover.className.includes('is-native'));
+  assert.strictEqual(seriesCover.children.length, 1);
+  assert.strictEqual(
+    seriesCover.children[0].src,
+    '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&backendNativeId=band&kind=preferred&index=0'
+  );
 
   assert.throws(() => test.applyFolderData({recordingFolder: false}, false), /gültigen Aufnahmeordner/);
   test.applyFolderData({
