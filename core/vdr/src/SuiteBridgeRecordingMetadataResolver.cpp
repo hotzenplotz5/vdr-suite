@@ -196,7 +196,7 @@ VdrRecordingNativeMetadata payload(const std::string& key, const std::string& js
         m.recordingIdentitySchema != VdrRecordingNativeMetadata::SupportedIdentitySchema ||
         m.recordingKey != key || !VdrRecordingNativeIdentity::isValidKey(m.recordingKey)) throw Error("schema or recording identity mismatch");
     if (m.found) {
-        if (m.reason != "none" || m.provider != "tvscraper" || (m.mediaType != "movie" && m.mediaType != "series") || m.providerId <= 0) throw Error("invalid found metadata state");
+        if (m.reason != "none" || m.provider != "tvscraper" || (m.mediaType != "movie" && m.mediaType != "series") || m.providerId == 0) throw Error("invalid found metadata state");
         m.availability = VdrRecordingNativeMetadataAvailability::Found;
     } else {
         if ((m.reason != "recording-not-found" && m.reason != "identity-ambiguous" && m.reason != "provider-no-match") ||
