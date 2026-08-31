@@ -142,6 +142,13 @@
   function handlePointerUp(event) { finishPointer(event, false); }
   function handlePointerCancel(event) { finishPointer(event, true); }
 
+  function handleNativeDragStart(event) {
+    if (!activeDrag || !event) return;
+    const target = dragTarget(event);
+    if (!target || target.element !== activeDrag.element) return;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+
   function handleClickCapture(event) {
     if (!suppressedTarget || Date.now() > suppressClickUntil) {
       suppressedTarget = null;
@@ -183,6 +190,7 @@
     doc.addEventListener('pointermove', handlePointerMove, {passive: false});
     doc.addEventListener('pointerup', handlePointerUp);
     doc.addEventListener('pointercancel', handlePointerCancel);
+    doc.addEventListener('dragstart', handleNativeDragStart, true);
     doc.addEventListener('click', handleClickCapture, true);
     return true;
   }
