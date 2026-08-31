@@ -141,9 +141,23 @@
     global.selectModule(moduleName);
     return true;
   }
+  function refreshHomeAfterPersistence() {
+    const sync = global.VdrSuiteContinueWatchingSync;
+    const pendingWrites = sync && typeof sync.flush === 'function'
+      ? sync.flush()
+      : Promise.resolve(true);
+    return Promise.resolve(pendingWrites).catch(function () { return false; }).then(function () {
+      const refreshes = [refresh()];
+      const recentlyWatched = global.VdrSuiteHomeRecentlyWatched;
+      if (recentlyWatched && typeof recentlyWatched.refresh === 'function') {
+        refreshes.push(recentlyWatched.refresh());
+      }
+      return Promise.all(refreshes);
+    });
+  }
   function returnHome() {
     selectShellModule('overview');
-    if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+    if (typeof global.setTimeout === 'function') global.setTimeout(refreshHomeAfterPersistence, 0);
   }
   function ensureContinueWatchingPlaybackRuntime() {
     if (continueWatchingPlaybackReady()) return Promise.resolve(true);
@@ -305,7 +319,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, returnHome, publicPath, createArtwork})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, refreshHomeAfterPersistence, returnHome, publicPath, createArtwork})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
