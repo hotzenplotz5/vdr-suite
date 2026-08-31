@@ -397,6 +397,7 @@
     }
     return '';
   }
+
   function mimeTypeFromContinuousInit(value) {
     const bytes = bytesView(value);
     if (!bytes || !findBox(bytes, 'moov')) return '';
