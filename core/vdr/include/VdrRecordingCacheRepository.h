@@ -26,8 +26,6 @@ struct VdrRecordingFolderEntry
     int recordingCount = 0;
     bool singleRecordingLeaf = false;
     VdrRecording singleRecording;
-    bool representativeRecordingAvailable = false;
-    VdrRecording representativeRecording;
 };
 
 struct VdrRecordingFolderPage
