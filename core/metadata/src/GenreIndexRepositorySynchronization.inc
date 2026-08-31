@@ -226,7 +226,8 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         ? "SELECT c.cache_key,c.backend_native_id,c.title,c.path,"
           "COALESCE(m.content_state,''),"
           "COALESCE(m.last_attempt_state,''),"
-          "COALESCE(m.provider,''),COALESCE(l.value,'') "
+          "COALESCE(m.provider,''),"
+          "COALESCE(m.media_type,''),COALESCE(l.value,'') "
           "FROM vdr_recording_cache c "
           "LEFT JOIN vdr_recording_native_metadata m "
           "ON m.backend_id=c.backend_id "
@@ -238,7 +239,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
           "WHERE c.backend_id=? "
           "ORDER BY c.cache_key,l.ordinal;"
         : "SELECT c.cache_key,c.backend_native_id,"
-          "c.title,c.path,'','','','' "
+          "c.title,c.path,'','','','','' "
           "FROM vdr_recording_cache c "
           "WHERE c.backend_id=? ORDER BY c.cache_key;";
 
@@ -263,6 +264,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         std::string contentState;
         std::string attemptState;
         std::string provider;
+        std::string mediaType;
         std::vector<std::string> genres;
     };
 
@@ -280,8 +282,9 @@ bool GenreIndexRepository::synchronizeRecordingCache(
         row.contentState = columnText(statement, 4);
         row.attemptState = columnText(statement, 5);
         row.provider = columnText(statement, 6);
+        row.mediaType = columnText(statement, 7);
 
-        const std::string genre = columnText(statement, 7);
+        const std::string genre = columnText(statement, 8);
         if (!genre.empty()) row.genres.push_back(genre);
     }
 
@@ -298,8 +301,17 @@ bool GenreIndexRepository::synchronizeRecordingCache(
             recordingFolderGenreCandidate(
                 entry.second.title,
                 entry.second.path);
+
+        std::vector<std::string> metadataValues =
+            entry.second.genres;
+        if (entry.second.contentState == "found" &&
+            entry.second.mediaType == "series")
+        {
+            metadataValues.push_back(entry.second.mediaType);
+        }
+
         const bool useFolderGenre =
-            entry.second.genres.empty() &&
+            metadataValues.empty() &&
             !folderGenre.empty();
 
         GenreEvidenceInput input;
@@ -317,7 +329,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
             : "recording-metadata";
         input.originalValues = useFolderGenre
             ? std::vector<std::string>{folderGenre}
-            : entry.second.genres;
+            : metadataValues;
         input.confidence = useFolderGenre
             ? 0.70
             : (entry.second.contentState == "found"
@@ -326,7 +338,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(
 
         if (!useFolderGenre &&
             entry.second.attemptState == "failure" &&
-            !entry.second.genres.empty())
+            !metadataValues.empty())
         {
             input.state = "stale";
         }

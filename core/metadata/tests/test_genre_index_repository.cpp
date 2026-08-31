@@ -14,7 +14,7 @@ void createSourceSchemas(Database& database)
 {
     assert(database.execute(
         "CREATE TABLE vdr_recording_cache(backend_id TEXT,cache_key TEXT,recording_id TEXT,backend_native_id TEXT,title TEXT,path TEXT,start_time TEXT,duration_seconds INTEGER,size_mb INTEGER,metadata_payload TEXT,PRIMARY KEY(backend_id,cache_key));"
-        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,last_attempt_state TEXT,provider TEXT,PRIMARY KEY(backend_id,recording_key));"
+        "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,last_attempt_state TEXT,provider TEXT,media_type TEXT,PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_text_list(backend_id TEXT,recording_key TEXT,kind TEXT,ordinal INTEGER,value TEXT,PRIMARY KEY(backend_id,recording_key,kind,ordinal));"
         "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,content_descriptors TEXT,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"));
@@ -29,16 +29,19 @@ void seed(Database& database)
         "('a','r3','id3','native3','No genre','Movies/Unknown','300',3600,500,'{}'),"
         "('a','r4','id5','native5','Late metadata','Movies/Late','350',3600,500,'{}'),"
         "('a','r5','id6','native6','Action/Folder Fallback','Action/Folder Fallback','375',3600,500,'{}'),"
+        "('a','r6','id7','native7','Serien/Prestige/S01E01 Pilot','Serien/Prestige/S01E01_Pilot','390',3600,700,'{}'),"
         "('b','r1','id4','native4','Other backend','Movies/Space','400',3600,500,'{}');"
         "INSERT INTO vdr_recording_native_metadata VALUES"
-        "('a','m1','native1','found','success','tvscraper'),"
-        "('a','m2','native2','found','failure','tvscraper'),"
-        "('a','m3','native3','not-found','success','tvscraper'),"
-        "('b','m4','native4','found','success','tvscraper');"
+        "('a','m1','native1','found','success','tvscraper',''),"
+        "('a','m2','native2','found','failure','tvscraper',''),"
+        "('a','m3','native3','not-found','success','tvscraper',''),"
+        "('a','m6','native7','found','success','tvscraper','series'),"
+        "('b','m4','native4','found','success','tvscraper','');"
         "INSERT INTO vdr_recording_native_text_list VALUES"
         "('a','m1','genre',0,'Science Fiction'),"
         "('a','m1','genre',1,'Drama'),"
         "('a','m2','genre',0,'Komödie'),"
+        "('a','m6','genre',0,'Drama'),"
         "('b','m4','genre',0,'Sci-Fi');"
         "INSERT INTO epg_events VALUES"
         "('a','C1','10','News','Heute','Text','1000','2000',1000,'News'),"
@@ -146,7 +149,7 @@ int main()
         assert(repository.synchronizeEpgCache("b", 900, 8000));
 
         GenreOverview recordings = repository.overview("a", "recording", 0, 0);
-        assert(recordings.distinctItemCount == 5);
+        assert(recordings.distinctItemCount == 6);
 
         GenreRecordingPage science = repository.recordingsByGenre(
             "a", "science-fiction", 10, 0);
@@ -158,13 +161,29 @@ int main()
         assert(folderAction.totalCount == 1);
         assert(folderAction.recordings.front().title == "Action/Folder Fallback");
 
+        GenreRecordingPage recordingSeries = repository.recordingsByGenre(
+            "a", "series", 10, 0);
+        assert(recordingSeries.totalCount == 1);
+        assert(recordingSeries.recordings.front().title ==
+            "Serien/Prestige/S01E01 Pilot");
+        bool recordingSeriesHasDrama = false;
+        bool recordingSeriesHasSeries = false;
+        for (const std::string& genreId :
+             recordingSeries.recordings.front().genreIds)
+        {
+            if (genreId == "drama") recordingSeriesHasDrama = true;
+            if (genreId == "series") recordingSeriesHasSeries = true;
+        }
+        assert(recordingSeriesHasDrama);
+        assert(recordingSeriesHasSeries);
+
         GenreRecordingPage unclassifiedBefore = repository.recordingsByGenre(
             "a", "unclassified", 10, 0);
         assert(unclassifiedBefore.totalCount == 2);
 
         assert(database.execute(
             "INSERT INTO vdr_recording_native_metadata VALUES"
-            "('a','m5','native5','found','success','tvscraper');"
+            "('a','m5','native5','found','success','tvscraper','');"
             "INSERT INTO vdr_recording_native_text_list VALUES"
             "('a','m5','genre',0,'Thriller');"));
         assert(repository.synchronizeRecordingCache("a"));

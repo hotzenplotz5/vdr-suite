@@ -109,7 +109,7 @@ void createSourceSchemas(Database& database)
         "CREATE TABLE vdr_recording_native_metadata("
         "backend_id TEXT,recording_key TEXT,"
         "backend_native_id TEXT,content_state TEXT,"
-        "last_attempt_state TEXT,provider TEXT,"
+        "last_attempt_state TEXT,provider TEXT,media_type TEXT,"
         "PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_text_list("
         "backend_id TEXT,recording_key TEXT,kind TEXT,"
@@ -145,7 +145,7 @@ void seedRecordings(Database& database)
     assert(sqlite3_prepare_v2(
         database.handle(),
         "INSERT INTO vdr_recording_native_metadata "
-        "VALUES('default',?,?,'found','success','tvscraper');",
+        "VALUES('default',?,?,'found','success','tvscraper','');",
         -1,
         &metadata,
         nullptr) == SQLITE_OK);
