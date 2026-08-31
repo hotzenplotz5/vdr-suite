@@ -92,7 +92,7 @@
     const title = shared.text(value.title || value.episodeName);
     const description = shared.text(value.overview || value.tagline);
     const heading = manual ? root.querySelector('.recordings2-detail-copy h3') : null;
-    const summary = manual ? root.querySelector('.recordings2-detail-description') : null;
+    const summary = root.querySelector('.recordings2-detail-description');
     if (heading && title) heading.textContent = title;
     if (summary && description) summary.textContent = description;
     const url = preferredArtworkUrl(value);

@@ -205,7 +205,7 @@ assert.strictEqual(detailPoster.children[0].decoding, 'async');
 assert.strictEqual(detailPoster.children[0].fetchPriority, 'high');
 
 heading.textContent = 'Pfadtitel bleibt';
-summary.textContent = 'Fallback bleibt';
+summary.textContent = 'EPG-Fallback';
 api.applyMetadataToDetail(detailRoot, {
   available: true,
   title: 'Automatischer Titel',
@@ -216,11 +216,22 @@ api.applyMetadataToDetail(detailRoot, {
   }
 });
 assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
-assert.strictEqual(summary.textContent, 'Fallback bleibt');
+assert.strictEqual(summary.textContent, 'Automatische Beschreibung');
 assert.strictEqual(
   detailPoster.children[0].src,
   '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
 );
+
+summary.textContent = 'EPG bleibt ohne Scraper-Text';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Automatischer Titel ohne Overview',
+  overview: '',
+  tagline: '',
+  preferredArtwork: {available: false}
+});
+assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
+assert.strictEqual(summary.textContent, 'EPG bleibt ohne Scraper-Text');
 
 window.VdrSuitePublicUrl = null;
 assert.strictEqual(
