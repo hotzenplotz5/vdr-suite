@@ -14,7 +14,9 @@
     observer: null,
     armed: false,
     seriesProjection: [],
-    seriesBackendId: ''
+    seriesBackendId: '',
+    seriesViewKey: '',
+    seriesSeasonNumber: null
   };
 
   function text(value) {
@@ -621,6 +623,8 @@
       clearRail('series');
       return true;
     }
+    state.seriesViewKey = '';
+    state.seriesSeasonNumber = null;
     const section = sectionFor('series');
     if (!section) return false;
     section.replaceChildren();
@@ -652,6 +656,8 @@
   }
 
   function renderSeriesDetail(series, selectedSeason, backendId) {
+    state.seriesViewKey = series.key;
+    state.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
     const section = sectionFor('series');
     if (!section) return false;
     section.replaceChildren();
@@ -728,13 +734,43 @@
     return true;
   }
 
+  function applySeriesProjection(recordings, backendId) {
+    const members = recordings.map(function (recording) {
+      return seriesMemberProjection(recording, null, backendId);
+    });
+    const projection = buildSeriesProjection(members);
+    state.seriesProjection = projection;
+    state.seriesBackendId = backendId;
+    if (!projection.length) {
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
+      clearRail('series');
+      return false;
+    }
+
+    if (state.seriesViewKey) {
+      const selectedSeries = projection.find(function (series) {
+        return series.key === state.seriesViewKey;
+      });
+      if (selectedSeries) {
+        const selectedSeason = state.seriesSeasonNumber === null
+          ? null
+          : selectedSeries.seasons.find(function (season) {
+            return season.number === state.seriesSeasonNumber;
+          }) || null;
+        return renderSeriesDetail(selectedSeries, selectedSeason, backendId);
+      }
+    }
+    return renderSeriesRail(projection, backendId);
+  }
+
   function current(generation, backendId) {
     return generation === state.generation &&
       backendId === selectedBackendId() &&
       homeIsActive();
   }
 
-  function fetchAllSeriesRecordings(client, backendId, genreId, generation) {
+  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {
     const recordings = [];
 
     function requestPage(offset) {
@@ -757,6 +793,9 @@
         if (!hasMore || nextOffset >= total) return recordings;
         if (!rawPage.length || nextOffset <= offset) {
           throw new Error('series pagination made no progress');
+        }
+        if (typeof onProgress === 'function') {
+          onProgress(recordings.slice());
         }
         return requestPage(nextOffset);
       });
@@ -803,38 +842,40 @@
     if (!seriesGenre) {
       state.seriesProjection = [];
       state.seriesBackendId = '';
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
       clearRail('series');
       return Promise.resolve(false);
     }
+    state.seriesViewKey = '';
+    state.seriesSeasonNumber = null;
     renderState('series', 'Serien', 'Serien werden gruppiert …', false);
     return fetchAllSeriesRecordings(
       client,
       backendId,
       text(seriesGenre.id),
-      generation
+      generation,
+      function (recordings) {
+        if (!current(generation, backendId) || !recordings.length) return;
+        applySeriesProjection(recordings, backendId);
+      }
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
       if (!recordings.length) {
         state.seriesProjection = [];
         state.seriesBackendId = '';
+        state.seriesViewKey = '';
+        state.seriesSeasonNumber = null;
         clearRail('series');
         return false;
       }
-      const members = recordings.map(function (recording) {
-        return seriesMemberProjection(recording, null, backendId);
-      });
-      const projection = buildSeriesProjection(members);
-      state.seriesProjection = projection;
-      state.seriesBackendId = backendId;
-      if (!projection.length) {
-        clearRail('series');
-        return false;
-      }
-      return renderSeriesRail(projection, backendId);
+      return applySeriesProjection(recordings, backendId);
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       state.seriesProjection = [];
       state.seriesBackendId = '';
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
       return renderState(
         'series',
         'Serien',
@@ -861,6 +902,8 @@
       if (!current(generation, backendId)) return false;
       state.seriesProjection = [];
       state.seriesBackendId = '';
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
       clearRail('series');
       return renderState(
         'genres',
@@ -946,6 +989,8 @@
       state.loadedBackendId = '';
       state.seriesProjection = [];
       state.seriesBackendId = '';
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
     }
     if (state.observer) {
       state.observer.disconnect();

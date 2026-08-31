@@ -4,6 +4,7 @@ test-phase66-recording-discovery-frontend:
 	node --check web/frontend/home-recording-discovery-bootstrap.js
 	node --check web/frontend/home-recording-discovery.js
 	node web/frontend/tests/test_phase66_recording_discovery.js
+	node web/frontend/tests/test_phase66_recording_discovery_progressive.js
 	node web/frontend/tests/test_phase66_recording_discovery_contract.js
 
 # Slice 66.5 is part of the ordinary frontend and packaging regression surfaces.
