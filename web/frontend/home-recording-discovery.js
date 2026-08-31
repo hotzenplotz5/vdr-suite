@@ -7,12 +7,15 @@
   const NEW_LIMIT = 12;
   const GENRE_LIMIT = 12;
   const SERIES_LIMIT = 12;
+  const SERIES_MEMBER_LIMIT = 240;
   const FOLDER_LIMIT = 12;
   const state = {
     generation: 0,
     loadedBackendId: '',
     observer: null,
-    armed: false
+    armed: false,
+    seriesProjection: [],
+    seriesBackendId: ''
   };
 
   function text(value) {
@@ -99,6 +102,14 @@
     return text(recording && recording.backendId) || text(fallback);
   }
 
+  function recordingBackendNativeId(recording) {
+    return text(recording && recording.backendNativeId);
+  }
+
+  function recordingPath(recording) {
+    return text(recording && recording.path);
+  }
+
   function recordingTitle(recording) {
     return text(
       presentation(recording).title ||
@@ -181,18 +192,18 @@
     return true;
   }
 
-  function createArtwork(recording) {
+  function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
-    const fallback = recordingTitle(recording).slice(0, 1).toUpperCase() || '▶';
-    const url = recordingPosterUrl(recording);
-    if (!url) {
+    const fallback = text(fallbackText) || text(title).slice(0, 1).toUpperCase() || '▶';
+    const resolved = text(url);
+    if (!resolved) {
       artwork.textContent = fallback;
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(url);
-    image.alt = 'Poster zu ' + recordingTitle(recording);
+    image.src = publicPath(resolved);
+    image.alt = 'Poster zu ' + text(title);
     image.loading = 'lazy';
     image.addEventListener('error', function () {
       image.remove();
@@ -200,6 +211,14 @@
     });
     artwork.appendChild(image);
     return artwork;
+  }
+
+  function createArtwork(recording) {
+    return createPosterArtwork(
+      recordingTitle(recording),
+      recordingPosterUrl(recording),
+      recordingTitle(recording).slice(0, 1).toUpperCase()
+    );
   }
 
   function releasePreview(reason) {
@@ -416,6 +435,307 @@
     return true;
   }
 
+  function canonicalSeriesPath(recording) {
+    const value = recordingPath(recording) || text(recording && recording.title);
+    const parts = value.split('/').map(text).filter(Boolean);
+    if (parts.length >= 2 && parts[0].toLowerCase() === 'serien') {
+      return 'Serien/' + parts[1];
+    }
+    if (parts.length >= 2) {
+      return parts.slice(0, -1).join('/');
+    }
+    return '';
+  }
+
+  function seriesFolderTitle(recording) {
+    const path = canonicalSeriesPath(recording);
+    const parts = path.split('/').map(text).filter(Boolean);
+    if (!parts.length) return '';
+    return parts[parts.length - 1];
+  }
+
+  function episodeToken(recording) {
+    const value = recordingPath(recording) || text(recording && recording.title);
+    const leaf = value.split('/').filter(Boolean).pop() || value;
+    const match = leaf.match(/\bS(\d{1,3})\s*E(\d{1,4})\b/i);
+    if (!match) return {seasonNumber: 0, episodeNumber: 0};
+    return {
+      seasonNumber: Number(match[1]) || 0,
+      episodeNumber: Number(match[2]) || 0
+    };
+  }
+
+  function episodeLeafTitle(recording) {
+    const value = recordingPath(recording) || text(recording && recording.title);
+    const leaf = value.split('/').filter(Boolean).pop() || value;
+    return text(leaf.replace(/^S\d{1,3}\s*E\d{1,4}\s*[-–—:.]?\s*/i, ''));
+  }
+
+  function fetchSeriesMemberMetadata(client, recording, backendId) {
+    const nativeId = recordingBackendNativeId(recording);
+    if (!nativeId || !client || typeof client.requestJson !== 'function') {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
+      query: {
+        backend: recordingBackendId(recording, backendId),
+        backendNativeId: nativeId
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (payload) {
+      return payload && typeof payload === 'object' ? payload : null;
+    }).catch(function () {
+      return null;
+    });
+  }
+
+  function seriesMemberProjection(recording, richMetadata, backendId) {
+    const sourceProvider = provider(recording);
+    const rich = richMetadata && typeof richMetadata === 'object' ? richMetadata : {};
+    const token = episodeToken(recording);
+    const folderPath = canonicalSeriesPath(recording);
+    const folderTitle = seriesFolderTitle(recording);
+    const providerSeriesTitle = text(sourceProvider.seriesTitle);
+    const richMediaType = text(rich.mediaType).toLowerCase();
+    const richSeriesTitle = richMediaType === 'episode' || richMediaType === 'series'
+      ? text(rich.title)
+      : '';
+    const seriesTitle = providerSeriesTitle || folderTitle || richSeriesTitle;
+    if (!seriesTitle) return null;
+
+    const providerSeriesId = text(sourceProvider.seriesId);
+    const richProvider = text(rich.provider);
+    const richProviderId = Number(rich.providerId || 0);
+    let key = '';
+    if (providerSeriesId) key = 'provider:' + providerSeriesId;
+    else if (folderPath) key = 'folder:' + folderPath.toLowerCase();
+    else if (richProvider && richProviderId > 0) {
+      key = 'native:' + richProvider + ':' + String(richProviderId);
+    } else key = 'title:' + seriesTitle.toLowerCase();
+
+    const seasonNumber = Number(sourceProvider.seasonNumber || rich.seasonNumber || token.seasonNumber || 0);
+    const episodeNumber = Number(sourceProvider.episodeNumber || rich.episodeNumber || token.episodeNumber || 0);
+    const richArtwork = rich.preferredArtwork && typeof rich.preferredArtwork === 'object'
+      ? rich.preferredArtwork
+      : {};
+    const posterUrl = text(
+      (richArtwork.available !== false && richArtwork.url) ||
+      recordingPosterUrl(recording)
+    );
+    const episodeTitle = text(
+      sourceProvider.episodeTitle ||
+      rich.episodeName ||
+      episodeLeafTitle(recording) ||
+      recordingSubtitle(recording)
+    ) || 'Folge';
+
+    return {
+      recording: recording,
+      backendId: recordingBackendId(recording, backendId),
+      seriesKey: key,
+      seriesTitle: seriesTitle,
+      seriesPath: folderPath,
+      posterUrl: posterUrl,
+      seasonNumber: seasonNumber > 0 ? seasonNumber : 0,
+      episodeNumber: episodeNumber > 0 ? episodeNumber : 0,
+      episodeTitle: episodeTitle
+    };
+  }
+
+  function buildSeriesProjection(members) {
+    const groups = new Map();
+    (members || []).filter(Boolean).forEach(function (member) {
+      let series = groups.get(member.seriesKey);
+      if (!series) {
+        series = {
+          key: member.seriesKey,
+          title: member.seriesTitle,
+          path: member.seriesPath,
+          posterUrl: member.posterUrl,
+          episodes: [],
+          seasons: []
+        };
+        groups.set(member.seriesKey, series);
+      }
+      if (!series.posterUrl && member.posterUrl) series.posterUrl = member.posterUrl;
+      series.episodes.push(member);
+    });
+
+    const result = Array.from(groups.values());
+    result.forEach(function (series) {
+      const seasons = new Map();
+      series.episodes.forEach(function (member) {
+        const number = member.seasonNumber;
+        const key = String(number);
+        let season = seasons.get(key);
+        if (!season) {
+          season = {
+            number: number,
+            label: number > 0 ? 'Staffel ' + String(number) : 'Staffel unbekannt',
+            episodes: []
+          };
+          seasons.set(key, season);
+        }
+        season.episodes.push(member);
+      });
+      series.seasons = Array.from(seasons.values()).sort(function (left, right) {
+        if (left.number === 0 && right.number !== 0) return 1;
+        if (right.number === 0 && left.number !== 0) return -1;
+        return left.number - right.number;
+      });
+      series.seasons.forEach(function (season) {
+        season.episodes.sort(function (left, right) {
+          if (left.episodeNumber && right.episodeNumber && left.episodeNumber !== right.episodeNumber) {
+            return left.episodeNumber - right.episodeNumber;
+          }
+          if (left.episodeNumber && !right.episodeNumber) return -1;
+          if (!left.episodeNumber && right.episodeNumber) return 1;
+          return left.episodeTitle.localeCompare(right.episodeTitle, 'de');
+        });
+      });
+    });
+    return result.sort(function (left, right) {
+      return left.title.localeCompare(right.title, 'de');
+    });
+  }
+
+  function seriesCountLabel(series) {
+    const episodeCount = series.episodes.length;
+    const seasonCount = series.seasons.length;
+    return String(seasonCount) + (seasonCount === 1 ? ' Staffel' : ' Staffeln') +
+      ' · ' + String(episodeCount) + (episodeCount === 1 ? ' Folge' : ' Folgen');
+  }
+
+  function appendSectionHeading(section, title, backLabel, onBack) {
+    const heading = doc.createElement('div');
+    heading.className = 'media-home-section-heading media-home-series-heading';
+    if (backLabel && typeof onBack === 'function') {
+      const back = doc.createElement('button');
+      back.type = 'button';
+      back.className = 'media-home-series-back';
+      back.textContent = backLabel;
+      back.addEventListener('click', onBack);
+      heading.appendChild(back);
+    }
+    const name = doc.createElement('h3');
+    name.textContent = title;
+    heading.appendChild(name);
+    section.appendChild(heading);
+  }
+
+  function renderSeriesRail(seriesEntries, backendId) {
+    if (!seriesEntries.length) {
+      clearRail('series');
+      return true;
+    }
+    const section = sectionFor('series');
+    if (!section) return false;
+    section.replaceChildren();
+    appendSectionHeading(section, 'Serien');
+    const rail = doc.createElement('div');
+    rail.className = 'media-home-discovery-rail series';
+    seriesEntries.slice(0, SERIES_LIMIT).forEach(function (series) {
+      const card = doc.createElement('button');
+      card.type = 'button';
+      card.className = 'media-home-discovery-card series';
+      card.dataset.seriesKey = series.key;
+      card.dataset.backendId = backendId;
+      card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+      const copy = doc.createElement('span');
+      copy.className = 'media-home-discovery-copy';
+      const label = doc.createElement('strong');
+      label.textContent = series.title;
+      const detail = doc.createElement('span');
+      detail.textContent = seriesCountLabel(series);
+      copy.append(label, detail);
+      card.appendChild(copy);
+      card.addEventListener('click', function () {
+        renderSeriesDetail(series, null, backendId);
+      });
+      rail.appendChild(card);
+    });
+    section.appendChild(rail);
+    return true;
+  }
+
+  function renderSeriesDetail(series, selectedSeason, backendId) {
+    const section = sectionFor('series');
+    if (!section) return false;
+    section.replaceChildren();
+    appendSectionHeading(section, series.title, '← Serien', function () {
+      renderSeriesRail(state.seriesProjection, state.seriesBackendId || backendId);
+    });
+
+    const summary = doc.createElement('div');
+    summary.className = 'media-home-series-summary';
+    summary.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+    const summaryCopy = doc.createElement('div');
+    summaryCopy.className = 'media-home-series-summary-copy';
+    const title = doc.createElement('strong');
+    title.textContent = series.title;
+    const count = doc.createElement('span');
+    count.textContent = seriesCountLabel(series);
+    summaryCopy.append(title, count);
+    summary.appendChild(summaryCopy);
+    section.appendChild(summary);
+
+    const seasonTitle = doc.createElement('h4');
+    seasonTitle.className = 'media-home-series-subheading';
+    seasonTitle.textContent = 'Staffeln';
+    section.appendChild(seasonTitle);
+    const seasonRail = doc.createElement('div');
+    seasonRail.className = 'media-home-series-season-rail';
+    series.seasons.forEach(function (season) {
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'media-home-series-season' + (selectedSeason === season ? ' selected' : '');
+      button.dataset.seasonNumber = String(season.number);
+      button.textContent = season.label + ' · ' + String(season.episodes.length) +
+        (season.episodes.length === 1 ? ' Folge' : ' Folgen');
+      button.addEventListener('click', function () {
+        renderSeriesDetail(series, season, backendId);
+      });
+      seasonRail.appendChild(button);
+    });
+    section.appendChild(seasonRail);
+
+    if (!selectedSeason) return true;
+
+    const episodeTitle = doc.createElement('h4');
+    episodeTitle.className = 'media-home-series-subheading';
+    episodeTitle.textContent = selectedSeason.label;
+    section.appendChild(episodeTitle);
+    const episodeRail = doc.createElement('div');
+    episodeRail.className = 'media-home-discovery-rail series-episodes';
+    selectedSeason.episodes.forEach(function (member) {
+      const recording = member.recording;
+      const card = doc.createElement('button');
+      card.type = 'button';
+      card.className = 'media-home-discovery-card recording series-episode';
+      card.dataset.recordingId = recordingId(recording);
+      card.dataset.backendId = member.backendId || backendId;
+      card.dataset.episodeNumber = String(member.episodeNumber);
+      card.appendChild(createArtwork(recording));
+      const copy = doc.createElement('span');
+      copy.className = 'media-home-discovery-copy';
+      const label = doc.createElement('strong');
+      label.textContent = member.episodeNumber > 0
+        ? 'Folge ' + String(member.episodeNumber)
+        : member.episodeTitle;
+      const detail = doc.createElement('span');
+      detail.textContent = member.episodeTitle;
+      copy.append(label, detail);
+      card.appendChild(copy);
+      card.addEventListener('click', function () {
+        openRecording(recording, member.backendId || backendId);
+      });
+      episodeRail.appendChild(card);
+    });
+    section.appendChild(episodeRail);
+    return true;
+  }
+
   function current(generation, backendId) {
     return generation === state.generation &&
       backendId === selectedBackendId() &&
@@ -458,14 +778,16 @@
       return text(entry.id).toLowerCase() === 'series';
     });
     if (!seriesGenre) {
+      state.seriesProjection = [];
+      state.seriesBackendId = '';
       clearRail('series');
       return Promise.resolve(false);
     }
-    renderState('series', 'Serien', 'Serienaufnahmen werden geladen …', false);
+    renderState('series', 'Serien', 'Serien werden gruppiert …', false);
     return Promise.resolve(client.fetchClientGenreRecordings({
       backendId: backendId,
       genreId: text(seriesGenre.id),
-      limit: SERIES_LIMIT,
+      limit: SERIES_MEMBER_LIMIT,
       offset: 0,
       cache: 'no-store',
       credentials: 'same-origin'
@@ -473,21 +795,34 @@
       if (!current(generation, backendId)) return false;
       const recordings = canonicalRecordings(payload, backendId);
       if (!recordings.length) {
+        state.seriesProjection = [];
+        state.seriesBackendId = '';
         clearRail('series');
         return false;
       }
-      return renderRecordingRail(
-        'series',
-        'Serien',
-        recordings.slice(0, SERIES_LIMIT),
-        backendId
-      );
+      return Promise.all(recordings.map(function (recording) {
+        return fetchSeriesMemberMetadata(client, recording, backendId).then(function (rich) {
+          return seriesMemberProjection(recording, rich, backendId);
+        });
+      })).then(function (members) {
+        if (!current(generation, backendId)) return false;
+        const projection = buildSeriesProjection(members);
+        state.seriesProjection = projection;
+        state.seriesBackendId = backendId;
+        if (!projection.length) {
+          clearRail('series');
+          return false;
+        }
+        return renderSeriesRail(projection, backendId);
+      });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      state.seriesProjection = [];
+      state.seriesBackendId = '';
       return renderState(
         'series',
         'Serien',
-        'Serienaufnahmen sind vorübergehend nicht verfügbar.',
+        'Serien sind vorübergehend nicht verfügbar.',
         true
       );
     });
@@ -508,6 +843,8 @@
       return loadSeries(client, backendId, generation, entries);
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      state.seriesProjection = [];
+      state.seriesBackendId = '';
       clearRail('series');
       return renderState(
         'genres',
@@ -591,6 +928,8 @@
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
       state.generation += 1;
       state.loadedBackendId = '';
+      state.seriesProjection = [];
+      state.seriesBackendId = '';
     }
     if (state.observer) {
       state.observer.disconnect();
@@ -608,14 +947,17 @@
       '.media-home-discovery{min-width:0;padding-bottom:.3rem}' +
       '.media-home-discovery-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}' +
       '.media-home-discovery-card{scroll-snap-align:start;min-width:0;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0;text-align:left;overflow:hidden;padding:0;cursor:pointer}' +
-      '.media-home-discovery-card:focus-visible{outline:3px solid rgba(125,211,252,.86);outline-offset:2px}' +
+      '.media-home-discovery-card:focus-visible,.media-home-series-season:focus-visible,.media-home-series-back:focus-visible{outline:3px solid rgba(125,211,252,.86);outline-offset:2px}' +
       '.media-home-discovery-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;background:linear-gradient(135deg,#1e293b,#334155);font-size:2rem;font-weight:800}' +
       '.media-home-discovery-artwork img{display:block;width:100%;height:100%;object-fit:cover}' +
       '.media-home-discovery-copy{display:grid;gap:.25rem;padding:.7rem}.media-home-discovery-copy strong{color:#f8fafc}.media-home-discovery-copy span{color:#94a3b8;font-size:.8rem}' +
       '.media-home-discovery-card.genre,.media-home-discovery-card.folder{min-height:7rem;padding:.35rem;background:linear-gradient(145deg,rgba(30,41,59,.88),rgba(2,6,23,.94))}' +
       '.media-home-discovery-state{margin:0 1rem 1rem;padding:1rem;border:1px solid rgba(148,163,184,.16);border-radius:.9rem;color:#94a3b8;background:rgba(15,23,42,.5)}' +
       '.media-home-discovery-state.error{border-color:rgba(239,68,68,.48);color:#fecaca}' +
-      '@media(max-width:46rem){.media-home-discovery-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}.media-home-discovery-state{margin:0 .78rem 1rem}}';
+      '.media-home-series-heading{display:flex;align-items:center;gap:.7rem}.media-home-series-back{border:1px solid rgba(148,163,184,.25);border-radius:.7rem;background:rgba(15,23,42,.78);color:#e2e8f0;padding:.5rem .65rem;cursor:pointer}' +
+      '.media-home-series-summary{display:grid;grid-template-columns:minmax(5rem,7rem) 1fr;gap:1rem;align-items:center;margin:0 1rem 1rem}.media-home-series-summary .media-home-discovery-artwork{border-radius:.8rem;overflow:hidden}.media-home-series-summary-copy{display:grid;gap:.35rem}.media-home-series-summary-copy strong{font-size:1.1rem;color:#f8fafc}.media-home-series-summary-copy span{color:#94a3b8}' +
+      '.media-home-series-subheading{margin:.4rem 1rem .65rem;color:#f8fafc;font-size:1rem}.media-home-series-season-rail{display:flex;gap:.6rem;overflow-x:auto;padding:0 1rem 1rem}.media-home-series-season{flex:0 0 auto;border:1px solid rgba(148,163,184,.25);border-radius:.75rem;background:rgba(30,41,59,.86);color:#e2e8f0;padding:.65rem .8rem;cursor:pointer}.media-home-series-season.selected{border-color:rgba(125,211,252,.72);background:rgba(30,64,175,.45)}' +
+      '@media(max-width:46rem){.media-home-discovery-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}.media-home-discovery-state{margin:0 .78rem 1rem}.media-home-series-summary{margin:0 .78rem 1rem}.media-home-series-subheading{margin-left:.78rem;margin-right:.78rem}.media-home-series-season-rail{padding-left:.78rem;padding-right:.78rem}}';
     doc.head.appendChild(style);
   }
 
@@ -644,6 +986,12 @@
       canonicalGenres: canonicalGenres,
       canonicalFolders: canonicalFolders,
       recordingPosterUrl: recordingPosterUrl,
+      canonicalSeriesPath: canonicalSeriesPath,
+      seriesMemberProjection: seriesMemberProjection,
+      buildSeriesProjection: buildSeriesProjection,
+      fetchSeriesMemberMetadata: fetchSeriesMemberMetadata,
+      renderSeriesRail: renderSeriesRail,
+      renderSeriesDetail: renderSeriesDetail,
       openRecording: openRecording,
       openFolder: openFolder,
       openGenre: openGenre,
