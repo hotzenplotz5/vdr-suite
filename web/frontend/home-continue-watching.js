@@ -3,6 +3,7 @@
 
   const doc = global.document;
   const ENDPOINT = '/api/media/continue-watching';
+  let refreshGeneration = 0;
 
   function text(value) { return value == null ? '' : String(value); }
   function positiveInt(value) {
@@ -72,22 +73,28 @@
       ? hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0')
       : minutes + ':' + String(secs).padStart(2, '0');
   }
+  function useFallback(artwork, fallback) {
+    artwork.classList.add('is-fallback');
+    artwork.textContent = fallback;
+  }
   function createArtwork(item) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-continue-artwork';
     const fallback = text(item && item.title).slice(0, 1).toUpperCase() || '▶';
     const posterUrl = text(item && item.posterUrl);
     if (!posterUrl) {
-      artwork.textContent = fallback;
+      useFallback(artwork, fallback);
       return artwork;
     }
     const image = doc.createElement('img');
     image.src = publicPath(posterUrl);
     image.alt = 'Poster zu ' + (text(item && item.title) || 'Aufnahme');
     image.loading = 'lazy';
+    image.decoding = 'async';
+    image.fetchPriority = 'low';
     image.addEventListener('error', function () {
       image.remove();
-      artwork.textContent = fallback;
+      useFallback(artwork, fallback);
     });
     artwork.appendChild(image);
     return artwork;
@@ -211,17 +218,20 @@
       section = doc.createElement('section');
       section.className = 'media-home-continue-watching';
       section.setAttribute('data-home-continue-watching', '');
+      section.setAttribute('aria-labelledby', 'media-home-continue-title');
       host.appendChild(section);
     }
     section.innerHTML = '';
     const heading = doc.createElement('div');
     heading.className = 'media-home-section-heading';
     const title = doc.createElement('h3');
+    title.id = 'media-home-continue-title';
     title.textContent = 'Weiterschauen';
     heading.appendChild(title);
     section.appendChild(heading);
     const rail = doc.createElement('div');
     rail.className = 'media-home-continue-rail';
+    rail.setAttribute('aria-label', 'Fortsetzbare Aufnahmen');
     valid.forEach(function (item) {
       const card = doc.createElement('article');
       card.className = 'media-home-continue-card';
@@ -247,7 +257,9 @@
       }
       const actions = doc.createElement('div'); actions.className = 'media-home-continue-actions';
       const resume = doc.createElement('button'); resume.type = 'button'; resume.textContent = 'Fortsetzen'; resume.setAttribute('data-home-continue-action', 'continue');
+      resume.setAttribute('aria-label', item.title + ' fortsetzen');
       const restart = doc.createElement('button'); restart.type = 'button'; restart.textContent = 'Von vorn'; restart.setAttribute('data-home-continue-action', 'restart');
+      restart.setAttribute('aria-label', item.title + ' von vorn abspielen');
       resume.addEventListener('click', function () { openItem(item, true); });
       restart.addEventListener('click', function () { openItem(item, false); });
       actions.appendChild(resume); actions.appendChild(restart); copy.appendChild(actions);
@@ -260,15 +272,18 @@
     if (!doc || !doc.head || doc.getElementById('vdr-suite-continue-watching-style')) return;
     const style = doc.createElement('style');
     style.id = 'vdr-suite-continue-watching-style';
-    style.textContent = '.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.24);border-radius:1rem;background:rgba(15,23,42,.78)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(135deg,#1e293b,#334155);font-size:2rem;font-weight:700}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}';
+    style.textContent = '.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.26);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.86),rgba(15,23,42,.7));box-shadow:0 .8rem 1.8rem rgba(2,6,23,.14)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(145deg,#1e293b,#334155);font-size:2rem;font-weight:800}.media-home-continue-artwork.is-fallback{position:relative;background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.2),transparent 32%),linear-gradient(145deg,#172033,#26364d);color:#dbeafe;text-shadow:0 .12rem .5rem rgba(2,6,23,.75)}.media-home-continue-artwork.is-fallback::after{content:"";position:absolute;inset:.45rem;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;pointer-events:none}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%;accent-color:#38bdf8}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-width:2.75rem;min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem;transition:transform .14s ease,border-color .14s ease}.media-home-continue-actions button:hover{transform:translateY(-1px)}.media-home-continue-actions button:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}@media(min-width:120rem){.media-home-continue-rail{grid-auto-columns:minmax(22rem,29rem);gap:1.15rem}.media-home-continue-card{grid-template-columns:7.5rem 1fr;padding:1rem}}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}@media(prefers-reduced-motion:reduce){.media-home-continue-actions button{transition:none}.media-home-continue-actions button:hover{transform:none}.media-home-continue-rail{scroll-behavior:auto}}';
     doc.head.appendChild(style);
   }
   function refresh() {
     const backendId = selectedBackendId();
+    const generation = ++refreshGeneration;
     return post({operation: 'list', backendId}).then(function (payload) {
+      if (generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
       render(payload && payload.items);
       return true;
     }).catch(function () {
+      if (generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
       render([]);
       return false;
     });

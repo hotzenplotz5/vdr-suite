@@ -23,12 +23,14 @@ assert(identitySource.includes('"/recording-artwork/"'));
 
 function element(tagName) {
   const listeners = {};
-  return {
+  const node = {
     tagName: String(tagName).toUpperCase(),
     className: '',
     textContent: '',
     children: [],
     dataset: {},
+    decoding: '',
+    fetchPriority: '',
     appendChild(child) { this.children.push(child); child.parentNode = this; return child; },
     addEventListener(name, callback) { listeners[name] = callback; },
     remove() {
@@ -39,6 +41,14 @@ function element(tagName) {
     },
     _dispatch(name) { if (listeners[name]) listeners[name](); }
   };
+  node.classList = {
+    add(name) {
+      const classes = node.className.split(/\s+/).filter(Boolean);
+      if (!classes.includes(name)) classes.push(name);
+      node.className = classes.join(' ');
+    }
+  };
+  return node;
 }
 
 const document = {
@@ -115,10 +125,13 @@ assert.strictEqual(image.tagName, 'IMG');
 assert.strictEqual(image.src, '/vdr-suite' + posterUrl);
 assert.strictEqual(image.alt, 'Poster zu Ein unmoralisches Angebot');
 assert.strictEqual(image.loading, 'lazy');
+assert.strictEqual(image.decoding, 'async');
+assert.strictEqual(image.fetchPriority, 'low');
 
 image._dispatch('error');
 assert.strictEqual(artwork.children.length, 0);
 assert.strictEqual(artwork.textContent, 'E');
+assert(artwork.className.split(/\s+/).includes('is-fallback'));
 
 const fallback = api._test.createArtwork(api._test.normalizeItem({
   backendId: 'default',
@@ -130,5 +143,6 @@ const fallback = api._test.createArtwork(api._test.normalizeItem({
 }));
 assert.strictEqual(fallback.children.length, 0);
 assert.strictEqual(fallback.textContent, 'F');
+assert(fallback.className.split(/\s+/).includes('is-fallback'));
 
 console.log('phase66 continue watching artwork contract ok');
