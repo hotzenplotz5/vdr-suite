@@ -6,8 +6,7 @@
   const doc = global.document;
   const NEW_LIMIT = 12;
   const GENRE_LIMIT = 12;
-  const SERIES_LIMIT = 12;
-  const SERIES_MEMBER_LIMIT = 240;
+  const SERIES_PAGE_LIMIT = 100;
   const FOLDER_LIMIT = 12;
   const state = {
     generation: 0,
@@ -102,10 +101,6 @@
     return text(recording && recording.backendId) || text(fallback);
   }
 
-  function recordingBackendNativeId(recording) {
-    return text(recording && recording.backendNativeId);
-  }
-
   function recordingPath(recording) {
     return text(recording && recording.path);
   }
@@ -150,6 +145,23 @@
     return list(payload, 'folders').filter(function (entry) {
       return Boolean(entry && text(entry.path || entry.folderPath || entry.name));
     });
+  }
+
+  function pageTotal(payload, fallback) {
+    const raw = payload && payload.total !== undefined
+      ? payload.total
+      : payload && payload.totalCount;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : Number(fallback || 0);
+  }
+
+  function pageHasMore(payload, nextOffset, total) {
+    if (payload && typeof payload.hasMore === 'boolean') {
+      return payload.hasMore;
+    }
+    return nextOffset < total;
   }
 
   function sectionFor(key) {
@@ -471,25 +483,6 @@
     return text(leaf.replace(/^S\d{1,3}\s*E\d{1,4}\s*[-–—:.]?\s*/i, ''));
   }
 
-  function fetchSeriesMemberMetadata(client, recording, backendId) {
-    const nativeId = recordingBackendNativeId(recording);
-    if (!nativeId || !client || typeof client.requestJson !== 'function') {
-      return Promise.resolve(null);
-    }
-    return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-      query: {
-        backend: recordingBackendId(recording, backendId),
-        backendNativeId: nativeId
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (payload) {
-      return payload && typeof payload === 'object' ? payload : null;
-    }).catch(function () {
-      return null;
-    });
-  }
-
   function seriesMemberProjection(recording, richMetadata, backendId) {
     const sourceProvider = provider(recording);
     const rich = richMetadata && typeof richMetadata === 'object' ? richMetadata : {};
@@ -501,8 +494,7 @@
     const richSeriesTitle = richMediaType === 'episode' || richMediaType === 'series'
       ? text(rich.title)
       : '';
-    const seriesTitle = providerSeriesTitle || folderTitle || richSeriesTitle;
-    if (!seriesTitle) return null;
+    const seriesTitle = providerSeriesTitle || folderTitle || richSeriesTitle || recordingTitle(recording);
 
     const providerSeriesId = text(sourceProvider.seriesId);
     const richProvider = text(rich.provider);
@@ -635,7 +627,7 @@
     appendSectionHeading(section, 'Serien');
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail series';
-    seriesEntries.slice(0, SERIES_LIMIT).forEach(function (series) {
+    seriesEntries.forEach(function (series) {
       const card = doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card series';
@@ -742,6 +734,37 @@
       homeIsActive();
   }
 
+  function fetchAllSeriesRecordings(client, backendId, genreId, generation) {
+    const recordings = [];
+
+    function requestPage(offset) {
+      return Promise.resolve(client.fetchClientGenreRecordings({
+        backendId: backendId,
+        genreId: genreId,
+        limit: SERIES_PAGE_LIMIT,
+        offset: offset,
+        cache: 'no-store',
+        credentials: 'same-origin'
+      })).then(function (payload) {
+        if (!current(generation, backendId)) return [];
+        const rawPage = list(payload, 'recordings');
+        const pageRecordings = canonicalRecordings(payload, backendId);
+        Array.prototype.push.apply(recordings, pageRecordings);
+
+        const nextOffset = offset + rawPage.length;
+        const total = pageTotal(payload, nextOffset);
+        const hasMore = pageHasMore(payload, nextOffset, total);
+        if (!hasMore || nextOffset >= total) return recordings;
+        if (!rawPage.length || nextOffset <= offset) {
+          throw new Error('series pagination made no progress');
+        }
+        return requestPage(nextOffset);
+      });
+    }
+
+    return requestPage(0);
+  }
+
   function loadNewly(client, backendId, generation) {
     renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     return Promise.resolve(client.fetchClientRecordings({
@@ -784,37 +807,30 @@
       return Promise.resolve(false);
     }
     renderState('series', 'Serien', 'Serien werden gruppiert …', false);
-    return Promise.resolve(client.fetchClientGenreRecordings({
-      backendId: backendId,
-      genreId: text(seriesGenre.id),
-      limit: SERIES_MEMBER_LIMIT,
-      offset: 0,
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (payload) {
+    return fetchAllSeriesRecordings(
+      client,
+      backendId,
+      text(seriesGenre.id),
+      generation
+    ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
-      const recordings = canonicalRecordings(payload, backendId);
       if (!recordings.length) {
         state.seriesProjection = [];
         state.seriesBackendId = '';
         clearRail('series');
         return false;
       }
-      return Promise.all(recordings.map(function (recording) {
-        return fetchSeriesMemberMetadata(client, recording, backendId).then(function (rich) {
-          return seriesMemberProjection(recording, rich, backendId);
-        });
-      })).then(function (members) {
-        if (!current(generation, backendId)) return false;
-        const projection = buildSeriesProjection(members);
-        state.seriesProjection = projection;
-        state.seriesBackendId = backendId;
-        if (!projection.length) {
-          clearRail('series');
-          return false;
-        }
-        return renderSeriesRail(projection, backendId);
+      const members = recordings.map(function (recording) {
+        return seriesMemberProjection(recording, null, backendId);
       });
+      const projection = buildSeriesProjection(members);
+      state.seriesProjection = projection;
+      state.seriesBackendId = backendId;
+      if (!projection.length) {
+        clearRail('series');
+        return false;
+      }
+      return renderSeriesRail(projection, backendId);
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       state.seriesProjection = [];
@@ -989,7 +1005,7 @@
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
       buildSeriesProjection: buildSeriesProjection,
-      fetchSeriesMemberMetadata: fetchSeriesMemberMetadata,
+      fetchAllSeriesRecordings: fetchAllSeriesRecordings,
       renderSeriesRail: renderSeriesRail,
       renderSeriesDetail: renderSeriesDetail,
       openRecording: openRecording,
