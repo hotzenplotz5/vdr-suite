@@ -507,6 +507,9 @@
     const richProvider = text(rich.provider);
     const parsedProviderId = Number(rich.providerId);
     const richProviderId = Number.isFinite(parsedProviderId) ? parsedProviderId : 0;
+    const nativeMetadataAvailable = rich.available === true &&
+      (richMediaType === 'episode' || richMediaType === 'series') &&
+      Boolean(richProvider && richProviderId !== 0);
     let key = '';
     if (providerSeriesId) key = 'provider:' + providerSeriesId;
     else if (folderPath) key = 'folder:' + folderPath.toLowerCase();
@@ -519,6 +522,8 @@
     const richArtwork = rich.preferredArtwork && typeof rich.preferredArtwork === 'object'
       ? rich.preferredArtwork
       : {};
+    const nativeArtworkAvailable = nativeMetadataAvailable &&
+      richArtwork.available !== false && Boolean(text(richArtwork.url));
     const posterUrl = text(
       (richArtwork.available !== false && richArtwork.url) ||
       recordingPosterUrl(recording)
@@ -537,6 +542,8 @@
       seriesTitle: seriesTitle,
       seriesPath: folderPath,
       posterUrl: posterUrl,
+      nativeMetadataAvailable: nativeMetadataAvailable,
+      nativeArtworkAvailable: nativeArtworkAvailable,
       seasonNumber: seasonNumber > 0 ? seasonNumber : 0,
       episodeNumber: episodeNumber > 0 ? episodeNumber : 0,
       episodeTitle: episodeTitle
@@ -553,12 +560,23 @@
           title: member.seriesTitle,
           path: member.seriesPath,
           posterUrl: member.posterUrl,
+          nativeMetadataAvailable: Boolean(member.nativeMetadataAvailable),
+          nativeArtworkAvailable: Boolean(member.nativeArtworkAvailable),
           episodes: [],
           seasons: []
         };
         groups.set(member.seriesKey, series);
       }
-      if (!series.posterUrl && member.posterUrl) series.posterUrl = member.posterUrl;
+      if (member.nativeMetadataAvailable && !series.nativeMetadataAvailable) {
+        series.nativeMetadataAvailable = true;
+        if (member.seriesTitle) series.title = member.seriesTitle;
+      }
+      if (member.nativeArtworkAvailable && !series.nativeArtworkAvailable) {
+        series.nativeArtworkAvailable = true;
+        if (member.posterUrl) series.posterUrl = member.posterUrl;
+      } else if (!series.posterUrl && member.posterUrl) {
+        series.posterUrl = member.posterUrl;
+      }
       series.episodes.push(member);
     });
 
