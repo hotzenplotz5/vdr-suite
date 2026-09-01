@@ -28,6 +28,7 @@ test-phase66-recently-watched-frontend:
 	node --check web/frontend/api/continue-watching-sync.js
 	node web/frontend/tests/test_phase66_recently_watched.js
 	node web/frontend/tests/test_phase66_recently_watched_navigation_refresh.js
+	node web/frontend/tests/test_phase66_recent_movies_rail.js
 
 # Slice 66.6 participates in the ordinary backend/frontend/packaging CI surfaces.
 test: test-recently-watched test-phase66-recently-watched-frontend
