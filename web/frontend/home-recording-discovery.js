@@ -8,8 +8,8 @@
   const GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
   const SERIES_METADATA_CONCURRENCY = 4;
-  const FOLDER_LIMIT = 12;
-  const FOLDER_PAGE_LIMIT = 100;
+  const FOLDER_LIMIT = 100;
+  const FOLDER_VISIBLE_LIMIT = 12;
   const state = {
     generation: 0,
     loadedBackendId: '',
@@ -947,7 +947,7 @@
         backendId: backendId,
         query: {
           path: '',
-          limit: FOLDER_PAGE_LIMIT,
+          limit: FOLDER_LIMIT,
           offset: offset
         },
         cache: 'no-store',
@@ -1078,24 +1078,36 @@
       clearRail('random-genre');
       return Promise.resolve(false);
     }
-    renderState('random-genre', label, 'Aufnahmen werden geladen …', false);
-    positionRandomGenreRail();
-    return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {
-      if (!current(generation, backendId)) return false;
-      const rendered = renderRecordingRail('random-genre', label, recordings, backendId);
+
+    function performLoad() {
+      if (!current(generation, backendId)) return Promise.resolve(false);
+      renderState('random-genre', label, 'Aufnahmen werden geladen …', false);
       positionRandomGenreRail();
-      return rendered;
-    }).catch(function () {
-      if (!current(generation, backendId)) return false;
-      const rendered = renderState(
-        'random-genre',
-        label,
-        'Die Aufnahmen dieses Genres sind vorübergehend nicht verfügbar.',
-        true
-      );
-      positionRandomGenreRail();
-      return rendered;
-    });
+      return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {
+        if (!current(generation, backendId)) return false;
+        const rendered = renderRecordingRail('random-genre', label, recordings, backendId);
+        positionRandomGenreRail();
+        return rendered;
+      }).catch(function () {
+        if (!current(generation, backendId)) return false;
+        const rendered = renderState(
+          'random-genre',
+          label,
+          'Die Aufnahmen dieses Genres sind vorübergehend nicht verfügbar.',
+          true
+        );
+        positionRandomGenreRail();
+        return rendered;
+      });
+    }
+
+    if (typeof global.setTimeout === 'function') {
+      global.setTimeout(function () {
+        performLoad();
+      }, 0);
+      return Promise.resolve(true);
+    }
+    return performLoad();
   }
 
   function loadSeries(client, backendId, generation, genreEntries) {
@@ -1199,7 +1211,7 @@
       state.folderProjection = projection;
       state.folderBackendId = backendId;
       return renderFolderRail(
-        projection.folders.slice(0, FOLDER_LIMIT),
+        projection.folders.slice(0, FOLDER_VISIBLE_LIMIT),
         projection.rootRecordings,
         backendId
       );
