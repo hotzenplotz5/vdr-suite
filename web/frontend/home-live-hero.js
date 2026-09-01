@@ -2,15 +2,18 @@
 //
 // This module deliberately owns only Home selection/projection state. It reads
 // the existing Channel/EPG client APIs and delegates explicit playback to the
-// canonical VdrSuiteLiveTvView owner. Selection, keyboard navigation and touch
-// swipes never create media/session work. Slice 66.7 adds presentation-only
-// accessibility, reduced-motion and responsive polish without changing owners.
+// canonical VdrSuiteLiveTvView owner. Explicit EPG timer creation and programme
+// details delegate to the existing canonical EPG owners. Selection, keyboard
+// navigation and touch swipes never create media/session work. Slice 66.7 adds
+// presentation-only accessibility, reduced-motion and responsive polish without
+// changing owners.
 (function (global) {
   'use strict';
 
   if (!global || global.VdrSuiteHomeLiveHero) return;
 
   const doc = global.document || (typeof document !== 'undefined' ? document : null);
+  const PROGRAMME_RAIL_LIMIT = 24;
   const state = {
     active: false,
     backendId: '',
@@ -278,6 +281,285 @@
     return card;
   }
 
+  function programmeHost() {
+    if (!doc || typeof doc.querySelector !== 'function') return null;
+    return doc.querySelector('[data-home-zone="additional-sections"]');
+  }
+
+  function programmeEntries(kind) {
+    const now = Math.floor(Date.now() / 1000);
+    const next = kind === 'next';
+    return state.channels.map(channel => ({
+      channel,
+      event: next
+        ? nextEventForChannel(channel, state.events, now)
+        : currentEventForChannel(channel, state.events, now)
+    })).filter(entry => Boolean(entry.event)).slice(0, PROGRAMME_RAIL_LIMIT);
+  }
+
+  function createProgrammeArtwork(channel, event) {
+    const artwork = doc.createElement('div');
+    artwork.className = 'media-home-live-guide-artwork';
+    const fallback = () => {
+      artwork.classList.add('is-fallback');
+      artwork.replaceChildren();
+      appendChannelLogo(artwork, channel, 'media-home-live-guide-logo');
+    };
+    const url = eventArtwork(event);
+    if (!url) {
+      fallback();
+      return artwork;
+    }
+    const image = doc.createElement('img');
+    image.src = url;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.fetchPriority = 'low';
+    image.addEventListener('error', fallback);
+    artwork.appendChild(image);
+    return artwork;
+  }
+
+  function showProgrammeActionError(feedback, message) {
+    if (!feedback || typeof feedback.replaceChildren !== 'function') return false;
+    feedback.replaceChildren();
+    const status = doc.createElement('p');
+    status.className = 'media-home-live-guide-action-error';
+    status.textContent = message;
+    feedback.appendChild(status);
+    return true;
+  }
+
+  function createProgrammeTimer(entry, button, feedback) {
+    if (typeof createEpgTimerFromDetail !== 'function') {
+      showProgrammeActionError(feedback, 'Timer-Erstellung ist derzeit nicht verfügbar.');
+      return false;
+    }
+    if (feedback && typeof feedback.replaceChildren === 'function') feedback.replaceChildren();
+    createEpgTimerFromDetail(feedback, entry.event, entry.channel, button);
+    return true;
+  }
+
+  function programmeDetailOwnerReady() {
+    return Boolean(
+      global.VdrSuiteEpgDetailOwner &&
+      typeof global.VdrSuiteEpgDetailOwner.createCard === 'function'
+    );
+  }
+
+  function loadProgrammeDetailOwner() {
+    if (programmeDetailOwnerReady()) return Promise.resolve(global.VdrSuiteEpgDetailOwner);
+    const runtimes = global.VdrSuiteDeferredFrontendRuntimes;
+    const epgDetailLoad = runtimes && typeof runtimes.loadEpgDetail === 'function'
+      ? Promise.resolve(runtimes.loadEpgDetail())
+      : Promise.resolve();
+
+    return epgDetailLoad.then(() => {
+      if (programmeDetailOwnerReady()) return global.VdrSuiteEpgDetailOwner;
+      if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return null;
+      return Promise.resolve(global.loadVdrSuiteDeferredRuntime(
+        'vdr-suite-epg-detail-owner-runtime',
+        '/frontend/epg-detail-owner.js',
+        programmeDetailOwnerReady
+      )).then(() => programmeDetailOwnerReady() ? global.VdrSuiteEpgDetailOwner : null);
+    }).catch(() => null);
+  }
+
+  function clearProgrammeDetails(focusCard) {
+    const host = programmeHost();
+    if (!host || typeof host.querySelectorAll !== 'function') return false;
+    host.querySelectorAll('[data-home-live-guide-detail="true"]').forEach(element => {
+      if (typeof element.remove === 'function') element.remove();
+    });
+    host.querySelectorAll('.media-home-live-guide-card.detail-selected').forEach(element => {
+      if (element.classList) element.classList.remove('detail-selected');
+      if (typeof element.setAttribute === 'function') element.setAttribute('aria-expanded', 'false');
+    });
+    if (focusCard && typeof focusCard.focus === 'function') {
+      try { focusCard.focus({preventScroll: true}); } catch (_) { focusCard.focus(); }
+    }
+    return true;
+  }
+
+  function openProgrammeDetail(entry, card) {
+    const section = card && typeof card.closest === 'function'
+      ? card.closest('[data-home-live-guide]')
+      : null;
+    if (!section || !entry || !entry.event || !entry.channel) return Promise.resolve(false);
+
+    const alreadyOpen = Boolean(card.classList && card.classList.contains('detail-selected'));
+    clearProgrammeDetails(null);
+    if (alreadyOpen) {
+      if (typeof card.focus === 'function') card.focus();
+      return Promise.resolve(true);
+    }
+
+    if (card.classList) card.classList.add('detail-selected');
+    card.setAttribute('aria-expanded', 'true');
+
+    const shell = doc.createElement('section');
+    shell.className = 'media-home-live-guide-detail';
+    shell.dataset.homeLiveGuideDetail = 'true';
+    shell.setAttribute('aria-label', 'Sendungsdetails: ' + eventTitle(entry.event));
+    shell.addEventListener('click', event => {
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+    });
+
+    const heading = doc.createElement('div');
+    heading.className = 'media-home-live-guide-detail-head';
+    const name = doc.createElement('h4');
+    name.textContent = 'Sendungsdetails';
+    heading.appendChild(name);
+    const close = createButton('Schließen', 'media-home-live-guide-detail-close');
+    close.setAttribute('aria-label', 'Sendungsdetails schließen');
+    close.addEventListener('click', event => {
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      clearProgrammeDetails(card);
+    });
+    heading.appendChild(close);
+    shell.appendChild(heading);
+
+    const status = doc.createElement('p');
+    status.className = 'media-home-live-guide-detail-state';
+    status.textContent = 'Sendungsdetails werden geladen …';
+    shell.appendChild(status);
+    section.appendChild(shell);
+    if (typeof shell.scrollIntoView === 'function') {
+      shell.scrollIntoView({behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest'});
+    }
+
+    return loadProgrammeDetailOwner().then(owner => {
+      if (!shell.parentNode) return false;
+      if (!owner || typeof owner.createCard !== 'function') {
+        status.classList.add('error');
+        status.textContent = 'Sendungsdetails sind derzeit nicht verfügbar.';
+        return false;
+      }
+      try {
+        const detail = owner.createCard(entry.event, entry.channel);
+        shell.replaceChildren(heading, detail);
+        return true;
+      } catch (error) {
+        status.classList.add('error');
+        status.textContent = error && error.message
+          ? String(error.message)
+          : 'Sendungsdetails konnten nicht geöffnet werden.';
+        return false;
+      }
+    });
+  }
+
+  function createProgrammeGuideCard(entry, current) {
+    const card = doc.createElement('article');
+    card.className = 'media-home-live-guide-card' + (current ? ' current' : '');
+    card.dataset.channelId = channelId(entry.channel);
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', eventTitle(entry.event) + ' – Sendungsdetails öffnen');
+    card.setAttribute('aria-expanded', 'false');
+    card.appendChild(createProgrammeArtwork(entry.channel, entry.event));
+    const copy = doc.createElement('div');
+    copy.className = 'media-home-live-guide-copy';
+    const channel = doc.createElement('span');
+    channel.className = 'media-home-live-guide-channel';
+    channel.textContent = channelName(entry.channel) + ' · ' + eventTime(entry.event);
+    copy.appendChild(channel);
+    const title = doc.createElement('strong');
+    title.textContent = eventTitle(entry.event);
+    copy.appendChild(title);
+    const subtitle = eventSubtitle(entry.event);
+    if (subtitle) {
+      const detail = doc.createElement('span');
+      detail.className = 'media-home-live-guide-subtitle';
+      detail.textContent = subtitle;
+      copy.appendChild(detail);
+    }
+    if (current) {
+      const percent = progressPercent(entry.event);
+      const progress = doc.createElement('progress');
+      progress.className = 'media-home-live-guide-progress';
+      progress.max = 100;
+      progress.value = Number(percent.toFixed(1));
+      progress.setAttribute('aria-label', 'Fortschritt von ' + eventTitle(entry.event) + ': ' + String(Math.round(percent)) + ' Prozent');
+      copy.appendChild(progress);
+    }
+    card.appendChild(copy);
+
+    const actions = doc.createElement('div');
+    actions.className = 'media-home-live-guide-actions' + (current ? '' : ' single');
+    if (current) {
+      const live = createButton('Live TV', 'media-home-live-guide-action primary');
+      live.setAttribute('aria-label', channelName(entry.channel) + ' live ansehen');
+      live.addEventListener('click', event => {
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        watchChannel(entry.channel);
+      });
+      actions.appendChild(live);
+    }
+    const timer = createButton('Timer erstellen', 'media-home-live-guide-action');
+    timer.setAttribute('aria-label', 'Timer für ' + eventTitle(entry.event) + ' erstellen');
+    const feedback = doc.createElement('div');
+    feedback.className = 'media-home-live-guide-feedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    timer.addEventListener('click', event => {
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      createProgrammeTimer(entry, timer, feedback);
+    });
+    actions.appendChild(timer);
+    card.appendChild(actions);
+    card.appendChild(feedback);
+    card.addEventListener('click', event => {
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      openProgrammeDetail(entry, card);
+    });
+    card.addEventListener('keydown', event => {
+      if (!event || (event.key !== 'Enter' && event.key !== ' ')) return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      if (typeof event.stopPropagation === 'function') event.stopPropagation();
+      openProgrammeDetail(entry, card);
+    });
+    return card;
+  }
+
+  function renderProgrammeRail(kind, title, current) {
+    const host = programmeHost();
+    if (!host || typeof host.querySelector !== 'function') return false;
+    let section = host.querySelector('[data-home-live-guide="' + kind + '"]');
+    const ready = !state.loadingChannels && !state.loadingPrograms && !state.dataError && !state.programError;
+    const entries = ready ? programmeEntries(kind) : [];
+    if (!entries.length) {
+      if (section && typeof section.remove === 'function') section.remove();
+      return true;
+    }
+    if (!section) {
+      section = doc.createElement('section');
+      section.dataset.homeLiveGuide = kind;
+      host.appendChild(section);
+    }
+    section.className = 'media-home-live-guide media-home-live-guide-' + kind;
+    section.setAttribute('aria-labelledby', 'media-home-live-guide-' + kind + '-title');
+    section.replaceChildren();
+    const heading = doc.createElement('div');
+    heading.className = 'media-home-section-heading';
+    const name = doc.createElement('h3');
+    name.id = 'media-home-live-guide-' + kind + '-title';
+    name.textContent = title;
+    heading.appendChild(name);
+    section.appendChild(heading);
+    const rail = doc.createElement('div');
+    rail.className = 'media-home-live-guide-rail';
+    rail.setAttribute('aria-label', title);
+    entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));
+    section.appendChild(rail);
+    return true;
+  }
+
+  function renderProgrammeRails() {
+    renderProgrammeRail('now', 'Was läuft jetzt', true);
+    renderProgrammeRail('next', 'Was läuft danach', false);
+  }
+
   function statusHero(title, message, error) {
     const root = heroRoot();
     if (!root || typeof root.replaceChildren !== 'function') return false;
@@ -292,8 +574,7 @@
     return true;
   }
 
-  function watchLive() {
-    const channel = currentChannel();
+  function watchChannel(channel) {
     if (!channel || !channelIsEnabled(channel)) {
       state.actionError = 'Dieser Sender kann derzeit nicht gestartet werden.';
       render();
@@ -320,6 +601,10 @@
     }
   }
 
+  function watchLive() {
+    return watchChannel(currentChannel());
+  }
+
   function openEpg() {
     const entry = doc && typeof doc.querySelector === 'function' ? doc.querySelector('[data-brand-module="epg"]') : null;
     if (!entry || typeof entry.click !== 'function') {
@@ -338,6 +623,7 @@
     if (!root || typeof root.replaceChildren !== 'function') return false;
     installStyles();
     bindHeroInteractions(root);
+    renderProgrammeRails();
     if (state.loadingChannels && state.channels.length === 0) return statusHero('Sender werden geladen …', 'Media Home lädt die vorhandene VDR-Kanalliste. Browsing bleibt von Playback getrennt.', false);
     if (state.dataError) return statusHero('Live-TV ist vorübergehend nicht verfügbar', state.dataError, true);
     if (state.channels.length === 0) return statusHero('Keine TV-Sender gefunden', 'Die kanonische Kanalliste enthält für dieses Backend derzeit keine TV-Sender.', false);
@@ -585,11 +871,14 @@
 .media-home-live-programmes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}.media-home-live-program{display:grid;gap:.28rem;min-width:0;padding:.8rem .9rem;border:1px solid rgba(148,163,184,.18);border-radius:.9rem;background:rgba(15,23,42,.68)}.media-home-live-program.current{border-color:rgba(56,189,248,.34)}.media-home-live-program-label{color:#7dd3fc;font-size:.7rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}.media-home-live-program-title{overflow:hidden;color:#f8fafc;font-size:clamp(.96rem,1.6vw,1.18rem);white-space:nowrap;text-overflow:ellipsis}.media-home-live-program-meta{overflow:hidden;color:#a8b6c8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-progress{display:block;width:100%;height:.26rem;margin-top:.25rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}
 .media-home-live-actions{display:flex;gap:.65rem;flex-wrap:wrap}.media-home-live-action{min-height:2.9rem;padding:.58rem 1rem;border:1px solid rgba(125,211,252,.36);border-radius:.75rem;background:rgba(15,23,42,.78);color:#e0f2fe;font-weight:800;cursor:pointer}.media-home-live-action.primary{border-color:rgba(56,189,248,.74);background:#0369a1;color:#fff}.media-home-live-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-action:disabled{cursor:not-allowed;opacity:.5}.media-home-live-notice{margin:0!important;color:#a8b6c8!important;font-size:.78rem!important}.media-home-live-notice.error{color:#fecaca!important}
 .media-home-live-neighbor{display:grid;align-content:center;gap:.55rem;min-width:2.75rem;min-height:2.75rem;padding:.65rem;border:1px solid rgba(148,163,184,.14);border-radius:1rem;background:rgba(15,23,42,.48);color:#cbd5e1;text-align:left;cursor:pointer;opacity:.64;transition:opacity .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}.media-home-live-neighbor:hover{opacity:.88;border-color:rgba(125,211,252,.42);transform:translateY(-1px)}.media-home-live-neighbor:focus-visible{opacity:1;border-color:rgba(125,211,252,.74);outline:3px solid rgba(125,211,252,.96);outline-offset:2px;box-shadow:0 0 0 1px rgba(2,6,23,.92);transform:translateY(-1px)}.media-home-live-neighbor-logo{width:100%;height:3.2rem;padding:.3rem;border-radius:.65rem;background:rgba(248,250,252,.94);overflow:hidden}.media-home-live-neighbor-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-neighbor-copy{display:grid;gap:.16rem;min-width:0}.media-home-live-neighbor-copy strong,.media-home-live-neighbor-copy span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.media-home-live-neighbor-copy strong{color:#f8fafc;font-size:.82rem}.media-home-live-neighbor-copy span{color:#a8b6c8;font-size:.7rem}.media-home-live-status{display:grid;align-content:center;gap:.7rem;min-height:20rem;padding:clamp(1.5rem,5vw,4rem)}.media-home-live-status h3{max-width:18ch}.media-home-live-status.error{color:#fecaca}
+#detail:has(.module-tab.active[data-module="overview"]) .media-home-additional-sections{display:flex;flex-direction:column}.media-home-additional-sections>*{order:70}.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}.media-home-discovery[data-home-discovery-rail="newly"]{order:40}.media-home-discovery[data-home-discovery-rail="series"]{order:45}.media-home-discovery[data-home-discovery-rail="genres"]{order:50}.media-home-discovery[data-home-discovery-rail="folders"]{order:60}.media-home-recently-watched{order:80}
+.media-home-live-guide{min-width:0}.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.media-home-live-guide-card{scroll-snap-align:start;min-width:0;overflow:hidden;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0;cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}.media-home-live-guide-card:hover,.media-home-live-guide-card.detail-selected{border-color:rgba(125,211,252,.62);box-shadow:0 0 0 1px rgba(56,189,248,.16) inset}.media-home-live-guide-card:hover{transform:translateY(-1px)}.media-home-live-guide-card:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;background:linear-gradient(135deg,#172033,#26364d)}.media-home-live-guide-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-live-guide-artwork.is-fallback{background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.18),transparent 32%),linear-gradient(145deg,#172033,#26364d)}.media-home-live-guide-logo{box-sizing:border-box;width:72%;height:4rem;padding:.35rem;border-radius:.65rem;background:rgba(248,250,252,.96);overflow:hidden}.media-home-live-guide-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-copy{display:grid;gap:.28rem;padding:.7rem}.media-home-live-guide-channel,.media-home-live-guide-subtitle{overflow:hidden;color:#94a3b8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-copy strong{overflow:hidden;color:#f8fafc;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-progress{display:block;width:100%;height:.26rem;margin-top:.2rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-guide-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-guide-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-guide-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}.media-home-live-guide-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.42rem;padding:0 .7rem .7rem}.media-home-live-guide-actions.single{grid-template-columns:1fr}.media-home-live-guide-action{min-width:0;min-height:2.35rem;padding:.42rem .5rem;border:1px solid rgba(125,211,252,.32);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e0f2fe;font-size:.76rem;font-weight:800;cursor:pointer}.media-home-live-guide-action.primary{border-color:rgba(56,189,248,.68);background:#075985;color:#fff}.media-home-live-guide-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-action:disabled{cursor:not-allowed;opacity:.58}.media-home-live-guide-feedback:empty{display:none}.media-home-live-guide-feedback{padding:0 .7rem .7rem}.media-home-live-guide-action-error{margin:0;color:#fecaca;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status{margin:0;padding:.55rem .6rem;border-radius:.62rem;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status h4,.media-home-live-guide-feedback .epg-timer-status p{margin:.1rem 0}
+.media-home-live-guide-detail{box-sizing:border-box;margin:0 1rem 1.25rem;padding:.8rem;border:1px solid rgba(125,211,252,.28);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.9),rgba(2,6,23,.96));box-shadow:0 1rem 2.4rem rgba(2,6,23,.24)}.media-home-live-guide-detail-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:0 0 .7rem}.media-home-live-guide-detail-head h4{margin:0;color:#f8fafc;font-size:1rem}.media-home-live-guide-detail-close{min-height:2.35rem;padding:.42rem .7rem;border:1px solid rgba(148,163,184,.26);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e2e8f0;font-weight:750;cursor:pointer}.media-home-live-guide-detail-close:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-detail-state{margin:0;padding:.8rem;border:1px solid rgba(148,163,184,.14);border-radius:.72rem;color:#94a3b8;background:rgba(15,23,42,.5)}.media-home-live-guide-detail-state.error{border-color:rgba(239,68,68,.4);color:#fecaca}.media-home-live-guide-detail>.epg-event-detail{margin:0}
 @media(min-width:120rem){.media-home-live-hero-active{min-height:30rem}.media-home-live-carousel{max-width:150rem;margin-inline:auto;padding:clamp(2rem,3vw,4rem)}.media-home-live-focus{padding:clamp(2rem,2vw,3rem)}.media-home-live-channel-copy h3{font-size:clamp(3.2rem,3.4vw,5.2rem)}.media-home-live-program-title{font-size:clamp(1.15rem,1vw,1.45rem)}}
 @media(max-width:72rem){.media-home-live-carousel{grid-template-columns:minmax(5.4rem,.34fr) minmax(0,2.2fr) minmax(5.4rem,.34fr);padding:1rem}.media-home-live-neighbor-copy span{display:none}}
-@media(max-width:46rem){.media-home-live-hero-active{min-height:25rem}.media-home-live-carousel{grid-template-columns:minmax(2.75rem,.18fr) minmax(0,1fr) minmax(2.75rem,.18fr);gap:.35rem;padding:.72rem .35rem}.media-home-live-focus{padding:1rem .8rem;border-radius:1.05rem}.media-home-live-channel-head{align-items:flex-start;flex-direction:column;gap:.65rem}.media-home-live-channel-logo{width:5.5rem;height:3.4rem}.media-home-live-channel-copy h3{font-size:clamp(2rem,10vw,3.25rem)}.media-home-live-programmes{grid-template-columns:1fr}.media-home-live-program{padding:.68rem .72rem}.media-home-live-program:nth-child(2){background:rgba(15,23,42,.5)}.media-home-live-actions{display:grid;grid-template-columns:1fr 1fr}.media-home-live-action{width:100%;padding:.58rem .55rem}.media-home-live-neighbor{padding:.3rem;border-color:rgba(148,163,184,.12);background:rgba(15,23,42,.3)}.media-home-live-neighbor-logo{height:2.35rem;padding:.18rem}.media-home-live-neighbor-copy{display:none}}
+@media(max-width:46rem){.media-home-live-hero-active{min-height:25rem}.media-home-live-carousel{grid-template-columns:minmax(2.75rem,.18fr) minmax(0,1fr) minmax(2.75rem,.18fr);gap:.35rem;padding:.72rem .35rem}.media-home-live-focus{padding:1rem .8rem;border-radius:1.05rem}.media-home-live-channel-head{align-items:flex-start;flex-direction:column;gap:.65rem}.media-home-live-channel-logo{width:5.5rem;height:3.4rem}.media-home-live-channel-copy h3{font-size:clamp(2rem,10vw,3.25rem)}.media-home-live-programmes{grid-template-columns:1fr}.media-home-live-program{padding:.68rem .72rem}.media-home-live-program:nth-child(2){background:rgba(15,23,42,.5)}.media-home-live-actions{display:grid;grid-template-columns:1fr 1fr}.media-home-live-action{width:100%;padding:.58rem .55rem}.media-home-live-neighbor{padding:.3rem;border-color:rgba(148,163,184,.12);background:rgba(15,23,42,.3)}.media-home-live-neighbor-logo{height:2.35rem;padding:.18rem}.media-home-live-neighbor-copy{display:none}.media-home-live-guide-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}.media-home-live-guide-actions{padding-left:.62rem;padding-right:.62rem}.media-home-live-guide-feedback{padding-left:.62rem;padding-right:.62rem}.media-home-live-guide-detail{margin-left:.78rem;margin-right:.78rem;padding:.68rem}}
 @media(max-height:34rem) and (min-width:40rem) and (max-width:64rem){.media-home-live-hero-active{min-height:16rem}.media-home-live-carousel{grid-template-columns:4.2rem minmax(0,1fr) 4.2rem;padding:.55rem}.media-home-live-focus{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:.55rem;padding:.7rem}.media-home-live-channel-head{grid-column:1}.media-home-live-programmes{grid-column:2;grid-row:1 / span 2;grid-template-columns:1fr}.media-home-live-actions{grid-column:1}.media-home-live-notice{grid-column:1}.media-home-live-neighbor-copy{display:none}}
-@media(prefers-reduced-motion:reduce){.media-home-live-neighbor{transition:none}.media-home-live-neighbor:hover,.media-home-live-neighbor:focus-visible{transform:none}.media-home-live-carousel{scroll-behavior:auto}}
+@media(prefers-reduced-motion:reduce){.media-home-live-neighbor,.media-home-live-guide-card{transition:none}.media-home-live-neighbor:hover,.media-home-live-neighbor:focus-visible,.media-home-live-guide-card:hover{transform:none}.media-home-live-carousel,.media-home-live-guide-rail{scroll-behavior:auto}}
 `;
     doc.head.appendChild(style);
     return true;
@@ -652,6 +941,12 @@
       nextEventForChannel,
       progressPercent,
       prefersReducedMotion,
+      programmeEntries,
+      createProgrammeTimer,
+      loadProgrammeDetailOwner,
+      openProgrammeDetail,
+      clearProgrammeDetails,
+      renderProgrammeRails,
       applyChannels,
       applyPrograms,
       render,

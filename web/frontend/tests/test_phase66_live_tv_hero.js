@@ -26,6 +26,11 @@ assert(heroSource.includes('focusHeroRoot(root)'));
 assert(heroSource.includes("root.addEventListener('touchstart'"));
 assert(heroSource.includes("root.addEventListener('touchend'"));
 assert(heroSource.includes('@media(max-width:46rem)'));
+assert(heroSource.includes('const PROGRAMME_RAIL_LIMIT = 24;'));
+assert(heroSource.includes("renderProgrammeRail('now', 'Was läuft jetzt', true);"));
+assert(heroSource.includes("renderProgrammeRail('next', 'Was läuft danach', false);"));
+assert(heroSource.includes('.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}'));
+assert(heroSource.includes('.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem)'));
 assert(!heroSource.includes('/api/media/sessions'));
 assert(!heroSource.includes('createLivePanel('));
 assert(!heroSource.includes('<video'));
@@ -68,6 +73,17 @@ function createNode(tagName) {
       this.children = [];
       children.forEach(child => this.appendChild(child));
     },
+    querySelector(selector) {
+      const dataMatch = String(selector || '').match(/^\[data-home-live-guide="([^"]+)"\]$/);
+      if (dataMatch && this.dataset.homeLiveGuide === dataMatch[1]) return this;
+      for (const child of this.children || []) {
+        if (child && typeof child.querySelector === 'function') {
+          const found = child.querySelector(selector);
+          if (found) return found;
+        }
+      }
+      return null;
+    },
     setAttribute(name, value) {
       attributes[name] = String(value);
       if (name === 'class') {
@@ -91,7 +107,14 @@ function createNode(tagName) {
     click() { this.dispatch('click'); },
     focus() { this.focused = true; },
     scrollIntoView() { this.scrolled = true; },
-    remove() { this.removed = true; }
+    remove() {
+      if (this.parentNode) {
+        const index = this.parentNode.children.indexOf(this);
+        if (index >= 0) this.parentNode.children.splice(index, 1);
+      }
+      this.parentNode = null;
+      this.removed = true;
+    }
   };
 }
 
@@ -119,6 +142,8 @@ function findByClass(node, className) {
 
 const heroRoot = createNode('section');
 heroRoot.dataset.homeZone = 'hero';
+const additionalSections = createNode('section');
+additionalSections.dataset.homeZone = 'additional-sections';
 const detailData = createNode('section');
 const moduleNav = createNode('nav');
 const backends = createNode('section');
@@ -144,6 +169,7 @@ const document = {
   createElement: createNode,
   querySelector(selector) {
     if (selector === '.media-home-hero[data-home-zone="hero"]') return heroRoot;
+    if (selector === '[data-home-zone="additional-sections"]') return additionalSections;
     if (selector === '.module-tab.active[data-module="overview"]') return overviewTab;
     if (selector === '.module-tab.active') return overviewTab;
     if (selector === '[data-brand-module="livetv"]') return liveEntry;
@@ -269,6 +295,24 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert(findByClass(heroRoot, 'media-home-live-artwork'));
   assert.strictEqual(heroRoot.tabIndex, 0);
 
+  const nowSection = additionalSections.querySelector('[data-home-live-guide="now"]');
+  const nextSection = additionalSections.querySelector('[data-home-live-guide="next"]');
+  assert.ok(nowSection, 'Home must render Was läuft jetzt from the Hero-owned EPG projection');
+  assert.ok(nextSection, 'Home must render Was läuft danach from the same EPG projection');
+  assert.strictEqual(additionalSections.children[0], nowSection);
+  assert.strictEqual(additionalSections.children[1], nextSection);
+  assert(flattenText(nowSection).includes('Was läuft jetzt'));
+  assert(flattenText(nowSection).includes('Heute Eins'));
+  assert(flattenText(nowSection).includes('Heute Zwei'));
+  assert(flattenText(nowSection).includes('Heute Zwanzig'));
+  assert(flattenText(nextSection).includes('Was läuft danach'));
+  assert(flattenText(nextSection).includes('Danach Heute Eins'));
+  assert(flattenText(nextSection).includes('Danach Heute Zwei'));
+  assert(flattenText(nextSection).includes('Danach Heute Zwanzig'));
+  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 3);
+  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 3);
+  assert(findByClass(nowSection, 'media-home-live-guide-artwork'));
+
   const dataRequestBaseline = channelFetchCount + epgFetchCount;
 
   // Pointer activation gives the persistent Hero root keyboard ownership.
@@ -310,6 +354,7 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert.strictEqual(hero.snapshot().selectedChannelId, selectedBeforeRerender);
   assert(findButton(heroRoot, 'Live ansehen'));
   assert(findButton(heroRoot, 'EPG'));
+  assert.strictEqual(channelFetchCount + epgFetchCount, dataRequestBaseline, 'programme rails must not add API reads');
 
   // Only explicit Watch Live delegates to the existing canonical Live-TV owner.
   findButton(heroRoot, 'Live ansehen').click();

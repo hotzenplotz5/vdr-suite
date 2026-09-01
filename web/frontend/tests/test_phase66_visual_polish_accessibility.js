@@ -37,6 +37,20 @@ assert(heroSource.includes('@media(min-width:120rem)'));
 assert(heroSource.includes('@media(prefers-reduced-motion:reduce)'));
 assert(heroSource.includes("behavior: prefersReducedMotion() ? 'auto' : 'smooth'"));
 
+// Live programme rails reuse the Hero-owned channel/EPG projection. They sit
+// immediately above Continue Watching and use the same compact Home portrait
+// scale without introducing another endpoint or playback owner.
+assert(heroSource.includes('const PROGRAMME_RAIL_LIMIT = 24;'));
+assert(heroSource.includes("renderProgrammeRail('now', 'Was läuft jetzt', true);"));
+assert(heroSource.includes("renderProgrammeRail('next', 'Was läuft danach', false);"));
+assert(heroSource.includes('.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}'));
+assert(heroSource.includes('.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem)'));
+assert(heroSource.includes('.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3'));
+assert(heroSource.includes("image.loading = 'lazy'"));
+assert(heroSource.includes("image.decoding = 'async'"));
+assert(heroSource.includes("image.fetchPriority = 'low'"));
+assert(!heroSource.includes('/api/media/sessions'));
+
 // Continue Watching: preserve the canonical playback owner while improving
 // semantics, focus, touch sizing, fallback art and below-fold image behavior.
 assert(continueSource.includes("section.setAttribute('aria-labelledby', 'media-home-continue-title')"));
@@ -55,6 +69,20 @@ assert(continueSource.includes('const generation = ++refreshGeneration'));
 assert(continueSource.includes('VdrSuiteRecordings2.openRecording'));
 assert(!continueSource.includes('localStorage'));
 assert(!continueSource.includes('MediaSession'));
+
+// Desktop Home polish: all Recording cover rails share the established
+// Recently-Watched / discovery portrait width while mobile keeps its existing
+// wider touch card. The inventory rail is visually ordered after every dynamic
+// Media-Home section without changing backend/data ownership.
+assert(discoverySource.includes('grid-auto-columns:minmax(11rem,15rem)'));
+assert(continueSource.includes('@media(min-width:46.01rem){.media-home-continue-rail{grid-auto-columns:minmax(11rem,15rem)'));
+assert(continueSource.includes('.media-home-continue-card{grid-template-columns:1fr;gap:0;padding:0;overflow:hidden}'));
+assert(continueSource.includes('.media-home-continue-artwork{border-radius:0}'));
+assert(continueSource.includes('@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}'));
+assert(continueSource.includes('#detail:has(.module-tab.active[data-module="overview"]){display:flex;flex-direction:column}'));
+assert(continueSource.includes('[data-home-zone="additional-sections"]{order:40}'));
+assert(continueSource.includes('[data-home-zone="primary-rail"]{order:50}'));
+assert(continueSource.includes('#detail-data{order:60}'));
 
 // Existing discovery / series / history rails keep their established focus,
 // geometry, lazy-loading and canonical owner boundaries. Slice 66.7 must not
