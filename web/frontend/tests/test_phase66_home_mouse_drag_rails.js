@@ -8,7 +8,7 @@ const vm = require('vm');
 const frontendRoot = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery-bootstrap.js'), 'utf8');
 
-assert(source.includes("const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail'"));
+assert(source.includes("const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail'"));
 assert(source.includes('scrollbar-width:none'));
 assert(source.includes('::-webkit-scrollbar'));
 assert(source.includes("event.pointerType !== 'mouse'"));
@@ -35,6 +35,7 @@ function matches(element, selector) {
   const value = String(selector || '').trim();
   if (value === '.media-home-discovery-rail') return element.classList.contains('media-home-discovery-rail');
   if (value === '.media-home-series-season-rail') return element.classList.contains('media-home-series-season-rail');
+  if (value === '.media-home-live-guide-rail') return element.classList.contains('media-home-live-guide-rail');
   if (value === '.media-home-hero.media-home-live-hero-active[data-home-zone="hero"]') {
     return element.classList.contains('media-home-hero') &&
       element.classList.contains('media-home-live-hero-active') &&
@@ -150,6 +151,7 @@ const style = document.getElementById('vdr-suite-home-mouse-drag-style');
 assert(style);
 assert(style.textContent.includes('.media-home-discovery-rail::-webkit-scrollbar'));
 assert(style.textContent.includes('.media-home-series-season-rail::-webkit-scrollbar'));
+assert(style.textContent.includes('.media-home-live-guide-rail::-webkit-scrollbar'));
 assert(style.textContent.includes('scrollbar-width:none'));
 
 // A physical discovery rail follows the pointer continuously, like the EPG timeline.
@@ -190,6 +192,21 @@ dispatch('pointerdown', card, {pointerType: 'touch', pointerId: 13, clientX: 200
 dispatch('pointermove', card, {pointerType: 'touch', pointerId: 13, clientX: 120, clientY: 42});
 dispatch('pointerup', card, {pointerType: 'touch', pointerId: 13, clientX: 120, clientY: 42});
 assert.strictEqual(rail.scrollLeft, beforeVertical);
+
+// The new Now/Next programme rails reuse the exact same delegated mouse-drag owner.
+const liveGuideRail = new FakeElement('div', 'media-home-live-guide-rail');
+const liveGuideCard = liveGuideRail.appendChild(new FakeElement('article', 'media-home-live-guide-card'));
+liveGuideRail.scrollLeft = 80;
+dispatch('pointerdown', liveGuideCard, {pointerId: 14, clientX: 210, clientY: 46});
+const liveGuideMove = dispatch('pointermove', liveGuideCard, {pointerId: 14, clientX: 145, clientY: 48});
+assert.strictEqual(liveGuideRail.scrollLeft, 145);
+assert.strictEqual(liveGuideMove.defaultPrevented, true);
+assert.strictEqual(liveGuideRail.classList.contains('media-home-mouse-dragging'), true);
+assert.deepStrictEqual(liveGuideRail.captured, [14]);
+dispatch('pointerup', liveGuideCard, {pointerId: 14, clientX: 145, clientY: 48});
+assert.strictEqual(liveGuideRail.classList.contains('media-home-mouse-dragging'), false);
+assert.deepStrictEqual(liveGuideRail.released, [14]);
+assert.strictEqual(dispatch('click', liveGuideCard).defaultPrevented, true);
 
 // The projected Live-TV Hero uses the same mouse gesture but delegates selection
 // to its existing browse-only API instead of inventing a scroll/playback owner.
