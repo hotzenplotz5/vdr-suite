@@ -253,6 +253,7 @@ bool reconcileGenreConflicts(
         "WHERE metadata_target_id=? AND assignment_state IN('active','unknown') "
         "AND genre_id<>'unclassified' "
         "AND source_kind NOT IN('scraper-media-type','epg-browse-content-class') "
+        "AND source_kind<>'recording-folder-genre' "
         "ORDER BY provider_id,genre_id;";
     if (sqlite3_prepare_v2(database, readSql, -1, &read, nullptr) != SQLITE_OK) return false;
     bindText(read, 1, targetId);
@@ -288,7 +289,8 @@ bool reconcileGenreConflicts(
     const char* markSql =
         "UPDATE suite_metadata_genre_assignments SET assignment_state='conflict',updated_at=CURRENT_TIMESTAMP "
         "WHERE metadata_target_id=? AND provider_id=? AND assignment_state IN('active','unknown') "
-        "AND source_kind NOT IN('scraper-media-type','epg-browse-content-class');";
+        "AND source_kind NOT IN('scraper-media-type','epg-browse-content-class') "
+        "AND source_kind<>'recording-folder-genre';";
     if (sqlite3_prepare_v2(database, markSql, -1, &mark, nullptr) != SQLITE_OK) return false;
     for (const std::string& providerId : conflictingProviders)
     {

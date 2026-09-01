@@ -429,7 +429,7 @@ SuiteBridgeTvScraperRecordingAdapter::Start(
 
   if (!request.m_scraperVideo ||
       request.m_scraperVideo->getVideoType() == tNone ||
-      request.m_scraperVideo->getDbId() <= 0) {
+      request.m_scraperVideo->getDbId() == 0) {
     impl->state =
         SuiteBridgeTvScraperRecordingSession::State::ProviderNoMatch;
     isyslog(

@@ -37,11 +37,13 @@ if not errors:
             "SuiteBridgeRecordingIdentity::IsValidKey(recordingKey_)",
             "SuiteBridgeRecordingMetadata::kMaxPeople",
             "SuiteBridgeRecordingMetadata::kMaxImages",
+            "metadata.providerId == 0",
             "complete_ = size_ < data_.size();",
         ),
         "adapter": (
             "cGetScraperVideo request(nullptr, &recording);",
             "cPlugin *scraper = request.call();",
+            "request.m_scraperVideo->getDbId() == 0",
             "impl->video = std::move(request.m_scraperVideo);",
             "video.getCharacters(true)",
             "video.getImages(",

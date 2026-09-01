@@ -88,6 +88,30 @@ int main()
     assert(json.find("poster-secret.jpg") == std::string::npos);
     assert(json.find("series/100") == std::string::npos);
 
+    VdrRecording nativeFallback;
+    nativeFallback.backendId = "living room";
+    nativeFallback.backendNativeId =
+        "/srv/vdr/video/Serien/Band of Brothers/01 Currahee/2016.rec";
+    nativeFallback.title = "01 Currahee";
+
+    const std::string nativeFallbackUrl =
+        "/api/vdr/recordings/metadata/image?backend=living%20room"
+        "&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2FSerien%2FBand%20of%20Brothers%2F01%20Currahee%2F2016.rec"
+        "&kind=preferred&index=0";
+    const std::string nativeFallbackJson =
+        VdrRecordingMetadataJsonSerializer::serialize(nativeFallback);
+
+    assert(nativeFallbackJson.find("\"artworkPrepared\":false") !=
+        std::string::npos);
+    assert(nativeFallbackJson.find("\"posterAvailable\":false") !=
+        std::string::npos);
+    assert(nativeFallbackJson.find(
+        "\"preferredUrl\":\"" + nativeFallbackUrl + "\"") !=
+        std::string::npos);
+    assert(nativeFallbackJson.find(
+        "\"posterUrl\":\"" + nativeFallbackUrl + "\"") !=
+        std::string::npos);
+
     VdrRecording fallback;
     fallback.title = "Fallback Recording";
 

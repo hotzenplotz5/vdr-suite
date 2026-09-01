@@ -75,6 +75,50 @@ inline std::string firstNonEmpty(
     return {};
 }
 
+inline std::string percentEncode(
+    const std::string& value)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    std::string output;
+    output.reserve(value.size());
+
+    for (const unsigned char character : value)
+    {
+        if ((character >= 'A' && character <= 'Z') ||
+            (character >= 'a' && character <= 'z') ||
+            (character >= '0' && character <= '9') ||
+            character == '-' || character == '_' ||
+            character == '.' || character == '~')
+        {
+            output.push_back(static_cast<char>(character));
+            continue;
+        }
+
+        output.push_back('%');
+        output.push_back(hex[character >> 4U]);
+        output.push_back(hex[character & 0x0fU]);
+    }
+
+    return output;
+}
+
+inline std::string nativeMetadataPreferredArtworkUrl(
+    const VdrRecording& recording)
+{
+    if (recording.backendNativeId.empty())
+    {
+        return {};
+    }
+
+    const std::string backendId =
+        recording.backendId.empty() ? "default" : recording.backendId;
+
+    return "/api/vdr/recordings/metadata/image?backend=" +
+        percentEncode(backendId) +
+        "&backendNativeId=" + percentEncode(recording.backendNativeId) +
+        "&kind=preferred&index=0";
+}
+
 inline std::string presentationTitle(
     const VdrRecording& recording)
 {
@@ -255,7 +299,7 @@ inline std::string VdrRecordingMetadataJsonSerializer::serialize(
                 *preferredArtwork);
     const std::string preferredArtworkUrl =
         preferredArtwork == nullptr
-            ? std::string()
+            ? nativeMetadataPreferredArtworkUrl(recording)
             : VdrRecordingArtworkIdentity::publicUrl(
                 recording,
                 *preferredArtwork);

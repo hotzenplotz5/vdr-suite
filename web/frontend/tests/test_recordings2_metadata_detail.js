@@ -159,6 +159,20 @@ api.repairMetadataImagePaths({
 });
 assert.strictEqual(metadataImage.src, '/vdr-suite' + metadataImagePath);
 
+function detailField(label, value) {
+  const labelNode = {textContent: label};
+  const valueNode = {textContent: value};
+  return {
+    labelNode,
+    valueNode,
+    querySelector(selector) {
+      if (selector === 'span') return labelNode;
+      if (selector === 'strong') return valueNode;
+      return null;
+    }
+  };
+}
+
 const heading = {textContent: 'Alter technischer Titel'};
 const summary = {textContent: 'Alte Beschreibung'};
 const detailPoster = {
@@ -166,6 +180,11 @@ const detailPoster = {
   textContent: '▶',
   replaceChildren() { this.children = Array.from(arguments); this.textContent = ''; }
 };
+const genreField = detailField('Genre', 'EPG-Genre');
+const releaseField = detailField('Veröffentlichung', 'EPG-Datum');
+const ratingField = detailField('Bewertung', 'EPG-Bewertung');
+const sourceField = detailField('Metadatenquelle', 'VDR');
+const detailFields = [genreField, releaseField, ratingField, sourceField];
 const detailRoot = {
   querySelector(selector) {
     if (selector === '.recordings2-detail-copy h3') return heading;
@@ -173,6 +192,9 @@ const detailRoot = {
     if (selector === '.recordings2-detail-poster') return detailPoster;
     if (selector === '.recordings2-detail-poster img') return detailPoster.children[0] || null;
     return null;
+  },
+  querySelectorAll(selector) {
+    return selector === '.recordings2-detail-field' ? detailFields : [];
   }
 };
 api.applyMetadataToDetail(detailRoot, {
@@ -183,6 +205,13 @@ api.applyMetadataToDetail(detailRoot, {
     available: true,
     url: versionedMetadata.preferredArtwork.url
   },
+  images: [{
+    orientation: 'portrait',
+    image: {
+      available: true,
+      url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=9'
+    }
+  }],
   manualAssignment: {
     active: true,
     relationshipLocked: true
@@ -204,23 +233,102 @@ assert.strictEqual(detailPoster.children[0].loading, 'eager');
 assert.strictEqual(detailPoster.children[0].decoding, 'async');
 assert.strictEqual(detailPoster.children[0].fetchPriority, 'high');
 
+const preferredStillPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=preferred';
+const portraitPosterPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=3';
 heading.textContent = 'Pfadtitel bleibt';
-summary.textContent = 'Fallback bleibt';
+summary.textContent = 'EPG-Fallback';
 api.applyMetadataToDetail(detailRoot, {
   available: true,
+  provider: 'tvscraper',
   title: 'Automatischer Titel',
   overview: 'Automatische Beschreibung',
+  genres: ['Drama', 'War'],
+  releaseDate: '2001-09-09',
+  firstAired: '2001-09-23',
+  voteAverage: 8.7,
+  voteCount: 123,
   preferredArtwork: {
     available: true,
-    url: '/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
-  }
+    url: preferredStillPath
+  },
+  images: [
+    {
+      orientation: 'landscape',
+      image: {
+        available: true,
+        url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=0'
+      }
+    },
+    {
+      orientation: 'portrait',
+      image: {
+        available: true,
+        url: portraitPosterPath
+      }
+    }
+  ]
 });
 assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
-assert.strictEqual(summary.textContent, 'Fallback bleibt');
+assert.strictEqual(summary.textContent, 'Automatische Beschreibung');
+assert.strictEqual(genreField.valueNode.textContent, 'Drama, War');
+assert.strictEqual(releaseField.valueNode.textContent, '23.09.2001');
+assert.strictEqual(ratingField.valueNode.textContent, '8.7 / 10');
+assert.strictEqual(sourceField.valueNode.textContent, 'TVScraper');
 assert.strictEqual(
   detailPoster.children[0].src,
-  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+  '/vdr-suite' + portraitPosterPath
 );
+
+const preferredFallbackPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=preferred&fallback=1';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  provider: 'tvscraper',
+  preferredArtwork: {
+    available: true,
+    url: preferredFallbackPath
+  },
+  images: [{
+    orientation: 'landscape',
+    image: {
+      available: true,
+      url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=0'
+    }
+  }]
+});
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite' + preferredFallbackPath
+);
+
+summary.textContent = 'EPG bleibt ohne Scraper-Text';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  title: 'Automatischer Titel ohne Overview',
+  overview: '',
+  tagline: '',
+  preferredArtwork: {available: false}
+});
+assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
+assert.strictEqual(summary.textContent, 'EPG bleibt ohne Scraper-Text');
+assert.strictEqual(genreField.valueNode.textContent, 'Drama, War');
+assert.strictEqual(releaseField.valueNode.textContent, '23.09.2001');
+assert.strictEqual(ratingField.valueNode.textContent, '8.7 / 10');
+assert.strictEqual(sourceField.valueNode.textContent, 'TVScraper');
+
+api.applyMetadataToDetail(detailRoot, {
+  available: false,
+  provider: 'manual',
+  genres: ['Falsch'],
+  firstAired: '1999-01-01',
+  voteAverage: 1
+});
+assert.strictEqual(genreField.valueNode.textContent, 'Drama, War');
+assert.strictEqual(releaseField.valueNode.textContent, '23.09.2001');
+assert.strictEqual(ratingField.valueNode.textContent, '8.7 / 10');
+assert.strictEqual(sourceField.valueNode.textContent, 'TVScraper');
 
 window.VdrSuitePublicUrl = null;
 assert.strictEqual(

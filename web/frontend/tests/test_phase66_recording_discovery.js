@@ -125,6 +125,7 @@ const seriesRecording = {
   }
 };
 assert.strictEqual(api._test.recordingPosterUrl(seriesRecording), '/api/vdr/recordings/metadata/image?kind=preferred');
+assert.strictEqual(api._test.recordingBackendNativeId(seriesRecording), '/srv/vdr/video/Serien/The_Walking_Dead/S10E15.rec');
 assert.strictEqual(api._test.recordingPosterUrl({
   metadata: {artwork: {preferredUrl: '/cached/poster.jpg'}}
 }), '/cached/poster.jpg');
@@ -138,7 +139,7 @@ const projectedFromRichMetadata = api._test.seriesMemberProjection({
   metadata: {provider: {}}
 }, {
   available: true,
-  mediaType: 'episode',
+  mediaType: 'series',
   provider: 'tvscraper',
   providerId: 1402,
   title: 'The Walking Dead',
@@ -156,6 +157,50 @@ assert.strictEqual(projectedFromRichMetadata.seasonNumber, 10);
 assert.strictEqual(projectedFromRichMetadata.episodeNumber, 14);
 assert.strictEqual(projectedFromRichMetadata.episodeTitle, 'Abschiede');
 assert(projectedFromRichMetadata.posterUrl.includes('kind=preferred'));
+
+const projectedFromNegativeProviderId = api._test.seriesMemberProjection({
+  recordingId: 'negative-series-1',
+  backendId: 'default',
+  backendNativeId: 'native-negative-series-1',
+  title: 'EPG Serienname',
+  metadata: {provider: {
+    seriesTitle: 'EPG Serienname',
+    episodeTitle: 'EPG Episodentitel',
+    seasonNumber: 9,
+    episodeNumber: 99
+  }}
+}, {
+  available: true,
+  mediaType: 'series',
+  provider: 'tvscraper',
+  providerId: -74205,
+  title: 'Band of Brothers',
+  episodeName: 'Currahee',
+  seasonNumber: 1,
+  episodeNumber: 1,
+  preferredArtwork: {available: true, url: '/metadata/band-of-brothers.jpg'}
+}, 'default');
+assert(projectedFromNegativeProviderId);
+assert.strictEqual(projectedFromNegativeProviderId.seriesKey, 'native:tvscraper:-74205');
+assert.strictEqual(projectedFromNegativeProviderId.seriesTitle, 'Band of Brothers');
+assert.strictEqual(projectedFromNegativeProviderId.seasonNumber, 1);
+assert.strictEqual(projectedFromNegativeProviderId.episodeNumber, 1);
+assert.strictEqual(projectedFromNegativeProviderId.episodeTitle, 'Currahee');
+assert.strictEqual(projectedFromNegativeProviderId.posterUrl, '/metadata/band-of-brothers.jpg');
+
+const projectedFromZeroProviderId = api._test.seriesMemberProjection({
+  recordingId: 'zero-series-1',
+  backendId: 'default',
+  title: 'Fallback Serienname',
+  metadata: {provider: {}}
+}, {
+  available: true,
+  mediaType: 'series',
+  provider: 'tvscraper',
+  providerId: 0,
+  title: 'Rich ohne Identität'
+}, 'default');
+assert.strictEqual(projectedFromZeroProviderId.seriesKey, 'title:rich ohne identität');
 
 const projectedFromCanonicalPath = api._test.seriesMemberProjection({
   recordingId: 'path-1',
@@ -340,6 +385,8 @@ function createProductionHarness(options) {
   const productionOpenedRecordings = [];
   const modules = [];
   let selectedModule = 'overview';
+  let metadataInFlight = 0;
+  let metadataMaxInFlight = 0;
 
   const client = {
     fetchClientRecordings(request) {
@@ -376,7 +423,21 @@ function createProductionHarness(options) {
     },
     requestJson(route, request) {
       calls.metadata.push({route, request});
-      return Promise.reject(new Error('unexpected per-recording metadata request'));
+      const nativeId = request && request.query && request.query.backendNativeId;
+      metadataInFlight += 1;
+      metadataMaxInFlight = Math.max(metadataMaxInFlight, metadataInFlight);
+      return Promise.resolve().then(function () {
+        if (Array.isArray(config.metadataErrors) && config.metadataErrors.includes(nativeId)) {
+          throw new Error('metadata unavailable');
+        }
+        if (config.metadataByNativeId &&
+            Object.prototype.hasOwnProperty.call(config.metadataByNativeId, nativeId)) {
+          return config.metadataByNativeId[nativeId];
+        }
+        return {available: false};
+      }).finally(function () {
+        metadataInFlight -= 1;
+      });
     }
   };
 
@@ -423,7 +484,8 @@ function createProductionHarness(options) {
     host,
     calls,
     openedRecordings: productionOpenedRecordings,
-    modules
+    modules,
+    metadataMaxInFlight() { return metadataMaxInFlight; }
   };
 }
 
@@ -495,7 +557,16 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(production.calls.genreRecordings.every((call) => call.limit === 100));
   assert(production.calls.genreRecordings.every((call) => call.backendId === 'default'));
   assert(production.calls.genreRecordings.every((call) => call.genreId === 'series'));
-  assert.strictEqual(production.calls.metadata.length, 0);
+  assert.strictEqual(production.calls.metadata.length, canonicalSeriesItems.length);
+  assert(production.metadataMaxInFlight() <= 4);
+  assert(production.metadataMaxInFlight() >= 2);
+  assert(production.calls.metadata.every((call) => call.route === '/api/vdr/recordings/metadata'));
+  assert(production.calls.metadata.every((call) => call.request.cache === 'no-store'));
+  assert(production.calls.metadata.every((call) => call.request.credentials === 'same-origin'));
+  assert(production.calls.metadata.every((call) => call.request.query.backend === 'default'));
+  assert.strictEqual(new Set(
+    production.calls.metadata.map((call) => call.request.query.backendNativeId)
+  ).size, canonicalSeriesItems.length);
 
   const seriesRail = findRail(production.host, 'series');
   assert(seriesRail);
@@ -552,7 +623,63 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   const scopedRail = findRail(scoped.host, 'series');
   assert(findSeriesCard(scopedRail, 'folder:serien/scoped series'));
   assert.strictEqual(findSeriesCard(scopedRail, 'folder:serien/foreign series'), null);
-  assert.strictEqual(scoped.calls.metadata.length, 0);
+  assert.strictEqual(scoped.calls.metadata.length, 1);
+  assert.strictEqual(scoped.calls.metadata[0].request.query.backendNativeId, scopedEpisode.backendNativeId);
+
+  const bandEpisode1 = makeEpisode('Band of Brothers', 1, 1, 'band');
+  bandEpisode1.metadata.provider = {
+    seriesTitle: 'EPG Band of Brothers',
+    episodeTitle: 'EPG Currahee',
+    seasonNumber: 9,
+    episodeNumber: 99
+  };
+  const bandEpisode2 = makeEpisode('Band of Brothers', 1, 2, 'band');
+  const richArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+    encodeURIComponent(bandEpisode1.backendNativeId) + '&kind=preferred&index=0';
+  const enriched = createProductionHarness({
+    genres: {genres: [{id: 'series', label: 'Serien', count: 2}]},
+    seriesItems: [bandEpisode1, bandEpisode2],
+    metadataByNativeId: {
+      [bandEpisode1.backendNativeId]: {
+        available: true,
+        provider: 'tvscraper',
+        mediaType: 'series',
+        providerId: -74205,
+        title: 'Band of Brothers',
+        episodeName: 'Currahee',
+        seasonNumber: 1,
+        episodeNumber: 1,
+        overview: 'Rich TVScraper overview',
+        people: [{role: 'actor', name: 'Damian Lewis', characterName: 'Richard Winters'}],
+        images: [{orientation: 'portrait', image: {available: true, url: richArtworkUrl}}],
+        preferredArtwork: {available: true, url: richArtworkUrl}
+      }
+    },
+    metadataErrors: [bandEpisode2.backendNativeId]
+  });
+  assert.strictEqual(await enriched.api.refresh(), true);
+  assert.strictEqual(enriched.calls.metadata.length, 2);
+  assert(enriched.metadataMaxInFlight() <= 4);
+  const bandRail = findRail(enriched.host, 'series');
+  const bandCard = findSeriesCard(bandRail, 'folder:serien/band of brothers');
+  assert(bandCard);
+  assert(findElement(bandCard, (element) => element.textContent === 'Band of Brothers'));
+  assert.strictEqual(findImage(bandCard).src, richArtworkUrl);
+  bandCard.listeners.click[0]();
+  const bandSeason1 = findSeasonButton(findRail(enriched.host, 'series'), 1);
+  assert(bandSeason1);
+  bandSeason1.listeners.click[0]();
+  const bandEpisodes = findEpisodeCards(findRail(enriched.host, 'series'));
+  assert.strictEqual(bandEpisodes.length, 2);
+  const bandEpisode1Card = findRecordingCard(findRail(enriched.host, 'series'), bandEpisode1.recordingId);
+  const bandEpisode2Card = findRecordingCard(findRail(enriched.host, 'series'), bandEpisode2.recordingId);
+  assert(bandEpisode1Card);
+  assert(bandEpisode2Card);
+  assert.strictEqual(Number(bandEpisode1Card.dataset.episodeNumber), 1);
+  assert(findElement(bandEpisode1Card, (element) => element.textContent === 'Currahee'));
+  assert.strictEqual(findImage(bandEpisode1Card).src, richArtworkUrl);
+  assert.strictEqual(Number(bandEpisode2Card.dataset.episodeNumber), 2);
+  assert(findElement(bandEpisode2Card, (element) => element.textContent === 'Folge 02'));
 
   const failingSeries = createProductionHarness({
     newly: {recordings: [sameBackend]},
@@ -618,7 +745,7 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
 
   await proveCanonicalSeriesHierarchyProductionPath();
 
-  console.log('phase66 recording discovery complete canonical series pagination coverage ok');
+  console.log('phase66 recording discovery canonical series metadata enrichment coverage ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;

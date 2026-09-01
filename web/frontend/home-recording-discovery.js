@@ -7,6 +7,7 @@
   const NEW_LIMIT = 12;
   const GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
+  const SERIES_METADATA_CONCURRENCY = 4;
   const FOLDER_LIMIT = 12;
   const state = {
     generation: 0,
@@ -101,6 +102,10 @@
 
   function recordingBackendId(recording, fallback) {
     return text(recording && recording.backendId) || text(fallback);
+  }
+
+  function recordingBackendNativeId(recording) {
+    return text(recording && recording.backendNativeId);
   }
 
   function recordingPath(recording) {
@@ -496,30 +501,36 @@
     const richSeriesTitle = richMediaType === 'episode' || richMediaType === 'series'
       ? text(rich.title)
       : '';
-    const seriesTitle = providerSeriesTitle || folderTitle || richSeriesTitle || recordingTitle(recording);
+    const seriesTitle = richSeriesTitle || providerSeriesTitle || folderTitle || recordingTitle(recording);
 
     const providerSeriesId = text(sourceProvider.seriesId);
     const richProvider = text(rich.provider);
-    const richProviderId = Number(rich.providerId || 0);
+    const parsedProviderId = Number(rich.providerId);
+    const richProviderId = Number.isFinite(parsedProviderId) ? parsedProviderId : 0;
+    const nativeMetadataAvailable = rich.available === true &&
+      (richMediaType === 'episode' || richMediaType === 'series') &&
+      Boolean(richProvider && richProviderId !== 0);
     let key = '';
     if (providerSeriesId) key = 'provider:' + providerSeriesId;
     else if (folderPath) key = 'folder:' + folderPath.toLowerCase();
-    else if (richProvider && richProviderId > 0) {
+    else if (richProvider && richProviderId !== 0) {
       key = 'native:' + richProvider + ':' + String(richProviderId);
     } else key = 'title:' + seriesTitle.toLowerCase();
 
-    const seasonNumber = Number(sourceProvider.seasonNumber || rich.seasonNumber || token.seasonNumber || 0);
-    const episodeNumber = Number(sourceProvider.episodeNumber || rich.episodeNumber || token.episodeNumber || 0);
+    const seasonNumber = Number(rich.seasonNumber || sourceProvider.seasonNumber || token.seasonNumber || 0);
+    const episodeNumber = Number(rich.episodeNumber || sourceProvider.episodeNumber || token.episodeNumber || 0);
     const richArtwork = rich.preferredArtwork && typeof rich.preferredArtwork === 'object'
       ? rich.preferredArtwork
       : {};
+    const nativeArtworkAvailable = nativeMetadataAvailable &&
+      richArtwork.available !== false && Boolean(text(richArtwork.url));
     const posterUrl = text(
       (richArtwork.available !== false && richArtwork.url) ||
       recordingPosterUrl(recording)
     );
     const episodeTitle = text(
-      sourceProvider.episodeTitle ||
       rich.episodeName ||
+      sourceProvider.episodeTitle ||
       episodeLeafTitle(recording) ||
       recordingSubtitle(recording)
     ) || 'Folge';
@@ -531,6 +542,8 @@
       seriesTitle: seriesTitle,
       seriesPath: folderPath,
       posterUrl: posterUrl,
+      nativeMetadataAvailable: nativeMetadataAvailable,
+      nativeArtworkAvailable: nativeArtworkAvailable,
       seasonNumber: seasonNumber > 0 ? seasonNumber : 0,
       episodeNumber: episodeNumber > 0 ? episodeNumber : 0,
       episodeTitle: episodeTitle
@@ -547,12 +560,23 @@
           title: member.seriesTitle,
           path: member.seriesPath,
           posterUrl: member.posterUrl,
+          nativeMetadataAvailable: Boolean(member.nativeMetadataAvailable),
+          nativeArtworkAvailable: Boolean(member.nativeArtworkAvailable),
           episodes: [],
           seasons: []
         };
         groups.set(member.seriesKey, series);
       }
-      if (!series.posterUrl && member.posterUrl) series.posterUrl = member.posterUrl;
+      if (member.nativeMetadataAvailable && !series.nativeMetadataAvailable) {
+        series.nativeMetadataAvailable = true;
+        if (member.seriesTitle) series.title = member.seriesTitle;
+      }
+      if (member.nativeArtworkAvailable && !series.nativeArtworkAvailable) {
+        series.nativeArtworkAvailable = true;
+        if (member.posterUrl) series.posterUrl = member.posterUrl;
+      } else if (!series.posterUrl && member.posterUrl) {
+        series.posterUrl = member.posterUrl;
+      }
       series.episodes.push(member);
     });
 
@@ -714,7 +738,11 @@
       card.dataset.recordingId = recordingId(recording);
       card.dataset.backendId = member.backendId || backendId;
       card.dataset.episodeNumber = String(member.episodeNumber);
-      card.appendChild(createArtwork(recording));
+      card.appendChild(createPosterArtwork(
+        member.episodeTitle,
+        member.posterUrl || recordingPosterUrl(recording),
+        member.episodeTitle.slice(0, 1).toUpperCase()
+      ));
       const copy = doc.createElement('span');
       copy.className = 'media-home-discovery-copy';
       const label = doc.createElement('strong');
@@ -734,9 +762,15 @@
     return true;
   }
 
-  function applySeriesProjection(recordings, backendId) {
+  function applySeriesProjection(recordings, backendId, richMetadataByNativeId) {
+    const rich = richMetadataByNativeId instanceof Map ? richMetadataByNativeId : null;
     const members = recordings.map(function (recording) {
-      return seriesMemberProjection(recording, null, backendId);
+      const nativeId = recordingBackendNativeId(recording);
+      return seriesMemberProjection(
+        recording,
+        rich && nativeId ? rich.get(nativeId) || null : null,
+        backendId
+      );
     });
     const projection = buildSeriesProjection(members);
     state.seriesProjection = projection;
@@ -804,6 +838,53 @@
     return requestPage(0);
   }
 
+  function fetchSeriesRecordingMetadata(client, recordings, backendId, generation) {
+    const resolved = new Map();
+    if (!client || typeof client.requestJson !== 'function') {
+      return Promise.resolve(resolved);
+    }
+
+    const queue = [];
+    const seen = new Set();
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) return;
+      seen.add(nativeId);
+      queue.push({recording: recording, nativeId: nativeId});
+    });
+
+    let nextIndex = 0;
+    function worker() {
+      function next() {
+        if (!current(generation, backendId) || nextIndex >= queue.length) {
+          return Promise.resolve();
+        }
+        const candidate = queue[nextIndex++];
+        return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
+          query: {
+            backend: backendId,
+            backendNativeId: candidate.nativeId
+          },
+          cache: 'no-store',
+          credentials: 'same-origin'
+        })).then(function (value) {
+          if (current(generation, backendId) && value && value.available === true) {
+            resolved.set(candidate.nativeId, value);
+          }
+        }).catch(function () {
+          // Per-recording metadata is enrichment only; keep the canonical recording fallback.
+        }).then(next);
+      }
+      return next();
+    }
+
+    const workers = [];
+    const workerCount = Math.min(SERIES_METADATA_CONCURRENCY, queue.length);
+    for (let index = 0; index < workerCount; index += 1) workers.push(worker());
+    return Promise.all(workers).then(function () { return resolved; });
+  }
+
   function loadNewly(client, backendId, generation) {
     renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     return Promise.resolve(client.fetchClientRecordings({
@@ -869,7 +950,12 @@
         clearRail('series');
         return false;
       }
-      return applySeriesProjection(recordings, backendId);
+      applySeriesProjection(recordings, backendId);
+      return fetchSeriesRecordingMetadata(client, recordings, backendId, generation).then(function (rich) {
+        if (!current(generation, backendId)) return false;
+        if (rich.size > 0) return applySeriesProjection(recordings, backendId, rich);
+        return true;
+      });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       state.seriesProjection = [];
@@ -1047,10 +1133,13 @@
       canonicalGenres: canonicalGenres,
       canonicalFolders: canonicalFolders,
       recordingPosterUrl: recordingPosterUrl,
+      recordingBackendNativeId: recordingBackendNativeId,
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
       buildSeriesProjection: buildSeriesProjection,
+      applySeriesProjection: applySeriesProjection,
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
+      fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,
       renderSeriesRail: renderSeriesRail,
       renderSeriesDetail: renderSeriesDetail,
       openRecording: openRecording,
