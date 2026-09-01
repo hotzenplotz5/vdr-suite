@@ -38,6 +38,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-metadata-detail.js
 	node --check web/frontend/recordings2.js
 	node web/frontend/tests/test_recordings2_runtime.js
+	node web/frontend/tests/test_recordings2_detail_back_navigation.js
 	node web/frontend/tests/test_recordings2_actions_genre.js
 	node web/frontend/tests/test_recordings2_playback.js
 	node web/frontend/tests/test_live_tv_playback.js
