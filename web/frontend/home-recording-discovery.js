@@ -1032,11 +1032,11 @@
     const target = host();
     if (!target || typeof target.querySelector !== 'function' ||
         typeof target.insertBefore !== 'function') return false;
-    const genres = target.querySelector('[data-home-discovery-rail="genres"]');
+    const recordings = target.querySelector('[data-home-discovery-rail="newly-recorded"]');
     const random = target.querySelector('[data-home-discovery-rail="random-genre"]');
-    if (!genres || !random || genres === random) return false;
-    if (genres.nextElementSibling === random) return true;
-    target.insertBefore(random, genres.nextElementSibling || null);
+    if (!recordings || !random || recordings === random) return false;
+    if (recordings.nextElementSibling === random) return true;
+    target.insertBefore(random, recordings.nextElementSibling || null);
     return true;
   }
 
