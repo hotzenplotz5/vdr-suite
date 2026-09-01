@@ -33,6 +33,7 @@ test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching_fallback_stop.js
 	node web/frontend/tests/test_phase66_continue_watching_home_flush.js
 	node web/frontend/tests/test_phase66_continue_watching_navigation_contract.js
+	node web/frontend/tests/test_phase66_visual_polish_accessibility.js
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
 test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
