@@ -22,7 +22,9 @@
     folderProjection: {folders: [], rootRecordings: []},
     folderBackendId: '',
     randomGenreGeneration: -1,
-    randomGenreId: ''
+    randomGenreId: '',
+    randomFolderGeneration: -1,
+    randomFolderPath: ''
   };
 
   function text(value) {
@@ -220,6 +222,48 @@
     const selected = available[Math.floor(bounded * available.length)] || available[0];
     state.randomGenreGeneration = generation;
     state.randomGenreId = text(selected.id);
+    return selected;
+  }
+
+  function folderEntryCount(entry) {
+    const candidates = [
+      entry && entry.totalCount,
+      entry && entry.count,
+      entry && entry.recordingCount
+    ];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const value = Number(candidates[index]);
+      if (Number.isFinite(value) && value > 0) return Math.floor(value);
+    }
+    return 0;
+  }
+
+  function selectRandomFolder(entries, generation, randomValue) {
+    const available = (entries || []).filter(function (entry) {
+      return Boolean(
+        entry &&
+        text(entry.path || entry.folderPath || entry.name) &&
+        folderEntryCount(entry) > 0
+      );
+    });
+    if (!available.length) {
+      state.randomFolderGeneration = generation;
+      state.randomFolderPath = '';
+      return null;
+    }
+    if (state.randomFolderGeneration === generation && state.randomFolderPath) {
+      const existing = available.find(function (entry) {
+        return text(entry.path || entry.folderPath || entry.name) === state.randomFolderPath;
+      });
+      if (existing) return existing;
+    }
+    const raw = Number(randomValue);
+    const bounded = Number.isFinite(raw)
+      ? Math.max(0, Math.min(raw, 0.999999999999))
+      : 0;
+    const selected = available[Math.floor(bounded * available.length)] || available[0];
+    state.randomFolderGeneration = generation;
+    state.randomFolderPath = text(selected.path || selected.folderPath || selected.name);
     return selected;
   }
 
@@ -1204,21 +1248,57 @@
     });
   }
 
+  function scheduleRandomFolderInline(entries, backendId, generation, randomValue) {
+    const selected = selectRandomFolder(entries, generation, randomValue);
+    if (!selected) return false;
+    const selectedPath = text(selected.path || selected.folderPath || selected.name);
+
+    function openSelectedFolder() {
+      if (!current(generation, backendId)) return false;
+      const bootstrap = global.VdrSuiteHomeRecordingDiscoveryBootstrap;
+      if (!bootstrap || typeof bootstrap.installMouseDrag !== 'function') return false;
+      bootstrap.installMouseDrag();
+      const section = sectionFor('folders');
+      if (!section || typeof section.querySelectorAll !== 'function') return false;
+      const cards = section.querySelectorAll('.media-home-discovery-card.folder');
+      let selectedCard = null;
+      Array.prototype.some.call(cards, function (card) {
+        if (text(card && card.dataset && card.dataset.folderPath) !== selectedPath) return false;
+        selectedCard = card;
+        return true;
+      });
+      if (!selectedCard || typeof selectedCard.click !== 'function') return false;
+      selectedCard.click();
+      return true;
+    }
+
+    if (typeof global.setTimeout === 'function') {
+      global.setTimeout(openSelectedFolder, 0);
+      return true;
+    }
+    return openSelectedFolder();
+  }
+
   function loadFolders(client, backendId, generation) {
     renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
     return fetchRootFolderProjection(client, backendId, generation).then(function (projection) {
       if (!current(generation, backendId)) return false;
       state.folderProjection = projection;
       state.folderBackendId = backendId;
-      return renderFolderRail(
-        projection.folders.slice(0, FOLDER_VISIBLE_LIMIT),
+      const visibleFolders = projection.folders.slice(0, FOLDER_VISIBLE_LIMIT);
+      const rendered = renderFolderRail(
+        visibleFolders,
         projection.rootRecordings,
         backendId
       );
+      if (rendered) scheduleRandomFolderInline(visibleFolders, backendId, generation, Math.random());
+      return rendered;
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       state.folderProjection = {folders: [], rootRecordings: []};
       state.folderBackendId = '';
+      state.randomFolderGeneration = generation;
+      state.randomFolderPath = '';
       return renderState(
         'folders',
         'Aufnahmeordner',
@@ -1281,6 +1361,8 @@
       state.folderBackendId = '';
       state.randomGenreGeneration = -1;
       state.randomGenreId = '';
+      state.randomFolderGeneration = -1;
+      state.randomFolderPath = '';
     }
     if (state.observer) {
       state.observer.disconnect();
@@ -1340,6 +1422,8 @@
       projectRootFolderPayload: projectRootFolderPayload,
       uniqueCanonicalRecordings: uniqueCanonicalRecordings,
       selectRandomGenre: selectRandomGenre,
+      selectRandomFolder: selectRandomFolder,
+      folderEntryCount: folderEntryCount,
       genreLabel: genreLabel,
       recordingPosterUrl: recordingPosterUrl,
       recordingBackendNativeId: recordingBackendNativeId,
@@ -1355,6 +1439,7 @@
       renderSeriesRail: renderSeriesRail,
       renderSeriesDetail: renderSeriesDetail,
       positionRandomGenreRail: positionRandomGenreRail,
+      scheduleRandomFolderInline: scheduleRandomFolderInline,
       openRecording: openRecording,
       openFolder: openFolder,
       openGenre: openGenre,
