@@ -85,6 +85,19 @@
     return artwork && artwork.available === true ? shared.text(artwork.url) : '';
   }
 
+  function detailArtworkUrl(value) {
+    const manual = value && value.manualAssignment && value.manualAssignment.active === true;
+    if (manual) return preferredArtworkUrl(value);
+    const images = Array.isArray(value && value.images) ? value.images : [];
+    for (let index = 0; index < images.length; index += 1) {
+      const entry = images[index];
+      if (!entry || entry.orientation !== 'portrait' || !entry.image ||
+          entry.image.available !== true || !isPublicMetadataImageUrl(entry.image.url)) continue;
+      return shared.text(entry.image.url);
+    }
+    return preferredArtworkUrl(value);
+  }
+
   function updateDetailField(root, label, value) {
     const normalized = shared.text(value);
     if (!normalized || !root || typeof root.querySelectorAll !== 'function') return;
@@ -137,7 +150,7 @@
     );
     updateDetailField(root, 'Bewertung', metadataRatingText(value));
     updateDetailField(root, 'Metadatenquelle', metadataProviderLabel(value));
-    const url = preferredArtworkUrl(value);
+    const url = detailArtworkUrl(value);
     const poster = root.querySelector('.recordings2-detail-poster');
     if (!url || !poster || typeof poster.replaceChildren !== 'function') return;
     const image = document.createElement('img');
@@ -361,6 +374,7 @@
     formatDate,
     isPublicMetadataImageUrl,
     preferredArtworkUrl,
+    detailArtworkUrl,
     applyToDetail,
     mediaTypeLabel,
     orientationLabel,
