@@ -11,6 +11,7 @@ test-phase66-recording-discovery-frontend:
 	node web/frontend/tests/test_phase66_home_mouse_drag_rails.js
 	node web/frontend/tests/test_phase66_home_inline_discovery.js
 	node web/frontend/tests/test_phase66_home_root_random_genre.js
+	node web/frontend/tests/test_phase66_home_random_genre_placement.js
 
 # Slice 66.5 is part of the ordinary frontend and packaging regression surfaces.
 test-frontend-contracts: test-phase66-recording-discovery-frontend
