@@ -302,9 +302,7 @@ function createHarness() {
   const scheduled = harness.scheduled.pop();
   assert.strictEqual(typeof scheduled, 'function');
   scheduled();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.strictEqual(harness.genreCalls.length, 1);
   assert.strictEqual(harness.genreCalls[0].genreId, 'drama');
   assert.strictEqual(harness.metadataCalls.length, 0);
