@@ -792,6 +792,8 @@
     if (!active) {
       state.active = false;
       state.requestSequence += 1;
+      const root = heroRoot();
+      if (root && root.classList) root.classList.remove('media-home-live-hero-active');
       return Promise.resolve(null);
     }
     const becameActive = !state.active;
