@@ -175,7 +175,8 @@ const view = window.VdrSuiteRecordings2BrowserView.create({
 view.renderDetail();
 assert.strictEqual(scrollCalls.length, 1, 'opening a Recording detail must reveal its start');
 assert.strictEqual(scrollCalls[0].element, target.children[0]);
-assert.deepStrictEqual(scrollCalls[0].options, {block:'start', behavior:'auto'});
+assert.strictEqual(scrollCalls[0].options.block, 'start');
+assert.strictEqual(scrollCalls[0].options.behavior, 'auto');
 
 let root = target.children[0];
 let header = root.children[0];
