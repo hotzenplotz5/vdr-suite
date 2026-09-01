@@ -9,6 +9,7 @@
   const SERIES_PAGE_LIMIT = 100;
   const SERIES_METADATA_CONCURRENCY = 4;
   const FOLDER_LIMIT = 12;
+  const FOLDER_PAGE_LIMIT = 100;
   const state = {
     generation: 0,
     loadedBackendId: '',
@@ -17,7 +18,11 @@
     seriesProjection: [],
     seriesBackendId: '',
     seriesViewKey: '',
-    seriesSeasonNumber: null
+    seriesSeasonNumber: null,
+    folderProjection: {folders: [], rootRecordings: []},
+    folderBackendId: '',
+    randomGenreGeneration: -1,
+    randomGenreId: ''
   };
 
   function text(value) {
@@ -154,6 +159,70 @@
     });
   }
 
+  function embeddedLeafRecording(entry, backendId) {
+    if (!entry || entry.singleRecordingLeaf !== true) return null;
+    const recording = entry.singleRecording;
+    if (!recording || typeof recording !== 'object') return null;
+    if (!recordingId(recording) || recordingBackendId(recording, backendId) !== backendId) return null;
+    return recording;
+  }
+
+  function uniqueCanonicalRecordings(recordings, backendId) {
+    const seen = new Set();
+    return (recordings || []).filter(function (recording) {
+      const id = recordingId(recording);
+      const scopedBackend = recordingBackendId(recording, backendId);
+      if (!id || !scopedBackend || scopedBackend !== backendId) return false;
+      const key = scopedBackend + '\n' + id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function projectRootFolderPayload(payload, backendId) {
+    const folders = [];
+    const rootRecordings = canonicalRecordings(payload, backendId).slice();
+    canonicalFolders(payload).forEach(function (entry) {
+      const embedded = embeddedLeafRecording(entry, backendId);
+      if (embedded) rootRecordings.push(embedded);
+      else folders.push(entry);
+    });
+    return {
+      folders: folders,
+      rootRecordings: uniqueCanonicalRecordings(rootRecordings, backendId)
+    };
+  }
+
+  function genreLabel(entry) {
+    return text(entry && (entry.label || entry.labelDe || entry.id)) || 'Genre';
+  }
+
+  function selectRandomGenre(entries, generation, randomValue) {
+    const available = (entries || []).filter(function (entry) {
+      return Boolean(entry && text(entry.id) && Number(entry.count || 0) > 0);
+    });
+    if (!available.length) {
+      state.randomGenreGeneration = generation;
+      state.randomGenreId = '';
+      return null;
+    }
+    if (state.randomGenreGeneration === generation && state.randomGenreId) {
+      const existing = available.find(function (entry) {
+        return text(entry.id) === state.randomGenreId;
+      });
+      if (existing) return existing;
+    }
+    const raw = Number(randomValue);
+    const bounded = Number.isFinite(raw)
+      ? Math.max(0, Math.min(raw, 0.999999999999))
+      : 0;
+    const selected = available[Math.floor(bounded * available.length)] || available[0];
+    state.randomGenreGeneration = generation;
+    state.randomGenreId = text(selected.id);
+    return selected;
+  }
+
   function pageTotal(payload, fallback) {
     const raw = payload && payload.total !== undefined
       ? payload.total
@@ -169,6 +238,13 @@
       return payload.hasMore;
     }
     return nextOffset < total;
+  }
+
+  function folderRecordingTotal(payload, fallback) {
+    const value = Number(payload && payload.recordingCount);
+    return Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : Number(fallback || 0);
   }
 
   function sectionFor(key) {
@@ -332,7 +408,7 @@
     });
   }
 
-  function renderRecordingRail(key, title, recordings, backendId) {
+  function renderRecordingRail(key, title, recordings, backendId, options) {
     if (!recordings.length) {
       clearRail(key);
       return true;
@@ -340,12 +416,8 @@
     const section = sectionFor(key);
     if (!section) return false;
     section.replaceChildren();
-    const heading = doc.createElement('div');
-    heading.className = 'media-home-section-heading';
-    const name = doc.createElement('h3');
-    name.textContent = title;
-    heading.appendChild(name);
-    section.appendChild(heading);
+    const config = options && typeof options === 'object' ? options : {};
+    appendSectionHeading(section, title, config.backLabel, config.onBack);
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail';
     recordings.forEach(function (recording) {
@@ -400,7 +472,7 @@
       const copy = doc.createElement('span');
       copy.className = 'media-home-discovery-copy';
       const label = doc.createElement('strong');
-      label.textContent = text(entry.label || entry.labelDe || entry.id);
+      label.textContent = genreLabel(entry);
       const count = doc.createElement('span');
       count.textContent = String(Number(entry.count || 0)) + ' Aufnahmen';
       copy.append(label, count);
@@ -414,8 +486,9 @@
     return true;
   }
 
-  function renderFolderRail(entries, backendId) {
-    if (!entries.length) {
+  function renderFolderRail(entries, rootRecordings, backendId) {
+    const roots = uniqueCanonicalRecordings(rootRecordings || [], backendId);
+    if (!entries.length && !roots.length) {
       clearRail('folders');
       return true;
     }
@@ -430,6 +503,33 @@
     section.appendChild(heading);
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail folders';
+    if (roots.length) {
+      const rootCard = doc.createElement('button');
+      rootCard.type = 'button';
+      rootCard.className = 'media-home-discovery-card folder-root';
+      rootCard.dataset.rootRecordingGroup = 'true';
+      const rootCopy = doc.createElement('span');
+      rootCopy.className = 'media-home-discovery-copy';
+      const rootLabel = doc.createElement('strong');
+      rootLabel.textContent = 'Hauptverzeichnis';
+      const rootCount = doc.createElement('span');
+      rootCount.textContent = String(roots.length) + ' Aufnahmen';
+      rootCopy.append(rootLabel, rootCount);
+      rootCard.appendChild(rootCopy);
+      rootCard.addEventListener('click', function () {
+        renderRecordingRail('folders', 'Hauptverzeichnis', roots, backendId, {
+          backLabel: '← Aufnahmeordner',
+          onBack: function () {
+            renderFolderRail(
+              state.folderProjection.folders,
+              state.folderProjection.rootRecordings,
+              state.folderBackendId || backendId
+            );
+          }
+        });
+      });
+      rail.appendChild(rootCard);
+    }
     entries.forEach(function (entry) {
       const path = text(entry.path || entry.folderPath || entry.name);
       const card = doc.createElement('button');
@@ -838,6 +938,49 @@
     return requestPage(0);
   }
 
+  function fetchRootFolderProjection(client, backendId, generation) {
+    const folders = [];
+    const rootRecordings = [];
+
+    function requestPage(offset) {
+      return Promise.resolve(client.fetchClientRecordingFolder({
+        backendId: backendId,
+        query: {
+          path: '',
+          limit: FOLDER_PAGE_LIMIT,
+          offset: offset
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      })).then(function (payload) {
+        if (!current(generation, backendId)) return {folders: [], rootRecordings: []};
+        const rawPage = list(payload, 'recordings');
+        if (offset === 0) {
+          const firstProjection = projectRootFolderPayload(payload, backendId);
+          Array.prototype.push.apply(folders, firstProjection.folders);
+          Array.prototype.push.apply(rootRecordings, firstProjection.rootRecordings);
+        } else {
+          Array.prototype.push.apply(rootRecordings, canonicalRecordings(payload, backendId));
+        }
+
+        const nextOffset = offset + rawPage.length;
+        const total = folderRecordingTotal(payload, nextOffset);
+        if (nextOffset >= total) {
+          return {
+            folders: folders,
+            rootRecordings: uniqueCanonicalRecordings(rootRecordings, backendId)
+          };
+        }
+        if (!rawPage.length || nextOffset <= offset) {
+          throw new Error('root folder pagination made no progress');
+        }
+        return requestPage(nextOffset);
+      });
+    }
+
+    return requestPage(0);
+  }
+
   function fetchSeriesRecordingMetadata(client, recordings, backendId, generation) {
     const resolved = new Map();
     if (!client || typeof client.requestJson !== 'function') {
@@ -885,6 +1028,18 @@
     return Promise.all(workers).then(function () { return resolved; });
   }
 
+  function positionRandomGenreRail() {
+    const target = host();
+    if (!target || typeof target.querySelector !== 'function' ||
+        typeof target.insertBefore !== 'function') return false;
+    const genres = target.querySelector('[data-home-discovery-rail="genres"]');
+    const random = target.querySelector('[data-home-discovery-rail="random-genre"]');
+    if (!genres || !random || genres === random) return false;
+    if (genres.nextElementSibling === random) return true;
+    target.insertBefore(random, genres.nextElementSibling || null);
+    return true;
+  }
+
   function loadNewly(client, backendId, generation) {
     renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     return Promise.resolve(client.fetchClientRecordings({
@@ -913,6 +1068,33 @@
         'Neu aufgenommene Inhalte sind vorübergehend nicht verfügbar.',
         true
       );
+    });
+  }
+
+  function loadRandomGenre(client, backendId, generation, entry) {
+    const id = text(entry && entry.id);
+    const label = genreLabel(entry);
+    if (!id) {
+      clearRail('random-genre');
+      return Promise.resolve(false);
+    }
+    renderState('random-genre', label, 'Aufnahmen werden geladen …', false);
+    positionRandomGenreRail();
+    return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {
+      if (!current(generation, backendId)) return false;
+      const rendered = renderRecordingRail('random-genre', label, recordings, backendId);
+      positionRandomGenreRail();
+      return rendered;
+    }).catch(function () {
+      if (!current(generation, backendId)) return false;
+      const rendered = renderState(
+        'random-genre',
+        label,
+        'Die Aufnahmen dieses Genres sind vorübergehend nicht verfügbar.',
+        true
+      );
+      positionRandomGenreRail();
+      return rendered;
     });
   }
 
@@ -983,13 +1165,23 @@
       if (!current(generation, backendId)) return false;
       const entries = canonicalGenres(payload);
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
-      return loadSeries(client, backendId, generation, entries);
+      const randomGenre = selectRandomGenre(entries, generation, Math.random());
+      if (!randomGenre) clearRail('random-genre');
+      return Promise.allSettled([
+        randomGenre
+          ? loadRandomGenre(client, backendId, generation, randomGenre)
+          : Promise.resolve(false),
+        loadSeries(client, backendId, generation, entries)
+      ]).then(function () { return true; });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      state.randomGenreGeneration = generation;
+      state.randomGenreId = '';
+      clearRail('random-genre');
       clearRail('series');
       return renderState(
         'genres',
@@ -1002,23 +1194,19 @@
 
   function loadFolders(client, backendId, generation) {
     renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
-    return Promise.resolve(client.fetchClientRecordingFolder({
-      backendId: backendId,
-      query: {
-        path: '',
-        limit: FOLDER_LIMIT,
-        offset: 0
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (payload) {
+    return fetchRootFolderProjection(client, backendId, generation).then(function (projection) {
       if (!current(generation, backendId)) return false;
+      state.folderProjection = projection;
+      state.folderBackendId = backendId;
       return renderFolderRail(
-        canonicalFolders(payload).slice(0, FOLDER_LIMIT),
+        projection.folders.slice(0, FOLDER_LIMIT),
+        projection.rootRecordings,
         backendId
       );
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      state.folderProjection = {folders: [], rootRecordings: []};
+      state.folderBackendId = '';
       return renderState(
         'folders',
         'Aufnahmeordner',
@@ -1077,6 +1265,10 @@
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      state.folderProjection = {folders: [], rootRecordings: []};
+      state.folderBackendId = '';
+      state.randomGenreGeneration = -1;
+      state.randomGenreId = '';
     }
     if (state.observer) {
       state.observer.disconnect();
@@ -1098,7 +1290,7 @@
       '.media-home-discovery-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;background:linear-gradient(135deg,#1e293b,#334155);font-size:2rem;font-weight:800}' +
       '.media-home-discovery-artwork img{display:block;width:100%;height:100%;object-fit:cover}' +
       '.media-home-discovery-copy{display:grid;gap:.25rem;padding:.7rem}.media-home-discovery-copy strong{color:#f8fafc}.media-home-discovery-copy span{color:#94a3b8;font-size:.8rem}' +
-      '.media-home-discovery-card.genre,.media-home-discovery-card.folder{min-height:7rem;padding:.35rem;background:linear-gradient(145deg,rgba(30,41,59,.88),rgba(2,6,23,.94))}' +
+      '.media-home-discovery-card.genre,.media-home-discovery-card.folder,.media-home-discovery-card.folder-root{min-height:7rem;padding:.35rem;background:linear-gradient(145deg,rgba(30,41,59,.88),rgba(2,6,23,.94))}' +
       '.media-home-discovery-state{margin:0 1rem 1rem;padding:1rem;border:1px solid rgba(148,163,184,.16);border-radius:.9rem;color:#94a3b8;background:rgba(15,23,42,.5)}' +
       '.media-home-discovery-state.error{border-color:rgba(239,68,68,.48);color:#fecaca}' +
       '.media-home-series-heading{display:flex;align-items:center;gap:.7rem}.media-home-series-back{border:1px solid rgba(148,163,184,.25);border-radius:.7rem;background:rgba(15,23,42,.78);color:#e2e8f0;padding:.5rem .65rem;cursor:pointer}' +
@@ -1132,6 +1324,11 @@
       canonicalRecordings: canonicalRecordings,
       canonicalGenres: canonicalGenres,
       canonicalFolders: canonicalFolders,
+      embeddedLeafRecording: embeddedLeafRecording,
+      projectRootFolderPayload: projectRootFolderPayload,
+      uniqueCanonicalRecordings: uniqueCanonicalRecordings,
+      selectRandomGenre: selectRandomGenre,
+      genreLabel: genreLabel,
       recordingPosterUrl: recordingPosterUrl,
       recordingBackendNativeId: recordingBackendNativeId,
       canonicalSeriesPath: canonicalSeriesPath,
@@ -1139,13 +1336,18 @@
       buildSeriesProjection: buildSeriesProjection,
       applySeriesProjection: applySeriesProjection,
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
+      fetchRootFolderProjection: fetchRootFolderProjection,
       fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,
+      renderRecordingRail: renderRecordingRail,
+      renderFolderRail: renderFolderRail,
       renderSeriesRail: renderSeriesRail,
       renderSeriesDetail: renderSeriesDetail,
+      positionRandomGenreRail: positionRandomGenreRail,
       openRecording: openRecording,
       openFolder: openFolder,
       openGenre: openGenre,
       loadNewly: loadNewly,
+      loadRandomGenre: loadRandomGenre,
       loadGenres: loadGenres,
       loadFolders: loadFolders,
       armLazyLoad: armLazyLoad
