@@ -141,7 +141,8 @@ const context = vm.createContext({window, document, console, Promise, Date, Obje
 vm.runInContext(source, context, {filename: 'web/frontend/home-recording-discovery-bootstrap.js'});
 
 assert(window.VdrSuiteHomeRecordingDiscoveryBootstrap);
-assert.strictEqual(deferredLoadCount, 1);
+// This gesture-only harness intentionally has no canonical backend selection.
+assert.strictEqual(deferredLoadCount, 0);
 assert(listeners.pointerdown && listeners.pointermove && listeners.pointerup && listeners.pointercancel && listeners.click);
 assert.strictEqual(listeners.click[0].options, true);
 

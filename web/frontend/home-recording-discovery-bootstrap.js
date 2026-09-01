@@ -23,6 +23,7 @@
   let activeDrag = null;
   let suppressedTarget = null;
   let suppressClickUntil = 0;
+  let backendReadyObserver = null;
   const inline = {
     genre: {key: '', backendId: '', request: 0, section: null, card: null},
     folder: {key: '', rootPath: '', path: '', backendId: '', request: 0, section: null, card: null}
@@ -58,6 +59,13 @@
       return text(owner.getSelectedBackendId()) || 'default';
     }
     return 'default';
+  }
+
+  function canonicalSelectedBackendId() {
+    const selected = doc && typeof doc.querySelector === 'function'
+      ? doc.querySelector('#backends .backend-card.selected, #backends [aria-selected="true"]')
+      : null;
+    return text(selected && selected.dataset && selected.dataset.backendId);
   }
 
   function discoveryReady() {
@@ -828,10 +836,42 @@
     });
   }
 
+  function loadWhenBackendReady() {
+    if (discoveryReady()) return Promise.resolve(true);
+    if (canonicalSelectedBackendId()) return load();
+    if (!doc ||
+        typeof doc.getElementById !== 'function' ||
+        typeof global.MutationObserver !== 'function') {
+      return Promise.resolve(false);
+    }
+
+    const backends = doc.getElementById('backends');
+    if (!backends) return Promise.resolve(false);
+
+    if (!backendReadyObserver) {
+      backendReadyObserver = new global.MutationObserver(function () {
+        if (!canonicalSelectedBackendId()) return;
+        backendReadyObserver.disconnect();
+        backendReadyObserver = null;
+        load();
+      });
+      backendReadyObserver.observe(backends, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'aria-selected']
+      });
+    }
+
+    return Promise.resolve(false);
+  }
+
   global.VdrSuiteHomeRecordingDiscoveryBootstrap = Object.freeze({
     load: load,
+    loadWhenBackendReady: loadWhenBackendReady,
     installMouseDrag: installMouseDrag,
     __test: Object.freeze({
+      canonicalSelectedBackendId: canonicalSelectedBackendId,
       fetchAllGenreRecordings: fetchAllGenreRecordings,
       fetchFolderContents: fetchFolderContents,
       openGenreInline: openGenreInline,
@@ -840,5 +880,5 @@
     })
   });
   installMouseDrag();
-  load();
+  loadWhenBackendReady();
 }(window));
