@@ -9,7 +9,7 @@
   'use strict';
 
   const doc = global && global.document ? global.document : null;
-  const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail';
+  const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';
   const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone="hero"]';
   const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder';
   const DRAG_CLASS = 'media-home-mouse-dragging';
@@ -788,8 +788,8 @@
     const style = doc.createElement('style');
     style.id = 'vdr-suite-home-mouse-drag-style';
     style.textContent = [
-      '.media-home-discovery-rail,.media-home-series-season-rail{scrollbar-width:none;-ms-overflow-style:none;cursor:grab}',
-      '.media-home-discovery-rail::-webkit-scrollbar,.media-home-series-season-rail::-webkit-scrollbar{display:none;width:0;height:0}',
+      '.media-home-discovery-rail,.media-home-series-season-rail,.media-home-live-guide-rail{scrollbar-width:none;-ms-overflow-style:none;cursor:grab}',
+      '.media-home-discovery-rail::-webkit-scrollbar,.media-home-series-season-rail::-webkit-scrollbar,.media-home-live-guide-rail::-webkit-scrollbar{display:none;width:0;height:0}',
       '.media-home-live-hero-active{cursor:grab}',
       '.media-home-mouse-dragging{cursor:grabbing!important;user-select:none!important;scroll-snap-type:none!important}',
       '.media-home-mouse-dragging *{cursor:grabbing!important;user-select:none!important}',
