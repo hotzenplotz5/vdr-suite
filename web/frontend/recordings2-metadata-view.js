@@ -85,6 +85,40 @@
     return artwork && artwork.available === true ? shared.text(artwork.url) : '';
   }
 
+  function updateDetailField(root, label, value) {
+    const normalized = shared.text(value);
+    if (!normalized || !root || typeof root.querySelectorAll !== 'function') return;
+    const fields = Array.from(root.querySelectorAll('.recordings2-detail-field'));
+    for (let index = 0; index < fields.length; index += 1) {
+      const field = fields[index];
+      if (!field || typeof field.querySelector !== 'function') continue;
+      const fieldLabel = field.querySelector('span');
+      const fieldValue = field.querySelector('strong');
+      if (!fieldLabel || !fieldValue || shared.text(fieldLabel.textContent) !== label) continue;
+      fieldValue.textContent = normalized;
+      return;
+    }
+  }
+
+  function metadataGenreText(value) {
+    return (Array.isArray(value && value.genres) ? value.genres : [])
+      .map(function (entry) { return shared.text(entry); })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  function metadataRatingText(value) {
+    const rating = Number(value && value.voteAverage);
+    return Number.isFinite(rating) && rating > 0 ? String(rating) + ' / 10' : '';
+  }
+
+  function metadataProviderLabel(value) {
+    const provider = shared.text(value && value.provider);
+    if (provider === 'tvscraper') return 'TVScraper';
+    if (provider === 'manual') return 'Manuell';
+    return provider;
+  }
+
   function applyToDetail(root, value) {
     if (!root || !value || value.available !== true ||
         typeof root.querySelector !== 'function') return;
@@ -95,6 +129,14 @@
     const summary = root.querySelector('.recordings2-detail-description');
     if (heading && title) heading.textContent = title;
     if (summary && description) summary.textContent = description;
+    updateDetailField(root, 'Genre', metadataGenreText(value));
+    updateDetailField(
+      root,
+      'Veröffentlichung',
+      formatDate(shared.text(value.firstAired) || shared.text(value.releaseDate))
+    );
+    updateDetailField(root, 'Bewertung', metadataRatingText(value));
+    updateDetailField(root, 'Metadatenquelle', metadataProviderLabel(value));
     const url = preferredArtworkUrl(value);
     const poster = root.querySelector('.recordings2-detail-poster');
     if (!url || !poster || typeof poster.replaceChildren !== 'function') return;
