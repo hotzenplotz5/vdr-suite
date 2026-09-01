@@ -205,6 +205,13 @@ api.applyMetadataToDetail(detailRoot, {
     available: true,
     url: versionedMetadata.preferredArtwork.url
   },
+  images: [{
+    orientation: 'portrait',
+    image: {
+      available: true,
+      url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=9'
+    }
+  }],
   manualAssignment: {
     active: true,
     relationshipLocked: true
@@ -226,6 +233,10 @@ assert.strictEqual(detailPoster.children[0].loading, 'eager');
 assert.strictEqual(detailPoster.children[0].decoding, 'async');
 assert.strictEqual(detailPoster.children[0].fetchPriority, 'high');
 
+const preferredStillPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=preferred';
+const portraitPosterPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=3';
 heading.textContent = 'Pfadtitel bleibt';
 summary.textContent = 'EPG-Fallback';
 api.applyMetadataToDetail(detailRoot, {
@@ -240,8 +251,24 @@ api.applyMetadataToDetail(detailRoot, {
   voteCount: 123,
   preferredArtwork: {
     available: true,
-    url: '/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
-  }
+    url: preferredStillPath
+  },
+  images: [
+    {
+      orientation: 'landscape',
+      image: {
+        available: true,
+        url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=0'
+      }
+    },
+    {
+      orientation: 'portrait',
+      image: {
+        available: true,
+        url: portraitPosterPath
+      }
+    }
+  ]
 });
 assert.strictEqual(heading.textContent, 'Pfadtitel bleibt');
 assert.strictEqual(summary.textContent, 'Automatische Beschreibung');
@@ -251,7 +278,29 @@ assert.strictEqual(ratingField.valueNode.textContent, '8.7 / 10');
 assert.strictEqual(sourceField.valueNode.textContent, 'TVScraper');
 assert.strictEqual(
   detailPoster.children[0].src,
-  '/vdr-suite/api/vdr/recordings/metadata/image?backend=default&kind=preferred'
+  '/vdr-suite' + portraitPosterPath
+);
+
+const preferredFallbackPath =
+  '/api/vdr/recordings/metadata/image?backend=default&kind=preferred&fallback=1';
+api.applyMetadataToDetail(detailRoot, {
+  available: true,
+  provider: 'tvscraper',
+  preferredArtwork: {
+    available: true,
+    url: preferredFallbackPath
+  },
+  images: [{
+    orientation: 'landscape',
+    image: {
+      available: true,
+      url: '/api/vdr/recordings/metadata/image?backend=default&kind=image&index=0'
+    }
+  }]
+});
+assert.strictEqual(
+  detailPoster.children[0].src,
+  '/vdr-suite' + preferredFallbackPath
 );
 
 summary.textContent = 'EPG bleibt ohne Scraper-Text';
