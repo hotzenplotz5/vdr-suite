@@ -2,7 +2,8 @@
 //
 // This module deliberately owns only Home selection/projection state. It reads
 // the existing Channel/EPG client APIs and delegates explicit playback to the
-// canonical VdrSuiteLiveTvView owner. Selection, keyboard navigation and touch
+// canonical VdrSuiteLiveTvView owner. Explicit EPG timer creation delegates to
+// the existing app.js EPG timer action. Selection, keyboard navigation and touch
 // swipes never create media/session work. Slice 66.7 adds presentation-only
 // accessibility, reduced-motion and responsive polish without changing owners.
 (function (global) {
@@ -319,6 +320,26 @@
     return artwork;
   }
 
+  function showProgrammeActionError(feedback, message) {
+    if (!feedback || typeof feedback.replaceChildren !== 'function') return false;
+    feedback.replaceChildren();
+    const status = doc.createElement('p');
+    status.className = 'media-home-live-guide-action-error';
+    status.textContent = message;
+    feedback.appendChild(status);
+    return true;
+  }
+
+  function createProgrammeTimer(entry, button, feedback) {
+    if (typeof createEpgTimerFromDetail !== 'function') {
+      showProgrammeActionError(feedback, 'Timer-Erstellung ist derzeit nicht verfügbar.');
+      return false;
+    }
+    if (feedback && typeof feedback.replaceChildren === 'function') feedback.replaceChildren();
+    createEpgTimerFromDetail(feedback, entry.event, entry.channel, button);
+    return true;
+  }
+
   function createProgrammeGuideCard(entry, current) {
     const card = doc.createElement('article');
     card.className = 'media-home-live-guide-card' + (current ? ' current' : '');
@@ -350,6 +371,31 @@
       copy.appendChild(progress);
     }
     card.appendChild(copy);
+
+    const actions = doc.createElement('div');
+    actions.className = 'media-home-live-guide-actions' + (current ? '' : ' single');
+    if (current) {
+      const live = createButton('Live TV', 'media-home-live-guide-action primary');
+      live.setAttribute('aria-label', channelName(entry.channel) + ' live ansehen');
+      live.addEventListener('click', event => {
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        watchChannel(entry.channel);
+      });
+      actions.appendChild(live);
+    }
+    const timer = createButton('Timer erstellen', 'media-home-live-guide-action');
+    timer.setAttribute('aria-label', 'Timer für ' + eventTitle(entry.event) + ' erstellen');
+    const feedback = doc.createElement('div');
+    feedback.className = 'media-home-live-guide-feedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    timer.addEventListener('click', event => {
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      createProgrammeTimer(entry, timer, feedback);
+    });
+    actions.appendChild(timer);
+    card.appendChild(actions);
+    card.appendChild(feedback);
     return card;
   }
 
@@ -405,8 +451,7 @@
     return true;
   }
 
-  function watchLive() {
-    const channel = currentChannel();
+  function watchChannel(channel) {
     if (!channel || !channelIsEnabled(channel)) {
       state.actionError = 'Dieser Sender kann derzeit nicht gestartet werden.';
       render();
@@ -431,6 +476,10 @@
       state.actionError = error && error.message ? error.message : 'Live-TV konnte nicht gestartet werden.';
       return Promise.resolve(null);
     }
+  }
+
+  function watchLive() {
+    return watchChannel(currentChannel());
   }
 
   function openEpg() {
@@ -700,10 +749,10 @@
 .media-home-live-actions{display:flex;gap:.65rem;flex-wrap:wrap}.media-home-live-action{min-height:2.9rem;padding:.58rem 1rem;border:1px solid rgba(125,211,252,.36);border-radius:.75rem;background:rgba(15,23,42,.78);color:#e0f2fe;font-weight:800;cursor:pointer}.media-home-live-action.primary{border-color:rgba(56,189,248,.74);background:#0369a1;color:#fff}.media-home-live-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-action:disabled{cursor:not-allowed;opacity:.5}.media-home-live-notice{margin:0!important;color:#a8b6c8!important;font-size:.78rem!important}.media-home-live-notice.error{color:#fecaca!important}
 .media-home-live-neighbor{display:grid;align-content:center;gap:.55rem;min-width:2.75rem;min-height:2.75rem;padding:.65rem;border:1px solid rgba(148,163,184,.14);border-radius:1rem;background:rgba(15,23,42,.48);color:#cbd5e1;text-align:left;cursor:pointer;opacity:.64;transition:opacity .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}.media-home-live-neighbor:hover{opacity:.88;border-color:rgba(125,211,252,.42);transform:translateY(-1px)}.media-home-live-neighbor:focus-visible{opacity:1;border-color:rgba(125,211,252,.74);outline:3px solid rgba(125,211,252,.96);outline-offset:2px;box-shadow:0 0 0 1px rgba(2,6,23,.92);transform:translateY(-1px)}.media-home-live-neighbor-logo{width:100%;height:3.2rem;padding:.3rem;border-radius:.65rem;background:rgba(248,250,252,.94);overflow:hidden}.media-home-live-neighbor-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-neighbor-copy{display:grid;gap:.16rem;min-width:0}.media-home-live-neighbor-copy strong,.media-home-live-neighbor-copy span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.media-home-live-neighbor-copy strong{color:#f8fafc;font-size:.82rem}.media-home-live-neighbor-copy span{color:#a8b6c8;font-size:.7rem}.media-home-live-status{display:grid;align-content:center;gap:.7rem;min-height:20rem;padding:clamp(1.5rem,5vw,4rem)}.media-home-live-status h3{max-width:18ch}.media-home-live-status.error{color:#fecaca}
 #detail:has(.module-tab.active[data-module="overview"]) .media-home-additional-sections{display:flex;flex-direction:column}.media-home-additional-sections>*{order:70}.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}.media-home-discovery[data-home-discovery-rail="newly"]{order:40}.media-home-discovery[data-home-discovery-rail="series"]{order:45}.media-home-discovery[data-home-discovery-rail="genres"]{order:50}.media-home-discovery[data-home-discovery-rail="folders"]{order:60}.media-home-recently-watched{order:80}
-.media-home-live-guide{min-width:0}.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.media-home-live-guide-card{scroll-snap-align:start;min-width:0;overflow:hidden;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0}.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;background:linear-gradient(135deg,#172033,#26364d)}.media-home-live-guide-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-live-guide-artwork.is-fallback{background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.18),transparent 32%),linear-gradient(145deg,#172033,#26364d)}.media-home-live-guide-logo{box-sizing:border-box;width:72%;height:4rem;padding:.35rem;border-radius:.65rem;background:rgba(248,250,252,.96);overflow:hidden}.media-home-live-guide-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-copy{display:grid;gap:.28rem;padding:.7rem}.media-home-live-guide-channel,.media-home-live-guide-subtitle{overflow:hidden;color:#94a3b8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-copy strong{overflow:hidden;color:#f8fafc;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-progress{display:block;width:100%;height:.26rem;margin-top:.2rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-guide-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-guide-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-guide-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}
+.media-home-live-guide{min-width:0}.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.media-home-live-guide-card{scroll-snap-align:start;min-width:0;overflow:hidden;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0}.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;background:linear-gradient(135deg,#172033,#26364d)}.media-home-live-guide-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-live-guide-artwork.is-fallback{background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.18),transparent 32%),linear-gradient(145deg,#172033,#26364d)}.media-home-live-guide-logo{box-sizing:border-box;width:72%;height:4rem;padding:.35rem;border-radius:.65rem;background:rgba(248,250,252,.96);overflow:hidden}.media-home-live-guide-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-copy{display:grid;gap:.28rem;padding:.7rem}.media-home-live-guide-channel,.media-home-live-guide-subtitle{overflow:hidden;color:#94a3b8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-copy strong{overflow:hidden;color:#f8fafc;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-progress{display:block;width:100%;height:.26rem;margin-top:.2rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-guide-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-guide-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-guide-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}.media-home-live-guide-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.42rem;padding:0 .7rem .7rem}.media-home-live-guide-actions.single{grid-template-columns:1fr}.media-home-live-guide-action{min-width:0;min-height:2.35rem;padding:.42rem .5rem;border:1px solid rgba(125,211,252,.32);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e0f2fe;font-size:.76rem;font-weight:800;cursor:pointer}.media-home-live-guide-action.primary{border-color:rgba(56,189,248,.68);background:#075985;color:#fff}.media-home-live-guide-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-action:disabled{cursor:not-allowed;opacity:.58}.media-home-live-guide-feedback:empty{display:none}.media-home-live-guide-feedback{padding:0 .7rem .7rem}.media-home-live-guide-action-error{margin:0;color:#fecaca;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status{margin:0;padding:.55rem .6rem;border-radius:.62rem;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status h4,.media-home-live-guide-feedback .epg-timer-status p{margin:.1rem 0}
 @media(min-width:120rem){.media-home-live-hero-active{min-height:30rem}.media-home-live-carousel{max-width:150rem;margin-inline:auto;padding:clamp(2rem,3vw,4rem)}.media-home-live-focus{padding:clamp(2rem,2vw,3rem)}.media-home-live-channel-copy h3{font-size:clamp(3.2rem,3.4vw,5.2rem)}.media-home-live-program-title{font-size:clamp(1.15rem,1vw,1.45rem)}}
 @media(max-width:72rem){.media-home-live-carousel{grid-template-columns:minmax(5.4rem,.34fr) minmax(0,2.2fr) minmax(5.4rem,.34fr);padding:1rem}.media-home-live-neighbor-copy span{display:none}}
-@media(max-width:46rem){.media-home-live-hero-active{min-height:25rem}.media-home-live-carousel{grid-template-columns:minmax(2.75rem,.18fr) minmax(0,1fr) minmax(2.75rem,.18fr);gap:.35rem;padding:.72rem .35rem}.media-home-live-focus{padding:1rem .8rem;border-radius:1.05rem}.media-home-live-channel-head{align-items:flex-start;flex-direction:column;gap:.65rem}.media-home-live-channel-logo{width:5.5rem;height:3.4rem}.media-home-live-channel-copy h3{font-size:clamp(2rem,10vw,3.25rem)}.media-home-live-programmes{grid-template-columns:1fr}.media-home-live-program{padding:.68rem .72rem}.media-home-live-program:nth-child(2){background:rgba(15,23,42,.5)}.media-home-live-actions{display:grid;grid-template-columns:1fr 1fr}.media-home-live-action{width:100%;padding:.58rem .55rem}.media-home-live-neighbor{padding:.3rem;border-color:rgba(148,163,184,.12);background:rgba(15,23,42,.3)}.media-home-live-neighbor-logo{height:2.35rem;padding:.18rem}.media-home-live-neighbor-copy{display:none}.media-home-live-guide-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}}
+@media(max-width:46rem){.media-home-live-hero-active{min-height:25rem}.media-home-live-carousel{grid-template-columns:minmax(2.75rem,.18fr) minmax(0,1fr) minmax(2.75rem,.18fr);gap:.35rem;padding:.72rem .35rem}.media-home-live-focus{padding:1rem .8rem;border-radius:1.05rem}.media-home-live-channel-head{align-items:flex-start;flex-direction:column;gap:.65rem}.media-home-live-channel-logo{width:5.5rem;height:3.4rem}.media-home-live-channel-copy h3{font-size:clamp(2rem,10vw,3.25rem)}.media-home-live-programmes{grid-template-columns:1fr}.media-home-live-program{padding:.68rem .72rem}.media-home-live-program:nth-child(2){background:rgba(15,23,42,.5)}.media-home-live-actions{display:grid;grid-template-columns:1fr 1fr}.media-home-live-action{width:100%;padding:.58rem .55rem}.media-home-live-neighbor{padding:.3rem;border-color:rgba(148,163,184,.12);background:rgba(15,23,42,.3)}.media-home-live-neighbor-logo{height:2.35rem;padding:.18rem}.media-home-live-neighbor-copy{display:none}.media-home-live-guide-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}.media-home-live-guide-actions{padding-left:.62rem;padding-right:.62rem}.media-home-live-guide-feedback{padding-left:.62rem;padding-right:.62rem}}
 @media(max-height:34rem) and (min-width:40rem) and (max-width:64rem){.media-home-live-hero-active{min-height:16rem}.media-home-live-carousel{grid-template-columns:4.2rem minmax(0,1fr) 4.2rem;padding:.55rem}.media-home-live-focus{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:.55rem;padding:.7rem}.media-home-live-channel-head{grid-column:1}.media-home-live-programmes{grid-column:2;grid-row:1 / span 2;grid-template-columns:1fr}.media-home-live-actions{grid-column:1}.media-home-live-notice{grid-column:1}.media-home-live-neighbor-copy{display:none}}
 @media(prefers-reduced-motion:reduce){.media-home-live-neighbor{transition:none}.media-home-live-neighbor:hover,.media-home-live-neighbor:focus-visible{transform:none}.media-home-live-carousel,.media-home-live-guide-rail{scroll-behavior:auto}}
 `;
@@ -769,6 +818,7 @@
       progressPercent,
       prefersReducedMotion,
       programmeEntries,
+      createProgrammeTimer,
       renderProgrammeRails,
       applyChannels,
       applyPrograms,
