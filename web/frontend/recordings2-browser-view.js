@@ -49,12 +49,28 @@
         })
       : null;
     let activePlayback = null;
+    let detailStartRevealed = false;
 
     function destroyPlayback() {
       if (activePlayback && typeof activePlayback.destroy === 'function') {
         activePlayback.destroy();
       }
       activePlayback = null;
+    }
+
+    function resetDetailReveal() {
+      detailStartRevealed = false;
+    }
+
+    function destroy() {
+      destroyPlayback();
+      resetDetailReveal();
+    }
+
+    function revealDetailStart(root) {
+      if (detailStartRevealed || !root || typeof root.scrollIntoView !== 'function') return;
+      detailStartRevealed = true;
+      root.scrollIntoView({block: 'start', behavior: 'auto'});
     }
 
     function state() {
@@ -153,6 +169,7 @@
     }
 
     function renderLoading() {
+      resetDetailReveal();
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -174,6 +191,7 @@
     }
 
     function renderError() {
+      resetDetailReveal();
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -249,6 +267,7 @@
     }
 
     function renderFolder() {
+      resetDetailReveal();
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -377,6 +396,7 @@
       }
 
       target.appendChild(root);
+      revealDetailStart(root);
 
       const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;
       if (metadataDetail && typeof metadataDetail.enhance === 'function') {
@@ -389,7 +409,7 @@
       renderError: renderError,
       renderFolder: renderFolder,
       renderDetail: renderDetail,
-      destroy: destroyPlayback
+      destroy: destroy
     });
   }
 
