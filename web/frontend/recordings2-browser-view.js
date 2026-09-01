@@ -48,29 +48,13 @@
           reload: options.reload
         })
       : null;
-    let activePlayback = null;
-    let detailStartRevealed = false;
+    let activePlayback = null; let detailStartRevealed = false;
 
     function destroyPlayback() {
       if (activePlayback && typeof activePlayback.destroy === 'function') {
         activePlayback.destroy();
       }
       activePlayback = null;
-    }
-
-    function resetDetailReveal() {
-      detailStartRevealed = false;
-    }
-
-    function destroy() {
-      destroyPlayback();
-      resetDetailReveal();
-    }
-
-    function revealDetailStart(root) {
-      if (detailStartRevealed || !root || typeof root.scrollIntoView !== 'function') return;
-      detailStartRevealed = true;
-      root.scrollIntoView({block: 'start', behavior: 'auto'});
     }
 
     function state() {
@@ -168,8 +152,7 @@
       return root;
     }
 
-    function renderLoading() {
-      resetDetailReveal();
+    function renderLoading() { detailStartRevealed = false;
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -190,8 +173,7 @@
       target.appendChild(root);
     }
 
-    function renderError() {
-      resetDetailReveal();
+    function renderError() { detailStartRevealed = false;
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -266,8 +248,7 @@
       return {section: section, list: list};
     }
 
-    function renderFolder() {
-      resetDetailReveal();
+    function renderFolder() { detailStartRevealed = false;
       const currentState = state();
       const target = prepareTarget();
       if (!target) return;
@@ -395,8 +376,7 @@
         root.appendChild(actionView.createPanel(recording));
       }
 
-      target.appendChild(root);
-      revealDetailStart(root);
+      target.appendChild(root); if (!detailStartRevealed && typeof root.scrollIntoView === 'function') { detailStartRevealed = true; root.scrollIntoView({block: 'start', behavior: 'auto'}); }
 
       const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;
       if (metadataDetail && typeof metadataDetail.enhance === 'function') {
@@ -409,7 +389,7 @@
       renderError: renderError,
       renderFolder: renderFolder,
       renderDetail: renderDetail,
-      destroy: destroy
+      destroy: function () { destroyPlayback(); detailStartRevealed = false; }
     });
   }
 
