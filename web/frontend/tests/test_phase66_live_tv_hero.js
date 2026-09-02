@@ -35,6 +35,17 @@ assert(!heroSource.includes('/api/media/sessions'));
 assert(!heroSource.includes('createLivePanel('));
 assert(!heroSource.includes('<video'));
 
+const channelLoadSequence = heroSource.slice(
+  heroSource.indexOf('return client.fetchClientChannels('),
+  heroSource.indexOf('}).catch(error =>', heroSource.indexOf('return client.fetchClientChannels('))
+);
+assert(channelLoadSequence.includes(
+  'applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence);'
+));
+assert(!channelLoadSequence.includes(
+  'state.loadingChannels = false;\n      render();\n      return loadPrograms(sequence);'
+));
+
 function createClassList(initial) {
   const values = new Set(String(initial || '').split(/\s+/).filter(Boolean));
   return {

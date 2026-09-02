@@ -494,6 +494,58 @@ async function proveMetadataDeduplicatesAcrossConsumers(api) {
   assert.strictEqual(values[1].has('native-dedup'), true);
 }
 
+async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
+  const backlog = [];
+  for (let index = 1; index <= 8; index += 1) {
+    backlog.push(makeRecording(
+      'backlog-' + String(index),
+      'native-backlog-' + String(index),
+      'Serien/Backlog/S01E' + String(index).padStart(2, '0') + '.rec',
+      'Backlog ' + String(index),
+      ''
+    ));
+  }
+  const newcomer = makeRecording(
+    'newcomer-1',
+    'native-newcomer-1',
+    'Serien/Newcomer/S01E01.rec',
+    'Newcomer',
+    ''
+  );
+  const calls = [];
+  const pending = [];
+  const client = {
+    requestJson(route, request) {
+      const nativeId = request.query.backendNativeId;
+      calls.push(nativeId);
+      return new Promise(function (resolve) {
+        pending.push({nativeId: nativeId, resolve: resolve});
+      });
+    }
+  };
+
+  api.prefetchSeriesRecordingMetadata(client, backlog, 'default', 0, function () {});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepStrictEqual(calls, [
+    'native-backlog-1',
+    'native-backlog-2',
+    'native-backlog-3',
+    'native-backlog-4'
+  ]);
+
+  api.prefetchSeriesRecordingMetadata(client, [newcomer], 'default', 0, function () {});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(calls.length, 4);
+
+  pending[0].resolve({available: false});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(
+    calls[4],
+    'native-newcomer-1',
+    'first metadata lookup for a newly discovered series must preempt queued episodes from an already represented series'
+  );
+}
+
 (async function () {
   const seriesHarness = createHarness();
   assert(seriesHarness.publicApi);
@@ -505,6 +557,9 @@ async function proveMetadataDeduplicatesAcrossConsumers(api) {
 
   const dedupHarness = createHarness();
   await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);
+
+  const priorityHarness = createHarness();
+  await proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(priorityHarness.api);
 
   const progressHarness = createHarness();
   await proveMetadataPublishesPerResponse(progressHarness.api);

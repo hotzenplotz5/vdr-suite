@@ -882,7 +882,6 @@
       if (!state.active || sequence !== state.requestSequence) return null;
       applyChannels(data);
       state.loadingChannels = false;
-      render();
       return loadPrograms(sequence);
     }).catch(error => {
       if (!state.active || sequence !== state.requestSequence) return null;

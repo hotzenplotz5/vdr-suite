@@ -587,6 +587,13 @@ function makeEpisode(seriesTitle, seasonNumber, episodeNumber, idPrefix) {
   };
 }
 
+async function waitForMetadataCoverage(calls, expectedCount) {
+  for (let attempt = 0; attempt < 100 && calls.metadata.length < expectedCount; attempt += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.strictEqual(calls.metadata.length, expectedCount);
+}
+
 function buildLargeCanonicalSeriesSet() {
   const items = [];
   for (let season = 1; season <= 10; season += 1) {
@@ -640,16 +647,21 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(production.calls.genreRecordings.every((call) => call.limit === 100));
   assert(production.calls.genreRecordings.every((call) => call.backendId === 'default'));
   assert(production.calls.genreRecordings.every((call) => call.genreId === 'series'));
-  assert.strictEqual(production.calls.metadata.length, canonicalSeriesItems.length);
+  const metadataAtVisibleReady = production.calls.metadata.slice();
+  assert(metadataAtVisibleReady.length >= 14);
+  assert(
+    metadataAtVisibleReady.length < canonicalSeriesItems.length,
+    'visible Series completion must not wait for every episode metadata lookup'
+  );
   assert(production.metadataMaxInFlight() <= 4);
   assert(production.metadataMaxInFlight() >= 2);
-  assert(production.calls.metadata.every((call) => call.route === '/api/vdr/recordings/metadata'));
-  assert(production.calls.metadata.every((call) => call.request.cache === 'no-store'));
-  assert(production.calls.metadata.every((call) => call.request.credentials === 'same-origin'));
-  assert(production.calls.metadata.every((call) => call.request.query.backend === 'default'));
+  assert(metadataAtVisibleReady.every((call) => call.route === '/api/vdr/recordings/metadata'));
+  assert(metadataAtVisibleReady.every((call) => call.request.cache === 'no-store'));
+  assert(metadataAtVisibleReady.every((call) => call.request.credentials === 'same-origin'));
+  assert(metadataAtVisibleReady.every((call) => call.request.query.backend === 'default'));
   assert.strictEqual(new Set(
-    production.calls.metadata.map((call) => call.request.query.backendNativeId)
-  ).size, canonicalSeriesItems.length);
+    metadataAtVisibleReady.map((call) => call.request.query.backendNativeId)
+  ).size, metadataAtVisibleReady.length);
 
   const seriesRail = findRail(production.host, 'series');
   assert(seriesRail);
@@ -662,6 +674,16 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert.strictEqual(findImage(twdCard), null);
   assert.strictEqual(findRecordingCard(seriesRail, canonicalSeriesItems[0].recordingId), null);
   assert.strictEqual(findRecordingCard(seriesRail, heuristicOnly.recordingId), null);
+
+  await waitForMetadataCoverage(production.calls, canonicalSeriesItems.length);
+  assert(production.metadataMaxInFlight() <= 4);
+  assert(production.calls.metadata.every((call) => call.route === '/api/vdr/recordings/metadata'));
+  assert(production.calls.metadata.every((call) => call.request.cache === 'no-store'));
+  assert(production.calls.metadata.every((call) => call.request.credentials === 'same-origin'));
+  assert(production.calls.metadata.every((call) => call.request.query.backend === 'default'));
+  assert.strictEqual(new Set(
+    production.calls.metadata.map((call) => call.request.query.backendNativeId)
+  ).size, canonicalSeriesItems.length);
 
   twdCard.listeners.click[0]();
   const seasonButtons = findSeasonButtons(findRail(production.host, 'series'));
