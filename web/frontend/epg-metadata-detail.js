@@ -586,6 +586,12 @@
   }
 
   function selectDetailArtwork(metadata) {
+    const preferred = metadata && metadata.preferredArtwork;
+    const preferredAvailable = preferred && preferred.available === true && isPublicImageUrl(preferred.url);
+    if (preferredAvailable && Number(preferred.height) > Number(preferred.width) && Number(preferred.width) > 0) {
+      return {artwork: preferred, orientation: 'portrait'};
+    }
+
     const images = metadata && Array.isArray(metadata.images) ? metadata.images : [];
     const portrait = images.find(function (entry) {
       return entry && entry.orientation === 'portrait' && entry.image &&
@@ -595,8 +601,7 @@
       return {artwork: portrait.image, orientation: 'portrait'};
     }
 
-    const preferred = metadata && metadata.preferredArtwork;
-    if (preferred && preferred.available === true && isPublicImageUrl(preferred.url)) {
+    if (preferredAvailable) {
       return {artwork: preferred, orientation: 'preferred'};
     }
 
