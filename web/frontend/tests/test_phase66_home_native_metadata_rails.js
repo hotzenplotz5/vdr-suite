@@ -186,6 +186,7 @@ function richMovie(title, nativeId) {
 function createHarness() {
   const host = new FakeElement('div');
   let selectedModule = 'overview';
+  let activeClient = null;
 
   const document = {
     readyState: 'loading',
@@ -217,19 +218,23 @@ function createHarness() {
   context.window.VdrSuitePlatform = {
     getSelectedBackendId() { return 'default'; },
     getSelectedModule() { return selectedModule; },
-    getClientApi() { return null; }
+    getClientApi() { return activeClient; }
   };
 
   vm.createContext(context);
   vm.runInContext(source, context, {filename: 'phase66-home-native-metadata-rails.js'});
 
   return {
+    publicApi: context.window.VdrSuiteHomeRecordingDiscovery,
     api: context.window.VdrSuiteHomeRecordingDiscovery._test,
-    host
+    host,
+    setClient(client) {
+      activeClient = client;
+    }
   };
 }
 
-async function proveSeriesDoesNotFlashWeakProjection(api, host) {
+async function proveSeriesDoesNotFlashWeakProjection(harness) {
   const recordings = [
     makeRecording(
       'sgu-1',
@@ -247,6 +252,14 @@ async function proveSeriesDoesNotFlashWeakProjection(api, host) {
     )
   ];
   const client = {
+    fetchClientRecordings() {
+      return Promise.resolve({recordings: []});
+    },
+    fetchClientGenres() {
+      return Promise.resolve({
+        genres: [{id: 'series', label: 'Serien', count: recordings.length}]
+      });
+    },
     fetchClientGenreRecordings() {
       return Promise.resolve({
         recordings,
@@ -254,21 +267,27 @@ async function proveSeriesDoesNotFlashWeakProjection(api, host) {
         hasMore: false
       });
     },
+    fetchClientRecordingFolder() {
+      return Promise.resolve({
+        folders: [],
+        recordings: [],
+        recordingCount: 0
+      });
+    },
     requestJson() {
       return new Promise(function () {});
     }
   };
 
+  harness.setClient(client);
   let settled = false;
-  api.loadSeries(client, 'default', 0, [
-    {id: 'series', label: 'Serien', count: recordings.length}
-  ]).then(function () {
+  harness.publicApi.refresh().then(function () {
     settled = true;
   });
 
   await new Promise((resolve) => setImmediate(resolve));
   assert.strictEqual(settled, false);
-  const seriesRail = findRail(host, 'series');
+  const seriesRail = findRail(harness.host, 'series');
   assert(seriesRail);
   assert.strictEqual(findSeriesCards(seriesRail).length, 0);
   assert(hasText(seriesRail, 'Serien werden gruppiert …'));
@@ -399,12 +418,16 @@ async function proveRandomGenreUsesNativeMetadata(api, host) {
 }
 
 (async function () {
-  const harness = createHarness();
-  assert(harness.api);
+  const seriesHarness = createHarness();
+  assert(seriesHarness.publicApi);
+  assert(seriesHarness.api);
+  await proveSeriesDoesNotFlashWeakProjection(seriesHarness);
 
-  await proveSeriesDoesNotFlashWeakProjection(harness.api, harness.host);
-  await proveMetadataPublishesPerResponse(harness.api);
-  await proveRandomGenreUsesNativeMetadata(harness.api, harness.host);
+  const progressHarness = createHarness();
+  await proveMetadataPublishesPerResponse(progressHarness.api);
+
+  const genreHarness = createHarness();
+  await proveRandomGenreUsesNativeMetadata(genreHarness.api, genreHarness.host);
 
   console.log('phase66 Home native metadata rail regressions ok');
 }()).catch(function (error) {
