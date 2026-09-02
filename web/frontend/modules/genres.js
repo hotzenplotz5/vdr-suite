@@ -8,6 +8,7 @@
   }
 
   const PAGE_SIZE = 48;
+  const RECORDING_METADATA_CONCURRENCY = 4;
   const state = {
     active:false,
     backendId:'',
@@ -22,7 +23,8 @@
     loading:false,
     loadingMore:false,
     error:null,
-    requestSequence:0
+    requestSequence:0,
+    recordingMetadataByNativeId:new Map()
   };
 
   const text = (value, fallback) => String(
@@ -178,6 +180,109 @@
     return {from:now, until:now + 172800};
   }
 
+  function recordingNativeId(recording) {
+    return text(recording && recording.backendNativeId);
+  }
+
+  function recordingMetadataPosterUrl(value) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return helpers && typeof helpers.recordingMetadataPosterUrl === 'function'
+      ? text(helpers.recordingMetadataPosterUrl(value))
+      : '';
+  }
+
+  function recordingCardProjection(recording, richMetadata) {
+    if (!recording || !richMetadata || richMetadata.available !== true) {
+      return recording;
+    }
+
+    const sourceMetadata = recording.metadata &&
+      typeof recording.metadata === 'object'
+      ? recording.metadata
+      : {};
+    const sourcePresentation = sourceMetadata.presentation &&
+      typeof sourceMetadata.presentation === 'object'
+      ? sourceMetadata.presentation
+      : {};
+    const sourceArtwork = sourceMetadata.artwork &&
+      typeof sourceMetadata.artwork === 'object'
+      ? sourceMetadata.artwork
+      : {};
+    const title = text(richMetadata.title) ||
+      text(sourcePresentation.title) ||
+      text(recording.title);
+    const posterUrl = recordingMetadataPosterUrl(richMetadata) ||
+      text(sourcePresentation.posterUrl) ||
+      text(sourceArtwork.preferredUrl);
+    const presentation = Object.assign({}, sourcePresentation, {
+      title:title,
+      subtitle:text(richMetadata.episodeName) || text(sourcePresentation.subtitle),
+      summary:text(richMetadata.overview) || text(sourcePresentation.summary),
+      posterUrl:posterUrl
+    });
+    const artwork = Object.assign({}, sourceArtwork, {
+      preferredUrl:posterUrl
+    });
+
+    return Object.assign({}, recording, {
+      path:'',
+      title:title,
+      metadata:Object.assign({}, sourceMetadata, {
+        presentation:presentation,
+        artwork:artwork
+      })
+    });
+  }
+
+  function currentRecordingRequest(sequence, requestedScope, requestedBackend) {
+    return state.active &&
+      state.requestSequence === sequence &&
+      state.scope === requestedScope &&
+      state.backendId === requestedBackend;
+  }
+
+  function enrichRecordingItems(recordings, sequence, requestedScope, requestedBackend) {
+    if (requestedScope !== 'recordings') return Promise.resolve();
+    const owner = global.VdrSuiteRecordings2MetadataDetail;
+    if (!owner || typeof owner.fetchMetadata !== 'function') return Promise.resolve();
+
+    const queue = (Array.isArray(recordings) ? recordings : []).filter(recording => {
+      const nativeId = recordingNativeId(recording);
+      return nativeId && !state.recordingMetadataByNativeId.has(nativeId);
+    });
+    let cursor = 0;
+
+    function worker() {
+      const index = cursor;
+      cursor += 1;
+      if (index >= queue.length) return Promise.resolve();
+      const recording = queue[index];
+      const nativeId = recordingNativeId(recording);
+      return Promise.resolve(owner.fetchMetadata(recording, requestedBackend))
+        .then(value => {
+          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
+            state.recordingMetadataByNativeId.set(
+              nativeId,
+              value && value.available === true ? value : null
+            );
+          }
+        })
+        .catch(() => {
+          if (currentRecordingRequest(sequence, requestedScope, requestedBackend)) {
+            state.recordingMetadataByNativeId.set(nativeId, null);
+          }
+        })
+        .then(worker);
+    }
+
+    const workers = [];
+    const workerCount = Math.min(RECORDING_METADATA_CONCURRENCY, queue.length);
+    for (let index = 0; index < workerCount; index += 1) {
+      workers.push(worker());
+    }
+    return Promise.all(workers).then(() => undefined);
+  }
+
   function synchronizeSelectedCount(total) {
     if (state.scope !== 'epg' || !state.overview) return;
     const normalizedTotal = number(total, 0);
@@ -207,6 +312,7 @@
     state.total = 0;
     state.hasMore = false;
     state.loadingMore = false;
+    state.recordingMetadataByNativeId.clear();
   }
 
   function renderHeader(root) {
@@ -371,6 +477,7 @@
     state.total = 0;
     state.hasMore = false;
     state.selectedGenre = null;
+    state.recordingMetadataByNativeId.clear();
     if (state.scope === 'epg' &&
         state.selectedCategory &&
         state.selectedCategory.id === 'movie') {
@@ -421,8 +528,14 @@
       state.items.forEach(recording => {
         if (cardOwner &&
             typeof cardOwner.createRecordingCard === 'function') {
+          const rich = state.recordingMetadataByNativeId.get(
+            recordingNativeId(recording)
+          );
+          const projected = recordingCardProjection(recording, rich);
           list.appendChild(
-            cardOwner.createRecordingCard(recording, openRecording)
+            cardOwner.createRecordingCard(projected, function () {
+              openRecording(recording);
+            })
           );
         }
       });
@@ -595,6 +708,7 @@
 
   function beginResultLoad() {
     state.items = [];
+    state.recordingMetadataByNativeId.clear();
     state.total = number(
       (state.selectedGenre && state.selectedGenre.count) ||
       (state.selectedCategory && state.selectedCategory.count),
@@ -606,20 +720,41 @@
     state.view = 'results';
     const sequence = ++state.requestSequence;
     const requestedScope = state.scope;
+    const requestedBackend = state.backendId;
     render();
     requestItems(0).then(data => {
-      if (!state.active ||
-          sequence !== state.requestSequence ||
-          state.scope !== requestedScope) {
+      if (!currentRecordingRequest(sequence, requestedScope, requestedBackend) &&
+          requestedScope === 'recordings') {
         return;
       }
-      applyItems(data, false);
-      state.loading = false;
-      render();
+      if (!state.active ||
+          sequence !== state.requestSequence ||
+          state.scope !== requestedScope ||
+          state.backendId !== requestedBackend) {
+        return;
+      }
+      const incoming = data && Array.isArray(data.items) ? data.items : [];
+      return enrichRecordingItems(
+        incoming,
+        sequence,
+        requestedScope,
+        requestedBackend
+      ).then(() => {
+        if (!state.active ||
+            sequence !== state.requestSequence ||
+            state.scope !== requestedScope ||
+            state.backendId !== requestedBackend) {
+          return;
+        }
+        applyItems(data, false);
+        state.loading = false;
+        render();
+      });
     }).catch(error => {
       if (!state.active ||
           sequence !== state.requestSequence ||
-          state.scope !== requestedScope) {
+          state.scope !== requestedScope ||
+          state.backendId !== requestedBackend) {
         return;
       }
       state.loading = false;
@@ -658,20 +793,37 @@
     state.loadingMore = true;
     const sequence = ++state.requestSequence;
     const requestedScope = state.scope;
+    const requestedBackend = state.backendId;
     render();
     requestItems(state.items.length).then(data => {
       if (!state.active ||
           sequence !== state.requestSequence ||
-          state.scope !== requestedScope) {
+          state.scope !== requestedScope ||
+          state.backendId !== requestedBackend) {
         return;
       }
-      applyItems(data, true);
-      state.loadingMore = false;
-      render();
+      const incoming = data && Array.isArray(data.items) ? data.items : [];
+      return enrichRecordingItems(
+        incoming,
+        sequence,
+        requestedScope,
+        requestedBackend
+      ).then(() => {
+        if (!state.active ||
+            sequence !== state.requestSequence ||
+            state.scope !== requestedScope ||
+            state.backendId !== requestedBackend) {
+          return;
+        }
+        applyItems(data, true);
+        state.loadingMore = false;
+        render();
+      });
     }).catch(error => {
       if (!state.active ||
           sequence !== state.requestSequence ||
-          state.scope !== requestedScope) {
+          state.scope !== requestedScope ||
+          state.backendId !== requestedBackend) {
         return;
       }
       state.loadingMore = false;
@@ -721,7 +873,9 @@
       applyItems:applyItems,
       channelFor:channelFor,
       epgCategories:epgCategories,
-      epgWindow:epgWindow
+      epgWindow:epgWindow,
+      recordingCardProjection:recordingCardProjection,
+      enrichRecordingItems:enrichRecordingItems
     })
   });
 

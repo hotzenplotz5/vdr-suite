@@ -5,10 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const source = fs.readFileSync(
-  path.join(__dirname, '..', 'modules', 'genres.js'),
-  'utf8'
-);
+const frontendRoot = path.join(__dirname, '..');
+const source = [
+  fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
+  fs.readFileSync(path.join(frontendRoot, 'modules', 'genres.js'), 'utf8')
+].join('\n');
 
 class FakeElement {
   constructor(tagName) {
@@ -89,6 +90,74 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
+function recording(nativeId, title, pathValue) {
+  const preferred = '/api/recordings/metadata/image?backend=default&backendNativeId=' +
+    encodeURIComponent(nativeId) + '&kind=preferred&index=0';
+  return {
+    id:nativeId,
+    backendId:'default',
+    backendNativeId:nativeId,
+    title:title,
+    path:pathValue,
+    startTime:'1780000000',
+    durationSeconds:7200,
+    sizeMb:4096,
+    metadata:{
+      presentation:{
+        title:title,
+        subtitle:'',
+        summary:'',
+        posterUrl:preferred,
+        placeholderVariant:1
+      },
+      provider:{},
+      native:{},
+      artwork:{preferredUrl:preferred}
+    }
+  };
+}
+
+function richMetadata(nativeId, title) {
+  return {
+    available:true,
+    provider:'tvscraper',
+    mediaType:'movie',
+    providerId:14400,
+    title:title,
+    episodeName:'',
+    overview:'TVScraper-Beschreibung zu ' + title,
+    preferredArtwork:{
+      available:true,
+      url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+        encodeURIComponent(nativeId) + '&kind=preferred&index=0',
+      width:1920,
+      height:1080
+    },
+    images:[
+      {
+        orientation:'landscape',
+        image:{
+          available:true,
+          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+            encodeURIComponent(nativeId) + '&kind=gallery&index=0',
+          width:1920,
+          height:1080
+        }
+      },
+      {
+        orientation:'portrait',
+        image:{
+          available:true,
+          url:'/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+            encodeURIComponent(nativeId) + '&kind=gallery&index=1',
+          width:500,
+          height:750
+        }
+      }
+    ]
+  };
+}
+
 (async function main() {
   const mount = new FakeElement('main');
   const elementsById = Object.create(null);
@@ -113,6 +182,29 @@ function flush() {
   let overviewRequests = 0;
   let epgItemRequests = 0;
   const epgQueries = [];
+  const recordingCards = [];
+  const openedRecordings = [];
+  const recordingMetadataCalls = [];
+  let activeMetadataCalls = 0;
+  let maximumActiveMetadataCalls = 0;
+
+  const genreRecordings = [
+    recording(
+      'native-largo',
+      'Action/Largo Winch - Tödliches Erbe',
+      '/Action/Largo_Winch_-_Tödliches_Erbe/2026-08-16.01.00.2-0.rec'
+    ),
+    recording(
+      'native-no-match',
+      'Action/Todliche Weihnachten',
+      '/Action/Todliche_Weihnachten/2026-05-20.19.41.1-0.rec'
+    ),
+    recording('native-48hrs', 'Action/48 Hrs', '/Action/48 Hrs/example.rec'),
+    recording('native-diehard', 'Action/Stirb langsam', '/Action/Stirb_langsam/example.rec'),
+    recording('native-greatwall', 'Fantasy/The Great Wall 2016', '/Fantasy/The_Great_Wall/example.rec'),
+    recording('native-bond', 'Thriller/James Bond 007 - Dr. No', '/Thriller/James_Bond/example.rec')
+  ];
+
   const client = {
     fetchClientGenres: options => {
       overviewRequests += 1;
@@ -147,9 +239,9 @@ function flush() {
           : {
               backendId: 'default',
               scope: 'recordings',
-              totalItems: 1,
+              totalItems: genreRecordings.length,
               genres: [
-                {id: 'action', label: 'Action', count: 1, known: true}
+                {id: 'action', label: 'Action', count: genreRecordings.length, known: true}
               ]
             }
       );
@@ -159,8 +251,9 @@ function flush() {
       return new Promise(() => {});
     },
     fetchClientGenreRecordings: () => Promise.resolve({
-      items: [],
-      total: 0
+      items: genreRecordings,
+      total: genreRecordings.length,
+      hasMore:false
     }),
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
@@ -204,6 +297,7 @@ function flush() {
     Date: Date,
     Error: Error,
     Intl: Intl,
+    Map: Map,
     Math: Math,
     Number: Number,
     Object: Object,
@@ -212,7 +306,47 @@ function flush() {
     String: String,
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
-    VdrSuitePlatform: platform
+    VdrSuitePlatform: platform,
+    VdrSuiteRecordings2BrowserView: {
+      createRecordingCard(projected, onSelect) {
+        const card = new FakeElement('button');
+        const presentation = projected && projected.metadata &&
+          projected.metadata.presentation || {};
+        card.textContent = presentation.title || projected.title || 'Aufnahme';
+        card.addEventListener('click', function () {
+          if (typeof onSelect === 'function') onSelect(projected);
+        });
+        recordingCards.push({projected, card});
+        return card;
+      }
+    },
+    VdrSuiteRecordings2: {
+      openRecording(item, options) {
+        openedRecordings.push({item, options});
+      }
+    },
+    VdrSuiteRecordings2MetadataDetail: {
+      fetchMetadata(item, backendId) {
+        assert.strictEqual(backendId, 'default');
+        recordingMetadataCalls.push(item.backendNativeId);
+        activeMetadataCalls += 1;
+        maximumActiveMetadataCalls = Math.max(
+          maximumActiveMetadataCalls,
+          activeMetadataCalls
+        );
+        const result = item.backendNativeId === 'native-no-match'
+          ? {available:false, status:'not-found'}
+          : richMetadata(
+              item.backendNativeId,
+              item.backendNativeId === 'native-largo'
+                ? 'Largo Winch - Tödliches Erbe'
+                : item.title.replace(/^[^/]+\//, '')
+            );
+        return Promise.resolve(result).finally(function () {
+          activeMetadataCalls -= 1;
+        });
+      }
+    }
   };
   context.window = context;
 
@@ -223,6 +357,60 @@ function flush() {
   registeredModule.activate();
   await flush();
   await flush();
+
+  const actionButton = findButton(mount, 'Action', true);
+  assert(actionButton, 'Action recording genre was not rendered');
+  actionButton.dispatch('click');
+  await flush();
+  await flush();
+  await flush();
+
+  assert.strictEqual(recordingMetadataCalls.length, genreRecordings.length);
+  assert(
+    maximumActiveMetadataCalls <= 4,
+    'recording metadata enrichment must stay bounded to four parallel reads'
+  );
+  assert.strictEqual(recordingCards.length, genreRecordings.length);
+
+  const largoCard = recordingCards.find(entry =>
+    entry.projected.backendNativeId === 'native-largo');
+  assert(largoCard, 'enriched Largo Winch card was not rendered');
+  assert.strictEqual(largoCard.projected.path, '');
+  assert.strictEqual(
+    largoCard.projected.metadata.presentation.title,
+    'Largo Winch - Tödliches Erbe'
+  );
+  const portraitUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+    'native-largo&kind=gallery&index=1';
+  assert.strictEqual(
+    largoCard.projected.metadata.presentation.posterUrl,
+    portraitUrl
+  );
+  assert(!largoCard.projected.metadata.presentation.posterUrl.includes('kind=preferred'));
+
+  const fallbackCard = recordingCards.find(entry =>
+    entry.projected.backendNativeId === 'native-no-match');
+  assert(fallbackCard, 'no-match fallback card was not rendered');
+  assert.strictEqual(
+    fallbackCard.projected.path,
+    genreRecordings[1].path
+  );
+  assert.strictEqual(
+    fallbackCard.projected.metadata.presentation.title,
+    'Action/Todliche Weihnachten'
+  );
+
+  largoCard.card.dispatch('click');
+  assert.strictEqual(openedRecordings.length, 1);
+  assert.strictEqual(
+    openedRecordings[0].item.path,
+    genreRecordings[0].path,
+    'genre card click must hand the original recording to Recordings 2'
+  );
+  assert.strictEqual(
+    openedRecordings[0].item.backendNativeId,
+    'native-largo'
+  );
 
   const epgButton = findButton(mount, 'EPG', false);
   assert(epgButton, 'EPG scope button was not rendered');
@@ -314,12 +502,13 @@ function flush() {
 
   assert.strictEqual(epgItemRequests, 13);
   assert.strictEqual(
-    channelRequests, 0,
+    channelRequests,
+    0,
     'Genre browser must never issue a supplementary VDR channel request'
   );
 
   console.log(
-    'genres runtime database-only EPG Genre navigation hierarchy ok'
+    'genres runtime native recording metadata and database-only EPG navigation ok'
   );
 }()).catch(error => {
   console.error(error);

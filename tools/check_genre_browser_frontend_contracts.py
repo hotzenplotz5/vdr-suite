@@ -77,8 +77,8 @@ require(
     "EPG Genre cards must consume channel names from the persisted read response",
 )
 require(
-    "channelRequests, 0" in runtime_test
-    and "database-only EPG Genre navigation hierarchy" in runtime_test
+    "channelRequests,\n    0" in runtime_test
+    and "database-only EPG navigation" in runtime_test
     and "for (let index = 0; index < 12; index += 1)" in runtime_test,
     "genre runtime test must cover repeated database-only EPG hierarchy navigation",
 )
@@ -92,8 +92,31 @@ require(
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
 require(
     "VdrSuiteRecordings2BrowserView" in genres
-    and ".createRecordingCard(recording, openRecording)" in genres,
-    "genres must reuse the Recordings 2 card owner",
+    and "cardOwner.createRecordingCard(projected, function ()" in genres
+    and "openRecording(recording);" in genres,
+    "genres must reuse the Recordings 2 card owner while preserving original recording identity",
+)
+require(
+    "VdrSuiteRecordings2MetadataDetail" in genres
+    and "owner.fetchMetadata(recording, requestedBackend)" in genres,
+    "recording genre cards must reuse the existing native metadata detail owner",
+)
+require(
+    "VdrSuiteFrontendHelpers" in genres
+    and "recordingMetadataPosterUrl" in genres,
+    "recording genre cards must reuse the shared canonical poster helper",
+)
+require(
+    "RECORDING_METADATA_CONCURRENCY = 4" in genres
+    and "Math.min(RECORDING_METADATA_CONCURRENCY, queue.length)" in genres,
+    "recording genre metadata enrichment must remain bounded",
+)
+require(
+    "maximumActiveMetadataCalls <= 4" in runtime_test
+    and "kind=gallery&index=1" in runtime_test
+    and "kind=preferred" in runtime_test
+    and "genre card click must hand the original recording" in runtime_test,
+    "genre runtime test must prove bounded native poster enrichment and identity-preserving handoff",
 )
 require("openRecording" in recordings, "Recordings 2 external detail handoff is missing")
 require("owner.openRecording" in genres, "genre recording clicks must use Recordings 2 detail ownership")
