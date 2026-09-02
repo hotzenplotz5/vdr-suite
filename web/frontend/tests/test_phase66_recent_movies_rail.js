@@ -26,6 +26,8 @@ assert(source.includes('owner.recordingPosterUrl'));
 assert(source.includes('owner.openRecording'));
 assert(source.includes("target.querySelector('[data-home-discovery-rail=\"series\"]')"));
 assert(source.includes("rail.className = 'media-home-discovery-rail recent-movies'"));
+assert(source.includes("const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';"));
+assert(source.includes('loadMoreMovies'));
 assert(!source.includes('/api/vdr/recordings/metadata'));
 assert(!source.includes('requestJson('));
 assert(!source.includes('MediaSession'));
@@ -51,6 +53,7 @@ class FakeElement {
     this.decoding = '';
     this.fetchPriority = '';
     this.type = '';
+    this.scrollLeft = 0;
   }
 
   syncSiblings() {
@@ -110,6 +113,11 @@ class FakeElement {
   }
 
   querySelector(selector) {
+    if (selector === '.media-home-discovery-rail.recent-movies') {
+      return findElement(this, (element) =>
+        String(element.className || '').split(/\s+/).includes('media-home-discovery-rail') &&
+        String(element.className || '').split(/\s+/).includes('recent-movies'));
+    }
     const match = String(selector || '').match(/^\[data-home-discovery-rail="([^"]+)"\]$/);
     if (!match) return null;
     return findElement(this, (element) =>
@@ -167,13 +175,17 @@ const currentYear = new Date().getFullYear();
 const host = new FakeElement('div');
 const calls = [];
 const opened = [];
+const currentYearMovies = Array.from({length: 12}, (_, index) => {
+  const day = String(index + 1).padStart(2, '0');
+  return movie('current-' + day, String(currentYear) + '-05-' + day, '2026-05-' + day + 'T20:00:00', 'Aktuell ' + day);
+});
 const pageOne = [
   movie('outside', String(currentYear - 5) + '-12-31', '2026-08-01T20:00:00', 'Zu alt'),
   nonMovie('series', 'series-episode', String(currentYear) + '-02-02'),
   movie('newest', String(currentYear) + '-06-01', '2026-07-01T20:00:00', 'Neu'),
   nonMovie('unknown', 'unknown', String(currentYear) + '-01-01'),
   movie('invalid-date', String(currentYear) + '-02-30', '2026-06-01T20:00:00', 'Ungültig')
-];
+].concat(currentYearMovies);
 const pageTwo = [
   movie('boundary', String(currentYear - 4), '2025-04-01T20:00:00', 'Grenze'),
   movie('future', String(currentYear + 1) + '-01-01', '2026-05-01T20:00:00', 'Zukunft'),
@@ -281,10 +293,26 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert(heading);
   assert.strictEqual(heading.textContent, 'Filme der letzten 5 Jahre');
 
-  const cards = findElements(movieSection, (element) =>
+  let cards = findElements(movieSection, (element) =>
     element.dataset && Boolean(element.dataset.recordingId));
-  assert.deepStrictEqual(cards.map((card) => card.dataset.recordingId), ['newest', 'boundary']);
-  assert.deepStrictEqual(cards.map((card) => Number(card.dataset.movieYear)), [currentYear, currentYear - 4]);
+  assert.strictEqual(cards.length, 12);
+  assert(cards.every((card) => Number(card.dataset.movieYear) === currentYear));
+  assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'boundary'), null);
+
+  const initialRail = findElement(movieSection, (element) =>
+    String(element.className || '').split(/\s+/).includes('recent-movies'));
+  assert(initialRail);
+  initialRail.scrollLeft = 777;
+  assert.strictEqual(api._test.handleRailNearEnd({detail: {rail: initialRail}}), true);
+  cards = findElements(movieSection, (element) =>
+    element.dataset && Boolean(element.dataset.recordingId));
+  assert.strictEqual(cards.length, 14);
+  assert.strictEqual(cards[cards.length - 1].dataset.recordingId, 'boundary');
+  assert.strictEqual(Number(cards[cards.length - 1].dataset.movieYear), currentYear - 4);
+  assert.strictEqual(new Set(cards.map((card) => card.dataset.recordingId)).size, cards.length);
+  const expandedRail = findElement(movieSection, (element) =>
+    String(element.className || '').split(/\s+/).includes('recent-movies'));
+  assert.strictEqual(expandedRail.scrollLeft, 777);
   assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'series'), null);
   assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'unknown'), null);
   assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'outside'), null);

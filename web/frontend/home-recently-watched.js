@@ -329,10 +329,15 @@
   const TITLE = 'Filme der letzten 5 Jahre';
   const LIMIT = 12;
   const PAGE_LIMIT = 100;
+  const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
   const state = {
     generation: 0,
     placementObserver: null,
-    moduleObserver: null
+    moduleObserver: null,
+    movies: [],
+    backendId: '',
+    visibleLimit: LIMIT,
+    nearEndBound: false
   };
 
   function text(value) {
@@ -580,13 +585,17 @@
       : Promise.resolve(false);
   }
 
-  function render(recordings, backendId) {
+  function render(recordings, backendId, visibleLimit) {
     if (!recordings.length) {
       clear();
       return true;
     }
     const target = section();
     if (!target) return false;
+    const previousRail = typeof target.querySelector === 'function'
+      ? target.querySelector('.media-home-discovery-rail.recent-movies')
+      : null;
+    const previousScrollLeft = Number(previousRail && previousRail.scrollLeft) || 0;
     target.replaceChildren();
 
     const heading = doc.createElement('div');
@@ -599,7 +608,8 @@
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail recent-movies';
     rail.setAttribute('aria-label', TITLE);
-    recordings.slice(0, LIMIT).forEach(function (recording) {
+    const limit = Math.max(0, Number(visibleLimit) || LIMIT);
+    recordings.slice(0, limit).forEach(function (recording) {
       const card = doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card recording recent-movie';
@@ -621,6 +631,7 @@
       });
       rail.appendChild(card);
     });
+    rail.scrollLeft = previousScrollLeft;
     target.appendChild(rail);
     positionBeforeSeries();
     return true;
@@ -657,6 +668,9 @@
     const backendId = selectedBackendId();
     const generation = ++state.generation;
     const currentYear = new Date().getFullYear();
+    state.movies = [];
+    state.backendId = backendId;
+    state.visibleLimit = LIMIT;
     renderState('Filme werden geladen …', false);
     return fetchAllRecordings(client, backendId, generation).then(function (recordings) {
       if (generation !== state.generation ||
@@ -664,12 +678,44 @@
           !homeIsActive()) return false;
       const movies = sortMovies(recordings.filter(function (recording) {
         return recentMovie(recording, currentYear);
-      })).slice(0, LIMIT);
-      return render(movies, backendId);
+      }));
+      state.movies = movies;
+      state.backendId = backendId;
+      state.visibleLimit = Math.min(LIMIT, movies.length);
+      return render(movies, backendId, state.visibleLimit);
     }).catch(function () {
       if (generation !== state.generation) return false;
       return renderState('Filme sind vorübergehend nicht verfügbar.', true);
     });
+  }
+
+  function railHasClass(rail, className) {
+    if (!rail) return false;
+    if (rail.classList && typeof rail.classList.contains === 'function') {
+      return rail.classList.contains(className);
+    }
+    return String(rail.className || '').split(/\s+/).includes(className);
+  }
+
+  function loadMoreMovies() {
+    if (!homeIsActive() || state.backendId !== selectedBackendId() ||
+        state.visibleLimit >= state.movies.length) return false;
+    state.visibleLimit = Math.min(state.visibleLimit + LIMIT, state.movies.length);
+    return render(state.movies, state.backendId, state.visibleLimit);
+  }
+
+  function handleRailNearEnd(event) {
+    const rail = event && event.detail && event.detail.rail;
+    if (!railHasClass(rail, 'media-home-discovery-rail') ||
+        !railHasClass(rail, 'recent-movies')) return false;
+    return loadMoreMovies();
+  }
+
+  function bindNearEnd() {
+    if (state.nearEndBound || !doc || typeof doc.addEventListener !== 'function') return false;
+    state.nearEndBound = true;
+    doc.addEventListener(HOME_RAIL_NEAR_END_EVENT, handleRailNearEnd);
+    return true;
   }
 
   function installPlacementObserver() {
@@ -711,6 +757,7 @@
     if (!doc) return false;
     installPlacementObserver();
     installModuleObserver();
+    bindNearEnd();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener('click', function (event) {
         const target = event && event.target;
@@ -733,6 +780,8 @@
       sortMovies: sortMovies,
       fetchAllRecordings: fetchAllRecordings,
       render: render,
+      loadMoreMovies: loadMoreMovies,
+      handleRailNearEnd: handleRailNearEnd,
       positionBeforeSeries: positionBeforeSeries,
       openRecording: openRecording
     })

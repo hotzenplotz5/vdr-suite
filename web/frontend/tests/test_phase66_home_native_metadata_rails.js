@@ -417,11 +417,94 @@ async function proveRandomGenreUsesNativeMetadata(api, host) {
   assert.strictEqual(findImage(fallbackCard).src, '/weak/western-fallback.jpg');
 }
 
+
+async function proveMetadataStartsBeforePaginationCompletes(api) {
+  const first = makeRecording('page-1', 'native-page-1', 'Serien/Overlap/one.rec', 'raw one', '');
+  const second = makeRecording('page-2', 'native-page-2', 'Serien/Overlap/two.rec', 'raw two', '');
+  let releaseSecondPage = null;
+  let metadataCalls = 0;
+  let settled = false;
+  const client = {
+    fetchClientGenreRecordings(request) {
+      if (Number(request.offset || 0) === 0) {
+        return Promise.resolve({recordings: [first], total: 2, hasMore: true});
+      }
+      return new Promise(function (resolve) {
+        releaseSecondPage = function () {
+          resolve({recordings: [second], total: 2, hasMore: false});
+        };
+      });
+    },
+    requestJson(route, request) {
+      metadataCalls += 1;
+      return Promise.resolve({
+        available: true,
+        mediaType: 'series',
+        provider: 'tvscraper',
+        providerId: 8000,
+        title: 'Overlap',
+        episodeName: request.query.backendNativeId,
+        seasonNumber: 1,
+        episodeNumber: metadataCalls,
+        preferredArtwork: {available: false},
+        images: []
+      });
+    }
+  };
+
+  const loading = api.fetchAllSeriesRecordings(client, 'default', 'series', 0, function () {})
+    .then(function () { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(settled, false, 'second recording page must still be pending');
+  assert.strictEqual(metadataCalls, 1, 'first page metadata must start before full pagination completes');
+  assert.strictEqual(typeof releaseSecondPage, 'function');
+  releaseSecondPage();
+  await loading;
+  assert.strictEqual(metadataCalls, 2);
+}
+
+async function proveMetadataDeduplicatesAcrossConsumers(api) {
+  const recording = makeRecording('dedup', 'native-dedup', 'Serien/Dedup/one.rec', 'raw dedup', '');
+  let calls = 0;
+  let release = null;
+  const client = {
+    requestJson() {
+      calls += 1;
+      return new Promise(function (resolve) { release = resolve; });
+    }
+  };
+  const first = api.fetchSeriesRecordingMetadata(client, [recording], 'default', 0);
+  const second = api.fetchSeriesRecordingMetadata(client, [recording], 'default', 0);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(calls, 1, 'same backend/native id must have one in-flight request per generation');
+  release({
+    available: true,
+    mediaType: 'series',
+    provider: 'tvscraper',
+    providerId: 8100,
+    title: 'Dedup',
+    episodeName: 'One',
+    seasonNumber: 1,
+    episodeNumber: 1,
+    preferredArtwork: {available: false},
+    images: []
+  });
+  const values = await Promise.all([first, second]);
+  assert.strictEqual(values[0].has('native-dedup'), true);
+  assert.strictEqual(values[1].has('native-dedup'), true);
+}
+
 (async function () {
   const seriesHarness = createHarness();
   assert(seriesHarness.publicApi);
   assert(seriesHarness.api);
   await proveSeriesDoesNotFlashWeakProjection(seriesHarness);
+
+  const overlapHarness = createHarness();
+  await proveMetadataStartsBeforePaginationCompletes(overlapHarness.api);
+
+  const dedupHarness = createHarness();
+  await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);
 
   const progressHarness = createHarness();
   await proveMetadataPublishesPerResponse(progressHarness.api);

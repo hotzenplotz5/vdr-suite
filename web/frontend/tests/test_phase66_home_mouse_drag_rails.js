@@ -16,6 +16,8 @@ assert(source.includes('setPointerCapture'));
 assert(source.includes('scrollLeft = activeDrag.startScrollLeft - deltaX'));
 assert(source.includes('VdrSuiteHomeLiveHero'));
 assert(source.includes('hero.selectOffset(deltaX < 0 ? 1 : -1)'));
+assert(source.includes("doc.addEventListener('scroll', handleRailScroll, true)"));
+assert(source.includes("const RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';"));
 assert(source.includes("doc.addEventListener('click', handleClickCapture, true)"));
 assert(!source.includes('/api/media/sessions'));
 assert(!source.includes('MediaSession'));
@@ -53,6 +55,8 @@ class FakeElement {
     this.children = [];
     this.parentNode = null;
     this.scrollLeft = 0;
+    this.scrollWidth = 0;
+    this.clientWidth = 0;
     this.id = '';
     this.textContent = '';
     this.captured = [];
@@ -81,6 +85,7 @@ class FakeElement {
 
 const head = new FakeElement('head');
 const listeners = Object.create(null);
+const dispatchedEvents = [];
 const document = {
   head,
   createElement(tagName) { return new FakeElement(tagName); },
@@ -89,6 +94,10 @@ const document = {
   },
   addEventListener(type, listener, options) {
     (listeners[type] ||= []).push({listener, options});
+  },
+  dispatchEvent(value) {
+    dispatchedEvents.push(value);
+    return true;
   }
 };
 
@@ -120,9 +129,15 @@ function dispatch(type, target, values) {
 
 const heroOffsets = [];
 let deferredLoadCount = 0;
+function CustomEvent(type, options) {
+  this.type = type;
+  this.detail = options && options.detail;
+}
+
 const window = {
   document,
   console,
+  CustomEvent,
   loadVdrSuiteDeferredRuntime(key, url) {
     deferredLoadCount += 1;
     assert.strictEqual(key, 'vdr-suite-home-recording-discovery-runtime');
@@ -144,7 +159,8 @@ vm.runInContext(source, context, {filename: 'web/frontend/home-recording-discove
 assert(window.VdrSuiteHomeRecordingDiscoveryBootstrap);
 // This gesture-only harness intentionally has no canonical backend selection.
 assert.strictEqual(deferredLoadCount, 0);
-assert(listeners.pointerdown && listeners.pointermove && listeners.pointerup && listeners.pointercancel && listeners.click);
+assert(listeners.pointerdown && listeners.pointermove && listeners.pointerup && listeners.pointercancel && listeners.scroll && listeners.click);
+assert.strictEqual(listeners.scroll[0].options, true);
 assert.strictEqual(listeners.click[0].options, true);
 
 const style = document.getElementById('vdr-suite-home-mouse-drag-style');
@@ -207,6 +223,18 @@ dispatch('pointerup', liveGuideCard, {pointerId: 14, clientX: 145, clientY: 48})
 assert.strictEqual(liveGuideRail.classList.contains('media-home-mouse-dragging'), false);
 assert.deepStrictEqual(liveGuideRail.released, [14]);
 assert.strictEqual(dispatch('click', liveGuideCard).defaultPrevented, true);
+
+// The same delegated owner emits one generic near-end signal for lazy rails.
+liveGuideRail.scrollWidth = 1200;
+liveGuideRail.clientWidth = 400;
+liveGuideRail.scrollLeft = 300;
+dispatch('scroll', liveGuideRail);
+assert.strictEqual(dispatchedEvents.length, 0);
+liveGuideRail.scrollLeft = 500;
+dispatch('scroll', liveGuideRail);
+assert.strictEqual(dispatchedEvents.length, 1);
+assert.strictEqual(dispatchedEvents[0].type, 'vdr-suite-home-rail-near-end');
+assert.strictEqual(dispatchedEvents[0].detail.rail, liveGuideRail);
 
 // The projected Live-TV Hero uses the same mouse gesture but delegates selection
 // to its existing browse-only API instead of inventing a scroll/playback owner.
