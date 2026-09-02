@@ -59,11 +59,45 @@
     });
   }
 
+  function normalizedText(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
+  }
+
+  function isPublicRecordingMetadataImageUrl(value) {
+    return normalizedText(value).startsWith('/api/vdr/recordings/metadata/image?');
+  }
+
+  function preferredRecordingMetadataArtworkUrl(value) {
+    const artwork = value && value.preferredArtwork;
+    return artwork && artwork.available === true ? normalizedText(artwork.url) : '';
+  }
+
+  function recordingMetadataPosterUrl(value) {
+    const manual = value && value.manualAssignment && value.manualAssignment.active === true;
+    if (manual) return preferredRecordingMetadataArtworkUrl(value);
+
+    const images = Array.isArray(value && value.images) ? value.images : [];
+    for (let index = 0; index < images.length; index += 1) {
+      const entry = images[index];
+      if (!entry || entry.orientation !== 'portrait' || !entry.image ||
+          entry.image.available !== true ||
+          !isPublicRecordingMetadataImageUrl(entry.image.url)) {
+        continue;
+      }
+      return normalizedText(entry.image.url);
+    }
+
+    return preferredRecordingMetadataArtworkUrl(value);
+  }
+
   const helpersApi = Object.freeze({
     firstValue: firstValue,
     listFromResponse: listFromResponse,
     numberOrZero: numberOrZero,
-    formatEpochClock: formatEpochClock
+    formatEpochClock: formatEpochClock,
+    isPublicRecordingMetadataImageUrl: isPublicRecordingMetadataImageUrl,
+    preferredRecordingMetadataArtworkUrl: preferredRecordingMetadataArtworkUrl,
+    recordingMetadataPosterUrl: recordingMetadataPosterUrl
   });
 
   global.VdrSuiteFrontendHelpers = helpersApi;
