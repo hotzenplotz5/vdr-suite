@@ -43,6 +43,11 @@ void createSourceSchemas(Database& database)
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,"
         "event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,"
         "resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
+        "CREATE TABLE epg_scraper_metadata_images("
+        "backend_id TEXT,channel_id TEXT,event_id TEXT,kind TEXT,"
+        "image_index INTEGER,provider TEXT,path TEXT,width INTEGER,"
+        "height INTEGER,resolved_at INTEGER,"
+        "PRIMARY KEY(backend_id,channel_id,event_id,kind,image_index));"
         "CREATE TABLE vdr_channel_cache(backend_id TEXT NOT NULL,"
         "channel_id TEXT NOT NULL,channel_number INTEGER NOT NULL DEFAULT 0,"
         "name TEXT NOT NULL DEFAULT '',provider TEXT NOT NULL DEFAULT '',"
@@ -92,7 +97,14 @@ void seed(Database& database, std::int64_t now)
         "',3600,'Film/Action');"
         "INSERT INTO epg_event_artwork VALUES"
         "('default','C-1','100','tvscraper','/tmp/event.jpg',1280,720," +
+        std::to_string(now) + "),"
+        "('default','C-1','101','tvscraper','/tmp/series-event.jpg',1280,720," +
         std::to_string(now) + ");"
+        "INSERT INTO epg_scraper_metadata_images VALUES"
+        "('default','C-1','100','preferred',0,'tvscraper',"
+        "'/tmp/event-preferred.jpg',1280,720," + std::to_string(now) + "),"
+        "('default','C-1','100','gallery',1,'tvscraper',"
+        "'/tmp/event-poster.jpg',500,750," + std::to_string(now) + ");"
         "INSERT INTO vdr_channel_cache("
         "backend_id,channel_id,channel_number,name,provider,group_name,"
         "radio,encrypted,enabled) VALUES"
@@ -243,6 +255,10 @@ int main()
     assert(initialMovies.statusCode == 200);
     assert(contains(initialMovies, "\"eventId\":\"100\""));
     assert(!contains(initialMovies, "\"eventId\":\"101\""));
+    assert(contains(
+        initialMovies,
+        "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1"));
+    assert(contains(initialMovies, "\"width\":500,\"height\":750"));
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
@@ -276,6 +292,10 @@ int main()
     assert(series.statusCode == 200);
     assert(contains(series, "\"eventId\":\"101\""));
     assert(contains(series, "\"title\":\"Criminal Intent - Verbrechen im Visier\""));
+    assert(contains(
+        series,
+        "/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=101"));
+    assert(contains(series, "\"width\":1280,\"height\":720"));
     assert(!contains(series, "Sportschau"));
     assert(!contains(series, "Tagesschau"));
     assert(!contains(series, "Tagesthemen"));
@@ -302,6 +322,9 @@ int main()
     assert(!contains(movies, "\"eventId\":\"101\""));
     assert(contains(movies, "\"channelName\":\"Das Erste HD\""));
     assert(contains(movies, "\"available\":true"));
+    assert(contains(
+        movies,
+        "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1"));
 
     ApiResponse thriller;
     assert(runtime.tryHandleGet(
@@ -311,6 +334,9 @@ int main()
         thriller));
     assert(thriller.statusCode == 200);
     assert(contains(thriller, "\"eventId\":\"100\""));
+    assert(contains(
+        thriller,
+        "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1"));
 
     runtime.reset();
     database.close();
