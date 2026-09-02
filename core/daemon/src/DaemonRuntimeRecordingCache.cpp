@@ -10,7 +10,6 @@
 #include <exception>
 #include <iostream>
 #include <thread>
-#include <unordered_set>
 #include <vector>
 
 namespace
@@ -80,40 +79,18 @@ void runRecordingMetadataEnrichment(
     const VdrRecordingNativeMetadataEnrichmentStatus status =
         context.recordingMetadataEnrichmentService->status();
 
-    if (reason != "catch-up-refill" || status.queuedCount == 0) {
-        std::cout
-            << "Recording metadata enrichment finished: reason="
-            << reason
-            << ", backend="
-            << context.backendId
-            << ", queued="
-            << queued
-            << ", processed="
-            << processed
-            << ", remaining="
-            << status.queuedCount
-            << std::endl;
-    }
-}
-
-void continueRecordingMetadataEnrichment(
-    BackendRuntimeContext& context,
-    std::atomic<bool>& stopRequested)
-{
-    if (!context.recordingMetadataEnrichmentService ||
-        stopRequested.load()) {
-        return;
-    }
-
-    const VdrRecordingNativeMetadataEnrichmentStatus status =
-        context.recordingMetadataEnrichmentService->status();
-    if (status.queuedCount == 0 ||
-        !recordingMetadataCapabilityAvailable(context)) {
-        return;
-    }
-
-    context.recordingMetadataEnrichmentService->processBatch(
-        recordingMetadataEpochSeconds());
+    std::cout
+        << "Recording metadata enrichment finished: reason="
+        << reason
+        << ", backend="
+        << context.backendId
+        << ", queued="
+        << queued
+        << ", processed="
+        << processed
+        << ", remaining="
+        << status.queuedCount
+        << std::endl;
 }
 }
 
@@ -175,7 +152,6 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
         const int initialDelaySeconds = 1;
         const int dirtyDebounceSeconds = 30;
         const int metadataRefreshSeconds = 60;
-        const int metadataCatchupSeconds = 1;
 
         std::cout
             << "Recording cache warmup worker scheduled after "
@@ -201,31 +177,8 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
         refreshRecordingCacheForAllBackends("startup");
 
-        std::unordered_set<std::string> metadataCatchupBackends;
-        const auto trackMetadataCatchupBacklogs =
-            [this, &metadataCatchupBackends]() {
-                for (const auto& backendRuntimeContext :
-                     backendRuntimeContexts_) {
-                    if (!backendRuntimeContext ||
-                        !backendRuntimeContext
-                             ->recordingMetadataEnrichmentService) {
-                        continue;
-                    }
-
-                    const VdrRecordingNativeMetadataEnrichmentStatus status =
-                        backendRuntimeContext
-                            ->recordingMetadataEnrichmentService->status();
-                    if (status.queuedCount > 0) {
-                        metadataCatchupBackends.insert(
-                            backendRuntimeContext->backendId);
-                    }
-                }
-            };
-        trackMetadataCatchupBacklogs();
-
         auto lastRefresh = std::chrono::steady_clock::now();
         auto lastMetadataRefresh = lastRefresh;
-        auto lastMetadataCatchup = lastRefresh;
 
         while (!recordingCacheWarmupStopRequested_.load()) {
             if (waitForStop(1)) {
@@ -237,10 +190,6 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             const auto secondsSinceMetadataRefresh =
                 std::chrono::duration_cast<std::chrono::seconds>(
                     metadataNow - lastMetadataRefresh).count();
-            const auto secondsSinceMetadataCatchup =
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    metadataNow - lastMetadataCatchup).count();
-            bool metadataReconciledThisIteration = false;
 
             if (secondsSinceMetadataRefresh >= metadataRefreshSeconds &&
                 vdrRecordingCacheRepository_) {
@@ -272,81 +221,12 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                         recordingCacheWarmupStopRequested_,
                         "periodic");
 
-                    const VdrRecordingNativeMetadataEnrichmentStatus status =
-                        backendRuntimeContext
-                            ->recordingMetadataEnrichmentService->status();
-                    if (status.queuedCount > 0) {
-                        metadataCatchupBackends.insert(
-                            backendRuntimeContext->backendId);
-                    }
-
                     GenreBrowserApiRuntime::instance()
                         .refreshRecordingIndex(
                             backendRuntimeContext->backendId);
                 }
 
                 lastMetadataRefresh = metadataNow;
-                lastMetadataCatchup = metadataNow;
-                metadataReconciledThisIteration = true;
-            }
-
-            if (!metadataReconciledThisIteration &&
-                secondsSinceMetadataCatchup >= metadataCatchupSeconds &&
-                !metadataCatchupBackends.empty() &&
-                vdrRecordingCacheRepository_) {
-                auto refreshLease =
-                    DaemonCacheRefreshExecutionGate::acquire();
-                if (recordingCacheWarmupStopRequested_.load()) {
-                    return;
-                }
-
-                std::vector<std::string> completedBackends;
-                for (const auto& backendRuntimeContext :
-                     backendRuntimeContexts_) {
-                    if (recordingCacheWarmupStopRequested_.load()) {
-                        return;
-                    }
-                    if (!backendRuntimeContext ||
-                        !backendRuntimeContext
-                             ->recordingMetadataEnrichmentService ||
-                        metadataCatchupBackends.find(
-                            backendRuntimeContext->backendId) ==
-                            metadataCatchupBackends.end()) {
-                        continue;
-                    }
-
-                    const VdrRecordingNativeMetadataEnrichmentStatus before =
-                        backendRuntimeContext
-                            ->recordingMetadataEnrichmentService->status();
-                    if (before.queuedCount > 0) {
-                        continueRecordingMetadataEnrichment(
-                            *backendRuntimeContext,
-                            recordingCacheWarmupStopRequested_);
-                        continue;
-                    }
-
-                    const std::vector<VdrRecording> recordings =
-                        vdrRecordingCacheRepository_->findAllForBackend(
-                            backendRuntimeContext->backendId);
-                    runRecordingMetadataEnrichment(
-                        *backendRuntimeContext,
-                        recordings,
-                        recordingCacheWarmupStopRequested_,
-                        "catch-up-refill");
-
-                    const VdrRecordingNativeMetadataEnrichmentStatus after =
-                        backendRuntimeContext
-                            ->recordingMetadataEnrichmentService->status();
-                    if (after.queuedCount == 0) {
-                        completedBackends.push_back(
-                            backendRuntimeContext->backendId);
-                    }
-                }
-
-                for (const std::string& backendId : completedBackends) {
-                    metadataCatchupBackends.erase(backendId);
-                }
-                lastMetadataCatchup = metadataNow;
             }
 
             int remainingActionRefreshAttempts =
@@ -361,7 +241,6 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             if (remainingActionRefreshAttempts > 0) {
                 refreshRecordingCacheForAllBackends(
                     "recording-action-reconcile");
-                trackMetadataCatchupBacklogs();
                 lastRefresh = std::chrono::steady_clock::now();
                 continue;
             }
@@ -384,7 +263,6 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             }
 
             refreshRecordingCacheForAllBackends("event-stream-dirty-hint");
-            trackMetadataCatchupBacklogs();
             lastRefresh = std::chrono::steady_clock::now();
         }
     }

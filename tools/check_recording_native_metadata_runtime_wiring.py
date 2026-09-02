@@ -144,13 +144,6 @@ def main() -> int:
         "recording metadata retry cadence must remain explicit and bounded",
     )
     require(
-        "metadataCatchupSeconds = 1" in recording_runtime
-        and "metadataCatchupBackends" in recording_runtime
-        and "continueRecordingMetadataEnrichment(" in recording_runtime
-        and '"catch-up-refill"' in recording_runtime,
-        "recording metadata backlog catch-up must remain single-owner, bounded and refill-aware",
-    )
-    require(
         "VdrRecordingNativePersonSearchService" in initialization_runtime,
         "daemon initialization must wire the persistent recording person search service",
     )
