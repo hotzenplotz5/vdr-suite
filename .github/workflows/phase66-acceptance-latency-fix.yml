@@ -1,0 +1,136 @@
+name: Phase66 acceptance latency repair
+
+on:
+  push:
+    branches:
+      - work/phase66-home-performance-pagination
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: "${{ github.event.head_commit.message == 'chore: stage phase66 acceptance latency repair' }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/phase66-home-performance-pagination
+          fetch-depth: 0
+
+      - name: Apply acceptance latency fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one replacement, found {count}')
+              path.write_text(text.replace(old, new, 1))
+
+          hero = Path('web/frontend/home-live-hero.js')
+          replace_once(
+              hero,
+              """      applyChannels(data);\n      state.loadingChannels = false;\n      render();\n      return loadPrograms(sequence);\n""",
+              """      applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence);\n"""
+          )
+
+          discovery = Path('web/frontend/home-recording-discovery.js')
+          replace_once(
+              discovery,
+              """  function cancelSeriesMetadataQueue(cache) {\n    if (!cache || !Array.isArray(cache.queue)) return;\n    while (cache.queue.length) {\n      const task = cache.queue.shift();\n      cache.inflight.delete(task.nativeId);\n      task.resolve(null);\n    }\n  }\n""",
+              """  function cancelSeriesMetadataQueue(cache) {\n    if (!cache) return;\n    [cache.priorityQueue, cache.queue].forEach(function (queue) {\n      if (!Array.isArray(queue)) return;\n      while (queue.length) {\n        const task = queue.shift();\n        cache.inflight.delete(task.nativeId);\n        task.resolve(null);\n      }\n    });\n  }\n"""
+          )
+
+          replace_once(
+              discovery,
+              """    const cache = {\n      generation: generation,\n      backendId: backendId,\n      resolved: new Map(),\n      inflight: new Map(),\n      queue: [],\n      active: 0\n    };\n""",
+              """    const cache = {\n      generation: generation,\n      backendId: backendId,\n      resolved: new Map(),\n      inflight: new Map(),\n      priorityQueue: [],\n      queue: [],\n      scheduledSeriesKeys: new Set(),\n      readySeriesKeys: new Set(),\n      active: 0\n    };\n"""
+          )
+
+          marker = """  function pumpSeriesMetadataCache(cache) {\n"""
+          helpers = """  function seriesMetadataPriorityKey(recording, backendId) {\n    const member = seriesMemberProjection(recording, null, backendId);\n    return text(member && member.seriesKey);\n  }\n\n  function promoteSeriesMetadataTask(cache, nativeId, seriesKey) {\n    if (!cache || !nativeId) return false;\n    let index = cache.priorityQueue.findIndex(function (task) {\n      return task.nativeId === nativeId;\n    });\n    if (index >= 0) {\n      if (seriesKey) cache.priorityQueue[index].seriesKey = seriesKey;\n      return true;\n    }\n    index = cache.queue.findIndex(function (task) {\n      return task.nativeId === nativeId;\n    });\n    if (index < 0) return false;\n    const task = cache.queue.splice(index, 1)[0];\n    if (seriesKey) task.seriesKey = seriesKey;\n    cache.priorityQueue.push(task);\n    return true;\n  }\n\n  function readySeriesRecordings(recordings, generation, backendId) {\n    const cache = state.seriesMetadataCache;\n    if (!cache || cache.generation !== generation || cache.backendId !== backendId) return [];\n    const nativeBySeries = new Map();\n    (recordings || []).forEach(function (recording) {\n      const key = seriesMetadataPriorityKey(recording, backendId);\n      if (!key) return;\n      if (!nativeBySeries.has(key)) nativeBySeries.set(key, false);\n      if (recordingBackendNativeId(recording)) nativeBySeries.set(key, true);\n    });\n    const ready = new Set(cache.readySeriesKeys);\n    nativeBySeries.forEach(function (hasNativeId, key) {\n      if (!hasNativeId) ready.add(key);\n    });\n    return (recordings || []).filter(function (recording) {\n      const key = seriesMetadataPriorityKey(recording, backendId);\n      return Boolean(key && ready.has(key));\n    });\n  }\n\n"""
+          text = discovery.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('pump marker not unique')
+          discovery.write_text(text.replace(marker, helpers + marker, 1))
+
+          replace_once(
+              discovery,
+              """    while (cache.active < SERIES_METADATA_TOTAL_CONCURRENCY && cache.queue.length) {\n      const task = cache.queue.shift();\n""",
+              """    while (cache.active < SERIES_METADATA_TOTAL_CONCURRENCY &&\n           (cache.priorityQueue.length || cache.queue.length)) {\n      const task = cache.priorityQueue.length\n        ? cache.priorityQueue.shift()\n        : cache.queue.shift();\n"""
+          )
+
+          replace_once(
+              discovery,
+              """        cache.resolved.set(task.nativeId, result);\n        task.resolve(result);\n      }).catch(function () {\n        cache.resolved.set(task.nativeId, null);\n        task.resolve(null);\n""",
+              """        cache.resolved.set(task.nativeId, result);\n        if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);\n        task.resolve(result);\n      }).catch(function () {\n        cache.resolved.set(task.nativeId, null);\n        if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);\n        task.resolve(null);\n"""
+          )
+
+          old_request = """  function requestSeriesRecordingMetadata(client, backendId, nativeId, generation) {\n    if (!client || typeof client.requestJson !== 'function' || !nativeId) {\n      return Promise.resolve(null);\n    }\n    const cache = seriesMetadataCache(generation, backendId);\n    if (cache.resolved.has(nativeId)) return Promise.resolve(cache.resolved.get(nativeId));\n    if (cache.inflight.has(nativeId)) return cache.inflight.get(nativeId);\n\n    let resolveTask = null;\n    const promise = new Promise(function (resolve) {\n      resolveTask = resolve;\n    });\n    cache.inflight.set(nativeId, promise);\n    cache.queue.push({client: client, nativeId: nativeId, resolve: resolveTask});\n    pumpSeriesMetadataCache(cache);\n    return promise;\n  }\n"""
+          new_request = """  function requestSeriesRecordingMetadata(client, backendId, nativeId, generation, options) {\n    if (!client || typeof client.requestJson !== 'function' || !nativeId) {\n      return Promise.resolve(null);\n    }\n    const cache = seriesMetadataCache(generation, backendId);\n    const config = options && typeof options === 'object' ? options : {};\n    const seriesKey = text(config.seriesKey);\n    if (cache.resolved.has(nativeId)) {\n      if (seriesKey) cache.readySeriesKeys.add(seriesKey);\n      return Promise.resolve(cache.resolved.get(nativeId));\n    }\n    if (cache.inflight.has(nativeId)) {\n      const existing = cache.inflight.get(nativeId);\n      if (config.priority === true && seriesKey &&\n          !promoteSeriesMetadataTask(cache, nativeId, seriesKey)) {\n        existing.then(function () {\n          if (state.seriesMetadataCache === cache) cache.readySeriesKeys.add(seriesKey);\n        });\n      }\n      return existing;\n    }\n\n    let resolveTask = null;\n    const promise = new Promise(function (resolve) {\n      resolveTask = resolve;\n    });\n    const task = {\n      client: client,\n      nativeId: nativeId,\n      seriesKey: config.priority === true ? seriesKey : '',\n      resolve: resolveTask\n    };\n    cache.inflight.set(nativeId, promise);\n    if (config.priority === true) cache.priorityQueue.push(task);\n    else cache.queue.push(task);\n    pumpSeriesMetadataCache(cache);\n    return promise;\n  }\n"""
+          replace_once(discovery, old_request, new_request)
+
+          old_prefetch = """  function prefetchSeriesRecordingMetadata(client, recordings, backendId, generation, onResolved) {\n    if (!client || typeof client.requestJson !== 'function') return [];\n    const seen = new Set();\n    const pending = [];\n    (recordings || []).forEach(function (recording) {\n      if (recordingBackendId(recording, backendId) !== backendId) return;\n      const nativeId = recordingBackendNativeId(recording);\n      if (!nativeId || seen.has(nativeId)) return;\n      seen.add(nativeId);\n      pending.push(requestSeriesRecordingMetadata(client, backendId, nativeId, generation).then(function (value) {\n        if (value && typeof onResolved === 'function' && current(generation, backendId)) {\n          onResolved(value, nativeId);\n        }\n        return value;\n      }));\n    });\n    return pending;\n  }\n"""
+          new_prefetch = """  function prefetchSeriesRecordingMetadata(client, recordings, backendId, generation, onResolved) {\n    if (!client || typeof client.requestJson !== 'function') return [];\n    const cache = seriesMetadataCache(generation, backendId);\n    const seen = new Set();\n    const pending = [];\n    (recordings || []).forEach(function (recording) {\n      if (recordingBackendId(recording, backendId) !== backendId) return;\n      const nativeId = recordingBackendNativeId(recording);\n      if (!nativeId || seen.has(nativeId)) return;\n      seen.add(nativeId);\n      const seriesKey = seriesMetadataPriorityKey(recording, backendId);\n      const priority = Boolean(seriesKey && !cache.scheduledSeriesKeys.has(seriesKey));\n      if (priority) cache.scheduledSeriesKeys.add(seriesKey);\n      pending.push(requestSeriesRecordingMetadata(\n        client,\n        backendId,\n        nativeId,\n        generation,\n        {priority: priority, seriesKey: priority ? seriesKey : ''}\n      ).then(function (value) {\n        if (typeof onResolved === 'function' && current(generation, backendId)) {\n          onResolved(value, nativeId);\n        }\n        return value;\n      }));\n    });\n    return pending;\n  }\n"""
+          replace_once(discovery, old_prefetch, new_prefetch)
+
+          old_progress = """        const rich = resolvedSeriesMetadata(generation, backendId);\n        if (rich.size > 0) {\n          applySeriesProjection(recordings, backendId, rich, {requireRich: true});\n        }\n"""
+          new_progress = """        const rich = resolvedSeriesMetadata(generation, backendId);\n        const readyRecordings = readySeriesRecordings(recordings, generation, backendId);\n        if (readyRecordings.length) {\n          applySeriesProjection(readyRecordings, backendId, rich);\n        }\n"""
+          replace_once(discovery, old_progress, new_progress)
+
+          old_final = """      if (!canEnrichMetadata) {\n        return applySeriesProjection(recordings, backendId);\n      }\n      return fetchSeriesRecordingMetadata(\n        client,\n        recordings,\n        backendId,\n        generation,\n        function (rich) {\n          if (!current(generation, backendId) || rich.size === 0) return;\n          applySeriesProjection(recordings, backendId, rich, {requireRich: true});\n        }\n      ).then(function (rich) {\n        if (!current(generation, backendId)) return false;\n        return applySeriesProjection(recordings, backendId, rich);\n      });\n"""
+          new_final = """      if (!canEnrichMetadata) {\n        return applySeriesProjection(recordings, backendId);\n      }\n      const rich = resolvedSeriesMetadata(generation, backendId);\n      const readyRecordings = readySeriesRecordings(recordings, generation, backendId);\n      if (readyRecordings.length) {\n        applySeriesProjection(readyRecordings, backendId, rich);\n      }\n      return true;\n"""
+          replace_once(discovery, old_final, new_final)
+
+          replace_once(
+              discovery,
+              """      fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,\n      requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,\n      resolvedSeriesMetadata: resolvedSeriesMetadata,\n""",
+              """      fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,\n      requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,\n      prefetchSeriesRecordingMetadata: prefetchSeriesRecordingMetadata,\n      resolvedSeriesMetadata: resolvedSeriesMetadata,\n      readySeriesRecordings: readySeriesRecordings,\n"""
+          )
+
+          live_test = Path('web/frontend/tests/test_phase66_live_tv_hero.js')
+          anchor = """assert(!heroSource.includes('<video'));\n"""
+          insertion = """assert(!heroSource.includes('<video'));\n\nconst channelLoadSequence = heroSource.slice(\n  heroSource.indexOf('return client.fetchClientChannels('),\n  heroSource.indexOf('}).catch(error =>', heroSource.indexOf('return client.fetchClientChannels('))\n);\nassert(channelLoadSequence.includes(\n  'applyChannels(data);\\n      state.loadingChannels = false;\\n      return loadPrograms(sequence);'\n));\nassert(!channelLoadSequence.includes(\n  'state.loadingChannels = false;\\n      render();\\n      return loadPrograms(sequence);'\n));\n"""
+          replace_once(live_test, anchor, insertion)
+
+          native_test = Path('web/frontend/tests/test_phase66_home_native_metadata_rails.js')
+          before_main = """(async function () {\n  const seriesHarness = createHarness();\n"""
+          priority_test = """async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {\n  const backlog = [];\n  for (let index = 1; index <= 8; index += 1) {\n    backlog.push(makeRecording(\n      'backlog-' + String(index),\n      'native-backlog-' + String(index),\n      'Serien/Backlog/S01E' + String(index).padStart(2, '0') + '.rec',\n      'Backlog ' + String(index),\n      ''\n    ));\n  }\n  const newcomer = makeRecording(\n    'newcomer-1',\n    'native-newcomer-1',\n    'Serien/Newcomer/S01E01.rec',\n    'Newcomer',\n    ''\n  );\n  const calls = [];\n  const pending = [];\n  const client = {\n    requestJson(route, request) {\n      const nativeId = request.query.backendNativeId;\n      calls.push(nativeId);\n      return new Promise(function (resolve) {\n        pending.push({nativeId: nativeId, resolve: resolve});\n      });\n    }\n  };\n\n  api.prefetchSeriesRecordingMetadata(client, backlog, 'default', 0, function () {});\n  await new Promise((resolve) => setImmediate(resolve));\n  assert.deepStrictEqual(calls, [\n    'native-backlog-1',\n    'native-backlog-2',\n    'native-backlog-3',\n    'native-backlog-4'\n  ]);\n\n  api.prefetchSeriesRecordingMetadata(client, [newcomer], 'default', 0, function () {});\n  await new Promise((resolve) => setImmediate(resolve));\n  assert.strictEqual(calls.length, 4);\n\n  pending[0].resolve({available: false});\n  await new Promise((resolve) => setImmediate(resolve));\n  assert.strictEqual(\n    calls[4],\n    'native-newcomer-1',\n    'first metadata lookup for a newly discovered series must preempt queued episodes from an already represented series'\n  );\n}\n\n(async function () {\n  const seriesHarness = createHarness();\n"""
+          replace_once(native_test, before_main, priority_test)
+
+          replace_once(
+              native_test,
+              """  const dedupHarness = createHarness();\n  await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);\n\n  const progressHarness = createHarness();\n""",
+              """  const dedupHarness = createHarness();\n  await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);\n\n  const priorityHarness = createHarness();\n  await proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(priorityHarness.api);\n\n  const progressHarness = createHarness();\n"""
+          )
+          PY
+
+      - name: Run focused frontend regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check web/frontend/home-live-hero.js
+          node --check web/frontend/home-recording-discovery.js
+          node web/frontend/tests/test_phase66_live_tv_hero.js
+          node web/frontend/tests/test_phase66_home_native_metadata_rails.js
+          node web/frontend/tests/test_phase66_recording_discovery.js
+          node web/frontend/tests/test_phase66_recording_discovery_progressive.js
+          node web/frontend/tests/test_phase66_recording_discovery_contract.js
+          git diff --check
+
+      - name: Commit verified acceptance fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name hotzenplotz5
+          git config user.email hotzenplotz5@gmx.de
+          git add web/frontend/home-live-hero.js \
+                  web/frontend/home-recording-discovery.js \
+                  web/frontend/tests/test_phase66_live_tv_hero.js \
+                  web/frontend/tests/test_phase66_home_native_metadata_rails.js
+          git commit -m 'fix: remove Home EPG flash and prioritize series metadata'
+          git push origin HEAD:work/phase66-home-performance-pagination
