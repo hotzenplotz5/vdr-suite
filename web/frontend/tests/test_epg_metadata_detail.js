@@ -325,12 +325,14 @@ async function run() {
   assert.strictEqual(metadataArtwork, existingArtwork);
   assert.strictEqual(
     metadataArtwork.style.backgroundImage,
-    'url("/vdr-suite/api/epg/cache/metadata/image?kind=preferred&index=0")'
+    'url("/vdr-suite/api/epg/cache/metadata/image?kind=gallery&index=1")'
   );
+  assert.ok(metadataArtwork.classList.contains('epg-detail-artwork-poster'));
+  assert.strictEqual(detail.dataset.epgArtworkOrientation, 'portrait');
   assert.ok(detail.classList.contains('epg-has-artwork'));
   assert.strictEqual(
     resolvedPublicPaths[0],
-    '/api/epg/cache/metadata/image?kind=preferred&index=0'
+    '/api/epg/cache/metadata/image?kind=gallery&index=1'
   );
 
   const castButtons = detail.querySelectorAll('.epg-person-card');
