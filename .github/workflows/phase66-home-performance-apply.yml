@@ -54,9 +54,35 @@ jobs:
               raise SystemExit('temporary patch-script bind repair marker mismatch')
           source = source.replace(old_bind, new_bind, 1)
 
+          old_loop = 'for (let number = 101; number <= 128; number += 1)'
+          if source.count(old_loop) != 2:
+              raise SystemExit('live-tv fixture loop marker mismatch')
+          source = source.replace(old_loop, 'for (let number = 21; number <= 48; number += 1)')
+
           script_path.write_text(source)
           PY
           python3 /tmp/phase66_home_performance_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('web/frontend/tests/test_phase66_live_tv_hero.js')
+          text = p.read_text()
+          old = """  heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
+          heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
+          assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');
+          assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');"""
+          new = """  heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
+          heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
+          assert.strictEqual(hero.snapshot().selectedChannelId, 'C21');
+          assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute 21');"""
+          if text.count(old) != 1:
+              raise SystemExit('live-tv swipe expectation marker mismatch')
+          text = text.replace(old, new, 1)
+          old_watch = "  assert.strictEqual(window.lastStartedChannelId, 'C1');"
+          if text.count(old_watch) != 1:
+              raise SystemExit('live-tv watch expectation marker mismatch')
+          text = text.replace(old_watch, "  assert.strictEqual(window.lastStartedChannelId, 'C21');", 1)
+          p.write_text(text)
+          PY
 
       - name: Run focused frontend regressions
         run: |
