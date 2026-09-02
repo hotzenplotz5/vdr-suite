@@ -1251,11 +1251,16 @@
     state.seriesViewKey = '';
     state.seriesSeasonNumber = null;
     renderState('series', 'Serien', 'Serien werden gruppiert …', false);
+    const canEnrichMetadata = Boolean(client && typeof client.requestJson === 'function');
     return fetchAllSeriesRecordings(
       client,
       backendId,
       text(seriesGenre.id),
-      generation
+      generation,
+      canEnrichMetadata ? null : function (recordings) {
+        if (!current(generation, backendId) || !recordings.length) return;
+        applySeriesProjection(recordings, backendId);
+      }
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
       if (!recordings.length) {
@@ -1265,6 +1270,9 @@
         state.seriesSeasonNumber = null;
         clearRail('series');
         return false;
+      }
+      if (!canEnrichMetadata) {
+        return applySeriesProjection(recordings, backendId);
       }
       return fetchSeriesRecordingMetadata(
         client,
