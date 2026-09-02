@@ -1,0 +1,52 @@
+name: Phase66 Home performance apply
+
+on:
+  push:
+    branches:
+      - work/phase66-home-performance-pagination
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message != 'fix: paginate home rails and overlap metadata'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply scoped Home performance patch
+        run: |
+          git show cd61cf13410684b12791dabcf8ffcb34dc9a06e3:.github/phase66_home_performance_patch.py > /tmp/phase66_home_performance_patch.py
+          python3 /tmp/phase66_home_performance_patch.py
+
+      - name: Run focused frontend regressions
+        run: |
+          node --check web/frontend/home-recording-discovery-bootstrap.js
+          node --check web/frontend/home-recording-discovery.js
+          node --check web/frontend/home-live-hero.js
+          node --check web/frontend/home-recently-watched.js
+          node web/frontend/tests/test_phase66_home_mouse_drag_rails.js
+          node web/frontend/tests/test_phase66_home_native_metadata_rails.js
+          node web/frontend/tests/test_phase66_live_tv_hero.js
+          node web/frontend/tests/test_phase66_recent_movies_rail.js
+          git diff --check
+
+      - name: Commit verified product changes
+        run: |
+          git config user.name "hotzenplotz5"
+          git config user.email "hotzenplotz5@gmx.de"
+          git add \
+            web/frontend/home-recording-discovery-bootstrap.js \
+            web/frontend/home-recording-discovery.js \
+            web/frontend/home-live-hero.js \
+            web/frontend/home-recently-watched.js \
+            web/frontend/tests/test_phase66_home_mouse_drag_rails.js \
+            web/frontend/tests/test_phase66_home_native_metadata_rails.js \
+            web/frontend/tests/test_phase66_live_tv_hero.js \
+            web/frontend/tests/test_phase66_recent_movies_rail.js
+          git diff --cached --quiet && { echo "No product changes produced"; exit 1; }
+          git commit -m "fix: paginate home rails and overlap metadata"
+          git push origin HEAD:work/phase66-home-performance-pagination
