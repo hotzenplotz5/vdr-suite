@@ -1,0 +1,584 @@
+from pathlib import Path
+import re
+
+
+def replace_once(path, old, new):
+    p = Path(path)
+    text = p.read_text()
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one exact match, found {count}: {old[:120]!r}")
+    p.write_text(text.replace(old, new, 1))
+
+
+def replace_regex_once(path, pattern, replacement):
+    p = Path(path)
+    text = p.read_text()
+    updated, count = re.subn(pattern, lambda match: replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one regex match, found {count}: {pattern!r}")
+    p.write_text(updated)
+
+
+# Shared Home rail owner: one delegated near-end signal for all horizontal rails.
+path = 'web/frontend/home-recording-discovery-bootstrap.js'
+replace_once(path,
+"  const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';\n  const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone=\"hero\"]';",
+"  const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';\n  const RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';\n  const RAIL_NEAR_END_THRESHOLD = 320;\n  const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone=\"hero\"]';")
+replace_once(path,
+"  function closestTarget(target, selector) {\n    return target && typeof target.closest === 'function' ? target.closest(selector) : null;\n  }\n\n  function dragTarget(event) {",
+"  function closestTarget(target, selector) {\n    return target && typeof target.closest === 'function' ? target.closest(selector) : null;\n  }\n\n  function railNearEnd(rail) {\n    if (!rail) return false;\n    const scrollWidth = Number(rail.scrollWidth) || 0;\n    const clientWidth = Number(rail.clientWidth) || 0;\n    const scrollLeft = Math.max(0, Number(rail.scrollLeft) || 0);\n    if (clientWidth <= 0 || scrollWidth <= clientWidth) return false;\n    return scrollWidth - scrollLeft - clientWidth <= RAIL_NEAR_END_THRESHOLD;\n  }\n\n  function handleRailScroll(event) {\n    const rail = closestTarget(event && event.target, RAIL_SELECTOR);\n    if (!rail || !railNearEnd(rail) || !doc ||\n        typeof doc.dispatchEvent !== 'function' ||\n        typeof global.CustomEvent !== 'function') return false;\n    doc.dispatchEvent(new global.CustomEvent(RAIL_NEAR_END_EVENT, {detail: {rail: rail}}));\n    return true;\n  }\n\n  function dragTarget(event) {")
+replace_once(path,
+"    doc.addEventListener('dragstart', handleNativeDragStart, true);\n    doc.addEventListener('click', handleClickCapture, true);",
+"    doc.addEventListener('dragstart', handleNativeDragStart, true);\n    doc.addEventListener('scroll', handleRailScroll, true);\n    doc.addEventListener('click', handleClickCapture, true);")
+replace_once(path,
+"    installMouseDrag: installMouseDrag,\n    __test: Object.freeze({\n      canonicalSelectedBackendId: canonicalSelectedBackendId,",
+"    installMouseDrag: installMouseDrag,\n    nearEndEventName: RAIL_NEAR_END_EVENT,\n    __test: Object.freeze({\n      canonicalSelectedBackendId: canonicalSelectedBackendId,\n      railNearEnd: railNearEnd,\n      handleRailScroll: handleRailScroll,")
+
+
+# Series: backend/generation scoped dedup, bounded global concurrency and
+# metadata work overlapped with existing recording pagination.
+path = 'web/frontend/home-recording-discovery.js'
+replace_once(path,
+"  const SERIES_METADATA_CONCURRENCY = 4;\n  const FOLDER_LIMIT = 100;",
+"  const SERIES_METADATA_CONCURRENCY = 4;\n  const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY * 2;\n  const FOLDER_LIMIT = 100;")
+replace_once(path,
+"    randomGenreId: '',\n    randomFolderGeneration: -1,\n    randomFolderPath: ''\n  };",
+"    randomGenreId: '',\n    randomFolderGeneration: -1,\n    randomFolderPath: '',\n    seriesMetadataCache: null\n  };")
+metadata_helpers = r'''  function cancelSeriesMetadataQueue(cache) {
+    if (!cache || !Array.isArray(cache.queue)) return;
+    while (cache.queue.length) {
+      const task = cache.queue.shift();
+      cache.inflight.delete(task.nativeId);
+      task.resolve(null);
+    }
+  }
+
+  function seriesMetadataCache(generation, backendId) {
+    const existing = state.seriesMetadataCache;
+    if (existing && existing.generation === generation && existing.backendId === backendId) {
+      return existing;
+    }
+    cancelSeriesMetadataQueue(existing);
+    const cache = {
+      generation: generation,
+      backendId: backendId,
+      resolved: new Map(),
+      inflight: new Map(),
+      queue: [],
+      active: 0
+    };
+    state.seriesMetadataCache = cache;
+    return cache;
+  }
+
+  function pumpSeriesMetadataCache(cache) {
+    if (!cache || state.seriesMetadataCache !== cache) return;
+    if (!current(cache.generation, cache.backendId)) {
+      cancelSeriesMetadataQueue(cache);
+      return;
+    }
+    while (cache.active < SERIES_METADATA_TOTAL_CONCURRENCY && cache.queue.length) {
+      const task = cache.queue.shift();
+      cache.active += 1;
+      Promise.resolve(task.client.requestJson('/api/vdr/recordings/metadata', {
+        query: {
+          backend: cache.backendId,
+          backendNativeId: task.nativeId
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      })).then(function (value) {
+        const result = current(cache.generation, cache.backendId) &&
+          value && value.available === true ? value : null;
+        cache.resolved.set(task.nativeId, result);
+        task.resolve(result);
+      }).catch(function () {
+        cache.resolved.set(task.nativeId, null);
+        task.resolve(null);
+      }).then(function () {
+        cache.active = Math.max(0, cache.active - 1);
+        cache.inflight.delete(task.nativeId);
+        pumpSeriesMetadataCache(cache);
+      });
+    }
+  }
+
+  function requestSeriesRecordingMetadata(client, backendId, nativeId, generation) {
+    if (!client || typeof client.requestJson !== 'function' || !nativeId) {
+      return Promise.resolve(null);
+    }
+    const cache = seriesMetadataCache(generation, backendId);
+    if (cache.resolved.has(nativeId)) return Promise.resolve(cache.resolved.get(nativeId));
+    if (cache.inflight.has(nativeId)) return cache.inflight.get(nativeId);
+
+    let resolveTask = null;
+    const promise = new Promise(function (resolve) {
+      resolveTask = resolve;
+    });
+    cache.inflight.set(nativeId, promise);
+    cache.queue.push({client: client, nativeId: nativeId, resolve: resolveTask});
+    pumpSeriesMetadataCache(cache);
+    return promise;
+  }
+
+  function prefetchSeriesRecordingMetadata(client, recordings, backendId, generation, onResolved) {
+    if (!client || typeof client.requestJson !== 'function') return [];
+    const seen = new Set();
+    const pending = [];
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) return;
+      seen.add(nativeId);
+      pending.push(requestSeriesRecordingMetadata(client, backendId, nativeId, generation).then(function (value) {
+        if (value && typeof onResolved === 'function' && current(generation, backendId)) {
+          onResolved(value, nativeId);
+        }
+        return value;
+      }));
+    });
+    return pending;
+  }
+
+  function resolvedSeriesMetadata(generation, backendId) {
+    const cache = state.seriesMetadataCache;
+    const resolved = new Map();
+    if (!cache || cache.generation !== generation || cache.backendId !== backendId) return resolved;
+    cache.resolved.forEach(function (value, nativeId) {
+      if (value && value.available === true) resolved.set(nativeId, value);
+    });
+    return resolved;
+  }
+
+'''
+replace_once(path,
+"  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {",
+metadata_helpers + "  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {")
+replace_once(path,
+"        const pageRecordings = canonicalRecordings(payload, backendId);\n        Array.prototype.push.apply(recordings, pageRecordings);\n\n        const nextOffset = offset + rawPage.length;",
+"        const pageRecordings = canonicalRecordings(payload, backendId);\n        Array.prototype.push.apply(recordings, pageRecordings);\n        prefetchSeriesRecordingMetadata(\n          client,\n          pageRecordings,\n          backendId,\n          generation,\n          function () {\n            if (typeof onProgress === 'function' && current(generation, backendId)) {\n              onProgress(recordings.slice());\n            }\n          }\n        );\n\n        const nextOffset = offset + rawPage.length;")
+metadata_loader = r'''  function fetchSeriesRecordingMetadata(client, recordings, backendId, generation, onProgress) {
+    const resolved = new Map();
+    if (!client || typeof client.requestJson !== 'function') {
+      return Promise.resolve(resolved);
+    }
+
+    const seen = new Set();
+    let publishedSize = 0;
+    function publishResolved() {
+      if (!current(generation, backendId) ||
+          typeof onProgress !== 'function' ||
+          resolved.size <= publishedSize) {
+        return;
+      }
+      publishedSize = resolved.size;
+      onProgress(resolved);
+    }
+
+    const pending = [];
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) return;
+      seen.add(nativeId);
+      pending.push(requestSeriesRecordingMetadata(client, backendId, nativeId, generation).then(function (value) {
+        if (current(generation, backendId) && value && value.available === true) {
+          resolved.set(nativeId, value);
+          publishResolved();
+        }
+      }));
+    });
+    return Promise.all(pending).then(function () { return resolved; });
+  }
+
+  function positionRandomGenreRail()'''
+replace_regex_once(path,
+r"  function fetchSeriesRecordingMetadata\(client, recordings, backendId, generation, onProgress\) \{.*?\n  \}\n\n  function positionRandomGenreRail\(\)",
+metadata_loader)
+replace_once(path,
+"      canEnrichMetadata ? null : function (recordings) {\n        if (!current(generation, backendId) || !recordings.length) return;\n        applySeriesProjection(recordings, backendId);\n      }",
+"      function (recordings) {\n        if (!current(generation, backendId) || !recordings.length) return;\n        if (!canEnrichMetadata) {\n          applySeriesProjection(recordings, backendId);\n          return;\n        }\n        const rich = resolvedSeriesMetadata(generation, backendId);\n        if (rich.size > 0) {\n          applySeriesProjection(recordings, backendId, rich, {requireRich: true});\n        }\n      }")
+replace_once(path,
+"      fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,\n      renderRecordingRail: renderRecordingRail,",
+"      fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,\n      requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,\n      resolvedSeriesMetadata: resolvedSeriesMetadata,\n      renderRecordingRail: renderRecordingRail,")
+
+
+# Now/Next: keep full canonical channel snapshot but fetch EPG only for ordered
+# 24-channel windows; near-end adds the next window without duplicating events.
+path = 'web/frontend/home-live-hero.js'
+replace_once(path,
+"    loadingPrograms: false,\n    dataError: '',",
+"    loadingPrograms: false,\n    programmeLoadingMore: false,\n    programmeLoadedChannelCount: 0,\n    programmeNearEndBound: false,\n    dataError: '',")
+replace_once(path,
+"    return state.channels.map(channel => ({\n      channel,\n      event: next\n        ? nextEventForChannel(channel, state.events, now)\n        : currentEventForChannel(channel, state.events, now)\n    })).filter(entry => Boolean(entry.event)).slice(0, PROGRAMME_RAIL_LIMIT);",
+"    return state.channels.map(channel => ({\n      channel,\n      event: next\n        ? nextEventForChannel(channel, state.events, now)\n        : currentEventForChannel(channel, state.events, now)\n    })).filter(entry => Boolean(entry.event));")
+replace_once(path,
+"  function channelEvents(channel, events) {",
+"  function eventIdentity(event) {\n    return [\n      eventChannelId(event),\n      text(pick(event, ['eventId', 'id', 'nativeId'], '')),\n      String(eventStart(event)),\n      eventTitle(event)\n    ].join('\\n');\n  }\n\n  function channelEvents(channel, events) {")
+replace_once(path,
+"    section.className = 'media-home-live-guide media-home-live-guide-' + kind;\n    section.setAttribute('aria-labelledby', 'media-home-live-guide-' + kind + '-title');\n    section.replaceChildren();",
+"    section.className = 'media-home-live-guide media-home-live-guide-' + kind;\n    section.setAttribute('aria-labelledby', 'media-home-live-guide-' + kind + '-title');\n    const previousRail = typeof section.querySelector === 'function'\n      ? section.querySelector('.media-home-live-guide-rail')\n      : null;\n    const previousScrollLeft = Number(previousRail && previousRail.scrollLeft) || 0;\n    section.replaceChildren();")
+replace_once(path,
+"    entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));\n    section.appendChild(rail);",
+"    entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));\n    rail.scrollLeft = previousScrollLeft;\n    section.appendChild(rail);")
+replace_once(path,
+"  function applyPrograms(data) { state.events = list(data, 'events').slice(); }",
+"  function applyPrograms(data, append) {\n    const incoming = list(data, 'events').slice();\n    if (!append) {\n      state.events = incoming;\n      return;\n    }\n    const merged = new Map();\n    state.events.concat(incoming).forEach(event => {\n      merged.set(eventIdentity(event), event);\n    });\n    state.events = Array.from(merged.values());\n  }")
+live_loader = r'''  function loadProgrammePage(sequence, offset, reset) {
+    const client = clientApi();
+    if (!client || typeof client.fetchClientEpgCacheWindow !== 'function' || state.channels.length === 0) {
+      if (reset) state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
+      state.programError = state.channels.length === 0 ? '' : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      render();
+      return Promise.resolve(null);
+    }
+
+    const start = Math.max(0, Number(offset) || 0);
+    const pageChannels = state.channels.slice(start, start + PROGRAMME_RAIL_LIMIT);
+    const ids = pageChannels.map(channelId).filter(Boolean);
+    if (ids.length === 0) {
+      if (reset) state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
+      render();
+      return Promise.resolve(null);
+    }
+    if (!reset && state.programmeLoadingMore) return Promise.resolve(null);
+
+    const now = Math.floor(Date.now() / 1000);
+    if (reset) {
+      state.events = [];
+      state.programmeLoadedChannelCount = 0;
+      state.loadingPrograms = true;
+      state.programmeLoadingMore = false;
+      state.programError = '';
+      render();
+    } else {
+      state.programmeLoadingMore = true;
+    }
+
+    return client.fetchClientEpgCacheWindow({
+      query: {
+        backend: state.backendId,
+        channelIds: ids.join(','),
+        fromTime: String(now - 21600),
+        untilTime: String(now + 21600),
+        limit: '0',
+        _: String(Date.now())
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(data => {
+      if (!state.active || sequence !== state.requestSequence) return null;
+      applyPrograms(data, !reset);
+      state.programmeLoadedChannelCount = Math.max(
+        state.programmeLoadedChannelCount,
+        start + pageChannels.length
+      );
+      state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
+      state.programError = '';
+      render();
+      return data;
+    }).catch(() => {
+      if (!state.active || sequence !== state.requestSequence) return null;
+      if (reset) {
+        state.events = [];
+        state.programmeLoadedChannelCount = 0;
+        state.loadingPrograms = false;
+        state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      }
+      state.programmeLoadingMore = false;
+      render();
+      return null;
+    });
+  }
+
+  function loadPrograms(sequence) {
+    return loadProgrammePage(sequence, 0, true);
+  }
+
+  function loadNextProgrammePage() {
+    if (!state.active || state.loadingChannels || state.loadingPrograms || state.programmeLoadingMore ||
+        state.programmeLoadedChannelCount >= state.channels.length) {
+      return Promise.resolve(false);
+    }
+    return loadProgrammePage(
+      state.requestSequence,
+      state.programmeLoadedChannelCount,
+      false
+    ).then(data => Boolean(data));
+  }
+
+  function railHasClass(rail, className) {
+    if (!rail) return false;
+    if (rail.classList && typeof rail.classList.contains === 'function') {
+      return rail.classList.contains(className);
+    }
+    return String(rail.className || '').split(/\s+/).includes(className);
+  }
+
+  function handleProgrammeRailNearEnd(event) {
+    const rail = event && event.detail && event.detail.rail;
+    if (!railHasClass(rail, 'media-home-live-guide-rail')) return false;
+    loadNextProgrammePage();
+    return true;
+  }
+
+  function bindProgrammeRailNearEnd() {
+    if (state.programmeNearEndBound || !doc || typeof doc.addEventListener !== 'function') return false;
+    state.programmeNearEndBound = true;
+    doc.addEventListener('vdr-suite-home-rail-near-end', handleProgrammeRailNearEnd);
+    return true;
+  }
+
+  function load(force)'''
+replace_regex_once(path,
+r"  function loadPrograms\(sequence\) \{.*?\n  \}\n\n  function load\(force\)",
+live_loader)
+replace_once(path,
+"    state.backendId = nextBackend;\n    state.dataError = '';\n    state.programError = '';",
+"    state.backendId = nextBackend;\n    state.dataError = '';\n    state.programError = '';\n    if (force || backendChanged) {\n      state.events = [];\n      state.programmeLoadedChannelCount = 0;\n      state.programmeLoadingMore = false;\n    }")
+replace_once(path,
+"    render();\n    return true;\n  }\n  function selectOffset(delta) { return selectIndex(state.selectedIndex + Number(delta || 0)); }",
+"    render();\n    if (state.programmeLoadedChannelCount > 0 &&\n        state.selectedIndex + 3 >= state.programmeLoadedChannelCount &&\n        state.programmeLoadedChannelCount < state.channels.length) {\n      loadNextProgrammePage();\n    }\n    return true;\n  }\n  function selectOffset(delta) { return selectIndex(state.selectedIndex + Number(delta || 0)); }")
+replace_once(path,
+"      state.loadingChannels = false;\n      state.channels = [];\n      state.events = [];\n      state.dataError = error && error.message ? error.message : 'Senderliste konnte nicht geladen werden.';",
+"      state.loadingChannels = false;\n      state.channels = [];\n      state.events = [];\n      state.programmeLoadedChannelCount = 0;\n      state.programmeLoadingMore = false;\n      state.dataError = error && error.message ? error.message : 'Senderliste konnte nicht geladen werden.';")
+replace_once(path,
+"    installStyles();\n    bindNavigation();\n    installObserver();",
+"    installStyles();\n    bindNavigation();\n    bindProgrammeRailNearEnd();\n    installObserver();")
+replace_once(path,
+"      loadingChannels: state.loadingChannels,\n      loadingPrograms: state.loadingPrograms,\n      dataError: state.dataError,",
+"      loadingChannels: state.loadingChannels,\n      loadingPrograms: state.loadingPrograms,\n      programmeLoadingMore: state.programmeLoadingMore,\n      programmeLoadedChannelCount: state.programmeLoadedChannelCount,\n      programmeHasMore: state.programmeLoadedChannelCount < state.channels.length,\n      dataError: state.dataError,")
+replace_once(path,
+"      applyPrograms,\n      render,",
+"      applyPrograms,\n      loadNextProgrammePage,\n      handleProgrammeRailNearEnd,\n      render,")
+
+
+# Movies: exact five-year global result remains authoritative; DOM visibility
+# begins at 12 and grows by 12 via the shared Home near-end signal.
+path = 'web/frontend/home-recently-watched.js'
+replace_once(path,
+"  const TITLE = 'Filme der letzten 5 Jahre';\n  const LIMIT = 12;\n  const PAGE_LIMIT = 100;",
+"  const TITLE = 'Filme der letzten 5 Jahre';\n  const LIMIT = 12;\n  const PAGE_LIMIT = 100;\n  const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';")
+replace_once(path,
+"    generation: 0,\n    placementObserver: null,\n    moduleObserver: null\n  };",
+"    generation: 0,\n    placementObserver: null,\n    moduleObserver: null,\n    movies: [],\n    backendId: '',\n    visibleLimit: LIMIT,\n    nearEndBound: false\n  };")
+replace_once(path,
+"  function render(recordings, backendId) {",
+"  function render(recordings, backendId, visibleLimit) {")
+replace_once(path,
+"  function render(recordings, backendId, visibleLimit) {\n    if (!recordings.length) {\n      clear();\n      return true;\n    }\n    const target = section();\n    if (!target) return false;\n    target.replaceChildren();",
+"  function render(recordings, backendId, visibleLimit) {\n    if (!recordings.length) {\n      clear();\n      return true;\n    }\n    const target = section();\n    if (!target) return false;\n    const previousRail = typeof target.querySelector === 'function'\n      ? target.querySelector('.media-home-discovery-rail.recent-movies')\n      : null;\n    const previousScrollLeft = Number(previousRail && previousRail.scrollLeft) || 0;\n    target.replaceChildren();")
+replace_once(path,
+"    recordings.slice(0, LIMIT).forEach(function (recording) {",
+"    const limit = Math.max(0, Number(visibleLimit) || LIMIT);\n    recordings.slice(0, limit).forEach(function (recording) {")
+replace_once(path,
+"    target.appendChild(rail);\n    positionBeforeSeries();\n    return true;\n  }\n\n  function renderState(message, error) {",
+"    rail.scrollLeft = previousScrollLeft;\n    target.appendChild(rail);\n    positionBeforeSeries();\n    return true;\n  }\n\n  function renderState(message, error) {")
+replace_once(path,
+"    const currentYear = new Date().getFullYear();\n    renderState('Filme werden geladen …', false);",
+"    const currentYear = new Date().getFullYear();\n    state.movies = [];\n    state.backendId = backendId;\n    state.visibleLimit = LIMIT;\n    renderState('Filme werden geladen …', false);")
+replace_once(path,
+"      const movies = sortMovies(recordings.filter(function (recording) {\n        return recentMovie(recording, currentYear);\n      })).slice(0, LIMIT);\n      return render(movies, backendId);",
+"      const movies = sortMovies(recordings.filter(function (recording) {\n        return recentMovie(recording, currentYear);\n      }));\n      state.movies = movies;\n      state.backendId = backendId;\n      state.visibleLimit = Math.min(LIMIT, movies.length);\n      return render(movies, backendId, state.visibleLimit);")
+movies_more = r'''  function railHasClass(rail, className) {
+    if (!rail) return false;
+    if (rail.classList && typeof rail.classList.contains === 'function') {
+      return rail.classList.contains(className);
+    }
+    return String(rail.className || '').split(/\s+/).includes(className);
+  }
+
+  function loadMoreMovies() {
+    if (!homeIsActive() || state.backendId !== selectedBackendId() ||
+        state.visibleLimit >= state.movies.length) return false;
+    state.visibleLimit = Math.min(state.visibleLimit + LIMIT, state.movies.length);
+    return render(state.movies, state.backendId, state.visibleLimit);
+  }
+
+  function handleRailNearEnd(event) {
+    const rail = event && event.detail && event.detail.rail;
+    if (!railHasClass(rail, 'media-home-discovery-rail') ||
+        !railHasClass(rail, 'recent-movies')) return false;
+    return loadMoreMovies();
+  }
+
+  function bindNearEnd() {
+    if (state.nearEndBound || !doc || typeof doc.addEventListener !== 'function') return false;
+    state.nearEndBound = true;
+    doc.addEventListener(HOME_RAIL_NEAR_END_EVENT, handleRailNearEnd);
+    return true;
+  }
+
+'''
+replace_once(path,
+"  function installPlacementObserver() {",
+movies_more + "  function installPlacementObserver() {")
+replace_once(path,
+"    installPlacementObserver();\n    installModuleObserver();",
+"    installPlacementObserver();\n    installModuleObserver();\n    bindNearEnd();")
+replace_once(path,
+"      render: render,\n      positionBeforeSeries: positionBeforeSeries,",
+"      render: render,\n      loadMoreMovies: loadMoreMovies,\n      handleRailNearEnd: handleRailNearEnd,\n      positionBeforeSeries: positionBeforeSeries,")
+
+
+# Shared rail owner test: near-end event is delegated exactly like mouse drag.
+path = 'web/frontend/tests/test_phase66_home_mouse_drag_rails.js'
+replace_once(path,
+"assert(source.includes(\"doc.addEventListener('click', handleClickCapture, true)\"));",
+"assert(source.includes(\"doc.addEventListener('scroll', handleRailScroll, true)\"));\nassert(source.includes(\"const RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';\"));\nassert(source.includes(\"doc.addEventListener('click', handleClickCapture, true)\"));")
+replace_once(path,
+"    this.scrollLeft = 0;\n    this.id = '';",
+"    this.scrollLeft = 0;\n    this.scrollWidth = 0;\n    this.clientWidth = 0;\n    this.id = '';")
+replace_once(path,
+"const head = new FakeElement('head');\nconst listeners = Object.create(null);",
+"const head = new FakeElement('head');\nconst listeners = Object.create(null);\nconst dispatchedEvents = [];")
+replace_once(path,
+"  addEventListener(type, listener, options) {\n    (listeners[type] ||= []).push({listener, options});\n  }\n};",
+"  addEventListener(type, listener, options) {\n    (listeners[type] ||= []).push({listener, options});\n  },\n  dispatchEvent(value) {\n    dispatchedEvents.push(value);\n    return true;\n  }\n};")
+replace_once(path,
+"const window = {\n  document,\n  console,",
+"function CustomEvent(type, options) {\n  this.type = type;\n  this.detail = options && options.detail;\n}\n\nconst window = {\n  document,\n  console,\n  CustomEvent,")
+replace_once(path,
+"assert(listeners.pointerdown && listeners.pointermove && listeners.pointerup && listeners.pointercancel && listeners.click);\nassert.strictEqual(listeners.click[0].options, true);",
+"assert(listeners.pointerdown && listeners.pointermove && listeners.pointerup && listeners.pointercancel && listeners.scroll && listeners.click);\nassert.strictEqual(listeners.scroll[0].options, true);\nassert.strictEqual(listeners.click[0].options, true);")
+replace_once(path,
+"assert.strictEqual(dispatch('click', liveGuideCard).defaultPrevented, true);",
+"assert.strictEqual(dispatch('click', liveGuideCard).defaultPrevented, true);\n\n// The same delegated owner emits one generic near-end signal for lazy rails.\nliveGuideRail.scrollWidth = 1200;\nliveGuideRail.clientWidth = 400;\nliveGuideRail.scrollLeft = 300;\ndispatch('scroll', liveGuideRail);\nassert.strictEqual(dispatchedEvents.length, 0);\nliveGuideRail.scrollLeft = 500;\ndispatch('scroll', liveGuideRail);\nassert.strictEqual(dispatchedEvents.length, 1);\nassert.strictEqual(dispatchedEvents[0].type, 'vdr-suite-home-rail-near-end');\nassert.strictEqual(dispatchedEvents[0].detail.rail, liveGuideRail);")
+
+
+# Series tests: prove metadata starts before pagination settles and exact duplicate
+# native ids share one in-flight request inside a backend/generation.
+path = 'web/frontend/tests/test_phase66_home_native_metadata_rails.js'
+series_tests = r'''
+async function proveMetadataStartsBeforePaginationCompletes(api) {
+  const first = makeRecording('page-1', 'native-page-1', 'Serien/Overlap/one.rec', 'raw one', '');
+  const second = makeRecording('page-2', 'native-page-2', 'Serien/Overlap/two.rec', 'raw two', '');
+  let releaseSecondPage = null;
+  let metadataCalls = 0;
+  let settled = false;
+  const client = {
+    fetchClientGenreRecordings(request) {
+      if (Number(request.offset || 0) === 0) {
+        return Promise.resolve({recordings: [first], total: 2, hasMore: true});
+      }
+      return new Promise(function (resolve) {
+        releaseSecondPage = function () {
+          resolve({recordings: [second], total: 2, hasMore: false});
+        };
+      });
+    },
+    requestJson(route, request) {
+      metadataCalls += 1;
+      return Promise.resolve({
+        available: true,
+        mediaType: 'series',
+        provider: 'tvscraper',
+        providerId: 8000,
+        title: 'Overlap',
+        episodeName: request.query.backendNativeId,
+        seasonNumber: 1,
+        episodeNumber: metadataCalls,
+        preferredArtwork: {available: false},
+        images: []
+      });
+    }
+  };
+
+  const loading = api.fetchAllSeriesRecordings(client, 'default', 'series', 0, function () {})
+    .then(function () { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(settled, false, 'second recording page must still be pending');
+  assert.strictEqual(metadataCalls, 1, 'first page metadata must start before full pagination completes');
+  assert.strictEqual(typeof releaseSecondPage, 'function');
+  releaseSecondPage();
+  await loading;
+  assert.strictEqual(metadataCalls, 2);
+}
+
+async function proveMetadataDeduplicatesAcrossConsumers(api) {
+  const recording = makeRecording('dedup', 'native-dedup', 'Serien/Dedup/one.rec', 'raw dedup', '');
+  let calls = 0;
+  let release = null;
+  const client = {
+    requestJson() {
+      calls += 1;
+      return new Promise(function (resolve) { release = resolve; });
+    }
+  };
+  const first = api.fetchSeriesRecordingMetadata(client, [recording], 'default', 0);
+  const second = api.fetchSeriesRecordingMetadata(client, [recording], 'default', 0);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(calls, 1, 'same backend/native id must have one in-flight request per generation');
+  release({
+    available: true,
+    mediaType: 'series',
+    provider: 'tvscraper',
+    providerId: 8100,
+    title: 'Dedup',
+    episodeName: 'One',
+    seasonNumber: 1,
+    episodeNumber: 1,
+    preferredArtwork: {available: false},
+    images: []
+  });
+  const values = await Promise.all([first, second]);
+  assert.strictEqual(values[0].has('native-dedup'), true);
+  assert.strictEqual(values[1].has('native-dedup'), true);
+}
+
+'''
+replace_once(path,
+"(async function () {\n  const seriesHarness = createHarness();",
+series_tests + "(async function () {\n  const seriesHarness = createHarness();")
+replace_once(path,
+"  const progressHarness = createHarness();\n  await proveMetadataPublishesPerResponse(progressHarness.api);\n\n  const genreHarness = createHarness();",
+"  const overlapHarness = createHarness();\n  await proveMetadataStartsBeforePaginationCompletes(overlapHarness.api);\n\n  const dedupHarness = createHarness();\n  await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);\n\n  const progressHarness = createHarness();\n  await proveMetadataPublishesPerResponse(progressHarness.api);\n\n  const genreHarness = createHarness();")
+
+
+# Live Hero regression: 31 TV channels, initial EPG window 24, next window 7.
+path = 'web/frontend/tests/test_phase66_live_tv_hero.js'
+replace_once(path,
+"};\nconst events = [];\n[",
+"};\nfor (let number = 101; number <= 128; number += 1) {\n  channelResponse.channels.push({id: 'C' + String(number), name: 'Kanal ' + String(number), number, radio: false, enabled: true});\n}\nconst events = [];\n[")
+replace_once(path,
+"});\n\nconst clientApi = {\n  fetchClientChannels(options) {",
+"});\nfor (let number = 101; number <= 128; number += 1) {\n  const channelId = 'C' + String(number);\n  events.push({channelId, title: 'Heute ' + String(number), startTime: now - 600, endTime: now + 1200});\n  events.push({channelId, title: 'Danach ' + String(number), startTime: now + 1200, endTime: now + 3000});\n}\nconst epgChannelRequests = [];\n\nconst clientApi = {\n  fetchClientChannels(options) {")
+replace_once(path,
+"  fetchClientEpgCacheWindow(options) {\n    epgFetchCount += 1;\n    assert.strictEqual(options.query.backend, 'backend-a');\n    assert.strictEqual(options.query.channelIds, 'C1,C2,C20');\n    return Promise.resolve({events});\n  },",
+"  fetchClientEpgCacheWindow(options) {\n    epgFetchCount += 1;\n    assert.strictEqual(options.query.backend, 'backend-a');\n    const requested = String(options.query.channelIds || '').split(',').filter(Boolean);\n    epgChannelRequests.push(requested);\n    return Promise.resolve({events: events.filter(event => requested.includes(event.channelId))});\n  },")
+replace_once(path,
+"  assert.strictEqual(epgFetchCount, 1);\n  assert.strictEqual(liveStartCount, 0);",
+"  assert.strictEqual(epgFetchCount, 1);\n  assert.strictEqual(epgChannelRequests.length, 1);\n  assert.strictEqual(epgChannelRequests[0].length, 24);\n  assert.strictEqual(liveStartCount, 0);")
+replace_once(path,
+"  assert.strictEqual(hero.snapshot().channelCount, 3);",
+"  assert.strictEqual(hero.snapshot().channelCount, 31);\n  assert.strictEqual(hero.snapshot().programmeLoadedChannelCount, 24);\n  assert.strictEqual(hero.snapshot().programmeHasMore, true);")
+replace_once(path,
+"  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 3);\n  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 3);\n  assert(findByClass(nowSection, 'media-home-live-guide-artwork'));\n\n  const dataRequestBaseline = channelFetchCount + epgFetchCount;",
+"  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 24);\n  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 24);\n  assert(findByClass(nowSection, 'media-home-live-guide-artwork'));\n\n  assert.strictEqual(await hero.__test.loadNextProgrammePage(), true);\n  assert.strictEqual(epgFetchCount, 2);\n  assert.strictEqual(epgChannelRequests[1].length, 7);\n  assert.strictEqual(hero.snapshot().programmeLoadedChannelCount, 31);\n  assert.strictEqual(hero.snapshot().programmeHasMore, false);\n  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 31);\n  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 31);\n  assert.strictEqual(new Set(findByClass(nowSection, 'media-home-live-guide-rail').children.map(card => card.dataset.channelId)).size, 31);\n\n  const dataRequestBaseline = channelFetchCount + epgFetchCount;")
+
+
+# Recent movies regression: 12 current-year cards initially, then older in-window
+# film appears after near-end with stable ordering, no duplicates and scroll kept.
+path = 'web/frontend/tests/test_phase66_recent_movies_rail.js'
+replace_once(path,
+"assert(source.includes(\"rail.className = 'media-home-discovery-rail recent-movies'\"));",
+"assert(source.includes(\"rail.className = 'media-home-discovery-rail recent-movies'\"));\nassert(source.includes(\"const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';\"));\nassert(source.includes('loadMoreMovies'));")
+replace_once(path,
+"    this.type = '';\n  }",
+"    this.type = '';\n    this.scrollLeft = 0;\n  }")
+replace_once(path,
+"  querySelector(selector) {\n    const match = String(selector || '').match(/^\\[data-home-discovery-rail=\"([^\"]+)\"\\]$/);\n    if (!match) return null;\n    return findElement(this, (element) =>\n      element.attributes['data-home-discovery-rail'] === match[1]);\n  }",
+"  querySelector(selector) {\n    if (selector === '.media-home-discovery-rail.recent-movies') {\n      return findElement(this, (element) =>\n        String(element.className || '').split(/\\s+/).includes('media-home-discovery-rail') &&\n        String(element.className || '').split(/\\s+/).includes('recent-movies'));\n    }\n    const match = String(selector || '').match(/^\\[data-home-discovery-rail=\"([^\"]+)\"\\]$/);\n    if (!match) return null;\n    return findElement(this, (element) =>\n      element.attributes['data-home-discovery-rail'] === match[1]);\n  }")
+replace_once(path,
+"const pageOne = [",
+"const currentYearMovies = Array.from({length: 12}, (_, index) => {\n  const day = String(index + 1).padStart(2, '0');\n  return movie('current-' + day, String(currentYear) + '-05-' + day, '2026-05-' + day + 'T20:00:00', 'Aktuell ' + day);\n});\nconst pageOne = [")
+replace_once(path,
+"  movie('invalid-date', String(currentYear) + '-02-30', '2026-06-01T20:00:00', 'Ungültig')\n];",
+"  movie('invalid-date', String(currentYear) + '-02-30', '2026-06-01T20:00:00', 'Ungültig')\n].concat(currentYearMovies);")
+replace_once(path,
+"  const cards = findElements(movieSection, (element) =>\n    element.dataset && Boolean(element.dataset.recordingId));\n  assert.deepStrictEqual(cards.map((card) => card.dataset.recordingId), ['newest', 'boundary']);\n  assert.deepStrictEqual(cards.map((card) => Number(card.dataset.movieYear)), [currentYear, currentYear - 4]);",
+"  let cards = findElements(movieSection, (element) =>\n    element.dataset && Boolean(element.dataset.recordingId));\n  assert.strictEqual(cards.length, 12);\n  assert(cards.every((card) => Number(card.dataset.movieYear) === currentYear));\n  assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'boundary'), null);\n\n  const initialRail = findElement(movieSection, (element) =>\n    String(element.className || '').split(/\\s+/).includes('recent-movies'));\n  assert(initialRail);\n  initialRail.scrollLeft = 777;\n  assert.strictEqual(api._test.handleRailNearEnd({detail: {rail: initialRail}}), true);\n  cards = findElements(movieSection, (element) =>\n    element.dataset && Boolean(element.dataset.recordingId));\n  assert.strictEqual(cards.length, 14);\n  assert.strictEqual(cards[cards.length - 1].dataset.recordingId, 'boundary');\n  assert.strictEqual(Number(cards[cards.length - 1].dataset.movieYear), currentYear - 4);\n  assert.strictEqual(new Set(cards.map((card) => card.dataset.recordingId)).size, cards.length);\n  const expandedRail = findElement(movieSection, (element) =>\n    String(element.className || '').split(/\\s+/).includes('recent-movies'));\n  assert.strictEqual(expandedRail.scrollLeft, 777);")
