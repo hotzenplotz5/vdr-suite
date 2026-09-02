@@ -141,6 +141,12 @@
     return text(presentation(recording).posterUrl || artwork.preferredUrl);
   }
 
+  function recordingMetadataPosterUrl(value) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    if (!helpers || typeof helpers.recordingMetadataPosterUrl !== 'function') return '';
+    return text(helpers.recordingMetadataPosterUrl(value));
+  }
+
   function canonicalRecordings(payload, backendId) {
     return list(payload, 'recordings').filter(function (recording) {
       const id = recordingId(recording);
@@ -664,15 +670,9 @@
 
     const seasonNumber = Number(rich.seasonNumber || sourceProvider.seasonNumber || token.seasonNumber || 0);
     const episodeNumber = Number(rich.episodeNumber || sourceProvider.episodeNumber || token.episodeNumber || 0);
-    const richArtwork = rich.preferredArtwork && typeof rich.preferredArtwork === 'object'
-      ? rich.preferredArtwork
-      : {};
-    const nativeArtworkAvailable = nativeMetadataAvailable &&
-      richArtwork.available !== false && Boolean(text(richArtwork.url));
-    const posterUrl = text(
-      (richArtwork.available !== false && richArtwork.url) ||
-      recordingPosterUrl(recording)
-    );
+    const metadataPosterUrl = recordingMetadataPosterUrl(rich);
+    const nativeArtworkAvailable = rich.available === true && Boolean(metadataPosterUrl);
+    const posterUrl = metadataPosterUrl || recordingPosterUrl(recording);
     const episodeTitle = text(
       rich.episodeName ||
       sourceProvider.episodeTitle ||
@@ -1036,7 +1036,7 @@
     return requestPage(0);
   }
 
-  function fetchSeriesRecordingMetadata(client, recordings, backendId, generation) {
+  function fetchSeriesRecordingMetadata(client, recordings, backendId, generation, onProgress) {
     const resolved = new Map();
     if (!client || typeof client.requestJson !== 'function') {
       return Promise.resolve(resolved);
@@ -1053,6 +1053,17 @@
     });
 
     let nextIndex = 0;
+    let publishedSize = 0;
+    function publishResolved() {
+      if (!current(generation, backendId) ||
+          typeof onProgress !== 'function' ||
+          resolved.size <= publishedSize) {
+        return;
+      }
+      publishedSize = resolved.size;
+      onProgress(resolved);
+    }
+
     function worker() {
       function next() {
         if (!current(generation, backendId) || nextIndex >= queue.length) {
@@ -1079,7 +1090,9 @@
 
     const workers = [];
     const workerCount = Math.min(SERIES_METADATA_CONCURRENCY, queue.length);
-    for (let index = 0; index < workerCount; index += 1) workers.push(worker());
+    for (let index = 0; index < workerCount; index += 1) {
+      workers.push(worker().then(publishResolved));
+    }
     return Promise.all(workers).then(function () { return resolved; });
   }
 
@@ -1200,7 +1213,16 @@
         return false;
       }
       applySeriesProjection(recordings, backendId);
-      return fetchSeriesRecordingMetadata(client, recordings, backendId, generation).then(function (rich) {
+      return fetchSeriesRecordingMetadata(
+        client,
+        recordings,
+        backendId,
+        generation,
+        function (rich) {
+          if (!current(generation, backendId) || rich.size === 0) return;
+          applySeriesProjection(recordings, backendId, rich);
+        }
+      ).then(function (rich) {
         if (!current(generation, backendId)) return false;
         if (rich.size > 0) return applySeriesProjection(recordings, backendId, rich);
         return true;
@@ -1437,6 +1459,7 @@
       folderEntryCount: folderEntryCount,
       genreLabel: genreLabel,
       recordingPosterUrl: recordingPosterUrl,
+      recordingMetadataPosterUrl: recordingMetadataPosterUrl,
       recordingBackendNativeId: recordingBackendNativeId,
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
