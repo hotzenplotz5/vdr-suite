@@ -147,6 +147,15 @@
     return text(helpers.recordingMetadataPosterUrl(value));
   }
 
+  function recordingMetadataProjection(recording, richMetadata) {
+    const rich = richMetadata && richMetadata.available === true ? richMetadata : {};
+    return {
+      title: text(rich.title) || recordingTitle(recording),
+      subtitle: text(rich.episodeName) || recordingSubtitle(recording),
+      posterUrl: recordingMetadataPosterUrl(rich) || recordingPosterUrl(recording)
+    };
+  }
+
   function canonicalRecordings(payload, backendId) {
     return list(payload, 'recordings').filter(function (recording) {
       const id = recordingId(recording);
@@ -468,25 +477,36 @@
     if (!section) return false;
     section.replaceChildren();
     const config = options && typeof options === 'object' ? options : {};
+    const rich = config.richMetadataByNativeId instanceof Map
+      ? config.richMetadataByNativeId
+      : null;
     appendSectionHeading(section, title, config.backLabel, config.onBack);
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail';
     recordings.forEach(function (recording) {
+      const nativeId = recordingBackendNativeId(recording);
+      const projected = recordingMetadataProjection(
+        recording,
+        rich && nativeId ? rich.get(nativeId) || null : null
+      );
       const card = doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card recording';
       card.dataset.recordingId = recordingId(recording);
       card.dataset.backendId = recordingBackendId(recording, backendId);
-      card.appendChild(createArtwork(recording));
+      card.appendChild(createPosterArtwork(
+        projected.title,
+        projected.posterUrl,
+        projected.title.slice(0, 1).toUpperCase()
+      ));
       const copy = doc.createElement('span');
       copy.className = 'media-home-discovery-copy';
       const name = doc.createElement('strong');
-      name.textContent = recordingTitle(recording);
+      name.textContent = projected.title;
       copy.appendChild(name);
-      const subtitle = recordingSubtitle(recording);
-      if (subtitle) {
+      if (projected.subtitle) {
         const detail = doc.createElement('span');
-        detail.textContent = subtitle;
+        detail.textContent = projected.subtitle;
         copy.appendChild(detail);
       }
       card.appendChild(copy);
@@ -917,8 +937,9 @@
     return true;
   }
 
-  function applySeriesProjection(recordings, backendId, richMetadataByNativeId) {
+  function applySeriesProjection(recordings, backendId, richMetadataByNativeId, options) {
     const rich = richMetadataByNativeId instanceof Map ? richMetadataByNativeId : null;
+    const config = options && typeof options === 'object' ? options : {};
     const members = recordings.map(function (recording) {
       const nativeId = recordingBackendNativeId(recording);
       return seriesMemberProjection(
@@ -927,7 +948,17 @@
         backendId
       );
     });
-    const projection = buildSeriesProjection(members);
+    let projection = buildSeriesProjection(members);
+    if (config.requireRich === true && rich) {
+      projection = projection.filter(function (series) {
+        return series.episodes.some(function (member) {
+          const nativeId = recordingBackendNativeId(member.recording);
+          return Boolean(nativeId && rich.has(nativeId));
+        });
+      });
+    }
+    if (!projection.length && config.requireRich === true) return false;
+
     state.seriesProjection = projection;
     state.seriesBackendId = backendId;
     if (!projection.length) {
@@ -1080,6 +1111,7 @@
         })).then(function (value) {
           if (current(generation, backendId) && value && value.available === true) {
             resolved.set(candidate.nativeId, value);
+            publishResolved();
           }
         }).catch(function () {
           // Per-recording metadata is enrichment only; keep the canonical recording fallback.
@@ -1091,7 +1123,7 @@
     const workers = [];
     const workerCount = Math.min(SERIES_METADATA_CONCURRENCY, queue.length);
     for (let index = 0; index < workerCount; index += 1) {
-      workers.push(worker().then(publishResolved));
+      workers.push(worker());
     }
     return Promise.all(workers).then(function () { return resolved; });
   }
@@ -1153,9 +1185,35 @@
       positionRandomGenreRail();
       return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {
         if (!current(generation, backendId)) return false;
-        const rendered = renderRecordingRail('random-genre', label, recordings, backendId);
-        positionRandomGenreRail();
-        return rendered;
+        if (!recordings.length) {
+          clearRail('random-genre');
+          return false;
+        }
+        return fetchSeriesRecordingMetadata(
+          client,
+          recordings,
+          backendId,
+          generation,
+          function (rich) {
+            if (!current(generation, backendId) || rich.size === 0) return;
+            const resolvedRecordings = recordings.filter(function (recording) {
+              const nativeId = recordingBackendNativeId(recording);
+              return Boolean(nativeId && rich.has(nativeId));
+            });
+            if (!resolvedRecordings.length) return;
+            renderRecordingRail('random-genre', label, resolvedRecordings, backendId, {
+              richMetadataByNativeId: rich
+            });
+            positionRandomGenreRail();
+          }
+        ).then(function (rich) {
+          if (!current(generation, backendId)) return false;
+          const rendered = renderRecordingRail('random-genre', label, recordings, backendId, {
+            richMetadataByNativeId: rich
+          });
+          positionRandomGenreRail();
+          return rendered;
+        });
       }).catch(function () {
         if (!current(generation, backendId)) return false;
         const rendered = renderState(
@@ -1197,11 +1255,7 @@
       client,
       backendId,
       text(seriesGenre.id),
-      generation,
-      function (recordings) {
-        if (!current(generation, backendId) || !recordings.length) return;
-        applySeriesProjection(recordings, backendId);
-      }
+      generation
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
       if (!recordings.length) {
@@ -1212,7 +1266,6 @@
         clearRail('series');
         return false;
       }
-      applySeriesProjection(recordings, backendId);
       return fetchSeriesRecordingMetadata(
         client,
         recordings,
@@ -1220,12 +1273,11 @@
         generation,
         function (rich) {
           if (!current(generation, backendId) || rich.size === 0) return;
-          applySeriesProjection(recordings, backendId, rich);
+          applySeriesProjection(recordings, backendId, rich, {requireRich: true});
         }
       ).then(function (rich) {
         if (!current(generation, backendId)) return false;
-        if (rich.size > 0) return applySeriesProjection(recordings, backendId, rich);
-        return true;
+        return applySeriesProjection(recordings, backendId, rich);
       });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
@@ -1460,6 +1512,7 @@
       genreLabel: genreLabel,
       recordingPosterUrl: recordingPosterUrl,
       recordingMetadataPosterUrl: recordingMetadataPosterUrl,
+      recordingMetadataProjection: recordingMetadataProjection,
       recordingBackendNativeId: recordingBackendNativeId,
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
