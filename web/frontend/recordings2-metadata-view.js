@@ -4,7 +4,11 @@
 
   const shared = global.VdrSuiteRecordings2Shared;
   const personView = global.VdrSuiteRecordings2PersonSearchView;
-  if (!shared || !personView) {
+  const frontendHelpers = global.VdrSuiteFrontendHelpers;
+  if (!shared || !personView || !frontendHelpers ||
+      typeof frontendHelpers.isPublicRecordingMetadataImageUrl !== 'function' ||
+      typeof frontendHelpers.preferredRecordingMetadataArtworkUrl !== 'function' ||
+      typeof frontendHelpers.recordingMetadataPosterUrl !== 'function') {
     console.error('VDR-Suite Recordings 2 metadata view dependencies are unavailable');
     return;
   }
@@ -33,25 +37,15 @@
   }
 
   function isPublicMetadataImageUrl(value) {
-    return shared.text(value).startsWith('/api/vdr/recordings/metadata/image?');
+    return frontendHelpers.isPublicRecordingMetadataImageUrl(value);
   }
 
   function preferredArtworkUrl(value) {
-    const artwork = value && value.preferredArtwork;
-    return artwork && artwork.available === true ? shared.text(artwork.url) : '';
+    return frontendHelpers.preferredRecordingMetadataArtworkUrl(value);
   }
 
   function detailArtworkUrl(value) {
-    const manual = value && value.manualAssignment && value.manualAssignment.active === true;
-    if (manual) return preferredArtworkUrl(value);
-    const images = Array.isArray(value && value.images) ? value.images : [];
-    for (let index = 0; index < images.length; index += 1) {
-      const entry = images[index];
-      if (!entry || entry.orientation !== 'portrait' || !entry.image ||
-          entry.image.available !== true || !isPublicMetadataImageUrl(entry.image.url)) continue;
-      return shared.text(entry.image.url);
-    }
-    return preferredArtworkUrl(value);
+    return frontendHelpers.recordingMetadataPosterUrl(value);
   }
 
   function updateDetailField(root, label, value) {
