@@ -6,7 +6,10 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
+const source = [
+  fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
+  fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8')
+].join('\n');
 
 const transitions = [];
 const openedRecordings = [];
@@ -157,6 +160,83 @@ assert.strictEqual(projectedFromRichMetadata.seasonNumber, 10);
 assert.strictEqual(projectedFromRichMetadata.episodeNumber, 14);
 assert.strictEqual(projectedFromRichMetadata.episodeTitle, 'Abschiede');
 assert(projectedFromRichMetadata.posterUrl.includes('kind=preferred'));
+
+const stargateTimestampRecording = {
+  recordingId: 'stargate-timestamp-1',
+  backendId: 'default',
+  backendNativeId: '/srv/vdr/video/Serien/Stargate_Universe/2016-01-05.10.52.3-0.rec',
+  path: 'Serien/Stargate Universe/2016-01-05.10.52.3-0.rec',
+  metadata: {
+    provider: {},
+    presentation: {posterUrl: '/fallback/stargate-universe.jpg'}
+  }
+};
+const stargatePreferredArtwork =
+  '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=stargate-timestamp-1&kind=preferred';
+const stargatePortraitArtwork =
+  '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=stargate-timestamp-1&kind=image&index=2';
+const projectedStargateTimestamp = api._test.seriesMemberProjection(stargateTimestampRecording, {
+  available: true,
+  mediaType: 'series',
+  provider: 'tvscraper',
+  providerId: 4242,
+  title: 'Stargate Universe',
+  episodeName: 'Die Rückkehr',
+  seasonNumber: 2,
+  episodeNumber: 3,
+  preferredArtwork: {available: true, url: stargatePreferredArtwork},
+  images: [
+    {
+      orientation: 'landscape',
+      image: {
+        available: true,
+        url: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=stargate-timestamp-1&kind=image&index=0'
+      }
+    },
+    {
+      orientation: 'portrait',
+      image: {available: true, url: stargatePortraitArtwork}
+    }
+  ]
+}, 'default');
+assert.strictEqual(projectedStargateTimestamp.seriesTitle, 'Stargate Universe');
+assert.strictEqual(projectedStargateTimestamp.seasonNumber, 2);
+assert.strictEqual(projectedStargateTimestamp.episodeNumber, 3);
+assert.strictEqual(projectedStargateTimestamp.episodeTitle, 'Die Rückkehr');
+assert.strictEqual(projectedStargateTimestamp.posterUrl, stargatePortraitArtwork);
+assert.notStrictEqual(projectedStargateTimestamp.posterUrl, stargatePreferredArtwork);
+
+const stargateFallbackSeason1 = api._test.seriesMemberProjection({
+  recordingId: 'stargate-fallback-s01e01',
+  backendId: 'default',
+  path: 'Serien/Stargate Universe/S01E01 Air',
+  metadata: {
+    provider: {},
+    presentation: {posterUrl: '/fallback/stargate-season-1.jpg'}
+  }
+}, null, 'default');
+const stargateFallbackSeason3 = api._test.seriesMemberProjection({
+  recordingId: 'stargate-fallback-s03e01',
+  backendId: 'default',
+  path: 'Serien/Stargate Universe/S03E01 Zukunft',
+  metadata: {
+    provider: {},
+    presentation: {posterUrl: '/fallback/stargate-season-3.jpg'}
+  }
+}, null, 'default');
+assert.strictEqual(stargateFallbackSeason1.seasonNumber, 1);
+assert.strictEqual(stargateFallbackSeason1.episodeNumber, 1);
+const groupedStargate = api._test.buildSeriesProjection([
+  stargateFallbackSeason1,
+  projectedStargateTimestamp,
+  stargateFallbackSeason3
+]);
+assert.strictEqual(groupedStargate.length, 1);
+assert.strictEqual(groupedStargate[0].posterUrl, stargatePortraitArtwork);
+assert.deepStrictEqual(
+  Array.from(groupedStargate[0].seasons, (season) => season.number),
+  [1, 2, 3]
+);
 
 const projectedFromNegativeProviderId = api._test.seriesMemberProjection({
   recordingId: 'negative-series-1',
@@ -426,16 +506,19 @@ function createProductionHarness(options) {
       const nativeId = request && request.query && request.query.backendNativeId;
       metadataInFlight += 1;
       metadataMaxInFlight = Math.max(metadataMaxInFlight, metadataInFlight);
-      return Promise.resolve().then(function () {
-        if (Array.isArray(config.metadataErrors) && config.metadataErrors.includes(nativeId)) {
-          throw new Error('metadata unavailable');
-        }
-        if (config.metadataByNativeId &&
-            Object.prototype.hasOwnProperty.call(config.metadataByNativeId, nativeId)) {
-          return config.metadataByNativeId[nativeId];
-        }
-        return {available: false};
-      }).finally(function () {
+      const response = Array.isArray(config.metadataPending) && config.metadataPending.includes(nativeId)
+        ? new Promise(function () {})
+        : Promise.resolve().then(function () {
+          if (Array.isArray(config.metadataErrors) && config.metadataErrors.includes(nativeId)) {
+            throw new Error('metadata unavailable');
+          }
+          if (config.metadataByNativeId &&
+              Object.prototype.hasOwnProperty.call(config.metadataByNativeId, nativeId)) {
+            return config.metadataByNativeId[nativeId];
+          }
+          return {available: false};
+        });
+      return response.finally(function () {
         metadataInFlight -= 1;
       });
     }
@@ -651,8 +734,10 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
     episodeNumber: 99
   };
   const bandEpisode2 = makeEpisode('Band of Brothers', 1, 2, 'band');
-  const richArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+  const richPreferredArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
     encodeURIComponent(bandEpisode1.backendNativeId) + '&kind=preferred&index=0';
+  const richPortraitArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+    encodeURIComponent(bandEpisode1.backendNativeId) + '&kind=image&index=2';
   const enriched = createProductionHarness({
     genres: {genres: [{id: 'series', label: 'Serien', count: 2}]},
     seriesItems: [bandEpisode1, bandEpisode2],
@@ -668,8 +753,8 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
         episodeNumber: 1,
         overview: 'Rich TVScraper overview',
         people: [{role: 'actor', name: 'Damian Lewis', characterName: 'Richard Winters'}],
-        images: [{orientation: 'portrait', image: {available: true, url: richArtworkUrl}}],
-        preferredArtwork: {available: true, url: richArtworkUrl}
+        images: [{orientation: 'portrait', image: {available: true, url: richPortraitArtworkUrl}}],
+        preferredArtwork: {available: true, url: richPreferredArtworkUrl}
       }
     },
     metadataErrors: [bandEpisode2.backendNativeId]
@@ -681,7 +766,8 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   const bandCard = findSeriesCard(bandRail, 'folder:serien/band of brothers');
   assert(bandCard);
   assert(findElement(bandCard, (element) => element.textContent === 'Band of Brothers'));
-  assert.strictEqual(findImage(bandCard).src, richArtworkUrl);
+  assert.strictEqual(findImage(bandCard).src, richPortraitArtworkUrl);
+  assert.notStrictEqual(findImage(bandCard).src, richPreferredArtworkUrl);
   bandCard.listeners.click[0]();
   const bandSeason1 = findSeasonButton(findRail(enriched.host, 'series'), 1);
   assert(bandSeason1);
@@ -694,9 +780,55 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(bandEpisode2Card);
   assert.strictEqual(Number(bandEpisode1Card.dataset.episodeNumber), 1);
   assert(findElement(bandEpisode1Card, (element) => element.textContent === 'Currahee'));
-  assert.strictEqual(findImage(bandEpisode1Card).src, richArtworkUrl);
+  assert.strictEqual(findImage(bandEpisode1Card).src, richPortraitArtworkUrl);
   assert.strictEqual(Number(bandEpisode2Card.dataset.episodeNumber), 2);
   assert(findElement(bandEpisode2Card, (element) => element.textContent === 'Folge 02'));
+
+  const progressiveItems = [1, 2, 3, 4].map(function (episodeNumber) {
+    const day = String(episodeNumber).padStart(2, '0');
+    return {
+      recordingId: 'stargate-progressive-' + String(episodeNumber),
+      backendId: 'default',
+      backendNativeId: '/srv/vdr/video/Serien/Stargate_Universe/2016-01-' + day + '.10.52.3-0.rec',
+      path: 'Serien/Stargate Universe/2016-01-' + day + '.10.52.3-0.rec',
+      title: 'Stargate Universe',
+      metadata: {provider: {}, presentation: {posterUrl: ''}, artwork: {preferredUrl: ''}}
+    };
+  });
+  const progressiveMetadata = {};
+  progressiveItems.slice(1).forEach(function (recording, index) {
+    progressiveMetadata[recording.backendNativeId] = {
+      available: true,
+      provider: 'tvscraper',
+      mediaType: 'series',
+      providerId: 4242,
+      title: 'Stargate Universe',
+      episodeName: 'Folge ' + String(index + 2),
+      seasonNumber: 2,
+      episodeNumber: index + 2,
+      preferredArtwork: {available: false},
+      images: []
+    };
+  });
+  const progressive = createProductionHarness({
+    genres: {genres: [{id: 'series', label: 'Serien', count: progressiveItems.length}]},
+    seriesItems: progressiveItems,
+    metadataByNativeId: progressiveMetadata,
+    metadataPending: [progressiveItems[0].backendNativeId]
+  });
+  let progressiveRefreshSettled = false;
+  progressive.api.refresh().then(function () {
+    progressiveRefreshSettled = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(progressiveRefreshSettled, false);
+  assert.strictEqual(progressive.calls.metadata.length, 4);
+  const progressiveRail = findRail(progressive.host, 'series');
+  const progressiveCard = findSeriesCard(progressiveRail, 'folder:serien/stargate universe');
+  assert(progressiveCard);
+  progressiveCard.listeners.click[0]();
+  assert(findSeasonButton(findRail(progressive.host, 'series'), 2));
+  assert(findSeasonButton(findRail(progressive.host, 'series'), 0));
 
   const failingSeries = createProductionHarness({
     newly: {recordings: [sameBackend]},
