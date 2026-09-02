@@ -622,9 +622,7 @@
       image.className = 'epg-detail-artwork';
       detail.insertBefore(image, hero);
     }
-    if (selected.orientation === 'portrait') {
-      image.classList.add('epg-detail-artwork-poster');
-    }
+    image.classList.toggle('epg-detail-artwork-poster', selected.orientation === 'portrait');
     image.setAttribute('role', 'img');
     image.setAttribute(
       'aria-label',
@@ -728,7 +726,7 @@
       buttons.images.disabled = !(Array.isArray(metadata.images) && metadata.images.length);
       detail.dataset.epgMetadataAvailable = 'true';
     }).catch(function (error) {
-      status.textContent = 'TVScraper-Metadaten konnten nicht geladen werden: ' + String(error && error.message ? error.message : error));
+      status.textContent = 'TVScraper-Metadaten konnten nicht geladen werden: ' + String(error && error.message ? error.message : error);
     });
 
     return detail;
