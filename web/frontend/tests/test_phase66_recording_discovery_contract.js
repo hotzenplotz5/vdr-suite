@@ -76,8 +76,10 @@ assert(!source.includes('tvmaze'));
 assert(source.includes("return text(recording && (recording.recordingId || recording.id))"));
 assert(source.includes("global.VdrSuiteRecordings2.openRecording(recording"));
 assert(source.includes("selectShellModule('recordings2')"));
-assert(source.includes("backLabel: '← Zurück zu Home'"));
-assert(source.includes('onClose: returnHome'));
+assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
+assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
+assert(source.includes("backLabel: '← Zurück zur Staffel'"));
+assert(source.includes('renderSeriesDetail(series, selectedSeason, backendId)'));
 assert(!source.includes('homeRecordingId'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
