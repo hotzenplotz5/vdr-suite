@@ -60,11 +60,15 @@ assert.strictEqual(typeof selectDetailArtwork, 'function');
 
 const preferredLandscape = {
   available: true,
-  url: '/api/epg/cache/metadata/image?kind=preferred'
+  url: '/api/epg/cache/metadata/image?kind=preferred',
+  width: 1280,
+  height: 720
 };
 const portraitArtwork = {
   available: true,
-  url: '/api/epg/cache/metadata/image?kind=image&index=2'
+  url: '/api/epg/cache/metadata/image?kind=image&index=2',
+  width: 600,
+  height: 900
 };
 
 const portraitSelection = selectDetailArtwork({
@@ -85,6 +89,19 @@ const portraitSelection = selectDetailArtwork({
 });
 assert.strictEqual(portraitSelection.orientation, 'portrait');
 assert.strictEqual(portraitSelection.artwork.url, portraitArtwork.url);
+
+const preferredPortrait = {
+  available: true,
+  url: '/api/epg/cache/metadata/image?kind=preferred',
+  width: 600,
+  height: 900
+};
+const preferredPortraitSelection = selectDetailArtwork({
+  preferredArtwork: preferredPortrait,
+  images: []
+});
+assert.strictEqual(preferredPortraitSelection.orientation, 'portrait');
+assert.strictEqual(preferredPortraitSelection.artwork.url, preferredPortrait.url);
 
 const preferredFallback = selectDetailArtwork({
   preferredArtwork: preferredLandscape,
