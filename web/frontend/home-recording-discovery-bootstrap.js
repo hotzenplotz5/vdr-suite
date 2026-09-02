@@ -16,6 +16,7 @@
   const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder';
   const DRAG_CLASS = 'media-home-mouse-dragging';
   const INLINE_PAGE_LIMIT = 100;
+  const INLINE_METADATA_CONCURRENCY = 4;
   const START_THRESHOLD = 8;
   const HERO_SWITCH_THRESHOLD = 48;
   const HORIZONTAL_DOMINANCE = 1.15;
@@ -346,6 +347,10 @@
     return text(recording && recording.backendId) || text(fallback);
   }
 
+  function recordingBackendNativeId(recording) {
+    return text(recording && recording.backendNativeId);
+  }
+
   function recordingMetadata(recording) {
     return recording && recording.metadata && typeof recording.metadata === 'object'
       ? recording.metadata
@@ -388,6 +393,40 @@
       ? metadata.artwork
       : {};
     return text(presentation.posterUrl || artwork.preferredUrl);
+  }
+
+  function recordingMetadataPosterUrl(value) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    if (!helpers || typeof helpers.recordingMetadataPosterUrl !== 'function') return '';
+    return text(helpers.recordingMetadataPosterUrl(value));
+  }
+
+  function recordingMetadataProjection(recording, richMetadata) {
+    if (!recording || !richMetadata || richMetadata.available !== true) return recording;
+    const sourceMetadata = recordingMetadata(recording);
+    const sourcePresentation = sourceMetadata.presentation &&
+      typeof sourceMetadata.presentation === 'object'
+      ? sourceMetadata.presentation
+      : {};
+    const sourceArtwork = sourceMetadata.artwork &&
+      typeof sourceMetadata.artwork === 'object'
+      ? sourceMetadata.artwork
+      : {};
+    const title = text(richMetadata.title) || recordingTitle(recording);
+    const posterUrl = recordingMetadataPosterUrl(richMetadata) || recordingPosterUrl(recording);
+    return Object.assign({}, recording, {
+      path:'',
+      title:title,
+      metadata:Object.assign({}, sourceMetadata, {
+        presentation:Object.assign({}, sourcePresentation, {
+          title:title,
+          subtitle:text(richMetadata.episodeName) || recordingSubtitle(recording),
+          summary:text(richMetadata.overview) || text(sourcePresentation.summary),
+          posterUrl:posterUrl
+        }),
+        artwork:Object.assign({}, sourceArtwork, {preferredUrl:posterUrl})
+      })
+    });
   }
 
   function publicPath(path) {
@@ -491,12 +530,13 @@
     });
   }
 
-  function createInlineRecordingCard(recording, backendId) {
+  function createInlineRecordingCard(recording, backendId, originalRecording) {
+    const openValue = originalRecording || recording;
     const card = doc.createElement('button');
     card.type = 'button';
     card.className = 'media-home-discovery-card recording';
-    card.dataset.recordingId = recordingId(recording);
-    card.dataset.backendId = recordingBackendId(recording, backendId);
+    card.dataset.recordingId = recordingId(openValue);
+    card.dataset.backendId = recordingBackendId(openValue, backendId);
     card.appendChild(createInlineArtwork(recording));
 
     const copy = doc.createElement('span');
@@ -512,7 +552,7 @@
     }
     card.appendChild(copy);
     card.addEventListener('click', function () {
-      openInlineRecording(recording, backendId);
+      openInlineRecording(openValue, backendId);
     });
     return card;
   }
@@ -629,21 +669,83 @@
     return page(0);
   }
 
-  function renderGenreContents(card, section, label, backendId, genreId, recordings, request) {
+  function renderGenreContents(card, section, label, backendId, genreId, recordings, request, client) {
     const state = inline.genre;
-    if (state.request !== request || state.key !== genreId || selectedBackendId() !== backendId) return false;
+    if (state.request !== request || state.key !== genreId || selectedBackendId() !== backendId) return Promise.resolve(false);
     const expansion = makeInlineShell(section, 'genre', card, label);
     if (!recordings.length) {
       renderInlineState(expansion, 'Für dieses Genre sind keine Aufnahmen verfügbar.', false);
-      return true;
+      return Promise.resolve(true);
     }
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail media-home-inline-rail';
-    recordings.forEach(function (recording) {
-      rail.appendChild(createInlineRecordingCard(recording, backendId));
-    });
     expansion.appendChild(rail);
-    return true;
+
+    if (!client || typeof client.requestJson !== 'function') {
+      recordings.forEach(function (recording) {
+        rail.appendChild(createInlineRecordingCard(recording, backendId));
+      });
+      return Promise.resolve(true);
+    }
+
+    const settled = new Array(recordings.length);
+    let cursor = 0;
+    let published = 0;
+
+    function stillCurrent() {
+      return state.request === request &&
+        state.key === genreId &&
+        state.backendId === backendId &&
+        selectedBackendId() === backendId;
+    }
+
+    function publishReady() {
+      if (!stillCurrent()) return;
+      while (published < recordings.length && settled[published] !== undefined) {
+        const original = recordings[published];
+        const rich = settled[published];
+        const projected = recordingMetadataProjection(original, rich);
+        rail.appendChild(createInlineRecordingCard(projected, backendId, original));
+        published += 1;
+      }
+    }
+
+    function worker() {
+      if (!stillCurrent()) return Promise.resolve();
+      const index = cursor;
+      cursor += 1;
+      if (index >= recordings.length) return Promise.resolve();
+      const recording = recordings[index];
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId) {
+        settled[index] = null;
+        publishReady();
+        return worker();
+      }
+      return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
+        query: {
+          backend: backendId,
+          backendNativeId: nativeId
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      })).then(function (value) {
+        settled[index] = value && value.available === true ? value : null;
+      }).catch(function () {
+        settled[index] = null;
+      }).then(function () {
+        publishReady();
+        return worker();
+      });
+    }
+
+    const workers = [];
+    const workerCount = Math.min(INLINE_METADATA_CONCURRENCY, recordings.length);
+    for (let index = 0; index < workerCount; index += 1) workers.push(worker());
+    return Promise.all(workers).then(function () {
+      publishReady();
+      return stillCurrent();
+    });
   }
 
   function openGenreInline(card) {
@@ -673,7 +775,7 @@
     renderInlineState(expansion, 'Aufnahmen werden geladen …', false);
 
     return fetchAllGenreRecordings(client, backendId, genreId).then(function (recordings) {
-      return renderGenreContents(card, section, label, backendId, genreId, recordings, request);
+      return renderGenreContents(card, section, label, backendId, genreId, recordings, request, client);
     }).catch(function () {
       if (state.request !== request || state.key !== genreId) return false;
       const current = makeInlineShell(section, 'genre', card, label);
@@ -898,6 +1000,8 @@
       handleRailScroll: handleRailScroll,
       fetchAllGenreRecordings: fetchAllGenreRecordings,
       fetchFolderContents: fetchFolderContents,
+      recordingMetadataProjection: recordingMetadataProjection,
+      renderGenreContents: renderGenreContents,
       openGenreInline: openGenreInline,
       openFolderInline: openFolderInline,
       openFolderPathInline: openFolderPathInline
