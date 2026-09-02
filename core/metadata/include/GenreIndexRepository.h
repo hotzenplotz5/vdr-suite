@@ -109,6 +109,8 @@ struct GenreEpgItem
     bool artworkAvailable = false;
     int artworkWidth = 0;
     int artworkHeight = 0;
+    std::string artworkKind;
+    int artworkIndex = 0;
     std::vector<std::string> genreIds;
 };
 
