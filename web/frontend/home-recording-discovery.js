@@ -412,18 +412,19 @@
     if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
   }
 
-  function openRecording(recording, backendId) {
+  function openRecording(recording, backendId, options) {
     const id = recordingId(recording);
     if (!id) return Promise.resolve(false);
     const scopedBackend = recordingBackendId(recording, backendId);
     if (!scopedBackend) return Promise.resolve(false);
+    const config = options && typeof options === 'object' ? options : {};
     releasePreview('Recording Discovery Aufnahme geöffnet');
     return ensureRecordings2().then(function (ready) {
       if (!ready || !selectShellModule('recordings2')) return false;
       global.VdrSuiteRecordings2.openRecording(recording, {
         backendId: scopedBackend,
-        backLabel: '← Zurück zu Home',
-        onClose: returnHome
+        backLabel: config.backLabel || '← Zurück zu Home',
+        onClose: typeof config.onClose === 'function' ? config.onClose : returnHome
       });
       return true;
     });
@@ -898,7 +899,17 @@
       copy.append(label, detail);
       card.appendChild(copy);
       card.addEventListener('click', function () {
-        openRecording(recording, member.backendId || backendId);
+        openRecording(recording, member.backendId || backendId, {
+          backLabel: '← Zurück zur Staffel',
+          onClose: function () {
+            if (!selectShellModule('overview')) return;
+            renderSeriesDetail(series, selectedSeason, backendId);
+            const seriesSection = sectionFor('series');
+            if (seriesSection && typeof seriesSection.scrollIntoView === 'function') {
+              seriesSection.scrollIntoView({block: 'start', behavior: 'auto'});
+            }
+          }
+        });
       });
       episodeRail.appendChild(card);
     });
