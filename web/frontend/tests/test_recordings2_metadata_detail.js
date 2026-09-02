@@ -61,6 +61,7 @@ const context = vm.createContext({
 });
 
 [
+  'web/frontend/platform/helpers.js',
   'web/frontend/recordings2-shared.js',
   'web/frontend/recordings2-person-search-view.js',
   'web/frontend/recordings2-metadata-view.js',
