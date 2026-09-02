@@ -904,6 +904,10 @@
           onClose: function () {
             if (!selectShellModule('overview')) return;
             renderSeriesDetail(series, selectedSeason, backendId);
+            const seriesSection = sectionFor('series');
+            if (seriesSection && typeof seriesSection.scrollIntoView === 'function') {
+              seriesSection.scrollIntoView({block: 'start', behavior: 'auto'});
+            }
           }
         });
       });
