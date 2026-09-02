@@ -609,7 +609,24 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert.strictEqual(production.openedRecordings.length, 1);
   assert.strictEqual(production.openedRecordings[0].recording, episode15);
   assert.strictEqual(production.openedRecordings[0].options.backendId, 'default');
+  assert.strictEqual(production.openedRecordings[0].options.backLabel, '← Zurück zur Staffel');
+  assert.strictEqual(typeof production.openedRecordings[0].options.onClose, 'function');
   assert.strictEqual(production.modules[0], 'recordings2');
+
+  const seriesRequestsBeforeReturn = production.calls.genreRecordings.length;
+  production.openedRecordings[0].options.onClose();
+  assert.strictEqual(production.modules[production.modules.length - 1], 'overview');
+  assert.strictEqual(production.calls.genreRecordings.length, seriesRequestsBeforeReturn);
+  const returnedSeasonRail = findRail(production.host, 'series');
+  assert.strictEqual(findEpisodeCards(returnedSeasonRail).length, 15);
+  const returnedSeason10 = findSeasonButton(returnedSeasonRail, 10);
+  assert(returnedSeason10);
+  assert(String(returnedSeason10.className).includes('selected'));
+  const backToSeries = findElement(returnedSeasonRail, (element) =>
+    element.tagName === 'BUTTON' && element.textContent === '← Serien');
+  assert(backToSeries);
+  backToSeries.listeners.click[0]();
+  assert.strictEqual(findSeriesCards(findRail(production.host, 'series')).length, 14);
 
   const scopedEpisode = makeEpisode('Scoped Series', 1, 1, 'scoped');
   const foreignSeries = Object.assign({}, makeEpisode('Foreign Series', 1, 1, 'foreign'), {
