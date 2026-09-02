@@ -66,21 +66,23 @@ jobs:
           from pathlib import Path
           p = Path('web/frontend/tests/test_phase66_live_tv_hero.js')
           text = p.read_text()
-          old = """  heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
-          heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
-          assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');
-          assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');"""
-          new = """  heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
-          heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
-          assert.strictEqual(hero.snapshot().selectedChannelId, 'C21');
-          assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute 21');"""
-          if text.count(old) != 1:
-              raise SystemExit('live-tv swipe expectation marker mismatch')
-          text = text.replace(old, new, 1)
-          old_watch = "  assert.strictEqual(window.lastStartedChannelId, 'C1');"
+          touch_marker = "heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});"
+          index = text.find(touch_marker)
+          if index < 0:
+              raise SystemExit('live-tv touchend marker missing')
+          before = text[:index]
+          after = text[index:]
+          old_channel = "assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');"
+          old_title = "assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');"
+          if old_channel not in after or old_title not in after:
+              raise SystemExit('live-tv swipe assertions missing')
+          after = after.replace(old_channel, "assert.strictEqual(hero.snapshot().selectedChannelId, 'C21');", 1)
+          after = after.replace(old_title, "assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute 21');", 1)
+          text = before + after
+          old_watch = "assert.strictEqual(window.lastStartedChannelId, 'C1');"
           if text.count(old_watch) != 1:
               raise SystemExit('live-tv watch expectation marker mismatch')
-          text = text.replace(old_watch, "  assert.strictEqual(window.lastStartedChannelId, 'C21');", 1)
+          text = text.replace(old_watch, "assert.strictEqual(window.lastStartedChannelId, 'C21');", 1)
           p.write_text(text)
           PY
 
