@@ -24,19 +24,37 @@ jobs:
           from pathlib import Path
           script_path = Path('/tmp/phase66_home_performance_patch.py')
           source = script_path.read_text()
-          old = '''replace_once(path,
+
+          old_insert = '''replace_once(path,
           "  function installPlacementObserver() {",
           movies_more + "  function installPlacementObserver() {")'''
-          new = '''p = Path(path)
+          new_insert = '''p = Path(path)
           value = p.read_text()
           marker = "  function installPlacementObserver() {"
           index = value.rfind(marker)
           if index < 0:
               raise SystemExit(f"{path}: installPlacementObserver marker not found")
           p.write_text(value[:index] + movies_more + value[index:])'''
-          if source.count(old) != 1:
-              raise SystemExit('temporary patch-script repair marker mismatch')
-          script_path.write_text(source.replace(old, new, 1))
+          if source.count(old_insert) != 1:
+              raise SystemExit('temporary patch-script insertion repair marker mismatch')
+          source = source.replace(old_insert, new_insert, 1)
+
+          old_bind = '''replace_once(path,
+          "    installPlacementObserver();\\n    installModuleObserver();",
+          "    installPlacementObserver();\\n    installModuleObserver();\\n    bindNearEnd();")'''
+          new_bind = '''p = Path(path)
+          value = p.read_text()
+          marker = "    installPlacementObserver();\\n    installModuleObserver();"
+          index = value.rfind(marker)
+          if index < 0:
+              raise SystemExit(f"{path}: recent-movies install marker not found")
+          replacement = marker + "\\n    bindNearEnd();"
+          p.write_text(value[:index] + replacement + value[index + len(marker):])'''
+          if source.count(old_bind) != 1:
+              raise SystemExit('temporary patch-script bind repair marker mismatch')
+          source = source.replace(old_bind, new_bind, 1)
+
+          script_path.write_text(source)
           PY
           python3 /tmp/phase66_home_performance_patch.py
 
