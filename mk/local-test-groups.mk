@@ -180,5 +180,6 @@ test-frontend-i18n:
 	node web/frontend/tests/test_epg_metadata_detail.js
 	node web/frontend/tests/test_epg_metadata_mobile_navigation.js
 	node web/frontend/tests/test_epg_metadata_detail_hook.js
+	node web/frontend/tests/test_epg_detail_poster_priority.js
 	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
 	python3 web/frontend/tests/test_epg_metadata_runtime_bundle.py
