@@ -22,6 +22,9 @@
     selectedIndex: 0,
     loadingChannels: false,
     loadingPrograms: false,
+    programmeLoadingMore: false,
+    programmeLoadedChannelCount: 0,
+    programmeNearEndBound: false,
     dataError: '',
     programError: '',
     actionError: '',
@@ -109,6 +112,15 @@
     const artwork = event && event.artwork;
     if (artwork && artwork.available === true && text(artwork.url)) return resolvePublicUrl(artwork.url);
     return resolvePublicUrl(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'], ''));
+  }
+
+  function eventIdentity(event) {
+    return [
+      eventChannelId(event),
+      text(pick(event, ['eventId', 'id', 'nativeId'], '')),
+      String(eventStart(event)),
+      eventTitle(event)
+    ].join('\n');
   }
 
   function channelEvents(channel, events) {
@@ -294,7 +306,7 @@
       event: next
         ? nextEventForChannel(channel, state.events, now)
         : currentEventForChannel(channel, state.events, now)
-    })).filter(entry => Boolean(entry.event)).slice(0, PROGRAMME_RAIL_LIMIT);
+    })).filter(entry => Boolean(entry.event));
   }
 
   function createProgrammeArtwork(channel, event) {
@@ -539,6 +551,10 @@
     }
     section.className = 'media-home-live-guide media-home-live-guide-' + kind;
     section.setAttribute('aria-labelledby', 'media-home-live-guide-' + kind + '-title');
+    const previousRail = typeof section.querySelector === 'function'
+      ? section.querySelector('.media-home-live-guide-rail')
+      : null;
+    const previousScrollLeft = Number(previousRail && previousRail.scrollLeft) || 0;
     section.replaceChildren();
     const heading = doc.createElement('div');
     heading.className = 'media-home-section-heading';
@@ -551,6 +567,7 @@
     rail.className = 'media-home-live-guide-rail';
     rail.setAttribute('aria-label', title);
     entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));
+    rail.scrollLeft = previousScrollLeft;
     section.appendChild(rail);
     return true;
   }
@@ -698,6 +715,11 @@
     state.selectedIndex = ((Number(index) || 0) % length + length) % length;
     state.actionError = '';
     render();
+    if (state.programmeLoadedChannelCount > 0 &&
+        state.selectedIndex + 3 >= state.programmeLoadedChannelCount &&
+        state.programmeLoadedChannelCount < state.channels.length) {
+      loadNextProgrammePage();
+    }
     return true;
   }
   function selectOffset(delta) { return selectIndex(state.selectedIndex + Number(delta || 0)); }
@@ -709,44 +731,125 @@
     if (nextIndex < 0) nextIndex = Math.min(state.selectedIndex, Math.max(0, state.channels.length - 1));
     state.selectedIndex = Math.max(0, nextIndex);
   }
-  function applyPrograms(data) { state.events = list(data, 'events').slice(); }
+  function applyPrograms(data, append) {
+    const incoming = list(data, 'events').slice();
+    if (!append) {
+      state.events = incoming;
+      return;
+    }
+    const merged = new Map();
+    state.events.concat(incoming).forEach(event => {
+      merged.set(eventIdentity(event), event);
+    });
+    state.events = Array.from(merged.values());
+  }
 
-  function loadPrograms(sequence) {
+  function loadProgrammePage(sequence, offset, reset) {
     const client = clientApi();
     if (!client || typeof client.fetchClientEpgCacheWindow !== 'function' || state.channels.length === 0) {
-      state.loadingPrograms = false;
+      if (reset) state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
       state.programError = state.channels.length === 0 ? '' : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       render();
       return Promise.resolve(null);
     }
-    const ids = state.channels.map(channelId).filter(Boolean);
+
+    const start = Math.max(0, Number(offset) || 0);
+    const pageChannels = state.channels.slice(start, start + PROGRAMME_RAIL_LIMIT);
+    const ids = pageChannels.map(channelId).filter(Boolean);
     if (ids.length === 0) {
-      state.loadingPrograms = false;
+      if (reset) state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
       render();
       return Promise.resolve(null);
     }
+    if (!reset && state.programmeLoadingMore) return Promise.resolve(null);
+
     const now = Math.floor(Date.now() / 1000);
-    state.loadingPrograms = true;
-    state.programError = '';
-    render();
+    if (reset) {
+      state.events = [];
+      state.programmeLoadedChannelCount = 0;
+      state.loadingPrograms = true;
+      state.programmeLoadingMore = false;
+      state.programError = '';
+      render();
+    } else {
+      state.programmeLoadingMore = true;
+    }
+
     return client.fetchClientEpgCacheWindow({
-      query: {backend: state.backendId, channelIds: ids.join(','), fromTime: String(now - 21600), untilTime: String(now + 21600), limit: '0', _: String(Date.now())},
-      cache: 'no-store', credentials: 'same-origin'
+      query: {
+        backend: state.backendId,
+        channelIds: ids.join(','),
+        fromTime: String(now - 21600),
+        untilTime: String(now + 21600),
+        limit: '0',
+        _: String(Date.now())
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
     }).then(data => {
       if (!state.active || sequence !== state.requestSequence) return null;
-      applyPrograms(data);
+      applyPrograms(data, !reset);
+      state.programmeLoadedChannelCount = Math.max(
+        state.programmeLoadedChannelCount,
+        start + pageChannels.length
+      );
       state.loadingPrograms = false;
+      state.programmeLoadingMore = false;
       state.programError = '';
       render();
       return data;
     }).catch(() => {
       if (!state.active || sequence !== state.requestSequence) return null;
-      state.events = [];
-      state.loadingPrograms = false;
-      state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      if (reset) {
+        state.events = [];
+        state.programmeLoadedChannelCount = 0;
+        state.loadingPrograms = false;
+        state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      }
+      state.programmeLoadingMore = false;
       render();
       return null;
     });
+  }
+
+  function loadPrograms(sequence) {
+    return loadProgrammePage(sequence, 0, true);
+  }
+
+  function loadNextProgrammePage() {
+    if (!state.active || state.loadingChannels || state.loadingPrograms || state.programmeLoadingMore ||
+        state.programmeLoadedChannelCount >= state.channels.length) {
+      return Promise.resolve(false);
+    }
+    return loadProgrammePage(
+      state.requestSequence,
+      state.programmeLoadedChannelCount,
+      false
+    ).then(data => Boolean(data));
+  }
+
+  function railHasClass(rail, className) {
+    if (!rail) return false;
+    if (rail.classList && typeof rail.classList.contains === 'function') {
+      return rail.classList.contains(className);
+    }
+    return String(rail.className || '').split(/\s+/).includes(className);
+  }
+
+  function handleProgrammeRailNearEnd(event) {
+    const rail = event && event.detail && event.detail.rail;
+    if (!railHasClass(rail, 'media-home-live-guide-rail')) return false;
+    loadNextProgrammePage();
+    return true;
+  }
+
+  function bindProgrammeRailNearEnd() {
+    if (state.programmeNearEndBound || !doc || typeof doc.addEventListener !== 'function') return false;
+    state.programmeNearEndBound = true;
+    doc.addEventListener('vdr-suite-home-rail-near-end', handleProgrammeRailNearEnd);
+    return true;
   }
 
   function load(force) {
@@ -757,6 +860,11 @@
     state.backendId = nextBackend;
     state.dataError = '';
     state.programError = '';
+    if (force || backendChanged) {
+      state.events = [];
+      state.programmeLoadedChannelCount = 0;
+      state.programmeLoadingMore = false;
+    }
     if (!force && !backendChanged && state.channels.length > 0) {
       render();
       return loadPrograms(++state.requestSequence);
@@ -774,13 +882,14 @@
       if (!state.active || sequence !== state.requestSequence) return null;
       applyChannels(data);
       state.loadingChannels = false;
-      render();
       return loadPrograms(sequence);
     }).catch(error => {
       if (!state.active || sequence !== state.requestSequence) return null;
       state.loadingChannels = false;
       state.channels = [];
       state.events = [];
+      state.programmeLoadedChannelCount = 0;
+      state.programmeLoadingMore = false;
       state.dataError = error && error.message ? error.message : 'Senderliste konnte nicht geladen werden.';
       render();
       return null;
@@ -906,6 +1015,7 @@
     if (!doc) return;
     installStyles();
     bindNavigation();
+    bindProgrammeRailNearEnd();
     installObserver();
     scheduleSync(false);
   }
@@ -925,6 +1035,9 @@
       nextEventTitle: next ? eventTitle(next) : '',
       loadingChannels: state.loadingChannels,
       loadingPrograms: state.loadingPrograms,
+      programmeLoadingMore: state.programmeLoadingMore,
+      programmeLoadedChannelCount: state.programmeLoadedChannelCount,
+      programmeHasMore: state.programmeLoadedChannelCount < state.channels.length,
       dataError: state.dataError,
       programError: state.programError,
       actionError: state.actionError
@@ -951,6 +1064,8 @@
       renderProgrammeRails,
       applyChannels,
       applyPrograms,
+      loadNextProgrammePage,
+      handleProgrammeRailNearEnd,
       render,
       bindHeroInteractions,
       setActive(value) { state.active = Boolean(value); },

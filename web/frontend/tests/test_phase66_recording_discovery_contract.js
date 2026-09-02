@@ -59,13 +59,17 @@ assert(!source.includes('seriesCatalog'));
 assert(!source.includes('SERIES_MEMBER_LIMIT'));
 assert(!source.includes('SERIES_LIMIT'));
 
-// Persisted Native Recording Metadata enriches canonical members only, via backendNativeId and bounded concurrency.
+// Persisted Native Recording Metadata enriches canonical members only, via backendNativeId,
+// a shared backend/generation-scoped request cache and the established concurrency ceiling.
 assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
-assert(source.includes('backendNativeId: candidate.nativeId'));
+assert(source.includes('backendNativeId: task.nativeId'));
 assert(source.includes("cache: 'no-store'"));
 assert(source.includes("credentials: 'same-origin'"));
 assert(source.includes('const SERIES_METADATA_CONCURRENCY = 4'));
-assert(source.includes('Math.min(SERIES_METADATA_CONCURRENCY, queue.length)'));
+assert(source.includes('const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY'));
+assert(source.includes('cache.active < SERIES_METADATA_TOTAL_CONCURRENCY'));
+assert(source.includes('cache.inflight.has(nativeId)'));
+assert(source.includes('requestSeriesRecordingMetadata(client, backendId, nativeId, generation)'));
 assert(source.includes('richProviderId !== 0'));
 assert(source.includes('rich.get(nativeId) || null'));
 assert(!source.includes('fetch("https://'));

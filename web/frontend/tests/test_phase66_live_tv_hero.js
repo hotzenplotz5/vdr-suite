@@ -35,6 +35,17 @@ assert(!heroSource.includes('/api/media/sessions'));
 assert(!heroSource.includes('createLivePanel('));
 assert(!heroSource.includes('<video'));
 
+const channelLoadSequence = heroSource.slice(
+  heroSource.indexOf('return client.fetchClientChannels('),
+  heroSource.indexOf('}).catch(error =>', heroSource.indexOf('return client.fetchClientChannels('))
+);
+assert(channelLoadSequence.includes(
+  'applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence);'
+));
+assert(!channelLoadSequence.includes(
+  'state.loadingChannels = false;\n      render();\n      return loadPrograms(sequence);'
+));
+
 function createClassList(initial) {
   const values = new Set(String(initial || '').split(/\s+/).filter(Boolean));
   return {
@@ -204,6 +215,9 @@ const channelResponse = {
     {id: 'C1', name: 'Eins', number: 1, radio: false, enabled: true}
   ]
 };
+for (let number = 21; number <= 48; number += 1) {
+  channelResponse.channels.push({id: 'C' + String(number), name: 'Kanal ' + String(number), number, radio: false, enabled: true});
+}
 const events = [];
 [
   ['C1', 'Heute Eins'],
@@ -213,6 +227,12 @@ const events = [];
   events.push({channelId, title, startTime: now - 600, endTime: now + 1200});
   events.push({channelId, title: 'Danach ' + title, startTime: now + 1200, endTime: now + 3000});
 });
+for (let number = 21; number <= 48; number += 1) {
+  const channelId = 'C' + String(number);
+  events.push({channelId, title: 'Heute ' + String(number), startTime: now - 600, endTime: now + 1200});
+  events.push({channelId, title: 'Danach ' + String(number), startTime: now + 1200, endTime: now + 3000});
+}
+const epgChannelRequests = [];
 
 const clientApi = {
   fetchClientChannels(options) {
@@ -223,8 +243,9 @@ const clientApi = {
   fetchClientEpgCacheWindow(options) {
     epgFetchCount += 1;
     assert.strictEqual(options.query.backend, 'backend-a');
-    assert.strictEqual(options.query.channelIds, 'C1,C2,C20');
-    return Promise.resolve({events});
+    const requested = String(options.query.channelIds || '').split(',').filter(Boolean);
+    epgChannelRequests.push(requested);
+    return Promise.resolve({events: events.filter(event => requested.includes(event.channelId))});
   },
   requestJson(requestPath) {
     if (String(requestPath).includes('/api/media/sessions')) sessionRequestCount += 1;
@@ -285,9 +306,13 @@ assert.ok(window.VdrSuiteHomeLiveHero);
 
   assert.strictEqual(channelFetchCount, 1);
   assert.strictEqual(epgFetchCount, 1);
+  assert.strictEqual(epgChannelRequests.length, 1);
+  assert.strictEqual(epgChannelRequests[0].length, 24);
   assert.strictEqual(liveStartCount, 0);
   assert.strictEqual(sessionRequestCount, 0);
-  assert.strictEqual(hero.snapshot().channelCount, 3);
+  assert.strictEqual(hero.snapshot().channelCount, 31);
+  assert.strictEqual(hero.snapshot().programmeLoadedChannelCount, 24);
+  assert.strictEqual(hero.snapshot().programmeHasMore, true);
   assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');
   assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');
   assert.strictEqual(hero.snapshot().nextEventTitle, 'Danach Heute Eins');
@@ -309,9 +334,18 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert(flattenText(nextSection).includes('Danach Heute Eins'));
   assert(flattenText(nextSection).includes('Danach Heute Zwei'));
   assert(flattenText(nextSection).includes('Danach Heute Zwanzig'));
-  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 3);
-  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 3);
+  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 24);
+  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 24);
   assert(findByClass(nowSection, 'media-home-live-guide-artwork'));
+
+  assert.strictEqual(await hero.__test.loadNextProgrammePage(), true);
+  assert.strictEqual(epgFetchCount, 2);
+  assert.strictEqual(epgChannelRequests[1].length, 7);
+  assert.strictEqual(hero.snapshot().programmeLoadedChannelCount, 31);
+  assert.strictEqual(hero.snapshot().programmeHasMore, false);
+  assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 31);
+  assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 31);
+  assert.strictEqual(new Set(findByClass(nowSection, 'media-home-live-guide-rail').children.map(card => card.dataset.channelId)).size, 31);
 
   const dataRequestBaseline = channelFetchCount + epgFetchCount;
 
@@ -342,8 +376,8 @@ assert.ok(window.VdrSuiteHomeLiveHero);
 
   heroRoot.dispatch('touchstart', {touches: [{clientX: 210, clientY: 30}]});
   heroRoot.dispatch('touchend', {changedTouches: [{clientX: 105, clientY: 34}]});
-  assert.strictEqual(hero.snapshot().selectedChannelId, 'C1');
-  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');
+  assert.strictEqual(hero.snapshot().selectedChannelId, 'C21');
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute 21');
   assert.strictEqual(liveStartCount, 0);
   assert.strictEqual(sessionRequestCount, 0);
   assert.strictEqual(channelFetchCount + epgFetchCount, dataRequestBaseline);
@@ -360,7 +394,7 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   findButton(heroRoot, 'Live ansehen').click();
   assert.strictEqual(liveNavigationCount, 1);
   assert.strictEqual(liveStartCount, 1);
-  assert.strictEqual(window.lastStartedChannelId, 'C1');
+  assert.strictEqual(window.lastStartedChannelId, 'C21');
 
   // EPG remains the existing owning navigation flow.
   findButton(heroRoot, 'EPG').click();

@@ -8,6 +8,7 @@
   const GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
   const SERIES_METADATA_CONCURRENCY = 4;
+  const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
   const FOLDER_LIMIT = 100;
   const FOLDER_VISIBLE_LIMIT = 12;
   const state = {
@@ -24,7 +25,8 @@
     randomGenreGeneration: -1,
     randomGenreId: '',
     randomFolderGeneration: -1,
-    randomFolderPath: ''
+    randomFolderPath: '',
+    seriesMetadataCache: null
   };
 
   function text(value) {
@@ -990,6 +992,248 @@
       homeIsActive();
   }
 
+  function cancelSeriesMetadataQueue(cache) {
+    if (!cache) return;
+    [cache.priorityQueue, cache.queue].forEach(function (queue) {
+      if (!Array.isArray(queue)) return;
+      while (queue.length) {
+        const task = queue.shift();
+        cache.inflight.delete(task.nativeId);
+        task.resolve(null);
+      }
+    });
+  }
+
+  function seriesMetadataCache(generation, backendId) {
+    const existing = state.seriesMetadataCache;
+    if (existing && existing.generation === generation && existing.backendId === backendId) {
+      return existing;
+    }
+    cancelSeriesMetadataQueue(existing);
+    const cache = {
+      generation: generation,
+      backendId: backendId,
+      resolved: new Map(),
+      inflight: new Map(),
+      representativePromises: new Map(),
+      priorityQueue: [],
+      queue: [],
+      scheduledSeriesKeys: new Set(),
+      readySeriesKeys: new Set(),
+      active: 0
+    };
+    state.seriesMetadataCache = cache;
+    return cache;
+  }
+
+  function seriesMetadataPriorityKey(recording, backendId) {
+    const member = seriesMemberProjection(recording, null, backendId);
+    return text(member && member.seriesKey);
+  }
+
+  function promoteSeriesMetadataTask(cache, nativeId, seriesKey) {
+    if (!cache || !nativeId) return false;
+    let index = cache.priorityQueue.findIndex(function (task) {
+      return task.nativeId === nativeId;
+    });
+    if (index >= 0) {
+      if (seriesKey) cache.priorityQueue[index].seriesKey = seriesKey;
+      return true;
+    }
+    index = cache.queue.findIndex(function (task) {
+      return task.nativeId === nativeId;
+    });
+    if (index < 0) return false;
+    const task = cache.queue.splice(index, 1)[0];
+    if (seriesKey) task.seriesKey = seriesKey;
+    cache.priorityQueue.push(task);
+    return true;
+  }
+
+  function readySeriesRecordings(recordings, generation, backendId) {
+    const cache = state.seriesMetadataCache;
+    if (!cache || cache.generation !== generation || cache.backendId !== backendId) return [];
+    const nativeBySeries = new Map();
+    (recordings || []).forEach(function (recording) {
+      const key = seriesMetadataPriorityKey(recording, backendId);
+      if (!key) return;
+      if (!nativeBySeries.has(key)) nativeBySeries.set(key, false);
+      if (recordingBackendNativeId(recording)) nativeBySeries.set(key, true);
+    });
+    const ready = new Set(cache.readySeriesKeys);
+    (recordings || []).forEach(function (recording) {
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || !cache.resolved.has(nativeId)) return;
+      const key = seriesMetadataPriorityKey(recording, backendId);
+      if (key) ready.add(key);
+    });
+    nativeBySeries.forEach(function (hasNativeId, key) {
+      if (!hasNativeId) ready.add(key);
+    });
+    return (recordings || []).filter(function (recording) {
+      const key = seriesMetadataPriorityKey(recording, backendId);
+      return Boolean(key && ready.has(key));
+    });
+  }
+
+  function waitForSeriesRepresentatives(client, recordings, backendId, generation) {
+    const cache = seriesMetadataCache(generation, backendId);
+    const representativeNativeIds = new Map();
+    (recordings || []).forEach(function (recording) {
+      const key = seriesMetadataPriorityKey(recording, backendId);
+      if (!key) return;
+      if (!representativeNativeIds.has(key)) representativeNativeIds.set(key, '');
+      const nativeId = recordingBackendNativeId(recording);
+      if (nativeId && !representativeNativeIds.get(key)) {
+        representativeNativeIds.set(key, nativeId);
+      }
+    });
+
+    const pending = [];
+    representativeNativeIds.forEach(function (nativeId, seriesKey) {
+      if (!nativeId) {
+        cache.readySeriesKeys.add(seriesKey);
+        return;
+      }
+      if (cache.readySeriesKeys.has(seriesKey)) return;
+      let promise = cache.representativePromises.get(seriesKey);
+      if (!promise) {
+        cache.scheduledSeriesKeys.add(seriesKey);
+        promise = requestSeriesRecordingMetadata(
+          client,
+          backendId,
+          nativeId,
+          generation,
+          {priority: true, seriesKey: seriesKey}
+        );
+        cache.representativePromises.set(seriesKey, promise);
+      }
+      pending.push(promise);
+    });
+    return Promise.allSettled(pending);
+  }
+
+  function pumpSeriesMetadataCache(cache) {
+    if (!cache || state.seriesMetadataCache !== cache) return;
+    if (!current(cache.generation, cache.backendId)) {
+      cancelSeriesMetadataQueue(cache);
+      return;
+    }
+    while (cache.active < SERIES_METADATA_TOTAL_CONCURRENCY &&
+           (cache.priorityQueue.length || cache.queue.length)) {
+      const task = cache.priorityQueue.length
+        ? cache.priorityQueue.shift()
+        : cache.queue.shift();
+      cache.active += 1;
+      Promise.resolve(task.client.requestJson('/api/vdr/recordings/metadata', {
+        query: {
+          backend: cache.backendId,
+          backendNativeId: task.nativeId
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      })).then(function (value) {
+        const result = current(cache.generation, cache.backendId) &&
+          value && value.available === true ? value : null;
+        cache.resolved.set(task.nativeId, result);
+        if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
+        task.resolve(result);
+      }).catch(function () {
+        cache.resolved.set(task.nativeId, null);
+        if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
+        task.resolve(null);
+      }).then(function () {
+        cache.active = Math.max(0, cache.active - 1);
+        cache.inflight.delete(task.nativeId);
+        pumpSeriesMetadataCache(cache);
+      });
+    }
+  }
+
+  function requestSeriesRecordingMetadata(client, backendId, nativeId, generation, options) {
+    if (!client || typeof client.requestJson !== 'function' || !nativeId) {
+      return Promise.resolve(null);
+    }
+    const cache = seriesMetadataCache(generation, backendId);
+    const config = options && typeof options === 'object' ? options : {};
+    const seriesKey = text(config.seriesKey);
+    if (cache.resolved.has(nativeId)) {
+      if (seriesKey) cache.readySeriesKeys.add(seriesKey);
+      return Promise.resolve(cache.resolved.get(nativeId));
+    }
+    if (cache.inflight.has(nativeId)) {
+      const existing = cache.inflight.get(nativeId);
+      if (config.priority === true && seriesKey) {
+        cache.representativePromises.set(seriesKey, existing);
+        if (!promoteSeriesMetadataTask(cache, nativeId, seriesKey)) {
+          existing.then(function () {
+            if (state.seriesMetadataCache === cache) cache.readySeriesKeys.add(seriesKey);
+          });
+        }
+      }
+      return existing;
+    }
+
+    let resolveTask = null;
+    const promise = new Promise(function (resolve) {
+      resolveTask = resolve;
+    });
+    const task = {
+      client: client,
+      nativeId: nativeId,
+      seriesKey: config.priority === true ? seriesKey : '',
+      resolve: resolveTask
+    };
+    cache.inflight.set(nativeId, promise);
+    if (config.priority === true) {
+      if (seriesKey) cache.representativePromises.set(seriesKey, promise);
+      cache.priorityQueue.push(task);
+    } else {
+      cache.queue.push(task);
+    }
+    pumpSeriesMetadataCache(cache);
+    return promise;
+  }
+
+  function prefetchSeriesRecordingMetadata(client, recordings, backendId, generation, onResolved) {
+    if (!client || typeof client.requestJson !== 'function') return [];
+    const cache = seriesMetadataCache(generation, backendId);
+    const seen = new Set();
+    const pending = [];
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) return;
+      seen.add(nativeId);
+      const seriesKey = seriesMetadataPriorityKey(recording, backendId);
+      const priority = Boolean(seriesKey && !cache.scheduledSeriesKeys.has(seriesKey));
+      if (priority) cache.scheduledSeriesKeys.add(seriesKey);
+      pending.push(requestSeriesRecordingMetadata(
+        client,
+        backendId,
+        nativeId,
+        generation,
+        {priority: priority, seriesKey: priority ? seriesKey : ''}
+      ).then(function (value) {
+        if (typeof onResolved === 'function' && current(generation, backendId)) {
+          onResolved(value, nativeId);
+        }
+        return value;
+      }));
+    });
+    return pending;
+  }
+
+  function resolvedSeriesMetadata(generation, backendId) {
+    const cache = state.seriesMetadataCache;
+    const resolved = new Map();
+    if (!cache || cache.generation !== generation || cache.backendId !== backendId) return resolved;
+    cache.resolved.forEach(function (value, nativeId) {
+      if (value && value.available === true) resolved.set(nativeId, value);
+    });
+    return resolved;
+  }
+
   function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {
     const recordings = [];
 
@@ -1006,6 +1250,17 @@
         const rawPage = list(payload, 'recordings');
         const pageRecordings = canonicalRecordings(payload, backendId);
         Array.prototype.push.apply(recordings, pageRecordings);
+        prefetchSeriesRecordingMetadata(
+          client,
+          pageRecordings,
+          backendId,
+          generation,
+          function () {
+            if (typeof onProgress === 'function' && current(generation, backendId)) {
+              onProgress(recordings.slice());
+            }
+          }
+        );
 
         const nextOffset = offset + rawPage.length;
         const total = pageTotal(payload, nextOffset);
@@ -1073,17 +1328,7 @@
       return Promise.resolve(resolved);
     }
 
-    const queue = [];
     const seen = new Set();
-    (recordings || []).forEach(function (recording) {
-      if (recordingBackendId(recording, backendId) !== backendId) return;
-      const nativeId = recordingBackendNativeId(recording);
-      if (!nativeId || seen.has(nativeId)) return;
-      seen.add(nativeId);
-      queue.push({recording: recording, nativeId: nativeId});
-    });
-
-    let nextIndex = 0;
     let publishedSize = 0;
     function publishResolved() {
       if (!current(generation, backendId) ||
@@ -1095,37 +1340,20 @@
       onProgress(resolved);
     }
 
-    function worker() {
-      function next() {
-        if (!current(generation, backendId) || nextIndex >= queue.length) {
-          return Promise.resolve();
+    const pending = [];
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) return;
+      seen.add(nativeId);
+      pending.push(requestSeriesRecordingMetadata(client, backendId, nativeId, generation).then(function (value) {
+        if (current(generation, backendId) && value && value.available === true) {
+          resolved.set(nativeId, value);
+          publishResolved();
         }
-        const candidate = queue[nextIndex++];
-        return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-          query: {
-            backend: backendId,
-            backendNativeId: candidate.nativeId
-          },
-          cache: 'no-store',
-          credentials: 'same-origin'
-        })).then(function (value) {
-          if (current(generation, backendId) && value && value.available === true) {
-            resolved.set(candidate.nativeId, value);
-            publishResolved();
-          }
-        }).catch(function () {
-          // Per-recording metadata is enrichment only; keep the canonical recording fallback.
-        }).then(next);
-      }
-      return next();
-    }
-
-    const workers = [];
-    const workerCount = Math.min(SERIES_METADATA_CONCURRENCY, queue.length);
-    for (let index = 0; index < workerCount; index += 1) {
-      workers.push(worker());
-    }
-    return Promise.all(workers).then(function () { return resolved; });
+      }));
+    });
+    return Promise.all(pending).then(function () { return resolved; });
   }
 
   function positionRandomGenreRail() {
@@ -1257,9 +1485,17 @@
       backendId,
       text(seriesGenre.id),
       generation,
-      canEnrichMetadata ? null : function (recordings) {
+      function (recordings) {
         if (!current(generation, backendId) || !recordings.length) return;
-        applySeriesProjection(recordings, backendId);
+        if (!canEnrichMetadata) {
+          applySeriesProjection(recordings, backendId);
+          return;
+        }
+        const rich = resolvedSeriesMetadata(generation, backendId);
+        const readyRecordings = readySeriesRecordings(recordings, generation, backendId);
+        if (readyRecordings.length) {
+          applySeriesProjection(readyRecordings, backendId, rich);
+        }
       }
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
@@ -1274,18 +1510,11 @@
       if (!canEnrichMetadata) {
         return applySeriesProjection(recordings, backendId);
       }
-      return fetchSeriesRecordingMetadata(
-        client,
-        recordings,
-        backendId,
-        generation,
-        function (rich) {
-          if (!current(generation, backendId) || rich.size === 0) return;
-          applySeriesProjection(recordings, backendId, rich, {requireRich: true});
-        }
-      ).then(function (rich) {
+      return waitForSeriesRepresentatives(client, recordings, backendId, generation).then(function () {
         if (!current(generation, backendId)) return false;
-        return applySeriesProjection(recordings, backendId, rich);
+        const rich = resolvedSeriesMetadata(generation, backendId);
+        const readyRecordings = readySeriesRecordings(recordings, generation, backendId);
+        return applySeriesProjection(readyRecordings, backendId, rich);
       });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
@@ -1529,6 +1758,11 @@
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
       fetchRootFolderProjection: fetchRootFolderProjection,
       fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,
+      requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,
+      prefetchSeriesRecordingMetadata: prefetchSeriesRecordingMetadata,
+      resolvedSeriesMetadata: resolvedSeriesMetadata,
+      readySeriesRecordings: readySeriesRecordings,
+      waitForSeriesRepresentatives: waitForSeriesRepresentatives,
       renderRecordingRail: renderRecordingRail,
       renderFolderRail: renderFolderRail,
       renderSeriesRail: renderSeriesRail,

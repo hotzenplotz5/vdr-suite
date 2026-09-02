@@ -10,6 +10,8 @@
 
   const doc = global && global.document ? global.document : null;
   const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';
+  const RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
+  const RAIL_NEAR_END_THRESHOLD = 320;
   const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone="hero"]';
   const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder';
   const DRAG_CLASS = 'media-home-mouse-dragging';
@@ -77,6 +79,24 @@
 
   function closestTarget(target, selector) {
     return target && typeof target.closest === 'function' ? target.closest(selector) : null;
+  }
+
+  function railNearEnd(rail) {
+    if (!rail) return false;
+    const scrollWidth = Number(rail.scrollWidth) || 0;
+    const clientWidth = Number(rail.clientWidth) || 0;
+    const scrollLeft = Math.max(0, Number(rail.scrollLeft) || 0);
+    if (clientWidth <= 0 || scrollWidth <= clientWidth) return false;
+    return scrollWidth - scrollLeft - clientWidth <= RAIL_NEAR_END_THRESHOLD;
+  }
+
+  function handleRailScroll(event) {
+    const rail = closestTarget(event && event.target, RAIL_SELECTOR);
+    if (!rail || !railNearEnd(rail) || !doc ||
+        typeof doc.dispatchEvent !== 'function' ||
+        typeof global.CustomEvent !== 'function') return false;
+    doc.dispatchEvent(new global.CustomEvent(RAIL_NEAR_END_EVENT, {detail: {rail: rail}}));
+    return true;
   }
 
   function dragTarget(event) {
@@ -815,6 +835,7 @@
     doc.addEventListener('pointerup', handlePointerUp);
     doc.addEventListener('pointercancel', handlePointerCancel);
     doc.addEventListener('dragstart', handleNativeDragStart, true);
+    doc.addEventListener('scroll', handleRailScroll, true);
     doc.addEventListener('click', handleClickCapture, true);
     return true;
   }
@@ -870,8 +891,11 @@
     load: load,
     loadWhenBackendReady: loadWhenBackendReady,
     installMouseDrag: installMouseDrag,
+    nearEndEventName: RAIL_NEAR_END_EVENT,
     __test: Object.freeze({
       canonicalSelectedBackendId: canonicalSelectedBackendId,
+      railNearEnd: railNearEnd,
+      handleRailScroll: handleRailScroll,
       fetchAllGenreRecordings: fetchAllGenreRecordings,
       fetchFolderContents: fetchFolderContents,
       openGenreInline: openGenreInline,
