@@ -6,10 +6,10 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
-const source = fs.readFileSync(
-  path.join(frontendRoot, 'home-recording-discovery.js'),
-  'utf8'
-);
+const source = [
+  fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
+  fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8')
+].join('\n');
 
 const context = {
   window: {},
