@@ -20,6 +20,24 @@ jobs:
       - name: Apply scoped Home performance patch
         run: |
           git show cd61cf13410684b12791dabcf8ffcb34dc9a06e3:.github/phase66_home_performance_patch.py > /tmp/phase66_home_performance_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          script_path = Path('/tmp/phase66_home_performance_patch.py')
+          source = script_path.read_text()
+          old = '''replace_once(path,
+          "  function installPlacementObserver() {",
+          movies_more + "  function installPlacementObserver() {")'''
+          new = '''p = Path(path)
+          value = p.read_text()
+          marker = "  function installPlacementObserver() {"
+          index = value.rfind(marker)
+          if index < 0:
+              raise SystemExit(f"{path}: installPlacementObserver marker not found")
+          p.write_text(value[:index] + movies_more + value[index:])'''
+          if source.count(old) != 1:
+              raise SystemExit('temporary patch-script repair marker mismatch')
+          script_path.write_text(source.replace(old, new, 1))
+          PY
           python3 /tmp/phase66_home_performance_patch.py
 
       - name: Run focused frontend regressions
