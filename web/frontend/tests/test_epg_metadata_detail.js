@@ -41,6 +41,14 @@ class MockElement {
         names.forEach(name => values.add(name));
         this.className = Array.from(values).join(' ');
       },
+      toggle: (name, force) => {
+        const values = new Set(this.className.split(/\s+/).filter(Boolean));
+        const shouldAdd = force === undefined ? !values.has(name) : Boolean(force);
+        if (shouldAdd) values.add(name);
+        else values.delete(name);
+        this.className = Array.from(values).join(' ');
+        return shouldAdd;
+      },
       contains: name => this.className.split(/\s+/).filter(Boolean).includes(name)
     };
   }
