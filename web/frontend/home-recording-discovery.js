@@ -1664,7 +1664,10 @@
     });
   }
 
-  function loadGenres(client, backendId, generation, options) {
+  function loadGenres(client, backendId, generation) {
+    const options = arguments.length > 3 && arguments[3] && typeof arguments[3] === 'object'
+      ? arguments[3]
+      : null;
     renderState('genres', 'Genres', 'Genres werden geladen …', false);
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
@@ -1781,12 +1784,6 @@
         state.refreshInFlight.generation === state.generation &&
         state.refreshInFlight.invalidated !== true) {
       return state.refreshInFlight.promise;
-    }
-    if (config.coalesce === true && state.seriesCompletionInFlight &&
-        state.seriesCompletionInFlight.backendId === backendId &&
-        state.seriesCompletionInFlight.generation === state.generation &&
-        state.seriesCompletionInFlight.invalidated !== true) {
-      return Promise.resolve(true);
     }
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
