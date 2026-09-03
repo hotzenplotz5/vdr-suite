@@ -1,6 +1,6 @@
 # Phase 66 — Media Home and Browse Experience Closeout
 
-Status: **PHASE 66 CLOSEOUT COMPLETION CANDIDATE.** Golden desktop/mobile acceptance is PASS and the complete post-acceptance CI on `4dd5288eaedd2612db5ab4c11ec56d0e48ac1201` is PASS. This closeout status becomes final only when the exact commit containing this status update also passes the complete hosted CI graph. PR #264 remains Draft; Ready-for-review and merge still require explicit user authorization. Phase 67 is not authorized.
+Status: **SLICE 66.8 ACCEPTED / PHASE-66 CLOSEOUT CANDIDATE COMPLETE ON DRAFT PR #264.** Golden desktop/mobile acceptance is PASS and the complete post-acceptance CI is PASS. Phase 66 remains the current numbered runtime phase until the closeout PR is explicitly authorized for Ready-for-review/merge and the repository's merged-status documents are reconciled. Phase 67 is not started and not authorized.
 
 This document is the durable evidence matrix for Slice 66.8 — Golden User Journey and Real-System Acceptance. Slice 66.8 is an integration, acceptance and closeout slice. It introduces no new media, playback, artwork, metadata, history, Recording or navigation owner.
 
@@ -65,7 +65,7 @@ No Golden-journey failure exposed a new Phase-66 product defect, so Slice 66.8 r
 
 ## Post-acceptance CI evidence
 
-The first exact post-acceptance documentation head passed the complete six-job graph:
+The exact acceptance-recording head passed the complete six-job graph:
 
 ```text
 workflow=VDR-Suite CI
@@ -75,7 +75,7 @@ head=4dd5288eaedd2612db5ab4c11ec56d0e48ac1201
 result=PASS
 ```
 
-This run includes successful packaging/install staging, fast regression plus daemon build, architecture, frontend, docs and Make/test audit. The subsequent closeout-status commit must itself pass the same full graph before this completion candidate is treated as final.
+This run includes successful packaging/install staging, fast regression plus daemon build, architecture, frontend, docs and Make/test audit.
 
 ## Phase-66 completion matrix
 
@@ -90,8 +90,10 @@ This run includes successful packaging/install staging, fast regression plus dae
 | 7. Recently Watched uses explicit actor/history semantics | 66.6 accepted semantic/runtime evidence | PASS |
 | 8. Keyboard/touch/focus/accessibility gates | PR #233 + 66.7 + desktop/mobile Golden interaction checks | PASS |
 | 9. Golden desktop and mobile journeys | Slice-66.8 real-system acceptance above | PASS |
-| 10. Complete final-head CI including packaging/install regression | Post-acceptance CI #8568 PASS; exact closeout-status head must also PASS before finalization | FINAL EXACT-HEAD CHECK REQUIRED |
+| 10. Complete CI including packaging/install regression | exact post-acceptance head CI #8568 | PASS |
 | 11. Rollback and provider/session/privacy boundaries | ADR-0058 + accepted closeouts; Slice 66.8 changes documentation only | PASS |
+
+All technical and real-system Phase-66 closeout gates are satisfied on the Draft closeout branch. The remaining transition is repository workflow state, not additional product work: Ready-for-review, merged-status reconciliation and merge are explicitly approval-gated by `AGENTS.md`.
 
 ## Deferred boundary
 
@@ -101,6 +103,6 @@ The known symptom that visible Series metadata/artwork is not always projected a
 
 Slice 66.8 introduces no runtime behavior. Rollback is the documentation-only revert of the Slice-66.8 closeout/status commits. Accepted Phase-66 product runtime and provider/session/history/privacy ownership boundaries remain unchanged.
 
-## Finalization rule
+## Merge boundary
 
-Once the exact commit containing this completion status passes the complete `VDR-Suite CI` graph, all Phase-66 completion gates are satisfied and Phase 66 is closed for its accepted scope. PR #264 must nevertheless remain Draft until explicit user authorization to mark Ready-for-review; merge also requires explicit user authorization. Phase 67 does not become authorized automatically.
+PR #264 remains Draft. Until explicit user authorization is given, do not mark it Ready-for-review and do not merge it. While the closeout PR is unmerged, canonical volatile status continues to identify Phase 66 as the active numbered phase and Phase 67 as not authorized. A later approved merge transition may reconcile the merged status to Phase 66 completed / Phase 67 next-not-started, with the repository's phase-consistency gates applied to that transition.
