@@ -425,6 +425,7 @@
   }
 
   function selectShellModule(moduleName) {
+    if (text(moduleName) !== 'overview') invalidateSeriesForHomeExit(state.generation);
     if (typeof global.selectModule !== 'function') return false;
     global.selectModule(moduleName);
     return true;
@@ -992,20 +993,22 @@
     return renderSeriesRail(projection, backendId);
   }
 
+  function invalidateSeriesForHomeExit(generation) {
+    if (generation !== state.generation || generation <= 0) return false;
+    state.seriesInvalidatedGeneration = generation;
+    if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
+      state.refreshInFlight.invalidated = true;
+    }
+    if (state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.generation === generation) {
+      state.seriesCompletionInFlight.invalidated = true;
+    }
+    return true;
+  }
+
   function current(generation, backendId) {
     const active = homeIsActive();
-    if (!active) {
-      if (generation === state.generation) {
-        state.seriesInvalidatedGeneration = generation;
-      }
-      if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
-        state.refreshInFlight.invalidated = true;
-      }
-      if (state.seriesCompletionInFlight &&
-          state.seriesCompletionInFlight.generation === generation) {
-        state.seriesCompletionInFlight.invalidated = true;
-      }
-    }
+    if (!active) invalidateSeriesForHomeExit(generation);
     return generation === state.generation &&
       backendId === selectedBackendId() &&
       active;
@@ -1889,8 +1892,17 @@
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener('click', function (event) {
         const target = event && event.target;
-        if (target && typeof target.closest === 'function' &&
-            target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
+        if (!target || typeof target.closest !== 'function') return;
+        const moduleTarget = target.closest('.module-tab[data-module], [data-brand-module]');
+        const requestedModule = text(
+          moduleTarget && moduleTarget.dataset &&
+          (moduleTarget.dataset.module || moduleTarget.dataset.brandModule)
+        );
+        if (requestedModule && requestedModule !== 'overview') {
+          invalidateSeriesForHomeExit(state.generation);
+          return;
+        }
+        if (target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
           global.setTimeout(scheduleForHome, 0);
         }
       });
