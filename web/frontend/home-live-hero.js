@@ -15,6 +15,7 @@
 
   const doc = global.document || (typeof document !== 'undefined' ? document : null);
   const PROGRAMME_RAIL_LIMIT = 24;
+  const PROGRAMME_WARM_REUSE_MS = 60000;
   const state = {
     active: false,
     backendId: '',
@@ -26,6 +27,7 @@
     loadingPrograms: false,
     programmeLoadingMore: false,
     programmeLoadedChannelCount: 0,
+    programmeLoadedAt: 0,
     programmeNearEndBound: false,
     dataError: '',
     programError: '',
@@ -142,6 +144,7 @@
   function clearPrograms() {
     state.events = [];
     state.eventsByChannel = new Map();
+    state.programmeLoadedAt = 0;
   }
 
   function channelEvents(channel, events) {
@@ -825,6 +828,7 @@
       state.loadingPrograms = false;
       state.programmeLoadingMore = false;
       state.programError = '';
+      state.programmeLoadedAt = Date.now();
       render();
       return data;
     }).catch(() => {
@@ -893,7 +897,11 @@
       state.programmeLoadingMore = false;
     }
     if (!force && !backendChanged && state.channels.length > 0) {
-      render();
+      const reuseWarmPrograms = state.events.length > 0 &&
+        state.programmeLoadedAt > 0 &&
+        Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS;
+      render({programmeRails: !reuseWarmPrograms});
+      if (reuseWarmPrograms) return Promise.resolve(null);
       return loadPrograms(++state.requestSequence);
     }
     if (!client || typeof client.fetchClientChannels !== 'function') {
