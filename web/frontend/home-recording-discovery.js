@@ -10,6 +10,8 @@
   const SERIES_METADATA_CONCURRENCY = 4;
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
   const SERIES_WARM_TTL_MS = 60000;
+  const SERIES_METADATA_RETRY_MS = 60000;
+  const SERIES_METADATA_RETRY_BATCH = 8;
   const FOLDER_LIMIT = 100;
   const FOLDER_VISIBLE_LIMIT = 12;
   const state = {
@@ -19,6 +21,7 @@
     armed: false,
     refreshInFlight: null,
     seriesCompletionInFlight: null,
+    seriesMetadataRetryTimer: null,
     seriesInvalidatedGeneration: -1,
     seriesProjection: [],
     seriesBackendId: '',
@@ -993,9 +996,18 @@
     return renderSeriesRail(projection, backendId);
   }
 
+  function clearSeriesMetadataRetry() {
+    const timer = state.seriesMetadataRetryTimer;
+    state.seriesMetadataRetryTimer = null;
+    if (timer !== null && timer !== undefined && typeof global.clearTimeout === 'function') {
+      global.clearTimeout(timer);
+    }
+  }
+
   function invalidateSeriesForHomeExit(generation) {
     if (generation !== state.generation || generation <= 0) return false;
     state.seriesInvalidatedGeneration = generation;
+    clearSeriesMetadataRetry();
     if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
       state.refreshInFlight.invalidated = true;
     }
@@ -1035,6 +1047,7 @@
       clearSeriesWarm();
       return false;
     }
+    clearSeriesMetadataRetry();
     state.seriesWarmBackendId = backendId;
     state.seriesWarmCompletedAt = Date.now();
     return true;
@@ -1070,7 +1083,9 @@
       const nativeId = recordingBackendNativeId(recording);
       if (!nativeId || seen.has(nativeId)) continue;
       seen.add(nativeId);
-      if (!cache.resolved.has(nativeId) || cache.failedNativeIds.has(nativeId)) return false;
+      if (!cache.resolved.has(nativeId) ||
+          cache.failedNativeIds.has(nativeId) ||
+          cache.unsettledNativeIds.has(nativeId)) return false;
     }
     return true;
   }
@@ -1098,6 +1113,7 @@
       backendId: backendId,
       resolved: new Map(),
       failedNativeIds: new Set(),
+      unsettledNativeIds: new Set(),
       inflight: new Map(),
       representativePromises: new Map(),
       priorityQueue: [],
@@ -1217,13 +1233,20 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (value) {
-        const result = current(cache.generation, cache.backendId) &&
-          value && value.available === true ? value : null;
+        const active = current(cache.generation, cache.backendId);
+        const result = active && value && value.available === true ? value : null;
+        cache.failedNativeIds.delete(task.nativeId);
+        if (active && value && value.available !== true && value.settled === false) {
+          cache.unsettledNativeIds.add(task.nativeId);
+        } else {
+          cache.unsettledNativeIds.delete(task.nativeId);
+        }
         cache.resolved.set(task.nativeId, result);
         if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
         task.resolve(result);
       }).catch(function () {
         cache.failedNativeIds.add(task.nativeId);
+        cache.unsettledNativeIds.delete(task.nativeId);
         cache.resolved.set(task.nativeId, null);
         if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
         task.resolve(null);
@@ -1317,6 +1340,75 @@
       if (value && value.available === true) resolved.set(nativeId, value);
     });
     return resolved;
+  }
+
+  function scheduleSeriesMetadataRetry(client, recordings, backendId, generation) {
+    const cache = state.seriesMetadataCache;
+    if (!cache ||
+        cache.generation !== generation ||
+        cache.backendId !== backendId ||
+        !cache.unsettledNativeIds.size ||
+        state.seriesInvalidatedGeneration === generation ||
+        !current(generation, backendId)) {
+      clearSeriesMetadataRetry();
+      return false;
+    }
+    if (state.seriesMetadataRetryTimer !== null) return true;
+    if (typeof global.setTimeout !== 'function') return false;
+    state.seriesMetadataRetryTimer = global.setTimeout(function () {
+      state.seriesMetadataRetryTimer = null;
+      retryUnsettledSeriesMetadata(client, recordings, backendId, generation);
+    }, SERIES_METADATA_RETRY_MS);
+    return true;
+  }
+
+  function retryUnsettledSeriesMetadata(client, recordings, backendId, generation) {
+    if (!current(generation, backendId) || state.seriesInvalidatedGeneration === generation) {
+      clearSeriesMetadataRetry();
+      return Promise.resolve(false);
+    }
+    const cache = state.seriesMetadataCache;
+    if (!cache || cache.generation !== generation || cache.backendId !== backendId) {
+      clearSeriesMetadataRetry();
+      return Promise.resolve(false);
+    }
+
+    const recordingNativeIds = new Set();
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+      const nativeId = recordingBackendNativeId(recording);
+      if (nativeId) recordingNativeIds.add(nativeId);
+    });
+    const retryNativeIds = Array.from(cache.unsettledNativeIds).filter(function (nativeId) {
+      return recordingNativeIds.has(nativeId);
+    }).slice(0, SERIES_METADATA_RETRY_BATCH);
+
+    if (!retryNativeIds.length) {
+      clearSeriesMetadataRetry();
+      return Promise.resolve(false);
+    }
+
+    const pending = retryNativeIds.map(function (nativeId) {
+      cache.unsettledNativeIds.delete(nativeId);
+      cache.failedNativeIds.delete(nativeId);
+      cache.resolved.delete(nativeId);
+      return requestSeriesRecordingMetadata(client, backendId, nativeId, generation);
+    });
+
+    return Promise.allSettled(pending).then(function () {
+      if (!current(generation, backendId) || state.seriesInvalidatedGeneration === generation) {
+        clearSeriesMetadataRetry();
+        return false;
+      }
+      const rich = resolvedSeriesMetadata(generation, backendId);
+      const rendered = applySeriesProjection(recordings, backendId, rich);
+      if (rendered && seriesMetadataComplete(recordings, generation, backendId)) {
+        markSeriesWarm(backendId);
+        return true;
+      }
+      scheduleSeriesMetadataRetry(client, recordings, backendId, generation);
+      return false;
+    });
   }
 
   function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {
@@ -1455,9 +1547,11 @@
       backendId,
       generation
     ).then(function () {
-      if (!current(generation, backendId) ||
-          entry.invalidated === true ||
-          !seriesMetadataComplete(recordings, generation, backendId)) {
+      if (!current(generation, backendId) || entry.invalidated === true) {
+        return false;
+      }
+      if (!seriesMetadataComplete(recordings, generation, backendId)) {
+        scheduleSeriesMetadataRetry(client, recordings, backendId, generation);
         return false;
       }
       const rich = resolvedSeriesMetadata(generation, backendId);
@@ -1591,6 +1685,7 @@
       return text(entry.id).toLowerCase() === 'series';
     });
     if (!seriesGenre) {
+      clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
@@ -1627,6 +1722,7 @@
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
       if (!recordings.length) {
+        clearSeriesMetadataRetry();
         clearSeriesWarm();
         state.seriesProjection = [];
         state.seriesBackendId = '';
@@ -1650,6 +1746,7 @@
       });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
@@ -1689,6 +1786,7 @@
       ]).then(function () { return true; });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
@@ -1785,6 +1883,7 @@
         state.refreshInFlight.invalidated !== true) {
       return state.refreshInFlight.promise;
     }
+    clearSeriesMetadataRetry();
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
     const entry = {
@@ -1840,6 +1939,7 @@
       state.loadedBackendId = '';
       state.refreshInFlight = null;
       state.seriesCompletionInFlight = null;
+      clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
