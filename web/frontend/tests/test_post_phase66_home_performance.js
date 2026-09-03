@@ -4,8 +4,17 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
+const frontendRoot = path.join(__dirname, '..');
 const source = fs.readFileSync(
-  path.join(__dirname, '..', 'home-live-hero.js'),
+  path.join(frontendRoot, 'home-live-hero.js'),
+  'utf8'
+);
+const recentMoviesBundle = fs.readFileSync(
+  path.join(frontendRoot, 'home-recently-watched.js'),
+  'utf8'
+);
+const genreControllerSource = fs.readFileSync(
+  path.join(frontendRoot, '..', '..', 'api', 'rest', 'src', 'GenreBrowserController.cpp'),
   'utf8'
 );
 
@@ -87,5 +96,18 @@ assert(loadSource.includes('if (reuseWarmPrograms) return Promise.resolve(null);
 
 assert(source.includes('function clearPrograms()'));
 assert(source.includes('state.eventsByChannel = new Map();'));
+
+const recentMoviesMarker = '// Bounded Phase-66 Recording Discovery follow-up.';
+const recentMoviesMarkerIndex = recentMoviesBundle.indexOf(recentMoviesMarker);
+assert(recentMoviesMarkerIndex >= 0, 'recent movies projection marker must exist');
+const recentMoviesSource = recentMoviesBundle.slice(recentMoviesMarkerIndex);
+assert(recentMoviesSource.includes("text(provider(recording).contentKind) !== 'movie'"));
+assert(recentMoviesSource.includes('provider(recording).releaseDate'));
+assert(recentMoviesSource.includes('fetchClientRecordings({'));
+assert(!recentMoviesSource.includes('fetchClientGenreRecordings({'));
+assert(
+  genreControllerSource.includes('json << "},\\\"provider\\\":{},\\\"native\\\":{},\\\"artwork\\\":{\\\"preferredUrl\\\":";'),
+  'genre recording projection must be recognized as metadata-light while provider fields remain empty'
+);
 
 console.log('post-phase66 Home hero performance hotpath contract ok');
