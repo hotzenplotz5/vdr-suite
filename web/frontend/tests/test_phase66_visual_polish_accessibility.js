@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
@@ -11,6 +12,8 @@ const continueSource = fs.readFileSync(path.join(frontendRoot, 'home-continue-wa
 const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
 const historySource = fs.readFileSync(path.join(frontendRoot, 'home-recently-watched.js'), 'utf8');
 const epgMetadataSource = fs.readFileSync(path.join(frontendRoot, 'epg-metadata-detail.js'), 'utf8');
+const liveTvSource = fs.readFileSync(path.join(frontendRoot, 'live-tv-view.js'), 'utf8');
+const liveTvCompatSource = fs.readFileSync(path.join(frontendRoot, 'channel-day-program-compat.js'), 'utf8');
 
 // Production composition remains the existing responsive Media Home shell.
 assert(indexSource.includes('data-home-zone="hero"'));
@@ -43,6 +46,126 @@ assert(heroSource.includes("behavior: prefersReducedMotion() ? 'auto' : 'smooth'
 assert(epgMetadataSource.includes("global.matchMedia('(prefers-reduced-motion: reduce)').matches === true"));
 assert(epgMetadataSource.includes("behavior: prefersReducedMotion() ? 'auto' : 'smooth'"));
 assert(!epgMetadataSource.includes("scrollIntoView({behavior: 'smooth', block: 'start'})"));
+
+// The dedicated Live-TV product runtime remains the primary installed owner.
+// Its compat implementation stays a guarded fallback and must not receive a
+// duplicate accessibility/runtime implementation.
+const liveTvPosition = indexSource.indexOf('<script src="../frontend/live-tv-view.js"></script>');
+const liveTvCompatPosition = indexSource.indexOf('<script src="../frontend/channel-day-program-compat.js"></script>');
+assert(liveTvPosition >= 0);
+assert(liveTvCompatPosition > liveTvPosition);
+assert(liveTvCompatSource.includes('if (global.VdrSuiteLiveTvView) return;'));
+assert(liveTvSource.includes("function playbackShell() { return global.VdrSuitePlaybackShell || null; }"));
+assert(liveTvSource.includes("function playbackApi() { return global.VdrSuiteRecordings2Playback || null; }"));
+assert(liveTvSource.includes('global.VdrSuiteLiveTvView = api;'));
+assert(!liveTvSource.includes('/api/media/sessions'));
+
+// Primary Live-TV reduced-motion treatment is local to the owning view. The
+// normal product behavior stays smooth, while the user preference disables the
+// two automatic scroll animations and the preview/tile movement.
+assert(liveTvSource.includes("global.matchMedia('(prefers-reduced-motion: reduce)').matches === true"));
+assert(liveTvSource.includes("player.scrollIntoView({behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest'});"));
+assert(liveTvSource.includes("mount.scrollIntoView({behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start'});"));
+assert(!liveTvSource.includes("player.scrollIntoView({behavior: 'smooth', block: 'nearest'});"));
+assert(!liveTvSource.includes("mount.scrollIntoView({behavior: 'smooth', block: 'start'});"));
+assert(liveTvSource.includes('@media(prefers-reduced-motion:reduce){'));
+assert(liveTvSource.includes('.vdr-suite-live-tv-channel:hover,.vdr-suite-live-tv-channel:focus-visible{transform:none}'));
+assert(liveTvSource.includes('.vdr-suite-live-tv-preview{transition:none;transform:none}'));
+
+// Accessibility changes must not alter canonical Live-TV replacement,
+// relinquish, destroy/stop or persistent-shell lifecycle semantics.
+assert(liveTvSource.includes("playback.createLivePanel(channel, state.backendId || selectedBackend(), {replacesSessionId: replacesSessionId || ''})"));
+assert(liveTvSource.includes('previous.relinquishForReplacement()'));
+assert(liveTvSource.includes("if (typeof previous.destroy === 'function') previous.destroy();"));
+assert(liveTvSource.includes('state.switchSequence += 1;'));
+assert(liveTvSource.includes("if (current && typeof current.destroy === 'function') current.destroy();"));
+assert(liveTvSource.includes("if (shell && typeof shell.stop === 'function') shell.stop();"));
+assert(liveTvSource.includes("typeof shell.detach === 'function') shell.detach(state.playback)"));
+
+// Exercise the real primary runtime helper and module-open path with the same
+// matchMedia preference the browser exposes. This proves normal=smooth and
+// reduced=auto for both productive scrollIntoView sites, not only source text.
+let reducedMotion = false;
+const playerScrollCalls = [];
+const mountScrollCalls = [];
+const livePlayer = {
+  scrollIntoView(options) { playerScrollCalls.push(options || {}); }
+};
+const liveMount = {
+  classList: {remove() {}},
+  replaceChildren() {},
+  appendChild() {},
+  contains() { return false; },
+  querySelector(selector) { return selector === '.vdr-suite-live-tv-player' ? livePlayer : null; },
+  scrollIntoView(options) { mountScrollCalls.push(options || {}); }
+};
+function liveTestNode() {
+  return {
+    id: '',
+    className: '',
+    dataset: {},
+    style: {},
+    textContent: '',
+    hidden: false,
+    parentNode: null,
+    appendChild() {},
+    setAttribute() {},
+    addEventListener() {},
+    classList: {add() {}, remove() {}}
+  };
+}
+const liveDocument = {
+  readyState: 'complete',
+  head: {appendChild() {}},
+  createElement() { return liveTestNode(); },
+  getElementById(id) { return id === 'detail-data' ? liveMount : null; },
+  querySelector() { return null; },
+  querySelectorAll() { return []; },
+  addEventListener() {}
+};
+const liveWindow = {
+  document: liveDocument,
+  matchMedia(query) {
+    assert.strictEqual(query, '(prefers-reduced-motion: reduce)');
+    return {matches: reducedMotion};
+  }
+};
+vm.runInNewContext(liveTvSource, {
+  window: liveWindow,
+  document: liveDocument,
+  Object,
+  String,
+  Number,
+  Array,
+  Boolean,
+  Promise,
+  RegExp,
+  Error,
+  Date,
+  Math
+}, {filename: 'live-tv-view.js'});
+
+const liveTvRuntimeTest = liveWindow.VdrSuiteLiveTvView.__test;
+assert.strictEqual(liveTvRuntimeTest.prefersReducedMotion(), false);
+assert.strictEqual(liveTvRuntimeTest.scrollPlayerIntoView(), true);
+assert.strictEqual(playerScrollCalls.length, 1);
+assert.strictEqual(playerScrollCalls[0].behavior, 'smooth');
+assert.strictEqual(playerScrollCalls[0].block, 'nearest');
+liveWindow.VdrSuiteLiveTvView.open();
+assert.strictEqual(mountScrollCalls.length, 1);
+assert.strictEqual(mountScrollCalls[0].behavior, 'smooth');
+assert.strictEqual(mountScrollCalls[0].block, 'start');
+
+reducedMotion = true;
+assert.strictEqual(liveTvRuntimeTest.prefersReducedMotion(), true);
+assert.strictEqual(liveTvRuntimeTest.scrollPlayerIntoView(), true);
+assert.strictEqual(playerScrollCalls.length, 2);
+assert.strictEqual(playerScrollCalls[1].behavior, 'auto');
+assert.strictEqual(playerScrollCalls[1].block, 'nearest');
+liveWindow.VdrSuiteLiveTvView.open();
+assert.strictEqual(mountScrollCalls.length, 2);
+assert.strictEqual(mountScrollCalls[1].behavior, 'auto');
+assert.strictEqual(mountScrollCalls[1].block, 'start');
 
 // Live programme rails reuse the Hero-owned channel/EPG projection. They sit
 // immediately above Continue Watching and use the same compact Home portrait
