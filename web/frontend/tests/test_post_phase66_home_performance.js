@@ -38,6 +38,19 @@ assert.strictEqual(
   'both reset and append EPG updates must rebuild the channel index'
 );
 
+const programmeRailSource = between(
+  'function renderProgrammeRail(kind, title, current)',
+  'function renderProgrammeRails()'
+);
+const railMountIndex = programmeRailSource.indexOf('section.appendChild(rail);');
+const scrollRestoreIndex = programmeRailSource.indexOf('rail.scrollLeft = previousScrollLeft;');
+assert(railMountIndex >= 0, 'programme rail must be mounted into its section');
+assert(scrollRestoreIndex >= 0, 'programme rail must restore its previous scroll position');
+assert(
+  scrollRestoreIndex > railMountIndex,
+  'programme rail scroll position must be restored after DOM mount so real browsers do not clamp it back to zero'
+);
+
 const renderSource = between(
   'function render(options)',
   'function selectIndex('
