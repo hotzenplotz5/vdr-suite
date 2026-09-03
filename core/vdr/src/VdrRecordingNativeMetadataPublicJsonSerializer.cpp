@@ -103,6 +103,12 @@ void appendArtwork(
 
     json << '}';
 }
+
+std::string unavailableJson(const bool settled)
+{
+    return std::string("{\"available\":false,\"status\":\"not-found\",\"settled\":") +
+        (settled ? "true}" : "false}");
+}
 }
 
 std::string VdrRecordingNativeMetadataPublicJsonSerializer::imageUrl(
@@ -124,12 +130,14 @@ std::string VdrRecordingNativeMetadataPublicJsonSerializer::serialize(
 {
     if (!record.exists())
     {
-        return "{\"available\":false,\"status\":\"not-found\"}";
+        return unavailableJson(false);
     }
 
     if (!record.metadata.found)
     {
-        return "{\"available\":false,\"status\":\"not-found\"}";
+        return unavailableJson(
+            record.metadata.availability ==
+            VdrRecordingNativeMetadataAvailability::NotFound);
     }
 
     const VdrRecordingNativeMetadata& metadata = record.metadata;
