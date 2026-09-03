@@ -8,25 +8,25 @@ Before continuing work, always read `CURRENT.md`, the Strict Roadmap, the applic
 
 ## Platform position
 
-Latest completed numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
+Latest completed numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
 
-Current active numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
+Current active numbered runtime phase: **none; Phase 67 has not started**.
 
-Next strict numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
+Next strict numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
 
-Current active runtime slice: **Slice 66.1 - Home Shell and Responsive Information Architecture**.
+Current active runtime slice: **none; Phase 67 has not started**.
 
 Phase 65.A through 65.D are completed for their accepted bounded scopes. The final runtime-sensitive follow-up was ADR-0057 bounded completed-Recording network recovery. Durable evidence is in [Phase 65 Closeout](phase-65-closeout.md).
 
-Accepted ADR-0058 and [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md) define the responsive Home / Browse architecture and bounded implementation sequence. Phase 66 is active only for Slice 66.1; Slice 66.2 and later Phase-66 semantics remain outside the current authorization. ADR-0054 remains Broadcast Companion architecture for Phase 67.
+Phase 66 is completed. Accepted ADR-0058 and [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md) define the responsive Home / Browse architecture and completed implementation sequence; [Phase 66 Closeout](phase-66-closeout.md) records the Golden real-system acceptance and merged completion. ADR-0054 remains Broadcast Companion architecture for Phase 67, but Phase 67 has not started and requires a separate explicit runtime kickoff.
 
-Historical completed context includes Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, Phase 63 - Backend Agent and Secure Multi-Site Runtime, and Phase 64 - Timer Intent and Multi-Backend Orchestration.
+Historical completed context includes Phase 58 - Frontend and Live Parity, Phase 61 - Suite Metadata and Genre Platform, Phase 62 - Identity, RBAC and Accountability Foundation, Phase 63 - Backend Agent and Secure Multi-Site Runtime, Phase 64 - Timer Intent and Multi-Backend Orchestration, Phase 65 - Streaming Gateway and Media Sessions, and Phase 66 - Media Home and Browse Experience.
 
 ## Phase 63 foundation
 
 Phase 63 is complete. It established Agent enrollment/identity, protected transport, generation and lease fencing, observation ingestion, durable command/result handling, fenced SuiteBridge native execution, explicit local-provider ownership/selection and the generic protected-write safety contract.
 
-That foundation remains authoritative beneath completed Phase-64 orchestration, completed Phase-65 media execution and active Phase-66 product composition.
+That foundation remains authoritative beneath completed Phase-64 orchestration, completed Phase-65 media execution and completed Phase-66 product composition.
 
 ## Phase 64 completion
 
@@ -63,14 +63,14 @@ The Phase-64 completion retains the protected-write rules established across Pha
 ```text
 Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 Media Home and Browse Experience [ACTIVE; SLICE 66.1]
-  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 66 Media Home and Browse Experience [COMPLETED]
+  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
   -> Phase 68 Legacy OSD Compatibility Bridge
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
 
-Completed history through Phase 65 is unchanged. ADR-0058 owns the Phase-66 architecture and sequence; the explicit runtime kickoff authorizes only Slice 66.1.
+Completed history through Phase 66 is unchanged. ADR-0054 owns the Phase-67 Broadcast Companion architecture; runtime is not authorized merely because the architecture and strict sequence are accepted.
 
 ## Completed Phase 65 streaming architecture
 
@@ -228,13 +228,13 @@ Client capability negotiation, least-transformation selection and ADR-0055 trans
 
 See [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md), [Phase 65.D.2 Recording Playback Controls and Seek Closeout](phase-65d2-recording-playback-controls-seek-closeout.md), [Frontend Playback Integration Contract](frontend-playback-integration-contract.md) and [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md).
 
-## Phase 66 active direction
+## Phase 66 completed direction
 
-Phase 66 is the active product-composition phase under accepted ADR-0058. The current authorization is limited to **Slice 66.1 — Home Shell and Responsive Information Architecture**.
+Phase 66 is completed under accepted ADR-0058. Slices 66.1 through 66.8 established the existing installed browser composition root as the first-party Media Home, responsive navigation/layout, Live-TV Hero browsing, deferred canonical preview, truthful Continue Watching, Recording discovery rails, Recently Watched/history, visual/accessibility polish and integrated desktop/mobile Golden acceptance.
 
-Slice 66.1 extends the existing installed browser composition root instead of creating a second Home application. The existing `overview` module state and `app.js` navigation owner remain canonical; Home adds semantic Hero / primary-rail / additional-section layout zones and responsive recomposition while reusing real backend snapshot data for the initial rail.
+The existing `overview` module state and `app.js` navigation owner remain canonical. Home did not create a second media, Recording, Channel, EPG, artwork, metadata or playback authority; explicit and preview playback continue to reuse the accepted Phase-65 owners.
 
-No Live-TV hero-carousel semantics, deferred preview, Home-triggered MediaSession creation, Continue Watching, history or recommendation authority is introduced by Slice 66.1. Existing Phase-65 playback ownership remains canonical across Home navigation.
+Durable Phase-66 completion evidence is recorded in [Phase 66 Closeout](phase-66-closeout.md). Bounded later Home performance/correctness work is post-phase hardening and does not silently reopen Phase 66.
 
 ## Broadcast Companion direction
 
@@ -244,6 +244,8 @@ Teletext and HbbTV are explicit planned television-domain capabilities rather th
 - HbbTV is modeled as broadcast application discovery plus an authorized isolated application session/runtime, not as raw URL/JavaScript/key plugin control.
 - Phase-65 MediaSession rules remain authoritative when Suite-owned media is involved.
 - Legacy OSD follows later for genuinely opaque native/plugin workflows.
+
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next in the strict numbered sequence, but **Phase 67 has not started** and requires a separate explicit runtime kickoff.
 
 ## Broad Timer UI ordering
 
@@ -259,7 +261,7 @@ Phase 62 identity/RBAC [DONE]
 
 The product UI must remain intent-first and preserve assignment, readback, reconciliation, failover and unknown-outcome semantics.
 
-The broad Timer UI remains an independent cross-cutting milestone and does not silently advance active Phase-66 runtime work.
+The broad Timer UI remains an independent cross-cutting milestone and does not silently advance the numbered runtime phase.
 
 ## Product acceptance
 
@@ -290,7 +292,7 @@ The key vertical journeys cover:
 - Require real-system acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes.
 - Broad Timer UI work must not bypass the account/backend access-management gate.
 - Accepted ADR work defines architecture but does not by itself prove or complete runtime implementation.
-- Phase 65 is completed; Phase 66 is active only for the explicitly authorized Slice 66.1 scope.
+- Phases 65 and 66 are completed; Phase 67 remains not started until separately authorized.
 
 ### Preferred edit path for new chats
 
@@ -309,9 +311,9 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 Phase 65.A through 65.D are closed for their accepted bounded scopes, including normalized Recording tracks, browser-local Volume/Mute, continuous-fMP4 browser MSE forward-buffer control, compatibility timeline ownership, exact non-zero HLS Recording resume synchronization, ADR-0056 playback semantics and bounded completed-Recording interruption recovery.
 
-**Phase 66 is active only for Slice 66.1 — Home Shell and Responsive Information Architecture.** The current slice may change the real browser composition, responsive navigation/layout foundation and structural loading/empty/error presentation while preserving the existing `app.js` module owner and canonical Phase-65 playback lifecycle.
+**Phase 66 is completed.** Its Media Home/Browse scope is closed through the accepted Golden journey and merged closeout. Bounded post-Phase-66 hardening may improve the completed surface without reopening the numbered phase.
 
-Slice 66.2 Live-TV Hero Carousel, Slice 66.3 Deferred Live Preview, Continue Watching, Recently Watched/history, recommendation intelligence and every later Phase-66 semantic block remain outside the current authorization. Phase 67 Broadcast Companion remains not started.
+**Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next, but Phase 67 has not started.** ADR-0054 is architecture authority only until a separate explicit runtime kickoff authorizes implementation.
 
 Completed-Recording arbitrary seek and stop/resume are accepted for the supported profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain capability-driven and must be represented truthfully rather than fabricated.
 
@@ -332,10 +334,13 @@ Completed-Recording arbitrary seek and stop/resume are accepted for the supporte
 - [Phase 65.D Browser-local Volume/Mute Closeout](phase-65d-browser-volume-mute-closeout.md)
 - [Phase 65.D Playback Semantics Consolidation](phase-65d-playback-semantics-consolidation.md)
 - [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
+- [Post-Phase-66 Home Performance Hardening](post-phase-66-home-performance-hardening.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
 - [ADR-0055 Media Transcode Backend Selection](../adr/ADR-0055-media-transcode-backend-selection-hardware-acceleration.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0058 Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [Golden User Journeys](../planning/golden-user-journeys.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)

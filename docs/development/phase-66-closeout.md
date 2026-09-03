@@ -1,6 +1,8 @@
 # Phase 66 — Media Home and Browse Experience Closeout
 
-Status: **SLICE 66.8 ACCEPTED / PHASE-66 CLOSEOUT CANDIDATE COMPLETE ON DRAFT PR #264.** Golden desktop/mobile acceptance is PASS and the complete post-acceptance CI is PASS. Phase 66 remains the current numbered runtime phase until the closeout PR is explicitly authorized for Ready-for-review/merge and the repository's merged-status documents are reconciled. Phase 67 is not started and not authorized.
+Status: **PHASE 66 COMPLETED / MERGED THROUGH PR #264.** Golden desktop/mobile acceptance and the complete post-acceptance CI are PASS. PR #264 merged the accepted closeout to `main` as `de12956ecc283663c820865bb577e7dcf6c5f0ee`. Phase 67 has not started and is not authorized.
+
+**Phase 66 is completed.**
 
 This document is the durable evidence matrix for Slice 66.8 — Golden User Journey and Real-System Acceptance. Slice 66.8 is an integration, acceptance and closeout slice. It introduces no new media, playback, artwork, metadata, history, Recording or navigation owner.
 
@@ -93,7 +95,7 @@ This run includes successful packaging/install staging, fast regression plus dae
 | 10. Complete CI including packaging/install regression | exact post-acceptance head CI #8568 | PASS |
 | 11. Rollback and provider/session/privacy boundaries | ADR-0058 + accepted closeouts; Slice 66.8 changes documentation only | PASS |
 
-All technical and real-system Phase-66 closeout gates are satisfied on the Draft closeout branch. The remaining transition is repository workflow state, not additional product work: Ready-for-review, merged-status reconciliation and merge are explicitly approval-gated by `AGENTS.md`.
+All technical and real-system Phase-66 closeout gates were satisfied before PR #264 merged to `main`. The merged transition is repository history now; no additional Phase-66 product work is required.
 
 ## Deferred boundary
 
@@ -101,8 +103,16 @@ The known symptom that visible Series metadata/artwork is not always projected a
 
 ## Rollback
 
-Slice 66.8 introduces no runtime behavior. Rollback is the documentation-only revert of the Slice-66.8 closeout/status commits. Accepted Phase-66 product runtime and provider/session/history/privacy ownership boundaries remain unchanged.
+Slice 66.8 introduced no runtime behavior. Its closeout/status recording is documentation-only. Accepted Phase-66 product runtime and provider/session/history/privacy ownership boundaries remain unchanged.
 
 ## Merge boundary
 
-PR #264 remains Draft. Until explicit user authorization is given, do not mark it Ready-for-review and do not merge it. While the closeout PR is unmerged, canonical volatile status continues to identify Phase 66 as the active numbered phase and Phase 67 as not authorized. A later approved merge transition may reconcile the merged status to Phase 66 completed / Phase 67 next-not-started, with the repository's phase-consistency gates applied to that transition.
+```text
+merge_pr=264
+merge_commit=de12956ecc283663c820865bb577e7dcf6c5f0ee
+phase66_status=COMPLETED
+next_phase=Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+next_phase_runtime_status=NOT STARTED / NOT AUTHORIZED
+```
+
+PR #264 is merged. This closeout does not authorize Phase 67. Any Phase-67 runtime implementation still requires a separate explicit kickoff under the repository workflow rules.

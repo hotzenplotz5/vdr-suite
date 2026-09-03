@@ -80,6 +80,8 @@ const document = {
 
 let selectedModule = 'overview';
 let channelFetchCount = 0;
+let epgFetchCount = 0;
+const now = Math.floor(Date.now() / 1000);
 const clientApi = {
   fetchClientChannels(options) {
     channelFetchCount += 1;
@@ -87,6 +89,17 @@ const clientApi = {
     return Promise.resolve({
       channels: [
         {id: 'C1', name: 'Eins', number: 1, radio: false, enabled: true}
+      ]
+    });
+  },
+  fetchClientEpgCacheWindow(options) {
+    epgFetchCount += 1;
+    assert.strictEqual(options.query.backend, 'backend-a');
+    assert.strictEqual(options.query.channelIds, 'C1');
+    return Promise.resolve({
+      events: [
+        {channelId: 'C1', title: 'Heute Eins', startTime: now - 300, endTime: now + 900},
+        {channelId: 'C1', title: 'Danach Eins', startTime: now + 900, endTime: now + 1800}
       ]
     });
   }
@@ -131,6 +144,8 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert.strictEqual(hero.snapshot().active, true);
   assert.strictEqual(heroRoot.classList.contains('media-home-live-hero-active'), true);
   assert.strictEqual(channelFetchCount, 1);
+  assert.strictEqual(epgFetchCount, 1);
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');
 
   const moduleNames = Array.from(new Set(
     Array.from(indexSource.matchAll(/data-module="([^"]+)"/g), match => match[1])
@@ -154,12 +169,15 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   }
 
   assert.strictEqual(channelFetchCount, 1, 'module changes must not add Home hero API reads');
+  assert.strictEqual(epgFetchCount, 1, 'module changes must not add Home programme API reads');
 
   selectedModule = 'overview';
   await hero.__test.sync(false);
   assert.strictEqual(hero.snapshot().active, true);
   assert.strictEqual(heroRoot.classList.contains('media-home-live-hero-active'), true);
   assert.strictEqual(channelFetchCount, 1, 'returning Home reuses cached channel data without a parallel polling path');
+  assert.strictEqual(epgFetchCount, 1, 'warm Home return reuses the fresh canonical EPG projection without another request');
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Eins');
   assert.strictEqual(document.querySelector('.media-home-hero[data-home-zone="hero"]'), heroRoot);
 
   console.log('phase66 Home Live-TV hero module visibility contract ok');

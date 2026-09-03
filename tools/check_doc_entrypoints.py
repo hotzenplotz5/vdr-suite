@@ -58,7 +58,6 @@ BASE_REQUIRED_TEXT = {
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "## Current implementation boundary",
-        "do not start Phase 66.",
     ],
 }
 
@@ -100,6 +99,8 @@ def main():
     required_text["docs/NEW-CHAT-HANDOFF.md"].extend(
         [status.latest_completed, status.next_phase]
     )
+    if status.current_active_is_none:
+        required_text["docs/NEW-CHAT-HANDOFF.md"].append(status.next_not_started_marker)
     required_text["docs/planning/roadmap.md"] = [
         status.latest_roadmap_heading,
         status.next_roadmap_heading,

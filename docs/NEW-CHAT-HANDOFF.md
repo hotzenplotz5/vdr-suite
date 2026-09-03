@@ -12,26 +12,28 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 
 1. [Current State](CURRENT.md) — sole volatile phase/status authority.
 2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — accepted numbered execution order.
-3. [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and durable acceptance evidence.
-4. [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted Phase-66 product/architecture decision.
-5. [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — accepted bounded implementation sequence; runtime not started.
-6. [Golden User Journeys](planning/golden-user-journeys.md) — desktop/mobile Home and later product acceptance.
-7. ADR-0046/0053/0055/0056/0057 when Home work touches accepted Phase-65 playback semantics.
-8. [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) for later Phase-67 Teletext/HbbTV architecture.
-9. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-10. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+3. [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
+4. [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and durable acceptance evidence.
+5. [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted and implemented Phase-66 product/architecture decision.
+6. [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — completed bounded implementation sequence.
+7. [Golden User Journeys](planning/golden-user-journeys.md) — desktop/mobile Home and later product acceptance.
+8. ADR-0046/0053/0055/0056/0057 when work touches accepted Phase-65 playback semantics.
+9. [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) for Phase-67 Teletext/HbbTV architecture; runtime remains not started until explicitly authorized.
+10. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+11. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
 ## Stable project position
 
-- Latest completed numbered runtime phase: **Phase 65 - Streaming Gateway and Media Sessions**.
-- Current active numbered runtime phase: **none; Phase 66 has not started**.
-- Next strict numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
+- Latest completed numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
+- Current active numbered runtime phase: **none; Phase 67 has not started**.
+- Next strict numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
-- ADR-0058 is accepted and owns the Media Home / responsive browse / deferred-preview architecture.
-- The accepted Phase-66 contract is planning authority only. Runtime still requires a separate explicit kickoff.
-- ADR-0054 remains accepted Broadcast Companion architecture and is now sequenced as Phase 67.
+- Phase 66 Slices 66.1 through 66.8 are completed; the Golden desktop/mobile acceptance passed and PR #264 merged the closeout.
+- ADR-0058 owns the completed Media Home / responsive browse / deferred-preview architecture.
+- ADR-0054 remains accepted Broadcast Companion architecture for Phase 67, but **Phase 67 has not started** and requires a separate explicit runtime authorization.
+- Bounded post-phase hardening does not reopen a completed numbered phase and does not silently authorize the next phase.
 - Broad polished Timer UI remains a cross-cutting milestone gated on required access administration.
 
 Do not copy current branch SHA or active PR tip here; use `CURRENT.md` and GitHub.
@@ -54,32 +56,32 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65 is completed. Phase 66 - Media Home and Browse Experience is next but has not started.
+Phase 65 and Phase 66 are completed. **Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next but has not started.**
 
-Before any Phase-66 runtime work:
+Before any Phase-67 runtime work:
 
-1. re-read live `main`, `CURRENT.md`, ADR-0058 and the Strict Roadmap;
-2. verify no Phase-66 runtime branch has already started elsewhere;
-3. create a fresh runtime branch from the accepted planning baseline;
-4. begin only with Slice 66.1 — Home Shell and Responsive Information Architecture;
-5. preserve existing Channel/EPG/Recording/Metadata truth and the completed Phase-65 MediaSession/playback-owner architecture;
-6. do not pull deferred preview, history persistence, Teletext/HbbTV, Legacy OSD, public-API hardening or native-app work into Slice 66.1.
+1. re-read live `main`, `CURRENT.md`, ADR-0054 and the Strict Roadmap;
+2. verify no Phase-67 runtime branch has already started elsewhere;
+3. require a separate explicit Phase-67 runtime kickoff;
+4. preserve the completed Phase-62/63 identity/Agent boundaries and Phase-65 MediaSession/playback ownership;
+5. model Teletext and HbbTV domain-first as defined by ADR-0054 rather than using Legacy OSD or raw plugin/browser command channels as the primary contract;
+6. do not pull Legacy OSD, public-API hardening, recommendation work or unrelated cross-cutting product milestones into the Phase-67 kickoff.
 
-Architecture acceptance is not runtime authorization; do not start Phase 66. A separate explicit kickoff is required.
+Architecture acceptance is not runtime authorization; do not start Phase 67 without the separate explicit kickoff.
 
 ## Phase ordering and broad Timer UI
 
 ```text
 Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 Media Home and Browse Experience [NEXT; NOT STARTED]
-  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV
+  -> Phase 66 Media Home and Browse Experience [COMPLETED]
+  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
   -> Phase 68 Legacy OSD Compatibility Bridge
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
 
-Completed history is not renumbered. ADR-0058 changes only the not-yet-started future sequence; ADR-0054/0047/0048 retain their architecture.
+Completed history is not renumbered. ADR-0054/0047/0048 retain their architecture and future sequencing.
 
 Broad Timer UI remains non-numbered and depends on completed Phase 62 + completed Phase 64 + required account/backend access administration.
 
@@ -176,12 +178,12 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phase 64 as completed and Phase 65 as active with 65.A through 65.C closed and 65.D active.
-4. Treat D.1/D.2, normalized Recording audio/subtitle selection, browser-local Volume/Mute, continuous-fMP4 MSE forward-buffer control and the compatibility timeline/exact-HLS-resume follow-up as accepted bounded work unless live repository state supersedes that evidence.
-5. Derive the next Phase-65.D block from ADR-0056 and `phase-65d-playback-semantics-consolidation.md`: normalized `MediaPlaybackContract`, canonical owner lifecycle publication, continuity/discontinuity or classified failure semantics. Do not revive a stale closed-gap label.
-6. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
-7. Treat Phase-66 Teletext/HbbTV architecture as accepted via ADR-0054, but do not start its runtime before Phase 65 closes and Phase 66 is explicitly authorized.
-8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 or block Streaming solely for that UI.
+3. Treat Phases 64, 65 and 66 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+4. Preserve accepted Phase-65 playback/MediaSession semantics and the completed Phase-66 Home ownership rather than inventing parallel owners during later hardening or Phase-67 work.
+5. Treat Phase 67 - Broadcast Companion Services: Teletext and HbbTV as the next strict numbered runtime phase, but **Phase 67 has not started**.
+6. Read ADR-0054 before any Phase-67 planning or implementation and require a separate explicit runtime kickoff before starting it.
+7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
+8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
 9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
 10. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
 11. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
