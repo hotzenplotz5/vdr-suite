@@ -232,6 +232,10 @@ function createHarness(initialMetadataMode) {
     callback();
     return 1;
   };
+  context.window.selectModule = function (moduleName) {
+    selectedModule = moduleName;
+    return true;
+  };
   context.window.VdrSuiteHomeLivePreview = {cancel() {}};
   context.window.VdrSuiteHomeRecordingDiscoveryBootstrap = {
     installMouseDrag() { return true; }
@@ -250,6 +254,20 @@ function createHarness(initialMetadataMode) {
   const publicApi = context.window.VdrSuiteHomeRecordingDiscovery;
   assert(publicApi && publicApi._test);
 
+  function fireModuleClick(value) {
+    selectedModule = value;
+    const target = {
+      dataset: {module: value},
+      closest(selector) {
+        const candidate = String(selector || '');
+        if (candidate === '.module-tab[data-module], [data-brand-module]') return this;
+        if (candidate.includes('overview') && value === 'overview') return this;
+        return null;
+      }
+    };
+    (documentListeners.click || []).forEach((handler) => handler({target}));
+  }
+
   return {
     publicApi,
     api: publicApi._test,
@@ -261,15 +279,9 @@ function createHarness(initialMetadataMode) {
     setModule(value) { selectedModule = value; },
     setBackend(value) { backendId = value; },
     setMetadataMode(value) { metadataMode = value; },
+    fireModuleClick,
     fireHomeClick() {
-      const target = {
-        closest(selector) {
-          return String(selector).includes('overview') || String(selector).includes('#backends')
-            ? this
-            : null;
-        }
-      };
-      (documentListeners.click || []).forEach((handler) => handler({target}));
+      fireModuleClick('overview');
     },
     fireLatestObserver() {
       assert(observers.length > 0);
@@ -314,9 +326,8 @@ async function proveWarmProductionReturnAndForcedRefresh() {
   const initialSeriesSection = findRail(harness.host, 'series');
   assert(initialSeriesSection);
 
-  harness.setModule('recordings2');
-  harness.setModule('overview');
-  harness.fireHomeClick();
+  harness.fireModuleClick('recordings2');
+  harness.fireModuleClick('overview');
   harness.fireLatestObserver();
   await flush();
 
@@ -341,16 +352,16 @@ async function proveInterruptedMetadataNeverWarms() {
   await flush(2);
   assert.strictEqual(harness.metadataResolvers.length, 1);
 
-  harness.setModule('recordings2');
+  harness.fireModuleClick('recordings2');
   harness.metadataResolvers.shift()({available: false});
   await Promise.resolve();
-  harness.setModule('overview');
+  harness.fireModuleClick('overview');
   assert.strictEqual(await first, true);
 
   assert.strictEqual(
     harness.api.seriesWarm('default'),
     false,
-    'metadata resolved while Home was inactive must not become a warm Series projection'
+    'metadata resolved during a production-style Home exit must not become a warm Series projection'
   );
 
   harness.setMetadataMode('available-false');
