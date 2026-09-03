@@ -74,7 +74,33 @@ int main()
     assert(
         VdrRecordingNativeMetadataPublicJsonSerializer()
             .serialize(missing) ==
-        "{\"available\":false,\"status\":\"not-found\"}");
+        "{\"available\":false,\"status\":\"not-found\",\"settled\":false}");
+
+    VdrRecordingNativeMetadataRecord negative;
+    negative.backendId = "default";
+    negative.backendNativeId = "/srv/vdr/video/Series/negative.rec";
+    negative.recordingKey = "negative-recording-key";
+    negative.contentState = "not_found";
+    negative.lastAttemptState = "not_found";
+    negative.metadata.availability =
+        VdrRecordingNativeMetadataAvailability::NotFound;
+    assert(
+        VdrRecordingNativeMetadataPublicJsonSerializer()
+            .serialize(negative) ==
+        "{\"available\":false,\"status\":\"not-found\",\"settled\":true}");
+
+    VdrRecordingNativeMetadataRecord retryable;
+    retryable.backendId = "default";
+    retryable.backendNativeId = "/srv/vdr/video/Series/retryable.rec";
+    retryable.recordingKey = "retryable-recording-key";
+    retryable.contentState = "empty";
+    retryable.lastAttemptState = "transport_error";
+    retryable.metadata.availability =
+        VdrRecordingNativeMetadataAvailability::TransportError;
+    assert(
+        VdrRecordingNativeMetadataPublicJsonSerializer()
+            .serialize(retryable) ==
+        "{\"available\":false,\"status\":\"not-found\",\"settled\":false}");
 
     std::cout
         << "test_vdr_recording_native_metadata_public_json_serializer passed"
