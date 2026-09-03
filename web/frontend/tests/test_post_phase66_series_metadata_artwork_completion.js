@@ -224,6 +224,10 @@ function createHarness(firstMetadata) {
   context.window.VdrSuiteHomeRecordingDiscoveryBootstrap = {
     installMouseDrag() { return true; }
   };
+  context.window.VdrSuiteRecordings2 = {
+    openRecording() {},
+    openFolder() {}
+  };
   context.window.VdrSuitePlatform = {
     getSelectedBackendId() { return backendId; },
     getSelectedModule() { return selectedModule; },
@@ -360,7 +364,11 @@ async function proveHomeExitDoesNotOrphanUnsettledRetry() {
   assert.strictEqual(harness.metadataCalls(), 1);
   assert.strictEqual(harness.pendingRetryTimers().length, 1);
 
-  harness.setModule('recordings2');
+  assert.strictEqual(
+    await harness.api.openRecording(seriesRecording('default'), 'default'),
+    true
+  );
+  assert.strictEqual(harness.pendingRetryTimers().length, 1);
   harness.runNextRetryTimer();
   await flush();
   assert.strictEqual(
