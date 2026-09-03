@@ -64,6 +64,27 @@ const selectSource = between(
 assert(selectSource.includes('render({programmeRails: false});'));
 assert(!selectSource.includes('renderProgrammeRails'));
 
+assert(source.includes('const PROGRAMME_WARM_REUSE_MS = 60000;'));
+assert(source.includes('programmeLoadedAt: 0'));
+const clearProgramsSource = between(
+  'function clearPrograms()',
+  'function channelEvents('
+);
+assert(clearProgramsSource.includes('state.programmeLoadedAt = 0;'));
+const programmeLoadSource = between(
+  'function loadProgrammePage(sequence, offset, reset)',
+  'function loadPrograms('
+);
+assert(programmeLoadSource.includes('state.programmeLoadedAt = Date.now();'));
+const loadSource = between(
+  'function load(force)',
+  'function sync(force)'
+);
+assert(loadSource.includes('const reuseWarmPrograms = state.events.length > 0'));
+assert(loadSource.includes('Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS'));
+assert(loadSource.includes('render({programmeRails: !reuseWarmPrograms});'));
+assert(loadSource.includes('if (reuseWarmPrograms) return Promise.resolve(null);'));
+
 assert(source.includes('function clearPrograms()'));
 assert(source.includes('state.eventsByChannel = new Map();'));
 
