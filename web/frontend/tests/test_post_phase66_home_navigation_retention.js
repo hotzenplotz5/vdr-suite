@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 const repoRoot = path.join(frontendRoot, '..', '..');
@@ -42,5 +43,81 @@ assert(
   remote.includes('installHomeNavigationRetention();styles();preloadRemoteImage();'),
   'the production remote/app addon setup must install the Home navigation fence eagerly'
 );
+
+const navigationStart = remote.indexOf('function homeNavigationTarget(');
+const navigationEnd = remote.indexOf('\nfunction stop()', navigationStart);
+assert(navigationStart >= 0 && navigationEnd > navigationStart);
+const navigationSource = remote.slice(navigationStart, navigationEnd);
+
+let captureListener = null;
+let selectCount = 0;
+let prevented = 0;
+let stopped = 0;
+let scrolled = 0;
+const detail = {
+  scrollIntoView(options) {
+    scrolled += 1;
+    assert.deepStrictEqual(options, {behavior: 'smooth', block: 'start'});
+  }
+};
+const document = {
+  __vdrSuiteHomeNavigationRetentionBound: false,
+  addEventListener(type, listener, capture) {
+    assert.strictEqual(type, 'click');
+    assert.strictEqual(capture, true);
+    captureListener = listener;
+  },
+  getElementById(id) {
+    return id === 'detail-data' ? detail : null;
+  }
+};
+const g = {
+  selectModule(moduleName) {
+    selectCount += 1;
+    assert.strictEqual(moduleName, 'overview');
+  }
+};
+
+vm.runInNewContext(
+  navigationSource + '\ninstallHomeNavigationRetention();',
+  {document, g}
+);
+assert.strictEqual(typeof captureListener, 'function');
+
+const homeTab = {
+  dataset: {module: 'overview'},
+  closest(selector) {
+    assert(selector.includes('.module-tab[data-module="overview"]'));
+    return this;
+  }
+};
+captureListener({
+  target: homeTab,
+  preventDefault() { prevented += 1; },
+  stopPropagation() { stopped += 1; }
+});
+assert.strictEqual(selectCount, 1, 'bottom Home must delegate exactly once to app.js');
+assert.strictEqual(prevented, 1);
+assert.strictEqual(stopped, 1, 'bottom Home must not reach refresh listeners');
+assert.strictEqual(scrolled, 0);
+
+const brandHome = {
+  dataset: {brandModule: 'overview'},
+  closest() { return this; }
+};
+captureListener({
+  target: brandHome,
+  preventDefault() { prevented += 1; },
+  stopPropagation() { stopped += 1; }
+});
+assert.strictEqual(selectCount, 2, 'top Home launcher must delegate exactly once to app.js');
+assert.strictEqual(prevented, 2);
+assert.strictEqual(stopped, 2, 'top Home launcher must not reach refresh listeners');
+assert.strictEqual(scrolled, 1, 'top Home launcher keeps its existing scroll affordance');
+
+const otherTarget = {closest() { return null; }};
+captureListener({target: otherTarget});
+assert.strictEqual(selectCount, 2, 'non-Home clicks must remain untouched');
+assert.strictEqual(stopped, 2);
 
 console.log('post-Phase-66 canonical Home navigation retention contract ok');
