@@ -9,6 +9,7 @@
   const SERIES_PAGE_LIMIT = 100;
   const SERIES_METADATA_CONCURRENCY = 4;
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
+  const SERIES_WARM_TTL_MS = 60000;
   const FOLDER_LIMIT = 100;
   const FOLDER_VISIBLE_LIMIT = 12;
   const state = {
@@ -16,10 +17,15 @@
     loadedBackendId: '',
     observer: null,
     armed: false,
+    refreshInFlight: null,
+    seriesCompletionInFlight: null,
+    seriesInvalidatedGeneration: -1,
     seriesProjection: [],
     seriesBackendId: '',
     seriesViewKey: '',
     seriesSeasonNumber: null,
+    seriesWarmBackendId: '',
+    seriesWarmCompletedAt: 0,
     folderProjection: {folders: [], rootRecordings: []},
     folderBackendId: '',
     randomGenreGeneration: -1,
@@ -419,6 +425,7 @@
   }
 
   function selectShellModule(moduleName) {
+    if (text(moduleName) !== 'overview') invalidateSeriesForHomeExit(state.generation);
     if (typeof global.selectModule !== 'function') return false;
     global.selectModule(moduleName);
     return true;
@@ -426,7 +433,7 @@
 
   function returnHome() {
     selectShellModule('overview');
-    if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+    if (typeof global.setTimeout === 'function') global.setTimeout(refreshForHome, 0);
   }
 
   function openRecording(recording, backendId, options) {
@@ -986,10 +993,86 @@
     return renderSeriesRail(projection, backendId);
   }
 
+  function invalidateSeriesForHomeExit(generation) {
+    if (generation !== state.generation || generation <= 0) return false;
+    state.seriesInvalidatedGeneration = generation;
+    if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
+      state.refreshInFlight.invalidated = true;
+    }
+    if (state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.generation === generation) {
+      state.seriesCompletionInFlight.invalidated = true;
+    }
+    return true;
+  }
+
   function current(generation, backendId) {
+    const active = homeIsActive();
+    if (!active) invalidateSeriesForHomeExit(generation);
     return generation === state.generation &&
       backendId === selectedBackendId() &&
-      homeIsActive();
+      active;
+  }
+
+  function clearSeriesWarm() {
+    state.seriesWarmBackendId = '';
+    state.seriesWarmCompletedAt = 0;
+  }
+
+  function seriesWarm(backendId) {
+    const completedAt = Number(state.seriesWarmCompletedAt || 0);
+    return Boolean(
+      state.seriesProjection.length &&
+      state.seriesBackendId === backendId &&
+      state.seriesWarmBackendId === backendId &&
+      completedAt > 0 &&
+      Date.now() - completedAt < SERIES_WARM_TTL_MS
+    );
+  }
+
+  function markSeriesWarm(backendId) {
+    if (!backendId || state.seriesBackendId !== backendId || !state.seriesProjection.length) {
+      clearSeriesWarm();
+      return false;
+    }
+    state.seriesWarmBackendId = backendId;
+    state.seriesWarmCompletedAt = Date.now();
+    return true;
+  }
+
+  function reuseWarmSeriesProjection(backendId) {
+    const target = host();
+    const section = target && typeof target.querySelector === 'function'
+      ? target.querySelector('[data-home-discovery-rail="series"]')
+      : null;
+    if (section) return true;
+    return renderSeriesRail(state.seriesProjection, backendId);
+  }
+
+  function seriesMetadataComplete(recordings, generation, backendId) {
+    const cache = state.seriesMetadataCache;
+    if (!cache || cache.generation !== generation || cache.backendId !== backendId) return false;
+    if (state.seriesInvalidatedGeneration === generation) return false;
+    if (state.refreshInFlight &&
+        state.refreshInFlight.generation === generation &&
+        state.refreshInFlight.invalidated === true) {
+      return false;
+    }
+    if (state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.generation === generation &&
+        state.seriesCompletionInFlight.invalidated === true) {
+      return false;
+    }
+    const seen = new Set();
+    for (let index = 0; index < (recordings || []).length; index += 1) {
+      const recording = recordings[index];
+      if (recordingBackendId(recording, backendId) !== backendId) continue;
+      const nativeId = recordingBackendNativeId(recording);
+      if (!nativeId || seen.has(nativeId)) continue;
+      seen.add(nativeId);
+      if (!cache.resolved.has(nativeId) || cache.failedNativeIds.has(nativeId)) return false;
+    }
+    return true;
   }
 
   function cancelSeriesMetadataQueue(cache) {
@@ -1014,6 +1097,7 @@
       generation: generation,
       backendId: backendId,
       resolved: new Map(),
+      failedNativeIds: new Set(),
       inflight: new Map(),
       representativePromises: new Map(),
       priorityQueue: [],
@@ -1139,6 +1223,7 @@
         if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
         task.resolve(result);
       }).catch(function () {
+        cache.failedNativeIds.add(task.nativeId);
         cache.resolved.set(task.nativeId, null);
         if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
         task.resolve(null);
@@ -1356,6 +1441,42 @@
     return Promise.all(pending).then(function () { return resolved; });
   }
 
+  function startSeriesCompletion(client, recordings, backendId, generation) {
+    const entry = {
+      backendId: backendId,
+      generation: generation,
+      invalidated: false,
+      promise: null
+    };
+    state.seriesCompletionInFlight = entry;
+    const completion = fetchSeriesRecordingMetadata(
+      client,
+      recordings,
+      backendId,
+      generation
+    ).then(function () {
+      if (!current(generation, backendId) ||
+          entry.invalidated === true ||
+          !seriesMetadataComplete(recordings, generation, backendId)) {
+        return false;
+      }
+      const rich = resolvedSeriesMetadata(generation, backendId);
+      const rendered = applySeriesProjection(recordings, backendId, rich);
+      if (rendered) markSeriesWarm(backendId);
+      return rendered;
+    }).catch(function () {
+      return false;
+    });
+    entry.promise = completion.then(function (value) {
+      if (state.seriesCompletionInFlight === entry) state.seriesCompletionInFlight = null;
+      return value;
+    }, function () {
+      if (state.seriesCompletionInFlight === entry) state.seriesCompletionInFlight = null;
+      return false;
+    });
+    return entry.promise;
+  }
+
   function positionRandomGenreRail() {
     const target = host();
     if (!target || typeof target.querySelector !== 'function' ||
@@ -1464,11 +1585,13 @@
     return performLoad();
   }
 
-  function loadSeries(client, backendId, generation, genreEntries) {
+  function loadSeries(client, backendId, generation, genreEntries, options) {
+    const config = options && typeof options === 'object' ? options : {};
     const seriesGenre = genreEntries.find(function (entry) {
       return text(entry.id).toLowerCase() === 'series';
     });
     if (!seriesGenre) {
+      clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
@@ -1476,6 +1599,10 @@
       clearRail('series');
       return Promise.resolve(false);
     }
+    if (config.reuseWarm === true && seriesWarm(backendId)) {
+      return Promise.resolve(reuseWarmSeriesProjection(backendId));
+    }
+    clearSeriesWarm();
     state.seriesViewKey = '';
     state.seriesSeasonNumber = null;
     renderState('series', 'Serien', 'Serien werden gruppiert …', false);
@@ -1500,6 +1627,7 @@
     ).then(function (recordings) {
       if (!current(generation, backendId)) return false;
       if (!recordings.length) {
+        clearSeriesWarm();
         state.seriesProjection = [];
         state.seriesBackendId = '';
         state.seriesViewKey = '';
@@ -1508,16 +1636,21 @@
         return false;
       }
       if (!canEnrichMetadata) {
-        return applySeriesProjection(recordings, backendId);
+        const rendered = applySeriesProjection(recordings, backendId);
+        if (rendered && current(generation, backendId)) markSeriesWarm(backendId);
+        return rendered;
       }
       return waitForSeriesRepresentatives(client, recordings, backendId, generation).then(function () {
         if (!current(generation, backendId)) return false;
         const rich = resolvedSeriesMetadata(generation, backendId);
         const readyRecordings = readySeriesRecordings(recordings, generation, backendId);
-        return applySeriesProjection(readyRecordings, backendId, rich);
+        if (readyRecordings.length) applySeriesProjection(readyRecordings, backendId, rich);
+        startSeriesCompletion(client, recordings, backendId, generation);
+        return true;
       });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
@@ -1532,6 +1665,9 @@
   }
 
   function loadGenres(client, backendId, generation) {
+    const options = arguments.length > 3 && arguments[3] && typeof arguments[3] === 'object'
+      ? arguments[3]
+      : null;
     renderState('genres', 'Genres', 'Genres werden geladen …', false);
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
@@ -1549,10 +1685,11 @@
         randomGenre
           ? loadRandomGenre(client, backendId, generation, randomGenre)
           : Promise.resolve(false),
-        loadSeries(client, backendId, generation, entries)
+        loadSeries(client, backendId, generation, entries, options)
       ]).then(function () { return true; });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
@@ -1630,7 +1767,7 @@
     });
   }
 
-  function refresh() {
+  function refresh(options) {
     if (!homeIsActive()) return Promise.resolve(false);
     const client = clientApi();
     const backendId = selectedBackendId();
@@ -1641,13 +1778,39 @@
         typeof client.fetchClientRecordingFolder !== 'function') {
       return Promise.resolve(false);
     }
+    const config = options && typeof options === 'object' ? options : {};
+    if (config.coalesce === true && state.refreshInFlight &&
+        state.refreshInFlight.backendId === backendId &&
+        state.refreshInFlight.generation === state.generation &&
+        state.refreshInFlight.invalidated !== true) {
+      return state.refreshInFlight.promise;
+    }
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
-    return Promise.allSettled([
+    const entry = {
+      backendId: backendId,
+      generation: generation,
+      invalidated: false,
+      promise: null
+    };
+    const loadPromise = Promise.allSettled([
       loadNewly(client, backendId, generation),
-      loadGenres(client, backendId, generation),
+      loadGenres(client, backendId, generation, {reuseWarm: config.reuseWarm === true}),
       loadFolders(client, backendId, generation)
     ]).then(function () { return true; });
+    entry.promise = loadPromise.then(function (value) {
+      if (state.refreshInFlight === entry) state.refreshInFlight = null;
+      return value;
+    }, function (error) {
+      if (state.refreshInFlight === entry) state.refreshInFlight = null;
+      throw error;
+    });
+    state.refreshInFlight = entry;
+    return entry.promise;
+  }
+
+  function refreshForHome() {
+    return refresh({reuseWarm: true, coalesce: true});
   }
 
   function armLazyLoad() {
@@ -1660,12 +1823,12 @@
         if (!entries.some(function (entry) { return entry && entry.isIntersecting; })) return;
         state.observer.disconnect();
         state.observer = null;
-        refresh();
+        refreshForHome();
       }, {rootMargin: '320px 0px'});
       state.observer.observe(target);
       return true;
     }
-    global.setTimeout(refresh, 0);
+    global.setTimeout(refreshForHome, 0);
     return true;
   }
 
@@ -1675,6 +1838,9 @@
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
       state.generation += 1;
       state.loadedBackendId = '';
+      state.refreshInFlight = null;
+      state.seriesCompletionInFlight = null;
+      clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
@@ -1723,8 +1889,17 @@
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener('click', function (event) {
         const target = event && event.target;
-        if (target && typeof target.closest === 'function' &&
-            target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
+        if (!target || typeof target.closest !== 'function') return;
+        const moduleTarget = target.closest('.module-tab[data-module], [data-brand-module]');
+        const requestedModule = text(
+          moduleTarget && moduleTarget.dataset &&
+          (moduleTarget.dataset.module || moduleTarget.dataset.brandModule)
+        );
+        if (requestedModule && requestedModule !== 'overview') {
+          invalidateSeriesForHomeExit(state.generation);
+          return;
+        }
+        if (target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
           global.setTimeout(scheduleForHome, 0);
         }
       });
@@ -1763,6 +1938,9 @@
       resolvedSeriesMetadata: resolvedSeriesMetadata,
       readySeriesRecordings: readySeriesRecordings,
       waitForSeriesRepresentatives: waitForSeriesRepresentatives,
+      seriesMetadataComplete: seriesMetadataComplete,
+      seriesWarm: seriesWarm,
+      refreshForHome: refreshForHome,
       renderRecordingRail: renderRecordingRail,
       renderFolderRail: renderFolderRail,
       renderSeriesRail: renderSeriesRail,
