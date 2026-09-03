@@ -268,7 +268,7 @@ Phase 65.C was delivered in two successive coherent blocks under the same bounde
 - growing/changed sources fail closed out of completed-only immutable fast paths;
 - MediaSession/Gateway authorization, provider privacy and deterministic cleanup remain unchanged.
 
-Durable startup scope is recorded in [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65c-recording-startup-progressive-direct.md).
+Durable startup scope is recorded in [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65-recording-startup-progressive-direct.md).
 
 **Media-transcode backend policy and output settings — PR #208**
 
@@ -742,7 +742,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 Status: **Planned after Phase 68.**
 
-Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-and-compatibility-contract.md).
+Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
 Planning note: ADR-0048 architecture remains accepted. The strict roadmap now places its not-yet-started runtime after Streaming, Broadcast Companion and Legacy OSD so the stable public API can describe mature implementations instead of prematurely freezing internal transition shapes.
 
@@ -1100,7 +1100,7 @@ Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66
 - [Phase 65 Closeout](../development/phase-65-closeout.md)
 - [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
-- [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65c-recording-startup-progressive-direct.md)
+- [Phase 65.C Recording Startup / Progressive Direct](../development/phase-65-recording-startup-progressive-direct.md)
 - [Phase 65 Media Transcode Performance / Output Policy](../development/phase-65-media-transcode-performance-policy.md)
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md)
@@ -1119,5 +1119,5 @@ Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0058 Media Home, Responsive Browse and Preview Experience](../adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0047 Legacy OSD](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
-- [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-and-compatibility-contract.md)
+- [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049 Audit/Security](../adr/ADR-0049-audit-security-event-model.md)
