@@ -5,38 +5,42 @@ const fs = require('fs');
 const path = require('path');
 
 const frontendRoot = path.join(__dirname, '..');
-const discovery = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
+const repoRoot = path.join(frontendRoot, '..', '..');
 const remote = fs.readFileSync(path.join(frontendRoot, 'modules', 'remote.js'), 'utf8');
+const serverPaths = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerPaths.inc'), 'utf8');
+const serverAssets = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerAssets.inc'), 'utf8');
 
 assert(
-  discovery.includes("homeReadyBackendId: ''"),
-  'Recording Discovery must track the same-backend Home projection that is already settled'
+  serverPaths.includes('{"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"}'),
+  'production app.js must continue to compose the existing remote addon'
 );
-assert(
-  discovery.includes('if (state.homeReadyBackendId === backendId) return Promise.resolve(true);'),
-  'normal Home return must reuse the settled same-backend Recording Discovery projection'
-);
-assert(
-  discovery.includes("state.homeReadyBackendId = backendId;"),
-  'a settled Recording Discovery refresh must certify the displayed same-backend Home state'
-);
-assert(
-  discovery.includes("state.homeReadyBackendId = '';"),
-  'explicit refresh/backend invalidation must be able to clear retained Home readiness'
-);
-assert(
-  discovery.includes('if (state.homeReadyBackendId === backendId) return true;'),
-  'Home scheduling must not re-arm lazy Recording Discovery for an already settled backend'
-);
+assert(serverAssets.includes('content += "\\n\\n";'));
+assert(serverAssets.includes('content += addon;'));
 
 assert(
-  remote.includes(".module-tab.active[data-module=\\\"overview\\\"]") ||
-    remote.includes(".module-tab.active[data-module=\"overview\"]"),
-  'remote Home navigation must detect an already active canonical Home tab'
+  remote.includes('function installHomeNavigationRetention()'),
+  'the existing app addon must fence Home navigation before data-owner click listeners'
 );
 assert(
-  remote.includes("if(!active&&tab&&typeof tab.click==='function')tab.click()"),
-  'remote Home hotspot must not synthesize another Home click while Home is already active'
+  remote.includes(".module-tab[data-module=\\\"overview\\\"], [data-brand-module=\\\"overview\\\"]") ||
+    remote.includes(".module-tab[data-module=\"overview\"], [data-brand-module=\"overview\"]"),
+  'both canonical Home launchers must use the same navigation fence'
+);
+assert(
+  remote.includes("g.selectModule('overview')"),
+  'the fence must delegate navigation to the canonical app.js owner'
+);
+assert(
+  remote.includes("if(typeof v.stopPropagation==='function')v.stopPropagation()"),
+  'Home navigation must not bubble into independent Home data refresh listeners'
+);
+assert(
+  remote.includes("document.addEventListener('click',homeNavigationClick,true)"),
+  'the fence must run in capture phase before the existing bubble listeners'
+);
+assert(
+  remote.includes('installHomeNavigationRetention();styles();preloadRemoteImage();'),
+  'the production remote/app addon setup must install the Home navigation fence eagerly'
 );
 
-console.log('post-Phase-66 Home navigation retention contract ok');
+console.log('post-Phase-66 canonical Home navigation retention contract ok');
