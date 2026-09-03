@@ -10,6 +10,7 @@ const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'),
 const continueSource = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
 const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
 const historySource = fs.readFileSync(path.join(frontendRoot, 'home-recently-watched.js'), 'utf8');
+const epgMetadataSource = fs.readFileSync(path.join(frontendRoot, 'epg-metadata-detail.js'), 'utf8');
 
 // Production composition remains the existing responsive Media Home shell.
 assert(indexSource.includes('data-home-zone="hero"'));
@@ -36,6 +37,12 @@ assert(heroSource.includes('min-width:2.75rem;min-height:2.75rem'));
 assert(heroSource.includes('@media(min-width:120rem)'));
 assert(heroSource.includes('@media(prefers-reduced-motion:reduce)'));
 assert(heroSource.includes("behavior: prefersReducedMotion() ? 'auto' : 'smooth'"));
+
+// EPG metadata details use the same reduced-motion contract for automatic
+// reveal scrolling instead of forcing animated movement after tab/cast actions.
+assert(epgMetadataSource.includes("global.matchMedia('(prefers-reduced-motion: reduce)').matches === true"));
+assert(epgMetadataSource.includes("behavior: prefersReducedMotion() ? 'auto' : 'smooth'"));
+assert(!epgMetadataSource.includes("scrollIntoView({behavior: 'smooth', block: 'start'})"));
 
 // Live programme rails reuse the Hero-owned channel/EPG projection. They sit
 // immediately above Continue Watching and use the same compact Home portrait
