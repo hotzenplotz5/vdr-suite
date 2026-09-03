@@ -64,6 +64,30 @@ complete content or use a bounded edit strategy. Recheck the remote branch head
 before every write and inspect the resulting commit or diff before treating the
 change as complete.
 
+## Testblock repository entry
+
+Every local VDR-Suite test or acceptance block handed to the user must enter the
+intended VDR-Suite checkout before any Git, build, test, install, service or
+runtime command. The first executable repository action in the block must be an
+explicit `cd` to the checkout root, or a safe resolver whose successful result
+is immediately `cd`'d before any repository command. Never assume the user's
+shell is still in the repository merely because a previous command or message
+was.
+
+When the checkout path is already known from the current acceptance context,
+use that exact absolute path. Do not rely on `~/vdr-suite` in blocks that may be
+run after `sudo`, `sudo su`, `su`, or another user change, because `~` may resolve
+to a different home directory. If the exact path is not known, resolve the
+current checkout and bounded known absolute candidates without discarding a
+valid current `vdr-suite` worktree, then enter the resolved root. A failed
+hard-coded candidate must never cause `STOP` while the current directory is
+already inside the correct checkout.
+
+Immediately after entering, verify the repository root with
+`git rev-parse --show-toplevel` and, when useful, the expected repository name
+before branch/head validation. Test blocks must be self-contained and safe to
+paste from an arbitrary shell working directory.
+
 ## Frontend lifecycle and composition gates
 
 For cross-cutting frontend behavior, prove the real production composition and
