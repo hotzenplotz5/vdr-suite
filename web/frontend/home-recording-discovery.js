@@ -1007,7 +1007,6 @@
   function invalidateSeriesForHomeExit(generation) {
     if (generation !== state.generation || generation <= 0) return false;
     state.seriesInvalidatedGeneration = generation;
-    clearSeriesMetadataRetry();
     if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
       state.refreshInFlight.invalidated = true;
     }
@@ -1348,8 +1347,8 @@
         cache.generation !== generation ||
         cache.backendId !== backendId ||
         !cache.unsettledNativeIds.size ||
-        state.seriesInvalidatedGeneration === generation ||
-        !current(generation, backendId)) {
+        generation !== state.generation ||
+        backendId !== selectedBackendId()) {
       clearSeriesMetadataRetry();
       return false;
     }
@@ -1363,9 +1362,16 @@
   }
 
   function retryUnsettledSeriesMetadata(client, recordings, backendId, generation) {
-    if (!current(generation, backendId) || state.seriesInvalidatedGeneration === generation) {
+    if (generation !== state.generation || backendId !== selectedBackendId()) {
       clearSeriesMetadataRetry();
       return Promise.resolve(false);
+    }
+    if (!homeIsActive()) {
+      scheduleSeriesMetadataRetry(client, recordings, backendId, generation);
+      return Promise.resolve(false);
+    }
+    if (state.seriesInvalidatedGeneration === generation) {
+      state.seriesInvalidatedGeneration = -1;
     }
     const cache = state.seriesMetadataCache;
     if (!cache || cache.generation !== generation || cache.backendId !== backendId) {
@@ -1396,9 +1402,16 @@
     });
 
     return Promise.allSettled(pending).then(function () {
-      if (!current(generation, backendId) || state.seriesInvalidatedGeneration === generation) {
+      if (generation !== state.generation || backendId !== selectedBackendId()) {
         clearSeriesMetadataRetry();
         return false;
+      }
+      if (!homeIsActive()) {
+        scheduleSeriesMetadataRetry(client, recordings, backendId, generation);
+        return false;
+      }
+      if (state.seriesInvalidatedGeneration === generation) {
+        state.seriesInvalidatedGeneration = -1;
       }
       const rich = resolvedSeriesMetadata(generation, backendId);
       const rendered = applySeriesProjection(recordings, backendId, rich);
