@@ -181,6 +181,10 @@
     const backend = value && typeof value.getSelectedBackendId === 'function' ? text(value.getSelectedBackendId()) : '';
     return backend || state.backendId || 'default';
   }
+  function prefersReducedMotion() {
+    return typeof global.matchMedia === 'function' &&
+      global.matchMedia('(prefers-reduced-motion: reduce)').matches === true;
+  }
   function mountTarget() {
     const value = platform();
     if (value && typeof value.getMountTarget === 'function') {
@@ -215,6 +219,7 @@
 .vdr-suite-live-tv-preview{position:absolute;z-index:3;inset:0;display:grid;align-content:end;gap:.2rem;padding:.85rem;opacity:0;pointer-events:none;transform:translateY(.35rem);transition:opacity .16s ease,transform .16s ease;background-position:center;background-size:cover;color:#fff}.vdr-suite-live-tv-preview::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,rgba(2,6,23,.12),rgba(2,6,23,.94) 68%)}.vdr-suite-live-tv-channel:hover .vdr-suite-live-tv-preview,.vdr-suite-live-tv-channel:focus-visible .vdr-suite-live-tv-preview{opacity:1;transform:translateY(0)}.vdr-suite-live-tv-preview-title{font-size:1rem;font-weight:900;text-shadow:0 1px 4px #000}.vdr-suite-live-tv-preview-meta{color:#bae6fd;font-size:.78rem;font-weight:750}.vdr-suite-live-tv-preview-subtitle{overflow:hidden;color:#e2e8f0;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}
 @media(min-width:72rem){.vdr-suite-live-tv-grid{grid-template-columns:repeat(auto-fill,minmax(16.5rem,1fr))}.vdr-suite-live-tv-channel{min-height:8rem}}
 @media(hover:none){.vdr-suite-live-tv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.vdr-suite-live-tv-channel{grid-template-columns:1fr;align-content:start;min-height:11.5rem;padding:.55rem}.vdr-suite-live-tv-logo{width:100%;height:4rem}.vdr-suite-live-tv-copy{gap:.12rem}.vdr-suite-live-tv-preview{position:relative;inset:auto;min-height:4.3rem;margin:.3rem -.55rem -.55rem;padding:.55rem;opacity:1;transform:none;background-position:center 35%}.vdr-suite-live-tv-preview::before{background:linear-gradient(180deg,rgba(2,6,23,.35),rgba(2,6,23,.94))}.vdr-suite-live-tv-preview-title{font-size:.82rem}.vdr-suite-live-tv-preview-subtitle{display:none}}
+@media(prefers-reduced-motion:reduce){.vdr-suite-live-tv-channel:hover,.vdr-suite-live-tv-channel:focus-visible{transform:none}.vdr-suite-live-tv-preview{transition:none;transform:none}.vdr-suite-live-tv-channel:hover .vdr-suite-live-tv-preview,.vdr-suite-live-tv-channel:focus-visible .vdr-suite-live-tv-preview{transform:none}}
 @media(max-width:420px){.vdr-suite-live-tv-grid{grid-template-columns:1fr}.vdr-suite-live-tv-channel{grid-template-columns:5rem minmax(0,1fr);min-height:7rem}.vdr-suite-live-tv-logo{width:5rem;height:3.2rem}.vdr-suite-live-tv-preview{grid-column:1/-1}}
 `;
     doc.head.appendChild(style);
@@ -486,7 +491,7 @@
     if (!mount || typeof mount.querySelector !== 'function') return false;
     const player = mount.querySelector('.vdr-suite-live-tv-player');
     if (!player || typeof player.scrollIntoView !== 'function') return false;
-    player.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    player.scrollIntoView({behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest'});
     return true;
   }
 
@@ -634,7 +639,7 @@
     if (changedBackend || state.channels.length === 0) load();
     else loadPrograms(++state.requestSequence);
     const mount = mountTarget();
-    if (mount && typeof mount.scrollIntoView === 'function') mount.scrollIntoView({behavior: 'smooth', block: 'start'});
+    if (mount && typeof mount.scrollIntoView === 'function') mount.scrollIntoView({behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start'});
     return true;
   }
   function refresh() { if (!state.active) return false; load(); return true; }
@@ -736,7 +741,7 @@
     startChannel,
     stop,
     snapshot,
-    __test: Object.freeze({channelId, channelName, channelIsRadio, channelHasEncryptionInfo, channelIsEncrypted, channelAvailabilityText, liveErrorForChannel, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, setActive: function(value) { state.active = Boolean(value); }})
+    __test: Object.freeze({channelId, channelName, channelIsRadio, channelHasEncryptionInfo, channelIsEncrypted, channelAvailabilityText, liveErrorForChannel, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, prefersReducedMotion, scrollPlayerIntoView, setActive: function(value) { state.active = Boolean(value); }})
   });
 
   global.VdrSuiteLiveTvView = api;
