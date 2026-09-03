@@ -19,6 +19,7 @@
     armed: false,
     refreshInFlight: null,
     seriesCompletionInFlight: null,
+    seriesInvalidatedGeneration: -1,
     seriesProjection: [],
     seriesBackendId: '',
     seriesViewKey: '',
@@ -994,6 +995,9 @@
   function current(generation, backendId) {
     const active = homeIsActive();
     if (!active) {
+      if (generation === state.generation) {
+        state.seriesInvalidatedGeneration = generation;
+      }
       if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
         state.refreshInFlight.invalidated = true;
       }
@@ -1045,6 +1049,7 @@
   function seriesMetadataComplete(recordings, generation, backendId) {
     const cache = state.seriesMetadataCache;
     if (!cache || cache.generation !== generation || cache.backendId !== backendId) return false;
+    if (state.seriesInvalidatedGeneration === generation) return false;
     if (state.refreshInFlight &&
         state.refreshInFlight.generation === generation &&
         state.refreshInFlight.invalidated === true) {
