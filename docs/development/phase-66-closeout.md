@@ -1,6 +1,6 @@
 # Phase 66 — Media Home and Browse Experience Closeout
 
-Status: **SLICE 66.8 GOLDEN ACCEPTANCE PASS / FINAL-HEAD CI PENDING.** Slices 66.1 through 66.7 are accepted and merged. The integrated Slice-66.8 desktop/mobile Golden journeys are accepted. Phase 66 remains open only until the exact post-acceptance closeout head passes the complete hosted CI graph. Phase 67 is not authorized.
+Status: **PHASE 66 CLOSEOUT COMPLETION CANDIDATE.** Golden desktop/mobile acceptance is PASS and the complete post-acceptance CI on `4dd5288eaedd2612db5ab4c11ec56d0e48ac1201` is PASS. This closeout status becomes final only when the exact commit containing this status update also passes the complete hosted CI graph. PR #264 remains Draft; Ready-for-review and merge still require explicit user authorization. Phase 67 is not authorized.
 
 This document is the durable evidence matrix for Slice 66.8 — Golden User Journey and Real-System Acceptance. Slice 66.8 is an integration, acceptance and closeout slice. It introduces no new media, playback, artwork, metadata, history, Recording or navigation owner.
 
@@ -53,25 +53,7 @@ accepted_installed_product=a5bf909d6b6580a61fb20d4e5058201da45d345f
 
 The self-contained acceptance block verified that no product/runtime file changed between the accepted installed Slice-66.7 product and the Slice-66.8 closeout candidate after excluding `AGENTS.md` and documentation. No rebuild or reinstall was therefore required merely for the documentation-only 66.8 candidate.
 
-The user then reported the complete requested Slice-66.8 Golden journey as PASS. That PASS covers the exact integrated checklist supplied for:
-
-- desktop Chromium-family browser on the real yaVDR system;
-- Home useful before preview readiness;
-- rapid Live-TV browse independent of preview startup;
-- stable-focus delayed preview and subsequent non-blocking browse/relinquish behavior;
-- explicit `Watch Live`;
-- real Recording Continue path;
-- Newly Recorded / Genre browse and Recording-folder navigation;
-- 1080p desktop composition;
-- 4K-class/equivalent desktop viewport composition;
-- real phone portrait hero/swipe/neighbor-peek behavior;
-- mobile settled preview, Watch Live and EPG touch actions;
-- horizontal Continue-Watching rail;
-- bottom navigation Home / Live / Recordings / Search / More;
-- secondary Timer / EPG / Settings reachability;
-- materially different phone landscape sanity including overflow/navigation checks.
-
-Durable result:
+The user reported the complete requested Slice-66.8 Golden journey as PASS. The accepted checklist covered desktop Chromium-family on the real yaVDR system, Home usefulness before preview readiness, rapid Live-TV browse, stable-focus delayed preview and relinquish, explicit Watch Live, real Recording Continue, Newly Recorded / Genre / Recording-folder navigation, 1080p and 4K-class/equivalent desktop composition, real-phone portrait hero/swipe/neighbor peeks, mobile preview/Watch Live/EPG touch actions, horizontal Continue Watching, bottom navigation, secondary Timer/EPG/Settings reachability and the materially different landscape sanity check.
 
 ```text
 PHASE66_GOLDEN_DESKTOP=PASS
@@ -80,6 +62,20 @@ PHASE66_GOLDEN_ACCEPTANCE=PASS
 ```
 
 No Golden-journey failure exposed a new Phase-66 product defect, so Slice 66.8 requires no runtime repair.
+
+## Post-acceptance CI evidence
+
+The first exact post-acceptance documentation head passed the complete six-job graph:
+
+```text
+workflow=VDR-Suite CI
+run_number=8568
+run_id=33728806731
+head=4dd5288eaedd2612db5ab4c11ec56d0e48ac1201
+result=PASS
+```
+
+This run includes successful packaging/install staging, fast regression plus daemon build, architecture, frontend, docs and Make/test audit. The subsequent closeout-status commit must itself pass the same full graph before this completion candidate is treated as final.
 
 ## Phase-66 completion matrix
 
@@ -94,7 +90,7 @@ No Golden-journey failure exposed a new Phase-66 product defect, so Slice 66.8 r
 | 7. Recently Watched uses explicit actor/history semantics | 66.6 accepted semantic/runtime evidence | PASS |
 | 8. Keyboard/touch/focus/accessibility gates | PR #233 + 66.7 + desktop/mobile Golden interaction checks | PASS |
 | 9. Golden desktop and mobile journeys | Slice-66.8 real-system acceptance above | PASS |
-| 10. Complete final-head CI including packaging/install regression | Must run on the exact post-acceptance closeout head | PENDING |
+| 10. Complete final-head CI including packaging/install regression | Post-acceptance CI #8568 PASS; exact closeout-status head must also PASS before finalization | FINAL EXACT-HEAD CHECK REQUIRED |
 | 11. Rollback and provider/session/privacy boundaries | ADR-0058 + accepted closeouts; Slice 66.8 changes documentation only | PASS |
 
 ## Deferred boundary
@@ -105,6 +101,6 @@ The known symptom that visible Series metadata/artwork is not always projected a
 
 Slice 66.8 introduces no runtime behavior. Rollback is the documentation-only revert of the Slice-66.8 closeout/status commits. Accepted Phase-66 product runtime and provider/session/history/privacy ownership boundaries remain unchanged.
 
-## Remaining closeout gate
+## Finalization rule
 
-Phase 66 is not declared completed by the Golden PASS alone. The exact post-acceptance documentation head must still pass the complete `VDR-Suite CI` graph, including packaging/install regression. After that succeeds, volatile status may be advanced to Phase 66 completed while Phase 67 remains not authorized. PR #264 stays Draft until explicit user authorization for Ready-for-review and merge.
+Once the exact commit containing this completion status passes the complete `VDR-Suite CI` graph, all Phase-66 completion gates are satisfied and Phase 66 is closed for its accepted scope. PR #264 must nevertheless remain Draft until explicit user authorization to mark Ready-for-review; merge also requires explicit user authorization. Phase 67 does not become authorized automatically.
