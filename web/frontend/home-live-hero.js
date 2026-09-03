@@ -6,7 +6,8 @@
 // details delegate to the existing canonical EPG owners. Selection, keyboard
 // navigation and touch swipes never create media/session work. Slice 66.7 adds
 // presentation-only accessibility, reduced-motion and responsive polish without
-// changing owners.
+// changing owners. Post-Phase-66 performance hardening keeps pure Hero browsing
+// off the programme-rail rebuild path and indexes EPG events once per data change.
 (function (global) {
   'use strict';
 
@@ -19,6 +20,7 @@
     backendId: '',
     channels: [],
     events: [],
+    eventsByChannel: new Map(),
     selectedIndex: 0,
     loadingChannels: false,
     loadingPrograms: false,
@@ -123,8 +125,30 @@
     ].join('\n');
   }
 
+  function rebuildEventIndex() {
+    const index = new Map();
+    state.events.forEach(event => {
+      const id = eventChannelId(event);
+      if (!id) return;
+      if (!index.has(id)) index.set(id, []);
+      index.get(id).push(event);
+    });
+    index.forEach(events => {
+      events.sort((left, right) => eventStart(left) - eventStart(right));
+    });
+    state.eventsByChannel = index;
+  }
+
+  function clearPrograms() {
+    state.events = [];
+    state.eventsByChannel = new Map();
+  }
+
   function channelEvents(channel, events) {
     const id = channelId(channel);
+    if (events === state.events && state.eventsByChannel instanceof Map) {
+      return state.eventsByChannel.get(id) || [];
+    }
     return (Array.isArray(events) ? events : []).filter(event => eventChannelId(event) === id).slice().sort((left, right) => eventStart(left) - eventStart(right));
   }
 
@@ -594,7 +618,7 @@
   function watchChannel(channel) {
     if (!channel || !channelIsEnabled(channel)) {
       state.actionError = 'Dieser Sender kann derzeit nicht gestartet werden.';
-      render();
+      render({programmeRails: false});
       return Promise.resolve(null);
     }
     const liveOwner = global.VdrSuiteLiveTvView;
@@ -602,7 +626,7 @@
       ? (doc.querySelector('[data-brand-module="livetv"]') || doc.querySelector('[data-brand-module="channels2"]')) : null;
     if (!liveOwner || typeof liveOwner.startChannel !== 'function' || !liveEntry || typeof liveEntry.click !== 'function') {
       state.actionError = 'Live-TV Navigation ist derzeit nicht verfügbar.';
-      render();
+      render({programmeRails: false});
       return Promise.resolve(null);
     }
     state.actionError = '';
@@ -626,7 +650,7 @@
     const entry = doc && typeof doc.querySelector === 'function' ? doc.querySelector('[data-brand-module="epg"]') : null;
     if (!entry || typeof entry.click !== 'function') {
       state.actionError = 'EPG Navigation ist derzeit nicht verfügbar.';
-      render();
+      render({programmeRails: false});
       return false;
     }
     state.actionError = '';
@@ -634,13 +658,14 @@
     return true;
   }
 
-  function render() {
+  function render(options) {
     if (!state.active || !doc) return false;
     const root = heroRoot();
     if (!root || typeof root.replaceChildren !== 'function') return false;
+    const config = options && typeof options === 'object' ? options : {};
     installStyles();
     bindHeroInteractions(root);
-    renderProgrammeRails();
+    if (config.programmeRails !== false) renderProgrammeRails();
     if (state.loadingChannels && state.channels.length === 0) return statusHero('Sender werden geladen …', 'Media Home lädt die vorhandene VDR-Kanalliste. Browsing bleibt von Playback getrennt.', false);
     if (state.dataError) return statusHero('Live-TV ist vorübergehend nicht verfügbar', state.dataError, true);
     if (state.channels.length === 0) return statusHero('Keine TV-Sender gefunden', 'Die kanonische Kanalliste enthält für dieses Backend derzeit keine TV-Sender.', false);
@@ -714,7 +739,7 @@
     const length = state.channels.length;
     state.selectedIndex = ((Number(index) || 0) % length + length) % length;
     state.actionError = '';
-    render();
+    render({programmeRails: false});
     if (state.programmeLoadedChannelCount > 0 &&
         state.selectedIndex + 3 >= state.programmeLoadedChannelCount &&
         state.programmeLoadedChannelCount < state.channels.length) {
@@ -735,6 +760,7 @@
     const incoming = list(data, 'events').slice();
     if (!append) {
       state.events = incoming;
+      rebuildEventIndex();
       return;
     }
     const merged = new Map();
@@ -742,6 +768,7 @@
       merged.set(eventIdentity(event), event);
     });
     state.events = Array.from(merged.values());
+    rebuildEventIndex();
   }
 
   function loadProgrammePage(sequence, offset, reset) {
@@ -767,7 +794,7 @@
 
     const now = Math.floor(Date.now() / 1000);
     if (reset) {
-      state.events = [];
+      clearPrograms();
       state.programmeLoadedChannelCount = 0;
       state.loadingPrograms = true;
       state.programmeLoadingMore = false;
@@ -803,7 +830,7 @@
     }).catch(() => {
       if (!state.active || sequence !== state.requestSequence) return null;
       if (reset) {
-        state.events = [];
+        clearPrograms();
         state.programmeLoadedChannelCount = 0;
         state.loadingPrograms = false;
         state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
@@ -861,7 +888,7 @@
     state.dataError = '';
     state.programError = '';
     if (force || backendChanged) {
-      state.events = [];
+      clearPrograms();
       state.programmeLoadedChannelCount = 0;
       state.programmeLoadingMore = false;
     }
@@ -887,7 +914,7 @@
       if (!state.active || sequence !== state.requestSequence) return null;
       state.loadingChannels = false;
       state.channels = [];
-      state.events = [];
+      clearPrograms();
       state.programmeLoadedChannelCount = 0;
       state.programmeLoadingMore = false;
       state.dataError = error && error.message ? error.message : 'Senderliste konnte nicht geladen werden.';
