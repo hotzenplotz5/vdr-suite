@@ -45,13 +45,13 @@ Next strict numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Latest completed Phase-66 slice:
-Slice 66.3 - Deferred Live Preview (PR #234)
+Slice 66.7 - Visual Polish and Accessibility (PR #262)
 
 Current active slice:
-Slice 66.4 - Continue Watching (Draft PR #235)
+Slice 66.8 - Golden User Journey and Real-System Acceptance
 ```
 
-Read [Current State](../CURRENT.md) and [Phase 65 Closeout](../development/phase-65-closeout.md) for exact operational/evidence state. ADR-0058 and the [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md) define the accepted architecture; runtime is active only for Slice 66.4. Real-system acceptance remains pending and Slice 66.5+ is not authorized.
+Read [Current State](../CURRENT.md) and [Phase 66 Closeout](../development/phase-66-closeout.md) for exact operational/evidence state. ADR-0058 and the [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md) define the accepted architecture. Slices 66.1 through 66.7 are accepted; Slice 66.8 is the active integration/acceptance gate. Phase 67 remains planned and not runtime-authorized.
 
 ## Revised numbered forward sequence
 
@@ -59,8 +59,8 @@ Read [Current State](../CURRENT.md) and [Phase 65 Closeout](../development/phase
 | ---: | --- | --- | --- | --- |
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable Timer intent/assignment/binding orchestration and controlled failover. |
 | 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback, least-transformation delivery/output policy and normalized persistent playback semantics. |
-| 3 | Phase 66 | Active; Slice 66.4 | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching and product acceptance. |
-| 4 | Phase 67 | Planned after Phase 66 | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext and broadcast-application runtime. |
+| 3 | Phase 66 | Active; Slice 66.8 | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching, discovery/history and final Golden journey acceptance. |
+| 4 | Phase 67 | Planned after Phase 66; not authorized | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext and broadcast-application runtime. |
 | 5 | Phase 68 | Planned after Phase 67 | Legacy OSD Compatibility Bridge | Isolated OSD observation/control compatibility. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations after prerequisites. |
@@ -108,7 +108,9 @@ existing Channel / EPG / Recording / Metadata truth
   -> explicit full playback through existing owners
 ```
 
-Phase 66 is active only for Slice 66.4 — Continue Watching. Slice 66.1, Slice 66.2 and Slice 66.3 are completed; Slice 66.3 was delivered through PR #234. Slice 66.4 is limited to durable actor/backend/Recording-scoped resume truth, the Home rail and adaptation into the canonical existing Recording playback flow. Slice 66.5 and later semantics remain sequenced but outside the current authorization.
+Slices 66.1 through 66.7 are completed and accepted. Their bounded runtime evidence covers the Home shell, responsive composition, Live-TV hero browsing, deferred canonical preview, truthful Continue Watching, Recording discovery rails, Recently Watched/History, Series projection follow-ups and visual/accessibility hardening. Slice 66.8 is active only as the final Golden journey, real-system acceptance and phase-closeout gate. It must reuse the established domain/playback/artwork/metadata/lifecycle owners and must not create new product semantics merely to produce closeout evidence.
+
+Phase 66 remains open until the Golden desktop/mobile journeys and exact final closeout-head CI including packaging/install regression pass. Phase 67 remains outside the active runtime scope.
 
 ## Phase 67 compact boundary
 
@@ -161,10 +163,10 @@ See [Golden User Journeys](golden-user-journeys.md).
 
 - Completed history is never renumbered.
 - Phases 61 through 65 are closed for their accepted scopes.
-- Phase 66 Media Home and Browse Experience is active only for Slice 66.4.
-- Slice 66.1, Slice 66.2 and Slice 66.3 are completed; ADR-0058 acceptance plus the explicit runtime authorization permit only the current bounded Slice 66.4 scope.
-- Slice 66.5 and later Phase-66 work remains gated and is not authorized.
-- Phase 67 Broadcast Companion retains ADR-0054 architecture.
+- Phase 66 Media Home and Browse Experience is active only for Slice 66.8 closeout/acceptance.
+- Slices 66.1 through 66.7 are completed and accepted; their unchanged runtime evidence is reusable under the repository evidence rules.
+- Slice 66.8 does not authorize new feature work; only a Golden-journey failure proven to block the binding phase gate may justify a bounded root-cause repair.
+- Phase 67 Broadcast Companion retains ADR-0054 architecture but is not runtime-authorized by Phase-66 closeout work.
 - Phase 68 Legacy OSD retains ADR-0047 architecture.
 - Phase 69 Public API hardening retains ADR-0048 architecture.
 - Phase 70 Recommendation / Knowledge Graph remains vision and requires its own accepted runtime ADR.
@@ -183,6 +185,7 @@ make test-phase
 
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
+- [Phase 66 Closeout](../development/phase-66-closeout.md)
 - [Phase 64 Closeout](../development/phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
