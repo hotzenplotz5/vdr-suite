@@ -329,6 +329,8 @@
   const TITLE = 'Filme der letzten 5 Jahre';
   const LIMIT = 12;
   const PAGE_LIMIT = 100;
+  const MOVIE_GENRE_ID = 'movie';
+  const WARM_RETURN_MS = 60000;
   const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
   const state = {
     generation: 0,
@@ -336,6 +338,9 @@
     moduleObserver: null,
     movies: [],
     backendId: '',
+    completedAt: 0,
+    loadingBackendId: '',
+    loadingPromise: null,
     visibleLimit: LIMIT,
     nearEndBound: false
   };
@@ -475,12 +480,11 @@
     const seen = new Set();
 
     function requestPage(offset) {
-      return Promise.resolve(client.fetchClientRecordings({
-        query: {
-          backend: backendId,
-          limit: PAGE_LIMIT,
-          offset: offset
-        },
+      return Promise.resolve(client.fetchClientGenreRecordings({
+        backendId: backendId,
+        genreId: MOVIE_GENRE_ID,
+        limit: PAGE_LIMIT,
+        offset: offset,
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
@@ -631,8 +635,8 @@
       });
       rail.appendChild(card);
     });
-    rail.scrollLeft = previousScrollLeft;
     target.appendChild(rail);
+    rail.scrollLeft = previousScrollLeft;
     positionBeforeSeries();
     return true;
   }
@@ -656,11 +660,17 @@
     return true;
   }
 
+  function warmForBackend(backendId) {
+    return state.backendId === backendId &&
+      state.completedAt > 0 &&
+      Date.now() - state.completedAt < WARM_RETURN_MS;
+  }
+
   function refresh() {
     if (!homeIsActive()) return Promise.resolve(false);
     const client = clientApi();
     const owner = discoveryTestApi();
-    if (!client || typeof client.fetchClientRecordings !== 'function' ||
+    if (!client || typeof client.fetchClientGenreRecordings !== 'function' ||
         !owner || typeof owner.canonicalRecordings !== 'function' ||
         typeof owner.openRecording !== 'function') {
       return Promise.resolve(false);
@@ -670,9 +680,10 @@
     const currentYear = new Date().getFullYear();
     state.movies = [];
     state.backendId = backendId;
+    state.completedAt = 0;
     state.visibleLimit = LIMIT;
     renderState('Filme werden geladen …', false);
-    return fetchAllRecordings(client, backendId, generation).then(function (recordings) {
+    const load = fetchAllRecordings(client, backendId, generation).then(function (recordings) {
       if (generation !== state.generation ||
           backendId !== selectedBackendId() ||
           !homeIsActive()) return false;
@@ -681,12 +692,33 @@
       }));
       state.movies = movies;
       state.backendId = backendId;
+      state.completedAt = Date.now();
       state.visibleLimit = Math.min(LIMIT, movies.length);
       return render(movies, backendId, state.visibleLimit);
     }).catch(function () {
       if (generation !== state.generation) return false;
+      state.completedAt = 0;
       return renderState('Filme sind vorübergehend nicht verfügbar.', true);
     });
+    state.loadingBackendId = backendId;
+    state.loadingPromise = load;
+    return load.then(function (result) {
+      if (state.loadingPromise === load) {
+        state.loadingPromise = null;
+        state.loadingBackendId = '';
+      }
+      return result;
+    });
+  }
+
+  function refreshForHome() {
+    if (!homeIsActive()) return Promise.resolve(false);
+    const backendId = selectedBackendId();
+    if (state.loadingPromise && state.loadingBackendId === backendId) {
+      return state.loadingPromise;
+    }
+    if (warmForBackend(backendId)) return Promise.resolve(true);
+    return refresh();
   }
 
   function railHasClass(rail, className) {
@@ -744,7 +776,7 @@
           target.classList.contains('active')
         );
       });
-      if (enteredHome && typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+      if (enteredHome && typeof global.setTimeout === 'function') global.setTimeout(refreshForHome, 0);
     });
     state.moduleObserver.observe(navigation, {
       subtree: true,
@@ -763,7 +795,7 @@
         const target = event && event.target;
         if (target && typeof target.closest === 'function' &&
             target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
-          global.setTimeout(refresh, 0);
+          global.setTimeout(refreshForHome, 0);
         }
       });
     }
@@ -780,6 +812,8 @@
       sortMovies: sortMovies,
       fetchAllRecordings: fetchAllRecordings,
       render: render,
+      refreshForHome: refreshForHome,
+      warmForBackend: warmForBackend,
       loadMoreMovies: loadMoreMovies,
       handleRailNearEnd: handleRailNearEnd,
       positionBeforeSeries: positionBeforeSeries,
