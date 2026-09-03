@@ -33,8 +33,25 @@ class ClassState {
 }
 
 let enhanced = null;
+let reducedMotion = true;
 const listeners = {};
 const headChildren = [];
+const scrollCalls = [];
+
+function createScrollTarget(name) {
+  return {
+    dataset: {},
+    scrollIntoView(options) {
+      scrollCalls.push({target: name, options});
+    }
+  };
+}
+
+const epgScrollTargets = [
+  createScrollTarget('side'),
+  createScrollTarget('inline')
+];
+
 const document = {
   documentElement: {dataset: {}},
   head: {
@@ -53,7 +70,10 @@ const document = {
     if (!listeners[name]) listeners[name] = [];
     listeners[name].push(listener);
   },
-  querySelectorAll() {
+  querySelectorAll(selector) {
+    if (selector === '[data-epg-side-detail="true"],[data-epg-inline-detail="true"]') {
+      return epgScrollTargets;
+    }
     return [];
   }
 };
@@ -68,9 +88,9 @@ const window = {
     callback();
     return 1;
   },
-  matchMedia() {
+  matchMedia(query) {
     return {
-      matches: true,
+      matches: query === '(prefers-reduced-motion: reduce)' ? reducedMotion : true,
       addEventListener() {}
     };
   }
@@ -140,6 +160,35 @@ assert.ok(headChildren[0].textContent.includes(
 assert.ok(headChildren[0].textContent.includes('width:min(42rem,calc(100vw - 3rem))'));
 assert.ok(!headChildren[0].textContent.includes('position:fixed'));
 assert.ok(!headChildren[0].textContent.includes('@media(max-width:1099px)'));
+
+assert.strictEqual(epgScrollTargets[0].dataset.epgReducedMotionScrollGuard, 'true');
+assert.strictEqual(epgScrollTargets[1].dataset.epgReducedMotionScrollGuard, 'true');
+
+epgScrollTargets[0].scrollIntoView({behavior: 'smooth', block: 'start'});
+epgScrollTargets[1].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+assert.strictEqual(scrollCalls[0].target, 'side');
+assert.strictEqual(scrollCalls[0].options.behavior, 'auto');
+assert.strictEqual(scrollCalls[0].options.block, 'start');
+assert.strictEqual(scrollCalls[1].target, 'inline');
+assert.strictEqual(scrollCalls[1].options.behavior, 'auto');
+assert.strictEqual(scrollCalls[1].options.block, 'nearest');
+
+reducedMotion = false;
+epgScrollTargets[0].scrollIntoView({behavior: 'smooth', block: 'start'});
+assert.strictEqual(scrollCalls[2].target, 'side');
+assert.strictEqual(scrollCalls[2].options.behavior, 'smooth');
+assert.strictEqual(scrollCalls[2].options.block, 'start');
+
+reducedMotion = true;
+const delayedInline = createScrollTarget('delayed-inline');
+epgScrollTargets.push(delayedInline);
+assert.strictEqual(delayedInline.dataset.epgReducedMotionScrollGuard, undefined);
+listeners.click[0]({target: {}});
+assert.strictEqual(delayedInline.dataset.epgReducedMotionScrollGuard, 'true');
+delayedInline.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+assert.strictEqual(scrollCalls[3].target, 'delayed-inline');
+assert.strictEqual(scrollCalls[3].options.behavior, 'auto');
+assert.strictEqual(scrollCalls[3].options.block, 'nearest');
 
 const workbench = {
   classList: new ClassState(),
