@@ -3,8 +3,10 @@
 (function (global) {
   const STYLE_ID = 'vdr-suite-epg-detail-desktop-focus-style';
   const DESKTOP_QUERY = '(min-width: 1100px)';
+  const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
   const EXPANDED_CLASS = 'epg-detail-expanded';
   const TIMELINE_CLASS = 'epg-timeline-foreground';
+  const REDUCED_MOTION_SCROLL_GUARD = 'epgReducedMotionScrollGuard';
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -48,6 +50,61 @@
       return global.matchMedia(DESKTOP_QUERY).matches;
     }
     return Number(global.innerWidth || 0) >= 1100;
+  }
+
+  function prefersReducedMotion() {
+    try {
+      return typeof global.matchMedia === 'function' &&
+        global.matchMedia(REDUCED_MOTION_QUERY).matches === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function guardReducedMotionScroll(element) {
+    if (!element ||
+        !element.dataset ||
+        element.dataset[REDUCED_MOTION_SCROLL_GUARD] === 'true' ||
+        typeof element.scrollIntoView !== 'function') {
+      return;
+    }
+
+    const scrollIntoView = element.scrollIntoView;
+
+    element.scrollIntoView = function (options) {
+      if (
+        prefersReducedMotion() &&
+        options &&
+        typeof options === 'object' &&
+        options.behavior === 'smooth'
+      ) {
+        return scrollIntoView.call(element, Object.assign({}, options, {behavior: 'auto'}));
+      }
+
+      if (arguments.length === 0) {
+        return scrollIntoView.call(element);
+      }
+
+      return scrollIntoView.call(element, options);
+    };
+
+    element.dataset[REDUCED_MOTION_SCROLL_GUARD] = 'true';
+  }
+
+  function guardEpgRevealScrolls() {
+    if (typeof document.querySelectorAll !== 'function') return;
+
+    document
+      .querySelectorAll('[data-epg-side-detail="true"],[data-epg-inline-detail="true"]')
+      .forEach(guardReducedMotionScroll);
+  }
+
+  function handleRevealInteraction() {
+    guardEpgRevealScrolls();
+
+    if (typeof global.setTimeout === 'function') {
+      global.setTimeout(guardEpgRevealScrolls, 0);
+    }
   }
 
   function setExpanded(workbench, expanded) {
@@ -95,6 +152,8 @@
 
   function install() {
     ensureStyles();
+    guardEpgRevealScrolls();
+    document.addEventListener('click', handleRevealInteraction, true);
     document.addEventListener('pointerdown', handleDetailInteraction, true);
     document.addEventListener('focusin', handleDetailInteraction, true);
     document.addEventListener('pointerover', handleTimelineInteraction, true);
