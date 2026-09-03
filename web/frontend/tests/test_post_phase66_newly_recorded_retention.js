@@ -25,6 +25,9 @@ let captureListener = null;
 const bubbleListeners = [];
 let scheduledRefreshes = 0;
 let recordingFetches = 0;
+let genreFetches = 0;
+let genreRecordingFetches = 0;
+let folderFetches = 0;
 let selectCount = 0;
 const styleNodes = new Map();
 
@@ -80,9 +83,18 @@ const client = {
     recordingFetches += 1;
     return Promise.resolve({recordings: []});
   },
-  fetchClientGenres() { return Promise.resolve({genres: []}); },
-  fetchClientGenreRecordings() { return Promise.resolve({recordings: []}); },
-  fetchClientRecordingFolder() { return Promise.resolve({folders: [], recordings: []}); }
+  fetchClientGenres() {
+    genreFetches += 1;
+    return Promise.resolve({genres: []});
+  },
+  fetchClientGenreRecordings() {
+    genreRecordingFetches += 1;
+    return Promise.resolve({recordings: []});
+  },
+  fetchClientRecordingFolder() {
+    folderFetches += 1;
+    return Promise.resolve({folders: [], recordings: []});
+  }
 };
 
 function IntersectionObserver() {
@@ -124,6 +136,9 @@ vm.runInContext(discoverySource, context, {
 
 assert.strictEqual(window.VdrSuiteHomeRecordingDiscovery.install(), true);
 assert.strictEqual(recordingFetches, 0, 'lazy install must not fetch Newly Recorded eagerly');
+assert.strictEqual(genreFetches, 0, 'lazy install must not fetch Genres eagerly');
+assert.strictEqual(genreRecordingFetches, 0, 'lazy install must not fetch Genre recordings eagerly');
+assert.strictEqual(folderFetches, 0, 'lazy install must not fetch Recording folders eagerly');
 assert(
   bubbleListeners.length >= 1,
   'Recording Discovery must retain its Home navigation bubble listener'
@@ -151,6 +166,14 @@ vm.runInContext(
 );
 assert.strictEqual(typeof captureListener, 'function');
 
+function assertNoDiscoveryRefetch(prefix) {
+  assert.strictEqual(scheduledRefreshes, 0, prefix + ' must not schedule Recording Discovery refresh');
+  assert.strictEqual(recordingFetches, 0, prefix + ' must not refetch Newly Recorded');
+  assert.strictEqual(genreFetches, 0, prefix + ' must not refetch Genres');
+  assert.strictEqual(genreRecordingFetches, 0, prefix + ' must not refetch Genre recordings');
+  assert.strictEqual(folderFetches, 0, prefix + ' must not refetch Recording folders');
+}
+
 function dispatchHome(target) {
   let stopped = false;
   const event = {
@@ -167,8 +190,7 @@ selectedModule = 'recordings2';
 assert.strictEqual(dispatchHome(homeTab), true);
 assert.strictEqual(selectCount, 1, 'lower Home must delegate exactly once to canonical app navigation');
 assert.strictEqual(selectedModule, 'overview');
-assert.strictEqual(scheduledRefreshes, 0, 'lower Home return must not schedule Recording Discovery refresh');
-assert.strictEqual(recordingFetches, 0, 'lower Home return must not refetch Newly Recorded');
+assertNoDiscoveryRefetch('lower Home return');
 
 const brandHome = {
   dataset: {brandModule: 'overview'},
@@ -181,12 +203,19 @@ selectedModule = 'epg';
 assert.strictEqual(dispatchHome(brandHome), true);
 assert.strictEqual(selectCount, 2, 'upper Home launcher must delegate exactly once to canonical app navigation');
 assert.strictEqual(selectedModule, 'overview');
-assert.strictEqual(scheduledRefreshes, 0, 'upper Home return must not schedule Recording Discovery refresh');
-assert.strictEqual(recordingFetches, 0, 'upper Home return must not refetch Newly Recorded');
+assertNoDiscoveryRefetch('upper Home return');
 
 assert(
   discoverySource.includes('loadNewly(client, backendId, generation)'),
   'explicit Recording Discovery refresh must continue to own Newly Recorded loading'
 );
+assert(
+  discoverySource.includes('loadGenres(client, backendId, generation'),
+  'explicit Recording Discovery refresh must continue to own Genre loading'
+);
+assert(
+  discoverySource.includes('loadFolders(client, backendId, generation)'),
+  'explicit Recording Discovery refresh must continue to own Recording-folder loading'
+);
 
-console.log('post-Phase-66 Newly Recorded Home retention contract ok');
+console.log('post-Phase-66 Recording Discovery Home retention contract ok');
