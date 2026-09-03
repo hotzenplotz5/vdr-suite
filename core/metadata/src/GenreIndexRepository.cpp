@@ -32,4 +32,5 @@ namespace
 
 #include "GenreIndexRepositoryStorage.inc"
 #include "GenreIndexRepositorySynchronization.inc"
+#include "GenreIndexRepositoryArtwork.inc"
 #include "GenreIndexRepositoryQueries.inc"

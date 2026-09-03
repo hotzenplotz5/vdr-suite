@@ -204,6 +204,19 @@ std::string epgArtworkUrl(const GenreEpgItem& event)
         "&eventId=" + percentEncode(event.eventId);
 }
 
+std::string epgMetadataImageUrl(
+    const GenreEpgItem& event,
+    const GenreEpgArtworkSelection& artwork)
+{
+    if (!artwork.available) return {};
+    return "/api/epg/cache/metadata/image?backend=" +
+        percentEncode(event.backendId) +
+        "&channelId=" + percentEncode(event.channelId) +
+        "&eventId=" + percentEncode(event.eventId) +
+        "&kind=" + percentEncode(artwork.kind) +
+        "&index=" + std::to_string(artwork.imageIndex);
+}
+
 std::string normalizedLocale(const std::string& locale)
 {
     return locale.rfind("en", 0) == 0 ? "en" : "de";
@@ -484,7 +497,21 @@ ApiResponse GenreBrowserController::getEpg(
     {
         if (index > 0) json << ',';
         const GenreEpgItem& event = page.events[index];
-        const std::string artworkUrl = epgArtworkUrl(event);
+        const GenreEpgArtworkSelection poster =
+            repository_.epgPortraitArtwork(
+                event.backendId,
+                event.channelId,
+                event.eventId);
+        const bool artworkAvailable = poster.available || event.artworkAvailable;
+        const std::string artworkUrl = poster.available
+            ? epgMetadataImageUrl(event, poster)
+            : epgArtworkUrl(event);
+        const int artworkWidth = poster.available
+            ? poster.width
+            : event.artworkWidth;
+        const int artworkHeight = poster.available
+            ? poster.height
+            : event.artworkHeight;
         json << "{\"id\":";
         appendJsonString(json, event.eventId);
         json << ",\"eventId\":";
@@ -509,11 +536,11 @@ ApiResponse GenreBrowserController::getEpg(
         json << ",\"genreIds\":";
         appendStringArray(json, event.genreIds);
         json << ",\"artwork\":{\"available\":"
-             << (event.artworkAvailable ? "true" : "false");
+             << (artworkAvailable ? "true" : "false");
         json << ",\"url\":";
         appendJsonString(json, artworkUrl);
-        json << ",\"width\":" << event.artworkWidth;
-        json << ",\"height\":" << event.artworkHeight;
+        json << ",\"width\":" << artworkWidth;
+        json << ",\"height\":" << artworkHeight;
         json << "}}";
     }
     json << "]}";

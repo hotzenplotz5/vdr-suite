@@ -41,6 +41,14 @@ class MockElement {
         names.forEach(name => values.add(name));
         this.className = Array.from(values).join(' ');
       },
+      toggle: (name, force) => {
+        const values = new Set(this.className.split(/\s+/).filter(Boolean));
+        const shouldAdd = force === undefined ? !values.has(name) : Boolean(force);
+        if (shouldAdd) values.add(name);
+        else values.delete(name);
+        this.className = Array.from(values).join(' ');
+        return shouldAdd;
+      },
       contains: name => this.className.split(/\s+/).filter(Boolean).includes(name)
     };
   }
@@ -325,12 +333,14 @@ async function run() {
   assert.strictEqual(metadataArtwork, existingArtwork);
   assert.strictEqual(
     metadataArtwork.style.backgroundImage,
-    'url("/vdr-suite/api/epg/cache/metadata/image?kind=preferred&index=0")'
+    'url("/vdr-suite/api/epg/cache/metadata/image?kind=gallery&index=1")'
   );
+  assert.ok(metadataArtwork.classList.contains('epg-detail-artwork-poster'));
+  assert.strictEqual(detail.dataset.epgArtworkOrientation, 'portrait');
   assert.ok(detail.classList.contains('epg-has-artwork'));
   assert.strictEqual(
     resolvedPublicPaths[0],
-    '/api/epg/cache/metadata/image?kind=preferred&index=0'
+    '/api/epg/cache/metadata/image?kind=gallery&index=1'
   );
 
   const castButtons = detail.querySelectorAll('.epg-person-card');

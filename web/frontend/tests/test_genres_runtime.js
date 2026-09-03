@@ -86,6 +86,18 @@ function findButton(root, expected, contains) {
   return null;
 }
 
+function findElement(root, tagName, className) {
+  if ((!tagName || root.tagName === tagName.toUpperCase()) &&
+      (!className || root.classList.contains(className))) {
+    return root;
+  }
+  for (const child of root.children) {
+    const found = findElement(child, tagName, className);
+    if (found) return found;
+  }
+  return null;
+}
+
 function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
@@ -266,12 +278,24 @@ function richMetadata(nativeId, title) {
       const series = options.contentClass === 'series';
       return Promise.resolve({
         items: [{
-          eventId: '100',
+          eventId: series ? '101' : '100',
           channelId: 'C-1',
           channelName: 'Das Erste HD',
           title: series ? 'Criminal Intent' : 'Testfilm',
           startTime: 1784839299,
-          artwork: {available: false, url: ''}
+          artwork: series
+            ? {
+                available:true,
+                url:'/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=101',
+                width:1280,
+                height:720
+              }
+            : {
+                available:true,
+                url:'/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1',
+                width:500,
+                height:750
+              }
         }],
         total: series ? 1084 : 1,
         hasMore: false
@@ -357,6 +381,12 @@ function richMetadata(nativeId, title) {
   registeredModule.activate();
   await flush();
   await flush();
+
+  const style = elementsById['vdr-suite-genres-style'];
+  assert(style, 'Genres stylesheet was not installed');
+  assert(style.textContent.includes('.genres-epg-card img.genres-epg-artwork-poster'));
+  assert(style.textContent.includes('aspect-ratio:2/3'));
+  assert(style.textContent.includes('object-fit:contain'));
 
   const actionButton = findButton(mount, 'Action', true);
   assert(actionButton, 'Action recording genre was not rendered');
@@ -455,6 +485,13 @@ function richMetadata(nativeId, title) {
     assert.strictEqual(epgQueries[epgQueries.length - 1].from, 1000);
     assert.strictEqual(epgQueries[epgQueries.length - 1].until, 2000);
 
+    const poster = findElement(mount, 'IMG', 'genres-epg-artwork-poster');
+    assert(poster, 'Genre EPG movie card must render the portrait poster class');
+    assert.strictEqual(
+      poster.src,
+      '/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1'
+    );
+
     const filmBack = findButton(mount, '← Filmgenres', false);
     assert(filmBack, 'Film result back button was not rendered');
     filmBack.dispatch('click');
@@ -478,6 +515,14 @@ function richMetadata(nativeId, title) {
   assert.strictEqual(seriesQuery.until, 2000);
   assert(mount.textContent.includes('Criminal Intent'));
   assert(mount.textContent.includes('Serie · 1084 Treffer'));
+
+  const fallbackImage = findElement(mount, 'IMG', '');
+  assert(fallbackImage, 'Genre EPG fallback artwork must remain visible');
+  assert.strictEqual(
+    fallbackImage.src,
+    '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=101'
+  );
+  assert(!fallbackImage.classList.contains('genres-epg-artwork-poster'));
 
   const seriesBack = findButton(mount, '← EPG-Hauptkategorien', false);
   assert(seriesBack, 'Series result back button was not rendered');

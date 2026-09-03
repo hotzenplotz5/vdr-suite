@@ -112,6 +112,15 @@ struct GenreEpgItem
     std::vector<std::string> genreIds;
 };
 
+struct GenreEpgArtworkSelection
+{
+    bool available = false;
+    std::string kind;
+    int imageIndex = 0;
+    int width = 0;
+    int height = 0;
+};
+
 struct GenreEpgPage
 {
     std::string backendId;
@@ -209,6 +218,11 @@ public:
         std::int64_t untilTime,
         int limit,
         int offset) const;
+
+    GenreEpgArtworkSelection epgPortraitArtwork(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
 
     std::vector<GenreEpgRefreshCandidate> epgRefreshCandidates(
         const std::string& backendId,

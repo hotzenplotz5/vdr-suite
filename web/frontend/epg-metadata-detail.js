@@ -171,8 +171,9 @@
       '.epg-gallery-thumb.portrait img{aspect-ratio:2/3;object-fit:contain}',
       '.epg-gallery-thumb span{font-size:.68rem;font-weight:800}',
       '.epg-metadata-link{color:#93c5fd;font-weight:800;text-decoration:none}',
-      '@media(max-width:720px){.epg-metadata-facts,.epg-metadata-cast{grid-template-columns:1fr}.epg-metadata-gallery-thumbs,.epg-person-recording-fields{grid-template-columns:1fr 1fr}}',
-      '@media(max-width:390px){.epg-person-recording-card{grid-template-columns:3.65rem minmax(0,1fr) auto}.epg-person-recording-poster{width:3.65rem}.epg-person-recording-fields{grid-template-columns:1fr}}'
+      '.epg-detail-artwork.epg-detail-artwork-poster{width:min(100%,22rem);aspect-ratio:2/3;min-height:0;max-height:none;margin:0 auto .8rem;background-size:contain;background-repeat:no-repeat;background-position:center;box-shadow:none}',
+      '@media(max-width:720px){.epg-metadata-facts,.epg-metadata-cast{grid-template-columns:1fr}.epg-metadata-gallery-thumbs,.epg-person-recording-fields{grid-template-columns:1fr 1fr}.epg-detail-artwork.epg-detail-artwork-poster{width:min(100%,18rem)}}',
+      '@media(max-width:390px){.epg-person-recording-card{grid-template-columns:3.65rem minmax(0,1fr) auto}.epg-person-recording-poster{width:3.65rem}.epg-person-recording-fields{grid-template-columns:1fr}.epg-detail-artwork.epg-detail-artwork-poster{width:100%}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -584,12 +585,35 @@
     select(0);
   }
 
-  function ensurePreferredArtwork(detail, metadata) {
-    const artwork = metadata && metadata.preferredArtwork;
-    const hero = detail.querySelector('.epg-detail-hero');
-    if (!hero || !artwork || artwork.available !== true || !isPublicImageUrl(artwork.url)) return;
+  function selectDetailArtwork(metadata) {
+    const preferred = metadata && metadata.preferredArtwork;
+    const preferredAvailable = preferred && preferred.available === true && isPublicImageUrl(preferred.url);
+    if (preferredAvailable && Number(preferred.height) > Number(preferred.width) && Number(preferred.width) > 0) {
+      return {artwork: preferred, orientation: 'portrait'};
+    }
 
-    const url = resolvePublicImageUrl(artwork.url);
+    const images = metadata && Array.isArray(metadata.images) ? metadata.images : [];
+    const portrait = images.find(function (entry) {
+      return entry && entry.orientation === 'portrait' && entry.image &&
+        entry.image.available === true && isPublicImageUrl(entry.image.url);
+    });
+    if (portrait) {
+      return {artwork: portrait.image, orientation: 'portrait'};
+    }
+
+    if (preferredAvailable) {
+      return {artwork: preferred, orientation: 'preferred'};
+    }
+
+    return null;
+  }
+
+  function ensureDetailArtwork(detail, metadata) {
+    const selected = selectDetailArtwork(metadata);
+    const hero = detail.querySelector('.epg-detail-hero');
+    if (!hero || !selected) return;
+
+    const url = resolvePublicImageUrl(selected.artwork.url);
     if (!url) return;
 
     let image = detail.querySelector('.epg-detail-artwork');
@@ -598,9 +622,15 @@
       image.className = 'epg-detail-artwork';
       detail.insertBefore(image, hero);
     }
+    image.classList.toggle('epg-detail-artwork-poster', selected.orientation === 'portrait');
     image.setAttribute('role', 'img');
-    image.setAttribute('aria-label', 'Bild zu ' + (metadata.episodeName || metadata.title || 'Sendung'));
+    image.setAttribute(
+      'aria-label',
+      (selected.orientation === 'portrait' ? 'Poster zu ' : 'Bild zu ') +
+        (metadata.episodeName || metadata.title || 'Sendung')
+    );
     image.style.backgroundImage = 'url("' + url.replace(/["\\\r\n]/g, '') + '")';
+    detail.dataset.epgArtworkOrientation = selected.orientation;
     detail.classList.add('epg-has-artwork');
   }
 
@@ -687,7 +717,7 @@
       }
 
       status.remove();
-      ensurePreferredArtwork(detail, metadata);
+      ensureDetailArtwork(detail, metadata);
       renderScraper(panels.scraper, metadata);
       renderCast(panels.cast, metadata, backendId);
       renderGallery(panels.images, metadata);
@@ -708,6 +738,7 @@
     formatDate: formatDate,
     isPublicImageUrl: isPublicImageUrl,
     mediaTypeLabel: mediaTypeLabel,
-    roleLabel: roleLabel
+    roleLabel: roleLabel,
+    selectDetailArtwork: selectDetailArtwork
   });
 }(window));

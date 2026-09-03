@@ -100,6 +100,7 @@
       .genres-epg-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(19rem,1fr));gap:1rem}
       .genres-epg-card{overflow:hidden;border:1px solid #334155;border-radius:1rem;background:#0f172a;color:#e2e8f0;text-align:left;padding:0;cursor:pointer}
       .genres-epg-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#020617}
+      .genres-epg-card img.genres-epg-artwork-poster{width:min(100%,18rem);aspect-ratio:2/3;object-fit:contain;margin:.8rem auto 0;border-radius:.75rem}
       .genres-epg-copy{display:grid;gap:.35rem;padding:.9rem}
       .genres-epg-title{font-size:1.03rem;font-weight:850;color:#f8fafc}
       .genres-epg-meta{font-size:.82rem;color:#93c5fd}
@@ -551,6 +552,11 @@
           image.src = event.artwork.url;
           image.alt = '';
           image.loading = 'lazy';
+          if (number(event.artwork.height, 0) >
+              number(event.artwork.width, 0) &&
+              number(event.artwork.width, 0) > 0) {
+            image.classList.add('genres-epg-artwork-poster');
+          }
           card.appendChild(image);
         }
         const channel = channelFor(event);
