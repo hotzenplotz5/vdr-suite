@@ -103,10 +103,22 @@
     return 'Bild';
   }
 
+  function prefersReducedMotion() {
+    try {
+      return typeof global.matchMedia === 'function' &&
+        global.matchMedia('(prefers-reduced-motion: reduce)').matches === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function reveal(element) {
     if (!element || typeof element.scrollIntoView !== 'function') return;
     const scroll = function () {
-      element.scrollIntoView({behavior: 'smooth', block: 'start'});
+      element.scrollIntoView({
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        block: 'start'
+      });
     };
     if (typeof global.requestAnimationFrame === 'function') {
       global.requestAnimationFrame(scroll);
