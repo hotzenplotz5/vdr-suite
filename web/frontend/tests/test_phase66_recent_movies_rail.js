@@ -15,15 +15,21 @@ assert(markerIndex >= 0);
 const source = homeSource.slice(markerIndex);
 
 assert(source.includes("const TITLE = 'Filme der letzten 5 Jahre';"));
+assert(source.includes("const MOVIE_GENRE_ID = 'movie';"));
+assert(source.includes('const WARM_RETURN_MS = 60000;'));
 assert(source.includes("text(provider(recording).contentKind) !== 'movie'"));
 assert(source.includes('provider(recording).releaseDate'));
 assert(source.includes('year >= nowYear - 4'));
 assert(source.includes('year <= nowYear'));
 assert(source.includes('new Date().getFullYear()'));
-assert(source.includes('fetchClientRecordings'));
+assert(source.includes('fetchClientGenreRecordings'));
+assert(!source.includes('fetchClientRecordings({'));
+assert(source.includes('genreId: MOVIE_GENRE_ID'));
 assert(source.includes('owner.canonicalRecordings'));
 assert(source.includes('owner.recordingPosterUrl'));
 assert(source.includes('owner.openRecording'));
+assert(source.includes('function refreshForHome()'));
+assert(source.includes('if (warmForBackend(backendId)) return Promise.resolve(true);'));
 assert(source.includes("target.querySelector('[data-home-discovery-rail=\"series\"]')"));
 assert(source.includes("rail.className = 'media-home-discovery-rail recent-movies'"));
 assert(source.includes("const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';"));
@@ -35,6 +41,12 @@ assert(!source.toLowerCase().includes('recommend'));
 assert(discoverySource.includes('VdrSuiteRecordings2.openRecording'));
 assert(bootstrapSource.includes("const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';"));
 assert(bootstrapSource.includes('scrollbar-width:none'));
+
+const renderStart = source.indexOf('function render(recordings, backendId, visibleLimit)');
+const renderEnd = source.indexOf('\n  function renderState(', renderStart);
+assert(renderStart >= 0 && renderEnd > renderStart);
+const renderSource = source.slice(renderStart, renderEnd);
+assert(renderSource.indexOf('target.appendChild(rail);') < renderSource.indexOf('rail.scrollLeft = previousScrollLeft;'));
 
 class FakeElement {
   constructor(tagName) {
@@ -194,9 +206,9 @@ const pageTwo = [
 const allRecordings = pageOne.concat(pageTwo);
 
 const client = {
-  fetchClientRecordings(request) {
+  fetchClientGenreRecordings(request) {
     calls.push(request);
-    const offset = Number(request.query.offset || 0);
+    const offset = Number(request.offset || 0);
     const recordings = offset === 0 ? pageOne : (offset === pageOne.length ? pageTwo : []);
     return Promise.resolve({
       recordings,
@@ -275,11 +287,17 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
 
 (async function () {
   assert.strictEqual(await api.refresh(), true);
-  assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
-  assert(calls.every((call) => call.query.limit === 100));
-  assert(calls.every((call) => call.query.backend === 'default'));
+  assert.deepStrictEqual(calls.map((call) => call.offset), [0, pageOne.length]);
+  assert(calls.every((call) => call.limit === 100));
+  assert(calls.every((call) => call.backendId === 'default'));
+  assert(calls.every((call) => call.genreId === 'movie'));
   assert(calls.every((call) => call.cache === 'no-store'));
   assert(calls.every((call) => call.credentials === 'same-origin'));
+  assert.strictEqual(api._test.warmForBackend('default'), true);
+
+  const callsAfterInitialLoad = calls.length;
+  assert.strictEqual(await api._test.refreshForHome(), true);
+  assert.strictEqual(calls.length, callsAfterInitialLoad);
 
   const movieSection = host.querySelector('[data-home-discovery-rail="recent-movies"]');
   assert(movieSection);
@@ -329,6 +347,9 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(opened.length, 1);
   assert.strictEqual(opened[0].recording.recordingId, 'newest');
   assert.strictEqual(opened[0].backendId, 'default');
+
+  assert.strictEqual(await api.refresh(), true);
+  assert.strictEqual(calls.length, callsAfterInitialLoad * 2);
 
   console.log('phase66 recent movies rail contract ok');
 }()).catch(function (error) {
