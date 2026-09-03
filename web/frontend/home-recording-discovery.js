@@ -18,6 +18,7 @@
     observer: null,
     armed: false,
     refreshInFlight: null,
+    seriesCompletionInFlight: null,
     seriesProjection: [],
     seriesBackendId: '',
     seriesViewKey: '',
@@ -992,8 +993,14 @@
 
   function current(generation, backendId) {
     const active = homeIsActive();
-    if (!active && state.refreshInFlight && state.refreshInFlight.generation === generation) {
-      state.refreshInFlight.invalidated = true;
+    if (!active) {
+      if (state.refreshInFlight && state.refreshInFlight.generation === generation) {
+        state.refreshInFlight.invalidated = true;
+      }
+      if (state.seriesCompletionInFlight &&
+          state.seriesCompletionInFlight.generation === generation) {
+        state.seriesCompletionInFlight.invalidated = true;
+      }
     }
     return generation === state.generation &&
       backendId === selectedBackendId() &&
@@ -1041,6 +1048,11 @@
     if (state.refreshInFlight &&
         state.refreshInFlight.generation === generation &&
         state.refreshInFlight.invalidated === true) {
+      return false;
+    }
+    if (state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.generation === generation &&
+        state.seriesCompletionInFlight.invalidated === true) {
       return false;
     }
     const seen = new Set();
@@ -1421,6 +1433,42 @@
     return Promise.all(pending).then(function () { return resolved; });
   }
 
+  function startSeriesCompletion(client, recordings, backendId, generation) {
+    const entry = {
+      backendId: backendId,
+      generation: generation,
+      invalidated: false,
+      promise: null
+    };
+    state.seriesCompletionInFlight = entry;
+    const completion = fetchSeriesRecordingMetadata(
+      client,
+      recordings,
+      backendId,
+      generation
+    ).then(function () {
+      if (!current(generation, backendId) ||
+          entry.invalidated === true ||
+          !seriesMetadataComplete(recordings, generation, backendId)) {
+        return false;
+      }
+      const rich = resolvedSeriesMetadata(generation, backendId);
+      const rendered = applySeriesProjection(recordings, backendId, rich);
+      if (rendered) markSeriesWarm(backendId);
+      return rendered;
+    }).catch(function () {
+      return false;
+    });
+    entry.promise = completion.then(function (value) {
+      if (state.seriesCompletionInFlight === entry) state.seriesCompletionInFlight = null;
+      return value;
+    }, function () {
+      if (state.seriesCompletionInFlight === entry) state.seriesCompletionInFlight = null;
+      return false;
+    });
+    return entry.promise;
+  }
+
   function positionRandomGenreRail() {
     const target = host();
     if (!target || typeof target.querySelector !== 'function' ||
@@ -1589,16 +1637,8 @@
         const rich = resolvedSeriesMetadata(generation, backendId);
         const readyRecordings = readySeriesRecordings(recordings, generation, backendId);
         if (readyRecordings.length) applySeriesProjection(readyRecordings, backendId, rich);
-        return fetchSeriesRecordingMetadata(client, recordings, backendId, generation);
-      }).then(function () {
-        if (!current(generation, backendId) ||
-            !seriesMetadataComplete(recordings, generation, backendId)) {
-          return false;
-        }
-        const rich = resolvedSeriesMetadata(generation, backendId);
-        const rendered = applySeriesProjection(recordings, backendId, rich);
-        if (rendered) markSeriesWarm(backendId);
-        return rendered;
+        startSeriesCompletion(client, recordings, backendId, generation);
+        return true;
       });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
@@ -1734,6 +1774,12 @@
         state.refreshInFlight.invalidated !== true) {
       return state.refreshInFlight.promise;
     }
+    if (config.coalesce === true && state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.backendId === backendId &&
+        state.seriesCompletionInFlight.generation === state.generation &&
+        state.seriesCompletionInFlight.invalidated !== true) {
+      return Promise.resolve(true);
+    }
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
     const entry = {
@@ -1788,6 +1834,7 @@
       state.generation += 1;
       state.loadedBackendId = '';
       state.refreshInFlight = null;
+      state.seriesCompletionInFlight = null;
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
