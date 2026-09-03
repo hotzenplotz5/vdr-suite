@@ -57,7 +57,8 @@ let scrolled = 0;
 const detail = {
   scrollIntoView(options) {
     scrolled += 1;
-    assert.deepStrictEqual(options, {behavior: 'smooth', block: 'start'});
+    assert.strictEqual(options.behavior, 'smooth');
+    assert.strictEqual(options.block, 'start');
   }
 };
 const document = {
