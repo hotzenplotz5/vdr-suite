@@ -15,15 +15,20 @@ assert(markerIndex >= 0);
 const source = homeSource.slice(markerIndex);
 
 assert(source.includes("const TITLE = 'Filme der letzten 5 Jahre';"));
+assert(source.includes('const WARM_RETURN_MS = 60000;'));
 assert(source.includes("text(provider(recording).contentKind) !== 'movie'"));
 assert(source.includes('provider(recording).releaseDate'));
 assert(source.includes('year >= nowYear - 4'));
 assert(source.includes('year <= nowYear'));
 assert(source.includes('new Date().getFullYear()'));
 assert(source.includes('fetchClientRecordings'));
+assert(!source.includes('fetchClientGenreRecordings'));
 assert(source.includes('owner.canonicalRecordings'));
 assert(source.includes('owner.recordingPosterUrl'));
 assert(source.includes('owner.openRecording'));
+assert(source.includes('function refreshForHome()'));
+assert(source.includes('if (state.loadingPromise && state.loadingBackendId === backendId)'));
+assert(source.includes('if (warmForBackend(backendId)) return Promise.resolve(true);'));
 assert(source.includes("target.querySelector('[data-home-discovery-rail=\"series\"]')"));
 assert(source.includes("rail.className = 'media-home-discovery-rail recent-movies'"));
 assert(source.includes("const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';"));
@@ -35,6 +40,15 @@ assert(!source.toLowerCase().includes('recommend'));
 assert(discoverySource.includes('VdrSuiteRecordings2.openRecording'));
 assert(bootstrapSource.includes("const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';"));
 assert(bootstrapSource.includes('scrollbar-width:none'));
+
+const renderStart = source.indexOf('function render(recordings, backendId, visibleLimit)');
+const renderEnd = source.indexOf('\n  function renderState(', renderStart);
+assert(renderStart >= 0 && renderEnd > renderStart);
+const renderSource = source.slice(renderStart, renderEnd);
+assert(
+  renderSource.indexOf('target.appendChild(rail);') < renderSource.indexOf('rail.scrollLeft = previousScrollLeft;'),
+  'recent movies scroll position must be restored only after the rebuilt rail is mounted'
+);
 
 class FakeElement {
   constructor(tagName) {
@@ -274,12 +288,21 @@ assert.strictEqual(api._test.recentMovie(nonMovie('unclassified', 'unknown', Str
 assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear), false);
 
 (async function () {
-  assert.strictEqual(await api.refresh(), true);
+  const initialLoad = api.refresh();
+  const coalescedLoad = api._test.refreshForHome();
+  assert.strictEqual(calls.length, 1, 'same-backend Home trigger must coalesce with an in-flight full scan');
+  await Promise.all([initialLoad, coalescedLoad]);
+
   assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
   assert(calls.every((call) => call.query.limit === 100));
   assert(calls.every((call) => call.query.backend === 'default'));
   assert(calls.every((call) => call.cache === 'no-store'));
   assert(calls.every((call) => call.credentials === 'same-origin'));
+  assert.strictEqual(api._test.warmForBackend('default'), true);
+
+  const callsAfterInitialLoad = calls.length;
+  assert.strictEqual(await api._test.refreshForHome(), true);
+  assert.strictEqual(calls.length, callsAfterInitialLoad, 'warm Home return must not restart the full recording scan');
 
   const movieSection = host.querySelector('[data-home-discovery-rail="recent-movies"]');
   assert(movieSection);
