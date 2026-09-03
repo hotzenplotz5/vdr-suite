@@ -1038,6 +1038,11 @@
   function seriesMetadataComplete(recordings, generation, backendId) {
     const cache = state.seriesMetadataCache;
     if (!cache || cache.generation !== generation || cache.backendId !== backendId) return false;
+    if (state.refreshInFlight &&
+        state.refreshInFlight.generation === generation &&
+        state.refreshInFlight.invalidated === true) {
+      return false;
+    }
     const seen = new Set();
     for (let index = 0; index < (recordings || []).length; index += 1) {
       const recording = recordings[index];
