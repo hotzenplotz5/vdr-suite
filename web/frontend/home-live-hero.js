@@ -591,8 +591,8 @@
     rail.className = 'media-home-live-guide-rail';
     rail.setAttribute('aria-label', title);
     entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));
-    rail.scrollLeft = previousScrollLeft;
     section.appendChild(rail);
+    rail.scrollLeft = previousScrollLeft;
     return true;
   }
 
