@@ -348,6 +348,58 @@ async function proveAuthoritativeNegativeDoesNotPoll() {
   assert.strictEqual(harness.pendingRetryTimers().length, 0);
 }
 
+async function proveHomeExitDoesNotOrphanUnsettledRetry() {
+  const harness = createHarness({
+    available: false,
+    status: 'not-found',
+    settled: false
+  });
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+  await flush();
+  assert.strictEqual(harness.metadataCalls(), 1);
+  assert.strictEqual(harness.pendingRetryTimers().length, 1);
+
+  harness.setModule('recordings2');
+  harness.runNextRetryTimer();
+  await flush();
+  assert.strictEqual(
+    harness.metadataCalls(),
+    1,
+    'inactive Home must not issue Series metadata reads'
+  );
+  assert.strictEqual(
+    harness.pendingRetryTimers().length,
+    1,
+    'Home exit must preserve one bounded retry opportunity for a later return'
+  );
+
+  harness.setModule('overview');
+  harness.setMetadata({
+    available: true,
+    status: 'ready',
+    provider: 'tvscraper',
+    mediaType: 'series',
+    providerId: 42,
+    title: 'Testserie',
+    episodeName: 'Pilot',
+    seasonNumber: 1,
+    episodeNumber: 1,
+    preferredArtwork: {
+      available: true,
+      url: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=default-native-series-1&kind=preferred&index=0'
+    },
+    images: []
+  });
+  harness.runNextRetryTimer();
+  await flush();
+
+  assert.strictEqual(harness.metadataCalls(), 2);
+  assert(seriesImage(harness));
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+  assert.strictEqual(harness.pendingRetryTimers().length, 0);
+}
+
 async function proveBackendFenceStopsPendingRetry() {
   const harness = createHarness({
     available: false,
@@ -368,6 +420,7 @@ async function proveBackendFenceStopsPendingRetry() {
 (async function () {
   await proveUnsettledMetadataReprojectsWithoutDiscoveryReload();
   await proveAuthoritativeNegativeDoesNotPoll();
+  await proveHomeExitDoesNotOrphanUnsettledRetry();
   await proveBackendFenceStopsPendingRetry();
   console.log('post-Phase-66 Series metadata/artwork completion contract passed');
 }()).catch((error) => {
