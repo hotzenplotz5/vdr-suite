@@ -80,6 +80,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
       nativeTimerModify_.Handle(Command, Option);
   if (nativeTimerModify.handled) return ReturnResult(nativeTimerModify, ReplyCode);
 
+  const SuiteBridgeCommandResult recordingMarksModify =
+      recordingMarksModify_.Handle(Command, Option);
+  if (recordingMarksModify.handled)
+    return ReturnResult(recordingMarksModify, ReplyCode);
+
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
       Option,

@@ -23,6 +23,10 @@ def forbid(text: str, needle: str, label: str) -> None:
 
 header = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify_vdr.h")
 source = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify_vdr.cpp")
+plugin_header = read("vdr-plugin-suite-bridge/suitebridge.h")
+plugin_source = read("vdr-plugin-suite-bridge/suitebridge.cpp")
+svdrp_source = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
+plugin_makefile = read("vdr-plugin-suite-bridge/Makefile")
 
 for needle in (
     "ISuiteBridgeRecordingMarksModifyMutationCallback",
@@ -48,6 +52,40 @@ for needle in (
     "SuiteBridgeRecordingMarksModifyMutationDisposition::AppliedUnverified",
 ):
     require(source, needle, "native recording-marks mutation")
+
+for needle in (
+    '#include "suitebridge_recording_marks_modify.h"',
+    '#include "suitebridge_recording_marks_modify_vdr.h"',
+    "SuiteBridgeRecordingMarksModifyVdrMutationCallback recordingMarksModifyVdrMutation_",
+    "SuiteBridgeRecordingMarksModifyService recordingMarksModify_",
+):
+    require(plugin_header, needle, "private recording-marks mutation owner")
+
+for needle in (
+    "recordingMarksModify_(",
+    "&recordingMarksModifyVdrMutation_",
+    "native-operation=vdr.recording.marks.modify",
+    "mutations=enabled execution=enabled",
+):
+    require(plugin_source, needle, "recording-marks mutation activation")
+
+require(
+    svdrp_source,
+    "recordingMarksModify_.Handle(Command, Option)",
+    "private NMARKS dispatch",
+)
+for needle in (
+    "suitebridge_recording_marks_modify.o",
+    "suitebridge_recording_marks_modify_vdr.o",
+):
+    require(plugin_makefile, needle, "recording-marks mutation plugin object")
+
+help_start = svdrp_source.find("const char **cPluginSuiteBridge::SVDRPHelpPages")
+command_start = svdrp_source.find("cString cPluginSuiteBridge::SVDRPCommand")
+if help_start < 0 or command_start <= help_start:
+    raise SystemExit("unable to isolate SuiteBridge SVDRP public help block")
+if "NMARKS" in svdrp_source[help_start:command_start]:
+    raise SystemExit("private NMARKS command leaked into public SVDRP help")
 
 for token in (
     "system(",
