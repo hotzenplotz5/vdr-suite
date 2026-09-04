@@ -4,9 +4,13 @@ VDR_RECORDING_NATIVE_MARKS_SRC := \
 RECORDING_NATIVE_EDITING_REST_SRC := \
 	api/rest/src/RecordingMarksApiRuntime.cpp
 
+RECORDING_NATIVE_EDITING_ROUTER_SRC := \
+	core/vdr/src/VdrRecordingNativeIdentity.cpp \
+	$(RECORDING_NATIVE_EDITING_REST_SRC)
+
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
-REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
+REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
 .PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts
 
