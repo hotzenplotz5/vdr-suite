@@ -7,18 +7,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 context_path = ROOT / "core/daemon/include/BackendRuntimeContext.h"
 make_path = ROOT / "mk/recording-native-editing-tests.mk"
+daemon_sources_path = ROOT / "mk/daemon-sources.mk"
 api_header_path = ROOT / "api/rest/include/RecordingMarksApiRuntime.h"
 api_source_path = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
 router_path = ROOT / "api/rest/include/ApiRouter.h"
 daemon_path = ROOT / "core/daemon/src/DaemonRuntime.cpp"
+daemon_marks_path = ROOT / "core/daemon/src/DaemonRuntimeRecordingMarks.cpp"
 
 paths = (
     context_path,
     make_path,
+    daemon_sources_path,
     api_header_path,
     api_source_path,
     router_path,
     daemon_path,
+    daemon_marks_path,
 )
 
 errors = []
@@ -33,10 +37,12 @@ if errors:
 
 context = context_path.read_text(encoding="utf-8")
 makefile = make_path.read_text(encoding="utf-8")
+daemon_sources = daemon_sources_path.read_text(encoding="utf-8")
 api_header = api_header_path.read_text(encoding="utf-8")
 api_source = api_source_path.read_text(encoding="utf-8")
 router = router_path.read_text(encoding="utf-8")
 daemon = daemon_path.read_text(encoding="utf-8")
+daemon_marks = daemon_marks_path.read_text(encoding="utf-8")
 
 required_context = (
     '#include "SuiteBridgeRecordingMarksResolver.h"',
@@ -73,6 +79,12 @@ for fragment in required_make:
     if fragment not in makefile:
         errors.append(f"missing native marks build wiring: {fragment}")
 
+if "core/daemon/src/DaemonRuntimeRecordingMarks.cpp" not in daemon_sources:
+    errors.append(
+        "missing Recording marks daemon source wiring: "
+        "core/daemon/src/DaemonRuntimeRecordingMarks.cpp"
+    )
+
 required_api = (
     '"/api/vdr/recordings/marks"',
     'key != "backend" && key != "recordingId"',
@@ -99,17 +111,28 @@ for fragment in required_router:
     if fragment not in router:
         errors.append(f"missing Recording marks router wiring: {fragment}")
 
-required_daemon = (
+required_daemon_lifecycle = (
+    '#include "DaemonRuntimeRecordingMarks.h"',
+    "configureDaemonRecordingMarksRuntime(",
+    "*vdrRecordingCacheRepository_",
+    "backendRuntimeContexts_",
+    "resetDaemonRecordingMarksRuntime();",
+)
+for fragment in required_daemon_lifecycle:
+    if fragment not in daemon:
+        errors.append(f"missing Recording marks daemon lifecycle wiring: {fragment}")
+
+required_daemon_marks = (
     '#include "RecordingMarksApiRuntime.h"',
     "RecordingMarksApiRuntime::instance().configure(",
     "findAllForBackend(",
-    'capabilityAvailable(\n                            "recording-marks")',
+    'capabilityAvailable(\n                        "recording-marks")',
     "ensureRecordingMarksResolver()",
     "RecordingMarksApiRuntime::instance().reset();",
 )
-for fragment in required_daemon:
-    if fragment not in daemon:
-        errors.append(f"missing Recording marks daemon wiring: {fragment}")
+for fragment in required_daemon_marks:
+    if fragment not in daemon_marks:
+        errors.append(f"missing Recording marks daemon runtime wiring: {fragment}")
 
 for forbidden in (
     "RecordingActionType::Cut",
