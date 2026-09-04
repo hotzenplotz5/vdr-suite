@@ -5,7 +5,6 @@
   const shared = global.VdrSuiteRecordings2Shared;
   const browserOwner = global.VdrSuiteRecordings2BrowserView;
   const STYLE_ID = 'vdr-suite-recordings2-marks-detail-style';
-  const TIMELINE_SELECTOR = 'input[aria-label="Wiedergabeposition"]';
 
   function text(value) {
     return value == null ? '' : String(value);
@@ -145,14 +144,9 @@
 
   function timelineDurationSeconds(recording, timeline) {
     const recordingDuration = Number(recording && recording.durationSeconds);
-    if (Number.isFinite(recordingDuration) && recordingDuration > 0) {
-      return recordingDuration;
-    }
+    if (Number.isFinite(recordingDuration) && recordingDuration > 0) return recordingDuration;
     const timelineMaximum = Number(timeline && timeline.max);
-    if (Number.isFinite(timelineMaximum) && timelineMaximum > 0) {
-      return timelineMaximum;
-    }
-    return 0;
+    return Number.isFinite(timelineMaximum) && timelineMaximum > 0 ? timelineMaximum : 0;
   }
 
   function attachTimelineRail(timeline, rail) {
@@ -161,38 +155,30 @@
       timeline.insertAdjacentElement('afterend', rail);
       return true;
     }
-    const parent = timeline.parentNode;
-    if (!parent || typeof parent.appendChild !== 'function') return false;
-    parent.appendChild(rail);
+    if (!timeline.parentNode || typeof timeline.parentNode.appendChild !== 'function') return false;
+    timeline.parentNode.appendChild(rail);
     return true;
   }
 
   function renderTimelineMarks(root, recording, payload) {
     if (!root || typeof root.querySelector !== 'function') return false;
-    const timeline = root.querySelector(TIMELINE_SELECTOR);
-    if (!timeline) return false;
-
+    const timeline = root.querySelector('input[aria-label="Wiedergabeposition"]');
     const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
-    if (!marks.length) return false;
-
     const duration = timelineDurationSeconds(recording, timeline);
-    if (!(duration > 0)) return false;
+    if (!timeline || !marks.length || !(duration > 0)) return false;
 
     const rail = node('div', 'recordings2-marks-timeline');
     rail.setAttribute('role', 'img');
-    rail.setAttribute(
-      'aria-label',
-      marks.length === 1
-        ? '1 native Schnittmarke auf der Wiedergabe-Zeitlinie'
-        : String(marks.length) + ' native Schnittmarken auf der Wiedergabe-Zeitlinie'
-    );
+    rail.setAttribute('aria-label', marks.length === 1
+      ? '1 native Schnittmarke auf der Wiedergabe-Zeitlinie'
+      : String(marks.length) + ' native Schnittmarken auf der Wiedergabe-Zeitlinie');
     rail.dataset.durationSeconds = String(duration);
 
     marks.forEach(function (mark, index) {
       const positionSeconds = Number(mark && mark.positionSeconds);
       if (!Number.isFinite(positionSeconds) || positionSeconds < 0) return;
-      const bounded = Math.min(duration, Math.max(0, positionSeconds));
       const marker = node('span', 'recordings2-marks-timeline-marker');
+      const bounded = Math.min(duration, positionSeconds);
       marker.style.left = ((bounded / duration) * 100).toFixed(5) + '%';
       marker.setAttribute('aria-hidden', 'true');
       marker.dataset.positionSeconds = String(positionSeconds);
@@ -203,13 +189,12 @@
       rail.appendChild(marker);
     });
 
-    if (!rail.children || rail.children.length === 0) return false;
-    const attached = attachTimelineRail(timeline, rail);
-    if (attached && timeline.dataset) {
+    if (!rail.children || rail.children.length === 0 || !attachTimelineRail(timeline, rail)) return false;
+    if (timeline.dataset) {
       timeline.dataset.nativeMarksVisible = 'true';
       timeline.dataset.nativeMarksCount = String(rail.children.length);
     }
-    return attached;
+    return true;
   }
 
   function renderError(panel, error) {
