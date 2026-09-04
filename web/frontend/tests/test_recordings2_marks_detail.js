@@ -146,6 +146,7 @@ const payload = {
 };
 
 const window = {
+  document,
   VdrSuiteRecordings2Shared: shared,
   VdrSuiteRecordings2BrowserView: originalBrowserOwner,
   VdrSuiteClientApi: {
