@@ -12,6 +12,7 @@ install-recordings2-runtime:
 	cat \
 		web/frontend/recording-playback-restart-choice.js \
 		web/frontend/recordings2-browser-view.js \
+		web/frontend/recordings2-marks-detail.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
 	mv -f \
@@ -59,6 +60,7 @@ test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-playback-restart-choice.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js
 	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js
