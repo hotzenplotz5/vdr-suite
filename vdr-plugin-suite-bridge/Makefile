@@ -2,7 +2,7 @@ PLUGIN = suitebridge
 
 VERSION = $(shell sed -n 's/^inline constexpr const char \*Version[[:space:]]*=[[:space:]]*"\([^"]*\)";/\1/p' suitebridge_plugin_identity.h)
 
-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) ../../../vdr.pc))
 LIBDIR = $(call PKGCFG,libdir)
 PLGCFG = $(call PKGCFG,plgcfg)
 TMPDIR ?= /tmp
@@ -42,8 +42,9 @@ EPG_TYPE_SNAPSHOT_CONTRACT_TEST = /tmp/test_suitebridge_epg_type_snapshot_contra
 RECORDING_IDENTITY_TEST = /tmp/test_suitebridge_recording_identity
 RECORDING_METADATA_CONTRACT_TEST = /tmp/test_suitebridge_recording_metadata_contract
 RECORDING_MARKS_CONTRACT_TEST = /tmp/test_suitebridge_recording_marks_contract
+RECORDING_MARKS_MODIFY_TEST = /tmp/test_suitebridge_recording_marks_modify
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-marks-modify check-build clean
 
 all: $(SOFILE)
 
@@ -268,11 +269,19 @@ test-recording-marks-contract:
 	$(RECORDING_MARKS_CONTRACT_TEST)
 	rm -f $(RECORDING_MARKS_CONTRACT_TEST)
 
+test-recording-marks-modify:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_recording_marks_modify.cpp \
+		tests/test_suitebridge_recording_marks_modify.cpp \
+		-o $(RECORDING_MARKS_MODIFY_TEST)
+	$(RECORDING_MARKS_MODIFY_TEST)
+	rm -f $(RECORDING_MARKS_MODIFY_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract check-build
+check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-marks-modify check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(NATIVE_PROBE_TEST) $(NATIVE_TIMER_CREATE_TEST) $(NATIVE_TIMER_DELETE_TEST) $(NATIVE_TIMER_MODIFY_TEST) $(ARTWORK_REFERENCE_TEST) $(IMAGE_DIMENSIONS_TEST) $(EPG_ARTWORK_CONTRACT_TEST) $(EPG_METADATA_CONTRACT_TEST) $(EPG_TYPE_SNAPSHOT_CONTRACT_TEST) $(RECORDING_IDENTITY_TEST) $(RECORDING_METADATA_CONTRACT_TEST) $(RECORDING_MARKS_CONTRACT_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(NATIVE_PROBE_TEST) $(NATIVE_TIMER_CREATE_TEST) $(NATIVE_TIMER_DELETE_TEST) $(NATIVE_TIMER_MODIFY_TEST) $(ARTWORK_REFERENCE_TEST) $(IMAGE_DIMENSIONS_TEST) $(EPG_ARTWORK_CONTRACT_TEST) $(EPG_METADATA_CONTRACT_TEST) $(EPG_TYPE_SNAPSHOT_CONTRACT_TEST) $(RECORDING_IDENTITY_TEST) $(RECORDING_METADATA_CONTRACT_TEST) $(RECORDING_MARKS_CONTRACT_TEST) $(RECORDING_MARKS_MODIFY_TEST) *.tgz core* *~ ._*
