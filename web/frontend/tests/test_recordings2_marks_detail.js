@@ -4,8 +4,12 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+function hasClass(value, className) {
+  return String(value || '').split(/\s+/).filter(Boolean).includes(className);
+}
+
 function element(tag) {
-  return {
+  const value = {
     tagName: String(tag || '').toUpperCase(),
     id: '',
     className: '',
@@ -13,11 +17,36 @@ function element(tag) {
     children: [],
     textContent: '',
     attributes: {},
-    setAttribute(name, value) { this.attributes[name] = String(value); },
-    appendChild(child) { this.children.push(child); return child; },
-    replaceChildren() { this.children = Array.from(arguments); },
+    style: {},
+    parentNode: null,
+    title: '',
+    setAttribute(name, attributeValue) { this.attributes[name] = String(attributeValue); },
+    appendChild(child) {
+      if (child) child.parentNode = this;
+      this.children.push(child);
+      return child;
+    },
+    replaceChildren() {
+      this.children = Array.from(arguments);
+      this.children.forEach(child => {
+        if (child) child.parentNode = this;
+      });
+    },
+    insertAdjacentElement(position, child) {
+      assert.strictEqual(position, 'afterend');
+      assert.ok(this.parentNode);
+      const index = this.parentNode.children.indexOf(this);
+      assert.ok(index >= 0);
+      child.parentNode = this.parentNode;
+      this.parentNode.children.splice(index + 1, 0, child);
+      return child;
+    },
     querySelector(selector) {
-      if (selector === '.recordings2-detail' && this.className.indexOf('recordings2-detail') !== -1) return this;
+      if (selector === '.recordings2-detail' && hasClass(this.className, 'recordings2-detail')) return this;
+      if (selector === '.recordings2-marks-detail' && hasClass(this.className, 'recordings2-marks-detail')) return this;
+      if (selector === '.recordings2-marks-timeline' && hasClass(this.className, 'recordings2-marks-timeline')) return this;
+      if (selector === 'input[aria-label="Wiedergabeposition"]' &&
+          this.tagName === 'INPUT' && this.attributes['aria-label'] === 'Wiedergabeposition') return this;
       for (const child of this.children) {
         if (child && typeof child.querySelector === 'function') {
           const found = child.querySelector(selector);
@@ -27,6 +56,7 @@ function element(tag) {
       return null;
     }
   };
+  return value;
 }
 
 function allText(root) {
@@ -44,6 +74,14 @@ const document = {
 
 const detailRoot = element('section');
 detailRoot.className = 'recordings2 recordings2-detail';
+const playbackControls = element('div');
+playbackControls.className = 'recordings2-playback-controls';
+const timeline = element('input');
+timeline.type = 'range';
+timeline.min = '0';
+timeline.max = '0';
+timeline.setAttribute('aria-label', 'Wiedergabeposition');
+playbackControls.appendChild(timeline);
 const mount = element('div');
 mount.appendChild(detailRoot);
 let originalDetailRenders = 0;
@@ -60,7 +98,12 @@ const originalBrowserOwner = {
       renderLoading() {},
       renderError() {},
       renderFolder() {},
-      renderDetail() { originalDetailRenders += 1; },
+      renderDetail() {
+        originalDetailRenders += 1;
+        if (!detailRoot.querySelector('input[aria-label="Wiedergabeposition"]')) {
+          detailRoot.appendChild(playbackControls);
+        }
+      },
       destroy() {}
     };
   },
@@ -122,7 +165,8 @@ const recording = {
   id: '7',
   backendId: 'default',
   backendNativeId: '/srv/vdr/video/Secret/2026-09-04.07.00.1-0.rec',
-  path: 'Secret'
+  path: 'Secret',
+  durationSeconds: 40
 };
 
 api.fetchMarks(recording, 'default').then(result => {
@@ -155,9 +199,35 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.ok(rendered.includes('Frame 250'));
   assert.ok(rendered.includes('Aufnahme wird aktuell von VDR verwendet'));
   assert.strictEqual(rendered.includes('/srv/vdr'), false);
+
+  const marksPanel = detailRoot.querySelector('.recordings2-marks-detail');
+  assert.ok(marksPanel);
   assert.strictEqual(
-    detailRoot.children[0].dataset.marksRevision,
+    marksPanel.dataset.marksRevision,
     '0123456789abcdef0123456789abcdef'
+  );
+
+  assert.strictEqual(timeline.dataset.nativeMarksVisible, 'true');
+  assert.strictEqual(timeline.dataset.nativeMarksCount, '2');
+  const rail = detailRoot.querySelector('.recordings2-marks-timeline');
+  assert.ok(rail, 'read-only marks must decorate the existing canonical playback timeline');
+  assert.strictEqual(rail.parentNode, playbackControls);
+  assert.strictEqual(playbackControls.children[0], timeline);
+  assert.strictEqual(playbackControls.children[1], rail);
+  assert.strictEqual(rail.dataset.durationSeconds, '40');
+  assert.strictEqual(
+    rail.attributes['aria-label'],
+    '2 native Schnittmarken auf der Wiedergabe-Zeitlinie'
+  );
+  assert.strictEqual(rail.children.length, 2);
+  assert.strictEqual(rail.children[0].style.left, '25.00000%');
+  assert.strictEqual(rail.children[1].style.left, '50.00000%');
+  assert.strictEqual(rail.children[0].dataset.positionFrame, '250');
+  assert.strictEqual(rail.children[0].title, '0:00:10.00 · begin');
+  assert.strictEqual(
+    detailRoot.children.filter(child => hasClass(child.className, 'recordings2-marks-detail')).length,
+    1,
+    'the detailed marks list remains present alongside the timeline markers'
   );
 
   assert.strictEqual(
@@ -168,7 +238,7 @@ api.fetchMarks(recording, 'default').then(result => {
     api.errorText(new Error('recording_native_state_stale')),
     'Der Aufnahmestand hat sich geändert. Bitte die Aufnahmedetails neu laden.'
   );
-  console.log('recordings2 native marks read detail ok');
+  console.log('recordings2 native marks read detail and canonical timeline ok');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
