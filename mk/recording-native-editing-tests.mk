@@ -12,7 +12,7 @@ DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
-.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-suitebridge-recording-marks-modify-protocol check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
+.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
 
 test-suite-bridge-svdrp-recording-marks-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
@@ -50,6 +50,9 @@ test-suitebridge-recording-marks-modify-protocol:
 		-o $(BUILD_DIR)/test_suitebridge_recording_marks_modify
 	$(BUILD_DIR)/test_suitebridge_recording_marks_modify
 
+check-suitebridge-recording-marks-vdr-mutation:
+	python3 tools/check_recording_marks_vdr_mutation.py
+
 check-recording-native-editing-runtime-wiring:
 	python3 tools/check_recording_native_editing_runtime_wiring.py
 
@@ -61,6 +64,7 @@ test-recording-native-editing-read-contracts: \
 
 test-recording-native-editing-contracts: \
 	test-recording-native-editing-read-contracts \
-	test-suitebridge-recording-marks-modify-protocol
+	test-suitebridge-recording-marks-modify-protocol \
+	check-suitebridge-recording-marks-vdr-mutation
 
 test-fast: test-recording-native-editing-contracts
