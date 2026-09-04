@@ -65,6 +65,18 @@ function allText(root) {
   return result;
 }
 
+function playbackTimeline() {
+  const controls = element('div');
+  controls.className = 'recordings2-playback-controls';
+  const timeline = element('input');
+  timeline.type = 'range';
+  timeline.min = '0';
+  timeline.max = '0';
+  timeline.setAttribute('aria-label', 'Wiedergabeposition');
+  controls.appendChild(timeline);
+  return {controls, timeline};
+}
+
 const styles = [];
 const document = {
   head: { appendChild(value) { styles.push(value); } },
@@ -74,19 +86,24 @@ const document = {
 
 const detailRoot = element('section');
 detailRoot.className = 'recordings2 recordings2-detail';
-const playbackControls = element('div');
-playbackControls.className = 'recordings2-playback-controls';
-const timeline = element('input');
-timeline.type = 'range';
-timeline.min = '0';
-timeline.max = '0';
-timeline.setAttribute('aria-label', 'Wiedergabeposition');
-playbackControls.appendChild(timeline);
+const initialPlayback = playbackTimeline();
+const playbackControls = initialPlayback.controls;
+const timeline = initialPlayback.timeline;
 const mount = element('div');
 mount.appendChild(detailRoot);
 let originalDetailRenders = 0;
 let requestedPath = '';
 let requestedOptions = null;
+let lifecycleListener = null;
+let unsubscribeCount = 0;
+
+const playbackOwner = {
+  subscribe(listener) {
+    lifecycleListener = listener;
+    listener({transition: 'snapshot', state: 'idle', transport: 'none'});
+    return function () { unsubscribeCount += 1; };
+  }
+};
 
 const shared = {
   mountTarget() { return mount; }
@@ -100,6 +117,7 @@ const originalBrowserOwner = {
       renderFolder() {},
       renderDetail() {
         originalDetailRenders += 1;
+        detailRoot.__vdrSuiteRecordingPlaybackOwner = playbackOwner;
         if (!detailRoot.querySelector('input[aria-label="Wiedergabeposition"]')) {
           detailRoot.appendChild(playbackControls);
         }
@@ -152,6 +170,11 @@ const context = vm.createContext({
 });
 
 vm.runInContext(
+  fs.readFileSync('web/frontend/recordings2-marks-timeline.js', 'utf8'),
+  context,
+  {filename: 'web/frontend/recordings2-marks-timeline.js'}
+);
+vm.runInContext(
   fs.readFileSync('web/frontend/recordings2-marks-detail.js', 'utf8'),
   context,
   {filename: 'web/frontend/recordings2-marks-detail.js'}
@@ -159,6 +182,7 @@ vm.runInContext(
 
 const api = window.VdrSuiteRecordings2MarksDetail;
 assert.ok(api);
+assert.ok(window.VdrSuiteRecordings2MarksTimeline);
 assert.notStrictEqual(window.VdrSuiteRecordings2BrowserView, originalBrowserOwner);
 
 const recording = {
@@ -209,6 +233,7 @@ api.fetchMarks(recording, 'default').then(result => {
 
   assert.strictEqual(timeline.dataset.nativeMarksVisible, 'true');
   assert.strictEqual(timeline.dataset.nativeMarksCount, '2');
+  assert.strictEqual(timeline.dataset.nativeMarksRevision, payload.marksRevision);
   const rail = detailRoot.querySelector('.recordings2-marks-timeline');
   assert.ok(rail, 'read-only marks must decorate the existing canonical playback timeline');
   assert.strictEqual(rail.parentNode, playbackControls);
@@ -224,10 +249,36 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(rail.children[1].style.left, '50.00000%');
   assert.strictEqual(rail.children[0].dataset.positionFrame, '250');
   assert.strictEqual(rail.children[0].title, '0:00:10.00 · begin');
+  assert.strictEqual(typeof lifecycleListener, 'function');
+
+  const fallbackPlayback = playbackTimeline();
+  const oldControlsIndex = detailRoot.children.indexOf(playbackControls);
+  assert.ok(oldControlsIndex >= 0);
+  detailRoot.children[oldControlsIndex] = fallbackPlayback.controls;
+  playbackControls.parentNode = null;
+  fallbackPlayback.controls.parentNode = detailRoot;
+
+  lifecycleListener({
+    transition: 'transport-replaced',
+    state: 'starting',
+    sessionId: null,
+    transport: 'hls-compatibility'
+  });
+
+  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksVisible, 'true');
+  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksCount, '2');
+  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksRevision, payload.marksRevision);
+  const fallbackRail = detailRoot.querySelector('.recordings2-marks-timeline');
+  assert.ok(fallbackRail, 'marks must be rebound after progressive-to-HLS owner replacement');
+  assert.strictEqual(fallbackRail.parentNode, fallbackPlayback.controls);
+  assert.strictEqual(fallbackPlayback.controls.children[0], fallbackPlayback.timeline);
+  assert.strictEqual(fallbackPlayback.controls.children[1], fallbackRail);
+  assert.strictEqual(fallbackRail.children.length, 2);
+  assert.strictEqual(fallbackRail.children[0].style.left, '25.00000%');
   assert.strictEqual(
     detailRoot.children.filter(child => hasClass(child.className, 'recordings2-marks-detail')).length,
     1,
-    'the detailed marks list remains present alongside the timeline markers'
+    'the detailed marks list remains present alongside the replacement timeline markers'
   );
 
   assert.strictEqual(
@@ -238,7 +289,10 @@ api.fetchMarks(recording, 'default').then(result => {
     api.errorText(new Error('recording_native_state_stale')),
     'Der Aufnahmestand hat sich geändert. Bitte die Aufnahmedetails neu laden.'
   );
-  console.log('recordings2 native marks read detail and canonical timeline ok');
+
+  lifecycleListener({transition: 'destroyed', state: 'destroyed', transport: 'none'});
+  assert.strictEqual(unsubscribeCount, 1);
+  console.log('recordings2 native marks survive canonical playback replacement');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
