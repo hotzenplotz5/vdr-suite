@@ -27,6 +27,9 @@ function element(tag) {
       return child;
     },
     replaceChildren() {
+      this.children.forEach(child => {
+        if (child && child.parentNode === this) child.parentNode = null;
+      });
       this.children = Array.from(arguments);
       this.children.forEach(child => {
         if (child) child.parentNode = this;
@@ -54,6 +57,19 @@ function element(tag) {
         }
       }
       return null;
+    },
+    querySelectorAll(selector) {
+      const result = [];
+      function collect(current) {
+        if (!current) return;
+        if (selector === 'input[aria-label="Wiedergabeposition"]' &&
+            current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') {
+          result.push(current);
+        }
+        (current.children || []).forEach(collect);
+      }
+      collect(this);
+      return result;
     }
   };
   return value;
@@ -86,9 +102,23 @@ const document = {
 
 const detailRoot = element('section');
 detailRoot.className = 'recordings2 recordings2-detail';
-const initialPlayback = playbackTimeline();
-const playbackControls = initialPlayback.controls;
-const timeline = initialPlayback.timeline;
+
+// Model the production Recording compatibility owner: its stable owner-level
+// timeline follows a replaceable transport host that itself contains another
+// timeline. A root.querySelector() therefore finds the wrong transport-local
+// timeline first and loses native marks when MediaSession startup replaces it.
+const initialTransportPlayback = playbackTimeline();
+const transportHost = element('div');
+transportHost.className = 'recordings2-recording-fallback-transport';
+transportHost.appendChild(initialTransportPlayback.controls);
+const stablePlayback = playbackTimeline();
+const playbackControls = stablePlayback.controls;
+const timeline = stablePlayback.timeline;
+const playbackOwnerElement = element('div');
+playbackOwnerElement.className = 'recordings2-recording-fallback-shell';
+playbackOwnerElement.appendChild(transportHost);
+playbackOwnerElement.appendChild(playbackControls);
+
 const mount = element('div');
 mount.appendChild(detailRoot);
 let originalDetailRenders = 0;
@@ -98,9 +128,10 @@ let lifecycleListener = null;
 let unsubscribeCount = 0;
 
 const playbackOwner = {
+  element: playbackOwnerElement,
   subscribe(listener) {
     lifecycleListener = listener;
-    listener({transition: 'snapshot', state: 'idle', transport: 'none'});
+    listener({transition: 'snapshot', state: 'idle', transport: 'hls-compatibility'});
     return function () { unsubscribeCount += 1; };
   }
 };
@@ -118,8 +149,8 @@ const originalBrowserOwner = {
       renderDetail() {
         originalDetailRenders += 1;
         detailRoot.__vdrSuiteRecordingPlaybackOwner = playbackOwner;
-        if (!detailRoot.querySelector('input[aria-label="Wiedergabeposition"]')) {
-          detailRoot.appendChild(playbackControls);
+        if (playbackOwnerElement.parentNode !== detailRoot) {
+          detailRoot.appendChild(playbackOwnerElement);
         }
       },
       destroy() {}
@@ -232,11 +263,12 @@ api.fetchMarks(recording, 'default').then(result => {
     '0123456789abcdef0123456789abcdef'
   );
 
+  assert.strictEqual(initialTransportPlayback.timeline.dataset.nativeMarksVisible, undefined);
   assert.strictEqual(timeline.dataset.nativeMarksVisible, 'true');
   assert.strictEqual(timeline.dataset.nativeMarksCount, '2');
   assert.strictEqual(timeline.dataset.nativeMarksRevision, payload.marksRevision);
   const rail = detailRoot.querySelector('.recordings2-marks-timeline');
-  assert.ok(rail, 'read-only marks must decorate the existing canonical playback timeline');
+  assert.ok(rail, 'read-only marks must decorate the stable compatibility-owner timeline');
   assert.strictEqual(rail.parentNode, playbackControls);
   assert.strictEqual(playbackControls.children[0], timeline);
   assert.strictEqual(playbackControls.children[1], rail);
@@ -252,13 +284,21 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(rail.children[0].title, '0:00:10.00 · begin');
   assert.strictEqual(typeof lifecycleListener, 'function');
 
-  const fallbackPlayback = playbackTimeline();
-  const oldControlsIndex = detailRoot.children.indexOf(playbackControls);
-  assert.ok(oldControlsIndex >= 0);
-  detailRoot.children[oldControlsIndex] = fallbackPlayback.controls;
-  playbackControls.parentNode = null;
-  fallbackPlayback.controls.parentNode = detailRoot;
+  lifecycleListener({
+    transition: 'start-requested',
+    state: 'starting',
+    sessionId: null,
+    transport: 'hls-compatibility'
+  });
+  assert.strictEqual(
+    detailRoot.querySelector('.recordings2-marks-timeline'),
+    rail,
+    'MediaSession preparation must not move marks into the replaceable transport'
+  );
+  assert.strictEqual(rail.parentNode, playbackControls);
 
+  const replacementTransportPlayback = playbackTimeline();
+  transportHost.replaceChildren(replacementTransportPlayback.controls);
   lifecycleListener({
     transition: 'transport-replaced',
     state: 'starting',
@@ -266,20 +306,21 @@ api.fetchMarks(recording, 'default').then(result => {
     transport: 'hls-compatibility'
   });
 
-  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksVisible, 'true');
-  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksCount, '2');
-  assert.strictEqual(fallbackPlayback.timeline.dataset.nativeMarksRevision, payload.marksRevision);
+  assert.strictEqual(replacementTransportPlayback.timeline.dataset.nativeMarksVisible, undefined);
+  assert.strictEqual(timeline.dataset.nativeMarksVisible, 'true');
+  assert.strictEqual(timeline.dataset.nativeMarksCount, '2');
+  assert.strictEqual(timeline.dataset.nativeMarksRevision, payload.marksRevision);
   const fallbackRail = detailRoot.querySelector('.recordings2-marks-timeline');
-  assert.ok(fallbackRail, 'marks must be rebound after progressive-to-HLS owner replacement');
-  assert.strictEqual(fallbackRail.parentNode, fallbackPlayback.controls);
-  assert.strictEqual(fallbackPlayback.controls.children[0], fallbackPlayback.timeline);
-  assert.strictEqual(fallbackPlayback.controls.children[1], fallbackRail);
+  assert.strictEqual(fallbackRail, rail, 'stable marks rail must survive compatibility transport replacement');
+  assert.strictEqual(fallbackRail.parentNode, playbackControls);
+  assert.strictEqual(playbackControls.children[0], timeline);
+  assert.strictEqual(playbackControls.children[1], fallbackRail);
   assert.strictEqual(fallbackRail.children.length, 2);
   assert.strictEqual(fallbackRail.children[0].style.left, '25.00000%');
   assert.strictEqual(
     detailRoot.children.filter(child => hasClass(child.className, 'recordings2-marks-detail')).length,
     1,
-    'the detailed marks list remains present alongside the replacement timeline markers'
+    'the detailed marks list remains present alongside the stable timeline markers'
   );
 
   assert.strictEqual(
@@ -293,7 +334,7 @@ api.fetchMarks(recording, 'default').then(result => {
 
   lifecycleListener({transition: 'destroyed', state: 'destroyed', transport: 'none'});
   assert.strictEqual(unsubscribeCount, 1);
-  console.log('recordings2 native marks survive canonical playback replacement');
+  console.log('recordings2 native marks survive compatibility MediaSession preparation');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
