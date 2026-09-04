@@ -120,6 +120,7 @@ DAEMON_SRC := \
         core/daemon/src/DaemonRuntimeEpgCache.cpp \
         core/daemon/src/DaemonRuntimeRecordingCache.cpp \
         core/daemon/src/DaemonRuntimeRecordingMarks.cpp \
+        core/daemon/src/DaemonRuntimeSignal.cpp \
         core/daemon/src/RecordingMediaHttpRuntime.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp \

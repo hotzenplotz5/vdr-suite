@@ -10,7 +10,6 @@
 #include "SeriesArtworkSettingsApiRuntime.h"
 
 #include <chrono>
-#include <csignal>
 #include <iostream>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
@@ -236,11 +235,4 @@ void DaemonRuntime::shutdown()
     std::cout << "vdr-suite-daemon runtime shutting down" << std::endl;
 
     initialized_ = false;
-}
-
-void DaemonRuntime::handleSignal(int signalNumber)
-{
-    if (signalNumber == SIGINT || signalNumber == SIGTERM) {
-        shutdownRequested_ = true;
-    }
 }
