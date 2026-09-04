@@ -32,6 +32,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", "api/continue-watching-sync.js"},
     {"/frontend/recordings2-browser-view.js", "recordings2-browser-view.js", "application/javascript; charset=utf-8", "recordings2-marks-detail.js"},
     {"/frontend/recordings2-marks-detail.js", "recordings2-marks-detail.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/recordings2-marks-timeline.js", "recordings2-marks-timeline.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-person-search-view.js", "recordings2-person-search-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-metadata-view.js", "recordings2-metadata-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2.js", "recordings2.js", "application/javascript; charset=utf-8", nullptr},
