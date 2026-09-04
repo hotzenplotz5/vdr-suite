@@ -5,6 +5,7 @@
   const shared = global.VdrSuiteRecordings2Shared;
   const browserOwner = global.VdrSuiteRecordings2BrowserView;
   const STYLE_ID = 'vdr-suite-recordings2-marks-detail-style';
+  const TIMELINE_SELECTOR = 'input[aria-label="Wiedergabeposition"]';
 
   function text(value) {
     return value == null ? '' : String(value);
@@ -27,7 +28,10 @@
       '.recordings2-marks-list{display:grid;gap:.45rem;margin:0;padding:0;list-style:none}',
       '.recordings2-mark{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.25rem .8rem;padding:.55rem .7rem;border:1px solid rgba(148,163,184,.28);border-radius:.55rem}',
       '.recordings2-mark-time{font-weight:700}.recordings2-mark-meta{opacity:.78}',
-      '.recordings2-marks-note{opacity:.78}'
+      '.recordings2-marks-note{opacity:.78}',
+      '.recordings2-marks-timeline{position:relative;z-index:2;height:.8rem;margin-top:-.58rem;margin-bottom:.25rem;pointer-events:none}',
+      '.recordings2-marks-timeline-marker{position:absolute;top:0;bottom:0;width:3px;border-radius:999px;background:#facc15;box-shadow:0 0 0 1px rgba(15,23,42,.82),0 0 5px rgba(250,204,21,.72);transform:translateX(-50%)}',
+      '.recordings2-marks-timeline-marker::after{content:"";position:absolute;top:-.12rem;left:50%;width:.44rem;height:.44rem;border:1px solid rgba(15,23,42,.9);border-radius:50%;background:#fde047;transform:translate(-50%,-35%)}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -139,6 +143,75 @@
     body.appendChild(list);
   }
 
+  function timelineDurationSeconds(recording, timeline) {
+    const recordingDuration = Number(recording && recording.durationSeconds);
+    if (Number.isFinite(recordingDuration) && recordingDuration > 0) {
+      return recordingDuration;
+    }
+    const timelineMaximum = Number(timeline && timeline.max);
+    if (Number.isFinite(timelineMaximum) && timelineMaximum > 0) {
+      return timelineMaximum;
+    }
+    return 0;
+  }
+
+  function attachTimelineRail(timeline, rail) {
+    if (!timeline || !rail) return false;
+    if (typeof timeline.insertAdjacentElement === 'function') {
+      timeline.insertAdjacentElement('afterend', rail);
+      return true;
+    }
+    const parent = timeline.parentNode;
+    if (!parent || typeof parent.appendChild !== 'function') return false;
+    parent.appendChild(rail);
+    return true;
+  }
+
+  function renderTimelineMarks(root, recording, payload) {
+    if (!root || typeof root.querySelector !== 'function') return false;
+    const timeline = root.querySelector(TIMELINE_SELECTOR);
+    if (!timeline) return false;
+
+    const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
+    if (!marks.length) return false;
+
+    const duration = timelineDurationSeconds(recording, timeline);
+    if (!(duration > 0)) return false;
+
+    const rail = node('div', 'recordings2-marks-timeline');
+    rail.setAttribute('role', 'img');
+    rail.setAttribute(
+      'aria-label',
+      marks.length === 1
+        ? '1 native Schnittmarke auf der Wiedergabe-Zeitlinie'
+        : String(marks.length) + ' native Schnittmarken auf der Wiedergabe-Zeitlinie'
+    );
+    rail.dataset.durationSeconds = String(duration);
+
+    marks.forEach(function (mark, index) {
+      const positionSeconds = Number(mark && mark.positionSeconds);
+      if (!Number.isFinite(positionSeconds) || positionSeconds < 0) return;
+      const bounded = Math.min(duration, Math.max(0, positionSeconds));
+      const marker = node('span', 'recordings2-marks-timeline-marker');
+      marker.style.left = ((bounded / duration) * 100).toFixed(5) + '%';
+      marker.setAttribute('aria-hidden', 'true');
+      marker.dataset.positionSeconds = String(positionSeconds);
+      marker.dataset.positionFrame = String(Number(mark && mark.positionFrame));
+      const timecode = text(mark && mark.timecode).trim() || ('Marke ' + String(index + 1));
+      const comment = text(mark && mark.comment).trim();
+      marker.title = comment ? timecode + ' · ' + comment : timecode;
+      rail.appendChild(marker);
+    });
+
+    if (!rail.children || rail.children.length === 0) return false;
+    const attached = attachTimelineRail(timeline, rail);
+    if (attached && timeline.dataset) {
+      timeline.dataset.nativeMarksVisible = 'true';
+      timeline.dataset.nativeMarksCount = String(rail.children.length);
+    }
+    return attached;
+  }
+
   function renderError(panel, error) {
     panel.body.replaceChildren();
     const message = node('p', 'recordings2-marks-note', errorText(error));
@@ -160,6 +233,7 @@
       }
       panel.section.dataset.marksRevision = text(payload.marksRevision);
       renderPayload(panel, payload);
+      renderTimelineMarks(root, recording, payload);
       return true;
     }).catch(function (error) {
       renderError(panel, error);
@@ -201,6 +275,7 @@
     enhance: enhance,
     fetchMarks: fetchMarks,
     renderPayload: renderPayload,
+    renderTimelineMarks: renderTimelineMarks,
     errorText: errorText
   });
 }(window));
