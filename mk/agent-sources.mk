@@ -8,7 +8,8 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
-	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp
+	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp \
+	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp
 
 AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp
@@ -129,7 +130,8 @@ AGENT_SRC := \
 
 # Standalone agent binaries do not link the daemon-owned recording metadata
 # module. They still need the native recording identity implementation because
-# SuiteBridgeSvdrpRecordingMetadataTransport validates opaque recording keys.
+# SuiteBridgeSvdrpRecordingMetadataTransport and the native marks transport
+# validate opaque recording keys before issuing SVDRP requests.
 AGENT_SVDRP_TRANSPORT_STANDALONE_SRC = \
 	$(AGENT_SVDRP_TRANSPORT_SRC) \
 	$(VDR_RECORDING_NATIVE_IDENTITY_SRC)

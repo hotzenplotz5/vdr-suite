@@ -99,6 +99,7 @@ include mk/phase64-suitebridge-native-timer-delete-disabled-transport-tests.mk
 include mk/phase64-suitebridge-native-timer-delete-replay-ledger-callback-tests.mk
 include mk/phase64-suitebridge-native-timer-delete-real-mutation-tests.mk
 include mk/recording-native-metadata-tests.mk
+include mk/recording-native-editing-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
 include mk/metadata-tests.mk

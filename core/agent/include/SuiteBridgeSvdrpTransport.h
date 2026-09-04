@@ -5,6 +5,7 @@
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
+#include "ISuiteBridgeRecordingMarksTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 #include "SuiteBridgeLiveSourceTransport.h"
 
@@ -38,6 +39,7 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeArtworkTransport,
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
+    public ::ISuiteBridgeRecordingMarksTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
     public IBackendAgentNativeProbeTransport,
     public ISuiteBridgeLiveSourceTransport
@@ -66,6 +68,9 @@ public:
     ::SuiteBridgeMetadataCommandReply requestMetadata(
         const std::string& channelId,
         const std::string& eventId) override;
+
+    ::SuiteBridgeRecordingMarksCommandReply requestRecordingMarks(
+        const std::string& recordingKey) override;
 
     ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
         const std::string& recordingKey) override;

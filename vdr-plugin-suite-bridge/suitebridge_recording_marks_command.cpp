@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 
 SuiteBridgeCommandResult SuiteBridgeRecordingMarksCommand::Handle(
     const char *command,
