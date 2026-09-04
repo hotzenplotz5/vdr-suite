@@ -198,10 +198,8 @@
   }
 
   function renderError(panel, error) {
-    panel.body.replaceChildren();
-    const message = node('p', 'recordings2-marks-note', errorText(error));
-    message.setAttribute('role', 'status');
-    panel.body.appendChild(message);
+    panel.body.replaceChildren(node('p', 'recordings2-marks-note', errorText(error)));
+    panel.body.children[0].setAttribute('role', 'status');
   }
 
   function enhance(root, recording, selectedBackendId) {
@@ -256,11 +254,5 @@
     });
   }
 
-  global.VdrSuiteRecordings2MarksDetail = Object.freeze({
-    enhance: enhance,
-    fetchMarks: fetchMarks,
-    renderPayload: renderPayload,
-    renderTimelineMarks: renderTimelineMarks,
-    errorText: errorText
-  });
+  global.VdrSuiteRecordings2MarksDetail = Object.freeze({enhance: enhance, fetchMarks: fetchMarks, renderPayload: renderPayload, renderTimelineMarks: renderTimelineMarks, errorText: errorText});
 }(window));
