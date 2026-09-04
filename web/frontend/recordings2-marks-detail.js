@@ -5,6 +5,7 @@
   const shared = global.VdrSuiteRecordings2Shared;
   const browserOwner = global.VdrSuiteRecordings2BrowserView;
   const STYLE_ID = 'vdr-suite-recordings2-marks-detail-style';
+  let timelineRuntimePromise = null;
 
   function text(value) {
     return value == null ? '' : String(value);
@@ -27,12 +28,36 @@
       '.recordings2-marks-list{display:grid;gap:.45rem;margin:0;padding:0;list-style:none}',
       '.recordings2-mark{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.25rem .8rem;padding:.55rem .7rem;border:1px solid rgba(148,163,184,.28);border-radius:.55rem}',
       '.recordings2-mark-time{font-weight:700}.recordings2-mark-meta{opacity:.78}',
-      '.recordings2-marks-note{opacity:.78}',
-      '.recordings2-marks-timeline{position:relative;z-index:2;height:.8rem;margin-top:-.58rem;margin-bottom:.25rem;pointer-events:none}',
-      '.recordings2-marks-timeline-marker{position:absolute;top:0;bottom:0;width:3px;border-radius:999px;background:#facc15;box-shadow:0 0 0 1px rgba(15,23,42,.82),0 0 5px rgba(250,204,21,.72);transform:translateX(-50%)}',
-      '.recordings2-marks-timeline-marker::after{content:"";position:absolute;top:-.12rem;left:50%;width:.44rem;height:.44rem;border:1px solid rgba(15,23,42,.9);border-radius:50%;background:#fde047;transform:translate(-50%,-35%)}'
+      '.recordings2-marks-note{opacity:.78}'
     ].join('');
     document.head.appendChild(style);
+  }
+
+  function timelineRuntime() {
+    const runtime = global.VdrSuiteRecordings2MarksTimeline;
+    return runtime && typeof runtime.bind === 'function' ? runtime : null;
+  }
+
+  function ensureTimelineRuntime() {
+    const ready = timelineRuntime();
+    if (ready) return Promise.resolve(ready);
+    if (timelineRuntimePromise) return timelineRuntimePromise;
+    if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve(null);
+
+    timelineRuntimePromise = global.loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-marks-timeline-runtime',
+      '/frontend/recordings2-marks-timeline.js',
+      function () { return Boolean(timelineRuntime()); }
+    ).then(function () {
+      return timelineRuntime();
+    }).catch(function (error) {
+      timelineRuntimePromise = null;
+      if (global.console && typeof global.console.error === 'function') {
+        global.console.error('VDR-Suite Recording marks timeline runtime failed', error);
+      }
+      return null;
+    });
+    return timelineRuntimePromise;
   }
 
   function recordingId(recording) {
@@ -142,61 +167,6 @@
     body.appendChild(list);
   }
 
-  function timelineDurationSeconds(recording, timeline) {
-    const recordingDuration = Number(recording && recording.durationSeconds);
-    if (Number.isFinite(recordingDuration) && recordingDuration > 0) return recordingDuration;
-    const timelineMaximum = Number(timeline && timeline.max);
-    return Number.isFinite(timelineMaximum) && timelineMaximum > 0 ? timelineMaximum : 0;
-  }
-
-  function attachTimelineRail(timeline, rail) {
-    if (!timeline || !rail) return false;
-    if (typeof timeline.insertAdjacentElement === 'function') {
-      timeline.insertAdjacentElement('afterend', rail);
-      return true;
-    }
-    if (!timeline.parentNode || typeof timeline.parentNode.appendChild !== 'function') return false;
-    timeline.parentNode.appendChild(rail);
-    return true;
-  }
-
-  function renderTimelineMarks(root, recording, payload) {
-    if (!root || typeof root.querySelector !== 'function') return false;
-    const timeline = root.querySelector('input[aria-label="Wiedergabeposition"]');
-    const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
-    const duration = timelineDurationSeconds(recording, timeline);
-    if (!timeline || !marks.length || !(duration > 0)) return false;
-
-    const rail = node('div', 'recordings2-marks-timeline');
-    rail.setAttribute('role', 'img');
-    rail.setAttribute('aria-label', marks.length === 1
-      ? '1 native Schnittmarke auf der Wiedergabe-Zeitlinie'
-      : String(marks.length) + ' native Schnittmarken auf der Wiedergabe-Zeitlinie');
-    rail.dataset.durationSeconds = String(duration);
-
-    marks.forEach(function (mark, index) {
-      const positionSeconds = Number(mark && mark.positionSeconds);
-      if (!Number.isFinite(positionSeconds) || positionSeconds < 0) return;
-      const marker = node('span', 'recordings2-marks-timeline-marker');
-      const bounded = Math.min(duration, positionSeconds);
-      marker.style.left = ((bounded / duration) * 100).toFixed(5) + '%';
-      marker.setAttribute('aria-hidden', 'true');
-      marker.dataset.positionSeconds = String(positionSeconds);
-      marker.dataset.positionFrame = String(Number(mark && mark.positionFrame));
-      const timecode = text(mark && mark.timecode).trim() || ('Marke ' + String(index + 1));
-      const comment = text(mark && mark.comment).trim();
-      marker.title = comment ? timecode + ' · ' + comment : timecode;
-      rail.appendChild(marker);
-    });
-
-    if (!rail.children || rail.children.length === 0 || !attachTimelineRail(timeline, rail)) return false;
-    if (timeline.dataset) {
-      timeline.dataset.nativeMarksVisible = 'true';
-      timeline.dataset.nativeMarksCount = String(rail.children.length);
-    }
-    return true;
-  }
-
   function renderError(panel, error) {
     panel.body.replaceChildren(node('p', 'recordings2-marks-note', errorText(error)));
     panel.body.children[0].setAttribute('role', 'status');
@@ -216,7 +186,9 @@
       }
       panel.section.dataset.marksRevision = text(payload.marksRevision);
       renderPayload(panel, payload);
-      renderTimelineMarks(root, recording, payload);
+      ensureTimelineRuntime().then(function (timeline) {
+        if (timeline) timeline.bind(root, recording, payload);
+      });
       return true;
     }).catch(function (error) {
       renderError(panel, error);
@@ -254,5 +226,10 @@
     });
   }
 
-  global.VdrSuiteRecordings2MarksDetail = Object.freeze({enhance: enhance, fetchMarks: fetchMarks, renderPayload: renderPayload, renderTimelineMarks: renderTimelineMarks, errorText: errorText});
+  global.VdrSuiteRecordings2MarksDetail = Object.freeze({
+    enhance: enhance,
+    fetchMarks: fetchMarks,
+    renderPayload: renderPayload,
+    errorText: errorText
+  });
 }(window));
