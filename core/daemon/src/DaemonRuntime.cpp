@@ -5,6 +5,7 @@
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "RecordingMarksApiRuntime.h"
 #include "RecordingMediaHttpRuntime.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
 
@@ -39,6 +40,61 @@ int DaemonRuntime::run()
             database_,
             *vdrRecordingCacheRepository_)) {
         std::cerr << "Continue Watching runtime unavailable" << std::endl;
+        return 1;
+    }
+    if (!RecordingMarksApiRuntime::instance().configure(
+            [this](const std::string& backendId) {
+                return vdrRecordingCacheRepository_->findAllForBackend(
+                    backendId);
+            },
+            [this](const std::string& backendId) {
+                for (const auto& backendRuntimeContext :
+                     backendRuntimeContexts_)
+                {
+                    if (!backendRuntimeContext ||
+                        backendRuntimeContext->backendId != backendId)
+                    {
+                        continue;
+                    }
+
+                    if (!backendRuntimeContext->suiteBridgeAgentRuntime)
+                    {
+                        return RecordingMarksBackendAccess{
+                            RecordingMarksBackendAvailability::CapabilityUnavailable,
+                            nullptr};
+                    }
+
+                    const auto health =
+                        backendRuntimeContext->suiteBridgeAgentRuntime->health();
+                    if (!health.running ||
+                        !health.observation.hasDiscovery ||
+                        !health.observation.discovery.capabilityAvailable(
+                            "recording-marks"))
+                    {
+                        return RecordingMarksBackendAccess{
+                            RecordingMarksBackendAvailability::CapabilityUnavailable,
+                            nullptr};
+                    }
+
+                    SuiteBridgeRecordingMarksResolver* resolver =
+                        backendRuntimeContext->ensureRecordingMarksResolver();
+                    if (resolver == nullptr)
+                    {
+                        return RecordingMarksBackendAccess{
+                            RecordingMarksBackendAvailability::CapabilityUnavailable,
+                            nullptr};
+                    }
+
+                    return RecordingMarksBackendAccess{
+                        RecordingMarksBackendAvailability::Available,
+                        resolver};
+                }
+
+                return RecordingMarksBackendAccess{
+                    RecordingMarksBackendAvailability::BackendNotFound,
+                    nullptr};
+            })) {
+        std::cerr << "Recording marks runtime unavailable" << std::endl;
         return 1;
     }
 
@@ -101,6 +157,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    RecordingMarksApiRuntime::instance().reset();
     ContinueWatchingApiRuntime::instance().reset();
     SeriesArtworkSettingsApiRuntime::instance().reset();
     GlobalSearchApiRuntime::instance().reset();

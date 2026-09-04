@@ -8,6 +8,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
+#include "RecordingMarksApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
@@ -193,6 +194,13 @@ public:
         const std::string& requestTarget)
     {
         ApiResponse response;
+
+        if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
 
         ManualRecordingMetadataApiRuntime::instance().registerController(
             metadataController_);
