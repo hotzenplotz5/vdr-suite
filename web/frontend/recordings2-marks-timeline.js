@@ -4,6 +4,7 @@
 
   const STYLE_ID = 'vdr-suite-recordings2-marks-timeline-style';
   const TIMELINE_SELECTOR = 'input[aria-label="Wiedergabeposition"]';
+  const REPLACEABLE_FALLBACK_TRANSPORT_CLASS = 'recordings2-recording-fallback-transport';
 
   function text(value) {
     return value == null ? '' : String(value);
@@ -26,6 +27,46 @@
       '.recordings2-marks-timeline-marker::after{content:"";position:absolute;top:-.12rem;left:50%;width:.44rem;height:.44rem;border:1px solid rgba(15,23,42,.9);border-radius:50%;background:#fde047;transform:translate(-50%,-35%)}'
     ].join('');
     document.head.appendChild(style);
+  }
+
+  function hasClass(element, className) {
+    if (!element) return false;
+    if (element.classList && typeof element.classList.contains === 'function') {
+      return element.classList.contains(className);
+    }
+    return text(element.className).split(/\s+/).filter(Boolean).indexOf(className) !== -1;
+  }
+
+  function insideReplaceableFallbackTransport(element, boundary) {
+    let current = element && element.parentNode;
+    while (current && current !== boundary) {
+      if (hasClass(current, REPLACEABLE_FALLBACK_TRANSPORT_CLASS)) return true;
+      current = current.parentNode;
+    }
+    return false;
+  }
+
+  function canonicalTimeline(root) {
+    if (!root || typeof root.querySelector !== 'function') return null;
+    const owner = root.__vdrSuiteRecordingPlaybackOwner;
+    const ownerElement = owner && owner.element;
+    const scope = ownerElement && typeof ownerElement.querySelectorAll === 'function'
+      ? ownerElement
+      : root;
+
+    if (scope && typeof scope.querySelectorAll === 'function') {
+      const timelines = scope.querySelectorAll(TIMELINE_SELECTOR);
+      for (let index = 0; index < timelines.length; index += 1) {
+        const timeline = timelines[index];
+        if (!insideReplaceableFallbackTransport(timeline, scope)) return timeline;
+      }
+    }
+
+    if (ownerElement && typeof ownerElement.querySelector === 'function') {
+      const timeline = ownerElement.querySelector(TIMELINE_SELECTOR);
+      if (timeline && !insideReplaceableFallbackTransport(timeline, ownerElement)) return timeline;
+    }
+    return root.querySelector(TIMELINE_SELECTOR);
   }
 
   function durationSeconds(recording, timeline) {
@@ -56,7 +97,7 @@
 
   function render(root, recording, payload) {
     if (!root || typeof root.querySelector !== 'function') return false;
-    const timeline = root.querySelector(TIMELINE_SELECTOR);
+    const timeline = canonicalTimeline(root);
     const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
     const duration = durationSeconds(recording, timeline);
     if (!timeline || !marks.length || !(duration > 0)) return false;
