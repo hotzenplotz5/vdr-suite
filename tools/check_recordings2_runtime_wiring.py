@@ -98,7 +98,7 @@ required_tokens = {
         '__vdrSuiteRecordingPlaybackOwner',
         'owner.subscribe',
         'nativeMarksRevision',
-        'transport',
+        'snapshot.transition',
     ),
     'person_view': (
         'global.VdrSuiteRecordings2PersonSearchView',
@@ -332,10 +332,10 @@ if f"'/frontend/{marks_timeline_asset}'" not in marks_source:
     raise SystemExit('Recordings 2 marks detail does not load its timeline lifecycle runtime')
 
 timeline_bundle = module_makefile.find(
-    '\t\tweb/frontend/recordings2-marks-timeline.js \\\n'
+    '\t\tweb/frontend/recordings2-marks-timeline.js'
 )
 detail_bundle = module_makefile.find(
-    '\t\tweb/frontend/recordings2-marks-detail.js \\\n'
+    '\t\tweb/frontend/recordings2-marks-detail.js'
 )
 if timeline_bundle < 0 or detail_bundle < 0 or timeline_bundle >= detail_bundle:
     raise SystemExit(
