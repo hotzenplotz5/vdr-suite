@@ -9,6 +9,7 @@ runtime_paths = {
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
+    'marks_timeline': ROOT / 'web/frontend/recordings2-marks-timeline.js',
     'person_view': ROOT / 'web/frontend/recordings2-person-search-view.js',
     'metadata_view': ROOT / 'web/frontend/recordings2-metadata-view.js',
     'metadata_detail': ROOT / 'web/frontend/recordings2-metadata-detail.js',
@@ -78,6 +79,7 @@ required_tokens = {
         'actionView.createPanel',
         'VdrSuiteRecordings2MetadataDetail',
         'metadataDetail.enhance',
+        'root.__vdrSuiteRecordingPlaybackOwner = activePlayback',
     ),
     'marks_detail': (
         'global.VdrSuiteRecordings2MarksDetail',
@@ -87,6 +89,16 @@ required_tokens = {
         'marksRevision',
         'VdrSuiteRecordings2BrowserView',
         'view.renderDetail()',
+        "'/frontend/recordings2-marks-timeline.js'",
+        'timeline.bind(root, recording, payload)',
+    ),
+    'marks_timeline': (
+        'global.VdrSuiteRecordings2MarksTimeline',
+        'input[aria-label="Wiedergabeposition"]',
+        '__vdrSuiteRecordingPlaybackOwner',
+        'owner.subscribe',
+        'nativeMarksRevision',
+        'transport',
     ),
     'person_view': (
         'global.VdrSuiteRecordings2PersonSearchView',
@@ -175,6 +187,7 @@ line_limits = {
     'actions': 620,
     'browser_view': 400,
     'marks_detail': 260,
+    'marks_timeline': 180,
     'person_view': 240,
     'metadata_view': 340,
 }
@@ -194,7 +207,15 @@ for forbidden in (
         if forbidden in source:
             raise SystemExit(f'Recordings 2 {owner} depends on legacy recording browser: {forbidden}')
 
-for owner in ('folder_artwork', 'actions', 'browser_view', 'marks_detail', 'metadata_assignment', 'runtime'):
+for owner in (
+    'folder_artwork',
+    'actions',
+    'browser_view',
+    'marks_detail',
+    'marks_timeline',
+    'metadata_assignment',
+    'runtime',
+):
     if 'fetch(' in runtimes[owner]:
         raise SystemExit(
             f'Recordings 2 {owner} must use the Client API and not call fetch() directly'
@@ -299,6 +320,29 @@ if f'web/frontend/{marks_asset}' not in module_makefile:
     raise SystemExit(f'Recordings 2 install rule is missing {marks_asset}')
 if 'test_recordings2_marks_detail.js' not in module_makefile:
     raise SystemExit('Recordings 2 marks detail contract test is not wired')
+
+marks_timeline_asset = 'recordings2-marks-timeline.js'
+if f'"/frontend/{marks_timeline_asset}"' not in server:
+    raise SystemExit(f'HTTP server does not allow /frontend/{marks_timeline_asset}')
+if f'"{marks_timeline_asset}"' not in server:
+    raise SystemExit(f'HTTP server does not serve {marks_timeline_asset}')
+if f'web/frontend/{marks_timeline_asset}' not in module_makefile:
+    raise SystemExit(f'Recordings 2 install rule is missing {marks_timeline_asset}')
+if f"'/frontend/{marks_timeline_asset}'" not in marks_source:
+    raise SystemExit('Recordings 2 marks detail does not load its timeline lifecycle runtime')
+
+timeline_bundle = module_makefile.find(
+    '\t\tweb/frontend/recordings2-marks-timeline.js \\\n'
+)
+detail_bundle = module_makefile.find(
+    '\t\tweb/frontend/recordings2-marks-detail.js \\\n'
+)
+if timeline_bundle < 0 or detail_bundle < 0 or timeline_bundle >= detail_bundle:
+    raise SystemExit(
+        'Recordings 2 production bundle must load marks timeline before marks detail'
+    )
+if 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' not in module_makefile:
+    raise SystemExit('Recordings 2 install staging does not assert the marks timeline runtime')
 
 assignment_asset = 'recordings2-metadata-assignment.js'
 assignment_path = f"'/frontend/{assignment_asset}'"
