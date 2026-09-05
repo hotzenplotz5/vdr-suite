@@ -46,6 +46,28 @@ vdrsuite::agent::BackendAgentRecordingMarksModifyKind mutationKind(
     return AgentKind::add;
 }
 
+bool exactReplayRequest(
+    const RecordingMarksMutationRequest& request,
+    const BackendAgentCommandAssignment& assignment,
+    const vdrsuite::agent::BackendAgentRecordingMarksModifyPayload& payload)
+{
+    return backendAgentCommandValidAssignment(assignment) &&
+        assignment.commandType ==
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
+        assignment.verificationPolicy == "readback_required" &&
+        assignment.operationId == request.operationId &&
+        assignment.backendId == request.backendId &&
+        payload.kind == mutationKind(request.kind) &&
+        payload.operationRevision == request.operationRevision &&
+        payload.recordingKey == request.recordingKey &&
+        payload.expectedMarksRevision == request.expectedMarksRevision &&
+        payload.sourceFrame == request.sourceFrame &&
+        payload.targetFrame == request.targetFrame &&
+        payload.replacementFrames == request.replacementFrames &&
+        payload.backendId == request.backendId &&
+        payload.backendGeneration == assignment.backendGeneration;
+}
+
 RequestSecurityContext systemContext()
 {
     RequestSecurityContext context;
@@ -269,6 +291,58 @@ bool configureDaemonRecordingMarksRuntime(
         },
         [agents, commands](const RecordingMarksMutationRequest& request) {
             RecordingMarksMutationDispatchResult dispatch;
+            const auto existing = commands->findAssignmentForOperation(
+                request.backendId,
+                request.operationId,
+                vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType);
+            vdrsuite::agent::BackendAgentRecordingMarksModifyPayload existingPayload;
+            if (existing.has_value())
+            {
+                std::string reasonCode;
+                if (!vdrsuite::agent::backendAgentRecordingMarksModifyParsePayload(
+                        existing->payload, existingPayload, reasonCode) ||
+                    !exactReplayRequest(request, *existing, existingPayload))
+                {
+                    dispatch.reasonCode =
+                        "recording_marks_modify_assignment_conflict";
+                    return dispatch;
+                }
+
+                const auto verification =
+                    commands->recordingMarksModifyVerificationForOperation(
+                        request.backendId, request.operationId);
+                if (verification.present)
+                {
+                    if (verification.commandId != existing->commandId ||
+                        verification.requestFingerprint !=
+                            existing->requestFingerprint ||
+                        verification.recordingKey != request.recordingKey ||
+                        verification.expectedMarksRevision !=
+                            request.expectedMarksRevision)
+                    {
+                        dispatch.reasonCode =
+                            "recording_marks_modify_verification_conflict";
+                        return dispatch;
+                    }
+                    dispatch.accepted = true;
+                    dispatch.replayed = true;
+                    dispatch.verified = true;
+                    dispatch.reasonCode =
+                        "recording_marks_modify_verified_replayed";
+                    dispatch.commandId = existing->commandId;
+                    dispatch.requestFingerprint = existing->requestFingerprint;
+                    dispatch.canonicalMarksRevision =
+                        verification.canonicalMarksRevision;
+                    return dispatch;
+                }
+            }
+            else if (request.replayOnly)
+            {
+                dispatch.reasonCode =
+                    "recording_marks_modify_assignment_not_found";
+                return dispatch;
+            }
+
             const auto agent = agents->findAgentForBackend(request.backendId);
             if (!agent.has_value())
             {
@@ -290,35 +364,9 @@ bool configureDaemonRecordingMarksRuntime(
             assignmentRequest.replacementFrames = request.replacementFrames;
             assignmentRequest.backendId = request.backendId;
             assignmentRequest.backendGeneration = agent->backendGeneration;
-            assignmentRequest.controlPlaneClaimedAt = now;
-
-            const auto existing = commands->findAssignmentForOperation(
-                request.backendId,
-                request.operationId,
-                vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType);
-            if (request.replayOnly && !existing.has_value())
-            {
-                dispatch.reasonCode =
-                    "recording_marks_modify_assignment_not_found";
-                return dispatch;
-            }
-            if (existing.has_value())
-            {
-                vdrsuite::agent::BackendAgentRecordingMarksModifyPayload
-                    existingPayload;
-                std::string reasonCode;
-                if (!vdrsuite::agent::backendAgentRecordingMarksModifyParsePayload(
-                        existing->payload,
-                        existingPayload,
-                        reasonCode))
-                {
-                    dispatch.reasonCode =
-                        "recording_marks_modify_assignment_conflict";
-                    return dispatch;
-                }
-                assignmentRequest.controlPlaneClaimedAt =
-                    existingPayload.controlPlaneClaimedAt;
-            }
+            assignmentRequest.controlPlaneClaimedAt = existing.has_value()
+                ? existingPayload.controlPlaneClaimedAt
+                : now;
 
             vdrsuite::agent::BackendAgentRecordingMarksModifyAssignmentService
                 assignmentService(*commands, *agents);
