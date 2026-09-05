@@ -168,7 +168,6 @@ bool sameCommand(
         sameProviderSelection(left.localProviderSelection, right.localProviderSelection);
 }
 
-
 bool sameCommand(
     const BackendAgentNativeTimerModifyCommand& left,
     const BackendAgentNativeTimerModifyCommand& right)
@@ -190,6 +189,31 @@ bool sameCommand(
         sameCreateSpecification(left.specification, right.specification) &&
         left.jobId == right.jobId && left.attemptId == right.attemptId &&
         left.claimEpoch == right.claimEpoch && left.backendId == right.backendId &&
+        left.agentId == right.agentId &&
+        left.agentInstanceId == right.agentInstanceId &&
+        left.backendGeneration == right.backendGeneration &&
+        left.controlPlaneClaimedAt == right.controlPlaneClaimedAt &&
+        sameProviderSelection(left.localProviderSelection, right.localProviderSelection);
+}
+
+bool sameCommand(
+    const BackendAgentRecordingMarksModifyCommand& left,
+    const BackendAgentRecordingMarksModifyCommand& right)
+{
+    return left.kind == right.kind &&
+        left.commandId == right.commandId &&
+        left.requestFingerprint == right.requestFingerprint &&
+        left.operationId == right.operationId &&
+        left.operationRevision == right.operationRevision &&
+        left.recordingKey == right.recordingKey &&
+        left.expectedMarksRevision == right.expectedMarksRevision &&
+        left.sourceFrame == right.sourceFrame &&
+        left.targetFrame == right.targetFrame &&
+        left.replacementFrames == right.replacementFrames &&
+        left.jobId == right.jobId &&
+        left.attemptId == right.attemptId &&
+        left.claimEpoch == right.claimEpoch &&
+        left.backendId == right.backendId &&
         left.agentId == right.agentId &&
         left.agentInstanceId == right.agentInstanceId &&
         left.backendGeneration == right.backendGeneration &&
@@ -317,7 +341,6 @@ bool backendAgentCommandStateExtensionValidateSupported(
         return true;
     }
 
-
     if (extension.extensionType ==
         kBackendAgentNativeTimerModifyLocalStateExtensionType)
     {
@@ -331,6 +354,25 @@ bool backendAgentCommandStateExtensionValidateSupported(
         {
             reasonCode =
                 "native_timer_modify_state_extension_assignment_mismatch";
+            return false;
+        }
+        reasonCode.clear();
+        return true;
+    }
+
+    if (extension.extensionType ==
+        kBackendAgentRecordingMarksModifyLocalStateExtensionType)
+    {
+        BackendAgentRecordingMarksModifyLocalState candidate;
+        BackendAgentRecordingMarksModifyCommand expected;
+        if (!backendAgentRecordingMarksModifyParseLocalState(
+                extension.payload, candidate, reasonCode) ||
+            !backendAgentRecordingMarksModifyCommandFromAssignment(
+                assignment, expected, reasonCode) ||
+            !sameCommand(expected, candidate.command))
+        {
+            reasonCode =
+                "recording_marks_modify_state_extension_assignment_mismatch";
             return false;
         }
         reasonCode.clear();
@@ -463,7 +505,6 @@ bool backendAgentNativeTimerDeleteParseCommandStateExtension(
     return true;
 }
 
-
 std::string backendAgentNativeTimerModifyCommandStateExtension(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentNativeTimerModifyLocalState& state,
@@ -516,6 +557,70 @@ bool backendAgentNativeTimerModifyParseCommandStateExtension(
         reasonCode = "native_timer_modify_state_extension_assignment_mismatch";
         return false;
     }
+    state = candidate;
+    reasonCode.clear();
+    return true;
+}
+
+std::string backendAgentRecordingMarksModifyCommandStateExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentRecordingMarksModifyLocalState& state,
+    std::string& reasonCode)
+{
+    BackendAgentRecordingMarksModifyCommand expected;
+    if (!backendAgentRecordingMarksModifyCommandFromAssignment(
+            assignment, expected, reasonCode) ||
+        !backendAgentRecordingMarksModifyLocalStateValid(state, reasonCode) ||
+        !sameCommand(expected, state.command))
+    {
+        reasonCode =
+            "recording_marks_modify_state_extension_assignment_mismatch";
+        return {};
+    }
+
+    const std::string payload =
+        backendAgentRecordingMarksModifySerializeLocalState(state, reasonCode);
+    if (payload.empty()) return {};
+
+    BackendAgentCommandStateExtension extension;
+    extension.extensionType =
+        kBackendAgentRecordingMarksModifyLocalStateExtensionType;
+    extension.commandId = assignment.commandId;
+    extension.requestFingerprint = assignment.requestFingerprint;
+    extension.payload = payload;
+    return backendAgentCommandStateExtensionSerialize(
+        extension, assignment, reasonCode);
+}
+
+bool backendAgentRecordingMarksModifyParseCommandStateExtension(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentRecordingMarksModifyLocalState& state,
+    std::string& reasonCode)
+{
+    BackendAgentCommandStateExtension extension;
+    if (!backendAgentCommandStateExtensionParse(
+            encoded, assignment, extension, reasonCode) ||
+        extension.extensionType !=
+            kBackendAgentRecordingMarksModifyLocalStateExtensionType)
+    {
+        reasonCode = "recording_marks_modify_state_extension_type_mismatch";
+        return false;
+    }
+
+    BackendAgentRecordingMarksModifyLocalState candidate;
+    BackendAgentRecordingMarksModifyCommand expected;
+    if (!backendAgentRecordingMarksModifyParseLocalState(
+            extension.payload, candidate, reasonCode) ||
+        !backendAgentRecordingMarksModifyCommandFromAssignment(
+            assignment, expected, reasonCode) ||
+        !sameCommand(expected, candidate.command))
+    {
+        reasonCode =
+            "recording_marks_modify_state_extension_assignment_mismatch";
+        return false;
+    }
+
     state = candidate;
     reasonCode.clear();
     return true;
