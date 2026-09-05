@@ -32,7 +32,8 @@ vdrsuite::agent::BackendAgentLocalProviderFacts providerFacts(
     bool includeMarksModify = true)
 {
     vdrsuite::agent::BackendAgentLocalProviderFacts facts;
-    facts.providerId = "suitebridge:local";
+    facts.providerId =
+        vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderId;
     facts.providerKind = "suitebridge";
     facts.providerInstanceEpoch = epoch;
     facts.providerGeneration = generation;

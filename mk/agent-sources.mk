@@ -20,6 +20,9 @@ AGENT_NATIVE_TIMER_DELETE_TRANSPORT_SRC := \
 AGENT_NATIVE_TIMER_MODIFY_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpNativeTimerModifyTransport.cpp
 
+AGENT_RECORDING_MARKS_MODIFY_TRANSPORT_SRC := \
+	core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp
+
 AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservation.cpp \
 	core/agent/src/SuiteBridgeObservationService.cpp \
@@ -95,6 +98,9 @@ AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC := \
 AGENT_NATIVE_TIMER_MODIFY_COMMAND_HANDLER_SRC := \
 	core/agent/src/BackendAgentNativeTimerModifyCommandHandler.cpp
 
+AGENT_RECORDING_MARKS_MODIFY_COMMAND_HANDLER_SRC := \
+	core/agent/src/BackendAgentRecordingMarksModifyCommandHandler.cpp
+
 AGENT_COMMAND_CLIENT_SRC := \
 	$(AGENT_COMMAND_STATE_SRC) \
 	$(AGENT_TIMER_CREATE_EXECUTOR_SRC) \
@@ -105,6 +111,7 @@ AGENT_COMMAND_CLIENT_SRC := \
 	$(AGENT_NATIVE_TIMER_CREATE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_MODIFY_COMMAND_HANDLER_SRC) \
+	$(AGENT_RECORDING_MARKS_MODIFY_COMMAND_HANDLER_SRC) \
 	core/agent/src/BackendAgentCommandClient.cpp
 
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \

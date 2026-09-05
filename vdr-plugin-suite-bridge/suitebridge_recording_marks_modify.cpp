@@ -12,7 +12,7 @@
 namespace {
 constexpr const char *Operation = "vdr.recording.marks.modify";
 constexpr const char *AuthorityDomain = "vdr.recording.marks";
-constexpr const char *ProviderId = "suitebridge:local";
+constexpr const char *ProviderId = "suitebridge:recording-marks";
 constexpr const char *ProviderKind = "suitebridge";
 constexpr const char *CapabilityProtocol = "vdr-suite-nmarks-cap/2";
 constexpr const char *ResultProtocol = "vdr-suite-nmarks-result/2";

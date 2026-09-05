@@ -256,6 +256,14 @@ public:
     {
         ApiResponse response;
 
+        if (RecordingMarksApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
         if (requestTarget == "/api/media/sessions")
         {
             if (!recordingMediaSessionHandler_)
