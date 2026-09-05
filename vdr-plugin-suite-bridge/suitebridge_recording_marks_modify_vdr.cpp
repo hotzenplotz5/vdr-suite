@@ -169,6 +169,8 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
     SuiteBridgeRecordingMarks current;
     if (!loadCurrentMarks(*recording, request.recordingKey, nativeMarks, current))
       return rejected("marks-unreadable", request);
+    if (current.inUseFlags != 0)
+      return rejected("recording-in-use", request);
     if (current.marksRevision != request.expectedMarksRevision)
       return rejected("marks-revision-mismatch", request);
 
