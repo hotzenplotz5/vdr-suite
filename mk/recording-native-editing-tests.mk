@@ -35,8 +35,7 @@ test-suite-bridge-svdrp-recording-marks-modify-transport:
 		-Icore/agent/include \
 		-Icore/vdr/include \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
-		core/agent/src/BackendAgentCommand.cpp \
-		core/agent/src/BackendAgentLocalProvider.cpp \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
 		core/agent/src/BackendAgentRecordingMarksModify.cpp \
 		$(RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_recording_marks_modify_transport.cpp \
@@ -65,8 +64,7 @@ test-recording-marks-api-runtime:
 test-backend-agent-recording-marks-modify:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		-Icore/agent/include \
-		core/agent/src/BackendAgentCommand.cpp \
-		core/agent/src/BackendAgentLocalProvider.cpp \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
 		$(RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_SRC) \
 		core/agent/tests/test_backend_agent_recording_marks_modify.cpp \
 		-o $(BUILD_DIR)/test_backend_agent_recording_marks_modify
