@@ -44,15 +44,6 @@ SuiteBridgeRecordingMarksModifyMutationResult unknown(
       request);
 }
 
-SuiteBridgeRecordingMarksModifyMutationResult applied(
-    const SuiteBridgeRecordingMarksModifyRequest &request)
-{
-  return result(
-      SuiteBridgeRecordingMarksModifyMutationDisposition::AppliedUnverified,
-      "modified-unverified",
-      request);
-}
-
 bool loadCurrentMarks(
     const cRecording &recording,
     const std::string &recordingKey,
@@ -134,6 +125,33 @@ std::vector<int> currentFrames(cMarks &marks)
     frames.push_back(mark->Position());
   return frames;
 }
+
+SuiteBridgeRecordingMarksModifyMutationResult appliedWithNativeReadback(
+    const cRecording &recording,
+    const SuiteBridgeRecordingMarksModifyRequest &request,
+    const std::vector<int> &expectedFrames)
+{
+  cMarks readbackMarks;
+  SuiteBridgeRecordingMarks readback;
+  if (!loadCurrentMarks(
+          recording, request.recordingKey, readbackMarks, readback)) {
+    return unknown("post-read-unavailable", request);
+  }
+  if (readback.inUseFlags != 0 || recording.IsInUse() != 0)
+    return unknown("post-read-recording-in-use", request);
+  if (currentFrames(readbackMarks) != expectedFrames)
+    return unknown("post-read-state-mismatch", request);
+  if (readback.marksRevision == request.expectedMarksRevision)
+    return unknown("post-read-revision-unchanged", request);
+
+  SuiteBridgeRecordingMarksModifyMutationResult value;
+  value.disposition =
+      SuiteBridgeRecordingMarksModifyMutationDisposition::AppliedUnverified;
+  value.evidenceReference =
+      std::string("nmarks:vdr:postrev:") + readback.marksRevision + ':' +
+      request.commandId;
+  return value;
+}
 } // namespace
 
 SuiteBridgeRecordingMarksModifyMutationResult
@@ -184,7 +202,8 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
       nativeMarks.Add(alignedFrame);
       if (!saveAndNotify(nativeMarks))
         return unknown("marks-save-failed", request);
-      return applied(request);
+      return appliedWithNativeReadback(
+          *recording, request, currentFrames(nativeMarks));
     }
 
     case SuiteBridgeRecordingMarksModifyKind::Delete: {
@@ -197,7 +216,8 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
       nativeMarks.Del(source);
       if (!saveAndNotify(nativeMarks))
         return unknown("marks-save-failed", request);
-      return applied(request);
+      return appliedWithNativeReadback(
+          *recording, request, currentFrames(nativeMarks));
     }
 
     case SuiteBridgeRecordingMarksModifyKind::Move: {
@@ -225,7 +245,8 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
       nativeMarks.Sort();
       if (!saveAndNotify(nativeMarks))
         return unknown("marks-save-failed", request);
-      return applied(request);
+      return appliedWithNativeReadback(
+          *recording, request, currentFrames(nativeMarks));
     }
 
     case SuiteBridgeRecordingMarksModifyKind::Reset: {
@@ -239,7 +260,7 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
           recording->FramesPerSecond(),
           recording->IsPesRecording());
       cStatus::MsgMarksModified(&resetMarks);
-      return applied(request);
+      return appliedWithNativeReadback(*recording, request, {});
     }
 
     case SuiteBridgeRecordingMarksModifyKind::Replace: {
@@ -270,7 +291,7 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
       nativeMarks.Sort();
       if (!saveAndNotify(nativeMarks))
         return unknown("marks-save-failed", request);
-      return applied(request);
+      return appliedWithNativeReadback(*recording, request, alignedFrames);
     }
     }
   } catch (...) {
