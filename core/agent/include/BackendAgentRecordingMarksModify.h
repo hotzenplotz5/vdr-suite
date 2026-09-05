@@ -18,7 +18,7 @@ constexpr const char* kBackendAgentRecordingMarksModifyAuthorityDomain =
 constexpr const char* kBackendAgentRecordingMarksModifyCapability =
     "vdr.recording.marks.modify";
 constexpr const char* kBackendAgentRecordingMarksModifyProviderId =
-    "suitebridge:local";
+    "suitebridge:recording-marks";
 constexpr const char* kBackendAgentRecordingMarksModifyProviderKind =
     "suitebridge";
 constexpr std::uint64_t kBackendAgentRecordingMarksModifyPayloadVersion = 1;
