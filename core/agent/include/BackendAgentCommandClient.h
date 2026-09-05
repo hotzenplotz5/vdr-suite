@@ -13,6 +13,7 @@ class IBackendAgentNativeProbeTransport;
 class IBackendAgentNativeTimerDeleteTransport;
 class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerModifyTransport;
+class IBackendAgentRecordingMarksModifyTransport;
 }
 
 struct BackendAgentCommandClientConfig
@@ -48,3 +49,6 @@ bool pollBackendAgentCommand(
 
 void setBackendAgentNativeProbeTransport(
     vdrsuite::agent::IBackendAgentNativeProbeTransport* transport);
+
+void setBackendAgentRecordingMarksModifyTransport(
+    vdrsuite::agent::IBackendAgentRecordingMarksModifyTransport* transport);
