@@ -14,11 +14,12 @@ constexpr const char *Operation = "vdr.recording.marks.modify";
 constexpr const char *AuthorityDomain = "vdr.recording.marks";
 constexpr const char *ProviderId = "suitebridge:local";
 constexpr const char *ProviderKind = "suitebridge";
-constexpr const char *CapabilityProtocol = "vdr-suite-nmarks-cap/1";
-constexpr const char *ResultProtocol = "vdr-suite-nmarks-result/1";
+constexpr const char *CapabilityProtocol = "vdr-suite-nmarks-cap/2";
+constexpr const char *ResultProtocol = "vdr-suite-nmarks-result/2";
 constexpr std::uint64_t ProviderGeneration = 1;
-constexpr std::uint64_t CapabilityRevision = 1;
+constexpr std::uint64_t CapabilityRevision = 2;
 constexpr std::size_t FingerprintLength = 71;
+constexpr std::size_t MaximumReplacementFrames = 256;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
 constexpr int StaleReplyCode = 555;
@@ -37,8 +38,10 @@ const char *kindName(SuiteBridgeRecordingMarksModifyKind kind)
     return "delete";
   case SuiteBridgeRecordingMarksModifyKind::Move:
     return "move";
-  case SuiteBridgeRecordingMarksModifyKind::Clear:
-    return "clear";
+  case SuiteBridgeRecordingMarksModifyKind::Reset:
+    return "reset";
+  case SuiteBridgeRecordingMarksModifyKind::Replace:
+    return "replace";
   }
   return "invalid";
 }
@@ -99,6 +102,30 @@ bool frameValue(const std::string &value, int &parsed)
   return true;
 }
 
+bool replacementFramesValue(
+    const std::string &value,
+    std::vector<int> &frames)
+{
+  frames.clear();
+  if (value == "-") return true;
+  if (value.empty() || value.size() > 4096) return false;
+  std::size_t position = 0;
+  while (position < value.size()) {
+    const std::size_t end = value.find(',', position);
+    const std::string token = value.substr(
+        position,
+        end == std::string::npos ? std::string::npos : end - position);
+    int frame = -1;
+    if (!frameValue(token, frame) || frame < 0) return false;
+    frames.push_back(frame);
+    if (frames.size() > MaximumReplacementFrames) return false;
+    if (end == std::string::npos) break;
+    position = end + 1;
+    if (position == value.size()) return false;
+  }
+  return true;
+}
+
 std::vector<std::string> split(const char *option)
 {
   std::vector<std::string> values;
@@ -123,13 +150,20 @@ bool validFrameShape(const SuiteBridgeRecordingMarksModifyRequest &request)
 {
   switch (request.kind) {
   case SuiteBridgeRecordingMarksModifyKind::Add:
-    return request.sourceFrame < 0 && request.targetFrame >= 0;
+    return request.sourceFrame < 0 && request.targetFrame >= 0 &&
+        request.replacementFrames.empty();
   case SuiteBridgeRecordingMarksModifyKind::Delete:
-    return request.sourceFrame >= 0 && request.targetFrame < 0;
+    return request.sourceFrame >= 0 && request.targetFrame < 0 &&
+        request.replacementFrames.empty();
   case SuiteBridgeRecordingMarksModifyKind::Move:
-    return request.sourceFrame >= 0 && request.targetFrame >= 0;
-  case SuiteBridgeRecordingMarksModifyKind::Clear:
-    return request.sourceFrame < 0 && request.targetFrame < 0;
+    return request.sourceFrame >= 0 && request.targetFrame >= 0 &&
+        request.replacementFrames.empty();
+  case SuiteBridgeRecordingMarksModifyKind::Reset:
+    return request.sourceFrame < 0 && request.targetFrame < 0 &&
+        request.replacementFrames.empty();
+  case SuiteBridgeRecordingMarksModifyKind::Replace:
+    return request.sourceFrame < 0 && request.targetFrame < 0 &&
+        !request.replacementFrames.empty();
   }
   return false;
 }
@@ -139,9 +173,9 @@ bool parseExecute(
     SuiteBridgeRecordingMarksModifyRequest &request)
 {
   const std::vector<std::string> values = split(option);
-  if (values.size() != 30 || values[0] != "EXEC" ||
+  if (values.size() != 31 || values[0] != "EXEC" ||
       values[1] != "vdr-suite-native/1" || values[2] != Operation ||
-      values[3] != "1") {
+      values[3] != "2") {
     return false;
   }
 
@@ -154,28 +188,30 @@ bool parseExecute(
   if (values[10] == "add") request.kind = SuiteBridgeRecordingMarksModifyKind::Add;
   else if (values[10] == "delete") request.kind = SuiteBridgeRecordingMarksModifyKind::Delete;
   else if (values[10] == "move") request.kind = SuiteBridgeRecordingMarksModifyKind::Move;
-  else if (values[10] == "clear") request.kind = SuiteBridgeRecordingMarksModifyKind::Clear;
+  else if (values[10] == "reset") request.kind = SuiteBridgeRecordingMarksModifyKind::Reset;
+  else if (values[10] == "replace") request.kind = SuiteBridgeRecordingMarksModifyKind::Replace;
   else return false;
-  request.jobId = values[13];
-  request.attemptId = values[14];
-  request.backendId = values[16];
-  request.agentId = values[17];
-  request.agentInstanceId = values[18];
-  request.authorityDomain = values[21];
-  request.providerId = values[22];
-  request.providerKind = values[23];
-  request.providerInstanceEpoch = values[25];
-  request.requiredCapability = values[28];
+  request.jobId = values[14];
+  request.attemptId = values[15];
+  request.backendId = values[17];
+  request.agentId = values[18];
+  request.agentInstanceId = values[19];
+  request.authorityDomain = values[22];
+  request.providerId = values[23];
+  request.providerKind = values[24];
+  request.providerInstanceEpoch = values[26];
+  request.requiredCapability = values[29];
 
   return frameValue(values[11], request.sourceFrame) &&
       frameValue(values[12], request.targetFrame) &&
-      unsignedValue(values[15], request.claimEpoch) &&
-      unsignedValue(values[19], request.backendGeneration) &&
-      unsignedValue(values[20], request.controlPlaneClaimedAt) &&
-      unsignedValue(values[24], request.ownershipGeneration) &&
-      unsignedValue(values[26], request.providerGeneration) &&
-      unsignedValue(values[27], request.capabilityRevision) &&
-      unsignedValue(values[29], request.localStartingPersistedAt) &&
+      replacementFramesValue(values[13], request.replacementFrames) &&
+      unsignedValue(values[16], request.claimEpoch) &&
+      unsignedValue(values[20], request.backendGeneration) &&
+      unsignedValue(values[21], request.controlPlaneClaimedAt) &&
+      unsignedValue(values[25], request.ownershipGeneration) &&
+      unsignedValue(values[27], request.providerGeneration) &&
+      unsignedValue(values[28], request.capabilityRevision) &&
+      unsignedValue(values[30], request.localStartingPersistedAt) &&
       safeToken(request.commandId, 192) && safeFingerprint(request.requestFingerprint) &&
       safeToken(request.operationId, 192) &&
       safeToken(request.operationRevision, 192) &&
@@ -207,6 +243,13 @@ void appendFrame(std::ostringstream &out, int frame)
   else out << frame << '|';
 }
 
+void appendFrames(std::ostringstream &out, const std::vector<int> &frames)
+{
+  out << frames.size() << '|';
+  for (const int frame : frames) out << frame << ',';
+  out << '|';
+}
+
 std::string canonicalRequest(const SuiteBridgeRecordingMarksModifyRequest &request)
 {
   std::ostringstream canonical;
@@ -220,6 +263,7 @@ std::string canonicalRequest(const SuiteBridgeRecordingMarksModifyRequest &reque
   append(canonical, request.expectedMarksRevision);
   appendFrame(canonical, request.sourceFrame);
   appendFrame(canonical, request.targetFrame);
+  appendFrames(canonical, request.replacementFrames);
   append(canonical, request.jobId);
   append(canonical, request.attemptId);
   append(canonical, request.claimEpoch);
@@ -242,7 +286,7 @@ std::string canonicalRequest(const SuiteBridgeRecordingMarksModifyRequest &reque
 
 SuiteBridgeCommandResult genericRejection(int code, const char *reason)
 {
-  return {true, code, std::string("vdr-suite-nmarks-rejected/1 ") + reason};
+  return {true, code, std::string("vdr-suite-nmarks-rejected/2 ") + reason};
 }
 
 SuiteBridgeCommandResult typedResult(
@@ -258,7 +302,7 @@ SuiteBridgeCommandResult typedResult(
   result.replyCode = code;
   std::ostringstream payload;
   payload << ResultProtocol << ' ' << request.commandId << ' '
-          << request.requestFingerprint << ' ' << Operation << " 1 " << epoch << ' '
+          << request.requestFingerprint << ' ' << Operation << " 2 " << epoch << ' '
           << ProviderGeneration << ' ' << CapabilityRevision << ' '
           << disposition << ' ' << reason << ' ' << evidence;
   result.payload = payload.str();
@@ -366,7 +410,7 @@ SuiteBridgeCommandResult SuiteBridgeRecordingMarksModifyService::capability(
     const char *option) const
 {
   const std::vector<std::string> values = split(option);
-  if (values.size() != 3 || values[0] != "CAP" || values[1] != "1" ||
+  if (values.size() != 3 || values[0] != "CAP" || values[1] != "2" ||
       values[2] != "modify") {
     return genericRejection(MalformedReplyCode, "capability-schema-unsupported");
   }
@@ -376,7 +420,7 @@ SuiteBridgeCommandResult SuiteBridgeRecordingMarksModifyService::capability(
   result.replyCode = SuccessReplyCode;
   std::ostringstream payload;
   payload << CapabilityProtocol << ' ' << Operation
-          << " 1 recording-marks-modify " << state << ' ' << ProviderKind << ' '
+          << " 2 recording-marks-modify " << state << ' ' << ProviderKind << ' '
           << pluginInstanceEpoch_ << ' ' << ProviderGeneration << ' '
           << CapabilityRevision << ' ' << state;
   result.payload = payload.str();

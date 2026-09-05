@@ -22,6 +22,8 @@ def forbid(text: str, needle: str, label: str) -> None:
 
 
 header = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify_vdr.h")
+protocol_header = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify.h")
+protocol_source = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify.cpp")
 source = read("vdr-plugin-suite-bridge/suitebridge_recording_marks_modify_vdr.cpp")
 plugin_header = read("vdr-plugin-suite-bridge/suitebridge.h")
 plugin_source = read("vdr-plugin-suite-bridge/suitebridge.cpp")
@@ -35,6 +37,25 @@ for needle in (
     require(header, needle, "typed VDR marks mutation callback")
 
 for needle in (
+    "SuiteBridgeRecordingMarksModifyKind::Reset",
+    "SuiteBridgeRecordingMarksModifyKind::Replace",
+    "std::vector<int> replacementFrames",
+):
+    require(protocol_header, needle, "complete native marks mutation protocol")
+
+for needle in (
+    'values[10] == "add"',
+    'values[10] == "delete"',
+    'values[10] == "move"',
+    'values[10] == "reset"',
+    'values[10] == "replace"',
+    "replacementFramesValue(",
+    'values[3] != "2"',
+    'values[1] != "2"',
+):
+    require(protocol_source, needle, "bounded native marks mutation protocol v2")
+
+for needle in (
     "LOCK_RECORDINGS_READ",
     "SuiteBridgeRecordingIdentity::KeyForNativeId",
     "recording->IsInUse() != 0",
@@ -46,8 +67,12 @@ for needle in (
     "nativeMarks.Del(source)",
     "source->SetPosition(alignedFrame)",
     "nativeMarks.Sort()",
-    "marks.Save()",
     "cMarks::DeleteMarksFile(recording)",
+    "SuiteBridgeRecordingMarksModifyKind::Replace",
+    "std::adjacent_find(alignedFrames.begin(), alignedFrames.end())",
+    "while (cMark *mark = nativeMarks.First()) nativeMarks.Del(mark)",
+    "for (const int frame : alignedFrames) nativeMarks.Add(frame)",
+    "marks.Save()",
     "cStatus::MsgMarksModified",
     "SuiteBridgeRecordingMarksModifyMutationDisposition::AppliedUnverified",
 ):
@@ -98,9 +123,7 @@ for token in (
 ):
     forbid(source, token, "alternate mutation path")
 
-if source.count("nativeMarks.Add(alignedFrame)") != 1:
-    raise SystemExit("recording marks callback must contain exactly one native Add")
-if source.count("nativeMarks.Del(source)") != 1:
-    raise SystemExit("recording marks callback must contain exactly one native Del")
+if source.count("marks.Save()") != 1:
+    raise SystemExit("recording marks callback must centralize marks Save")
 
 print("recording marks native VDR mutation architecture guard passed")

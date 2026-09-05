@@ -8,12 +8,14 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 enum class SuiteBridgeRecordingMarksModifyKind {
   Add,
   Delete,
   Move,
-  Clear,
+  Reset,
+  Replace,
 };
 
 struct SuiteBridgeRecordingMarksModifyRequest final {
@@ -26,6 +28,7 @@ struct SuiteBridgeRecordingMarksModifyRequest final {
   std::string expectedMarksRevision;
   int sourceFrame = -1;
   int targetFrame = -1;
+  std::vector<int> replacementFrames;
   std::string jobId;
   std::string attemptId;
   std::uint64_t claimEpoch = 0;

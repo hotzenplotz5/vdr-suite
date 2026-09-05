@@ -6,8 +6,10 @@
 #include <vdr/recording.h>
 #include <vdr/status.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace {
 SuiteBridgeRecordingMarksModifyMutationResult result(
@@ -103,15 +105,19 @@ cMark *uniqueMarkAt(cMarks &marks, int frame, int &count)
   return matched;
 }
 
+bool alignTarget(cIndexFile &indexFile, int requestedFrame, int &alignedFrame)
+{
+  alignedFrame = indexFile.GetClosestIFrame(requestedFrame);
+  return alignedFrame >= 0;
+}
+
 bool alignTarget(const cRecording &recording, int requestedFrame, int &alignedFrame)
 {
   cIndexFile indexFile(
       recording.FileName(),
       false,
       recording.IsPesRecording());
-  if (!indexFile.Ok()) return false;
-  alignedFrame = indexFile.GetClosestIFrame(requestedFrame);
-  return alignedFrame >= 0;
+  return indexFile.Ok() && alignTarget(indexFile, requestedFrame, alignedFrame);
 }
 
 bool saveAndNotify(cMarks &marks)
@@ -119,6 +125,14 @@ bool saveAndNotify(cMarks &marks)
   if (!marks.Save()) return false;
   cStatus::MsgMarksModified(&marks);
   return true;
+}
+
+std::vector<int> currentFrames(cMarks &marks)
+{
+  std::vector<int> frames;
+  for (cMark *mark = marks.First(); mark != nullptr; mark = marks.Next(mark))
+    frames.push_back(mark->Position());
+  return frames;
 }
 } // namespace
 
@@ -212,17 +226,48 @@ SuiteBridgeRecordingMarksModifyVdrMutationCallback::ModifyMarks(
       return applied(request);
     }
 
-    case SuiteBridgeRecordingMarksModifyKind::Clear: {
+    case SuiteBridgeRecordingMarksModifyKind::Reset: {
       if (!recording->HasMarks())
-        return rejected("marks-already-clear", request);
+        return rejected("marks-already-reset", request);
       if (!cMarks::DeleteMarksFile(recording))
         return unknown("marks-delete-failed", request);
-      cMarks clearedMarks;
-      clearedMarks.Load(
+      cMarks resetMarks;
+      resetMarks.Load(
           recording->FileName(),
           recording->FramesPerSecond(),
           recording->IsPesRecording());
-      cStatus::MsgMarksModified(&clearedMarks);
+      cStatus::MsgMarksModified(&resetMarks);
+      return applied(request);
+    }
+
+    case SuiteBridgeRecordingMarksModifyKind::Replace: {
+      cIndexFile indexFile(
+          recording->FileName(),
+          false,
+          recording->IsPesRecording());
+      if (!indexFile.Ok())
+        return rejected("recording-index-unavailable", request);
+
+      std::vector<int> alignedFrames;
+      alignedFrames.reserve(request.replacementFrames.size());
+      for (const int requestedFrame : request.replacementFrames) {
+        int alignedFrame = -1;
+        if (!alignTarget(indexFile, requestedFrame, alignedFrame))
+          return rejected("recording-index-unavailable", request);
+        alignedFrames.push_back(alignedFrame);
+      }
+      std::sort(alignedFrames.begin(), alignedFrames.end());
+      if (std::adjacent_find(alignedFrames.begin(), alignedFrames.end()) !=
+          alignedFrames.end())
+        return rejected("replacement-alignment-collision", request);
+      if (alignedFrames == currentFrames(nativeMarks))
+        return rejected("marks-replacement-unchanged", request);
+
+      while (cMark *mark = nativeMarks.First()) nativeMarks.Del(mark);
+      for (const int frame : alignedFrames) nativeMarks.Add(frame);
+      nativeMarks.Sort();
+      if (!saveAndNotify(nativeMarks))
+        return unknown("marks-save-failed", request);
       return applied(request);
     }
     }
