@@ -7,14 +7,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 context_path = ROOT / "core/daemon/include/BackendRuntimeContext.h"
 make_path = ROOT / "mk/recording-native-editing-tests.mk"
+security_make_path = ROOT / "mk/security-sources.mk"
 daemon_sources_path = ROOT / "mk/daemon-sources.mk"
 api_header_path = ROOT / "api/rest/include/RecordingMarksApiRuntime.h"
 api_source_path = ROOT / "api/rest/src/RecordingMarksApiRuntime.cpp"
+api_test_path = ROOT / "api/rest/tests/test_recording_marks_api_runtime.cpp"
 router_path = ROOT / "api/rest/include/ApiRouter.h"
 daemon_path = ROOT / "core/daemon/src/DaemonRuntime.cpp"
 daemon_marks_path = ROOT / "core/daemon/src/DaemonRuntimeRecordingMarks.cpp"
 security_gate_path = ROOT / "core/security/include/SecurityHttpGate.h"
 authorization_path = ROOT / "core/security/include/AuthorizationService.h"
+security_test_path = ROOT / "core/security/tests/test_recording_marks_security.cpp"
 agent_main_path = ROOT / "apps/agent/main.cpp"
 agent_client_path = ROOT / "core/agent/src/BackendAgentCommandClient.cpp"
 admin_path = ROOT / "apps/tools/backend_agent_command_admin.cpp"
@@ -22,14 +25,17 @@ admin_path = ROOT / "apps/tools/backend_agent_command_admin.cpp"
 paths = (
     context_path,
     make_path,
+    security_make_path,
     daemon_sources_path,
     api_header_path,
     api_source_path,
+    api_test_path,
     router_path,
     daemon_path,
     daemon_marks_path,
     security_gate_path,
     authorization_path,
+    security_test_path,
     agent_main_path,
     agent_client_path,
     admin_path,
@@ -47,14 +53,17 @@ if errors:
 
 context = context_path.read_text(encoding="utf-8")
 makefile = make_path.read_text(encoding="utf-8")
+security_make = security_make_path.read_text(encoding="utf-8")
 daemon_sources = daemon_sources_path.read_text(encoding="utf-8")
 api_header = api_header_path.read_text(encoding="utf-8")
 api_source = api_source_path.read_text(encoding="utf-8")
+api_test = api_test_path.read_text(encoding="utf-8")
 router = router_path.read_text(encoding="utf-8")
 daemon = daemon_path.read_text(encoding="utf-8")
 daemon_marks = daemon_marks_path.read_text(encoding="utf-8")
 security_gate = security_gate_path.read_text(encoding="utf-8")
 authorization = authorization_path.read_text(encoding="utf-8")
+security_test = security_test_path.read_text(encoding="utf-8")
 agent_main = agent_main_path.read_text(encoding="utf-8")
 agent_client = agent_client_path.read_text(encoding="utf-8")
 admin = admin_path.read_text(encoding="utf-8")
@@ -82,7 +91,6 @@ required_make = (
     "core/vdr/src/VdrRecordingNativeIdentity.cpp",
     "RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC :=",
     "core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp",
-    "$(RECORDING_NATIVE_EDITING_REST_SRC)",
     "DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)",
     "DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)",
     "REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)",
@@ -96,6 +104,14 @@ required_make = (
 for fragment in required_make:
     if fragment not in makefile:
         errors.append(f"missing native marks build wiring: {fragment}")
+
+for fragment in (
+    "test-security-recording-marks:",
+    "core/security/tests/test_recording_marks_security.cpp",
+    "test-security-recording-marks \\",
+):
+    if fragment not in security_make:
+        errors.append(f"missing Recording marks security test wiring: {fragment}")
 
 if "core/daemon/src/DaemonRuntimeRecordingMarks.cpp" not in daemon_sources:
     errors.append(
@@ -121,23 +137,39 @@ for fragment in required_api_read:
 
 required_api_mutation = (
     "RecordingMarksApiRuntime::tryHandlePost(",
-    "parseMutationRequest(",
+    "parseMutationBody(body, request)",
     "expectedMarksRevision",
     "RecordingMarksMutationKind::Add",
     "RecordingMarksMutationKind::Delete",
     "RecordingMarksMutationKind::Move",
     "RecordingMarksMutationKind::Reset",
     "RecordingMarksMutationKind::Replace",
-    "backendWritePolicy_(request.backendId)",
+    "backendWritePolicy(request.request.backendId)",
     "nativeMarks.inUseFlags != 0",
-    "nativeMarks.marksRevision != request.expectedMarksRevision",
-    "mutationDispatcher_(mutation)",
+    "nativeMarks.marksRevision != request.mutation.expectedMarksRevision",
+    "replayRequest.replayOnly = true",
+    "mutationDispatcher(replayRequest)",
+    "ReplayNotFoundReason",
+    "mutationDispatcher(request.mutation)",
+    "validAcceptedDispatch(",
     'response.statusCode = 202',
     '"readback_required"',
 )
 for fragment in required_api_mutation:
     if fragment not in api_source:
         errors.append(f"missing Slice-2 marks mutation API contract: {fragment}")
+
+for fragment in (
+    "int replayProbeCalls = 0;",
+    "bool replayExists = false;",
+    "request.replayOnly",
+    '"recording_marks_modify_assignment_not_found"',
+    'resolver.next.marksRevision =',
+    '"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"',
+    'response.body.find("\\\"replayed\\\":true")',
+):
+    if fragment not in api_test:
+        errors.append(f"missing public marks replay regression: {fragment}")
 
 required_router = (
     '#include "RecordingMarksApiRuntime.h"',
@@ -166,6 +198,7 @@ for fragment in required_daemon_lifecycle:
 required_daemon_marks = (
     '#include "BackendAccessPolicy.h"',
     '#include "BackendAgentRecordingMarksModifyAssignment.h"',
+    '#include "BackendAgentRecordingMarksModifyPayload.h"',
     '#include "RecordingMarksApiRuntime.h"',
     "RecordingMarksApiRuntime::instance().configure(",
     "findAllForBackend(",
@@ -174,8 +207,14 @@ required_daemon_marks = (
     "canWriteToBackend(*registry, backendId)",
     "findAgentForBackend(request.backendId)",
     "assignmentRequest.backendGeneration = agent->backendGeneration",
+    "findAssignmentForOperation(",
+    "request.replayOnly && !existing.has_value()",
+    '"recording_marks_modify_assignment_not_found"',
+    "backendAgentRecordingMarksModifyParsePayload(",
+    "existingPayload.controlPlaneClaimedAt",
     "BackendAgentRecordingMarksModifyAssignmentService",
     "assignmentService.assign(",
+    "request.replayOnly && assigned.accepted && !assigned.replayed",
     "RecordingMarksApiRuntime::instance().reset();",
 )
 for fragment in required_daemon_marks:
@@ -192,6 +231,14 @@ for fragment in required_security:
         errors.append(f"missing protected marks HTTP policy: {fragment}")
 if 'permission == "recordings.marks.modify"' not in authorization:
     errors.append("recordings.marks.modify missing from protected mutation permissions")
+for fragment in (
+    "csrf_validation_failed",
+    "recordings.marks.modify",
+    "backend_scope_denied",
+    "role_read_only",
+):
+    if fragment not in security_test:
+        errors.append(f"missing marks HTTP security regression: {fragment}")
 
 required_agent = (
     "SuiteBridgeRecordingMarksModifyTransport",
