@@ -555,7 +555,7 @@ ApiResponse serializeAssigned(
     const RecordingMarksMutationDispatchResult& dispatch)
 {
     ApiResponse response;
-    response.statusCode = 202;
+    response.statusCode = dispatch.verified ? 200 : 202;
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
     response.body =
@@ -564,10 +564,18 @@ ApiResponse serializeAssigned(
         "\",\"operationId\":\"" + jsonEscape(request.mutation.operationId) +
         "\",\"accepted\":true,\"replayed\":" +
         std::string(dispatch.replayed ? "true" : "false") +
-        ",\"state\":\"queued\",\"verification\":\"readback_required\"" +
+        ",\"state\":\"" +
+        std::string(dispatch.verified ? "verified" : "queued") +
+        "\",\"verification\":\"" +
+        std::string(dispatch.verified ? "verified" : "readback_required") + "\"" +
         ",\"commandId\":\"" + jsonEscape(dispatch.commandId) +
         "\",\"requestFingerprint\":\"" +
-        jsonEscape(dispatch.requestFingerprint) + "\"}";
+        jsonEscape(dispatch.requestFingerprint) + "\"" +
+        (dispatch.verified
+            ? ",\"canonicalMarksRevision\":\"" +
+                jsonEscape(dispatch.canonicalMarksRevision) + "\""
+            : std::string()) +
+        "}";
     return response;
 }
 
@@ -695,7 +703,10 @@ bool validAcceptedDispatch(
 {
     return dispatch.accepted &&
         !dispatch.commandId.empty() &&
-        !dispatch.requestFingerprint.empty();
+        !dispatch.requestFingerprint.empty() &&
+        (!dispatch.verified ||
+            (dispatch.replayed &&
+             validRevisionToken(dispatch.canonicalMarksRevision)));
 }
 }
 
