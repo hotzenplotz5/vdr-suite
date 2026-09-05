@@ -19,6 +19,27 @@ struct BackendAgentLocalProviderOwnershipStatus
     vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
 };
 
+struct BackendAgentRecordingMarksModifyReconciliationCandidate
+{
+    BackendAgentCommandAssignment assignment;
+    std::string recordingKey;
+    std::string expectedMarksRevision;
+    std::int64_t executorCompletedAt = 0;
+};
+
+struct BackendAgentRecordingMarksModifyVerification
+{
+    bool present = false;
+    std::string commandId;
+    std::string requestFingerprint;
+    std::string operationId;
+    std::string backendId;
+    std::string recordingKey;
+    std::string expectedMarksRevision;
+    std::string canonicalMarksRevision;
+    std::int64_t verifiedAt = 0;
+};
+
 class BackendAgentCommandRepository
 {
 public:
@@ -30,12 +51,28 @@ public:
     bool ensureNativeTimerDeleteAssignmentSchema();
     bool ensureNativeTimerModifyAssignmentSchema();
     bool ensureRecordingMarksModifyAssignmentSchema();
+    bool ensureRecordingMarksModifyReconciliationSchema();
     std::optional<BackendAgentCommandAssignment> findAssignmentForOperation(
         const std::string& backendId,
         const std::string& operationId,
         const std::string& commandType) const;
     std::optional<vdrsuite::agent::BackendAgentLocalProviderSelection>
     localProviderSelectionForCommand(const std::string& commandId) const;
+    std::vector<BackendAgentRecordingMarksModifyReconciliationCandidate>
+    recordingMarksModifyReconciliationCandidates() const;
+    BackendAgentRecordingMarksModifyVerification
+    recordingMarksModifyVerificationForOperation(
+        const std::string& backendId,
+        const std::string& operationId) const;
+    bool verifyRecordingMarksModifyReadback(
+        const std::string& commandId,
+        const std::string& requestFingerprint,
+        const std::string& recordingKey,
+        const std::string& expectedMarksRevision,
+        const std::string& canonicalMarksRevision,
+        std::int64_t observedAt,
+        BackendAgentRecordingMarksModifyVerification& verification,
+        std::string& reasonCode);
     bool hasCapability(
         const std::string& backendId,
         const std::string& agentId,
