@@ -43,6 +43,7 @@ struct RecordingMarksMutationRequest
     int targetFrame = -1;
     std::vector<int> replacementFrames;
     std::string backendId;
+    bool replayOnly = false;
 };
 
 struct RecordingMarksMutationDispatchResult
