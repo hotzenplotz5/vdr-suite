@@ -164,6 +164,7 @@ private:
             permission == "recordings.rename" ||
             permission == "recordings.move" ||
             permission == "recordings.delete" ||
+            permission == "recordings.marks.modify" ||
             permission == "metadata.recording.assign" ||
             permission == "searchtimers.create" ||
             permission == "searchtimers.modify" ||
