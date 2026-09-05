@@ -59,6 +59,7 @@ for needle in (
     "LOCK_RECORDINGS_READ",
     "SuiteBridgeRecordingIdentity::KeyForNativeId",
     "recording->IsInUse() != 0",
+    "current.inUseFlags != 0",
     "request.expectedMarksRevision",
     "SuiteBridgeRecordingMarksRevision(snapshot)",
     "cIndexFile indexFile",
