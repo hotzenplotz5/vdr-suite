@@ -67,6 +67,28 @@ constexpr const char* AssignmentColumns =
     "c.payload_version,c.payload,c.request_fingerprint,c.verification_policy,"
     "c.assigned_at,c.deadline";
 
+bool expectedCanonicalRevision(
+    const std::string& diagnostics,
+    const std::string& commandId,
+    std::string& revision)
+{
+    static const std::string prefix =
+        "recording marks modify accepted; readback reconciliation required; "
+        "evidence=nmarks:vdr:postrev:";
+    const std::string suffix = ":" + commandId;
+    revision.clear();
+    if (diagnostics.size() != prefix.size() + 32U + suffix.size() ||
+        diagnostics.compare(0, prefix.size(), prefix) != 0 ||
+        diagnostics.compare(
+            diagnostics.size() - suffix.size(), suffix.size(), suffix) != 0)
+    {
+        return false;
+    }
+    revision = diagnostics.substr(prefix.size(), 32U);
+    return vdrsuite::agent::backendAgentRecordingMarksModifyRevisionTokenValid(
+        revision);
+}
+
 bool readVerification(
     sqlite3_stmt* statement,
     BackendAgentRecordingMarksModifyVerification& verification)
@@ -134,7 +156,7 @@ BackendAgentCommandRepository::recordingMarksModifyReconciliationCandidates() co
     std::vector<BackendAgentRecordingMarksModifyReconciliationCandidate> candidates;
     sqlite3_stmt* statement = nullptr;
     const std::string sql = std::string("SELECT ") + AssignmentColumns +
-        ",x.completed_at FROM backend_agent_commands c "
+        ",x.completed_at,x.bounded_diagnostics FROM backend_agent_commands c "
         "JOIN backend_agent_command_results x ON x.command_id=c.command_id "
         "WHERE c.command_type='vdr.recording.marks.modify' "
         "AND c.state='waiting_reconciliation' "
@@ -155,9 +177,11 @@ BackendAgentCommandRepository::recordingMarksModifyReconciliationCandidates() co
         BackendAgentRecordingMarksModifyReconciliationCandidate candidate;
         candidate.assignment = readAssignment(statement);
         candidate.executorCompletedAt = sqlite3_column_int64(statement, 19);
+        const std::string diagnostics = text(statement, 20);
 
         BackendAgentRecordingMarksModifyPayload payload;
         std::string reasonCode;
+        std::string postRevision;
         if (!backendAgentCommandValidAssignment(candidate.assignment) ||
             candidate.assignment.commandType !=
                 kBackendAgentRecordingMarksModifyCommandType ||
@@ -167,7 +191,10 @@ BackendAgentCommandRepository::recordingMarksModifyReconciliationCandidates() co
             payload.backendId != candidate.assignment.backendId ||
             payload.backendGeneration != candidate.assignment.backendGeneration ||
             candidate.executorCompletedAt < candidate.assignment.assignedAt ||
-            candidate.executorCompletedAt < payload.controlPlaneClaimedAt)
+            candidate.executorCompletedAt < payload.controlPlaneClaimedAt ||
+            !expectedCanonicalRevision(
+                diagnostics, candidate.assignment.commandId, postRevision) ||
+            postRevision == payload.expectedMarksRevision)
         {
             continue;
         }
@@ -289,7 +316,7 @@ bool BackendAgentCommandRepository::verifyRecordingMarksModifyReadback(
     sqlite3_stmt* statement = nullptr;
     const std::string query = std::string("SELECT ") + AssignmentColumns +
         ",c.state,x.dispatch_state,x.verification_state,x.result_category,"
-        "x.retry_classification,x.completed_at "
+        "x.retry_classification,x.completed_at,x.bounded_diagnostics "
         "FROM backend_agent_commands c "
         "JOIN backend_agent_command_results x ON x.command_id=c.command_id "
         "WHERE c.command_id=?;";
@@ -315,10 +342,12 @@ bool BackendAgentCommandRepository::verifyRecordingMarksModifyReadback(
     const std::string resultCategory = text(statement, 22);
     const std::string retryClassification = text(statement, 23);
     const std::int64_t executorCompletedAt = sqlite3_column_int64(statement, 24);
+    const std::string diagnostics = text(statement, 25);
     sqlite3_finalize(statement);
 
     BackendAgentRecordingMarksModifyPayload payload;
     std::string payloadReason;
+    std::string postRevision;
     if (!backendAgentCommandValidAssignment(assignment) ||
         assignment.commandType != kBackendAgentRecordingMarksModifyCommandType ||
         assignment.verificationPolicy != "readback_required" ||
@@ -335,9 +364,16 @@ bool BackendAgentCommandRepository::verifyRecordingMarksModifyReadback(
         payload.backendId != assignment.backendId ||
         payload.backendGeneration != assignment.backendGeneration ||
         observedAt < executorCompletedAt ||
-        observedAt < payload.controlPlaneClaimedAt)
+        observedAt < payload.controlPlaneClaimedAt ||
+        !expectedCanonicalRevision(diagnostics, assignment.commandId, postRevision))
     {
         reasonCode = "recording_marks_modify_readback_candidate_conflict";
+        return false;
+    }
+    if (postRevision == expectedMarksRevision ||
+        canonicalMarksRevision != postRevision)
+    {
+        reasonCode = "recording_marks_modify_readback_state_mismatch";
         return false;
     }
 
