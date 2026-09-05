@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 context_path = ROOT / "core/daemon/include/BackendRuntimeContext.h"
 make_path = ROOT / "mk/recording-native-editing-tests.mk"
+agent_sources_path = ROOT / "mk/agent-sources.mk"
 security_make_path = ROOT / "mk/security-sources.mk"
 daemon_sources_path = ROOT / "mk/daemon-sources.mk"
 api_header_path = ROOT / "api/rest/include/RecordingMarksApiRuntime.h"
@@ -15,6 +16,8 @@ api_test_path = ROOT / "api/rest/tests/test_recording_marks_api_runtime.cpp"
 router_path = ROOT / "api/rest/include/ApiRouter.h"
 daemon_path = ROOT / "core/daemon/src/DaemonRuntime.cpp"
 daemon_marks_path = ROOT / "core/daemon/src/DaemonRuntimeRecordingMarks.cpp"
+reconciliation_path = ROOT / "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp"
+reconciliation_test_path = ROOT / "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
 security_gate_path = ROOT / "core/security/include/SecurityHttpGate.h"
 authorization_path = ROOT / "core/security/include/AuthorizationService.h"
 security_test_path = ROOT / "core/security/tests/test_recording_marks_security.cpp"
@@ -25,6 +28,7 @@ admin_path = ROOT / "apps/tools/backend_agent_command_admin.cpp"
 paths = (
     context_path,
     make_path,
+    agent_sources_path,
     security_make_path,
     daemon_sources_path,
     api_header_path,
@@ -33,6 +37,8 @@ paths = (
     router_path,
     daemon_path,
     daemon_marks_path,
+    reconciliation_path,
+    reconciliation_test_path,
     security_gate_path,
     authorization_path,
     security_test_path,
@@ -53,6 +59,7 @@ if errors:
 
 context = context_path.read_text(encoding="utf-8")
 makefile = make_path.read_text(encoding="utf-8")
+agent_sources = agent_sources_path.read_text(encoding="utf-8")
 security_make = security_make_path.read_text(encoding="utf-8")
 daemon_sources = daemon_sources_path.read_text(encoding="utf-8")
 api_header = api_header_path.read_text(encoding="utf-8")
@@ -61,6 +68,8 @@ api_test = api_test_path.read_text(encoding="utf-8")
 router = router_path.read_text(encoding="utf-8")
 daemon = daemon_path.read_text(encoding="utf-8")
 daemon_marks = daemon_marks_path.read_text(encoding="utf-8")
+reconciliation = reconciliation_path.read_text(encoding="utf-8")
+reconciliation_test = reconciliation_test_path.read_text(encoding="utf-8")
 security_gate = security_gate_path.read_text(encoding="utf-8")
 authorization = authorization_path.read_text(encoding="utf-8")
 security_test = security_test_path.read_text(encoding="utf-8")
@@ -96,6 +105,8 @@ required_make = (
     "REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)",
     "test-recording-marks-api-runtime:",
     "test-backend-agent-recording-marks-modify-assignment:",
+    "test-backend-agent-recording-marks-modify-reconciliation:",
+    "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp",
     "test-suite-bridge-svdrp-recording-marks-modify-transport:",
     "check-suitebridge-recording-marks-vdr-mutation:",
     "check-recording-native-editing-runtime-wiring:",
@@ -104,6 +115,9 @@ required_make = (
 for fragment in required_make:
     if fragment not in makefile:
         errors.append(f"missing native marks build wiring: {fragment}")
+
+if "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp" not in agent_sources:
+    errors.append("missing recording marks reconciliation production source wiring")
 
 for fragment in (
     "test-security-recording-marks:",
@@ -153,7 +167,7 @@ required_api_mutation = (
     "mutationDispatcher(request.mutation)",
     "validAcceptedDispatch(",
     'response.statusCode = 202',
-    '"readback_required"',
+    "readback_required",
 )
 for fragment in required_api_mutation:
     if fragment not in api_source:
@@ -215,11 +229,49 @@ required_daemon_marks = (
     "BackendAgentRecordingMarksModifyAssignmentService",
     "assignmentService.assign(",
     "request.replayOnly && assigned.accepted && !assigned.replayed",
+    "ensureRecordingMarksModifyReconciliationSchema()",
+    "recordingMarksModifyReconciliationCandidates()",
+    "resolver->resolve(candidate.recordingKey)",
+    "nativeMarks.recordingKey != candidate.recordingKey",
+    "nativeMarks.marksRevision == candidate.expectedMarksRevision",
+    "verifyRecordingMarksModifyReadback(",
+    "startRecordingMarksReconciliation(",
+    "stopRecordingMarksReconciliation();",
     "RecordingMarksApiRuntime::instance().reset();",
 )
 for fragment in required_daemon_marks:
     if fragment not in daemon_marks:
         errors.append(f"missing Recording marks daemon runtime wiring: {fragment}")
+
+required_reconciliation = (
+    "backend_agent_recording_marks_modify_readbacks",
+    "recordingMarksModifyReconciliationCandidates()",
+    'c.state=\'waiting_reconciliation\'',
+    'x.dispatch_state=\'accepted_by_executor\'',
+    'x.verification_state=\'outcome_unknown\'',
+    'x.result_category=\'outcome_unknown\'',
+    'x.retry_classification=\'reconcile_only\'',
+    "localProviderSelectionCurrent(commandId, providerReason)",
+    "canonical_marks_revision",
+    "canonicalMarksRevision == expectedMarksRevision",
+    "observedAt < executorCompletedAt",
+    "state='completed'",
+)
+for fragment in required_reconciliation:
+    if fragment not in reconciliation:
+        errors.append(f"missing authoritative marks reconciliation contract: {fragment}")
+
+for fragment in (
+    '"accepted_by_executor", 130',
+    '"starting", 150',
+    "recordingMarksModifyReconciliationCandidates().empty()",
+    "recordingMarksModifyVerificationForOperation(",
+    "recording_marks_modify_readback_verified",
+    "recording_marks_modify_readback_replayed",
+    "op_marks_stale_provider",
+):
+    if fragment not in reconciliation_test:
+        errors.append(f"missing marks reconciliation regression: {fragment}")
 
 required_security = (
     'path == "/api/vdr/recordings/marks"',
@@ -278,7 +330,8 @@ for forbidden in (
     "RecordingsHandler.Add",
     "cCutter",
 ):
-    if forbidden in context or forbidden in api_source or forbidden in api_header or forbidden in daemon_marks:
+    if (forbidden in context or forbidden in api_source or forbidden in api_header or
+            forbidden in daemon_marks or forbidden in reconciliation):
         errors.append(f"Slice 3 mutation leaked into Slice 2: {forbidden}")
 
 for forbidden_query in (
@@ -296,9 +349,21 @@ for forbidden_native_write in (
     "system(",
     "popen(",
 ):
-    if forbidden_native_write in api_source or forbidden_native_write in daemon_marks:
+    if (forbidden_native_write in api_source or
+            forbidden_native_write in daemon_marks or
+            forbidden_native_write in reconciliation):
         errors.append(
             f"Control Plane attempted direct native marks write: {forbidden_native_write}"
+        )
+
+for forbidden_reconciliation in (
+    "requestReplay(",
+    "BackendAgentRecordingMarksModifyAssignmentService",
+):
+    if forbidden_reconciliation in reconciliation:
+        errors.append(
+            "authoritative marks reconciliation attempted mutation/retry path: "
+            f"{forbidden_reconciliation}"
         )
 
 if errors:
