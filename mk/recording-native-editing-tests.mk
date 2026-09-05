@@ -12,11 +12,14 @@ RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_SRC := \
 	core/agent/src/BackendAgentRecordingMarksModify.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyPayload.cpp
 
+RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC := \
+	core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp
+
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
-.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
+.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
 
 test-suite-bridge-svdrp-recording-marks-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
@@ -26,6 +29,19 @@ test-suite-bridge-svdrp-recording-marks-transport:
 		core/agent/tests/test_suite_bridge_svdrp_recording_marks_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_recording_marks_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_recording_marks_transport
+
+test-suite-bridge-svdrp-recording-marks-modify-transport:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/agent/include \
+		-Icore/vdr/include \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		core/agent/src/BackendAgentCommand.cpp \
+		core/agent/src/BackendAgentLocalProvider.cpp \
+		core/agent/src/BackendAgentRecordingMarksModify.cpp \
+		$(RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC) \
+		core/agent/tests/test_suite_bridge_svdrp_recording_marks_modify_transport.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_svdrp_recording_marks_modify_transport
+	$(BUILD_DIR)/test_suite_bridge_svdrp_recording_marks_modify_transport
 
 test-suite-bridge-recording-marks-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -79,6 +95,7 @@ test-recording-native-editing-read-contracts: \
 test-recording-native-editing-contracts: \
 	test-recording-native-editing-read-contracts \
 	test-backend-agent-recording-marks-modify \
+	test-suite-bridge-svdrp-recording-marks-modify-transport \
 	test-suitebridge-recording-marks-modify-protocol \
 	check-suitebridge-recording-marks-vdr-mutation
 

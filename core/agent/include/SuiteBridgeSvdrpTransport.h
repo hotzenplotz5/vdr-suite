@@ -23,6 +23,7 @@ namespace vdrsuite::agent
 struct BackendAgentNativeTimerCreateTransportRequest;
 struct BackendAgentNativeTimerDeleteTransportRequest;
 struct BackendAgentNativeTimerModifyTransportRequest;
+struct BackendAgentRecordingMarksModifyTransportRequest;
 enum class BackendAgentNativeTimerModifyKind;
 
 struct SuiteBridgeSvdrpTransportConfig
@@ -176,6 +177,10 @@ public:
         BackendAgentNativeTimerModifyKind kind);
     SuiteBridgeCommandReply executeNativeTimerModifyContract(
         const BackendAgentNativeTimerModifyTransportRequest& request);
+
+    SuiteBridgeCommandReply discoverRecordingMarksModifyContract();
+    SuiteBridgeCommandReply executeRecordingMarksModifyContract(
+        const BackendAgentRecordingMarksModifyTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)
