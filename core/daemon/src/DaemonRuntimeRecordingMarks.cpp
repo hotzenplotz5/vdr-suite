@@ -4,6 +4,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentRecordingMarksModifyAssignment.h"
+#include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendRegistryService.h"
 #include "RecordingMarksApiRuntime.h"
 
@@ -166,6 +167,34 @@ bool configureDaemonRecordingMarksRuntime(
             assignmentRequest.backendGeneration = agent->backendGeneration;
             assignmentRequest.controlPlaneClaimedAt = now;
 
+            const auto existing = commands->findAssignmentForOperation(
+                request.backendId,
+                request.operationId,
+                vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType);
+            if (request.replayOnly && !existing.has_value())
+            {
+                dispatch.reasonCode =
+                    "recording_marks_modify_assignment_not_found";
+                return dispatch;
+            }
+            if (existing.has_value())
+            {
+                vdrsuite::agent::BackendAgentRecordingMarksModifyPayload
+                    existingPayload;
+                std::string reasonCode;
+                if (!vdrsuite::agent::backendAgentRecordingMarksModifyParsePayload(
+                        existing->payload,
+                        existingPayload,
+                        reasonCode))
+                {
+                    dispatch.reasonCode =
+                        "recording_marks_modify_assignment_conflict";
+                    return dispatch;
+                }
+                assignmentRequest.controlPlaneClaimedAt =
+                    existingPayload.controlPlaneClaimedAt;
+            }
+
             vdrsuite::agent::BackendAgentRecordingMarksModifyAssignmentService
                 assignmentService(*commands, *agents);
             const auto assigned = assignmentService.assign(
@@ -176,6 +205,13 @@ bool configureDaemonRecordingMarksRuntime(
             dispatch.accepted = assigned.accepted;
             dispatch.replayed = assigned.replayed;
             dispatch.reasonCode = assigned.reasonCode;
+            if (request.replayOnly && assigned.accepted && !assigned.replayed)
+            {
+                dispatch.accepted = false;
+                dispatch.reasonCode =
+                    "recording_marks_modify_replay_probe_invalid";
+                return dispatch;
+            }
             if (assigned.accepted)
             {
                 dispatch.commandId = assigned.assignment.commandId;
