@@ -154,7 +154,7 @@ int main()
         server.wait();
         assert(reason ==
             "recording_marks_modify_suitebridge_provider_discovered_disabled");
-        assert(facts.providerId == "suitebridge:local");
+        assert(facts.providerId == kBackendAgentRecordingMarksModifyProviderId);
         assert(facts.providerKind == "suitebridge");
         assert(facts.providerInstanceEpoch == "pie_1");
         assert(facts.providerGeneration == 1);
@@ -198,7 +198,7 @@ int main()
             " op_1 opr_1 0123456789abcdef0123456789abcdef "
             "fedcba9876543210fedcba9876543210 replace - - 125,250,375 "
             "job_1 att_1 3 default agt_1 agi_1 7 100 vdr.recording.marks "
-            "suitebridge:local suitebridge 9 pie_1 1 2 "
+            "suitebridge:recording-marks suitebridge 9 pie_1 1 2 "
             "vdr.recording.marks.modify 101\r\n");
     }
 
