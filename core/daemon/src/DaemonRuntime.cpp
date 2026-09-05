@@ -41,19 +41,13 @@ int DaemonRuntime::run()
         std::cerr << "Continue Watching runtime unavailable" << std::endl;
         return 1;
     }
-    if (!backendRegistryService_ || !backendAccessPolicy_ ||
-        !backendAgentRepository_ || !backendAgentCommandRepository_ ||
-        !configureDaemonRecordingMarksRuntime(
-            *vdrRecordingCacheRepository_,
-            backendRuntimeContexts_,
-            *backendRegistryService_,
-            *backendAccessPolicy_,
-            *backendAgentRepository_,
+    if (!backendRegistryService_ || !backendAccessPolicy_ || !backendAgentRepository_ ||
+        !backendAgentCommandRepository_ ||
+        !configureDaemonRecordingMarksRuntime(*vdrRecordingCacheRepository_, backendRuntimeContexts_,
+            *backendRegistryService_, *backendAccessPolicy_, *backendAgentRepository_,
             *backendAgentCommandRepository_)) {
-        std::cerr << "Recording marks runtime unavailable" << std::endl;
-        return 1;
+        std::cerr << "Recording marks runtime unavailable" << std::endl; return 1;
     }
-
     auto lastVdrPoll = std::chrono::steady_clock::now();
     return runRecordingMediaHttpRuntime(
         database_,
