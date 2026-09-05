@@ -16,6 +16,8 @@ test-phase64-native-timer-modify-agent-contract: test-phase64-native-timer-modif
 		core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
 		core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 		core/agent/src/BackendAgentNativeTimerModifyExecutor.cpp \
+		core/agent/src/BackendAgentRecordingMarksModify.cpp \
+		core/agent/src/BackendAgentRecordingMarksModifyPayload.cpp \
 		core/agent/tests/test_backend_agent_native_timer_modify.cpp \
 		-o $(BUILD_DIR)/test_backend_agent_native_timer_modify
 	$(BUILD_DIR)/test_backend_agent_native_timer_modify

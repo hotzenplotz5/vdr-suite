@@ -11,6 +11,8 @@ test-phase64-native-timer-create-agent-contract: test-phase64-native-timer-creat
 		core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
 		core/agent/src/BackendAgentNativeTimerModify.cpp \
 		core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
+		core/agent/src/BackendAgentRecordingMarksModify.cpp \
+		core/agent/src/BackendAgentRecordingMarksModifyPayload.cpp \
 		core/agent/src/BackendAgentCommand.cpp \
 		core/agent/tests/test_backend_agent_native_timer_create_contract.cpp \
 		$(LDFLAGS) \
