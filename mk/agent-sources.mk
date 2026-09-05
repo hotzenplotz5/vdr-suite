@@ -48,6 +48,8 @@ AGENT_COMMAND_DOMAIN_SRC := \
 	core/agent/src/BackendAgentNativeTimerCreatePayload.cpp \
 	core/agent/src/BackendAgentNativeTimerModify.cpp \
 	core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
+	core/agent/src/BackendAgentRecordingMarksModify.cpp \
+	core/agent/src/BackendAgentRecordingMarksModifyPayload.cpp \
 	$(AGENT_NATIVE_PROBE_SRC)
 
 AGENT_COMMAND_JSON_SRC := \
@@ -56,7 +58,8 @@ AGENT_COMMAND_JSON_SRC := \
 AGENT_COMMAND_DELIVERY_SRC := \
 	core/agent/src/BackendAgentCommandDelivery.cpp \
 	core/agent/src/BackendAgentNativeProbeDelivery.cpp \
-	core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
+	core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp \
+	core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
 
 AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
