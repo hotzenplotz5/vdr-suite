@@ -1,5 +1,6 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandClient.h"
+#include "BackendAgentRecordingMarksModify.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
 #include "SuiteBridgeNativeTimerModifyTransport.h"
@@ -122,6 +123,22 @@ int main(int argc, char** argv)
     {
         std::cerr << "Backend Agent configuration rejected: " << reason << std::endl;
         return 78;
+    }
+
+    // Recording-marks mutation is activated by the binary only when the
+    // configured SuiteBridge endpoint is present. Keeping it out of the
+    // user-editable COMMAND_TYPES allowlist preserves the established config
+    // parser contract while still making the production runtime advertise the
+    // command only after live SuiteBridge capability discovery below.
+    if (!config.suiteBridgeHost.empty() &&
+        std::find(
+            config.commandTypes.begin(),
+            config.commandTypes.end(),
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType) ==
+            config.commandTypes.end())
+    {
+        config.commandTypes.push_back(
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType);
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport>
