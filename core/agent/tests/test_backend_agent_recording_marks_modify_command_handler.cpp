@@ -118,13 +118,15 @@ public:
     }
 
     BackendAgentRecordingMarksModifyTransportReply modifyMarks(
-        const BackendAgentRecordingMarksModifyTransportRequest&) override
+        const BackendAgentRecordingMarksModifyTransportRequest& request) override
     {
         ++modifyCalls;
         BackendAgentRecordingMarksModifyTransportReply reply;
         reply.disposition =
             BackendAgentRecordingMarksModifyTransportDisposition::acceptedUnverified;
-        reply.evidenceReference = "nmarks:handler:accepted";
+        reply.evidenceReference =
+            "nmarks:vdr:postrev:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:" +
+            request.command.commandId;
         return reply;
     }
 };
@@ -165,6 +167,9 @@ int main()
     assert(fresh.result.resultCategory == "outcome_unknown");
     assert(fresh.result.errorCategory == "none");
     assert(fresh.result.retryClassification == "reconcile_only");
+    assert(fresh.result.boundedDiagnostics.find(
+        "evidence=nmarks:vdr:postrev:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:"
+        "cmd_marks_fresh") != std::string::npos);
 
     commandstate::LocalState loadedFresh;
     assert(commandstate::load(freshPath, loadedFresh, reasonCode));
@@ -173,6 +178,7 @@ int main()
     assert(transport.modifyCalls == 1);
     assert(loadedFresh.resultPresent);
     assert(loadedFresh.result.retryClassification == "reconcile_only");
+    assert(loadedFresh.result.boundedDiagnostics == fresh.result.boundedDiagnostics);
 
     const std::string recoveryPath = statePath("recovery");
     std::remove(recoveryPath.c_str());
