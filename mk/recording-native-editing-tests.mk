@@ -15,7 +15,7 @@ DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
-.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-backend-agent-recording-marks-modify-assignment test-backend-agent-recording-marks-modify-local-state test-backend-agent-recording-marks-modify-state-extension test-backend-agent-recording-marks-modify-executor test-backend-agent-recording-marks-modify-command-handler test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
+.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-backend-agent-recording-marks-modify-assignment test-backend-agent-recording-marks-modify-reconciliation test-backend-agent-recording-marks-modify-local-state test-backend-agent-recording-marks-modify-state-extension test-backend-agent-recording-marks-modify-executor test-backend-agent-recording-marks-modify-command-handler test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
 
 test-suite-bridge-svdrp-recording-marks-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
@@ -84,6 +84,27 @@ test-backend-agent-recording-marks-modify-assignment:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_backend_agent_recording_marks_modify_assignment
 	$(BUILD_DIR)/test_backend_agent_recording_marks_modify_assignment
+
+test-backend-agent-recording-marks-modify-reconciliation:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/agent/include \
+		-Icore/security/include \
+		-Icore/vdr/include \
+		-Icore/scheduler/include \
+		-Icore/config/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_recording_marks_modify_reconciliation
+	$(BUILD_DIR)/test_backend_agent_recording_marks_modify_reconciliation
 
 test-backend-agent-recording-marks-modify-local-state:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -156,6 +177,7 @@ test-recording-native-editing-contracts: \
 	test-recording-native-editing-read-contracts \
 	test-backend-agent-recording-marks-modify \
 	test-backend-agent-recording-marks-modify-assignment \
+	test-backend-agent-recording-marks-modify-reconciliation \
 	test-backend-agent-recording-marks-modify-local-state \
 	test-backend-agent-recording-marks-modify-state-extension \
 	test-backend-agent-recording-marks-modify-executor \
