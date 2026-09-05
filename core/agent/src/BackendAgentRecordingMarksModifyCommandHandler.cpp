@@ -55,6 +55,22 @@ bool recordingMarksModifyGenericProjection(
     return false;
 }
 
+bool bindAcceptedEvidence(
+    const vdrsuite::agent::BackendAgentRecordingMarksModifyEvidence& evidence,
+    RecordingMarksModifyGenericProjection& projection)
+{
+    using namespace vdrsuite::agent;
+    if (evidence.outcome !=
+        BackendAgentRecordingMarksModifyOutcomeCategory::acceptedUnverified)
+    {
+        return true;
+    }
+    if (!backendAgentCommandSafeText(evidence.evidenceReference, 512))
+        return false;
+    projection.diagnostics += "; evidence=" + evidence.evidenceReference;
+    return backendAgentCommandSafeText(projection.diagnostics, 1024);
+}
+
 void createResult(
     LocalState& state,
     const RecordingMarksModifyGenericProjection& projection,
@@ -166,7 +182,8 @@ bool backendAgentRecordingMarksModifyCommandReconcileExisting(
 
     RecordingMarksModifyGenericProjection projection;
     if (!recordingMarksModifyGenericProjection(
-            recovery.evidence.outcome, projection))
+            recovery.evidence.outcome, projection) ||
+        !bindAcceptedEvidence(recovery.evidence, projection))
     {
         reasonCode = "recording_marks_modify_outcome_projection_invalid";
         return false;
@@ -289,7 +306,8 @@ bool backendAgentRecordingMarksModifyCommandExecuteFreshStartingAndPersistOutcom
     state.stateExtension.payload = payload;
 
     RecordingMarksModifyGenericProjection projection;
-    if (!recordingMarksModifyGenericProjection(evidence.outcome, projection))
+    if (!recordingMarksModifyGenericProjection(evidence.outcome, projection) ||
+        !bindAcceptedEvidence(evidence, projection))
     {
         reasonCode = "recording_marks_modify_executor_outcome_projection_invalid";
         return false;
