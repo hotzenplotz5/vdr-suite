@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -61,15 +62,28 @@ void observeProvider(
 
 vdrsuite::agent::BackendAgentRecordingMarksModifyAssignmentRequest request(
     const std::string& operationId,
-    std::int64_t claimedAt)
+    std::int64_t claimedAt,
+    vdrsuite::agent::BackendAgentRecordingMarksModifyKind kind =
+        vdrsuite::agent::BackendAgentRecordingMarksModifyKind::add)
 {
+    using vdrsuite::agent::BackendAgentRecordingMarksModifyKind;
     vdrsuite::agent::BackendAgentRecordingMarksModifyAssignmentRequest value;
-    value.kind = vdrsuite::agent::BackendAgentRecordingMarksModifyKind::add;
+    value.kind = kind;
     value.operationId = operationId;
     value.operationRevision = "rev-1";
     value.recordingKey = "0123456789abcdef0123456789abcdef";
     value.expectedMarksRevision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    value.targetFrame = 500;
+    if (kind == BackendAgentRecordingMarksModifyKind::add)
+        value.targetFrame = 500;
+    else if (kind == BackendAgentRecordingMarksModifyKind::deleteMark)
+        value.sourceFrame = 250;
+    else if (kind == BackendAgentRecordingMarksModifyKind::move)
+    {
+        value.sourceFrame = 250;
+        value.targetFrame = 500;
+    }
+    else if (kind == BackendAgentRecordingMarksModifyKind::replace)
+        value.replacementFrames = {250, 500};
     value.backendId = "default";
     value.backendGeneration = 7;
     value.controlPlaneClaimedAt = claimedAt;
@@ -102,7 +116,8 @@ void acceptAgentResult(
     BackendAgentCommandRepository& commands,
     const BackendAgentCommandAssignment& assignment,
     const std::string& dispatchState,
-    std::int64_t completedAt)
+    std::int64_t completedAt,
+    const std::string& postRevision = {})
 {
     BackendAgentCommandResult result;
     result.commandId = assignment.commandId;
@@ -124,6 +139,12 @@ void acceptAgentResult(
     result.boundedDiagnostics = dispatchState == "accepted_by_executor"
         ? "recording marks modify accepted; readback reconciliation required"
         : "recording marks modify outcome unknown; reconciliation required";
+    if (dispatchState == "accepted_by_executor" && !postRevision.empty())
+    {
+        result.boundedDiagnostics +=
+            "; evidence=nmarks:vdr:postrev:" + postRevision + ':' +
+            assignment.commandId;
+    }
     result.completedAt = completedAt;
     const auto accepted = commands.acceptResult(result);
     assert(accepted.accepted);
@@ -134,12 +155,14 @@ BackendAgentCommandAssignment assign(
     BackendAgentRepository& agents,
     const std::string& operationId,
     std::int64_t claimedAt,
-    std::int64_t now)
+    std::int64_t now,
+    vdrsuite::agent::BackendAgentRecordingMarksModifyKind kind =
+        vdrsuite::agent::BackendAgentRecordingMarksModifyKind::add)
 {
     vdrsuite::agent::BackendAgentRecordingMarksModifyAssignmentService service(
         commands, agents);
     const auto assigned = service.assign(
-        systemContext(), request(operationId, claimedAt), now, now + 300);
+        systemContext(), request(operationId, claimedAt, kind), now, now + 300);
     assert(assigned.accepted);
     assert(!assigned.replayed);
     return assigned.assignment;
@@ -179,119 +202,135 @@ int main()
         ownership,
         reasonCode));
 
-    const auto accepted = assign(
-        commands, agents, "op_marks_readback", 110, 120);
-    acceptReceipt(commands, accepted, 121);
-    acceptAgentResult(commands, accepted, "accepted_by_executor", 130);
+    struct Case
+    {
+        const char* operationId;
+        BackendAgentRecordingMarksModifyKind kind;
+        const char* postRevision;
+    };
+    const std::vector<Case> cases = {
+        {"op_marks_add", BackendAgentRecordingMarksModifyKind::add,
+         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+        {"op_marks_delete", BackendAgentRecordingMarksModifyKind::deleteMark,
+         "cccccccccccccccccccccccccccccccc"},
+        {"op_marks_move", BackendAgentRecordingMarksModifyKind::move,
+         "dddddddddddddddddddddddddddddddd"},
+        {"op_marks_reset", BackendAgentRecordingMarksModifyKind::reset,
+         "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
+        {"op_marks_replace", BackendAgentRecordingMarksModifyKind::replace,
+         "ffffffffffffffffffffffffffffffff"},
+    };
 
-    auto candidates = commands.recordingMarksModifyReconciliationCandidates();
-    assert(candidates.size() == 1);
-    assert(candidates.front().assignment.commandId == accepted.commandId);
-    assert(candidates.front().assignment.requestFingerprint ==
-        accepted.requestFingerprint);
-    assert(candidates.front().recordingKey ==
-        "0123456789abcdef0123456789abcdef");
-    assert(candidates.front().expectedMarksRevision ==
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    assert(candidates.front().executorCompletedAt == 130);
+    std::int64_t clock = 110;
+    for (const Case& test : cases)
+    {
+        const auto accepted = assign(
+            commands, agents, test.operationId, clock, clock + 1, test.kind);
+        acceptReceipt(commands, accepted, clock + 2);
+        acceptAgentResult(
+            commands, accepted, "accepted_by_executor", clock + 3,
+            test.postRevision);
 
-    BackendAgentRecordingMarksModifyVerification verification;
-    assert(!commands.verifyRecordingMarksModifyReadback(
-        accepted.commandId,
-        accepted.requestFingerprint,
-        candidates.front().recordingKey,
-        candidates.front().expectedMarksRevision,
-        candidates.front().expectedMarksRevision,
-        131,
-        verification,
-        reasonCode));
-    assert(reasonCode == "recording_marks_modify_readback_invalid");
+        auto candidates = commands.recordingMarksModifyReconciliationCandidates();
+        assert(candidates.size() == 1);
+        assert(candidates.front().assignment.commandId == accepted.commandId);
+        assert(candidates.front().assignment.requestFingerprint ==
+            accepted.requestFingerprint);
+        assert(candidates.front().recordingKey ==
+            "0123456789abcdef0123456789abcdef");
+        assert(candidates.front().expectedMarksRevision ==
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
-    assert(!commands.verifyRecordingMarksModifyReadback(
-        accepted.commandId,
-        accepted.requestFingerprint,
-        candidates.front().recordingKey,
-        candidates.front().expectedMarksRevision,
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        129,
-        verification,
-        reasonCode));
-    assert(reasonCode == "recording_marks_modify_readback_candidate_conflict");
+        BackendAgentRecordingMarksModifyVerification verification;
+        assert(!commands.verifyRecordingMarksModifyReadback(
+            accepted.commandId,
+            accepted.requestFingerprint,
+            candidates.front().recordingKey,
+            candidates.front().expectedMarksRevision,
+            "11111111111111111111111111111111",
+            clock + 4,
+            verification,
+            reasonCode));
+        assert(reasonCode == "recording_marks_modify_readback_state_mismatch");
+        assert(!verification.present);
+        assert(commands.recordingMarksModifyReconciliationCandidates().size() == 1);
 
-    assert(commands.verifyRecordingMarksModifyReadback(
-        accepted.commandId,
-        accepted.requestFingerprint,
-        candidates.front().recordingKey,
-        candidates.front().expectedMarksRevision,
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        131,
-        verification,
-        reasonCode));
-    assert(reasonCode == "recording_marks_modify_readback_verified");
-    assert(verification.present);
-    assert(verification.operationId == "op_marks_readback");
-    assert(verification.canonicalMarksRevision ==
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        assert(commands.verifyRecordingMarksModifyReadback(
+            accepted.commandId,
+            accepted.requestFingerprint,
+            candidates.front().recordingKey,
+            candidates.front().expectedMarksRevision,
+            test.postRevision,
+            clock + 4,
+            verification,
+            reasonCode));
+        assert(reasonCode == "recording_marks_modify_readback_verified");
+        assert(verification.present);
+        assert(verification.operationId == test.operationId);
+        assert(verification.canonicalMarksRevision == test.postRevision);
 
-    const auto stored = commands.recordingMarksModifyVerificationForOperation(
-        "default", "op_marks_readback");
-    assert(stored.present);
-    assert(stored.commandId == accepted.commandId);
-    assert(stored.requestFingerprint == accepted.requestFingerprint);
-    assert(stored.recordingKey == candidates.front().recordingKey);
-    assert(stored.expectedMarksRevision ==
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    assert(stored.canonicalMarksRevision ==
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-    assert(stored.verifiedAt == 131);
+        const auto stored = commands.recordingMarksModifyVerificationForOperation(
+            "default", test.operationId);
+        assert(stored.present);
+        assert(stored.commandId == accepted.commandId);
+        assert(stored.requestFingerprint == accepted.requestFingerprint);
+        assert(stored.canonicalMarksRevision == test.postRevision);
+        assert(commands.recordingMarksModifyReconciliationCandidates().empty());
+
+        assert(commands.verifyRecordingMarksModifyReadback(
+            accepted.commandId,
+            accepted.requestFingerprint,
+            stored.recordingKey,
+            stored.expectedMarksRevision,
+            stored.canonicalMarksRevision,
+            clock + 5,
+            verification,
+            reasonCode));
+        assert(reasonCode == "recording_marks_modify_readback_replayed");
+        clock += 10;
+    }
+
+    const auto malformedEvidence = assign(
+        commands, agents, "op_marks_bad_evidence", clock, clock + 1);
+    acceptReceipt(commands, malformedEvidence, clock + 2);
+    acceptAgentResult(
+        commands, malformedEvidence, "accepted_by_executor", clock + 3);
     assert(commands.recordingMarksModifyReconciliationCandidates().empty());
-
-    assert(commands.verifyRecordingMarksModifyReadback(
-        accepted.commandId,
-        accepted.requestFingerprint,
-        stored.recordingKey,
-        stored.expectedMarksRevision,
-        stored.canonicalMarksRevision,
-        132,
-        verification,
-        reasonCode));
-    assert(reasonCode == "recording_marks_modify_readback_replayed");
-
-    assert(!commands.verifyRecordingMarksModifyReadback(
-        accepted.commandId,
-        accepted.requestFingerprint,
-        stored.recordingKey,
-        stored.expectedMarksRevision,
-        "cccccccccccccccccccccccccccccccc",
-        132,
-        verification,
-        reasonCode));
-    assert(reasonCode == "recording_marks_modify_readback_conflict");
+    assert(!commands.recordingMarksModifyVerificationForOperation(
+        "default", "op_marks_bad_evidence").present);
+    clock += 10;
 
     const auto unknown = assign(
-        commands, agents, "op_marks_outcome_unknown", 140, 141);
-    acceptReceipt(commands, unknown, 142);
-    acceptAgentResult(commands, unknown, "starting", 150);
+        commands, agents, "op_marks_outcome_unknown", clock, clock + 1);
+    acceptReceipt(commands, unknown, clock + 2);
+    acceptAgentResult(commands, unknown, "starting", clock + 3);
     assert(commands.recordingMarksModifyReconciliationCandidates().empty());
     assert(!commands.recordingMarksModifyVerificationForOperation(
         "default", "op_marks_outcome_unknown").present);
+    clock += 10;
 
     const auto staleProvider = assign(
-        commands, agents, "op_marks_stale_provider", 151, 152);
-    acceptReceipt(commands, staleProvider, 153);
-    acceptAgentResult(commands, staleProvider, "accepted_by_executor", 160);
-    candidates = commands.recordingMarksModifyReconciliationCandidates();
+        commands, agents, "op_marks_stale_provider", clock, clock + 1);
+    acceptReceipt(commands, staleProvider, clock + 2);
+    acceptAgentResult(
+        commands,
+        staleProvider,
+        "accepted_by_executor",
+        clock + 3,
+        "99999999999999999999999999999999");
+    auto candidates = commands.recordingMarksModifyReconciliationCandidates();
     assert(candidates.size() == 1);
     assert(candidates.front().assignment.commandId == staleProvider.commandId);
 
-    observeProvider(commands, providerFacts("pie_marks_2", 4, 5), 161);
+    observeProvider(commands, providerFacts("pie_marks_2", 4, 5), clock + 4);
+    BackendAgentRecordingMarksModifyVerification verification;
     assert(!commands.verifyRecordingMarksModifyReadback(
         staleProvider.commandId,
         staleProvider.requestFingerprint,
         candidates.front().recordingKey,
         candidates.front().expectedMarksRevision,
-        "dddddddddddddddddddddddddddddddd",
-        162,
+        "99999999999999999999999999999999",
+        clock + 5,
         verification,
         reasonCode));
     assert(!reasonCode.empty());
