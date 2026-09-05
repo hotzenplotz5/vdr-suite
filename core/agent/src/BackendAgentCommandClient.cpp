@@ -11,6 +11,9 @@
 #include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerModifyCommandHandler.h"
 #include "BackendAgentNativeTimerModifyExecutor.h"
+#include "BackendAgentRecordingMarksModify.h"
+#include "BackendAgentRecordingMarksModifyCommandHandler.h"
+#include "BackendAgentRecordingMarksModifyTransport.h"
 
 #include <algorithm>
 #include <chrono>
@@ -25,6 +28,9 @@ using vdrsuite::agent::commandstate::LocalState;
 using vdrsuite::agent::commandstate::load;
 using vdrsuite::agent::commandstate::persist;
 using vdrsuite::agent::commandstate::retireProtectedState;
+
+vdrsuite::agent::IBackendAgentRecordingMarksModifyTransport*
+    RecordingMarksModifyTransport = nullptr;
 
 std::int64_t nowSeconds()
 {
@@ -222,13 +228,13 @@ bool executeFreshNativeTimerDeleteAndPersistOutcome(
             reason);
 }
 
-
 vdrsuite::agent::BackendAgentNativeTimerModifyCommandContext
 nativeTimerModifyContext(const BackendAgentCommandClientContext& context)
 {
     return {context.backendId, context.agentId, context.agentInstanceId,
             context.backendGeneration};
 }
+
 bool reconcileNativeTimerModifyLocalState(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
@@ -237,6 +243,7 @@ bool reconcileNativeTimerModifyLocalState(
     return vdrsuite::agent::backendAgentNativeTimerModifyCommandReconcileExisting(
         config.statePath, nativeTimerModifyContext(context), state, reason);
 }
+
 bool prepareFreshNativeTimerModifyLocalStarting(
     const BackendAgentCommandClientConfig& config, LocalState& state,
     std::int64_t currentTime, std::string& reason)
@@ -244,6 +251,7 @@ bool prepareFreshNativeTimerModifyLocalStarting(
     return vdrsuite::agent::backendAgentNativeTimerModifyCommandPrepareFreshStarting(
         config.statePath, state, currentTime, reason);
 }
+
 bool executeFreshNativeTimerModifyAndPersistOutcome(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
@@ -253,6 +261,56 @@ bool executeFreshNativeTimerModifyAndPersistOutcome(
         backendAgentNativeTimerModifyCommandExecuteFreshStartingAndPersistOutcome(
             config.statePath, nativeTimerModifyContext(context),
             config.nativeTimerModifyTransport, state, reason);
+}
+
+vdrsuite::agent::BackendAgentRecordingMarksModifyCommandContext
+recordingMarksModifyContext(const BackendAgentCommandClientContext& context)
+{
+    return {context.backendId, context.agentId, context.agentInstanceId,
+            context.backendGeneration};
+}
+
+bool reconcileRecordingMarksModifyLocalState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentRecordingMarksModifyCommandReconcileExisting(
+            config.statePath,
+            recordingMarksModifyContext(context),
+            state,
+            reason);
+}
+
+bool prepareFreshRecordingMarksModifyLocalStarting(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::int64_t currentTime,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentRecordingMarksModifyCommandPrepareFreshStarting(
+            config.statePath,
+            state,
+            currentTime,
+            reason);
+}
+
+bool executeFreshRecordingMarksModifyAndPersistOutcome(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentRecordingMarksModifyCommandExecuteFreshStartingAndPersistOutcome(
+            config.statePath,
+            recordingMarksModifyContext(context),
+            RecordingMarksModifyTransport,
+            state,
+            reason);
 }
 
 struct CommandAvailability
@@ -381,6 +439,35 @@ CommandAvailability availableCommands(
          {vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType,
           vdrsuite::agent::kBackendAgentNativeTimerToggleCapability}});
 
+    bool recordingMarksModifyAvailable = false;
+    if (hasCommandType(
+            config,
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType) &&
+        RecordingMarksModifyTransport != nullptr)
+    {
+        vdrsuite::agent::BackendAgentLocalProviderFacts facts;
+        std::string reason;
+        try
+        {
+            recordingMarksModifyAvailable =
+                RecordingMarksModifyTransport->discoverProvider(facts, reason) &&
+                facts.available &&
+                vdrsuite::agent::backendAgentLocalProviderValidFacts(facts) &&
+                facts.providerId ==
+                    vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderId &&
+                facts.providerKind ==
+                    vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderKind &&
+                hasCapability(
+                    facts,
+                    vdrsuite::agent::kBackendAgentRecordingMarksModifyCapability) &&
+                mergeProviderFacts(availability.localProviders, facts);
+        }
+        catch (...)
+        {
+            recordingMarksModifyAvailable = false;
+        }
+    }
+
     for (const std::string& type : config.commandTypes)
     {
         const bool timerType =
@@ -395,6 +482,12 @@ CommandAvailability availableCommands(
                     supportedTimerTypes.begin(),
                     supportedTimerTypes.end(),
                     type) != supportedTimerTypes.end())
+                availability.commandTypes.push_back(type);
+            continue;
+        }
+        if (type == vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType)
+        {
+            if (recordingMarksModifyAvailable)
                 availability.commandTypes.push_back(type);
             continue;
         }
@@ -467,6 +560,9 @@ bool reconcileBackendAgentCommandState(
             vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
         state.assignment.commandType ==
             vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType;
+    const bool recordingMarksModifyCommand =
+        state.assignment.commandType ==
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType;
     if (timerCreateCommand && state.stateExtensionPresent &&
         !reconcileNativeTimerCreateLocalState(config, context, state, reason))
         return false;
@@ -475,6 +571,9 @@ bool reconcileBackendAgentCommandState(
         return false;
     if (timerModifyCommand && state.stateExtensionPresent &&
         !reconcileNativeTimerModifyLocalState(config, context, state, reason))
+        return false;
+    if (recordingMarksModifyCommand && state.stateExtensionPresent &&
+        !reconcileRecordingMarksModifyLocalState(config, context, state, reason))
         return false;
     if (!sameContext(state.assignment, context))
     {
@@ -495,8 +594,7 @@ bool reconcileBackendAgentCommandState(
         const std::int64_t currentTime = nowSeconds();
         if (state.assignment.deadline <= currentTime)
         {
-        
-    if (!state.receiptAcknowledged &&
+            if (!state.receiptAcknowledged &&
                 !sendReceipt(config, context, transport, state, reason))
                 return false;
             createResult(
@@ -569,7 +667,6 @@ bool reconcileBackendAgentCommandState(
         return true;
     }
 
-
     if (timerDeleteCommand && !state.stateExtensionPresent && !state.resultPresent)
     {
         if (state.dispatchState != "not_started")
@@ -608,6 +705,49 @@ bool reconcileBackendAgentCommandState(
         if (!sendResult(config, context, transport, state, reason))
             return false;
         reason = "native_delete_executor_outcome_reconciled";
+        return true;
+    }
+
+    if (recordingMarksModifyCommand &&
+        !state.stateExtensionPresent && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            reason = "recording_marks_modify_fresh_starting_state_invalid";
+            return false;
+        }
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            if (!state.receiptAcknowledged &&
+                !sendReceipt(config, context, transport, state, reason))
+                return false;
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "expired", "none",
+                "command deadline expired before recording marks dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            if (!sendResult(config, context, transport, state, reason)) return false;
+            reason = "command_result_reconciled";
+            return true;
+        }
+        if (!prepareFreshRecordingMarksModifyLocalStarting(
+                config, state, currentTime, reason))
+            return false;
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (RecordingMarksModifyTransport == nullptr)
+        {
+            reason = "recording_marks_modify_local_starting_handoff_persisted";
+            return true;
+        }
+        if (!executeFreshRecordingMarksModifyAndPersistOutcome(
+                config, context, state, reason))
+            return false;
+        if (!sendResult(config, context, transport, state, reason))
+            return false;
+        reason = "recording_marks_modify_executor_outcome_reconciled";
         return true;
     }
 
@@ -769,4 +909,10 @@ void setBackendAgentNativeProbeTransport(
     vdrsuite::agent::IBackendAgentNativeProbeTransport* transport)
 {
     vdrsuite::agent::backendAgentNativeProbeCommandSetDefaultTransport(transport);
+}
+
+void setBackendAgentRecordingMarksModifyTransport(
+    vdrsuite::agent::IBackendAgentRecordingMarksModifyTransport* transport)
+{
+    RecordingMarksModifyTransport = transport;
 }
