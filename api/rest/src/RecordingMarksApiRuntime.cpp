@@ -21,6 +21,8 @@ constexpr std::size_t MaximumRecordingIdBytes = 4096U;
 constexpr std::size_t MaximumMutationBodyBytes = 16384U;
 constexpr std::size_t MaximumOperationIdBytes = 192U;
 constexpr std::size_t MaximumReplacementFrames = 256U;
+constexpr const char* ReplayNotFoundReason =
+    "recording_marks_modify_assignment_not_found";
 
 std::string requestPath(const std::string& target)
 {
@@ -201,7 +203,7 @@ bool parseJsonString(
     {
         const unsigned char character =
             static_cast<unsigned char>(input[position++]);
-        if (character == '"') return !value.empty() || maximumBytes > 0U;
+        if (character == '"') return true;
         if (character < 0x20U || character == 0x7fU) return false;
         if (character != '\\')
         {
@@ -244,24 +246,25 @@ bool parseJsonInt(
     }
     if (position >= input.size() ||
         !std::isdigit(static_cast<unsigned char>(input[position]))) return false;
+
     std::uint64_t parsed = 0;
     while (position < input.size() &&
         std::isdigit(static_cast<unsigned char>(input[position])) != 0)
     {
         const unsigned digit = static_cast<unsigned>(input[position++] - '0');
-        if (parsed >
-            (static_cast<std::uint64_t>(std::numeric_limits<int>::max()) +
-             (negative ? 1U : 0U) - digit) / 10U)
-        {
-            return false;
-        }
+        const std::uint64_t limit =
+            static_cast<std::uint64_t>(std::numeric_limits<int>::max()) +
+            (negative ? 1U : 0U);
+        if (parsed > (limit - digit) / 10U) return false;
         parsed = parsed * 10U + digit;
     }
+
     if (negative)
     {
-        if (parsed > static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1U)
-            return false;
-        value = parsed == static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1U
+        const std::uint64_t negativeLimit =
+            static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1U;
+        if (parsed > negativeLimit) return false;
+        value = parsed == negativeLimit
             ? std::numeric_limits<int>::min()
             : -static_cast<int>(parsed);
     }
@@ -287,6 +290,7 @@ bool parseJsonIntArray(
         ++position;
         return true;
     }
+
     while (position < input.size())
     {
         int value = -1;
@@ -353,6 +357,7 @@ bool parseMutationBody(const std::string& body, MutationBody& parsed)
 {
     parsed = {};
     if (body.empty() || body.size() > MaximumMutationBodyBytes) return false;
+
     std::size_t position = 0;
     skipWhitespace(body, position);
     if (position >= body.size() || body[position] != '{') return false;
@@ -460,6 +465,7 @@ bool parseMutationBody(const std::string& body, MutationBody& parsed)
     {
         return false;
     }
+
     parsed.mutation.backendId = parsed.request.backendId;
     return mutationFrameShapeValid(parsed.mutation);
 }
@@ -661,6 +667,7 @@ bool validateNativeMarks(
         response = errorResponse(502, "recording_marks_invalid_native_payload");
         return false;
     }
+
     switch (nativeMarks.availability)
     {
     case VdrRecordingNativeMarksAvailability::Available:
@@ -678,8 +685,17 @@ bool validateNativeMarks(
         response = errorResponse(502, "recording_marks_invalid_native_payload");
         return false;
     }
+
     response = errorResponse(502, "recording_marks_invalid_native_payload");
     return false;
+}
+
+bool validAcceptedDispatch(
+    const RecordingMarksMutationDispatchResult& dispatch)
+{
+    return dispatch.accepted &&
+        !dispatch.commandId.empty() &&
+        !dispatch.requestFingerprint.empty();
 }
 }
 
@@ -839,18 +855,49 @@ bool RecordingMarksApiRuntime::tryHandlePost(
     VdrRecordingNativeMarks nativeMarks;
     if (!validateNativeMarks(recordingKey, access, nativeMarks, response))
         return true;
-    if (nativeMarks.inUseFlags != 0)
+
+    request.mutation.recordingKey = recordingKey;
+
+    const bool recordingInUse = nativeMarks.inUseFlags != 0;
+    const bool revisionConflict =
+        nativeMarks.marksRevision != request.mutation.expectedMarksRevision;
+    if (recordingInUse || revisionConflict)
     {
-        response = errorResponse(409, "recording_in_use");
-        return true;
-    }
-    if (nativeMarks.marksRevision != request.mutation.expectedMarksRevision)
-    {
-        response = errorResponse(409, "recording_marks_revision_conflict");
+        RecordingMarksMutationRequest replayRequest = request.mutation;
+        replayRequest.replayOnly = true;
+        const RecordingMarksMutationDispatchResult replay =
+            mutationDispatcher(replayRequest);
+
+        if (validAcceptedDispatch(replay))
+        {
+            if (!replay.replayed)
+            {
+                response = errorResponse(
+                    502,
+                    "recording_marks_mutation_replay_probe_invalid");
+                return true;
+            }
+            response = serializeAssigned(request, replay);
+            return true;
+        }
+
+        if (!replay.reasonCode.empty() &&
+            replay.reasonCode != ReplayNotFoundReason)
+        {
+            response = errorResponse(
+                dispatchFailureStatus(replay.reasonCode),
+                replay.reasonCode);
+            return true;
+        }
+
+        response = errorResponse(
+            409,
+            recordingInUse
+                ? "recording_in_use"
+                : "recording_marks_revision_conflict");
         return true;
     }
 
-    request.mutation.recordingKey = recordingKey;
     const RecordingMarksMutationDispatchResult dispatch =
         mutationDispatcher(request.mutation);
     if (!dispatch.accepted)
@@ -862,7 +909,7 @@ bool RecordingMarksApiRuntime::tryHandlePost(
                 : dispatch.reasonCode);
         return true;
     }
-    if (dispatch.commandId.empty() || dispatch.requestFingerprint.empty())
+    if (!validAcceptedDispatch(dispatch))
     {
         response = errorResponse(502, "recording_marks_mutation_dispatch_invalid");
         return true;
