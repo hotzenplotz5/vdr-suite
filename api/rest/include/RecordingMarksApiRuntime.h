@@ -50,9 +50,11 @@ struct RecordingMarksMutationDispatchResult
 {
     bool accepted = false;
     bool replayed = false;
+    bool verified = false;
     std::string reasonCode;
     std::string commandId;
     std::string requestFingerprint;
+    std::string canonicalMarksRevision;
 };
 
 struct RecordingMarksBackendWriteAccess
