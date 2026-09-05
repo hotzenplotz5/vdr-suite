@@ -76,6 +76,10 @@ for needle in (
     "marks.Save()",
     "cStatus::MsgMarksModified",
     "SuiteBridgeRecordingMarksModifyMutationDisposition::AppliedUnverified",
+    "appliedWithNativeReadback(",
+    "currentFrames(readbackMarks) != expectedFrames",
+    "readback.marksRevision == request.expectedMarksRevision",
+    "nmarks:vdr:postrev:",
 ):
     require(source, needle, "native recording-marks mutation")
 
