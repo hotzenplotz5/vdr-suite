@@ -106,6 +106,27 @@ vdrsuite::agent::BackendAgentRecordingMarksModifyCommand commandFrom(
     return command;
 }
 
+BackendAgentCommandReceipt receiptFor(
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t receivedAt)
+{
+    BackendAgentCommandReceipt receipt;
+    receipt.commandId = assignment.commandId;
+    receipt.requestFingerprint = assignment.requestFingerprint;
+    receipt.jobId = assignment.jobId;
+    receipt.attemptId = assignment.attemptId;
+    receipt.claimEpoch = assignment.claimEpoch;
+    receipt.backendId = assignment.backendId;
+    receipt.agentId = assignment.agentId;
+    receipt.agentInstanceId = assignment.agentInstanceId;
+    receipt.backendGeneration = assignment.backendGeneration;
+    receipt.receiptCategory = "accepted";
+    receipt.receivedAt = receivedAt;
+    receipt.reasonCode = "durably_recorded_without_execution";
+    assert(backendAgentCommandValidReceipt(receipt));
+    return receipt;
+}
+
 }
 
 int main()
@@ -196,6 +217,28 @@ int main()
     assert(backendAgentRecordingMarksModifyValidCommand(
         commandFrom(assigned.assignment, payload), reasonCode));
 
+    // The assignment slice deliberately removes the command capability and
+    // installs its dormant trigger. The delivery boundary must retire that
+    // trigger only when the current Agent advertises both command support and
+    // the exact SuiteBridge provider facts selected by the assignment.
+    BackendAgentCommandPollRequest deliveryPoll;
+    deliveryPoll.backendId = "default";
+    deliveryPoll.agentInstanceId = "inst_marks";
+    deliveryPoll.backendGeneration = 7;
+    deliveryPoll.supportedCommandTypes = {
+        kBackendAgentRecordingMarksModifyCommandType};
+    deliveryPoll.localProviders = {providerFacts()};
+    const auto delivered = commands.poll(deliveryPoll, "agt_marks", 120);
+    assert(delivered.accepted);
+    assert(delivered.assignment.present);
+    assert(delivered.assignment.commandId == assigned.assignment.commandId);
+    assert(commands.hasCapability(
+        "default",
+        "agt_marks",
+        "inst_marks",
+        7,
+        kBackendAgentRecordingMarksModifyCommandType));
+
     const auto replay = service.assign(system, request(), 121, 501);
     assert(replay.accepted);
     assert(replay.replayed);
@@ -253,6 +296,11 @@ int main()
         "invalid_recording_marks_modify_assignment_request");
 
     observeProvider(commands, providerFacts("pie_marks_2", 4, 5), 130);
+    const auto staleReceipt = commands.acceptReceipt(
+        receiptFor(assigned.assignment, 131));
+    assert(!staleReceipt.accepted);
+    assert(staleReceipt.reasonCode == "local_provider_selection_stale");
+
     const auto staleReplay = service.assign(system, request(), 131, 511);
     assert(!staleReplay.accepted);
     assert(staleReplay.reasonCode ==
