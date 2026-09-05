@@ -37,8 +37,8 @@ for needle in (
     require(header, needle, "typed VDR marks mutation callback")
 
 for needle in (
-    "SuiteBridgeRecordingMarksModifyKind::Reset",
-    "SuiteBridgeRecordingMarksModifyKind::Replace",
+    "  Reset,",
+    "  Replace,",
     "std::vector<int> replacementFrames",
 ):
     require(protocol_header, needle, "complete native marks mutation protocol")
