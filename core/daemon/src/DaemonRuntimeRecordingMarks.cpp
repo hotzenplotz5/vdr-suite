@@ -9,10 +9,21 @@
 #include "RecordingMarksApiRuntime.h"
 
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace
 {
+std::mutex recordingMarksReconciliationMutex;
+std::condition_variable recordingMarksReconciliationCv;
+bool recordingMarksReconciliationStopRequested = false;
+std::thread recordingMarksReconciliationThread;
+const std::vector<std::unique_ptr<BackendRuntimeContext>>*
+    recordingMarksReconciliationRuntimeContexts = nullptr;
+BackendAgentCommandRepository* recordingMarksReconciliationCommands = nullptr;
+
 std::int64_t nowSeconds()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
@@ -49,6 +60,117 @@ RequestSecurityContext systemContext()
     context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
     return context;
 }
+
+SuiteBridgeRecordingMarksResolver* recordingMarksResolverForBackend(
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& runtimeContexts,
+    const std::string& backendId)
+{
+    for (const auto& backendRuntimeContext : runtimeContexts)
+    {
+        if (!backendRuntimeContext || backendRuntimeContext->backendId != backendId)
+            continue;
+        if (!backendRuntimeContext->suiteBridgeAgentRuntime)
+            return nullptr;
+
+        const auto health = backendRuntimeContext->suiteBridgeAgentRuntime->health();
+        if (!health.running ||
+            !health.observation.hasDiscovery ||
+            !health.observation.discovery.capabilityAvailable("recording-marks"))
+        {
+            return nullptr;
+        }
+        return backendRuntimeContext->ensureRecordingMarksResolver();
+    }
+    return nullptr;
+}
+
+void reconcileRecordingMarksMutationsOnce(
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& runtimeContexts,
+    BackendAgentCommandRepository& commands)
+{
+    const auto candidates = commands.recordingMarksModifyReconciliationCandidates();
+    for (const auto& candidate : candidates)
+    {
+        SuiteBridgeRecordingMarksResolver* const resolver =
+            recordingMarksResolverForBackend(
+                runtimeContexts,
+                candidate.assignment.backendId);
+        if (resolver == nullptr) continue;
+
+        const VdrRecordingNativeMarks nativeMarks =
+            resolver->resolve(candidate.recordingKey);
+        if (nativeMarks.availability !=
+                VdrRecordingNativeMarksAvailability::Available ||
+            !nativeMarks.found ||
+            nativeMarks.recordingKey != candidate.recordingKey ||
+            !vdrsuite::agent::backendAgentRecordingMarksModifyRevisionTokenValid(
+                nativeMarks.marksRevision) ||
+            nativeMarks.marksRevision == candidate.expectedMarksRevision)
+        {
+            continue;
+        }
+
+        BackendAgentRecordingMarksModifyVerification verification;
+        std::string reasonCode;
+        commands.verifyRecordingMarksModifyReadback(
+            candidate.assignment.commandId,
+            candidate.assignment.requestFingerprint,
+            candidate.recordingKey,
+            candidate.expectedMarksRevision,
+            nativeMarks.marksRevision,
+            nowSeconds(),
+            verification,
+            reasonCode);
+    }
+}
+
+void stopRecordingMarksReconciliation()
+{
+    {
+        std::lock_guard<std::mutex> lock(recordingMarksReconciliationMutex);
+        recordingMarksReconciliationStopRequested = true;
+    }
+    recordingMarksReconciliationCv.notify_all();
+    if (recordingMarksReconciliationThread.joinable())
+        recordingMarksReconciliationThread.join();
+
+    std::lock_guard<std::mutex> lock(recordingMarksReconciliationMutex);
+    recordingMarksReconciliationRuntimeContexts = nullptr;
+    recordingMarksReconciliationCommands = nullptr;
+}
+
+void startRecordingMarksReconciliation(
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& runtimeContexts,
+    BackendAgentCommandRepository& commands)
+{
+    stopRecordingMarksReconciliation();
+    {
+        std::lock_guard<std::mutex> lock(recordingMarksReconciliationMutex);
+        recordingMarksReconciliationStopRequested = false;
+        recordingMarksReconciliationRuntimeContexts = &runtimeContexts;
+        recordingMarksReconciliationCommands = &commands;
+    }
+
+    recordingMarksReconciliationThread = std::thread([]() {
+        std::unique_lock<std::mutex> lock(recordingMarksReconciliationMutex);
+        while (!recordingMarksReconciliationStopRequested)
+        {
+            const auto* runtimeContexts =
+                recordingMarksReconciliationRuntimeContexts;
+            BackendAgentCommandRepository* const commands =
+                recordingMarksReconciliationCommands;
+            lock.unlock();
+            if (runtimeContexts != nullptr && commands != nullptr)
+                reconcileRecordingMarksMutationsOnce(*runtimeContexts, *commands);
+            lock.lock();
+
+            recordingMarksReconciliationCv.wait_for(
+                lock,
+                std::chrono::seconds(1),
+                []() { return recordingMarksReconciliationStopRequested; });
+        }
+    });
+}
 }
 
 bool configureDaemonRecordingMarksRuntime(
@@ -68,7 +190,10 @@ bool configureDaemonRecordingMarksRuntime(
     BackendAgentCommandRepository* const commands =
         &backendAgentCommandRepository;
 
-    return RecordingMarksApiRuntime::instance().configure(
+    if (!commands->ensureRecordingMarksModifyReconciliationSchema())
+        return false;
+
+    const bool configured = RecordingMarksApiRuntime::instance().configure(
         [recordingCache](const std::string& backendId) {
             return recordingCache->findAllForBackend(backendId);
         },
@@ -220,9 +345,14 @@ bool configureDaemonRecordingMarksRuntime(
             }
             return dispatch;
         });
+
+    if (!configured) return false;
+    startRecordingMarksReconciliation(backendRuntimeContexts, backendAgentCommandRepository);
+    return true;
 }
 
 void resetDaemonRecordingMarksRuntime()
 {
+    stopRecordingMarksReconciliation();
     RecordingMarksApiRuntime::instance().reset();
 }
