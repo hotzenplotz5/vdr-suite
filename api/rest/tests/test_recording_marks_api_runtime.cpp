@@ -231,7 +231,6 @@ int main()
         response));
     assert(response.statusCode == 502);
 
-    // Mutation path: fail closed until write policy and dispatcher are wired.
     assert(!runtime.tryHandlePost("/api/vdr/recordings/query", "{}", response));
     assert(runtime.tryHandlePost(
         "/api/vdr/recordings/marks",
@@ -251,6 +250,8 @@ int main()
     dispatchResult.requestFingerprint = "fp-marks-1";
     int writePolicyCalls = 0;
     int dispatchCalls = 0;
+    int replayProbeCalls = 0;
+    bool replayExists = false;
     RecordingMarksMutationRequest lastMutation;
 
     assert(runtime.configure(
@@ -273,8 +274,22 @@ int main()
             return writeAccess;
         },
         [&](const RecordingMarksMutationRequest& request) {
-            ++dispatchCalls;
             lastMutation = request;
+            if (request.replayOnly)
+            {
+                ++replayProbeCalls;
+                if (!replayExists)
+                {
+                    RecordingMarksMutationDispatchResult missing;
+                    missing.reasonCode =
+                        "recording_marks_modify_assignment_not_found";
+                    return missing;
+                }
+            }
+            else
+            {
+                ++dispatchCalls;
+            }
             return dispatchResult;
         }));
     assert(runtime.mutationConfigured());
@@ -288,6 +303,7 @@ int main()
         response));
     assert(response.statusCode == 400);
     assert(dispatchCalls == 0);
+    assert(replayProbeCalls == 0);
 
     assert(runtime.tryHandlePost(
         "/api/vdr/recordings/marks",
@@ -295,6 +311,7 @@ int main()
         response));
     assert(response.statusCode == 400);
     assert(dispatchCalls == 0);
+    assert(replayProbeCalls == 0);
 
     writeAccess.allowed = false;
     writeAccess.statusCode = 403;
@@ -306,6 +323,7 @@ int main()
     assert(response.statusCode == 403);
     assert(response.body.find("recording_marks_write_forbidden") != std::string::npos);
     assert(dispatchCalls == 0);
+    assert(replayProbeCalls == 0);
 
     writeAccess.allowed = true;
     writeAccess.statusCode = 200;
@@ -318,6 +336,8 @@ int main()
     assert(response.statusCode == 409);
     assert(response.body.find("recording_in_use") != std::string::npos);
     assert(dispatchCalls == 0);
+    assert(replayProbeCalls == 1);
+    assert(lastMutation.replayOnly);
 
     resolver.next = availableMarks();
     resolver.next.inUseFlags = 0;
@@ -328,6 +348,8 @@ int main()
     assert(response.statusCode == 409);
     assert(response.body.find("recording_marks_revision_conflict") != std::string::npos);
     assert(dispatchCalls == 0);
+    assert(replayProbeCalls == 2);
+    assert(lastMutation.replayOnly);
 
     assert(runtime.tryHandlePost(
         "/api/vdr/recordings/marks",
@@ -343,6 +365,7 @@ int main()
     assert(response.body.find("/srv/vdr") == std::string::npos);
     assert(response.body.find("recordingKey") == std::string::npos);
     assert(dispatchCalls == 1);
+    assert(!lastMutation.replayOnly);
     assert(lastMutation.kind == RecordingMarksMutationKind::Add);
     assert(lastMutation.backendId == "default");
     assert(lastMutation.operationId == "marks-op-1");
@@ -354,6 +377,7 @@ int main()
     assert(lastMutation.recordingKey ==
         VdrRecordingNativeIdentity::keyForNativeId(
             recordings.front().backendNativeId));
+    replayExists = true;
 
     dispatchResult.replayed = true;
     assert(runtime.tryHandlePost(
@@ -363,7 +387,23 @@ int main()
     assert(response.statusCode == 202);
     assert(response.body.find("\"replayed\":true") != std::string::npos);
     assert(dispatchCalls == 2);
+    assert(replayProbeCalls == 2);
+    assert(!lastMutation.replayOnly);
 
+    resolver.next.marksRevision =
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    assert(runtime.tryHandlePost(
+        "/api/vdr/recordings/marks",
+        addMutationBody(),
+        response));
+    assert(response.statusCode == 202);
+    assert(response.body.find("\"replayed\":true") != std::string::npos);
+    assert(dispatchCalls == 2);
+    assert(replayProbeCalls == 3);
+    assert(lastMutation.replayOnly);
+
+    resolver.next = availableMarks();
+    resolver.next.inUseFlags = 0;
     dispatchResult.accepted = false;
     dispatchResult.replayed = false;
     dispatchResult.reasonCode = "recording_marks_revision_conflict";
@@ -387,7 +427,7 @@ int main()
         std::string::npos);
     assert(dispatchCalls == 4);
 
-    assert(writePolicyCalls >= 6);
+    assert(writePolicyCalls >= 8);
 
     runtime.reset();
     assert(!runtime.configured());
