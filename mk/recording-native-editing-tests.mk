@@ -15,7 +15,7 @@ DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
-.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-backend-agent-recording-marks-modify-assignment test-backend-agent-recording-marks-modify-local-state test-backend-agent-recording-marks-modify-state-extension test-backend-agent-recording-marks-modify-executor test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
+.PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-backend-agent-recording-marks-modify test-backend-agent-recording-marks-modify-assignment test-backend-agent-recording-marks-modify-local-state test-backend-agent-recording-marks-modify-state-extension test-backend-agent-recording-marks-modify-executor test-backend-agent-recording-marks-modify-command-handler test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
 
 test-suite-bridge-svdrp-recording-marks-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
@@ -120,6 +120,18 @@ test-backend-agent-recording-marks-modify-executor:
 		-o $(BUILD_DIR)/test_backend_agent_recording_marks_modify_executor
 	$(BUILD_DIR)/test_backend_agent_recording_marks_modify_executor
 
+test-backend-agent-recording-marks-modify-command-handler:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/agent/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_STATE_SRC) \
+		$(AGENT_RECORDING_MARKS_MODIFY_EXECUTOR_SRC) \
+		core/agent/src/BackendAgentRecordingMarksModifyCommandHandler.cpp \
+		core/agent/tests/test_backend_agent_recording_marks_modify_command_handler.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_backend_agent_recording_marks_modify_command_handler
+	$(BUILD_DIR)/test_backend_agent_recording_marks_modify_command_handler
+
 test-suitebridge-recording-marks-modify-protocol:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		-Ivdr-plugin-suite-bridge \
@@ -147,6 +159,7 @@ test-recording-native-editing-contracts: \
 	test-backend-agent-recording-marks-modify-local-state \
 	test-backend-agent-recording-marks-modify-state-extension \
 	test-backend-agent-recording-marks-modify-executor \
+	test-backend-agent-recording-marks-modify-command-handler \
 	test-suite-bridge-svdrp-recording-marks-modify-transport \
 	test-suitebridge-recording-marks-modify-protocol \
 	check-suitebridge-recording-marks-vdr-mutation
