@@ -393,7 +393,10 @@ if "mutations=enabled" in scoped_runtime or '"enabled"' in scoped_runtime:
 # availability in the generic Agent command owner. These boolean discriminators
 # carry no mutation authority. Strip only their exact declarations and bounded
 # fail-closed availability state from the old Phase-63 mutation-name heuristic.
-# Every other timer/recording/channel/etc assignment remains forbidden below.
+# The bounded post-Phase-66 Recording-marks successor is independently guarded
+# by check_recording_native_editing_runtime_wiring.py; its exact
+# recordingMarksModify* state names are therefore excluded from this legacy
+# name heuristic without weakening the Phase-63 native-probe contract itself.
 allowed_timer_discriminators = (
     (
         "Timer-create",
@@ -516,7 +519,7 @@ for label, discriminator, required_handoffs in allowed_timer_discriminators:
 
 for pattern in [
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
-    r"\b(?:timer|recording|searchtimer|channel|epg|remote|osd)[A-Za-z_]*\s*=",
+    r"\b(?:timer|recording(?!MarksModify)|searchtimer|channel|epg|remote|osd)[A-Za-z_]*\s*=",
 ]:
     if re.search(pattern, scoped_runtime_boundary, flags=re.IGNORECASE):
         errors.append(f"forbidden runtime boundary matched: {pattern}")

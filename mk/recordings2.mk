@@ -12,11 +12,15 @@ install-recordings2-runtime:
 	cat \
 		web/frontend/recording-playback-restart-choice.js \
 		web/frontend/recordings2-browser-view.js \
+		web/frontend/recordings2-marks-timeline.js \
+		web/frontend/recordings2-marks-detail.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
 	mv -f \
 		$(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp \
 		$(DESTDIR)$(DATADIR)/web/frontend/recordings2-browser-view.js
+	$(INSTALL) -m 0644 web/frontend/recordings2-marks-detail.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-marks-detail.js
+	$(INSTALL) -m 0644 web/frontend/recordings2-marks-timeline.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-marks-timeline.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-person-search-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-person-search-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-assignment.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
@@ -32,6 +36,8 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-playback.js
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-browser-view.js
+	node --check web/frontend/recordings2-marks-detail.js
+	node --check web/frontend/recordings2-marks-timeline.js
 	node --check web/frontend/recordings2-person-search-view.js
 	node --check web/frontend/recordings2-metadata-view.js
 	node --check web/frontend/recordings2-metadata-assignment.js
@@ -43,6 +49,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_playback.js
 	node web/frontend/tests/test_live_tv_playback.js
 	node web/frontend/tests/test_channel_live_playback_runtime.js
+	node web/frontend/tests/test_recordings2_marks_detail.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
 	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
@@ -56,6 +63,12 @@ test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-playback-restart-choice.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js
 	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-timeline.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-timeline.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js
 	grep -F 'global.VdrSuiteRecordingFallbackControls = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js

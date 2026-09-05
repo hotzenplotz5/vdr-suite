@@ -1,6 +1,7 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentRecordingMarksModify.h"
 #include "Database.h"
 
 #include <chrono>
@@ -74,8 +75,10 @@ void usage()
         << "usage: vdr-suite-backend-agent-command-admin "
            "[--database PATH] [--backend ID] "
            "(--status | --provider-ownership-status | --live-provider-ownership-status | "
+           "--recording-marks-provider-ownership-status | "
            "--set-native-probe-owner | --clear-native-probe-owner | "
            "--set-live-owner | --clear-live-owner | "
+           "--set-recording-marks-owner | --clear-recording-marks-owner | "
            "--enqueue-probe | --enqueue-native-probe [--deadline-seconds N] | "
            "--replay COMMAND_ID | --arm-lost-receipt-response | "
            "--arm-lost-result-response)"
@@ -95,10 +98,13 @@ int main(int argc, char** argv)
         Status,
         ProviderOwnershipStatus,
         LiveProviderOwnershipStatus,
+        RecordingMarksProviderOwnershipStatus,
         SetNativeProbeOwner,
         ClearNativeProbeOwner,
         SetLiveOwner,
         ClearLiveOwner,
+        SetRecordingMarksOwner,
+        ClearRecordingMarksOwner,
         EnqueueLegacyProbe,
         EnqueueNativeProbe,
         Replay,
@@ -118,6 +124,8 @@ int main(int argc, char** argv)
             action = action == Action::None ? Action::ProviderOwnershipStatus : Action::None;
         else if (argument == "--live-provider-ownership-status")
             action = action == Action::None ? Action::LiveProviderOwnershipStatus : Action::None;
+        else if (argument == "--recording-marks-provider-ownership-status")
+            action = action == Action::None ? Action::RecordingMarksProviderOwnershipStatus : Action::None;
         else if (argument == "--set-native-probe-owner")
             action = action == Action::None ? Action::SetNativeProbeOwner : Action::None;
         else if (argument == "--clear-native-probe-owner")
@@ -126,6 +134,10 @@ int main(int argc, char** argv)
             action = action == Action::None ? Action::SetLiveOwner : Action::None;
         else if (argument == "--clear-live-owner")
             action = action == Action::None ? Action::ClearLiveOwner : Action::None;
+        else if (argument == "--set-recording-marks-owner")
+            action = action == Action::None ? Action::SetRecordingMarksOwner : Action::None;
+        else if (argument == "--clear-recording-marks-owner")
+            action = action == Action::None ? Action::ClearRecordingMarksOwner : Action::None;
         else if (argument == "--enqueue-probe")
             action = action == Action::None ? Action::EnqueueLegacyProbe : Action::None;
         else if (argument == "--enqueue-native-probe")
@@ -207,18 +219,42 @@ int main(int argc, char** argv)
         printOwnershipStatus(commands, backendId, "vdr.live");
         return 0;
     }
+    if (action == Action::RecordingMarksProviderOwnershipStatus)
+    {
+        printOwnershipStatus(
+            commands,
+            backendId,
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyAuthorityDomain);
+        return 0;
+    }
 
-    if (action == Action::SetNativeProbeOwner || action == Action::SetLiveOwner)
+    if (action == Action::SetNativeProbeOwner ||
+        action == Action::SetLiveOwner ||
+        action == Action::SetRecordingMarksOwner)
     {
         const bool live = action == Action::SetLiveOwner;
+        const bool recordingMarks = action == Action::SetRecordingMarksOwner;
+        const std::string authorityDomain = recordingMarks
+            ? vdrsuite::agent::kBackendAgentRecordingMarksModifyAuthorityDomain
+            : (live ? "vdr.live" : "vdr.native");
+        const std::string providerId = recordingMarks
+            ? vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderId
+            : "suitebridge:local";
+        const std::string providerKind = recordingMarks
+            ? vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderKind
+            : "suitebridge";
+        const std::string capability = recordingMarks
+            ? vdrsuite::agent::kBackendAgentRecordingMarksModifyCapability
+            : (live ? "vdr.live.stream" : "vdr.native.probe");
+
         vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
         std::string reason;
         if (!commands.setLocalProviderOwnership(
                 backendId,
-                live ? "vdr.live" : "vdr.native",
-                "suitebridge:local",
-                "suitebridge",
-                {live ? "vdr.live.stream" : "vdr.native.probe"},
+                authorityDomain,
+                providerId,
+                providerKind,
+                {capability},
                 now,
                 ownership,
                 reason))
@@ -235,12 +271,18 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    if (action == Action::ClearNativeProbeOwner || action == Action::ClearLiveOwner)
+    if (action == Action::ClearNativeProbeOwner ||
+        action == Action::ClearLiveOwner ||
+        action == Action::ClearRecordingMarksOwner)
     {
         const bool live = action == Action::ClearLiveOwner;
+        const bool recordingMarks = action == Action::ClearRecordingMarksOwner;
+        const std::string authorityDomain = recordingMarks
+            ? vdrsuite::agent::kBackendAgentRecordingMarksModifyAuthorityDomain
+            : (live ? "vdr.live" : "vdr.native");
         std::string reason;
         if (!commands.clearLocalProviderOwnership(
-                backendId, live ? "vdr.live" : "vdr.native", now, reason))
+                backendId, authorityDomain, now, reason))
         {
             std::cerr << reason << std::endl;
             return 1;

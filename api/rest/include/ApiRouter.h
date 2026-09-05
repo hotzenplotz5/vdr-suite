@@ -8,6 +8,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
+#include "RecordingMarksApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
@@ -194,6 +195,13 @@ public:
     {
         ApiResponse response;
 
+        if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         ManualRecordingMetadataApiRuntime::instance().registerController(
             metadataController_);
         if (ManualRecordingMetadataApiRuntime::instance().tryHandleGet(
@@ -247,6 +255,14 @@ public:
         const std::string& actorRef = "")
     {
         ApiResponse response;
+
+        if (RecordingMarksApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
 
         if (requestTarget == "/api/media/sessions")
         {

@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "ContinueWatchingApiRuntime.h"
+#include "DaemonRuntimeRecordingMarks.h"
 #include "DaemonSqliteShutdownCancellation.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -9,7 +10,6 @@
 #include "SeriesArtworkSettingsApiRuntime.h"
 
 #include <chrono>
-#include <csignal>
 #include <iostream>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
@@ -41,7 +41,13 @@ int DaemonRuntime::run()
         std::cerr << "Continue Watching runtime unavailable" << std::endl;
         return 1;
     }
-
+    if (!backendRegistryService_ || !backendAccessPolicy_ || !backendAgentRepository_ ||
+        !backendAgentCommandRepository_ ||
+        !configureDaemonRecordingMarksRuntime(*vdrRecordingCacheRepository_, backendRuntimeContexts_,
+            *backendRegistryService_, *backendAccessPolicy_, *backendAgentRepository_,
+            *backendAgentCommandRepository_)) {
+        std::cerr << "Recording marks runtime unavailable" << std::endl; return 1;
+    }
     auto lastVdrPoll = std::chrono::steady_clock::now();
     return runRecordingMediaHttpRuntime(
         database_,
@@ -101,6 +107,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    resetDaemonRecordingMarksRuntime();
     ContinueWatchingApiRuntime::instance().reset();
     SeriesArtworkSettingsApiRuntime::instance().reset();
     GlobalSearchApiRuntime::instance().reset();
@@ -230,11 +237,4 @@ void DaemonRuntime::shutdown()
     std::cout << "vdr-suite-daemon runtime shutting down" << std::endl;
 
     initialized_ = false;
-}
-
-void DaemonRuntime::handleSignal(int signalNumber)
-{
-    if (signalNumber == SIGINT || signalNumber == SIGTERM) {
-        shutdownRequested_ = true;
-    }
 }

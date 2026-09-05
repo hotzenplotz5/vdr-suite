@@ -5,6 +5,7 @@
 #include "suitebridge_command_result.h"
 #include "suitebridge_epg_command_handler.h"
 #include "suitebridge_plugin_identity.h"
+#include "suitebridge_recording_marks_command.h"
 #include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_svdrp_contract.h"
 
@@ -39,6 +40,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return a bounded page of TVScraper movie/series types for real VDR EPG events.",
       "RMETA <recording-key>\n"
       "    Resolve bounded TVScraper metadata for one current VDR recording.",
+      "RMARKS <recording-key>\n"
+      "    Return canonical native VDR editing marks for one current VDR recording.",
       nullptr,
   };
 
@@ -76,6 +79,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
   const SuiteBridgeCommandResult nativeTimerModify =
       nativeTimerModify_.Handle(Command, Option);
   if (nativeTimerModify.handled) return ReturnResult(nativeTimerModify, ReplyCode);
+
+  const SuiteBridgeCommandResult recordingMarksModify =
+      recordingMarksModify_.Handle(Command, Option);
+  if (recordingMarksModify.handled)
+    return ReturnResult(recordingMarksModify, ReplyCode);
 
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
@@ -116,6 +124,10 @@ cString cPluginSuiteBridge::SVDRPCommand(
   const SuiteBridgeCommandResult recordingMetadata =
       SuiteBridgeRecordingMetadataCommand::Handle(Command, Option);
   if (recordingMetadata.handled) return ReturnResult(recordingMetadata, ReplyCode);
+
+  const SuiteBridgeCommandResult recordingMarks =
+      SuiteBridgeRecordingMarksCommand::Handle(Command, Option);
+  if (recordingMarks.handled) return ReturnResult(recordingMarks, ReplyCode);
 
   const SuiteBridgeSvdrpReply snapshotReply(
       Command,

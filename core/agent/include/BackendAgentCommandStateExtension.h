@@ -4,6 +4,7 @@
 #include "BackendAgentNativeTimerCreateLocalState.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
+#include "BackendAgentRecordingMarksModifyLocalState.h"
 
 #include <cstdint>
 #include <string>
@@ -17,6 +18,8 @@ inline constexpr const char* kBackendAgentNativeTimerDeleteLocalStateExtensionTy
     "vdr.timer.delete.local-state.v1";
 inline constexpr const char* kBackendAgentNativeTimerModifyLocalStateExtensionType =
     "vdr.timer.modify.local-state.v1";
+inline constexpr const char* kBackendAgentRecordingMarksModifyLocalStateExtensionType =
+    "vdr.recording.marks.modify.local-state.v1";
 
 struct BackendAgentCommandStateExtension
 {
@@ -79,6 +82,17 @@ bool backendAgentNativeTimerModifyParseCommandStateExtension(
     const std::string& encoded,
     const BackendAgentCommandAssignment& assignment,
     BackendAgentNativeTimerModifyLocalState& state,
+    std::string& reasonCode);
+
+std::string backendAgentRecordingMarksModifyCommandStateExtension(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentRecordingMarksModifyLocalState& state,
+    std::string& reasonCode);
+
+bool backendAgentRecordingMarksModifyParseCommandStateExtension(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentRecordingMarksModifyLocalState& state,
     std::string& reasonCode);
 
 }

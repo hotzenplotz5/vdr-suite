@@ -106,6 +106,8 @@ public:
             (path == "/api/vdr/channels/move" || path == "/api/vdr/channels/actions/move");
         const bool isRecordingExecutionAction = isPost &&
             (path == "/api/recordings/actions/execute" || path == "/api/vdr/recordings/actions/execute");
+        const bool isRecordingMarksModifyAction =
+            isPost && path == "/api/vdr/recordings/marks";
         const bool isSearchTimerCreateAction = isPost &&
             (path == "/api/searchtimers" || path == "/api/vdr/searchtimers");
         const bool isSearchTimerUpdateAction = isPost &&
@@ -158,6 +160,7 @@ public:
         const bool isProtectedMutation =
             isRemoteAction || isTimerCreateAction || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
+            isRecordingMarksModifyAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
             isSearchTimerExecuteAction || isSearchTimerRealTestAction ||
             isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
@@ -298,6 +301,11 @@ public:
         {
             requestToAuthorize.permission = "channels.move";
             requestToAuthorize.action = "channels.move";
+        }
+        else if (isRecordingMarksModifyAction)
+        {
+            requestToAuthorize.permission = "recordings.marks.modify";
+            requestToAuthorize.action = "recordings.marks.modify";
         }
         else if (isSearchTimerCreateAction)
         {
@@ -762,6 +770,7 @@ private:
             return "The authenticated identity is no longer active";
         if (reasonCode == "backend_scope_denied") return "The actor is not permitted to mutate this backend";
         if (reasonCode == "permission_denied") return "The actor lacks the required permission";
+        if (reasonCode == "role_read_only") return "The actor is read-only for this backend";
         if (reasonCode == "permission_grants_unavailable") return "Browser permission persistence is unavailable";
         if (reasonCode == "invalid_backend_scope") return "A valid backend scope is required";
         if (reasonCode == "csrf_validation_failed") return "A valid CSRF token is required";

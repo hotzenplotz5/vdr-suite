@@ -1,8 +1,10 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandClient.h"
+#include "BackendAgentRecordingMarksModify.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
 #include "SuiteBridgeNativeTimerModifyTransport.h"
+#include "SuiteBridgeRecordingMarksModifyTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 
 #include <algorithm>
@@ -123,12 +125,30 @@ int main(int argc, char** argv)
         return 78;
     }
 
+    // Recording-marks mutation is activated by the binary only when the
+    // configured SuiteBridge endpoint is present. Keeping it out of the
+    // user-editable COMMAND_TYPES allowlist preserves the established config
+    // parser contract while still making the production runtime advertise the
+    // command only after live SuiteBridge capability discovery below.
+    if (!config.suiteBridgeHost.empty() &&
+        std::find(
+            config.commandTypes.begin(),
+            config.commandTypes.end(),
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType) ==
+            config.commandTypes.end())
+    {
+        config.commandTypes.push_back(
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType);
+    }
+
     std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport>
         nativeTimerCreateTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>
         nativeTimerDeleteTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>
         nativeTimerModifyTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport>
+        recordingMarksModifyTransport;
     if (!config.suiteBridgeHost.empty())
     {
         vdrsuite::agent::SuiteBridgeSvdrpTransportConfig timerTransportConfig;
@@ -143,12 +163,17 @@ int main(int argc, char** argv)
         nativeTimerModifyTransport = std::make_unique<
             vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>(
                 timerTransportConfig);
+        recordingMarksModifyTransport = std::make_unique<
+            vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport>(
+                timerTransportConfig);
         config.nativeTimerCreateTransport =
             nativeTimerCreateTransport.get();
         config.nativeTimerDeleteTransport =
             nativeTimerDeleteTransport.get();
         config.nativeTimerModifyTransport =
             nativeTimerModifyTransport.get();
+        setBackendAgentRecordingMarksModifyTransport(
+            recordingMarksModifyTransport.get());
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;
