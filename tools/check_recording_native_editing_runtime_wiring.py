@@ -166,7 +166,7 @@ required_api_mutation = (
     "ReplayNotFoundReason",
     "mutationDispatcher(request.mutation)",
     "validAcceptedDispatch(",
-    'response.statusCode = 202',
+    "response.statusCode = dispatch.verified ? 200 : 202",
     "readback_required",
 )
 for fragment in required_api_mutation:
@@ -222,8 +222,11 @@ required_daemon_marks = (
     "findAgentForBackend(request.backendId)",
     "assignmentRequest.backendGeneration = agent->backendGeneration",
     "findAssignmentForOperation(",
-    "request.replayOnly && !existing.has_value()",
+    "else if (request.replayOnly)",
     '"recording_marks_modify_assignment_not_found"',
+    "recordingMarksModifyVerificationForOperation(",
+    "dispatch.verified = true",
+    '"recording_marks_modify_verified_replayed"',
     "backendAgentRecordingMarksModifyParsePayload(",
     "existingPayload.controlPlaneClaimedAt",
     "BackendAgentRecordingMarksModifyAssignmentService",
@@ -252,8 +255,10 @@ required_reconciliation = (
     'x.result_category=\'outcome_unknown\'',
     'x.retry_classification=\'reconcile_only\'',
     "localProviderSelectionCurrent(commandId, providerReason)",
+    "expectedCanonicalRevision(",
     "canonical_marks_revision",
     "canonicalMarksRevision == expectedMarksRevision",
+    "canonicalMarksRevision != postRevision",
     "observedAt < executorCompletedAt",
     "state='completed'",
 )
@@ -262,8 +267,9 @@ for fragment in required_reconciliation:
         errors.append(f"missing authoritative marks reconciliation contract: {fragment}")
 
 for fragment in (
-    '"accepted_by_executor", 130',
-    '"starting", 150',
+    '"accepted_by_executor", clock + 3',
+    '"starting", clock + 3',
+    "recording_marks_modify_readback_state_mismatch",
     "recordingMarksModifyReconciliationCandidates().empty()",
     "recordingMarksModifyVerificationForOperation(",
     "recording_marks_modify_readback_verified",
