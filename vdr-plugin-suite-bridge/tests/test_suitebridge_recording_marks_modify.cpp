@@ -53,7 +53,7 @@ std::string execute(
       " 1 0123456789abcdef0123456789abcdef fedcba9876543210fedcba9876543210 " +
       kind + " " + sourceFrame + " " + targetFrame + " " + replacementFrames +
       " job_1 attempt_1 1 backend_1 agent_1 instance_1 1 100"+
-      " vdr.recording.marks suitebridge:local suitebridge 1 " + providerEpoch +
+      " vdr.recording.marks suitebridge:recording-marks suitebridge 1 " + providerEpoch +
       " 1 2 vdr.recording.marks.modify 101";
 }
 } // namespace
