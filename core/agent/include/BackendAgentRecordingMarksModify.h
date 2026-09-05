@@ -57,6 +57,35 @@ struct BackendAgentRecordingMarksModifyCommand
     BackendAgentLocalProviderSelection localProviderSelection;
 };
 
+enum class BackendAgentRecordingMarksModifyOutcomeCategory
+{
+    rejectedWithoutEffect,
+    acceptedUnverified,
+    outcomeUnknown,
+};
+
+struct BackendAgentRecordingMarksModifyEvidence
+{
+    std::string commandId;
+    std::string requestFingerprint;
+    std::string operationId;
+    std::string operationRevision;
+    std::string jobId;
+    std::string attemptId;
+    std::uint64_t claimEpoch = 0;
+    std::string backendId;
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
+    std::string providerInstanceEpoch;
+    std::int64_t localStartingPersistedAt = 0;
+    BackendAgentRecordingMarksModifyOutcomeCategory outcome =
+        BackendAgentRecordingMarksModifyOutcomeCategory::outcomeUnknown;
+    std::int64_t dispatchStartedAt = 0;
+    std::int64_t completedAt = 0;
+    std::string evidenceReference;
+};
+
 const char* backendAgentRecordingMarksModifyKindName(
     BackendAgentRecordingMarksModifyKind kind);
 
@@ -70,6 +99,11 @@ bool backendAgentRecordingMarksModifyRevisionTokenValid(
     const std::string& value);
 
 bool backendAgentRecordingMarksModifyValidCommand(
+    const BackendAgentRecordingMarksModifyCommand& command,
+    std::string& reasonCode);
+
+bool backendAgentRecordingMarksModifyEvidenceMatches(
+    const BackendAgentRecordingMarksModifyEvidence& evidence,
     const BackendAgentRecordingMarksModifyCommand& command,
     std::string& reasonCode);
 

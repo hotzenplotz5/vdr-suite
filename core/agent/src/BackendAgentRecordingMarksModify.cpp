@@ -27,6 +27,11 @@ bool nonNegativeFrames(const std::vector<int>& frames)
     });
 }
 
+bool safeEvidenceReference(const std::string& value)
+{
+    return !value.empty() && backendAgentCommandSafeText(value, 512);
+}
+
 }
 
 const char* backendAgentRecordingMarksModifyKindName(
@@ -117,6 +122,46 @@ bool backendAgentRecordingMarksModifyValidCommand(
         !exactProviderSelection(command))
     {
         reasonCode = "invalid_recording_marks_modify_command";
+        return false;
+    }
+
+    reasonCode.clear();
+    return true;
+}
+
+bool backendAgentRecordingMarksModifyEvidenceMatches(
+    const BackendAgentRecordingMarksModifyEvidence& evidence,
+    const BackendAgentRecordingMarksModifyCommand& command,
+    std::string& reasonCode)
+{
+    std::string commandReason;
+    const bool dispatched =
+        evidence.outcome !=
+            BackendAgentRecordingMarksModifyOutcomeCategory::rejectedWithoutEffect;
+    if (!backendAgentRecordingMarksModifyValidCommand(command, commandReason) ||
+        evidence.commandId != command.commandId ||
+        evidence.requestFingerprint != command.requestFingerprint ||
+        evidence.operationId != command.operationId ||
+        evidence.operationRevision != command.operationRevision ||
+        evidence.jobId != command.jobId ||
+        evidence.attemptId != command.attemptId ||
+        evidence.claimEpoch != command.claimEpoch ||
+        evidence.backendId != command.backendId ||
+        evidence.agentId != command.agentId ||
+        evidence.agentInstanceId != command.agentInstanceId ||
+        evidence.backendGeneration != command.backendGeneration ||
+        evidence.providerInstanceEpoch !=
+            command.localProviderSelection.providerInstanceEpoch ||
+        evidence.localStartingPersistedAt < command.controlPlaneClaimedAt ||
+        evidence.localStartingPersistedAt <= 0 ||
+        (dispatched &&
+            evidence.dispatchStartedAt < evidence.localStartingPersistedAt) ||
+        (!dispatched && evidence.dispatchStartedAt != 0) ||
+        evidence.completedAt < evidence.localStartingPersistedAt ||
+        (dispatched && evidence.completedAt < evidence.dispatchStartedAt) ||
+        !safeEvidenceReference(evidence.evidenceReference))
+    {
+        reasonCode = "recording_marks_modify_evidence_mismatch";
         return false;
     }
 
