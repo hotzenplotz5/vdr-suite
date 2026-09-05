@@ -341,6 +341,47 @@ bool BackendAgentCommandRepository::verifyRecordingMarksModifyReadback(
         return false;
     }
 
+    const auto selectedProvider = localProviderSelectionForCommand(commandId);
+    if (!selectedProvider.has_value())
+    {
+        reasonCode = "recording_marks_modify_provider_selection_required";
+        return false;
+    }
+    if (selectedProvider->backendId != assignment.backendId ||
+        selectedProvider->authorityDomain !=
+            kBackendAgentRecordingMarksModifyAuthorityDomain ||
+        selectedProvider->providerId !=
+            kBackendAgentRecordingMarksModifyProviderId ||
+        selectedProvider->providerKind !=
+            kBackendAgentRecordingMarksModifyProviderKind ||
+        selectedProvider->requiredCapability !=
+            kBackendAgentRecordingMarksModifyCapability)
+    {
+        reasonCode = "recording_marks_modify_provider_selection_mismatch";
+        return false;
+    }
+
+    const auto currentProvider = selectLocalProvider(
+        assignment.backendId,
+        assignment.agentId,
+        assignment.agentInstanceId,
+        assignment.backendGeneration,
+        kBackendAgentRecordingMarksModifyAuthorityDomain,
+        kBackendAgentRecordingMarksModifyCapability,
+        providerReason);
+    if (!currentProvider.has_value())
+    {
+        reasonCode = providerReason.empty()
+            ? "recording_marks_modify_provider_selection_stale"
+            : providerReason;
+        return false;
+    }
+    if (!backendAgentLocalProviderSameFence(*selectedProvider, *currentProvider))
+    {
+        reasonCode = "recording_marks_modify_provider_selection_stale";
+        return false;
+    }
+
     auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE;"))
     {
