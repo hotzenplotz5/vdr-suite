@@ -3,8 +3,11 @@
 #include "VdrRecordingNativeIdentity.h"
 
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
+#include <limits>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -15,6 +18,9 @@ constexpr const char* RecordingMarksRoute =
     "/api/vdr/recordings/marks";
 constexpr std::size_t MaximumBackendIdBytes = 128U;
 constexpr std::size_t MaximumRecordingIdBytes = 4096U;
+constexpr std::size_t MaximumMutationBodyBytes = 16384U;
+constexpr std::size_t MaximumOperationIdBytes = 192U;
+constexpr std::size_t MaximumReplacementFrames = 256U;
 
 std::string requestPath(const std::string& target)
 {
@@ -97,6 +103,24 @@ bool validRecordingId(const std::string& value)
             });
 }
 
+bool validOperationToken(const std::string& value)
+{
+    return !value.empty() && value.size() <= MaximumOperationIdBytes &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return std::isalnum(character) != 0 || character == '-' ||
+                character == '_' || character == '.' || character == ':';
+        });
+}
+
+bool validRevisionToken(const std::string& value)
+{
+    return value.size() == 32U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
 struct Request
 {
     std::string backendId;
@@ -152,6 +176,292 @@ bool parseRequest(const std::string& target, Request& request)
     request.recordingId = recording->second;
     return validBackendId(request.backendId) &&
         validRecordingId(request.recordingId);
+}
+
+void skipWhitespace(const std::string& input, std::size_t& position)
+{
+    while (position < input.size() &&
+        std::isspace(static_cast<unsigned char>(input[position])) != 0)
+    {
+        ++position;
+    }
+}
+
+bool parseJsonString(
+    const std::string& input,
+    std::size_t& position,
+    std::string& value,
+    std::size_t maximumBytes)
+{
+    skipWhitespace(input, position);
+    if (position >= input.size() || input[position] != '"') return false;
+    ++position;
+    value.clear();
+    while (position < input.size())
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(input[position++]);
+        if (character == '"') return !value.empty() || maximumBytes > 0U;
+        if (character < 0x20U || character == 0x7fU) return false;
+        if (character != '\\')
+        {
+            value.push_back(static_cast<char>(character));
+        }
+        else
+        {
+            if (position >= input.size()) return false;
+            const char escaped = input[position++];
+            switch (escaped)
+            {
+            case '"': value.push_back('"'); break;
+            case '\\': value.push_back('\\'); break;
+            case '/': value.push_back('/'); break;
+            case 'b': value.push_back('\b'); break;
+            case 'f': value.push_back('\f'); break;
+            case 'n': value.push_back('\n'); break;
+            case 'r': value.push_back('\r'); break;
+            case 't': value.push_back('\t'); break;
+            default: return false;
+            }
+        }
+        if (value.size() > maximumBytes) return false;
+    }
+    return false;
+}
+
+bool parseJsonInt(
+    const std::string& input,
+    std::size_t& position,
+    int& value)
+{
+    skipWhitespace(input, position);
+    if (position >= input.size()) return false;
+    bool negative = false;
+    if (input[position] == '-')
+    {
+        negative = true;
+        ++position;
+    }
+    if (position >= input.size() ||
+        !std::isdigit(static_cast<unsigned char>(input[position]))) return false;
+    std::uint64_t parsed = 0;
+    while (position < input.size() &&
+        std::isdigit(static_cast<unsigned char>(input[position])) != 0)
+    {
+        const unsigned digit = static_cast<unsigned>(input[position++] - '0');
+        if (parsed >
+            (static_cast<std::uint64_t>(std::numeric_limits<int>::max()) +
+             (negative ? 1U : 0U) - digit) / 10U)
+        {
+            return false;
+        }
+        parsed = parsed * 10U + digit;
+    }
+    if (negative)
+    {
+        if (parsed > static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1U)
+            return false;
+        value = parsed == static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1U
+            ? std::numeric_limits<int>::min()
+            : -static_cast<int>(parsed);
+    }
+    else
+    {
+        value = static_cast<int>(parsed);
+    }
+    return true;
+}
+
+bool parseJsonIntArray(
+    const std::string& input,
+    std::size_t& position,
+    std::vector<int>& values)
+{
+    skipWhitespace(input, position);
+    if (position >= input.size() || input[position] != '[') return false;
+    ++position;
+    values.clear();
+    skipWhitespace(input, position);
+    if (position < input.size() && input[position] == ']')
+    {
+        ++position;
+        return true;
+    }
+    while (position < input.size())
+    {
+        int value = -1;
+        if (!parseJsonInt(input, position, value) || value < 0) return false;
+        values.push_back(value);
+        if (values.size() > MaximumReplacementFrames) return false;
+        skipWhitespace(input, position);
+        if (position >= input.size()) return false;
+        if (input[position] == ']')
+        {
+            ++position;
+            return true;
+        }
+        if (input[position] != ',') return false;
+        ++position;
+    }
+    return false;
+}
+
+struct MutationBody
+{
+    Request request;
+    RecordingMarksMutationRequest mutation;
+};
+
+bool mutationKind(
+    const std::string& value,
+    RecordingMarksMutationKind& kind)
+{
+    if (value == "add") kind = RecordingMarksMutationKind::Add;
+    else if (value == "delete") kind = RecordingMarksMutationKind::Delete;
+    else if (value == "move") kind = RecordingMarksMutationKind::Move;
+    else if (value == "reset") kind = RecordingMarksMutationKind::Reset;
+    else if (value == "replace") kind = RecordingMarksMutationKind::Replace;
+    else return false;
+    return true;
+}
+
+bool mutationFrameShapeValid(const RecordingMarksMutationRequest& request)
+{
+    switch (request.kind)
+    {
+    case RecordingMarksMutationKind::Add:
+        return request.sourceFrame < 0 && request.targetFrame >= 0 &&
+            request.replacementFrames.empty();
+    case RecordingMarksMutationKind::Delete:
+        return request.sourceFrame >= 0 && request.targetFrame < 0 &&
+            request.replacementFrames.empty();
+    case RecordingMarksMutationKind::Move:
+        return request.sourceFrame >= 0 && request.targetFrame >= 0 &&
+            request.replacementFrames.empty();
+    case RecordingMarksMutationKind::Reset:
+        return request.sourceFrame < 0 && request.targetFrame < 0 &&
+            request.replacementFrames.empty();
+    case RecordingMarksMutationKind::Replace:
+        return request.sourceFrame < 0 && request.targetFrame < 0 &&
+            !request.replacementFrames.empty() &&
+            request.replacementFrames.size() <= MaximumReplacementFrames;
+    }
+    return false;
+}
+
+bool parseMutationBody(const std::string& body, MutationBody& parsed)
+{
+    parsed = {};
+    if (body.empty() || body.size() > MaximumMutationBodyBytes) return false;
+    std::size_t position = 0;
+    skipWhitespace(body, position);
+    if (position >= body.size() || body[position] != '{') return false;
+    ++position;
+
+    std::set<std::string> seen;
+    std::string kindName;
+    while (true)
+    {
+        skipWhitespace(body, position);
+        if (position >= body.size()) return false;
+        if (body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseJsonString(body, position, key, 64U) ||
+            !seen.insert(key).second) return false;
+        skipWhitespace(body, position);
+        if (position >= body.size() || body[position] != ':') return false;
+        ++position;
+
+        if (key == "backendId")
+        {
+            if (!parseJsonString(
+                    body, position, parsed.request.backendId,
+                    MaximumBackendIdBytes)) return false;
+        }
+        else if (key == "recordingId")
+        {
+            if (!parseJsonString(
+                    body, position, parsed.request.recordingId,
+                    MaximumRecordingIdBytes)) return false;
+        }
+        else if (key == "operationId")
+        {
+            if (!parseJsonString(
+                    body, position, parsed.mutation.operationId,
+                    MaximumOperationIdBytes)) return false;
+        }
+        else if (key == "operationRevision")
+        {
+            if (!parseJsonString(
+                    body, position, parsed.mutation.operationRevision,
+                    MaximumOperationIdBytes)) return false;
+        }
+        else if (key == "expectedMarksRevision")
+        {
+            if (!parseJsonString(
+                    body, position, parsed.mutation.expectedMarksRevision,
+                    32U)) return false;
+        }
+        else if (key == "kind")
+        {
+            if (!parseJsonString(body, position, kindName, 16U)) return false;
+        }
+        else if (key == "sourceFrame")
+        {
+            if (!parseJsonInt(body, position, parsed.mutation.sourceFrame))
+                return false;
+        }
+        else if (key == "targetFrame")
+        {
+            if (!parseJsonInt(body, position, parsed.mutation.targetFrame))
+                return false;
+        }
+        else if (key == "replacementFrames")
+        {
+            if (!parseJsonIntArray(
+                    body, position, parsed.mutation.replacementFrames))
+                return false;
+        }
+        else
+        {
+            return false;
+        }
+
+        skipWhitespace(body, position);
+        if (position >= body.size()) return false;
+        if (body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        if (body[position] != ',') return false;
+        ++position;
+    }
+
+    skipWhitespace(body, position);
+    if (position != body.size()) return false;
+    if (seen.count("backendId") == 0U ||
+        seen.count("recordingId") == 0U ||
+        seen.count("operationId") == 0U ||
+        seen.count("operationRevision") == 0U ||
+        seen.count("expectedMarksRevision") == 0U ||
+        seen.count("kind") == 0U ||
+        !validBackendId(parsed.request.backendId) ||
+        !validRecordingId(parsed.request.recordingId) ||
+        !validOperationToken(parsed.mutation.operationId) ||
+        !validOperationToken(parsed.mutation.operationRevision) ||
+        !validRevisionToken(parsed.mutation.expectedMarksRevision) ||
+        !mutationKind(kindName, parsed.mutation.kind))
+    {
+        return false;
+    }
+    parsed.mutation.backendId = parsed.request.backendId;
+    return mutationFrameShapeValid(parsed.mutation);
 }
 
 std::string jsonEscape(const std::string& value)
@@ -233,6 +543,144 @@ ApiResponse serializeAvailable(
     response.body = json.str();
     return response;
 }
+
+ApiResponse serializeAssigned(
+    const MutationBody& request,
+    const RecordingMarksMutationDispatchResult& dispatch)
+{
+    ApiResponse response;
+    response.statusCode = 202;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.body =
+        "{\"backendId\":\"" + jsonEscape(request.request.backendId) +
+        "\",\"recordingId\":\"" + jsonEscape(request.request.recordingId) +
+        "\",\"operationId\":\"" + jsonEscape(request.mutation.operationId) +
+        "\",\"accepted\":true,\"replayed\":" +
+        std::string(dispatch.replayed ? "true" : "false") +
+        ",\"state\":\"queued\",\"verification\":\"readback_required\"" +
+        ",\"commandId\":\"" + jsonEscape(dispatch.commandId) +
+        "\",\"requestFingerprint\":\"" +
+        jsonEscape(dispatch.requestFingerprint) + "\"}";
+    return response;
+}
+
+int dispatchFailureStatus(const std::string& reason)
+{
+    if (reason.find("conflict") != std::string::npos ||
+        reason.find("stale") != std::string::npos)
+    {
+        return 409;
+    }
+    if (reason == "invalid_recording_marks_modify_assignment_request")
+        return 400;
+    return 503;
+}
+
+bool resolveNativeIdentity(
+    const Request& request,
+    const RecordingMarksApiRuntime::RecordingLookup& recordingLookup,
+    std::string& recordingKey,
+    ApiResponse& response)
+{
+    const std::vector<VdrRecording> recordings =
+        recordingLookup(request.backendId);
+
+    const VdrRecording* selected = nullptr;
+    std::size_t matches = 0U;
+    for (const VdrRecording& recording : recordings)
+    {
+        if (recording.backendId != request.backendId ||
+            recording.id != request.recordingId)
+        {
+            continue;
+        }
+        selected = &recording;
+        ++matches;
+    }
+
+    if (matches == 0U || selected == nullptr)
+    {
+        response = errorResponse(404, "recording_not_found");
+        return false;
+    }
+    if (matches != 1U)
+    {
+        response = errorResponse(409, "recording_identity_ambiguous");
+        return false;
+    }
+    if (selected->backendNativeId.empty() ||
+        selected->backendNativeId.size() >
+            VdrRecordingNativeIdentity::MaximumNativeIdBytes)
+    {
+        response = errorResponse(409, "recording_native_identity_unavailable");
+        return false;
+    }
+
+    recordingKey = VdrRecordingNativeIdentity::keyForNativeId(
+        selected->backendNativeId);
+    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+    {
+        response = errorResponse(409, "recording_native_identity_unavailable");
+        return false;
+    }
+    return true;
+}
+
+bool resolveBackendAccess(
+    const Request& request,
+    const RecordingMarksApiRuntime::BackendResolver& backendResolver,
+    RecordingMarksBackendAccess& access,
+    ApiResponse& response)
+{
+    access = backendResolver(request.backendId);
+    if (access.availability == RecordingMarksBackendAvailability::BackendNotFound)
+    {
+        response = errorResponse(404, "backend_not_found");
+        return false;
+    }
+    if (access.availability != RecordingMarksBackendAvailability::Available ||
+        access.resolver == nullptr)
+    {
+        response = errorResponse(503, "recording_marks_capability_unavailable");
+        return false;
+    }
+    return true;
+}
+
+bool validateNativeMarks(
+    const std::string& recordingKey,
+    const RecordingMarksBackendAccess& access,
+    VdrRecordingNativeMarks& nativeMarks,
+    ApiResponse& response)
+{
+    nativeMarks = access.resolver->resolve(recordingKey);
+    if (!nativeMarks.recordingKey.empty() &&
+        nativeMarks.recordingKey != recordingKey)
+    {
+        response = errorResponse(502, "recording_marks_invalid_native_payload");
+        return false;
+    }
+    switch (nativeMarks.availability)
+    {
+    case VdrRecordingNativeMarksAvailability::Available:
+        return true;
+    case VdrRecordingNativeMarksAvailability::RecordingNotFound:
+        response = errorResponse(409, "recording_native_state_stale");
+        return false;
+    case VdrRecordingNativeMarksAvailability::NativeUnreadable:
+        response = errorResponse(503, "recording_marks_unreadable");
+        return false;
+    case VdrRecordingNativeMarksAvailability::TransportError:
+        response = errorResponse(503, "recording_marks_transport_unavailable");
+        return false;
+    case VdrRecordingNativeMarksAvailability::InvalidPayload:
+        response = errorResponse(502, "recording_marks_invalid_native_payload");
+        return false;
+    }
+    response = errorResponse(502, "recording_marks_invalid_native_payload");
+    return false;
+}
 }
 
 RecordingMarksApiRuntime& RecordingMarksApiRuntime::instance()
@@ -243,13 +691,17 @@ RecordingMarksApiRuntime& RecordingMarksApiRuntime::instance()
 
 bool RecordingMarksApiRuntime::configure(
     RecordingLookup recordingLookup,
-    BackendResolver backendResolver)
+    BackendResolver backendResolver,
+    BackendWritePolicy backendWritePolicy,
+    MutationDispatcher mutationDispatcher)
 {
     if (!recordingLookup || !backendResolver) return false;
 
     std::lock_guard<std::mutex> lock(mutex_);
     recordingLookup_ = std::move(recordingLookup);
     backendResolver_ = std::move(backendResolver);
+    backendWritePolicy_ = std::move(backendWritePolicy);
+    mutationDispatcher_ = std::move(mutationDispatcher);
     return true;
 }
 
@@ -258,6 +710,8 @@ void RecordingMarksApiRuntime::reset()
     std::lock_guard<std::mutex> lock(mutex_);
     recordingLookup_ = {};
     backendResolver_ = {};
+    backendWritePolicy_ = {};
+    mutationDispatcher_ = {};
 }
 
 bool RecordingMarksApiRuntime::configured() const
@@ -265,6 +719,15 @@ bool RecordingMarksApiRuntime::configured() const
     std::lock_guard<std::mutex> lock(mutex_);
     return static_cast<bool>(recordingLookup_) &&
         static_cast<bool>(backendResolver_);
+}
+
+bool RecordingMarksApiRuntime::mutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return static_cast<bool>(recordingLookup_) &&
+        static_cast<bool>(backendResolver_) &&
+        static_cast<bool>(backendWritePolicy_) &&
+        static_cast<bool>(mutationDispatcher_);
 }
 
 bool RecordingMarksApiRuntime::tryHandleGet(
@@ -294,98 +757,117 @@ bool RecordingMarksApiRuntime::tryHandleGet(
         return true;
     }
 
-    const std::vector<VdrRecording> recordings =
-        recordingLookup(request.backendId);
-
-    const VdrRecording* selected = nullptr;
-    std::size_t matches = 0U;
-    for (const VdrRecording& recording : recordings)
-    {
-        if (recording.backendId != request.backendId ||
-            recording.id != request.recordingId)
-        {
-            continue;
-        }
-        selected = &recording;
-        ++matches;
-    }
-
-    if (matches == 0U || selected == nullptr)
-    {
-        response = errorResponse(404, "recording_not_found");
+    std::string recordingKey;
+    if (!resolveNativeIdentity(request, recordingLookup, recordingKey, response))
         return true;
-    }
-    if (matches != 1U)
-    {
-        response = errorResponse(409, "recording_identity_ambiguous");
+
+    RecordingMarksBackendAccess access;
+    if (!resolveBackendAccess(request, backendResolver, access, response))
         return true;
-    }
-    if (selected->backendNativeId.empty() ||
-        selected->backendNativeId.size() >
-            VdrRecordingNativeIdentity::MaximumNativeIdBytes)
+
+    VdrRecordingNativeMarks nativeMarks;
+    if (!validateNativeMarks(recordingKey, access, nativeMarks, response))
+        return true;
+
+    response = serializeAvailable(request, nativeMarks);
+    return true;
+}
+
+bool RecordingMarksApiRuntime::tryHandlePost(
+    const std::string& requestTarget,
+    const std::string& body,
+    ApiResponse& response) const
+{
+    if (requestPath(requestTarget) != RecordingMarksRoute) return false;
+    if (requestTarget != RecordingMarksRoute)
     {
-        response = errorResponse(409, "recording_native_identity_unavailable");
+        response = errorResponse(400, "recording_marks_mutation_request_invalid");
         return true;
     }
 
-    const std::string recordingKey =
-        VdrRecordingNativeIdentity::keyForNativeId(
-            selected->backendNativeId);
-    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+    MutationBody request;
+    if (!parseMutationBody(body, request))
     {
-        response = errorResponse(409, "recording_native_identity_unavailable");
+        response = errorResponse(400, "recording_marks_mutation_request_invalid");
         return true;
     }
 
-    const RecordingMarksBackendAccess access =
-        backendResolver(request.backendId);
-    if (access.availability ==
-        RecordingMarksBackendAvailability::BackendNotFound)
+    RecordingLookup recordingLookup;
+    BackendResolver backendResolver;
+    BackendWritePolicy backendWritePolicy;
+    MutationDispatcher mutationDispatcher;
     {
-        response = errorResponse(404, "backend_not_found");
+        std::lock_guard<std::mutex> lock(mutex_);
+        recordingLookup = recordingLookup_;
+        backendResolver = backendResolver_;
+        backendWritePolicy = backendWritePolicy_;
+        mutationDispatcher = mutationDispatcher_;
+    }
+
+    if (!recordingLookup || !backendResolver ||
+        !backendWritePolicy || !mutationDispatcher)
+    {
+        response = errorResponse(503, "recording_marks_mutation_runtime_unavailable");
         return true;
     }
-    if (access.availability !=
-            RecordingMarksBackendAvailability::Available ||
-        access.resolver == nullptr)
+
+    const RecordingMarksBackendWriteAccess writeAccess =
+        backendWritePolicy(request.request.backendId);
+    if (!writeAccess.allowed)
+    {
+        const int status = writeAccess.statusCode >= 400 &&
+                writeAccess.statusCode <= 599
+            ? writeAccess.statusCode
+            : 503;
+        response = errorResponse(
+            status,
+            writeAccess.reasonCode.empty()
+                ? "recording_marks_backend_write_unavailable"
+                : writeAccess.reasonCode);
+        return true;
+    }
+
+    std::string recordingKey;
+    if (!resolveNativeIdentity(
+            request.request, recordingLookup, recordingKey, response))
+        return true;
+
+    RecordingMarksBackendAccess access;
+    if (!resolveBackendAccess(request.request, backendResolver, access, response))
+        return true;
+
+    VdrRecordingNativeMarks nativeMarks;
+    if (!validateNativeMarks(recordingKey, access, nativeMarks, response))
+        return true;
+    if (nativeMarks.inUseFlags != 0)
+    {
+        response = errorResponse(409, "recording_in_use");
+        return true;
+    }
+    if (nativeMarks.marksRevision != request.mutation.expectedMarksRevision)
+    {
+        response = errorResponse(409, "recording_marks_revision_conflict");
+        return true;
+    }
+
+    request.mutation.recordingKey = recordingKey;
+    const RecordingMarksMutationDispatchResult dispatch =
+        mutationDispatcher(request.mutation);
+    if (!dispatch.accepted)
     {
         response = errorResponse(
-            503,
-            "recording_marks_capability_unavailable");
+            dispatchFailureStatus(dispatch.reasonCode),
+            dispatch.reasonCode.empty()
+                ? "recording_marks_mutation_dispatch_failed"
+                : dispatch.reasonCode);
         return true;
     }
-
-    const VdrRecordingNativeMarks nativeMarks =
-        access.resolver->resolve(recordingKey);
-
-    if (!nativeMarks.recordingKey.empty() &&
-        nativeMarks.recordingKey != recordingKey)
+    if (dispatch.commandId.empty() || dispatch.requestFingerprint.empty())
     {
-        response = errorResponse(
-            502,
-            "recording_marks_invalid_native_payload");
+        response = errorResponse(502, "recording_marks_mutation_dispatch_invalid");
         return true;
     }
 
-    switch (nativeMarks.availability)
-    {
-    case VdrRecordingNativeMarksAvailability::Available:
-        response = serializeAvailable(request, nativeMarks);
-        return true;
-    case VdrRecordingNativeMarksAvailability::RecordingNotFound:
-        response = errorResponse(409, "recording_native_state_stale");
-        return true;
-    case VdrRecordingNativeMarksAvailability::NativeUnreadable:
-        response = errorResponse(503, "recording_marks_unreadable");
-        return true;
-    case VdrRecordingNativeMarksAvailability::TransportError:
-        response = errorResponse(503, "recording_marks_transport_unavailable");
-        return true;
-    case VdrRecordingNativeMarksAvailability::InvalidPayload:
-        response = errorResponse(502, "recording_marks_invalid_native_payload");
-        return true;
-    }
-
-    response = errorResponse(502, "recording_marks_invalid_native_payload");
+    response = serializeAssigned(request, dispatch);
     return true;
 }
