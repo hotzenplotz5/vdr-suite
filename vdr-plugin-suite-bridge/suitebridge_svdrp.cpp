@@ -5,6 +5,7 @@
 #include "suitebridge_command_result.h"
 #include "suitebridge_epg_command_handler.h"
 #include "suitebridge_plugin_identity.h"
+#include "suitebridge_recording_cut_state_command.h"
 #include "suitebridge_recording_marks_command.h"
 #include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_svdrp_contract.h"
@@ -42,6 +43,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Resolve bounded TVScraper metadata for one current VDR recording.",
       "RMARKS <recording-key>\n"
       "    Return canonical native VDR editing marks for one current VDR recording.",
+      "RCUT <recording-key>\n"
+      "    Return read-only native VDR cut preconditions and result-discovery state.",
       nullptr,
   };
 
@@ -133,6 +136,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
   const SuiteBridgeCommandResult recordingMarks =
       SuiteBridgeRecordingMarksCommand::Handle(Command, Option);
   if (recordingMarks.handled) return ReturnResult(recordingMarks, ReplyCode);
+
+  const SuiteBridgeCommandResult recordingCutState =
+      SuiteBridgeRecordingCutStateCommand::Handle(Command, Option);
+  if (recordingCutState.handled)
+    return ReturnResult(recordingCutState, ReplyCode);
 
   const SuiteBridgeSvdrpReply snapshotReply(
       Command,
