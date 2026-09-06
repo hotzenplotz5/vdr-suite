@@ -31,6 +31,9 @@ plugin_protocol = text("vdr-plugin-suite-bridge/suitebridge_recording_cut.cpp")
 plugin_state = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_state.h")
 plugin_vdr = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_vdr.cpp")
 plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
+daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
+daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
+daemon_runtime = text("core/daemon/src/DaemonRuntime.cpp")
 
 for label, content, tokens in (
     ("shipped Agent", agent_main, (
@@ -110,6 +113,23 @@ for label, content, tokens in (
         "SuiteBridgeRecordingCutStateCommand::Handle",
         "RecordingsHandler.Add(ruCut, finalRecording->FileName())",
     )),
+    ("daemon exact result predicate", daemon_match, (
+        "VdrRecordingNativeCutStateAvailability::Available",
+        "state.editedRecordingFound",
+        "state.editedDestinationExists",
+        "state.editedRecordingKey == expectedEditedRecordingKey",
+    )),
+    ("daemon cut reconciliation", daemon_cut, (
+        "recordingCutReconciliationCandidates",
+        "resolver->resolve(candidate.recordingKey)",
+        "daemonRecordingCutResultMatches",
+        "verifyRecordingCutResult",
+        "ensureRecordingCutReconciliationSchema",
+    )),
+    ("daemon cut lifecycle", daemon_runtime, (
+        "configureDaemonRecordingCutRuntime",
+        "resetDaemonRecordingCutRuntime",
+    )),
 ):
     for token in tokens:
         if token not in content:
@@ -143,9 +163,8 @@ rcut_start = plugin_vdr.find("SuiteBridgeRecordingCutStateCommand::Handle")
 start_cut = plugin_vdr.find("SuiteBridgeRecordingCutVdrMutationCallback::StartCut")
 if rcut_start < 0 or start_cut < 0 or rcut_start >= start_cut:
     errors.append("RCUT read handler must be distinct from and precede NCUT mutation")
-else:
-    if "RecordingsHandler.Add(" in plugin_vdr[rcut_start:start_cut]:
-        errors.append("RCUT read handler must never enqueue a native cut")
+elif "RecordingsHandler.Add(" in plugin_vdr[rcut_start:start_cut]:
+    errors.append("RCUT read handler must never enqueue a native cut")
 
 # Durable local starting must be created and persisted before the receipt and
 # the native dispatch in the actual recording-cut branch.
@@ -158,11 +177,14 @@ if min(cut_branch, prepare, receipt, dispatch) < 0 or not (
 ):
     errors.append("cut durable-start/receipt handoff must precede native dispatch")
 
-# The executor gets exactly one native start call. Recovery is reconciliation-only.
+# The executor gets exactly one native start call. Recovery and daemon result
+# discovery are reconciliation-only and must never call the native start path.
 if executor.count("transport.startCut(request)") != 1:
     errors.append("cut executor must make exactly one native start call")
 if "startCut(" in local_state:
     errors.append("cut local-state recovery must never redispatch native cut")
+if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
+    errors.append("daemon cut reconciliation must never redispatch native cut")
 
 # RCUT is intentionally public and read-only; NCUT remains private.
 help_start = plugin_svdrp.find("SVDRPHelpPages")
@@ -177,7 +199,7 @@ if "NCUT" in help_section:
 scoped = "\n".join((
     agent_main, client_header, client, domain, payload, assignment,
     local_state, executor, handler, transport, plugin_protocol, plugin_state,
-    plugin_vdr,
+    plugin_vdr, daemon_match, daemon_cut,
 ))
 for pattern in (
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
