@@ -9,6 +9,7 @@
 #include "DaemonRecordingCutReconciliation.h"
 #include "RecordingCutApiRuntime.h"
 #include "SuiteBridgeRecordingCutStateResolver.h"
+#include "VdrRecordingNativeIdentity.h"
 
 #include <chrono>
 #include <condition_variable>
