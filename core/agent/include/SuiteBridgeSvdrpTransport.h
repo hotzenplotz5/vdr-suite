@@ -24,6 +24,7 @@ struct BackendAgentNativeTimerCreateTransportRequest;
 struct BackendAgentNativeTimerDeleteTransportRequest;
 struct BackendAgentNativeTimerModifyTransportRequest;
 struct BackendAgentRecordingMarksModifyTransportRequest;
+struct BackendAgentRecordingCutTransportRequest;
 enum class BackendAgentNativeTimerModifyKind;
 
 struct SuiteBridgeSvdrpTransportConfig
@@ -181,6 +182,10 @@ public:
     SuiteBridgeCommandReply discoverRecordingMarksModifyContract();
     SuiteBridgeCommandReply executeRecordingMarksModifyContract(
         const BackendAgentRecordingMarksModifyTransportRequest& request);
+
+    SuiteBridgeCommandReply discoverRecordingCutContract();
+    SuiteBridgeCommandReply executeRecordingCutContract(
+        const BackendAgentRecordingCutTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)
