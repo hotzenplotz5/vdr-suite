@@ -9,8 +9,7 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp \
-	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp \
-	core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp
+	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp
 
 AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp
@@ -23,6 +22,9 @@ AGENT_NATIVE_TIMER_MODIFY_TRANSPORT_SRC := \
 
 AGENT_RECORDING_MARKS_MODIFY_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp
+
+AGENT_RECORDING_CUT_TRANSPORT_SRC := \
+	core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp
 
 AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservation.cpp \
