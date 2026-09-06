@@ -18,7 +18,6 @@ constexpr const char *CapabilityProtocol = "vdr-suite-nmarks-cap/2";
 constexpr const char *ResultProtocol = "vdr-suite-nmarks-result/2";
 constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 2;
-constexpr std::size_t FingerprintLength = 71;
 constexpr std::size_t MaximumReplacementFrames = 256;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
@@ -66,8 +65,9 @@ bool lowerHex(const std::string &value, std::size_t length)
 
 bool safeFingerprint(const std::string &value)
 {
-  return value.size() == FingerprintLength &&
-      value.compare(0, 7, "sha256:") == 0 && lowerHex(value.substr(7), 64);
+  return value.size() == 20 &&
+      value.compare(0, 4, "fp1_") == 0 &&
+      lowerHex(value.substr(4), 16);
 }
 
 bool unsignedValue(

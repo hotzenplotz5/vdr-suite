@@ -88,7 +88,7 @@ SuiteBridgeSvdrpTransportConfig config(int port)
 
 std::string fingerprintToken(char digit = 'a')
 {
-    return "sha256:" + std::string(64, digit);
+    return "fp1_" + std::string(16, digit);
 }
 
 BackendAgentRecordingMarksModifyTransportRequest validRequest(

@@ -76,8 +76,8 @@ bool safeWireToken(const std::string& value, std::size_t maximum = 512)
 
 bool safeFingerprint(const std::string& value)
 {
-    return value.size() == 71 && value.compare(0, 7, "sha256:") == 0 &&
-        std::all_of(value.begin() + 7, value.end(), [](unsigned char character) {
+    return value.size() == 20 && value.compare(0, 4, "fp1_") == 0 &&
+        std::all_of(value.begin() + 4, value.end(), [](unsigned char character) {
             return (character >= '0' && character <= '9') ||
                 (character >= 'a' && character <= 'f');
         });

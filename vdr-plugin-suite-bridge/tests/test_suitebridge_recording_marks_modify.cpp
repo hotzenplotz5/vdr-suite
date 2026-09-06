@@ -48,7 +48,7 @@ std::string execute(
 {
   return std::string("EXEC vdr-suite-native/1 vdr.recording.marks.modify 2 ") +
       commandId +
-      " sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa " +
+      " fp1_aaaaaaaaaaaaaaaa " +
       operationId +
       " 1 0123456789abcdef0123456789abcdef fedcba9876543210fedcba9876543210 " +
       kind + " " + sourceFrame + " " + targetFrame + " " + replacementFrames +
