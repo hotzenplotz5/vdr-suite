@@ -1,18 +1,32 @@
 VDR_RECORDING_NATIVE_CUT_STATE_SRC := \
 	core/vdr/src/SuiteBridgeRecordingCutStateResolver.cpp
 
+RECORDING_NATIVE_CUT_REST_SRC := \
+	api/rest/src/RecordingCutApiRuntime.cpp
+
 DAEMON_RECORDING_CUT_SRC := \
 	core/daemon/src/DaemonRecordingCutReconciliation.cpp \
 	core/daemon/src/DaemonRuntimeRecordingCut.cpp \
 	core/daemon/src/DaemonRuntimeRecordingEditing.cpp
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_CUT_STATE_SRC)
+DAEMON_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)
 
-.PHONY: check-recording-cut-runtime-wiring test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
+.PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
 
 check-recording-cut-runtime-wiring:
 	python3 tools/check_recording_cut_runtime_wiring.py
+
+test-recording-cut-api-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Iapi/rest/include \
+		-Icore/vdr/include \
+		core/vdr/src/VdrRecordingNativeIdentity.cpp \
+		$(RECORDING_NATIVE_CUT_REST_SRC) \
+		api/rest/tests/test_recording_cut_api_runtime.cpp \
+		-o $(BUILD_DIR)/test_recording_cut_api_runtime
+	$(BUILD_DIR)/test_recording_cut_api_runtime
 
 test-backend-agent-recording-cut-reconciliation:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -66,6 +80,7 @@ test-daemon-recording-cut-reconciliation:
 # Additive prerequisites only: keep the existing recording-native-editing
 # test-fast recipe/graph untouched while making the Slice-3 boundary mandatory.
 test-fast: check-recording-cut-runtime-wiring \
+	test-recording-cut-api-runtime \
 	test-backend-agent-recording-cut-reconciliation \
 	test-suite-bridge-svdrp-recording-cut-state-transport \
 	test-suite-bridge-recording-cut-state-resolver \
