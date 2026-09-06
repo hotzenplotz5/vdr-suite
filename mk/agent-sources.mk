@@ -9,7 +9,8 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp \
-	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp
+	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp \
+	core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp
 
 AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp
@@ -53,6 +54,8 @@ AGENT_COMMAND_DOMAIN_SRC := \
 	core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
 	core/agent/src/BackendAgentRecordingMarksModify.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyPayload.cpp \
+	core/agent/src/BackendAgentRecordingCut.cpp \
+	core/agent/src/BackendAgentRecordingCutPayload.cpp \
 	$(AGENT_NATIVE_PROBE_SRC)
 
 AGENT_COMMAND_JSON_SRC := \
@@ -63,7 +66,8 @@ AGENT_COMMAND_DELIVERY_SRC := \
 	core/agent/src/BackendAgentNativeProbeDelivery.cpp \
 	core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp \
-	core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
+	core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp \
+	core/agent/src/BackendAgentRecordingCutAssignment.cpp
 
 AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \
@@ -72,6 +76,7 @@ AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
 	core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyLocalState.cpp \
+	core/agent/src/BackendAgentRecordingCutLocalState.cpp \
 	core/agent/src/BackendAgentCommandStateExtension.cpp \
 	core/agent/src/BackendAgentCommandStateStore.cpp
 
@@ -83,6 +88,9 @@ AGENT_TIMER_MODIFY_EXECUTOR_SRC := \
 
 AGENT_RECORDING_MARKS_MODIFY_EXECUTOR_SRC := \
 	core/agent/src/BackendAgentRecordingMarksModifyExecutor.cpp
+
+AGENT_RECORDING_CUT_EXECUTOR_SRC := \
+	core/agent/src/BackendAgentRecordingCutExecutor.cpp
 
 AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC := \
 	core/agent/src/BackendAgentNativeProbeCommandHandler.cpp
@@ -102,17 +110,22 @@ AGENT_NATIVE_TIMER_MODIFY_COMMAND_HANDLER_SRC := \
 AGENT_RECORDING_MARKS_MODIFY_COMMAND_HANDLER_SRC := \
 	core/agent/src/BackendAgentRecordingMarksModifyCommandHandler.cpp
 
+AGENT_RECORDING_CUT_COMMAND_HANDLER_SRC := \
+	core/agent/src/BackendAgentRecordingCutCommandHandler.cpp
+
 AGENT_COMMAND_CLIENT_SRC := \
 	$(AGENT_COMMAND_STATE_SRC) \
 	$(AGENT_TIMER_CREATE_EXECUTOR_SRC) \
 	$(AGENT_TIMER_DELETE_EXECUTOR_SRC) \
 	$(AGENT_TIMER_MODIFY_EXECUTOR_SRC) \
 	$(AGENT_RECORDING_MARKS_MODIFY_EXECUTOR_SRC) \
+	$(AGENT_RECORDING_CUT_EXECUTOR_SRC) \
 	$(AGENT_NATIVE_PROBE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_CREATE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_DELETE_COMMAND_HANDLER_SRC) \
 	$(AGENT_NATIVE_TIMER_MODIFY_COMMAND_HANDLER_SRC) \
 	$(AGENT_RECORDING_MARKS_MODIFY_COMMAND_HANDLER_SRC) \
+	$(AGENT_RECORDING_CUT_COMMAND_HANDLER_SRC) \
 	core/agent/src/BackendAgentCommandClient.cpp
 
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
