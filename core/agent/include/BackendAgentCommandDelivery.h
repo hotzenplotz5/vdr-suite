@@ -51,6 +51,7 @@ public:
     bool ensureNativeTimerDeleteAssignmentSchema();
     bool ensureNativeTimerModifyAssignmentSchema();
     bool ensureRecordingMarksModifyAssignmentSchema();
+    bool ensureRecordingCutAssignmentSchema();
     bool ensureRecordingMarksModifyReconciliationSchema();
     std::optional<BackendAgentCommandAssignment> findAssignmentForOperation(
         const std::string& backendId,
