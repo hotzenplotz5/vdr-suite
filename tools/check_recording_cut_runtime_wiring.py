@@ -31,10 +31,16 @@ plugin_protocol = text("vdr-plugin-suite-bridge/suitebridge_recording_cut.cpp")
 plugin_state = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_state.h")
 plugin_vdr = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_vdr.cpp")
 plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
+plugin_capabilities = text("vdr-plugin-suite-bridge/suitebridge_capabilities.cpp")
 daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
 daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
 daemon_editing = text("core/daemon/src/DaemonRuntimeRecordingEditing.cpp")
 daemon_runtime = text("core/daemon/src/DaemonRuntime.cpp")
+api_router = text("api/rest/include/ApiRouter.h")
+api_runtime = text("api/rest/src/RecordingCutApiRuntime.cpp")
+security_gate = text("core/security/include/SecurityHttpGate.h")
+authorization = text("core/security/include/AuthorizationService.h")
+cut_make = text("mk/recording-native-cut-guard.mk")
 
 for label, content, tokens in (
     ("shipped Agent", agent_main, (
@@ -104,6 +110,10 @@ for label, content, tokens in (
         "editedRecordingKey",
         "editedRecordingFound",
     )),
+    ("SuiteBridge cut-state discovery", plugin_capabilities, (
+        '"recording-cut-state"',
+        "SuiteBridgeCapabilityState::Available",
+    )),
     ("native VDR cut authority", plugin_vdr, (
         "SuiteBridgeRecordingCutState",
         "inspectLocked",
@@ -126,6 +136,7 @@ for label, content, tokens in (
         "daemonRecordingCutResultMatches",
         "verifyRecordingCutResult",
         "ensureRecordingCutReconciliationSchema",
+        'capabilityAvailable(\n                "recording-cut-state")',
     )),
     ("recording editing composition", daemon_editing, (
         "configureDaemonRecordingMarksRuntime",
@@ -136,6 +147,29 @@ for label, content, tokens in (
     ("daemon recording lifecycle", daemon_runtime, (
         "configureDaemonRecordingEditingRuntime",
         "resetDaemonRecordingEditingRuntime",
+    )),
+    ("recording cut API router", api_router, (
+        "RecordingCutApiRuntime::instance().tryHandleGet",
+        "RecordingCutApiRuntime::instance().tryHandlePost",
+    )),
+    ("recording cut API runtime", api_runtime, (
+        '"/api/vdr/recordings/cut"',
+        "expectedMarksRevision",
+        "VdrRecordingNativeIdentity::keyForNativeId",
+        "state.ready",
+        "replayOnly",
+        "readback_required",
+    )),
+    ("recording cut HTTP security", security_gate, (
+        "isRecordingCutAction",
+        'path == "/api/vdr/recordings/cut"',
+        'requestToAuthorize.permission = "recordings.cut"',
+        'requestToAuthorize.action = "recordings.cut"',
+    )),
+    ("recording cut authorization", authorization, (
+        'permission == "recordings.cut"',
+        "protectedMutationPermission",
+        "isReadOnlyMutation",
     )),
 ):
     for token in tokens:
@@ -193,6 +227,23 @@ if "startCut(" in local_state:
 if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
     errors.append("daemon cut reconciliation must never redispatch native cut")
 
+# The HTTP owner may dispatch only through the typed Control Plane assignment;
+# it must never know or emit NCUT, VDR paths, or native cutter calls.
+for forbidden in (
+    "NCUT",
+    "RecordingsHandler.Add",
+    "cCutter::",
+    "FileName()",
+):
+    if forbidden in api_runtime or forbidden in api_router:
+        errors.append(f"HTTP cut boundary contains forbidden native authority: {forbidden}")
+
+# Cut POST must be both routed and mapped to an explicit protected permission.
+if api_router.count("RecordingCutApiRuntime::instance().tryHandlePost") != 1:
+    errors.append("recording cut POST must have exactly one API router owner")
+if security_gate.count('path == "/api/vdr/recordings/cut"') != 1:
+    errors.append("recording cut POST must have exactly one SecurityHttpGate route mapping")
+
 # RCUT is intentionally public and read-only; NCUT remains private.
 help_start = plugin_svdrp.find("SVDRPHelpPages")
 command_start = plugin_svdrp.find("SVDRPCommand", help_start)
@@ -202,11 +253,29 @@ if "RCUT <recording-key>" not in help_section:
 if "NCUT" in help_section:
     errors.append("NCUT must not be advertised in public SVDRP help")
 
+# The complete automated Slice-3 edge must remain mandatory in test-fast.
+for target in (
+    "test-recording-cut-api-runtime",
+    "test-recording-cut-security",
+    "test-backend-agent-recording-cut",
+    "test-backend-agent-recording-cut-local-state",
+    "test-backend-agent-recording-cut-executor",
+    "test-backend-agent-recording-cut-reconciliation",
+    "test-suite-bridge-svdrp-recording-cut-transport",
+    "test-suite-bridge-svdrp-recording-cut-state-transport",
+    "test-suite-bridge-recording-cut-state-resolver",
+    "test-suitebridge-recording-cut-protocol",
+    "test-daemon-recording-cut-reconciliation",
+):
+    if target not in cut_make:
+        errors.append(f"Slice-3 test-fast contract missing target: {target}")
+
 # No shell/process or browser/filesystem mutation path may enter the cut authority.
 scoped = "\n".join((
     agent_main, client_header, client, domain, payload, assignment,
     local_state, executor, handler, transport, plugin_protocol, plugin_state,
-    plugin_vdr, daemon_match, daemon_cut, daemon_editing,
+    plugin_vdr, daemon_match, daemon_cut, daemon_editing, api_router,
+    api_runtime, security_gate,
 ))
 for pattern in (
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",

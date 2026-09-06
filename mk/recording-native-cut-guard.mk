@@ -14,7 +14,7 @@ DAEMON_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 
-.PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-recording-cut-security test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
+.PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-recording-cut-security test-backend-agent-recording-cut test-backend-agent-recording-cut-local-state test-backend-agent-recording-cut-executor test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-transport test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-suitebridge-recording-cut-protocol test-daemon-recording-cut-reconciliation
 
 check-recording-cut-runtime-wiring:
 	python3 tools/check_recording_cut_runtime_wiring.py
@@ -38,6 +38,33 @@ test-recording-cut-security:
 		-o $(BUILD_DIR)/test_recording_cut_security
 	$(BUILD_DIR)/test_recording_cut_security
 
+test-backend-agent-recording-cut:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/agent/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		core/agent/tests/test_backend_agent_recording_cut.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_recording_cut
+	$(BUILD_DIR)/test_backend_agent_recording_cut
+
+test-backend-agent-recording-cut-local-state:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/agent/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		core/agent/src/BackendAgentRecordingCutLocalState.cpp \
+		core/agent/tests/test_backend_agent_recording_cut_local_state.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_recording_cut_local_state
+	$(BUILD_DIR)/test_backend_agent_recording_cut_local_state
+
+test-backend-agent-recording-cut-executor:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/agent/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		core/agent/src/BackendAgentRecordingCutLocalState.cpp \
+		core/agent/src/BackendAgentRecordingCutExecutor.cpp \
+		core/agent/tests/test_backend_agent_recording_cut_executor.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_recording_cut_executor
+	$(BUILD_DIR)/test_backend_agent_recording_cut_executor
+
 test-backend-agent-recording-cut-reconciliation:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		-Icore/agent/include \
@@ -59,6 +86,17 @@ test-backend-agent-recording-cut-reconciliation:
 		-o $(BUILD_DIR)/test_backend_agent_recording_cut_reconciliation
 	$(BUILD_DIR)/test_backend_agent_recording_cut_reconciliation
 
+test-suite-bridge-svdrp-recording-cut-transport:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/agent/include \
+		-Icore/vdr/include \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_RECORDING_CUT_TRANSPORT_SRC) \
+		core/agent/tests/test_suite_bridge_svdrp_recording_cut_transport.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_svdrp_recording_cut_transport
+	$(BUILD_DIR)/test_suite_bridge_svdrp_recording_cut_transport
+
 test-suite-bridge-svdrp-recording-cut-state-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		-Icore/agent/include \
@@ -77,6 +115,14 @@ test-suite-bridge-recording-cut-state-resolver:
 		-o $(BUILD_DIR)/test_suite_bridge_recording_cut_state_resolver
 	$(BUILD_DIR)/test_suite_bridge_recording_cut_state_resolver
 
+test-suitebridge-recording-cut-protocol:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Ivdr-plugin-suite-bridge \
+		vdr-plugin-suite-bridge/suitebridge_recording_cut.cpp \
+		vdr-plugin-suite-bridge/tests/test_suitebridge_recording_cut.cpp \
+		-o $(BUILD_DIR)/test_suitebridge_recording_cut
+	$(BUILD_DIR)/test_suitebridge_recording_cut
+
 test-daemon-recording-cut-reconciliation:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		-Icore/daemon/include \
@@ -88,11 +134,17 @@ test-daemon-recording-cut-reconciliation:
 	$(BUILD_DIR)/test_daemon_recording_cut_reconciliation
 
 # Additive prerequisites only: keep the existing recording-native-editing
-# test-fast recipe/graph untouched while making the Slice-3 boundary mandatory.
+# test-fast recipe/graph untouched while making the complete Slice-3 boundary
+# mandatory.
 test-fast: check-recording-cut-runtime-wiring \
 	test-recording-cut-api-runtime \
 	test-recording-cut-security \
+	test-backend-agent-recording-cut \
+	test-backend-agent-recording-cut-local-state \
+	test-backend-agent-recording-cut-executor \
 	test-backend-agent-recording-cut-reconciliation \
+	test-suite-bridge-svdrp-recording-cut-transport \
 	test-suite-bridge-svdrp-recording-cut-state-transport \
 	test-suite-bridge-recording-cut-state-resolver \
+	test-suitebridge-recording-cut-protocol \
 	test-daemon-recording-cut-reconciliation
