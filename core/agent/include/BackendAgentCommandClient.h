@@ -15,6 +15,12 @@ class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerModifyTransport;
 class IBackendAgentRecordingMarksModifyTransport;
 class IBackendAgentRecordingCutTransport;
+
+// Production-only default binding for the native recording-cut transport.
+// Tests may continue to inject an explicit per-config transport below. The
+// shipped Agent sets this binding only after constructing the loopback
+// SuiteBridge transport and capability advertisement remains discovery-gated.
+inline IBackendAgentRecordingCutTransport* RecordingCutDefaultTransport = nullptr;
 }
 
 struct BackendAgentCommandClientConfig
@@ -25,7 +31,8 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport* nativeTimerModifyTransport = nullptr;
-    vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport = nullptr;
+    vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport =
+        vdrsuite::agent::RecordingCutDefaultTransport;
 };
 
 struct BackendAgentCommandClientContext
@@ -54,3 +61,9 @@ void setBackendAgentNativeProbeTransport(
 
 void setBackendAgentRecordingMarksModifyTransport(
     vdrsuite::agent::IBackendAgentRecordingMarksModifyTransport* transport);
+
+inline void setBackendAgentRecordingCutTransport(
+    vdrsuite::agent::IBackendAgentRecordingCutTransport* transport)
+{
+    vdrsuite::agent::RecordingCutDefaultTransport = transport;
+}
