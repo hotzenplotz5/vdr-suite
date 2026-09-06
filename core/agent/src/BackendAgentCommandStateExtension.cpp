@@ -221,6 +221,27 @@ bool sameCommand(
         sameProviderSelection(left.localProviderSelection, right.localProviderSelection);
 }
 
+bool sameCommand(
+    const BackendAgentRecordingCutCommand& left,
+    const BackendAgentRecordingCutCommand& right)
+{
+    return left.commandId == right.commandId &&
+        left.requestFingerprint == right.requestFingerprint &&
+        left.operationId == right.operationId &&
+        left.operationRevision == right.operationRevision &&
+        left.recordingKey == right.recordingKey &&
+        left.expectedMarksRevision == right.expectedMarksRevision &&
+        left.jobId == right.jobId &&
+        left.attemptId == right.attemptId &&
+        left.claimEpoch == right.claimEpoch &&
+        left.backendId == right.backendId &&
+        left.agentId == right.agentId &&
+        left.agentInstanceId == right.agentInstanceId &&
+        left.backendGeneration == right.backendGeneration &&
+        left.controlPlaneClaimedAt == right.controlPlaneClaimedAt &&
+        sameProviderSelection(left.localProviderSelection, right.localProviderSelection);
+}
+
 } // namespace
 
 bool backendAgentCommandStateExtensionValid(
@@ -373,6 +394,24 @@ bool backendAgentCommandStateExtensionValidateSupported(
         {
             reasonCode =
                 "recording_marks_modify_state_extension_assignment_mismatch";
+            return false;
+        }
+        reasonCode.clear();
+        return true;
+    }
+
+    if (extension.extensionType ==
+        kBackendAgentRecordingCutLocalStateExtensionType)
+    {
+        BackendAgentRecordingCutLocalState candidate;
+        BackendAgentRecordingCutCommand expected;
+        if (!backendAgentRecordingCutParseLocalState(
+                extension.payload, candidate, reasonCode) ||
+            !backendAgentRecordingCutCommandFromAssignment(
+                assignment, expected, reasonCode) ||
+            !sameCommand(expected, candidate.command))
+        {
+            reasonCode = "recording_cut_state_extension_assignment_mismatch";
             return false;
         }
         reasonCode.clear();
