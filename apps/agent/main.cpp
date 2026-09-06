@@ -190,7 +190,7 @@ int main(int argc, char** argv)
             nativeTimerDeleteTransport.get();
         config.nativeTimerModifyTransport =
             nativeTimerModifyTransport.get();
-        config.recordingCutTransport = recordingCutTransport.get();
+        setBackendAgentRecordingCutTransport(recordingCutTransport.get());
         setBackendAgentRecordingMarksModifyTransport(
             recordingMarksModifyTransport.get());
     }
