@@ -8,6 +8,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
+#include "RecordingCutApiRuntime.h"
 #include "RecordingMarksApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
@@ -194,6 +195,13 @@ public:
         const std::string& requestTarget)
     {
         ApiResponse response;
+
+        if (RecordingCutApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
 
         if (RecordingMarksApiRuntime::instance().tryHandleGet(
                 requestTarget,

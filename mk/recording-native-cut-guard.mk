@@ -12,6 +12,7 @@ DAEMON_RECORDING_CUT_SRC := \
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_CUT_STATE_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)
+REST_ROUTER_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 
 .PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
 

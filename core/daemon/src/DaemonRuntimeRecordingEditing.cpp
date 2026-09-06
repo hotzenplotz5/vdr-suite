@@ -21,7 +21,11 @@ bool configureDaemonRecordingEditingRuntime(
         return false;
 
     if (!configureDaemonRecordingCutRuntime(
+            recordingCacheRepository,
             backendRuntimeContexts,
+            backendRegistryService,
+            backendAccessPolicy,
+            backendAgentRepository,
             backendAgentCommandRepository))
     {
         resetDaemonRecordingMarksRuntime();
