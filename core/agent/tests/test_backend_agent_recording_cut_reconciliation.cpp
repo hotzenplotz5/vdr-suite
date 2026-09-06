@@ -189,9 +189,55 @@ int main()
         ownership,
         reasonCode));
 
-    std::int64_t clock = 110;
+    BackendAgentRecordingCutAssignmentService assignmentService(commands, agents);
+
+    auto wrongGenerationRequest = request("op_cut_wrong_generation", 110);
+    wrongGenerationRequest.backendGeneration = 8;
+    const auto wrongGeneration = assignmentService.assign(
+        systemContext(), wrongGenerationRequest, 111, 411);
+    assert(!wrongGeneration.accepted);
+    assert(wrongGeneration.reasonCode ==
+        "recording_cut_backend_generation_conflict");
+
+    assert(database.execute(
+        "UPDATE backend_agents SET lease_expires_at=100,updated_at=112 "
+        "WHERE agent_id='agt_cut';"));
+    const auto expiredLease = assignmentService.assign(
+        systemContext(), request("op_cut_expired_lease", 110), 113, 413);
+    assert(!expiredLease.accepted);
+    assert(expiredLease.reasonCode == "active_agent_lease_required");
+    assert(database.execute(
+        "UPDATE backend_agents SET lease_expires_at=1000,updated_at=114 "
+        "WHERE agent_id='agt_cut';"));
+
+    std::int64_t clock = 120;
     const auto accepted = assign(
         commands, agents, "op_cut_exact_result", clock, clock + 1);
+
+    const auto exactReplay = assignmentService.assign(
+        systemContext(), request("op_cut_exact_result", clock),
+        clock + 2, clock + 302);
+    assert(exactReplay.accepted);
+    assert(exactReplay.replayed);
+    assert(exactReplay.reasonCode == "recording_cut_assignment_replayed");
+    assert(exactReplay.assignment.commandId == accepted.commandId);
+
+    auto changedRevisionRequest = request("op_cut_exact_result", clock);
+    changedRevisionRequest.expectedMarksRevision =
+        "dddddddddddddddddddddddddddddddd";
+    const auto changedRevision = assignmentService.assign(
+        systemContext(), changedRevisionRequest, clock + 2, clock + 302);
+    assert(!changedRevision.accepted);
+    assert(changedRevision.reasonCode == "recording_cut_assignment_conflict");
+
+    auto changedRecordingRequest = request("op_cut_exact_result", clock);
+    changedRecordingRequest.recordingKey =
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const auto changedRecording = assignmentService.assign(
+        systemContext(), changedRecordingRequest, clock + 2, clock + 302);
+    assert(!changedRecording.accepted);
+    assert(changedRecording.reasonCode == "recording_cut_assignment_conflict");
+
     acceptReceipt(commands, accepted, clock + 2);
     acceptAgentResult(
         commands, accepted, "accepted_by_executor", clock + 3,
@@ -301,6 +347,13 @@ int main()
     assert(!reasonCode.empty());
     assert(!commands.recordingCutVerificationForOperation(
         "default", "op_cut_stale_provider").present);
+
+    const auto staleProviderReplay = assignmentService.assign(
+        systemContext(), request("op_cut_stale_provider", clock),
+        clock + 5, clock + 305);
+    assert(!staleProviderReplay.accepted);
+    assert(staleProviderReplay.reasonCode ==
+        "recording_cut_provider_selection_stale");
 
     return 0;
 }
