@@ -28,6 +28,7 @@ executor = text("core/agent/src/BackendAgentRecordingCutExecutor.cpp")
 handler = text("core/agent/src/BackendAgentRecordingCutCommandHandler.cpp")
 transport = text("core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp")
 plugin_protocol = text("vdr-plugin-suite-bridge/suitebridge_recording_cut.cpp")
+plugin_state = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_state.h")
 plugin_vdr = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_vdr.cpp")
 plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 
@@ -93,6 +94,12 @@ for label, content, tokens in (
         "outcome_unknown",
         "replay_conflict",
     )),
+    ("RCUT state contract", plugin_state, (
+        "SuiteBridgeRecordingCutState",
+        "vdr-suite-rcut-state/1",
+        "editedRecordingKey",
+        "editedRecordingFound",
+    )),
     ("native VDR cut authority", plugin_vdr, (
         "SuiteBridgeRecordingCutState",
         "inspectLocked",
@@ -101,7 +108,6 @@ for label, content, tokens in (
         "cCutter::EditedFileName",
         "RecordingsHandler.GetUsage",
         "SuiteBridgeRecordingCutStateCommand::Handle",
-        "vdr-suite-rcut-state/1",
         "RecordingsHandler.Add(ruCut, finalRecording->FileName())",
     )),
 ):
@@ -170,7 +176,8 @@ if "NCUT" in help_section:
 # No shell/process or browser/filesystem mutation path may enter the cut authority.
 scoped = "\n".join((
     agent_main, client_header, client, domain, payload, assignment,
-    local_state, executor, handler, transport, plugin_protocol, plugin_vdr,
+    local_state, executor, handler, transport, plugin_protocol, plugin_state,
+    plugin_vdr,
 ))
 for pattern in (
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
