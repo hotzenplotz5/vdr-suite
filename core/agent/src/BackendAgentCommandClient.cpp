@@ -14,6 +14,9 @@
 #include "BackendAgentRecordingMarksModify.h"
 #include "BackendAgentRecordingMarksModifyCommandHandler.h"
 #include "BackendAgentRecordingMarksModifyTransport.h"
+#include "BackendAgentRecordingCut.h"
+#include "BackendAgentRecordingCutCommandHandler.h"
+#include "BackendAgentRecordingCutTransport.h"
 
 #include <algorithm>
 #include <chrono>
@@ -313,6 +316,48 @@ bool executeFreshRecordingMarksModifyAndPersistOutcome(
             reason);
 }
 
+vdrsuite::agent::BackendAgentRecordingCutCommandContext
+recordingCutContext(const BackendAgentCommandClientContext& context)
+{
+    return {context.backendId, context.agentId, context.agentInstanceId,
+            context.backendGeneration};
+}
+
+bool reconcileRecordingCutLocalState(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentRecordingCutCommandReconcileExisting(
+        config.statePath, recordingCutContext(context), state, reason);
+}
+
+bool prepareFreshRecordingCutLocalStarting(
+    const BackendAgentCommandClientConfig& config,
+    LocalState& state,
+    std::int64_t currentTime,
+    std::string& reason)
+{
+    return vdrsuite::agent::backendAgentRecordingCutCommandPrepareFreshStarting(
+        config.statePath, state, currentTime, reason);
+}
+
+bool executeFreshRecordingCutAndPersistOutcome(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    LocalState& state,
+    std::string& reason)
+{
+    return vdrsuite::agent::
+        backendAgentRecordingCutCommandExecuteFreshStartingAndPersistOutcome(
+            config.statePath,
+            recordingCutContext(context),
+            config.recordingCutTransport,
+            state,
+            reason);
+}
+
 struct CommandAvailability
 {
     std::vector<std::string> commandTypes;
@@ -468,6 +513,35 @@ CommandAvailability availableCommands(
         }
     }
 
+    bool recordingCutAvailable = false;
+    if (hasCommandType(
+            config,
+            vdrsuite::agent::kBackendAgentRecordingCutCommandType) &&
+        config.recordingCutTransport != nullptr)
+    {
+        vdrsuite::agent::BackendAgentLocalProviderFacts facts;
+        std::string reason;
+        try
+        {
+            recordingCutAvailable =
+                config.recordingCutTransport->discoverProvider(facts, reason) &&
+                facts.available &&
+                vdrsuite::agent::backendAgentLocalProviderValidFacts(facts) &&
+                facts.providerId ==
+                    vdrsuite::agent::kBackendAgentRecordingCutProviderId &&
+                facts.providerKind ==
+                    vdrsuite::agent::kBackendAgentRecordingCutProviderKind &&
+                hasCapability(
+                    facts,
+                    vdrsuite::agent::kBackendAgentRecordingCutCapability) &&
+                mergeProviderFacts(availability.localProviders, facts);
+        }
+        catch (...)
+        {
+            recordingCutAvailable = false;
+        }
+    }
+
     for (const std::string& type : config.commandTypes)
     {
         const bool timerType =
@@ -488,6 +562,12 @@ CommandAvailability availableCommands(
         if (type == vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType)
         {
             if (recordingMarksModifyAvailable)
+                availability.commandTypes.push_back(type);
+            continue;
+        }
+        if (type == vdrsuite::agent::kBackendAgentRecordingCutCommandType)
+        {
+            if (recordingCutAvailable)
                 availability.commandTypes.push_back(type);
             continue;
         }
@@ -563,6 +643,9 @@ bool reconcileBackendAgentCommandState(
     const bool recordingMarksModifyCommand =
         state.assignment.commandType ==
             vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType;
+    const bool recordingCutCommand =
+        state.assignment.commandType ==
+            vdrsuite::agent::kBackendAgentRecordingCutCommandType;
     if (timerCreateCommand && state.stateExtensionPresent &&
         !reconcileNativeTimerCreateLocalState(config, context, state, reason))
         return false;
@@ -574,6 +657,9 @@ bool reconcileBackendAgentCommandState(
         return false;
     if (recordingMarksModifyCommand && state.stateExtensionPresent &&
         !reconcileRecordingMarksModifyLocalState(config, context, state, reason))
+        return false;
+    if (recordingCutCommand && state.stateExtensionPresent &&
+        !reconcileRecordingCutLocalState(config, context, state, reason))
         return false;
     if (!sameContext(state.assignment, context))
     {
@@ -748,6 +834,49 @@ bool reconcileBackendAgentCommandState(
         if (!sendResult(config, context, transport, state, reason))
             return false;
         reason = "recording_marks_modify_executor_outcome_reconciled";
+        return true;
+    }
+
+    if (recordingCutCommand &&
+        !state.stateExtensionPresent && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            reason = "recording_cut_fresh_starting_state_invalid";
+            return false;
+        }
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            if (!state.receiptAcknowledged &&
+                !sendReceipt(config, context, transport, state, reason))
+                return false;
+            createResult(
+                state, "not_started", "outcome_unknown", "rejected",
+                "expired", "none",
+                "command deadline expired before recording cut dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            if (!sendResult(config, context, transport, state, reason)) return false;
+            reason = "command_result_reconciled";
+            return true;
+        }
+        if (!prepareFreshRecordingCutLocalStarting(
+                config, state, currentTime, reason))
+            return false;
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (config.recordingCutTransport == nullptr)
+        {
+            reason = "recording_cut_local_starting_handoff_persisted";
+            return true;
+        }
+        if (!executeFreshRecordingCutAndPersistOutcome(
+                config, context, state, reason))
+            return false;
+        if (!sendResult(config, context, transport, state, reason))
+            return false;
+        reason = "recording_cut_executor_outcome_reconciled";
         return true;
     }
 
