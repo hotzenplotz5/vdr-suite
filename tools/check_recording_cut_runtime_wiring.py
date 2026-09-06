@@ -18,6 +18,7 @@ def text(relative: str) -> str:
 
 
 agent_main = text("apps/agent/main.cpp")
+command_admin = text("apps/tools/backend_agent_command_admin.cpp")
 client_header = text("core/agent/include/BackendAgentCommandClient.h")
 client = text("core/agent/src/BackendAgentCommandClient.cpp")
 domain = text("core/agent/src/BackendAgentRecordingCut.cpp")
@@ -40,6 +41,7 @@ api_router = text("api/rest/include/ApiRouter.h")
 api_runtime = text("api/rest/src/RecordingCutApiRuntime.cpp")
 security_gate = text("core/security/include/SecurityHttpGate.h")
 authorization = text("core/security/include/AuthorizationService.h")
+acceptance_preflight = text("tools/run_recording_cut_acceptance_preflight.sh")
 cut_make = text("mk/recording-native-cut-guard.mk")
 
 for label, content, tokens in (
@@ -47,6 +49,18 @@ for label, content, tokens in (
         "SuiteBridgeRecordingCutTransport",
         "kBackendAgentRecordingCutCommandType",
         "setBackendAgentRecordingCutTransport(recordingCutTransport.get())",
+    )),
+    ("cut ownership admin", command_admin, (
+        '"BackendAgentRecordingCut.h"',
+        '"--recording-cut-provider-ownership-status"',
+        '"--set-recording-cut-owner"',
+        '"--clear-recording-cut-owner"',
+        "kBackendAgentRecordingCutAuthorityDomain",
+        "kBackendAgentRecordingCutProviderId",
+        "kBackendAgentRecordingCutProviderKind",
+        "kBackendAgentRecordingCutCapability",
+        "setLocalProviderOwnership",
+        "clearLocalProviderOwnership",
     )),
     ("CommandClient header", client_header, (
         "RecordingCutDefaultTransport",
@@ -177,10 +191,28 @@ for label, content, tokens in (
         "protectedMutationPermission",
         "isReadOnlyMutation",
     )),
+    ("recording cut acceptance preflight", acceptance_preflight, (
+        'ADMIN_CANDIDATE=".build/vdr-suite-backend-agent-command-admin"',
+        'ADMIN_INSTALLED="/usr/sbin/vdr-suite-backend-agent-command-admin"',
+        'cmp -s "$ADMIN_CANDIDATE" "$ADMIN_INSTALLED"',
+        "--recording-cut-provider-ownership-status",
+        "recording-cut-provider-ownership.json",
+        'ownership.get("providerId") == "suitebridge:recording-cut"',
+        'ownership.get("allowedCapabilities") == ["vdr.recording.cut"]',
+        '"local_provider_ownership_active"',
+    )),
 ):
     for token in tokens:
         if token not in content:
             errors.append(f"{label} missing required token: {token}")
+
+# The real-system preflight may observe cut ownership, but must never mutate it.
+for forbidden in (
+    "--set-recording-cut-owner",
+    "--clear-recording-cut-owner",
+):
+    if forbidden in acceptance_preflight:
+        errors.append(f"recording cut acceptance preflight contains forbidden ownership mutation: {forbidden}")
 
 # The VDR recordings view supplied by LOCK_RECORDINGS_READ is local to the
 # lock-owning scope. Shared inspection must receive that already-locked view
