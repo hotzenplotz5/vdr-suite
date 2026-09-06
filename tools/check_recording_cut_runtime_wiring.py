@@ -90,15 +90,19 @@ for label, content, tokens in (
     )),
     ("SuiteBridge cut protocol", plugin_protocol, (
         "vdr.recording.cut",
-        "vdr.recording.cut",
         "outcome_unknown",
         "replay_conflict",
     )),
-    ("native VDR cut callback", plugin_vdr, (
-        "expectedMarksRevision",
+    ("native VDR cut authority", plugin_vdr, (
+        "SuiteBridgeRecordingCutState",
+        "inspectLocked",
+        "matchedRecording->IsInUse()",
+        "nativeMarks.GetNumSequences()",
         "cCutter::EditedFileName",
         "RecordingsHandler.GetUsage",
-        "RecordingsHandler.Add(ruCut, recording->FileName())",
+        "SuiteBridgeRecordingCutStateCommand::Handle",
+        "vdr-suite-rcut-state/1",
+        "RecordingsHandler.Add(ruCut, finalRecording->FileName())",
     )),
 ):
     for token in tokens:
@@ -106,27 +110,39 @@ for label, content, tokens in (
             errors.append(f"{label} missing required token: {token}")
 
 # The mutation boundary is intentionally singular and VDR-owned.
-if plugin_vdr.count("RecordingsHandler.Add(ruCut, recording->FileName())") != 1:
-    errors.append("native cut callback must contain exactly one VDR ruCut enqueue")
+enqueue_token = "RecordingsHandler.Add(ruCut, finalRecording->FileName())"
+if plugin_vdr.count(enqueue_token) != 1:
+    errors.append("native cut authority must contain exactly one VDR ruCut enqueue")
 if "cCutter::Start" in plugin_vdr or "cCuttingThread" in plugin_vdr:
     errors.append("SuiteBridge must not implement or invoke a custom cutter")
 
-# Preconditions must precede the only enqueue call.
-enqueue = plugin_vdr.find("RecordingsHandler.Add(ruCut, recording->FileName())")
+# Shared native inspection must collect every safety fact before the only enqueue.
+enqueue = plugin_vdr.find(enqueue_token)
 for token in (
-    "expectedMarksRevision",
-    "recording->IsInUse()",
+    "matchedRecording->IsInUse()",
     "nativeMarks.GetNumSequences()",
     "cCutter::EditedFileName",
     "RecordingsHandler.GetUsage",
+    "current.marksRevision != request.expectedMarksRevision",
+    "finalState.marksRevision != request.expectedMarksRevision",
+    "finalState.editedRecordingKey != current.editedRecordingKey",
 ):
     position = plugin_vdr.find(token)
     if position < 0 or enqueue < 0 or position >= enqueue:
         errors.append(f"native cut precondition must precede enqueue: {token}")
 
+# Preview/read state is read-only: RCUT must be present, but the RCUT handler
+# itself must not contain the native enqueue.
+rcut_start = plugin_vdr.find("SuiteBridgeRecordingCutStateCommand::Handle")
+start_cut = plugin_vdr.find("SuiteBridgeRecordingCutVdrMutationCallback::StartCut")
+if rcut_start < 0 or start_cut < 0 or rcut_start >= start_cut:
+    errors.append("RCUT read handler must be distinct from and precede NCUT mutation")
+else:
+    if "RecordingsHandler.Add(" in plugin_vdr[rcut_start:start_cut]:
+        errors.append("RCUT read handler must never enqueue a native cut")
+
 # Durable local starting must be created and persisted before the receipt and
-# the native dispatch in the actual recording-cut branch (not merely in helper
-# function definitions elsewhere in the translation unit).
+# the native dispatch in the actual recording-cut branch.
 cut_branch = client.find("if (recordingCutCommand &&")
 prepare = client.find("prepareFreshRecordingCutLocalStarting(", cut_branch)
 receipt = client.find("sendReceipt(config, context, transport, state, reason)", prepare)
@@ -142,10 +158,12 @@ if executor.count("transport.startCut(request)") != 1:
 if "startCut(" in local_state:
     errors.append("cut local-state recovery must never redispatch native cut")
 
-# The protocol remains private; do not advertise NCUT in public SVDRP help.
+# RCUT is intentionally public and read-only; NCUT remains private.
 help_start = plugin_svdrp.find("SVDRPHelpPages")
 command_start = plugin_svdrp.find("SVDRPCommand", help_start)
 help_section = plugin_svdrp[help_start:command_start] if help_start >= 0 else ""
+if "RCUT <recording-key>" not in help_section:
+    errors.append("read-only RCUT must be advertised in public SVDRP help")
 if "NCUT" in help_section:
     errors.append("NCUT must not be advertised in public SVDRP help")
 
