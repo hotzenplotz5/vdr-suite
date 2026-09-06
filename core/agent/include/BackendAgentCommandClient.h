@@ -14,6 +14,7 @@ class IBackendAgentNativeTimerDeleteTransport;
 class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerModifyTransport;
 class IBackendAgentRecordingMarksModifyTransport;
+class IBackendAgentRecordingCutTransport;
 }
 
 struct BackendAgentCommandClientConfig
@@ -24,6 +25,7 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport* nativeTimerModifyTransport = nullptr;
+    vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport = nullptr;
 };
 
 struct BackendAgentCommandClientContext
