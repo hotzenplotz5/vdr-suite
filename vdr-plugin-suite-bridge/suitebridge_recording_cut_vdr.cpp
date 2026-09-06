@@ -99,7 +99,119 @@ bool loadCurrentMarks(
   snapshot.marksRevision = SuiteBridgeRecordingMarksRevision(snapshot);
   return SuiteBridgeRecordingMarksRevisionValid(snapshot.marksRevision);
 }
+
+SuiteBridgeRecordingCutState inspectLocked(
+    const std::string &recordingKey,
+    const cRecording *&matchedRecording)
+{
+  SuiteBridgeRecordingCutState state;
+  state.recordingKey = recordingKey;
+  matchedRecording = nullptr;
+
+  std::size_t matchCount = 0;
+  for (const cRecording *candidate = Recordings->First();
+       candidate != nullptr;
+       candidate = Recordings->Next(candidate)) {
+    const char *nativeId = candidate->FileName();
+    if (!nativeId ||
+        SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId) != recordingKey) {
+      continue;
+    }
+    matchedRecording = candidate;
+    ++matchCount;
+    if (matchCount > 1) break;
+  }
+
+  if (matchCount == 0 || matchedRecording == nullptr) {
+    state.reason = "recording-not-found";
+    matchedRecording = nullptr;
+    return state;
+  }
+  if (matchCount > 1) {
+    state.reason = "recording-identity-ambiguous";
+    matchedRecording = nullptr;
+    return state;
+  }
+
+  state.found = true;
+  state.inUseFlags = matchedRecording->IsInUse();
+  state.handlerUsage = static_cast<int>(
+      RecordingsHandler.GetUsage(matchedRecording->FileName()));
+
+  cMarks nativeMarks;
+  SuiteBridgeRecordingMarks marks;
+  state.marksReadable = loadCurrentMarks(
+      *matchedRecording, recordingKey, nativeMarks, marks);
+  if (state.marksReadable) {
+    state.marksRevision = marks.marksRevision;
+    state.marksFilePresent = marks.marksFilePresent;
+    state.markCount = nativeMarks.Count();
+    state.sequenceCount = nativeMarks.GetNumSequences();
+  }
+
+  const cString editedFileName =
+      cCutter::EditedFileName(matchedRecording->FileName());
+  const char *edited = *editedFileName;
+  const bool editedAvailable = edited != nullptr && *edited != '\0';
+  const bool editedSame = editedAvailable &&
+      std::strcmp(edited, matchedRecording->FileName()) == 0;
+  bool editedIdentityValid = false;
+  if (editedAvailable && !editedSame) {
+    state.editedRecordingKey =
+        SuiteBridgeRecordingIdentity::KeyForNativeId(edited);
+    editedIdentityValid =
+        SuiteBridgeRecordingIdentity::IsValidKey(state.editedRecordingKey);
+    state.editedDestinationExists = access(edited, F_OK) == 0;
+    if (editedIdentityValid) {
+      for (const cRecording *candidate = Recordings->First();
+           candidate != nullptr;
+           candidate = Recordings->Next(candidate)) {
+        const char *nativeId = candidate->FileName();
+        if (nativeId != nullptr && std::strcmp(nativeId, edited) == 0 &&
+            SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId) ==
+                state.editedRecordingKey) {
+          state.editedRecordingFound = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (state.inUseFlags != 0) {
+    state.reason = "recording-in-use";
+  } else if (!state.marksReadable) {
+    state.reason = "marks-unreadable";
+  } else if (!state.marksFilePresent || state.markCount == 0) {
+    state.reason = "no-marks";
+  } else if (state.sequenceCount <= 0) {
+    state.reason = "invalid-cut-sequence";
+  } else if (state.handlerUsage != static_cast<int>(ruNone)) {
+    state.reason = "recording-handler-busy";
+  } else if (!editedAvailable) {
+    state.reason = "edited-destination-unavailable";
+  } else if (editedSame) {
+    state.reason = "edited-destination-invalid";
+  } else if (!editedIdentityValid) {
+    state.reason = "edited-destination-identity-invalid";
+  } else if (state.editedDestinationExists) {
+    state.reason = "edited-destination-exists";
+  } else {
+    state.reason = "ready";
+    state.ready = true;
+  }
+
+  return state;
+}
 } // namespace
+
+SuiteBridgeRecordingCutState
+SuiteBridgeRecordingCutVdrMutationCallback::Inspect(
+    const std::string &recordingKey) const
+{
+  LOCK_RECORDINGS_READ;
+  const cRecording *recording = nullptr;
+  return inspectLocked(recordingKey, recording);
+}
 
 SuiteBridgeRecordingCutMutationResult
 SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
@@ -108,70 +220,37 @@ SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
   try {
     LOCK_RECORDINGS_READ;
     const cRecording *recording = nullptr;
-    std::size_t matchCount = 0;
-    for (const cRecording *candidate = Recordings->First();
-         candidate != nullptr;
-         candidate = Recordings->Next(candidate)) {
-      const char *nativeId = candidate->FileName();
-      if (!nativeId ||
-          SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId) !=
-              request.recordingKey) {
-        continue;
-      }
-      recording = candidate;
-      ++matchCount;
-      if (matchCount > 1) break;
-    }
-
-    if (matchCount == 0 || recording == nullptr)
-      return rejected("recording-not-found", request);
-    if (matchCount > 1)
-      return rejected("recording-identity-ambiguous", request);
-    if (recording->IsInUse() != 0)
-      return rejected("recording-in-use", request);
-
-    cMarks nativeMarks;
-    SuiteBridgeRecordingMarks current;
-    if (!loadCurrentMarks(*recording, request.recordingKey, nativeMarks, current))
-      return rejected("marks-unreadable", request);
+    SuiteBridgeRecordingCutState current =
+        inspectLocked(request.recordingKey, recording);
+    if (!current.found || recording == nullptr)
+      return rejected(current.reason.c_str(), request);
+    if (!current.marksReadable)
+      return rejected(current.reason.c_str(), request);
     if (current.marksRevision != request.expectedMarksRevision)
       return rejected("marks-revision-mismatch", request);
-    if (!current.marksFilePresent || nativeMarks.Count() == 0)
-      return rejected("no-marks", request);
-    if (nativeMarks.GetNumSequences() <= 0)
-      return rejected("invalid-cut-sequence", request);
-    if (RecordingsHandler.GetUsage(recording->FileName()) != ruNone)
-      return rejected("recording-handler-busy", request);
+    if (!current.ready)
+      return rejected(current.reason.c_str(), request);
 
-    const cString editedFileName =
-        cCutter::EditedFileName(recording->FileName());
-    const char *edited = *editedFileName;
-    if (edited == nullptr || *edited == '\0')
-      return rejected("edited-destination-unavailable", request);
-    if (std::strcmp(edited, recording->FileName()) == 0)
-      return rejected("edited-destination-invalid", request);
-    if (access(edited, F_OK) == 0)
-      return rejected("edited-destination-exists", request);
-    const std::string editedRecordingKey =
-        SuiteBridgeRecordingIdentity::KeyForNativeId(edited);
-    if (!SuiteBridgeRecordingIdentity::IsValidKey(editedRecordingKey))
-      return rejected("edited-destination-identity-invalid", request);
-
-    cMarks finalMarks;
-    SuiteBridgeRecordingMarks finalSnapshot;
-    if (!loadCurrentMarks(
-            *recording, request.recordingKey, finalMarks, finalSnapshot))
-      return rejected("marks-unreadable", request);
-    if (finalSnapshot.marksRevision != request.expectedMarksRevision)
+    const cRecording *finalRecording = nullptr;
+    SuiteBridgeRecordingCutState finalState =
+        inspectLocked(request.recordingKey, finalRecording);
+    if (!finalState.found || finalRecording == nullptr)
+      return rejected(finalState.reason.c_str(), request);
+    if (!finalState.marksReadable)
+      return rejected(finalState.reason.c_str(), request);
+    if (finalState.marksRevision != request.expectedMarksRevision)
       return rejected("marks-revision-mismatch", request);
-    if (recording->IsInUse() != 0 ||
-        RecordingsHandler.GetUsage(recording->FileName()) != ruNone)
-      return rejected("recording-in-use", request);
+    if (!finalState.ready)
+      return rejected(finalState.reason.c_str(), request);
+    if (finalState.editedRecordingKey != current.editedRecordingKey ||
+        !SuiteBridgeRecordingIdentity::IsValidKey(
+            finalState.editedRecordingKey))
+      return rejected("edited-destination-changed", request);
 
-    if (!RecordingsHandler.Add(ruCut, recording->FileName()))
+    if (!RecordingsHandler.Add(ruCut, finalRecording->FileName()))
       return rejected("cut-queue-rejected", request);
 
-    return queued(editedRecordingKey, request);
+    return queued(finalState.editedRecordingKey, request);
   } catch (...) {
     return unknown("exception", request);
   }
