@@ -32,6 +32,7 @@ VDR_SERVICE="${RECORDING_CUT_VDR_SERVICE:-vdr.service}"
 SVDRP_PORT="${RECORDING_CUT_SVDRP_PORT:-6419}"
 DAEMON_CANDIDATE=".build/vdr-suite-daemon"
 AGENT_CANDIDATE=".build/vdr-suite-backend-agent"
+PLUGIN_CANDIDATE="vdr-plugin-suite-bridge/libvdr-suitebridge.so"
 DAEMON_INSTALLED="/usr/sbin/vdr-suite-daemon"
 AGENT_INSTALLED="/usr/sbin/vdr-suite-backend-agent"
 
@@ -55,7 +56,7 @@ if [[ -n "$CURL_CONFIG" ]]; then
     [[ "${CURL_CONFIG_MODE: -2}" == "00" ]] || fail "curl_config_permissions_too_open"
 fi
 
-for command in git systemctl curl python3 sha256sum cmp svdrpsend grep stat; do
+for command in git systemctl curl python3 sha256sum cmp svdrpsend grep stat pkg-config; do
     require_command "$command"
 done
 
@@ -65,11 +66,20 @@ CURRENT_HEAD="$(git rev-parse HEAD)"
 [[ "$CURRENT_HEAD" == "$EXPECTED_HEAD" ]] || fail "head_mismatch"
 [[ -z "$(git status --porcelain)" ]] || fail "worktree_not_clean"
 
+VDR_LIBDIR="$(pkg-config --variable=libdir vdr)" || fail "vdr_libdir_failed"
+VDR_APIVERSION="$(pkg-config --variable=apiversion vdr)" || fail "vdr_apiversion_failed"
+[[ -n "$VDR_LIBDIR" && -n "$VDR_APIVERSION" ]] || fail "vdr_pkgconfig_incomplete"
+PLUGIN_INSTALLED="$VDR_LIBDIR/libvdr-suitebridge.so.$VDR_APIVERSION"
+
 for binary in "$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" "$DAEMON_INSTALLED" "$AGENT_INSTALLED"; do
     [[ -x "$binary" ]] || fail "binary_missing_$(basename "$binary")"
 done
+for plugin in "$PLUGIN_CANDIDATE" "$PLUGIN_INSTALLED"; do
+    [[ -f "$plugin" ]] || fail "plugin_missing_$(basename "$plugin")"
+done
 cmp -s "$DAEMON_CANDIDATE" "$DAEMON_INSTALLED" || fail "installed_daemon_candidate_mismatch"
 cmp -s "$AGENT_CANDIDATE" "$AGENT_INSTALLED" || fail "installed_agent_candidate_mismatch"
+cmp -s "$PLUGIN_CANDIDATE" "$PLUGIN_INSTALLED" || fail "installed_suitebridge_candidate_mismatch"
 
 [[ "$(systemctl is-active "$VDR_SERVICE" || true)" == active ]] || fail "vdr_not_active"
 [[ "$(systemctl is-active "$DAEMON_SERVICE" || true)" == active ]] || fail "daemon_not_active"
@@ -84,8 +94,8 @@ printf 'vdr=%s\ndaemon=%s\nagent=%s\n' \
     "$(systemctl is-active "$AGENT_SERVICE")" \
     > "$EVIDENCE_DIR/services.txt"
 sha256sum \
-    "$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" \
-    "$DAEMON_INSTALLED" "$AGENT_INSTALLED" \
+    "$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" "$PLUGIN_CANDIDATE" \
+    "$DAEMON_INSTALLED" "$AGENT_INSTALLED" "$PLUGIN_INSTALLED" \
     > "$EVIDENCE_DIR/binaries.sha256"
 
 svdrpsend -p "$SVDRP_PORT" "PLUG suitebridge CAPS 1" \
