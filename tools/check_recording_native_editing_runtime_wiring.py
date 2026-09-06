@@ -16,6 +16,7 @@ api_test_path = ROOT / "api/rest/tests/test_recording_marks_api_runtime.cpp"
 router_path = ROOT / "api/rest/include/ApiRouter.h"
 daemon_path = ROOT / "core/daemon/src/DaemonRuntime.cpp"
 daemon_marks_path = ROOT / "core/daemon/src/DaemonRuntimeRecordingMarks.cpp"
+daemon_editing_path = ROOT / "core/daemon/src/DaemonRuntimeRecordingEditing.cpp"
 reconciliation_path = ROOT / "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp"
 reconciliation_test_path = ROOT / "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
 security_gate_path = ROOT / "core/security/include/SecurityHttpGate.h"
@@ -37,6 +38,7 @@ paths = (
     router_path,
     daemon_path,
     daemon_marks_path,
+    daemon_editing_path,
     reconciliation_path,
     reconciliation_test_path,
     security_gate_path,
@@ -68,6 +70,7 @@ api_test = api_test_path.read_text(encoding="utf-8")
 router = router_path.read_text(encoding="utf-8")
 daemon = daemon_path.read_text(encoding="utf-8")
 daemon_marks = daemon_marks_path.read_text(encoding="utf-8")
+daemon_editing = daemon_editing_path.read_text(encoding="utf-8")
 reconciliation = reconciliation_path.read_text(encoding="utf-8")
 reconciliation_test = reconciliation_test_path.read_text(encoding="utf-8")
 security_gate = security_gate_path.read_text(encoding="utf-8")
@@ -194,6 +197,7 @@ for fragment in required_router:
     if fragment not in router:
         errors.append(f"missing Recording marks router wiring: {fragment}")
 
+daemon_lifecycle = daemon + "\n" + daemon_editing
 required_daemon_lifecycle = (
     '#include "DaemonRuntimeRecordingMarks.h"',
     "configureDaemonRecordingMarksRuntime(",
@@ -206,7 +210,7 @@ required_daemon_lifecycle = (
     "resetDaemonRecordingMarksRuntime();",
 )
 for fragment in required_daemon_lifecycle:
-    if fragment not in daemon:
+    if fragment not in daemon_lifecycle:
         errors.append(f"missing Recording marks daemon lifecycle wiring: {fragment}")
 
 required_daemon_marks = (
