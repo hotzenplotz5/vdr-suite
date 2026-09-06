@@ -106,6 +106,7 @@ bool loadCurrentMarks(
 }
 
 SuiteBridgeRecordingCutState inspectLocked(
+    const cRecordings *recordings,
     const std::string &recordingKey,
     const cRecording *&matchedRecording)
 {
@@ -114,9 +115,9 @@ SuiteBridgeRecordingCutState inspectLocked(
   matchedRecording = nullptr;
 
   std::size_t matchCount = 0;
-  for (const cRecording *candidate = Recordings->First();
+  for (const cRecording *candidate = recordings->First();
        candidate != nullptr;
-       candidate = Recordings->Next(candidate)) {
+       candidate = recordings->Next(candidate)) {
     const char *nativeId = candidate->FileName();
     if (!nativeId ||
         SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId) != recordingKey) {
@@ -168,9 +169,9 @@ SuiteBridgeRecordingCutState inspectLocked(
         SuiteBridgeRecordingIdentity::IsValidKey(state.editedRecordingKey);
     state.editedDestinationExists = access(edited, F_OK) == 0;
     if (editedIdentityValid) {
-      for (const cRecording *candidate = Recordings->First();
+      for (const cRecording *candidate = recordings->First();
            candidate != nullptr;
-           candidate = Recordings->Next(candidate)) {
+           candidate = recordings->Next(candidate)) {
         const char *nativeId = candidate->FileName();
         if (nativeId != nullptr && std::strcmp(nativeId, edited) == 0 &&
             SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId) ==
@@ -220,7 +221,7 @@ SuiteBridgeRecordingCutVdrMutationCallback::Inspect(
 {
   LOCK_RECORDINGS_READ;
   const cRecording *recording = nullptr;
-  return inspectLocked(recordingKey, recording);
+  return inspectLocked(Recordings, recordingKey, recording);
 }
 
 SuiteBridgeCommandResult SuiteBridgeRecordingCutStateCommand::Handle(
@@ -293,7 +294,7 @@ SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
     LOCK_RECORDINGS_READ;
     const cRecording *recording = nullptr;
     SuiteBridgeRecordingCutState current =
-        inspectLocked(request.recordingKey, recording);
+        inspectLocked(Recordings, request.recordingKey, recording);
     if (!current.found || recording == nullptr)
       return rejected(current.reason.c_str(), request);
     if (!current.marksReadable)
@@ -305,7 +306,7 @@ SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
 
     const cRecording *finalRecording = nullptr;
     SuiteBridgeRecordingCutState finalState =
-        inspectLocked(request.recordingKey, finalRecording);
+        inspectLocked(Recordings, request.recordingKey, finalRecording);
     if (!finalState.found || finalRecording == nullptr)
       return rejected(finalState.reason.c_str(), request);
     if (!finalState.marksReadable)

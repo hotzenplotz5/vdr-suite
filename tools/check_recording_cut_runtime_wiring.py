@@ -117,6 +117,12 @@ for label, content, tokens in (
     ("native VDR cut authority", plugin_vdr, (
         "SuiteBridgeRecordingCutState",
         "inspectLocked",
+        "const cRecordings *recordings",
+        "recordings->First()",
+        "recordings->Next(candidate)",
+        "inspectLocked(Recordings, recordingKey, recording)",
+        "inspectLocked(Recordings, request.recordingKey, recording)",
+        "inspectLocked(Recordings, request.recordingKey, finalRecording)",
         "matchedRecording->IsInUse()",
         "nativeMarks.GetNumSequences()",
         "cCutter::EditedFileName",
@@ -175,6 +181,12 @@ for label, content, tokens in (
     for token in tokens:
         if token not in content:
             errors.append(f"{label} missing required token: {token}")
+
+# The VDR recordings view supplied by LOCK_RECORDINGS_READ is local to the
+# lock-owning scope. Shared inspection must receive that already-locked view
+# explicitly instead of referring to the macro-local Recordings identifier.
+if "Recordings->First()" in plugin_vdr or "Recordings->Next(" in plugin_vdr:
+    errors.append("native cut inspection must use the explicitly passed locked recordings view")
 
 # The mutation boundary is intentionally singular and VDR-owned.
 enqueue_token = "RecordingsHandler.Add(ruCut, finalRecording->FileName())"
