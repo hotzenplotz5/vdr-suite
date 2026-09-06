@@ -24,6 +24,17 @@ SuiteBridgeRecordingCutMutationResult result(
   return value;
 }
 
+SuiteBridgeRecordingCutMutationResult queued(
+    const std::string &editedRecordingKey,
+    const SuiteBridgeRecordingCutRequest &request)
+{
+  SuiteBridgeRecordingCutMutationResult value;
+  value.disposition = SuiteBridgeRecordingCutDisposition::AcceptedUnverified;
+  value.evidenceReference = std::string("ncut:vdr:queued:") +
+      editedRecordingKey + ':' + request.commandId;
+  return value;
+}
+
 SuiteBridgeRecordingCutMutationResult rejected(
     const char *reason,
     const SuiteBridgeRecordingCutRequest &request)
@@ -141,6 +152,10 @@ SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
       return rejected("edited-destination-invalid", request);
     if (access(edited, F_OK) == 0)
       return rejected("edited-destination-exists", request);
+    const std::string editedRecordingKey =
+        SuiteBridgeRecordingIdentity::KeyForNativeId(edited);
+    if (!SuiteBridgeRecordingIdentity::IsValidKey(editedRecordingKey))
+      return rejected("edited-destination-identity-invalid", request);
 
     cMarks finalMarks;
     SuiteBridgeRecordingMarks finalSnapshot;
@@ -156,10 +171,7 @@ SuiteBridgeRecordingCutVdrMutationCallback::StartCut(
     if (!RecordingsHandler.Add(ruCut, recording->FileName()))
       return rejected("cut-queue-rejected", request);
 
-    return result(
-        SuiteBridgeRecordingCutDisposition::AcceptedUnverified,
-        "queued",
-        request);
+    return queued(editedRecordingKey, request);
   } catch (...) {
     return unknown("exception", request);
   }
