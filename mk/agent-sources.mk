@@ -69,7 +69,8 @@ AGENT_COMMAND_DELIVERY_SRC := \
 	core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp \
-	core/agent/src/BackendAgentRecordingCutAssignment.cpp
+	core/agent/src/BackendAgentRecordingCutAssignment.cpp \
+	core/agent/src/BackendAgentRecordingCutReconciliation.cpp
 
 AGENT_COMMAND_STATE_SRC := \
 	core/agent/src/BackendAgentNativeTimerCreateLocalState.cpp \

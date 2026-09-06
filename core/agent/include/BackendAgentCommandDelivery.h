@@ -40,6 +40,28 @@ struct BackendAgentRecordingMarksModifyVerification
     std::int64_t verifiedAt = 0;
 };
 
+struct BackendAgentRecordingCutReconciliationCandidate
+{
+    BackendAgentCommandAssignment assignment;
+    std::string recordingKey;
+    std::string expectedMarksRevision;
+    std::string editedRecordingKey;
+    std::int64_t executorCompletedAt = 0;
+};
+
+struct BackendAgentRecordingCutVerification
+{
+    bool present = false;
+    std::string commandId;
+    std::string requestFingerprint;
+    std::string operationId;
+    std::string backendId;
+    std::string recordingKey;
+    std::string expectedMarksRevision;
+    std::string editedRecordingKey;
+    std::int64_t verifiedAt = 0;
+};
+
 class BackendAgentCommandRepository
 {
 public:
@@ -53,6 +75,7 @@ public:
     bool ensureRecordingMarksModifyAssignmentSchema();
     bool ensureRecordingCutAssignmentSchema();
     bool ensureRecordingMarksModifyReconciliationSchema();
+    bool ensureRecordingCutReconciliationSchema();
     std::optional<BackendAgentCommandAssignment> findAssignmentForOperation(
         const std::string& backendId,
         const std::string& operationId,
@@ -73,6 +96,20 @@ public:
         const std::string& canonicalMarksRevision,
         std::int64_t observedAt,
         BackendAgentRecordingMarksModifyVerification& verification,
+        std::string& reasonCode);
+    std::vector<BackendAgentRecordingCutReconciliationCandidate>
+    recordingCutReconciliationCandidates() const;
+    BackendAgentRecordingCutVerification recordingCutVerificationForOperation(
+        const std::string& backendId,
+        const std::string& operationId) const;
+    bool verifyRecordingCutResult(
+        const std::string& commandId,
+        const std::string& requestFingerprint,
+        const std::string& recordingKey,
+        const std::string& expectedMarksRevision,
+        const std::string& editedRecordingKey,
+        std::int64_t observedAt,
+        BackendAgentRecordingCutVerification& verification,
         std::string& reasonCode);
     bool hasCapability(
         const std::string& backendId,
