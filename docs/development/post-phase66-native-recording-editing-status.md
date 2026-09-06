@@ -36,10 +36,19 @@ The real acceptance used the production protected Control Plane -> Agent -> Suit
 
 Status: **AUTOMATED IMPLEMENTATION COMPLETE; REAL yaVDR CUT ACCEPTANCE PENDING**.
 
-Implementation head before this status-only commit:
+Automated implementation and acceptance-preflight head before this documentation commit:
 
 ```text
-implementation_head=07241019e74e29317e98cd13d49e5bef49ca98ee
+implementation_head=c5c7118dc252fb4eb564e0c92cedf38035f72be6
+```
+
+Complete hosted CI for that exact implementation head:
+
+```text
+run=34035354503
+run_number=8795
+result=PASS
+jobs=architecture-check,fast-regression-test,make-test-audit,frontend-regression-test,packaging-regression-test,docs-check
 ```
 
 The implemented Slice-3 boundary includes:
@@ -49,8 +58,12 @@ The implemented Slice-3 boundary includes:
 - public Recording identity resolved to the current opaque native Recording key;
 - explicit `recording-cut-state` SuiteBridge discovery capability;
 - current marks readability, exact `marksRevision`, mark/sequence count, in-use flags, handler usage and edited-result facts from RCUT;
-- backend write policy, `recordings.cut` permission, browser CSRF, backend scope and read-only-role enforcement;
-- Control Plane operation/idempotency assignment with backend/Agent/provider generation fences;
+- backend write policy, `recordings.cut` permission, authentication, browser CSRF, backend scope and read-only-role enforcement;
+- explicit authorization-denied/allowed and protected-operation outcome accountability coverage for the cut route;
+- Control Plane operation/idempotency assignment with active Agent lease, backend generation, Agent instance and SuiteBridge provider ownership/generation/capability fences;
+- exact assignment replay for the same operation and fail-closed conflict for changed Recording or marks revision;
+- stale `expectedMarksRevision` can only perform a replay probe and cannot create a new cut;
+- backend write denial occurs before any cut dispatcher is reached;
 - durable Agent local `starting` state before possible native dispatch;
 - no-blind-retry recovery: possible dispatch becomes `outcome_unknown` / reconciliation-only;
 - native VDR precondition re-read immediately before dispatch;
@@ -62,15 +75,7 @@ The implemented Slice-3 boundary includes:
 - complete Slice-3 API/Security/Agent/transport/protocol/state/reconciliation test edge is mandatory in `test-fast`;
 - static architecture guard prevents bypass of the typed Control Plane/Agent/SuiteBridge owner path.
 
-Current hosted CI for `implementation_head`:
-
-```text
-run=34030819698
-run_number=8788
-status=running_at_status_commit_preparation
-```
-
-A complete green hosted run is required before freezing the real-acceptance candidate. This file must not be interpreted as real cut acceptance.
+The real-system preflight is also implemented and guarded as strictly read-only. Before any controlled cut it proves the exact branch/head and clean worktree, byte-identical candidate versus installed daemon, Backend Agent and SuiteBridge plugin, records their hashes, verifies the read-only RCUT capability and the fenced NCUT provider capability, and checks public marks/cut preview readiness. The preflight contains no HTTP POST, no `NCUT EXEC`, no marks mutation and no service mutation.
 
 ## Real Slice-3 acceptance gate
 
@@ -92,4 +97,4 @@ Until that evidence is PASS, Slice 3 is not real-system complete and Slice 4 mus
 
 ## Safety boundary
 
-No real cut was executed while implementing or documenting the Slice-3 automated boundary. Any first real `POST /api/vdr/recordings/cut` remains an explicit approval gate.
+No real cut was executed while implementing, testing or documenting the Slice-3 automated boundary. Any first real `POST /api/vdr/recordings/cut` remains an explicit approval gate.

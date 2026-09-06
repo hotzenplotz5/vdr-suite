@@ -2,7 +2,7 @@
 
 ## Status
 
-**Authorized bounded post-Phase-66 workstream. Source and architecture audit complete enough to begin the first implementation vertical. Runtime acceptance is not yet claimed.**
+**Authorized bounded post-Phase-66 workstream. Slices 1 and 2 are complete, including real yaVDR Slice-2C acceptance. Slice 3 automated implementation and its guarded read-only real-system preflight are complete on `c5c7118dc252fb4eb564e0c92cedf38035f72be6` with VDR-Suite CI #8795 / run `34035354503` PASS; the first real cut remains explicitly approval-gated and has not been executed. Slice 4 and Slice 5 have not started. Phase 67 has not started.**
 
 This document owns the implementation scope and evidence boundary for native VDR recording marks and cutting. It does not create a new numbered phase or slice.
 

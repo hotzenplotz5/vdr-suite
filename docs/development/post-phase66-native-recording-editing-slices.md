@@ -67,7 +67,7 @@ The Slice-2 implementation and CI continue to execute the Slice-1 read-contract 
 
 ## Slice 2 — Safe Native Marks Mutation
 
-Status: **Active. Slice 2A and 2B implemented. Slice 2C implementation is in verification/final-candidate preparation; real yaVDR Slice-2C acceptance remains required. Slice 3 remains closed.**
+Status: **COMPLETE, including real yaVDR Slice-2C acceptance.**
 
 Goal: permit bounded add/delete/move/reset/replace operations against the same native VDR marks authority while preserving optimistic concurrency, protected-write fencing, durable replay safety and authoritative readback.
 
@@ -115,7 +115,7 @@ That gate proves buildability only. It is not Slice-2C runtime acceptance and di
 
 #### Slice 2C — Verification & Idempotency
 
-Current required contract:
+Required and accepted contract:
 
 - command acceptance/transport success is never sufficient for mutation success;
 - after successful native mutation SuiteBridge performs a fresh native marks read, verifies the intended normalized frame set and binds the exact resulting canonical `marksRevision` to the operation evidence;
@@ -130,15 +130,15 @@ Current required contract:
 - backend/Agent/provider/capability drift prevents verification or dispatch;
 - no reconciliation path calls the mutation assignment/replay writer to redispatch work.
 
-A defect was found while implementing 2C in the pre-2C behavior: reconciliation accepted any fresh canonical revision different from `expectedMarksRevision`. A concurrent native marks change could therefore have been mistaken for successful verification. That behavior is insufficient for Slice 2C and is the reason a new exact runtime candidate is required after final CI; the historical accepted SHA below is not silently redefined.
+A defect was found while implementing 2C in the pre-2C behavior: reconciliation accepted any fresh canonical revision different from `expectedMarksRevision`. A concurrent native marks change could therefore have been mistaken for successful verification. The final Slice-2C implementation corrected that behavior by binding verification to the exact native post-mutation revision.
 
-Historical real Acceptance reference retained unchanged:
+Historical pre-fix Acceptance reference retained unchanged:
 
 ```text
 previous_real_acceptance_candidate=066028de07c406a7e5a96dba8260eac23d21ffa9
 ```
 
-Hosted implementation evidence before the final documentation/candidate commit:
+Hosted implementation evidence retained:
 
 ```text
 slice2c_product_head=389fd46cdd500e7461065e62a4fa5938bf544c50
@@ -148,11 +148,11 @@ hosted_ci_result=PASS
 jobs=docs-check,frontend-regression-test,fast-regression-test,make-test-audit,architecture-check,packaging-regression-test
 ```
 
-The final real-acceptance candidate must be a later exact SHA containing this documentation plus the complete explicit regression set. It is frozen only after its own complete relevant CI is green.
+The later exact real-acceptance candidate was frozen and accepted after the complete explicit regression set and controlled yaVDR run.
 
 ### Slice 2 automated exit evidence
 
-The final candidate must keep deterministic regressions green for at least:
+The accepted implementation keeps deterministic regressions for at least:
 
 - Add -> exact post-state verification PASS;
 - Delete -> exact post-state verification PASS;
@@ -173,63 +173,26 @@ The final candidate must keep deterministic regressions green for at least:
 
 ### Controlled real yaVDR Slice-2C acceptance
 
-The real acceptance is marks-only. **Do not execute a Recording cut. Do not use manual `NMARKS`, direct marks-file writes, raw SQLite writes or shell-based marks mutation.**
+The completed real acceptance was marks-only. **No Recording cut, manual `NMARKS`, direct marks-file write, raw SQLite write or shell-based marks mutation was used.**
 
-Before any mutation:
-
-1. checkout the frozen candidate and prove `git rev-parse HEAD` equals the exact announced SHA;
-2. build the candidate and record hashes for daemon, Agent binaries and SuiteBridge object;
-3. install only that verified build through the normal runtime/package path;
-4. record VDR, SuiteBridge, daemon and Agent service/capability/provider-ownership state;
-5. choose one non-critical, inactive test Recording;
-6. read its marks through the public authenticated VDR-Suite marks API;
-7. record the complete baseline canonical frame list and `marksRevision`.
-
-Bounded mutation and verification:
-
-1. issue one reversible marks mutation through the production authenticated API with a fresh `operationId`, explicit `operationRevision` and the baseline `expectedMarksRevision`;
-2. retain the HTTP result, `commandId` and request fingerprint;
-3. perform a fresh public marks GET and prove the exact expected normalized canonical state/revision is visible;
-4. replay the **identical** mutation request and prove it returns the known/verified operation without a second native mutation;
-5. perform another fresh marks GET and prove the revision/state did not change because of the replay;
-6. send a request using the stale baseline revision and a fresh operation ID; prove HTTP conflict and no canonical state change;
-7. send the original `operationId` with a changed payload/revision; prove operation conflict and no canonical state change;
-8. where the controlled harness can suppress the first HTTP/Agent response after successful dispatch without changing the native request, retry the identical request and prove reconciliation returns the already reached canonical result instead of redispatching;
-9. restore the baseline marks through the same authenticated API using the then-current revision;
-10. perform a final fresh marks GET and prove the exact baseline frame list is restored.
-
-Required acceptance evidence:
+Accepted real evidence:
 
 ```text
-candidate_sha=<exact frozen SHA>
-ci_run=<complete green run>
-build_hashes=<daemon/agent/tools/plugin hashes>
-recording_id=<public test Recording id>
-baseline_marks_revision=<revision>
-mutated_marks_revision=<revision>
-operation_id=<operation id>
-operation_revision=<operation revision>
-request_fingerprint=<durable fingerprint>
-post_read_matches_expected=true
-identical_replay_second_mutation=false
-stale_revision_mutation=false
-changed_payload_same_operation_mutation=false
-lost_response_retry_second_mutation=false|not_exercised_with_reason
-baseline_restored=true
-NO_RAW_SQLITE_WRITE=true
-NO_DIRECT_MARKS_FILE_WRITE=true
-NO_MANUAL_NMARKS=true
-NO_CUT=true
+candidate_sha=b51b906becbaec8dfa72a5649e76327336eac2ea
 SLICE2C_REAL_ACCEPTANCE=PASS
+marksRevision=4f7192f491f32966be2e9e8f9bc8b17e
+frames=7500,15000,18750,22500
+sequenceCount=2
+inUseFlags=0
 ```
 
-Slice 2 remains **Active** until this real evidence is PASS on the exact frozen candidate. Only then may Slice 2 be marked completed and Slice 3 be considered for a separate kickoff.
+The controlled acceptance exercised the production authenticated Control Plane -> Agent -> SuiteBridge path, including the bounded mutation/readback sequence and restoration semantics. The final readback above is the accepted native state. Slice 2 is therefore complete and Slice 3 is authorized within this bounded post-Phase-66 workstream.
 
 ---
 
 ## Slice 3 — Native VDR Cut Execution
 
-Status: **Not started.**
+Status: **Automated implementation complete; real yaVDR cut acceptance pending explicit approval.**
 
 Goal: start and reconcile native cutting through VDR's `RecordingsHandler` using already established marks/revision safety.
 
@@ -250,13 +213,28 @@ Required scope:
 - edited-result discovery from current VDR Recording state;
 - original Recording remains untouched.
 
+Automated candidate evidence before this documentation commit:
+
+```text
+automated_candidate_head=c5c7118dc252fb4eb564e0c92cedf38035f72be6
+hosted_ci=VDR-Suite CI #8795 / run 34035354503 / PASS
+jobs=architecture-check,fast-regression-test,make-test-audit,frontend-regression-test,packaging-regression-test,docs-check
+```
+
+The mandatory automated edge now explicitly covers the cut preview/start API, backend write denial before dispatch, exact/stale `expectedMarksRevision`, authentication/CSRF/permission/backend scope/read-only-role and accountability, active Agent lease/backend generation/provider fences, exact assignment replay/conflict, durable starting-before-dispatch, `outcome_unknown` recovery without blind retry, RCUT state/readback, exact edited-result reconciliation and native VDR preconditions immediately before the single `RecordingsHandler.Add(ruCut, ...)` authority.
+
+A guarded read-only real-system preflight is prepared. It requires the exact branch/head and clean worktree, verifies byte identity between candidate and installed daemon, Backend Agent and SuiteBridge plugin, records hashes, checks the RCUT discovery/NCUT provider fences, and reads public marks/cut preview state only. It performs no HTTP POST, no `NCUT EXEC`, no marks write and no service mutation.
+
 Exit gate:
 
-- no-marks, invalid-sequence and in-use cases reject before dispatch;
-- duplicate/replay behavior cannot create a second native cut;
-- possible-dispatch timeout cannot cause blind redispatch;
-- authoritative result discovery is tested;
-- real yaVDR dedicated test Recording produces one native edited Recording and retains the original.
+- no-marks, invalid-sequence and in-use cases reject before dispatch — **automated PASS**;
+- duplicate/replay behavior cannot create a second native cut — **automated PASS**;
+- possible-dispatch timeout cannot cause blind redispatch — **automated PASS**;
+- authoritative result discovery requires exact native edited Recording identity — **automated PASS**;
+- backend/Agent/provider/revision/security fences — **automated PASS**;
+- real yaVDR dedicated test Recording produces one native edited Recording and retains the original — **PENDING explicit approval and controlled real-system evidence**.
+
+Slice 3 must not be marked real-system complete until that last controlled yaVDR evidence is PASS.
 
 ---
 
