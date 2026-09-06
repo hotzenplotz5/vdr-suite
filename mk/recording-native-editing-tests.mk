@@ -145,6 +145,7 @@ test-backend-agent-recording-marks-modify-state-extension:
 		core/agent/src/BackendAgentNativeTimerCreateRecovery.cpp \
 		core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 		core/agent/src/BackendAgentRecordingMarksModifyLocalState.cpp \
+		core/agent/src/BackendAgentRecordingCutLocalState.cpp \
 		core/agent/src/BackendAgentCommandStateExtension.cpp \
 		core/agent/tests/test_backend_agent_recording_marks_modify_state_extension.cpp \
 		$(LDFLAGS) \
