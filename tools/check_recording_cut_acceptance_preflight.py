@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the Slice-3 real-system preflight as strictly read-only."""
+"""Guard the Slice-3 real-system preflight as strictly read-only and shell-safe."""
 
 from pathlib import Path
 import re
@@ -16,6 +16,9 @@ else:
     text = RUNNER.read_text(encoding="utf-8")
 
 required = (
+    "set +e",
+    "set +u",
+    "set +o pipefail",
     "git branch --show-current",
     "git rev-parse HEAD",
     "git status --porcelain",
@@ -48,6 +51,14 @@ for token in required:
     if token not in text:
         errors.append(f"preflight missing required read-only token: {token}")
 
+for token, label in (
+    ("set -e", "shell fail-fast"),
+    ("set -u", "shell unset-variable abort"),
+    ("set -o pipefail", "shell pipefail"),
+):
+    if token in text:
+        errors.append(f"preflight contains forbidden {label} option")
+
 for pattern, label in (
     (r"PLUG\s+suitebridge\s+NCUT\s+EXEC\b", "native cut execution"),
     (r"PLUG\s+suitebridge\s+NMARKS\b", "manual marks mutation"),
@@ -74,4 +85,4 @@ if errors:
         print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1)
 
-print("recording cut acceptance preflight is read-only")
+print("recording cut acceptance preflight is read-only and shell-safe")

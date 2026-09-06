@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set +e
+set +u
+set +o pipefail
 umask 077
-
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO_ROOT"
 
 fail() {
     printf 'RECORDING_CUT_ACCEPTANCE_PREFLIGHT=FAIL\n' >&2
@@ -13,6 +12,10 @@ fail() {
     fi
     exit 1
 }
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" \
+    || fail "repository_root_resolution_failed"
+cd "$REPO_ROOT" || fail "repository_root_enter_failed"
 
 require_command() {
     command -v "$1" >/dev/null 2>&1 || fail "missing_command_$1"
@@ -52,7 +55,8 @@ esac
 [[ -z "$CA_CERTIFICATE_PATH" || -f "$CA_CERTIFICATE_PATH" ]] || fail "ca_certificate_missing"
 if [[ -n "$CURL_CONFIG" ]]; then
     [[ -f "$CURL_CONFIG" ]] || fail "curl_config_missing"
-    CURL_CONFIG_MODE="$(stat -c '%a' "$CURL_CONFIG")"
+    CURL_CONFIG_MODE="$(stat -c '%a' "$CURL_CONFIG")" \
+        || fail "curl_config_stat_failed"
     [[ "${CURL_CONFIG_MODE: -2}" == "00" ]] || fail "curl_config_permissions_too_open"
 fi
 
@@ -60,11 +64,12 @@ for command in git systemctl curl python3 sha256sum cmp svdrpsend grep stat pkg-
     require_command "$command"
 done
 
-CURRENT_BRANCH="$(git branch --show-current)"
-CURRENT_HEAD="$(git rev-parse HEAD)"
+CURRENT_BRANCH="$(git branch --show-current)" || fail "branch_read_failed"
+CURRENT_HEAD="$(git rev-parse HEAD)" || fail "head_read_failed"
+WORKTREE_STATUS="$(git status --porcelain)" || fail "worktree_status_failed"
 [[ "$CURRENT_BRANCH" == "$EXPECTED_BRANCH" ]] || fail "branch_mismatch"
 [[ "$CURRENT_HEAD" == "$EXPECTED_HEAD" ]] || fail "head_mismatch"
-[[ -z "$(git status --porcelain)" ]] || fail "worktree_not_clean"
+[[ -z "$WORKTREE_STATUS" ]] || fail "worktree_not_clean"
 
 VDR_LIBDIR="$(pkg-config --variable=libdir vdr)" || fail "vdr_libdir_failed"
 VDR_APIVERSION="$(pkg-config --variable=apiversion vdr)" || fail "vdr_apiversion_failed"
@@ -81,31 +86,38 @@ cmp -s "$DAEMON_CANDIDATE" "$DAEMON_INSTALLED" || fail "installed_daemon_candida
 cmp -s "$AGENT_CANDIDATE" "$AGENT_INSTALLED" || fail "installed_agent_candidate_mismatch"
 cmp -s "$PLUGIN_CANDIDATE" "$PLUGIN_INSTALLED" || fail "installed_suitebridge_candidate_mismatch"
 
-[[ "$(systemctl is-active "$VDR_SERVICE" || true)" == active ]] || fail "vdr_not_active"
-[[ "$(systemctl is-active "$DAEMON_SERVICE" || true)" == active ]] || fail "daemon_not_active"
-[[ "$(systemctl is-active "$AGENT_SERVICE" || true)" == active ]] || fail "agent_not_active"
+VDR_STATE="$(systemctl is-active "$VDR_SERVICE" 2>/dev/null)"
+DAEMON_STATE="$(systemctl is-active "$DAEMON_SERVICE" 2>/dev/null)"
+AGENT_STATE="$(systemctl is-active "$AGENT_SERVICE" 2>/dev/null)"
+[[ "$VDR_STATE" == active ]] || fail "vdr_not_active"
+[[ "$DAEMON_STATE" == active ]] || fail "daemon_not_active"
+[[ "$AGENT_STATE" == active ]] || fail "agent_not_active"
 
-mkdir -m 0700 "$EVIDENCE_DIR"
-printf '%s\n' "$CURRENT_BRANCH" > "$EVIDENCE_DIR/branch"
-printf '%s\n' "$CURRENT_HEAD" > "$EVIDENCE_DIR/HEAD"
+mkdir -m 0700 "$EVIDENCE_DIR" || fail "evidence_directory_create_failed"
+printf '%s\n' "$CURRENT_BRANCH" > "$EVIDENCE_DIR/branch" \
+    || fail "evidence_branch_write_failed"
+printf '%s\n' "$CURRENT_HEAD" > "$EVIDENCE_DIR/HEAD" \
+    || fail "evidence_head_write_failed"
 printf 'vdr=%s\ndaemon=%s\nagent=%s\n' \
-    "$(systemctl is-active "$VDR_SERVICE")" \
-    "$(systemctl is-active "$DAEMON_SERVICE")" \
-    "$(systemctl is-active "$AGENT_SERVICE")" \
-    > "$EVIDENCE_DIR/services.txt"
+    "$VDR_STATE" "$DAEMON_STATE" "$AGENT_STATE" \
+    > "$EVIDENCE_DIR/services.txt" \
+    || fail "evidence_services_write_failed"
 sha256sum \
     "$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" "$PLUGIN_CANDIDATE" \
     "$DAEMON_INSTALLED" "$AGENT_INSTALLED" "$PLUGIN_INSTALLED" \
-    > "$EVIDENCE_DIR/binaries.sha256"
+    > "$EVIDENCE_DIR/binaries.sha256" \
+    || fail "evidence_hashes_failed"
 
 svdrpsend -p "$SVDRP_PORT" "PLUG suitebridge CAPS 1" \
-    > "$EVIDENCE_DIR/suitebridge-caps.txt"
+    > "$EVIDENCE_DIR/suitebridge-caps.txt" \
+    || fail "suitebridge_caps_read_failed"
 grep -Fq '"id":"recording-cut-state","state":"available"' \
     "$EVIDENCE_DIR/suitebridge-caps.txt" \
     || fail "recording_cut_state_capability_unavailable"
 
 svdrpsend -p "$SVDRP_PORT" "PLUG suitebridge NCUT CAP 1 start" \
-    > "$EVIDENCE_DIR/suitebridge-ncut-cap.txt"
+    > "$EVIDENCE_DIR/suitebridge-ncut-cap.txt" \
+    || fail "suitebridge_ncut_cap_read_failed"
 grep -Fq 'vdr-suite-ncut-cap/1 vdr.recording.cut 1 recording-cut enabled suitebridge' \
     "$EVIDENCE_DIR/suitebridge-ncut-cap.txt" \
     || fail "recording_cut_mutation_provider_unavailable"
@@ -115,7 +127,7 @@ import sys
 from urllib.parse import urlencode
 print(urlencode({"backend": sys.argv[1], "recordingId": sys.argv[2]}))
 PY
-)"
+)" || fail "query_string_encode_failed"
 
 curl_arguments=(--silent --show-error --fail-with-body --max-time 15 --output -)
 if [[ -n "$CURL_CONFIG" ]]; then
@@ -128,10 +140,12 @@ curl_arguments+=(--get --request GET)
 
 curl "${curl_arguments[@]}" \
     "$CONTROL_PLANE_URL/api/vdr/recordings/marks?$QUERY_STRING" \
-    > "$EVIDENCE_DIR/marks.json"
+    > "$EVIDENCE_DIR/marks.json" \
+    || fail "marks_read_failed"
 curl "${curl_arguments[@]}" \
     "$CONTROL_PLANE_URL/api/vdr/recordings/cut?$QUERY_STRING" \
-    > "$EVIDENCE_DIR/cut-preview.json"
+    > "$EVIDENCE_DIR/cut-preview.json" \
+    || fail "cut_preview_read_failed"
 
 python3 - \
     "$BACKEND_ID" "$RECORDING_ID" \
@@ -195,3 +209,4 @@ print("HTTP_MUTATION=not_executed")
 print("NCUT_EXEC=not_executed")
 print("SERVICE_MUTATION=not_executed")
 PY
+[[ $? -eq 0 ]] || fail "preflight_validation_failed"
