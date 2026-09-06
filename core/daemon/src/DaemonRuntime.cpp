@@ -1,8 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "ContinueWatchingApiRuntime.h"
-#include "DaemonRuntimeRecordingCut.h"
-#include "DaemonRuntimeRecordingMarks.h"
+#include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonSqliteShutdownCancellation.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -44,16 +43,10 @@ int DaemonRuntime::run()
     }
     if (!backendRegistryService_ || !backendAccessPolicy_ || !backendAgentRepository_ ||
         !backendAgentCommandRepository_ ||
-        !configureDaemonRecordingMarksRuntime(*vdrRecordingCacheRepository_, backendRuntimeContexts_,
+        !configureDaemonRecordingEditingRuntime(*vdrRecordingCacheRepository_, backendRuntimeContexts_,
             *backendRegistryService_, *backendAccessPolicy_, *backendAgentRepository_,
             *backendAgentCommandRepository_)) {
-        std::cerr << "Recording marks runtime unavailable" << std::endl; return 1;
-    }
-    if (!configureDaemonRecordingCutRuntime(
-            backendRuntimeContexts_,
-            *backendAgentCommandRepository_)) {
-        std::cerr << "Recording cut reconciliation runtime unavailable" << std::endl;
-        return 1;
+        std::cerr << "Recording editing runtime unavailable" << std::endl; return 1;
     }
     auto lastVdrPoll = std::chrono::steady_clock::now();
     return runRecordingMediaHttpRuntime(
@@ -114,8 +107,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
-    resetDaemonRecordingCutRuntime();
-    resetDaemonRecordingMarksRuntime();
+    resetDaemonRecordingEditingRuntime();
     ContinueWatchingApiRuntime::instance().reset();
     SeriesArtworkSettingsApiRuntime::instance().reset();
     GlobalSearchApiRuntime::instance().reset();

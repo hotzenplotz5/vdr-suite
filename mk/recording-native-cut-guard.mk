@@ -3,7 +3,8 @@ VDR_RECORDING_NATIVE_CUT_STATE_SRC := \
 
 DAEMON_RECORDING_CUT_SRC := \
 	core/daemon/src/DaemonRecordingCutReconciliation.cpp \
-	core/daemon/src/DaemonRuntimeRecordingCut.cpp
+	core/daemon/src/DaemonRuntimeRecordingCut.cpp \
+	core/daemon/src/DaemonRuntimeRecordingEditing.cpp
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_CUT_STATE_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)

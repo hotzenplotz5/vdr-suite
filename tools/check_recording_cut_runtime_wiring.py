@@ -33,6 +33,7 @@ plugin_vdr = text("vdr-plugin-suite-bridge/suitebridge_recording_cut_vdr.cpp")
 plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
 daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
+daemon_editing = text("core/daemon/src/DaemonRuntimeRecordingEditing.cpp")
 daemon_runtime = text("core/daemon/src/DaemonRuntime.cpp")
 
 for label, content, tokens in (
@@ -126,9 +127,15 @@ for label, content, tokens in (
         "verifyRecordingCutResult",
         "ensureRecordingCutReconciliationSchema",
     )),
-    ("daemon cut lifecycle", daemon_runtime, (
+    ("recording editing composition", daemon_editing, (
+        "configureDaemonRecordingMarksRuntime",
         "configureDaemonRecordingCutRuntime",
         "resetDaemonRecordingCutRuntime",
+        "resetDaemonRecordingMarksRuntime",
+    )),
+    ("daemon recording lifecycle", daemon_runtime, (
+        "configureDaemonRecordingEditingRuntime",
+        "resetDaemonRecordingEditingRuntime",
     )),
 ):
     for token in tokens:
@@ -199,7 +206,7 @@ if "NCUT" in help_section:
 scoped = "\n".join((
     agent_main, client_header, client, domain, payload, assignment,
     local_state, executor, handler, transport, plugin_protocol, plugin_state,
-    plugin_vdr, daemon_match, daemon_cut,
+    plugin_vdr, daemon_match, daemon_cut, daemon_editing,
 ))
 for pattern in (
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
