@@ -85,6 +85,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
   if (recordingMarksModify.handled)
     return ReturnResult(recordingMarksModify, ReplyCode);
 
+  const SuiteBridgeCommandResult recordingCut =
+      recordingCut_.Handle(Command, Option);
+  if (recordingCut.handled)
+    return ReturnResult(recordingCut, ReplyCode);
+
   const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
       Command,
       Option,

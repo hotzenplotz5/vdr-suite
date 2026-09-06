@@ -20,7 +20,10 @@ cPluginSuiteBridge::cPluginSuiteBridge()
           &nativeTimerModifyVdrMutation_),
       recordingMarksModify_(
           nativeProbe_.PluginInstanceEpoch(),
-          &recordingMarksModifyVdrMutation_)
+          &recordingMarksModifyVdrMutation_),
+      recordingCut_(
+          nativeProbe_.PluginInstanceEpoch(),
+          &recordingCutVdrMutation_)
 {
 }
 
@@ -72,6 +75,8 @@ bool cPluginSuiteBridge::Initialize(void)
       "suitebridge: native-operation=vdr.timer.toggle schema=1 side-effect=timer-toggle mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   isyslog(
       "suitebridge: native-operation=vdr.recording.marks.modify schema=1 side-effect=recording-marks-modify mutations=enabled execution=enabled provider=suitebridge acceptance=required");
+  isyslog(
+      "suitebridge: native-operation=vdr.recording.cut schema=1 side-effect=recording-cut mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   return true;
 }
 
