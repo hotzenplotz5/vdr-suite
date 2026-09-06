@@ -5,6 +5,7 @@
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
 #include "BackendAgentRecordingMarksModifyLocalState.h"
+#include "BackendAgentRecordingCutLocalState.h"
 
 #include <cstdint>
 #include <string>
@@ -20,6 +21,8 @@ inline constexpr const char* kBackendAgentNativeTimerModifyLocalStateExtensionTy
     "vdr.timer.modify.local-state.v1";
 inline constexpr const char* kBackendAgentRecordingMarksModifyLocalStateExtensionType =
     "vdr.recording.marks.modify.local-state.v1";
+inline constexpr const char* kBackendAgentRecordingCutLocalStateExtensionType =
+    "vdr.recording.cut.local-state.v1";
 
 struct BackendAgentCommandStateExtension
 {
