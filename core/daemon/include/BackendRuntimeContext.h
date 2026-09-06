@@ -20,6 +20,7 @@
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
 #include "SuiteBridgeEpgMetadataResolver.h"
+#include "SuiteBridgeRecordingCutStateResolver.h"
 #include "SuiteBridgeRecordingMarksResolver.h"
 #include "SuiteBridgeRecordingMetadataResolver.h"
 #include "SuiteBridgeSvdrpTransport.h"
@@ -44,6 +45,7 @@ struct BackendRuntimeContext
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
+    std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
     std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
     std::unique_ptr<CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport;
@@ -75,6 +77,19 @@ struct BackendRuntimeContext
                     *suiteBridgeTransport);
         }
         return recordingMarksResolver.get();
+    }
+
+    SuiteBridgeRecordingCutStateResolver* ensureRecordingCutStateResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!recordingCutStateResolver) {
+            recordingCutStateResolver =
+                std::make_unique<SuiteBridgeRecordingCutStateResolver>(
+                    *suiteBridgeTransport);
+        }
+        return recordingCutStateResolver.get();
     }
 
     std::int64_t epgTypeSnapshotFrom = 0;
