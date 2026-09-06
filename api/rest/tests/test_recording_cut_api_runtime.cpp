@@ -134,6 +134,17 @@ int main()
         dispatched.back().recordingKey));
     assert(response.body.find("\"state\":\"queued\"") != std::string::npos);
 
+    response = {};
+    assert(runtime.tryHandlePost(
+        "/api/vdr/recordings/cut",
+        body("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        response));
+    assert(response.statusCode == 409);
+    assert(dispatched.size() == 2U);
+    assert(dispatched.back().replayOnly);
+    assert(response.body.find(
+        "recording_cut_marks_revision_conflict") != std::string::npos);
+
     resolver.state = readyState();
     resolver.state.ready = false;
     resolver.state.reason = "recording-handler-busy";
@@ -142,11 +153,45 @@ int main()
     assert(runtime.tryHandlePost(
         "/api/vdr/recordings/cut", body(), response));
     assert(response.statusCode == 409);
-    assert(dispatched.size() == 2U);
+    assert(dispatched.size() == 3U);
     assert(dispatched.back().replayOnly);
     assert(response.body.find(
         "recording_cut_precondition_recording_handler_busy") !=
         std::string::npos);
+
+    runtime.reset();
+    dispatched.clear();
+    resolver.state = readyState();
+    assert(runtime.configure(
+        [](const std::string&) {
+            return std::vector<VdrRecording>{recording()};
+        },
+        [&resolver](const std::string&) {
+            return RecordingCutBackendAccess{
+                RecordingCutBackendAvailability::Available, &resolver};
+        },
+        [](const std::string&) {
+            RecordingCutBackendWriteAccess access;
+            access.allowed = false;
+            access.statusCode = 403;
+            access.reasonCode = "backend_read_only";
+            return access;
+        },
+        [&dispatched](const RecordingCutStartRequest& request) {
+            dispatched.push_back(request);
+            RecordingCutDispatchResult result;
+            result.accepted = true;
+            result.commandId = "must-not-dispatch";
+            result.requestFingerprint = "must-not-dispatch";
+            return result;
+        }));
+
+    response = {};
+    assert(runtime.tryHandlePost(
+        "/api/vdr/recordings/cut", body(), response));
+    assert(response.statusCode == 403);
+    assert(dispatched.empty());
+    assert(response.body.find("backend_read_only") != std::string::npos);
 
     runtime.reset();
     dispatched.clear();
