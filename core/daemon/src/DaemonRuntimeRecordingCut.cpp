@@ -78,8 +78,12 @@ SuiteBridgeRecordingCutStateResolver* recordingCutStateResolverForBackend(
             return nullptr;
 
         const auto health = backendRuntimeContext->suiteBridgeAgentRuntime->health();
-        if (!health.running || !health.observation.hasDiscovery)
+        if (!health.running || !health.observation.hasDiscovery ||
+            !health.observation.discovery.capabilityAvailable(
+                "recording-cut-state"))
+        {
             return nullptr;
+        }
 
         return backendRuntimeContext->ensureRecordingCutStateResolver();
     }
@@ -214,7 +218,9 @@ bool configureDaemonRecordingCutRuntime(
 
                 const auto health =
                     backendRuntimeContext->suiteBridgeAgentRuntime->health();
-                if (!health.running || !health.observation.hasDiscovery)
+                if (!health.running || !health.observation.hasDiscovery ||
+                    !health.observation.discovery.capabilityAvailable(
+                        "recording-cut-state"))
                 {
                     return RecordingCutBackendAccess{
                         RecordingCutBackendAvailability::CapabilityUnavailable,
