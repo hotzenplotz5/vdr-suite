@@ -24,13 +24,24 @@ required = (
     "git status --porcelain",
     "pkg-config --variable=libdir vdr",
     "pkg-config --variable=apiversion vdr",
+    'ADMIN_CANDIDATE=".build/vdr-suite-backend-agent-command-admin"',
+    'ADMIN_INSTALLED="/usr/sbin/vdr-suite-backend-agent-command-admin"',
     'PLUGIN_CANDIDATE="vdr-plugin-suite-bridge/libvdr-suitebridge.so"',
     'PLUGIN_INSTALLED="$VDR_LIBDIR/libvdr-suitebridge.so.$VDR_APIVERSION"',
     "cmp -s \"$DAEMON_CANDIDATE\" \"$DAEMON_INSTALLED\"",
     "cmp -s \"$AGENT_CANDIDATE\" \"$AGENT_INSTALLED\"",
+    "cmp -s \"$ADMIN_CANDIDATE\" \"$ADMIN_INSTALLED\"",
     "cmp -s \"$PLUGIN_CANDIDATE\" \"$PLUGIN_INSTALLED\"",
-    '"$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" "$PLUGIN_CANDIDATE"',
-    '"$DAEMON_INSTALLED" "$AGENT_INSTALLED" "$PLUGIN_INSTALLED"',
+    '"$DAEMON_CANDIDATE" "$AGENT_CANDIDATE" "$ADMIN_CANDIDATE" "$PLUGIN_CANDIDATE"',
+    '"$DAEMON_INSTALLED" "$AGENT_INSTALLED" "$ADMIN_INSTALLED" "$PLUGIN_INSTALLED"',
+    "--recording-cut-provider-ownership-status",
+    "recording-cut-provider-ownership.json",
+    'ownership.get("authorityDomain") == "vdr.recording.cut"',
+    'ownership.get("providerId") == "suitebridge:recording-cut"',
+    'ownership.get("providerKind") == "suitebridge"',
+    'ownership.get("allowedCapabilities") == ["vdr.recording.cut"]',
+    '"local_provider_ownership_active"',
+    "OWNERSHIP_GENERATION=",
     "PLUG suitebridge CAPS 1",
     "PLUG suitebridge NCUT CAP 1 start",
     '"id":"recording-cut-state","state":"available"',
@@ -62,6 +73,8 @@ for token, label in (
 for pattern, label in (
     (r"PLUG\s+suitebridge\s+NCUT\s+EXEC\b", "native cut execution"),
     (r"PLUG\s+suitebridge\s+NMARKS\b", "manual marks mutation"),
+    (r"--set-recording-cut-owner\b", "provider ownership mutation"),
+    (r"--clear-recording-cut-owner\b", "provider ownership mutation"),
     (r"--request(?:=|\s+)POST\b", "HTTP POST"),
     (r"(?:^|\s)-X\s*POST\b", "HTTP POST shorthand"),
     (r"(?:^|\s)--data(?:-raw|-binary)?(?:=|\s)", "HTTP request body"),
@@ -79,6 +92,9 @@ if len(curl_lines) != 2:
 for line in curl_lines:
     if '"${curl_arguments[@]}"' not in line:
         errors.append("every preflight curl call must use the forced GET argument vector")
+
+if text.count("--recording-cut-provider-ownership-status") != 1:
+    errors.append("preflight must perform exactly one recording-cut ownership status read")
 
 if errors:
     for error in errors:
