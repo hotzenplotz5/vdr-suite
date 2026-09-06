@@ -148,3 +148,48 @@ test-fast: check-recording-cut-runtime-wiring \
 	test-suite-bridge-recording-cut-state-resolver \
 	test-suitebridge-recording-cut-protocol \
 	test-daemon-recording-cut-reconciliation
+
+RECORDING_CUT_ACCEPTANCE_PREFLIGHT_RUNNER := \
+	tools/run_recording_cut_acceptance_preflight.sh
+RECORDING_CUT_ACCEPTANCE_PREFLIGHT_GUARD := \
+	tools/check_recording_cut_acceptance_preflight.py
+
+RECORDING_CUT_EXPECTED_BRANCH ?= work/post-phase66-native-recording-editing
+RECORDING_CUT_EXPECTED_HEAD ?=
+RECORDING_CUT_CONTROL_PLANE_URL ?=
+RECORDING_CUT_CURL_CONFIG ?=
+RECORDING_CUT_CA_CERTIFICATE_PATH ?=
+RECORDING_CUT_EVIDENCE_DIR ?=
+RECORDING_CUT_BACKEND_ID ?= default
+RECORDING_CUT_RECORDING_ID ?=
+RECORDING_CUT_DAEMON_SERVICE ?= vdr-suite-daemon.service
+RECORDING_CUT_AGENT_SERVICE ?= vdr-suite-backend-agent.service
+RECORDING_CUT_VDR_SERVICE ?= vdr.service
+RECORDING_CUT_SVDRP_PORT ?= 6419
+
+.PHONY: test-recording-cut-acceptance-preflight-harness recording-cut-acceptance-preflight
+
+test-recording-cut-acceptance-preflight-harness:
+	bash -n "$(RECORDING_CUT_ACCEPTANCE_PREFLIGHT_RUNNER)"
+	python3 "$(RECORDING_CUT_ACCEPTANCE_PREFLIGHT_GUARD)"
+
+recording-cut-acceptance-preflight: test-recording-cut-acceptance-preflight-harness
+	@test -n "$(RECORDING_CUT_EXPECTED_HEAD)" || { echo "RECORDING_CUT_EXPECTED_HEAD is required"; exit 2; }
+	@test -n "$(RECORDING_CUT_CONTROL_PLANE_URL)" || { echo "RECORDING_CUT_CONTROL_PLANE_URL is required"; exit 2; }
+	@test -n "$(RECORDING_CUT_EVIDENCE_DIR)" || { echo "RECORDING_CUT_EVIDENCE_DIR is required"; exit 2; }
+	@test -n "$(RECORDING_CUT_RECORDING_ID)" || { echo "RECORDING_CUT_RECORDING_ID is required"; exit 2; }
+	RECORDING_CUT_EXPECTED_BRANCH="$(RECORDING_CUT_EXPECTED_BRANCH)" \
+	RECORDING_CUT_EXPECTED_HEAD="$(RECORDING_CUT_EXPECTED_HEAD)" \
+	RECORDING_CUT_CONTROL_PLANE_URL="$(RECORDING_CUT_CONTROL_PLANE_URL)" \
+	RECORDING_CUT_CURL_CONFIG="$(RECORDING_CUT_CURL_CONFIG)" \
+	RECORDING_CUT_CA_CERTIFICATE_PATH="$(RECORDING_CUT_CA_CERTIFICATE_PATH)" \
+	RECORDING_CUT_EVIDENCE_DIR="$(RECORDING_CUT_EVIDENCE_DIR)" \
+	RECORDING_CUT_BACKEND_ID="$(RECORDING_CUT_BACKEND_ID)" \
+	RECORDING_CUT_RECORDING_ID="$(RECORDING_CUT_RECORDING_ID)" \
+	RECORDING_CUT_DAEMON_SERVICE="$(RECORDING_CUT_DAEMON_SERVICE)" \
+	RECORDING_CUT_AGENT_SERVICE="$(RECORDING_CUT_AGENT_SERVICE)" \
+	RECORDING_CUT_VDR_SERVICE="$(RECORDING_CUT_VDR_SERVICE)" \
+	RECORDING_CUT_SVDRP_PORT="$(RECORDING_CUT_SVDRP_PORT)" \
+	bash "$(RECORDING_CUT_ACCEPTANCE_PREFLIGHT_RUNNER)"
+
+test-fast: test-recording-cut-acceptance-preflight-harness
