@@ -264,6 +264,14 @@ public:
     {
         ApiResponse response;
 
+        if (RecordingCutApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
         if (RecordingMarksApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 body,

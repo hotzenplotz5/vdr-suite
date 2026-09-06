@@ -108,6 +108,8 @@ public:
             (path == "/api/recordings/actions/execute" || path == "/api/vdr/recordings/actions/execute");
         const bool isRecordingMarksModifyAction =
             isPost && path == "/api/vdr/recordings/marks";
+        const bool isRecordingCutAction =
+            isPost && path == "/api/vdr/recordings/cut";
         const bool isSearchTimerCreateAction = isPost &&
             (path == "/api/searchtimers" || path == "/api/vdr/searchtimers");
         const bool isSearchTimerUpdateAction = isPost &&
@@ -160,7 +162,7 @@ public:
         const bool isProtectedMutation =
             isRemoteAction || isTimerCreateAction || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
-            isRecordingMarksModifyAction ||
+            isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
             isSearchTimerExecuteAction || isSearchTimerRealTestAction ||
             isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
@@ -306,6 +308,11 @@ public:
         {
             requestToAuthorize.permission = "recordings.marks.modify";
             requestToAuthorize.action = "recordings.marks.modify";
+        }
+        else if (isRecordingCutAction)
+        {
+            requestToAuthorize.permission = "recordings.cut";
+            requestToAuthorize.action = "recordings.cut";
         }
         else if (isSearchTimerCreateAction)
         {

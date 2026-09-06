@@ -14,7 +14,7 @@ DAEMON_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 
-.PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
+.PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-recording-cut-security test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-daemon-recording-cut-reconciliation
 
 check-recording-cut-runtime-wiring:
 	python3 tools/check_recording_cut_runtime_wiring.py
@@ -28,6 +28,15 @@ test-recording-cut-api-runtime:
 		api/rest/tests/test_recording_cut_api_runtime.cpp \
 		-o $(BUILD_DIR)/test_recording_cut_api_runtime
 	$(BUILD_DIR)/test_recording_cut_api_runtime
+
+test-recording-cut-security:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_recording_cut_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_recording_cut_security
+	$(BUILD_DIR)/test_recording_cut_security
 
 test-backend-agent-recording-cut-reconciliation:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -82,6 +91,7 @@ test-daemon-recording-cut-reconciliation:
 # test-fast recipe/graph untouched while making the Slice-3 boundary mandatory.
 test-fast: check-recording-cut-runtime-wiring \
 	test-recording-cut-api-runtime \
+	test-recording-cut-security \
 	test-backend-agent-recording-cut-reconciliation \
 	test-suite-bridge-svdrp-recording-cut-state-transport \
 	test-suite-bridge-recording-cut-state-resolver \
