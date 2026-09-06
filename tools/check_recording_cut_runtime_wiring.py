@@ -84,7 +84,7 @@ for label, content, tokens in (
     )),
     ("typed cut transport", transport, (
         "NCUT",
-        "vdr.recording.cut",
+        "kBackendAgentRecordingCutCapability",
         "outcomeUnknown",
         "providerInstanceEpoch",
     )),
@@ -124,11 +124,16 @@ for token in (
     if position < 0 or enqueue < 0 or position >= enqueue:
         errors.append(f"native cut precondition must precede enqueue: {token}")
 
-# Durable local starting must be created and persisted before native dispatch.
-prepare = client.find("prepareFreshRecordingCutLocalStarting(")
-dispatch = client.find("executeFreshRecordingCutAndPersistOutcome(", prepare)
+# Durable local starting must be created and persisted before the receipt and
+# the native dispatch in the actual recording-cut branch (not merely in helper
+# function definitions elsewhere in the translation unit).
+cut_branch = client.find("if (recordingCutCommand &&")
+prepare = client.find("prepareFreshRecordingCutLocalStarting(", cut_branch)
 receipt = client.find("sendReceipt(config, context, transport, state, reason)", prepare)
-if min(prepare, receipt, dispatch) < 0 or not (prepare < receipt < dispatch):
+dispatch = client.find("executeFreshRecordingCutAndPersistOutcome(", receipt)
+if min(cut_branch, prepare, receipt, dispatch) < 0 or not (
+    cut_branch < prepare < receipt < dispatch
+):
     errors.append("cut durable-start/receipt handoff must precede native dispatch")
 
 # The executor gets exactly one native start call. Recovery is reconciliation-only.
