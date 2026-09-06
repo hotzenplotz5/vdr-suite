@@ -187,7 +187,14 @@ int main(int argc, char** argv)
     AccountabilityEventRepository accountability(database);
     BackendAgentRepository agents(database);
     BackendAgentCommandRepository commands(database);
-    if (!accountability.ensureSchema() || !agents.ensureSchema() || !commands.ensureSchema())
+    const bool statusOnly =
+        action == Action::Status ||
+        action == Action::ProviderOwnershipStatus ||
+        action == Action::LiveProviderOwnershipStatus ||
+        action == Action::RecordingMarksProviderOwnershipStatus ||
+        action == Action::RecordingCutProviderOwnershipStatus;
+    if (!statusOnly &&
+        (!accountability.ensureSchema() || !agents.ensureSchema() || !commands.ensureSchema()))
     {
         std::cerr << "failed to initialize Backend Agent command repositories" << std::endl;
         return 74;
@@ -210,7 +217,7 @@ int main(int argc, char** argv)
                 << "\",\"resultCategory\":\"" << escape(summary.resultCategory)
                 << "\",\"dispatchState\":\"" << escape(summary.dispatchState)
                 << "\",\"verificationState\":\"" << escape(summary.verificationState)
-                << ",\"backendGeneration\":" << summary.backendGeneration
+                << "\",\"backendGeneration\":" << summary.backendGeneration
                 << ",\"claimEpoch\":" << summary.claimEpoch
                 << ",\"deliveryCount\":" << summary.deliveryCount
                 << ",\"receiptReplayCount\":" << summary.receiptReplayCount
