@@ -98,5 +98,5 @@ test-recordings2-install-staging: test-install-staging
 .PHONY: test-recording-cache-refresh-queue
 test-fast: test-recording-cache-refresh-queue
 test-recording-cache-refresh-queue:
-	$(CXX) -std=c++17 -pthread -Icore/daemon/include core/daemon/tests/test_recording_cache_refresh_queue.cpp -o /tmp/vdr-suite-test-recording-cache-refresh-queue
-	/tmp/vdr-suite-test-recording-cache-refresh-queue
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/daemon/include core/daemon/tests/test_recording_cache_refresh_queue.cpp -o $(BUILD_DIR)/test_recording_cache_refresh_queue
+	$(BUILD_DIR)/test_recording_cache_refresh_queue
