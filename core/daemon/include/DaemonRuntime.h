@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "RecordingCacheRefreshQueue.h"
 #include "BackendAccessPolicy.h"
 #include "BackendAgentHttpServer.h"
 #include "BackendAgentLifecycle.h"
@@ -164,7 +165,9 @@ private:
     void startRecordingCacheWarmupWorker();
     void stopRecordingCacheWarmupWorker();
     void runRecordingCacheWarmupWorker();
-    void refreshRecordingCacheForAllBackends(const std::string& reason);
+    void refreshRecordingCacheForAllBackends(
+        const std::string& reason, const std::string& backendId = "");
+    void publishCompletedRecordingRefreshes();
     std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
         const BackendNode& backend);
 
@@ -173,8 +176,7 @@ private:
     std::atomic<bool> epgCacheWarmupStopRequested_;
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
-    std::atomic<bool> recordingCacheDirtyHint_;
-    std::atomic<int> recordingCacheActionRefreshAttempts_;
+    RecordingCacheRefreshQueue recordingCacheRefreshQueue_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
 

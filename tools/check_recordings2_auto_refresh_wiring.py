@@ -16,8 +16,8 @@ refresh = source('web/frontend/recordings2-folder-refresh.js')
 make = source('mk/recordings2.mk')
 server = source('core/http/src/TestHttpServerPaths.inc')
 
-require(len(owner.splitlines()) <= 330, 'Recordings 2 owner exceeds its modularity budget')
-require(len(refresh.splitlines()) <= 180, 'Recording folder refresh module is too large')
+require(len(owner.splitlines()) <= 340, 'Recordings 2 owner exceeds its modularity budget')
+require(len(refresh.splitlines()) <= 240, 'Recording folder refresh module is too large')
 for token in (
     'global.VdrSuiteRecordings2FolderRefresh = Object.freeze({create})',
     'const INTERVAL_MS = 30000;',
@@ -25,6 +25,10 @@ for token in (
     "cache: 'no-store'",
     "credentials: 'same-origin'",
     'requestSequence',
+    "source.addEventListener('update'",
+    'options.createClientLiveUpdateSource()',
+    "data.changedDomains.includes('recordings')",
+    'source.close()',
     'serverSignature',
     'resolveLeaves(data, current)',
     'state().selectedRecording',

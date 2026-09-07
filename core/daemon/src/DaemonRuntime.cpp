@@ -19,9 +19,7 @@ DaemonRuntime::DaemonRuntime()
       externalVdrChangeHint_(false),
       epgCacheWarmupStopRequested_(false),
       epgCacheDirtyHint_(false),
-      recordingCacheWarmupStopRequested_(false),
-      recordingCacheDirtyHint_(false),
-      recordingCacheActionRefreshAttempts_(0)
+      recordingCacheWarmupStopRequested_(false)
 {
 }
 
@@ -61,6 +59,7 @@ int DaemonRuntime::run()
             return shutdownRequested_.load();
         },
         [this, lastVdrPoll]() mutable {
+            publishCompletedRecordingRefreshes();
             const auto now = std::chrono::steady_clock::now();
             const bool externalHint = externalVdrChangeHint_.exchange(false);
 

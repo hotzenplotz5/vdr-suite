@@ -7,6 +7,43 @@
     const state = options.getState;
     let timer = null;
     let busy = false;
+    let source = null;
+    let pending = false;
+    let lastSequence = 0;
+    let connectionSequence = 0;
+
+    function subscribe() {
+      if (source || typeof options.createClientLiveUpdateSource !== 'function') return;
+      source = options.createClientLiveUpdateSource();
+      if (!source) return;
+      const currentSource = source;
+      source.onopen = function () { connectionSequence = 0; };
+      source.addEventListener('update', function (event) {
+        if (source !== currentSource || !state().active) return;
+        let data;
+        try { data = JSON.parse(event.data); } catch (_) { return; }
+        const sequence = Number(data && data.sequenceNumber);
+        if (!Number.isSafeInteger(sequence) || sequence < 1) return;
+        connectionSequence = Math.max(connectionSequence, sequence);
+        if (sequence <= lastSequence) return;
+        lastSequence = sequence;
+        if (String(data.backendId || 'default') !== state().backendId ||
+            !Array.isArray(data.changedDomains) ||
+            !data.changedDomains.includes('recordings')) return;
+        pending = true;
+        if (!busy) schedule(0);
+      });
+      source.onerror = function () {
+        // The existing endpoint replays a finite feed on reconnect. A daemon
+        // restart can reset sequence numbers; refresh once and accept its epoch.
+        if (source !== currentSource) return;
+        if (connectionSequence < lastSequence) {
+          lastSequence = connectionSequence;
+          pending = true;
+          if (!busy) schedule(0);
+        }
+      };
+    }
 
     function requestFolder(path, offset, limit, backendId) {
       return options.fetchClientRecordingFolder({
@@ -59,20 +96,29 @@
       });
     }
 
-    function stop() {
+    function cancelTimer() {
       if (timer !== null) {
         global.clearTimeout(timer);
         timer = null;
       }
     }
 
+    function stop() {
+      cancelTimer();
+      if (source) { source.close(); source = null; }
+      lastSequence = 0;
+      connectionSequence = 0;
+      pending = false;
+    }
+
     function schedule(delay) {
-      stop();
+      cancelTimer();
       if (!state().active || state().selectedRecording) return;
+      subscribe();
       timer = global.setTimeout(function () {
         timer = null;
         refresh();
-      }, delay === undefined ? INTERVAL_MS : delay);
+      }, delay === undefined ? (pending ? 0 : INTERVAL_MS) : delay);
     }
 
     function refresh() {
@@ -80,7 +126,7 @@
       if (!currentState.active) return;
       if (busy || currentState.loading || currentState.loadingMore ||
           currentState.selectedRecording || (global.document && global.document.hidden)) {
-        schedule();
+        schedule(INTERVAL_MS);
         return;
       }
       if (!currentState.data || currentState.error) {
@@ -99,6 +145,7 @@
           !(global.document && global.document.hidden);
       };
       busy = true;
+      pending = false;
       let applied = false;
       requestFolder(path, 0, limit, backendId)
         .then(function (data) {

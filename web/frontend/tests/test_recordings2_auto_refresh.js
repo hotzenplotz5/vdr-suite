@@ -25,6 +25,7 @@ function makeHarness() {
   const timers = new Map();
   const listeners = {};
   const requests = [];
+  const sources = [];
   const renders = [];
   const modules = new Map();
   const target = {classList: {remove() {}}, querySelector() { return null; }};
@@ -43,6 +44,15 @@ function makeHarness() {
       const pending = deferred();
       requests.push({options, pending});
       return pending.promise;
+    }, createClientLiveUpdateSource() {
+      const source = {closed: false, handlers: {},
+        addEventListener(name, fn) { this.handlers[name] = fn; },
+        close() { this.closed = true; },
+        emit(sequenceNumber, backendId, changedDomains) {
+          this.handlers.update({data: JSON.stringify({sequenceNumber, backendId, changedDomains})});
+        }};
+      sources.push(source);
+      return source;
     }}; },
     normalizePath(path) { return String(path || '').replace(/^\/+|\/+$/g, ''); },
     number(value, fallback) { const n = Number(value); return Number.isFinite(n) ? n : fallback; },
@@ -121,12 +131,57 @@ function makeHarness() {
     requests[index].pending.resolve(data);
     await flush();
   }
-  return {api, owner: () => owner, requests, renders, timers, document, listeners,
+  return {sources, api, owner: () => owner, requests, renders, timers, document, listeners,
     advance, page, respond, failNextLeaves() { failLeaves = true; },
     setBackend(value) { backend = value; }};
 }
 
+async function testLiveUpdates() {
+  const h = makeHarness();
+  h.api.activate();
+  const page = h.page('', [{id: '1'}]);
+  await h.respond(0, page);
+  const source = h.sources[0];
+  assert(source && !source.closed);
+  source.onopen();
+  source.emit(1, 'other', ['recordings']);
+  source.emit(2, 'default', ['timers']);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 1);
+  source.emit(3, 'default', ['recordings']);
+  source.emit(4, 'default', ['recordings']);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 2, 'burst coalesces');
+  source.emit(5, 'default', ['recordings']);
+  await h.respond(1, page);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 3, 'hint during read is retained');
+  await h.respond(2, page);
+  source.emit(5, 'default', ['recordings']);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 3, 'replayed feed is deduplicated');
+  source.onopen();
+  source.emit(1, 'default', ['recordings']);
+  source.onerror();
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 4, 'daemon sequence reset refreshes');
+  await h.respond(3, page);
+  h.owner().selectRecording({id: '1'});
+  assert(source.closed, 'detail releases folder subscription');
+  source.emit(6, 'default', ['recordings']);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 4, 'late closed subscription cannot refresh');
+  h.owner().closeDetail();
+  await h.advance(0);
+  await h.respond(4, page);
+  const replacement = h.sources.at(-1);
+  assert.notStrictEqual(replacement, source);
+  h.api.deactivate();
+  assert(replacement.closed, 'deactivation releases subscription');
+}
+
 async function run() {
+  await testLiveUpdates();
   const h = makeHarness();
   const {api, requests, renders} = h;
   const original = {id: '1000', title: 'Brisant', backendNativeId: ORIGINAL};

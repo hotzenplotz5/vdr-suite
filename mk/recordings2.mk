@@ -94,3 +94,9 @@ test-recordings2-install-staging: test-install-staging
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-detail.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2.js
+
+.PHONY: test-recording-cache-refresh-queue
+test-fast: test-recording-cache-refresh-queue
+test-recording-cache-refresh-queue:
+	$(CXX) -std=c++17 -pthread -Icore/daemon/include core/daemon/tests/test_recording_cache_refresh_queue.cpp -o /tmp/vdr-suite-test-recording-cache-refresh-queue
+	/tmp/vdr-suite-test-recording-cache-refresh-queue
