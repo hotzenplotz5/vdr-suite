@@ -153,6 +153,7 @@
       return;
     }
 
+    if (panel.editor) return;
     const list = node('ol', 'recordings2-marks-list');
     marks.forEach(function (mark, index) {
       const item = node('li', 'recordings2-mark');

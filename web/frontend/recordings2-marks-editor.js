@@ -18,6 +18,8 @@
 
   function attach(root, panel, recording, backendId, initial, options) {
     if (root.__vdrSuiteMarksEditor) return root.__vdrSuiteMarksEditor;
+    panel.editor = true;
+    options.renderPayload(panel, initial);
     const identity = {backendId: String(backendId), recordingId: String(recording.recordingId || recording.id)};
     const controls = node('div');
     controls.className = 'recordings2-marks-editor';
