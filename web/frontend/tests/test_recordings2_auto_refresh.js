@@ -29,7 +29,7 @@ function makeHarness() {
   const renders = [];
   const modules = new Map();
   const target = {classList: {remove() {}}, querySelector() { return null; }};
-  const tab = {classList: {contains() { return true; }, toggle() {}}, addEventListener() {}};
+  const tab = {classList: {contains() { return false; }, toggle() {}}, addEventListener() {}};
   const document = {
     hidden: false,
     querySelector(selector) { return selector === '[data-module="recordings2"]' ? tab : null; },
