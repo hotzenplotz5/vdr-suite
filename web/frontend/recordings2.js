@@ -102,10 +102,7 @@
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
-  function clearExternalDetailReturn() {
-    state.detailReturn = null;
-    state.detailReturnLabel = '';
-  }
+  function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; }
   function loadFolder(path) {
     stopFolderRefresh();
     state.active = true;
