@@ -14,7 +14,6 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return {promise, resolve, reject};
 }
-
 async function flush() {
   for (let i = 0; i < 8; i += 1) await Promise.resolve();
 }
@@ -23,15 +22,21 @@ function makeHarness() {
   let now = 0;
   let nextTimer = 1;
   let backend = 'default';
+  let owner;
+  let failLeaves = false;
   const timers = new Map();
   const listeners = {};
   const requests = [];
   const renders = [];
   const modules = new Map();
   const target = {classList: {remove() {}}, querySelector() { return null; }};
+  const tab = {
+    classList: {contains() { return true; }, toggle() {}},
+    addEventListener() {}
+  };
   const document = {
     hidden: false,
-    querySelector() { return null; },
+    querySelector(selector) { return selector === '[data-module="recordings2"]' ? tab : null; },
     querySelectorAll() { return []; },
     getElementById() { return null; },
     addEventListener(name, callback) { (listeners[name] ||= []).push(callback); }
@@ -63,17 +68,6 @@ function makeHarness() {
     'recordingTitle', 'recordingSubtitle', 'recordingSummary', 'recordingPosterUrl',
     'formatDuration', 'formatSize']) shared[name] = value => String(value || '');
   const browserView = {create(options) {
-    return {
-      renderLoading() { renders.push('loading'); },
-      renderError() { renders.push('error'); },
-      renderFolder() { renders.push('folder'); },
-      renderDetail() { renders.push('detail'); },
-      destroy() { renders.push('destroy'); },
-      ...{__owner: options}
-    };
-  }};
-  let owner;
-  browserView.create = function (options) {
     owner = options;
     return {
       renderLoading() { renders.push('loading'); },
@@ -82,7 +76,7 @@ function makeHarness() {
       renderDetail() { renders.push('detail'); },
       destroy() { renders.push('destroy'); }
     };
-  };
+  }};
   const window = {
     document,
     setTimeout(callback, delay) {
@@ -93,10 +87,12 @@ function makeHarness() {
     clearTimeout(id) { timers.delete(id); },
     VdrSuiteRecordings2Shared: shared,
     VdrSuiteRecordings2FolderArtwork: {
-      resolveLeaves(data) { return Promise.resolve({folders: data.folders, recordings: []}); }
+      resolveLeaves(data) {
+        if (failLeaves) { failLeaves = false; return Promise.reject(new Error('leaf unavailable')); }
+        return Promise.resolve({folders: data.folders, recordings: []});
+      }
     },
-    VdrSuiteRecordings2BrowserView: browserView,
-    VdrSuitePlatform: null
+    VdrSuiteRecordings2BrowserView: browserView
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
     String, Number, Math, Array, JSON, Map, Set});
@@ -123,8 +119,13 @@ function makeHarness() {
       totalCount: 1002
     };
   }
+  async function respond(index, data) {
+    requests[index].pending.resolve(data);
+    await flush();
+  }
   return {api, owner: () => owner, requests, renders, timers, document, listeners,
-    advance, page, setBackend(value) { backend = value; }};
+    advance, page, respond, failNextLeaves() { failLeaves = true; },
+    setBackend(value) { backend = value; }};
 }
 
 async function run() {
@@ -141,47 +142,40 @@ async function run() {
   api.activate();
   assert.strictEqual(requests.length, 1);
   assert.strictEqual(requests[0].options.cache, 'no-store');
-  requests[0].pending.resolve(root);
-  await flush();
+  await h.respond(0, root);
   assert.strictEqual(h.timers.size, 1);
   const initialRenders = renders.length;
 
   // An unchanged folder is not rebuilt or made to flash a loading screen.
   await h.advance(30000);
   assert.strictEqual(requests.length, 2);
-  requests[1].pending.resolve(root);
-  await flush();
+  await h.respond(1, root);
   assert.strictEqual(renders.length, initialRenders);
 
-  // A native cut arriving in the existing cache appears without a user refresh.
+  // A native cut arriving in the canonical cache appears without manual refresh.
   await h.advance(30000);
-  requests[2].pending.resolve(updated);
-  await flush();
+  await h.respond(2, updated);
   assert.strictEqual(h.owner().getState().data.folders[0].path, '%Brisant');
   assert.strictEqual(renders.at(-1), 'folder');
   assert.strictEqual(h.timers.size, 1);
 
-  // Reopening the already-active owner checks immediately instead of reusing stale data.
+  // An already-active owner checks immediately on reactivation.
   api.activate();
   await h.advance(0);
   assert.strictEqual(requests.length, 4);
-  requests[3].pending.resolve(updated);
-  await flush();
+  await h.respond(3, updated);
 
-  // Preserve the number of already loaded rows when refreshing a paginated folder.
+  // Preserve the number of already loaded rows across an automatic refresh.
   api.openFolder('%Brisant');
-  requests[4].pending.resolve(h.page('%Brisant', [edited, original], [], 3));
-  await flush();
+  await h.respond(4, h.page('%Brisant', [edited, original], [], 3));
   h.owner().loadMore();
-  requests[5].pending.resolve(h.page('%Brisant', [{id: '1003', title: 'Extra'}], [], 3));
-  await flush();
+  await h.respond(5, h.page('%Brisant', [{id: '1003', title: 'Extra'}], [], 3));
   await h.advance(30000);
   assert.strictEqual(requests[6].options.query.limit, 3);
-  requests[6].pending.resolve(h.page('%Brisant', [edited, original, {id: '1003'}], [], 3));
-  await flush();
+  await h.respond(6, h.page('%Brisant', [edited, original, {id: '1003'}], [], 3));
   assert.strictEqual(h.owner().getState().serverRecordings.length, 3);
 
-  // Selection/playback ownership is not destroyed by background refresh.
+  // Selection and playback ownership must not be destroyed by background work.
   h.owner().selectRecording(edited);
   const detail = h.owner().getState().selectedRecording;
   const detailRenders = renders.length;
@@ -191,43 +185,51 @@ async function run() {
   assert.strictEqual(renders.length, detailRenders);
   h.owner().closeDetail();
   await h.advance(0);
-  assert.strictEqual(requests.length, 8);
-  requests[7].pending.resolve(h.page('%Brisant', [edited], [], 1));
-  await flush();
+  await h.respond(7, h.page('%Brisant', [edited], [], 1));
 
   // A request from an old folder must never overwrite a newer navigation.
   await h.advance(30000);
   assert.strictEqual(requests.length, 9);
   h.owner().openFolder('Brisant');
   assert.strictEqual(requests.length, 10);
-  requests[9].pending.resolve(h.page('Brisant', [original]));
-  await flush();
-  requests[8].pending.resolve(h.page('%Brisant', [edited]));
-  await flush();
+  await h.respond(9, h.page('Brisant', [original]));
+  await h.respond(8, h.page('%Brisant', [edited]));
   assert.strictEqual(h.owner().getState().path, 'Brisant');
 
-  // Hidden tabs do not poll; visibility restoration requests the current folder.
+  // Hidden tabs do not poll; visibility restoration checks the current folder.
   h.document.hidden = true;
   await h.advance(30000);
   assert.strictEqual(requests.length, 10);
   h.document.hidden = false;
   h.listeners.visibilitychange[0]();
   await h.advance(0);
-  assert.strictEqual(requests.length, 11);
-  requests[10].pending.resolve(h.page('Brisant', [original]));
-  await flush();
+  await h.respond(10, h.page('Brisant', [original]));
 
-  // A backend switch discards the old owner and uses the selected backend.
+  // Failed background requests keep the usable view and are retried.
+  await h.advance(30000);
+  const beforeFailure = renders.length;
+  requests[11].pending.reject(new Error('temporary outage'));
+  await flush();
+  assert.strictEqual(renders.length, beforeFailure);
+  assert.strictEqual(h.owner().getState().error, null);
+  await h.advance(30000);
+  h.failNextLeaves();
+  await h.respond(12, h.page('Brisant', [original, edited]));
+  assert.strictEqual(h.owner().getState().serverSignature, '');
+  assert.strictEqual(renders.at(-1), 'folder');
+  await h.advance(30000);
+  await h.respond(13, h.page('Brisant', [original, edited]));
+  assert.notStrictEqual(h.owner().getState().serverSignature, '');
+
+  // A backend switch uses the selected backend and discards the old owner.
   h.setBackend('other');
   api.activate();
-  assert.strictEqual(requests[11].options.query.backend, 'other');
-  requests[11].pending.resolve(h.page('', []));
-  await flush();
-
+  assert.strictEqual(requests[14].options.query.backend, 'other');
+  await h.respond(14, h.page('', []));
   api.deactivate();
   assert.strictEqual(h.timers.size, 0);
   await h.advance(90000);
-  assert.strictEqual(requests.length, 12);
+  assert.strictEqual(requests.length, 15);
   assert.strictEqual(h.owner().getState().active, false);
   console.log('recordings2 automatic folder refresh lifecycle ok');
 }
