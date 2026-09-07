@@ -1,4 +1,4 @@
-// Canonical recording-folder reads and background refresh lifecycle.
+// Canonical recording-folder reads, projection and background refresh lifecycle.
 (function (global) {
   'use strict';
   const INTERVAL_MS = 30000;
@@ -29,6 +29,18 @@
       ]);
     }
 
+    function updatePresentedFolderState() {
+      const value = state();
+      const folders = options.shared.folderList(value.data);
+      value.recordings = value.serverRecordings.concat(value.promotedRecordings);
+      value.data = Object.assign({}, value.data || {}, {
+        folders: folders,
+        folderCount: folders.length,
+        recordingCount: value.serverRecordingCount + value.promotedRecordings.length,
+        returnedCount: value.serverRecordings.length + value.promotedRecordings.length
+      });
+    }
+
     function resolveLeaves(data, guard) {
       const resolver = options.folderArtwork;
       if (!resolver || typeof resolver.resolveLeaves !== 'function') {
@@ -36,7 +48,14 @@
       }
       return resolver.resolveLeaves(data, requestFolder).then(function (result) {
         if (typeof guard === 'function' && !guard()) return;
-        options.applyLeaves(result);
+        const value = state();
+        value.promotedRecordings = result && Array.isArray(result.recordings)
+          ? options.normalizeRecordings(result.recordings) : [];
+        value.data = Object.assign({}, value.data || {}, {
+          folders: result && Array.isArray(result.folders)
+            ? result.folders.slice() : options.shared.folderList(value.data).slice()
+        });
+        updatePresentedFolderState();
       });
     }
 
@@ -111,7 +130,8 @@
         });
     }
 
-    return Object.freeze({requestFolder, signature, resolveLeaves, stop, schedule, refresh});
+    return Object.freeze({requestFolder, signature, updatePresentedFolderState,
+      resolveLeaves, stop, schedule, refresh});
   }
 
   global.VdrSuiteRecordings2FolderRefresh = Object.freeze({create});
