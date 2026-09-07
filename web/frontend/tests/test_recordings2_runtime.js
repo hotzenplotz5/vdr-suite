@@ -110,6 +110,7 @@ const context = vm.createContext({
   'web/frontend/recordings2-shared.js',
   'web/frontend/recordings2-folder-artwork.js',
   'web/frontend/recordings2-actions.js',
+  'web/frontend/recordings2-folder-refresh.js',
   'web/frontend/recordings2-browser-view.js',
   'web/frontend/recordings2.js'
 ].forEach(path => {
@@ -120,6 +121,7 @@ async function run() {
   assert.ok(window.VdrSuiteRecordings2Shared);
   assert.ok(window.VdrSuiteRecordings2FolderArtwork);
   assert.ok(window.VdrSuiteRecordings2Actions);
+  assert.ok(window.VdrSuiteRecordings2FolderRefresh);
   assert.ok(window.VdrSuiteRecordings2BrowserView);
   assert.ok(window.VdrSuiteRecordings2);
   assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
