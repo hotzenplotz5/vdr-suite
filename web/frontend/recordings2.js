@@ -69,11 +69,6 @@
         ? api.fetchClientRecordingFolder(options)
         : Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
     },
-    createClientLiveUpdateSource: function () {
-      const api = shared.clientApi();
-      return api && typeof api.createClientLiveUpdateSource === 'function'
-        ? api.createClientLiveUpdateSource() : null;
-    },
     pageSize: shared.PAGE_SIZE,
     normalizePath: shared.normalizePath,
     number: shared.number,

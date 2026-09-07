@@ -13,8 +13,9 @@
     let connectionSequence = 0;
 
     function subscribe() {
-      if (source || typeof options.createClientLiveUpdateSource !== 'function') return;
-      source = options.createClientLiveUpdateSource();
+      const client = options.shared.clientApi();
+      if (source || !client || typeof client.createClientLiveUpdateSource !== 'function') return;
+      source = client.createClientLiveUpdateSource();
       if (!source) return;
       const currentSource = source;
       source.onopen = function () { connectionSequence = 0; };
