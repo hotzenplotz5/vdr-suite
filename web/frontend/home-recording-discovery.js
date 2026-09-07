@@ -828,12 +828,28 @@
     state.seriesSeasonNumber = null;
     const section = sectionFor('series');
     if (!section) return false;
-    section.replaceChildren();
-    appendSectionHeading(section, 'Serien');
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail series';
-    seriesEntries.forEach(function (series) {
-      const card = doc.createElement('button');
+    let rail = Array.from(section.children).find(function (child) {
+      return child.className === 'media-home-discovery-rail series';
+    });
+    if (!rail) {
+      section.replaceChildren();
+      appendSectionHeading(section, 'Serien');
+      rail = doc.createElement('div');
+      rail.className = 'media-home-discovery-rail series';
+      section.appendChild(rail);
+    }
+    const previousScrollLeft = rail.scrollLeft;
+    const existing = new Map(Array.from(rail.children).map(function (card) {
+      return [card.dataset.seriesKey, card];
+    }));
+    const retained = new Set();
+    let changed = false;
+    seriesEntries.forEach(function (series, index) {
+      const signature = JSON.stringify([backendId, series.title, series.posterUrl, seriesCountLabel(series)]);
+      let card = existing.get(series.key);
+      if (!card || card.dataset.presentation !== signature) {
+      card = doc.createElement('button');
+      card.dataset.presentation = signature;
       card.type = 'button';
       card.className = 'media-home-discovery-card series';
       card.dataset.seriesKey = series.key;
@@ -848,11 +864,20 @@
       copy.append(label, detail);
       card.appendChild(copy);
       card.addEventListener('click', function () {
-        renderSeriesDetail(series, null, backendId);
+        renderSeriesDetail(card.__vdrSuiteSeries, null, backendId);
       });
-      rail.appendChild(card);
+      }
+      card.__vdrSuiteSeries = series;
+      retained.add(card);
+      if (rail.children[index] !== card) {
+        rail.insertBefore(card, rail.children[index] || null);
+        changed = true;
+      }
     });
-    section.appendChild(rail);
+    Array.from(rail.children).forEach(function (card) {
+      if (!retained.has(card)) { card.remove(); changed = true; }
+    });
+    if (changed && Number.isFinite(previousScrollLeft)) rail.scrollLeft = previousScrollLeft;
     return true;
   }
 

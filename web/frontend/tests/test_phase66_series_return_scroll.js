@@ -22,6 +22,7 @@ class FakeElement {
     this.textContent = '';
     this.type = '';
     this.scrollIntoViewCalls = [];
+    this.scrollLeft = 0;
   }
 
   setAttribute(name, value) {
@@ -32,6 +33,15 @@ class FakeElement {
     if (!child) return child;
     child.parentNode = this;
     this.children.push(child);
+    return child;
+  }
+
+  insertBefore(child, before) {
+    if (child.parentNode) child.remove();
+    child.parentNode = this;
+    const index = before ? this.children.indexOf(before) : -1;
+    if (index < 0) this.children.push(child);
+    else this.children.splice(index, 0, child);
     return child;
   }
 
@@ -150,6 +160,24 @@ const series = {
   seasons: [season]
 };
 
+const otherSeries = Object.assign({}, series, {key: 'other', title: 'Other'});
+api._test.renderSeriesRail([series, otherSeries], 'default');
+const initialSection = host.querySelector('[data-home-discovery-rail="series"]');
+const initialRail = findElement(initialSection, element => element.className === 'media-home-discovery-rail series');
+const initialCard = initialRail.children[0];
+initialRail.scrollLeft = 280;
+api._test.renderSeriesRail([Object.assign({}, series), otherSeries], 'default');
+assert.strictEqual(initialRail.parentNode, initialSection, 'metadata retry retains the actual scrolling element');
+assert.strictEqual(initialRail.children[0], initialCard, 'unchanged cards and poster nodes survive retries');
+assert.strictEqual(initialRail.scrollLeft, 280);
+const updatedOther = Object.assign({}, otherSeries, {posterUrl: '/new-poster.jpg'});
+api._test.renderSeriesRail([series, updatedOther], 'default');
+assert.strictEqual(initialRail.children[0], initialCard, 'one enriched poster does not recreate other cards');
+assert.strictEqual(initialRail.children.length, 2);
+assert.strictEqual(initialRail.scrollLeft, 280, 'metadata enrichment retains horizontal position');
+api._test.renderSeriesRail([series], 'default');
+assert.strictEqual(initialRail.children.length, 1, 'withdrawn series disappears');
+assert.strictEqual(initialRail.children[0], initialCard);
 assert.strictEqual(api._test.renderSeriesDetail(series, season, 'default'), true);
 const seriesSection = host.querySelector('[data-home-discovery-rail="series"]');
 assert(seriesSection);
