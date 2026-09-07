@@ -24,6 +24,7 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Current Architecture State](development/current-architecture-state.md) — durable implemented ownership/capability summary.
 - [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and final acceptance evidence.
 - [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
+- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability and bounded acceptance evidence.
 - [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md) — bounded non-numbered Home hardening evidence.
 - [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted Phase-66 architecture and completed runtime foundation.
 - [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — accepted bounded implementation contract and completed sequence.
@@ -40,6 +41,7 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 - [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Current Architecture State](development/current-architecture-state.md)
+- [ADR-0059 VDR-Native Recording Editing, Marks and Cutting Authority](adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Domain Dependency Map](planning/domain-dependency-map.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
@@ -49,6 +51,10 @@ For exact current project state, always use [Current State](CURRENT.md). For bin
 ## Development and history
 
 - [Development Documentation](development/index.md)
+- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
+- [Native Recording Editing Status and Evidence](development/post-phase66-native-recording-editing-status.md)
+- [Native Recording Editing Workstream Slices](development/post-phase66-native-recording-editing-slices.md)
+- [Native Recording Editing Architecture and Scope Audit](development/post-phase66-native-recording-editing.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md)
 - [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md)
