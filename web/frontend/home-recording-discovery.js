@@ -842,9 +842,8 @@
     const existing = new Map(Array.from(rail.children).map(function (card) {
       return [card.dataset.seriesKey, card];
     }));
-    const retained = new Set();
-    let changed = false;
-    seriesEntries.forEach(function (series, index) {
+    const nextCards = [];
+    seriesEntries.forEach(function (series) {
       const signature = JSON.stringify([backendId, series.title, series.posterUrl, seriesCountLabel(series)]);
       let card = existing.get(series.key);
       if (!card || card.dataset.presentation !== signature) {
@@ -871,17 +870,15 @@
         card.appendChild(copy);
       }
       card.__vdrSuiteSeries = series;
-      retained.add(card);
-      if (rail.children[index] !== card) {
-        if (rail.children[index]) rail.insertBefore(card, rail.children[index]);
-        else rail.appendChild(card);
-        changed = true;
-      }
+      nextCards.push(card);
     });
-    Array.from(rail.children).forEach(function (card) {
-      if (!retained.has(card)) { card.remove(); changed = true; }
+    const changed = rail.children.length !== nextCards.length || nextCards.some(function (card, index) {
+      return rail.children[index] !== card;
     });
-    if (changed && Number.isFinite(previousScrollLeft)) rail.scrollLeft = previousScrollLeft;
+    if (changed) {
+      rail.replaceChildren.apply(rail, nextCards);
+      if (Number.isFinite(previousScrollLeft)) rail.scrollLeft = previousScrollLeft;
+    }
     return true;
   }
 
