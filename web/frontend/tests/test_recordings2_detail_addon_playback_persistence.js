@@ -117,11 +117,12 @@ const context = vm.createContext({
   Math
 });
 
-vm.runInContext(
-  fs.readFileSync('web/frontend/recordings2.js', 'utf8'),
-  context,
-  {filename: 'recordings2.js'}
-);
+for (const path of [
+  'web/frontend/recordings2-folder-refresh.js',
+  'web/frontend/recordings2.js'
+]) {
+  vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
+}
 
 const runtime = window.VdrSuiteRecordings2;
 assert.ok(runtime);

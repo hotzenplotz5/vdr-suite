@@ -581,8 +581,7 @@ bool DaemonRuntime::initialize()
                     ? "default"
                     : request.backendId;
 
-            recordingCacheActionRefreshAttempts_.store(8);
-            recordingCacheDirtyHint_.store(true);
+            recordingCacheRefreshQueue_.request(backendId, 8);
             externalVdrChangeHint_.store(true);
 
             for (const auto& backendRuntimeContext : backendRuntimeContexts_) {

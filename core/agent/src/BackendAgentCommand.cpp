@@ -3,6 +3,8 @@
 #include "BackendAgentNativeTimerCreatePayload.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "BackendAgentNativeTimerModifyPayload.h"
+#include "BackendAgentRecordingMarksModifyPayload.h"
+#include "BackendAgentRecordingCutPayload.h"
 
 #include <algorithm>
 #include <cctype>
@@ -106,6 +108,36 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
         vdrsuite::agent::BackendAgentNativeTimerModifyPayload payload;
         std::string reason;
         return vdrsuite::agent::backendAgentNativeTimerModifyParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.backendId == value.backendId &&
+            payload.backendGeneration == value.backendGeneration &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
+    if (value.commandType ==
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentRecordingMarksModifyPayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentRecordingMarksModifyPayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentRecordingMarksModifyParsePayload(
+                   value.payload, payload, reason) &&
+            payload.localProviderSelection.backendId == value.backendId &&
+            payload.backendId == value.backendId &&
+            payload.backendGeneration == value.backendGeneration &&
+            payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
+    if (value.commandType ==
+            vdrsuite::agent::kBackendAgentRecordingCutCommandType &&
+        value.payloadVersion ==
+            vdrsuite::agent::kBackendAgentRecordingCutPayloadVersion &&
+        value.verificationPolicy == "readback_required")
+    {
+        vdrsuite::agent::BackendAgentRecordingCutPayload payload;
+        std::string reason;
+        return vdrsuite::agent::backendAgentRecordingCutParsePayload(
                    value.payload, payload, reason) &&
             payload.localProviderSelection.backendId == value.backendId &&
             payload.backendId == value.backendId &&

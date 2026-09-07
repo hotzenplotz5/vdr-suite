@@ -164,10 +164,10 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->backendId,
         backendConfig.host,
         backendConfig.port + 1,
-        [this](const std::string&) {
+        [this](const std::string& backendId) {
             externalVdrChangeHint_.store(true);
             epgCacheDirtyHint_.store(true);
-            recordingCacheDirtyHint_.store(true);
+            recordingCacheRefreshQueue_.request(backendId);
         });
 
     const RuntimeSuiteBridgeConfig& suiteBridgeConfig =

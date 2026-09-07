@@ -48,7 +48,8 @@ const std::vector<std::string> kProtectedMutationPermissions = {
     "timers.create",
     "timers.modify",
     "timers.delete",
-    "channels.move"
+    "channels.move",
+    "recordings.marks.modify"
 };
 
 const std::string kGlobalStaleProbeDeletePermission =

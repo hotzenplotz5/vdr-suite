@@ -11,6 +11,10 @@
 #include "suitebridge_native_timer_delete_vdr.h"
 #include "suitebridge_native_timer_modify.h"
 #include "suitebridge_native_timer_modify_vdr.h"
+#include "suitebridge_recording_cut.h"
+#include "suitebridge_recording_cut_vdr.h"
+#include "suitebridge_recording_marks_modify.h"
+#include "suitebridge_recording_marks_modify_vdr.h"
 #include "suitebridge_status_monitor.h"
 
 #include <vdr/plugin.h>
@@ -46,6 +50,10 @@ private:
   SuiteBridgeNativeTimerDeleteService nativeTimerDelete_;
   SuiteBridgeNativeTimerModifyVdrMutationCallback nativeTimerModifyVdrMutation_;
   SuiteBridgeNativeTimerModifyService nativeTimerModify_;
+  SuiteBridgeRecordingMarksModifyVdrMutationCallback recordingMarksModifyVdrMutation_;
+  SuiteBridgeRecordingMarksModifyService recordingMarksModify_;
+  SuiteBridgeRecordingCutVdrMutationCallback recordingCutVdrMutation_;
+  SuiteBridgeRecordingCutService recordingCut_;
 };
 
 #endif

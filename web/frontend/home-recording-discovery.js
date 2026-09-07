@@ -828,31 +828,57 @@
     state.seriesSeasonNumber = null;
     const section = sectionFor('series');
     if (!section) return false;
-    section.replaceChildren();
-    appendSectionHeading(section, 'Serien');
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail series';
-    seriesEntries.forEach(function (series) {
-      const card = doc.createElement('button');
-      card.type = 'button';
-      card.className = 'media-home-discovery-card series';
-      card.dataset.seriesKey = series.key;
-      card.dataset.backendId = backendId;
-      card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = series.title;
-      const detail = doc.createElement('span');
-      detail.textContent = seriesCountLabel(series);
-      copy.append(label, detail);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        renderSeriesDetail(series, null, backendId);
-      });
-      rail.appendChild(card);
+    let rail = Array.from(section.children).find(function (child) {
+      return child.className === 'media-home-discovery-rail series';
     });
-    section.appendChild(rail);
+    if (!rail) {
+      section.replaceChildren();
+      appendSectionHeading(section, 'Serien');
+      rail = doc.createElement('div');
+      rail.className = 'media-home-discovery-rail series';
+      section.appendChild(rail);
+    }
+    const previousScrollLeft = rail.scrollLeft;
+    const existing = new Map(Array.from(rail.children).map(function (card) {
+      return [card.dataset.seriesKey, card];
+    }));
+    const nextCards = [];
+    seriesEntries.forEach(function (series) {
+      const signature = JSON.stringify([backendId, series.title, series.posterUrl, seriesCountLabel(series)]);
+      let card = existing.get(series.key);
+      if (!card || card.dataset.presentation !== signature) {
+        if (!card) {
+          card = doc.createElement('button');
+          card.addEventListener('click', function () {
+            renderSeriesDetail(card.__vdrSuiteSeries, null, card.dataset.backendId);
+          });
+        }
+        card.replaceChildren();
+        card.dataset.presentation = signature;
+        card.type = 'button';
+        card.className = 'media-home-discovery-card series';
+        card.dataset.seriesKey = series.key;
+        card.dataset.backendId = backendId;
+        card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const label = doc.createElement('strong');
+        label.textContent = series.title;
+        const detail = doc.createElement('span');
+        detail.textContent = seriesCountLabel(series);
+        copy.append(label, detail);
+        card.appendChild(copy);
+      }
+      card.__vdrSuiteSeries = series;
+      nextCards.push(card);
+    });
+    const changed = rail.children.length !== nextCards.length || nextCards.some(function (card, index) {
+      return rail.children[index] !== card;
+    });
+    if (changed) {
+      rail.replaceChildren.apply(rail, nextCards);
+      if (Number.isFinite(previousScrollLeft)) rail.scrollLeft = previousScrollLeft;
+    }
     return true;
   }
 

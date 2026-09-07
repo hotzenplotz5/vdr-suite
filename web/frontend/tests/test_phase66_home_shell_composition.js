@@ -165,3 +165,8 @@ assert(!moduleTab('overview').classList.contains('active'));
 assert(moduleTabs.every(node => !node.classList.contains('active')));
 
 console.log('phase66 home shell production composition ok');
+
+const pathsSource = fs.readFileSync(path.join(frontendRoot, '../../core/http/src/TestHttpServerPaths.inc'), 'utf8');
+assert(pathsSource.includes('"channel-logos.js", "application/javascript; charset=utf-8", "epg-cache.js"'));
+assert(indexSource.indexOf('src="../frontend/app.js"') < indexSource.indexOf('src="../frontend/channel-logos.js"'),
+  'the EPG addon must load after the application functions it decorates');

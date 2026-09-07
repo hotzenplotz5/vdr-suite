@@ -101,8 +101,6 @@ void DaemonRuntime::startRecordingCacheWarmupWorker()
     }
 
     recordingCacheWarmupStopRequested_.store(false);
-    recordingCacheDirtyHint_.store(false);
-    recordingCacheActionRefreshAttempts_.store(0);
 
     if (vdrRecordingCacheRepository_) {
         for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
@@ -150,7 +148,6 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 {
     try {
         const int initialDelaySeconds = 1;
-        const int dirtyDebounceSeconds = 30;
         const int metadataRefreshSeconds = 60;
 
         std::cout
@@ -177,8 +174,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
         refreshRecordingCacheForAllBackends("startup");
 
-        auto lastRefresh = std::chrono::steady_clock::now();
-        auto lastMetadataRefresh = lastRefresh;
+        auto lastMetadataRefresh = std::chrono::steady_clock::now();
 
         while (!recordingCacheWarmupStopRequested_.load()) {
             if (waitForStop(1)) {
@@ -229,41 +225,10 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                 lastMetadataRefresh = metadataNow;
             }
 
-            int remainingActionRefreshAttempts =
-                recordingCacheActionRefreshAttempts_.load();
-
-            while (remainingActionRefreshAttempts > 0 &&
-                   !recordingCacheActionRefreshAttempts_.compare_exchange_weak(
-                       remainingActionRefreshAttempts,
-                       remainingActionRefreshAttempts - 1)) {
-            }
-
-            if (remainingActionRefreshAttempts > 0) {
+            for (const auto& backendId : recordingCacheRefreshQueue_.takePending()) {
                 refreshRecordingCacheForAllBackends(
-                    "recording-action-reconcile");
-                lastRefresh = std::chrono::steady_clock::now();
-                continue;
+                    "event-stream-dirty-hint", backendId);
             }
-
-            if (!recordingCacheDirtyHint_.load()) {
-                continue;
-            }
-
-            const auto now = std::chrono::steady_clock::now();
-            const auto secondsSinceLastRefresh =
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    now - lastRefresh).count();
-
-            if (secondsSinceLastRefresh < dirtyDebounceSeconds) {
-                continue;
-            }
-
-            if (!recordingCacheDirtyHint_.exchange(false)) {
-                continue;
-            }
-
-            refreshRecordingCacheForAllBackends("event-stream-dirty-hint");
-            lastRefresh = std::chrono::steady_clock::now();
         }
     }
     catch (const std::exception& error) {
@@ -280,7 +245,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 }
 
 void DaemonRuntime::refreshRecordingCacheForAllBackends(
-    const std::string& reason)
+    const std::string& reason, const std::string& backendId)
 {
     auto refreshLease = DaemonCacheRefreshExecutionGate::acquire();
     if (recordingCacheWarmupStopRequested_.load()) {
@@ -306,7 +271,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
             return;
         }
 
-        if (!backendRuntimeContext || !backendRuntimeContext->service) {
+        if (!backendRuntimeContext || !backendRuntimeContext->service ||
+            (!backendId.empty() && backendRuntimeContext->backendId != backendId)) {
             continue;
         }
 
@@ -336,6 +302,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
                     static_cast<int>(recordings.size()));
+
+                recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
                 runRecordingMetadataEnrichment(
                     *backendRuntimeContext,
@@ -386,5 +354,20 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 << backendRuntimeContext->backendId
                 << std::endl;
         }
+    }
+}
+
+void DaemonRuntime::publishCompletedRecordingRefreshes()
+{
+    if (!snapshotChangeFeed_ || !snapshotChangeFeedService_ ||
+        !liveTransportService_ || !snapshotCacheService_) return;
+
+    // Feed and transport remain owned by the HTTP/polling thread.
+    for (const auto& backendId : recordingCacheRefreshQueue_.takeCompleted()) {
+        snapshotChangeFeedService_->appendChanges(
+            *snapshotChangeFeed_, snapshotCacheService_->generation(),
+            {VdrChangeEvent(VdrChangeType::RecordingsChanged)}, backendId);
+        liveTransportService_->publishChangeFeedEntry(
+            snapshotChangeFeed_->entries().back());
     }
 }

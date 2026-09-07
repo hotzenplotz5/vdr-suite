@@ -38,6 +38,7 @@ required_content = (
     '{"snapshots", SuiteBridgeCapabilityState::Available}',
     '{"local-contract", SuiteBridgeCapabilityState::Available}',
     '{"recording-metadata", SuiteBridgeCapabilityState::Available}',
+    '{"recording-marks", SuiteBridgeCapabilityState::Available}',
     '{"epg-type-snapshot", SuiteBridgeCapabilityState::Available}',
     '{"mutations", SuiteBridgeCapabilityState::Disabled}',
     "SuiteBridgeCapabilities::Find(",

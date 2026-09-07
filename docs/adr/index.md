@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0058
+ADR-0059
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -45,11 +45,12 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 - [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0059: VDR-Native Recording Editing, Marks and Cutting Authority](ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0059
+ADR-0060
 ```
 
 Rules:
@@ -134,6 +135,7 @@ Rules:
 - [ADR-0056: Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 - [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0059: VDR-Native Recording Editing, Marks and Cutting Authority](ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)

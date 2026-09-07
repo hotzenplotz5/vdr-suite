@@ -12,6 +12,8 @@ SOURCE_OWNERS = {
         "DaemonRuntime::DaemonRuntime()",
         "DaemonRuntime::run()",
         "DaemonRuntime::shutdown()",
+    ),
+    "DaemonRuntimeSignal.cpp": (
         "DaemonRuntime::handleSignal(",
     ),
     "DaemonRuntimeInitialization.cpp": (

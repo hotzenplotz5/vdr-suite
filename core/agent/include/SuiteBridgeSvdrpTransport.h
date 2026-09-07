@@ -5,6 +5,8 @@
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
+#include "ISuiteBridgeRecordingCutStateTransport.h"
+#include "ISuiteBridgeRecordingMarksTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 #include "SuiteBridgeLiveSourceTransport.h"
 
@@ -22,6 +24,8 @@ namespace vdrsuite::agent
 struct BackendAgentNativeTimerCreateTransportRequest;
 struct BackendAgentNativeTimerDeleteTransportRequest;
 struct BackendAgentNativeTimerModifyTransportRequest;
+struct BackendAgentRecordingMarksModifyTransportRequest;
+struct BackendAgentRecordingCutTransportRequest;
 enum class BackendAgentNativeTimerModifyKind;
 
 struct SuiteBridgeSvdrpTransportConfig
@@ -38,6 +42,8 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeArtworkTransport,
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
+    public ::ISuiteBridgeRecordingCutStateTransport,
+    public ::ISuiteBridgeRecordingMarksTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
     public IBackendAgentNativeProbeTransport,
     public ISuiteBridgeLiveSourceTransport
@@ -66,6 +72,12 @@ public:
     ::SuiteBridgeMetadataCommandReply requestMetadata(
         const std::string& channelId,
         const std::string& eventId) override;
+
+    ::SuiteBridgeRecordingCutStateCommandReply requestRecordingCutState(
+        const std::string& recordingKey) override;
+
+    ::SuiteBridgeRecordingMarksCommandReply requestRecordingMarks(
+        const std::string& recordingKey) override;
 
     ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
         const std::string& recordingKey) override;
@@ -171,6 +183,14 @@ public:
         BackendAgentNativeTimerModifyKind kind);
     SuiteBridgeCommandReply executeNativeTimerModifyContract(
         const BackendAgentNativeTimerModifyTransportRequest& request);
+
+    SuiteBridgeCommandReply discoverRecordingMarksModifyContract();
+    SuiteBridgeCommandReply executeRecordingMarksModifyContract(
+        const BackendAgentRecordingMarksModifyTransportRequest& request);
+
+    SuiteBridgeCommandReply discoverRecordingCutContract();
+    SuiteBridgeCommandReply executeRecordingCutContract(
+        const BackendAgentRecordingCutTransportRequest& request);
 
 private:
     static bool safeNativeToken(const std::string& value)

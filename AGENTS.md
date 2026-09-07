@@ -238,3 +238,17 @@ actually been reached. If a relevant CI run exists for the current head and its
 result matters to the next already-authorized gate, re-read that run immediately
 before the response ends. Never finish with a statement that the next step is
 still executable with the available tools; perform that step instead.
+
+## Testblock shell option safety
+
+VDR-Suite and yaVDR test/acceptance blocks must never enable shell fail-fast or
+unset-variable abort semantics. Do not use `set -e`, `set -u`, `set -o pipefail`
+or combined forms such as `set -euo pipefail`. Test blocks must keep the
+interactive shell alive so later diagnostics remain visible. At the beginning
+of every handed-off test block explicitly neutralize inherited settings with:
+
+```bash
+set +e
+set +u
+set +o pipefail
+```

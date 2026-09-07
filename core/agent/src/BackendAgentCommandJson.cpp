@@ -2,6 +2,8 @@
 #include "BackendAgentNativeTimerCreate.h"
 #include "BackendAgentNativeTimerDelete.h"
 #include "BackendAgentNativeTimerModify.h"
+#include "BackendAgentRecordingMarksModify.h"
+#include "BackendAgentRecordingCut.h"
 
 #include <algorithm>
 #include <cctype>
@@ -261,7 +263,11 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
              item.stringValue !=
                  vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType &&
              item.stringValue !=
-                 vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType) ||
+                 vdrsuite::agent::kBackendAgentNativeTimerDeleteCommandType &&
+             item.stringValue !=
+                 vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
+             item.stringValue !=
+                 vdrsuite::agent::kBackendAgentRecordingCutCommandType) ||
             std::find(types.begin(), types.end(), item.stringValue) != types.end())
         {
             return false;

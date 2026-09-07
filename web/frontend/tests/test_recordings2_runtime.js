@@ -110,6 +110,7 @@ const context = vm.createContext({
   'web/frontend/recordings2-shared.js',
   'web/frontend/recordings2-folder-artwork.js',
   'web/frontend/recordings2-actions.js',
+  'web/frontend/recordings2-folder-refresh.js',
   'web/frontend/recordings2-browser-view.js',
   'web/frontend/recordings2.js'
 ].forEach(path => {
@@ -120,6 +121,7 @@ async function run() {
   assert.ok(window.VdrSuiteRecordings2Shared);
   assert.ok(window.VdrSuiteRecordings2FolderArtwork);
   assert.ok(window.VdrSuiteRecordings2Actions);
+  assert.ok(window.VdrSuiteRecordings2FolderRefresh);
   assert.ok(window.VdrSuiteRecordings2BrowserView);
   assert.ok(window.VdrSuiteRecordings2);
   assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
@@ -359,3 +361,26 @@ run().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
+
+function verifyNavigationBeforeRuntimeLoads() {
+  let requests = 0;
+  const tab = {classList: {contains: name => name === 'active'}, addEventListener() {}};
+  const shared = {
+    selectedBackendId: () => 'default', normalizePath: value => value || '',
+    platform: () => null, clientApi: () => null
+  };
+  const lateWindow = {
+    VdrSuiteRecordings2Shared: shared,
+    VdrSuiteRecordings2BrowserView: {create: () => ({renderLoading() {}})},
+    VdrSuiteRecordings2FolderRefresh: {create: () => ({
+      stop() {}, schedule() {}, requestFolder() { requests++; return new Promise(() => {}); }
+    })}
+  };
+  vm.runInNewContext(fs.readFileSync('web/frontend/recordings2.js', 'utf8'), {
+    window: lateWindow, console,
+    document: {querySelector: () => tab, querySelectorAll: () => [tab],
+      getElementById: () => null, addEventListener() {}}
+  });
+  assert.strictEqual(requests, 1, 'the already-selected recording tab must load when its deferred runtime arrives');
+}
+verifyNavigationBeforeRuntimeLoads();

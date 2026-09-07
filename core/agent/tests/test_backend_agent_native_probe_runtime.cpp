@@ -3,6 +3,7 @@
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentNativeProbe.h"
+#include "BackendAgentRecordingMarksModify.h"
 
 #include <cassert>
 #include <cstdio>
@@ -137,6 +138,36 @@ int main()
     assert(parsedNativePoll.supportedCommandTypes.front()=="vdr.native.probe");
     assert(parsedNativePoll.localProviders.size()==1);
     assert(parsedNativePoll.localProviders.front().providerInstanceEpoch=="pie_1");
+
+    // Regression: production Recording-Marks command advertisement must roundtrip
+    // through the same poll parser used by the daemon control plane.
+    BackendAgentCommandPollRequest marksPoll;
+    marksPoll.backendId="default";
+    marksPoll.agentInstanceId="agi_marks_1";
+    marksPoll.backendGeneration=8;
+    marksPoll.supportedCommandTypes={kBackendAgentRecordingMarksModifyCommandType};
+    BackendAgentLocalProviderFacts marksProvider;
+    marksProvider.providerId=kBackendAgentRecordingMarksModifyProviderId;
+    marksProvider.providerKind=kBackendAgentRecordingMarksModifyProviderKind;
+    marksProvider.providerInstanceEpoch="pie_marks_1";
+    marksProvider.providerGeneration=1;
+    marksProvider.capabilityRevision=2;
+    marksProvider.available=true;
+    marksProvider.capabilities={kBackendAgentRecordingMarksModifyCapability};
+    marksPoll.localProviders={marksProvider};
+    BackendAgentCommandPollRequest parsedMarksPoll;
+    assert(parseBackendAgentCommandPollRequestJson(
+        serializeBackendAgentCommandPollRequestJson(marksPoll),
+        parsedMarksPoll,
+        reason));
+    assert(reason=="command_poll_parsed");
+    assert(parsedMarksPoll.supportedCommandTypes==
+        std::vector<std::string>{kBackendAgentRecordingMarksModifyCommandType});
+    assert(parsedMarksPoll.localProviders.size()==1);
+    assert(parsedMarksPoll.localProviders.front().providerId==
+        kBackendAgentRecordingMarksModifyProviderId);
+    assert(parsedMarksPoll.localProviders.front().capabilities==
+        std::vector<std::string>{kBackendAgentRecordingMarksModifyCapability});
 
     BackendAgentCommandPollRequest unsupportedPoll=nativePoll;
     unsupportedPoll.supportedCommandTypes={"vdr.native.mutate"};

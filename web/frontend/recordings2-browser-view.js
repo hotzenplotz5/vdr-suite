@@ -366,6 +366,7 @@
       const playback = global.VdrSuiteRecordings2Playback; if (playback && typeof playback.createPanel === 'function') {
         activePlayback = playback.createPanel(recording, currentState.backendId);
         if (activePlayback && activePlayback.element) {
+          root.__vdrSuiteRecordingPlaybackOwner = activePlayback;
           root.appendChild(activePlayback.element);
           const ownedPlayback = activePlayback;
           ensureRestartChoiceRuntime().then(function (helper) { if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); }).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
@@ -393,8 +394,5 @@
     });
   }
 
-  global.VdrSuiteRecordings2BrowserView = Object.freeze({
-    create: create,
-    createRecordingCard: createRecordingCard
-  });
+  global.VdrSuiteRecordings2BrowserView = Object.freeze({create: create, createRecordingCard: createRecordingCard});
 }(window));

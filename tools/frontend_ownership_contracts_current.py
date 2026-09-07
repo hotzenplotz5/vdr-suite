@@ -51,12 +51,13 @@ def check_index_contract(index_html: str) -> None:
         '<script src="/frontend/platform/helpers.js"></script>',
         '<script src="/frontend/platform/deferred-runtime-loader.js"></script>',
         '<script src="/frontend/api/client-api.js"></script>',
-        '<script src="/frontend/channel-logos.js"></script>',
         '<script src="/frontend/channel-browser.js"></script>',
         '<script src="/frontend/modules/timers.js"></script>',
         '<script src="/frontend/modules/searchtimers.js"></script>',
         '<script src="/frontend/channel-day-program.js"></script>',
         '<script src="/frontend/app.js"></script>',
+        # The served channel-logo asset appends epg-cache.js, which decorates app functions.
+        '<script src="/frontend/channel-logos.js"></script>',
     )
 
     positions = []
