@@ -100,7 +100,16 @@
     const timeline = canonicalTimeline(root);
     const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
     const duration = durationSeconds(recording, timeline);
-    if (!timeline || !marks.length || !(duration > 0)) return false;
+    const previous = root.querySelector('.recordings2-marks-timeline');
+    if (!timeline || !marks.length || !(duration > 0)) {
+      if (previous && previous.parentNode) previous.parentNode.removeChild(previous);
+      if (timeline && timeline.dataset) {
+        delete timeline.dataset.nativeMarksVisible;
+        delete timeline.dataset.nativeMarksCount;
+        delete timeline.dataset.nativeMarksRevision;
+      }
+      return false;
+    }
 
     const revision = marksRevision(payload, marks);
     const existing = root.querySelector('.recordings2-marks-timeline');
@@ -109,6 +118,7 @@
       return true;
     }
 
+    if (previous && previous.parentNode) previous.parentNode.removeChild(previous);
     installStyles();
     const rail = node('div', 'recordings2-marks-timeline');
     rail.setAttribute('role', 'img');

@@ -1,4 +1,4 @@
-// Read-only native VDR cut-mark detail addon for the Recordings 2 browser owner.
+// Native VDR cut-mark detail addon for the Recordings 2 browser owner.
 (function (global) {
   'use strict';
 
@@ -28,7 +28,12 @@
       '.recordings2-marks-list{display:grid;gap:.45rem;margin:0;padding:0;list-style:none}',
       '.recordings2-mark{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.25rem .8rem;padding:.55rem .7rem;border:1px solid rgba(148,163,184,.28);border-radius:.55rem}',
       '.recordings2-mark-time{font-weight:700}.recordings2-mark-meta{opacity:.78}',
-      '.recordings2-marks-note{opacity:.78}'
+      '.recordings2-marks-note{opacity:.78}',
+      '.recordings2-marks-editor-actions,.recordings2-marks-editor-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}',
+      '.recordings2-marks-editor-list{display:grid;gap:.7rem;width:100%;min-width:0}',
+      '.recordings2-marks-editor-row{border-top:1px solid #64748b;padding-top:.6rem}',
+      '.recordings2-marks-editor-row input{width:8rem;max-width:100%}',
+      '.recordings2-marks-editor button{min-height:2.6rem;white-space:normal}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -173,7 +178,9 @@
   }
 
   function enhance(root, recording, selectedBackendId) {
-    if (!root || !root.dataset || root.dataset.recordings2MarksDetail === 'true') {
+    if (!root || !root.dataset) return Promise.resolve(false);
+    if (root.dataset.recordings2MarksDetail === 'true') {
+      if (root.__vdrSuiteMarksEditor) root.__vdrSuiteMarksEditor.observe();
       return Promise.resolve(false);
     }
     root.dataset.recordings2MarksDetail = 'true';
@@ -184,8 +191,11 @@
       if (!payload || payload.availability !== 'available') {
         throw new Error('recording_marks_invalid_payload');
       }
+      if (root.isConnected === false) return false;
       panel.section.dataset.marksRevision = text(payload.marksRevision);
       renderPayload(panel, payload);
+      const editor = global.VdrSuiteRecordings2MarksEditor;
+      if (editor) editor.attach(root, panel, recording, selectedBackendId, payload, {renderPayload: renderPayload});
       ensureTimelineRuntime().then(function (timeline) {
         if (timeline) timeline.bind(root, recording, payload);
       });

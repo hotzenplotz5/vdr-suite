@@ -38,6 +38,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-folder-refresh.js
 	node --check web/frontend/recordings2-browser-view.js
+	node --check web/frontend/recordings2-marks-editor.js
 	node --check web/frontend/recordings2-marks-detail.js
 	node --check web/frontend/recordings2-marks-timeline.js
 	node --check web/frontend/recordings2-person-search-view.js
@@ -54,6 +55,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_live_tv_playback.js
 	node web/frontend/tests/test_channel_live_playback_runtime.js
 	node web/frontend/tests/test_recordings2_marks_detail.js
+	node web/frontend/tests/test_recordings2_marks_editor.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
 	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
@@ -70,6 +72,7 @@ test-recordings2-install-staging: test-install-staging
 	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2FolderRefresh = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'global.VdrSuiteRecordings2MarksEditor = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-detail.js

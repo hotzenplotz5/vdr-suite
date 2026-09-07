@@ -20,6 +20,7 @@ function element(tag) {
     style: {},
     parentNode: null,
     title: '',
+    removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
     setAttribute(name, attributeValue) { this.attributes[name] = String(attributeValue); },
     appendChild(child) {
       if (child) child.parentNode = this;
@@ -332,6 +333,12 @@ api.fetchMarks(recording, 'default').then(result => {
     'Der Aufnahmestand hat sich geändert. Bitte die Aufnahmedetails neu laden.'
   );
 
+  const changed = Object.assign({}, payload, {marksRevision: 'changed', marks: [payload.marks[0]]});
+  window.VdrSuiteRecordings2MarksTimeline.render(detailRoot, recording, changed);
+  assert.strictEqual(playbackControls.children.length, 2, 'new revision replaces old rail');
+  window.VdrSuiteRecordings2MarksTimeline.render(detailRoot, recording, {marks: []});
+  assert.strictEqual(detailRoot.querySelector('.recordings2-marks-timeline'), null);
+  assert.strictEqual(timeline.dataset.nativeMarksVisible, undefined);
   lifecycleListener({transition: 'destroyed', state: 'destroyed', transport: 'none'});
   assert.strictEqual(unsubscribeCount, 1);
   console.log('recordings2 native marks survive compatibility MediaSession preparation');
