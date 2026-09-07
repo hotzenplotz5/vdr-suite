@@ -80,8 +80,7 @@
     loadFolder: loadFolder
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
-    stop: stopFolderRefresh, schedule: scheduleFolderRefresh,
-    updatePresentedFolderState} = folderRefresh;
+    stop: stopFolderRefresh, schedule: scheduleFolderRefresh, updatePresentedFolderState} = folderRefresh;
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
