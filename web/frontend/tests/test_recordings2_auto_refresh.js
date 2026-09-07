@@ -99,7 +99,7 @@ function makeHarness() {
   assert.strictEqual(modules.get('recordings2'), api);
   async function advance(milliseconds) {
     now += milliseconds;
-    const due = [...timers.entries()].filter(([, timer) => timer.at <= now)
+    const due = [...timers.entries()].filter(([, timer]) => timer.at <= now)
       .sort((a, b) => a[1].at - b[1].at);
     for (const [id, timer] of due) {
       if (!timers.has(id)) continue;
