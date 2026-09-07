@@ -36,9 +36,7 @@
       : '';
     return title ? Object.assign({}, recording, {title: title}) : recording;
   }
-  function normalizeRecordings(recordings) {
-    return (Array.isArray(recordings) ? recordings : []).map(normalizeRecording);
-  }
+  function normalizeRecordings(recordings) { return (Array.isArray(recordings) ? recordings : []).map(normalizeRecording); }
   function render() {
     if (!state.active || !view) return;
     if (state.loading) return view.renderLoading();
@@ -46,7 +44,7 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function' || !root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
+  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function') return; if (!root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
   function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); installPlaybackPipUi(); }
   function ensurePlaybackRuntime() {
     if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
@@ -74,34 +72,16 @@
     pageSize: shared.PAGE_SIZE,
     normalizePath: shared.normalizePath,
     number: shared.number,
+    shared: shared,
     folderArtwork: folderArtwork,
+    normalizeRecordings: normalizeRecordings,
     applyFolderData: applyFolderData,
-    applyLeaves: function (result) {
-      state.promotedRecordings = result && Array.isArray(result.recordings)
-        ? normalizeRecordings(result.recordings) : [];
-      state.data = Object.assign({}, state.data || {}, {
-        folders: result && Array.isArray(result.folders)
-          ? result.folders.slice() : shared.folderList(state.data).slice()
-      });
-      updatePresentedFolderState();
-    },
     render: render,
     loadFolder: loadFolder
   });
-  const requestFolder = folderRefresh.requestFolder;
-  const resolveSingleRecordingLeaves = folderRefresh.resolveLeaves;
-  const stopFolderRefresh = folderRefresh.stop;
-  const scheduleFolderRefresh = folderRefresh.schedule;
-  function updatePresentedFolderState() {
-    const folders = shared.folderList(state.data);
-    state.recordings = state.serverRecordings.concat(state.promotedRecordings);
-    state.data = Object.assign({}, state.data || {}, {
-      folders: folders,
-      folderCount: folders.length,
-      recordingCount: state.serverRecordingCount + state.promotedRecordings.length,
-      returnedCount: state.serverRecordings.length + state.promotedRecordings.length
-    });
-  }
+  const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
+    stop: stopFolderRefresh, schedule: scheduleFolderRefresh,
+    updatePresentedFolderState} = folderRefresh;
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
@@ -315,7 +295,7 @@
     });
     document.querySelectorAll('.module-tab').forEach(function (button) {
       if (button === tab) return;
-      button.addEventListener('click', function (event) { moduleApi.deactivate(); });
+      button.addEventListener('click', function () { moduleApi.deactivate(); });
     });
     const refresh = document.getElementById('refresh-detail');
     if (refresh) {
