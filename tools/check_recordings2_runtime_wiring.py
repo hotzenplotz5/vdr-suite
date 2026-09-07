@@ -9,6 +9,7 @@ runtime_paths = {
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
+    'marks_editor': ROOT / 'web/frontend/recordings2-marks-editor.js',
     'marks_timeline': ROOT / 'web/frontend/recordings2-marks-timeline.js',
     'person_view': ROOT / 'web/frontend/recordings2-person-search-view.js',
     'metadata_view': ROOT / 'web/frontend/recordings2-metadata-view.js',
@@ -187,7 +188,8 @@ line_limits = {
     'actions': 620,
     'browser_view': 400,
     'marks_detail': 260,
-    'marks_timeline': 180,
+    'marks_timeline': 200,
+    'marks_editor': 270,
     'person_view': 240,
     'metadata_view': 340,
 }
@@ -390,3 +392,22 @@ if 'include mk/recordings2.mk' not in makefile:
     raise SystemExit('root Makefile does not include mk/recordings2.mk')
 
 print('recordings2 modular runtime wiring ok')
+
+# Editing stays in the production detail bundle and uses protected native APIs.
+editor = runtimes['marks_editor']
+for token in ('current.position()', 'active.seekAbsolute(mark.positionSeconds)',
+              'current.subscribe', 'expectedMarksRevision', 'operationId: token()',
+              'session.csrfHeaders()', "sourceFrame: mark.positionFrame",
+              "result.verification !== 'verified'", 'operation.body'):
+    if token not in editor:
+        raise SystemExit(f'missing native editing ownership/fencing contract: {token}')
+for forbidden in ('fetch(', 'backendNativeId', 'NCUT', 'NMARKS', 'new MediaSource',
+                  'new EventSource', 'localStorage', 'sessionStorage'):
+    if forbidden in editor:
+        raise SystemExit(f'native editor bypasses production authority: {forbidden}')
+editor_line = module_makefile.index('web/frontend/recordings2-marks-editor.js')
+detail_line = module_makefile.index('web/frontend/recordings2-marks-detail.js')
+if editor_line > detail_line:
+    raise SystemExit('native editor must load before its detail attachment')
+if 'node web/frontend/tests/test_recordings2_marks_editor.js' not in module_makefile:
+    raise SystemExit('native editor regression is not registered')

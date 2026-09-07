@@ -14,6 +14,7 @@ install-recordings2-runtime:
 		web/frontend/recordings2-folder-refresh.js \
 		web/frontend/recordings2-browser-view.js \
 		web/frontend/recordings2-marks-timeline.js \
+		web/frontend/recordings2-marks-editor.js \
 		web/frontend/recordings2-marks-detail.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-browser-view.js.tmp
