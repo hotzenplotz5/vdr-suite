@@ -17,6 +17,7 @@
     promotedRecordings: [],
     recordings: [],
     serverRecordingCount: 0,
+    serverSignature: '',
     selectedRecording: null,
     detailReturn: null,
     detailReturnLabel: '',
@@ -26,6 +27,9 @@
     requestSequence: 0
   };
   let view; let playbackRuntimePromise = null; let playbackPipUiBound = false;
+  const FOLDER_REFRESH_INTERVAL_MS = 30000;
+  let folderRefreshTimer = null;
+  let folderRefreshBusy = false;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -43,7 +47,7 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function' || !root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
+  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function') return; if (!root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
   function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); installPlaybackPipUi(); }
   function ensurePlaybackRuntime() {
     if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
@@ -60,22 +64,28 @@
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }
-  function requestFolder(path, offset) {
+  function requestFolder(path, offset, limit, backendId) {
     const api = shared.clientApi();
     if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
       return Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
     }
     return api.fetchClientRecordingFolder({
       query: {
-        backend: state.backendId,
+        backend: backendId || state.backendId,
         path: shared.normalizePath(path),
-        limit: shared.PAGE_SIZE,
+        limit: limit === undefined ? shared.PAGE_SIZE : limit,
         offset: Math.max(0, shared.number(offset, 0)),
         _: String(Date.now())
       },
       cache: 'no-store',
       credentials: 'same-origin'
     });
+  }
+  function folderSignature(data) {
+    return JSON.stringify([
+      data.path, data.totalCount, data.recordingCount,
+      data.folders, data.recordings
+    ]);
   }
   function updatePresentedFolderState() {
     const folders = shared.folderList(state.data);
@@ -104,14 +114,16 @@
     state.serverRecordings = append
       ? state.serverRecordings.concat(incomingRecordings)
       : incomingRecordings;
+    state.serverSignature = append ? '' : folderSignature(data);
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
-  function resolveSingleRecordingLeaves(data) {
+  function resolveSingleRecordingLeaves(data, guard) {
     if (!folderArtwork || typeof folderArtwork.resolveLeaves !== 'function') {
       return Promise.resolve();
     }
     return folderArtwork.resolveLeaves(data, requestFolder).then(function (result) {
+      if (typeof guard === 'function' && !guard()) return;
       state.promotedRecordings = result && Array.isArray(result.recordings)
         ? normalizeRecordings(result.recordings)
         : [];
@@ -123,11 +135,72 @@
       updatePresentedFolderState();
     });
   }
+  function stopFolderRefresh() {
+    if (folderRefreshTimer !== null) {
+      global.clearTimeout(folderRefreshTimer);
+      folderRefreshTimer = null;
+    }
+  }
+  function scheduleFolderRefresh(delay) {
+    stopFolderRefresh();
+    if (!state.active) return;
+    folderRefreshTimer = global.setTimeout(function () {
+      folderRefreshTimer = null;
+      refreshCurrentFolder();
+    }, delay === undefined ? FOLDER_REFRESH_INTERVAL_MS : delay);
+  }
+  function refreshCurrentFolder() {
+    if (!state.active) return;
+    if (folderRefreshBusy || state.loading || state.loadingMore ||
+        state.selectedRecording || (global.document && global.document.hidden)) {
+      scheduleFolderRefresh();
+      return;
+    }
+    if (!state.data || state.error) {
+      loadFolder(state.path || '');
+      return;
+    }
+    const sequence = state.requestSequence;
+    const backendId = state.backendId;
+    const path = state.path;
+    const limit = Math.max(shared.PAGE_SIZE, state.serverRecordings.length);
+    const current = function () {
+      return state.active && sequence === state.requestSequence &&
+        state.backendId === backendId && state.path === path &&
+        !state.loading && !state.loadingMore && !state.selectedRecording &&
+        !(global.document && global.document.hidden);
+    };
+    folderRefreshBusy = true;
+    requestFolder(path, 0, limit, backendId)
+      .then(function (data) {
+        if (!current()) return null;
+        if (!data || data.recordingFolder !== true ||
+            shared.normalizePath(data.path) !== path) {
+          throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
+        }
+        if (folderSignature(data) === state.serverSignature) return null;
+        applyFolderData(data, false);
+        return resolveSingleRecordingLeaves(data, current).then(function () {
+          if (current()) render();
+        });
+      })
+      .catch(function (error) {
+        // A background refresh must not replace a usable folder with an error page.
+        if (current() && global.console && typeof global.console.warn === 'function') {
+          global.console.warn('VDR-Suite recording folder refresh failed', error);
+        }
+      })
+      .finally(function () {
+        folderRefreshBusy = false;
+        if (state.active) scheduleFolderRefresh();
+      });
+  }
   function clearExternalDetailReturn() {
     state.detailReturn = null;
     state.detailReturnLabel = '';
   }
   function loadFolder(path) {
+    stopFolderRefresh();
     state.active = true;
     state.backendId = shared.selectedBackendId();
     state.path = shared.normalizePath(path);
@@ -138,23 +211,28 @@
     state.loadingMore = false;
     state.error = null;
     const sequence = ++state.requestSequence;
+    const current = function () {
+      return state.active && sequence === state.requestSequence;
+    };
     render();
     requestFolder(state.path, 0)
       .then(function (data) {
-        if (!state.active || sequence !== state.requestSequence) return null;
+        if (!current()) return null;
         applyFolderData(data, false);
-        return resolveSingleRecordingLeaves(data);
+        return resolveSingleRecordingLeaves(data, current);
       })
       .then(function () {
-        if (!state.active || sequence !== state.requestSequence) return;
+        if (!current()) return;
         state.loading = false;
         render();
+        scheduleFolderRefresh();
       })
       .catch(function (error) {
-        if (!state.active || sequence !== state.requestSequence) return;
+        if (!current()) return;
         state.loading = false;
         state.error = error;
         render();
+        scheduleFolderRefresh();
       });
   }
   function loadMore() {
@@ -168,15 +246,19 @@
         applyFolderData(data, true);
         state.loadingMore = false;
         render();
+        scheduleFolderRefresh();
       })
       .catch(function (error) {
         if (!state.active || sequence !== state.requestSequence) return;
         state.loadingMore = false;
         state.error = error;
         render();
+        scheduleFolderRefresh();
       });
   }
   function selectRecording(recording) {
+    stopFolderRefresh();
+    state.requestSequence += 1;
     clearExternalDetailReturn();
     state.selectedRecording = normalizeRecording(recording);
     render();
@@ -184,14 +266,17 @@
   function closeDetail() {
     const detailReturn = state.detailReturn;
     if (view && typeof view.destroy === 'function') view.destroy();
+    state.requestSequence += 1;
     state.selectedRecording = null;
     clearExternalDetailReturn();
     if (typeof detailReturn === 'function') {
+      stopFolderRefresh();
       state.active = false;
       detailReturn();
       return;
     }
     render();
+    scheduleFolderRefresh(0);
   }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
@@ -219,8 +304,10 @@
       }
       state.active = true;
       render();
+      scheduleFolderRefresh(0);
     },
     deactivate: function () {
+      stopFolderRefresh();
       if (view && typeof view.destroy === 'function') view.destroy();
       state.active = false;
       state.requestSequence += 1;
@@ -237,6 +324,7 @@
       loadFolder(path || '');
     },
     openRecording: function (recording, options) {
+      stopFolderRefresh();
       const config = options && typeof options === 'object' ? options : {};
       state.requestSequence += 1;
       state.active = true;
@@ -282,7 +370,7 @@
     tab.textContent = 'Recordings 2';
     tab.setAttribute('aria-label', 'Recordings 2 öffnen');
     const legacy = navigation.querySelector('[data-module="recordings"]');
-    if (legacy && legacy.nextSibling) navigation.insertBefore(tab, legacy.nextSibling);
+    if (legacy && legacy.nextSibling) navigation.insertBefore(legacy, button.nextSibling);
     else navigation.appendChild(tab);
     return tab;
   }
@@ -316,6 +404,13 @@
         : null;
       if (backend) moduleApi.deactivate();
     }, true);
+    if (global.document && typeof global.document.addEventListener === 'function') {
+      global.document.addEventListener('visibilitychange', function () {
+        if (state.active && !state.selectedRecording && !global.document.hidden) {
+          scheduleFolderRefresh(0);
+        }
+      });
+    }
   }
   global.VdrSuiteRecordings2 = moduleApi;
   const boundary = shared.platform();
