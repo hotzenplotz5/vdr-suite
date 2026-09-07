@@ -47,7 +47,7 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function') return; if (!root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
+  function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function' || !root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
   function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); installPlaybackPipUi(); }
   function ensurePlaybackRuntime() {
     if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
@@ -171,6 +171,7 @@
         !(global.document && global.document.hidden);
     };
     folderRefreshBusy = true;
+    let applied = false;
     requestFolder(path, 0, limit, backendId)
       .then(function (data) {
         if (!current()) return null;
@@ -180,12 +181,17 @@
         }
         if (folderSignature(data) === state.serverSignature) return null;
         applyFolderData(data, false);
+        applied = true;
         return resolveSingleRecordingLeaves(data, current).then(function () {
           if (current()) render();
         });
       })
       .catch(function (error) {
-        // A background refresh must not replace a usable folder with an error page.
+        // Keep the usable folder, and retry failed leaf enrichment on the next poll.
+        if (current() && applied) {
+          state.serverSignature = '';
+          render();
+        }
         if (current() && global.console && typeof global.console.warn === 'function') {
           global.console.warn('VDR-Suite recording folder refresh failed', error);
         }
@@ -304,7 +310,7 @@
       }
       state.active = true;
       render();
-      scheduleFolderRefresh(0);
+      if (!state.selectedRecording) scheduleFolderRefresh(0);
     },
     deactivate: function () {
       stopFolderRefresh();
@@ -370,7 +376,7 @@
     tab.textContent = 'Recordings 2';
     tab.setAttribute('aria-label', 'Recordings 2 öffnen');
     const legacy = navigation.querySelector('[data-module="recordings"]');
-    if (legacy && legacy.nextSibling) navigation.insertBefore(legacy, button.nextSibling);
+    if (legacy && legacy.nextSibling) navigation.insertBefore(tab, legacy.nextSibling);
     else navigation.appendChild(tab);
     return tab;
   }
