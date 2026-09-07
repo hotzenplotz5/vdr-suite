@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Finish the exact Recording-Cut activation repair without discarding local work.
 
-Only the demonstrated regression expectation is changed. The original source
-repair is reconstructed from the checked-in, checksum-verified payload. This
-helper never installs services, modifies production data, or starts a cut.
+Reconstruct the bounded source repair from the checked-in, checksum-verified
+payload. Accept a clean checkout as well as the exact previously prepared
+source states. Never install services, modify production data, or start a cut.
 """
 import argparse
 import ast
@@ -102,46 +102,49 @@ def verify_checkout():
 def verify_worktree(expected, final, allow_old):
     names = set(final)
     changed = set(git('diff', '--name-only').splitlines())
-    require(changed == names, 'tracked worktree differs from the exact repair scope')
+    require(changed.issubset(names), 'unrelated tracked worktree changes present')
     actual = {name: (ROOT / name).read_text(encoding='utf-8') for name in names}
     for name in names:
         allowed = {final[name]}
         if allow_old:
             allowed.add(expected[name])
+            allowed.add(git('show', BASE + ':' + name, strip=False))
         require(actual[name] in allowed, 'unexpected content in ' + name)
+    if not allow_old:
+        require(changed == names, 'expected source repair is not present')
     return actual
 
 
-def apply_correction(expected, final):
-    actual = verify_worktree(expected, final, True)
-    for name in final:
-        if name != TEST:
-            require(actual[name] == final[name], 'production repair differs from expected')
-    if actual[TEST] == final[TEST]:
-        print('REGRESSION_CORRECTION=ALREADY_APPLIED')
-        return
-    require(actual[TEST] == expected[TEST], 'unexpected regression test content')
-    path = ROOT / TEST
+def write_exact(path, content):
     descriptor, temporary = tempfile.mkstemp(prefix='.cut-repair-', dir=path.parent)
     try:
         with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
-            stream.write(final[TEST])
+            stream.write(content)
         os.chmod(temporary, path.stat().st_mode & 0o777)
         os.replace(temporary, path)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def apply_correction(expected, final):
+    actual = verify_worktree(expected, final, True)
+    if all(actual[name] == final[name] for name in final):
+        print('SOURCE_REPAIR=ALREADY_APPLIED')
+        return
+    for name in sorted(final):
+        if actual[name] != final[name]:
+            write_exact(ROOT / name, final[name])
     verify_worktree(expected, final, False)
     git('diff', '--check')
-    print('REGRESSION_CORRECTION=APPLIED')
+    print('SOURCE_REPAIR=APPLIED')
 
 
 def checks():
-    # The three Recording-Cut tests passed on the exact source bytes before
-    # the previous helper stopped at a nonexistent Make target. Resume at the
-    # real, repository-owned Phase-63 command-delivery target; do not repeat
-    # those already accepted tests merely because the helper changed.
     targets = [
+        'test-backend-agent-recording-cut-reconciliation',
+        'test-backend-agent-recording-cut-executor',
+        'test-backend-agent-recording-cut-local-state',
         'test-phase63-command-delivery-runtime',
         'check-recording-cut-runtime-wiring',
         'backend-agent',
@@ -189,7 +192,7 @@ def main():
         apply_correction(expected, final)
     else:
         verify_worktree(expected, final, True)
-        print('REGRESSION_CORRECTION=CHECK_PASS')
+        print('SOURCE_REPAIR=CHECK_PASS')
     if args.finish:
         checks()
         verify_worktree(expected, final, False)
