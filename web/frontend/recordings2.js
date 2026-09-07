@@ -3,7 +3,9 @@
   const shared = global.VdrSuiteRecordings2Shared;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const browserView = global.VdrSuiteRecordings2BrowserView;
-  if (!shared || !browserView || typeof browserView.create !== 'function') {
+  const refreshRuntime = global.VdrSuiteRecordings2FolderRefresh;
+  if (!shared || !browserView || typeof browserView.create !== 'function' ||
+      !refreshRuntime || typeof refreshRuntime.create !== 'function') {
     console.error('VDR-Suite Recordings 2 runtime dependencies are unavailable');
     return;
   }
@@ -27,9 +29,6 @@
     requestSequence: 0
   };
   let view; let playbackRuntimePromise = null; let playbackPipUiBound = false;
-  const FOLDER_REFRESH_INTERVAL_MS = 30000;
-  let folderRefreshTimer = null;
-  let folderRefreshBusy = false;
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -64,29 +63,35 @@
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }
-  function requestFolder(path, offset, limit, backendId) {
-    const api = shared.clientApi();
-    if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
-      return Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
-    }
-    return api.fetchClientRecordingFolder({
-      query: {
-        backend: backendId || state.backendId,
-        path: shared.normalizePath(path),
-        limit: limit === undefined ? shared.PAGE_SIZE : limit,
-        offset: Math.max(0, shared.number(offset, 0)),
-        _: String(Date.now())
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
-    });
-  }
-  function folderSignature(data) {
-    return JSON.stringify([
-      data.path, data.totalCount, data.recordingCount,
-      data.folders, data.recordings
-    ]);
-  }
+  const folderRefresh = refreshRuntime.create({
+    getState: function () { return state; },
+    fetchClientRecordingFolder: function (options) {
+      const api = shared.clientApi();
+      return api && typeof api.fetchClientRecordingFolder === 'function'
+        ? api.fetchClientRecordingFolder(options)
+        : Promise.reject(new Error('Client API für Aufnahmeordner ist nicht verfügbar.'));
+    },
+    pageSize: shared.PAGE_SIZE,
+    normalizePath: shared.normalizePath,
+    number: shared.number,
+    folderArtwork: folderArtwork,
+    applyFolderData: applyFolderData,
+    applyLeaves: function (result) {
+      state.promotedRecordings = result && Array.isArray(result.recordings)
+        ? normalizeRecordings(result.recordings) : [];
+      state.data = Object.assign({}, state.data || {}, {
+        folders: result && Array.isArray(result.folders)
+          ? result.folders.slice() : shared.folderList(state.data).slice()
+      });
+      updatePresentedFolderState();
+    },
+    render: render,
+    loadFolder: loadFolder
+  });
+  const requestFolder = folderRefresh.requestFolder;
+  const resolveSingleRecordingLeaves = folderRefresh.resolveLeaves;
+  const stopFolderRefresh = folderRefresh.stop;
+  const scheduleFolderRefresh = folderRefresh.schedule;
   function updatePresentedFolderState() {
     const folders = shared.folderList(state.data);
     state.recordings = state.serverRecordings.concat(state.promotedRecordings);
@@ -114,92 +119,9 @@
     state.serverRecordings = append
       ? state.serverRecordings.concat(incomingRecordings)
       : incomingRecordings;
-    state.serverSignature = append ? '' : folderSignature(data);
+    state.serverSignature = append ? '' : folderRefresh.signature(data);
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
-  }
-  function resolveSingleRecordingLeaves(data, guard) {
-    if (!folderArtwork || typeof folderArtwork.resolveLeaves !== 'function') {
-      return Promise.resolve();
-    }
-    return folderArtwork.resolveLeaves(data, requestFolder).then(function (result) {
-      if (typeof guard === 'function' && !guard()) return;
-      state.promotedRecordings = result && Array.isArray(result.recordings)
-        ? normalizeRecordings(result.recordings)
-        : [];
-      state.data = Object.assign({}, state.data || {}, {
-        folders: result && Array.isArray(result.folders)
-          ? result.folders.slice()
-          : shared.folderList(state.data).slice()
-      });
-      updatePresentedFolderState();
-    });
-  }
-  function stopFolderRefresh() {
-    if (folderRefreshTimer !== null) {
-      global.clearTimeout(folderRefreshTimer);
-      folderRefreshTimer = null;
-    }
-  }
-  function scheduleFolderRefresh(delay) {
-    stopFolderRefresh();
-    if (!state.active) return;
-    folderRefreshTimer = global.setTimeout(function () {
-      folderRefreshTimer = null;
-      refreshCurrentFolder();
-    }, delay === undefined ? FOLDER_REFRESH_INTERVAL_MS : delay);
-  }
-  function refreshCurrentFolder() {
-    if (!state.active) return;
-    if (folderRefreshBusy || state.loading || state.loadingMore ||
-        state.selectedRecording || (global.document && global.document.hidden)) {
-      scheduleFolderRefresh();
-      return;
-    }
-    if (!state.data || state.error) {
-      loadFolder(state.path || '');
-      return;
-    }
-    const sequence = state.requestSequence;
-    const backendId = state.backendId;
-    const path = state.path;
-    const limit = Math.max(shared.PAGE_SIZE, state.serverRecordings.length);
-    const current = function () {
-      return state.active && sequence === state.requestSequence &&
-        state.backendId === backendId && state.path === path &&
-        !state.loading && !state.loadingMore && !state.selectedRecording &&
-        !(global.document && global.document.hidden);
-    };
-    folderRefreshBusy = true;
-    let applied = false;
-    requestFolder(path, 0, limit, backendId)
-      .then(function (data) {
-        if (!current()) return null;
-        if (!data || data.recordingFolder !== true ||
-            shared.normalizePath(data.path) !== path) {
-          throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
-        }
-        if (folderSignature(data) === state.serverSignature) return null;
-        applyFolderData(data, false);
-        applied = true;
-        return resolveSingleRecordingLeaves(data, current).then(function () {
-          if (current()) render();
-        });
-      })
-      .catch(function (error) {
-        // Keep the usable folder, and retry failed leaf enrichment on the next poll.
-        if (current() && applied) {
-          state.serverSignature = '';
-          render();
-        }
-        if (current() && global.console && typeof global.console.warn === 'function') {
-          global.console.warn('VDR-Suite recording folder refresh failed', error);
-        }
-      })
-      .finally(function () {
-        folderRefreshBusy = false;
-        if (state.active) scheduleFolderRefresh();
-      });
   }
   function clearExternalDetailReturn() {
     state.detailReturn = null;
@@ -393,7 +315,7 @@
     });
     document.querySelectorAll('.module-tab').forEach(function (button) {
       if (button === tab) return;
-      button.addEventListener('click', function () { moduleApi.deactivate(); });
+      button.addEventListener('click', function (event) { moduleApi.deactivate(); });
     });
     const refresh = document.getElementById('refresh-detail');
     if (refresh) {
