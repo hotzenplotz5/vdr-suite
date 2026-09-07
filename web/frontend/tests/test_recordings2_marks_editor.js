@@ -20,6 +20,7 @@ function element(tag) {
     style: {},
     parentNode: null,
     title: '',
+    classList: {add() {}, remove() {}},
     disabled: false,
     value: '',
     listeners: {},
@@ -90,8 +91,9 @@ function allText(root) {
 
 async function flush() { for (let i = 0; i < 12; ++i) await Promise.resolve(); }
 async function run() {
-  const root = element('div'); root.className = 'recordings2-detail';
-  const mount = element('div'); mount.appendChild(root);
+  let root;
+  const mount = element('div');
+  let playbackCreations = 0;
   const listeners = new Set();
   let snapshot = {transition: 'snapshot', sessionId: null, state: 'idle'};
   let position = 32;
@@ -111,11 +113,25 @@ async function run() {
   const document = {head: element('head'), createElement: element, getElementById() { return null; }};
   const window = {document, crypto: require('crypto').webcrypto,
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
-    VdrSuiteRecordings2Shared: {mountTarget: () => mount},
-    VdrSuiteRecordings2BrowserView: {create() { return {
-      renderLoading() {}, renderError() {}, renderFolder() {}, destroy() {},
-      renderDetail() { root.__vdrSuiteRecordingPlaybackOwner = owner; }
-    }; }},
+    VdrSuiteRecordings2Shared: {
+      mountTarget: () => mount, installStyles() {}, selectedBackendId: () => 'default',
+      node(tag, className, label) { const n = element(tag); n.className = className; n.textContent = label || ''; return n; },
+      createButton(label, action) { const n = element('button'); n.textContent = label; n.addEventListener('click', action || (() => {})); return n; },
+      createPoster: () => element('img'), provider: () => ({}),
+      text: value => String(value || ''), recordingTitle: () => 'Testaufnahme',
+      recordingSubtitle: () => '', recordingSummary: () => '',
+      formatStart: () => '', formatDuration: () => '', formatSize: () => '',
+      first(value, keys, fallback) { for (const key of keys) if (value && value[key] !== undefined) return value[key]; return fallback; },
+      number: (value, fallback) => Number(value) || fallback
+    },
+    VdrSuiteRecordingPlaybackRestartChoice: {install() {}},
+    VdrSuiteRecordings2Playback: {createPanel() {
+      playbackCreations += 1;
+      const start = element('button'); start.textContent = 'Start im Playback-Owner';
+      start.addEventListener('click', () => publish({transition: 'session-started', sessionId: 'one', state: 'playing'}));
+      owner.element.appendChild(start);
+      return owner;
+    }},
     VdrSuiteClientApi: {requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
@@ -131,11 +147,14 @@ async function run() {
       return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'});
     }}};
   const context = vm.createContext({window, document, console, Promise, Uint32Array});
-  for (const path of ['web/frontend/recordings2-marks-editor.js','web/frontend/recordings2-marks-detail.js'])
+  for (const path of ['web/frontend/recordings2-browser-view.js','web/frontend/recordings2-marks-editor.js','web/frontend/recordings2-marks-detail.js'])
     vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
   const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
     selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'})});
   view.renderDetail(); await flush();
+  root = mount.querySelector('.recordings2-detail');
+  assert(root && root.__vdrSuiteRecordingPlaybackOwner === owner);
+  assert.strictEqual(playbackCreations, 1);
   function button(label) {
     let found;
     function visit(value) {
@@ -146,7 +165,7 @@ async function run() {
   }
   function posts() { return requests.filter(request => request.body); }
   assert(button('Marke an Wiedergabeposition').disabled);
-  publish({transition: 'session-started', sessionId: 'one', state: 'playing'});
+  button('Start im Playback-Owner').click();
   assert(!button('Marke an Wiedergabeposition').disabled);
   button('Zur Marke 0:00:10.00').click(); await flush();
   assert.deepStrictEqual(seeks, [10]);
@@ -177,6 +196,7 @@ async function run() {
   mode = 'verified'; button('Auftrag prüfen').click(); await flush();
   assert.deepStrictEqual(posts().at(-1).body, lost);
   assert.strictEqual(root.__vdrSuiteMarksEditor, editor);
+  assert.strictEqual(playbackCreations, 1, 'editing never creates another playback owner');
   mode = 'conflict'; button('Marke 0:00:10.00 löschen').click(); await flush();
   assert(allText(root).includes('inzwischen geändert'));
   button('Neu laden').click(); await flush();
