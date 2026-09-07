@@ -4,6 +4,52 @@ This file is the compact current execution/evidence status for the bounded post-
 
 Phase 66 remains complete. Phase 67 has not started.
 
+## Current installed candidate — 2026-09-07
+
+Product head: `c500224d6601ccc3181996bbbb9db9cc9aaf4998`, branch
+`work/post-phase66-native-recording-editing`; PR #268 remains Draft.
+[VDR-Suite CI #8842, run 34159335352](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34159335352)
+passed all six jobs for this exact product head.
+
+The backend-scoped Recording refresh queue now commits the cache before publishing
+through the existing change feed and live transport. Polling recovery follows the
+same ordering. Recordings 2 subscribes through the existing client API, coalesces
+updates and retains its fallback refresh and lifecycle cleanup.
+
+The native marks editor is integrated into the production browser-view bundle and
+observes the canonical playback owner. It supports native marks readback and
+revision-fenced editing, native cut preview and explicit confirmation, and
+identical-operation reconciliation without blind retries. Focused tests exercise
+the real browser-view composition, internal playback start, owner lifecycle,
+revision conflicts, pending outcomes and mock-only cut confirmation.
+
+Installation on yaVDR completed at 22:39 CEST using the previously built daemon and
+`make install PREFIX=/usr`. Installed and candidate daemon SHA-256:
+`acaabbfe8be52ebd1d6fd171a6f843bcaa793c207cad91af0ae0067f87ea4256`.
+Installed production browser bundle matches the source concatenation, SHA-256:
+`e654cf0fd264a1936f14151b3bbc742cefe1efc800d6134ace5ca6deaf8fe79a`.
+Frontend syntax and nginx configuration checks passed. Daemon, Agent and VDR are
+active; VDR and Agent retained their original PIDs. No new daemon journal warnings
+were reported after startup. These facts establish deployment, not functional
+browser acceptance.
+
+**Installed functional acceptance remains pending.** The available integrated
+browser has no authenticated session and rejects the local self-signed HTTPS
+certificate. No authenticated live-feed latency or real editor lifecycle result
+is claimed. A local mock visual fixture is not real yaVDR acceptance.
+
+**User safety instruction supersedes the historical first-cut gate below.**
+The user reports that the Brisant cut already occurred; source and edited-result
+directories exist. No second real cut and no changes to either Brisant recording
+are authorized. This session issued no real marks or cut mutation.
+The 22:20-to-22:39 file inventory comparison shows unchanged sizes and mtimes for
+all edited-result files and source video files; the source marks hash is unchanged
+(`c41ded31f4a936a8c0bd58fe833e59516f783480226f9ed07da5af93df1b0dcd`).
+Source `index` and `info` changed at 22:24:58, before this installation; their
+cause is unverified. Consequently an entirely unchanged source cannot be claimed.
+The historical Slice-3 evidence below is retained for context, not as permission
+to repeat the cut. Phase 67 remains out of scope.
+
 ## Slice 1 — Native Marks Read Model
 
 Status: **COMPLETE**.
@@ -77,7 +123,7 @@ The implemented Slice-3 boundary includes:
 
 The real-system preflight is also implemented and guarded as strictly read-only. Before any controlled cut it proves the exact branch/head and clean worktree, byte-identical candidate versus installed daemon, Backend Agent and SuiteBridge plugin, records their hashes, verifies the read-only RCUT capability and the fenced NCUT provider capability, and checks public marks/cut preview readiness. The preflight contains no HTTP POST, no `NCUT EXEC`, no marks mutation and no service mutation.
 
-## Real Slice-3 acceptance gate
+## Historical real Slice-3 acceptance gate (superseded by current safety instruction)
 
 The first real cut is intentionally still closed. No real Recording may be mutated by a cut until explicit user approval identifies/accepts a dedicated non-critical test Recording and the exact candidate has complete green hosted CI.
 
@@ -95,6 +141,6 @@ The controlled acceptance must then prove at least:
 
 Until that evidence is PASS, Slice 3 is not real-system complete and Slice 4 must not be represented as accepted server-side functionality.
 
-## Safety boundary
+## Historical Slice-3 implementation safety boundary
 
 No real cut was executed while implementing, testing or documenting the Slice-3 automated boundary. Any first real `POST /api/vdr/recordings/cut` remains an explicit approval gate.
