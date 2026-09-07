@@ -3,8 +3,6 @@
 const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
-
-const SOURCE = 'web/frontend/recordings2.js';
 const CUT = '/srv/vdr/video/%Brisant/2026-09-07.17.16.1-0.rec';
 const ORIGINAL = '/srv/vdr/video/Brisant/2026-09-07.17.13.1-0.rec';
 
@@ -30,10 +28,7 @@ function makeHarness() {
   const renders = [];
   const modules = new Map();
   const target = {classList: {remove() {}}, querySelector() { return null; }};
-  const tab = {
-    classList: {contains() { return true; }, toggle() {}},
-    addEventListener() {}
-  };
+  const tab = {classList: {contains() { return true; }, toggle() {}}, addEventListener() {}};
   const document = {
     hidden: false,
     querySelector(selector) { return selector === '[data-module="recordings2"]' ? tab : null; },
@@ -96,12 +91,15 @@ function makeHarness() {
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
     String, Number, Math, Array, JSON, Map, Set});
-  vm.runInContext(fs.readFileSync(SOURCE, 'utf8'), context, {filename: SOURCE});
+  for (const path of [
+    'web/frontend/recordings2-folder-refresh.js',
+    'web/frontend/recordings2.js'
+  ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
   const api = window.VdrSuiteRecordings2;
   assert.strictEqual(modules.get('recordings2'), api);
   async function advance(milliseconds) {
     now += milliseconds;
-    const due = [...timers.entries()].filter(([, timer]) => timer.at <= now)
+    const due = [...timers.entries()].filter(([, timer) => timer.at <= now)
       .sort((a, b) => a[1].at - b[1].at);
     for (const [id, timer] of due) {
       if (!timers.has(id)) continue;
