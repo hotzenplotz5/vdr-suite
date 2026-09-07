@@ -27,10 +27,12 @@ TEST = 'core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp'
 COMMIT_MESSAGE = 'fix(recording-cut): activate fenced command delivery'
 
 
-def git(*args, capture=True):
+def git(*args, capture=True, strip=True):
     result = subprocess.run(['git', *args], cwd=ROOT, text=True,
                             capture_output=capture, check=True)
-    return result.stdout.strip() if capture else ''
+    if not capture:
+        return ''
+    return result.stdout.strip() if strip else result.stdout
 
 
 def require(condition, message):
@@ -63,7 +65,7 @@ def expected_states():
     patches = payload()
     expected = {}
     for name, replacements in patches.items():
-        content = git('show', BASE + ':' + name) + '\n'
+        content = git('show', BASE + ':' + name, strip=False)
         for old, new in replacements:
             content = replace_one(content, old, new)
         expected[name] = content
@@ -91,7 +93,7 @@ def expected_states():
 def verify_checkout():
     require(git('rev-parse', '--show-toplevel') == str(ROOT), 'unexpected checkout root')
     require(git('branch', '--show-current') == BRANCH, 'unexpected branch')
-    require(git('rev-parse', 'HEAD^') == DELIVERY, 'unexpected delivery ancestry')
+    require(git('rev-parse', 'HEAD~2') == DELIVERY, 'unexpected delivery ancestry')
     require(git('diff', '--name-only', DELIVERY, 'HEAD').splitlines() == [SELF],
             'unexpected delivery commit contents')
     require(not git('diff', '--cached', '--name-only'), 'staged changes present')
@@ -139,6 +141,7 @@ def checks():
         'test-backend-agent-recording-cut-reconciliation',
         'test-backend-agent-recording-cut-executor',
         'test-backend-agent-recording-cut-local-state',
+        'test-backend-agent-command-delivery',
         'check-recording-cut-runtime-wiring',
         'backend-agent',
     ]
