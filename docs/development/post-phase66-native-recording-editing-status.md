@@ -4,7 +4,54 @@ This file is the compact current execution/evidence status for the bounded post-
 
 Phase 66 remains complete. Phase 67 has not started.
 
-## Current installed candidate — 2026-09-07
+## Latest installed frontend and browser evidence — 2026-09-07
+
+Installed frontend product head: `402f6b92f259609ccfe4322be59e56667e3f54af`.
+The daemon remains the byte-verified SSE build recorded below. The final frontend
+fixes preserve a Recording tab selected before deferred registration, load the
+served EPG addon after its application dependencies, and explain why creating a
+mark requires an active playback position.
+[Product CI #8848, run 34161241566](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34161241566)
+covers this head; frontend, architecture, packaging, documentation and Make audit
+checks were verified successful at evidence capture. The final complete CI graph
+remains a required merge gate.
+
+Installed browser-view bundle SHA-256:
+`0c43b19b422d5af7cc4fbc3b3621c48cadf144e1644a1abc8a33c46ec8e872e4`.
+The installed index and Recordings module match source byte-for-byte. Focused
+Recording runtime, automatic refresh, editor lifecycle, Home composition and
+frontend ownership checks passed.
+
+Real Edge browser evidence using the normal authenticated yaVDR session:
+
+- Fresh production page and owner recreation: the Recording library renders.
+  No new EPG startup error was logged after the final fresh reload.
+- Brisant source and existing edited result both appear in the library.
+- Source detail reads two native marks, frames 4732 and 28706, and one cut range;
+  the playback timeline shows both marks.
+- Read-only native cut preview reports that an edited output already exists.
+  No cut confirmation or real cut POST was issued.
+- The stopped player disables adding/jumping to a playback-position mark.
+- A short playback of a different inactive recording activates the canonical
+  player and enables the add-mark button. Stopping disables it again. Native
+  marks remain empty; no marks POST was issued.
+- A Suite-daemon-only restart temporarily reports HTTP 502 and automatically
+  reconnects to snapshot 1 / sequence 1 without losing the visible library.
+- Brisant source and edited-result file inventories are unchanged relative to
+  the post-installation 22:39 baseline throughout these browser checks.
+  The earlier source index/info discrepancy remains unexplained as recorded below.
+
+This is bounded non-destructive browser acceptance, not a repeated native mutation
+or second real cut. Burst coalescing, scoped cache-before-feed ordering, replay,
+pending-operation and conflict semantics are covered by focused automated tests.
+Latency from a newly completed real cut to its first folder appearance was not
+remeasured because repeating the cut is explicitly outside authorization.
+
+The user subsequently authorized merging to main after successful function checks
+and complete CI. No new Phase-67 or Brisant-mutation authority follows from that
+merge instruction. Earlier first-cut descriptions below are historical.
+
+## Earlier daemon installation evidence — 2026-09-07
 
 Product head: `c500224d6601ccc3181996bbbb9db9cc9aaf4998`, branch
 `work/post-phase66-native-recording-editing`; PR #268 remains Draft.
@@ -33,7 +80,7 @@ active; VDR and Agent retained their original PIDs. No new daemon journal warnin
 were reported after startup. These facts establish deployment, not functional
 browser acceptance.
 
-**Installed functional acceptance remains pending.** The available integrated
+**Historical browser-access blocker, resolved by the Edge evidence above.** The available integrated
 browser has no authenticated session and rejects the local self-signed HTTPS
 certificate. No authenticated live-feed latency or real editor lifecycle result
 is claimed. A local mock visual fixture is not real yaVDR acceptance.
