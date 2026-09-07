@@ -848,29 +848,33 @@
       const signature = JSON.stringify([backendId, series.title, series.posterUrl, seriesCountLabel(series)]);
       let card = existing.get(series.key);
       if (!card || card.dataset.presentation !== signature) {
-      card = doc.createElement('button');
-      card.dataset.presentation = signature;
-      card.type = 'button';
-      card.className = 'media-home-discovery-card series';
-      card.dataset.seriesKey = series.key;
-      card.dataset.backendId = backendId;
-      card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = series.title;
-      const detail = doc.createElement('span');
-      detail.textContent = seriesCountLabel(series);
-      copy.append(label, detail);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        renderSeriesDetail(card.__vdrSuiteSeries, null, backendId);
-      });
+        if (!card) {
+          card = doc.createElement('button');
+          card.addEventListener('click', function () {
+            renderSeriesDetail(card.__vdrSuiteSeries, null, card.dataset.backendId);
+          });
+        }
+        card.replaceChildren();
+        card.dataset.presentation = signature;
+        card.type = 'button';
+        card.className = 'media-home-discovery-card series';
+        card.dataset.seriesKey = series.key;
+        card.dataset.backendId = backendId;
+        card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const label = doc.createElement('strong');
+        label.textContent = series.title;
+        const detail = doc.createElement('span');
+        detail.textContent = seriesCountLabel(series);
+        copy.append(label, detail);
+        card.appendChild(copy);
       }
       card.__vdrSuiteSeries = series;
       retained.add(card);
       if (rail.children[index] !== card) {
-        rail.insertBefore(card, rail.children[index] || null);
+        if (rail.children[index]) rail.insertBefore(card, rail.children[index]);
+        else rail.appendChild(card);
         changed = true;
       }
     });
