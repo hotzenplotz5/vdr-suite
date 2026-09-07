@@ -29,7 +29,6 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2-shared.js", "recordings2-shared.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-folder-artwork.js", "recordings2-folder-artwork.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-actions.js", "recordings2-actions.js", "application/javascript; charset=utf-8", nullptr},
-    {"/frontend/recordings2-folder-refresh.js", "recordings2-folder-refresh.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-playback.js", "recordings2-playback.js", "application/javascript; charset=utf-8", "api/continue-watching-sync.js"},
     {"/frontend/recordings2-browser-view.js", "recordings2-browser-view.js", "application/javascript; charset=utf-8", "recordings2-marks-detail.js"},
     {"/frontend/recordings2-marks-detail.js", "recordings2-marks-detail.js", "application/javascript; charset=utf-8", nullptr},
@@ -79,7 +78,7 @@ bool endsWith(
     const std::string& suffix)
 {
     return value.size() >= suffix.size() &&
-        value.compare(value.size() - suffix.size(), suffix) == 0;
+        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 int hexValue(const char character)

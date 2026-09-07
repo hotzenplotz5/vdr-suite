@@ -379,16 +379,9 @@ function loadVdrSuiteRecordings2Runtime() {
     () => Boolean(window.VdrSuiteRecordings2Actions)
   ));
 
-  const folderRefreshRuntime = sharedRuntime.then(() => loadVdrSuiteDeferredRuntime(
-    'vdr-suite-recordings2-folder-refresh-runtime',
-    '/frontend/recordings2-folder-refresh.js',
-    () => Boolean(window.VdrSuiteRecordings2FolderRefresh)
-  ));
-
   const browserViewRuntime = Promise.all([
     folderArtworkRuntime,
-    actionsRuntime,
-    folderRefreshRuntime
+    actionsRuntime
   ]).then(() => loadVdrSuiteDeferredRuntime(
     'vdr-suite-recordings2-browser-view-runtime',
     '/frontend/recordings2-browser-view.js',
