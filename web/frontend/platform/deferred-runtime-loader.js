@@ -18,7 +18,7 @@ function installSearchTimerPreviewCacheWarmup() {
 
   function requestMethod(input, init) {
     if (init && init.method) return String(init.method).toUpperCase();
-    if (input && typeof input.method === 'string') return input.method.toUpperCase();
+    if (input && typeof input.method === 'string') return String(input.method).toUpperCase();
     return 'GET';
   }
 
@@ -42,7 +42,7 @@ function installSearchTimerPreviewCacheWarmup() {
   function refreshCache(backendId) {
     const client = window.VdrSuiteClientApi;
     if (!client ||
-      typeof client.fetchClientSearchTimerPreviewCacheRefresh !== 'function') {
+        typeof client.fetchClientSearchTimerPreviewCacheRefresh !== 'function') {
       return Promise.reject(new Error(
         'SearchTimer-Preview-Cache konnte nicht aktualisiert werden: Client API fehlt.'
       ));
@@ -61,7 +61,7 @@ function installSearchTimerPreviewCacheWarmup() {
       credentials: 'same-origin'
     }).then(result => {
       const ready = result && String(result.status || '') === 'ready';
-      const available = result.available === true;
+      const available = result && result.available === true;
       const eventCount = Number(result && result.eventCount || 0);
       if (!ready || !available || eventCount <= 0) {
         throw new Error('SearchTimer-Preview-Cache ist nicht bereit oder leer.');
