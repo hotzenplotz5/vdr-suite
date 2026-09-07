@@ -26,12 +26,14 @@
     const status = node('p', '');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
+    const positionHint = node('p', '');
     const actions = node('div');
     actions.className = 'recordings2-marks-editor-actions';
     const confirmation = node('div');
     confirmation.setAttribute('role', 'group');
     confirmation.setAttribute('aria-label', 'Schnitt bestätigen');
     panel.section.appendChild(controls);
+    controls.appendChild(positionHint);
     controls.appendChild(actions);
     controls.appendChild(confirmation);
     controls.appendChild(status);
@@ -174,6 +176,9 @@
       button('Auftrag prüfen', check, busy || !pending);
       const current = playback();
       const snapshot = current && typeof current.snapshot === 'function' ? current.snapshot() : null;
+      positionHint.textContent = snapshot && snapshot.sessionId
+        ? 'Die neue Schnittmarke wird an der aktuellen Wiedergabeposition gesetzt.'
+        : 'Zum Setzen einer Schnittmarke zuerst die Wiedergabe starten und zur gewünschten Stelle springen.';
       button('Marke an Wiedergabeposition', function () {
         const seconds = Number(current.position());
         const fps = Number(payload.framesPerSecond);
