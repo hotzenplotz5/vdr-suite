@@ -384,7 +384,9 @@ bool BackendAgentCommandRepository::verifyRecordingCutResult(
         reasonCode = "recording_cut_provider_selection_required";
         return false;
     }
-    if (selectedProvider->backendId != assignment.backendId ||
+    if (!backendAgentLocalProviderSameFence(
+            *selectedProvider, payload.localProviderSelection) ||
+        selectedProvider->backendId != assignment.backendId ||
         selectedProvider->authorityDomain != kBackendAgentRecordingCutAuthorityDomain ||
         selectedProvider->providerId != kBackendAgentRecordingCutProviderId ||
         selectedProvider->providerKind != kBackendAgentRecordingCutProviderKind ||

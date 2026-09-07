@@ -64,6 +64,21 @@ void observeProvider(
     assert(!result.assignment.present);
 }
 
+BackendAgentCommandPollResult pollCut(
+    BackendAgentCommandRepository& commands,
+    const vdrsuite::agent::BackendAgentLocalProviderFacts& facts,
+    std::int64_t now)
+{
+    using namespace vdrsuite::agent;
+    BackendAgentCommandPollRequest poll;
+    poll.backendId = "default";
+    poll.agentInstanceId = "inst_cut";
+    poll.backendGeneration = 7;
+    poll.supportedCommandTypes = {kBackendAgentRecordingCutCommandType};
+    poll.localProviders = {facts};
+    return commands.poll(poll, "agt_cut", now);
+}
+
 vdrsuite::agent::BackendAgentRecordingCutAssignmentRequest request(
     const std::string& operationId,
     std::int64_t claimedAt)
@@ -354,6 +369,86 @@ int main()
     assert(!staleProviderReplay.accepted);
     assert(staleProviderReplay.reasonCode ==
         "recording_cut_provider_selection_stale");
+
+    // Activation and delivery are exercised together, not merely assigned.
+    clock += 20;
+    const auto deliveryFacts = providerFacts("pie_cut_delivery_1", 4, 5);
+    const auto initialPoll = pollCut(commands, deliveryFacts, clock);
+    assert(initialPoll.accepted);
+    assert(!initialPoll.assignment.present);
+    assert(commands.hasCapability(
+        "default", "agt_cut", "inst_cut", 7,
+        kBackendAgentRecordingCutCommandType));
+    assert(commands.ensureRecordingCutAssignmentSchema());
+    assert(commands.hasCapability(
+        "default", "agt_cut", "inst_cut", 7,
+        kBackendAgentRecordingCutCommandType));
+    const auto delivered = assign(
+        commands, agents, "op_cut_delivery_regression", clock, clock + 1);
+    const auto deliveredPoll = pollCut(commands, deliveryFacts, clock + 2);
+    assert(deliveredPoll.accepted);
+    assert(deliveredPoll.assignment.present);
+    assert(deliveredPoll.assignment.commandId == delivered.commandId);
+    assert(deliveredPoll.assignment.requestFingerprint ==
+        delivered.requestFingerprint);
+    const auto deliveredSummary = commands.summaryForBackend("default");
+    assert(deliveredSummary.commandId == delivered.commandId);
+    assert(deliveredSummary.deliveryCount == 1);
+    const auto duplicatePoll = pollCut(commands, deliveryFacts, clock + 3);
+    assert(duplicatePoll.accepted);
+    assert(duplicatePoll.assignment.present);
+    assert(duplicatePoll.assignment.commandId == delivered.commandId);
+    assert(duplicatePoll.assignment.requestFingerprint ==
+        delivered.requestFingerprint);
+    assert(commands.summaryForBackend("default").deliveryCount == 2);
+    acceptReceipt(commands, delivered, clock + 3);
+    const auto acknowledgedPoll = pollCut(commands, deliveryFacts, clock + 3);
+    assert(acknowledgedPoll.accepted);
+    assert(!acknowledgedPoll.assignment.present);
+
+    // A result is historical evidence: rotation after the acknowledged receipt
+    // must not prevent persisting it or trigger another native execution.
+    const auto rotatedFacts = providerFacts("pie_cut_delivery_2", 4, 5);
+    assert(pollCut(commands, rotatedFacts, clock + 4).accepted);
+    acceptAgentResult(
+        commands, delivered, "accepted_by_executor", clock + 5,
+        EditedRecordingKey);
+    const auto storedResult = commands.summaryForBackend("default");
+    assert(storedResult.commandId == delivered.commandId);
+    assert(storedResult.deliveryCount == 2);
+
+    // An undelivered assignment with a changed epoch stays fenced and expires.
+    clock += 20;
+    const auto staleAssignment = assign(
+        commands, agents, "op_cut_delivery_stale", clock, clock + 1);
+    const auto laterFacts = providerFacts("pie_cut_delivery_3", 4, 5);
+    const auto stalePoll = pollCut(commands, laterFacts, clock + 2);
+    assert(stalePoll.accepted);
+    assert(!stalePoll.assignment.present);
+    const auto staleSummary = commands.summaryForBackend("default");
+    assert(staleSummary.commandId == staleAssignment.commandId);
+    assert(staleSummary.deliveryCount == 0);
+    const auto expiredPoll = pollCut(commands, laterFacts, clock + 302);
+    assert(expiredPoll.accepted);
+    assert(!expiredPoll.assignment.present);
+    assert(commands.summaryForBackend("default").state == "expired");
+    assert(commands.requestReplay("default", staleAssignment.commandId));
+    assert(!pollCut(commands, laterFacts, clock + 303).assignment.present);
+    const auto staleReplay = assignmentService.assign(
+        systemContext(), request("op_cut_delivery_stale", clock),
+        clock + 304, clock + 604);
+    assert(!staleReplay.accepted);
+    assert(staleReplay.reasonCode == "recording_cut_provider_selection_stale");
+    assert(commands.summaryForBackend("default").deliveryCount == 0);
+
+    // A new, separately authorized operation can be delivered on the new fence.
+    const auto next = assign(
+        commands, agents, "op_cut_delivery_new", clock + 305, clock + 306);
+    const auto nextPoll = pollCut(commands, laterFacts, clock + 307);
+    assert(nextPoll.accepted);
+    assert(nextPoll.assignment.present);
+    assert(nextPoll.assignment.commandId == next.commandId);
+    assert(nextPoll.assignment.commandId != staleAssignment.commandId);
 
     return 0;
 }
