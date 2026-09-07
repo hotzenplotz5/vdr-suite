@@ -326,5 +326,7 @@
     boundary.registerModule('recordings2', moduleApi);
   }
   installShellEntry();
+  const selectedTab = document.querySelector('[data-module="recordings2"]');
+  if (selectedTab && selectedTab.classList.contains('active')) moduleApi.activate();
   ensurePlaybackRuntime();
 }(window));
