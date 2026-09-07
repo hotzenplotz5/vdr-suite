@@ -79,7 +79,7 @@ bool endsWith(
     const std::string& suffix)
 {
     return value.size() >= suffix.size() &&
-        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+        value.compare(value.size() - suffix.size(), suffix) == 0;
 }
 
 int hexValue(const char character)
@@ -91,12 +91,12 @@ int hexValue(const char character)
 
     if (character >= 'a' && character <= 'f')
     {
-        return character - 'a';
+        return 10 + character - 'a';
     }
 
     if (character >= 'A' && character <= 'F')
     {
-        return character - 'A';
+        return 10 + character - 'A';
     }
 
     return -1;
