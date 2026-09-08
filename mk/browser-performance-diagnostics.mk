@@ -1,4 +1,4 @@
-# Optional browser diagnostics. No daemon, API or cache configuration changes.
+# Optional browser diagnostics. No API or cache configuration changes.
 .PHONY: test-browser-performance-diagnostics install-browser-performance-diagnostics test-browser-performance-diagnostics-install-staging
 
 test-frontend-contracts: test-browser-performance-diagnostics
@@ -13,6 +13,7 @@ test-browser-performance-diagnostics:
 	node --check web/frontend/browser-artwork-probe.js
 	node tools/test_browser_artwork_probe.js
 	node tools/test_browser_performance_diagnostics.js
+	node tools/test_browser_diagnostics_http_routes.js
 
 install-browser-performance-diagnostics:
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
