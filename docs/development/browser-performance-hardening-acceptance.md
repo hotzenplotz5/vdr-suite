@@ -1,6 +1,6 @@
 # Browser performance hardening acceptance
 
-Status: candidate under validation; real yaVDR/browser acceptance pending.
+Status: Series DOM/revalidation slice accepted by the user on real yaVDR at `1b90f52066b717f82bf787599ae03bba17055a71`. Further production performance measurements remain pending. PR #270 is not merged; Phase 67 and HbbTV are not started.
 
 ## Baseline and reproduced failures
 
@@ -127,3 +127,21 @@ Hosted `frontend-regression-test` passed on that commit in
 [VDR-Suite CI #8856, run 34193007136](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34193007136).
 This is a completed frontend-job result, not a claim that the entire workflow
 or the real runtime was accepted. Final-head CI is checked separately.
+
+## Real yaVDR acceptance checkpoint — 2026-09-08
+
+The previously unavailable host and authenticated browser became accessible. The user completed the instructed real-browser workflow and reported "Funktioniert perfekt". This accepts the bounded Series DOM/revalidation behavior on the installed candidate, not the remaining measurement-gated performance work.
+
+- Source and clean isolated checkout: `1b90f52066b717f82bf787599ae03bba17055a71`, `/root/vdr-suite-browser-performance-test`.
+- The installed `home-recording-discovery-bootstrap.js` SHA-256 matched the candidate: `878a10ec8c7925ea1a94fd1722567b1e5953fcfd3c7ba4b076fec7787c45a2cf`.
+- The installed `home-recording-discovery.js` SHA-256 matched the candidate: `6602329be8d538e4690de12bcdb9f71f185df7321f85ccc4e532918eaf6710b4`.
+- The production HTTP response for `/frontend/home-recording-discovery.js` was verified byte-for-byte against the installed primary file, two newlines and `home-recently-watched.js`: 116978 bytes, SHA-256 `af8765edfce64979af8d7f6cde29992ebe1a23d1ff5744f78cbec9f717f7a708`, comparison RC=0 and Node syntax RC=0. The larger response is the intended server-side bundle, not evidence of a stale asset.
+- The user confirmed successful browser authentication and the instructed Home/Series/season/episode navigation, position-retention, waiting and refresh checks. No defect was reported. Exact browser version, viewport, backend identity, inventory count, retry timestamps and production performance measurements were not captured in this acceptance exchange.
+- The deployed files were already identical before this checkpoint. No installation, daemon replacement, service restart or Recording mutation was performed. The local self-signed HTTPS certificate required `curl -k` for these controlled localhost-origin diagnostics; no global certificate verification setting was changed.
+- The prior completed six-job CI remains [#8876 / run 34208859246](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34208859246) on the accepted product head. This is separate from the final CI required after branch reconciliation.
+
+The accepted product behavior is unchanged by the subsequent documentation and merge-history reconciliation. The branch was merged with current main `0ad3296f402b4af0c0be5c0e72959eb66826bd8c` in reconciliation commit `303892a5a704a8b55b53417cc301e35acfad3bde`, preserving both histories and the current Makefile's HTTP deadline and optional diagnostics hooks. The additional HTTP/RMARKS recovery is not claimed to have been installed on yaVDR.
+
+### Remaining evidence boundaries
+
+This user-reported acceptance does not establish forced transient-failure or backend-switch behavior, exact DOM mutation counts in production, measured cover transfer/decode/cache performance, long-task or input-latency improvements, or a need for virtualization. Those remain separately gated by the existing automated contracts and real-inventory measurements. No new full-system runtime acceptance, recording cut or Phase 67 kickoff is implied.
