@@ -14,6 +14,10 @@ test-browser-performance-diagnostics:
 	node tools/test_browser_artwork_probe.js
 	node tools/test_browser_performance_diagnostics.js
 	node tools/test_browser_diagnostics_http_routes.js
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/http/tests/test_browser_diagnostics_asset_routes.cpp \
+		-o $(BUILD_DIR)/test_browser_diagnostics_asset_routes
+	$(BUILD_DIR)/test_browser_diagnostics_asset_routes
 
 install-browser-performance-diagnostics:
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
