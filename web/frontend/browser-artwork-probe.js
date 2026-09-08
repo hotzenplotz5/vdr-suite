@@ -1,4 +1,4 @@
-/* Read-only, opt-in browser artwork measurement. */
+/* Read-only, opt-in browser artwork measurement. No URLs or credentials in reports. */
 (function (root) {
   'use strict';
   function summarize(entries, images, mutations, tasks) {
@@ -43,27 +43,33 @@
         return { url: image.currentSrc || image.src || '', complete: image.complete, width: image.naturalWidth, loading: image.loading };
       });
     }
-    function start(label) {
+    function railScroll() {
+      return Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; });
+    }
+    function start(label, options) {
       if (active) throw new Error('Finish the current capture first');
+      const buffered = Boolean(options && options.buffered);
       const observers = [];
       const resources = [];
       const tasks = [];
       let mutations = 0;
       const begin = perf.now();
-      function observe(callback, type, options) {
+      const supported = { resource: false, longtask: false, mutation: false };
+      function observe(callback, type, config) {
         const Constructor = type === 'mutation' ? win.MutationObserver : win.PerformanceObserver;
         if (typeof Constructor !== 'function') return;
         try {
           const observer = new Constructor(callback);
-          observer.observe(options);
+          observer.observe(config);
           observers.push({ observer: observer, type: type });
+          supported[type] = true;
         } catch (_) { /* unsupported entry type */ }
       }
-      observe(function (list) { resources.push.apply(resources, list.getEntries()); }, 'resource', { type: 'resource', buffered: false });
-      observe(function (list) { tasks.push.apply(tasks, list.getEntries()); }, 'longtask', { type: 'longtask', buffered: false });
+      observe(function (list) { resources.push.apply(resources, list.getEntries()); }, 'resource', { type: 'resource', buffered: buffered });
+      observe(function (list) { tasks.push.apply(tasks, list.getEntries()); }, 'longtask', { type: 'longtask', buffered: buffered });
       observe(function (records) { mutations += records.length; }, 'mutation', { childList: true, attributes: true, characterData: true, subtree: true });
-      active = { label: String(label || 'capture'), begin: begin, observers: observers, resources: resources, tasks: tasks, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialImages: images(), initialScroll: Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; }) };
-      return 'Capture started. Perform one browser action, then call stop().';
+      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll() };
+      return 'Capture started';
     }
     function stop() {
       if (!active) throw new Error('No active capture');
@@ -76,38 +82,40 @@
           if (entry.type === 'mutation') session.addMutations(pending.length);
           else if (entry.type === 'resource') session.resources.push.apply(session.resources, pending.filter(function (item) { return item.entryType === 'resource'; }));
           else if (entry.type === 'longtask') session.tasks.push.apply(session.tasks, pending.filter(function (item) { return item.entryType === 'longtask'; }));
-        } finally {
-          observer.disconnect();
-        }
+        } finally { observer.disconnect(); }
       });
       const current = images();
       const report = {
         label: session.label,
         elapsedMs: Math.round((perf.now() - session.begin) * 10) / 10,
+        bufferedStartup: session.buffered,
+        observerSupport: session.supported,
         metrics: summarize(session.resources, current, session.getMutations(), session.tasks),
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
         railScrollBefore: session.initialScroll,
-        railScrollAfter: Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; })
+        railScrollAfter: railScroll()
       };
       captures.push(report);
-      if (win.console && win.console.table) win.console.table(report.metrics);
       return report;
     }
     async function inspectHeaders() {
       if (active) throw new Error('Finish the capture before inspecting headers');
-      const candidate = images().find(function (image) {
-        try { return image.url && new URL(image.url, win.location.href).origin === win.location.origin; } catch (_) { return false; }
+      const candidate = Array.from(doc.querySelectorAll('.media-home-discovery-rail img, [data-home-zone="additional-sections"] img, [data-home-zone="primary-rail"] img')).find(function (image) {
+        try {
+          const url = image.currentSrc || image.src;
+          return url && new URL(url, win.location.href).origin === win.location.origin;
+        } catch (_) { return false; }
       });
-      if (!candidate) throw new Error('No same-origin image is currently rendered');
-      const response = await win.fetch(candidate.url, { method: 'GET', credentials: 'same-origin', cache: 'no-cache', redirect: 'follow' });
+      if (!candidate) throw new Error('No same-origin Home cover is currently rendered');
+      const response = await win.fetch(candidate.currentSrc || candidate.src, { method: 'GET', credentials: 'same-origin', cache: 'no-cache', redirect: 'follow' });
       const headers = {};
       ['cache-control', 'etag', 'last-modified', 'expires', 'age', 'vary', 'content-type', 'content-length'].forEach(function (name) {
         const value = response.headers.get(name);
         if (value !== null) headers[name] = value;
       });
       if (response.body && typeof response.body.cancel === 'function') await response.body.cancel();
-      return { status: response.status, type: response.type, headers: headers, note: 'One explicit same-origin GET; no URL, credentials or response body included. Inspect the Network panel for proxy and 304 details.' };
+      return { status: response.status, type: response.type, headers: headers, note: 'One explicit same-origin GET; no URL, credentials or response body included.' };
     }
     function report() { return JSON.parse(JSON.stringify(captures)); }
     return { start: start, stop: stop, report: report, inspectHeaders: inspectHeaders };
