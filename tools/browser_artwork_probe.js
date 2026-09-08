@@ -51,30 +51,34 @@
       let mutations = 0;
       const begin = perf.now();
       function observe(callback, type, options) {
-        if (!win.PerformanceObserver && type !== 'mutation') return;
+        const Constructor = type === 'mutation' ? win.MutationObserver : win.PerformanceObserver;
+        if (typeof Constructor !== 'function') return;
         try {
-          const observer = type === 'mutation' ? new win.MutationObserver(callback) : new win.PerformanceObserver(callback);
+          const observer = new Constructor(callback);
           observer.observe(options);
-          observers.push(observer);
+          observers.push({ observer: observer, type: type });
         } catch (_) { /* unsupported entry type */ }
       }
       observe(function (list) { resources.push.apply(resources, list.getEntries()); }, 'resource', { type: 'resource', buffered: false });
       observe(function (list) { tasks.push.apply(tasks, list.getEntries()); }, 'longtask', { type: 'longtask', buffered: false });
       observe(function (records) { mutations += records.length; }, 'mutation', { childList: true, attributes: true, characterData: true, subtree: true });
-      active = { label: String(label || 'capture'), begin: begin, observers: observers, resources: resources, tasks: tasks, getMutations: function () { return mutations; }, initialImages: images(), initialScroll: Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; }) };
+      active = { label: String(label || 'capture'), begin: begin, observers: observers, resources: resources, tasks: tasks, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialImages: images(), initialScroll: Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; }) };
       return 'Capture started. Perform one browser action, then call stop().';
     }
     function stop() {
       if (!active) throw new Error('No active capture');
       const session = active;
       active = null;
-      session.observers.forEach(function (observer) {
-        if (typeof observer.takeRecords === 'function') {
-          const pending = observer.takeRecords();
-          if (pending.length && pending[0].entryType === 'resource') session.resources.push.apply(session.resources, pending);
-          else if (pending.length && pending[0].entryType === 'longtask') session.tasks.push.apply(session.tasks, pending);
+      session.observers.forEach(function (entry) {
+        const observer = entry.observer;
+        try {
+          const pending = typeof observer.takeRecords === 'function' ? observer.takeRecords() : [];
+          if (entry.type === 'mutation') session.addMutations(pending.length);
+          else if (entry.type === 'resource') session.resources.push.apply(session.resources, pending.filter(function (item) { return item.entryType === 'resource'; }));
+          else if (entry.type === 'longtask') session.tasks.push.apply(session.tasks, pending.filter(function (item) { return item.entryType === 'longtask'; }));
+        } finally {
+          observer.disconnect();
         }
-        observer.disconnect();
       });
       const current = images();
       const report = {
