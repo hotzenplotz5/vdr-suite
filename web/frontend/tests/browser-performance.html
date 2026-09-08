@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Series browser performance regression</title>
+<style>
+  body { background:#0f172a; color:#e2e8f0; font:16px system-ui; margin:24px; }
+  main { max-width:900px; } pre { white-space:pre-wrap; } button { font:inherit; }
+</style>
+<main>
+  <h1>Series browser performance regression</h1>
+  <p>Synthetic inventory, real production renderer and browser layout. No backend requests.
+     Render times include forced layout; these are not real yaVDR acceptance results.</p>
+  <button id="run">Run browser regressions</button>
+  <pre id="results">Ready</pre>
+  <div data-home-zone="additional-sections"></div>
+</main>
+<script>
+  window.VdrSuitePlatform = {
+    getSelectedBackendId() { return 'default'; },
+    getSelectedModule() { return 'overview'; },
+    getClientApi() { return null; }
+  };
+  const script = document.createElement('script');
+  script.src = '../home-recording-discovery.js' +
+    (new URLSearchParams(location.search).has('baseline') ? '?baseline=1' : '');
+  script.onload = () => { document.getElementById('run').disabled = false; };
+  document.getElementById('run').disabled = true;
+  document.head.appendChild(script);
+
+  function fixture(index, count) {
+    const episodes = Array.from({length:count}, (_, number) => ({
+      recording:{recordingId:'r-' + index + '-' + number, backendId:'default', title:'Episode ' + number},
+      backendId:'default', episodeNumber:number + 1, episodeTitle:'Episode ' + number, posterUrl:''
+    }));
+    return {key:'series-' + index, title:'Series ' + String(index).padStart(4,'0'), posterUrl:'',
+      episodes, seasons:[{number:1, label:'Season 1', episodes}]};
+  }
+  function frame() { return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); }
+  document.getElementById('run').onclick = async function () {
+    this.disabled = true;
+    const output = {browser:navigator.userAgent, viewport:[innerWidth,innerHeight],
+      baseline:new URLSearchParams(location.search).has('baseline'), samples:[], assertions:[]};
+    const host = document.querySelector('[data-home-zone]');
+    const api = window.VdrSuiteHomeRecordingDiscovery._test;
+    const check = (name, value) => output.assertions.push({name, passed:Boolean(value)});
+    try {
+      for (const count of [100,1000]) {
+        host.replaceChildren();
+        const series = Array.from({length:count}, (_, i) => fixture(i,1));
+        const start = performance.now();
+        api.renderSeriesRail(series,'default');
+        const rail = host.querySelector('.media-home-discovery-rail.series');
+        const width = rail.scrollWidth;
+        const coldMs = performance.now()-start;
+        rail.children[10].focus({preventScroll:true});
+        rail.scrollLeft = 2400;
+        await frame();
+        const scroll = rail.scrollLeft;
+        const focused = document.activeElement;
+        const poster = rail.children[10].children[0];
+        const observer = new MutationObserver(() => {});
+        observer.observe(host,{subtree:true,childList:true,attributes:true,characterData:true});
+        const timings = [];
+        let mutations = 0;
+        for (let repeat=0; repeat<20; repeat++) {
+          const before = performance.now();
+          api.renderSeriesRail(series.map(item => ({...item})),'default');
+          void rail.offsetWidth;
+          timings.push(performance.now()-before);
+          mutations += observer.takeRecords().length;
+        }
+        check(count + ' unchanged rail has zero DOM mutations',mutations===0);
+        check(count + ' unchanged rail retains focus',document.activeElement===focused);
+        check(count + ' unchanged rail retains scroll',Math.abs(rail.scrollLeft-scroll)<1);
+        check(count + ' unchanged poster identity',rail.children[10].children[0]===poster);
+        const enriched = series.map((item,i) => i===5 ? {...item,title:item.title+' enriched'} : item);
+        api.renderSeriesRail(enriched,'default');
+        const changedRecords = observer.takeRecords();
+        check(count + ' single-card update stays within affected card',changedRecords.length>0 &&
+          changedRecords.every(record => rail.children[5]===record.target || rail.children[5].contains(record.target)));
+        check(count + ' single-card update retains focus',document.activeElement===focused);
+        api.renderSeriesRail([fixture(-1,1),...enriched],'default');
+        check(count + ' insertion retains focused card',document.activeElement===focused);
+        check(count + ' insertion retains scroll',Math.abs(rail.scrollLeft-scroll)<1);
+        observer.disconnect();
+        api.renderSeriesDetail(enriched[10],null,'default');
+        api.renderSeriesRail(enriched,'default');
+        check(count + ' detail return retains list element',host.querySelector('.media-home-discovery-rail.series')===rail);
+        check(count + ' detail return restores list position',Math.abs(rail.scrollLeft-scroll)<1);
+        timings.sort((a,b)=>a-b);
+        output.samples.push({count,coldMs,scrollWidth:width,noOpMutations:mutations,
+          noOpMedianMs:timings[10],noOpP95Ms:timings[18],singleCardMutationRecords:changedRecords.length});
+      }
+      const series = fixture(1,100);
+      api.renderSeriesDetail(series,series.seasons[0],'default');
+      const section = host.querySelector('[data-home-discovery-rail="series"]');
+      const episodes = section.querySelector('.series-episodes');
+      episodes.children[10].focus({preventScroll:true});
+      episodes.scrollLeft=2400;
+      await frame();
+      const scroll = episodes.scrollLeft;
+      const focused = document.activeElement;
+      const observer = new MutationObserver(() => {});
+      observer.observe(section,{subtree:true,childList:true,attributes:true,characterData:true});
+      api.renderSeriesDetail({...series},series.seasons[0],'default');
+      check('unchanged detail has zero DOM mutations',observer.takeRecords().length===0);
+      api.renderSeriesDetail({...series,title:'Enriched series'},series.seasons[0],'default');
+      check('summary update keeps episode rail mounted',episodes.parentNode===section);
+      check('summary update keeps episode focus',document.activeElement===focused);
+      check('summary update keeps episode scroll',Math.abs(episodes.scrollLeft-scroll)<1);
+      observer.disconnect();
+      output.passed=output.assertions.every(item=>item.passed);
+    } catch (error) { output.error=String(error.stack || error); output.passed=false; }
+    document.getElementById('results').textContent=JSON.stringify(output,null,2);
+    this.disabled=false;
+  };
+</script>
+</html>

@@ -68,5 +68,49 @@ No runtime installation was attempted. The next real-system gate requires an
 accessible yaVDR host and authenticated working browser session, followed by
 verified candidate installation and the observations above.
 
-CI run identifiers and final candidate fingerprints are recorded after remote
-publication and terminal CI results; none are invented here.
+The user explicitly requested continuing without yaVDR access. Runtime
+installation and real-inventory measurements remain pending under that scope.
+
+## Controlled real-browser regression evidence
+
+On 2026-09-08 Edge 152 on Windows, viewport 2552 x 1274, ran the production
+renderer in `web/frontend/tests/browser-performance.html`. Source candidate:
+`a0771064acd723fa9d7caaf21dd5d9097e63cebc`. The same fixture against baseline
+`8bdf508908454a43c3e00466d93037bb95f7dc17` failed ten of 24 assertions; the
+candidate passed all 24. Baseline failures covered insertion focus, list identity
+and scroll after detail return, unchanged-detail mutations and summary-update
+episode rail/focus/scroll retention. The existing top-list no-op optimization
+already passed on main and is not claimed as a new optimization.
+
+One 20-iteration sample per inventory size, synthetic poster-free cards, includes
+forced browser layout (milliseconds; timings are descriptive, not a speedup claim):
+
+| Series | Baseline cold | Candidate cold | Baseline no-op median / P95 | Candidate no-op median / P95 | No-op mutations, both |
+| --- | --- | --- | --- | --- | --- |
+| 100 | 4.1 | 7.0 | 0.1 / 0.2 | 0.1 / 0.2 | 0 |
+| 1000 | 29.6 | 40.6 | 1.2 / 1.6 | 0.7 / 2.2 | 0 |
+
+Single-card enrichment generated eight mutation records, all within that card.
+The actual browser confirmed focus and scroll retention on insertion and detail
+return, and zero mutations for an unchanged open detail. The sample does not
+measure production cover transfer, decoding, HTTP cache behavior or input latency
+and does not justify virtualization by itself.
+
+Reproduce from the checkout with `node tools/serve_browser_performance.js`, open
+`http://127.0.0.1:18765/web/frontend/tests/browser-performance.html`, and click
+`Run browser regressions`. Append `?baseline=1` for the exact baseline. The server
+only exposes the fixture and renderer on loopback, performs no backend requests
+and stops with Ctrl+C. No runtime installation is involved.
+
+The canonical metadata retry regression additionally exercises user-style
+Series-card click, season-button click and the real retry timer, then verifies
+preserved rails, scroll and selection without restarting Discovery queries.
+
+## Publication evidence
+
+First product commit: `a0771064acd723fa9d7caaf21dd5d9097e63cebc`,
+[Draft PR #270](https://github.com/hotzenplotz5/vdr-suite/pull/270).
+Hosted `frontend-regression-test` passed on that commit in
+[VDR-Suite CI #8856, run 34193007136](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34193007136).
+This is a completed frontend-job result, not a claim that the entire workflow
+or the real runtime was accepted. Final-head CI is checked separately.

@@ -279,7 +279,7 @@ function seriesImage(harness) {
   return section.querySelector('img');
 }
 
-async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload() {
+async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload(openDetail) {
   const harness = createHarness({
     available: false,
     status: 'not-found',
@@ -293,6 +293,20 @@ async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload() {
   assert.strictEqual(harness.api.seriesWarm('default'), false);
   assert.strictEqual(seriesImage(harness), null);
   assert.strictEqual(harness.pendingRetryTimers().length, 1);
+
+  const section = harness.host.querySelector('[data-home-discovery-rail="series"]');
+  const rail = findElement(section, element => element.className === 'media-home-discovery-rail series');
+  rail.scrollLeft = 280;
+  let seasonRail;
+  let episodeRail;
+  if (openDetail) {
+    rail.children[0].listeners.click[0]();
+    seasonRail = findElement(section, element => element.className === 'media-home-series-season-rail');
+    seasonRail.children[0].listeners.click[0]();
+    episodeRail = findElement(section, element => element.className === 'media-home-discovery-rail series-episodes');
+    seasonRail.scrollLeft = 140;
+    episodeRail.scrollLeft = 280;
+  }
 
   const baseline = {
     recordings: harness.recordingCalls(),
@@ -336,6 +350,16 @@ async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload() {
   assert(image.src.includes('/api/vdr/recordings/metadata/image?'));
   assert.strictEqual(harness.api.seriesWarm('default'), true);
   assert.strictEqual(harness.pendingRetryTimers().length, 0);
+  if (openDetail) {
+    assert.strictEqual(seasonRail.parentNode, section, 'user-selected season rail survives canonical metadata retry');
+    assert.strictEqual(episodeRail.parentNode, section, 'user-selected episode rail survives canonical metadata retry');
+    assert.strictEqual(seasonRail.scrollLeft, 140);
+    assert.strictEqual(episodeRail.scrollLeft, 280);
+    assert(seasonRail.children[0].className.includes(' selected'));
+  } else {
+    assert.strictEqual(rail.parentNode, section, 'canonical retry preserves list scrolling element');
+    assert.strictEqual(rail.scrollLeft, 280);
+  }
 }
 
 async function proveAuthoritativeNegativeDoesNotPoll() {
@@ -427,6 +451,7 @@ async function proveBackendFenceStopsPendingRetry() {
 
 (async function () {
   await proveUnsettledMetadataReprojectsWithoutDiscoveryReload();
+  await proveUnsettledMetadataReprojectsWithoutDiscoveryReload(true);
   await proveAuthoritativeNegativeDoesNotPoll();
   await proveHomeExitDoesNotOrphanUnsettledRetry();
   await proveBackendFenceStopsPendingRetry();
