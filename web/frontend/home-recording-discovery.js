@@ -819,6 +819,25 @@
     section.appendChild(heading);
   }
 
+  function reconcileSeriesChildren(parent, children) {
+    const previous = Array.from(parent.children);
+    if (previous.length === children.length && previous.every(function (child, index) {
+      return child === children[index];
+    })) return;
+    const scrollLeft = parent.scrollLeft;
+    const focused = doc.activeElement;
+    const retained = new Set(children);
+    previous.forEach(function (child) {
+      if (!retained.has(child)) child.remove();
+    });
+    children.forEach(function (child, index) {
+      if (parent.children[index] !== child) parent.insertBefore(child, parent.children[index] || null);
+    });
+    if (focused && children.indexOf(focused) >= 0 && doc.activeElement !== focused &&
+        typeof focused.focus === 'function') focused.focus({preventScroll: true});
+    if (Number.isFinite(scrollLeft)) parent.scrollLeft = scrollLeft;
+  }
+
   function renderSeriesRail(seriesEntries, backendId) {
     if (!seriesEntries.length) {
       clearRail('series');
@@ -831,13 +850,21 @@
     let rail = Array.from(section.children).find(function (child) {
       return child.className === 'media-home-discovery-rail series';
     });
+    const saved = section.__vdrSuiteSeriesRail;
+    let restore = null;
     if (!rail) {
       section.replaceChildren();
       appendSectionHeading(section, 'Serien');
-      rail = doc.createElement('div');
-      rail.className = 'media-home-discovery-rail series';
+      if (saved && saved.backendId === backendId) {
+        rail = saved.rail;
+        restore = saved;
+      } else {
+        rail = doc.createElement('div');
+        rail.className = 'media-home-discovery-rail series';
+      }
       section.appendChild(rail);
     }
+    section.__vdrSuiteSeriesRail = {rail: rail, backendId: backendId};
     const previousScrollLeft = rail.scrollLeft;
     const existing = new Map(Array.from(rail.children).map(function (card) {
       return [card.dataset.seriesKey, card];
@@ -872,12 +899,11 @@
       card.__vdrSuiteSeries = series;
       nextCards.push(card);
     });
-    const changed = rail.children.length !== nextCards.length || nextCards.some(function (card, index) {
-      return rail.children[index] !== card;
-    });
-    if (changed) {
-      rail.replaceChildren.apply(rail, nextCards);
-      if (Number.isFinite(previousScrollLeft)) rail.scrollLeft = previousScrollLeft;
+    reconcileSeriesChildren(rail, nextCards);
+    if (restore) {
+      if (restore.focused && nextCards.indexOf(restore.focused) >= 0 &&
+          typeof restore.focused.focus === 'function') restore.focused.focus({preventScroll: true});
+      if (Number.isFinite(restore.scrollLeft)) rail.scrollLeft = restore.scrollLeft;
     }
     return true;
   }
@@ -887,91 +913,149 @@
     state.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
     const section = sectionFor('series');
     if (!section) return false;
-    section.replaceChildren();
-    appendSectionHeading(section, series.title, '← Serien', function () {
-      renderSeriesRail(state.seriesProjection, state.seriesBackendId || backendId);
-    });
-
-    const summary = doc.createElement('div');
-    summary.className = 'media-home-series-summary';
-    summary.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
-    const summaryCopy = doc.createElement('div');
-    summaryCopy.className = 'media-home-series-summary-copy';
-    const title = doc.createElement('strong');
-    title.textContent = series.title;
-    const count = doc.createElement('span');
-    count.textContent = seriesCountLabel(series);
-    summaryCopy.append(title, count);
-    summary.appendChild(summaryCopy);
-    section.appendChild(summary);
-
-    const seasonTitle = doc.createElement('h4');
-    seasonTitle.className = 'media-home-series-subheading';
-    seasonTitle.textContent = 'Staffeln';
-    section.appendChild(seasonTitle);
-    const seasonRail = doc.createElement('div');
-    seasonRail.className = 'media-home-series-season-rail';
-    series.seasons.forEach(function (season) {
-      const button = doc.createElement('button');
-      button.type = 'button';
-      button.className = 'media-home-series-season' + (selectedSeason === season ? ' selected' : '');
-      button.dataset.seasonNumber = String(season.number);
-      button.textContent = season.label + ' · ' + String(season.episodes.length) +
-        (season.episodes.length === 1 ? ' Folge' : ' Folgen');
-      button.addEventListener('click', function () {
-        renderSeriesDetail(series, season, backendId);
+    let view = section.__vdrSuiteSeriesDetail;
+    if (!view || view.key !== series.key || view.backendId !== backendId ||
+        view.summary.parentNode !== section) {
+      const saved = section.__vdrSuiteSeriesRail;
+      if (saved && saved.rail.parentNode === section && saved.backendId === backendId) {
+        saved.scrollLeft = saved.rail.scrollLeft;
+        saved.focused = doc.activeElement;
+      }
+      section.replaceChildren();
+      appendSectionHeading(section, series.title, '← Serien', function () {
+        renderSeriesRail(state.seriesProjection, state.seriesBackendId || backendId);
       });
-      seasonRail.appendChild(button);
-    });
-    section.appendChild(seasonRail);
-
-    if (!selectedSeason) return true;
-
-    const episodeTitle = doc.createElement('h4');
-    episodeTitle.className = 'media-home-series-subheading';
-    episodeTitle.textContent = selectedSeason.label;
-    section.appendChild(episodeTitle);
-    const episodeRail = doc.createElement('div');
-    episodeRail.className = 'media-home-discovery-rail series-episodes';
-    selectedSeason.episodes.forEach(function (member) {
-      const recording = member.recording;
-      const card = doc.createElement('button');
-      card.type = 'button';
-      card.className = 'media-home-discovery-card recording series-episode';
-      card.dataset.recordingId = recordingId(recording);
-      card.dataset.backendId = member.backendId || backendId;
-      card.dataset.episodeNumber = String(member.episodeNumber);
-      card.appendChild(createPosterArtwork(
-        member.episodeTitle,
-        member.posterUrl || recordingPosterUrl(recording),
-        member.episodeTitle.slice(0, 1).toUpperCase()
-      ));
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = member.episodeNumber > 0
-        ? 'Folge ' + String(member.episodeNumber)
-        : member.episodeTitle;
-      const detail = doc.createElement('span');
-      detail.textContent = member.episodeTitle;
-      copy.append(label, detail);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openRecording(recording, member.backendId || backendId, {
-          backLabel: '← Zurück zur Staffel',
-          onClose: function () {
-            if (!selectShellModule('overview')) return;
-            renderSeriesDetail(series, selectedSeason, backendId);
-            const seriesSection = sectionFor('series');
-            if (seriesSection && typeof seriesSection.scrollIntoView === 'function') {
-              seriesSection.scrollIntoView({block: 'start', behavior: 'auto'});
-            }
-          }
+      const summary = doc.createElement('div');
+      summary.className = 'media-home-series-summary';
+      section.appendChild(summary);
+      const seasonTitle = doc.createElement('h4');
+      seasonTitle.className = 'media-home-series-subheading';
+      seasonTitle.textContent = 'Staffeln';
+      section.appendChild(seasonTitle);
+      const seasonRail = doc.createElement('div');
+      seasonRail.className = 'media-home-series-season-rail';
+      section.appendChild(seasonRail);
+      const episodeTitle = doc.createElement('h4');
+      episodeTitle.className = 'media-home-series-subheading';
+      const episodeRail = doc.createElement('div');
+      episodeRail.className = 'media-home-discovery-rail series-episodes';
+      view = {key: series.key, backendId: backendId, summary: summary,
+        heading: section.children[0].children[1], seasonRail: seasonRail,
+        episodeTitle: episodeTitle, episodeRail: episodeRail};
+      section.__vdrSuiteSeriesDetail = view;
+    }
+    // Bound controls resolve current owner data, including non-visual Recording changes.
+    view.series = series;
+    view.selectedSeason = selectedSeason;
+    if (view.heading.textContent !== series.title) view.heading.textContent = series.title;
+    const summarySignature = JSON.stringify([series.title, series.posterUrl, seriesCountLabel(series)]);
+    if (view.summarySignature !== summarySignature) {
+      view.summarySignature = summarySignature;
+      view.summary.replaceChildren();
+      view.summary.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+      const copy = doc.createElement('div');
+      copy.className = 'media-home-series-summary-copy';
+      const title = doc.createElement('strong');
+      title.textContent = series.title;
+      const count = doc.createElement('span');
+      count.textContent = seriesCountLabel(series);
+      copy.append(title, count);
+      view.summary.appendChild(copy);
+    }
+    const seasons = new Map(Array.from(view.seasonRail.children).map(function (button) {
+      return [button.dataset.seasonNumber, button];
+    }));
+    const nextSeasons = series.seasons.map(function (season) {
+      const key = String(season.number);
+      let button = seasons.get(key);
+      if (!button) {
+        button = doc.createElement('button');
+        button.type = 'button';
+        button.dataset.seasonNumber = key;
+        button.addEventListener('click', function () {
+          const currentSeason = view.series.seasons.find(function (item) {
+            return String(item.number) === button.dataset.seasonNumber;
+          });
+          renderSeriesDetail(view.series, currentSeason || null, backendId);
         });
-      });
-      episodeRail.appendChild(card);
+      }
+      const className = 'media-home-series-season' +
+        (selectedSeason && selectedSeason.number === season.number ? ' selected' : '');
+      if (button.className !== className) button.className = className;
+      const label = season.label + ' · ' + String(season.episodes.length) +
+        (season.episodes.length === 1 ? ' Folge' : ' Folgen');
+      if (button.textContent !== label) button.textContent = label;
+      return button;
     });
-    section.appendChild(episodeRail);
+    reconcileSeriesChildren(view.seasonRail, nextSeasons);
+    if (!selectedSeason) {
+      view.episodeTitle.remove();
+      view.episodeRail.remove();
+      return true;
+    }
+    if (view.episodeTitle.textContent !== selectedSeason.label) view.episodeTitle.textContent = selectedSeason.label;
+    if (view.episodeRail.parentNode !== section) section.append(view.episodeTitle, view.episodeRail);
+    const episodes = new Map(Array.from(view.episodeRail.children).map(function (card) {
+      return [JSON.stringify([card.dataset.backendId, card.dataset.recordingId]), card];
+    }));
+    const nextEpisodes = selectedSeason.episodes.map(function (member) {
+      const recording = member.recording;
+      const memberBackend = member.backendId || backendId;
+      const id = recordingId(recording);
+      const key = JSON.stringify([memberBackend, id]);
+      let card = episodes.get(key);
+      if (!card) {
+        card = doc.createElement('button');
+        card.type = 'button';
+        card.className = 'media-home-discovery-card recording series-episode';
+        card.dataset.recordingId = id;
+        card.dataset.backendId = memberBackend;
+        card.addEventListener('click', function () {
+          const currentMember = card.__vdrSuiteSeriesMember;
+          openRecording(currentMember.recording, currentMember.backendId || backendId, {
+            backLabel: '← Zurück zur Staffel',
+            onClose: function () {
+              if (selectedBackendId() !== backendId || !selectShellModule('overview')) return;
+              const currentSeries = state.seriesProjection.find(function (item) {
+                return item.key === view.key;
+              });
+              if (state.seriesBackendId === backendId && !currentSeries) {
+                renderSeriesRail(state.seriesProjection, backendId);
+                return;
+              }
+              const returnedSeries = currentSeries || view.series;
+              const returnedSeason = returnedSeries.seasons.find(function (item) {
+                return view.selectedSeason && item.number === view.selectedSeason.number;
+              }) || null;
+              renderSeriesDetail(returnedSeries, returnedSeason, backendId);
+              const seriesSection = sectionFor('series');
+              if (seriesSection && typeof seriesSection.scrollIntoView === 'function') {
+                seriesSection.scrollIntoView({block: 'start', behavior: 'auto'});
+              }
+            }
+          });
+        });
+      }
+      card.__vdrSuiteSeriesMember = member;
+      const poster = member.posterUrl || recordingPosterUrl(recording);
+      const signature = JSON.stringify([member.episodeNumber, member.episodeTitle, poster]);
+      if (card.dataset.presentation !== signature) {
+        card.dataset.presentation = signature;
+        card.dataset.episodeNumber = String(member.episodeNumber);
+        card.replaceChildren();
+        card.appendChild(createPosterArtwork(member.episodeTitle, poster, member.episodeTitle.slice(0, 1).toUpperCase()));
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const label = doc.createElement('strong');
+        label.textContent = member.episodeNumber > 0 ? 'Folge ' + String(member.episodeNumber) : member.episodeTitle;
+        const detail = doc.createElement('span');
+        detail.textContent = member.episodeTitle;
+        copy.append(label, detail);
+        card.appendChild(copy);
+      }
+      return card;
+    });
+    reconcileSeriesChildren(view.episodeRail, nextEpisodes);
     return true;
   }
 
@@ -1737,9 +1821,12 @@
       return Promise.resolve(reuseWarmSeriesProjection(backendId));
     }
     clearSeriesWarm();
-    state.seriesViewKey = '';
-    state.seriesSeasonNumber = null;
-    renderState('series', 'Serien', 'Serien werden gruppiert …', false);
+    const retainProjection = state.seriesBackendId === backendId && state.seriesProjection.length > 0;
+    if (!retainProjection) {
+      state.seriesViewKey = '';
+      state.seriesSeasonNumber = null;
+      renderState('series', 'Serien', 'Serien werden gruppiert …', false);
+    }
     const canEnrichMetadata = Boolean(client && typeof client.requestJson === 'function');
     return fetchAllSeriesRecordings(
       client,
@@ -1748,6 +1835,8 @@
       generation,
       function (recordings) {
         if (!current(generation, backendId) || !recordings.length) return;
+        // A partial scan must not withdraw cards from a previously complete view.
+        if (retainProjection) return;
         if (!canEnrichMetadata) {
           applySeriesProjection(recordings, backendId);
           return;
@@ -1779,7 +1868,7 @@
         if (!current(generation, backendId)) return false;
         const rich = resolvedSeriesMetadata(generation, backendId);
         const readyRecordings = readySeriesRecordings(recordings, generation, backendId);
-        if (readyRecordings.length) applySeriesProjection(readyRecordings, backendId, rich);
+        if (!retainProjection && readyRecordings.length) applySeriesProjection(readyRecordings, backendId, rich);
         startSeriesCompletion(client, recordings, backendId, generation);
         return true;
       });
@@ -1787,6 +1876,7 @@
       if (!current(generation, backendId)) return false;
       clearSeriesMetadataRetry();
       clearSeriesWarm();
+      if (retainProjection) return false;
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';

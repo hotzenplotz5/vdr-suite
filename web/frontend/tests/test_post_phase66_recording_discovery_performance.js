@@ -334,7 +334,21 @@ async function proveWarmProductionReturnAndForcedRefresh() {
   assert.strictEqual(harness.seriesCalls('default').length, 1);
   assert.strictEqual(findRail(harness.host, 'series'), initialSeriesSection);
 
-  assert.strictEqual(await harness.publicApi.refresh(), true);
+  const seriesRail = findElement(initialSeriesSection, element => element.className === 'media-home-discovery-rail series');
+  const seriesCard = seriesRail.children[0];
+  seriesRail.scrollLeft = 280;
+  harness.setMetadataMode('deferred');
+  const revalidation = harness.publicApi.refresh();
+  await flush();
+  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'revalidation preserves valid Series UI while metadata is pending');
+  assert.strictEqual(seriesRail.children[0], seriesCard);
+  assert.strictEqual(seriesRail.scrollLeft, 280);
+  harness.metadataResolvers.shift()({available: false});
+  assert.strictEqual(await revalidation, true);
+  await flush();
+  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'unchanged completed revalidation preserves rail identity');
+  assert.strictEqual(seriesRail.children[0], seriesCard);
+  harness.setMetadataMode('available-false');
   assert.strictEqual(harness.seriesCalls('default').length, 2);
   assert.strictEqual(harness.api.seriesWarm('default'), true);
 
