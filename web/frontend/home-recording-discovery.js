@@ -2012,6 +2012,13 @@
         state.refreshInFlight.invalidated !== true) {
       return state.refreshInFlight.promise;
     }
+    if (config.coalesce === true && state.seriesCompletionInFlight &&
+        state.seriesCompletionInFlight.backendId === backendId &&
+        state.seriesCompletionInFlight.generation === state.generation &&
+        state.seriesCompletionInFlight.invalidated !== true &&
+        state.seriesInvalidatedGeneration !== state.generation) {
+      return state.seriesCompletionInFlight.promise;
+    }
     clearSeriesMetadataRetry();
     const generation = ++state.generation;
     state.loadedBackendId = backendId;

@@ -106,6 +106,19 @@ The canonical metadata retry regression additionally exercises user-style
 Series-card click, season-button click and the real retry timer, then verifies
 preserved rails, scroll and selection without restarting Discovery queries.
 
+## Completion coalescing regression
+
+The focused lifecycle fixture leaves one non-representative native metadata
+read pending after the first visible Home refresh. A second Home refresh on the
+same generation previously produced two Series scans. The bounded correction
+keeps one scan and one pending native read by returning the existing completion
+promise. The projection becomes warm only after the tail settles. Explicit
+refresh, Home-exit invalidation and backend change each still start fresh work;
+the old completion cannot replace the new card or certify another backend warm.
+
+These deterministic tests pass locally. They establish request coalescing for
+that exact lifecycle gap, not a measured production latency improvement.
+
 ## Publication evidence
 
 First product commit: `a0771064acd723fa9d7caaf21dd5d9097e63cebc`,

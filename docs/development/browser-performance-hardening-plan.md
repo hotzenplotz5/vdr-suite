@@ -64,6 +64,14 @@ behavior, request priority or production inventory costs.
 
 ### 3. Warm state and coalescing
 
+One bounded gap is reproduced without a runtime dependency: after the first
+visible refresh resolves, tail metadata can still be running in the existing
+`seriesCompletionInFlight` entry. Another same-generation `refreshForHome()`
+started a second Series scan (two requests instead of one) and invalidated that
+completion. Reuse the existing completion promise for coalescible Home scheduling.
+Never reuse it for explicit refresh, backend changes or an invalidated Home-exit
+generation. Focused tests cover all four paths, including late stale completion.
+
 Use the measurements to isolate avoidable same-backend work in Newly Recorded,
 Genres, folder discovery and inline discovery. Preserve PR #265 Hero/EPG/Recent
 Movies and PR #266 navigation fences. Extend existing owner state only; no global
@@ -78,6 +86,32 @@ Introduce bounded incremental rendering or virtualization only if measured
 costs still justify it after no-op and targeted-update fixes. Preserve keyboard
 navigation, accessible order, selected Series/season, horizontal position and
 canonical request boundaries. Do not infer a production need from synthetic size.
+
+## Current measurement decisions
+
+The real-browser fixture proves stable DOM, focus and scroll with 100/1000
+synthetic Series and 100 episodes. Unchanged renders have zero mutations.
+Single-sample cold rendering was 7.0/40.6 ms for those Series sizes; this neither
+establishes real inventory sizes nor demonstrates a production virtualization need.
+Keep virtualization gated on real inventory and interaction measurements.
+
+Artwork audit: native Recording images reach
+`VdrRecordingFolderController::getMetadataImage()` and
+`EpgArtworkController::serveValidatedPath()` through the canonical metadata route.
+The latter reads a validated local image and returns bytes without setting
+ETag/Last-Modified/Cache-Control itself. This does not prove the headers delivered
+by the full server/proxy chain. The Recording image URL is identity/kind/index
+based, not content-versioned; blanket long-lived caching could preserve a changed
+cover incorrectly. Measure the real delivery path and design invalidation in this
+owner before changing cache policy. Do not add a browser artwork cache.
+
+`createPosterArtwork()` already uses native `loading='lazy'`. The synthetic fixture
+uses poster-free cards, so it cannot choose image priority or decode policy.
+Real image/transfer traces are required for those changes. Newly Recorded, Genres,
+folders and inline expansion have separate projection/render paths in the existing
+Discovery and bootstrap modules. PR #266 already protects ordinary Home returns;
+avoid duplicating its cache/navigation fix. Their remaining refresh costs require
+separate production measurements and tests before changing those paths.
 
 ## Delivery gates
 
