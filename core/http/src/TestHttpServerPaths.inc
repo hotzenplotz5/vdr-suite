@@ -46,7 +46,12 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/modules/searchtimers.js", "modules/searchtimers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/genres.js", "modules/genres.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/global-search.js", "modules/global-search.js", "application/javascript; charset=utf-8", nullptr},
-    {"/frontend/style.css", "style.css", "text/css; charset=utf-8", nullptr}
+    {"/frontend/style.css", "style.css", "text/css; charset=utf-8", nullptr},
+    {"/frontend/browser-artwork-probe.js", "browser-artwork-probe.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/browser-performance-bridge.js", "browser-performance-bridge.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/browser-performance-diagnostics.js", "browser-performance-diagnostics.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/browser-performance-diagnostics.html", "browser-performance-diagnostics.html", "text/html; charset=utf-8", nullptr},
+    {"/frontend/browser-performance-home.html", "browser-performance-home.html", "text/html; charset=utf-8", nullptr}
 };
 
 std::string toLowerAscii(const std::string& value)
@@ -78,7 +83,7 @@ bool endsWith(
     const std::string& suffix)
 {
     return value.size() >= suffix.size() &&
-        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+        value.compare(value.size() - suffix.size(), suffix) == 0;
 }
 
 int hexValue(const char character)
