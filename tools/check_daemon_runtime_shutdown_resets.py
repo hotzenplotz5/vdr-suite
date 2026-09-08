@@ -50,6 +50,28 @@ def extract_shutdown_body(source: str) -> str:
     raise RuntimeError("DaemonRuntime::shutdown() body not closed")
 
 
+def has_cancellable_socket_polling(source: str) -> bool:
+    # The deadline-based transport replaces the former socket-timeout helper.
+    # Retain the actual shutdown guarantee: bounded, cancellable, nonblocking
+    # connect/send/receive waits, all sharing the same monotonic deadline.
+    legacy = "configureSocketPollingTimeouts" in source
+    modern = all(token in source for token in (
+        "using Clock = std::chrono::steady_clock;",
+        "constexpr auto POLL_INTERVAL = std::chrono::milliseconds(250);",
+        "void waitForSocket(int fd, short events, Clock::time_point deadline,",
+        "const Cancel& cancelled)",
+        "if (cancelled()) throw std::runtime_error(\"HTTP request cancelled\");",
+        "if (now >= deadline) throw std::runtime_error(\"HTTP request timed out\");",
+        "POLL_INTERVAL.count()",
+        "poll(&descriptor, 1, timeout)",
+        "fcntl(fd, F_SETFL, flags | O_NONBLOCK)",
+        "const auto deadline = started + requestTimeout_;",
+        "waitForSocket(fd, POLLOUT, deadline, cancelled);",
+        "waitForSocket(fd, POLLIN, deadline, cancelled);",
+    ))
+    return legacy or modern
+
+
 def main() -> int:
     source = SOURCE.read_text(encoding="utf-8")
     backend_context = BACKEND_CONTEXT_SOURCE.read_text(encoding="utf-8")
@@ -112,7 +134,7 @@ def main() -> int:
 
     if "using CancellationCheck = std::function<bool()>;" not in http_client_header:
         missing.append("BasicHttpClient cancellation contract")
-    if "configureSocketPollingTimeouts" not in http_client_source:
+    if not has_cancellable_socket_polling(http_client_source):
         missing.append("BasicHttpClient cancellable socket polling")
     if "HTTP request cancelled" not in http_client_source:
         missing.append("BasicHttpClient cancellation result")

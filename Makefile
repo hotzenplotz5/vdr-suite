@@ -23,7 +23,7 @@ include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/phase66-continue-watching.mk
 include mk/phase66-recording-discovery.mk
-include mk/browser-performance-diagnostics.mk
+-include mk/browser-performance-diagnostics.mk
 include mk/phase66-recently-watched.mk
 include mk/phase65-media-tests.mk
 include mk/phase65d-media-playback-contract.mk
@@ -113,3 +113,4 @@ include mk/runtime-api-tests.mk
 include mk/maintenance-tests.mk
 include mk/epg-artwork-tests.mk
 include mk/epg-metadata-tests.mk
+include mk/http-deadline-tests.mk
