@@ -2,7 +2,7 @@ PLUGIN = suitebridge
 
 VERSION = $(shell sed -n 's/^inline constexpr const char \*Version[[:space:]]*=[[:space:]]*"\([^"]*\)";/\1/p' suitebridge_plugin_identity.h)
 
-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) ../../../vdr.pc))
 LIBDIR = $(call PKGCFG,libdir)
 PLGCFG = $(call PKGCFG,plgcfg)
 TMPDIR ?= /tmp
@@ -122,10 +122,12 @@ test-capability-discovery:
 test-counter-continuity:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
 		suitebridge_counter_continuity.cpp \
-		tests/test_suitebridge_counter_continuity.cpp \
-		-o $(COUNTER_CONTINUITY_TEST)
-	$(COUNTER_CONTINUITY_TEST)
-	rm -f $(COUNTER_CONTINUITY_TEST)
+		suitebridge_status_snapshot.cpp \
+		suitebridge_status_events.cpp \
+		tests/test_suitebridge_status_events.cpp \
+		-o $(STATUS_EVENTS_TEST)
+	$(STATUS_EVENTS_TEST)
+	rm -f $(STATUS_EVENTS_TEST)
 
 test-status-events:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -285,3 +287,5 @@ check: check-contract check-capabilities-contract check-capability-discovery-con
 
 clean:
 	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(NATIVE_PROBE_TEST) $(NATIVE_TIMER_CREATE_TEST) $(NATIVE_TIMER_DELETE_TEST) $(NATIVE_TIMER_MODIFY_TEST) $(ARTWORK_REFERENCE_TEST) $(IMAGE_DIMENSIONS_TEST) $(EPG_ARTWORK_CONTRACT_TEST) $(EPG_METADATA_CONTRACT_TEST) $(EPG_TYPE_SNAPSHOT_CONTRACT_TEST) $(RECORDING_IDENTITY_TEST) $(RECORDING_METADATA_CONTRACT_TEST) $(RECORDING_MARKS_CONTRACT_TEST) $(RECORDING_CUT_TEST) *.tgz core* *~ ._*
+
+-include tests/recording_marks_command.mk
