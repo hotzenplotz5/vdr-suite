@@ -102,12 +102,22 @@ async function main() {
       takeRecords() { const records = this.pending; this.pending = []; return records; }
       disconnect() { this.disconnected = true; }
     }
+    class MutationObserverMock extends Observer {
+      observe(target, options) {
+        assert.equal(target, env.document.documentElement);
+        assert.equal(arguments.length, 2);
+        assert.equal(options.subtree, true);
+        assert.equal(options.childList, true);
+        this.options = options;
+      }
+    }
     const cover = { currentSrc: 'https://example.test/api/metadata/cover?id=secret', src: '', complete: true, naturalWidth: 100, loading: 'lazy' };
-    const env = { document: { querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: Observer, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
+    const env = { document: { documentElement: {}, querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: MutationObserverMock, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
     const measurement = createProbe(env);
     measurement.start('initial-home', { buffered: true });
     assert.equal(observers[0].options.buffered, true);
     assert.equal(observers[1].options.buffered, true);
+    assert.equal(observers[2].options.subtree, true);
     observers[0].pending.push({ entryType: 'resource', name: cover.currentSrc, initiatorType: 'img', transferSize: 120 });
     observers[1].pending.push({ entryType: 'longtask', duration: 70 });
     observers[2].pending.push({});
@@ -116,6 +126,7 @@ async function main() {
     assert.equal(result.metrics.resourceRequests, 1);
     assert.equal(result.metrics.longTasks, 1);
     assert.equal(result.metrics.mutations, 1);
+    assert.equal(result.observerSupport.mutation, true);
     assert.equal(result.bufferedStartup, true);
     assert.ok(observers.every(observer => observer.disconnected));
     assert.ok(!JSON.stringify(result).includes('secret'));
@@ -128,7 +139,7 @@ async function main() {
     assert.equal(headers.status, 304);
     assert.ok(!JSON.stringify(headers).includes('secret'));
     assert.ok(!JSON.stringify(headers).includes('url:'));
-    console.log('browser diagnostics composition, lifecycle, buffered observers and privacy ok');
+    console.log('browser diagnostics composition, lifecycle, mutation observer, buffered observers and privacy ok');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

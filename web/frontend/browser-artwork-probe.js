@@ -60,7 +60,8 @@
         if (typeof Constructor !== 'function') return;
         try {
           const observer = new Constructor(callback);
-          observer.observe(config);
+          if (type === 'mutation') observer.observe(doc.documentElement || doc, config);
+          else observer.observe(config);
           observers.push({ observer: observer, type: type });
           supported[type] = true;
         } catch (_) { /* unsupported entry type */ }
