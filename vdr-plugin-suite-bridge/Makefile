@@ -2,7 +2,7 @@ PLUGIN = suitebridge
 
 VERSION = $(shell sed -n 's/^inline constexpr const char \*Version[[:space:]]*=[[:space:]]*"\([^"]*\)";/\1/p' suitebridge_plugin_identity.h)
 
-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) ../../../vdr.pc))
+PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
 LIBDIR = $(call PKGCFG,libdir)
 PLGCFG = $(call PKGCFG,plgcfg)
 TMPDIR ?= /tmp
@@ -122,12 +122,10 @@ test-capability-discovery:
 test-counter-continuity:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
 		suitebridge_counter_continuity.cpp \
-		suitebridge_status_snapshot.cpp \
-		suitebridge_status_events.cpp \
-		tests/test_suitebridge_status_events.cpp \
-		-o $(STATUS_EVENTS_TEST)
-	$(STATUS_EVENTS_TEST)
-	rm -f $(STATUS_EVENTS_TEST)
+		tests/test_suitebridge_counter_continuity.cpp \
+		-o $(COUNTER_CONTINUITY_TEST)
+	$(COUNTER_CONTINUITY_TEST)
+	rm -f $(COUNTER_CONTINUITY_TEST)
 
 test-status-events:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -228,7 +226,7 @@ test-epg-artwork-contract:
 test-epg-metadata-contract:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
 		suitebridge_artwork_reference.cpp \
-		suitebridge_epg_metadata_contract.cpp \
+		suitebridge_epg_metadata.cpp \
 		tests/test_suitebridge_epg_metadata_contract.cpp \
 		-o $(EPG_METADATA_CONTRACT_TEST)
 	$(EPG_METADATA_CONTRACT_TEST)
