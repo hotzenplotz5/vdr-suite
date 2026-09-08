@@ -1,5 +1,10 @@
 # Optional browser diagnostics. No daemon, API or cache configuration changes.
-.PHONY: test-browser-performance-diagnostics install-browser-performance-diagnostics
+.PHONY: test-browser-performance-diagnostics install-browser-performance-diagnostics test-browser-performance-diagnostics-install-staging
+
+test-frontend-contracts: test-browser-performance-diagnostics
+test-ci-frontend: test-browser-performance-diagnostics
+test-ci-packaging: test-browser-performance-diagnostics-install-staging
+install-runtime: install-browser-performance-diagnostics
 
 test-browser-performance-diagnostics:
 	node --check tools/build_browser_performance_diagnostics.js
@@ -15,4 +20,16 @@ install-browser-performance-diagnostics:
 	$(INSTALL) -m 0644 web/frontend/browser-performance-bridge.js $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-bridge.js
 	$(INSTALL) -m 0644 web/frontend/browser-performance-diagnostics.js $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-diagnostics.js
 	$(INSTALL) -m 0644 web/frontend/browser-performance-diagnostics.html $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-diagnostics.html
-	node tools/build_browser_performance_diagnostics.js $(DESTDIR)$(DATADIR)/web/browser-performance-diagnostics-app.html
+	node tools/build_browser_performance_diagnostics.js $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-home.html
+
+test-browser-performance-diagnostics-install-staging:
+	@stage=$$(mktemp -d); \
+	trap 'rm -rf "$$stage"' EXIT; \
+	$(MAKE) install-browser-performance-diagnostics DESTDIR="$$stage" PREFIX=/usr || exit $$?; \
+	root="$$stage/usr/share/vdr-suite/web/frontend"; \
+	for name in browser-artwork-probe.js browser-performance-bridge.js browser-performance-diagnostics.js browser-performance-diagnostics.html browser-performance-home.html; do \
+	  test -f "$$root/$$name" || exit 1; \
+	done; \
+	grep -F 'browser-performance-bridge.js' "$$root/browser-performance-home.html" >/dev/null || exit 1; \
+	grep -F 'browser-performance-home.html' "$$root/browser-performance-diagnostics.js" >/dev/null || exit 1; \
+	! grep -F 'browser-performance-bridge.js' web/frontend/index.html >/dev/null
