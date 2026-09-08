@@ -31,6 +31,18 @@ The later authenticated Edge acceptance on installed frontend head `402f6b92f259
 
 The recorded Brisant source `index` and `info` changes before the later installation remain unexplained. Source and edited-result video inventories and the source marks hash were unchanged across the recorded later browser checks, but this does not prove that every file was unchanged. The earlier cut-result discovery latency was not remeasured by repeating a cut.
 
+## Subsequent recovery checkpoint — 2026-09-08
+
+The historical PR #268 checkpoint above remains unchanged. A separate bounded follow-up, [PR #271](https://github.com/hotzenplotz5/vdr-suite/pull/271), subsequently merged HTTP deadline recovery, the optional browser-diagnostics build correction, bounded native RMARKS read-lock acquisition and the isolated lock regression harness.
+
+- Accepted recovery head: `cf835a8165e2e9bb7e8d947b1bde2b8fad242409`
+- Merge commit: `dc37a421aa538da1b6fee90f2ce05c04e224b8b5`
+- Final hosted CI: [VDR-Suite CI #8879](https://github.com/hotzenplotz5/vdr-suite/actions/runs/34263624376), run `34263624376`, complete six-job PASS, including daemon build.
+- Real yaVDR isolated RMARKS regression: PASS, `RMARKS_LOCK_TEST_RC=0` on `48fd4e870246c971bffe30de4a84c4a4f775c1cd`.
+- Real yaVDR shutdown/HTTP guard and HTTP deadline regression: both RC=0 on the accepted recovery head `cf835a8165e2e9bb7e8d947b1bde2b8fad242409`.
+
+The isolated RMARKS harness uses fake VDR headers and does not perform a Recording mutation. These results do not establish a new installed-plugin runtime acceptance, a new cut, or resolution of the earlier Brisant `index`/`info` observation. No installed yaVDR update, service restart or further Recording mutation is implied by the GitHub merge.
+
 ## Remaining boundaries
 
 MARKAD remains optional and is not a second marks authority. No irreversible automatic MARKAD cut, automatic original deletion, active/growing Recording editing, generalized nonlinear editor, broad Home performance work or Phase-67 runtime work is included. Any unresolved acceptance item must retain its precise evidence status in the detailed record rather than being converted into an invented PASS.
