@@ -1,19 +1,22 @@
-/* Opt-in diagnostics bridge. Loaded before the ordinary frontend bootstrap. */
+/* Opt-in diagnostics bridge, loaded before the ordinary frontend bootstrap. */
 (function (root) {
   'use strict';
-  if (!root.frameElement || !root.frameElement.hasAttribute('data-vdr-suite-diagnostics')) return;
+  const frame = root.frameElement;
+  if (!frame || !frame.hasAttribute('data-vdr-suite-diagnostics')) return;
   const parent = root.parent;
   const probe = root.VdrSuiteArtworkProbe;
-  if (!probe) return;
-  const token = root.frameElement.getAttribute('data-vdr-suite-diagnostics');
+  const token = frame.getAttribute('data-vdr-suite-diagnostics');
   const origin = root.location.origin;
+  const channel = 'vdr-suite-browser-diagnostics';
+  if (!probe || !token) return;
   let active = false;
+  let checking = false;
   function send(type, value) {
-    parent.postMessage({ channel: 'vdr-suite-browser-diagnostics', token: token, type: type, value: value }, origin);
+    parent.postMessage({ channel: channel, token: token, type: type, value: value }, origin);
   }
-  function start(label) {
-    if (active) return;
-    probe.start(label);
+  function start(label, initial) {
+    if (active || checking) return;
+    probe.start(label, { buffered: Boolean(initial) });
     active = true;
     send('started', label);
   }
@@ -24,13 +27,21 @@
   }
   root.addEventListener('message', function (event) {
     const data = event.data;
-    if (event.source !== parent || event.origin !== origin || !data || data.channel !== 'vdr-suite-browser-diagnostics' || data.token !== token) return;
+    if (event.source !== parent || event.origin !== origin || !data || data.channel !== channel || data.token !== token) return;
     try {
-      if (data.type === 'start') start(data.label || 'navigation');
+      if (data.type === 'start') start(data.label || 'navigation', false);
       else if (data.type === 'stop') stop();
-      else if (data.type === 'headers') probe.inspectHeaders().then(function (result) { send('headers', result); }, function (error) { send('error', String(error.message || error)); });
-    } catch (error) { send('error', String(error.message || error)); }
+      else if (data.type === 'headers' && !checking) {
+        if (active) throw new Error('Messung zuerst stoppen.');
+        checking = true;
+        Promise.resolve().then(function () { return probe.inspectHeaders(); }).then(function (result) {
+          send('headers', result);
+        }, function () {
+          send('error', 'Cover-Header konnten nicht geprüft werden.');
+        }).then(function () { checking = false; });
+      }
+    } catch (_) { send('error', 'Diagnoseaktion fehlgeschlagen.'); }
   });
   root.addEventListener('pagehide', function () { if (active) stop(); });
-  start('initial-home');
+  start('initial-home', true);
 })(typeof window !== 'undefined' ? window : globalThis);
