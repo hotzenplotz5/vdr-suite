@@ -137,6 +137,7 @@ function createHarness(initialMetadataMode) {
   let selectedModule = 'overview';
   let backendId = 'default';
   let metadataMode = initialMetadataMode || 'available-false';
+  let seriesMode = 'normal';
 
   class FakeIntersectionObserver {
     constructor(callback) {
@@ -181,10 +182,18 @@ function createHarness(initialMetadataMode) {
       if (request.genreId !== 'series') {
         return Promise.resolve({recordings: [], total: 0, hasMore: false});
       }
+      if (seriesMode === 'reject') return Promise.reject(new Error('Series transport unavailable'));
+      if (seriesMode === 'empty') return Promise.resolve({recordings: [], total: 0, hasMore: false});
       const recording = makeSeriesRecording(request.backendId);
+      const recordings = metadataMode === 'deferred-tail' ? [recording, Object.assign({}, recording, {
+        recordingId: recording.recordingId + '-tail',
+        backendNativeId: recording.backendNativeId + '-tail',
+        path: 'Serien/Testserie/S01E02 Second',
+        title: 'Serien/Testserie/S01E02 Second'
+      })] : [recording];
       return Promise.resolve({
-        recordings: [recording],
-        total: 1,
+        recordings,
+        total: recordings.length,
         hasMore: false
       });
     },
@@ -197,7 +206,8 @@ function createHarness(initialMetadataMode) {
       if (metadataMode === 'reject') {
         return Promise.reject(new Error('metadata unavailable'));
       }
-      if (metadataMode === 'deferred') {
+      if (metadataMode === 'deferred' ||
+          (metadataMode === 'deferred-tail' && request.query.backendNativeId.endsWith('-tail'))) {
         return new Promise((resolve) => {
           metadataResolvers.push(resolve);
         });
@@ -279,6 +289,7 @@ function createHarness(initialMetadataMode) {
     setModule(value) { selectedModule = value; },
     setBackend(value) { backendId = value; },
     setMetadataMode(value) { metadataMode = value; },
+    setSeriesMode(value) { seriesMode = value; },
     fireModuleClick,
     fireHomeClick() {
       fireModuleClick('overview');
@@ -317,6 +328,79 @@ async function proveInFlightCoalescing() {
   assert.strictEqual(harness.api.seriesWarm('default'), true);
 }
 
+async function proveCompletionCoalescing() {
+  const harness = createHarness('deferred-tail');
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+  await flush();
+  assert.strictEqual(harness.metadataResolvers.length, 1, 'tail metadata is still pending after first visible refresh');
+  assert.strictEqual(harness.api.seriesWarm('default'), false);
+  const continued = harness.api.refreshForHome();
+  await flush();
+  assert.strictEqual(harness.seriesCalls('default').length, 1, 'same-generation Home scheduling coalesces with unfinished metadata completion');
+  assert.strictEqual(harness.metadataResolvers.length, 1, 'coalescing does not duplicate the pending native read');
+  harness.metadataResolvers.shift()({available: false});
+  assert.strictEqual(await continued, true);
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+}
+
+async function proveCompletionCoalescingFences() {
+  for (const transition of ['explicit-refresh', 'home-exit', 'backend-change']) {
+    const harness = createHarness('deferred-tail');
+    await harness.api.refreshForHome();
+    await flush();
+    assert.strictEqual(harness.metadataResolvers.length, 1);
+    harness.setMetadataMode('available-false');
+    if (transition === 'home-exit') {
+      harness.fireModuleClick('recordings2');
+      harness.setModule('overview');
+    }
+    if (transition === 'backend-change') harness.setBackend('secondary');
+    await (transition === 'explicit-refresh' ? harness.publicApi.refresh() : harness.api.refreshForHome());
+    await flush();
+    assert.strictEqual(harness.seriesCalls().length, 2, transition + ' must start a fresh generation');
+    const expectedBackend = transition === 'backend-change' ? 'secondary' : 'default';
+    assert.strictEqual(harness.api.seriesWarm(expectedBackend), true);
+    const section = findRail(harness.host, 'series');
+    const rail = findElement(section, element => element.className === 'media-home-discovery-rail series');
+    const card = rail.children[0];
+    harness.metadataResolvers.shift()({available: false});
+    await flush();
+    assert.strictEqual(rail.children[0], card, 'stale completion must not replace current UI');
+    assert.strictEqual(card.dataset.backendId, expectedBackend);
+    assert.strictEqual(harness.api.seriesWarm(expectedBackend), true);
+  }
+}
+
+async function proveRevalidationRetainsSelectionAndHandlesFailure() {
+  const harness = createHarness('available-false');
+  await harness.api.refreshForHome();
+  await flush();
+  const section = findRail(harness.host, 'series');
+  const list = findElement(section, element => element.className === 'media-home-discovery-rail series');
+  list.children[0].listeners.click[0]();
+  const seasons = findElement(section, element => element.className === 'media-home-series-season-rail');
+  seasons.children[0].listeners.click[0]();
+  const episodes = findElement(section, element => element.className === 'media-home-discovery-rail series-episodes');
+  episodes.scrollLeft = 280;
+  harness.setMetadataMode('deferred');
+  const pending = harness.publicApi.refresh();
+  await flush();
+  assert.strictEqual(episodes.parentNode, section, 'pending explicit revalidation keeps selected detail mounted');
+  harness.metadataResolvers.shift()({available:false});
+  await pending;
+  await flush();
+  assert.strictEqual(episodes.parentNode, section);
+  assert.strictEqual(episodes.scrollLeft, 280);
+  assert(seasons.children[0].className.includes(' selected'));
+  harness.setSeriesMode('reject');
+  await harness.publicApi.refresh();
+  assert.strictEqual(episodes.parentNode, section, 'failed scan keeps valid detail visible');
+  assert.strictEqual(harness.api.seriesWarm('default'), false, 'failure never certifies retained UI warm');
+  harness.setSeriesMode('empty');
+  await harness.publicApi.refresh();
+  assert.strictEqual(findRail(harness.host, 'series'), null, 'authoritative empty scan removes stale Series UI');
+}
+
 async function proveWarmProductionReturnAndForcedRefresh() {
   const harness = createHarness('available-false');
   assert.strictEqual(await harness.api.refreshForHome(), true);
@@ -334,7 +418,21 @@ async function proveWarmProductionReturnAndForcedRefresh() {
   assert.strictEqual(harness.seriesCalls('default').length, 1);
   assert.strictEqual(findRail(harness.host, 'series'), initialSeriesSection);
 
-  assert.strictEqual(await harness.publicApi.refresh(), true);
+  const seriesRail = findElement(initialSeriesSection, element => element.className === 'media-home-discovery-rail series');
+  const seriesCard = seriesRail.children[0];
+  seriesRail.scrollLeft = 280;
+  harness.setMetadataMode('deferred');
+  const revalidation = harness.publicApi.refresh();
+  await flush();
+  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'revalidation preserves valid Series UI while metadata is pending');
+  assert.strictEqual(seriesRail.children[0], seriesCard);
+  assert.strictEqual(seriesRail.scrollLeft, 280);
+  harness.metadataResolvers.shift()({available: false});
+  assert.strictEqual(await revalidation, true);
+  await flush();
+  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'unchanged completed revalidation preserves rail identity');
+  assert.strictEqual(seriesRail.children[0], seriesCard);
+  harness.setMetadataMode('available-false');
   assert.strictEqual(harness.seriesCalls('default').length, 2);
   assert.strictEqual(harness.api.seriesWarm('default'), true);
 
@@ -383,6 +481,9 @@ async function proveMetadataErrorNeverWarms() {
 
 (async function () {
   await proveInFlightCoalescing();
+  await proveCompletionCoalescing();
+  await proveCompletionCoalescingFences();
+  await proveRevalidationRetainsSelectionAndHandlesFailure();
   await proveWarmProductionReturnAndForcedRefresh();
   await proveInterruptedMetadataNeverWarms();
   await proveMetadataErrorNeverWarms();
