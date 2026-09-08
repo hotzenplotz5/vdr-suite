@@ -22,10 +22,13 @@ install-browser-performance-diagnostics:
 	$(INSTALL) -m 0644 web/frontend/browser-performance-diagnostics.html $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-diagnostics.html
 	node tools/build_browser_performance_diagnostics.js $(DESTDIR)$(DATADIR)/web/frontend/browser-performance-home.html
 
+# Use a separate staging target instead of a recursive Make invocation hidden
+# inside a shell recipe. GNU Make executes recipes containing $(MAKE) even
+# under -n; the staging shell must never run during the test-graph dry run.
 test-browser-performance-diagnostics-install-staging:
 	@stage=$$(mktemp -d); \
 	trap 'rm -rf "$$stage"' EXIT; \
-	$(MAKE) install-browser-performance-diagnostics DESTDIR="$$stage" PREFIX=/usr || exit $$?; \
+	make --no-print-directory install-browser-performance-diagnostics DESTDIR="$$stage" PREFIX=/usr || exit $$?; \
 	root="$$stage/usr/share/vdr-suite/web/frontend"; \
 	for name in browser-artwork-probe.js browser-performance-bridge.js browser-performance-diagnostics.js browser-performance-diagnostics.html browser-performance-home.html; do \
 	  test -f "$$root/$$name" || exit 1; \
