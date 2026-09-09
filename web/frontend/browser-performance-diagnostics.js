@@ -77,7 +77,7 @@
     buttons();
     text(coldEpg ? 'Home wird für die EPG-Kaltstart-Messung neu geladen …' : 'Home wird mit aktivierter Messung geladen …');
     frame.setAttribute('data-vdr-suite-diagnostics', token);
-    frame.src = 'browser-performance-home.html' + (coldEpg ? '?vdrSuiteEpgCold=1' : '');
+    frame.src = 'browser-performance-home.html' + (coldEpg ? '#vdrSuiteEpgCold=1' : '');
   }
   frame.addEventListener('load', function () {
     if (frame.contentWindow && frame.contentWindow.location && frame.contentWindow.location.pathname.endsWith('/browser-performance-home.html')) {
