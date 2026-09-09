@@ -141,9 +141,13 @@
         if (!timedOut && !refreshError && (!state.ready || state.nowCards === 0 || state.nextCards === 0)) return;
         finished = true;
         cleanup();
+        if (timedOut || refreshError) {
+          resolve(buildReport(timedOut, refreshError));
+          return;
+        }
         afterPaint(function () {
           milestones.paintReadyMs = relativeMs(perf.now(), begin);
-          resolve(buildReport(timedOut, refreshError));
+          resolve(buildReport(false, null));
         });
       }
       if (typeof root.MutationObserver === 'function' && root.document && root.document.documentElement) {
