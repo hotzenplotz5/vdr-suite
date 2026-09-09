@@ -12,6 +12,7 @@ test-browser-performance-diagnostics:
 	node --check web/frontend/browser-performance-bridge.js
 	node --check web/frontend/browser-artwork-probe.js
 	node tools/test_browser_artwork_probe.js
+	node tools/test_browser_resource_details.js
 	node tools/test_browser_performance_diagnostics.js
 	node tools/test_browser_diagnostics_http_routes.js
 	$(BUILD_CXX) $(CXXFLAGS) \
