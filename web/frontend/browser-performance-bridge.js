@@ -61,10 +61,15 @@
     if (!root.document || typeof root.document.querySelectorAll !== 'function') return 0;
     return root.document.querySelectorAll('[data-home-live-guide="' + kind + '"] .media-home-live-guide-card').length;
   }
-  function measureHomeEpg() {
-    const owner = root.VdrSuiteHomeLiveHero;
+  function coldEpgStartupRequested() {
+    try { return new root.URL(root.location.href).searchParams.get('vdrSuiteEpgCold') === '1'; } catch (_) { return false; }
+  }
+  function measureHomeEpg(mode) {
     const perf = root.performance;
-    if (!owner || typeof owner.refresh !== 'function' || typeof owner.snapshot !== 'function' || !perf || typeof perf.now !== 'function') {
+    const startup = mode === 'startup';
+    const ownerAtStart = root.VdrSuiteHomeLiveHero;
+    if (!perf || typeof perf.now !== 'function') return Promise.reject(new Error('Performance API unavailable'));
+    if (!startup && (!ownerAtStart || typeof ownerAtStart.refresh !== 'function' || typeof ownerAtStart.snapshot !== 'function')) {
       return Promise.reject(new Error('Home EPG owner unavailable'));
     }
     const begin = perf.now();
@@ -80,9 +85,10 @@
       const elapsed = relativeMs(perf.now(), begin);
       if (nowCards > 0 && milestones.nowRailDomMs === null) milestones.nowRailDomMs = elapsed;
       if (nextCards > 0 && milestones.nextRailDomMs === null) milestones.nextRailDomMs = elapsed;
+      const owner = root.VdrSuiteHomeLiveHero;
       let snapshot = {};
-      try { snapshot = owner.snapshot() || {}; } catch (_) { snapshot = {}; }
-      const ready = snapshot.loadingChannels === false && snapshot.loadingPrograms === false && Number(snapshot.programmeLoadedChannelCount) > 0;
+      try { snapshot = owner && typeof owner.snapshot === 'function' ? owner.snapshot() || {} : {}; } catch (_) { snapshot = {}; }
+      const ready = Boolean(owner) && snapshot.loadingChannels === false && snapshot.loadingPrograms === false && Number(snapshot.programmeLoadedChannelCount) > 0;
       if (ready && milestones.railsReadyMs === null) milestones.railsReadyMs = elapsed;
       return { ready: ready, nowCards: nowCards, nextCards: nextCards, snapshot: snapshot };
     }
@@ -100,8 +106,9 @@
       const state = inspect();
       const elapsedMs = relativeMs(perf.now(), begin);
       return {
-        schema: 1,
-        label: 'home-epg-refresh',
+        schema: 2,
+        label: startup ? 'home-epg-cold-startup' : 'home-epg-warm-refresh',
+        mode: startup ? 'cold-startup' : 'warm-refresh',
         elapsedMs: elapsedMs,
         timedOut: Boolean(timedOut),
         refreshError: refreshError ? String(refreshError.message || refreshError) : '',
@@ -115,8 +122,11 @@
         },
         mutations: mutationCount,
         limitations: [
-          'Request timings are Resource Timing values for same-origin fetches started by this explicit Home refresh.',
+          startup
+            ? 'Request timings are Resource Timing values for same-origin Channel/EPG fetches started after the diagnostic bridge began during this Home startup.'
+            : 'Request timings are Resource Timing values for same-origin Channel/EPG fetches started by this explicit warm Home refresh.',
           'Rail DOM milestones mean cards exist in the document; paintReadyMs is after two animation frames and is not a pixel-level paint measurement.',
+          'A cold-startup diagnostic reloads the Home document but does not clear the browser HTTP cache.',
           'No URLs, channel IDs, event IDs, titles or credentials are exported.'
         ]
       };
@@ -144,7 +154,12 @@
         } catch (_) { observer = null; }
       }
       timer = root.setTimeout(function () { finish(true, null); }, timeoutMs);
-      Promise.resolve().then(function () { return owner.refresh(); }).then(function () {
+      if (startup) {
+        inspect();
+        finish(false, null);
+        return;
+      }
+      Promise.resolve().then(function () { return ownerAtStart.refresh(); }).then(function () {
         inspect();
         finish(false, null);
       }, function (error) {
@@ -161,7 +176,7 @@
       else if (data.type === 'epg' && !epgChecking) {
         if (active || checking) throw new Error('Messung zuerst stoppen.');
         epgChecking = true;
-        measureHomeEpg().then(function (result) {
+        measureHomeEpg('refresh').then(function (result) {
           send('epg-result', result);
         }, function () {
           send('error', 'EPG-Home-Messung konnte nicht gestartet werden.');
@@ -179,5 +194,14 @@
     } catch (_) { send('error', 'Diagnoseaktion fehlgeschlagen.'); }
   });
   root.addEventListener('pagehide', function () { if (active) stop(); });
-  start('initial-home', true);
+  if (coldEpgStartupRequested()) {
+    epgChecking = true;
+    measureHomeEpg('startup').then(function (result) {
+      send('epg-result', result);
+    }, function () {
+      send('error', 'EPG-Kaltstart-Messung konnte nicht gestartet werden.');
+    }).then(function () { epgChecking = false; });
+  } else {
+    start('initial-home', true);
+  }
 })(typeof window !== 'undefined' ? window : globalThis);
