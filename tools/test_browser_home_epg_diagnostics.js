@@ -124,7 +124,7 @@ async function main() {
     VdrSuiteHomeLiveHero: coldOwner,
     document: coldDocument,
     performance: { now() { return coldNow; }, getEntriesByType(type) { return type === 'resource' ? coldResources.slice() : []; } },
-    location: { origin: 'https://example.test', href: 'https://example.test/vdr-suite/frontend/browser-performance-home.html?vdrSuiteEpgCold=1' },
+    location: { origin: 'https://example.test', href: 'https://example.test/vdr-suite/frontend/browser-performance-home.html#vdrSuiteEpgCold=1' },
     URL,
     MutationObserver: ColdMutationObserverMock,
     requestAnimationFrame(fn) { coldNow += 5; fn(coldNow); },
@@ -182,7 +182,7 @@ async function main() {
   handlers['epg-cold:click']();
   const coldToken = elements.home.attributes['data-vdr-suite-diagnostics'];
   assert.notEqual(coldToken, token);
-  assert.ok(String(elements.home.src).includes('vdrSuiteEpgCold=1'));
+  assert.ok(String(elements.home.src).includes('#vdrSuiteEpgCold=1'));
   assert.equal(elements['epg-cold'].disabled, true);
   handlers['root:message']({ source: childWindow, origin: root.location.origin, data: { channel: 'vdr-suite-browser-diagnostics', token: coldToken, type: 'epg-result', value: coldReport } });
   assert.ok(elements['epg-result'].textContent.includes('home-epg-cold-startup'));
