@@ -90,6 +90,11 @@
       : null;
   }
 
+  function homePreview(path) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
+      ? helpers.homeArtworkPreviewUrl(path) : path;
+  }
   function publicPath(path) {
     const value = text(path);
     const resolver = global.VdrSuitePublicUrl;
@@ -367,7 +372,7 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(resolved);
+    image.src = publicPath(homePreview(resolved));
     image.alt = 'Poster zu ' + text(title);
     image.loading = 'lazy';
     image.addEventListener('error', function () {

@@ -10,6 +10,11 @@
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
   }
+  function homePreview(path) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
+      ? helpers.homeArtworkPreviewUrl(path) : path;
+  }
   function publicPath(path) {
     const value = text(path);
     const resolver = global.VdrSuitePublicUrl;
@@ -87,7 +92,7 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(posterUrl);
+    image.src = publicPath(homePreview(posterUrl));
     image.alt = 'Poster zu ' + (text(item && item.title) || 'Aufnahme');
     image.loading = 'lazy';
     image.decoding = 'async';

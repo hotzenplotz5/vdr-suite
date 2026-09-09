@@ -76,6 +76,8 @@ test-recording-artwork-http-server:
 		core/vdr/src/VdrRecordingArtworkService.cpp \
 		api/rest/src/RestQueryParameters.cpp \
 		core/daemon/src/RecordingArtworkHttpServer.cpp \
+		core/media/src/ArtworkPreviewCache.cpp \
+		core/media/src/MediaProcessRunner.cpp \
 		core/daemon/tests/test_recording_artwork_http_server.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_recording_artwork_http_server
@@ -90,6 +92,17 @@ test-recording-metadata-foundation: \
 	test-vdr-recording-native-metadata-public-json-serializer \
 	test-vdr-recording-artwork-service \
 	test-recording-artwork-http-server
+
+.PHONY: test-artwork-preview-cache
+test-artwork-preview-cache:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/media/src/ArtworkPreviewCache.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/tests/test_artwork_preview_cache.cpp \
+		-lcrypto -pthread -o $(BUILD_DIR)/test_artwork_preview_cache
+	$(BUILD_DIR)/test_artwork_preview_cache
+
+test-fast: test-artwork-preview-cache
 
 # Focused targets which compile RestfulApiVdrAdapter.cpp or the Recording cache
 # without the shared VDR_SRC aggregate need the new metadata translation units.

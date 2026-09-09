@@ -35,18 +35,35 @@ bool metadataImagePath(const std::string& path)
     return path == "/api/vdr/recordings/metadata/image" ||
         path == "/api/recordings/metadata/image";
 }
+
+void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& request,
+                  const RestQueryParameters& query, HttpServerResponse& response)
+{
+    if (response.statusCode != 200 || query.get("variant") != "home") return;
+    const auto type = response.headers.find("Content-Type");
+    if (type == response.headers.end()) return;
+    const std::string preview = cache.home(request.path, type->second, response.body);
+    if (preview.empty()) return;
+    response.body = preview;
+    response.headers["Content-Type"] = "image/jpeg";
+    response.headers.erase("Content-Length");
+    response.headers.erase("Content-Encoding");
+    response.headers.erase("ETag");
+}
 }
 
 RecordingArtworkHttpServer::RecordingArtworkHttpServer(
     std::unique_ptr<IHttpServer> delegate,
     VdrRecordingCacheRepository& repository,
-    std::map<std::string, std::string> artworkRootsByBackend)
+    std::map<std::string, std::string> artworkRootsByBackend,
+    std::string previewDirectory)
     : delegate_(std::move(delegate)),
       epgArtworkProvider_(
           dynamic_cast<IEpgArtworkHttpProvider*>(delegate_.get())),
       artworkService_(
           repository,
-          std::move(artworkRootsByBackend))
+          std::move(artworkRootsByBackend)),
+      previews_(std::move(previewDirectory))
 {
 }
 
@@ -56,6 +73,18 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     HttpServerResponse delegated =
         delegate_->handleRequest(request);
     const std::string path = requestPath(request.path);
+    const RestQueryParameters query = RestQueryParameters::parse(requestQueryString(request.path));
+    if (request.method == "GET" && delegated.statusCode != 401 && delegated.statusCode != 403 &&
+        (metadataImagePath(path) || artworkService_.handlesPath(path)) &&
+        query.has("variant") && query.get("variant") != "home")
+    {
+        HttpServerResponse invalid;
+        invalid.statusCode = 400;
+        invalid.headers["Content-Type"] = "application/json";
+        invalid.headers["Cache-Control"] = "no-store";
+        invalid.body = "{\"error\":\"unsupported artwork variant\"}";
+        return invalid;
+    }
 
     if (request.method == "GET" &&
         metadataImagePath(path) &&
@@ -71,6 +100,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
                 ? "private, max-age=31536000, immutable"
                 : "private, max-age=300")
             : "no-store";
+        applyPreview(previews_, request, query, delegated);
         return delegated;
     }
 
@@ -108,7 +138,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     }
 
     const VdrRecordingArtworkAsset asset =
-        artworkService_.loadPath(request.path);
+        artworkService_.loadPath(path);
 
     HttpServerResponse response;
     response.headers["X-Content-Type-Options"] = "nosniff";
@@ -128,5 +158,6 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     response.headers["Cache-Control"] =
         "private, max-age=300";
     response.body = asset.content;
+    applyPreview(previews_, request, query, response);
     return response;
 }

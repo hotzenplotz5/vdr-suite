@@ -90,7 +90,25 @@
     return preferredRecordingMetadataArtworkUrl(value);
   }
 
+  function homeArtworkPreviewUrl(value) {
+    const url = normalizedText(value);
+    if (!/^\/(?:recording-artwork\/[^/?#]+\/[^/?#]+|api\/(?:vdr\/)?recordings\/metadata\/image)(?:\?|$)/.test(url)) return url;
+    const hashIndex = url.indexOf('#');
+    const hash = hashIndex < 0 ? '' : url.slice(hashIndex);
+    const base = hashIndex < 0 ? url : url.slice(0, hashIndex);
+    const separator = base.indexOf('?');
+    const path = separator < 0 ? base : base.slice(0, separator);
+    const query = (separator < 0 ? [] : base.slice(separator + 1).split('&')).filter(function (part) {
+      if (!part) return false;
+      try { return decodeURIComponent(part.split('=', 1)[0]) !== 'variant'; }
+      catch (error) { return true; }
+    });
+    query.push('variant=home');
+    return path + '?' + query.join('&') + hash;
+  }
+
   const helpersApi = Object.freeze({
+    homeArtworkPreviewUrl: homeArtworkPreviewUrl,
     firstValue: firstValue,
     listFromResponse: listFromResponse,
     numberOrZero: numberOrZero,
