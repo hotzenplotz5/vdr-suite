@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 const frontend = path.resolve(__dirname, '../web/frontend');
 const read = name => fs.readFileSync(path.join(frontend, name), 'utf8');
 const run = (name, env) => vm.runInNewContext(read(name), env, { filename: name });
-const { createProbe } = require('../web/frontend/browser-artwork-probe');
+const { createProbe, summarizeResources } = require('../web/frontend/browser-artwork-probe');
 
 async function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vdr-suite-diagnostics-'));
@@ -102,12 +102,22 @@ async function main() {
       takeRecords() { const records = this.pending; this.pending = []; return records; }
       disconnect() { this.disconnected = true; }
     }
+    class MutationObserverMock extends Observer {
+      observe(target, options) {
+        assert.equal(target, env.document.documentElement);
+        assert.equal(arguments.length, 2);
+        assert.equal(options.subtree, true);
+        assert.equal(options.childList, true);
+        this.options = options;
+      }
+    }
     const cover = { currentSrc: 'https://example.test/api/metadata/cover?id=secret', src: '', complete: true, naturalWidth: 100, loading: 'lazy' };
-    const env = { document: { querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: Observer, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
+    const env = { document: { documentElement: {}, querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: MutationObserverMock, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
     const measurement = createProbe(env);
     measurement.start('initial-home', { buffered: true });
     assert.equal(observers[0].options.buffered, true);
     assert.equal(observers[1].options.buffered, true);
+    assert.equal(observers[2].options.subtree, true);
     observers[0].pending.push({ entryType: 'resource', name: cover.currentSrc, initiatorType: 'img', transferSize: 120 });
     observers[1].pending.push({ entryType: 'longtask', duration: 70 });
     observers[2].pending.push({});
@@ -116,7 +126,9 @@ async function main() {
     assert.equal(result.metrics.resourceRequests, 1);
     assert.equal(result.metrics.longTasks, 1);
     assert.equal(result.metrics.mutations, 1);
+    assert.equal(result.observerSupport.mutation, true);
     assert.equal(result.bufferedStartup, true);
+    assert.equal(result.metrics.resourceDiagnostics.observedEntries, 1);
     assert.ok(observers.every(observer => observer.disconnected));
     assert.ok(!JSON.stringify(result).includes('secret'));
     const requests = [];
@@ -128,7 +140,66 @@ async function main() {
     assert.equal(headers.status, 304);
     assert.ok(!JSON.stringify(headers).includes('secret'));
     assert.ok(!JSON.stringify(headers).includes('url:'));
-    console.log('browser diagnostics composition, lifecycle, buffered observers and privacy ok');
+
+    // The production probe classifies every observed resource, not only img
+    // initiators or URLs still present in the DOM. No raw identifier escapes.
+    const baseUrl = 'https://example.test/vdr-suite/frontend/';
+    const sample = [
+      { name: 'https://example.test/vdr-suite/api/vdr/recordings/metadata/image?id=private-recording', initiatorType: 'img', responseStatus: 404, transferSize: 350, encodedBodySize: 0 },
+      { name: 'https://example.test/vdr-suite/api/vdr/recordings/metadata/image?id=another-recording', initiatorType: 'img', responseStatus: 404, transferSize: 250, encodedBodySize: 16384 },
+      { name: 'https://example.test/vdr-suite/api/epg/cache/metadata/image?id=private-event', initiatorType: 'fetch', responseStatus: 200, transferSize: 300000, encodedBodySize: 262144, decodedBodySize: 262144 },
+      { name: 'https://example.test/vdr-suite/channel-logos/private-channel.svg', initiatorType: 'img', responseStatus: 200, transferSize: 0, encodedBodySize: 100 },
+      { name: 'https://example.test/vdr-suite/api/epg/cache/now-next?token=private-token', initiatorType: 'fetch', responseStatus: 204, transferSize: 100 },
+      { name: 'https://example.test/vdr-suite/api/epg/cache/changes?token=private-token', initiatorType: 'fetch', responseStatus: 0, transferSize: 0 },
+      { name: 'https://outside.test/private-path?token=private-token', initiatorType: 'script', responseStatus: 0, transferSize: 0 },
+      { name: 'https://example.test/vdr-suite/recording-artwork/private-poster.webp', initiatorType: 'img', responseStatus: 200, transferSize: 2000000, encodedBodySize: 1048577 }
+    ];
+    const detail = summarizeResources(sample, baseUrl);
+    assert.equal(detail.observedEntries, sample.length);
+    assert.equal(detail.rows.reduce((n, row) => n + row.count, 0), sample.length);
+    const missing = detail.rows.find(row => row.category === 'recording-metadata-image' && row.status === '404');
+    assert.equal(missing.count, 2);
+    assert.equal(missing.transferBytes, 600);
+    assert.equal(missing.sizeDistribution.zero, 1);
+    assert.equal(missing.sizeDistribution['1-16KiB'], 1);
+    assert.equal(detail.rows.find(row => row.category === 'epg-cache-api' && row.status === '204').count, 1);
+    assert.equal(detail.rows.find(row => row.category === 'epg-cache-api' && row.status === 'unavailable').count, 1);
+    assert.equal(detail.rows.find(row => row.category === 'cross-origin').count, 1);
+    assert.equal(detail.rows.find(row => row.category === 'recording-artwork').sizeDistribution['over-1MiB'], 1);
+    const serialized = JSON.stringify(detail);
+    for (const secret of ['private-recording', 'another-recording', 'private-event', 'private-channel', 'private-token', 'private-path', 'private-poster', 'outside.test']) assert.ok(!serialized.includes(secret));
+    assert.ok(!serialized.includes('https://'));
+    assert.ok(!serialized.includes('?'));
+    const legacy = require('../web/frontend/browser-artwork-probe').summarize(sample, [], 0, [], baseUrl);
+    assert.equal(legacy.resourceRequests, 4);
+    assert.equal(legacy.resourceDiagnostics.observedEntries, sample.length);
+    assert.equal(legacy.resourceDiagnostics.rows.reduce((n, row) => n + row.count, 0), sample.length);
+
+    // Execute the installed production composition's own probe, bridge and
+    // controller. The existing stop/export path must carry the new data.
+    const productionObservers = [];
+    class ProductionObserver {
+      constructor(callback) { this.callback = callback; this.pending = []; productionObservers.push(this); }
+      observe() {}
+      takeRecords() { const pending = this.pending; this.pending = []; return pending; }
+      disconnect() { this.disconnected = true; }
+    }
+    const productionWindow = {
+      document: { documentElement: {}, querySelectorAll() { return []; } },
+      performance: { now() { return 10; } },
+      PerformanceObserver: ProductionObserver,
+      MutationObserver: ProductionObserver,
+      location: { href: baseUrl, origin: 'https://example.test' },
+      URL, fetch: async () => { throw new Error('Unexpected request'); }
+    };
+    run('browser-artwork-probe.js', { window: productionWindow, URL, Map, Set, Number, Array, Object, String, Math, JSON });
+    productionWindow.VdrSuiteArtworkProbe.start('initial-home', { buffered: true });
+    productionObservers[0].pending.push(...sample.map(entry => Object.assign({ entryType: 'resource' }, entry)));
+    const productionResult = productionWindow.VdrSuiteArtworkProbe.stop();
+    assert.equal(productionResult.metrics.resourceDiagnostics.observedEntries, sample.length);
+    assert.ok(!JSON.stringify(productionResult).includes('private-recording'));
+    assert.ok(productionObservers.every(observer => observer.disconnected));
+    console.log('browser diagnostics composition, lifecycle, mutation observer, buffered observers, resource classification and privacy ok');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

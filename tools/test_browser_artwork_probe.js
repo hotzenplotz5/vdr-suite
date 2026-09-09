@@ -29,12 +29,21 @@ class Observer {
   takeRecords() { const records = this.pending; this.pending = []; return records; }
   disconnect() { this.disconnected = true; }
 }
+class MutationObserverMock extends Observer {
+  observe(target, options) {
+    assert.equal(target, env.document.documentElement);
+    assert.equal(arguments.length, 2);
+    assert.equal(options.subtree, true);
+    assert.equal(options.childList, true);
+    this.options = options;
+  }
+}
 const image = { src: entries[0].name, currentSrc: entries[0].name, complete: true, naturalWidth: 100, loading: 'lazy' };
 const env = {
-  document: { querySelectorAll(selector) { return selector === 'img' ? [image] : [{ scrollLeft: 30 }]; } },
+  document: { documentElement: {}, querySelectorAll(selector) { return selector === 'img' ? [image] : [{ scrollLeft: 30 }]; } },
   performance: { now() { return elapsed; } },
   PerformanceObserver: Observer,
-  MutationObserver: Observer,
+  MutationObserver: MutationObserverMock,
   location: { href: 'https://example.test/app', origin: 'https://example.test' },
   console: { table() {} },
   fetch: async function () { throw new Error('Unexpected network request'); }
@@ -45,15 +54,16 @@ assert.throws(() => probe.start('overlap'), /Finish/);
 observers[0].callback({ getEntries() { return [entries[0]]; } });
 observers[1].pending.push({ entryType: 'longtask', duration: 70 });
 observers[2].callback([{}]);
+observers[2].pending.push({});
 elapsed = 80;
 const capture = probe.stop();
 assert.equal(capture.metrics.resourceRequests, 1);
 assert.equal(capture.metrics.longTasks, 1);
-assert.equal(capture.metrics.mutations, 1);
+assert.equal(capture.metrics.mutations, 2);
 assert.equal(capture.completeImages, 1);
 assert.equal(capture.lazyImages, 1);
 assert.deepEqual(capture.railScrollBefore, [30]);
 assert.equal(probe.report().length, 1);
 assert.ok(observers.every(observer => observer.disconnected));
 assert.throws(() => probe.stop(), /No active/);
-console.log('browser artwork probe aggregation and lifecycle ok');
+console.log('browser artwork probe aggregation, mutation observer and lifecycle ok');
