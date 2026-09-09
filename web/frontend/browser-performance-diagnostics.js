@@ -8,7 +8,7 @@
   const history = doc.getElementById('history');
   const headerResult = doc.getElementById('headers-result');
   const epgResult = doc.getElementById('epg-result');
-  const controls = ['cold', 'start', 'stop', 'epg', 'headers', 'export'].reduce(function (items, name) { items[name] = doc.getElementById(name); return items; }, {});
+  const controls = ['cold', 'start', 'stop', 'epg-cold', 'epg', 'headers', 'export'].reduce(function (items, name) { items[name] = doc.getElementById(name); return items; }, {});
   const channel = 'vdr-suite-browser-diagnostics';
   const captures = [];
   const epgCaptures = [];
@@ -25,6 +25,7 @@
     controls.cold.disabled = loading || checking || epgChecking;
     controls.start.disabled = loading || checking || epgChecking || !ready || active;
     controls.stop.disabled = loading || checking || epgChecking || !ready || !active;
+    if (controls['epg-cold']) controls['epg-cold'].disabled = loading || checking || epgChecking || active;
     if (controls.epg) controls.epg.disabled = loading || checking || epgChecking || !ready || active;
     controls.headers.disabled = loading || checking || epgChecking || !ready || active;
     controls.export.disabled = !captures.length && !epgCaptures.length && !latestHeaders;
@@ -55,20 +56,28 @@
     if (event.source !== frame.contentWindow || event.origin !== root.location.origin || !data || data.channel !== channel || data.token !== token || data.generation !== undefined && data.generation !== generation) return;
     if (data.type === 'started') { active = true; ready = true; loading = false; text('Messung läuft: ' + data.value); }
     else if (data.type === 'result') { active = false; captures.push(data.value); render(data.value); text('Messung abgeschlossen.'); }
-    else if (data.type === 'epg-result') { epgChecking = false; epgCaptures.push(data.value); if (epgResult) epgResult.textContent = JSON.stringify(data.value, null, 2); text('EPG-Home-Messung abgeschlossen.'); }
+    else if (data.type === 'epg-result') {
+      epgChecking = false;
+      ready = true;
+      loading = false;
+      epgCaptures.push(data.value);
+      if (epgResult) epgResult.textContent = JSON.stringify(data.value, null, 2);
+      text(data.value && data.value.mode === 'cold-startup' ? 'EPG-Kaltstart-Messung abgeschlossen.' : 'EPG-Warmmessung abgeschlossen.');
+    }
     else if (data.type === 'headers') { checking = false; latestHeaders = data.value; headerResult.textContent = JSON.stringify(data.value, null, 2); text('Header-Prüfung abgeschlossen.'); }
-    else if (data.type === 'error') { checking = false; epgChecking = false; text('Diagnosefehler: ' + data.value); }
+    else if (data.type === 'error') { checking = false; epgChecking = false; loading = false; text('Diagnosefehler: ' + data.value); }
     buttons();
   });
-  function load() {
+  function load(mode) {
+    const coldEpg = mode === 'epg-cold';
     if (loading || checking || epgChecking) return;
-    loading = true; ready = false; active = false; checking = false; epgChecking = false;
+    loading = true; ready = false; active = false; checking = false; epgChecking = coldEpg;
     generation += 1;
     token = String(Math.random()).slice(2) + String(Date.now()) + String(generation);
     buttons();
-    text('Home wird mit aktivierter Messung geladen …');
+    text(coldEpg ? 'Home wird für die EPG-Kaltstart-Messung neu geladen …' : 'Home wird mit aktivierter Messung geladen …');
     frame.setAttribute('data-vdr-suite-diagnostics', token);
-    frame.src = 'browser-performance-home.html';
+    frame.src = 'browser-performance-home.html' + (coldEpg ? '?vdrSuiteEpgCold=1' : '');
   }
   frame.addEventListener('load', function () {
     if (frame.contentWindow && frame.contentWindow.location && frame.contentWindow.location.pathname.endsWith('/browser-performance-home.html')) {
@@ -76,10 +85,11 @@
       buttons();
     }
   });
-  controls.cold.addEventListener('click', load);
+  controls.cold.addEventListener('click', function () { load('general'); });
   controls.start.addEventListener('click', function () { command('start', 'navigation'); });
   controls.stop.addEventListener('click', function () { command('stop'); });
-  if (controls.epg) controls.epg.addEventListener('click', function () { epgChecking = true; buttons(); text('EPG-Home wird gezielt neu geladen und gemessen …'); command('epg'); });
+  if (controls['epg-cold']) controls['epg-cold'].addEventListener('click', function () { load('epg-cold'); });
+  if (controls.epg) controls.epg.addEventListener('click', function () { epgChecking = true; buttons(); text('EPG-Home wird warm neu projiziert und gemessen …'); command('epg'); });
   controls.headers.addEventListener('click', function () { checking = true; buttons(); text('Prüfe ein sichtbares Cover …'); command('headers'); });
   controls.export.addEventListener('click', function () {
     const payload = JSON.stringify({ schema: 2, generatedAt: new Date().toISOString(), captures: captures, epgMeasurements: epgCaptures, headers: latestHeaders, limitations: ['Resource Timing may omit cross-origin sizes and HTTP status.', 'Zero transfer does not prove a cache hit.', 'Long tasks and mutations before observer initialization may be missing.', 'Reload does not clear the browser cache.'] }, null, 2);
@@ -89,5 +99,5 @@
     root.setTimeout(function () { root.URL.revokeObjectURL(url); }, 0);
   });
   buttons();
-  load();
+  load('general');
 })(typeof window !== 'undefined' ? window : globalThis);
