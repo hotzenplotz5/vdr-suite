@@ -55,7 +55,7 @@ assert.ok(!JSON.stringify(report).includes('backendNativeId'));
 assert.ok(!JSON.stringify(report).includes('assignmentRevision='));
 assert.ok(!JSON.stringify(report).includes('https://'));
 const old = summarize(entries, [], 3, [{duration: 60}], base);
-assert.equal(old.resourceRequests, 5);
+assert.equal(old.resourceRequests, 6);
 assert.equal(old.longTaskMs, 60);
 assert.equal(old.mutations, 3);
 assert.equal(old.resourceDiagnostics.recordingApiDetails.length, recording.length);
@@ -72,4 +72,37 @@ vm.runInNewContext(source, ctx, {filename: 'browser-artwork-probe.js'});
 assert.equal(typeof ctx.window.VdrSuiteArtworkProbe.start, 'function');
 assert.ok(source.includes('resourceDiagnostics: summarizeResources(entries, baseUrl)'));
 assert.ok(!source.includes('fetch(entry.name'));
-console.log('browser recording resource details, bounded aggregation and privacy ok');
+let now = 0;
+const observers = [];
+class Observer {
+  constructor(callback) { this.callback = callback; this.pending = []; observers.push(this); }
+  observe(options) { this.options = options; }
+  takeRecords() { const result = this.pending; this.pending = []; return result; }
+  disconnect() { this.disconnected = true; }
+}
+class MutationObserverMock extends Observer {
+  observe(target, options) {
+    assert.equal(target, env.document.documentElement);
+    assert.equal(arguments.length, 2);
+    assert.equal(options.subtree, true);
+  }
+}
+const env = {
+  document: {documentElement: {}, querySelectorAll() { return []; }},
+  performance: {now() { return now; }}, PerformanceObserver: Observer,
+  MutationObserver: MutationObserverMock, location: {href: base, origin: 'https://example.test'},
+  fetch() { throw new Error('Unexpected network request'); }
+};
+const probe = createProbe(env);
+probe.start('initial-home', {buffered: true});
+assert.equal(observers[0].options.buffered, true);
+observers[0].pending.push(...entries);
+observers[2].pending.push({});
+now = 100;
+const capture = probe.stop();
+assert.equal(capture.metrics.resourceDiagnostics.recordingApiDetails.length, recording.length);
+assert.equal(capture.metrics.resourceDiagnostics.artworkVariantDetails.length, artwork.length);
+assert.equal(capture.metrics.mutations, 1);
+assert.ok(observers.every(observer => observer.disconnected));
+assert.ok(!JSON.stringify(probe.report()).includes(secret));
+console.log('browser recording resource details, production lifecycle, bounded aggregation and privacy ok');
