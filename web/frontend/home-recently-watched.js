@@ -90,6 +90,11 @@
     const artwork = metadata.artwork && typeof metadata.artwork === 'object' ? metadata.artwork : {};
     return text(presentation(item.recording).posterUrl || artwork.preferredUrl || item.posterUrl);
   }
+  function homePreview(path) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
+      ? helpers.homeArtworkPreviewUrl(path) : path;
+  }
   function publicPath(path) {
     const resolver = global.VdrSuitePublicUrl;
     return path && resolver && typeof resolver.resolvePath === 'function'
@@ -143,7 +148,7 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(url);
+    image.src = publicPath(homePreview(url));
     image.alt = 'Poster zu ' + title(item);
     image.loading = 'lazy';
     image.addEventListener('error', function () {
@@ -543,6 +548,11 @@
     return true;
   }
 
+  function homePreview(path) {
+    const helpers = global.VdrSuiteFrontendHelpers;
+    return helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
+      ? helpers.homeArtworkPreviewUrl(path) : path;
+  }
   function publicPath(path) {
     const value = text(path);
     const resolver = global.VdrSuitePublicUrl;
@@ -569,7 +579,7 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(url);
+    image.src = publicPath(homePreview(url));
     image.alt = 'Poster zu ' + title;
     image.loading = 'lazy';
     image.decoding = 'async';

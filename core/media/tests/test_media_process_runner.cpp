@@ -28,6 +28,21 @@ int main()
         std::filesystem::temp_directory_path().string();
 
     {
+        const auto limited = runner.runAndCapture(
+            {"/bin/sh", "-c", "ulimit -v; ulimit -t"}, workingDirectory,
+            std::chrono::seconds(1), 100, {128 * 1024 * 1024, 2});
+        assert(limited.success && limited.output == "131072\n2\n");
+        const auto memory = runner.runAndCapture(
+            {"/usr/bin/python3", "-c", "x = bytearray(256 * 1024 * 1024)"}, workingDirectory,
+            std::chrono::seconds(2), 100, {128 * 1024 * 1024, 1});
+        assert(!memory.success);
+        const auto cpu = runner.runAndCapture(
+            {"/usr/bin/python3", "-c", "while True: pass"}, workingDirectory,
+            std::chrono::seconds(4), 100, {128 * 1024 * 1024, 1});
+        assert(!cpu.success && !cpu.timedOut);
+    }
+
+    {
         const auto result = runner.runAndCapture(
             {"/usr/bin/printf", "codec_name=h264|codec_type=video\\n"},
             workingDirectory,

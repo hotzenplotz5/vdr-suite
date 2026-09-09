@@ -7,6 +7,7 @@
 #include <poll.h>
 #include <string>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -85,7 +86,8 @@ MediaProcessCaptureResult MediaProcessRunner::runAndCapture(
     const std::vector<std::string>& argv,
     const std::string& workingDirectory,
     std::chrono::milliseconds timeout,
-    std::size_t maximumOutputBytes) const
+    std::size_t maximumOutputBytes,
+    MediaProcessLimits limits) const
 {
     MediaProcessCaptureResult result;
     if (!validInvocation(argv, workingDirectory) ||
@@ -120,6 +122,12 @@ MediaProcessCaptureResult MediaProcessRunner::runAndCapture(
     if (pid == 0) {
         ::setpgid(0, 0);
         ::close(pipeFds[0]);
+        const rlimit memoryLimit{limits.addressSpaceBytes, limits.addressSpaceBytes};
+        const rlimit cpuLimit{limits.cpuSeconds, limits.cpuSeconds};
+        if ((limits.addressSpaceBytes && ::setrlimit(RLIMIT_AS, &memoryLimit) != 0) ||
+            (limits.cpuSeconds && ::setrlimit(RLIMIT_CPU, &cpuLimit) != 0)) {
+            _exit(126);
+        }
         if (::chdir(workingDirectory.c_str()) != 0 ||
             ::dup2(pipeFds[1], STDOUT_FILENO) < 0) {
             _exit(126);

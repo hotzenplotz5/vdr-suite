@@ -18,6 +18,13 @@ struct MediaProcessCaptureResult
     std::string output;
 };
 
+// Zero leaves the corresponding limit unchanged for existing media callers.
+struct MediaProcessLimits
+{
+    std::size_t addressSpaceBytes = 0;
+    unsigned cpuSeconds = 0;
+};
+
 class MediaProcessRunner
 {
 public:
@@ -25,7 +32,8 @@ public:
         const std::vector<std::string>& argv,
         const std::string& workingDirectory,
         std::chrono::milliseconds timeout,
-        std::size_t maximumOutputBytes) const;
+        std::size_t maximumOutputBytes,
+        MediaProcessLimits limits = {}) const;
 
     pid_t spawnLogged(
         const std::vector<std::string>& argv,

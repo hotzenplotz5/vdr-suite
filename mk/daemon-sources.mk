@@ -100,6 +100,7 @@ DAEMON_SRC := \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
         core/media/src/FfmpegLiveStreamCommandBuilder.cpp \
         core/media/src/MediaProcessRunner.cpp \
+        core/media/src/ArtworkPreviewCache.cpp \
         core/media/src/MediaSessionWorkspace.cpp \
         core/media/src/MediaSessionRepository.cpp \
         core/media/src/MediaSessionRepositoryLive.cpp \
@@ -136,4 +137,4 @@ DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
 
 # MediaSessionIssuanceService uses crypt_r for salted credential hashes.
-LDFLAGS += -lcrypt
+LDFLAGS += -lcrypt -lcrypto

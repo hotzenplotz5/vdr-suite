@@ -73,10 +73,24 @@ const context = {
 context.window.window = context.window;
 context.window.fetch = context.fetch;
 vm.createContext(context);
+context.URLSearchParams = URLSearchParams;
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform/helpers.js'), 'utf8'), context);
 vm.runInContext(source, context);
 
 const api = context.window.VdrSuiteHomeContinueWatching;
 assert(api && api._test);
+const previewUrl = context.window.VdrSuiteFrontendHelpers.homeArtworkPreviewUrl;
+const revisionUrl = '/api/vdr/recordings/metadata/image?recordingId=a%2Fb&kind=preferred&assignmentRevision=42';
+assert.strictEqual(previewUrl(revisionUrl), revisionUrl + '&variant=home');
+assert.strictEqual(previewUrl(previewUrl(revisionUrl)), previewUrl(revisionUrl));
+assert.strictEqual(previewUrl('/api/recordings/metadata/image?kind=gallery&index=2'),
+  '/api/recordings/metadata/image?kind=gallery&index=2&variant=home');
+for (const unchanged of ['https://example.org/a.jpg', '/channel-logos/a.svg', '/api/epg/cache/artwork?eventId=1']) {
+  assert.strictEqual(previewUrl(unchanged), unchanged);
+}
+assert.strictEqual(context.window.VdrSuiteFrontendHelpers.recordingMetadataPosterUrl({
+  preferredArtwork: {available: true, url: revisionUrl}
+}), revisionUrl, 'detail metadata URLs stay original');
 
 const posterUrl = '/recording-artwork/default/0123456789abcdef0123456789abcdef';
 const backendNativeId = '/srv/vdr/video/Ein_unmoralisches_Angebot/2026-08-30.07.00.00-0.rec';
@@ -122,7 +136,7 @@ assert.strictEqual(artwork.textContent, '');
 assert.strictEqual(artwork.children.length, 1);
 const image = artwork.children[0];
 assert.strictEqual(image.tagName, 'IMG');
-assert.strictEqual(image.src, '/vdr-suite' + posterUrl);
+assert.strictEqual(image.src, '/vdr-suite' + posterUrl + '?variant=home');
 assert.strictEqual(image.alt, 'Poster zu Ein unmoralisches Angebot');
 assert.strictEqual(image.loading, 'lazy');
 assert.strictEqual(image.decoding, 'async');
