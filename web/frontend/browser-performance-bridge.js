@@ -97,7 +97,20 @@
     }
     function afterPaint(callback) {
       const raf = typeof root.requestAnimationFrame === 'function' ? root.requestAnimationFrame.bind(root) : function (fn) { return root.setTimeout(fn, 0); };
-      raf(function () { raf(callback); });
+      let completed = false;
+      let fallbackTimer = null;
+      function complete() {
+        if (completed) return;
+        completed = true;
+        if (fallbackTimer !== null && typeof root.clearTimeout === 'function') root.clearTimeout(fallbackTimer);
+        callback();
+      }
+      if (typeof root.setTimeout === 'function') fallbackTimer = root.setTimeout(complete, 250);
+      try {
+        raf(function () {
+          try { raf(complete); } catch (_) { complete(); }
+        });
+      } catch (_) { complete(); }
     }
     function cleanup() {
       if (timer !== null && typeof root.clearTimeout === 'function') root.clearTimeout(timer);
@@ -128,7 +141,7 @@
           startup
             ? 'Request timings are Resource Timing values for same-origin Channel/EPG fetches started after the diagnostic bridge began during this Home startup.'
             : 'Request timings are Resource Timing values for same-origin Channel/EPG fetches started by this explicit warm Home refresh.',
-          'Rail DOM milestones mean cards exist in the document; paintReadyMs is after two animation frames and is not a pixel-level paint measurement.',
+          'Rail DOM milestones mean cards exist in the document; paintReadyMs uses two animation frames when available and a bounded timer fallback if animation frames stall.',
           'A cold-startup diagnostic reloads the Home document but does not clear the browser HTTP cache.',
           'No URLs, channel IDs, event IDs, titles or credentials are exported.'
         ]
