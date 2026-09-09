@@ -62,7 +62,10 @@
     return root.document.querySelectorAll('[data-home-live-guide="' + kind + '"] .media-home-live-guide-card').length;
   }
   function coldEpgStartupRequested() {
-    try { return new root.URL(root.location.href).searchParams.get('vdrSuiteEpgCold') === '1'; } catch (_) { return false; }
+    try {
+      const url = new root.URL(root.location.href);
+      return url.searchParams.get('vdrSuiteEpgCold') === '1' || url.hash === '#vdrSuiteEpgCold=1';
+    } catch (_) { return false; }
   }
   function measureHomeEpg(mode) {
     const perf = root.performance;
