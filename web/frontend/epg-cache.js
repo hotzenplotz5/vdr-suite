@@ -749,28 +749,6 @@ function renderCachedEpgNowOverview() {
     });
 }
 
-function renderCachedEpgNowOverviewIfCurrent() {
-  if (selectedModule !== 'overview' || !currentSnapshot) {
-    return;
-  }
-
-  if (detailDataElement.querySelector('.epg-now-overview')) {
-    return;
-  }
-
-  renderCachedEpgNowOverview();
-}
-
-const renderSnapshotMetricsWithoutCachedEpg = renderSnapshotMetrics;
-
-renderSnapshotMetrics = function(data) {
-  renderSnapshotMetricsWithoutCachedEpg(data);
-  renderCachedEpgNowOverview();
-};
-
-setTimeout(renderCachedEpgNowOverviewIfCurrent, 0);
-setTimeout(renderCachedEpgNowOverviewIfCurrent, 250);
-
 if (typeof renderChannelItem === 'function') {
   const renderChannelItemWithoutCachedEpgDetail = renderChannelItem;
 

@@ -170,3 +170,17 @@ const pathsSource = fs.readFileSync(path.join(frontendRoot, '../../core/http/src
 assert(pathsSource.includes('"channel-logos.js", "application/javascript; charset=utf-8", "epg-cache.js"'));
 assert(indexSource.indexOf('src="../frontend/app.js"') < indexSource.indexOf('src="../frontend/channel-logos.js"'),
   'the EPG addon must load after the application functions it decorates');
+
+// Legacy EPG placement regression: snapshot refresh must not append the
+// obsolete vertical now-overview into the Media Home inventory rail.
+const legacyEpgSource = fs.readFileSync(path.join(frontendRoot, 'epg-cache.js'), 'utf8');
+assert(!legacyEpgSource.includes('renderSnapshotMetricsWithoutCachedEpg'));
+assert(!legacyEpgSource.includes('renderCachedEpgNowOverviewIfCurrent'));
+assert(!legacyEpgSource.includes('renderCachedEpgNowOverview();'));
+assert(!legacyEpgSource.includes('setTimeout(renderCachedEpgNowOverview'));
+assert(legacyEpgSource.includes('function renderCachedChannelEpgDetail(channel)'));
+assert(legacyEpgSource.includes('function openCachedChannelEpgDetail(channel)'));
+assert(legacyEpgSource.includes('function renderCachedEpgNowOverview()'));
+assert(indexSource.includes('id="detail-data"'));
+assert(appSource.includes('renderSnapshotMetrics(data);'));
+console.log('legacy EPG Home placement regression ok');
