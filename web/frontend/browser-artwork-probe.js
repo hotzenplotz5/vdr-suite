@@ -78,7 +78,8 @@
       if (normalized === '/api/recordings/folder' || normalized === '/api/recordings/folders') return 'folder-read';
       if (normalized === '/api/recordings/genres' || normalized === '/api/recordings/genre') return 'genre-read';
       if (normalized === '/api/recordings/persons/search') return 'person-search';
-      if (/^\/api\/recordings\/artwork(?:\/|$)/.test(normalized)) return 'recording-artwork-api';
+      if (normalized === '/api/recordings/metadata/image') return null;
+      if (/^\/api\/recordings\/artwork(?:\/|$)/.test(normalized)) return null;
       if (/^\/api\/recordings(?:\/|$)/.test(normalized)) return 'other-recording-api';
       if (/^\/api\/backends\/[^/]+\/recordings\/metadata\/(?:manual|search|seasons|episodes|assign|withdraw)$/.test(path)) return 'manual-metadata-workflow';
       return null;
