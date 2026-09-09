@@ -9,7 +9,7 @@
 
 namespace fs = std::filesystem;
 std::string fixture(const std::string& codec, const std::string& size = "800x1200") {
-    const auto image = MediaProcessRunner{}.runAndCapture({"/usr/bin/ffmpeg", "-v", "error",
+    const auto image = MediaProcessRunner{}.runAndCapture({"/usr/bin/ffmpeg", "-nostdin", "-v", "error",
         "-f", "lavfi", "-i", "testsrc2=size=" + size, "-frames:v", "1", "-threads", "1",
         "-c:v", codec, "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(10), 16 * 1024 * 1024);
     assert(image.success && !image.output.empty());
