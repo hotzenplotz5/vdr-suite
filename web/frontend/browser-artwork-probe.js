@@ -8,6 +8,8 @@
     const knownStatuses = [200, 204, 206, 301, 302, 304, 400, 401, 403, 404, 410, 429, 500, 502, 503, 504];
     const initiators = ['img', 'css', 'fetch', 'xmlhttprequest', 'link', 'script'];
     const base = new URL(baseUrl || 'https://probe.invalid/');
+    const recordingRows = new Map();
+    const artworkRows = new Map();
     function category(name) {
       let url;
       try { url = new URL(name, base); } catch (_) { return 'other'; }
@@ -29,18 +31,25 @@
       const n = Number(value);
       return Number.isFinite(n) && n > 0 ? n : 0;
     }
-    (entries || []).forEach(function (entry) {
-      const route = category(entry.name);
+    function statusOf(entry) {
       const code = Number(entry.responseStatus);
-      const status = Number.isInteger(code) && code >= 100 && code <= 599
+      return Number.isInteger(code) && code >= 100 && code <= 599
         ? (knownStatuses.includes(code) ? String(code) : String(Math.floor(code / 100)) + 'xx')
         : 'unavailable';
-      const initiator = initiators.includes(entry.initiatorType) ? entry.initiatorType : 'other';
-      const key = JSON.stringify([route, status, initiator]);
-      let row = rows.get(key);
+    }
+    function initiatorOf(entry) {
+      return initiators.includes(entry.initiatorType) ? entry.initiatorType : 'other';
+    }
+    function addRow(map, fields, entry, name) {
+      const key = JSON.stringify(fields);
+      let row = map.get(key);
       if (!row) {
-        row = { category: route, status: status, initiator: initiator, count: 0, transferBytes: 0, encodedBytes: 0, decodedBytes: 0, sizeDistribution: Object.fromEntries(labels.map(function (label) { return [label, 0]; })) };
-        rows.set(key, row);
+        row = { category: fields[0], status: fields[1], initiator: fields[2], count: 0, transferBytes: 0, encodedBytes: 0, decodedBytes: 0, sizeDistribution: Object.fromEntries(labels.map(function (label) { return [label, 0]; })) };
+        if (fields.length > 3) row.variant = fields[3];
+        if (fields.length > 4) row.revision = fields[4];
+        row.__seen = new Set();
+        row.repeatedRequests = 0;
+        map.set(key, row);
       }
       row.count++;
       row.transferBytes += bytes(entry.transferSize);
@@ -49,12 +58,62 @@
       const size = bytes(entry.encodedBodySize);
       const index = size === 0 ? 0 : bounds.findIndex(function (bound, i) { return i > 0 && size <= bound; });
       row.sizeDistribution[labels[index < 0 ? labels.length - 1 : index]]++;
+      if (name && row.__seen.has(name)) row.repeatedRequests++;
+      else if (name) row.__seen.add(name);
+    }
+    function exportedRows(map) {
+      return Array.from(map.values()).map(function (row) {
+        const result = Object.assign({}, row);
+        delete result.__seen;
+        return result;
+      }).sort(function (a, b) {
+        return b.transferBytes - a.transferBytes || a.category.localeCompare(b.category) || a.status.localeCompare(b.status) || a.initiator.localeCompare(b.initiator);
+      });
+    }
+    function recordingCategory(path) {
+      const normalized = path.replace(/^\/api\/(?:vdr\/)?/, '/api/');
+      if (normalized === '/api/recordings/metadata') return 'metadata-read';
+      if (normalized === '/api/recordings/query') return 'recording-query';
+      if (normalized === '/api/recordings' || normalized === '/api/recordings/') return 'recording-list';
+      if (normalized === '/api/recordings/folder' || normalized === '/api/recordings/folders') return 'folder-read';
+      if (normalized === '/api/recordings/genres' || normalized === '/api/recordings/genre') return 'genre-read';
+      if (normalized === '/api/recordings/persons/search') return 'person-search';
+      if (/^\/api\/recordings\/artwork(?:\/|$)/.test(normalized)) return 'recording-artwork-api';
+      if (/^\/api\/recordings(?:\/|$)/.test(normalized)) return 'other-recording-api';
+      if (/^\/api\/backends\/[^/]+\/recordings\/metadata\/(?:manual|search|seasons|episodes|assign|withdraw)$/.test(path)) return 'manual-metadata-workflow';
+      return null;
+    }
+    function artworkVariant(url) {
+      const kind = url.searchParams.get('kind');
+      const allowed = ['poster', 'banner', 'fanart', 'backdrop', 'thumbnail', 'cover'];
+      return kind === null ? 'unspecified' : (allowed.includes(kind) ? kind : 'other');
+    }
+    (entries || []).forEach(function (entry) {
+      const route = category(entry.name);
+      const status = statusOf(entry);
+      const initiator = initiatorOf(entry);
+      addRow(rows, [route, status, initiator], entry, entry.name);
+      let url;
+      try { url = new URL(entry.name, base); } catch (_) { return; }
+      if (url.origin !== base.origin) return;
+      const path = url.pathname.replace(/^\/vdr-suite(?=\/)/, '');
+      const recording = recordingCategory(path);
+      if (recording) addRow(recordingRows, [recording, status, initiator], entry, entry.name);
+      if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image') {
+        const revision = url.searchParams.has('assignmentRevision') ? 'revisioned' : 'unversioned';
+        addRow(artworkRows, [route, status, initiator, artworkVariant(url), revision], entry, entry.name);
+      }
     });
     return {
       scope: 'all-observed-resources',
       observedEntries: (entries || []).length,
-      rows: Array.from(rows.values()).sort(function (a, b) { return b.transferBytes - a.transferBytes || a.category.localeCompare(b.category) || a.status.localeCompare(b.status) || a.initiator.localeCompare(b.initiator); }),
-      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. No request URLs, IDs or query parameters are exported.'
+      rows: exportedRows(rows).map(function (row) {
+        delete row.repeatedRequests;
+        return row;
+      }),
+      recordingApiDetails: exportedRows(recordingRows),
+      artworkVariantDetails: exportedRows(artworkRows),
+      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. Repeated requests mean repeated exact URLs within the observed entries, not necessarily redundant network transfers. Artwork kind is a request parameter, not proof of original or resized image dimensions. No request URLs, IDs or query parameters are exported.'
     };
   }
   function summarize(entries, images, mutations, tasks, baseUrl) {
