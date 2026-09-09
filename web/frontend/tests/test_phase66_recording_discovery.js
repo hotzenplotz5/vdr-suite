@@ -797,7 +797,7 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   const bandCard = findSeriesCard(bandRail, 'folder:serien/band of brothers');
   assert(bandCard);
   assert(findElement(bandCard, (element) => element.textContent === 'Band of Brothers'));
-  assert.strictEqual(findImage(bandCard).src, richPortraitArtworkUrl);
+  assert.strictEqual(findImage(bandCard).src, richPortraitArtworkUrl + '&variant=home');
   assert.notStrictEqual(findImage(bandCard).src, richPreferredArtworkUrl);
   bandCard.listeners.click[0]();
   const bandSeason1 = findSeasonButton(findRail(enriched.host, 'series'), 1);
@@ -811,7 +811,7 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(bandEpisode2Card);
   assert.strictEqual(Number(bandEpisode1Card.dataset.episodeNumber), 1);
   assert(findElement(bandEpisode1Card, (element) => element.textContent === 'Currahee'));
-  assert.strictEqual(findImage(bandEpisode1Card).src, richPortraitArtworkUrl);
+  assert.strictEqual(findImage(bandEpisode1Card).src, richPortraitArtworkUrl + '&variant=home');
   assert.strictEqual(Number(bandEpisode2Card.dataset.episodeNumber), 2);
   assert(findElement(bandEpisode2Card, (element) => element.textContent === 'Folge 02'));
 

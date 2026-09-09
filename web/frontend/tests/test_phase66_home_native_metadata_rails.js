@@ -411,7 +411,7 @@ async function proveRandomGenreUsesNativeMetadata(api, host) {
   assert(fallbackCard);
   assert(hasText(richCard, 'Lone Ranger'));
   assert(!hasText(richCard, 'Western/Lone Ranger'));
-  assert.strictEqual(findImage(richCard).src, portraitUrl);
+  assert.strictEqual(findImage(richCard).src, portraitUrl + '&variant=home');
   assert.notStrictEqual(findImage(richCard).src, '/weak/lone-ranger-still.jpg');
   assert(hasText(fallbackCard, 'Western/Ohne Metadaten'));
   assert.strictEqual(findImage(fallbackCard).src, '/weak/western-fallback.jpg');

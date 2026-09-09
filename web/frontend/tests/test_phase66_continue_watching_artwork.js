@@ -73,7 +73,6 @@ const context = {
 context.window.window = context.window;
 context.window.fetch = context.fetch;
 vm.createContext(context);
-context.URLSearchParams = URLSearchParams;
 vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform/helpers.js'), 'utf8'), context);
 vm.runInContext(source, context);
 
