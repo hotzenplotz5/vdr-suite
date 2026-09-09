@@ -187,7 +187,7 @@ int main()
         server.handleRequest(post);
     assert(postResponse.statusCode == 405);
 
-    const auto large = MediaProcessRunner{}.runAndCapture({"/usr/bin/ffmpeg", "-v", "error",
+    const auto large = MediaProcessRunner{}.runAndCapture({"/usr/bin/ffmpeg", "-nostdin", "-v", "error",
         "-f", "lavfi", "-i", "testsrc2=size=800x1200", "-frames:v", "1", "-threads", "1",
         "-c:v", "png", "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(10), 16 * 1024 * 1024);
     assert(large.success);
