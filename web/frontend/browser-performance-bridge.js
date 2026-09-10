@@ -118,6 +118,18 @@
       if (observer) observer.disconnect();
       observer = null;
     }
+    function epgEventCounts() {
+      const owner = root.VdrSuiteHomeLiveHero;
+      let counts = null;
+      try { counts = owner && typeof owner.epgDiagnostics === 'function' ? owner.epgDiagnostics() : null; } catch (_) { /* unavailable */ }
+      const result = {};
+      // Explicit numeric allowlist: never copy owner snapshots or event data.
+      ['eventsBeforeNow', 'eventsCurrent', 'eventsFuture', 'channelsWithCurrent', 'channelsWithAnyFuture', 'channelsWithFrontendNext'].forEach(function (key) {
+        const value = counts && counts[key];
+        result[key] = typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+      });
+      return result;
+    }
     function buildReport(timedOut, refreshError) {
       const state = inspect();
       const elapsedMs = relativeMs(perf.now(), begin);
@@ -127,9 +139,10 @@
         mode: startup ? 'cold-startup' : 'warm-refresh',
         elapsedMs: elapsedMs,
         timedOut: Boolean(timedOut),
-        refreshError: refreshError ? String(refreshError.message || refreshError) : '',
+        refreshError: refreshError ? 'Home EPG refresh failed' : '',
         milestones: milestones,
         requests: homeEpgResources(begin),
+        events: epgEventCounts(),
         rails: {
           nowCards: state.nowCards,
           nextCards: state.nextCards,
@@ -143,6 +156,7 @@
             : 'Request timings are Resource Timing values for same-origin Channel/EPG fetches started by this explicit warm Home refresh.',
           'Rail DOM milestones mean cards exist in the document; paintReadyMs uses two animation frames when available and a bounded timer fallback if animation frames stall.',
           'A cold-startup diagnostic reloads the Home document but does not clear the browser HTTP cache.',
+          'Event counts use the already loaded EPG window and one current time: before means end <= now, current means start <= now < end, future means start > now; unknown starts are excluded. Channel counts are distinct Home channels. Current/future channel counts use loaded events; frontend-next uses the unchanged Home selector, including its current-event fallback. Counts are independent of rendered rail limits. Null counts mean diagnostics are unavailable.',
           'No URLs, channel IDs, event IDs, titles or credentials are exported.'
         ]
       };
