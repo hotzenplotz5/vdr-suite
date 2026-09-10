@@ -487,6 +487,9 @@
       return Promise.resolve(client.fetchClientRecordings({
         query: {
           backend: backendId,
+          from: String(new Date().getFullYear() - 4) + '-01-01T00:00:00',
+          sort: 'startTime',
+          order: 'desc',
           limit: PAGE_LIMIT,
           offset: offset
         },

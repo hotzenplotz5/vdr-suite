@@ -22,6 +22,9 @@ assert(source.includes('year >= nowYear - 4'));
 assert(source.includes('year <= nowYear'));
 assert(source.includes('new Date().getFullYear()'));
 assert(source.includes('fetchClientRecordings'));
+assert(source.includes("from: String(new Date().getFullYear() - 4) + '-01-01T00:00:00'"));
+assert(source.includes("sort: 'startTime'"));
+assert(source.includes("order: 'desc'"));
 assert(!source.includes('fetchClientGenreRecordings'));
 assert(source.includes('owner.canonicalRecordings'));
 assert(source.includes('owner.recordingPosterUrl'));
@@ -296,6 +299,10 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
   assert(calls.every((call) => call.query.limit === 100));
   assert(calls.every((call) => call.query.backend === 'default'));
+  assert(calls.every((call) =>
+    call.query.from === String(currentYear - 4) + '-01-01T00:00:00'));
+  assert(calls.every((call) => call.query.sort === 'startTime'));
+  assert(calls.every((call) => call.query.order === 'desc'));
   assert(calls.every((call) => call.cache === 'no-store'));
   assert(calls.every((call) => call.credentials === 'same-origin'));
   assert.strictEqual(api._test.warmForBackend('default'), true);
