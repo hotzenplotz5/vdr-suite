@@ -592,6 +592,29 @@
     return artwork;
   }
 
+  function createMovieCard(recording, backendId) {
+    const card = doc.createElement('button');
+    card.type = 'button';
+    card.className = 'media-home-discovery-card recording recent-movie';
+    card.dataset.recordingId = recordingId(recording);
+    card.dataset.backendId = backendId;
+    card.dataset.movieYear = String(releaseYear(recording));
+    card.appendChild(createArtwork(recording));
+
+    const copy = doc.createElement('span');
+    copy.className = 'media-home-discovery-copy';
+    const label = doc.createElement('strong');
+    label.textContent = recordingTitle(recording);
+    const detail = doc.createElement('span');
+    detail.textContent = String(releaseYear(recording));
+    copy.append(label, detail);
+    card.appendChild(copy);
+    card.addEventListener('click', function () {
+      openRecording(recording, backendId);
+    });
+    return card;
+  }
+
   function openRecording(recording, backendId) {
     const owner = discoveryTestApi();
     return owner && typeof owner.openRecording === 'function'
@@ -624,26 +647,7 @@
     rail.setAttribute('aria-label', TITLE);
     const limit = Math.max(0, Number(visibleLimit) || LIMIT);
     recordings.slice(0, limit).forEach(function (recording) {
-      const card = doc.createElement('button');
-      card.type = 'button';
-      card.className = 'media-home-discovery-card recording recent-movie';
-      card.dataset.recordingId = recordingId(recording);
-      card.dataset.backendId = backendId;
-      card.dataset.movieYear = String(releaseYear(recording));
-      card.appendChild(createArtwork(recording));
-
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = recordingTitle(recording);
-      const detail = doc.createElement('span');
-      detail.textContent = String(releaseYear(recording));
-      copy.append(label, detail);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openRecording(recording, backendId);
-      });
-      rail.appendChild(card);
+      rail.appendChild(createMovieCard(recording, backendId));
     });
     target.appendChild(rail);
     rail.scrollLeft = previousScrollLeft;
@@ -742,8 +746,25 @@
   function loadMoreMovies() {
     if (!homeIsActive() || state.backendId !== selectedBackendId() ||
         state.visibleLimit >= state.movies.length) return false;
-    state.visibleLimit = Math.min(state.visibleLimit + LIMIT, state.movies.length);
-    return render(state.movies, state.backendId, state.visibleLimit);
+
+    const target = section();
+    const rail = target && typeof target.querySelector === 'function'
+      ? target.querySelector('.media-home-discovery-rail.recent-movies')
+      : null;
+    const previousLimit = state.visibleLimit;
+    const nextLimit = Math.min(previousLimit + LIMIT, state.movies.length);
+
+    if (!rail) {
+      state.visibleLimit = nextLimit;
+      return render(state.movies, state.backendId, state.visibleLimit);
+    }
+
+    state.movies.slice(previousLimit, nextLimit).forEach(function (recording) {
+      rail.appendChild(createMovieCard(recording, state.backendId));
+    });
+    state.visibleLimit = nextLimit;
+    positionBeforeSeries();
+    return true;
   }
 
   function handleRailNearEnd(event) {
