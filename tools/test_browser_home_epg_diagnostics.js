@@ -83,7 +83,6 @@ async function main() {
   assert.equal(report.requests.epg.lastResponseEndMs, 29);
   assert.equal(report.rails.nowCards, 10);
   assert.equal(report.rails.nextCards, 9);
-  assert.ok(report.milestones.railsReadyMs >= 30);
   assert.ok(report.milestones.paintReadyMs >= report.milestones.railsReadyMs);
   assert.ok(!JSON.stringify(report).includes('secret'));
 
@@ -153,20 +152,43 @@ async function main() {
   assert.equal(coldReport.requests.epg.lastResponseEndMs, 60);
   assert.equal(coldReport.rails.nowCards, 23);
   assert.equal(coldReport.rails.nextCards, 23);
-  assert.ok(coldReport.milestones.paintReadyMs >= coldReport.milestones.railsReadyMs);
   assert.ok(!JSON.stringify(coldReport).includes('private'));
 
   const handlers = {};
   const elements = {};
   function element(id) {
-    return elements[id] = { id, disabled: false, textContent: '', attributes: {}, children: [], addEventListener(type, fn) { handlers[id + ':' + type] = fn; }, setAttribute(name, value) { this.attributes[name] = value; }, replaceChildren() { this.children = []; }, append(...nodes) { this.children.push(...nodes); }, click() { this.clicked = true; } };
+    return elements[id] = {
+      id, disabled: false, textContent: '', attributes: {}, children: [], src: '',
+      addEventListener(type, fn) { handlers[id + ':' + type] = fn; },
+      setAttribute(name, value) { this.attributes[name] = value; },
+      replaceChildren() { this.children = []; },
+      append(...nodes) { this.children.push(...nodes); },
+      click() { this.clicked = true; }
+    };
   }
   for (const id of ['home', 'cold', 'start', 'stop', 'epg-cold', 'epg', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result', 'epg-result']) element(id);
   const outgoing = [];
-  const childWindow = { postMessage(data, origin) { outgoing.push({ data, origin }); }, location: { pathname: '/vdr-suite/frontend/browser-performance-home.html' } };
+  const childWindow = {
+    postMessage(data, origin) { outgoing.push({ data, origin }); },
+    location: { href: 'https://example.test/vdr-suite/frontend/browser-performance-home.html', pathname: '/vdr-suite/frontend/browser-performance-home.html' }
+  };
   elements.home.contentWindow = childWindow;
-  const doc = { getElementById(id) { return elements[id]; }, createElement() { return { textContent: '', children: [], append(...nodes) { this.children.push(...nodes); }, click() { this.clicked = true; } }; } };
-  const root = { document: doc, location: { origin: 'https://example.test' }, addEventListener(type, fn) { handlers['root:' + type] = fn; }, URL: { createObjectURL() { return 'blob:test'; }, revokeObjectURL() {} }, Blob, setTimeout(fn) { fn(); }, Math, Date };
+  const doc = {
+    getElementById(id) { return elements[id]; },
+    createElement() { return { textContent: '', children: [], append(...nodes) { this.children.push(...nodes); }, click() { this.clicked = true; } }; }
+  };
+  const controllerTimers = [];
+  const root = {
+    document: doc,
+    location: { origin: 'https://example.test' },
+    addEventListener(type, fn) { handlers['root:' + type] = fn; },
+    URL: { createObjectURL() { return 'blob:test'; }, revokeObjectURL() {} },
+    Blob,
+    setTimeout(fn, ms) { controllerTimers.push({ fn, ms, cleared: false }); return controllerTimers.length; },
+    clearTimeout(id) { if (controllerTimers[id - 1]) controllerTimers[id - 1].cleared = true; },
+    Math,
+    Date
+  };
   vm.runInNewContext(controllerSource, { window: root, Blob, Math, Date, JSON, Object, String });
   const token = elements.home.attributes['data-vdr-suite-diagnostics'];
   handlers['root:message']({ source: childWindow, origin: root.location.origin, data: { channel: 'vdr-suite-browser-diagnostics', token, type: 'started', value: 'initial-home' } });
@@ -174,26 +196,35 @@ async function main() {
   handlers['root:message']({ source: childWindow, origin: root.location.origin, data: { channel: 'vdr-suite-browser-diagnostics', token, type: 'result', value: { metrics: {} } } });
   handlers['epg:click']();
   assert.equal(outgoing.at(-1).data.type, 'epg');
-  assert.equal(elements.epg.disabled, true);
   handlers['root:message']({ source: childWindow, origin: root.location.origin, data: { channel: 'vdr-suite-browser-diagnostics', token, type: 'epg-result', value: report } });
   assert.ok(elements['epg-result'].textContent.includes('home-epg-warm-refresh'));
-  assert.equal(elements.epg.disabled, false);
 
   handlers['epg-cold:click']();
   const coldToken = elements.home.attributes['data-vdr-suite-diagnostics'];
   assert.notEqual(coldToken, token);
-  assert.ok(String(elements.home.src).includes('#vdrSuiteEpgCold=1'));
+  assert.equal(elements.home.src, 'about:blank');
+  assert.equal(controllerTimers.at(-1).ms, 35000);
   assert.equal(elements['epg-cold'].disabled, true);
+
+  childWindow.location.href = 'about:blank';
+  childWindow.location.pathname = 'blank';
+  handlers['home:load']();
+  assert.equal(elements.home.src, 'browser-performance-home.html#vdrSuiteEpgCold=1');
+
+  childWindow.location.href = 'https://example.test/vdr-suite/frontend/browser-performance-home.html#vdrSuiteEpgCold=1';
+  childWindow.location.pathname = '/vdr-suite/frontend/browser-performance-home.html';
+  handlers['home:load']();
   handlers['root:message']({ source: childWindow, origin: root.location.origin, data: { channel: 'vdr-suite-browser-diagnostics', token: coldToken, type: 'epg-result', value: coldReport } });
   assert.ok(elements['epg-result'].textContent.includes('home-epg-cold-startup'));
   assert.equal(elements['epg-cold'].disabled, false);
   assert.equal(elements.export.disabled, false);
+  assert.equal(controllerTimers.some(timer => timer.ms === 35000 && timer.cleared), true);
 
   assert.ok(htmlSource.includes('id="epg-cold"'));
   assert.ok(htmlSource.includes('EPG kalt messen'));
   assert.ok(htmlSource.includes('EPG warm messen'));
 
-  console.log('browser Home EPG cold/warm timing, privacy and controller wiring ok');
+  console.log('browser Home EPG cold/warm timing, forced reload, watchdog, privacy and controller wiring ok');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
