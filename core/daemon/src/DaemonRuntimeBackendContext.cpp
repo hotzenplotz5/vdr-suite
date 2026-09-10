@@ -139,6 +139,26 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         *context->adapter,
         &runtimeLogger_);
 
+    constexpr std::chrono::seconds EpgRequestTimeout(60);
+
+    context->epgHttpClient = std::make_unique<BasicHttpClient>(
+        backendConfig.host,
+        backendConfig.port,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_,
+        [this]() {
+            return shutdownRequested_.load();
+        },
+        EpgRequestTimeout);
+
+    context->epgAdapter = std::make_unique<RestfulApiVdrAdapter>(
+        backendConfig,
+        *context->epgHttpClient);
+
+    context->epgService = std::make_unique<VdrService>(
+        *context->epgAdapter,
+        &runtimeLogger_);
+
     context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
         *context->service,
         context->backendId,
@@ -551,7 +571,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
     if (epgEventRepository_) {
         context->epgCacheService = std::make_unique<EpgCacheService>(
             *epgEventRepository_,
-            *context->service,
+            *context->epgService,
             context->epgArtworkEnrichmentService.get());
     }
 
