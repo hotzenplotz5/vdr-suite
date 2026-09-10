@@ -277,7 +277,7 @@ function createHarness() {
 
   const genres = [
     {id: 'empty', label: 'Leer', count: 0},
-    {id: 'drama', label: 'Drama', count: 2},
+    {id: 'drama', label: 'Drama', count: 20},
     {id: 'action', label: 'Action', count: 4},
     {id: 'fantasy', label: 'Fantasy', count: 1}
   ];
@@ -287,16 +287,17 @@ function createHarness() {
   assert.strictEqual(api.selectRandomGenre(genres, 11, 0).id, 'drama');
   assert.strictEqual(api.selectRandomGenre([{id: 'empty', count: 0}], 12, 0.5), null);
 
-  const dramaRecordings = [
-    {recordingId: 'drama-1', backendId: 'default', title: 'Drama Eins'},
-    {recordingId: 'drama-2', backendId: 'default', title: 'Drama Zwei'}
-  ];
+  const dramaRecordings = Array.from({length: 20}, (_, index) => ({
+    recordingId: 'drama-' + String(index + 1),
+    backendId: 'default',
+    title: 'Drama ' + String(index + 1)
+  }));
   const genreClient = harness.genreClient(dramaRecordings);
   assert.strictEqual(await api.loadRandomGenre(
     genreClient,
     'default',
     0,
-    {id: 'drama', label: 'Drama', count: 2}
+    {id: 'drama', label: 'Drama', count: 20}
   ), true);
   assert.strictEqual(harness.genreCalls.length, 0);
   const scheduled = harness.scheduled.pop();
@@ -305,15 +306,23 @@ function createHarness() {
   await new Promise((resolve) => setImmediate(resolve));
   assert.strictEqual(harness.genreCalls.length, 1);
   assert.strictEqual(harness.genreCalls[0].genreId, 'drama');
+  assert.strictEqual(harness.genreCalls[0].limit, 12);
+  assert.strictEqual(harness.genreCalls[0].offset, 0);
   assert.strictEqual(harness.metadataCalls.length, 0);
   const randomSection = harness.host.querySelector('[data-home-discovery-rail="random-genre"]');
   assert(randomSection);
   assert.strictEqual(textNodes(randomSection, 'Drama').length, 1);
-  assert.deepStrictEqual(recordingIds(randomSection), ['drama-1', 'drama-2']);
+  assert.deepStrictEqual(
+    recordingIds(randomSection),
+    dramaRecordings.slice(0, 12).map((recording) => recording.recordingId)
+  );
   const randomRail = findElement(randomSection, (element) =>
     String(element.className).split(/\s+/).includes('media-home-discovery-rail'));
   assert(randomRail);
 
+  assert(source.includes('const RANDOM_GENRE_LIMIT = 12;'));
+  assert(source.includes('function fetchRandomGenreRecordings('));
+  assert(source.includes('fetchRandomGenreRecordings(client, backendId, id, generation)'));
   assert(!source.includes('MutationObserver'));
   assert(source.includes("global.VdrSuiteRecordings2.openRecording(recording"));
   assert(source.includes("image.loading = 'lazy'"));
@@ -321,7 +330,7 @@ function createHarness() {
   assert(bootstrap.includes('scrollbar-width:none'));
   assert(bootstrap.includes('::-webkit-scrollbar'));
 
-  console.log('phase66 Home root directory and random genre regression ok');
+  console.log('phase66 Home root directory and bounded random genre regression ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
