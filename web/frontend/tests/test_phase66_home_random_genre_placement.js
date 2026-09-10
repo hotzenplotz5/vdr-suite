@@ -134,10 +134,20 @@ class FakeElement {
   assert(calls.every((call) => call.limit === 100));
   assert(calls.every((call) => call.genreId === 'drama'));
 
-  assert(source.includes("fetchAllSeriesRecordings(client, backendId, id, generation)"));
-  assert(!source.includes("fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {\n        recordings = recordings.slice"));
+  const randomGenreSource = source.slice(
+    source.indexOf('function loadRandomGenre('),
+    source.indexOf('function loadSeries(')
+  );
+  assert(randomGenreSource.includes('fetchBoundedRandomGenreRecordings(client, backendId, id, generation)'));
+  assert(!randomGenreSource.includes('fetchAllSeriesRecordings('));
 
-  console.log('phase66 random genre placement and full membership regression ok');
+  const seriesSource = source.slice(
+    source.indexOf('function loadSeries('),
+    source.indexOf('function loadGenres(')
+  );
+  assert(seriesSource.includes('fetchAllSeriesRecordings('));
+
+  console.log('phase66 random genre placement, bounded Home rail and full Series membership regression ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
