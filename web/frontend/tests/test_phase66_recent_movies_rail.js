@@ -33,6 +33,7 @@ assert(source.includes("target.querySelector('[data-home-discovery-rail=\"series
 assert(source.includes("rail.className = 'media-home-discovery-rail recent-movies'"));
 assert(source.includes("const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';"));
 assert(source.includes('loadMoreMovies'));
+assert(source.includes('rail.appendChild(createMovieCard(recording, state.backendId));'));
 assert(!source.includes('/api/vdr/recordings/metadata'));
 assert(!source.includes('requestJson('));
 assert(!source.includes('MediaSession'));
@@ -335,6 +336,11 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(new Set(cards.map((card) => card.dataset.recordingId)).size, cards.length);
   const expandedRail = findElement(movieSection, (element) =>
     String(element.className || '').split(/\s+/).includes('recent-movies'));
+  assert.strictEqual(
+    expandedRail,
+    initialRail,
+    'near-end expansion must preserve the existing rail DOM instance'
+  );
   assert.strictEqual(expandedRail.scrollLeft, 777);
   assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'series'), null);
   assert.strictEqual(findElement(movieSection, (element) => element.dataset.recordingId === 'unknown'), null);
