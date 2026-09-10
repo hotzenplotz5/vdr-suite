@@ -460,7 +460,11 @@ async function proveMetadataStartsBeforePaginationCompletes(api) {
   assert.strictEqual(typeof releaseSecondPage, 'function');
   releaseSecondPage();
   await loading;
-  assert.strictEqual(metadataCalls, 2);
+  assert.strictEqual(
+    metadataCalls,
+    1,
+    'later pages of the same series must reuse the already scheduled representative metadata'
+  );
 }
 
 async function proveMetadataDeduplicatesAcrossConsumers(api) {

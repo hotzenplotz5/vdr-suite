@@ -1418,6 +1418,36 @@
     return promise;
   }
 
+  function prefetchSeriesRepresentativeMetadata(client, recordings, backendId, generation, onResolved) {
+    if (!client || typeof client.requestJson !== 'function') return [];
+    const cache = seriesMetadataCache(generation, backendId);
+    const pending = [];
+
+    (recordings || []).forEach(function (recording) {
+      if (recordingBackendId(recording, backendId) !== backendId) return;
+
+      const nativeId = recordingBackendNativeId(recording);
+      const seriesKey = seriesMetadataPriorityKey(recording, backendId);
+      if (!nativeId || !seriesKey || cache.scheduledSeriesKeys.has(seriesKey)) return;
+
+      cache.scheduledSeriesKeys.add(seriesKey);
+      pending.push(requestSeriesRecordingMetadata(
+        client,
+        backendId,
+        nativeId,
+        generation,
+        {priority: true, seriesKey: seriesKey}
+      ).then(function (value) {
+        if (typeof onResolved === 'function' && current(generation, backendId)) {
+          onResolved(value, nativeId);
+        }
+        return value;
+      }));
+    });
+
+    return pending;
+  }
+
   function prefetchSeriesRecordingMetadata(client, recordings, backendId, generation, onResolved) {
     if (!client || typeof client.requestJson !== 'function') return [];
     const cache = seriesMetadataCache(generation, backendId);
@@ -1556,7 +1586,7 @@
         const rawPage = list(payload, 'recordings');
         const pageRecordings = canonicalRecordings(payload, backendId);
         Array.prototype.push.apply(recordings, pageRecordings);
-        prefetchSeriesRecordingMetadata(
+        prefetchSeriesRepresentativeMetadata(
           client,
           pageRecordings,
           backendId,
@@ -2192,6 +2222,7 @@
       fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,
       requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,
       prefetchSeriesRecordingMetadata: prefetchSeriesRecordingMetadata,
+      prefetchSeriesRepresentativeMetadata: prefetchSeriesRepresentativeMetadata,
       resolvedSeriesMetadata: resolvedSeriesMetadata,
       readySeriesRecordings: readySeriesRecordings,
       waitForSeriesRepresentatives: waitForSeriesRepresentatives,
