@@ -21,10 +21,10 @@ const entries = [
   entry('/vdr-suite/api/vdr/recordings?backend=default', 200, 900),
   entry('/vdr-suite/api/vdr/recordings/persons/search?name=' + secret, 200, 100),
   entry('/vdr-suite/api/backends/' + secret + '/recordings/metadata/seasons', 200, 300),
-  entry('/vdr-suite/api/vdr/recordings/metadata/image?kind=poster&index=0&backendNativeId=' + secret + '&assignmentRevision=' + secret, 200, 1048577, 'img'),
-  entry('/vdr-suite/api/vdr/recordings/metadata/image?kind=poster&index=0&backendNativeId=' + secret + '&assignmentRevision=' + secret, 200, 1048577, 'img'),
-  entry('/vdr-suite/api/recordings/metadata/image?kind=' + secret + '&backendNativeId=' + secret, 404, 0, 'img'),
-  entry('/vdr-suite/recording-artwork/' + secret + '?kind=poster', 200, 1000, 'img'),
+  entry('/vdr-suite/api/vdr/recordings/metadata/image?kind=poster&index=0&backendNativeId=' + secret + '&assignmentRevision=' + secret + '&variant=home', 200, 1048577, 'img'),
+  entry('/vdr-suite/api/vdr/recordings/metadata/image?kind=poster&index=0&backendNativeId=' + secret + '&assignmentRevision=' + secret + '&variant=home', 200, 1048577, 'img'),
+  entry('/vdr-suite/api/recordings/metadata/image?kind=' + secret + '&backendNativeId=' + secret + '&variant=full', 404, 0, 'img'),
+  entry('/vdr-suite/recording-artwork/' + secret + '?kind=poster&variant=home', 200, 1000, 'img'),
   entry('/vdr-suite/api/epg/cache/metadata/image?kind=banner&eventId=' + secret, 200, 2000, 'img'),
   entry('https://outside.test/' + secret, 0, 0, 'img')
 ];
@@ -43,11 +43,15 @@ for (const category of ['recording-query', 'folder-read', 'recording-list', 'per
 assert.equal(recording.reduce((n, row) => n + row.count, 0), 8);
 const posters = artwork.find(row => row.category === 'recording-metadata-image' && row.variant === 'poster');
 assert.equal(posters.count, 2);
+assert.equal(posters.previewVariant, 'home');
 assert.equal(posters.revision, 'revisioned');
 assert.equal(posters.repeatedRequests, 1);
 assert.equal(posters.sizeDistribution['over-1MiB'], 2);
 assert.equal(artwork.find(row => row.status === '404').variant, 'other');
+assert.equal(artwork.find(row => row.status === '404').previewVariant, 'other');
+assert.equal(find(artwork, 'recording-artwork')[0].previewVariant, 'home');
 assert.equal(find(artwork, 'recording-artwork')[0].revision, 'unversioned');
+assert.equal(find(artwork, 'epg-metadata-image')[0].previewVariant, 'unspecified');
 assert.equal(artwork.reduce((n, row) => n + row.count, 0), 5);
 assert.ok(!JSON.stringify(report).includes(secret));
 assert.ok(!JSON.stringify(report).includes('example.test'));

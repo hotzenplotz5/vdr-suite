@@ -46,7 +46,8 @@
       if (!row) {
         row = { category: fields[0], status: fields[1], initiator: fields[2], count: 0, transferBytes: 0, encodedBytes: 0, decodedBytes: 0, sizeDistribution: Object.fromEntries(labels.map(function (label) { return [label, 0]; })) };
         if (fields.length > 3) row.variant = fields[3];
-        if (fields.length > 4) row.revision = fields[4];
+        if (fields.length > 4) row.previewVariant = fields[4];
+        if (fields.length > 5) row.revision = fields[5];
         row.__seen = new Set();
         row.repeatedRequests = 0;
         map.set(key, row);
@@ -89,6 +90,11 @@
       const allowed = ['poster', 'banner', 'fanart', 'backdrop', 'thumbnail', 'cover'];
       return kind === null ? 'unspecified' : (allowed.includes(kind) ? kind : 'other');
     }
+    function previewVariant(url) {
+      const variant = url.searchParams.get('variant');
+      if (variant === null) return 'unspecified';
+      return variant === 'home' ? 'home' : 'other';
+    }
     (entries || []).forEach(function (entry) {
       const route = category(entry.name);
       const status = statusOf(entry);
@@ -102,7 +108,12 @@
       if (recording) addRow(recordingRows, [recording, status, initiator], entry, entry.name);
       if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image') {
         const revision = url.searchParams.has('assignmentRevision') ? 'revisioned' : 'unversioned';
-        addRow(artworkRows, [route, status, initiator, artworkVariant(url), revision], entry, entry.name);
+        addRow(
+          artworkRows,
+          [route, status, initiator, artworkVariant(url), previewVariant(url), revision],
+          entry,
+          entry.name
+        );
       }
     });
     return {
@@ -114,7 +125,7 @@
       }),
       recordingApiDetails: exportedRows(recordingRows),
       artworkVariantDetails: exportedRows(artworkRows),
-      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. Repeated requests mean repeated exact URLs within the observed entries, not necessarily redundant network transfers. Artwork kind is a request parameter, not proof of original or resized image dimensions. No request URLs, IDs or query parameters are exported.'
+      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. Repeated requests mean repeated exact URLs within the observed entries, not necessarily redundant network transfers. Artwork variant reports the kind request parameter; previewVariant reports only whether variant=home is requested. Neither field proves original or resized image dimensions. No request URLs, IDs or query parameters are exported.'
     };
   }
   function summarize(entries, images, mutations, tasks, baseUrl) {
