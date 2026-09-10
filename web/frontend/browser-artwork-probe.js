@@ -70,10 +70,25 @@
         return b.transferBytes - a.transferBytes || a.category.localeCompare(b.category) || a.status.localeCompare(b.status) || a.initiator.localeCompare(b.initiator);
       });
     }
-    function recordingCategory(path) {
+    function recordingQueryCategory(url) {
+      const params = url.searchParams;
+      const limit = params.get('limit');
+      const offset = params.get('offset');
+      const sort = params.get('sort');
+      const order = params.get('order');
+      const firstPage = offset === null || offset === '' || offset === '0';
+      if (limit === '12' && firstPage && sort === 'startTime' && order === 'desc') {
+        return 'recording-query-newly-recorded';
+      }
+      if (limit === '100' && (offset === null || offset === '' || /^\d+$/.test(offset)) && !sort && !order) {
+        return 'recording-query-paged-scan';
+      }
+      return 'recording-query-other';
+    }
+    function recordingCategory(path, url) {
       const normalized = path.replace(/^\/api\/(?:vdr\/)?/, '/api/');
       if (normalized === '/api/recordings/metadata') return 'metadata-read';
-      if (normalized === '/api/recordings/query') return 'recording-query';
+      if (normalized === '/api/recordings/query') return recordingQueryCategory(url);
       if (normalized === '/api/recordings' || normalized === '/api/recordings/') return 'recording-list';
       if (normalized === '/api/recordings/folder' || normalized === '/api/recordings/folders') return 'folder-read';
       if (normalized === '/api/recordings/genres' || normalized === '/api/recordings/genre') return 'genre-read';
@@ -98,7 +113,7 @@
       try { url = new URL(entry.name, base); } catch (_) { return; }
       if (url.origin !== base.origin) return;
       const path = url.pathname.replace(/^\/vdr-suite(?=\/)/, '');
-      const recording = recordingCategory(path);
+      const recording = recordingCategory(path, url);
       if (recording) addRow(recordingRows, [recording, status, initiator], entry, entry.name);
       if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image') {
         const revision = url.searchParams.has('assignmentRevision') ? 'revisioned' : 'unversioned';
@@ -114,7 +129,7 @@
       }),
       recordingApiDetails: exportedRows(recordingRows),
       artworkVariantDetails: exportedRows(artworkRows),
-      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. Repeated requests mean repeated exact URLs within the observed entries, not necessarily redundant network transfers. Artwork kind is a request parameter, not proof of original or resized image dimensions. No request URLs, IDs or query parameters are exported.'
+      limitations: 'Resource Timing only; not a complete network log. Missing or unavailable statuses do not establish success or failure. Encoded bytes are HTTP body bytes, not decoded image pixels. Cross-origin sizes may be unavailable. Repeated requests mean repeated exact URLs within the observed entries, not necessarily redundant network transfers. Recording query subtypes are classified only from fixed pagination/sort control fields; no parameter values are exported. Artwork kind is a request parameter, not proof of original or resized image dimensions. No request URLs, IDs or query parameters are exported.'
     };
   }
   function summarize(entries, images, mutations, tasks, baseUrl) {
