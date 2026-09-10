@@ -1297,32 +1297,52 @@
     (recordings || []).forEach(function (recording) {
       const key = seriesMetadataPriorityKey(recording, backendId);
       if (!key) return;
-      if (!representativeNativeIds.has(key)) representativeNativeIds.set(key, '');
+      if (!representativeNativeIds.has(key)) representativeNativeIds.set(key, []);
       const nativeId = recordingBackendNativeId(recording);
-      if (nativeId && !representativeNativeIds.get(key)) {
-        representativeNativeIds.set(key, nativeId);
-      }
+      const nativeIds = representativeNativeIds.get(key);
+      if (nativeId && nativeIds.indexOf(nativeId) < 0) nativeIds.push(nativeId);
     });
 
     const pending = [];
-    representativeNativeIds.forEach(function (nativeId, seriesKey) {
-      if (!nativeId) {
+    representativeNativeIds.forEach(function (nativeIds, seriesKey) {
+      if (!nativeIds.length) {
         cache.readySeriesKeys.add(seriesKey);
         return;
       }
       if (cache.readySeriesKeys.has(seriesKey)) return;
+
       let promise = cache.representativePromises.get(seriesKey);
       if (!promise) {
         cache.scheduledSeriesKeys.add(seriesKey);
         promise = requestSeriesRecordingMetadata(
           client,
           backendId,
-          nativeId,
+          nativeIds[0],
           generation,
           {priority: true, seriesKey: seriesKey}
         );
         cache.representativePromises.set(seriesKey, promise);
       }
+
+      // The scan itself starts only one representative per Series. If that
+      // representative is still unresolved after pagination has completed,
+      // hedge it with at most one different member so one slow metadata read
+      // cannot block progressive Series visibility.
+      const fallbackNativeId = nativeIds.find(function (nativeId) {
+        return !cache.resolved.has(nativeId) && !cache.inflight.has(nativeId);
+      });
+      if (fallbackNativeId) {
+        const fallback = requestSeriesRecordingMetadata(
+          client,
+          backendId,
+          fallbackNativeId,
+          generation,
+          {priority: true, seriesKey: seriesKey}
+        );
+        pending.push(Promise.race([promise, fallback]));
+        return;
+      }
+
       pending.push(promise);
     });
     return Promise.allSettled(pending);

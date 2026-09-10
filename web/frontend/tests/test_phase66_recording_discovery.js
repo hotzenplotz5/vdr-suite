@@ -852,8 +852,16 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
     progressiveRefreshSettled = true;
   });
   await new Promise((resolve) => setImmediate(resolve));
-  assert.strictEqual(progressiveRefreshSettled, false);
-  assert.strictEqual(progressive.calls.metadata.length, 4);
+  assert.strictEqual(
+    progressiveRefreshSettled,
+    true,
+    'successful metadata hedge must release Home refresh despite the stalled original representative'
+  );
+  assert.strictEqual(
+    progressive.calls.metadata.length,
+    4,
+    'full metadata completion may continue after the bounded representative hedge releases Home'
+  );
   const progressiveRail = findRail(progressive.host, 'series');
   const progressiveCard = findSeriesCard(progressiveRail, 'folder:serien/stargate universe');
   assert(progressiveCard);
