@@ -202,6 +202,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
     try {
         const int initialDelaySeconds = 20;
         const int dirtyDebounceSeconds = 120;
+        const int failureRetrySeconds = 120;
 
         std::cout
             << "EPG cache warmup worker scheduled after "
@@ -225,7 +226,33 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
             return;
         }
 
-        refreshEpgCacheForAllBackends("startup");
+        while (!epgCacheWarmupStopRequested_.load()) {
+            try {
+                refreshEpgCacheForAllBackends("startup");
+                break;
+            }
+            catch (const std::exception& error) {
+                std::cerr
+                    << "EPG cache startup refresh failed; retrying: "
+                    << error.what()
+                    << std::endl;
+            }
+            catch (...) {
+                std::cerr
+                    << "EPG cache startup refresh failed; retrying after "
+                    << failureRetrySeconds
+                    << " seconds"
+                    << std::endl;
+            }
+
+            if (waitForStop(failureRetrySeconds)) {
+                return;
+            }
+        }
+
+        if (epgCacheWarmupStopRequested_.load()) {
+            return;
+        }
 
         auto lastRefresh = std::chrono::steady_clock::now();
         auto lastEpgContinuation = lastRefresh;
@@ -372,7 +399,38 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                 continue;
             }
 
-            refreshEpgCacheForAllBackends("event-stream-dirty-hint");
+            try {
+                refreshEpgCacheForAllBackends("event-stream-dirty-hint");
+            }
+            catch (const std::exception& error) {
+                epgCacheDirtyHint_.store(true);
+
+                std::cerr
+                    << "EPG cache refresh failed; retrying: "
+                    << error.what()
+                    << std::endl;
+
+                if (waitForStop(failureRetrySeconds)) {
+                    return;
+                }
+
+                continue;
+            }
+            catch (...) {
+                epgCacheDirtyHint_.store(true);
+
+                std::cerr
+                    << "EPG cache refresh failed; retrying after "
+                    << failureRetrySeconds
+                    << " seconds"
+                    << std::endl;
+
+                if (waitForStop(failureRetrySeconds)) {
+                    return;
+                }
+
+                continue;
+            }
 
             const auto refreshCompletedAt =
                 std::chrono::steady_clock::now();

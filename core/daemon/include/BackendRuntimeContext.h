@@ -40,6 +40,13 @@ struct BackendRuntimeContext
     std::unique_ptr<IHttpClient> httpClient;
     std::unique_ptr<IVdrAdapter> adapter;
     std::unique_ptr<VdrService> service;
+
+    // Large EPG window reads are intentionally isolated from the normal
+    // short-lived backend request path so timer/live/snapshot operations keep
+    // their existing timeout behavior.
+    std::unique_ptr<IHttpClient> epgHttpClient;
+    std::unique_ptr<IVdrAdapter> epgAdapter;
+    std::unique_ptr<VdrService> epgService;
     std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
