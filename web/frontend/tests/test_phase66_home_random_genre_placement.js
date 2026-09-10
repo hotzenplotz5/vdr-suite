@@ -134,10 +134,10 @@ class FakeElement {
   assert(calls.every((call) => call.limit === 100));
   assert(calls.every((call) => call.genreId === 'drama'));
 
-  assert(source.includes("fetchAllSeriesRecordings(client, backendId, id, generation)"));
-  assert(!source.includes("fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {\n        recordings = recordings.slice"));
+  assert(source.includes("fetchRandomGenreRecordings(client, backendId, id, generation)"));
+  assert(!source.includes("return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings)"));
 
-  console.log('phase66 random genre placement and full membership regression ok');
+  console.log('phase66 random genre placement, bounded Home rail and full Series membership regression ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
