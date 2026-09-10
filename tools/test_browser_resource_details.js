@@ -16,6 +16,8 @@ const entries = [
   entry('/vdr-suite/api/vdr/recordings/metadata?backendNativeId=' + secret, 200, 4096),
   entry('/vdr-suite/api/vdr/recordings/metadata?backendNativeId=' + secret, 200, 4096),
   entry('/vdr-suite/api/recordings/metadata?backendNativeId=another', 404, 0),
+  entry('/vdr-suite/api/vdr/recordings/query?backend=default&sort=startTime&order=desc&limit=12&offset=0&opaque=' + secret, 200, 12000),
+  entry('/vdr-suite/api/vdr/recordings/query?backend=default&limit=100&offset=100&opaque=' + secret, 200, 300000),
   entry('/vdr-suite/api/vdr/recordings/query?title=' + secret, 200, 80000),
   entry('/vdr-suite/api/vdr/recordings/folders?path=' + secret, 200, 500),
   entry('/vdr-suite/api/vdr/recordings?backend=default', 200, 900),
@@ -37,10 +39,21 @@ const find = (rows, category) => rows.filter(row => row.category === category);
 assert.equal(find(recording, 'metadata-read').reduce((n, row) => n + row.count, 0), 3);
 assert.equal(find(recording, 'metadata-read').find(row => row.status === '200').repeatedRequests, 1);
 assert.equal(find(recording, 'metadata-read').find(row => row.status === '404').count, 1);
-for (const category of ['recording-query', 'folder-read', 'recording-list', 'person-search', 'manual-metadata-workflow']) {
+for (const category of [
+  'recording-query-newly-recorded',
+  'recording-query-paged-scan',
+  'recording-query-other',
+  'folder-read',
+  'recording-list',
+  'person-search',
+  'manual-metadata-workflow'
+]) {
   assert.equal(find(recording, category).length, 1, category);
 }
-assert.equal(recording.reduce((n, row) => n + row.count, 0), 8);
+assert.equal(find(recording, 'recording-query-newly-recorded')[0].count, 1);
+assert.equal(find(recording, 'recording-query-paged-scan')[0].count, 1);
+assert.equal(find(recording, 'recording-query-other')[0].count, 1);
+assert.equal(recording.reduce((n, row) => n + row.count, 0), 10);
 const posters = artwork.find(row => row.category === 'recording-metadata-image' && row.variant === 'poster');
 assert.equal(posters.count, 2);
 assert.equal(posters.revision, 'revisioned');
@@ -49,6 +62,7 @@ assert.equal(posters.sizeDistribution['over-1MiB'], 2);
 assert.equal(artwork.find(row => row.status === '404').variant, 'other');
 assert.equal(find(artwork, 'recording-artwork')[0].revision, 'unversioned');
 assert.equal(artwork.reduce((n, row) => n + row.count, 0), 5);
+assert.ok(report.limitations.includes('no parameter values are exported'));
 assert.ok(!JSON.stringify(report).includes(secret));
 assert.ok(!JSON.stringify(report).includes('example.test'));
 assert.ok(!JSON.stringify(report).includes('backendNativeId'));
@@ -71,6 +85,9 @@ const ctx = {window: {document: {}, performance: {}, location: {href: base}}, UR
 vm.runInNewContext(source, ctx, {filename: 'browser-artwork-probe.js'});
 assert.equal(typeof ctx.window.VdrSuiteArtworkProbe.start, 'function');
 assert.ok(source.includes('resourceDiagnostics: summarizeResources(entries, baseUrl)'));
+assert.ok(source.includes("return 'recording-query-newly-recorded'"));
+assert.ok(source.includes("return 'recording-query-paged-scan'"));
+assert.ok(source.includes("return 'recording-query-other'"));
 assert.ok(!source.includes('fetch(entry.name'));
 let now = 0;
 const observers = [];
@@ -105,4 +122,4 @@ assert.equal(capture.metrics.resourceDiagnostics.artworkVariantDetails.length, a
 assert.equal(capture.metrics.mutations, 1);
 assert.ok(observers.every(observer => observer.disconnected));
 assert.ok(!JSON.stringify(probe.report()).includes(secret));
-console.log('browser recording resource details, production lifecycle, bounded aggregation and privacy ok');
+console.log('browser recording query subtype details, production lifecycle, bounded aggregation and privacy ok');
