@@ -6,6 +6,7 @@
   const doc = global.document;
   const NEW_LIMIT = 12;
   const GENRE_LIMIT = 12;
+  const RANDOM_GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
   const SERIES_METADATA_CONCURRENCY = 4;
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
@@ -1584,6 +1585,20 @@
     return requestPage(0);
   }
 
+  function fetchBoundedRandomGenreRecordings(client, backendId, genreId, generation) {
+    return Promise.resolve(client.fetchClientGenreRecordings({
+      backendId: backendId,
+      genreId: genreId,
+      limit: RANDOM_GENRE_LIMIT,
+      offset: 0,
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (payload) {
+      if (!current(generation, backendId)) return [];
+      return canonicalRecordings(payload, backendId).slice(0, RANDOM_GENRE_LIMIT);
+    });
+  }
+
   function fetchRootFolderProjection(client, backendId, generation) {
     const folders = [];
     const rootRecordings = [];
@@ -1754,7 +1769,7 @@
       if (!current(generation, backendId)) return Promise.resolve(false);
       renderState('random-genre', label, 'Aufnahmen werden geladen …', false);
       positionRandomGenreRail();
-      return fetchAllSeriesRecordings(client, backendId, id, generation).then(function (recordings) {
+      return fetchBoundedRandomGenreRecordings(client, backendId, id, generation).then(function (recordings) {
         if (!current(generation, backendId)) return false;
         if (!recordings.length) {
           clearRail('random-genre');
@@ -2172,6 +2187,7 @@
       buildSeriesProjection: buildSeriesProjection,
       applySeriesProjection: applySeriesProjection,
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
+      fetchBoundedRandomGenreRecordings: fetchBoundedRandomGenreRecordings,
       fetchRootFolderProjection: fetchRootFolderProjection,
       fetchSeriesRecordingMetadata: fetchSeriesRecordingMetadata,
       requestSeriesRecordingMetadata: requestSeriesRecordingMetadata,
