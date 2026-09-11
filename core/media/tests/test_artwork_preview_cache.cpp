@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <thread>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -35,6 +36,38 @@ int main() {
     // Restart with no decoder: cache hit proves persistence and no re-encoding.
     ArtworkPreviewCache restarted(cacheRoot.string(), "/missing/ffmpeg");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
+
+    // A cached preview must remain readable while an unrelated conversion owns
+    // both the in-process converter mutex and the cache-directory flock.
+    // A second cache miss must still fail fast instead of creating a queue.
+    const fs::path busyMarker = root / "busy-started";
+    const fs::path busyScript = root / "busy-converter";
+    write(
+        busyScript,
+        std::string("#!/bin/sh\ntouch '") + busyMarker.string() + "'\nsleep 2\n"
+    );
+    ::chmod(busyScript.c_str(), 0700);
+
+    ArtworkPreviewCache busy(cacheRoot.string(), busyScript.string());
+    std::string busyResult;
+    std::thread busyWorker([&] {
+        busyResult = busy.home("busy-miss", "image/png", png);
+    });
+
+    for (unsigned i = 0; i < 200 && !fs::exists(busyMarker); ++i)
+        ::usleep(10000);
+    assert(fs::exists(busyMarker));
+
+    auto hitStart = std::chrono::steady_clock::now();
+    assert(busy.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
+    assert(std::chrono::steady_clock::now() - hitStart < std::chrono::seconds(1));
+
+    auto missStart = std::chrono::steady_clock::now();
+    assert(busy.home("busy-second-miss", "image/png", png).empty());
+    assert(std::chrono::steady_clock::now() - missStart < std::chrono::seconds(1));
+
+    busyWorker.join();
+    assert(busyResult.empty());
     assert(restarted.home("recording-1?assignmentRevision=2", "image/png", png).empty());
     const auto changed = fixture("png", "1000x700");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", changed).empty());
