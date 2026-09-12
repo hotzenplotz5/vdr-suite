@@ -309,7 +309,11 @@ function createHarness() {
   assert.strictEqual(harness.genreCalls[0].genreId, 'drama');
   assert.strictEqual(harness.genreCalls[0].limit, 12);
   assert.strictEqual(harness.genreCalls[0].offset, 0);
-  assert.strictEqual(harness.metadataCalls.length, 12);
+  assert.strictEqual(
+    harness.metadataCalls.length,
+    12,
+    'random-genre artwork enrichment must stay bounded to the 12 visible recordings'
+  );
   const randomSection = harness.host.querySelector('[data-home-discovery-rail="random-genre"]');
   assert(randomSection);
   assert.strictEqual(textNodes(randomSection, 'Drama').length, 1);

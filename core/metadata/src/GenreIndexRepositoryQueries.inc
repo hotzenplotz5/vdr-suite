@@ -259,6 +259,87 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         page.recordings.push_back(std::move(item));
     }
     sqlite3_finalize(statement);
+
+    // One cache-only summary query for the page, without descriptions/cast/images.
+    // Older/partial schemas keep the existing recording fallback.
+    if (page.recordings.empty()) return page;
+    std::string summarySql =
+        "SELECT n.backend_native_id,n.title,n.provider,n.provider_id,"
+        "n.season_number,n.episode_number,n.episode_name,"
+        "n.preferred_artwork_path<>'',"
+        "(SELECT a.ordinal FROM vdr_recording_native_artwork a "
+        "WHERE a.backend_id=n.backend_id AND a.recording_key=n.recording_key "
+        "AND a.orientation='portrait' AND a.path<>'' ORDER BY a.ordinal LIMIT 1) "
+        "FROM vdr_recording_native_metadata n WHERE n.backend_id=? "
+        "AND n.content_state='found' AND n.media_type IN ('series','episode') "
+        "AND n.backend_native_id IN (";
+    for (std::size_t index = 0; index < page.recordings.size(); ++index)
+        summarySql += index == 0 ? "?" : ",?";
+    summarySql += ");";
+    sqlite3_stmt* summary = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), summarySql.c_str(), -1, &summary, nullptr) == SQLITE_OK)
+    {
+        bindText(summary, 1, page.backendId);
+        for (std::size_t index = 0; index < page.recordings.size(); ++index)
+            bindText(summary, static_cast<int>(index) + 2, page.recordings[index].backendNativeId);
+        while (sqlite3_step(summary) == SQLITE_ROW)
+        {
+            const std::string nativeId = columnText(summary, 0);
+            for (auto& item : page.recordings)
+            {
+                if (item.backendNativeId != nativeId) continue;
+                item.seriesMetadataAvailable = true;
+                item.seriesTitle = columnText(summary, 1);
+                item.seriesProvider = columnText(summary, 2);
+                item.seriesProviderId = sqlite3_column_int64(summary, 3);
+                item.seasonNumber = sqlite3_column_int(summary, 4);
+                item.episodeNumber = sqlite3_column_int(summary, 5);
+                item.episodeName = columnText(summary, 6);
+                item.seriesArtworkIndex = sqlite3_column_type(summary, 8) == SQLITE_NULL
+                    ? -1 : sqlite3_column_int(summary, 8);
+                item.seriesArtworkAvailable = sqlite3_column_int(summary, 7) != 0 ||
+                    item.seriesArtworkIndex >= 0;
+            }
+        }
+    }
+    sqlite3_finalize(summary);
+
+    // Selected manual relationships override native cache evidence, as in metadata reads.
+    const char* manualSql =
+        "SELECT COALESCE(NULLIF(c.backend_native_id,''),v.resource_key),v.title,"
+        "v.season_number,v.episode_number,v.media_type,v.poster_reference,v.revision "
+        "FROM suite_metadata_manual_assignment_values v "
+        "JOIN suite_metadata_assignments a ON a.metadata_assignment_id=v.metadata_assignment_id "
+        "LEFT JOIN vdr_recording_cache c ON c.backend_id=v.backend_id AND c.cache_key=v.resource_key "
+        "WHERE v.backend_id=? AND a.assignment_state='selected' "
+        "AND a.manual_assignment=1 AND a.relationship_locked=1;";
+    sqlite3_stmt* manual = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), manualSql, -1, &manual, nullptr) == SQLITE_OK)
+    {
+        bindText(manual, 1, page.backendId);
+        while (sqlite3_step(manual) == SQLITE_ROW)
+        {
+            for (auto& item : page.recordings)
+            {
+                if (item.backendNativeId != columnText(manual, 0)) continue;
+                const std::string mediaType = columnText(manual, 4);
+                item.seriesMetadataAvailable = mediaType == "series" || mediaType == "episode";
+                item.seriesTitle = columnText(manual, 1);
+                item.seriesProvider = "manual";
+                item.seriesProviderId = 0;
+                item.seasonNumber = sqlite3_column_int(manual, 2);
+                item.episodeNumber = sqlite3_column_int(manual, 3);
+                item.episodeName = mediaType == "episode" ? item.seriesTitle : "";
+                const std::string poster = columnText(manual, 5);
+                const std::string normalizedPoster = std::filesystem::path(poster).lexically_normal().string();
+                item.seriesArtworkAvailable = normalizedPoster.find(
+                    "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
+                item.seriesArtworkIndex = -1;
+                item.seriesManualRevision = sqlite3_column_int(manual, 6);
+            }
+        }
+    }
+    sqlite3_finalize(manual);
     return page;
 }
 

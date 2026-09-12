@@ -126,7 +126,7 @@ function seriesRecording(backendId) {
   };
 }
 
-function createHarness(firstMetadata) {
+function createHarness(firstMetadata, embeddedRecordings) {
   const host = new FakeElement('div');
   const timers = [];
   let timerId = 0;
@@ -159,7 +159,7 @@ function createHarness(firstMetadata) {
       }
       seriesCalls += 1;
       return Promise.resolve({
-        recordings: [seriesRecording(request.backendId)],
+        recordings: embeddedRecordings || [seriesRecording(request.backendId)],
         total: 1,
         hasMore: false
       });
@@ -279,7 +279,7 @@ function seriesImage(harness) {
   return section.querySelector('img');
 }
 
-async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload(openDetail) {
+async function proveInitialHomeDefersNativeMetadata() {
   const harness = createHarness({
     available: false,
     status: 'not-found',
@@ -288,174 +288,86 @@ async function proveUnsettledMetadataReprojectsWithoutDiscoveryReload(openDetail
 
   assert.strictEqual(await harness.api.refreshForHome(), true);
   await flush();
-  assert.strictEqual(harness.metadataCalls(), 1);
-  assert.strictEqual(harness.seriesCalls(), 1);
-  assert.strictEqual(harness.api.seriesWarm('default'), false);
-  assert.strictEqual(seriesImage(harness), null);
-  assert.strictEqual(harness.pendingRetryTimers().length, 1);
 
-  const section = harness.host.querySelector('[data-home-discovery-rail="series"]');
-  const rail = findElement(section, element => element.className === 'media-home-discovery-rail series');
-  rail.scrollLeft = 280;
-  let seasonRail;
-  let episodeRail;
-  if (openDetail) {
-    rail.children[0].listeners.click[0]();
-    seasonRail = findElement(section, element => element.className === 'media-home-series-season-rail');
-    seasonRail.children[0].listeners.click[0]();
-    episodeRail = findElement(section, element => element.className === 'media-home-discovery-rail series-episodes');
-    seasonRail.scrollLeft = 140;
-    episodeRail.scrollLeft = 280;
-  }
-
-  const baseline = {
-    recordings: harness.recordingCalls(),
-    genres: harness.genreListCalls(),
-    series: harness.seriesCalls(),
-    folders: harness.folderCalls()
-  };
-
-  harness.setMetadata({
-    available: true,
-    status: 'ready',
-    provider: 'tvscraper',
-    mediaType: 'series',
-    providerId: 42,
-    title: 'Testserie',
-    episodeName: 'Pilot',
-    seasonNumber: 1,
-    episodeNumber: 1,
-    preferredArtwork: {
-      available: true,
-      url: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=default-native-series-1&kind=preferred&index=0'
-    },
-    images: []
-  });
-  harness.runNextRetryTimer();
-  await flush();
-
-  assert.strictEqual(harness.metadataCalls(), 2);
-  assert.deepStrictEqual(
-    {
-      recordings: harness.recordingCalls(),
-      genres: harness.genreListCalls(),
-      series: harness.seriesCalls(),
-      folders: harness.folderCalls()
-    },
-    baseline,
-    'metadata completion must not restart Recording Discovery owners'
-  );
-  const image = seriesImage(harness);
-  assert(image, 'completed TVScraper metadata must reproject Series artwork');
-  assert(image.src.includes('/api/vdr/recordings/metadata/image?'));
-  assert.strictEqual(harness.api.seriesWarm('default'), true);
-  assert.strictEqual(harness.pendingRetryTimers().length, 0);
-  if (openDetail) {
-    assert.strictEqual(seasonRail.parentNode, section, 'user-selected season rail survives canonical metadata retry');
-    assert.strictEqual(episodeRail.parentNode, section, 'user-selected episode rail survives canonical metadata retry');
-    assert.strictEqual(seasonRail.scrollLeft, 140);
-    assert.strictEqual(episodeRail.scrollLeft, 280);
-    assert(seasonRail.children[0].className.includes(' selected'));
-  } else {
-    assert.strictEqual(rail.parentNode, section, 'canonical retry preserves list scrolling element');
-    assert.strictEqual(rail.scrollLeft, 280);
-  }
-}
-
-async function proveAuthoritativeNegativeDoesNotPoll() {
-  const harness = createHarness({
-    available: false,
-    status: 'not-found',
-    settled: true
-  });
-
-  assert.strictEqual(await harness.api.refreshForHome(), true);
-  await flush();
-  assert.strictEqual(harness.metadataCalls(), 1);
-  assert.strictEqual(harness.api.seriesWarm('default'), true);
-  assert.strictEqual(harness.pendingRetryTimers().length, 0);
-}
-
-async function proveHomeExitDoesNotOrphanUnsettledRetry() {
-  const harness = createHarness({
-    available: false,
-    status: 'not-found',
-    settled: false
-  });
-
-  assert.strictEqual(await harness.api.refreshForHome(), true);
-  await flush();
-  assert.strictEqual(harness.metadataCalls(), 1);
-  assert.strictEqual(harness.pendingRetryTimers().length, 1);
-
-  assert.strictEqual(
-    await harness.api.openRecording(seriesRecording('default'), 'default'),
-    true
-  );
-  assert.strictEqual(harness.pendingRetryTimers().length, 1);
-  harness.runNextRetryTimer();
-  await flush();
   assert.strictEqual(
     harness.metadataCalls(),
     1,
-    'inactive Home must not issue Series metadata reads'
+    'initial Home may issue one representative Metadata read for Series artwork enrichment'
   );
+
+  assert.strictEqual(
+    harness.seriesCalls(),
+    1,
+    'canonical Series discovery still runs exactly once'
+  );
+
   assert.strictEqual(
     harness.pendingRetryTimers().length,
-    1,
-    'Home exit must preserve one bounded retry opportunity for a later return'
+    0,
+    'initial Home must not arm Native Recording Metadata retry polling'
   );
 
-  harness.setModule('overview');
-  harness.setMetadata({
-    available: true,
-    status: 'ready',
-    provider: 'tvscraper',
-    mediaType: 'series',
-    providerId: 42,
-    title: 'Testserie',
-    episodeName: 'Pilot',
-    seasonNumber: 1,
-    episodeNumber: 1,
-    preferredArtwork: {
-      available: true,
-      url: '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=default-native-series-1&kind=preferred&index=0'
-    },
-    images: []
-  });
-  harness.runNextRetryTimer();
-  await flush();
+  assert.strictEqual(
+    harness.api.seriesWarm('default'),
+    true,
+    'Recording-only Series projection is complete enough for warm Home reuse'
+  );
 
-  assert.strictEqual(harness.metadataCalls(), 2);
-  assert(seriesImage(harness));
-  assert.strictEqual(harness.api.seriesWarm('default'), true);
-  assert.strictEqual(harness.pendingRetryTimers().length, 0);
-}
+  const section = harness.host.querySelector(
+    '[data-home-discovery-rail="series"]'
+  );
+  assert(section, 'Series rail must render without Rich Metadata');
 
-async function proveBackendFenceStopsPendingRetry() {
-  const harness = createHarness({
-    available: false,
-    status: 'not-found',
-    settled: false
-  });
+  const rail = findElement(
+    section,
+    element => element.className === 'media-home-discovery-rail series'
+  );
 
-  assert.strictEqual(await harness.api.refreshForHome(), true);
-  await flush();
-  assert.strictEqual(harness.pendingRetryTimers().length, 1);
-  harness.setBackend('secondary');
-  harness.runNextRetryTimer();
-  await flush();
-  assert.strictEqual(harness.metadataCalls(), 1);
-  assert.strictEqual(harness.pendingRetryTimers().length, 0);
+  assert(rail, 'Series cards must render from canonical Recording data');
+  assert(
+    rail.children.length > 0,
+    'Series rail must contain at least one card'
+  );
+
+  assert.strictEqual(
+    seriesImage(harness),
+    null,
+    'missing Rich Metadata artwork must not block the Recording-only Series rail'
+  );
 }
 
 (async function () {
-  await proveUnsettledMetadataReprojectsWithoutDiscoveryReload();
-  await proveUnsettledMetadataReprojectsWithoutDiscoveryReload(true);
-  await proveAuthoritativeNegativeDoesNotPoll();
-  await proveHomeExitDoesNotOrphanUnsettledRetry();
-  await proveBackendFenceStopsPendingRetry();
-  console.log('post-Phase-66 Series metadata/artwork completion contract passed');
+  await proveInitialHomeDefersNativeMetadata();
+  const embedded = [1, 2, 2].map((season, index) => Object.assign(seriesRecording('default'), {
+    recordingId: 'episode-' + index,
+    backendNativeId: 'native-' + index,
+    path: 'Serien/Testserie/Unnummerierte Folge ' + index,
+    title: 'Unnummerierte Folge ' + index,
+    seriesMetadata: {
+      available: true, mediaType: 'series', provider: 'tvscraper', providerId: 42,
+      title: 'Testserie', seasonNumber: season, episodeNumber: index + 1,
+      episodeName: 'Richtiger Folgentitel ' + index,
+      preferredArtwork: {available: true, url: '/api/vdr/recordings/metadata/image?kind=gallery&index=3'}
+    }
+  }));
+  const cached = createHarness(null, embedded);
+  const pathFallback = cached.api.seriesMemberProjection({
+    recordingId: 'path-fallback', backendId: 'default',
+    title: 'Serien/Testserie/S03E07 Sieben',
+    path: '/Serien/Testserie/S03E07_Sieben/2026-09-12.20.15.1-0.rec'
+  }, null, 'default');
+  assert.strictEqual(pathFallback.seasonNumber, 3);
+  assert.strictEqual(pathFallback.episodeNumber, 7);
+  assert.strictEqual(await cached.api.refreshForHome(), true);
+  await flush();
+  assert.strictEqual(cached.metadataCalls(), 0, 'cached series must not fan out metadata reads');
+  const card = findElement(cached.host, element => Boolean(element.__vdrSuiteSeries));
+  assert(card, 'production refresh must render the cached series card');
+  assert.deepStrictEqual(Array.from(card.__vdrSuiteSeries.seasons, season => season.number), [1, 2]);
+  assert.strictEqual(card.__vdrSuiteSeries.episodes[2].episodeTitle, 'Richtiger Folgentitel 2');
+  assert.strictEqual(seriesImage(cached).src, embedded[0].seriesMetadata.preferredArtwork.url,
+    'first rendered card must use the cached portrait without a representative round trip');
+  console.log('post-Phase-66 initial Home metadata deferral contract passed');
 }()).catch((error) => {
   console.error(error);
   process.exitCode = 1;

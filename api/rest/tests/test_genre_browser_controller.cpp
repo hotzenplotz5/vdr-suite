@@ -240,6 +240,51 @@ int main()
     assert(recordingOverview.statusCode == 200);
     assert(contains(recordingOverview, "\"id\":\"science-fiction\""));
 
+    // Legacy schema remains usable; native summaries are an additive cache read.
+    const ApiResponse legacyRecordings = controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(legacyRecordings.statusCode == 200);
+    assert(!contains(legacyRecordings, "seriesMetadata"));
+    assert(database.execute(
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN title TEXT DEFAULT '';"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN provider_id INTEGER DEFAULT 0;"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN media_type TEXT DEFAULT 'none';"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN season_number INTEGER DEFAULT 0;"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN episode_number INTEGER DEFAULT 0;"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN episode_name TEXT DEFAULT '';"
+        "ALTER TABLE vdr_recording_native_metadata ADD COLUMN preferred_artwork_path TEXT DEFAULT '';"
+        "CREATE TABLE vdr_recording_native_artwork(backend_id TEXT,recording_key TEXT,"
+        "ordinal INTEGER,orientation TEXT,path TEXT);"
+        "INSERT INTO vdr_recording_native_metadata(backend_id,recording_key,backend_native_id,"
+        "content_state,provider,title,provider_id,media_type,season_number,episode_number,episode_name)"
+        "VALUES('default','recording-1','native/one','found','tvscraper','Testserie',42,'series',2,7,'Folge sieben');"
+        "INSERT INTO vdr_recording_native_artwork VALUES('default','recording-1',3,'portrait','/private/poster.jpg');"));
+    const ApiResponse seriesSummary = controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(contains(seriesSummary, "\"seasonNumber\":2,\"episodeNumber\":7"));
+    assert(contains(seriesSummary, "\"title\":\"Testserie\""));
+    assert(contains(seriesSummary, "&kind=gallery&index=3"));
+    assert(!contains(seriesSummary, "/private/poster.jpg"));
+    const ApiResponse remoteSummary = controller.getRecordings("remote", "science-fiction", 10, 0);
+    assert(!contains(remoteSummary, "seriesMetadata"));
+
+    assert(database.execute(
+        "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT,backend_id TEXT,"
+        "resource_key TEXT,title TEXT,season_number INTEGER,episode_number INTEGER,media_type TEXT,"
+        "poster_reference TEXT,revision INTEGER);"
+        "INSERT INTO suite_metadata_entities(metadata_entity_id,media_type) "
+        "VALUES('mdent_11111111111111111111111111111111','episode');"
+        "INSERT INTO suite_metadata_assignments(metadata_assignment_id,metadata_target_id,metadata_entity_id,"
+        "assignment_state,manual_assignment,relationship_locked) "
+        "SELECT 'mdasg_11111111111111111111111111111111',metadata_target_id,"
+        "'mdent_11111111111111111111111111111111','selected',1,1 FROM suite_metadata_target_bindings "
+        "WHERE backend_id='default' AND resource_key='recording-1';"
+        "INSERT INTO suite_metadata_manual_assignment_values VALUES('mdasg_11111111111111111111111111111111','default','recording-1',"
+        "'Manuelle Serie',4,9,'episode','/var/cache/vdr-suite/recording-metadata/posters/manual.jpg',7);"));
+    const ApiResponse manualSummary = controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(contains(manualSummary, "\"seasonNumber\":4,\"episodeNumber\":9"));
+    assert(contains(manualSummary, "\"provider\":\"manual\""));
+    assert(contains(manualSummary, "&assignmentRevision=7"));
+    assert(!contains(manualSummary, "&kind=gallery"));
+
     const ApiResponse initialOverview = controller.getOverview(
         "default", "epg", "de", now, now + 172800);
     assert(initialOverview.statusCode == 200);

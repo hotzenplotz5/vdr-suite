@@ -286,12 +286,26 @@ async function proveSeriesDoesNotFlashWeakProjection(harness) {
   });
 
   await new Promise((resolve) => setImmediate(resolve));
-  assert.strictEqual(settled, false);
+  assert.strictEqual(
+    settled,
+    true,
+    'initial Home Series projection must not wait for Native Recording Metadata'
+  );
   const seriesRail = findRail(harness.host, 'series');
   assert(seriesRail);
-  assert.strictEqual(findSeriesCards(seriesRail).length, 0);
-  assert(hasText(seriesRail, 'Serien werden gruppiert …'));
-  assert(!hasText(seriesRail, 'Stargate#3A_Universe'));
+  assert.strictEqual(
+    findSeriesCards(seriesRail).length,
+    1,
+    'canonical Recording data must publish the Series card immediately'
+  );
+  assert(
+    !hasText(seriesRail, 'Serien werden gruppiert …'),
+    'initial Home must leave the grouping placeholder once canonical Recording data is ready'
+  );
+  assert(
+    hasText(seriesRail, 'Stargate#3A_Universe'),
+    'Recording-derived Series identity remains visible until Rich Metadata is requested later'
+  );
 }
 
 async function proveMetadataPublishesPerResponse(api) {
@@ -399,7 +413,11 @@ async function proveRandomGenreUsesNativeMetadata(api, host) {
   ), true);
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.strictEqual(metadataCalls.length, 2);
+  assert.strictEqual(
+    metadataCalls.length,
+    2,
+    'random-genre artwork enrichment must stay bounded to the visible recordings'
+  );
   assert(metadataCalls.every((call) => call.route === '/api/vdr/recordings/metadata'));
   assert(metadataCalls.every((call) => call.request.query.backend === 'default'));
 
@@ -409,11 +427,20 @@ async function proveRandomGenreUsesNativeMetadata(api, host) {
   const fallbackCard = findRecordingCard(randomGenre, fallbackRecording.recordingId);
   assert(richCard);
   assert(fallbackCard);
+
   assert(hasText(richCard, 'Lone Ranger'));
   assert(!hasText(richCard, 'Western/Lone Ranger'));
   assert.strictEqual(findImage(richCard).src, portraitUrl + '&variant=home');
   assert.notStrictEqual(findImage(richCard).src, '/weak/lone-ranger-still.jpg');
-  assert(hasText(fallbackCard, 'Western/Ohne Metadaten'));
+
+  assert(
+    hasText(fallbackCard, 'Ohne Metadaten'),
+    'metadata-free Random Genre cards must retain the recording leaf title'
+  );
+  assert(
+    !hasText(fallbackCard, 'Western/Ohne Metadaten'),
+    'metadata-free Random Genre cards must not expose the genre/folder path as the visible title'
+  );
   assert.strictEqual(findImage(fallbackCard).src, '/weak/western-fallback.jpg');
 }
 
@@ -456,14 +483,18 @@ async function proveMetadataStartsBeforePaginationCompletes(api) {
     .then(function () { settled = true; });
   await new Promise((resolve) => setImmediate(resolve));
   assert.strictEqual(settled, false, 'second recording page must still be pending');
-  assert.strictEqual(metadataCalls, 1, 'first page metadata must start before full pagination completes');
+  assert.strictEqual(
+    metadataCalls,
+    0,
+    'initial Series pagination must not start Native Recording Metadata reads'
+  );
   assert.strictEqual(typeof releaseSecondPage, 'function');
   releaseSecondPage();
   await loading;
   assert.strictEqual(
     metadataCalls,
-    1,
-    'later pages of the same series must reuse the already scheduled representative metadata'
+    0,
+    'completed initial Series pagination must remain free of Native Recording Metadata reads'
   );
 }
 

@@ -80,6 +80,17 @@ struct GenreRecordingItem
     int durationSeconds = 0;
     std::int64_t sizeMb = 0;
     std::string metadataPayload;
+    // Cached native Series summary; no resolver or per-recording HTTP reads.
+    bool seriesMetadataAvailable = false;
+    std::string seriesTitle;
+    std::string seriesProvider;
+    long long seriesProviderId = 0;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    std::string episodeName;
+    bool seriesArtworkAvailable = false;
+    int seriesArtworkIndex = -1;
+    int seriesManualRevision = 0;
     std::vector<std::string> genreIds;
 };
 

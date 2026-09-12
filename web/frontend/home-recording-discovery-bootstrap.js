@@ -402,7 +402,8 @@
   }
 
   function recordingMetadataProjection(recording, richMetadata) {
-    if (!recording || !richMetadata || richMetadata.available !== true) return recording;
+    if (!recording) return recording;
+    const rich = richMetadata && richMetadata.available === true ? richMetadata : {};
     const sourceMetadata = recordingMetadata(recording);
     const sourcePresentation = sourceMetadata.presentation &&
       typeof sourceMetadata.presentation === 'object'
@@ -412,16 +413,22 @@
       typeof sourceMetadata.artwork === 'object'
       ? sourceMetadata.artwork
       : {};
-    const title = text(richMetadata.title) || recordingTitle(recording);
-    const posterUrl = recordingMetadataPosterUrl(richMetadata) || recordingPosterUrl(recording);
+    const baseTitle = recordingTitle(recording);
+    const fallbackTitle = baseTitle.indexOf('/') >= 0
+      ? text(baseTitle.split('/').filter(Boolean).pop())
+      : baseTitle;
+    const richTitle = text(rich.title);
+    const richTitleIsPath = Boolean(richTitle && richTitle.indexOf('/') >= 0);
+    const title = richTitle && !richTitleIsPath ? richTitle : fallbackTitle;
+    const posterUrl = recordingMetadataPosterUrl(rich) || recordingPosterUrl(recording);
     return Object.assign({}, recording, {
       path:'',
       title:title,
       metadata:Object.assign({}, sourceMetadata, {
         presentation:Object.assign({}, sourcePresentation, {
           title:title,
-          subtitle:text(richMetadata.episodeName) || recordingSubtitle(recording),
-          summary:text(richMetadata.overview) || text(sourcePresentation.summary),
+          subtitle:text(rich.episodeName) || recordingSubtitle(recording),
+          summary:text(rich.overview) || text(sourcePresentation.summary),
           posterUrl:posterUrl
         }),
         artwork:Object.assign({}, sourceArtwork, {preferredUrl:posterUrl})

@@ -315,179 +315,262 @@ async function flush(turns) {
 
 async function proveInFlightCoalescing() {
   const harness = createHarness('deferred');
+
   const first = harness.api.refreshForHome();
   const second = harness.api.refreshForHome();
-  assert.strictEqual(first, second);
 
-  await flush(2);
-  assert.strictEqual(harness.seriesCalls('default').length, 1);
-  assert.strictEqual(harness.metadataResolvers.length, 1);
-  harness.metadataResolvers.shift()({available: false});
+  assert.strictEqual(
+    first,
+    second,
+    'same-generation Home refreshes must coalesce'
+  );
+
   assert.strictEqual(await first, true);
   assert.strictEqual(await second, true);
-  assert.strictEqual(harness.api.seriesWarm('default'), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'coalesced initial Home must scan Series exactly once'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'coalesced initial Home may start only one representative artwork metadata request for the Series'
+  );
+
+  assert.strictEqual(
+    harness.api.seriesWarm('default'),
+    true,
+    'Recording-only Series projection becomes warm after canonical scan'
+  );
 }
 
-async function proveCompletionCoalescing() {
-  const harness = createHarness('deferred-tail');
+async function proveExplicitRefreshStartsFreshGeneration() {
+  const harness = createHarness('deferred');
+
   assert.strictEqual(await harness.api.refreshForHome(), true);
-  await flush();
-  assert.strictEqual(harness.metadataResolvers.length, 1, 'tail metadata is still pending after first visible refresh');
-  assert.strictEqual(harness.api.seriesWarm('default'), false);
-  const continued = harness.api.refreshForHome();
-  await flush();
-  assert.strictEqual(harness.seriesCalls('default').length, 1, 'same-generation Home scheduling coalesces with unfinished metadata completion');
-  assert.strictEqual(harness.metadataResolvers.length, 1, 'coalescing does not duplicate the pending native read');
-  harness.metadataResolvers.shift()({available: false});
-  assert.strictEqual(await continued, true);
+  assert.strictEqual(harness.seriesCalls('default').length, 1);
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'initial Home may leave one representative Series artwork Metadata request pending'
+  );
   assert.strictEqual(harness.api.seriesWarm('default'), true);
-}
 
-async function proveCompletionCoalescingFences() {
-  for (const transition of ['explicit-refresh', 'home-exit', 'backend-change']) {
-    const harness = createHarness('deferred-tail');
-    await harness.api.refreshForHome();
-    await flush();
-    assert.strictEqual(harness.metadataResolvers.length, 1);
-    harness.setMetadataMode('available-false');
-    if (transition === 'home-exit') {
-      harness.fireModuleClick('recordings2');
-      harness.setModule('overview');
-    }
-    if (transition === 'backend-change') harness.setBackend('secondary');
-    await (transition === 'explicit-refresh' ? harness.publicApi.refresh() : harness.api.refreshForHome());
-    await flush();
-    assert.strictEqual(harness.seriesCalls().length, 2, transition + ' must start a fresh generation');
-    const expectedBackend = transition === 'backend-change' ? 'secondary' : 'default';
-    assert.strictEqual(harness.api.seriesWarm(expectedBackend), true);
-    const section = findRail(harness.host, 'series');
-    const rail = findElement(section, element => element.className === 'media-home-discovery-rail series');
-    const card = rail.children[0];
-    harness.metadataResolvers.shift()({available: false});
-    await flush();
-    assert.strictEqual(rail.children[0], card, 'stale completion must not replace current UI');
-    assert.strictEqual(card.dataset.backendId, expectedBackend);
-    assert.strictEqual(harness.api.seriesWarm(expectedBackend), true);
-  }
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    2,
+    'explicit refresh must perform a fresh canonical Series scan'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    2,
+    'explicit Home refresh may add exactly one representative Metadata request for the fresh generation'
+  );
+
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
 }
 
 async function proveRevalidationRetainsSelectionAndHandlesFailure() {
   const harness = createHarness('available-false');
-  await harness.api.refreshForHome();
-  await flush();
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+
   const section = findRail(harness.host, 'series');
-  const list = findElement(section, element => element.className === 'media-home-discovery-rail series');
+  const list = findElement(
+    section,
+    element => element.className === 'media-home-discovery-rail series'
+  );
+
+  assert(section);
+  assert(list);
+  assert(list.children.length > 0);
+
   list.children[0].listeners.click[0]();
-  const seasons = findElement(section, element => element.className === 'media-home-series-season-rail');
+
+  const seasons = findElement(
+    section,
+    element => element.className === 'media-home-series-season-rail'
+  );
+
+  assert(seasons);
+  assert(seasons.children.length > 0);
+
   seasons.children[0].listeners.click[0]();
-  const episodes = findElement(section, element => element.className === 'media-home-discovery-rail series-episodes');
+
+  const episodes = findElement(
+    section,
+    element => element.className === 'media-home-discovery-rail series-episodes'
+  );
+
+  assert(episodes);
   episodes.scrollLeft = 280;
-  harness.setMetadataMode('deferred');
-  const pending = harness.publicApi.refresh();
-  await flush();
-  assert.strictEqual(episodes.parentNode, section, 'pending explicit revalidation keeps selected detail mounted');
-  harness.metadataResolvers.shift()({available:false});
-  await pending;
-  await flush();
-  assert.strictEqual(episodes.parentNode, section);
-  assert.strictEqual(episodes.scrollLeft, 280);
-  assert(seasons.children[0].className.includes(' selected'));
+
+  const seriesCallsBeforeFailure = harness.seriesCalls('default').length;
+
   harness.setSeriesMode('reject');
-  await harness.publicApi.refresh();
-  assert.strictEqual(episodes.parentNode, section, 'failed scan keeps valid detail visible');
-  assert.strictEqual(harness.api.seriesWarm('default'), false, 'failure never certifies retained UI warm');
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    seriesCallsBeforeFailure + 1
+  );
+
+  assert.strictEqual(
+    episodes.parentNode,
+    section,
+    'failed canonical revalidation keeps valid selected detail visible'
+  );
+
+  assert.strictEqual(episodes.scrollLeft, 280);
+
+  assert(
+    seasons.children[0].className.includes(' selected'),
+    'failed revalidation preserves selected season'
+  );
+
+  assert.strictEqual(
+    harness.api.seriesWarm('default'),
+    false,
+    'failed canonical scan must not certify retained Series UI as warm'
+  );
+
   harness.setSeriesMode('empty');
-  await harness.publicApi.refresh();
-  assert.strictEqual(findRail(harness.host, 'series'), null, 'authoritative empty scan removes stale Series UI');
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    findRail(harness.host, 'series'),
+    null,
+    'authoritative empty canonical scan removes stale Series UI'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    0,
+    'failure and empty revalidation remain Metadata-free'
+  );
 }
 
 async function proveWarmProductionReturnAndForcedRefresh() {
   const harness = createHarness('available-false');
+
   assert.strictEqual(await harness.api.refreshForHome(), true);
   assert.strictEqual(harness.seriesCalls('default').length, 1);
   assert.strictEqual(harness.api.seriesWarm('default'), true);
+  assert.strictEqual(harness.metadataResolvers.length, 0);
 
   const initialSeriesSection = findRail(harness.host, 'series');
   assert(initialSeriesSection);
+
+  const seriesRail = findElement(
+    initialSeriesSection,
+    element => element.className === 'media-home-discovery-rail series'
+  );
+
+  assert(seriesRail);
+
+  const seriesCard = seriesRail.children[0];
+  seriesRail.scrollLeft = 280;
 
   harness.fireModuleClick('recordings2');
   harness.fireModuleClick('overview');
   harness.fireLatestObserver();
   await flush();
 
-  assert.strictEqual(harness.seriesCalls('default').length, 1);
-  assert.strictEqual(findRail(harness.host, 'series'), initialSeriesSection);
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'warm production return must reuse canonical Series projection'
+  );
 
-  const seriesRail = findElement(initialSeriesSection, element => element.className === 'media-home-discovery-rail series');
-  const seriesCard = seriesRail.children[0];
-  seriesRail.scrollLeft = 280;
-  harness.setMetadataMode('deferred');
-  const revalidation = harness.publicApi.refresh();
-  await flush();
-  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'revalidation preserves valid Series UI while metadata is pending');
+  assert.strictEqual(
+    findRail(harness.host, 'series'),
+    initialSeriesSection,
+    'warm Home return preserves Series section identity'
+  );
+
   assert.strictEqual(seriesRail.children[0], seriesCard);
   assert.strictEqual(seriesRail.scrollLeft, 280);
-  harness.metadataResolvers.shift()({available: false});
-  assert.strictEqual(await revalidation, true);
-  await flush();
-  assert.strictEqual(seriesRail.parentNode, initialSeriesSection, 'unchanged completed revalidation preserves rail identity');
-  assert.strictEqual(seriesRail.children[0], seriesCard);
-  harness.setMetadataMode('available-false');
-  assert.strictEqual(harness.seriesCalls('default').length, 2);
+
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    2,
+    'forced refresh performs one fresh canonical Series scan'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    0,
+    'forced refresh must not restore background Metadata completion'
+  );
+
   assert.strictEqual(harness.api.seriesWarm('default'), true);
 
   harness.setBackend('secondary');
   harness.fireHomeClick();
   harness.fireLatestObserver();
   await flush();
-  assert.strictEqual(harness.seriesCalls('secondary').length, 1);
-  assert.strictEqual(harness.api.seriesWarm('secondary'), true);
-}
-
-async function proveInterruptedMetadataNeverWarms() {
-  const harness = createHarness('deferred');
-  const first = harness.api.refreshForHome();
-  await flush(2);
-  assert.strictEqual(harness.metadataResolvers.length, 1);
-
-  harness.fireModuleClick('recordings2');
-  harness.metadataResolvers.shift()({available: false});
-  await Promise.resolve();
-  harness.fireModuleClick('overview');
-  assert.strictEqual(await first, true);
 
   assert.strictEqual(
-    harness.api.seriesWarm('default'),
-    false,
-    'metadata resolved during a production-style Home exit must not become a warm Series projection'
+    harness.seriesCalls('secondary').length,
+    1,
+    'backend change must establish a fresh backend-scoped Series projection'
   );
 
-  harness.setMetadataMode('available-false');
-  assert.strictEqual(await harness.api.refreshForHome(), true);
-  assert.strictEqual(harness.seriesCalls('default').length, 2);
+  assert.strictEqual(harness.api.seriesWarm('secondary'), true);
+  assert.strictEqual(harness.metadataResolvers.length, 0);
 }
 
-async function proveMetadataErrorNeverWarms() {
-  const harness = createHarness('reject');
-  assert.strictEqual(await harness.api.refreshForHome(), true);
-  assert.strictEqual(harness.api.seriesWarm('default'), false);
-  assert.strictEqual(harness.seriesCalls('default').length, 1);
+async function proveHomeExitDoesNotNeedMetadataFence() {
+  const harness = createHarness('deferred');
 
-  harness.setMetadataMode('available-false');
   assert.strictEqual(await harness.api.refreshForHome(), true);
-  assert.strictEqual(harness.seriesCalls('default').length, 2);
+  assert.strictEqual(harness.seriesCalls('default').length, 1);
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'initial Home may leave one representative Series artwork Metadata request pending'
+  );
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+
+  harness.fireModuleClick('recordings2');
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'leaving Home may orphan one representative request, but its stale completion must be fenced from current UI'
+  );
+
+  harness.fireModuleClick('overview');
+  harness.fireLatestObserver();
+  await flush();
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'return to warm Home reuses the completed Recording-only projection'
+  );
+
   assert.strictEqual(harness.api.seriesWarm('default'), true);
 }
 
 (async function () {
   await proveInFlightCoalescing();
-  await proveCompletionCoalescing();
-  await proveCompletionCoalescingFences();
+  await proveExplicitRefreshStartsFreshGeneration();
   await proveRevalidationRetainsSelectionAndHandlesFailure();
   await proveWarmProductionReturnAndForcedRefresh();
-  await proveInterruptedMetadataNeverWarms();
-  await proveMetadataErrorNeverWarms();
-  console.log('post-Phase-66 Series discovery reuse lifecycle contract passed');
+  await proveHomeExitDoesNotNeedMetadataFence();
+
+  console.log(
+    'post-Phase-66 Metadata-free Series discovery reuse lifecycle contract passed'
+  );
 }()).catch((error) => {
   console.error(error);
   process.exitCode = 1;
