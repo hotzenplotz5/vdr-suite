@@ -33,8 +33,9 @@ the original content length and ETag.
 Resource limits: 16 MiB input, 40 million source pixels, 16384 pixels per source
 dimension, 512 KiB output, 768 MiB decoder address space, two CPU seconds and three
 wall seconds. Decode is single-threaded, uses a forced image demuxer and a local
-file/pipe protocol allowlist. There is at most one active conversion per cache
-directory; contention returns the original without queuing. Failed conversions
+file/pipe protocol allowlist. Existing valid cache hits are served before converter locking. On a cache miss,
+there is at most one active conversion per cache directory; contention still
+returns the original without queuing. Failed conversions
 have a bounded 256-entry, 30-second retry cooldown in each daemon instance.
 
 The persistent cache retains at most 256 previews and 32 MiB, evicting oldest

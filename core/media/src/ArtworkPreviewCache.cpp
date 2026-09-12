@@ -174,21 +174,33 @@ std::string ArtworkPreviewCache::home(const std::string& identity, const std::st
     if (!size.width || !size.height || size.width > 16384 || size.height > 16384 ||
         static_cast<std::uint64_t>(size.width) * size.height > 40000000 ||
         (size.width <= 400 && size.height <= 600)) return {};
-    std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
-    if (!lock.owns_lock()) return {}; // No request queue or parallel decoder storm.
     const std::string key = cacheKey(identity, type, source);
     if (key.empty()) return {};
-    const auto now = std::chrono::steady_clock::now();
-    const auto failed = failures_.find(key);
-    if (failed != failures_.end() && failed->second > now) return {};
     if (directory_.empty() || directory_.front() != '/') return {};
     if (::mkdir(directory_.c_str(), 0700) != 0 && errno != EEXIST) return {};
     Fd directory(::open(directory_.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     struct stat st{};
     if (directory.value < 0 || ::fstat(directory.value, &st) != 0 || st.st_uid != ::geteuid() ||
-        (st.st_mode & 0077) != 0 || ::flock(directory.value, LOCK_EX | LOCK_NB) != 0) return {};
+        (st.st_mode & 0077) != 0) return {};
+
+    // Published preview files are immutable and appear atomically via renameat().
+    // Serve an already-valid cache hit without contending with an unrelated
+    // in-flight conversion.
     std::string cached = readCache(directory.value, key);
     if (!cached.empty()) return cached;
+
+    std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+    if (!lock.owns_lock()) return {}; // No request queue or parallel decoder storm.
+    if (::flock(directory.value, LOCK_EX | LOCK_NB) != 0) return {};
+
+    // Another process may have published this identity between the optimistic
+    // read above and acquisition of the directory conversion lock.
+    cached = readCache(directory.value, key);
+    if (!cached.empty()) return cached;
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto failed = failures_.find(key);
+    if (failed != failures_.end() && failed->second > now) return {};
     auto fail = [&]() -> std::string {
         if (failures_.size() >= MaxEntries) failures_.erase(failures_.begin());
         failures_[key] = now + std::chrono::seconds(30);
