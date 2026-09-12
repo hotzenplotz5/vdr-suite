@@ -1055,6 +1055,47 @@
     scheduleSync(false);
   }
 
+  // Read only, on-demand diagnostics over the already loaded EPG window.
+  // Keep this out of snapshot(), which is polled during rail readiness checks.
+  function epgDiagnostics() {
+    const now = Math.floor(Date.now() / 1000);
+    const counts = {
+      eventsBeforeNow: 0,
+      eventsCurrent: 0,
+      eventsFuture: 0,
+      channelsWithCurrent: 0,
+      channelsWithAnyFuture: 0,
+      channelsWithFrontendNext: 0
+    };
+    const currentChannels = new Set();
+    const futureChannels = new Set();
+    state.events.forEach(event => {
+      const start = eventStart(event);
+      const end = eventEnd(event);
+      // Unknown starts cannot be placed in time. Use the owner's time helpers.
+      if (start <= 0) return;
+      if (start > now) {
+        counts.eventsFuture += 1;
+        futureChannels.add(eventChannelId(event));
+      } else if (end === 0 || now < end) {
+        counts.eventsCurrent += 1;
+        currentChannels.add(eventChannelId(event));
+      } else {
+        counts.eventsBeforeNow += 1;
+      }
+    });
+    const seen = new Set();
+    state.channels.forEach(channel => {
+      const id = channelId(channel);
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      if (currentChannels.has(id)) counts.channelsWithCurrent += 1;
+      if (futureChannels.has(id)) counts.channelsWithAnyFuture += 1;
+      if (nextEventForChannel(channel, state.events, now)) counts.channelsWithFrontendNext += 1;
+    });
+    return Object.freeze(counts);
+  }
+
   function snapshot() {
     const channel = currentChannel();
     const current = channel ? currentEventForChannel(channel, state.events) : null;
@@ -1082,6 +1123,7 @@
   const api = Object.freeze({
     refresh: () => sync(true),
     snapshot,
+    epgDiagnostics,
     selectOffset,
     watchLive,
     openEpg,
