@@ -521,6 +521,16 @@ function createProductionHarness(options) {
           if (Array.isArray(config.metadataErrors) && config.metadataErrors.includes(nativeId)) {
             throw new Error('metadata unavailable');
           }
+          if (config.metadataSequenceByNativeId &&
+              Object.prototype.hasOwnProperty.call(
+                config.metadataSequenceByNativeId,
+                nativeId
+              )) {
+            const sequence = config.metadataSequenceByNativeId[nativeId];
+            if (Array.isArray(sequence) && sequence.length) {
+              return sequence.shift();
+            }
+          }
           if (config.metadataByNativeId &&
               Object.prototype.hasOwnProperty.call(config.metadataByNativeId, nativeId)) {
             return config.metadataByNativeId[nativeId];
@@ -657,20 +667,20 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(production.calls.genreRecordings.every((call) => call.backendId === 'default'));
   assert(production.calls.genreRecordings.every((call) => call.genreId === 'series'));
   const metadataAtVisibleReady = production.calls.metadata.slice();
-  assert(metadataAtVisibleReady.length >= 14);
+
   assert(
-    metadataAtVisibleReady.length < canonicalSeriesItems.length,
-    'visible Series completion must not wait for every episode metadata lookup'
+    metadataAtVisibleReady.length > 0,
+    'initial Series artwork enrichment must start representative Metadata reads'
   );
-  assert(production.metadataMaxInFlight() <= 4);
-  assert(production.metadataMaxInFlight() >= 2);
-  assert(metadataAtVisibleReady.every((call) => call.route === '/api/vdr/recordings/metadata'));
-  assert(metadataAtVisibleReady.every((call) => call.request.cache === 'no-store'));
-  assert(metadataAtVisibleReady.every((call) => call.request.credentials === 'same-origin'));
-  assert(metadataAtVisibleReady.every((call) => call.request.query.backend === 'default'));
-  assert.strictEqual(new Set(
-    metadataAtVisibleReady.map((call) => call.request.query.backendNativeId)
-  ).size, metadataAtVisibleReady.length);
+  assert(
+    metadataAtVisibleReady.length <= 14,
+    'initial Series artwork enrichment must stay bounded to one representative per Series'
+  );
+  assert(
+    production.metadataMaxInFlight() >= 1 &&
+    production.metadataMaxInFlight() <= 4,
+    'representative artwork enrichment must retain bounded Metadata concurrency'
+  );
 
   const seriesRail = findRail(production.host, 'series');
   assert(seriesRail);
@@ -684,15 +694,26 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert.strictEqual(findRecordingCard(seriesRail, canonicalSeriesItems[0].recordingId), null);
   assert.strictEqual(findRecordingCard(seriesRail, heuristicOnly.recordingId), null);
 
-  await waitForMetadataCoverage(production.calls, canonicalSeriesItems.length);
-  assert(production.metadataMaxInFlight() <= 4);
-  assert(production.calls.metadata.every((call) => call.route === '/api/vdr/recordings/metadata'));
-  assert(production.calls.metadata.every((call) => call.request.cache === 'no-store'));
-  assert(production.calls.metadata.every((call) => call.request.credentials === 'same-origin'));
-  assert(production.calls.metadata.every((call) => call.request.query.backend === 'default'));
-  assert.strictEqual(new Set(
-    production.calls.metadata.map((call) => call.request.query.backendNativeId)
-  ).size, canonicalSeriesItems.length);
+  await waitForMetadataCoverage(production.calls, 14);
+
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    production.calls.metadata.length,
+    14,
+    'Series artwork enrichment must stop after one representative per Series'
+  );
+  assert.strictEqual(
+    new Set(
+      production.calls.metadata.map(
+        (call) => call.request.query.backendNativeId
+      )
+    ).size,
+    14,
+    'Series representative Metadata reads must remain unique'
+  );
 
   twdCard.listeners.click[0]();
   const seasonButtons = findSeasonButtons(findRail(production.host, 'series'));
@@ -754,8 +775,15 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   const scopedRail = findRail(scoped.host, 'series');
   assert(findSeriesCard(scopedRail, 'folder:serien/scoped series'));
   assert.strictEqual(findSeriesCard(scopedRail, 'folder:serien/foreign series'), null);
-  assert.strictEqual(scoped.calls.metadata.length, 1);
-  assert.strictEqual(scoped.calls.metadata[0].request.query.backendNativeId, scopedEpisode.backendNativeId);
+  assert.strictEqual(
+    scoped.calls.metadata.length,
+    1,
+    'backend-scoped Series artwork enrichment must request only the local representative'
+  );
+  assert.strictEqual(
+    scoped.calls.metadata[0].request.query.backendNativeId,
+    scopedEpisode.backendNativeId
+  );
 
   const bandEpisode1 = makeEpisode('Band of Brothers', 1, 1, 'band');
   bandEpisode1.metadata.provider = {
@@ -765,10 +793,12 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
     episodeNumber: 99
   };
   const bandEpisode2 = makeEpisode('Band of Brothers', 1, 2, 'band');
-  const richPreferredArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-    encodeURIComponent(bandEpisode1.backendNativeId) + '&kind=preferred&index=0';
-  const richPortraitArtworkUrl = '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
-    encodeURIComponent(bandEpisode1.backendNativeId) + '&kind=image&index=2';
+
+  const richPreferredArtworkUrl =
+    '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+    encodeURIComponent(bandEpisode1.backendNativeId) +
+    '&kind=preferred&index=0';
+
   const enriched = createProductionHarness({
     genres: {genres: [{id: 'series', label: 'Serien', count: 2}]},
     seriesItems: [bandEpisode1, bandEpisode2],
@@ -782,92 +812,374 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
         episodeName: 'Currahee',
         seasonNumber: 1,
         episodeNumber: 1,
-        overview: 'Rich TVScraper overview',
-        people: [{role: 'actor', name: 'Damian Lewis', characterName: 'Richard Winters'}],
-        images: [{orientation: 'portrait', image: {available: true, url: richPortraitArtworkUrl}}],
-        preferredArtwork: {available: true, url: richPreferredArtworkUrl}
+        preferredArtwork: {
+          available: true,
+          url: richPreferredArtworkUrl
+        }
       }
-    },
-    metadataErrors: [bandEpisode2.backendNativeId]
+    }
   });
+
   assert.strictEqual(await enriched.api.refresh(), true);
-  assert.strictEqual(enriched.calls.metadata.length, 2);
-  assert(enriched.metadataMaxInFlight() <= 4);
+  assert.strictEqual(
+    enriched.calls.metadata.length,
+    1,
+    'initial Home must request only one Rich Metadata representative for this Series'
+  );
+  assert.strictEqual(enriched.metadataMaxInFlight(), 1);
+
+  await new Promise((resolve) => setImmediate(resolve));
+
   const bandRail = findRail(enriched.host, 'series');
-  const bandCard = findSeriesCard(bandRail, 'folder:serien/band of brothers');
+  const bandCard = findSeriesCard(
+    bandRail,
+    'folder:serien/band of brothers'
+  );
   assert(bandCard);
-  assert(findElement(bandCard, (element) => element.textContent === 'Band of Brothers'));
-  assert.strictEqual(findImage(bandCard).src, richPortraitArtworkUrl + '&variant=home');
-  assert.notStrictEqual(findImage(bandCard).src, richPreferredArtworkUrl);
-  bandCard.listeners.click[0]();
-  const bandSeason1 = findSeasonButton(findRail(enriched.host, 'series'), 1);
-  assert(bandSeason1);
-  bandSeason1.listeners.click[0]();
-  const bandEpisodes = findEpisodeCards(findRail(enriched.host, 'series'));
-  assert.strictEqual(bandEpisodes.length, 2);
-  const bandEpisode1Card = findRecordingCard(findRail(enriched.host, 'series'), bandEpisode1.recordingId);
-  const bandEpisode2Card = findRecordingCard(findRail(enriched.host, 'series'), bandEpisode2.recordingId);
-  assert(bandEpisode1Card);
-  assert(bandEpisode2Card);
-  assert.strictEqual(Number(bandEpisode1Card.dataset.episodeNumber), 1);
-  assert(findElement(bandEpisode1Card, (element) => element.textContent === 'Currahee'));
-  assert.strictEqual(findImage(bandEpisode1Card).src, richPortraitArtworkUrl + '&variant=home');
-  assert.strictEqual(Number(bandEpisode2Card.dataset.episodeNumber), 2);
-  assert(findElement(bandEpisode2Card, (element) => element.textContent === 'Folge 02'));
+  assert(
+    findElement(
+      bandCard,
+      (element) => element.textContent === 'Band of Brothers'
+    ),
+    'representative Rich Metadata may upgrade the visible Series title'
+  );
+  assert.strictEqual(
+    findImage(bandCard).src,
+    '/api/vdr/recordings/metadata/image?backend=default&backendNativeId=' +
+      encodeURIComponent(bandEpisode1.backendNativeId) +
+      '&kind=preferred&index=0&variant=home',
+    'representative Rich Metadata must upgrade the Series card to the canonical preferred artwork'
+  );
+  assert.notStrictEqual(
+    findImage(bandCard).src,
+    richPreferredArtworkUrl
+  );
+
+  const unsettledBandEpisode1 = {
+    recordingId: 'band-unsettled-1',
+    backendId: 'default',
+    backendNativeId: 'native-band-unsettled-1',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee/2016-04-01.00.00.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+  const unsettledBandEpisode2 = {
+    recordingId: 'band-unsettled-2',
+    backendId: 'default',
+    backendNativeId: 'native-band-unsettled-2',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_erste_Tag/2016-04-02.00.00.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_erste_Tag',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+
+  const unsettledBandHarness = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: 2
+      }]
+    },
+    seriesItems: [
+      unsettledBandEpisode1,
+      unsettledBandEpisode2
+    ],
+    metadataSequenceByNativeId: {
+      [unsettledBandEpisode1.backendNativeId]: [
+        {
+          available: false,
+          settled: false
+        },
+        {
+          available: true,
+          settled: true,
+          provider: 'tvscraper',
+          mediaType: 'series',
+          providerId: -74205,
+          title: 'Band of Brothers',
+          episodeName: 'Currahee',
+          seasonNumber: 1,
+          episodeNumber: 1
+        }
+      ]
+    },
+    metadataByNativeId: {
+      [unsettledBandEpisode2.backendNativeId]: {
+        available: true,
+        settled: true,
+        provider: 'tvscraper',
+        mediaType: 'series',
+        providerId: -74205,
+        title: 'Band of Brothers',
+        episodeName: 'Der erste Tag',
+        seasonNumber: 1,
+        episodeNumber: 2
+      }
+    }
+  });
+
+  assert.strictEqual(
+    await unsettledBandHarness.api.refresh(),
+    true
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.strictEqual(
+    unsettledBandHarness.calls.metadata.length,
+    1,
+    'Home must still request only one Band of Brothers representative'
+  );
+
+  const unsettledBandRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+  const unsettledBandCards = findSeriesCards(unsettledBandRail);
+
+  assert.strictEqual(unsettledBandCards.length, 1);
+
+  unsettledBandCards[0].listeners.click[0]();
+
+  const unsettledBandLoadingRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+
+  assert.strictEqual(
+    findSeasonButtons(unsettledBandLoadingRail).length,
+    0,
+    'provisional Series seasons must stay hidden while scoped Metadata loads'
+  );
+
+  const unsettledBandLoadingState = findElement(
+    unsettledBandLoadingRail,
+    function (element) {
+      return element.textContent === 'Staffeln werden geladen …';
+    }
+  );
+
+  assert(
+    unsettledBandLoadingState,
+    'Series detail must show loading instead of provisional season assignments'
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const unsettledBandDetailRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+
+  const unsettledBandSeasons = findSeasonButtons(
+    unsettledBandDetailRail
+  );
+
+  assert.deepStrictEqual(
+    unsettledBandSeasons.map(function (button) {
+      return Number(button.dataset.seasonNumber);
+    }),
+    [1],
+    'opening Band of Brothers must replace an earlier unsettled representative'
+  );
+
+  assert.strictEqual(
+    unsettledBandHarness.calls.metadata.length,
+    3,
+    'opening one two-episode Series may add only its two scoped Metadata reads'
+  );
+
+  const unsettledNativeCalls =
+    unsettledBandHarness.calls.metadata.map(function (call) {
+      return call.request.query.backendNativeId;
+    });
+
+  assert.strictEqual(
+    unsettledNativeCalls.filter(function (nativeId) {
+      return nativeId === unsettledBandEpisode1.backendNativeId;
+    }).length,
+    2,
+    'the earlier unsettled representative must be refreshed on Series open'
+  );
+
+  assert.strictEqual(
+    unsettledNativeCalls.filter(function (nativeId) {
+      return nativeId === unsettledBandEpisode2.backendNativeId;
+    }).length,
+    1,
+    'the second episode must be loaded only on Series open'
+  );
+
+  unsettledBandSeasons[0].listeners.click[0]();
+
+  const unsettledBandEpisodes = findEpisodeCards(
+    findRail(unsettledBandHarness.host, 'series')
+  );
+
+  assert.deepStrictEqual(
+    unsettledBandEpisodes.map(function (card) {
+      return Number(card.dataset.episodeNumber);
+    }),
+    [1, 2]
+  );
 
   const progressiveItems = [1, 2, 3, 4].map(function (episodeNumber) {
     const day = String(episodeNumber).padStart(2, '0');
     return {
       recordingId: 'stargate-progressive-' + String(episodeNumber),
       backendId: 'default',
-      backendNativeId: '/srv/vdr/video/Serien/Stargate_Universe/2016-01-' + day + '.10.52.3-0.rec',
-      path: 'Serien/Stargate Universe/2016-01-' + day + '.10.52.3-0.rec',
+      backendNativeId:
+        '/srv/vdr/video/Serien/Stargate_Universe/2016-01-' +
+        day + '.10.52.3-0.rec',
+      path:
+        'Serien/Stargate Universe/2016-01-' +
+        day + '.10.52.3-0.rec',
       title: 'Stargate Universe',
-      metadata: {provider: {}, presentation: {posterUrl: ''}, artwork: {preferredUrl: ''}}
+      metadata: {
+        provider: {},
+        presentation: {posterUrl: ''},
+        artwork: {preferredUrl: ''}
+      }
     };
   });
-  const progressiveMetadata = {};
-  progressiveItems.slice(1).forEach(function (recording, index) {
-    progressiveMetadata[recording.backendNativeId] = {
-      available: true,
-      provider: 'tvscraper',
-      mediaType: 'series',
-      providerId: 4242,
-      title: 'Stargate Universe',
-      episodeName: 'Folge ' + String(index + 2),
-      seasonNumber: 2,
-      episodeNumber: index + 2,
-      preferredArtwork: {available: false},
-      images: []
-    };
-  });
+
   const progressive = createProductionHarness({
-    genres: {genres: [{id: 'series', label: 'Serien', count: progressiveItems.length}]},
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: progressiveItems.length
+      }]
+    },
     seriesItems: progressiveItems,
-    metadataByNativeId: progressiveMetadata,
     metadataPending: [progressiveItems[0].backendNativeId]
   });
-  let progressiveRefreshSettled = false;
-  progressive.api.refresh().then(function () {
-    progressiveRefreshSettled = true;
-  });
-  await new Promise((resolve) => setImmediate(resolve));
+
   assert.strictEqual(
-    progressiveRefreshSettled,
+    await progressive.api.refresh(),
     true,
-    'successful metadata hedge must release Home refresh despite the stalled original representative'
+    'initial Home must settle without waiting for Metadata representatives'
   );
   assert.strictEqual(
     progressive.calls.metadata.length,
-    4,
-    'full metadata completion may continue after the bounded representative hedge releases Home'
+    1,
+    'initial Home may start one representative Metadata read without waiting for it'
   );
+  assert.strictEqual(
+    progressive.metadataMaxInFlight(),
+    1,
+    'a stalled representative must stay bounded to one in-flight request for this Series'
+  );
+
   const progressiveRail = findRail(progressive.host, 'series');
-  const progressiveCard = findSeriesCard(progressiveRail, 'folder:serien/stargate universe');
+  const progressiveCard = findSeriesCard(
+    progressiveRail,
+    'folder:serien/stargate universe'
+  );
   assert(progressiveCard);
-  progressiveCard.listeners.click[0]();
-  assert(findSeasonButton(findRail(progressive.host, 'series'), 2));
-  assert(findSeasonButton(findRail(progressive.host, 'series'), 0));
+
+  const metadataDrivenItems = [1, 2, 3, 4].map(function (index) {
+    const day = String(index).padStart(2, '0');
+    return {
+      recordingId: 'metadata-season-' + String(index),
+      backendId: 'default',
+      backendNativeId: 'native-metadata-season-' + String(index),
+      path: 'Serien/Metadata Staffeltest/2026-01-' + day + '.rec',
+      title: 'Metadata Staffeltest',
+      metadata: {
+        provider: {},
+        presentation: {posterUrl: ''},
+        artwork: {preferredUrl: ''}
+      }
+    };
+  });
+
+  const metadataDrivenByNativeId = {};
+  metadataDrivenItems.forEach(function (recording, index) {
+    const seasonNumber = index < 2 ? 1 : 2;
+    const episodeNumber = (index % 2) + 1;
+    metadataDrivenByNativeId[recording.backendNativeId] = {
+      available: true,
+      provider: 'tvscraper',
+      mediaType: 'episode',
+      providerId: 424242,
+      title: 'Metadata Staffeltest',
+      episodeName: 'Episode ' + String(index + 1),
+      seasonNumber: seasonNumber,
+      episodeNumber: episodeNumber,
+      preferredArtwork: {available: false}
+    };
+  });
+
+  const metadataDriven = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: metadataDrivenItems.length
+      }]
+    },
+    seriesItems: metadataDrivenItems,
+    metadataByNativeId: metadataDrivenByNativeId
+  });
+
+  assert.strictEqual(await metadataDriven.api.refresh(), true);
+  assert.strictEqual(
+    metadataDriven.calls.metadata.length,
+    1,
+    'initial Home must still request only one representative for a Series'
+  );
+
+  const metadataDrivenRail = findRail(metadataDriven.host, 'series');
+  const metadataDrivenCard = findSeriesCard(
+    metadataDrivenRail,
+    'folder:serien/metadata staffeltest'
+  );
+  assert(metadataDrivenCard);
+
+  metadataDrivenCard.listeners.click[0]();
+
+  for (let turn = 0; turn < 12; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    metadataDriven.calls.metadata.length,
+    metadataDrivenItems.length,
+    'opening one Series must resolve Metadata only for that Series members'
+  );
+
+  const metadataDrivenDetail = findRail(metadataDriven.host, 'series');
+  const metadataSeasonButtons = findSeasonButtons(metadataDrivenDetail);
+
+  assert.deepStrictEqual(
+    metadataSeasonButtons.map((button) => Number(button.dataset.seasonNumber)),
+    [1, 2],
+    'Metadata-driven Series must recover the canonical season hierarchy on open'
+  );
+
+  const metadataSeason2 = findSeasonButton(metadataDrivenDetail, 2);
+  assert(metadataSeason2);
+  metadataSeason2.listeners.click[0]();
+
+  const metadataSeason2Episodes = findEpisodeCards(
+    findRail(metadataDriven.host, 'series')
+  );
+
+  assert.deepStrictEqual(
+    metadataSeason2Episodes.map((card) => Number(card.dataset.episodeNumber)),
+    [1, 2],
+    'Metadata-driven Series must recover canonical episode numbers'
+  );
 
   const failingSeries = createProductionHarness({
     newly: {recordings: [sameBackend]},

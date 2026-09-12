@@ -767,7 +767,9 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("durationMin", 0),
             queryParameters.getInt("durationMax", 0),
             queryParameters.getInt("limit", 0),
-            queryParameters.getInt("offset", 0));
+            queryParameters.getInt("offset", 0),
+            queryParameters.getInt("movieReleaseYearFrom", 0),
+            queryParameters.getInt("movieReleaseYearTo", 0));
     }
 
     if (path == "/api/persons" ||

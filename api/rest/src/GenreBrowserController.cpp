@@ -406,7 +406,30 @@ ApiResponse GenreBrowserController::getRecordings(
                     recording.backendNativeId);
         json << "},\"provider\":{},\"native\":{},\"artwork\":{\"preferredUrl\":";
         appendJsonString(json, posterUrl);
-        json << "}}}";
+        json << "}}";
+        if (recording.seriesMetadataAvailable)
+        {
+            json << ",\"seriesMetadata\":{\"available\":true,\"mediaType\":\"series\",\"title\":";
+            appendJsonString(json, recording.seriesTitle);
+            json << ",\"provider\":";
+            appendJsonString(json, recording.seriesProvider);
+            json << ",\"providerId\":" << recording.seriesProviderId;
+            json << ",\"seasonNumber\":" << recording.seasonNumber;
+            json << ",\"episodeNumber\":" << recording.episodeNumber;
+            json << ",\"episodeName\":";
+            appendJsonString(json, recording.episodeName);
+            json << ",\"preferredArtwork\":{\"available\":"
+                 << (recording.seriesArtworkAvailable ? "true" : "false") << ",\"url\":";
+            std::string seriesPoster = recording.seriesArtworkIndex < 0 ? posterUrl :
+                "/api/vdr/recordings/metadata/image?backend=" + percentEncode(recording.backendId) +
+                "&backendNativeId=" + percentEncode(recording.backendNativeId) +
+                "&kind=gallery&index=" + std::to_string(recording.seriesArtworkIndex);
+            if (recording.seriesProvider == "manual")
+                seriesPoster += "&assignmentRevision=" + std::to_string(recording.seriesManualRevision);
+            appendJsonString(json, recording.seriesArtworkAvailable ? seriesPoster : "");
+            json << "}}";
+        }
+        json << "}";
     }
     json << "]}";
     return jsonResponse(200, json.str());

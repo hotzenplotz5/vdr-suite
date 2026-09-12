@@ -297,7 +297,17 @@ public:
         backendFilter_ = backendFilter;
     }
 
+    void setMovieReleaseYears(int first, int last)
+    {
+        movieReleaseYearFrom_ = first;
+        movieReleaseYearTo_ = last;
+    }
+    int movieReleaseYearFrom() const { return movieReleaseYearFrom_; }
+    int movieReleaseYearTo() const { return movieReleaseYearTo_; }
+
 private:
+    int movieReleaseYearFrom_ = 0;
+    int movieReleaseYearTo_ = 0;
     std::string titleFilter_;
     std::string pathFilter_;
     std::string backendFilter_;

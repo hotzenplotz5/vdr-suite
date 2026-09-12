@@ -83,7 +83,15 @@ assert(source.includes("selectShellModule('recordings2')"));
 assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
 assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
 assert(source.includes("backLabel: '← Zurück zur Staffel'"));
-assert(source.includes('renderSeriesDetail(series, selectedSeason, backendId)'));
+assert(source.includes(
+  'function renderSeriesDetail(series, selectedSeason, backendId, options)'
+));
+assert(source.includes(
+  'const metadataLoading = config.metadataLoading === true;'
+));
+assert(source.includes(
+  'canEnrich && hierarchyIncomplete'
+));
 assert(!source.includes('homeRecordingId'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
@@ -92,6 +100,45 @@ assert(source.includes('member.posterUrl || recordingPosterUrl(recording)'));
 assert(source.includes("image.loading = 'lazy'"));
 assert(!source.includes('resolveArtwork'));
 assert(!source.includes('fetchArtwork'));
+
+// Initial Home discovery must render from canonical Recording data without starting
+// Native Recording Metadata fan-out. Rich metadata remains available to later
+// interaction-owned paths, but it is not part of initial Home readiness.
+function functionBody(name, nextName) {
+  const start = source.indexOf('  function ' + name + '(');
+  const end = source.indexOf('  function ' + nextName + '(', start + 1);
+  assert(start >= 0, name + ' must exist');
+  assert(end > start, nextName + ' must follow ' + name);
+  return source.slice(start, end);
+}
+
+const initialRandomGenre = functionBody('loadRandomGenre', 'loadSeries');
+const initialSeries = functionBody('loadSeries', 'loadGenres');
+const seriesScan = functionBody('fetchAllSeriesRecordings', 'fetchBoundedRandomGenreRecordings');
+
+assert(initialRandomGenre.includes('fetchSeriesRecordingMetadata('));
+assert(
+  initialRandomGenre.indexOf('renderRecordingRail(') <
+    initialRandomGenre.indexOf('fetchSeriesRecordingMetadata('),
+  'Random Genre must render Recording data before bounded Metadata artwork enrichment'
+);
+assert(!initialSeries.includes('waitForSeriesRepresentatives('));
+assert(!initialSeries.includes('startSeriesCompletion('));
+assert(initialSeries.includes('resolvedSeriesMetadata('));
+assert(initialSeries.includes('prefetchSeriesRepresentativeMetadata('));
+assert(
+  initialSeries.indexOf('applySeriesProjection(') <
+    initialSeries.indexOf('prefetchSeriesRepresentativeMetadata('),
+  'Series must publish the Recording-derived projection before representative Metadata artwork enrichment'
+);
+assert(!initialSeries.includes('waitForSeriesRepresentatives('));
+assert(!initialSeries.includes('startSeriesCompletion('));
+assert(!seriesScan.includes('prefetchSeriesRepresentativeMetadata('));
+assert(initialRandomGenre.includes("renderRecordingRail("));
+assert(
+  /applySeriesProjection\(\s*recordings,\s*backendId\s*\)/.test(initialSeries),
+  'Series must publish an initial Recording-derived projection without Rich Metadata'
+);
 
 // Below-the-fold discovery is bounded, deferred, and each rail settles independently.
 assert(source.includes('new global.IntersectionObserver'));

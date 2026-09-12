@@ -141,6 +141,25 @@ int main()
             10,
             0)));
 
+    VdrRecording movie = tatort;
+    movie.metadata.provider.contentKind = VdrRecordingContentKind::Movie;
+    VdrRecordingQuery movies = VdrRecordingQuery::all();
+    movies.setMovieReleaseYears(2022, 2026);
+    for (const std::string date : {"2022", "2026-12-31", "2024-02-29", " 2023 "})
+    {
+        movie.metadata.provider.releaseDate = date;
+        assert(matcher.matches(movie, movies));
+    }
+    for (const std::string date : {"2021", "2027", "", "2023-02-29", "2024-13-01", "2024-04-31", "2024-1-1"})
+    {
+        movie.metadata.provider.releaseDate = date;
+        assert(!matcher.matches(movie, movies));
+    }
+    movie.metadata.provider.releaseDate = "2024";
+    movie.metadata.provider.contentKind = VdrRecordingContentKind::SeriesEpisode;
+    assert(!matcher.matches(movie, movies));
+    assert(matcher.matches(movie, VdrRecordingQuery::all()));
+
     std::cout
         << "test_vdr_recording_query_matcher passed"
         << std::endl;

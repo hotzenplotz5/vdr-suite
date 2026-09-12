@@ -430,8 +430,8 @@ function wait(milliseconds) {
   assert.strictEqual(notFoundRecording.dataset.recordingId, 'r2');
   assert.strictEqual(
     notFoundRecording.querySelector('strong').textContent,
-    'Action/Action Zwei',
-    'real native metadata misses must retain the existing recording fallback'
+    'Action Zwei',
+    'real native metadata misses must retain the recording leaf title without exposing the genre/folder path'
   );
   assert.strictEqual(notFoundRecording.querySelector('img').src, '/weak/r2.jpg');
 

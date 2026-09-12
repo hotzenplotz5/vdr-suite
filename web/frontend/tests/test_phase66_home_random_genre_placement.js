@@ -138,7 +138,10 @@ class FakeElement {
     source.indexOf('function loadRandomGenre('),
     source.indexOf('function loadSeries(')
   );
-  assert(randomGenreSource.includes('fetchBoundedRandomGenreRecordings(client, backendId, id, generation)'));
+    assert(
+      /fetchBoundedRandomGenreRecordings\(\s*client,\s*backendId,\s*id,\s*generation\s*\)/.test(randomGenreSource),
+      'Random Genre must use the bounded four-argument Recording query'
+    );
   assert(!randomGenreSource.includes('fetchAllSeriesRecordings('));
 
   const seriesSource = source.slice(

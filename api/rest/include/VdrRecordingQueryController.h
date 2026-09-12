@@ -39,7 +39,9 @@ public:
         int durationMin,
         int durationMax,
         int limit,
-        int offset);
+        int offset,
+        int movieReleaseYearFrom = 0,
+        int movieReleaseYearTo = 0);
 
 private:
     VdrRecordingQueryService& queryService_;
