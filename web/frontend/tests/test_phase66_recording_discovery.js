@@ -521,6 +521,16 @@ function createProductionHarness(options) {
           if (Array.isArray(config.metadataErrors) && config.metadataErrors.includes(nativeId)) {
             throw new Error('metadata unavailable');
           }
+          if (config.metadataSequenceByNativeId &&
+              Object.prototype.hasOwnProperty.call(
+                config.metadataSequenceByNativeId,
+                nativeId
+              )) {
+            const sequence = config.metadataSequenceByNativeId[nativeId];
+            if (Array.isArray(sequence) && sequence.length) {
+              return sequence.shift();
+            }
+          }
           if (config.metadataByNativeId &&
               Object.prototype.hasOwnProperty.call(config.metadataByNativeId, nativeId)) {
             return config.metadataByNativeId[nativeId];
@@ -845,6 +855,183 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
     richPreferredArtworkUrl
   );
 
+  const unsettledBandEpisode1 = {
+    recordingId: 'band-unsettled-1',
+    backendId: 'default',
+    backendNativeId: 'native-band-unsettled-1',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee/2016-04-01.00.00.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+  const unsettledBandEpisode2 = {
+    recordingId: 'band-unsettled-2',
+    backendId: 'default',
+    backendNativeId: 'native-band-unsettled-2',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_erste_Tag/2016-04-02.00.00.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_erste_Tag',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+
+  const unsettledBandHarness = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: 2
+      }]
+    },
+    seriesItems: [
+      unsettledBandEpisode1,
+      unsettledBandEpisode2
+    ],
+    metadataSequenceByNativeId: {
+      [unsettledBandEpisode1.backendNativeId]: [
+        {
+          available: false,
+          settled: false
+        },
+        {
+          available: true,
+          settled: true,
+          provider: 'tvscraper',
+          mediaType: 'series',
+          providerId: -74205,
+          title: 'Band of Brothers',
+          episodeName: 'Currahee',
+          seasonNumber: 1,
+          episodeNumber: 1
+        }
+      ]
+    },
+    metadataByNativeId: {
+      [unsettledBandEpisode2.backendNativeId]: {
+        available: true,
+        settled: true,
+        provider: 'tvscraper',
+        mediaType: 'series',
+        providerId: -74205,
+        title: 'Band of Brothers',
+        episodeName: 'Der erste Tag',
+        seasonNumber: 1,
+        episodeNumber: 2
+      }
+    }
+  });
+
+  assert.strictEqual(
+    await unsettledBandHarness.api.refresh(),
+    true
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.strictEqual(
+    unsettledBandHarness.calls.metadata.length,
+    1,
+    'Home must still request only one Band of Brothers representative'
+  );
+
+  const unsettledBandRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+  const unsettledBandCards = findSeriesCards(unsettledBandRail);
+
+  assert.strictEqual(unsettledBandCards.length, 1);
+
+  unsettledBandCards[0].listeners.click[0]();
+
+  const unsettledBandLoadingRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+
+  assert.strictEqual(
+    findSeasonButtons(unsettledBandLoadingRail).length,
+    0,
+    'provisional Series seasons must stay hidden while scoped Metadata loads'
+  );
+
+  const unsettledBandLoadingState = findElement(
+    unsettledBandLoadingRail,
+    function (element) {
+      return element.textContent === 'Staffeln werden geladen …';
+    }
+  );
+
+  assert(
+    unsettledBandLoadingState,
+    'Series detail must show loading instead of provisional season assignments'
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const unsettledBandDetailRail = findRail(
+    unsettledBandHarness.host,
+    'series'
+  );
+
+  const unsettledBandSeasons = findSeasonButtons(
+    unsettledBandDetailRail
+  );
+
+  assert.deepStrictEqual(
+    unsettledBandSeasons.map(function (button) {
+      return Number(button.dataset.seasonNumber);
+    }),
+    [1],
+    'opening Band of Brothers must replace an earlier unsettled representative'
+  );
+
+  assert.strictEqual(
+    unsettledBandHarness.calls.metadata.length,
+    3,
+    'opening one two-episode Series may add only its two scoped Metadata reads'
+  );
+
+  const unsettledNativeCalls =
+    unsettledBandHarness.calls.metadata.map(function (call) {
+      return call.request.query.backendNativeId;
+    });
+
+  assert.strictEqual(
+    unsettledNativeCalls.filter(function (nativeId) {
+      return nativeId === unsettledBandEpisode1.backendNativeId;
+    }).length,
+    2,
+    'the earlier unsettled representative must be refreshed on Series open'
+  );
+
+  assert.strictEqual(
+    unsettledNativeCalls.filter(function (nativeId) {
+      return nativeId === unsettledBandEpisode2.backendNativeId;
+    }).length,
+    1,
+    'the second episode must be loaded only on Series open'
+  );
+
+  unsettledBandSeasons[0].listeners.click[0]();
+
+  const unsettledBandEpisodes = findEpisodeCards(
+    findRail(unsettledBandHarness.host, 'series')
+  );
+
+  assert.deepStrictEqual(
+    unsettledBandEpisodes.map(function (card) {
+      return Number(card.dataset.episodeNumber);
+    }),
+    [1, 2]
+  );
+
   const progressiveItems = [1, 2, 3, 4].map(function (episodeNumber) {
     const day = String(episodeNumber).padStart(2, '0');
     return {
@@ -899,6 +1086,100 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
     'folder:serien/stargate universe'
   );
   assert(progressiveCard);
+
+  const metadataDrivenItems = [1, 2, 3, 4].map(function (index) {
+    const day = String(index).padStart(2, '0');
+    return {
+      recordingId: 'metadata-season-' + String(index),
+      backendId: 'default',
+      backendNativeId: 'native-metadata-season-' + String(index),
+      path: 'Serien/Metadata Staffeltest/2026-01-' + day + '.rec',
+      title: 'Metadata Staffeltest',
+      metadata: {
+        provider: {},
+        presentation: {posterUrl: ''},
+        artwork: {preferredUrl: ''}
+      }
+    };
+  });
+
+  const metadataDrivenByNativeId = {};
+  metadataDrivenItems.forEach(function (recording, index) {
+    const seasonNumber = index < 2 ? 1 : 2;
+    const episodeNumber = (index % 2) + 1;
+    metadataDrivenByNativeId[recording.backendNativeId] = {
+      available: true,
+      provider: 'tvscraper',
+      mediaType: 'episode',
+      providerId: 424242,
+      title: 'Metadata Staffeltest',
+      episodeName: 'Episode ' + String(index + 1),
+      seasonNumber: seasonNumber,
+      episodeNumber: episodeNumber,
+      preferredArtwork: {available: false}
+    };
+  });
+
+  const metadataDriven = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: metadataDrivenItems.length
+      }]
+    },
+    seriesItems: metadataDrivenItems,
+    metadataByNativeId: metadataDrivenByNativeId
+  });
+
+  assert.strictEqual(await metadataDriven.api.refresh(), true);
+  assert.strictEqual(
+    metadataDriven.calls.metadata.length,
+    1,
+    'initial Home must still request only one representative for a Series'
+  );
+
+  const metadataDrivenRail = findRail(metadataDriven.host, 'series');
+  const metadataDrivenCard = findSeriesCard(
+    metadataDrivenRail,
+    'folder:serien/metadata staffeltest'
+  );
+  assert(metadataDrivenCard);
+
+  metadataDrivenCard.listeners.click[0]();
+
+  for (let turn = 0; turn < 12; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    metadataDriven.calls.metadata.length,
+    metadataDrivenItems.length,
+    'opening one Series must resolve Metadata only for that Series members'
+  );
+
+  const metadataDrivenDetail = findRail(metadataDriven.host, 'series');
+  const metadataSeasonButtons = findSeasonButtons(metadataDrivenDetail);
+
+  assert.deepStrictEqual(
+    metadataSeasonButtons.map((button) => Number(button.dataset.seasonNumber)),
+    [1, 2],
+    'Metadata-driven Series must recover the canonical season hierarchy on open'
+  );
+
+  const metadataSeason2 = findSeasonButton(metadataDrivenDetail, 2);
+  assert(metadataSeason2);
+  metadataSeason2.listeners.click[0]();
+
+  const metadataSeason2Episodes = findEpisodeCards(
+    findRail(metadataDriven.host, 'series')
+  );
+
+  assert.deepStrictEqual(
+    metadataSeason2Episodes.map((card) => Number(card.dataset.episodeNumber)),
+    [1, 2],
+    'Metadata-driven Series must recover canonical episode numbers'
+  );
 
   const failingSeries = createProductionHarness({
     newly: {recordings: [sameBackend]},

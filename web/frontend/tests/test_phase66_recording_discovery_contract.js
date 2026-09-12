@@ -83,7 +83,15 @@ assert(source.includes("selectShellModule('recordings2')"));
 assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
 assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
 assert(source.includes("backLabel: '← Zurück zur Staffel'"));
-assert(source.includes('renderSeriesDetail(series, selectedSeason, backendId)'));
+assert(source.includes(
+  'function renderSeriesDetail(series, selectedSeason, backendId, options)'
+));
+assert(source.includes(
+  'const metadataLoading = config.metadataLoading === true;'
+));
+assert(source.includes(
+  'canEnrich && hierarchyIncomplete'
+));
 assert(!source.includes('homeRecordingId'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
