@@ -297,6 +297,8 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
   assert(calls.every((call) => call.query.limit === 100));
   assert(calls.every((call) => call.query.backend === 'default'));
+  assert(calls.every((call) => call.query.movieReleaseYearFrom === new Date().getFullYear() - 4));
+  assert(calls.every((call) => call.query.movieReleaseYearTo === new Date().getFullYear()));
   assert(calls.every((call) => call.cache === 'no-store'));
   assert(calls.every((call) => call.credentials === 'same-origin'));
   assert.strictEqual(api._test.warmForBackend('default'), true);

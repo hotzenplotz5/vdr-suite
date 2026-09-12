@@ -106,7 +106,9 @@ ApiResponse VdrRecordingQueryController::getRecordings(
     int durationMin,
     int durationMax,
     int limit,
-    int offset)
+    int offset,
+    int movieReleaseYearFrom,
+    int movieReleaseYearTo)
 {
     const VdrRecordingSortField sortField =
         parseSortField(sort);
@@ -129,6 +131,7 @@ ApiResponse VdrRecordingQueryController::getRecordings(
                   parseSortOrder(order));
 
     query.setBackendFilter(backend);
+    query.setMovieReleaseYears(movieReleaseYearFrom, movieReleaseYearTo);
 
     VdrRecordingQueryResult result =
         queryService_.queryRecordings(query);

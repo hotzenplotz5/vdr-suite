@@ -9,6 +9,25 @@
 #include <iostream>
 #include <string>
 
+class RecentMoviesAdapter : public MockVdrAdapter
+{
+public:
+    std::vector<VdrRecording> getRecordings() const override
+    {
+        std::vector<VdrRecording> recordings;
+        for (int i = 0; i < 20; ++i)
+        {
+            VdrRecording recording;
+            recording.id = "movie-" + std::to_string(i);
+            recording.title = recording.id;
+            recording.metadata.provider.contentKind = VdrRecordingContentKind::Movie;
+            recording.metadata.provider.releaseDate = i < 18 ? "2000" : "2024";
+            recordings.push_back(recording);
+        }
+        return recordings;
+    }
+};
+
 int main()
 {
     MockVdrAdapter adapter;
@@ -173,6 +192,18 @@ int main()
 
     assert(durationResponse.statusCode == 200);
     assert(durationResponse.body.find("\"totalCount\":2") != std::string::npos);
+
+    RecentMoviesAdapter moviesAdapter;
+    VdrService moviesService(moviesAdapter);
+    VdrRecordingQueryService moviesQuery(moviesService);
+    VdrRecordingQueryController moviesController(moviesQuery, jsonSerializer);
+    const auto moviesPage = moviesController.getRecordings(
+        "", "", "", "", "", "", "", 0, 0, 1, 1, 2022, 2026);
+    assert(moviesPage.body.find("\"totalCount\":2") != std::string::npos);
+    assert(moviesPage.body.find("\"id\":\"movie-19\"") != std::string::npos);
+    assert(moviesPage.body.find("\"id\":\"movie-0\"") == std::string::npos);
+    const auto unchangedPage = moviesController.getRecordings();
+    assert(unchangedPage.body.find("\"totalCount\":20") != std::string::npos);
 
     std::cout
         << "test_vdr_recording_query_controller passed"

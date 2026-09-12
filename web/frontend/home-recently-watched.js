@@ -475,7 +475,7 @@
     return fallback;
   }
 
-  function fetchAllRecordings(client, backendId, generation) {
+  function fetchAllRecordings(client, backendId, generation, currentYear) {
     const owner = discoveryTestApi();
     if (!owner || typeof owner.canonicalRecordings !== 'function') {
       return Promise.resolve([]);
@@ -488,7 +488,9 @@
         query: {
           backend: backendId,
           limit: PAGE_LIMIT,
-          offset: offset
+          offset: offset,
+          movieReleaseYearFrom: currentYear - 4,
+          movieReleaseYearTo: currentYear
         },
         cache: 'no-store',
         credentials: 'same-origin'
@@ -697,7 +699,7 @@
     state.completedAt = 0;
     state.visibleLimit = LIMIT;
     renderState('Filme werden geladen …', false);
-    const load = fetchAllRecordings(client, backendId, generation).then(function (recordings) {
+    const load = fetchAllRecordings(client, backendId, generation, currentYear).then(function (recordings) {
       if (generation !== state.generation ||
           backendId !== selectedBackendId() ||
           !homeIsActive()) return false;
