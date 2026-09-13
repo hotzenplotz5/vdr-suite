@@ -70,6 +70,7 @@ EPG:
 - `fetchClientEpgWindow`
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
+- `fetchClientEpgCacheNowNext`
 - `fetchClientEpgCacheWindow`
 - `fetchClientEpgCacheRefresh`
 - `fetchClientEpgNowNext`

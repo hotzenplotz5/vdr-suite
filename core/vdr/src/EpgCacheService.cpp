@@ -216,6 +216,20 @@ std::vector<VdrEvent> EpgCacheService::findNowNextForBackend(
         eventLimit);
 }
 
+std::vector<VdrEvent>
+EpgCacheService::findNowNextPerChannelForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    int perChannelLimit) const
+{
+    return repository_.findNowNextPerChannelForBackend(
+        backendId,
+        channelId,
+        fromTime,
+        perChannelLimit);
+}
+
 std::vector<VdrEvent> EpgCacheService::findWindowForBackend(
     const std::string& backendId,
     const std::string& channelId,

@@ -5,6 +5,8 @@
 
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 class Database;
 
@@ -19,6 +21,9 @@ public:
         const std::string& backendId,
         const std::string& channelId,
         const std::string& eventId) const;
+    std::vector<EpgArtworkReference> findMany(
+        const std::string& backendId,
+        const std::vector<std::pair<std::string, std::string>>& eventKeys) const;
     bool removeForEvent(
         const std::string& backendId,
         const std::string& channelId,

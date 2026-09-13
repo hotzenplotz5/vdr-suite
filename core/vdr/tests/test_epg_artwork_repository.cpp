@@ -120,6 +120,89 @@ void testArtworkIsPersistedAndBackendScoped()
     assert(remote.path == "/var/cache/vdr/tvscraper/remote.jpg");
 }
 
+
+void testArtworkBatchLookupIsBoundedAndBackendScoped()
+{
+    const char* databasePath =
+        "/tmp/vdr-suite-epg-artwork-batch-test.db";
+    std::remove(databasePath);
+
+    Database database;
+    assert(database.open(databasePath));
+
+    EpgArtworkRepository repository(database);
+    assert(repository.ensureSchema());
+
+    assert(repository.upsert(makeArtwork(
+        "home-vdr",
+        "channel-1",
+        "event-1",
+        "/home-1.jpg")));
+
+    assert(repository.upsert(makeArtwork(
+        "home-vdr",
+        "channel-2",
+        "event-2",
+        "/home-2.jpg")));
+
+    assert(repository.upsert(makeArtwork(
+        "remote-vdr",
+        "channel-1",
+        "event-1",
+        "/remote-1.jpg")));
+
+    const auto home = repository.findMany(
+        "home-vdr",
+        {
+            {"channel-1", "event-1"},
+            {"channel-2", "event-2"},
+            {"channel-3", "missing"}
+        });
+
+    assert(home.size() == 2);
+
+    bool foundHome1 = false;
+    bool foundHome2 = false;
+
+    for (const auto& artwork : home)
+    {
+        assert(artwork.backendId == "home-vdr");
+
+        if (artwork.channelId == "channel-1" &&
+            artwork.eventId == "event-1")
+        {
+            assert(artwork.path == "/home-1.jpg");
+            foundHome1 = true;
+        }
+
+        if (artwork.channelId == "channel-2" &&
+            artwork.eventId == "event-2")
+        {
+            assert(artwork.path == "/home-2.jpg");
+            foundHome2 = true;
+        }
+    }
+
+    assert(foundHome1);
+    assert(foundHome2);
+
+    const auto remote = repository.findMany(
+        "remote-vdr",
+        {
+            {"channel-1", "event-1"},
+            {"channel-2", "event-2"}
+        });
+
+    assert(remote.size() == 1);
+    assert(remote.front().backendId == "remote-vdr");
+    assert(remote.front().path == "/remote-1.jpg");
+
+    assert(repository.findMany(
+        "home-vdr",
+        {}).empty());
+}
+
+
 void testArtworkUpsertAndRemoval()
 {
     const char* databasePath = "/tmp/vdr-suite-epg-artwork-repository-update-test.db";
@@ -202,6 +285,7 @@ void testArtworkRejectsRetiredEventWhenEventCacheExists()
 int main()
 {
     testArtworkIsPersistedAndBackendScoped();
+    testArtworkBatchLookupIsBoundedAndBackendScoped();
     testArtworkUpsertAndRemoval();
     testArtworkRejectsRetiredEventWhenEventCacheExists();
     testMetadataPeopleAreNormalizedReplacedAndEventGuarded();

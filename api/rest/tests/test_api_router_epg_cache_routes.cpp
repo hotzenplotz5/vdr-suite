@@ -69,6 +69,8 @@ public:
     int refreshCalls = 0;
     int statusCalls = 0;
     int nowNextCalls = 0;
+    int nowNextArtworkCalls = 0;
+    int nowNextPerChannelCalls = 0;
     int windowCalls = 0;
 
     std::string lastBackendId;
@@ -76,6 +78,7 @@ public:
     std::string lastFromTime;
     std::string lastUntilTime;
     int lastEventLimit = 0;
+    int lastPerChannelLimit = 0;
     VdrEventQuery lastQuery;
 
     ApiResponse refreshBackendWindow(
@@ -127,6 +130,54 @@ public:
         response.statusCode = 200;
         response.contentType = "application/json";
         response.body = "{\"route\":\"now-next\"}";
+        return response;
+    }
+
+    ApiResponse getNowNextPerChannel(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const override
+    {
+        FakeEpgCacheController* self =
+            const_cast<FakeEpgCacheController*>(this);
+
+        ++self->nowNextPerChannelCalls;
+        self->lastBackendId = backendId;
+        self->lastChannelId = channelId;
+        self->lastFromTime = fromTime;
+        self->lastPerChannelLimit = perChannelLimit;
+
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body =
+            "{\"route\":\"now-next-per-channel\"}";
+
+        return response;
+    }
+
+
+    ApiResponse getNowNextArtworkManifest(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const override
+    {
+        FakeEpgCacheController* self =
+            const_cast<FakeEpgCacheController*>(this);
+
+        ++self->nowNextArtworkCalls;
+        self->lastBackendId = backendId;
+        self->lastChannelId = channelId;
+        self->lastFromTime = fromTime;
+        self->lastEventLimit = perChannelLimit;
+
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body =
+            "{\"route\":\"now-next-artwork\"}";
         return response;
     }
 
@@ -329,6 +380,19 @@ int main()
     assert(unavailableRead.statusCode == 503);
     assert(contains(unavailableRead.body, "epg cache unavailable"));
 
+    const ApiResponse unavailableArtworkManifest =
+        unavailableRouter.handleGet(
+            "/api/epg/cache/now-next-artwork?"
+            "backend=home-vdr&"
+            "channelIds=channel-1%2Cchannel-2&"
+            "fromTime=1000&"
+            "perChannelLimit=2");
+
+    assert(unavailableArtworkManifest.statusCode == 503);
+    assert(contains(
+        unavailableArtworkManifest.body,
+        "epg cache unavailable"));
+
     const ApiResponse unavailableStatus = unavailableRouter.handleGet(
         "/api/epg/cache/status?backend=home-vdr");
     assert(unavailableStatus.statusCode == 503);
@@ -399,6 +463,69 @@ int main()
     assert(fakeEpgCacheController.lastChannelId == "channel-2");
     assert(fakeEpgCacheController.lastFromTime == "1000");
     assert(fakeEpgCacheController.lastEventLimit == 9);
+
+    const ApiResponse perChannelNowNext =
+        router.handleGet(
+            "/api/epg/cache/now-next"
+            "?backend=home-vdr"
+            "&channelIds=channel-1%2Cchannel-2"
+            "&fromTime=1000"
+            "&perChannelLimit=2");
+
+    assert(perChannelNowNext.statusCode == 200);
+
+    assert(contains(
+        perChannelNowNext.body,
+        "now-next-per-channel"));
+
+    assert(
+        fakeEpgCacheController.nowNextPerChannelCalls == 1);
+
+    assert(
+        fakeEpgCacheController.lastBackendId ==
+        "home-vdr");
+
+    assert(
+        fakeEpgCacheController.lastChannelId ==
+        "channel-1,channel-2");
+
+    assert(
+        fakeEpgCacheController.lastFromTime ==
+        "1000");
+
+    assert(
+        fakeEpgCacheController.lastPerChannelLimit ==
+        2);
+
+    const ApiResponse artworkManifest = router.handleGet(
+        "/api/epg/cache/now-next-artwork?"
+        "backend=art-vdr&"
+        "channelIds=channel-1%2Cchannel-2&"
+        "fromTime=1234&"
+        "perChannelLimit=2");
+
+    assert(artworkManifest.statusCode == 200);
+    assert(contains(
+        artworkManifest.body,
+        "now-next-artwork"));
+
+    assert(
+        fakeEpgCacheController.nowNextArtworkCalls == 1);
+
+    assert(
+        fakeEpgCacheController.lastBackendId ==
+        "art-vdr");
+
+    assert(
+        fakeEpgCacheController.lastChannelId ==
+        "channel-1,channel-2");
+
+    assert(
+        fakeEpgCacheController.lastFromTime ==
+        "1234");
+
+    assert(
+        fakeEpgCacheController.lastEventLimit == 2);
 
     const ApiResponse window = router.handleGet(
         "/api/epg/cache/window?channelId=channel-3&fromTime=0900&untilTime=1300&limit=11");

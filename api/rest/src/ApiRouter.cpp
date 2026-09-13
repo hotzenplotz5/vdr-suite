@@ -927,6 +927,28 @@ ApiResponse ApiRouter::handleGet(
             normalizeBackendId(queryParameters.get("backend")));
     }
 
+    if (path == "/api/epg/cache/now-next-artwork")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        const std::string channelIds =
+            queryParameters.get(
+                "channelIds",
+                queryParameters.get("channelId"));
+
+        return epgCacheController_->getNowNextArtworkManifest(
+            normalizeBackendId(
+                queryParameters.get("backend")),
+            channelIds,
+            queryParameters.get("fromTime"),
+            queryParameters.getInt(
+                "perChannelLimit",
+                2));
+    }
+
     if (path == "/api/epg/cache/now-next")
     {
         if (epgCacheController_ == nullptr)
@@ -934,54 +956,32 @@ ApiResponse ApiRouter::handleGet(
             return makeEpgCacheUnavailableResponse();
         }
 
-        return epgCacheController_->getNowNext(
-            normalizeBackendId(queryParameters.get("backend")),
-            queryParameters.get("channelId"),
-            queryParameters.get("fromTime"),
+        const std::string channelIds =
+            queryParameters.get(
+                "channelIds",
+                queryParameters.get("channelId"));
+
+        const int perChannelLimit =
             queryParameters.getInt(
-                "limit",
-                queryParameters.getInt("chevents", 5)));
-    }
+                "perChannelLimit",
+                0);
 
-    if (path == "/api/epg/cache/artwork")
-    {
-        if (epgCacheController_ == nullptr)
+        if (perChannelLimit > 0)
         {
-            return makeEpgCacheUnavailableResponse();
+            return epgCacheController_->getNowNextPerChannel(
+                normalizeBackendId(
+                    queryParameters.get("backend")),
+                channelIds,
+                queryParameters.get("fromTime"),
+                perChannelLimit);
         }
 
-        return epgCacheController_->getArtwork(
-            normalizeBackendId(queryParameters.get("backend")),
-            queryParameters.get("channelId"),
-            queryParameters.get("eventId"));
-    }
-
-    if (path == "/api/epg/cache/metadata")
-    {
-        if (epgCacheController_ == nullptr)
-        {
-            return makeEpgCacheUnavailableResponse();
-        }
-
-        return epgCacheController_->getMetadata(
-            normalizeBackendId(queryParameters.get("backend")),
-            queryParameters.get("channelId"),
-            queryParameters.get("eventId"));
-    }
-
-    if (path == "/api/epg/cache/metadata/image")
-    {
-        if (epgCacheController_ == nullptr)
-        {
-            return makeEpgCacheUnavailableResponse();
-        }
-
-        return epgCacheController_->getMetadataImage(
-            normalizeBackendId(queryParameters.get("backend")),
-            queryParameters.get("channelId"),
-            queryParameters.get("eventId"),
-            queryParameters.get("kind"),
-            queryParameters.getInt("index", -1));
+        return epgCacheController_->getNowNext(
+            normalizeBackendId(
+                queryParameters.get("backend")),
+            channelIds,
+            queryParameters.get("fromTime"),
+            queryParameters.getInt("limit", 50));
     }
 
     if (path == "/api/epg/cache/window")

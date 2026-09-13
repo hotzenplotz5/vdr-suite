@@ -598,6 +598,97 @@ std::vector<VdrEvent> EpgEventRepository::findNowNextForBackend(
         eventLimit);
 }
 
+std::vector<VdrEvent>
+EpgEventRepository::findNowNextPerChannelForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    int perChannelLimit) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (fromTime.empty() || perChannelLimit <= 0)
+    {
+        return {};
+    }
+
+    const std::vector<std::string> channelIds =
+        splitChannelIdsParameter(channelId);
+
+    if (channelIds.empty())
+    {
+        return {};
+    }
+
+    std::string sql =
+        "WITH ranked AS ("
+        "SELECT event_id, channel_id, title, subtitle, description, "
+        "start_time, end_time, duration_seconds, parental_rating, "
+        "content_descriptors, "
+        "ROW_NUMBER() OVER ("
+        "PARTITION BY channel_id "
+        "ORDER BY CAST(start_time AS INTEGER) ASC, event_id ASC"
+        ") AS channel_row "
+        "FROM epg_events "
+        "WHERE backend_id = ? "
+        "AND CAST(end_time AS INTEGER) > CAST(? AS INTEGER) "
+        "AND channel_id IN (" +
+        sqlPlaceholders(channelIds.size()) +
+        ")"
+        ") "
+        "SELECT event_id, channel_id, title, subtitle, description, "
+        "start_time, end_time, duration_seconds, parental_rating, "
+        "content_descriptors "
+        "FROM ranked "
+        "WHERE channel_row <= ? "
+        "ORDER BY CAST(start_time AS INTEGER) ASC, "
+        "channel_id ASC, event_id ASC;";
+
+    sqlite3_stmt* statement = nullptr;
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return {};
+    }
+
+    int bindIndex = 1;
+
+    bindText(
+        statement,
+        bindIndex++,
+        normalizeBackendId(backendId));
+
+    bindText(
+        statement,
+        bindIndex++,
+        fromTime);
+
+    for (const std::string& currentChannelId : channelIds)
+    {
+        bindText(
+            statement,
+            bindIndex++,
+            currentChannelId);
+    }
+
+    sqlite3_bind_int(
+        statement,
+        bindIndex++,
+        perChannelLimit);
+
+    std::vector<VdrEvent> events =
+        readEvents(statement);
+
+    sqlite3_finalize(statement);
+
+    return events;
+}
+
 std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     const std::string& backendId,
     const std::string& channelId,

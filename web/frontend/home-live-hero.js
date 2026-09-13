@@ -775,27 +775,43 @@
   }
 
   function loadProgrammePage(sequence, offset, reset) {
-    const client = clientApi();
-    if (!client || typeof client.fetchClientEpgCacheWindow !== 'function' || state.channels.length === 0) {
+    const owner = global.VdrSuiteHomeNowNext;
+
+    if (!owner ||
+        typeof owner.loadPage !== 'function' ||
+        state.channels.length === 0) {
       if (reset) state.loadingPrograms = false;
       state.programmeLoadingMore = false;
-      state.programError = state.channels.length === 0 ? '' : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      state.programError = state.channels.length === 0
+        ? ''
+        : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       render();
       return Promise.resolve(null);
     }
 
     const start = Math.max(0, Number(offset) || 0);
-    const pageChannels = state.channels.slice(start, start + PROGRAMME_RAIL_LIMIT);
-    const ids = pageChannels.map(channelId).filter(Boolean);
+    const pageChannels =
+      state.channels.slice(
+        start,
+        start + PROGRAMME_RAIL_LIMIT
+      );
+
+    const ids =
+      pageChannels
+        .map(channelId)
+        .filter(Boolean);
+
     if (ids.length === 0) {
       if (reset) state.loadingPrograms = false;
       state.programmeLoadingMore = false;
       render();
       return Promise.resolve(null);
     }
-    if (!reset && state.programmeLoadingMore) return Promise.resolve(null);
 
-    const now = Math.floor(Date.now() / 1000);
+    if (!reset && state.programmeLoadingMore) {
+      return Promise.resolve(null);
+    }
+
     if (reset) {
       clearPrograms();
       state.programmeLoadedChannelCount = 0;
@@ -807,40 +823,48 @@
       state.programmeLoadingMore = true;
     }
 
-    return client.fetchClientEpgCacheWindow({
-      query: {
-        backend: state.backendId,
-        channelIds: ids.join(','),
-        fromTime: String(now - 21600),
-        untilTime: String(now + 21600),
-        limit: '0',
-        _: String(Date.now())
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return owner.loadPage({
+      backendId: state.backendId,
+      channelIds: ids
     }).then(data => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+      if (!state.active ||
+          sequence !== state.requestSequence) {
+        return null;
+      }
+
       applyPrograms(data, !reset);
-      state.programmeLoadedChannelCount = Math.max(
-        state.programmeLoadedChannelCount,
-        start + pageChannels.length
-      );
+
+      state.programmeLoadedChannelCount =
+        Math.max(
+          state.programmeLoadedChannelCount,
+          start + pageChannels.length
+        );
+
       state.loadingPrograms = false;
       state.programmeLoadingMore = false;
       state.programError = '';
       state.programmeLoadedAt = Date.now();
+
       render();
+
       return data;
     }).catch(() => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+      if (!state.active ||
+          sequence !== state.requestSequence) {
+        return null;
+      }
+
       if (reset) {
         clearPrograms();
         state.programmeLoadedChannelCount = 0;
         state.loadingPrograms = false;
-        state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+        state.programError =
+          'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       }
+
       state.programmeLoadingMore = false;
       render();
+
       return null;
     });
   }
