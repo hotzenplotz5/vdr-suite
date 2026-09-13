@@ -295,6 +295,83 @@ assert.strictEqual(projectedFromCanonicalPath.seasonNumber, 10);
 assert.strictEqual(projectedFromCanonicalPath.episodeNumber, 15);
 assert.strictEqual(projectedFromCanonicalPath.episodeTitle, 'Prinzessin');
 
+const projectedManualAbsoluteEpisode = api._test.seriesMemberProjection({
+  recordingId: 'manual-band-1',
+  backendId: 'default',
+  backendNativeId: 'manual-band-native-1',
+  path: '/srv/vdr/video/Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee/2016-04-01.00.00.1-0.rec',
+  metadata: {
+    provider: {
+      seriesId: 'stale-automatic-series-id',
+      seriesTitle: 'Stale automatic title'
+    }
+  }
+}, {
+  available: true,
+  status: 'ready',
+  provider: 'manual',
+  mediaType: 'episode',
+  providerId: 0,
+  title: 'Currahee',
+  episodeName: 'Currahee',
+  seasonNumber: 1,
+  episodeNumber: 1,
+  manualAssignment: {
+    active: true,
+    relationshipLocked: true
+  }
+}, 'default');
+
+assert(projectedManualAbsoluteEpisode);
+assert.strictEqual(
+  projectedManualAbsoluteEpisode.seriesKey,
+  'folder:serien/band_of_brothers_-_wir_waren_wie_brüder'
+);
+assert.strictEqual(projectedManualAbsoluteEpisode.seasonNumber, 1);
+assert.strictEqual(projectedManualAbsoluteEpisode.episodeNumber, 1);
+assert.strictEqual(projectedManualAbsoluteEpisode.episodeTitle, 'Currahee');
+
+const projectedAutomaticAbsoluteEpisode = api._test.seriesMemberProjection({
+  recordingId: 'automatic-band-2',
+  backendId: 'default',
+  backendNativeId: 'automatic-band-native-2',
+  path: '/srv/vdr/video/Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_erste_Tag/2016-04-02.00.00.1-0.rec',
+  metadata: {provider: {}}
+}, {
+  available: true,
+  status: 'ready',
+  provider: 'tvscraper',
+  mediaType: 'series',
+  providerId: -74205,
+  title: 'Band of Brothers',
+  episodeName: 'Der erste Tag',
+  seasonNumber: 1,
+  episodeNumber: 2
+}, 'default');
+
+assert.strictEqual(
+  projectedAutomaticAbsoluteEpisode.seriesKey,
+  projectedManualAbsoluteEpisode.seriesKey
+);
+
+const manualCompatibilityGroup = api._test.buildSeriesProjection([
+  projectedManualAbsoluteEpisode,
+  projectedAutomaticAbsoluteEpisode
+]);
+
+assert.strictEqual(
+  manualCompatibilityGroup.length,
+  1,
+  'manual and automatic episodes in the same canonical VDR Series folder must stay grouped'
+);
+assert.deepStrictEqual(
+  Array.from(
+    manualCompatibilityGroup[0].seasons[0].episodes,
+    (episode) => episode.episodeNumber
+  ),
+  [1, 2]
+);
+
 const projectedFlatCanonicalMember = api._test.seriesMemberProjection({
   recordingId: 'flat-series-1',
   backendId: 'default',
@@ -1027,6 +1104,168 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
 
   assert.deepStrictEqual(
     unsettledBandEpisodes.map(function (card) {
+      return Number(card.dataset.episodeNumber);
+    }),
+    [1, 2]
+  );
+
+  const incompleteBandEpisode1 = {
+    recordingId: 'band-incomplete-1',
+    backendId: 'default',
+    backendNativeId: 'native-band-incomplete-1',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee/2016-03-29.00.56.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/01_Currahee',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+
+  const incompleteBandEpisode2 = {
+    recordingId: 'band-incomplete-2',
+    backendId: 'default',
+    backendNativeId: 'native-band-incomplete-2',
+    path: 'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_Erste_Tag/2016-03-30.01.01.1-0.rec',
+    title: 'Band_Of_Brothers_-_Wir_waren_wie_Brüder/02_Der_Erste_Tag',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+
+  const incompleteBandHarness = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: 2
+      }]
+    },
+    seriesItems: [
+      incompleteBandEpisode1,
+      incompleteBandEpisode2
+    ],
+    metadataSequenceByNativeId: {
+      [incompleteBandEpisode1.backendNativeId]: [
+        {
+          available: true,
+          settled: true,
+          provider: 'tvscraper',
+          mediaType: 'series',
+          providerId: -74205,
+          title: 'Band of Brothers',
+          episodeName: 'Currahee',
+          seasonNumber: 0,
+          episodeNumber: 0
+        },
+        {
+          available: true,
+          settled: true,
+          provider: 'tvscraper',
+          mediaType: 'series',
+          providerId: -74205,
+          title: 'Band of Brothers',
+          episodeName: 'Currahee',
+          seasonNumber: 1,
+          episodeNumber: 1
+        }
+      ]
+    },
+    metadataByNativeId: {
+      [incompleteBandEpisode2.backendNativeId]: {
+        available: true,
+        settled: true,
+        provider: 'tvscraper',
+        mediaType: 'series',
+        providerId: -74205,
+        title: 'Band of Brothers',
+        episodeName: 'Der erste Tag',
+        seasonNumber: 1,
+        episodeNumber: 2
+      }
+    }
+  });
+
+  assert.strictEqual(
+    await incompleteBandHarness.api.refresh(),
+    true
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.strictEqual(
+    incompleteBandHarness.calls.metadata.length,
+    1,
+    'initial Home must still issue only one Series representative Metadata read'
+  );
+
+  const incompleteBandRail = findRail(
+    incompleteBandHarness.host,
+    'series'
+  );
+  const incompleteBandCards = findSeriesCards(incompleteBandRail);
+
+  assert.strictEqual(incompleteBandCards.length, 1);
+
+  incompleteBandCards[0].listeners.click[0]();
+
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.strictEqual(
+    incompleteBandHarness.calls.metadata.length,
+    3,
+    'opening an incomplete two-episode Series must refresh only the incomplete representative and load the missing member'
+  );
+
+  const incompleteBandNativeCalls =
+    incompleteBandHarness.calls.metadata.map(function (call) {
+      return call.request.query.backendNativeId;
+    });
+
+  assert.strictEqual(
+    incompleteBandNativeCalls.filter(function (nativeId) {
+      return nativeId === incompleteBandEpisode1.backendNativeId;
+    }).length,
+    2,
+    'available but hierarchy-incomplete cached Metadata must be refreshed on Series open'
+  );
+
+  assert.strictEqual(
+    incompleteBandNativeCalls.filter(function (nativeId) {
+      return nativeId === incompleteBandEpisode2.backendNativeId;
+    }).length,
+    1,
+    'the second member must be resolved exactly once on Series open'
+  );
+
+  const incompleteBandDetail = findRail(
+    incompleteBandHarness.host,
+    'series'
+  );
+
+  const incompleteBandSeasons = findSeasonButtons(
+    incompleteBandDetail
+  );
+
+  assert.deepStrictEqual(
+    incompleteBandSeasons.map(function (button) {
+      return Number(button.dataset.seasonNumber);
+    }),
+    [1],
+    'fresh Series Metadata must replace cached Staffel unbekannt with Staffel 1'
+  );
+
+  incompleteBandSeasons[0].listeners.click[0]();
+
+  const incompleteBandEpisodes = findEpisodeCards(
+    findRail(incompleteBandHarness.host, 'series')
+  );
+
+  assert.deepStrictEqual(
+    incompleteBandEpisodes.map(function (card) {
       return Number(card.dataset.episodeNumber);
     }),
     [1, 2]

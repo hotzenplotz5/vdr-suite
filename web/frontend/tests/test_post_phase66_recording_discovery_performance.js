@@ -133,6 +133,8 @@ function createHarness(initialMetadataMode) {
   const observers = [];
   const genreCalls = [];
   const genreListCalls = [];
+  const recordingCalls = [];
+  const folderCalls = [];
   const metadataResolvers = [];
   let selectedModule = 'overview';
   let backendId = 'default';
@@ -161,7 +163,8 @@ function createHarness(initialMetadataMode) {
   }
 
   const client = {
-    fetchClientRecordings() {
+    fetchClientRecordings(request) {
+      recordingCalls.push(request || {});
       return Promise.resolve({recordings: []});
     },
     fetchClientGenres(request) {
@@ -197,7 +200,8 @@ function createHarness(initialMetadataMode) {
         hasMore: false
       });
     },
-    fetchClientRecordingFolder() {
+    fetchClientRecordingFolder(request) {
+      folderCalls.push(request || {});
       return Promise.resolve({folders: [], recordings: [], recordingCount: 0});
     },
     requestJson(route, request) {
@@ -285,6 +289,8 @@ function createHarness(initialMetadataMode) {
     observers,
     genreCalls,
     genreListCalls,
+    recordingCalls,
+    folderCalls,
     metadataResolvers,
     setModule(value) { selectedModule = value; },
     setBackend(value) { backendId = value; },
@@ -477,10 +483,28 @@ async function proveWarmProductionReturnAndForcedRefresh() {
   const seriesCard = seriesRail.children[0];
   seriesRail.scrollLeft = 280;
 
+  const callsBeforeHomeReturn = {
+    recordings: harness.recordingCalls.length,
+    genreLists: harness.genreListCalls.length,
+    genreRecordings: harness.genreCalls.length,
+    folders: harness.folderCalls.length
+  };
+
   harness.fireModuleClick('recordings2');
   harness.fireModuleClick('overview');
   harness.fireLatestObserver();
   await flush();
+
+  assert.deepStrictEqual(
+    {
+      recordings: harness.recordingCalls.length,
+      genreLists: harness.genreListCalls.length,
+      genreRecordings: harness.genreCalls.length,
+      folders: harness.folderCalls.length
+    },
+    callsBeforeHomeReturn,
+    'same-backend Home return must retain every Home rail without new data-owner requests'
+  );
 
   assert.strictEqual(
     harness.seriesCalls('default').length,

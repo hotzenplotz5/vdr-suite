@@ -36,6 +36,8 @@
     randomGenreId: '',
     randomFolderGeneration: -1,
     randomFolderPath: '',
+    homeReadyBackendId: '',
+    homeReadyGeneration: -1,
     seriesMetadataCache: null
   };
 
@@ -659,8 +661,11 @@
   function canonicalSeriesPath(recording) {
     const value = recordingPath(recording) || text(recording && recording.title);
     const parts = value.split('/').map(text).filter(Boolean);
-    if (parts.length >= 2 && parts[0].toLowerCase() === 'serien') {
-      return 'Serien/' + parts[1];
+    const seriesIndex = parts.findIndex(function (part) {
+      return part.toLowerCase() === 'serien';
+    });
+    if (seriesIndex >= 0 && parts.length > seriesIndex + 1) {
+      return 'Serien/' + parts[seriesIndex + 1];
     }
     if (parts.length >= 2) {
       return parts.slice(0, -1).join('/');
@@ -708,15 +713,21 @@
 
     const providerSeriesId = text(sourceProvider.seriesId);
     const richProvider = text(rich.provider);
+    const manualEpisode = richProvider === 'manual' &&
+      richMediaType === 'episode';
     const parsedProviderId = Number(rich.providerId);
     const richProviderId = Number.isFinite(parsedProviderId) ? parsedProviderId : 0;
     const nativeMetadataAvailable = rich.available === true &&
       (richMediaType === 'episode' || richMediaType === 'series') &&
       Boolean(richProvider && richProviderId !== 0);
     let key = '';
-    if (providerSeriesId) key = 'provider:' + providerSeriesId;
-    else if (folderPath) key = 'folder:' + folderPath.toLowerCase();
-    else if (richProvider && richProviderId !== 0) {
+    if (manualEpisode && folderPath) {
+      key = 'folder:' + folderPath.toLowerCase();
+    } else if (providerSeriesId) {
+      key = 'provider:' + providerSeriesId;
+    } else if (folderPath) {
+      key = 'folder:' + folderPath.toLowerCase();
+    } else if (richProvider && richProviderId !== 0) {
       key = 'native:' + richProvider + ':' + String(richProviderId);
     } else key = 'title:' + seriesTitle.toLowerCase();
 
@@ -895,7 +906,10 @@
       backendId,
       generation,
       null,
-      {refreshUnsettled: true}
+      {
+        refreshUnsettled: true,
+        refreshIncompleteHierarchy: true
+      }
     ).then(function (rich) {
       if (!current(generation, backendId)) return false;
 
@@ -1522,12 +1536,26 @@
     const config = options && typeof options === 'object' ? options : {};
     const seriesKey = text(config.seriesKey);
     const refreshUnsettled = config.refreshUnsettled === true;
+    const refreshIncompleteHierarchy =
+      config.refreshIncompleteHierarchy === true;
+
     if (cache.resolved.has(nativeId)) {
       const cached = cache.resolved.get(nativeId);
       const unsettled = !cached ||
         (cached.available !== true && cached.settled === false);
+      const cachedMediaType = text(cached && cached.mediaType).toLowerCase();
+      const incompleteHierarchy = Boolean(
+        cached &&
+        cached.available === true &&
+        (cachedMediaType === 'series' || cachedMediaType === 'episode') &&
+        (
+          Number(cached.seasonNumber || 0) <= 0 ||
+          Number(cached.episodeNumber || 0) <= 0
+        )
+      );
 
-      if (!refreshUnsettled || !unsettled) {
+      if ((!refreshUnsettled || !unsettled) &&
+          (!refreshIncompleteHierarchy || !incompleteHierarchy)) {
         if (seriesKey) cache.readySeriesKeys.add(seriesKey);
         return Promise.resolve(cached);
       }
@@ -2321,6 +2349,8 @@
     clearSeriesMetadataRetry();
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
+    state.homeReadyBackendId = '';
+    state.homeReadyGeneration = -1;
     const entry = {
       backendId: backendId,
       generation: generation,
@@ -2331,7 +2361,15 @@
       loadNewly(client, backendId, generation),
       loadGenres(client, backendId, generation, {reuseWarm: config.reuseWarm === true}),
       loadFolders(client, backendId, generation)
-    ]).then(function () { return true; });
+    ]).then(function () {
+      if (generation === state.generation &&
+          backendId === selectedBackendId() &&
+          homeIsActive()) {
+        state.homeReadyBackendId = backendId;
+        state.homeReadyGeneration = generation;
+      }
+      return true;
+    });
     entry.promise = loadPromise.then(function (value) {
       if (state.refreshInFlight === entry) state.refreshInFlight = null;
       return value;
@@ -2344,6 +2382,14 @@
   }
 
   function refreshForHome() {
+    const backendId = selectedBackendId();
+    if (state.homeReadyBackendId === backendId &&
+        state.homeReadyGeneration === state.generation) {
+      if (state.seriesInvalidatedGeneration === state.generation) {
+        state.seriesInvalidatedGeneration = -1;
+      }
+      return Promise.resolve(true);
+    }
     return refresh({reuseWarm: true, coalesce: true});
   }
 
@@ -2372,6 +2418,8 @@
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
       state.generation += 1;
       state.loadedBackendId = '';
+      state.homeReadyBackendId = '';
+      state.homeReadyGeneration = -1;
       state.refreshInFlight = null;
       state.seriesCompletionInFlight = null;
       clearSeriesMetadataRetry();
