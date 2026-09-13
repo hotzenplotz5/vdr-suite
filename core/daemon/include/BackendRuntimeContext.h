@@ -1,7 +1,9 @@
 #pragma once
 
 #include "CurlExternalArtworkHttpTransport.h"
+#include "Database.h"
 #include "EpgArtworkEnrichmentService.h"
+#include "EpgEventRepository.h"
 #include "EpgCacheService.h"
 #include "EpgSeriesArtworkFallbackRepository.h"
 #include "EpgSeriesArtworkProviderCacheRepository.h"
@@ -47,6 +49,11 @@ struct BackendRuntimeContext
     std::unique_ptr<IHttpClient> epgHttpClient;
     std::unique_ptr<IVdrAdapter> epgAdapter;
     std::unique_ptr<VdrService> epgService;
+
+    // Home/EPG cache reads use a dedicated SQLite connection so periodic
+    // metadata writers on the primary runtime connection cannot stall them.
+    std::unique_ptr<Database> epgReadDatabase;
+    std::unique_ptr<EpgEventRepository> epgReadRepository;
     std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;

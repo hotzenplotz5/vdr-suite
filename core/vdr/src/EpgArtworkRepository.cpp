@@ -319,11 +319,11 @@ std::vector<EpgArtworkReference> EpgArtworkRepository::findMany(
         "artwork.width,"
         "artwork.height,"
         "artwork.resolved_at "
-        "FROM epg_event_artwork artwork "
-        "INNER JOIN requested "
-        "ON requested.channel_id=artwork.channel_id "
-        "AND requested.event_id=artwork.event_id "
+        "FROM requested "
+        "CROSS JOIN epg_event_artwork artwork "
         "WHERE artwork.backend_id=? "
+        "AND artwork.channel_id=requested.channel_id "
+        "AND artwork.event_id=requested.event_id "
         "ORDER BY artwork.channel_id,artwork.event_id;";
 
     sqlite3_stmt* statement = nullptr;

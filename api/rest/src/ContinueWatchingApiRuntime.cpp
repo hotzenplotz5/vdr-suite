@@ -1,6 +1,7 @@
 #include "ContinueWatchingApiRuntime.h"
 
 #include "ContinueWatching.h"
+#include "ManualRecordingMetadataApiRuntime.h"
 #include "Database.h"
 #include "RecentlyWatched.h"
 #include "VdrRecording.h"
@@ -153,6 +154,87 @@ const VdrRecording* findRecording(
     return nullptr;
 }
 
+using ManualAssignmentMap =
+    std::map<std::string, ManualRecordingMetadataAssignment>;
+
+const ManualRecordingMetadataAssignment*
+manualMetadataProjectionForRecording(
+    const VdrRecording& recording,
+    const ManualAssignmentMap& assignments)
+{
+    auto find = [&assignments](
+        const std::string& key)
+        -> const ManualRecordingMetadataAssignment*
+    {
+        if (key.empty()) return nullptr;
+        const auto it = assignments.find(key);
+        return it == assignments.end()
+            ? nullptr
+            : &it->second;
+    };
+
+    if (const auto* assignment = find(recording.backendNativeId))
+        return assignment;
+
+    if (const auto* assignment = find(recording.path))
+        return assignment;
+
+    return find(recording.id);
+}
+
+std::string manualMetadataUrlEncode(
+    const std::string& value)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    std::string encoded;
+
+    for (const unsigned char c : value)
+    {
+        if (std::isalnum(c) ||
+            c == '-' ||
+            c == '_' ||
+            c == '.' ||
+            c == '~')
+        {
+            encoded.push_back(static_cast<char>(c));
+            continue;
+        }
+
+        encoded.push_back('%');
+        encoded.push_back(hex[(c >> 4U) & 0x0FU]);
+        encoded.push_back(hex[c & 0x0FU]);
+    }
+
+    return encoded;
+}
+
+std::string manualMetadataPosterUrl(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    if (!assignment.found ||
+        !assignment.relationshipLocked ||
+        assignment.posterReference.empty() ||
+        assignment.revision <= 0 ||
+        recording.backendNativeId.empty())
+    {
+        return {};
+    }
+
+    const std::string backendId =
+        recording.backendId.empty()
+            ? "default"
+            : recording.backendId;
+
+    return
+        "/api/vdr/recordings/metadata/image?backend=" +
+        manualMetadataUrlEncode(backendId) +
+        "&backendNativeId=" +
+        manualMetadataUrlEncode(recording.backendNativeId) +
+        "&kind=preferred&index=0&assignmentRevision=" +
+        std::to_string(assignment.revision);
+}
+
 bool isContinueWatchingRecording(
     const RecentlyWatchedItem& item,
     const std::vector<ContinueWatchingItem>& continueWatchingItems)
@@ -188,6 +270,16 @@ std::string serializeContinueWatching(
     const std::vector<ContinueWatchingItem>& items,
     const std::vector<VdrRecording>& recordings)
 {
+    const std::string backendId =
+        !recordings.empty()
+            ? recordings.front().backendId
+            : (!items.empty()
+                ? items.front().recording.backendId
+                : "default");
+
+    const ManualAssignmentMap manualAssignments =
+        ManualRecordingMetadataApiRuntime::instance()
+            .findSelectedForBackend(backendId);
     std::ostringstream out;
     out << "{\"items\":[";
     bool first = true;
@@ -195,14 +287,39 @@ std::string serializeContinueWatching(
         const VdrRecording* currentRecording = findRecording(
             recordings, item.recording.backendId, item.recording.recordingId);
         if (currentRecording == nullptr) continue;
+
+        const ManualRecordingMetadataAssignment* manual =
+            manualMetadataProjectionForRecording(
+                *currentRecording,
+                manualAssignments);
+
+        const std::string projectedTitle =
+            manual != nullptr &&
+            manual->relationshipLocked &&
+            !manual->title.empty()
+                ? manual->title
+                : item.recording.title;
+
+        const std::string manualPoster =
+            manual != nullptr
+                ? manualMetadataPosterUrl(
+                    *currentRecording,
+                    *manual)
+                : std::string{};
+
+        const std::string projectedPoster =
+            manualPoster.empty()
+                ? item.recording.posterUrl
+                : manualPoster;
+
         if (!first) out << ',';
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
             << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
-            << "\",\"title\":\"" << jsonEscape(item.recording.title)
+            << "\",\"title\":\"" << jsonEscape(projectedTitle)
             << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
-            << "\",\"posterUrl\":\"" << jsonEscape(item.recording.posterUrl)
+            << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
@@ -219,6 +336,16 @@ std::string serializeRecentlyWatched(
     const std::vector<ContinueWatchingItem>& continueWatchingItems,
     const std::vector<VdrRecording>& recordings)
 {
+    const std::string backendId =
+        !recordings.empty()
+            ? recordings.front().backendId
+            : (!items.empty()
+                ? items.front().recording.backendId
+                : "default");
+
+    const ManualAssignmentMap manualAssignments =
+        ManualRecordingMetadataApiRuntime::instance()
+            .findSelectedForBackend(backendId);
     std::ostringstream out;
     out << "{\"items\":[";
     bool first = true;
@@ -227,14 +354,39 @@ std::string serializeRecentlyWatched(
         const VdrRecording* currentRecording = findRecording(
             recordings, item.recording.backendId, item.recording.recordingId);
         if (currentRecording == nullptr) continue;
+
+        const ManualRecordingMetadataAssignment* manual =
+            manualMetadataProjectionForRecording(
+                *currentRecording,
+                manualAssignments);
+
+        const std::string projectedTitle =
+            manual != nullptr &&
+            manual->relationshipLocked &&
+            !manual->title.empty()
+                ? manual->title
+                : item.recording.title;
+
+        const std::string manualPoster =
+            manual != nullptr
+                ? manualMetadataPosterUrl(
+                    *currentRecording,
+                    *manual)
+                : std::string{};
+
+        const std::string projectedPoster =
+            manualPoster.empty()
+                ? item.recording.posterUrl
+                : manualPoster;
+
         if (!first) out << ',';
         first = false;
         out << "{\"backendId\":\"" << jsonEscape(item.recording.backendId)
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
             << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
-            << "\",\"title\":\"" << jsonEscape(item.recording.title)
+            << "\",\"title\":\"" << jsonEscape(projectedTitle)
             << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
-            << "\",\"posterUrl\":\"" << jsonEscape(item.recording.posterUrl)
+            << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"positionKnown\":" << (item.positionKnown ? "true" : "false")
             << ",\"positionSeconds\":" << item.positionSeconds
             << ",\"completionKnown\":" << (item.completionKnown ? "true" : "false")

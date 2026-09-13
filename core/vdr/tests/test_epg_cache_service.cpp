@@ -205,6 +205,109 @@ static void test_cache_reads_do_not_fetch_adapter_events()
     assert(adapter.boundedEventCalls == 1);
 }
 
+static void test_dedicated_read_repository_is_used_for_cache_reads()
+{
+    const char* writerPath =
+        "/tmp/vdr-suite-epg-cache-service-writer-test.db";
+    const char* readerPath =
+        "/tmp/vdr-suite-epg-cache-service-reader-test.db";
+
+    std::remove(writerPath);
+    std::remove(readerPath);
+
+    Database writerDatabase;
+    Database readerDatabase;
+
+    assert(writerDatabase.open(writerPath));
+    assert(readerDatabase.open(readerPath));
+
+    EpgEventRepository writerRepository(writerDatabase);
+    EpgEventRepository readerRepository(readerDatabase);
+
+    assert(writerRepository.ensureSchema());
+    assert(readerRepository.ensureSchema());
+
+    assert(writerRepository.upsertEventsForBackend(
+        "default",
+        {make_event(
+            "writer-event",
+            "channel-1",
+            "Writer Event",
+            "0900",
+            "1100")}));
+
+    assert(readerRepository.upsertEventsForBackend(
+        "default",
+        {make_event(
+            "reader-event",
+            "channel-1",
+            "Reader Event",
+            "0900",
+            "1100")}));
+
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+
+    EpgCacheService service(
+        writerRepository,
+        vdrService,
+        nullptr,
+        &readerRepository);
+
+    assert(service.countForBackend("default") == 1);
+
+    const std::vector<VdrEvent> events =
+        service.findNowNextForBackend(
+            "default",
+            "channel-1",
+            "1000",
+            2);
+
+    assert(events.size() == 1);
+    assert(events.at(0).id == "reader-event");
+    assert(events.at(0).title == "Reader Event");
+
+    assert(service.containsEventForBackend(
+        "default",
+        "channel-1",
+        "reader-event"));
+
+    assert(!service.containsEventForBackend(
+        "default",
+        "channel-1",
+        "writer-event"));
+
+    adapter.events = {
+        make_event(
+            "new-writer-event",
+            "channel-2",
+            "New Writer Event",
+            "1000",
+            "1200")};
+
+    VdrEventQuery query;
+    query.limit = 1;
+
+    const EpgCacheRefreshResult refresh =
+        service.refreshBackendWindow(
+            "default",
+            query);
+
+    assert(refresh.accepted);
+    assert(refresh.stored);
+
+    assert(writerRepository.containsEventForBackend(
+        "default",
+        "channel-2",
+        "new-writer-event"));
+
+    assert(!readerRepository.containsEventForBackend(
+        "default",
+        "channel-2",
+        "new-writer-event"));
+}
+
+
 static void test_only_count_refresh_is_rejected()
 {
     VdrEventQuery query;
@@ -298,6 +401,7 @@ int main()
     test_unbounded_refresh_is_rejected_without_fetching_events();
     test_bounded_refresh_fetches_and_stores_backend_scoped_events();
     test_cache_reads_do_not_fetch_adapter_events();
+    test_dedicated_read_repository_is_used_for_cache_reads();
     test_authoritative_refresh_reconciles_replaced_native_ids();
     test_truncated_channel_is_not_reconciled();
     test_only_count_refresh_is_rejected();

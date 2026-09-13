@@ -159,6 +159,29 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         *context->epgAdapter,
         &runtimeLogger_);
 
+    if (epgEventRepository_) {
+        context->epgReadDatabase = std::make_unique<Database>();
+
+        if (!context->epgReadDatabase->open(config_.databasePath()) ||
+            !context->epgReadDatabase->execute("PRAGMA query_only=ON;")) {
+            std::cerr
+                << "failed to initialize dedicated EPG read connection: backend="
+                << context->backendId
+                << std::endl;
+            context->epgReadDatabase.reset();
+        }
+        else {
+            context->epgReadRepository =
+                std::make_unique<EpgEventRepository>(
+                    *context->epgReadDatabase);
+
+            std::cout
+                << "dedicated EPG read connection initialized: backend="
+                << context->backendId
+                << std::endl;
+        }
+    }
+
     context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
         *context->service,
         context->backendId,
@@ -572,7 +595,8 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->epgCacheService = std::make_unique<EpgCacheService>(
             *epgEventRepository_,
             *context->epgService,
-            context->epgArtworkEnrichmentService.get());
+            context->epgArtworkEnrichmentService.get(),
+            context->epgReadRepository.get());
     }
 
     return context;

@@ -71,11 +71,19 @@ EPG:
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheNowNext`
+- `fetchClientEpgCacheNowNextArtwork`
 - `fetchClientEpgCacheWindow`
 - `fetchClientEpgCacheRefresh`
 - `fetchClientEpgNowNext`
 - `fetchClientEpgTimeWindow`
 - `fetchClientEpgChannelWindow`
+
+Home H2/H2.1 EPG contract:
+
+- `fetchClientEpgCacheNowNext` owns the compact Home critical-path request and remains artwork-free.
+- `fetchClientEpgCacheNowNextArtwork` owns the optional bounded artwork manifest for the same channel page and `fromTime`.
+- Home artwork enrichment starts only after the compact Now/Next page has rendered.
+- the Home frontend must not perform per-event Metadata or Artwork requests.
 
 Metadata and persons:
 

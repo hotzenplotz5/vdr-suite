@@ -243,7 +243,13 @@ bool DaemonRuntime::initialize()
     vdrRecordingQueryResultJsonSerializer_ = std::make_unique<VdrRecordingQueryResultJsonSerializer>();
     vdrRecordingQueryController_ = std::make_unique<VdrRecordingQueryController>(
         *vdrRecordingQueryService_,
-        *vdrRecordingQueryResultJsonSerializer_);
+        *vdrRecordingQueryResultJsonSerializer_,
+        [this](const std::string& backendId)
+        {
+            return metadataController_
+                ->findManualRecordingMetadataForBackend(
+                    backendId);
+        });
     vdrRecordingFolderController_ =
         std::make_unique<VdrRecordingFolderController>(
             *vdrRecordingCacheRepository_,

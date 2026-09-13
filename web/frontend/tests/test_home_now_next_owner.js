@@ -14,16 +14,41 @@ const source = fs.readFileSync(
 
 assert(source.includes('VdrSuiteHomeNowNext'));
 assert(source.includes('fetchClientEpgCacheNowNext'));
+assert(source.includes('fetchClientEpgCacheNowNextArtwork'));
 assert(source.includes("perChannelLimit: '2'"));
 assert(!source.includes('fetchClientEpgCacheWindow'));
 assert(!source.includes('untilTime'));
 assert(!source.includes('fetchClientEpgArtwork'));
-assert(!source.includes('/api/epg/cache/artwork'));
+assert(!source.includes('fetchClientMetadata'));
+assert(!source.includes('/api/epg/cache/artwork?'));
 assert(!source.includes('artworkUrl'));
 assert(!source.includes('imageUrl'));
 
-let requests = 0;
-let lastOptions = null;
+const criticalPathStart =
+  source.indexOf('function loadPage(options)');
+
+const artworkPathStart =
+  source.indexOf('function loadArtworkPage(options)');
+
+assert(criticalPathStart >= 0);
+assert(artworkPathStart > criticalPathStart);
+
+const criticalPath =
+  source.slice(
+    criticalPathStart,
+    artworkPathStart
+  );
+
+assert(
+  !criticalPath.includes(
+    'fetchClientEpgCacheNowNextArtwork'
+  )
+);
+
+let nowNextRequests = 0;
+let manifestRequests = 0;
+let nowNextOptions = null;
+let manifestOptions = null;
 
 const now = Math.floor(Date.now() / 1000);
 
@@ -66,11 +91,36 @@ const response = {
   ]
 };
 
+const manifest = {
+  backendId: 'backend-a',
+  eventCount: 4,
+  artworkCount: 1,
+  items: [
+    {
+      channelId: 'A',
+      eventId: 'a-now',
+      artwork: {
+        available: true,
+        provider: 'tvscraper',
+        width: 680,
+        height: 1000,
+        url: '/api/epg/cache/artwork?backend=backend-a&channelId=A&eventId=a-now'
+      }
+    }
+  ]
+};
+
 const clientApi = {
   fetchClientEpgCacheNowNext(options) {
-    requests += 1;
-    lastOptions = options;
+    nowNextRequests += 1;
+    nowNextOptions = options;
     return Promise.resolve(response);
+  },
+
+  fetchClientEpgCacheNowNextArtwork(options) {
+    manifestRequests += 1;
+    manifestOptions = options;
+    return Promise.resolve(manifest);
   }
 };
 
@@ -95,6 +145,7 @@ const context = vm.createContext({
   String,
   Number,
   Set,
+  Map,
   Error
 });
 
@@ -114,30 +165,34 @@ assert.ok(window.VdrSuiteHomeNowNext);
     channelIds: ['A', 'B']
   });
 
-  assert.strictEqual(requests, 1);
+  /*
+   * H2 Critical Path: completing loadPage() must not have started artwork.
+   */
+  assert.strictEqual(nowNextRequests, 1);
+  assert.strictEqual(manifestRequests, 0);
 
   assert.strictEqual(
-    lastOptions.query.backend,
+    nowNextOptions.query.backend,
     'backend-a'
   );
 
   assert.strictEqual(
-    lastOptions.query.channelIds,
+    nowNextOptions.query.channelIds,
     'A,B'
   );
 
   assert.strictEqual(
-    lastOptions.query.perChannelLimit,
+    nowNextOptions.query.perChannelLimit,
     '2'
   );
 
   assert.ok(
-    Number(lastOptions.query.fromTime) > 0
+    Number(nowNextOptions.query.fromTime) > 0
   );
 
   assert.strictEqual(
     Object.prototype.hasOwnProperty.call(
-      lastOptions.query,
+      nowNextOptions.query,
       'untilTime'
     ),
     false
@@ -145,7 +200,7 @@ assert.ok(window.VdrSuiteHomeNowNext);
 
   assert.strictEqual(
     Object.prototype.hasOwnProperty.call(
-      lastOptions.query,
+      nowNextOptions.query,
       'limit'
     ),
     false
@@ -153,21 +208,106 @@ assert.ok(window.VdrSuiteHomeNowNext);
 
   assert.strictEqual(data.eventCount, 4);
 
+  assert.strictEqual(
+    owner.artworkForEvent(
+      'backend-a',
+      'A',
+      'a-now'
+    ),
+    null
+  );
+
+  await owner.loadArtworkPage({
+    backendId: 'backend-a',
+    channelIds: ['A', 'B']
+  });
+
+  assert.strictEqual(manifestRequests, 1);
+
+  /*
+   * Manifest must describe exactly the same bounded page snapshot.
+   */
+  assert.strictEqual(
+    manifestOptions.query.backend,
+    nowNextOptions.query.backend
+  );
+
+  assert.strictEqual(
+    manifestOptions.query.channelIds,
+    nowNextOptions.query.channelIds
+  );
+
+  assert.strictEqual(
+    manifestOptions.query.fromTime,
+    nowNextOptions.query.fromTime
+  );
+
+  assert.strictEqual(
+    manifestOptions.query.perChannelLimit,
+    '2'
+  );
+
+  const artwork =
+    owner.artworkForEvent(
+      'backend-a',
+      'A',
+      'a-now'
+    );
+
+  assert.ok(artwork);
+  assert.strictEqual(
+    artwork.available,
+    true
+  );
+
+  assert.strictEqual(
+    artwork.provider,
+    'tvscraper'
+  );
+
+  assert.ok(
+    artwork.url.includes(
+      '/api/epg/cache/artwork?'
+    )
+  );
+
+  assert.strictEqual(
+    owner.artworkForEvent(
+      'backend-a',
+      'B',
+      'b-now'
+    ),
+    null
+  );
+
+  /*
+   * Same page/snapshot is deduplicated: no second manifest request.
+   */
+  await owner.loadArtworkPage({
+    backendId: 'backend-a',
+    channelIds: ['A', 'B']
+  });
+
+  assert.strictEqual(manifestRequests, 1);
+
   const snapshot = owner.snapshot();
 
   assert.strictEqual(snapshot.backendId, 'backend-a');
   assert.strictEqual(snapshot.channelCount, 2);
   assert.strictEqual(snapshot.eventCount, 4);
   assert.strictEqual(snapshot.requestCount, 1);
+  assert.strictEqual(snapshot.manifestRequestCount, 1);
+  assert.strictEqual(snapshot.artworkCount, 1);
+
   assert.deepStrictEqual(
     Array.from(snapshot.channelIds),
     ['A', 'B']
   );
 
   console.log(
-    'Home Now/Next bounded data-owner contract ok'
+    'Home Now/Next H2.1 batch artwork-owner contract ok'
   );
 }()).catch(error => {
   console.error(error);
-  process.exitCode = 1;
+  throw error;
 });

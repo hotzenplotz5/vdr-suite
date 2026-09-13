@@ -156,6 +156,7 @@ test-frontend-contracts: test-frontend-i18n
 	python3 tools/check_frontend_platform_runtime_context.py
 	node web/frontend/tests/test_phase66_home_shell_composition.js
 	node web/frontend/tests/test_home_now_next_owner.js
+	node web/frontend/tests/test_home_now_next_artwork_hero.js
 	node web/frontend/tests/test_phase66_live_tv_hero.js
 	node web/frontend/tests/test_post_phase66_home_performance.js
 	node web/frontend/tests/test_phase66_home_live_hero_module_visibility.js

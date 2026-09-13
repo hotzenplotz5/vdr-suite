@@ -146,6 +146,24 @@ int main()
     assert(shared.found);
     assert(shared.people.size() == 1U);
     assert(shared.people[0].metadataEntityId == first.people[0].metadataEntityId);
+
+    // Regression: retired target bindings must never re-enter batch projection.
+    ManualRecordingMetadataSelection retiredSelection = selection(
+        "/video/retired.rec",
+        "102",
+        "Retired",
+        0);
+    ManualRecordingMetadataAssignment retired;
+    assert(repository.assignManualRecordingMetadata(
+        retiredSelection,
+        retired));
+    assert(retired.found);
+    assert(database.execute(
+        "UPDATE suite_metadata_target_bindings "
+        "SET lifecycle_state='retired' "
+        "WHERE metadata_target_id='" +
+        retired.metadataTargetId +
+        "';"));
     assert(scalar(
         database.handle(),
         "SELECT COUNT(*) FROM suite_metadata_person_values;") == 2);
@@ -236,6 +254,8 @@ int main()
     assert(batch.count("video/example.rec") == 0);
     assert(batch.count("/video/other.rec") == 1);
     assert(batch.count("video/other.rec") == 1);
+    assert(batch.count("/video/retired.rec") == 0);
+    assert(batch.count("video/retired.rec") == 0);
     assert(batch.at("/video/other.rec").people.size() == 1U);
     assert(batch.at("video/other.rec").people[0].externalId == "31");
     assert(traceState.manualBatchReads == 1);

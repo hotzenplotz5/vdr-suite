@@ -60,6 +60,7 @@
       backendId: scopedBackend,
       recordingId: recordingId,
       recording: recording,
+      title: text(item.title),
       posterUrl: text(item.posterUrl),
       positionKnown: item.positionKnown === true,
       positionSeconds: Math.max(0, Math.floor(Number(item.positionSeconds) || 0)),
@@ -80,7 +81,11 @@
     return value && typeof value === 'object' ? value : {};
   }
   function title(item) {
-    return text(presentation(item.recording).title || item.recording.title) || 'Aufnahme';
+    return text(
+      item.title ||
+      presentation(item.recording).title ||
+      item.recording.title
+    ) || 'Aufnahme';
   }
   function subtitle(item) {
     return text(presentation(item.recording).subtitle);
@@ -88,7 +93,7 @@
   function posterUrl(item) {
     const metadata = recordingMetadata(item.recording);
     const artwork = metadata.artwork && typeof metadata.artwork === 'object' ? metadata.artwork : {};
-    return text(presentation(item.recording).posterUrl || artwork.preferredUrl || item.posterUrl);
+    return text(item.posterUrl || presentation(item.recording).posterUrl || artwork.preferredUrl);
   }
   function homePreview(path) {
     const helpers = global.VdrSuiteFrontendHelpers;

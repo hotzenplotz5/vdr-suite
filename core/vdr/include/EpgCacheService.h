@@ -52,7 +52,8 @@ public:
     EpgCacheService(
         EpgEventRepository& repository,
         VdrService& vdrService,
-        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr);
+        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
+        EpgEventRepository* readRepository = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -113,6 +114,7 @@ private:
     };
 
     EpgEventRepository& repository_;
+    EpgEventRepository* readRepository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
     mutable std::mutex statusMutex_;
