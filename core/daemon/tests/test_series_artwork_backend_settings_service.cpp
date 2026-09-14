@@ -117,6 +117,43 @@ mode_t fileMode(const std::filesystem::path& path)
     return metadata.st_mode & 0777;
 }
 
+bool columnExists(
+    Database& database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+
+    const std::string sql =
+        "PRAGMA table_info(" + table + ");";
+
+    assert(sqlite3_prepare_v2(
+        database.handle(),
+        sql.c_str(),
+        -1,
+        &statement,
+        nullptr) == SQLITE_OK);
+
+    bool found = false;
+
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        const unsigned char* value =
+            sqlite3_column_text(statement, 1);
+
+        if (value != nullptr &&
+            column ==
+                reinterpret_cast<const char*>(value))
+        {
+            found = true;
+            break;
+        }
+    }
+
+    sqlite3_finalize(statement);
+    return found;
+}
+
 int scalar(Database& database, const std::string& sql)
 {
     sqlite3_stmt* statement = nullptr;
@@ -135,6 +172,18 @@ int main()
 
     Database database;
     assert(database.open((root / "settings.db").string()));
+
+    // Simulate the exact schema that was already live before the
+    // TMDB Series-cover cache fields were introduced.
+    assert(database.execute(
+        "CREATE TABLE backend_series_artwork_overrides ("
+        "backend_id TEXT NOT NULL,"
+        "series_key TEXT NOT NULL,"
+        "poster_url TEXT NOT NULL,"
+        "revision INTEGER NOT NULL DEFAULT 1,"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "PRIMARY KEY(backend_id,series_key)"
+        ");"));
 
     assert(database.execute(
         "CREATE TABLE epg_scraper_metadata_cache ("
@@ -175,12 +224,103 @@ int main()
         config);
     assert(service.ensureSchema());
 
+    assert(columnExists(
+        database,
+        "backend_series_artwork_overrides",
+        "poster_path"));
+
+    assert(columnExists(
+        database,
+        "backend_series_artwork_overrides",
+        "provider_id"));
+
+    assert(columnExists(
+        database,
+        "backend_series_artwork_overrides",
+        "external_id"));
+
+    assert(columnExists(
+        database,
+        "backend_series_artwork_overrides",
+        "poster_reference"));
+
     const SeriesArtworkBackendSettingsSnapshot initial =
         service.get("default");
     assert(initial.backendId == "default");
     assert(initial.provider == "tvmaze");
     assert(initial.configurationSource == "environment");
     assert(!initial.tmdbTokenConfigured);
+
+    assert(
+        initial.coverOverrides.empty() &&
+        "manual per-Series cover overrides must start empty");
+
+    const std::string seriesKey =
+        "folder:serien/band_of_brothers_-_wir_waren_wie_brüder";
+    const std::string firstCover =
+        "/api/vdr/recordings/metadata/image?"
+        "backend=default&backendNativeId=native-band-01&kind=gallery&index=3";
+    const std::string secondCover =
+        "/api/vdr/recordings/metadata/image?"
+        "backend=default&backendNativeId=native-band-01&kind=gallery&index=4";
+
+    SeriesArtworkBackendSettingsUpdate setCover;
+    setCover.backendId = "default";
+    setCover.operation = "set-series-cover";
+    setCover.seriesKey = seriesKey;
+    setCover.posterUrl = firstCover;
+
+    const auto coverSet = service.update(setCover);
+    assert(coverSet.success);
+    assert(coverSet.statusCode == 200);
+    assert(coverSet.settings.coverOverrides.size() == 1U);
+    assert(coverSet.settings.coverOverrides[0].seriesKey == seriesKey);
+    assert(coverSet.settings.coverOverrides[0].posterUrl == firstCover);
+    assert(coverSet.settings.coverOverrides[0].revision == 1);
+
+    const auto persistedCover = service.get("default");
+    assert(persistedCover.coverOverrides.size() == 1U);
+    assert(persistedCover.coverOverrides[0].seriesKey == seriesKey);
+    assert(persistedCover.coverOverrides[0].posterUrl == firstCover);
+    assert(persistedCover.coverOverrides[0].revision == 1);
+
+    SeriesArtworkBackendSettingsUpdate replaceCover = setCover;
+    replaceCover.posterUrl = secondCover;
+
+    const auto coverReplaced = service.update(replaceCover);
+    assert(coverReplaced.success);
+    assert(coverReplaced.settings.coverOverrides.size() == 1U);
+    assert(coverReplaced.settings.coverOverrides[0].posterUrl == secondCover);
+    assert(coverReplaced.settings.coverOverrides[0].revision == 2);
+
+    assert(
+        service.get("house-b").coverOverrides.empty() &&
+        "Series cover overrides must remain backend-scoped");
+
+    SeriesArtworkBackendSettingsUpdate externalCover = setCover;
+    externalCover.posterUrl = "https://example.invalid/cover.jpg";
+    const auto externalRejected = service.update(externalCover);
+    assert(!externalRejected.success);
+    assert(externalRejected.statusCode == 400);
+    assert(externalRejected.errorCode == "invalid_series_cover_url");
+
+    SeriesArtworkBackendSettingsUpdate emptySeries = setCover;
+    emptySeries.seriesKey.clear();
+    const auto emptySeriesRejected = service.update(emptySeries);
+    assert(!emptySeriesRejected.success);
+    assert(emptySeriesRejected.statusCode == 400);
+    assert(emptySeriesRejected.errorCode == "invalid_series_key");
+
+    SeriesArtworkBackendSettingsUpdate clearCover;
+    clearCover.backendId = "default";
+    clearCover.operation = "clear-series-cover";
+    clearCover.seriesKey = seriesKey;
+
+    const auto coverCleared = service.update(clearCover);
+    assert(coverCleared.success);
+    assert(coverCleared.statusCode == 200);
+    assert(coverCleared.settings.coverOverrides.empty());
+    assert(service.get("default").coverOverrides.empty());
 
     transport.responses = {tokenValidationResponse("{}")};
     SeriesArtworkBackendSettingsUpdate enableTmdb;

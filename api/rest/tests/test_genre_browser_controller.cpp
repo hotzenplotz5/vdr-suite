@@ -285,6 +285,40 @@ int main()
     assert(contains(manualSummary, "&assignmentRevision=7"));
     assert(!contains(manualSummary, "&kind=gallery"));
 
+    assert(database.execute(
+        "UPDATE suite_metadata_manual_assignment_values SET "
+        "title='Manuelle Serie',season_number=0,episode_number=0,"
+        "media_type='series' "
+        "WHERE metadata_assignment_id="
+        "'mdasg_11111111111111111111111111111111';"));
+
+    const ApiResponse manualSeriesSummary =
+        controller.getRecordings(
+            "default",
+            "science-fiction",
+            10,
+            0);
+
+    assert(manualSeriesSummary.statusCode == 200);
+
+    assert(
+        contains(
+            manualSeriesSummary,
+            "\"seasonNumber\":2,\"episodeNumber\":7") &&
+        "manual series presentation preserves native episode hierarchy");
+
+    assert(contains(
+        manualSeriesSummary,
+        "\"title\":\"Manuelle Serie\""));
+
+    assert(contains(
+        manualSeriesSummary,
+        "\"provider\":\"manual\""));
+
+    assert(contains(
+        manualSeriesSummary,
+        "&assignmentRevision=7"));
+
     const ApiResponse initialOverview = controller.getOverview(
         "default", "epg", "de", now, now + 172800);
     assert(initialOverview.statusCode == 200);

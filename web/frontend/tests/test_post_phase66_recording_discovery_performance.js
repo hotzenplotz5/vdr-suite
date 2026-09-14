@@ -136,6 +136,7 @@ function createHarness(initialMetadataMode) {
   const recordingCalls = [];
   const folderCalls = [];
   const metadataResolvers = [];
+  const seriesArtworkSettingsCalls = [];
   let selectedModule = 'overview';
   let backendId = 'default';
   let metadataMode = initialMetadataMode || 'available-false';
@@ -205,6 +206,30 @@ function createHarness(initialMetadataMode) {
       return Promise.resolve({folders: [], recordings: [], recordingCount: 0});
     },
     requestJson(route, request) {
+      if (String(route || '').includes('/settings/series-artwork')) {
+        assert.strictEqual(
+          route,
+          '/api/backends/' + encodeURIComponent(backendId) +
+            '/settings/series-artwork'
+        );
+
+        seriesArtworkSettingsCalls.push({
+          backendId: backendId,
+          route: route
+        });
+
+        return Promise.resolve({
+          backendId: backendId,
+          provider: 'none',
+          configurationSource: 'environment',
+          tmdbTokenConfigured: false,
+          tmdbTokenSource: 'none',
+          restartRequired: false,
+          availableProviders: ['none', 'tvmaze', 'tmdb'],
+          coverOverrides: []
+        });
+      }
+
       assert.strictEqual(route, '/api/vdr/recordings/metadata');
       assert.strictEqual(request.query.backend, backendId);
       if (metadataMode === 'reject') {
@@ -292,6 +317,7 @@ function createHarness(initialMetadataMode) {
     recordingCalls,
     folderCalls,
     metadataResolvers,
+    seriesArtworkSettingsCalls,
     setModule(value) { selectedModule = value; },
     setBackend(value) { backendId = value; },
     setMetadataMode(value) { metadataMode = value; },
@@ -338,6 +364,18 @@ async function proveInFlightCoalescing() {
     harness.seriesCalls('default').length,
     1,
     'coalesced initial Home must scan Series exactly once'
+  );
+
+  assert.strictEqual(
+    harness.seriesArtworkSettingsCalls.length,
+    1,
+    'coalesced initial Home must load Series artwork settings exactly once'
+  );
+
+  assert.strictEqual(
+    harness.seriesArtworkSettingsCalls[0].backendId,
+    'default',
+    'Series artwork settings must remain backend-scoped'
   );
 
   assert.strictEqual(

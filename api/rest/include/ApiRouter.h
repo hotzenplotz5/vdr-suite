@@ -7,6 +7,7 @@
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
+#include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingCutApiRuntime.h"
 #include "RecordingMarksApiRuntime.h"
@@ -219,6 +220,13 @@ public:
             return response;
         }
 
+        if (RecordingSeriesHierarchyApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
         if (MediaTranscodeSettingsApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
@@ -307,6 +315,15 @@ public:
         ManualRecordingMetadataApiRuntime::instance().registerController(
             metadataController_);
         if (ManualRecordingMetadataApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                actorRef,
+                response))
+        {
+            return response;
+        }
+
+        if (RecordingSeriesHierarchyApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 body,
                 actorRef,

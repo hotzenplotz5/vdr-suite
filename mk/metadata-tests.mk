@@ -6,6 +6,7 @@
 	test-metadata-manual-recording-assignment \
 	test-metadata-recording-candidate-provider \
 	test-metadata-manual-recording-api \
+	test-metadata-series-hierarchy \
 	test-metadata-manual-recording-read-model \
 	test-metadata-genres \
 	test-metadata-genre-conflicts \
@@ -80,6 +81,26 @@ test-metadata-manual-recording-api:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_manual_recording_metadata_api_runtime
 	$(BUILD_DIR)/test_manual_recording_metadata_api_runtime
+
+test-metadata-series-hierarchy: CXXFLAGS += -Icore/metadata/include -Iapi/rest/include
+test-metadata-series-hierarchy:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
+		core/metadata/tests/test_recording_series_hierarchy_override_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_recording_series_hierarchy_override_repository
+	$(BUILD_DIR)/test_recording_series_hierarchy_override_repository
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
+		api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
+		api/rest/tests/test_recording_series_hierarchy_api_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_recording_series_hierarchy_api_runtime
+	$(BUILD_DIR)/test_recording_series_hierarchy_api_runtime
+	python3 tools/check_recording_series_hierarchy_projection.py
+	python3 tools/check_recording_series_hierarchy_daemon_ownership.py
 
 test-metadata-manual-recording-read-model: CXXFLAGS += -Icore/metadata/include -Icore/recordings/include -Icore/http/include -Icore/vdr/include -Iapi/rest/include
 test-metadata-manual-recording-read-model:

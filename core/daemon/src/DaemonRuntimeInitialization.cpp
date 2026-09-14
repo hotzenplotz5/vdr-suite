@@ -2,6 +2,7 @@
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "RecordingArtworkHttpServer.h"
+#include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
 #include "SearchTimerDiscoveryStaticProvider.h"
@@ -27,6 +28,20 @@ bool DaemonRuntime::initialize()
     }
 
     std::cout << "database opened" << std::endl;
+
+    if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
+        !RecordingSeriesHierarchyApiRuntime::instance().configure(database_))
+    {
+        std::cerr
+            << "failed to initialize recording Series hierarchy override runtime"
+            << std::endl;
+        return false;
+    }
+
+    std::cout
+        << "recording Series hierarchy override runtime initialized"
+        << std::endl;
+
 
     jobRepository_ = std::make_unique<JobRepository>(database_);
     recordingRepository_ = std::make_unique<RecordingRepository>(database_);

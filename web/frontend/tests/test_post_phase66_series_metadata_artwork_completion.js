@@ -134,6 +134,7 @@ function createHarness(firstMetadata, embeddedRecordings) {
   let backendId = 'default';
   let metadataResponse = firstMetadata;
   let metadataCalls = 0;
+  let seriesArtworkSettingsCalls = 0;
   let recordingCalls = 0;
   let genreListCalls = 0;
   let seriesCalls = 0;
@@ -169,6 +170,25 @@ function createHarness(firstMetadata, embeddedRecordings) {
       return Promise.resolve({folders: [], recordings: [], recordingCount: 0});
     },
     requestJson(route, request) {
+      if (String(route || '').includes('/settings/series-artwork')) {
+        assert.strictEqual(
+          route,
+          '/api/backends/' + encodeURIComponent(backendId) +
+            '/settings/series-artwork'
+        );
+        seriesArtworkSettingsCalls += 1;
+        return Promise.resolve({
+          backendId: backendId,
+          provider: 'none',
+          configurationSource: 'environment',
+          tmdbTokenConfigured: false,
+          tmdbTokenSource: 'none',
+          restartRequired: false,
+          availableProviders: ['none', 'tvmaze', 'tmdb'],
+          coverOverrides: []
+        });
+      }
+
       assert.strictEqual(route, '/api/vdr/recordings/metadata');
       assert.strictEqual(request.query.backend, backendId);
       metadataCalls += 1;
@@ -249,6 +269,9 @@ function createHarness(firstMetadata, embeddedRecordings) {
     setModule(value) { selectedModule = value; },
     setBackend(value) { backendId = value; },
     metadataCalls() { return metadataCalls; },
+    seriesArtworkSettingsCalls() {
+      return seriesArtworkSettingsCalls;
+    },
     recordingCalls() { return recordingCalls; },
     genreListCalls() { return genreListCalls; },
     seriesCalls() { return seriesCalls; },
@@ -288,6 +311,12 @@ async function proveInitialHomeDefersNativeMetadata() {
 
   assert.strictEqual(await harness.api.refreshForHome(), true);
   await flush();
+
+  assert.strictEqual(
+    harness.seriesArtworkSettingsCalls(),
+    1,
+    'initial Home must read Series artwork settings exactly once'
+  );
 
   assert.strictEqual(
     harness.metadataCalls(),
@@ -360,6 +389,11 @@ async function proveInitialHomeDefersNativeMetadata() {
   assert.strictEqual(pathFallback.episodeNumber, 7);
   assert.strictEqual(await cached.api.refreshForHome(), true);
   await flush();
+  assert.strictEqual(
+    cached.seriesArtworkSettingsCalls(),
+    1,
+    'cached Series projection still loads its backend-scoped cover settings once'
+  );
   assert.strictEqual(cached.metadataCalls(), 0, 'cached series must not fan out metadata reads');
   const card = findElement(cached.host, element => Boolean(element.__vdrSuiteSeries));
   assert(card, 'production refresh must render the cached series card');

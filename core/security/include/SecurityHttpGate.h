@@ -148,6 +148,12 @@ public:
         std::string manualMetadataOperation;
         const bool isManualRecordingMetadataAction = isPost &&
             manualRecordingMetadataRoute(path, manualMetadataBackendId, manualMetadataOperation);
+        std::string recordingSeriesHierarchyBackendId;
+        const bool isRecordingSeriesHierarchyAction =
+            isPost &&
+            recordingSeriesHierarchyRoute(
+                path,
+                recordingSeriesHierarchyBackendId);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
         const bool isSafePost = isPost &&
@@ -168,7 +174,8 @@ public:
             isSearchTimerPreviewCacheRefreshAction || isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction || isNativeFuzzyStaleProbeDeleteAction ||
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
-            isManualRecordingMetadataAction;
+            isManualRecordingMetadataAction ||
+            isRecordingSeriesHierarchyAction;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
 
@@ -370,6 +377,13 @@ public:
             requestToAuthorize.action = "metadata.recording." + manualMetadataOperation;
             requestToAuthorize.backendId = manualMetadataBackendId;
         }
+        else if (isRecordingSeriesHierarchyAction)
+        {
+            requestToAuthorize.permission = "metadata.recording.assign";
+            requestToAuthorize.action = "metadata.recording.hierarchy";
+            requestToAuthorize.backendId =
+                recordingSeriesHierarchyBackendId;
+        }
         else if (isSeriesArtworkSettingsAction)
         {
             requestToAuthorize.permission = "backend.settings.series-artwork.modify";
@@ -557,6 +571,55 @@ private:
                         character == '_' || character == '-';
                 });
         if (validBackend) backendId = candidate;
+        return true;
+    }
+
+    static bool recordingSeriesHierarchyRoute(
+        const std::string& path,
+        std::string& backendId)
+    {
+        backendId.clear();
+
+        const std::string prefix = "/api/backends/";
+        const std::string suffix =
+            "/recordings/series-hierarchy";
+
+        if (path.size() <= prefix.size() + suffix.size() ||
+            path.compare(
+                0,
+                prefix.size(),
+                prefix) != 0 ||
+            path.compare(
+                path.size() - suffix.size(),
+                suffix.size(),
+                suffix) != 0)
+        {
+            return false;
+        }
+
+        const std::string candidate = path.substr(
+            prefix.size(),
+            path.size() -
+                prefix.size() -
+                suffix.size());
+
+        const bool validBackend =
+            !candidate.empty() &&
+            candidate.size() <= 128U &&
+            std::all_of(
+                candidate.begin(),
+                candidate.end(),
+                [](unsigned char character) {
+                    return std::isalnum(character) ||
+                        character == '.' ||
+                        character == '_' ||
+                        character == '-';
+                });
+
+        if (!validBackend)
+            return false;
+
+        backendId = candidate;
         return true;
     }
 

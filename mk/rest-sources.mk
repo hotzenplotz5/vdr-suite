@@ -41,11 +41,16 @@ REST_MANUAL_RECORDING_METADATA_SRC := \
         core/http/src/CurlExternalArtworkHttpTransport.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp
 
+REST_SERIES_HIERARCHY_SRC := \
+        core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
+        api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp
+
 REST_ROUTER_SRC := \
         $(GLOBAL_SEARCH_SRC) \
         $(GENRE_BROWSER_REST_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
         $(REST_MANUAL_RECORDING_METADATA_SRC) \
+        $(REST_SERIES_HIERARCHY_SRC) \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \

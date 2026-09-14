@@ -546,13 +546,15 @@ function createProductionHarness(options) {
     genres: [],
     genreRecordings: [],
     folders: [],
-    metadata: []
+    metadata: [],
+    seriesArtworkSettings: []
   };
   const productionOpenedRecordings = [];
   const modules = [];
   let selectedModule = 'overview';
   let metadataInFlight = 0;
   let metadataMaxInFlight = 0;
+  const timers = [];
 
   const client = {
     fetchClientRecordings(request) {
@@ -588,6 +590,38 @@ function createProductionHarness(options) {
       return Promise.resolve(config.folders || {folders: []});
     },
     requestJson(route, request) {
+      if (String(route || '').includes('/settings/series-artwork')) {
+        calls.seriesArtworkSettings.push({route, request});
+
+        if (request && String(request.method || 'GET').toUpperCase() === 'POST') {
+          return Promise.resolve(
+            config.seriesArtworkSettingsMutation || {
+              backendId: config.backendId || 'default',
+              provider: 'none',
+              configurationSource: 'environment',
+              tmdbTokenConfigured: false,
+              tmdbTokenSource: 'none',
+              restartRequired: false,
+              availableProviders: ['none', 'tvmaze', 'tmdb'],
+              coverOverrides: []
+            }
+          );
+        }
+
+        return Promise.resolve(
+          config.seriesArtworkSettings || {
+            backendId: config.backendId || 'default',
+            provider: 'none',
+            configurationSource: 'environment',
+            tmdbTokenConfigured: false,
+            tmdbTokenSource: 'none',
+            restartRequired: false,
+            availableProviders: ['none', 'tvmaze', 'tmdb'],
+            coverOverrides: []
+          }
+        );
+      }
+
       calls.metadata.push({route, request});
       const nativeId = request && request.query && request.query.backendNativeId;
       metadataInFlight += 1;
@@ -636,7 +670,13 @@ function createProductionHarness(options) {
   const productionContext = {window: {}, console};
   productionContext.window.window = productionContext.window;
   productionContext.window.document = document;
-  productionContext.window.setTimeout = function () { return 1; };
+  productionContext.window.setTimeout = function (callback, delay) {
+    timers.push({
+      callback: callback,
+      delay: Number(delay || 0)
+    });
+    return timers.length;
+  };
   productionContext.window.selectModule = function (moduleName) {
     modules.push(moduleName);
     selectedModule = moduleName;
@@ -664,7 +704,27 @@ function createProductionHarness(options) {
     calls,
     openedRecordings: productionOpenedRecordings,
     modules,
-    metadataMaxInFlight() { return metadataMaxInFlight; }
+    metadataMaxInFlight() { return metadataMaxInFlight; },
+    pendingTimers() {
+      return timers.length;
+    },
+    timerDelays() {
+      return timers.map(function (timer) {
+        return timer.delay;
+      });
+    },
+    runTimerByDelay(delay) {
+      const requested = Number(delay);
+      const index = timers.findIndex(function (timer) {
+        return timer.delay === requested;
+      });
+      if (index < 0) return false;
+      const timer = timers.splice(index, 1)[0];
+      if (typeof timer.callback === 'function') {
+        timer.callback();
+      }
+      return true;
+    }
   };
 }
 
@@ -743,6 +803,18 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   assert(production.calls.genreRecordings.every((call) => call.limit === 100));
   assert(production.calls.genreRecordings.every((call) => call.backendId === 'default'));
   assert(production.calls.genreRecordings.every((call) => call.genreId === 'series'));
+  assert.strictEqual(
+    production.calls.seriesArtworkSettings.length,
+    1,
+    'Home Series discovery must load Series artwork settings exactly once'
+  );
+
+  assert.strictEqual(
+    production.calls.seriesArtworkSettings[0].route,
+    '/api/backends/default/settings/series-artwork',
+    'Series artwork settings must remain explicitly backend-scoped'
+  );
+
   const metadataAtVisibleReady = production.calls.metadata.slice();
 
   assert(
@@ -1107,6 +1179,279 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
       return Number(card.dataset.episodeNumber);
     }),
     [1, 2]
+  );
+
+  // Permanent regression: a partially resolved Series hierarchy must never
+  // expose provisional season 0 / "Staffel unbekannt" while unresolved
+  // Recording Metadata is still explicitly unsettled.
+  //
+  // This mirrors the real Band of Brothers failure: seven episodes already
+  // have canonical hierarchy, three are still being resolved.
+  const partialBandItems = Array.from(
+    {length: 10},
+    function (_, index) {
+      const episodeNumber = index + 1;
+      const padded = String(episodeNumber).padStart(2, '0');
+      return {
+        recordingId: 'band-partial-' + padded,
+        backendId: 'default',
+        backendNativeId: 'native-band-partial-' + padded,
+        path:
+          'Serien/Band_Of_Brothers_-_Wir_waren_wie_Brüder/' +
+          padded + '_Folge_' + padded +
+          '/2016-04-' + padded + '.00.00.1-0.rec',
+        title:
+          'Band_Of_Brothers_-_Wir_waren_wie_Brüder/' +
+          padded + '_Folge_' + padded,
+        metadata: {
+          provider: {},
+          presentation: {posterUrl: ''},
+          artwork: {preferredUrl: ''}
+        }
+      };
+    }
+  );
+
+  const partialBandMetadata = {};
+
+  partialBandItems.forEach(function (recording, index) {
+    const episodeNumber = index + 1;
+
+    partialBandMetadata[recording.backendNativeId] =
+      episodeNumber <= 7
+        ? {
+            available: true,
+            settled: true,
+            provider: 'tvscraper',
+            mediaType: 'series',
+            providerId: -74205,
+            title: 'Band of Brothers',
+            episodeName: 'Folge ' + String(episodeNumber),
+            seasonNumber: 1,
+            episodeNumber: episodeNumber
+          }
+        : {
+            available: false,
+            settled: false
+          };
+  });
+
+  const partialBandHarness = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: partialBandItems.length
+      }]
+    },
+    seriesItems: partialBandItems,
+    metadataByNativeId: partialBandMetadata
+  });
+
+  assert.strictEqual(
+    await partialBandHarness.api.refresh(),
+    true
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const partialBandRail = findRail(
+    partialBandHarness.host,
+    'series'
+  );
+
+  const partialBandCards = findSeriesCards(
+    partialBandRail
+  );
+
+  assert.strictEqual(
+    partialBandCards.length,
+    1,
+    'partial Band of Brothers fixture must stay one Series'
+  );
+
+  partialBandCards[0].listeners.click[0]();
+
+  for (let turn = 0; turn < 12; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    partialBandHarness.calls.metadata.length,
+    partialBandItems.length,
+    'opening the Series must resolve each member at most once in this pass'
+  );
+
+  const partialBandDetail = findRail(
+    partialBandHarness.host,
+    'series'
+  );
+
+  assert.strictEqual(
+    findSeasonButtons(partialBandDetail).length,
+    0,
+    'partially resolved hierarchy must not publish provisional season buttons'
+  );
+
+  const partialBandLoadingState = findElement(
+    partialBandDetail,
+    function (element) {
+      return element.textContent === 'Staffeln werden geladen …';
+    }
+  );
+
+  assert(
+    partialBandLoadingState,
+    '7 resolved + 3 unsettled episodes must remain in the loading state'
+  );
+
+  assert.strictEqual(
+    findElement(
+      partialBandDetail,
+      function (element) {
+        return String(element.textContent || '').includes(
+          'Staffel unbekannt'
+        );
+      }
+    ),
+    null,
+    'Staffel unbekannt must never be exposed while hierarchy Metadata is unsettled'
+  );
+
+  // Permanent regression:
+  // seven episodes are already canonical, three return settled=false once
+  // and become canonical on the next request. Opening the Series must
+  // actively retry those three instead of remaining in loading forever.
+  const retryBandSequences = {};
+  const retryBandStable = {};
+
+  partialBandItems.forEach(function (recording, index) {
+    const episodeNumber = index + 1;
+    const ready = {
+      available: true,
+      settled: true,
+      provider: 'tvscraper',
+      mediaType: 'series',
+      providerId: -74205,
+      title: 'Band of Brothers',
+      episodeName: 'Folge ' + String(episodeNumber),
+      seasonNumber: 1,
+      episodeNumber: episodeNumber
+    };
+
+    if (episodeNumber <= 7) {
+      retryBandStable[recording.backendNativeId] = ready;
+      return;
+    }
+
+    retryBandSequences[recording.backendNativeId] = [
+      {
+        available: false,
+        settled: false
+      },
+      ready
+    ];
+  });
+
+  const retryBandHarness = createProductionHarness({
+    genres: {
+      genres: [{
+        id: 'series',
+        label: 'Serien',
+        count: partialBandItems.length
+      }]
+    },
+    seriesItems: partialBandItems,
+    metadataByNativeId: retryBandStable,
+    metadataSequenceByNativeId: retryBandSequences
+  });
+
+  assert.strictEqual(
+    await retryBandHarness.api.refresh(),
+    true
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const retryBandCard = findSeriesCards(
+    findRail(retryBandHarness.host, 'series')
+  )[0];
+
+  assert(retryBandCard);
+
+  retryBandCard.listeners.click[0]();
+
+  for (let turn = 0; turn < 24; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    retryBandHarness.calls.metadata.length,
+    10,
+    'first Series open pass must still resolve each member at most once'
+  );
+
+  assert(
+    retryBandHarness.pendingTimers() >= 1,
+    'unsettled Series detail must schedule a retry'
+  );
+
+  assert(
+    retryBandHarness.timerDelays().includes(2000),
+    'opened Series detail must schedule the short 2000ms retry'
+  );
+
+  assert.strictEqual(
+    retryBandHarness.runTimerByDelay(2000),
+    true,
+    'scheduled 2000ms Series retry must be executable independently of unrelated Home timers'
+  );
+
+  for (let turn = 0; turn < 24; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  assert.strictEqual(
+    retryBandHarness.calls.metadata.length,
+    13,
+    'scheduled retry must re-read only the three unsettled members'
+  );
+
+  const retryBandDetail = findRail(
+    retryBandHarness.host,
+    'series'
+  );
+
+  assert.deepStrictEqual(
+    findSeasonButtons(retryBandDetail).map(function (button) {
+      return Number(button.dataset.seasonNumber);
+    }),
+    [1],
+    'Series detail retry must replace loading with the canonical Staffel'
+  );
+
+  assert.strictEqual(
+    findElement(
+      retryBandDetail,
+      function (element) {
+        return element.textContent === 'Staffeln werden geladen …';
+      }
+    ),
+    null,
+    'Series detail must leave the loading state after retry succeeds'
+  );
+
+  assert.strictEqual(
+    findElement(
+      retryBandDetail,
+      function (element) {
+        return String(element.textContent || '').includes(
+          'Staffel unbekannt'
+        );
+      }
+    ),
+    null,
+    'successful Series retry must never expose Staffel unbekannt'
   );
 
   const incompleteBandEpisode1 = {
