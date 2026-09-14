@@ -97,17 +97,18 @@
       .genres-status{padding:1rem;border:1px solid #334155;border-radius:1rem;background:#0f172a;color:#cbd5e1}
       .genres-status.error{border-color:#ef4444;color:#fecaca}
       .genres-recordings{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:1rem}
-      .genres-epg-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(19rem,1fr));gap:1rem}
-      .genres-epg-card{overflow:hidden;border:1px solid #334155;border-radius:1rem;background:#0f172a;color:#e2e8f0;text-align:left;padding:0;cursor:pointer}
-      .genres-epg-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#020617}
-      .genres-epg-card img.genres-epg-artwork-poster{width:min(100%,18rem);aspect-ratio:2/3;object-fit:contain;margin:.8rem auto 0;border-radius:.75rem}
-      .genres-epg-copy{display:grid;gap:.35rem;padding:.9rem}
+      .genres-epg-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(20rem,1fr));gap:1rem}
+      .genres-epg-card{overflow:hidden;border:1px solid #334155;border-radius:1rem;background:#0f172a;color:#e2e8f0;text-align:left;padding:0;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}
+      .genres-epg-card.genres-epg-card-has-artwork{grid-template-columns:7.25rem minmax(0,1fr);min-height:10.875rem}
+      .genres-epg-card img{display:block;width:7.25rem;height:10.875rem;aspect-ratio:2/3;object-fit:cover;background:#020617}
+      .genres-epg-card img.genres-epg-artwork-poster{width:7.25rem;height:10.875rem;aspect-ratio:2/3;object-fit:cover;margin:0;border-radius:0}
+      .genres-epg-copy{display:grid;gap:.35rem;padding:.9rem;align-content:center;min-width:0}
       .genres-epg-title{font-size:1.03rem;font-weight:850;color:#f8fafc}
       .genres-epg-meta{font-size:.82rem;color:#93c5fd}
       .genres-epg-description{font-size:.86rem;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
       .genres-owned-detail{display:grid;gap:.8rem;grid-column:1/-1}
       @media(min-width:72rem){.genres-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.genre-card{min-height:17rem}}
-      @media(max-width:720px){.genres-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.genre-card{min-height:10.5rem}.genre-card-title{font-size:1rem}.genres-recordings,.genres-epg-list{grid-template-columns:1fr}}
+      @media(max-width:720px){.genres-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.genre-card{min-height:10.5rem}.genre-card-title{font-size:1rem}.genres-recordings,.genres-epg-list{grid-template-columns:1fr}.genres-epg-card.genres-epg-card-has-artwork{grid-template-columns:6.25rem minmax(0,1fr);min-height:9.375rem}.genres-epg-card img,.genres-epg-card img.genres-epg-artwork-poster{width:6.25rem;height:9.375rem}}
     `;
     document.head.appendChild(style);
   }
@@ -141,6 +142,17 @@
         id || 'Unbekannter Kanal'
       )
     };
+  }
+
+  function persistentEpgArtworkUrl(event) {
+    const backend = text(event && event.backendId, state.backendId || 'default') || 'default';
+    const channelId = text(event && event.channelId);
+    const eventId = text(event && (event.eventId || event.id));
+    if (!channelId || !eventId) return '';
+    return '/api/epg/cache/artwork?backend=' +
+      encodeURIComponent(backend) +
+      '&channelId=' + encodeURIComponent(channelId) +
+      '&eventId=' + encodeURIComponent(eventId);
   }
 
   function formatTime(epoch) {
@@ -549,14 +561,34 @@
             event.artwork.available &&
             event.artwork.url) {
           const image = node('img');
-          image.src = event.artwork.url;
+          const primaryArtworkUrl = text(event.artwork.url);
+          const fallbackArtworkUrl = persistentEpgArtworkUrl(event);
+          let fallbackAttempted =
+            !fallbackArtworkUrl ||
+            primaryArtworkUrl === fallbackArtworkUrl;
+
           image.alt = '';
           image.loading = 'lazy';
+          image.decoding = 'async';
+
+          image.onerror = () => {
+            if (!fallbackAttempted) {
+              fallbackAttempted = true;
+              image.src = fallbackArtworkUrl;
+              return;
+            }
+            image.hidden = true;
+            card.classList.remove('genres-epg-card-has-artwork');
+          };
+
           if (number(event.artwork.height, 0) >
               number(event.artwork.width, 0) &&
               number(event.artwork.width, 0) > 0) {
             image.classList.add('genres-epg-artwork-poster');
           }
+
+          card.classList.add('genres-epg-card-has-artwork');
+          image.src = primaryArtworkUrl;
           card.appendChild(image);
         }
         const channel = channelFor(event);

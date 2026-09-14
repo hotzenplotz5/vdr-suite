@@ -386,7 +386,9 @@ function richMetadata(nativeId, title) {
   assert(style, 'Genres stylesheet was not installed');
   assert(style.textContent.includes('.genres-epg-card img.genres-epg-artwork-poster'));
   assert(style.textContent.includes('aspect-ratio:2/3'));
-  assert(style.textContent.includes('object-fit:contain'));
+  assert(style.textContent.includes('object-fit:cover'));
+  assert(style.textContent.includes('grid-template-columns:7.25rem minmax(0,1fr)'));
+  assert(style.textContent.includes('grid-template-columns:6.25rem minmax(0,1fr)'));
 
   const actionButton = findButton(mount, 'Action', true);
   assert(actionButton, 'Action recording genre was not rendered');
@@ -491,6 +493,14 @@ function richMetadata(nativeId, title) {
       poster.src,
       '/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=100&kind=gallery&index=1'
     );
+    if (index === 0) {
+      assert.strictEqual(typeof poster.onerror, 'function');
+      poster.onerror();
+      assert.strictEqual(
+        poster.src,
+        '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=100'
+      );
+    }
 
     const filmBack = findButton(mount, '← Filmgenres', false);
     assert(filmBack, 'Film result back button was not rendered');
