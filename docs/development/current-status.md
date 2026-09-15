@@ -4,6 +4,19 @@
 
 Exact operational phase state is maintained only in [Current State](../CURRENT.md). This file provides stable narrative context and must not become a second copy of active PR tips or transient CI state.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can perform the complete bounded edit safely. Read the complete file content required for the change, write a coherent commit on the intended branch and inspect the resulting diff before treating the update as correct.
+
+Use local edits first only when the change requires:
+
+- local build/test execution that cannot be represented by the connector;
+- multi-file transformations that are materially safer in a checked-out worktree;
+- binary/generated-file handling unavailable through the connector; or
+- a workaround because the GitHub connector blocks a file operation.
+
+GitHub-first does not weaken review safety: keep updates fast-forward-only, do not replace a complete file from a truncated fetch, and do not mark Draft PRs Ready or merge them without explicit approval.
+
 ## Platform position
 
 Latest completed numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
