@@ -2,107 +2,93 @@
 
 ## Purpose
 
-This is the compact authoritative entry point for completed implementation. Detailed historical records remain in [the completed-phase archive](completed-phases/README.md); future numbered work belongs in the strict roadmap.
+This is the compact authoritative entry point for completed implementation. Detailed historical records remain in [the completed-phase archive](completed-phases/README.md); future numbered work belongs in the Strict Roadmap.
 
 ## Latest completed markers
 
 ```text
 Latest completed numbered runtime phase:
-Phase 65 - Streaming Gateway and Media Sessions
-
-Final Phase-65 runtime-sensitive accepted candidate:
-7193797368cd1ff637062d02d0d7c9e5bf435ebe
-
-Phase-65 final runtime merge on main:
-PR #228 -> 131f669c0f4e360f3306cfb34f50380653a9fdfc
-
-Next strict runtime phase:
 Phase 66 - Media Home and Browse Experience
 
+Phase-66 closeout merge:
+PR #264 -> de12956ecc283663c820865bb577e7dcf6c5f0ee
+
+Latest completed non-numbered Home hardening/rebuild marker:
+work/home-rebuild -> 0cce4d1c9e58abe4d529132e92340ae4cbb7a99c
+merged to main -> ea5967b983aee9ccc3f855b685db01abbfb2326a
+
+Next strict runtime phase:
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+
 Current active numbered runtime phase:
-none - Phase 66 has not started
+none - Phase 67 has not started
 ```
 
-See [Phase 65 Final Closeout](phase-65-closeout.md) for the complete gate, CI and real yaVDR/browser acceptance evidence.
+See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate and [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the subsequent Home correctness/performance completion record.
 
 ## Completed range overview
 
 | Range / block | Status | Result | Archive / closeout |
 | --- | --- | --- | --- |
-| Phase 1.x-45.x | Completed | Core platform, database, daemon, VDR adapter, multi-backend reads, Recording actions, runtime hardening and EPG search. | Historical phase records |
+| Phase 1.x-45.x | Completed | Core platform, daemon, VDR adapter, multi-backend reads, Recording actions, hardening and EPG search. | Historical phase records |
 | Phase 46 | Completed | Metadata and people foundations. | [Phase 46](completed-phases/phase-46.md) |
-| Phase 47-50 | Completed | SearchTimer backend, REST/native validation and controlled workflow. | [Archive](completed-phases/README.md) |
-| Phase 51-55 | Completed | Live parity discovery, SearchTimer preview, adapter/runtime hardening and acceptance. | [Archive](completed-phases/README.md) |
+| Phase 47-50 | Completed | SearchTimer backend, validation and controlled workflow. | [Archive](completed-phases/README.md) |
+| Phase 51-55 | Completed | Live parity discovery, preview runtime, adapter hardening and acceptance. | [Archive](completed-phases/README.md) |
 | Phase 56 | Completed | Library boundaries, packaging and developer documentation. | [Phase 56](completed-phases/phase-56.md) |
 | Phase 57 | Completed | Multi-site backend administration and server-enforced read-only foundation. | [Phase 57](completed-phases/phase-57.md) |
 | Phase 58 | Completed slices; historical umbrella retained | Frontend and Live-parity foundation slices. | [Phase 58](completed-phases/phase-58.md) |
-| Phase 59.00-59.15e | Completed | Frontend Client API and module ownership. | [Phase 59](completed-phases/phase-59.md) |
-| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recordings 2, metadata and authenticated artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
-| Phase 61 | Completed | Persistent Recording/EPG metadata, people and Genre platform, query-only browse paths and frontend integration. | [Phase 61 archive](completed-phases/phase-61.md) / [closeout](phase-61-metadata-genre-performance-closeout.md) |
-| Phase 62 | Completed | Persistent identity, scoped RBAC, browser-session lifecycle/CSRF, protected central mutations and append-only authorization/outcome evidence. | [Phase 62 closeout](phase-62-closeout.md) / [Slice 2X runtime closeout](phase-62-slice-2x-runtime-closeout.md) |
-| Phase 63 | Completed | Secure Backend Agent lifecycle, fenced observation/command/native execution, explicit provider ownership/selection and protected-write foundation. | Phase-63 development/acceptance records |
-| Phase 64 | Completed | TimerIntent/TimerAssignment/NativeTimerBinding orchestration, managed native fulfillment, authoritative reconciliation and controlled failover. | [Phase 64 closeout](phase-64-closeout.md) |
-| Phase 65 | Completed | Authenticated Recording/Live MediaSession/Gateway playback, least-transformation delivery/output policy and normalized persistent first-party playback semantics with classified failure and bounded Recording network recovery. | [Phase 65 closeout](phase-65-closeout.md) |
-| B1-B4 | Completed, non-numbered | EPG/metadata query, transaction, no-op and snapshot-cadence hardening. | [Performance closeout](phase-61-metadata-genre-performance-closeout.md#post-phase-61-performance-hardening) |
-| PR #110 | Completed cross-cutting feature | Mobile Remote pressed-state and duplicate-dispatch behaviour. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
-| PR #111 | Completed cross-cutting feature | Backend-scoped global search over persisted Recording/EPG titles, subtitles and people. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
-| PR #115 | Completed cross-cutting feature | Configurable photorealistic VDR Remote asset and interaction path. | Repository history |
-| PR #118 | Completed post-Phase-62 correction | TVScraper genre classification, overview/detail consistency and low-latency continuation. | Repository history |
-| PR #123 | Completed post-Phase-62 correction | EPG artwork resolution beneath configured public base paths. | Repository history |
-| PR #132 | Completed post-Phase-62 platform feature | Guarded external series-artwork fallback, secure backend settings and deterministic provider identity. | [Post-Phase-62 Security Review](post-phase-62-security-review.md) |
+| Phase 59 | Completed | Frontend Client API and module ownership. | [Phase 59](completed-phases/phase-59.md) |
+| Phase 60 | Completed | Frontend platform, lazy Recording cache, Recordings 2, metadata and artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 61 | Completed | Persistent Recording/EPG metadata, people and Genre platform. | [Phase 61 archive](completed-phases/phase-61.md) |
+| Phase 62 | Completed | Identity, RBAC, browser-session security and accountability. | [Phase 62 closeout](phase-62-closeout.md) |
+| Phase 63 | Completed | Secure Backend Agent lifecycle, fenced native execution and provider ownership. | Phase-63 development records |
+| Phase 64 | Completed | Timer intent/assignment/binding orchestration, fulfillment, reconciliation and failover. | [Phase 64 closeout](phase-64-closeout.md) |
+| Phase 65 | Completed | Recording/Live MediaSessions, Streaming Gateway, output policy and normalized playback semantics. | [Phase 65 closeout](phase-65-closeout.md) |
+| Phase 66 | Completed | Responsive Media Home, Live hero/preview, Continue Watching, discovery/history and Golden desktop/mobile acceptance. | [Phase 66 closeout](phase-66-closeout.md) |
+| Post-Phase-66 Home hardening/rebuild | Completed, non-numbered | Home performance, Recording Discovery, Series metadata/artwork/hierarchy, preview caching, EPG recovery, Movies/Genres presentation and canonical folder artwork. | [Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) |
+| Post-Phase-66 native Recording editing | Completed, non-numbered | VDR-native marks and cutting through Suite safety boundaries. | [Recording Editing Closeout](post-phase66-recording-editing-closeout.md) |
 
-## Phase 65 durable completion marker
+## Phase 66 durable completion marker
 
 ```text
-accepted_final_phase65_runtime_candidate=7193797368cd1ff637062d02d0d7c9e5bf435ebe
-source_ci_workflow=VDR-Suite CI
-source_ci_run_number=8303
-source_ci_run_id=33166818230
-source_ci_result=PASS
-YAVDR_EXACT_INSTALL_RUNTIME_IDENTITY=PASS
-REAL_ANDROID_EDGE_LONG_OUTAGE_RECOVERY=PASS
-NETWORK_RECOVERY_USER_ACTION_REQUIRED=NO
-merge_pr=228
-merge_commit=131f669c0f4e360f3306cfb34f50380653a9fdfc
+phase66_status=COMPLETED
+merge_pr=264
+merge_commit=de12956ecc283663c820865bb577e7dcf6c5f0ee
+PHASE66_GOLDEN_DESKTOP=PASS
+PHASE66_GOLDEN_MOBILE=PASS
+PHASE66_GOLDEN_ACCEPTANCE=PASS
 ```
 
-The exact final runtime candidate was accepted before PR #228 was merged. The documentation-only final Phase-65 closeout does not alter that runtime tree and must pass the complete repository CI before merge.
+The numbered Phase-66 completion marker remains PR #264. Later merged Home work is post-phase hardening and must not be reclassified as a new Phase-66 slice.
 
-## Previous Phase 64 durable completion marker
+## Post-Phase-66 Home completion marker
 
 ```text
-accepted_candidate=bdd70d527d640dc115a7c141e505140ce8cdba9a
-source_ci_run_number=7689
-source_ci_run_id=32023780598
-source_ci_result=PASS
-PHASE_64_MANAGED_TIMER_FULFILLMENT_ACCEPTANCE=PASS
-PHASE_64_REASSIGNMENT_FAILOVER_ACCEPTANCE=PASS
-ADVERTISEMENT=timer-commands-activated
-REASSIGNMENT=atomic-fail-closed
-OUTCOME_UNKNOWN=reconciliation-only
-PUBLIC_SVDRP_TIMER_WRITES=closed
-merge_commit=72e298a76f7879ea7fc58f6a502e32eca7399f5a
+accepted_home_rebuild_head=0cce4d1c9e58abe4d529132e92340ae4cbb7a99c
+main_merge=ea5967b983aee9ccc3f855b685db01abbfb2326a
+phase67_started=NO
 ```
+
+The final branch included the canonical folder-poster correction after the broader H0-H5 Home rebuild. Real browser acceptance confirmed canonical TVScraper portrait projection for the reported `The Exorcist` folder case without reintroducing per-Recording metadata HTTP fan-out.
 
 ## Completion boundaries
 
 - Phase 61 is not reopened by provider adapters, diagnostics or recommendation work.
-- Phase 62 is not reopened by later protected feature routes that continue to use its identity, authorization, CSRF and accountability model.
-- Phase 63 is not reopened by Timer or media features that use the accepted Agent/provider foundation.
-- Phase 64 is not reopened by a later broad Timer UI or media work that consumes the accepted Timer orchestration contracts.
-- Phase 65 is not reopened by optional read-only media diagnostics, shared fMP4/MSE helper deduplication, future client-family adapters, Teletext/HbbTV, Legacy OSD or later public-API hardening that consume its accepted MediaSession/playback contracts.
-- Growing-Recording seek and Live-TV timeshift remain explicitly deferred capability work; truthful non-support does not reopen Phase 65.
-- Historical runtime fingerprints must remain distinguishable from later daemon evidence.
+- Phase 62 is not reopened by later protected feature routes using its identity/security model.
+- Phase 63 is not reopened by Timer/media features using the Agent/provider foundation.
+- Phase 64 is not reopened by broad Timer UI work.
+- Phase 65 is not reopened by later client, Home, Teletext/HbbTV or OSD work using MediaSession/playback contracts.
+- Phase 66 is not reopened by bounded Home correctness/performance work after its accepted closeout.
+- Historical runtime fingerprints remain distinct from later daemon/browser evidence.
 - ADR acceptance remains separate from runtime completion.
-- Phase 66 has not started merely because Phase 65 is complete.
 
 ## Next work
 
 ```text
-Phase 66 - Media Home and Browse Experience
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 ```
 
-Phase 66 is the next strict numbered runtime phase but remains not started. Accepted ADR-0058 defines its Media Home / Browse architecture; a separate explicit kickoff is required before any Phase-66 runtime implementation begins.
+Phase 67 is the next strict numbered runtime phase but remains not started. ADR-0054 defines its architecture; runtime requires a separate explicit kickoff.
 
 ## Verification
 
@@ -118,6 +104,7 @@ make test-phase-map-coverage
 - [Latest Completed Marker](completed-phases-latest.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
-- [Phase 64 Final Closeout](phase-64-closeout.md)
-- [Phase 65 Final Closeout](phase-65-closeout.md)
-- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Phase 65 Closeout](phase-65-closeout.md)
+- [Phase 64 Closeout](phase-64-closeout.md)

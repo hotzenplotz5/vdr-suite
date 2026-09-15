@@ -8,13 +8,11 @@
 - [Strict Roadmap](planning/roadmap.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 
----
-
 ## Purpose
 
 VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, desktop and TV clients. It complements VDR instead of forking or replacing VDR's native runtime responsibilities.
 
-This overview intentionally contains no active PR number, exact branch head or CI checkpoint. Those volatile facts belong only in [Current State](CURRENT.md).
+This overview contains stable capability/ownership direction. Volatile branch/PR/CI facts belong in [Current State](CURRENT.md).
 
 ## Platform ownership
 
@@ -33,64 +31,62 @@ Backend Agent
 
 Private adapters/providers
   RESTfulAPI, SVDRP, Streamdev, TVScraper, SuiteBridge and
-  future native/media providers remain implementation details
+  later broadcast/compatibility providers remain implementation details
 ```
 
-Clients consume Suite-owned contracts. A reachable private provider never becomes the public security or compatibility boundary merely because it can supply data or bytes.
+Clients consume Suite-owned contracts. Reachable private providers never become public security or compatibility boundaries by accident.
 
-## Durable platform foundations
+## Durable implemented platform
 
-The accepted platform direction includes:
+The implemented platform includes:
 
 - daemon-owned SQLite with repository-owned SQL and explicit persistence boundaries;
-- backend identity, backend scope and server-enforced access policy;
-- channels, EPG, recordings, metadata, people, artwork, Genres and search read models;
-- Recordings 2 as the delivered Recording browsing/detail owner;
-- persistent actor identity, browser-session security, exact backend-scoped authorization and append-only accountability;
-- Backend Agent enrollment, lifecycle/generation fencing, observations, durable command/result handling and explicit local provider ownership;
-- protected-write safety built around idempotency, leases/fences, expected revisions, unknown-outcome handling and authoritative readback;
-- backend-neutral TimerIntent, TimerAssignment and NativeTimerBinding architecture;
-- a server-side Streaming Gateway / MediaSession target that keeps Streamdev and other media providers private;
-- modular first-party clients behind `VdrSuiteClientApi` and later stable public API contracts.
+- backend identity/scope and server-enforced access policy;
+- Channels, EPG, Recordings, metadata, people, artwork, Genres and search read models;
+- Recordings 2 browsing/detail/actions plus VDR-native marks/cutting integration;
+- persistent actor identity, browser-session security, backend-scoped authorization and accountability;
+- Backend Agent enrollment, generation fencing, observations, durable commands/results and provider ownership;
+- protected writes with idempotency/fences, expected revisions, unknown-outcome handling and authoritative readback;
+- TimerIntent, TimerAssignment and NativeTimerBinding orchestration;
+- an authenticated Streaming Gateway / MediaSession plane for Recording and Live TV;
+- normalized first-party playback contracts and persistent client playback ownership;
+- a responsive Media Home/Browse experience projecting existing Channel/EPG/Recording/Metadata/Artwork truth;
+- post-Phase-66 Home performance/correctness hardening without a second Home-specific owner.
 
-Exact implementation progress within the currently active phase is recorded only in [Current State](CURRENT.md).
+## Current product direction
 
-## Product direction
+Completed product flows include:
 
-The platform is intended to make these user-visible flows backend-neutral:
+- choose a channel/programme and watch Live TV;
+- browse/play/seek/resume completed Recordings on supported profiles;
+- create backend-neutral Timer intent with managed native fulfillment;
+- browse responsive Home Now/Next, newly recorded, Movies/Genres and Series hierarchy;
+- use canonical TVScraper/native artwork and manual Series hierarchy/artwork overrides where explicitly configured;
+- edit Recording marks/cuts through VDR-native authority under Suite safety boundaries.
 
-- choose a channel or programme and watch Live TV;
-- browse a Recording, play it, seek where supported and resume through Suite-owned progress state;
-- choose an EPG programme and create one recording intent without selecting a private VDR provider;
-- allow VDR-Suite to select an eligible backend deterministically in a multi-backend installation;
-- surface backend/provider failures as understandable Suite states rather than leaking provider errors or performing unsafe hidden retries.
-
-These vertical acceptance paths are defined in [Golden User Journeys](planning/golden-user-journeys.md).
+The next strict numbered product domain is Phase 67 Broadcast Companion Services: Teletext and HbbTV. Phase 67 has not started.
 
 ## Key architectural rules
 
-- VDR remains authoritative for VDR-native runtime state and execution.
+- VDR remains authoritative for VDR-native runtime state/execution.
 - Suite IDs and backend-native IDs are never interchangeable.
 - Authorization and capability are separate decisions.
 - Provider reachability does not grant provider authority.
-- A possible mutation dispatch followed by timeout does not authorize a blind retry.
-- Successful transport acknowledgement is weaker than authoritative native readback where verification is required.
-- Browser, TV and native clients must not construct private RESTfulAPI, SVDRP, Streamdev or SuiteBridge URLs as application contracts.
-- Stable architecture and historical evidence must not duplicate volatile current-state markers.
+- Possible mutation dispatch followed by timeout does not authorize blind retry.
+- Browser/TV/native clients do not construct private provider URLs as application contracts.
+- Home projects existing domain truth; it does not own a second metadata, artwork or playback database.
+- Teletext/HbbTV must be domain-first and must not become raw plugin/browser command tunnels.
 
 ## Execution order
 
-The binding numbered phase sequence and phase completion gates live in the [Strict Roadmap](planning/roadmap.md). The current completed/active/next phase position lives in [Current State](CURRENT.md).
-
-This separation is deliberate: changing day-to-day repository state must not require synchronized edits across product overview, architecture, indexes and historical closeouts.
+Binding numbered phase order and completion gates live in the [Strict Roadmap](planning/roadmap.md). Current phase status lives in [Current State](CURRENT.md). Historical implementation proof lives in closeouts such as the [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md).
 
 ## Authoritative navigation
 
 - [Current State](CURRENT.md)
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
 - [Current Architecture State](development/current-architecture-state.md)
-- [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Completed History](development/completed-phases.md)
@@ -100,4 +96,3 @@ This separation is deliberate: changing day-to-day repository state must not req
 
 - [Back to Documentation Index](index.md)
 - [Back to README](../README.md)
-- [Back to Current State](CURRENT.md)

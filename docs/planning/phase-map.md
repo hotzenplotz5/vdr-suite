@@ -2,35 +2,23 @@
 
 ## Purpose
 
-This file is the canonical compact phase-number map. Detailed completed history belongs in [Completed Phases](../development/completed-phases.md); strict forward execution order and completion gates belong in the [Roadmap](roadmap.md); volatile completed/active/next status belongs only in [Current State](../CURRENT.md).
+This file is the canonical compact phase-number map. Detailed completed history belongs in [Completed Phases](../development/completed-phases.md); strict forward order and gates belong in the [Roadmap](roadmap.md); volatile status belongs only in [Current State](../CURRENT.md).
 
-Future phase numbers may be reordered only before those phases start and only through an explicit planning/architecture reconciliation. Completed history is never renumbered.
+Completed history is never renumbered. Bounded hardening after a completed phase remains non-numbered unless the roadmap is explicitly changed before the next phase starts.
 
 ## Completed phase ranges
 
 | Range | Status | Track | Result |
 | --- | --- | --- | --- |
-| Phase 1.x-7.x | Completed | Core Platform | Database, repositories, services, REST and daemon foundation. |
-| Phase 8.x | Completed | VDR Backend | VDR domain and RESTfulAPI adapter foundations. |
-| Phase 9.x-29.x | Completed | Multi-Backend Runtime | Registry, snapshots, selective reads, change feed and live transport foundation. |
-| Phase 30.x-44.x | Completed | Recording Actions and Hardening | Validation, guarded execution, real-backend regression and safety transition. |
-| Phase 45.x | Completed | EPG Search | Selective EPG query/search foundation. |
-| Phase 46.x | Completed | Metadata and People | Classification, metadata and people foundations. |
-| Phase 47.x-50.50 | Completed | SearchTimer | Backend, compatibility, preview, safety gates, readback and controlled workflow. |
-| Phase 51.x-55.6 | Completed | Live/Adapter/Acceptance | Parity discovery, preview runtime, adapter hardening, acceptance and documentation. |
-| Phase 56 | Completed | Library Boundary and Packaging | Source boundaries, packaging, staging and developer documentation. |
-| Phase 57 | Completed | Backend Administration and Permissions | Backend access modes and server-enforced read-only foundation. |
-| Phase 58.0-58.90b | Completed slices; umbrella historical | Frontend and Live Parity | Frontend foundations, EPG input, channel movement and sorting. |
-| Phase 59.00-59.15e | Completed | Frontend Client API and Modules | Client API consolidation and ownership guards. |
-| Phase 60.1-60.15 | Completed | Frontend Platform and Metadata Preparation | Recordings 2, lazy cache, metadata and authenticated artwork preparation. |
-| Phase 61 | Completed | Suite Metadata and Genre Platform | Persistent Recording/EPG metadata, people and Genre assignments, query-only browse paths and frontend integration. |
-| Phase 62 | Completed | Identity, RBAC and Accountability | Persistent identities, scoped authorization, browser-session security, protected central mutations and append-only decision/outcome evidence. |
-| Phase 63 | Completed | Backend Agent and Secure Multi-Site Runtime | Secure Agent lifecycle, fenced observations/commands/native execution, explicit provider ownership and protected-write foundation. |
-| Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Durable intent/assignment/binding model, managed native Timer fulfillment, authoritative readback/reconciliation and controlled failover. |
-| Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback, least-transformation delivery/output policy and normalized persistent playback semantics. |
-| Phase 66 | Completed | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching, discovery/history and accepted Golden journeys. |
+| Phase 1.x-60 | Completed | Core / backend / frontend foundations | Platform, VDR adapters, multi-backend runtime, actions, SearchTimer, packaging, frontend platform and Recordings 2. |
+| Phase 61 | Completed | Suite Metadata and Genre Platform | Persistent Recording/EPG metadata, people, Genres and query-only browse. |
+| Phase 62 | Completed | Identity, RBAC and Accountability | Persistent identities, scoped authorization, browser-session security and evidence. |
+| Phase 63 | Completed | Backend Agent and Secure Multi-Site Runtime | Secure Agent lifecycle, fenced native execution and provider ownership. |
+| Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Durable intent/assignment/binding, fulfillment, reconciliation and failover. |
+| Phase 65 | Completed | Streaming Gateway and Media Sessions | Recording/Live playback, delivery/output policy and normalized playback semantics. |
+| Phase 66 | Completed | Media Home and Browse Experience | Responsive Home, browse/preview, Continue Watching, discovery/history and Golden journeys. |
 
-Historical exact foundation marker retained for contract traceability: `Phase 63 - Backend Agent and Secure Multi-Site Runtime`. It is completed history, not current execution state.
+The compact `Phase 1.x-60` row preserves these historical completed subranges for coverage and traceability: `Phase 1.x-7.x`, `Phase 8.x`, `Phase 9.x-29.x`, `Phase 30.x-44.x`, `Phase 45.x`, `Phase 46.x`, `Phase 47.x-50.50`, `Phase 51.x-55.6`, `Phase 56`, `Phase 57`, `Phase 58.0-58.90b`, `Phase 59.00-59.15e`, and `Phase 60.1-60.15`.
 
 Phase 58 remains a historical umbrella label only.
 
@@ -46,44 +34,29 @@ none - Phase 67 has not started
 Next strict numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
-Latest completed Phase-66 slice:
-Slice 66.8 - Golden User Journey and Real-System Acceptance
-
 Current active slice:
-none - Phase 66 is complete; post-Phase-66 Home hardening is non-numbered and Draft
+none - Phase 66 and the accepted post-Phase-66 Home rebuild are complete
 ```
 
-Read [Current State](../CURRENT.md) and [Phase 66 Closeout](../development/phase-66-closeout.md) for exact operational/evidence state. ADR-0058 and the [Phase 66 Media Home contract](../development/phase-66-media-home-browse-experience.md) define the accepted architecture. Slices 66.1 through 66.8 are completed and merged through PR #264. The bounded [post-Phase-66 Home performance hardening](../development/post-phase-66-home-performance-hardening.md) on Draft PR #265 does not reopen Phase 66 or authorize Phase 67.
+Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently merged through the accepted Home rebuild without creating a new numbered phase. See [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-## Revised numbered forward sequence
+## Numbered forward sequence
 
 | Order | Phase | Status | Track | Primary completion direction |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable Timer intent/assignment/binding orchestration and controlled failover. |
-| 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback, least-transformation delivery/output policy and normalized persistent playback semantics. |
-| 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home, immediate browse, deferred canonical preview, truthful Continue Watching, discovery/history and accepted Golden journeys. |
+| 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable Timer orchestration and controlled failover. |
+| 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback and stable playback semantics. |
+| 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Next; not started; not authorized | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext and broadcast-application runtime. |
 | 5 | Phase 68 | Planned after Phase 67 | Legacy OSD Compatibility Bridge | Isolated OSD observation/control compatibility. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
-| 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations after prerequisites. |
+| 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
 
 ## Phase 64 compact boundary
 
-Phase 64 completed:
-
-```text
-TimerIntent
-  -> TimerAssignment
-  -> NativeTimerBinding
-```
-
-including deterministic primary/replica assignment, managed create/update/toggle/delete fulfillment, native readback evidence, durable mutation-operation state, no-blind-retry semantics and controlled atomic reassignment/failover.
-
-The broad polished Timer UI is not part of the Phase-64 completion gate.
+`TimerIntent -> TimerAssignment -> NativeTimerBinding` with managed native fulfillment, readback/reconciliation and controlled failover. Broad Timer UI remains cross-cutting.
 
 ## Phase 65 compact boundary
-
-Binding decisions: ADR-0046 + ADR-0053 + ADR-0055 + ADR-0056 + ADR-0057.
 
 ```text
 private media source
@@ -92,31 +65,19 @@ private media source
   -> Streaming Gateway / MediaSession
   -> normalized MediaPlaybackContract
   -> persistent client playback owner
-  -> replaceable transport adapter
-  -> platform playback engine
 ```
 
-Phase 65 is completed. Growing-Recording seek and Live-TV timeshift remain truthful deferred capabilities rather than unfinished Phase 65. Durable evidence: [Phase 65 Closeout](../development/phase-65-closeout.md).
+Phase 65 is closed. Growing-Recording seek and Live-TV timeshift remain truthful deferred capabilities.
 
 ## Phase 66 compact boundary
 
-Binding architecture: accepted ADR-0058; implementation contract: [Phase 66 Media Home and Browse Experience](../development/phase-66-media-home-browse-experience.md).
+Binding architecture: ADR-0058. Numbered Phase 66 completed responsive Home, Live Hero/deferred preview, Continue Watching, Recording discovery, history, accessibility and desktop/mobile Golden acceptance.
 
-```text
-existing Channel / EPG / Recording / Metadata truth
-  -> responsive Home projection
-  -> immediate browse focus
-  -> optional deferred preview through canonical Phase-65 playback ownership
-  -> explicit full playback through existing owners
-```
-
-Slices 66.1 through 66.8 are accepted for their bounded scopes. Their evidence covers the Home shell, responsive composition, Live-TV hero browsing, deferred canonical preview, truthful Continue Watching, Recording discovery rails, Recently Watched/History, Series projection follow-ups, visual/accessibility hardening and the integrated real desktop/mobile Golden journeys. Slice 66.8 introduced no new runtime owner and required no runtime repair.
-
-All technical and real-system Phase-66 closeout gates passed before PR #264 merged to `main` as `de12956ecc283663c820865bb577e7dcf6c5f0ee`. Phase 66 is completed. The separate Draft PR #265 is bounded post-Phase-66 Home performance hardening and remains non-numbered.
+Later non-numbered work strengthened the same ownership model: Home performance, Series progressive metadata/hierarchy, artwork previews, Genre/Movie presentation, EPG recovery and canonical folder artwork. It does not reopen Phase 66.
 
 ## Phase 67 compact boundary
 
-Binding architecture: accepted ADR-0054.
+Binding architecture: ADR-0054.
 
 ```text
 Live Channel / ProgramEvent
@@ -124,58 +85,33 @@ Live Channel / ProgramEvent
   +--> BroadcastApplication -> HbbTV Application Session
 ```
 
-Phase 67 is the next strict numbered runtime phase but remains not started and not authorized. A separate explicit runtime authorization is required.
+Phase 67 remains not started and requires a separate explicit runtime kickoff.
 
-## Phase 68 compact boundary
+## Later phases
 
-Binding architecture: ADR-0047. Legacy OSD remains compatibility-only; domain-first Home/EPG/Timer/Recording/Streaming/Teletext/HbbTV remains preferred.
-
-## Phase 69 compact boundary
-
-Binding architecture: ADR-0048. Stabilize `/api/v1`, errors, revisions/preconditions/idempotency, deterministic collections and compatibility/deprecation contracts.
-
-## Phase 70 compact boundary
-
-Recommendation/knowledge-graph runtime requires its own accepted ADR and does not gain hidden mutation authority.
+- Phase 68: Legacy OSD Compatibility Bridge — ADR-0047.
+- Phase 69: Public API and Client Compatibility Hardening — ADR-0048.
+- Phase 70: Recommendation / Content Knowledge Graph — requires its own accepted runtime ADR before implementation.
 
 ## Cross-cutting non-numbered milestones
 
-These are intentionally not inserted between numbered runtime phases:
-
 - Account and Backend Access Administration;
 - Broad Timer Product UI;
-- Audit/Security/Operations product surfaces;
+- Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration;
 - first-party client family rollout;
-- bounded post-phase performance and correctness hardening that does not reopen a completed numbered phase.
-
-The Broad Timer Product UI depends on completed Phase 62 + completed Phase 64 + the required account/backend access administration. It may proceed alongside numbered runtime work without silently advancing the numbered phase.
+- bounded post-phase correctness/performance hardening.
 
 ## Product acceptance
 
 - Phase 64: Timer scheduling/fail-closed engine journeys.
-- Phase 65: completed Live-TV and Recording-playback journeys.
-- Phase 66: desktop and mobile Media Home browse/preview journeys — accepted in Slice 66.8.
-- Phase 67: Teletext and HbbTV journeys.
-- Phase 68: explicit Legacy OSD compatibility journey.
+- Phase 65: Live-TV and Recording playback journeys.
+- Phase 66: desktop/mobile Media Home journeys — accepted.
+- Phase 67: Teletext and HbbTV journeys — next.
+- Phase 68: Legacy OSD compatibility journey.
 - Phase 69: public/client compatibility hardening.
-- Broad Timer Product UI later completes its user-facing journey without reopening Phase 64.
-- Phase 70 recommendation work must add its own accepted journey.
 
 See [Golden User Journeys](golden-user-journeys.md).
-
-## Numbering rules
-
-- Completed history is never renumbered.
-- Phases 61 through 66 are closed for their accepted scopes.
-- Phase 66 Media Home and Browse Experience is completed through PR #264; later bounded Home hardening does not silently reopen it.
-- Slice 66.8 does not authorize new feature work and required no runtime repair.
-- Phase 67 Broadcast Companion retains ADR-0054 architecture but is not runtime-authorized by Phase-66 completion or post-Phase-66 hardening.
-- Phase 68 Legacy OSD retains ADR-0047 architecture.
-- Phase 69 Public API hardening retains ADR-0048 architecture.
-- Phase 70 Recommendation / Knowledge Graph remains vision and requires its own accepted runtime ADR.
-- Future not-yet-started phases may be reordered only through explicit repository reconciliation.
-- Cross-cutting product/admin work does not silently advance the numbered phase.
 
 ## Verification
 
@@ -190,17 +126,5 @@ make test-phase
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
 - [Phase 66 Closeout](../development/phase-66-closeout.md)
-- [Post-Phase-66 Home Performance Hardening](../development/post-phase-66-home-performance-hardening.md)
-- [Phase 64 Closeout](../development/phase-64-closeout.md)
-- [Phase 65 Recording Playback Closeout](../development/phase-65-recording-playback-closeout-readiness.md)
-- [Phase 65 Live-TV Playback Closeout](../development/phase-65-live-tv-closeout.md)
-- [Phase 65.C Recording Startup](../development/phase-65-recording-startup-progressive-direct.md)
-- [Phase 65 Media Transcode Performance Policy](../development/phase-65-media-transcode-performance-policy.md)
-- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](../development/phase-65d1-persistent-browser-playback-shell-closeout.md)
-- [Phase 65.D.2 Recording Playback Controls and Seek Closeout](../development/phase-65d2-recording-playback-controls-seek-closeout.md)
-- [Phase 65.D Playback Semantics Consolidation](../development/phase-65d-playback-semantics-consolidation.md)
-- [ADR-0056 Playback Semantics](../adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
-- [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
-- [Golden User Journeys](golden-user-journeys.md)
+- [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md)
 - [Completed Phases](../development/completed-phases.md)
-- [Target Platform Architecture](../architecture/target-platform-architecture.md)

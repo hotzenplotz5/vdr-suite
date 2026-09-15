@@ -3,92 +3,75 @@
 ## Navigation
 
 - [README](../README.md)
+- [Project Principles](project-principles.md)
 - [Current State](CURRENT.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Architecture Decision Records](adr/index.md)
 
----
-
 ## Purpose
 
-This index is a stable navigation page. It deliberately does **not** duplicate active PR numbers, branch heads, transient CI runs, current phase tips or other volatile operational facts.
-
-For exact current project state, always use [Current State](CURRENT.md). For binding future execution order, use the [Strict Roadmap](planning/roadmap.md).
+This index is a stable navigation page. It deliberately does not duplicate active PR tips or transient CI state. Exact operational truth belongs in [Current State](CURRENT.md).
 
 ## Start here
 
-- [Current State](CURRENT.md) — sole repository authority for volatile operational status.
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite work session.
-- [Current Project Status](development/current-status.md) — stable narrative context around the current platform direction.
-- [Current Architecture State](development/current-architecture-state.md) — durable implemented ownership/capability summary.
-- [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and final acceptance evidence.
-- [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
-- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability and bounded acceptance evidence.
-- [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md) — bounded non-numbered Home hardening evidence.
-- [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted Phase-66 architecture and completed runtime foundation.
-- [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — accepted bounded implementation contract and completed sequence.
-- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md) — completed Phase-65 semantic contract/history.
-- [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md) — binding production-owner/lifecycle proof rules for playback frontend work.
-- [Phase 64 Final Closeout](development/phase-64-closeout.md) — accepted Timer-engine completion boundary and exact evidence.
-- [Project Overview](project-overview.md) — compact product and architecture overview.
-- [Project Principles](project-principles.md) — binding product and engineering principles.
-- [Strict Roadmap](planning/roadmap.md) — binding phase order and completion gates.
+- [Project Principles](project-principles.md) — stable product/architecture principles.
+- [Current State](CURRENT.md) — sole volatile operational authority.
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
+- [Current Project Status](development/current-status.md) — stable narrative platform context.
+- [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md) — current consolidated Home truth after the merged rebuild/hardening work.
+- [Phase 66 Closeout](development/phase-66-closeout.md) — numbered Media Home/Browse completion and Golden acceptance evidence.
+- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability.
+- [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md) — merged PR #265 performance evidence.
+- [Phase 65 Closeout](development/phase-65-closeout.md) — Streaming/MediaSession/playback completion.
+- [Phase 64 Final Closeout](development/phase-64-closeout.md) — Timer orchestration completion.
+- [Strict Roadmap](planning/roadmap.md) — binding numbered order and gates.
+- [Phase Map](planning/phase-map.md) — compact phase state.
 - [Golden User Journeys](planning/golden-user-journeys.md) — vertical product acceptance paths.
 
 ## Architecture
 
-- [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Current Architecture State](development/current-architecture-state.md)
-- [ADR-0059 VDR-Native Recording Editing, Marks and Cutting Authority](adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
-- [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
-- [Domain Dependency Map](planning/domain-dependency-map.md)
-- [Implementation Dependency Map](planning/implementation-dependency-map.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [ADR-0059 VDR-Native Recording Editing](adr/ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
+- [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
+- [ADR-0056 Playback Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [Architecture Decision Records](adr/index.md)
 
 ## Development and history
 
 - [Development Documentation](development/index.md)
-- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
-- [Native Recording Editing Status and Evidence](development/post-phase66-native-recording-editing-status.md)
-- [Native Recording Editing Workstream Slices](development/post-phase66-native-recording-editing-slices.md)
-- [Native Recording Editing Architecture and Scope Audit](development/post-phase66-native-recording-editing.md)
-- [Phase 66 Closeout](development/phase-66-closeout.md)
-- [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md)
-- [Phase 65.D Playback Semantics Consolidation](development/phase-65d-playback-semantics-consolidation.md)
-- [Frontend Playback Integration Contract](development/frontend-playback-integration-contract.md)
 - [Completed Phases](development/completed-phases.md)
+- [Latest Completed Marker](development/completed-phases-latest.md)
 - [Completed Phase Archive](development/completed-phases/README.md)
-- [Phase 64 Final Closeout](development/phase-64-closeout.md)
+- [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
+- [Phase 66 Closeout](development/phase-66-closeout.md)
+- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
-- [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
-
-Historical closeouts may contain exact accepted SHAs, CI runs, runtime fingerprints and evidence paths. Those values are historical evidence for the bounded candidate they close and must not be interpreted as the current repository head.
 
 ## Planning
 
 - [Planning Documentation](planning/index.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
-- [VDR Ecosystem Parity and Product Gaps](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Repository Truth Refresh 2026-07 Archive](planning/history/repository-truth-refresh-2026-07/README.md) — historical pre-refresh snapshots retained for traceability only.
 
 ## Status model
 
-- **CURRENT** — volatile operational truth; owned only by `docs/CURRENT.md`.
-- **ROADMAP** — binding dependency/order and phase gates; no exact active-head duplication.
-- **ARCHITECTURE** — stable ownership, identity and contract boundaries.
+- **CURRENT** — volatile operational truth.
+- **ROADMAP** — binding dependency/order and phase gates.
+- **ARCHITECTURE** — stable ownership/identity/contract boundaries.
 - **COMPLETED** — historical implementation evidence for closed work.
+- **POST-PHASE HARDENING** — bounded non-numbered correctness/performance work that does not reopen a completed phase.
 - **PLANNED** — genuinely open work with explicit prerequisites.
-- **HISTORICAL** — retained traceability that is not a current work prompt.
-- **SUPERSEDED** — replaced content with a named current successor.
-- **DEFERRED** — intentionally postponed work with named prerequisites.
+- **HISTORICAL** — traceability that is not a current work prompt.
 
-Accepted ADRs change target contracts. They do not by themselves prove runtime implementation or phase completion.
+Historical closeouts may retain exact SHAs, CI runs and wording that was true at the time they closed. Current operational interpretation comes from `CURRENT.md` and the Strict Roadmap.
 
 ## Back
 

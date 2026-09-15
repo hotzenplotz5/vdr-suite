@@ -22,14 +22,22 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [ADR-0058 Media Home Architecture](../adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [Phase 65 Closeout](phase-65-closeout.md)
 
 ## Completed and historical evidence
 
 - [Completed Phases](completed-phases.md)
+- [Latest Completed Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Home Performance Hardening](post-phase-66-home-performance-hardening.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 64 Final Closeout](phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
@@ -59,15 +67,15 @@ The complete historical Phase-62 navigation is maintained in `phase-62-security-
 
 Phase-64 Timer-orchestration documents cover `TimerIntent`, `TimerAssignment`, `NativeTimerBinding`, scheduling, native observation/readback, protected operations and controlled reassignment/failover under ADR-0044.
 
-Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for the current repository checkpoint.
+Phase 64 is complete. Use [Phase 64 Final Closeout](phase-64-closeout.md) for accepted evidence and [Current State](../CURRENT.md) for current operational status.
 
-## Current media/home work
+## Current media/home position
 
 Phase 65 - Streaming Gateway and Media Sessions is completed. Use [Phase 65 Closeout](phase-65-closeout.md) and Phase-65.D contracts for durable evidence/history.
 
-Phase 66 - Media Home and Browse Experience is next but not started. Accepted [ADR-0058](../adr/ADR-0058-media-home-responsive-browse-preview.md) and the [Phase 66 implementation contract](phase-66-media-home-browse-experience.md) define bounded responsive Home work.
+Phase 66 - Media Home and Browse Experience is completed. The later Home performance, Recording Discovery, Series metadata/artwork and final H0-H5 Home rebuild are completed as non-numbered hardening and do not reopen Phase 66. Use [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the consolidated current Home truth.
 
-After a separate runtime kickoff, the first slice is 66.1 Home Shell and Responsive Information Architecture. It preserves completed Phase-65 playback ownership and existing Channel/EPG/Recording/Metadata ownership. Deferred preview, durable history, Teletext/HbbTV and later compatibility/API work do not enter Slice 66.1 by implication.
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next but has not started. ADR-0054 defines its accepted architecture and a separate explicit runtime kickoff is required.
 
 Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work and do not reopen Phase 65.
 
@@ -87,6 +95,7 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 - active bounded implementation contracts -> `docs/development/`
 - completed exact evidence -> historical development closeouts
 - completed Phase-62 security slice navigation -> `phase-62-security-contract-index.md`
+- non-numbered Home hardening -> dedicated post-phase closeout without inventing a numbered phase
 
 ## Back
 
