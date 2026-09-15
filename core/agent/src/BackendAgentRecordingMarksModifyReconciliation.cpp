@@ -246,6 +246,49 @@ BackendAgentCommandRepository::recordingMarksModifyVerificationForOperation(
     return verification;
 }
 
+bool BackendAgentCommandRepository::recordingMarksModifyRejectedForOperation(
+    const std::string& backendId,
+    const std::string& operationId,
+    const std::string& commandId,
+    const std::string& requestFingerprint) const
+{
+    using namespace vdrsuite::agent;
+    if (!backendAgentCommandSafeIdentifier(backendId) ||
+        !backendAgentCommandSafeIdentifier(operationId) ||
+        !backendAgentCommandSafeIdentifier(commandId) ||
+        !backendAgentCommandSafeIdentifier(requestFingerprint))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT 1 FROM backend_agent_commands c "
+        "JOIN backend_agent_command_results x ON x.command_id=c.command_id "
+        "WHERE c.backend_id=? AND c.operation_id=? AND c.command_id=? "
+        "AND c.request_fingerprint=? "
+        "AND c.command_type='vdr.recording.marks.modify' "
+        "AND c.state='completed' "
+        "AND x.dispatch_state='not_started' "
+        "AND x.verification_state='verified' "
+        "AND x.result_category='rejected' "
+        "AND x.retry_classification='none' LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, backendId) ||
+        !bindText(statement, 2, operationId) ||
+        !bindText(statement, 3, commandId) ||
+        !bindText(statement, 4, requestFingerprint))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return false;
+    }
+
+    const bool rejected = sqlite3_step(statement) == SQLITE_ROW;
+    sqlite3_finalize(statement);
+    return rejected;
+}
+
 bool BackendAgentCommandRepository::verifyRecordingMarksModifyReadback(
     const std::string& commandId,
     const std::string& requestFingerprint,
