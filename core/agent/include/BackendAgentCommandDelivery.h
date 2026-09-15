@@ -88,6 +88,11 @@ public:
     recordingMarksModifyVerificationForOperation(
         const std::string& backendId,
         const std::string& operationId) const;
+    bool recordingMarksModifyRejectedForOperation(
+        const std::string& backendId,
+        const std::string& operationId,
+        const std::string& commandId,
+        const std::string& requestFingerprint) const;
     bool verifyRecordingMarksModifyReadback(
         const std::string& commandId,
         const std::string& requestFingerprint,

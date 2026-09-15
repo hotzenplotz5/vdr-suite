@@ -150,6 +150,32 @@ void acceptAgentResult(
     assert(accepted.accepted);
 }
 
+void acceptRejectedAgentResult(
+    BackendAgentCommandRepository& commands,
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t completedAt)
+{
+    BackendAgentCommandResult result;
+    result.commandId = assignment.commandId;
+    result.requestFingerprint = assignment.requestFingerprint;
+    result.jobId = assignment.jobId;
+    result.attemptId = assignment.attemptId;
+    result.claimEpoch = assignment.claimEpoch;
+    result.backendId = assignment.backendId;
+    result.agentId = assignment.agentId;
+    result.agentInstanceId = assignment.agentInstanceId;
+    result.backendGeneration = assignment.backendGeneration;
+    result.dispatchState = "not_started";
+    result.verificationState = "verified";
+    result.resultCategory = "rejected";
+    result.errorCategory = "fenced";
+    result.retryClassification = "none";
+    result.boundedDiagnostics = "recording marks modify rejected without effect";
+    result.completedAt = completedAt;
+    const auto accepted = commands.acceptResult(result);
+    assert(accepted.accepted);
+}
+
 BackendAgentCommandAssignment assign(
     BackendAgentCommandRepository& commands,
     BackendAgentRepository& agents,
@@ -276,6 +302,11 @@ int main()
         assert(stored.requestFingerprint == accepted.requestFingerprint);
         assert(stored.canonicalMarksRevision == test.postRevision);
         assert(commands.recordingMarksModifyReconciliationCandidates().empty());
+        assert(!commands.recordingMarksModifyRejectedForOperation(
+            "default",
+            test.operationId,
+            accepted.commandId,
+            accepted.requestFingerprint));
 
         assert(commands.verifyRecordingMarksModifyReadback(
             accepted.commandId,
@@ -307,6 +338,40 @@ int main()
     assert(commands.recordingMarksModifyReconciliationCandidates().empty());
     assert(!commands.recordingMarksModifyVerificationForOperation(
         "default", "op_marks_outcome_unknown").present);
+    assert(!commands.recordingMarksModifyRejectedForOperation(
+        "default",
+        "op_marks_outcome_unknown",
+        unknown.commandId,
+        unknown.requestFingerprint));
+    clock += 10;
+
+    const auto rejected = assign(
+        commands,
+        agents,
+        "op_marks_rejected",
+        clock,
+        clock + 1,
+        BackendAgentRecordingMarksModifyKind::reset);
+    acceptReceipt(commands, rejected, clock + 2);
+    acceptRejectedAgentResult(commands, rejected, clock + 3);
+    assert(commands.recordingMarksModifyReconciliationCandidates().empty());
+    assert(!commands.recordingMarksModifyVerificationForOperation(
+        "default", "op_marks_rejected").present);
+    assert(commands.recordingMarksModifyRejectedForOperation(
+        "default",
+        "op_marks_rejected",
+        rejected.commandId,
+        rejected.requestFingerprint));
+    assert(!commands.recordingMarksModifyRejectedForOperation(
+        "default",
+        "op_marks_rejected_other",
+        rejected.commandId,
+        rejected.requestFingerprint));
+    assert(!commands.recordingMarksModifyRejectedForOperation(
+        "default",
+        "op_marks_rejected",
+        rejected.commandId,
+        "fp1_0000000000000000"));
     clock += 10;
 
     const auto staleProvider = assign(

@@ -257,7 +257,6 @@ bool configureDaemonRecordingMarksRuntime(
                     RecordingMarksBackendAvailability::Available,
                     resolver};
             }
-
             return RecordingMarksBackendAccess{
                 RecordingMarksBackendAvailability::BackendNotFound,
                 nullptr};
@@ -333,6 +332,16 @@ bool configureDaemonRecordingMarksRuntime(
                     dispatch.requestFingerprint = existing->requestFingerprint;
                     dispatch.canonicalMarksRevision =
                         verification.canonicalMarksRevision;
+                    return dispatch;
+                }
+
+                if (commands->recordingMarksModifyRejectedForOperation(
+                        request.backendId,
+                        request.operationId,
+                        existing->commandId,
+                        existing->requestFingerprint))
+                {
+                    dispatch.reasonCode = "recording_marks_modify_rejected";
                     return dispatch;
                 }
             }
