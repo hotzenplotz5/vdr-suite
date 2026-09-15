@@ -3,72 +3,180 @@
 ## Navigation
 
 - [Development Index](index.md)
+- [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
-- [Strict Roadmap](../planning/roadmap.md)
+- [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Backend-Scoped Global Search](../architecture/global-search.md)
+- [Live Remote, Overlay and Legacy OSD Contract](../architecture/live-remote-osd-contract.md)
+
+---
 
 ## Status
 
-This document began as the Phase-59 Web Client API seam contract and remains a living snapshot of frontend HTTP ownership. The later platform phases and post-Phase-66 work extended that seam; old phase-numbered gap notes are no longer current authority.
+Phase 59.09f introduced and guards the base Web Client API seam before UI module extraction.
 
-No direct `fetch()` calls belong in `web/frontend/app.js`.
+This document remains the current contract snapshot after completed Phases 61-66 and the merged post-Phase-66 Home hardening/rebuild. It is intentionally a snapshot, not a design wishlist. Every exported base helper listed here must exist in `web/frontend/api/client-api.js` and must be exported through `window.VdrSuiteClientApi`; documented extension helpers must exist in their DOM-free Client API extension.
 
-## Contract owner
+No direct `fetch()` calls in `web/frontend/app.js`.
+
+---
+
+## Contract Owner
+
+Runtime API ownership:
 
 - `web/frontend/api/client-api.js` owns base HTTP access from the web frontend.
-- feature Client API extensions own their route families and immutably augment `window.VdrSuiteClientApi`.
-- `web/frontend/app.js` owns UI orchestration and consumes `window.VdrSuiteClientApi`.
-- feature modules must not introduce direct private backend/provider fetches.
-- RESTfulAPI, SVDRP, TVScraper, Streamdev and SuiteBridge details remain private implementation details.
+- `web/frontend/api/genre-client-api.js` owns Genre route access.
+- `web/frontend/api/live-remote-client-api.js` owns RemoteAction, LiveOverlay and live-update access.
+- all Client API extensions immutably augment `window.VdrSuiteClientApi`.
+- `web/frontend/app.js` owns UI orchestration and must use `window.VdrSuiteClientApi`.
+- feature modules must not introduce direct backend fetches.
+- private RESTfulAPI, SVDRP, TVScraper and SuiteBridge details must not enter browser contracts.
 
-## Established route families
+---
 
-The Client API now covers the established product domains needed by the shipped first-party UI, including:
+## Exported Client API Functions
 
-- Timers and conflict/action flows;
-- Channels, backend selection and runtime status;
-- EPG window/search/cache/Now-Next routes;
-- Recording cache/folder/query/action and metadata routes;
-- metadata/person/search/Genre flows;
-- SearchTimer flows;
-- Live remote/overlay/update flows;
-- Phase-65 MediaSession/playback routes used by the canonical playback owners;
-- post-Phase-66 Recording marks/cut flows;
-- Home-specific compact EPG read-model helpers without creating a second Home HTTP owner.
+Timer:
 
-## Home H2/H2.1 EPG contract
+- `fetchClientTimers`
+- `fetchClientTimerConflicts`
+- `fetchClientTimerCreateAction`
+- `fetchClientTimerUpdateAction`
+- `fetchClientTimerDeleteAction`
 
-- the compact Home Now/Next request remains artwork-free on the critical path;
-- optional bounded artwork enrichment follows after the compact projection is usable;
-- Home must not perform per-event Metadata/Artwork fan-out;
-- Home Recording-folder cards use embedded persisted native metadata when available rather than adding per-Recording metadata HTTP reads.
+Channels:
 
-## Ownership examples
+- `fetchClientChannels`
+- `fetchClientChannelMoveAction`
 
-Timer helpers remain explicit `fetchClient*` functions. Channels/EPG/Recordings/SearchTimer/Genre/Live Remote use their Client API owners. Global Search uses the canonical `/api/search` route and persisted provider-free read models.
+Capabilities and runtime state:
+
+- `fetchClientCapabilities`
+- `fetchClientVdrOverview`
+- `fetchClientVdrStatus`
+- `fetchClientVdrHealth`
+- `fetchClientVdrSnapshotSummary`
+- `fetchClientVdrSnapshots`
+
+Backend selection:
+
+- `fetchClientBackends`
+- `fetchClientDefaultBackend`
+- `fetchClientBackendSnapshot`
+
+EPG:
+
+- `fetchClientEpgWindow`
+- `fetchClientEpgSearch`
+- `fetchClientEpgCacheStatus`
+- `fetchClientEpgCacheNowNext`
+- `fetchClientEpgCacheNowNextArtwork`
+- `fetchClientEpgCacheWindow`
+- `fetchClientEpgCacheRefresh`
+- `fetchClientEpgNowNext`
+- `fetchClientEpgTimeWindow`
+- `fetchClientEpgChannelWindow`
+
+Home H2/H2.1 EPG contract:
+
+- `fetchClientEpgCacheNowNext` owns the compact Home critical-path request and remains artwork-free.
+- `fetchClientEpgCacheNowNextArtwork` owns the optional bounded artwork manifest for the same channel page and `fromTime`.
+- Home artwork enrichment starts only after the compact Now/Next page has rendered.
+- the Home frontend must not perform per-event Metadata or Artwork requests.
+
+Metadata and persons:
+
+- `fetchClientMetadata`
+- `fetchClientPersons`
+- `fetchClientRecordingPersons`
+
+Global search:
+
+- `fetchClientGlobalSearch`
+
+Recordings:
+
+- `fetchClientRecordings`
+- `fetchClientRecordingCacheStatus`
+- `fetchClientRecordingFolder`
+- `fetchClientRecordingActionValidation`
+- `fetchClientRecordingActionExecution`
+
+SearchTimer:
+
+- `fetchClientSearchTimers`
+- `fetchClientSearchTimerDiscovery`
+- `fetchClientSearchTimerPreview`
+- `fetchClientSearchTimerPreviewCacheRefresh`
+- `fetchClientSearchTimerPlan`
+- `fetchClientSearchTimerValidate`
+- `fetchClientSearchTimerExecute`
+- `fetchClientSearchTimerRealTest`
+- `fetchClientSearchTimerCreateAction`
+- `fetchClientSearchTimerUpdateAction`
+- `fetchClientSearchTimerDeleteAction`
+
+Genre Client API extension:
+
+- the Genre extension owns the `/api/metadata/genres...` route family used by the `genres` module;
+- it exposes backend-scoped overview and paged Recording/EPG Genre queries;
+- the `genres` module contains no direct `fetch()` and reuses Recordings 2 and the existing EPG detail owner.
+
+Live Remote Client API extension:
+
+- `fetchClientRemoteAction`
+- `fetchClientLiveOverlay`
+- `createClientLiveUpdateSource`
+
+Remote actions use the Suite-owned `/api/vdr/remote/actions` route; overlay reads use `/api/vdr/live/overlay`; live updates use the Suite SSE route. The in-flight guard remains frontend dispatch state and does not move transport or authorization into the module.
+
+Global Search contract:
+
+- `fetchClientGlobalSearch` uses the canonical `/api/search` route;
+- selected `backendId` is mapped to the route's `backend` parameter;
+- abort signals support stale-response protection and the mobile timeout;
+- persisted EPG people are searched through this provider-free read path rather than a second browser/provider route.
+
+---
+
+## Current Direct Fetch Inventory
+
+Remaining known direct API fetch inventory in `web/frontend/app.js`:
+
+- none
 
 The ownership guard must fail if `web/frontend/app.js` calls `fetch()` directly.
 
-## Current remaining platform gaps
+---
 
-The old gap list that assigned already-completed work to Phases 62-65 is retired. Those foundations now exist.
+## Current Route/Compatibility Gaps
 
-Remaining future route/compatibility areas are intentionally tied to the current roadmap:
+The former gap list that treated Phase-62 identity, Phase-63 Agent, Phase-64 Timer orchestration and Phase-65 media routes as future work is retired: those numbered foundations are completed.
 
-- Phase 67: Teletext service/page/subpage and HbbTV broadcast-application discovery/session contracts;
-- Phase 68: Legacy OSD viewer/controller/session contracts;
-- Phase 69: stable public `/api/v1`, compatibility/deprecation semantics, ETags/preconditions and common public error contracts;
-- Phase 70: recommendation/content-graph contracts after an accepted runtime design.
+The remaining forward route families follow the current strict roadmap:
 
-Do not pre-freeze those future public shapes in the internal first-party Client API merely because a provider or experimental route is reachable.
+- **Phase 67** — Teletext service/page/subpage and HbbTV broadcast-application discovery/session contracts;
+- **Phase 68** — legacy OSD viewer/controller/session contracts;
+- **Phase 69** — stable `/api/v1`, ETags/preconditions and common public error/compatibility contracts;
+- **Phase 70** — recommendation/content-graph contracts after an accepted runtime design.
 
-## Next use
+Post-Phase-66 Recording marks/cutting and Home read-model helpers are implemented Suite-owned capabilities and are not future phase gaps. Future public shapes must not be frozen merely because a private provider or experimental internal route is reachable.
 
-- extend modules without moving HTTP ownership back into `app.js`;
-- keep Client API files DOM-free;
-- add route wrappers only for implemented Suite-owned backend contracts;
-- preserve existing Recording/EPG/detail/playback destination owners;
-- update this snapshot when a real new `fetchClient*` wrapper or Client API extension is added.
+---
+
+## Next Use
+
+This snapshot remains the handoff point for frontend work:
+
+- extract or extend UI modules without moving HTTP ownership back into `app.js`;
+- keep all Client API files DOM-free;
+- keep new backend route wrappers explicit and guarded;
+- preserve Recordings 2 and the existing EPG detail/playback owners as single destination owners;
+- update this snapshot whenever a real new `fetchClient*` wrapper or Client API extension is added.
+
+---
 
 ## Back
 
