@@ -58,6 +58,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Repository Truth Refresh 2026-07 Archive](planning/history/repository-truth-refresh-2026-07/README.md) — historical pre-refresh snapshots retained for traceability only.
 
 ## Status model
