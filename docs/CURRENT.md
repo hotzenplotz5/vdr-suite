@@ -11,6 +11,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
@@ -18,13 +19,14 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR Index](adr/index.md)
 
 ## Current verified position
 
 ```text
 Repository: hotzenplotz5/vdr-suite
 Branch authority: main
-Current main checkpoint after Home rebuild merge:
+Accepted Home rebuild merge checkpoint:
 ea5967b983aee9ccc3f855b685db01abbfb2326a
 
 Latest completed numbered runtime phase:
@@ -40,7 +42,7 @@ Current active runtime slice:
 none - post-Phase-66 Home rebuild is completed; Phase 67 has not started
 ```
 
-The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree.
+The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree. This SHA is a durable Home-rebuild checkpoint, not a substitute for reading the live `main` head.
 
 ## Phase 66 and post-phase completion state
 
