@@ -94,6 +94,7 @@ async function run() {
   const appliedOperations = new Set();
   const timers = new Map();
   let nextTimerId = 1;
+  let timelineInteraction = null;
 
   function revision() { const value = revisionCounter.toString(16).padStart(32, '0'); revisionCounter += 1; return value; }
   function markForFrame(positionFrame) {
@@ -124,6 +125,13 @@ async function run() {
     setTimeout(fn) { const id = nextTimerId++; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
+    VdrSuiteRecordings2MarksTimeline: {
+      render(root, recording, payload, interaction) {
+        if (interaction) timelineInteraction = interaction;
+        return true;
+      },
+      bind() { return true; }
+    },
     VdrSuiteRecordings2Shared: {
       mountTarget: () => mount, installStyles() {}, selectedBackendId: () => 'default',
       node(tag, className, label) { const n = element(tag); n.className = className; n.textContent = label || ''; return n; },
@@ -194,8 +202,11 @@ async function run() {
   button('Start im Playback-Owner').click();
   assert(!button('Marke setzen').disabled);
 
-  button('0:00:10.00').click(); await flush();
+  assert.ok(timelineInteraction);
+  assert.strictEqual(typeof timelineInteraction.onSelect, 'function');
+  timelineInteraction.onSelect(initial.marks[0]); await flush();
   assert.deepStrictEqual(seeks, [10]);
+  assert.strictEqual(timelineInteraction.selectedFrame, 250);
   assert(allText(root).includes('Ausgewählt: 0:00:10.00 · Frame 250'));
   assert(button('Vorherige Marke').disabled);
   assert(!button('Nächste Marke').disabled);

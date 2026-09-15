@@ -152,6 +152,17 @@
       if (direction > 0) return values.find(function (mark) { return Number(mark.positionSeconds) > seconds + 0.001; }) || null;
       for (let index = values.length - 1; index >= 0; --index) if (Number(values[index].positionSeconds) < seconds - 0.001) return values[index]; return null;
     }
+    function renderTimeline() {
+      const timeline = global.VdrSuiteRecordings2MarksTimeline;
+      if (!timeline || typeof timeline.render !== 'function') return;
+      timeline.render(root, recording, payload, {
+        selectedFrame: selectedFrame,
+        onSelect: function (mark) {
+          if (!destroyed && mark) selectAndSeek(mark);
+        }
+      });
+    }
+
     function render() {
       actions.replaceChildren(); const blocked = !editable(), current = playback(), state = snapshot(), active = Boolean(current && state && state.sessionId && typeof current.position === 'function'), selected = selectedMark();
       positionHint.textContent = active ? 'Wiedergabe aktiv: Setzen und Verschieben verwenden die aktuelle Position.' : 'Zum Setzen, Verschieben oder Anspringen einer Marke zuerst die Wiedergabe starten.';
@@ -172,6 +183,7 @@
         const choose = button(String(mark.timecode || ('Marke ' + String(index + 1))), function () { selectAndSeek(mark); }, false, row, 'recordings2-marks-editor-mark'); choose.setAttribute('aria-pressed', selectedNow ? 'true' : 'false');
         row.appendChild(node('span', 'Frame ' + String(mark.positionFrame) + (index % 2 === 0 ? ' · Behalten ab hier' : ' · Entfernen ab hier')));
       });
+      renderTimeline();
     }
     function observe() {
       const current = playback(); if (current === owner) return; if (unsubscribe) unsubscribe(); owner = current;

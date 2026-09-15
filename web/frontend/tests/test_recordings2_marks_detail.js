@@ -20,6 +20,9 @@ function element(tag) {
     style: {},
     parentNode: null,
     title: '',
+    listeners: {},
+    addEventListener(name, fn) { this.listeners[name] = fn; },
+    click() { if (this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
     setAttribute(name, attributeValue) { this.attributes[name] = String(attributeValue); },
     appendChild(child) {
@@ -37,12 +40,12 @@ function element(tag) {
       });
     },
     insertAdjacentElement(position, child) {
-      assert.strictEqual(position, 'afterend');
+      assert.strictEqual(position, 'beforebegin');
       assert.ok(this.parentNode);
       const index = this.parentNode.children.indexOf(this);
       assert.ok(index >= 0);
       child.parentNode = this.parentNode;
-      this.parentNode.children.splice(index + 1, 0, child);
+      this.parentNode.children.splice(index, 0, child);
       return child;
     },
     querySelector(selector) {
@@ -271,8 +274,8 @@ api.fetchMarks(recording, 'default').then(result => {
   const rail = detailRoot.querySelector('.recordings2-marks-timeline');
   assert.ok(rail, 'read-only marks must decorate the stable compatibility-owner timeline');
   assert.strictEqual(rail.parentNode, playbackControls);
-  assert.strictEqual(playbackControls.children[0], timeline);
-  assert.strictEqual(playbackControls.children[1], rail);
+  assert.strictEqual(playbackControls.children[0], rail);
+  assert.strictEqual(playbackControls.children[1], timeline);
   assert.strictEqual(rail.dataset.durationSeconds, '40');
   assert.strictEqual(
     rail.attributes['aria-label'],
@@ -283,6 +286,23 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(rail.children[1].style.left, '50.00000%');
   assert.strictEqual(rail.children[0].dataset.positionFrame, '250');
   assert.strictEqual(rail.children[0].title, '0:00:10.00 · begin');
+  assert.strictEqual(rail.children[0].tagName, 'BUTTON');
+  assert.strictEqual(rail.children[0].attributes['aria-pressed'], 'false');
+
+  let selectedFromTimeline = null;
+  window.VdrSuiteRecordings2MarksTimeline.render(
+    detailRoot,
+    recording,
+    payload,
+    {
+      selectedFrame: 250,
+      onSelect(mark) { selectedFromTimeline = mark; }
+    }
+  );
+  assert.strictEqual(rail.children[0].attributes['aria-pressed'], 'true');
+  rail.children[0].click();
+  assert.ok(selectedFromTimeline);
+  assert.strictEqual(selectedFromTimeline.positionFrame, 250);
   assert.strictEqual(typeof lifecycleListener, 'function');
 
   lifecycleListener({
@@ -314,8 +334,8 @@ api.fetchMarks(recording, 'default').then(result => {
   const fallbackRail = detailRoot.querySelector('.recordings2-marks-timeline');
   assert.strictEqual(fallbackRail, rail, 'stable marks rail must survive compatibility transport replacement');
   assert.strictEqual(fallbackRail.parentNode, playbackControls);
-  assert.strictEqual(playbackControls.children[0], timeline);
-  assert.strictEqual(playbackControls.children[1], fallbackRail);
+  assert.strictEqual(playbackControls.children[0], fallbackRail);
+  assert.strictEqual(playbackControls.children[1], timeline);
   assert.strictEqual(fallbackRail.children.length, 2);
   assert.strictEqual(fallbackRail.children[0].style.left, '25.00000%');
   assert.strictEqual(
