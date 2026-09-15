@@ -21,6 +21,7 @@ function element(tag) {
     parentNode: null,
     title: '',
     listeners: {},
+    getBoundingClientRect() { return {left: 0, width: 100}; },
     addEventListener(name, fn) { this.listeners[name] = fn; },
     click() { if (this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
@@ -40,12 +41,18 @@ function element(tag) {
       });
     },
     insertAdjacentElement(position, child) {
-      assert.strictEqual(position, 'beforebegin');
       assert.ok(this.parentNode);
       const index = this.parentNode.children.indexOf(this);
       assert.ok(index >= 0);
+      if (child.parentNode && child.parentNode !== this.parentNode) {
+        child.parentNode.removeChild(child);
+      } else if (child.parentNode === this.parentNode) {
+        child.parentNode.removeChild(child);
+      }
       child.parentNode = this.parentNode;
-      this.parentNode.children.splice(index, 0, child);
+      if (position === 'beforebegin') this.parentNode.children.splice(index, 0, child);
+      else if (position === 'afterend') this.parentNode.children.splice(index + 1, 0, child);
+      else assert.fail('unexpected insertAdjacentElement position: ' + position);
       return child;
     },
     querySelector(selector) {
@@ -276,6 +283,8 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(rail.parentNode, playbackControls);
   assert.strictEqual(playbackControls.children[0], rail);
   assert.strictEqual(playbackControls.children[1], timeline);
+  assert.strictEqual(playbackControls.children[2], marksPanel);
+  assert.strictEqual(marksPanel.parentNode, playbackControls);
   assert.strictEqual(rail.dataset.durationSeconds, '40');
   assert.strictEqual(
     rail.attributes['aria-label'],
@@ -289,20 +298,39 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(rail.children[0].tagName, 'BUTTON');
   assert.strictEqual(rail.children[0].attributes['aria-pressed'], 'false');
 
+  const timelineStyle = styles.find(style => style.id === 'vdr-suite-recordings2-marks-timeline-style');
+  assert.ok(timelineStyle);
+  assert.strictEqual(timelineStyle.textContent.includes('box-shadow:none!important'), true);
+  assert.strictEqual(timelineStyle.textContent.includes('background:transparent!important'), true);
+  assert.strictEqual(timelineStyle.textContent.includes('border-radius:0!important'), true);
+
   let selectedFromTimeline = null;
+  let movedFromTimeline = null;
   window.VdrSuiteRecordings2MarksTimeline.render(
     detailRoot,
     recording,
     payload,
     {
       selectedFrame: 250,
-      onSelect(mark) { selectedFromTimeline = mark; }
+      onSelect(mark) { selectedFromTimeline = mark; },
+      onMove(mark, seconds) { movedFromTimeline = {mark, seconds}; }
     }
   );
   assert.strictEqual(rail.children[0].attributes['aria-pressed'], 'true');
   rail.children[0].click();
   assert.ok(selectedFromTimeline);
   assert.strictEqual(selectedFromTimeline.positionFrame, 250);
+
+  selectedFromTimeline = null;
+  rail.children[0].listeners.pointerdown({clientX: 25, pointerId: 1, preventDefault() {}});
+  rail.children[0].listeners.pointermove({clientX: 75});
+  rail.children[0].listeners.pointerup({clientX: 75, preventDefault() {}});
+  assert.ok(movedFromTimeline);
+  assert.strictEqual(movedFromTimeline.mark.positionFrame, 250);
+  assert.strictEqual(movedFromTimeline.seconds, 30);
+  assert.strictEqual(rail.children[0].style.left, '75.00000%');
+  rail.children[0].click();
+  assert.strictEqual(selectedFromTimeline, null, 'drag must suppress the following click/seek');
   assert.strictEqual(typeof lifecycleListener, 'function');
 
   lifecycleListener({
@@ -339,7 +367,7 @@ api.fetchMarks(recording, 'default').then(result => {
   assert.strictEqual(fallbackRail.children.length, 2);
   assert.strictEqual(fallbackRail.children[0].style.left, '25.00000%');
   assert.strictEqual(
-    detailRoot.children.filter(child => hasClass(child.className, 'recordings2-marks-detail')).length,
+    playbackControls.children.filter(child => hasClass(child.className, 'recordings2-marks-detail')).length,
     1,
     'the detailed marks list remains present alongside the stable timeline markers'
   );
@@ -355,7 +383,8 @@ api.fetchMarks(recording, 'default').then(result => {
 
   const changed = Object.assign({}, payload, {marksRevision: 'changed', marks: [payload.marks[0]]});
   window.VdrSuiteRecordings2MarksTimeline.render(detailRoot, recording, changed);
-  assert.strictEqual(playbackControls.children.length, 2, 'new revision replaces old rail');
+  assert.strictEqual(playbackControls.children.length, 3, 'new revision replaces old rail without duplicating the marks panel');
+  assert.strictEqual(playbackControls.children[2], marksPanel);
   window.VdrSuiteRecordings2MarksTimeline.render(detailRoot, recording, {marks: []});
   assert.strictEqual(detailRoot.querySelector('.recordings2-marks-timeline'), null);
   assert.strictEqual(timeline.dataset.nativeMarksVisible, undefined);

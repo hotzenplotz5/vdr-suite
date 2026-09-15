@@ -56,6 +56,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_live_tv_playback.js
 	node web/frontend/tests/test_channel_live_playback_runtime.js
 	node web/frontend/tests/test_recordings2_marks_detail.js
+	node web/frontend/tests/test_recordings2_marks_placement_contract.js
 	node web/frontend/tests/test_recordings2_marks_editor.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js

@@ -204,6 +204,7 @@ async function run() {
 
   assert.ok(timelineInteraction);
   assert.strictEqual(typeof timelineInteraction.onSelect, 'function');
+  assert.strictEqual(typeof timelineInteraction.onMove, 'function');
   timelineInteraction.onSelect(initial.marks[0]); await flush();
   assert.deepStrictEqual(seeks, [10]);
   assert.strictEqual(timelineInteraction.selectedFrame, 250);
@@ -249,12 +250,27 @@ async function run() {
   assert(allText(root).includes('Frame 300'));
   assert(allText(root).includes('Ausgewählt: frame-300 · Frame 300'));
 
+  const directMark = native.marks.find(mark => mark.positionFrame === 300);
+  const beforeDirectMove = posts().length;
+  timelineInteraction.onMove(directMark, 14);
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(timelineInteraction.previewMove)),
+    {sourceFrame: 300, positionSeconds: 14}
+  );
+  await flush();
+  assert.strictEqual(posts().length, beforeDirectMove + 1);
+  const directMove = posts().at(-1);
+  assert.strictEqual(directMove.body.kind, 'move');
+  assert.strictEqual(directMove.body.sourceFrame, 300);
+  assert.strictEqual(directMove.body.targetFrame, 350);
+  assert(allText(root).includes('Ausgewählt: frame-350 · Frame 350'));
+
   const beforeDelete = posts().length;
   button('Auswahl löschen').click(); await flush();
   assert.strictEqual(posts().length, beforeDelete + 1);
   assert.strictEqual(posts().at(-1).body.kind, 'delete');
-  assert.strictEqual(posts().at(-1).body.sourceFrame, 300);
-  assert(!allText(root).includes('Frame 300'));
+  assert.strictEqual(posts().at(-1).body.sourceFrame, 350);
+  assert(!allText(root).includes('Frame 350'));
   assert(allText(root).includes('Keine Schnittmarke ausgewählt.'));
 
   mode = 'queued-applied';

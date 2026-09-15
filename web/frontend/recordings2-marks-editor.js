@@ -157,10 +157,24 @@
       if (!timeline || typeof timeline.render !== 'function') return;
       timeline.render(root, recording, payload, {
         selectedFrame: selectedFrame,
+        previewMove: pending && pending.body && pending.body.kind === 'move' ? {sourceFrame: pending.body.sourceFrame, positionSeconds: Number(pending.body.targetFrame) / Number(payload.framesPerSecond)} : null,
         onSelect: function (mark) {
           if (!destroyed && mark) selectAndSeek(mark);
+        },
+        onMove: function (mark, seconds) {
+          const source = frame(mark && mark.positionFrame), fps = Number(payload && payload.framesPerSecond), target = frame(Math.round(Number(seconds) * fps));
+          if (destroyed || source === null || target === null) return;
+          selectedFrame = source;
+          if (target === source) { render(); return; }
+          submit('/api/vdr/recordings/marks', {kind: 'move', sourceFrame: source, targetFrame: target});
         }
       });
+      const range = typeof timeline.canonicalTimeline === 'function'
+        ? timeline.canonicalTimeline(root) : null;
+      if (range && panel && panel.section &&
+          typeof range.insertAdjacentElement === 'function')
+        range.insertAdjacentElement('afterend', panel.section);
+
     }
 
     function render() {

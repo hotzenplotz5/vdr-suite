@@ -198,7 +198,12 @@
       const editor = global.VdrSuiteRecordings2MarksEditor;
       if (editor) editor.attach(root, panel, recording, selectedBackendId, payload, {renderPayload: renderPayload});
       ensureTimelineRuntime().then(function (timeline) {
-        if (timeline) timeline.bind(root, recording, payload);
+        if (!timeline) return;
+        timeline.bind(root, recording, payload);
+        const range = typeof timeline.canonicalTimeline === 'function'
+          ? timeline.canonicalTimeline(root) : null;
+        if (range && typeof range.insertAdjacentElement === 'function')
+          range.insertAdjacentElement('afterend', panel.section);
       });
       return true;
     }).catch(function (error) {

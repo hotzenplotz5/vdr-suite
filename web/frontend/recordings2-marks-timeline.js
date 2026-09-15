@@ -4,14 +4,8 @@
   const STYLE_ID = 'vdr-suite-recordings2-marks-timeline-style';
   const TIMELINE_SELECTOR = 'input[aria-label="Wiedergabeposition"]';
   const REPLACEABLE_FALLBACK_TRANSPORT_CLASS = 'recordings2-recording-fallback-transport';
-  function text(value) {
-    return value == null ? '' : String(value);
-  }
-  function node(tag, className) {
-    const element = global.document.createElement(tag);
-    if (className) element.className = className;
-    return element;
-  }
+  function text(value) { return value == null ? '' : String(value); }
+  function node(tag, className) { const element = global.document.createElement(tag); if (className) element.className = className; return element; }
   function installStyles() {
     const document = global.document;
     if (!document || !document.head || document.getElementById(STYLE_ID)) return;
@@ -19,19 +13,17 @@
     style.id = STYLE_ID;
     style.textContent = [
       '.recordings2-marks-timeline{position:relative;z-index:3;height:1.2rem;margin:.15rem 0 -.1rem;pointer-events:none}',
-      '.recordings2-marks-timeline-marker{position:absolute;top:0;width:1.25rem;height:1.25rem;padding:0;border:0;background:transparent;transform:translateX(-50%);pointer-events:auto;cursor:pointer}',
-      '.recordings2-marks-timeline-marker::before{content:"";position:absolute;left:50%;top:.38rem;bottom:-.28rem;width:3px;border-radius:999px;background:#facc15;box-shadow:0 0 0 1px rgba(15,23,42,.82),0 0 5px rgba(250,204,21,.72);transform:translateX(-50%)}',
-      '.recordings2-marks-timeline-marker::after{content:"";position:absolute;top:.05rem;left:50%;width:.5rem;height:.5rem;border:1px solid rgba(15,23,42,.9);border-radius:50%;background:#fde047;transform:translateX(-50%)}',
-      '.recordings2-marks-timeline-marker.selected::after{box-shadow:0 0 0 3px rgba(96,165,250,.65)}',
-      '.recordings2-marks-timeline-marker:focus-visible{outline:2px solid #93c5fd;outline-offset:2px;border-radius:999px}'
+      '.recordings2-marks-timeline-marker{position:absolute!important;top:0;width:1.25rem!important;height:2.25rem!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important;overflow:visible!important;transform:translateX(-50%);pointer-events:auto;cursor:ew-resize;touch-action:none}',
+      '.recordings2-marks-timeline-marker::before{content:"";position:absolute;left:50%;top:.38rem;bottom:-1.25rem;width:2px;background:#eab308;transform:translateX(-50%)}',
+      '.recordings2-marks-timeline-marker::after{content:"";position:absolute;top:.08rem;left:50%;width:.42rem;height:.42rem;border:1px solid #0f172a;border-radius:1px;background:#facc15;transform:translateX(-50%) rotate(45deg)}',
+      '.recordings2-marks-timeline-marker.selected::before{background:#60a5fa}.recordings2-marks-timeline-marker.selected::after{border-color:#dbeafe;background:#60a5fa}',
+      '.recordings2-marks-timeline-marker:focus-visible{outline:none!important}.recordings2-marks-timeline-marker:focus-visible::after{border-color:#f8fafc}'
     ].join('');
     document.head.appendChild(style);
   }
   function hasClass(element, className) {
     if (!element) return false;
-    if (element.classList && typeof element.classList.contains === 'function') {
-      return element.classList.contains(className);
-    }
+    if (element.classList && typeof element.classList.contains === 'function') return element.classList.contains(className);
     return text(element.className).split(/\s+/).filter(Boolean).indexOf(className) !== -1;
   }
   function insideReplaceableFallbackTransport(element, boundary) {
@@ -68,6 +60,9 @@
     const maximum = Number(timeline && timeline.max);
     return Number.isFinite(maximum) && maximum > 0 ? maximum : 0;
   }
+  function pointerSeconds(event, timeline, duration) {
+    const rect = timeline && typeof timeline.getBoundingClientRect === 'function' ? timeline.getBoundingClientRect() : null, x = Number(event && event.clientX); return rect && rect.width > 0 && Number.isFinite(x) ? Math.max(0, Math.min(duration, (x - rect.left) / rect.width * duration)) : null;
+  }
   function attachRail(timeline, rail) {
     if (!timeline || !rail) return false;
     if (typeof timeline.insertAdjacentElement === 'function') {
@@ -95,18 +90,16 @@
     const value = state && state.selectedFrame !== null && state.selectedFrame !== undefined ? Number(state.selectedFrame) : NaN;
     return Number.isFinite(value) ? value : null;
   }
-  function updateSelection(rail, frame) {
+  function updateSelection(rail, frame, preview) {
     if (!rail || !rail.children) return;
     Array.prototype.forEach.call(rail.children, function (marker) {
-      const active = frame !== null && Number(marker.dataset.positionFrame) === frame;
-      marker.className = 'recordings2-marks-timeline-marker' + (active ? ' selected' : ''); marker.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const active = frame !== null && Number(marker.dataset.positionFrame) === frame, seconds = preview && Number(preview.sourceFrame) === Number(marker.dataset.positionFrame) ? Number(preview.positionSeconds) : Number(marker.dataset.positionSeconds);
+      marker.className = 'recordings2-marks-timeline-marker' + (active ? ' selected' : ''); marker.setAttribute('aria-pressed', active ? 'true' : 'false'); marker.style.left = ((Math.min(Number(rail.dataset.durationSeconds), seconds) / Number(rail.dataset.durationSeconds)) * 100).toFixed(5) + '%';
     });
   }
   function render(root, recording, payload, interaction) {
     if (!root || typeof root.querySelector !== 'function') return false;
-    if (interaction && typeof interaction === 'object') {
-      root.__vdrSuiteRecordingMarksTimelineInteraction = interaction;
-    }
+    if (interaction && typeof interaction === 'object') root.__vdrSuiteRecordingMarksTimelineInteraction = interaction;
     const selected = selectedFrame(root);
     const timeline = canonicalTimeline(root);
     const marks = payload && Array.isArray(payload.marks) ? payload.marks : [];
@@ -125,7 +118,7 @@
     const existing = root.querySelector('.recordings2-marks-timeline');
     if (existing && existing.parentNode === timeline.parentNode && timeline.dataset &&
         timeline.dataset.nativeMarksRevision === revision) {
-      updateSelection(existing, selected);
+      updateSelection(existing, selected, root.__vdrSuiteRecordingMarksTimelineInteraction && root.__vdrSuiteRecordingMarksTimelineInteraction.previewMove);
       return true;
     }
     if (previous && previous.parentNode) previous.parentNode.removeChild(previous);
@@ -139,14 +132,11 @@
     marks.forEach(function (mark, index) {
       const positionSeconds = Number(mark && mark.positionSeconds);
       if (!Number.isFinite(positionSeconds) || positionSeconds < 0) return;
-      const markerFrame = Number(mark && mark.positionFrame);
+      const markerFrame = Number(mark && mark.positionFrame), preview = root.__vdrSuiteRecordingMarksTimelineInteraction && root.__vdrSuiteRecordingMarksTimelineInteraction.previewMove, displaySeconds = preview && Number(preview.sourceFrame) === markerFrame ? Number(preview.positionSeconds) : positionSeconds;
       const markerSelected = selected !== null && markerFrame === selected;
-      const marker = node(
-        'button',
-        'recordings2-marks-timeline-marker' + (markerSelected ? ' selected' : '')
-      );
+      const marker = node('button', 'recordings2-marks-timeline-marker' + (markerSelected ? ' selected' : ''));
       marker.type = 'button';
-      marker.style.left = ((Math.min(duration, positionSeconds) / duration) * 100).toFixed(5) + '%';
+      marker.style.left = ((Math.min(duration, displaySeconds) / duration) * 100).toFixed(5) + '%';
       marker.dataset.positionSeconds = String(positionSeconds);
       marker.dataset.positionFrame = String(markerFrame);
       const timecode = text(mark && mark.timecode).trim() || ('Marke ' + String(index + 1));
@@ -154,9 +144,19 @@
       marker.title = comment ? timecode + ' · ' + comment : timecode;
       marker.setAttribute('aria-label', 'Schnittmarke ' + timecode);
       marker.setAttribute('aria-pressed', markerSelected ? 'true' : 'false');
+      let dragStart = null, dragged = false;
+      marker.addEventListener('pointerdown', function (event) {
+        dragStart = Number(event && event.clientX); dragged = false; updateSelection(rail, markerFrame); if (marker.setPointerCapture && event && event.pointerId !== undefined) marker.setPointerCapture(event.pointerId); if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      });
+      marker.addEventListener('pointermove', function (event) {
+        const seconds = pointerSeconds(event, timeline, duration); if (!Number.isFinite(dragStart) || seconds === null) return; dragged = dragged || Math.abs(Number(event.clientX) - dragStart) >= 3; if (dragged) marker.style.left = ((seconds / duration) * 100).toFixed(5) + '%';
+      });
+      marker.addEventListener('pointerup', function (event) {
+        const seconds = pointerSeconds(event, timeline, duration), current = root.__vdrSuiteRecordingMarksTimelineInteraction; if (dragged && seconds !== null && current && typeof current.onMove === 'function') current.onMove(mark, seconds); dragStart = null; if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      });
+      marker.addEventListener('pointercancel', function () { dragStart = null; dragged = false; });
       marker.addEventListener('click', function (event) {
-        if (event && typeof event.preventDefault === 'function') event.preventDefault(); if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-        const current = root.__vdrSuiteRecordingMarksTimelineInteraction; if (current && typeof current.onSelect === 'function') current.onSelect(mark);
+        if (dragged) { dragged = false; return; } if (event && typeof event.preventDefault === 'function') event.preventDefault(); if (event && typeof event.stopPropagation === 'function') event.stopPropagation(); const current = root.__vdrSuiteRecordingMarksTimelineInteraction; if (current && typeof current.onSelect === 'function') current.onSelect(mark);
       });
       rail.appendChild(marker);
     });
@@ -193,8 +193,7 @@
     return true;
   }
   global.VdrSuiteRecordings2MarksTimeline = Object.freeze({
-    bind: bind,
-    render: render,
-    release: release
+    bind: bind, render: render, release: release,
+    canonicalTimeline: canonicalTimeline
   });
 }(window));
