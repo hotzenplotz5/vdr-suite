@@ -288,7 +288,7 @@ bool configureDaemonRecordingMarksRuntime(
             }
             return access;
         },
-        [agents, commands](const RecordingMarksMutationRequest& request) {
+        [agents, commands, runtimeContexts](const RecordingMarksMutationRequest& request) {
             RecordingMarksMutationDispatchResult dispatch;
             const auto existing = commands->findAssignmentForOperation(
                 request.backendId,
@@ -345,7 +345,21 @@ bool configureDaemonRecordingMarksRuntime(
                     return dispatch;
                 }
             }
-            else if (request.replayOnly)
+            else
+            {
+                for (const auto& context : *runtimeContexts)
+                {
+                    if (!context || context->backendId != request.backendId ||
+                        !context->suiteBridgeAgentRuntime) continue;
+                    if (!context->embeddedMarksRuntime)
+                    {
+                        dispatch.reasonCode = "recording_marks_modify_journal_unavailable";
+                        return dispatch;
+                    }
+                    return context->embeddedMarksRuntime->dispatch(request);
+                }
+            }
+            if (!existing.has_value() && request.replayOnly)
             {
                 dispatch.reasonCode =
                     "recording_marks_modify_assignment_not_found";

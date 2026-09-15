@@ -11,6 +11,8 @@ RECORDING_NATIVE_EDITING_ROUTER_SRC := \
 RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp
 
+DAEMON_SRC += core/daemon/src/EmbeddedRecordingMarksRuntime.cpp core/agent/src/EmbeddedRecordingMarksRepository.cpp
+DAEMON_SRC += $(AGENT_RECORDING_MARKS_MODIFY_TRANSPORT_SRC)
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
@@ -210,3 +212,22 @@ test-recording-native-editing-contracts: \
 	check-suitebridge-recording-marks-vdr-mutation
 
 test-fast: test-recording-native-editing-contracts
+
+.PHONY: test-embedded-recording-marks-runtime
+test-embedded-recording-marks-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/daemon/include -Iapi/rest/include -Icore/vdr/include \
+		-Icore/agent/include -Icore/security/include -Icore/scheduler/include -Icore/config/include \
+		$(SQLITE_SRC) $(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp core/vdr/src/BackendRegistry.cpp core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/VdrRecordingNativeIdentity.cpp api/rest/src/RecordingMarksApiRuntime.cpp \
+		core/daemon/src/EmbeddedRecordingMarksRuntime.cpp core/agent/src/EmbeddedRecordingMarksRepository.cpp \
+		core/daemon/tests/test_embedded_recording_marks_runtime.cpp \
+		$(LDFLAGS) -o $(BUILD_DIR)/test_embedded_recording_marks_runtime
+	$(BUILD_DIR)/test_embedded_recording_marks_runtime
+
+test-recording-native-editing-contracts: test-embedded-recording-marks-runtime

@@ -599,6 +599,17 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         embeddedConfig.observation.reconnectMaximum =
             std::chrono::milliseconds(suiteBridgeConfig.reconnectMaximumMs);
 
+        context->embeddedMarksTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport>(embeddedConfig.transport);
+        context->embeddedMarksRuntime = std::make_unique<EmbeddedRecordingMarksRuntime>(
+            database_, context->backendId, *context->embeddedMarksTransport,
+            *context->ensureRecordingMarksResolver());
+        if (!context->embeddedMarksRuntime->ensureSchema())
+        {
+            std::cerr << "embedded marks journal unavailable: backend=" << context->backendId << std::endl;
+            context->embeddedMarksRuntime.reset();
+        }
+
         context->suiteBridgeAgentRuntime =
             std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
                 std::move(embeddedConfig));

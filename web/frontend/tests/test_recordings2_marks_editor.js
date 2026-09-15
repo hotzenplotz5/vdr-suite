@@ -147,6 +147,7 @@ async function run() {
       requests.push({path, config, body});
       if (!body) return Promise.resolve(path.endsWith('/cut')
         ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
+      if (mode === 'lease') return Promise.reject(new Error('active_agent_lease_required'));
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
       if (mode === 'conflict') return Promise.reject(new Error('recording_marks_revision_conflict'));
       if (mode === 'rejected') return Promise.reject(new Error('recording_marks_modify_rejected'));
@@ -217,7 +218,7 @@ async function run() {
   assert(!JSON.stringify(addOperation.body).includes('/srv/'));
   assert(allText(root).includes('Frame 800'));
   assert(button('Marke setzen').disabled);
-  assert(findButton('Auftrag prüfen'));
+  assert(!findButton('Auftrag prüfen'));
   mode = 'verified';
   await fireNextTimer();
   assert.deepStrictEqual(posts().at(-1).body, addOperation.body);
@@ -247,8 +248,8 @@ async function run() {
 
   mode = 'queued-applied';
   button('Alle Marken entfernen').click();
-  assert(allText(root).includes('Alle nativen Schnittmarken'));
-  button('Bestätigen').click(); await flush();
+  assert(!findButton('Bestätigen'));
+  await flush();
   const resetOperation = posts().at(-1);
   assert.strictEqual(resetOperation.body.kind, 'reset');
   assert(allText(root).includes('Keine nativen Schnittmarken vorhanden.'));
@@ -284,13 +285,22 @@ async function run() {
   assert(allText(root).includes('inzwischen geändert'));
   assert(!findButton('Auftrag prüfen'));
 
+  mode = 'lease';
+  button('Marke setzen').click(); await flush();
+  assert(allText(root).includes('native Bearbeitung ist derzeit nicht verfügbar'));
+  assert(!button('Marke setzen').disabled);
+  assert.strictEqual(timers.size, 0);
+
   position = 45;
   mode = 'lost';
   button('Marke setzen').click(); await flush();
   const lost = posts().at(-1).body;
+  for (let i = 0; i < 18; ++i) await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body, lost);
+  assert.strictEqual(timers.size, 1);
   assert.strictEqual(lost.targetFrame, 1125);
   assert(button('Marke setzen').disabled);
-  assert(findButton('Auftrag prüfen'));
+  assert(!findButton('Auftrag prüfen'));
   mode = 'verified';
   await fireNextTimer();
   assert.deepStrictEqual(posts().at(-1).body, lost);

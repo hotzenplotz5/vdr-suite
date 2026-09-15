@@ -7,11 +7,11 @@
     if (!global.document || !global.document.head || global.document.getElementById(STYLE_ID)) return;
     const style = node('style'); style.id = STYLE_ID; style.textContent = `
 .recordings2-marks-editor{display:grid;gap:.65rem;margin-top:.25rem}.recordings2-marks-editor-hint,.recordings2-marks-editor-selection{margin:0;color:#cbd5e1;font-size:.82rem;line-height:1.4}.recordings2-marks-editor-selection{font-weight:750;color:#f8fafc}
-.recordings2-marks-editor-actions{display:grid;gap:.65rem}.recordings2-marks-editor-group{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.recordings2-marks-editor-group.utility{padding-bottom:.15rem;border-bottom:1px solid rgba(148,163,184,.18)}
-.recordings2-marks-editor button{min-height:2.7rem;padding:.5rem .8rem;border-radius:.62rem;white-space:normal}.recordings2-marks-editor button.primary{background:#2563eb;border-color:#3b82f6;color:#f8fafc}.recordings2-marks-editor button.danger{border-color:rgba(248,113,113,.65);background:rgba(153,27,27,.35);color:#fee2e2}.recordings2-marks-editor button:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
-.recordings2-marks-editor-list{display:grid;gap:.5rem;width:100%;min-width:0}.recordings2-marks-editor-row{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.35rem .75rem;align-items:center;padding:.6rem .7rem;border:1px solid rgba(148,163,184,.28);border-radius:.65rem;background:rgba(15,23,42,.48)}.recordings2-marks-editor-row.selected{border-color:#60a5fa;background:rgba(30,64,175,.2)}
+.recordings2-marks-editor-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem}.recordings2-marks-editor-group{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.recordings2-marks-editor-group.utility{padding-bottom:.15rem;border-bottom:1px solid rgba(148,163,184,.18)}
+.recordings2-marks-editor button{min-height:2.1rem;padding:.3rem .55rem;border-radius:.62rem;white-space:normal}.recordings2-marks-editor button.primary{background:#2563eb;border-color:#3b82f6;color:#f8fafc}.recordings2-marks-editor button.danger{border-color:rgba(248,113,113,.65);background:rgba(153,27,27,.35);color:#fee2e2}.recordings2-marks-editor button:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+.recordings2-marks-editor-list{display:flex;flex-wrap:wrap;gap:.35rem;width:100%;min-width:0}.recordings2-marks-editor-row{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.35rem .75rem;align-items:center;padding:.25rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:.65rem;background:rgba(15,23,42,.48)}.recordings2-marks-editor-row.selected{border-color:#60a5fa;background:rgba(30,64,175,.2)}
 .recordings2-marks-editor-row>span{color:#cbd5e1;font-size:.8rem;line-height:1.35}.recordings2-marks-editor-mark{min-width:7rem;text-align:left;font-weight:800}.recordings2-marks-editor-confirmation{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.recordings2-marks-editor-confirmation:empty{display:none}
-.recordings2-marks-editor-status{min-height:1.35rem;margin:0;padding:.55rem .62rem;border:1px solid rgba(148,163,184,.2);border-radius:.62rem;background:rgba(30,41,59,.55);color:#cbd5e1;font-size:.8rem;line-height:1.4}.recordings2-marks-editor-status:empty{display:none}.recordings2-marks-editor-status.error{border-color:rgba(248,113,113,.5);color:#fecaca}.recordings2-marks-editor-status.success{border-color:rgba(34,197,94,.45);color:#bbf7d0}.recordings2-marks-editor-status.pending{border-color:rgba(56,189,248,.45);color:#bae6fd}
+.recordings2-marks-editor-status{min-height:1.35rem;margin:0;padding:.2rem .4rem;border:1px solid rgba(148,163,184,.2);border-radius:.62rem;background:rgba(30,41,59,.55);color:#cbd5e1;font-size:.8rem;line-height:1.4}.recordings2-marks-editor-status:empty{display:none}.recordings2-marks-editor-status.error{border-color:rgba(248,113,113,.5);color:#fecaca}.recordings2-marks-editor-status.success{border-color:rgba(34,197,94,.45);color:#bbf7d0}.recordings2-marks-editor-status.pending{border-color:rgba(56,189,248,.45);color:#bae6fd}
 @media(max-width:720px){.recordings2-marks-editor-group{display:grid;grid-template-columns:1fr 1fr}.recordings2-marks-editor-group button{width:100%}.recordings2-marks-editor-row{grid-template-columns:1fr}.recordings2-marks-editor-mark{width:100%}}
 `; global.document.head.appendChild(style);
   }
@@ -23,7 +23,7 @@
     if (/in_use/.test(code)) return 'Die Aufnahme wird gerade verwendet. Bearbeiten ist derzeit gesperrt.';
     if (/permission|forbidden|read.only|denied|Authentication|CSRF/.test(code)) return 'Keine Schreibberechtigung oder Anmeldung abgelaufen. Bitte Anmeldung und Backend-Zugriff prüfen.';
     if (/destination|result.*exist/.test(code)) return 'Eine geschnittene Ausgabe existiert bereits.';
-    if (/capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
+    if (/active_agent_lease_required|capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
     if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.';
     return 'Änderung noch nicht bestätigt. Derselbe Auftrag wird weiter geprüft; bitte keine neue Änderung starten.';
   }
@@ -89,10 +89,10 @@
     function clearVerificationTimer() { if (verificationTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(verificationTimer); verificationTimer = null; }
     function scheduleVerification() {
       if (!pending || destroyed || verificationTimer !== null) return;
-      if (verificationAttempts >= VERIFY_ATTEMPTS || typeof global.setTimeout !== 'function') { setStatus('pending', 'Der aktuelle VDR-Stand wird angezeigt; die Auftragsbestätigung dauert länger. „Auftrag prüfen“ prüft denselben Auftrag weiter.'); return; }
-      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, VERIFY_DELAY_MS);
+      if (typeof global.setTimeout !== 'function') return;
+      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, verificationAttempts < VERIFY_ATTEMPTS ? VERIFY_DELAY_MS : 5000);
     }
-    function definitiveFailure(error) { return /recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
+    function definitiveFailure(error) { return /active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
     function submit(path, fields) {
       if (!editable()) return;
       try { pending = {path: path, body: Object.assign({}, identity, {operationId: token(), operationRevision: '1', expectedMarksRevision: payload.marksRevision}, fields || {})}; }
@@ -156,7 +156,7 @@
       actions.replaceChildren(); const blocked = !editable(), current = playback(), state = snapshot(), active = Boolean(current && state && state.sessionId && typeof current.position === 'function'), selected = selectedMark();
       positionHint.textContent = active ? 'Wiedergabe aktiv: Setzen und Verschieben verwenden die aktuelle Position.' : 'Zum Setzen, Verschieben oder Anspringen einer Marke zuerst die Wiedergabe starten.';
       selectionHint.textContent = selected ? 'Ausgewählt: ' + String(selected.timecode || 'Schnittmarke') + ' · Frame ' + String(selected.positionFrame) : 'Keine Schnittmarke ausgewählt.';
-      const utility = group('Aktualisieren', 'utility'); button('Neu laden', reload, busy, utility); if (pending) button('Auftrag prüfen', function () { check(false); }, busy, utility);
+      const utility = group('Aktualisieren', 'utility'); button('Neu laden', reload, busy, utility);
       const navigation = group('Markennavigation', 'navigation'), previous = navigationTarget(-1), next = navigationTarget(1);
       button('Vorherige Marke', function () { selectAndSeek(previous); }, !active || !previous, navigation); button('Nächste Marke', function () { selectAndSeek(next); }, !active || !next, navigation);
       const editing = group('Schnittmarken bearbeiten', 'editing');
@@ -164,7 +164,7 @@
       button('Auswahl hierher verschieben', function () { const mark = selectedMark(), target = currentFrame(); if (!mark || target === null) { setStatus('error', 'Bitte zuerst eine Schnittmarke auswählen und die Wiedergabeposition festlegen.'); return; } submit('/api/vdr/recordings/marks', {kind: 'move', sourceFrame: mark.positionFrame, targetFrame: target}); }, blocked || !selected || !activePlayback(), editing);
       button('Auswahl löschen', function () { const mark = selectedMark(); if (mark) submit('/api/vdr/recordings/marks', {kind: 'delete', sourceFrame: mark.positionFrame}); }, blocked || !selected, editing, 'danger');
       const workflow = group('Weitere Schnittaktionen', 'workflow');
-      button('Alle Marken entfernen', function () { confirm('Alle nativen Schnittmarken dieser Aufnahme entfernen?', function () { submit('/api/vdr/recordings/marks', {kind: 'reset'}); }); }, blocked || !marks().length, workflow, 'danger');
+      button('Alle Marken entfernen', function () { submit('/api/vdr/recordings/marks', {kind: 'reset'}); }, blocked || !marks().length, workflow, 'danger');
       button('Schneiden …', previewCut, blocked || !marks().length, workflow);
       const list = node('div'); list.className = 'recordings2-marks-editor-list'; list.setAttribute('role', 'list'); actions.appendChild(list);
       marks().forEach(function (mark, index) {

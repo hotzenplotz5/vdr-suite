@@ -705,8 +705,7 @@ bool validAcceptedDispatch(
         !dispatch.commandId.empty() &&
         !dispatch.requestFingerprint.empty() &&
         (!dispatch.verified ||
-            (dispatch.replayed &&
-             validRevisionToken(dispatch.canonicalMarksRevision)));
+            validRevisionToken(dispatch.canonicalMarksRevision));
 }
 }
 
