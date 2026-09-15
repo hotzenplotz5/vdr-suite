@@ -19,6 +19,7 @@ This section contains binding future execution order, product acceptance journey
 - [Golden User Journeys](golden-user-journeys.md) — vertical user-visible acceptance.
 - [Implementation Dependency Map](implementation-dependency-map.md) — stable prerequisite ordering.
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md) — living accepted-code gap register.
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) — frontend/product parity gap register.
 - [ADR Index](../adr/index.md) — accepted architectural decisions.
 
 ## Stable phase dependency chain
