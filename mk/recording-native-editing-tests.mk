@@ -13,6 +13,7 @@ RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC := \
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_MARKS_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_EDITING_REST_SRC)
+DAEMON_SRC += $(RECORDING_NATIVE_EDITING_AGENT_MARKS_MODIFY_TRANSPORT_SRC)
 REST_ROUTER_SRC += $(RECORDING_NATIVE_EDITING_ROUTER_SRC)
 
 .PHONY: test-suite-bridge-svdrp-recording-marks-transport test-suite-bridge-svdrp-recording-marks-modify-transport test-suite-bridge-recording-marks-resolver test-recording-marks-api-runtime test-recording-marks-api-invalid-operation-token test-recording-marks-api-verified-replay test-backend-agent-recording-marks-modify test-backend-agent-recording-marks-modify-assignment test-backend-agent-recording-marks-modify-reconciliation test-backend-agent-recording-marks-modify-local-state test-backend-agent-recording-marks-modify-state-extension test-backend-agent-recording-marks-modify-executor test-backend-agent-recording-marks-modify-command-handler test-suitebridge-recording-marks-modify-protocol check-suitebridge-recording-marks-vdr-mutation check-recording-native-editing-runtime-wiring test-recording-native-editing-read-contracts test-recording-native-editing-contracts
