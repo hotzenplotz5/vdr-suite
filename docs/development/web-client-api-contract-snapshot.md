@@ -151,11 +151,11 @@ The ownership guard must fail if `web/frontend/app.js` calls `fetch()` directly.
 
 ---
 
-## Current Route/Compatibility Gaps
+## Missing Backend Route Gaps
 
-The former gap list that treated Phase-62 identity, Phase-63 Agent, Phase-64 Timer orchestration and Phase-65 media routes as future work is retired: those numbered foundations are completed.
+The former missing-route list that treated Phase-62 identity, Phase-63 Agent, Phase-64 Timer orchestration and Phase-65 media routes as future work is retired: those numbered foundations are completed.
 
-The remaining forward route families follow the current strict roadmap:
+The remaining forward route/compatibility gaps follow the current strict roadmap:
 
 - **Phase 67** — Teletext service/page/subpage and HbbTV broadcast-application discovery/session contracts;
 - **Phase 68** — legacy OSD viewer/controller/session contracts;
