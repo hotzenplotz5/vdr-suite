@@ -3,6 +3,7 @@
 ## Navigation
 
 - [README](../README.md)
+- [Project Principles](project-principles.md)
 - [Current State](CURRENT.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
@@ -14,6 +15,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 ## Start here
 
+- [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
 - [Current Project Status](development/current-status.md) — stable narrative platform context.
@@ -56,6 +58,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [Repository Truth Refresh 2026-07 Archive](planning/history/repository-truth-refresh-2026-07/README.md) — historical pre-refresh snapshots retained for traceability only.
 
 ## Status model
 
