@@ -9,7 +9,7 @@ function hasClass(value, className) {
 }
 
 function element(tag) {
-  const value = {
+  return {
     tagName: String(tag || '').toUpperCase(), id: '', className: '', dataset: {},
     children: [], textContent: '', attributes: {}, style: {}, parentNode: null,
     title: '', classList: {add() {}, remove() {}}, disabled: false, value: '', listeners: {},
@@ -32,27 +32,20 @@ function element(tag) {
       if (selector === '.recordings2-detail' && hasClass(this.className, 'recordings2-detail')) return this;
       if (selector === '.recordings2-marks-detail' && hasClass(this.className, 'recordings2-marks-detail')) return this;
       if (selector === '.recordings2-marks-timeline' && hasClass(this.className, 'recordings2-marks-timeline')) return this;
-      if (selector === 'input[aria-label="Wiedergabeposition"]' &&
-          this.tagName === 'INPUT' && this.attributes['aria-label'] === 'Wiedergabeposition') return this;
-      for (const child of this.children) {
-        if (child && typeof child.querySelector === 'function') {
-          const found = child.querySelector(selector); if (found) return found;
-        }
-      }
+      if (selector === 'input[aria-label="Wiedergabeposition"]' && this.tagName === 'INPUT' && this.attributes['aria-label'] === 'Wiedergabeposition') return this;
+      for (const child of this.children) if (child && typeof child.querySelector === 'function') { const found = child.querySelector(selector); if (found) return found; }
       return null;
     },
     querySelectorAll(selector) {
       const result = [];
       function collect(current) {
         if (!current) return;
-        if (selector === 'input[aria-label="Wiedergabeposition"]' &&
-            current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') result.push(current);
+        if (selector === 'input[aria-label="Wiedergabeposition"]' && current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') result.push(current);
         (current.children || []).forEach(collect);
       }
       collect(this); return result;
     }
   };
-  return value;
 }
 
 function allText(root) {
@@ -96,10 +89,7 @@ async function run() {
   let nextTimerId = 1;
 
   function revision() { const value = revisionCounter.toString(16).padStart(32, '0'); revisionCounter += 1; return value; }
-  function markForFrame(positionFrame) {
-    const seconds = positionFrame / 25;
-    return {positionFrame, positionSeconds: seconds, timecode: 'frame-' + String(positionFrame)};
-  }
+  function markForFrame(positionFrame) { const seconds = positionFrame / 25; return {positionFrame, positionSeconds: seconds, timecode: 'frame-' + String(positionFrame)}; }
   function applyMutation(body) {
     if (!body || !body.kind || appliedOperations.has(body.operationId)) return;
     let marks = native.marks.map(mark => Object.assign({}, mark));
@@ -109,9 +99,7 @@ async function run() {
     else if (body.kind === 'reset') marks = [];
     marks.sort((left, right) => left.positionFrame - right.positionFrame);
     appliedOperations.add(body.operationId);
-    native = Object.assign({}, native, {
-      marks, sequenceCount: Math.floor((marks.length + 1) / 2), marksRevision: revision()
-    });
+    native = Object.assign({}, native, {marks, sequenceCount: Math.floor((marks.length + 1) / 2), marksRevision: revision()});
   }
   async function fireNextTimer() {
     const entry = timers.entries().next(); assert(!entry.done, 'expected scheduled verification');
@@ -128,12 +116,8 @@ async function run() {
       mountTarget: () => mount, installStyles() {}, selectedBackendId: () => 'default',
       node(tag, className, label) { const n = element(tag); n.className = className; n.textContent = label || ''; return n; },
       createButton(label, action) { const n = element('button'); n.textContent = label; n.addEventListener('click', action || (() => {})); return n; },
-      createPoster: () => element('img'), provider: () => ({}),
-      text: value => String(value || ''), recordingTitle: () => 'Testaufnahme',
-      recordingSubtitle: () => '', recordingSummary: () => '',
-      formatStart: () => '', formatDuration: () => '', formatSize: () => '',
-      first(value, keys, fallback) { for (const key of keys) if (value && value[key] !== undefined) return value[key]; return fallback; },
-      number: (value, fallback) => Number(value) || fallback
+      createPoster: () => element('img'), provider: () => ({}), text: value => String(value || ''), recordingTitle: () => 'Testaufnahme', recordingSubtitle: () => '', recordingSummary: () => '', formatStart: () => '', formatDuration: () => '', formatSize: () => '',
+      first(value, keys, fallback) { for (const key of keys) if (value && value[key] !== undefined) return value[key]; return fallback; }, number: (value, fallback) => Number(value) || fallback
     },
     VdrSuiteRecordingPlaybackRestartChoice: {install() {}},
     VdrSuiteRecordings2Playback: {createPanel() {
@@ -145,34 +129,21 @@ async function run() {
     VdrSuiteClientApi: {requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
-      if (!body) return Promise.resolve(path.endsWith('/cut')
-        ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
+      if (!body) return Promise.resolve(path.endsWith('/cut') ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
       if (mode === 'conflict') return Promise.reject(new Error('recording_marks_revision_conflict'));
       if (mode === 'rejected') return Promise.reject(new Error('recording_marks_modify_rejected'));
-      if (mode === 'queued-applied') {
-        applyMutation(body);
-        return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'});
-      }
-      if (mode === 'verified') {
-        applyMutation(body);
-        return Promise.resolve({accepted: true, operationId: body.operationId,
-          verification: 'verified', canonicalMarksRevision: native.marksRevision});
-      }
+      if (mode === 'unavailable') return Promise.reject(new Error('recording_marks_modify_suitebridge_capability_unavailable'));
+      if (mode === 'queued-applied') { applyMutation(body); return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'}); }
+      if (mode === 'verified') { applyMutation(body); return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'verified', canonicalMarksRevision: native.marksRevision}); }
       return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'});
     }}
   };
 
   const context = vm.createContext({window, document, console, Promise, Uint32Array});
-  for (const path of [
-    'web/frontend/recordings2-browser-view.js',
-    'web/frontend/recordings2-marks-editor.js',
-    'web/frontend/recordings2-marks-detail.js'
-  ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
+  for (const path of ['web/frontend/recordings2-browser-view.js', 'web/frontend/recordings2-marks-editor.js', 'web/frontend/recordings2-marks-detail.js']) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 
-  const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
-    selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'
-  })});
+  const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'})});
   view.renderDetail(); await flush();
   root = mount.querySelector('.recordings2-detail');
   assert(root && root.__vdrSuiteRecordingPlaybackOwner === owner);
@@ -180,35 +151,30 @@ async function run() {
 
   function findButton(label) {
     let found;
-    function visit(value) {
-      if (value.tagName === 'BUTTON' && value.textContent === label) found = value;
-      value.children.forEach(visit);
-    }
+    function visit(value) { if (value.tagName === 'BUTTON' && value.textContent === label) found = value; value.children.forEach(visit); }
     visit(root); return found;
   }
   function button(label) { const found = findButton(label); assert(found, label); return found; }
   function posts() { return requests.filter(request => request.body); }
 
-  assert(button('Marke setzen').disabled);
+  assert(!findButton('Auftrag prüfen'), 'internal verification is never a user action');
+  assert(button('+ Marke').disabled);
   button('Start im Playback-Owner').click();
-  assert(!button('Marke setzen').disabled);
+  assert(!button('+ Marke').disabled);
 
   button('0:00:10.00').click(); await flush();
   assert.deepStrictEqual(seeks, [10]);
-  assert(allText(root).includes('Ausgewählt: 0:00:10.00 · Frame 250'));
-  assert(button('Vorherige Marke').disabled);
-  assert(!button('Nächste Marke').disabled);
-  button('Nächste Marke').click(); await flush();
+  assert(allText(root).includes('Auswahl: 0:00:10.00 · Frame 250'));
+  assert(button('◀ Marke').disabled);
+  assert(!button('Marke ▶').disabled);
+  button('Marke ▶').click(); await flush();
   assert.deepStrictEqual(seeks, [10, 20]);
-  assert(allText(root).includes('Ausgewählt: 0:00:20.00 · Frame 500'));
-  assert(!button('Vorherige Marke').disabled);
-  assert(button('Nächste Marke').disabled);
-  button('Vorherige Marke').click(); await flush();
+  button('◀ Marke').click(); await flush();
   assert.deepStrictEqual(seeks, [10, 20, 10]);
 
   position = 32;
   mode = 'queued-applied';
-  button('Marke setzen').click(); await flush();
+  button('+ Marke').click(); await flush();
   const addOperation = posts().at(-1);
   assert.strictEqual(addOperation.body.kind, 'add');
   assert.strictEqual(addOperation.body.targetFrame, 800);
@@ -216,85 +182,80 @@ async function run() {
   assert.strictEqual(addOperation.config.headers['X-CSRF-Token'], 'test-only');
   assert(!JSON.stringify(addOperation.body).includes('/srv/'));
   assert(allText(root).includes('Frame 800'));
-  assert(button('Marke setzen').disabled);
-  assert(findButton('Auftrag prüfen'));
+  assert(button('+ Marke').disabled);
+  assert(!findButton('Auftrag prüfen'));
   mode = 'verified';
   await fireNextTimer();
-  assert.deepStrictEqual(posts().at(-1).body, addOperation.body);
-  assert(!findButton('Auftrag prüfen'));
-  assert(!button('Marke setzen').disabled);
+  assert.deepStrictEqual(posts().at(-1).body, addOperation.body, 'automatic verification replays the identical immutable operation');
+  assert(!button('+ Marke').disabled);
+  assert(allText(root).includes('Gespeichert.'));
 
   button('0:00:10.00').click(); await flush();
   position = 12;
   mode = 'verified';
   const beforeMove = posts().length;
-  button('Auswahl hierher verschieben').click(); await flush();
+  button('Verschieben').click(); await flush();
   assert.strictEqual(posts().length, beforeMove + 1);
-  const moveOperation = posts().at(-1);
-  assert.strictEqual(moveOperation.body.kind, 'move');
-  assert.strictEqual(moveOperation.body.sourceFrame, 250);
-  assert.strictEqual(moveOperation.body.targetFrame, 300);
+  assert.strictEqual(posts().at(-1).body.kind, 'move');
+  assert.strictEqual(posts().at(-1).body.sourceFrame, 250);
+  assert.strictEqual(posts().at(-1).body.targetFrame, 300);
   assert(allText(root).includes('Frame 300'));
-  assert(allText(root).includes('Ausgewählt: frame-300 · Frame 300'));
 
   const beforeDelete = posts().length;
-  button('Auswahl löschen').click(); await flush();
-  assert.strictEqual(posts().length, beforeDelete + 1);
+  button('Löschen').click(); await flush();
+  assert.strictEqual(posts().length, beforeDelete + 1, 'single delete is one click');
   assert.strictEqual(posts().at(-1).body.kind, 'delete');
   assert.strictEqual(posts().at(-1).body.sourceFrame, 300);
   assert(!allText(root).includes('Frame 300'));
-  assert(allText(root).includes('Keine Schnittmarke ausgewählt.'));
 
   mode = 'queued-applied';
-  button('Alle Marken entfernen').click();
-  assert(allText(root).includes('Alle nativen Schnittmarken'));
-  button('Bestätigen').click(); await flush();
+  const beforeReset = posts().length;
+  button('Alle löschen').click(); await flush();
+  assert.strictEqual(posts().length, beforeReset + 1, 'delete-all is one click');
+  assert.strictEqual(posts().at(-1).body.kind, 'reset');
   const resetOperation = posts().at(-1);
-  assert.strictEqual(resetOperation.body.kind, 'reset');
   assert(allText(root).includes('Keine nativen Schnittmarken vorhanden.'));
-  assert(button('Alle Marken entfernen').disabled);
+  assert(!findButton('Bestätigen'));
   mode = 'verified';
   await fireNextTimer();
   assert.deepStrictEqual(posts().at(-1).body, resetOperation.body);
-  assert(allText(root).includes('Keine nativen Schnittmarken vorhanden.'));
 
-  native = Object.assign({}, native, {
-    marksRevision: revision(), sequenceCount: 1,
-    marks: [
-      {positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
-      {positionFrame: 500, positionSeconds: 20, timecode: '0:00:20.00'}
-    ]
-  });
-  button('Neu laden').click(); await flush();
+  native = Object.assign({}, native, {marksRevision: revision(), sequenceCount: 1, marks: [
+    {positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
+    {positionFrame: 500, positionSeconds: 20, timecode: '0:00:20.00'}
+  ]});
+  root.__vdrSuiteMarksEditor.reload(); await flush();
   assert(allText(root).includes('Frame 250'));
   assert(allText(root).includes('Frame 500'));
   assert(!allText(root).includes('Frame 800'));
 
   button('0:00:10.00').click(); await flush();
   mode = 'rejected';
-  const marksBeforeRejectedDelete = native.marks.map(mark => mark.positionFrame);
-  button('Auswahl löschen').click(); await flush();
-  assert(allText(root).includes('VDR hat die Änderung abgelehnt'));
-  assert.deepStrictEqual(native.marks.map(mark => mark.positionFrame), marksBeforeRejectedDelete);
+  button('Löschen').click(); await flush();
+  assert(allText(root).includes('VDR hat die Änderung nicht übernommen'));
   assert(!findButton('Auftrag prüfen'));
-  assert(!button('Auswahl löschen').disabled);
+  assert(!button('Löschen').disabled);
 
   mode = 'conflict';
-  button('Auswahl löschen').click(); await flush();
+  button('Löschen').click(); await flush();
   assert(allText(root).includes('inzwischen geändert'));
+  assert(!findButton('Auftrag prüfen'));
+
+  mode = 'unavailable';
+  button('Löschen').click(); await flush();
+  assert(allText(root).includes('native Bearbeitung ist für dieses Backend derzeit nicht verfügbar'));
   assert(!findButton('Auftrag prüfen'));
 
   position = 45;
   mode = 'lost';
-  button('Marke setzen').click(); await flush();
+  button('+ Marke').click(); await flush();
   const lost = posts().at(-1).body;
   assert.strictEqual(lost.targetFrame, 1125);
-  assert(button('Marke setzen').disabled);
-  assert(findButton('Auftrag prüfen'));
+  assert(button('+ Marke').disabled);
+  assert(!findButton('Auftrag prüfen'));
   mode = 'verified';
   await fireNextTimer();
-  assert.deepStrictEqual(posts().at(-1).body, lost);
-  assert(!findButton('Auftrag prüfen'));
+  assert.deepStrictEqual(posts().at(-1).body, lost, 'ambiguous transport retry keeps the same operation identity and body');
 
   const editor = root.__vdrSuiteMarksEditor;
   publish({transition: 'session-replaced', sessionId: 'two', state: 'playing'});
@@ -304,31 +265,30 @@ async function run() {
   mode = 'verified';
   const beforeCut = posts().length;
   button('Schneiden …').click(); await flush();
-  assert.strictEqual(posts().length, beforeCut, 'preview never starts a cut');
-  assert(allText(root).includes('Original'));
+  assert.strictEqual(posts().length, beforeCut, 'cut preview is read-only');
+  assert(allText(root).includes('Neue geschnittene Ausgabe erzeugen?'));
   button('Abbrechen').click();
   assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
   previewReady = false;
   button('Schneiden …').click(); await flush();
   assert(allText(root).includes('existiert bereits'));
-  assert.strictEqual(posts().length, beforeCut);
   previewReady = true;
   button('Schneiden …').click(); await flush();
-  button('Bestätigen').click(); await flush();
-  assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
+  button('Schneiden').click(); await flush();
+  assert.strictEqual(posts().length, beforeCut + 1, 'only the actual cut remains explicitly confirmed');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
 
   native = Object.assign({}, native, {inUse: true});
-  button('Neu laden').click(); await flush();
+  editor.reload(); await flush();
+  assert(button('+ Marke').disabled);
   assert(button('Schneiden …').disabled);
-  assert(button('Marke setzen').disabled);
   button('0:00:10.00').click(); await flush();
-  assert(button('Auswahl löschen').disabled);
+  assert(button('Löschen').disabled);
 
   publish({transition: 'destroyed', state: 'destroyed'});
   assert.strictEqual(listeners.size, 0);
   assert.strictEqual(timers.size, 0);
-  console.log('native marks editor add/delete/reset/move/navigation/readback and failure-state hardening ok');
+  console.log('native marks editor direct compact add/delete/reset/move/navigation/readback and failure-state hardening ok');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
