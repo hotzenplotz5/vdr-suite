@@ -10,46 +10,23 @@ function hasClass(value, className) {
 
 function element(tag) {
   const value = {
-    tagName: String(tag || '').toUpperCase(),
-    id: '',
-    className: '',
-    dataset: {},
-    children: [],
-    textContent: '',
-    attributes: {},
-    style: {},
-    parentNode: null,
-    title: '',
-    classList: {add() {}, remove() {}},
-    disabled: false,
-    value: '',
-    listeners: {},
+    tagName: String(tag || '').toUpperCase(), id: '', className: '', dataset: {},
+    children: [], textContent: '', attributes: {}, style: {}, parentNode: null,
+    title: '', classList: {add() {}, remove() {}}, disabled: false, value: '', listeners: {},
     addEventListener(name, fn) { this.listeners[name] = fn; },
     click() { if (!this.disabled && this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
     setAttribute(name, attributeValue) { this.attributes[name] = String(attributeValue); },
-    appendChild(child) {
-      if (child) child.parentNode = this;
-      this.children.push(child);
-      return child;
-    },
+    appendChild(child) { if (child) child.parentNode = this; this.children.push(child); return child; },
     replaceChildren() {
-      this.children.forEach(child => {
-        if (child && child.parentNode === this) child.parentNode = null;
-      });
+      this.children.forEach(child => { if (child && child.parentNode === this) child.parentNode = null; });
       this.children = Array.from(arguments);
-      this.children.forEach(child => {
-        if (child) child.parentNode = this;
-      });
+      this.children.forEach(child => { if (child) child.parentNode = this; });
     },
     insertAdjacentElement(position, child) {
-      assert.strictEqual(position, 'afterend');
-      assert.ok(this.parentNode);
-      const index = this.parentNode.children.indexOf(this);
-      assert.ok(index >= 0);
-      child.parentNode = this.parentNode;
-      this.parentNode.children.splice(index + 1, 0, child);
-      return child;
+      assert.strictEqual(position, 'afterend'); assert.ok(this.parentNode);
+      const index = this.parentNode.children.indexOf(this); assert.ok(index >= 0);
+      child.parentNode = this.parentNode; this.parentNode.children.splice(index + 1, 0, child); return child;
     },
     querySelector(selector) {
       if (selector === '.recordings2-detail' && hasClass(this.className, 'recordings2-detail')) return this;
@@ -59,8 +36,7 @@ function element(tag) {
           this.tagName === 'INPUT' && this.attributes['aria-label'] === 'Wiedergabeposition') return this;
       for (const child of this.children) {
         if (child && typeof child.querySelector === 'function') {
-          const found = child.querySelector(selector);
-          if (found) return found;
+          const found = child.querySelector(selector); if (found) return found;
         }
       }
       return null;
@@ -70,13 +46,10 @@ function element(tag) {
       function collect(current) {
         if (!current) return;
         if (selector === 'input[aria-label="Wiedergabeposition"]' &&
-            current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') {
-          result.push(current);
-        }
+            current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') result.push(current);
         (current.children || []).forEach(collect);
       }
-      collect(this);
-      return result;
+      collect(this); return result;
     }
   };
   return value;
@@ -88,8 +61,8 @@ function allText(root) {
   return result;
 }
 
+async function flush() { for (let i = 0; i < 16; ++i) await Promise.resolve(); }
 
-async function flush() { for (let i = 0; i < 12; ++i) await Promise.resolve(); }
 async function run() {
   let root;
   const mount = element('div');
@@ -98,20 +71,58 @@ async function run() {
   let snapshot = {transition: 'snapshot', sessionId: null, state: 'idle'};
   let position = 32;
   const seeks = [];
-  const owner = {element: element('div'), snapshot: () => snapshot, position: () => position,
+  const owner = {
+    element: element('div'), snapshot: () => snapshot, position: () => position,
     seekAbsolute(value) { seeks.push(value); return Promise.resolve(); },
-    subscribe(fn) { listeners.add(fn); fn(snapshot); return () => listeners.delete(fn); }};
+    subscribe(fn) { listeners.add(fn); fn(snapshot); return () => listeners.delete(fn); }
+  };
   function publish(value) { snapshot = value; [...listeners].forEach(fn => fn(value)); }
-  const initial = {backendId: 'default', recordingId: '7', availability: 'available',
+
+  const initial = {
+    backendId: 'default', recordingId: '7', availability: 'available',
     framesPerSecond: 25, inUse: false, marksRevision: 'a'.repeat(32), sequenceCount: 1,
-    marks: [{positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
-      {positionFrame: 500, positionSeconds: 20, timecode: '0:00:20.00'}]};
+    marks: [
+      {positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
+      {positionFrame: 500, positionSeconds: 20, timecode: '0:00:20.00'}
+    ]
+  };
   let native = initial;
   let mode = 'queued';
   let previewReady = true;
+  let revisionCounter = 11;
   const requests = [];
+  const appliedOperations = new Set();
+  const timers = new Map();
+  let nextTimerId = 1;
+
+  function revision() { const value = revisionCounter.toString(16).padStart(32, '0'); revisionCounter += 1; return value; }
+  function markForFrame(positionFrame) {
+    const seconds = positionFrame / 25;
+    return {positionFrame, positionSeconds: seconds, timecode: 'frame-' + String(positionFrame)};
+  }
+  function applyMutation(body) {
+    if (!body || !body.kind || appliedOperations.has(body.operationId)) return;
+    let marks = native.marks.map(mark => Object.assign({}, mark));
+    if (body.kind === 'add') marks.push(markForFrame(body.targetFrame));
+    else if (body.kind === 'delete') marks = marks.filter(mark => mark.positionFrame !== body.sourceFrame);
+    else if (body.kind === 'move') marks = marks.map(mark => mark.positionFrame === body.sourceFrame ? markForFrame(body.targetFrame) : mark);
+    else if (body.kind === 'reset') marks = [];
+    marks.sort((left, right) => left.positionFrame - right.positionFrame);
+    appliedOperations.add(body.operationId);
+    native = Object.assign({}, native, {
+      marks, sequenceCount: Math.floor((marks.length + 1) / 2), marksRevision: revision()
+    });
+  }
+  async function fireNextTimer() {
+    const entry = timers.entries().next(); assert(!entry.done, 'expected scheduled verification');
+    const [id, fn] = entry.value; timers.delete(id); fn(); await flush();
+  }
+
   const document = {head: element('head'), createElement: element, getElementById() { return null; }};
-  const window = {document, crypto: require('crypto').webcrypto,
+  const window = {
+    document, crypto: require('crypto').webcrypto,
+    setTimeout(fn) { const id = nextTimerId++; timers.set(id, fn); return id; },
+    clearTimeout(id) { timers.delete(id); },
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
     VdrSuiteRecordings2Shared: {
       mountTarget: () => mount, installStyles() {}, selectedBackendId: () => 'default',
@@ -129,8 +140,7 @@ async function run() {
       playbackCreations += 1;
       const start = element('button'); start.textContent = 'Start im Playback-Owner';
       start.addEventListener('click', () => publish({transition: 'session-started', sessionId: 'one', state: 'playing'}));
-      owner.element.appendChild(start);
-      return owner;
+      owner.element.appendChild(start); return owner;
     }},
     VdrSuiteClientApi: {requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
@@ -139,89 +149,186 @@ async function run() {
         ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
       if (mode === 'conflict') return Promise.reject(new Error('recording_marks_revision_conflict'));
+      if (mode === 'rejected') return Promise.reject(new Error('recording_marks_modify_rejected'));
+      if (mode === 'queued-applied') {
+        applyMutation(body);
+        return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'});
+      }
       if (mode === 'verified') {
-        native = Object.assign({}, native, {marksRevision: 'b'.repeat(32)});
+        applyMutation(body);
         return Promise.resolve({accepted: true, operationId: body.operationId,
           verification: 'verified', canonicalMarksRevision: native.marksRevision});
       }
       return Promise.resolve({accepted: true, operationId: body.operationId, verification: 'readback_required'});
-    }}};
+    }}
+  };
+
   const context = vm.createContext({window, document, console, Promise, Uint32Array});
-  for (const path of ['web/frontend/recordings2-browser-view.js','web/frontend/recordings2-marks-editor.js','web/frontend/recordings2-marks-detail.js'])
-    vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
+  for (const path of [
+    'web/frontend/recordings2-browser-view.js',
+    'web/frontend/recordings2-marks-editor.js',
+    'web/frontend/recordings2-marks-detail.js'
+  ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
+
   const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
-    selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'})});
+    selectedRecording: {id: '7', title: 'Testaufnahme'}, backendId: 'default'
+  })});
   view.renderDetail(); await flush();
   root = mount.querySelector('.recordings2-detail');
   assert(root && root.__vdrSuiteRecordingPlaybackOwner === owner);
   assert.strictEqual(playbackCreations, 1);
-  function button(label) {
+
+  function findButton(label) {
     let found;
     function visit(value) {
       if (value.tagName === 'BUTTON' && value.textContent === label) found = value;
       value.children.forEach(visit);
     }
-    visit(root); assert(found, label); return found;
+    visit(root); return found;
   }
+  function button(label) { const found = findButton(label); assert(found, label); return found; }
   function posts() { return requests.filter(request => request.body); }
-  assert(button('Marke an Wiedergabeposition').disabled);
+
+  assert(button('Marke setzen').disabled);
   button('Start im Playback-Owner').click();
-  assert(!button('Marke an Wiedergabeposition').disabled);
-  button('Zur Marke 0:00:10.00').click(); await flush();
+  assert(!button('Marke setzen').disabled);
+
+  button('0:00:10.00').click(); await flush();
   assert.deepStrictEqual(seeks, [10]);
-  assert.strictEqual(posts().length, 0);
-  button('Marke an Wiedergabeposition').click(); await flush();
-  const operation = posts()[0];
-  assert.strictEqual(operation.body.kind, 'add');
-  assert.strictEqual(operation.body.targetFrame, 800);
-  assert.strictEqual(operation.body.expectedMarksRevision, initial.marksRevision);
-  assert.strictEqual(operation.config.headers['X-CSRF-Token'], 'test-only');
-  assert(!JSON.stringify(operation.body).includes('/srv/'));
-  assert(button('Marke an Wiedergabeposition').disabled);
-  button('Auftrag prüfen').click(); await flush();
-  assert.deepStrictEqual(posts()[1].body, operation.body);
+  assert(allText(root).includes('Ausgewählt: 0:00:10.00 · Frame 250'));
+  assert(button('Vorherige Marke').disabled);
+  assert(!button('Nächste Marke').disabled);
+  button('Nächste Marke').click(); await flush();
+  assert.deepStrictEqual(seeks, [10, 20]);
+  assert(allText(root).includes('Ausgewählt: 0:00:20.00 · Frame 500'));
+  assert(!button('Vorherige Marke').disabled);
+  assert(button('Nächste Marke').disabled);
+  button('Vorherige Marke').click(); await flush();
+  assert.deepStrictEqual(seeks, [10, 20, 10]);
+
+  position = 32;
+  mode = 'queued-applied';
+  button('Marke setzen').click(); await flush();
+  const addOperation = posts().at(-1);
+  assert.strictEqual(addOperation.body.kind, 'add');
+  assert.strictEqual(addOperation.body.targetFrame, 800);
+  assert.strictEqual(addOperation.body.expectedMarksRevision, initial.marksRevision);
+  assert.strictEqual(addOperation.config.headers['X-CSRF-Token'], 'test-only');
+  assert(!JSON.stringify(addOperation.body).includes('/srv/'));
+  assert(allText(root).includes('Frame 800'));
+  assert(button('Marke setzen').disabled);
+  assert(findButton('Auftrag prüfen'));
   mode = 'verified';
-  button('Auftrag prüfen').click(); await flush();
-  assert.deepStrictEqual(posts()[2].body, operation.body);
-  assert(!button('Marke an Wiedergabeposition').disabled);
-  // Transport replacement keeps the same editor and asks the canonical owner.
-  const editor = root.__vdrSuiteMarksEditor;
-  publish({transition: 'session-replaced', sessionId: 'two', state: 'playing'});
+  await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body, addOperation.body);
+  assert(!findButton('Auftrag prüfen'));
+  assert(!button('Marke setzen').disabled);
+
+  button('0:00:10.00').click(); await flush();
+  position = 12;
+  mode = 'verified';
+  const beforeMove = posts().length;
+  button('Auswahl hierher verschieben').click(); await flush();
+  assert.strictEqual(posts().length, beforeMove + 1);
+  const moveOperation = posts().at(-1);
+  assert.strictEqual(moveOperation.body.kind, 'move');
+  assert.strictEqual(moveOperation.body.sourceFrame, 250);
+  assert.strictEqual(moveOperation.body.targetFrame, 300);
+  assert(allText(root).includes('Frame 300'));
+  assert(allText(root).includes('Ausgewählt: frame-300 · Frame 300'));
+
+  const beforeDelete = posts().length;
+  button('Auswahl löschen').click(); await flush();
+  assert.strictEqual(posts().length, beforeDelete + 1);
+  assert.strictEqual(posts().at(-1).body.kind, 'delete');
+  assert.strictEqual(posts().at(-1).body.sourceFrame, 300);
+  assert(!allText(root).includes('Frame 300'));
+  assert(allText(root).includes('Keine Schnittmarke ausgewählt.'));
+
+  mode = 'queued-applied';
+  button('Alle Marken entfernen').click();
+  assert(allText(root).includes('Alle nativen Schnittmarken'));
+  button('Bestätigen').click(); await flush();
+  const resetOperation = posts().at(-1);
+  assert.strictEqual(resetOperation.body.kind, 'reset');
+  assert(allText(root).includes('Keine nativen Schnittmarken vorhanden.'));
+  assert(button('Alle Marken entfernen').disabled);
+  mode = 'verified';
+  await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body, resetOperation.body);
+  assert(allText(root).includes('Keine nativen Schnittmarken vorhanden.'));
+
+  native = Object.assign({}, native, {
+    marksRevision: revision(), sequenceCount: 1,
+    marks: [
+      {positionFrame: 250, positionSeconds: 10, timecode: '0:00:10.00'},
+      {positionFrame: 500, positionSeconds: 20, timecode: '0:00:20.00'}
+    ]
+  });
+  button('Neu laden').click(); await flush();
+  assert(allText(root).includes('Frame 250'));
+  assert(allText(root).includes('Frame 500'));
+  assert(!allText(root).includes('Frame 800'));
+
+  button('0:00:10.00').click(); await flush();
+  mode = 'rejected';
+  const marksBeforeRejectedDelete = native.marks.map(mark => mark.positionFrame);
+  button('Auswahl löschen').click(); await flush();
+  assert(allText(root).includes('VDR hat die Änderung abgelehnt'));
+  assert.deepStrictEqual(native.marks.map(mark => mark.positionFrame), marksBeforeRejectedDelete);
+  assert(!findButton('Auftrag prüfen'));
+  assert(!button('Auswahl löschen').disabled);
+
+  mode = 'conflict';
+  button('Auswahl löschen').click(); await flush();
+  assert(allText(root).includes('inzwischen geändert'));
+  assert(!findButton('Auftrag prüfen'));
+
   position = 45;
   mode = 'lost';
-  button('Marke an Wiedergabeposition').click(); await flush();
-  assert.strictEqual(posts().at(-1).body.targetFrame, 1125);
+  button('Marke setzen').click(); await flush();
   const lost = posts().at(-1).body;
-  assert(button('Schneiden …').disabled);
-  mode = 'verified'; button('Auftrag prüfen').click(); await flush();
+  assert.strictEqual(lost.targetFrame, 1125);
+  assert(button('Marke setzen').disabled);
+  assert(findButton('Auftrag prüfen'));
+  mode = 'verified';
+  await fireNextTimer();
   assert.deepStrictEqual(posts().at(-1).body, lost);
+  assert(!findButton('Auftrag prüfen'));
+
+  const editor = root.__vdrSuiteMarksEditor;
+  publish({transition: 'session-replaced', sessionId: 'two', state: 'playing'});
   assert.strictEqual(root.__vdrSuiteMarksEditor, editor);
   assert.strictEqual(playbackCreations, 1, 'editing never creates another playback owner');
-  mode = 'conflict'; button('Marke 0:00:10.00 löschen').click(); await flush();
-  assert(allText(root).includes('inzwischen geändert'));
-  button('Neu laden').click(); await flush();
+
   mode = 'verified';
-  const before = posts().length;
+  const beforeCut = posts().length;
   button('Schneiden …').click(); await flush();
-  assert.strictEqual(posts().length, before, 'preview never starts a cut');
+  assert.strictEqual(posts().length, beforeCut, 'preview never starts a cut');
   assert(allText(root).includes('Original'));
   button('Abbrechen').click();
-  assert.strictEqual(posts().length, before, 'cancel never starts a cut');
+  assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
   previewReady = false;
   button('Schneiden …').click(); await flush();
   assert(allText(root).includes('existiert bereits'));
-  assert.strictEqual(posts().length, before);
+  assert.strictEqual(posts().length, beforeCut);
   previewReady = true;
   button('Schneiden …').click(); await flush();
   button('Bestätigen').click(); await flush();
-  assert.strictEqual(posts().length, before + 1, 'explicit confirmation starts exactly once');
+  assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
+
   native = Object.assign({}, native, {inUse: true});
   button('Neu laden').click(); await flush();
   assert(button('Schneiden …').disabled);
-  assert(button('Marke 0:00:10.00 löschen').disabled);
+  assert(button('Marke setzen').disabled);
+  button('0:00:10.00').click(); await flush();
+  assert(button('Auswahl löschen').disabled);
+
   publish({transition: 'destroyed', state: 'destroyed'});
   assert.strictEqual(listeners.size, 0);
-  console.log('native marks editor production detail actions, lifecycle, fencing and cut confirmation ok');
+  assert.strictEqual(timers.size, 0);
+  console.log('native marks editor add/delete/reset/move/navigation/readback and failure-state hardening ok');
 }
+
 run().catch(error => { console.error(error); process.exitCode = 1; });
