@@ -415,6 +415,163 @@ static void test_authoritative_window_removes_only_missing_native_ids()
         "WHERE metadata_target_id='target-old' AND assignment_state='stale';") == 1);
 }
 
+static void test_now_next_per_channel_is_bounded()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-event-per-channel-test.db";
+
+    std::remove(filename.c_str());
+
+    Database database;
+    assert(database.open(filename));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+
+    assert(repository.upsertEventsForBackend(
+        "home-vdr",
+        {
+            make_event(
+                "ch1-expired",
+                "channel-1",
+                "Channel 1 Expired",
+                "0500",
+                "0900"),
+            make_event(
+                "ch1-current",
+                "channel-1",
+                "Channel 1 Current",
+                "1000",
+                "2000"),
+            make_event(
+                "ch1-next",
+                "channel-1",
+                "Channel 1 Next",
+                "2000",
+                "3000"),
+            make_event(
+                "ch1-later",
+                "channel-1",
+                "Channel 1 Later",
+                "3000",
+                "4000"),
+            make_event(
+                "ch2-current",
+                "channel-2",
+                "Channel 2 Current",
+                "1100",
+                "2100"),
+            make_event(
+                "ch2-next",
+                "channel-2",
+                "Channel 2 Next",
+                "2100",
+                "3100"),
+            make_event(
+                "ch2-later",
+                "channel-2",
+                "Channel 2 Later",
+                "3100",
+                "4100")
+        }));
+
+    assert(repository.upsertEventsForBackend(
+        "parents-vdr",
+        {
+            make_event(
+                "remote-current",
+                "channel-1",
+                "Remote Current",
+                "1000",
+                "2000")
+        }));
+
+    const std::vector<VdrEvent> twoPerChannel =
+        repository.findNowNextPerChannelForBackend(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1500",
+            2);
+
+    assert(twoPerChannel.size() == 4);
+
+    int channel1Count = 0;
+    int channel2Count = 0;
+
+    bool channel1Current = false;
+    bool channel1Next = false;
+    bool channel2Current = false;
+    bool channel2Next = false;
+
+    for (const VdrEvent& event : twoPerChannel)
+    {
+        assert(event.id != "ch1-expired");
+        assert(event.id != "ch1-later");
+        assert(event.id != "ch2-later");
+        assert(event.id != "remote-current");
+
+        if (event.channelId == "channel-1")
+        {
+            ++channel1Count;
+            channel1Current =
+                channel1Current ||
+                event.id == "ch1-current";
+            channel1Next =
+                channel1Next ||
+                event.id == "ch1-next";
+        }
+
+        if (event.channelId == "channel-2")
+        {
+            ++channel2Count;
+            channel2Current =
+                channel2Current ||
+                event.id == "ch2-current";
+            channel2Next =
+                channel2Next ||
+                event.id == "ch2-next";
+        }
+    }
+
+    assert(channel1Count == 2);
+    assert(channel2Count == 2);
+
+    assert(channel1Current);
+    assert(channel1Next);
+    assert(channel2Current);
+    assert(channel2Next);
+
+    const std::vector<VdrEvent> onePerChannel =
+        repository.findNowNextPerChannelForBackend(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1500",
+            1);
+
+    assert(onePerChannel.size() == 2);
+
+    for (const VdrEvent& event : onePerChannel)
+    {
+        assert(
+            event.id == "ch1-current" ||
+            event.id == "ch2-current");
+    }
+
+    assert(
+        repository.findNowNextPerChannelForBackend(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1500",
+            0).empty());
+
+    assert(
+        repository.findNowNextPerChannelForBackend(
+            "home-vdr",
+            "",
+            "1500",
+            2).empty());
+}
+
 static void test_window_and_cleanup_are_backend_scoped()
 {
     std::remove("/tmp/vdr-suite-epg-event-repository-window-test.db");
@@ -470,6 +627,7 @@ int main()
     test_repository_is_backend_scoped();
     test_upsert_updates_only_matching_backend();
     test_authoritative_window_removes_only_missing_native_ids();
+    test_now_next_per_channel_is_bounded();
     test_window_and_cleanup_are_backend_scoped();
 
     return 0;

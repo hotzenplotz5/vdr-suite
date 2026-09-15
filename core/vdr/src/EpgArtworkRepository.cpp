@@ -285,6 +285,103 @@ EpgArtworkReference EpgArtworkRepository::find(
     return artwork;
 }
 
+
+std::vector<EpgArtworkReference> EpgArtworkRepository::findMany(
+    const std::string& backendId,
+    const std::vector<std::pair<std::string, std::string>>& eventKeys) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    std::vector<EpgArtworkReference> result;
+    if (eventKeys.empty() || !ensureSchemaLocked())
+    {
+        return result;
+    }
+
+    std::string sql =
+        "WITH requested(channel_id,event_id) AS (VALUES ";
+
+    for (std::size_t index = 0; index < eventKeys.size(); ++index)
+    {
+        if (index > 0)
+        {
+            sql += ",";
+        }
+        sql += "(?,?)";
+    }
+
+    sql +=
+        ") "
+        "SELECT artwork.channel_id,"
+        "artwork.event_id,"
+        "artwork.provider,"
+        "artwork.path,"
+        "artwork.width,"
+        "artwork.height,"
+        "artwork.resolved_at "
+        "FROM requested "
+        "CROSS JOIN epg_event_artwork artwork "
+        "WHERE artwork.backend_id=? "
+        "AND artwork.channel_id=requested.channel_id "
+        "AND artwork.event_id=requested.event_id "
+        "ORDER BY artwork.channel_id,artwork.event_id;";
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return result;
+    }
+
+    int parameter = 1;
+    bool bound = true;
+
+    for (const auto& key : eventKeys)
+    {
+        bound =
+            bound &&
+            bindText(statement, parameter++, key.first) &&
+            bindText(statement, parameter++, key.second);
+    }
+
+    const std::string normalizedBackendId =
+        normalizeBackendId(backendId);
+
+    bound =
+        bound &&
+        bindText(
+            statement,
+            parameter,
+            normalizedBackendId);
+
+    while (bound && sqlite3_step(statement) == SQLITE_ROW)
+    {
+        EpgArtworkReference artwork;
+        artwork.backendId = normalizedBackendId;
+        artwork.channelId = columnText(statement, 0);
+        artwork.eventId = columnText(statement, 1);
+        artwork.provider = columnText(statement, 2);
+        artwork.path = columnText(statement, 3);
+        artwork.width = sqlite3_column_int(statement, 4);
+        artwork.height = sqlite3_column_int(statement, 5);
+        artwork.resolvedAt =
+            sqlite3_column_int64(statement, 6);
+
+        if (artwork.valid())
+        {
+            result.push_back(std::move(artwork));
+        }
+    }
+
+    sqlite3_finalize(statement);
+    return result;
+}
+
+
 bool EpgArtworkRepository::removeForEvent(
     const std::string& backendId,
     const std::string& channelId,

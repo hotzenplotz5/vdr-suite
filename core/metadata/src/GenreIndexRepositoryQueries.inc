@@ -230,7 +230,7 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
     sqlite3_finalize(count);
 
     const char* sql =
-        "SELECT c.recording_id,c.backend_id,c.backend_native_id,c.title,c.path,c.start_time,c.duration_seconds,c.size_mb,c.metadata_payload,"
+        "SELECT c.recording_id,c.backend_id,c.backend_native_id,b.resource_key,c.title,c.path,c.start_time,c.duration_seconds,c.size_mb,c.metadata_payload,"
         "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
         "FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
@@ -249,13 +249,14 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         item.id = columnText(statement, 0);
         item.backendId = columnText(statement, 1);
         item.backendNativeId = columnText(statement, 2);
-        item.title = columnText(statement, 3);
-        item.path = columnText(statement, 4);
-        item.startTime = columnText(statement, 5);
-        item.durationSeconds = sqlite3_column_int(statement, 6);
-        item.sizeMb = sqlite3_column_int64(statement, 7);
-        item.metadataPayload = columnText(statement, 8);
-        item.genreIds = splitCommaList(columnText(statement, 9));
+        item.resourceKey = columnText(statement, 3);
+        item.title = columnText(statement, 4);
+        item.path = columnText(statement, 5);
+        item.startTime = columnText(statement, 6);
+        item.durationSeconds = sqlite3_column_int(statement, 7);
+        item.sizeMb = sqlite3_column_int64(statement, 8);
+        item.metadataPayload = columnText(statement, 9);
+        item.genreIds = splitCommaList(columnText(statement, 10));
         page.recordings.push_back(std::move(item));
     }
     sqlite3_finalize(statement);
@@ -327,9 +328,35 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
                 item.seriesTitle = columnText(manual, 1);
                 item.seriesProvider = "manual";
                 item.seriesProviderId = 0;
-                item.seasonNumber = sqlite3_column_int(manual, 2);
-                item.episodeNumber = sqlite3_column_int(manual, 3);
-                item.episodeName = mediaType == "episode" ? item.seriesTitle : "";
+                const int manualSeasonNumber =
+                    sqlite3_column_int(manual, 2);
+                const int manualEpisodeNumber =
+                    sqlite3_column_int(manual, 3);
+
+                if (mediaType == "episode")
+                {
+                    item.seasonNumber = manualSeasonNumber;
+                    item.episodeNumber = manualEpisodeNumber;
+                    item.episodeName = item.seriesTitle;
+                }
+                else if (mediaType == "series")
+                {
+                    // A manual Series relationship owns presentation and
+                    // Series identity, not a previously known episode
+                    // hierarchy.  Zero values must never erase native
+                    // season/episode evidence.
+                    if (item.seasonNumber <= 0 &&
+                        manualSeasonNumber > 0)
+                    {
+                        item.seasonNumber = manualSeasonNumber;
+                    }
+
+                    if (item.episodeNumber <= 0 &&
+                        manualEpisodeNumber > 0)
+                    {
+                        item.episodeNumber = manualEpisodeNumber;
+                    }
+                }
                 const std::string poster = columnText(manual, 5);
                 const std::string normalizedPoster = std::filesystem::path(poster).lexically_normal().string();
                 item.seriesArtworkAvailable = normalizedPoster.find(
@@ -340,6 +367,109 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         }
     }
     sqlite3_finalize(manual);
+
+
+    // One page-scoped SQLite batch read. This deliberately does not call the
+    // hierarchy HTTP API per recording and therefore cannot reintroduce the
+    // old Home metadata fanout.
+    if (!page.recordings.empty())
+    {
+        std::string hierarchySql =
+            "SELECT recording_key,group_type,season_number,group_label,"
+            "sort_order,episode_start,episode_end,revision "
+            "FROM recording_series_hierarchy_overrides "
+            "WHERE backend_id=? AND recording_key IN (";
+
+        for (std::size_t index = 0;
+             index < page.recordings.size();
+             ++index)
+        {
+            hierarchySql +=
+                index == 0 ? "?" : ",?";
+        }
+
+        hierarchySql += ");";
+
+        sqlite3_stmt* hierarchy = nullptr;
+
+        if (sqlite3_prepare_v2(
+                database_.handle(),
+                hierarchySql.c_str(),
+                -1,
+                &hierarchy,
+                nullptr) == SQLITE_OK)
+        {
+            bindText(
+                hierarchy,
+                1,
+                page.backendId);
+
+            for (std::size_t index = 0;
+                 index < page.recordings.size();
+                 ++index)
+            {
+                bindText(
+                    hierarchy,
+                    static_cast<int>(index) + 2,
+                    page.recordings[index].resourceKey);
+            }
+
+            while (sqlite3_step(hierarchy) ==
+                   SQLITE_ROW)
+            {
+                const std::string recordingKey =
+                    columnText(hierarchy, 0);
+
+                for (auto& item :
+                     page.recordings)
+                {
+                    if (item.resourceKey !=
+                        recordingKey)
+                    {
+                        continue;
+                    }
+
+                    item.seriesHierarchyOverrideAvailable =
+                        true;
+
+                    item.seriesHierarchyGroupType =
+                        columnText(hierarchy, 1);
+
+                    item.seriesHierarchySeasonNumber =
+                        sqlite3_column_int(
+                            hierarchy,
+                            2);
+
+                    item.seriesHierarchyGroupLabel =
+                        columnText(hierarchy, 3);
+
+                    item.seriesHierarchySortOrder =
+                        sqlite3_column_int(
+                            hierarchy,
+                            4);
+
+                    item.seriesHierarchyEpisodeStart =
+                        sqlite3_column_int(
+                            hierarchy,
+                            5);
+
+                    item.seriesHierarchyEpisodeEnd =
+                        sqlite3_column_int(
+                            hierarchy,
+                            6);
+
+                    item.seriesHierarchyRevision =
+                        sqlite3_column_int(
+                            hierarchy,
+                            7);
+
+                    break;
+                }
+            }
+        }
+
+        sqlite3_finalize(hierarchy);
+    }
     return page;
 }
 

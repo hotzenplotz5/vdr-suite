@@ -27,6 +27,33 @@ HttpServerRequest requestFor(
     return request;
 }
 
+
+HttpServerRequest hierarchyRequestFor(
+    const SecurityHttpGateBrowserTestFixture& fixture,
+    const std::string& backendId,
+    bool csrf)
+{
+    HttpServerRequest request;
+    request.method = "POST";
+    request.path =
+        "/api/backends/" +
+        backendId +
+        "/recordings/series-hierarchy";
+    request.body =
+        "{\"operationId\":\"series-hierarchy-security-test\","
+        "\"backendId\":\"body-must-not-authorize\","
+        "\"operation\":\"set\","
+        "\"resourceKey\":\"recording-test\"}";
+    request.headers["X-Request-ID"] =
+        "series-hierarchy-request";
+    request.headers["X-Correlation-ID"] =
+        "series-hierarchy-correlation";
+    fixture.addBrowserAuthentication(
+        request,
+        csrf);
+    return request;
+}
+
 bool hasEvent(
     const std::vector<AccountabilityEvent>& events,
     const std::string& eventType,
@@ -71,6 +98,25 @@ int main()
             "dispatch_denied"));
     }
 
+
+    {
+        SecurityHttpGateBrowserTestFixture readOnlyFixture;
+        HttpServerRequest request =
+            hierarchyRequestFor(
+                readOnlyFixture,
+                "living-room",
+                true);
+        const SecurityGateDecision decision =
+            readOnlyFixture.gate.evaluate(request);
+
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(
+            decision.rejection.body.find(
+                "permission_denied") !=
+            std::string::npos);
+    }
+
     SecurityHttpGateBrowserTestFixture fixture;
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId,
@@ -97,6 +143,88 @@ int main()
         assert(decision.operationId == "manual-metadata-test");
         assert(fixture.gate.appendProtectedMutationOutcome(decision, 200));
     }
+
+    {
+        HttpServerRequest request =
+            hierarchyRequestFor(
+                fixture,
+                "living-room",
+                true);
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+
+        assert(decision.allowed);
+        assert(decision.protectedMutation);
+        assert(decision.authorizationDecision.allowed);
+        assert(
+            decision.authorizationDecision.permission ==
+            "metadata.recording.assign");
+        assert(
+            decision.authorizationDecision.backendId ==
+            "living-room");
+        assert(
+            decision.authorizationDecision.action ==
+            "metadata.recording.hierarchy");
+        assert(
+            decision.operationId ==
+            "series-hierarchy-security-test");
+        assert(
+            fixture.gate.appendProtectedMutationOutcome(
+                decision,
+                200));
+    }
+
+    {
+        HttpServerRequest request =
+            hierarchyRequestFor(
+                fixture,
+                "living-room",
+                false);
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(
+            decision.rejection.body.find(
+                "csrf_validation_failed") !=
+            std::string::npos);
+    }
+
+    {
+        HttpServerRequest request =
+            hierarchyRequestFor(
+                fixture,
+                "bedroom",
+                true);
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(
+            decision.rejection.body.find(
+                "backend_scope_denied") !=
+            std::string::npos);
+    }
+
+    {
+        HttpServerRequest request =
+            hierarchyRequestFor(
+                fixture,
+                "living%2Froom",
+                true);
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 503);
+        assert(
+            decision.rejection.body.find(
+                "security_policy_not_migrated") !=
+            std::string::npos);
+    }
+
 
     {
         HttpServerRequest request = requestFor(
@@ -171,6 +299,22 @@ int main()
         "bedroom",
         "metadata.recording.assign",
         "dispatch_denied"));
+
+
+    assert(hasEvent(
+        events,
+        "authorization.allowed",
+        "metadata.recording.assign",
+        "living-room",
+        "metadata.recording.hierarchy",
+        "dispatch_authorized"));
+    assert(hasEvent(
+        events,
+        "operation.succeeded",
+        "metadata.recording.assign",
+        "living-room",
+        "metadata.recording.hierarchy",
+        "succeeded"));
 
     return 0;
 }

@@ -3,9 +3,19 @@
 #include "VdrRecordingMetadataJsonSerializer.h"
 
 #include <sstream>
+#include <string>
 
 std::string VdrRecordingQueryResultJsonSerializer::serialize(
     const VdrRecordingQueryResult& result) const
+{
+    return serialize(
+        result,
+        MetadataOverlaySerializer{});
+}
+
+std::string VdrRecordingQueryResultJsonSerializer::serialize(
+    const VdrRecordingQueryResult& result,
+    const MetadataOverlaySerializer& metadataOverlaySerializer) const
 {
     std::ostringstream json;
 
@@ -29,6 +39,21 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
             json << ",";
         }
 
+        std::string metadata;
+
+        if (metadataOverlaySerializer)
+        {
+            metadata =
+                metadataOverlaySerializer(recording);
+        }
+
+        if (metadata.empty())
+        {
+            metadata =
+                VdrRecordingMetadataJsonSerializer::serialize(
+                    recording);
+        }
+
         json
             << "{"
             << "\"id\":\"" << recording.id << "\","
@@ -41,8 +66,7 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
             << "\"startTime\":\"" << recording.startTime << "\","
             << "\"durationSeconds\":" << recording.durationSeconds << ","
             << "\"sizeMb\":" << recording.sizeMb << ","
-            << "\"metadata\":"
-            << VdrRecordingMetadataJsonSerializer::serialize(recording)
+            << "\"metadata\":" << metadata
             << "}";
     }
 

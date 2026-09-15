@@ -1,5 +1,7 @@
 #include "Database.h"
 #include "EpgCacheController.h"
+#include "EpgArtworkRepository.h"
+#include "EpgArtworkPublicJsonSerializer.h"
 #include "EpgCacheService.h"
 #include "IVdrAdapter.h"
 #include "VdrService.h"
@@ -80,6 +82,26 @@ static VdrEvent make_event(
 
     return event;
 }
+
+
+static EpgArtworkReference make_artwork(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId,
+    const std::string& path)
+{
+    EpgArtworkReference artwork;
+    artwork.backendId = backendId;
+    artwork.channelId = channelId;
+    artwork.eventId = eventId;
+    artwork.provider = "tvscraper";
+    artwork.path = path;
+    artwork.width = 1280;
+    artwork.height = 720;
+    artwork.resolvedAt = 123456789;
+    return artwork;
+}
+
 
 static bool contains(
     const std::string& text,
@@ -183,6 +205,225 @@ static void test_bounded_refresh_and_now_next_read_return_backend_scoped_json()
     assert(adapter.unboundedEventCalls == 0);
     assert(adapter.boundedEventCalls == 2);
 }
+
+static void test_per_channel_now_next_is_compact_and_bounded()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-cache-controller-per-channel-test.db";
+
+    std::remove(filename.c_str());
+
+    Database database;
+    assert(database.open(filename));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    assert(repository.ensureSchema());
+
+    assert(repository.upsertEventsForBackend(
+        "home-vdr",
+        {
+            make_event(
+                "ch1-current",
+                "channel-1",
+                "One Current",
+                "1000",
+                "2000"),
+            make_event(
+                "ch1-next",
+                "channel-1",
+                "One Next",
+                "2000",
+                "3000"),
+            make_event(
+                "ch1-later",
+                "channel-1",
+                "One Later",
+                "3000",
+                "4000"),
+            make_event(
+                "ch2-current",
+                "channel-2",
+                "Two Current",
+                "1100",
+                "2100"),
+            make_event(
+                "ch2-next",
+                "channel-2",
+                "Two Next",
+                "2100",
+                "3100"),
+            make_event(
+                "ch2-later",
+                "channel-2",
+                "Two Later",
+                "3100",
+                "4100")
+        }));
+
+    const ApiResponse response =
+        controller.getNowNextPerChannel(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1500",
+            2);
+
+    assert(response.statusCode == 200);
+    assert(contains(
+        response.body,
+        "\"backendId\":\"home-vdr\""));
+    assert(contains(
+        response.body,
+        "\"eventCount\":4"));
+
+    assert(contains(response.body, "One Current"));
+    assert(contains(response.body, "One Next"));
+    assert(contains(response.body, "Two Current"));
+    assert(contains(response.body, "Two Next"));
+
+    assert(!contains(response.body, "One Later"));
+    assert(!contains(response.body, "Two Later"));
+
+    assert(!contains(response.body, "\"description\""));
+    assert(!contains(response.body, "\"artwork\""));
+    assert(!contains(response.body, "\"parentalRating\""));
+
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 0);
+}
+
+
+static void test_now_next_artwork_manifest_is_bounded_and_batch_backed()
+{
+    const char* databasePath =
+        "/tmp/vdr-suite-epg-cache-artwork-manifest-test.db";
+
+    std::remove(databasePath);
+
+    Database database;
+    assert(database.open(databasePath));
+
+    EpgEventRepository eventRepository(database);
+    EpgArtworkRepository artworkRepository(database);
+
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(
+        eventRepository,
+        vdrService);
+
+    EpgArtworkPublicJsonSerializer artworkSerializer;
+
+    EpgCacheController controller(
+        service,
+        artworkRepository,
+        artworkSerializer);
+
+    VdrEventQuery query;
+    query.limit = 4;
+
+    adapter.events = {
+        make_event(
+            "event-1",
+            "channel-1",
+            "Current One",
+            "0900",
+            "1100"),
+        make_event(
+            "event-2",
+            "channel-1",
+            "Next One",
+            "1100",
+            "1200"),
+        make_event(
+            "event-3",
+            "channel-2",
+            "Current Two",
+            "0930",
+            "1030"),
+        make_event(
+            "event-4",
+            "channel-2",
+            "Next Two",
+            "1030",
+            "1130")
+    };
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow(
+            "home-vdr",
+            query);
+
+    assert(refresh.statusCode == 200);
+
+    assert(artworkRepository.upsert(
+        make_artwork(
+            "home-vdr",
+            "channel-1",
+            "event-1",
+            "/cover-one.jpg")));
+
+    assert(artworkRepository.upsert(
+        make_artwork(
+            "home-vdr",
+            "channel-2",
+            "event-4",
+            "/cover-two.jpg")));
+
+    const ApiResponse response =
+        controller.getNowNextArtworkManifest(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1000",
+            99);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+
+    assert(contains(
+        response.body,
+        "\"backendId\":\"home-vdr\""));
+
+    assert(contains(
+        response.body,
+        "\"eventCount\":4"));
+
+    assert(contains(
+        response.body,
+        "\"artworkCount\":2"));
+
+    assert(contains(
+        response.body,
+        "\"channelId\":\"channel-1\""));
+
+    assert(contains(
+        response.body,
+        "\"eventId\":\"event-1\""));
+
+    assert(contains(
+        response.body,
+        "\"channelId\":\"channel-2\""));
+
+    assert(contains(
+        response.body,
+        "\"eventId\":\"event-4\""));
+
+    assert(contains(
+        response.body,
+        "/api/epg/cache/artwork?"));
+
+    assert(!contains(response.body, "Current One"));
+    assert(!contains(response.body, "Next Two"));
+    assert(!contains(response.body, "description-"));
+
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+}
+
 
 static void test_status_reports_count_and_last_refresh_metadata()
 {
@@ -319,6 +560,8 @@ int main()
 {
     test_unbounded_refresh_returns_bad_request_without_adapter_fetch();
     test_bounded_refresh_and_now_next_read_return_backend_scoped_json();
+    test_per_channel_now_next_is_compact_and_bounded();
+    test_now_next_artwork_manifest_is_bounded_and_batch_backed();
     test_status_reports_count_and_last_refresh_metadata();
     test_window_read_defaults_empty_backend_to_default();
     test_window_read_filters_multiple_channel_ids();

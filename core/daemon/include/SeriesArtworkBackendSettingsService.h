@@ -9,6 +9,7 @@
 
 #include <mutex>
 #include <string>
+#include <vector>
 
 struct SeriesArtworkBackendSettingsConfig
 {
@@ -16,8 +17,21 @@ struct SeriesArtworkBackendSettingsConfig
     std::string environmentTmdbReadAccessToken;
     std::string secretRoot =
         "/var/lib/vdr-suite/secrets/series-artwork";
+    std::string seriesCoverCacheRoot =
+        "/var/cache/vdr-suite/series-covers";
     TmdbSeriesArtworkProviderConfig tmdb;
     TvmazeSeriesArtworkProviderConfig tvmaze;
+};
+
+struct SeriesArtworkCoverOverride
+{
+    std::string seriesKey;
+    std::string posterUrl;
+    std::string providerId;
+    std::string externalNamespace;
+    std::string externalId;
+    std::string posterReference;
+    int revision = 0;
 };
 
 struct SeriesArtworkBackendSettingsSnapshot
@@ -27,6 +41,7 @@ struct SeriesArtworkBackendSettingsSnapshot
     std::string configurationSource = "environment";
     bool tmdbTokenConfigured = false;
     std::string tmdbTokenSource = "none";
+    std::vector<SeriesArtworkCoverOverride> coverOverrides;
 };
 
 struct SeriesArtworkBackendSettingsUpdate
@@ -35,6 +50,23 @@ struct SeriesArtworkBackendSettingsUpdate
     std::string provider;
     std::string tmdbReadAccessToken;
     bool clearTmdbReadAccessToken = false;
+    std::string operation;
+    std::string seriesKey;
+    std::string posterUrl;
+    std::string providerId;
+    std::string externalNamespace;
+    std::string externalId;
+    std::string posterReference;
+};
+
+struct SeriesArtworkImageResult
+{
+    bool success = false;
+    int statusCode = 404;
+    std::string errorCode;
+    std::string message;
+    std::string contentType;
+    std::string body;
 };
 
 struct SeriesArtworkBackendSettingsUpdateResult
@@ -64,6 +96,15 @@ public:
     SeriesArtworkBackendSettingsUpdateResult update(
         const SeriesArtworkBackendSettingsUpdate& request);
 
+    SeriesArtworkImageResult coverImage(
+        const std::string& backendId,
+        const std::string& seriesKey) const;
+
+    SeriesArtworkImageResult tmdbCandidateImage(
+        const std::string& backendId,
+        const std::string& externalId,
+        const std::string& posterReference) const;
+
     SeriesArtworkFallbackResolution resolve(
         const std::string& backendId,
         const VdrEvent& event,
@@ -87,6 +128,34 @@ private:
     bool storeManagedProviderLocked(
         const std::string& backendId,
         const std::string& provider) const;
+
+    std::vector<SeriesArtworkCoverOverride>
+    loadCoverOverridesLocked(
+        const std::string& backendId) const;
+
+    bool storeCoverOverrideLocked(
+        const std::string& backendId,
+        const std::string& seriesKey,
+        const std::string& posterUrl) const;
+
+    bool storeTmdbCoverOverrideLocked(
+        const std::string& backendId,
+        const std::string& seriesKey,
+        const std::string& posterPath,
+        const std::string& externalId,
+        const std::string& posterReference) const;
+
+    std::string materializeTmdbSeriesPoster(
+        const std::string& backendId,
+        const std::string& externalId,
+        const std::string& posterReference) const;
+
+    bool removeCoverOverrideLocked(
+        const std::string& backendId,
+        const std::string& seriesKey) const;
+
+    static bool validSeriesKey(const std::string& seriesKey);
+    static bool validCoverPosterUrl(const std::string& posterUrl);
 
     std::string readManagedTokenLocked(
         const std::string& backendId) const;

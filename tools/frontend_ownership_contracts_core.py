@@ -2349,6 +2349,12 @@ def check_client_api_contract():
 
 
     require(
+        "function fetchClientEpgCacheNowNextArtwork(options)" in client_api
+        and "/api/epg/cache/now-next-artwork" in client_api,
+        "fetchClientEpgCacheNowNextArtwork() must own /api/epg/cache/now-next-artwork access"
+    )
+
+    require(
         "requestJson(" + chr(39) + "/api/epg/cache/window" + chr(39) in client_api,
         "fetchClientEpgCacheWindow() must own /api/epg/cache/window access"
     )

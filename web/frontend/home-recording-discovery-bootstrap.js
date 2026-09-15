@@ -826,7 +826,13 @@
       rail.appendChild(createInlineFolderCard(entry, openFolderPathInline));
     });
     result.recordings.forEach(function (recording) {
-      rail.appendChild(createInlineRecordingCard(recording, backendId));
+      const projected = recordingMetadataProjection(
+        recording,
+        recording && recording.nativeMetadata
+      );
+      rail.appendChild(
+        createInlineRecordingCard(projected, backendId, recording)
+      );
     });
     expansion.appendChild(rail);
     return true;

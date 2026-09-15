@@ -313,7 +313,8 @@ std::string serializeManualFolderMetadata(
 void appendRecordingJson(
     std::ostringstream& json,
     const VdrRecording& recording,
-    const ManualRecordingMetadataAssignment& manual)
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& nativeMetadata)
 {
     json << "{";
     json << "\"id\":";
@@ -331,10 +332,27 @@ void appendRecordingJson(
     json << ",\"durationSeconds\":" << recording.durationSeconds;
     json << ",\"sizeMb\":" << recording.sizeMb;
     json << ",\"metadata\":";
+
     if (manual.found && manual.relationshipLocked)
-        json << serializeManualFolderMetadata(manual, recording.backendNativeId);
+    {
+        json << serializeManualFolderMetadata(
+            manual,
+            recording.backendNativeId);
+    }
     else
-        json << VdrRecordingMetadataJsonSerializer::serialize(recording);
+    {
+        json << VdrRecordingMetadataJsonSerializer::serialize(
+            recording);
+    }
+
+    if (!(manual.found && manual.relationshipLocked) &&
+        nativeMetadata.exists())
+    {
+        json << ",\"nativeMetadata\":"
+             << VdrRecordingNativeMetadataPublicJsonSerializer()
+                    .serialize(nativeMetadata);
+    }
+
     json << "}";
 }
 
@@ -495,6 +513,22 @@ ApiResponse VdrRecordingFolderController::getFolder(
             recording.backendNativeId);
     };
 
+    auto nativeFor = [this, &page](
+        const VdrRecording& recording)
+    {
+        if (!nativeMetadataLookup_ ||
+            recording.backendNativeId.empty())
+        {
+            return VdrRecordingNativeMetadataRecord{};
+        }
+
+        return nativeMetadataLookup_(
+            recording.backendId.empty()
+                ? page.backendId
+                : recording.backendId,
+            recording.backendNativeId);
+    };
+
     std::ostringstream json;
     json << "{\"recordingFolder\":true,\"backendId\":";
     appendJsonString(json, page.backendId);
@@ -526,10 +560,18 @@ ApiResponse VdrRecordingFolderController::getFolder(
         if (folder.singleRecordingLeaf)
         {
             json << ",\"singleRecording\":";
+            const ManualRecordingMetadataAssignment manual =
+                manualFor(folder.singleRecording);
+            const VdrRecordingNativeMetadataRecord nativeMetadata =
+                manual.found && manual.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : nativeFor(folder.singleRecording);
+
             appendRecordingJson(
                 json,
                 folder.singleRecording,
-                manualFor(folder.singleRecording));
+                manual,
+                nativeMetadata);
         }
         json << "}";
     }
@@ -537,8 +579,20 @@ ApiResponse VdrRecordingFolderController::getFolder(
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
     {
         if (index > 0) json << ",";
-        const VdrRecording& recording = page.recordings.at(index);
-        appendRecordingJson(json, recording, manualFor(recording));
+        const VdrRecording& recording =
+            page.recordings.at(index);
+        const ManualRecordingMetadataAssignment manual =
+            manualFor(recording);
+        const VdrRecordingNativeMetadataRecord nativeMetadata =
+            manual.found && manual.relationshipLocked
+                ? VdrRecordingNativeMetadataRecord{}
+                : nativeFor(recording);
+
+        appendRecordingJson(
+            json,
+            recording,
+            manual,
+            nativeMetadata);
     }
     json << "]}";
     return jsonResponse(json.str());

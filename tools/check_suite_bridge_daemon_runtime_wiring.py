@@ -50,6 +50,9 @@ def main() -> int:
     context = CONTEXT.read_text(encoding="utf-8")
     settings_service = SETTINGS_SERVICE.read_text(encoding="utf-8")
     runtime = read_runtime_sources()
+    backend_context_runtime = (
+        RUNTIME_SOURCE_ROOT / "DaemonRuntimeBackendContext.cpp"
+    ).read_text(encoding="utf-8")
     runtime_tests = RUNTIME_TESTS.read_text(encoding="utf-8")
     tmdb_make = TMDB_MAKE.read_text(encoding="utf-8")
     packaged_defaults = PACKAGED_DEFAULTS.read_text(encoding="utf-8")
@@ -202,6 +205,40 @@ def main() -> int:
         "fallbackProvider =" in runtime,
         "DaemonRuntime must inject the guarded backend provider settings boundary",
     )
+
+    settings_start = backend_context_runtime.index(
+        "ISeriesArtworkFallbackProvider* fallbackProvider = nullptr;"
+    )
+
+    settings_end = backend_context_runtime.index(
+        "SeriesArtworkFallbackResolverConfig fallbackConfig;",
+        settings_start,
+    )
+
+    settings_scope = backend_context_runtime[
+        settings_start:settings_end
+    ]
+
+    service_index = settings_scope.index(
+        "context->epgSeriesArtworkSettingsService ="
+    )
+
+    registration_index = settings_scope.index(
+        "SeriesArtworkSettingsApiRuntime::instance()"
+    )
+
+    require(
+        "if (runtimeFallbackConfig.enabled)" not in
+        settings_scope[:registration_index],
+        "manual Series cover settings must initialize independently of fallback enablement",
+    )
+
+    require(
+        "if (runtimeFallbackConfig.enabled)" in
+        settings_scope[registration_index:],
+        "external Series artwork fallback must remain explicitly gated",
+    )
+
     require(
         'settings.provider == "tmdb" && !token.empty()' in settings_service and
         "providerConfig.readAccessToken = token" in settings_service and

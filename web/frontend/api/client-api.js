@@ -369,6 +369,14 @@
     return requestJson('/api/epg/cache/status', options);
   }
 
+  function fetchClientEpgCacheNowNext(options) {
+    return requestJson('/api/epg/cache/now-next', options);
+  }
+
+  function fetchClientEpgCacheNowNextArtwork(options) {
+    return requestJson('/api/epg/cache/now-next-artwork', options);
+  }
+
   function fetchClientEpgCacheWindow(options) {
     return requestJson('/api/epg/cache/window', options);
   }
@@ -550,6 +558,8 @@
     fetchClientGlobalSearch: fetchClientGlobalSearch,
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
+    fetchClientEpgCacheNowNext: fetchClientEpgCacheNowNext,
+    fetchClientEpgCacheNowNextArtwork: fetchClientEpgCacheNowNextArtwork,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
     fetchClientEpgCacheRefresh: fetchClientEpgCacheRefresh,
     fetchClientEpgNowNext: fetchClientEpgNowNext,

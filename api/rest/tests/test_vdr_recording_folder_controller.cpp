@@ -124,12 +124,14 @@ int main()
 
     int manualLookupCalls = 0;
     int manualBatchLookupCalls = 0;
+    int nativeLookupCalls = 0;
     VdrRecordingFolderController controller(
         repository,
-        [](
+        [&nativeLookupCalls](
             const std::string& backendId,
             const std::string& backendNativeId)
         {
+            ++nativeLookupCalls;
             VdrRecordingNativeMetadataRecord record;
             if (backendId != "default" ||
                 backendNativeId.find("Movie") == std::string::npos)
@@ -145,6 +147,26 @@ int main()
             record.metadata.provider = "tvscraper";
             record.metadata.mediaType = "movie";
             record.metadata.title = "Movie";
+
+            VdrRecordingNativeArtwork landscape;
+            landscape.available = true;
+            landscape.provider = "tvscraper";
+            landscape.path =
+                "/var/cache/vdr-suite/recording-metadata/movie-landscape.jpg";
+            landscape.width = 1600;
+            landscape.height = 900;
+            landscape.orientation = "landscape";
+            record.metadata.preferredArtwork = landscape;
+
+            VdrRecordingNativeArtwork portrait;
+            portrait.available = true;
+            portrait.provider = "tvscraper";
+            portrait.path =
+                "/var/cache/vdr-suite/recording-metadata/movie-poster.jpg";
+            portrait.width = 1000;
+            portrait.height = 1500;
+            portrait.orientation = "portrait";
+            record.metadata.images.push_back(portrait);
 
             VdrRecordingNativePerson person;
             person.role = "actor";
@@ -238,11 +260,35 @@ int main()
     assert(contains(series.body, "\"parentPath\":\"\""));
     assert(contains(series.body, "\"metadata\":{"));
 
+    const int nativeCallsBeforeMovies =
+        nativeLookupCalls;
+
+    const ApiResponse movies =
+        controller.getFolder("default", "Movies", 20, 0);
+
+    assert(movies.statusCode == 200);
+    assert(nativeLookupCalls > nativeCallsBeforeMovies);
+    assert(contains(
+        movies.body,
+        "\"nativeMetadata\":{\"available\":true"));
+    assert(contains(
+        movies.body,
+        "\"provider\":\"tvscraper\""));
+    assert(contains(
+        movies.body,
+        "\"orientation\":\"portrait\""));
+    assert(contains(
+        movies.body,
+        "&kind=gallery&index=0"));
+    assert(!contains(
+        movies.body,
+        "/var/cache/vdr-suite/recording-metadata/movie-poster.jpg"));
+
     const ApiResponse rootAgain =
         controller.getFolder("default", "", 20, 0);
 
     assert(rootAgain.statusCode == 200);
-    assert(manualBatchLookupCalls == 3);
+    assert(manualBatchLookupCalls == 4);
     assert(manualLookupCalls == 0);
     assert(traceState.recordingInventoryReads == 0);
 

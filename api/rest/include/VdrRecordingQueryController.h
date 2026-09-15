@@ -1,7 +1,10 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "ManualRecordingMetadataAssignmentRepository.h"
 
+#include <functional>
+#include <map>
 #include <string>
 
 class VdrRecordingQueryResultJsonSerializer;
@@ -10,9 +13,19 @@ class VdrRecordingQueryService;
 class VdrRecordingQueryController
 {
 public:
+    using ManualMetadataBatchLookup =
+        std::function<
+            std::map<std::string, ManualRecordingMetadataAssignment>(
+                const std::string& backendId)>;
+
     VdrRecordingQueryController(
         VdrRecordingQueryService& queryService,
         VdrRecordingQueryResultJsonSerializer& jsonSerializer);
+
+    VdrRecordingQueryController(
+        VdrRecordingQueryService& queryService,
+        VdrRecordingQueryResultJsonSerializer& jsonSerializer,
+        ManualMetadataBatchLookup manualMetadataBatchLookup);
 
     ApiResponse getRecordings();
 
@@ -46,4 +59,5 @@ public:
 private:
     VdrRecordingQueryService& queryService_;
     VdrRecordingQueryResultJsonSerializer& jsonSerializer_;
+    ManualMetadataBatchLookup manualMetadataBatchLookup_;
 };

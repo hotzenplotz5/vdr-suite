@@ -8,16 +8,20 @@ const vm = require('vm');
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
 const logoSource = fs.readFileSync(path.join(frontendRoot, 'channel-logos.js'), 'utf8');
+const nowNextSource = fs.readFileSync(path.join(frontendRoot, 'home-now-next.js'), 'utf8');
 const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'), 'utf8');
 
 assert(indexSource.includes('class="media-home-only media-home-hero"'));
 assert(indexSource.includes('data-home-zone="hero"'));
 assert(indexSource.includes('<script src="../frontend/channel-logos.js"></script>'));
+assert(indexSource.includes('<script src="../frontend/home-now-next.js"></script>'));
 assert(indexSource.includes('<script src="../frontend/home-live-hero.js"></script>'));
 assert(logoSource.includes('createChannelLogoElement'));
+assert(nowNextSource.includes('VdrSuiteHomeNowNext'));
+assert(nowNextSource.includes('fetchClientEpgCacheNowNext'));
 assert(heroSource.includes('VdrSuiteHomeLiveHero'));
 assert(heroSource.includes('fetchClientChannels'));
-assert(heroSource.includes('fetchClientEpgCacheWindow'));
+assert(!heroSource.includes('fetchClientEpgCacheWindow'));
 assert(heroSource.includes('VdrSuiteLiveTvView'));
 assert(heroSource.includes("event.key === 'ArrowLeft'"));
 assert(heroSource.includes("event.key === 'ArrowRight'"));
@@ -240,9 +244,14 @@ const clientApi = {
     assert.strictEqual(options.query.backend, 'backend-a');
     return Promise.resolve(channelResponse);
   },
-  fetchClientEpgCacheWindow(options) {
+  fetchClientEpgCacheNowNext(options) {
     epgFetchCount += 1;
     assert.strictEqual(options.query.backend, 'backend-a');
+    assert.strictEqual(options.query.perChannelLimit, '2');
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(options.query, 'untilTime'),
+      false
+    );
     const requested = String(options.query.channelIds || '').split(',').filter(Boolean);
     epgChannelRequests.push(requested);
     return Promise.resolve({events: events.filter(event => requested.includes(event.channelId))});
@@ -297,6 +306,7 @@ const context = vm.createContext({
 });
 
 vm.runInContext(logoSource, context, {filename: 'web/frontend/channel-logos.js'});
+vm.runInContext(nowNextSource, context, {filename: 'web/frontend/home-now-next.js'});
 vm.runInContext(heroSource, context, {filename: 'web/frontend/home-live-hero.js'});
 assert.ok(window.VdrSuiteHomeLiveHero);
 
@@ -322,8 +332,8 @@ assert.ok(window.VdrSuiteHomeLiveHero);
 
   const nowSection = additionalSections.querySelector('[data-home-live-guide="now"]');
   const nextSection = additionalSections.querySelector('[data-home-live-guide="next"]');
-  assert.ok(nowSection, 'Home must render Was läuft jetzt from the Hero-owned EPG projection');
-  assert.ok(nextSection, 'Home must render Was läuft danach from the same EPG projection');
+  assert.ok(nowSection, 'Home must render Was läuft jetzt from the Home Now/Next-owned EPG projection');
+  assert.ok(nextSection, 'Home must render Was läuft danach from the same bounded EPG projection');
   assert.strictEqual(additionalSections.children[0], nowSection);
   assert.strictEqual(additionalSections.children[1], nextSection);
   assert(flattenText(nowSection).includes('Was läuft jetzt'));

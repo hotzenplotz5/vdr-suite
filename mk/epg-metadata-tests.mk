@@ -1,4 +1,25 @@
-.PHONY: test-suite-bridge-epg-metadata-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
+.PHONY: test-series-artwork-settings-api-runtime test-suite-bridge-epg-metadata-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
+
+
+test-suite-bridge-epg-metadata-resolver: test-series-artwork-settings-api-runtime
+
+test-series-artwork-settings-api-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/TmdbSeriesArtworkJson.cpp \
+		core/vdr/src/TmdbSeriesArtworkProvider.cpp \
+		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
+		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
+		core/metadata/src/RecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateJson.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataPosterMaterializer.cpp \
+		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
+		api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
+		api/rest/tests/test_series_artwork_settings_api_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_series_artwork_settings_api_runtime
+	$(BUILD_DIR)/test_series_artwork_settings_api_runtime
 
 test-suite-bridge-epg-metadata-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -111,6 +132,10 @@ test-suite-bridge-epg-metadata-resolver:
 		core/vdr/src/TmdbSeriesArtworkProvider.cpp \
 		core/vdr/src/TvmazeSeriesArtworkJson.cpp \
 		core/vdr/src/TvmazeSeriesArtworkProvider.cpp \
+		core/metadata/src/RecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateJson.cpp \
+		core/metadata/src/TmdbRecordingMetadataCandidateProvider.cpp \
+		core/metadata/src/TmdbRecordingMetadataPosterMaterializer.cpp \
 		core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
 		core/daemon/tests/test_series_artwork_backend_settings_service.cpp \
 		$(LDFLAGS) \

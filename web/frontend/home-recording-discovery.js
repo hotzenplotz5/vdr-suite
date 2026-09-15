@@ -12,6 +12,7 @@
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
   const SERIES_WARM_TTL_MS = 60000;
   const SERIES_METADATA_RETRY_MS = 60000;
+  const SERIES_DETAIL_METADATA_RETRY_MS = 2000;
   const SERIES_METADATA_RETRY_BATCH = 8;
   const FOLDER_LIMIT = 100;
   const FOLDER_VISIBLE_LIMIT = 12;
@@ -36,7 +37,17 @@
     randomGenreId: '',
     randomFolderGeneration: -1,
     randomFolderPath: '',
-    seriesMetadataCache: null
+    homeReadyBackendId: '',
+    homeReadyGeneration: -1,
+    seriesMetadataCache: null,
+
+    seriesCoverBackendId: '',
+
+    seriesCoverSettingsLoaded: false,
+
+    seriesCoverOverrides: new Map(),
+
+    seriesCoverSettingsInFlight: null
   };
 
   function text(value) {
@@ -162,6 +173,382 @@
     const helpers = global.VdrSuiteFrontendHelpers;
     if (!helpers || typeof helpers.recordingMetadataPosterUrl !== 'function') return '';
     return text(helpers.recordingMetadataPosterUrl(value));
+  }
+
+  function seriesCoverPublicImageUrl(value) {
+    const url = text(value);
+
+    if (!url) return '';
+
+    // Legacy internal Recording-metadata artwork remains valid for
+    // already persisted overrides.
+    if (
+      url.indexOf(
+        '/api/vdr/recordings/metadata/image?'
+      ) === 0
+    ) {
+      return url;
+    }
+
+    // The TMDB Series-cover workflow owns its own internal image
+    // endpoint.  Accept only the backend-scoped relative route;
+    // never an absolute/external URL.
+    if (
+      /^\/api\/backends\/[^/?#]+\/settings\/series-artwork\/image\?/
+        .test(url)
+    ) {
+      return url;
+    }
+
+    return '';
+  }
+
+  function seriesCoverSettingsPath(backendId) {
+    const id = text(backendId) || 'default';
+
+    return '/api/backends/' +
+      encodeURIComponent(id) +
+      '/settings/series-artwork';
+  }
+
+  function setSeriesCoverSettingsSnapshot(snapshot, backendId) {
+    const id = text(backendId) || 'default';
+    const overrides = new Map();
+    const entries = Array.isArray(snapshot && snapshot.coverOverrides)
+      ? snapshot.coverOverrides
+      : [];
+
+    entries.forEach(function (entry) {
+      const seriesKey = text(entry && entry.seriesKey);
+      const posterUrl = seriesCoverPublicImageUrl(
+        entry && entry.posterUrl
+      );
+      const revision = Math.max(
+        0,
+        Number(entry && entry.revision) || 0
+      );
+
+      if (!seriesKey || !posterUrl || revision <= 0) return;
+
+      overrides.set(seriesKey, {
+        seriesKey: seriesKey,
+        posterUrl: posterUrl,
+        revision: revision
+      });
+    });
+
+    state.seriesCoverBackendId = id;
+    state.seriesCoverSettingsLoaded = true;
+    state.seriesCoverOverrides = overrides;
+
+    return overrides;
+  }
+
+  function seriesCoverOverride(series, backendId) {
+    const id = text(backendId) || 'default';
+    const key = text(series && series.key);
+
+    if (!key ||
+        state.seriesCoverBackendId !== id ||
+        state.seriesCoverSettingsLoaded !== true ||
+        !(state.seriesCoverOverrides instanceof Map)) {
+      return null;
+    }
+
+    return state.seriesCoverOverrides.get(key) || null;
+  }
+
+  function seriesCoverPosterUrl(series, backendId) {
+    const override = seriesCoverOverride(series, backendId);
+
+    return text(override && override.posterUrl) ||
+      text(series && series.posterUrl);
+  }
+
+  function seriesCoverCandidateImageUrl(
+    backendId,
+    candidate
+  ) {
+    const id = text(backendId) || 'default';
+
+    const externalId =
+      text(candidate && candidate.externalId);
+
+    const posterReference =
+      text(candidate && candidate.posterReference);
+
+    if (!externalId || !posterReference) {
+      return '';
+    }
+
+    return seriesCoverSettingsPath(id) +
+      '/candidate-image?externalId=' +
+      encodeURIComponent(externalId) +
+      '&posterReference=' +
+      encodeURIComponent(posterReference);
+  }
+
+  function searchSeriesCoverCandidates(
+    backendId,
+    query
+  ) {
+    const client = clientApi();
+    const id = text(backendId) || 'default';
+    const value = text(query).trim();
+
+    if (!client ||
+        typeof client.requestJson !== 'function') {
+      return Promise.reject(
+        new Error(
+          'Client API ist nicht verfügbar.'
+        )
+      );
+    }
+
+    if (value.length < 2) {
+      return Promise.reject(
+        new Error(
+          'Bitte mindestens zwei Zeichen eingeben.'
+        )
+      );
+    }
+
+    const path =
+      '/api/backends/' +
+      encodeURIComponent(id) +
+      '/recordings/metadata/search';
+
+    return Promise.resolve(
+      client.requestJson(
+        path,
+        seriesCoverMutationOptions({
+          query: value,
+          kind: 'series',
+          limit: 12
+        })
+      )
+    ).then(function (result) {
+      return (
+        Array.isArray(
+          result && result.candidates
+        )
+          ? result.candidates
+          : []
+      ).filter(function (candidate) {
+        return candidate &&
+          candidate.providerId === 'tmdb' &&
+          candidate.kind === 'series' &&
+          text(candidate.externalNamespace) === 'tv' &&
+          text(candidate.externalId) &&
+          text(candidate.posterReference);
+      });
+    });
+  }
+
+  function seriesCoverMutationOptions(payload) {
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session &&
+      typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders()
+      : {};
+
+    return {
+      method: 'POST',
+      headers: Object.assign({
+        'Content-Type': 'application/json'
+      }, csrf && typeof csrf === 'object' ? csrf : {}),
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    };
+  }
+
+  function rerenderSeriesCoverPresentation(backendId) {
+    const id = text(backendId) || 'default';
+
+    if (state.seriesBackendId !== id ||
+        !state.seriesProjection.length) {
+      return false;
+    }
+
+    if (!state.seriesViewKey) {
+      return renderSeriesRail(
+        state.seriesProjection,
+        id
+      );
+    }
+
+    const series = state.seriesProjection.find(function (entry) {
+      return entry.key === state.seriesViewKey;
+    });
+
+    if (!series) return false;
+
+    const selectedSeason = state.seriesSeasonNumber === null
+      ? null
+      : series.seasons.find(function (season) {
+        return season.number === state.seriesSeasonNumber;
+      }) || null;
+
+    const section = sectionFor('series');
+    const view = section &&
+      section.__vdrSuiteSeriesDetail;
+
+    const metadataLoading = Boolean(
+      view &&
+      view.key === series.key &&
+      view.backendId === id &&
+      view.metadataLoading === true
+    );
+
+    return renderSeriesDetail(
+      series,
+      metadataLoading ? null : selectedSeason,
+      id,
+      metadataLoading
+        ? {metadataLoading: true}
+        : null
+    );
+  }
+
+  function loadSeriesCoverSettings(
+    client,
+    backendId,
+    generation
+  ) {
+    const id = text(backendId) || 'default';
+
+    if (!client ||
+        typeof client.requestJson !== 'function') {
+      return Promise.resolve(false);
+    }
+
+    if (state.seriesCoverBackendId === id &&
+        state.seriesCoverSettingsLoaded === true) {
+      return Promise.resolve(true);
+    }
+
+    const existing = state.seriesCoverSettingsInFlight;
+
+    if (existing &&
+        existing.backendId === id &&
+        existing.generation === generation) {
+      return existing.promise;
+    }
+
+    const request = {
+      backendId: id,
+      generation: generation,
+      promise: null
+    };
+
+    request.promise = Promise.resolve(
+      client.requestJson(
+        seriesCoverSettingsPath(id),
+        {
+          cache: 'no-store',
+          credentials: 'same-origin'
+        }
+      )
+    ).then(function (snapshot) {
+      if (!current(generation, id)) return false;
+
+      setSeriesCoverSettingsSnapshot(snapshot, id);
+      rerenderSeriesCoverPresentation(id);
+
+      return true;
+    }).catch(function () {
+      return false;
+    }).finally(function () {
+      if (state.seriesCoverSettingsInFlight === request) {
+        state.seriesCoverSettingsInFlight = null;
+      }
+    });
+
+    state.seriesCoverSettingsInFlight = request;
+
+    return request.promise;
+  }
+
+  function updateSeriesCoverOverride(
+    series,
+    backendId,
+    candidate
+  ) {
+    const client = clientApi();
+    const id = text(backendId) || 'default';
+    const seriesKey =
+      text(series && series.key);
+
+    if (!client ||
+        typeof client.requestJson !== 'function') {
+      return Promise.reject(
+        new Error(
+          'Client API ist nicht verfügbar.'
+        )
+      );
+    }
+
+    if (!seriesKey) {
+      return Promise.reject(
+        new Error(
+          'Die Serie besitzt keine stabile Identität.'
+        )
+      );
+    }
+
+    const selected =
+      candidate &&
+      typeof candidate === 'object'
+        ? candidate
+        : null;
+
+    const payload = {
+      backendId: id,
+      operation: selected
+        ? 'set-series-cover-tmdb'
+        : 'clear-series-cover',
+      seriesKey: seriesKey,
+      operationId:
+        'home-series-cover-' +
+        String(Date.now())
+    };
+
+    if (selected) {
+      if (text(selected.providerId) !== 'tmdb' ||
+          text(selected.externalNamespace) !== 'tv' ||
+          !text(selected.externalId) ||
+          !text(selected.posterReference)) {
+        return Promise.reject(
+          new Error(
+            'Dieser Seriencover-Treffer ist ungültig.'
+          )
+        );
+      }
+
+      payload.providerId = 'tmdb';
+      payload.externalNamespace = 'tv';
+      payload.externalId =
+        text(selected.externalId);
+      payload.posterReference =
+        text(selected.posterReference);
+    }
+
+    return Promise.resolve(
+      client.requestJson(
+        seriesCoverSettingsPath(id),
+        seriesCoverMutationOptions(payload)
+      )
+    ).then(function (snapshot) {
+      setSeriesCoverSettingsSnapshot(
+        snapshot,
+        id
+      );
+
+      rerenderSeriesCoverPresentation(id);
+
+      return snapshot;
+    });
   }
 
   function recordingMetadataProjection(recording, richMetadata) {
@@ -659,8 +1046,11 @@
   function canonicalSeriesPath(recording) {
     const value = recordingPath(recording) || text(recording && recording.title);
     const parts = value.split('/').map(text).filter(Boolean);
-    if (parts.length >= 2 && parts[0].toLowerCase() === 'serien') {
-      return 'Serien/' + parts[1];
+    const seriesIndex = parts.findIndex(function (part) {
+      return part.toLowerCase() === 'serien';
+    });
+    if (seriesIndex >= 0 && parts.length > seriesIndex + 1) {
+      return 'Serien/' + parts[seriesIndex + 1];
     }
     if (parts.length >= 2) {
       return parts.slice(0, -1).join('/');
@@ -708,24 +1098,54 @@
 
     const providerSeriesId = text(sourceProvider.seriesId);
     const richProvider = text(rich.provider);
+    const manualEpisode = richProvider === 'manual' &&
+      richMediaType === 'episode';
+    const manualSeriesPresentation = richProvider === 'manual' &&
+      richMediaType === 'series';
+    const embeddedSeriesMetadata =
+      recording &&
+      recording.seriesMetadata &&
+      typeof recording.seriesMetadata === 'object'
+        ? recording.seriesMetadata
+        : {};
+    const hierarchyMetadata =
+      manualSeriesPresentation &&
+      Object.keys(embeddedSeriesMetadata).length
+        ? embeddedSeriesMetadata
+        : rich;
     const parsedProviderId = Number(rich.providerId);
     const richProviderId = Number.isFinite(parsedProviderId) ? parsedProviderId : 0;
     const nativeMetadataAvailable = rich.available === true &&
       (richMediaType === 'episode' || richMediaType === 'series') &&
       Boolean(richProvider && richProviderId !== 0);
     let key = '';
-    if (providerSeriesId) key = 'provider:' + providerSeriesId;
-    else if (folderPath) key = 'folder:' + folderPath.toLowerCase();
-    else if (richProvider && richProviderId !== 0) {
+    if (manualEpisode && folderPath) {
+      key = 'folder:' + folderPath.toLowerCase();
+    } else if (providerSeriesId) {
+      key = 'provider:' + providerSeriesId;
+    } else if (folderPath) {
+      key = 'folder:' + folderPath.toLowerCase();
+    } else if (richProvider && richProviderId !== 0) {
       key = 'native:' + richProvider + ':' + String(richProviderId);
     } else key = 'title:' + seriesTitle.toLowerCase();
 
-    const seasonNumber = Number(rich.seasonNumber || sourceProvider.seasonNumber || token.seasonNumber || 0);
-    const episodeNumber = Number(rich.episodeNumber || sourceProvider.episodeNumber || token.episodeNumber || 0);
+    const seasonNumber = Number(
+      hierarchyMetadata.seasonNumber ||
+      sourceProvider.seasonNumber ||
+      token.seasonNumber ||
+      0
+    );
+    const episodeNumber = Number(
+      hierarchyMetadata.episodeNumber ||
+      sourceProvider.episodeNumber ||
+      token.episodeNumber ||
+      0
+    );
     const metadataPosterUrl = recordingMetadataPosterUrl(rich);
     const nativeArtworkAvailable = rich.available === true && Boolean(metadataPosterUrl);
     const posterUrl = metadataPosterUrl || recordingPosterUrl(recording);
     const episodeTitle = text(
+      hierarchyMetadata.episodeName ||
       rich.episodeName ||
       sourceProvider.episodeTitle ||
       episodeLeafTitle(recording) ||
@@ -747,9 +1167,752 @@
     };
   }
 
+  function seriesHierarchyOverride(recording) {
+    const value = recording && recording.seriesHierarchyOverride;
+    return value && typeof value === 'object' && value.available === true
+      ? value
+      : null;
+  }
+
+  function seriesHierarchySyntheticSeasonNumber(groupType, groupLabel) {
+    const value = text(groupType) + '\n' + text(groupLabel);
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return -1 - ((hash >>> 0) % 1000000000);
+  }
+
+  function seriesHierarchySeasonSortOrder(member, seasonNumber) {
+    const groupType = text(member && member.seriesHierarchyGroupType);
+    if (groupType === 'special' || groupType === 'custom') {
+      const configured = Number(member.seriesHierarchySortOrder);
+      if (Number.isFinite(configured) && configured !== 0) return configured;
+      return groupType === 'special' ? 500 : 750;
+    }
+    if (Number(seasonNumber) > 0) return Number(seasonNumber) * 10;
+    return 1000000;
+  }
+
+  function applySeriesHierarchyOverride(member, recording) {
+    if (!member) return member;
+
+    const projected = Object.assign({}, member);
+    const nativeSeason = Number(
+      member.nativeSeasonNumber !== undefined
+        ? member.nativeSeasonNumber
+        : member.seasonNumber || 0
+    );
+    const nativeEpisode = Number(
+      member.nativeEpisodeNumber !== undefined
+        ? member.nativeEpisodeNumber
+        : member.episodeNumber || 0
+    );
+
+    projected.nativeSeasonNumber =
+      Number.isFinite(nativeSeason) && nativeSeason > 0 ? nativeSeason : 0;
+    projected.nativeEpisodeNumber =
+      Number.isFinite(nativeEpisode) && nativeEpisode > 0 ? nativeEpisode : 0;
+
+    projected.seasonNumber = projected.nativeSeasonNumber;
+    projected.episodeNumber = projected.nativeEpisodeNumber;
+    projected.episodeEnd = 0;
+    projected.seriesHierarchyOverrideAvailable = false;
+    projected.seriesHierarchyGroupType = '';
+    projected.seriesHierarchyGroupLabel = '';
+    projected.seriesHierarchySortOrder = 0;
+    projected.seriesHierarchyRevision = 0;
+
+    const override = seriesHierarchyOverride(recording);
+    if (!override) return projected;
+
+    const groupType = text(override.groupType).toLowerCase();
+    const seasonNumber = Number(override.seasonNumber || 0);
+    const groupLabel = text(override.groupLabel);
+    const episodeStart = Number(override.episodeStart || 0);
+    const episodeEnd = Number(override.episodeEnd || 0);
+
+    if (groupType === 'season' && seasonNumber > 0) {
+      projected.seasonNumber = seasonNumber;
+      projected.seriesHierarchyGroupLabel =
+        'Staffel ' + String(seasonNumber);
+    } else if (
+      (groupType === 'special' || groupType === 'custom') &&
+      groupLabel
+    ) {
+      projected.seasonNumber =
+        seriesHierarchySyntheticSeasonNumber(groupType, groupLabel);
+      projected.seriesHierarchyGroupLabel = groupLabel;
+    } else {
+      return projected;
+    }
+
+    projected.seriesHierarchyOverrideAvailable = true;
+    projected.seriesHierarchyGroupType = groupType;
+    projected.seriesHierarchySortOrder =
+      Number.isFinite(Number(override.sortOrder))
+        ? Number(override.sortOrder)
+        : 0;
+    projected.seriesHierarchyRevision =
+      Number.isFinite(Number(override.revision))
+        ? Number(override.revision)
+        : 0;
+
+    if (episodeStart > 0) projected.episodeNumber = episodeStart;
+    if (episodeEnd > 0 && episodeEnd >= episodeStart) {
+      projected.episodeEnd = episodeEnd;
+    }
+
+    return projected;
+  }
+
+  function seriesEpisodeNumberLabel(member) {
+    const start = Number(member && member.episodeNumber || 0);
+    const end = Number(member && member.episodeEnd || 0);
+    if (start > 0 && end >= start && end !== start) {
+      return 'Folge ' + String(start) + '–' + String(end);
+    }
+    return start > 0 ? 'Folge ' + String(start) : '';
+  }
+
+  function seriesHierarchyCanEdit(member) {
+    if (!member || !member.recording) return false;
+    if (!text(member.recording.resourceKey)) return false;
+    return member.seriesHierarchyOverrideAvailable === true ||
+      Number(member.nativeSeasonNumber || 0) <= 0;
+  }
+
+  function seriesHierarchyCsrfHeaders() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
+
+  function requestSeriesHierarchyOverride(client, backendId, recording, mutation) {
+    if (!client || typeof client.requestJson !== 'function') {
+      return Promise.reject(
+        new Error('Client API für Serienzuordnung ist nicht verfügbar.')
+      );
+    }
+
+    const resourceKey = text(recording && recording.resourceKey);
+    if (!resourceKey) {
+      return Promise.reject(
+        new Error('Die Aufnahme besitzt keinen kanonischen resourceKey.')
+      );
+    }
+
+    const payload = Object.assign({}, mutation || {}, {
+      resourceKey: resourceKey
+    });
+
+    return client.requestJson(
+      '/api/backends/' + encodeURIComponent(text(backendId) || 'default') +
+        '/recordings/series-hierarchy',
+      {
+        method: 'POST',
+        headers: Object.assign(
+          {'Content-Type': 'application/json'},
+          seriesHierarchyCsrfHeaders()
+        ),
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      }
+    );
+  }
+
+  function ensureSeriesHierarchyStyles() {
+    if (!doc || !doc.head || typeof doc.createElement !== 'function') return;
+    if (typeof doc.getElementById === 'function' &&
+        doc.getElementById('vdr-suite-home-series-hierarchy-style')) return;
+
+    const style = doc.createElement('style');
+    style.id = 'vdr-suite-home-series-hierarchy-style';
+    style.textContent = [
+      '.media-home-series-hierarchy-action{display:inline-flex;align-items:center;justify-content:center;margin-top:.35rem;padding:.28rem .48rem;border:1px solid rgba(96,165,250,.45);border-radius:.55rem;color:#bfdbfe;background:rgba(30,64,175,.18);font-size:.78rem;font-weight:650;cursor:pointer}',
+      '.media-home-series-hierarchy-editor{display:grid;gap:.85rem;margin:1rem;padding:1rem;border:1px solid rgba(96,165,250,.35);border-radius:.9rem;background:rgba(15,23,42,.92);color:#e2e8f0}',
+      '.media-home-series-hierarchy-editor h4{margin:0;color:#f8fafc;font-size:1.05rem}',
+      '.media-home-series-hierarchy-editor p{margin:0;color:#94a3b8}',
+      '.media-home-series-hierarchy-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.65rem}',
+      '.media-home-series-hierarchy-fields label{display:grid;gap:.28rem;color:#cbd5e1;font-size:.82rem}',
+      '.media-home-series-hierarchy-fields input{min-width:0;border:1px solid rgba(148,163,184,.3);border-radius:.55rem;background:#0f172a;color:#f8fafc;padding:.52rem .58rem}',
+      '.media-home-series-hierarchy-actions{display:flex;flex-wrap:wrap;gap:.55rem}',
+      '.media-home-series-hierarchy-actions button{border:1px solid rgba(148,163,184,.3);border-radius:.6rem;background:rgba(30,41,59,.95);color:#e2e8f0;padding:.5rem .7rem;cursor:pointer}',
+      '.media-home-series-hierarchy-actions button.primary{border-color:rgba(96,165,250,.55);background:rgba(37,99,235,.32);color:#eff6ff}',
+      '.media-home-series-hierarchy-status{min-height:1.2rem;color:#93c5fd}',
+      '.media-home-series-hierarchy-status.error{color:#fecaca}'
+    ].join('');
+    doc.head.appendChild(style);
+  }
+
+  function closeSeriesHierarchyEditor(section) {
+    if (!section) return false;
+    const editor = section.__vdrSuiteSeriesHierarchyEditor;
+    if (editor && typeof editor.remove === 'function') editor.remove();
+    section.__vdrSuiteSeriesHierarchyEditor = null;
+    return true;
+  }
+
+  function updateSeriesHierarchyProjection(member, response, backendId) {
+    if (!member || !member.recording || !response || typeof response !== 'object') {
+      return false;
+    }
+
+    member.recording.seriesHierarchyOverride =
+      response.available === true
+        ? response
+        : {available: false};
+
+    const seriesIndex = state.seriesProjection.findIndex(function (candidate) {
+      return candidate.key === member.seriesKey;
+    });
+
+    if (seriesIndex < 0) return false;
+
+    const currentSeries = state.seriesProjection[seriesIndex];
+    const rebuilt = buildSeriesProjection(currentSeries.episodes).find(function (candidate) {
+      return candidate.key === currentSeries.key;
+    });
+
+    if (!rebuilt) return false;
+
+    state.seriesProjection[seriesIndex] = rebuilt;
+    state.seriesWarmBackendId = backendId;
+    state.seriesWarmCompletedAt = Date.now();
+
+    const recordingKey = JSON.stringify([
+      member.backendId || backendId,
+      recordingId(member.recording)
+    ]);
+
+    const updatedMember = rebuilt.episodes.find(function (candidate) {
+      return JSON.stringify([
+        candidate.backendId || backendId,
+        recordingId(candidate.recording)
+      ]) === recordingKey;
+    }) || null;
+
+    const selectedSeason = updatedMember
+      ? rebuilt.seasons.find(function (season) {
+          return season.number === updatedMember.seasonNumber;
+        }) || null
+      : null;
+
+    const section = sectionFor('series');
+    closeSeriesHierarchyEditor(section);
+
+    return renderSeriesDetail(
+      rebuilt,
+      selectedSeason,
+      backendId
+    );
+  }
+
+
+  function ensureSeriesHierarchySimpleUiStyle() {
+    if (!doc ||
+        !doc.head ||
+        typeof doc.createElement !== 'function') {
+      return;
+    }
+
+    const styleId =
+      'vdr-suite-series-hierarchy-simple-ui';
+
+    if (typeof doc.getElementById === 'function' &&
+        doc.getElementById(styleId)) {
+      return;
+    }
+
+    const style = doc.createElement('style');
+    style.id = styleId;
+    style.textContent = [
+      '.media-home-series-hierarchy-action{',
+      'display:flex!important;',
+      'align-items:center;',
+      'justify-content:center;',
+      'box-sizing:border-box;',
+      'width:calc(100% - 16px)!important;',
+      'min-height:44px!important;',
+      'margin:8px!important;',
+      'padding:9px 12px!important;',
+      'border:1px solid rgba(117,163,255,.6)!important;',
+      'border-radius:8px!important;',
+      'background:#13294f!important;',
+      'font-weight:700!important;',
+      'font-size:14px!important;',
+      'cursor:pointer!important;',
+      'user-select:none;',
+      '}',
+      '.media-home-series-hierarchy-action:focus-visible{',
+      'outline:2px solid #8ab4ff;',
+      'outline-offset:2px;',
+      '}',
+      '.media-home-series-hierarchy-modal{',
+      'position:fixed!important;',
+      'left:50%!important;',
+      'top:50%!important;',
+      'transform:translate(-50%,-50%)!important;',
+      'z-index:10050!important;',
+      'box-sizing:border-box!important;',
+      'width:min(520px,calc(100vw - 32px))!important;',
+      'max-height:calc(100vh - 32px)!important;',
+      'overflow:auto!important;',
+      'margin:0!important;',
+      'padding:20px!important;',
+      'border:1px solid rgba(117,163,255,.6)!important;',
+      'border-radius:14px!important;',
+      'background:#0e1729!important;',
+      'box-shadow:',
+      '0 0 0 100vmax rgba(1,8,20,.78),',
+      '0 18px 60px rgba(0,0,0,.5)!important;',
+      '}',
+      '.media-home-series-hierarchy-modal button,',
+      '.media-home-series-hierarchy-modal [role="button"]{',
+      'display:flex;',
+      'align-items:center;',
+      'justify-content:center;',
+      'box-sizing:border-box;',
+      'width:100%;',
+      'min-height:46px;',
+      'margin:7px 0!important;',
+      'padding:10px 14px!important;',
+      'font-weight:700;',
+      'cursor:pointer;',
+      '}',
+      '.media-home-series-hierarchy-simple-intro{',
+      'margin:4px 0 14px;',
+      'color:#aebbd1;',
+      '}',
+      '@media (max-width:720px){',
+      '.media-home-series-hierarchy-modal{',
+      'width:calc(100vw - 20px)!important;',
+      'padding:16px!important;',
+      '}',
+      '}'
+    ].join('');
+
+    doc.head.appendChild(style);
+  }
+
+  function simplifySeriesHierarchyEditor() {
+    ensureSeriesHierarchySimpleUiStyle();
+
+    if (!doc ||
+        typeof doc.querySelector !== 'function') {
+      return;
+    }
+
+    const editor = doc.querySelector(
+      '.media-home-series-hierarchy-modal'
+    );
+
+    if (!editor) return;
+
+    editor.setAttribute(
+      'role',
+      'dialog'
+    );
+    editor.setAttribute(
+      'aria-modal',
+      'true'
+    );
+    editor.setAttribute(
+      'aria-label',
+      'Aufnahme zuordnen'
+    );
+
+    if (editor.dataset) {
+      editor.dataset.simpleHierarchyUi = '1';
+    }
+
+    if (typeof editor.querySelectorAll !== 'function') {
+      return;
+    }
+
+    Array.from(
+      editor.querySelectorAll(
+        'input, select, textarea'
+      )
+    ).forEach(function (field) {
+      if ('value' in field) {
+        field.value = '';
+      }
+
+      const label =
+        typeof field.closest === 'function'
+          ? field.closest('label')
+          : null;
+
+      const container =
+        label ||
+        (
+          field.parentNode &&
+          field.parentNode !== editor
+            ? field.parentNode
+            : field
+        );
+
+      if (container && container.style) {
+        container.style.display = 'none';
+      }
+    });
+
+    Array.from(
+      editor.querySelectorAll(
+        'button, [role="button"]'
+      )
+    ).forEach(function (control) {
+      const label = text(
+        control.textContent
+      );
+
+      if (
+        label === 'Staffel zuordnen' ||
+        label === 'Eigene Gruppe übernehmen'
+      ) {
+        if (control.style) {
+          control.style.display = 'none';
+        }
+      }
+    });
+
+    Array.from(
+      editor.querySelectorAll(
+        'h1, h2, h3, strong'
+      )
+    ).forEach(function (heading) {
+      if (
+        text(heading.textContent) ===
+        'Folge zuordnen'
+      ) {
+        heading.textContent =
+          'Aufnahme zuordnen';
+      }
+    });
+
+    Array.from(
+      editor.querySelectorAll(
+        'p, span, div'
+      )
+    ).forEach(function (element) {
+      const label = text(
+        element.textContent
+      );
+
+      if (
+        label.indexOf(
+          'automatische Hierarchie bleibt unverändert gespeichert'
+        ) >= 0 &&
+        !element.querySelector(
+          'button, [role="button"]'
+        )
+      ) {
+        if (element.style) {
+          element.style.display = 'none';
+        }
+      }
+    });
+
+    if (!editor.querySelector(
+          '.media-home-series-hierarchy-simple-intro'
+        )) {
+      const intro =
+        doc.createElement('p');
+
+      intro.className =
+        'media-home-series-hierarchy-simple-intro';
+
+      intro.textContent =
+        'Wohin gehört diese Aufnahme?';
+
+      editor.insertBefore(
+        intro,
+        editor.children &&
+        editor.children.length > 1
+          ? editor.children[1]
+          : null
+      );
+    }
+
+    const firstAction =
+      Array.from(
+        editor.querySelectorAll(
+          'button, [role="button"]'
+        )
+      ).find(function (control) {
+        return !control.style ||
+          control.style.display !== 'none';
+      });
+
+    if (firstAction &&
+        typeof firstAction.focus === 'function') {
+      firstAction.focus();
+    }
+  }
+
+  function openSeriesHierarchyEditor(member, series, backendId) {
+    if (!seriesHierarchyCanEdit(member)) return false;
+
+    const section = sectionFor('series');
+    if (!section) return false;
+
+    ensureSeriesHierarchyStyles();
+    closeSeriesHierarchyEditor(section);
+
+    const editor = doc.createElement('div');
+    editor.className = 'media-home-series-hierarchy-editor media-home-series-hierarchy-modal';
+    editor.dataset.recordingId = recordingId(member.recording);
+
+    const heading = doc.createElement('h4');
+    heading.textContent = 'Folge zuordnen';
+
+    const description = doc.createElement('p');
+    description.textContent =
+      member.episodeTitle +
+      ' · automatische Hierarchie bleibt unverändert gespeichert';
+
+    const fields = doc.createElement('div');
+    fields.className = 'media-home-series-hierarchy-fields';
+
+    function field(labelText, type, value, min) {
+      const label = doc.createElement('label');
+      label.textContent = labelText;
+      const input = doc.createElement('input');
+      input.type = type;
+      input.value = value === undefined || value === null ? '' : String(value);
+      if (min !== undefined) input.min = String(min);
+      label.appendChild(input);
+      fields.appendChild(label);
+      return input;
+    }
+
+    const seasonInput = field('Staffel', 'number', '', 1);
+    const episodeStartInput = field(
+      'Folge von',
+      'number',
+      member.episodeNumber > 0 ? member.episodeNumber : '',
+      1
+    );
+    const episodeEndInput = field(
+      'Folge bis (optional)',
+      'number',
+      member.episodeEnd > 0 ? member.episodeEnd : '',
+      1
+    );
+    const customInput = field('Eigene Gruppe', 'text', '');
+
+    const status = doc.createElement('div');
+    status.className = 'media-home-series-hierarchy-status';
+
+    const actions = doc.createElement('div');
+    actions.className = 'media-home-series-hierarchy-actions';
+
+    function rangePayload() {
+      const start = Number(episodeStartInput.value || 0);
+      const end = Number(episodeEndInput.value || 0);
+      return {
+        episodeStart: Number.isFinite(start) && start > 0 ? Math.floor(start) : 0,
+        episodeEnd: Number.isFinite(end) && end > 0 ? Math.floor(end) : 0
+      };
+    }
+
+    function setStatus(message, error) {
+      status.textContent = message || '';
+      status.className =
+        'media-home-series-hierarchy-status' + (error ? ' error' : '');
+    }
+
+    function submit(mutation) {
+      const client = clientApi();
+      setStatus('Zuordnung wird gespeichert …', false);
+
+      const expectedRevision =
+        member.seriesHierarchyOverrideAvailable === true
+          ? Number(member.seriesHierarchyRevision || 0)
+          : 0;
+
+      const payload = Object.assign(
+        {},
+        mutation,
+        rangePayload(),
+        expectedRevision > 0
+          ? {expectedRevision: expectedRevision}
+          : {}
+      );
+
+      return requestSeriesHierarchyOverride(
+        client,
+        backendId,
+        member.recording,
+        payload
+      ).then(function (response) {
+        if (!response || typeof response !== 'object') {
+          throw new Error('Ungültige Antwort der Serienzuordnung.');
+        }
+        if (!updateSeriesHierarchyProjection(member, response, backendId)) {
+          throw new Error('Serienansicht konnte nicht aktualisiert werden.');
+        }
+        return true;
+      }).catch(function (error) {
+        setStatus(
+          text(error && error.message) ||
+            'Serienzuordnung konnte nicht gespeichert werden.',
+          true
+        );
+        return false;
+      });
+    }
+
+    function button(label, mutation, primary) {
+      const control = doc.createElement('button');
+      control.type = 'button';
+      control.textContent = label;
+      if (primary) control.className = 'primary';
+      control.addEventListener('click', function (event) {
+        if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+        submit(mutation);
+      });
+      actions.appendChild(control);
+      return control;
+    }
+
+    const existingSeasonNumbers = [];
+    (series && series.seasons || []).forEach(function (season) {
+      if (Number(season.number) <= 0) return;
+      if (existingSeasonNumbers.indexOf(Number(season.number)) >= 0) return;
+      existingSeasonNumbers.push(Number(season.number));
+    });
+
+    existingSeasonNumbers.sort(function (left, right) {
+      return left - right;
+    }).forEach(function (seasonNumber) {
+      button(
+        'Staffel ' + String(seasonNumber),
+        {
+          operation: 'set',
+          groupType: 'season',
+          seasonNumber: seasonNumber,
+          groupLabel: '',
+          sortOrder: 0
+        },
+        false
+      );
+    });
+
+    const manualSeason = doc.createElement('button');
+    manualSeason.type = 'button';
+    manualSeason.textContent = 'Staffel zuordnen';
+    manualSeason.className = 'primary';
+    manualSeason.addEventListener('click', function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+
+      const seasonNumber = Number(seasonInput.value || 0);
+      if (!Number.isFinite(seasonNumber) || seasonNumber <= 0) {
+        setStatus('Bitte eine gültige Staffelnummer eingeben.', true);
+        return;
+      }
+
+      submit({
+        operation: 'set',
+        groupType: 'season',
+        seasonNumber: Math.floor(seasonNumber),
+        groupLabel: '',
+        sortOrder: 0
+      });
+    });
+    actions.appendChild(manualSeason);
+
+    button(
+      'Pilot / Miniserie',
+      {
+        operation: 'set',
+        groupType: 'special',
+        seasonNumber: 0,
+        groupLabel: 'Pilot / Miniserie',
+        sortOrder: -100
+      },
+      true
+    );
+
+    button(
+      'TV-Filme / Specials',
+      {
+        operation: 'set',
+        groupType: 'special',
+        seasonNumber: 0,
+        groupLabel: 'TV-Filme / Specials',
+        sortOrder: 1000
+      },
+      true
+    );
+
+    const custom = doc.createElement('button');
+    custom.type = 'button';
+    custom.textContent = 'Eigene Gruppe übernehmen';
+    custom.addEventListener('click', function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+
+      const groupLabel = text(customInput.value);
+      if (!groupLabel) {
+        setStatus('Bitte einen Gruppennamen eingeben.', true);
+        return;
+      }
+
+      submit({
+        operation: 'set',
+        groupType: 'custom',
+        seasonNumber: 0,
+        groupLabel: groupLabel,
+        sortOrder: 750
+      });
+    });
+    actions.appendChild(custom);
+
+    if (member.seriesHierarchyOverrideAvailable === true) {
+      button(
+        'Automatische Zuordnung',
+        {
+          operation: 'clear'
+        },
+        false
+      );
+    }
+
+    const cancel = doc.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Abbrechen';
+    cancel.addEventListener('click', function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+      closeSeriesHierarchyEditor(section);
+    });
+    actions.appendChild(cancel);
+
+    editor.append(heading, description, fields, actions, status);
+    section.appendChild(editor);
+    section.__vdrSuiteSeriesHierarchyEditor = editor;
+
+    if (typeof editor.scrollIntoView === 'function') {
+      editor.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    }
+
+    return true;
+  }
+
   function buildSeriesProjection(members) {
     const groups = new Map();
-    (members || []).filter(Boolean).forEach(function (member) {
+    (members || []).filter(Boolean).forEach(function (rawMember) {
+      const member = applySeriesHierarchyOverride(
+        rawMember,
+        rawMember && rawMember.recording
+      );
       let series = groups.get(member.seriesKey);
       if (!series) {
         series = {
@@ -787,7 +1950,11 @@
         if (!season) {
           season = {
             number: number,
-            label: number > 0 ? 'Staffel ' + String(number) : 'Staffel unbekannt',
+            label: text(member.seriesHierarchyGroupLabel) ||
+              (number > 0 ? 'Staffel ' + String(number) : 'Staffel unbekannt'),
+            groupType: text(member.seriesHierarchyGroupType) ||
+              (number > 0 ? 'season' : 'unknown'),
+            sortOrder: seriesHierarchySeasonSortOrder(member, number),
             episodes: []
           };
           seasons.set(key, season);
@@ -795,6 +1962,12 @@
         season.episodes.push(member);
       });
       series.seasons = Array.from(seasons.values()).sort(function (left, right) {
+        const leftOrder = Number(left.sortOrder);
+        const rightOrder = Number(right.sortOrder);
+        if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) &&
+            leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
         if (left.number === 0 && right.number !== 0) return 1;
         if (right.number === 0 && left.number !== 0) return -1;
         return left.number - right.number;
@@ -858,6 +2031,317 @@
     if (Number.isFinite(scrollLeft)) parent.scrollLeft = scrollLeft;
   }
 
+  function renderSeriesCoverPicker(
+    view,
+    series,
+    backendId
+  ) {
+    const picker = view && view.coverPicker;
+
+    if (!picker) return false;
+
+    picker.hidden = false;
+    picker.replaceChildren();
+
+    const heading =
+      doc.createElement('div');
+
+    heading.className =
+      'media-home-series-cover-heading';
+
+    const title =
+      doc.createElement('h4');
+
+    title.textContent =
+      'Seriencover suchen';
+
+    heading.appendChild(title);
+
+    const override =
+      seriesCoverOverride(
+        series,
+        backendId
+      );
+
+    if (override) {
+      const reset =
+        doc.createElement('button');
+
+      reset.type = 'button';
+      reset.className =
+        'media-home-series-cover-action';
+
+      reset.textContent =
+        'Automatisches Cover';
+
+      reset.addEventListener(
+        'click',
+        function () {
+          reset.disabled = true;
+
+          updateSeriesCoverOverride(
+            view.series,
+            backendId,
+            null
+          ).catch(function (error) {
+            reset.disabled = false;
+            status.textContent =
+              error && error.message
+                ? error.message
+                : 'Cover konnte nicht zurückgesetzt werden.';
+          });
+        }
+      );
+
+      heading.appendChild(reset);
+    }
+
+    const close =
+      doc.createElement('button');
+
+    close.type = 'button';
+    close.className =
+      'media-home-series-cover-action';
+
+    close.textContent = 'Schließen';
+
+    close.addEventListener(
+      'click',
+      function () {
+        picker.hidden = true;
+      }
+    );
+
+    heading.appendChild(close);
+    picker.appendChild(heading);
+
+    const searchRow =
+      doc.createElement('div');
+
+    searchRow.className =
+      'media-home-series-cover-search';
+
+    const input =
+      doc.createElement('input');
+
+    input.type = 'search';
+    input.value = text(series.title);
+    input.placeholder = 'Serie bei TMDB suchen';
+    input.setAttribute(
+      'aria-label',
+      'Serientitel'
+    );
+
+    const searchButton =
+      doc.createElement('button');
+
+    searchButton.type = 'button';
+    searchButton.className =
+      'media-home-series-cover-action primary';
+
+    searchButton.textContent = 'Suchen';
+
+    searchRow.append(
+      input,
+      searchButton
+    );
+
+    picker.appendChild(searchRow);
+
+    const status =
+      doc.createElement('div');
+
+    status.className =
+      'media-home-series-cover-status';
+
+    status.setAttribute(
+      'data-series-cover-status',
+      'true'
+    );
+
+    status.setAttribute(
+      'role',
+      'status'
+    );
+
+    picker.appendChild(status);
+
+    const results =
+      doc.createElement('div');
+
+    results.className =
+      'media-home-series-cover-results';
+
+    picker.appendChild(results);
+
+    function renderResults(candidates) {
+      results.replaceChildren();
+
+      if (!candidates.length) {
+        status.textContent =
+          'Keine passende Serie mit Poster gefunden.';
+        return;
+      }
+
+      status.textContent =
+        String(candidates.length) +
+        ' Treffer';
+
+      candidates.forEach(
+        function (candidate) {
+          const card =
+            doc.createElement('button');
+
+          card.type = 'button';
+          card.className =
+            'media-home-series-cover-search-result';
+
+          const image =
+            doc.createElement('img');
+
+          image.loading = 'lazy';
+          image.alt = '';
+          image.src =
+            seriesCoverCandidateImageUrl(
+              backendId,
+              candidate
+            );
+
+          card.appendChild(image);
+
+          const copy =
+            doc.createElement('span');
+
+          const candidateTitle =
+            doc.createElement('strong');
+
+          candidateTitle.textContent =
+            text(candidate.title) ||
+            'Ohne Titel';
+
+          copy.appendChild(
+            candidateTitle
+          );
+
+          const details = [
+            text(candidate.releaseDate)
+              .slice(0, 4),
+            text(candidate.originalTitle) &&
+            text(candidate.originalTitle) !==
+              text(candidate.title)
+              ? text(candidate.originalTitle)
+              : ''
+          ].filter(Boolean).join(' · ');
+
+          if (details) {
+            const small =
+              doc.createElement('small');
+
+            small.textContent = details;
+            copy.appendChild(small);
+          }
+
+          card.appendChild(copy);
+
+          card.addEventListener(
+            'click',
+            function () {
+              card.disabled = true;
+
+              status.textContent =
+                'Seriencover wird gespeichert …';
+
+              updateSeriesCoverOverride(
+                view.series,
+                backendId,
+                candidate
+              ).then(function () {
+                picker.hidden = true;
+              }).catch(function (error) {
+                card.disabled = false;
+
+                status.textContent =
+                  error && error.message
+                    ? error.message
+                    : 'Seriencover konnte nicht gespeichert werden.';
+              });
+            }
+          );
+
+          results.appendChild(card);
+        }
+      );
+    }
+
+    function runSearch() {
+      const query =
+        input.value.trim();
+
+      searchButton.disabled = true;
+
+      status.textContent =
+        'TMDB wird durchsucht …';
+
+      results.replaceChildren();
+
+      searchSeriesCoverCandidates(
+        backendId,
+        query
+      ).then(function (candidates) {
+        searchButton.disabled = false;
+        renderResults(candidates);
+      }).catch(function (error) {
+        searchButton.disabled = false;
+
+        status.textContent =
+          error && error.message
+            ? error.message
+            : 'Seriensuche fehlgeschlagen.';
+      });
+    }
+
+    searchButton.addEventListener(
+      'click',
+      runSearch
+    );
+
+    input.addEventListener(
+      'keydown',
+      function (event) {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+        runSearch();
+      }
+    );
+
+    runSearch();
+
+    return true;
+  }
+
+  function toggleSeriesCoverPicker(
+    view,
+    backendId
+  ) {
+    if (!view ||
+        !view.coverPicker ||
+        !view.series) {
+      return false;
+    }
+
+    if (!view.coverPicker.hidden) {
+      view.coverPicker.hidden = true;
+      return true;
+    }
+
+    return renderSeriesCoverPicker(
+      view,
+      view.series,
+      backendId
+    );
+  }
+
   function openSeriesDetail(series, backendId) {
     if (!series) return false;
 
@@ -873,8 +2357,9 @@
       current(generation, backendId)
     );
     const hierarchyIncomplete = (series.episodes || []).some(function (member) {
-      return !member ||
-        Number(member.seasonNumber) <= 0 ||
+      if (!member) return true;
+      if (member.seriesHierarchyOverrideAvailable === true) return false;
+      return Number(member.seasonNumber) <= 0 ||
         Number(member.episodeNumber) <= 0;
     });
 
@@ -895,7 +2380,10 @@
       backendId,
       generation,
       null,
-      {refreshUnsettled: true}
+      {
+        refreshUnsettled: true,
+        refreshIncompleteHierarchy: true
+      }
     ).then(function (rich) {
       if (!current(generation, backendId)) return false;
 
@@ -929,11 +2417,27 @@
           return season.number === state.seriesSeasonNumber;
         }) || null;
 
-      return renderSeriesDetail(
+      const renderedDetail = renderSeriesDetail(
         enriched,
         selectedSeason,
         backendId
       );
+
+      if (!seriesMetadataComplete(
+            recordings,
+            generation,
+            backendId
+          )) {
+        scheduleSeriesMetadataRetry(
+          client,
+          recordings,
+          backendId,
+          generation,
+          SERIES_DETAIL_METADATA_RETRY_MS
+        );
+      }
+
+      return renderedDetail;
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       return renderSeriesDetail(series, null, backendId);
@@ -975,7 +2479,8 @@
     }));
     const nextCards = [];
     seriesEntries.forEach(function (series) {
-      const signature = JSON.stringify([backendId, series.title, series.posterUrl, seriesCountLabel(series)]);
+      const posterUrl = seriesCoverPosterUrl(series, backendId);
+      const signature = JSON.stringify([backendId, series.title, posterUrl, seriesCountLabel(series)]);
       let card = existing.get(series.key);
       if (!card || card.dataset.presentation !== signature) {
         if (!card) {
@@ -990,7 +2495,7 @@
         card.className = 'media-home-discovery-card series';
         card.dataset.seriesKey = series.key;
         card.dataset.backendId = backendId;
-        card.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+        card.appendChild(createPosterArtwork(series.title, posterUrl, series.title.slice(0, 1)));
         const copy = doc.createElement('span');
         copy.className = 'media-home-discovery-copy';
         const label = doc.createElement('strong');
@@ -1012,9 +2517,52 @@
     return true;
   }
 
+  function seriesMetadataPendingForDetail(series, backendId) {
+    const cache = state.seriesMetadataCache;
+
+    if (!series ||
+        !cache ||
+        cache.generation !== state.generation ||
+        cache.backendId !== backendId) {
+      return false;
+    }
+
+    return (series.episodes || []).some(function (member) {
+      if (!member) return false;
+
+      const hierarchyComplete =
+        Number(member.seasonNumber) > 0 &&
+        Number(member.episodeNumber) > 0;
+
+      if (hierarchyComplete) return false;
+
+      const nativeId = recordingBackendNativeId(
+        member.recording
+      );
+
+      if (!nativeId) return false;
+
+      // A hard failed or settled not-found result is no longer "loading".
+      // It may legitimately remain unknown. Only unresolved/in-flight or
+      // explicitly unsettled Metadata must keep provisional hierarchy hidden.
+      if (cache.failedNativeIds.has(nativeId)) {
+        return false;
+      }
+
+      if (cache.unsettledNativeIds.has(nativeId) ||
+          cache.inflight.has(nativeId)) {
+        return true;
+      }
+
+      return !cache.resolved.has(nativeId);
+    });
+  }
+
   function renderSeriesDetail(series, selectedSeason, backendId, options) {
     const config = options && typeof options === 'object' ? options : {};
-    const metadataLoading = config.metadataLoading === true;
+    const metadataLoading =
+      config.metadataLoading === true ||
+      seriesMetadataPendingForDetail(series, backendId);
     state.seriesViewKey = series.key;
     state.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
     const section = sectionFor('series');
@@ -1034,6 +2582,10 @@
       const summary = doc.createElement('div');
       summary.className = 'media-home-series-summary';
       section.appendChild(summary);
+      const coverPicker = doc.createElement('div');
+      coverPicker.className = 'media-home-series-cover-picker';
+      coverPicker.hidden = true;
+      section.appendChild(coverPicker);
       const seasonTitle = doc.createElement('h4');
       seasonTitle.className = 'media-home-series-subheading';
       seasonTitle.textContent = 'Staffeln';
@@ -1046,28 +2598,37 @@
       const episodeRail = doc.createElement('div');
       episodeRail.className = 'media-home-discovery-rail series-episodes';
       view = {key: series.key, backendId: backendId, summary: summary,
-        heading: section.children[0].children[1], seasonRail: seasonRail,
+        heading: section.children[0].children[1],
+        coverPicker: coverPicker, seasonRail: seasonRail,
         episodeTitle: episodeTitle, episodeRail: episodeRail};
       section.__vdrSuiteSeriesDetail = view;
     }
     // Bound controls resolve current owner data, including non-visual Recording changes.
     view.series = series;
     view.selectedSeason = selectedSeason;
+    view.metadataLoading = metadataLoading;
     if (view.heading.textContent !== series.title) view.heading.textContent = series.title;
     const detailCount = metadataLoading
       ? String(series.episodes.length) +
         (series.episodes.length === 1 ? ' Folge' : ' Folgen') +
         ' · Staffeln werden geladen …'
       : seriesCountLabel(series);
+    const detailPosterUrl =
+      seriesCoverPosterUrl(series, backendId);
     const summarySignature = JSON.stringify([
       series.title,
-      series.posterUrl,
-      detailCount
+      detailPosterUrl,
+      detailCount,
+      metadataLoading
     ]);
     if (view.summarySignature !== summarySignature) {
       view.summarySignature = summarySignature;
       view.summary.replaceChildren();
-      view.summary.appendChild(createPosterArtwork(series.title, series.posterUrl, series.title.slice(0, 1)));
+      view.summary.appendChild(createPosterArtwork(
+        series.title,
+        detailPosterUrl,
+        series.title.slice(0, 1)
+      ));
       const copy = doc.createElement('div');
       copy.className = 'media-home-series-summary-copy';
       const title = doc.createElement('strong');
@@ -1075,7 +2636,31 @@
       const count = doc.createElement('span');
       count.textContent = detailCount;
       copy.append(title, count);
+
+      const coverButton = doc.createElement('button');
+      coverButton.type = 'button';
+      coverButton.className =
+        'media-home-series-cover-change';
+      coverButton.textContent = 'Cover ändern';
+      coverButton.disabled = metadataLoading;
+      coverButton.addEventListener('click', function () {
+        toggleSeriesCoverPicker(
+          view,
+          backendId
+        );
+      });
+
+      copy.appendChild(coverButton);
       view.summary.appendChild(copy);
+    }
+
+    if (view.coverPicker &&
+        !view.coverPicker.hidden) {
+      renderSeriesCoverPicker(
+        view,
+        series,
+        backendId
+      );
     }
 
     if (metadataLoading) {
@@ -1165,7 +2750,16 @@
       }
       card.__vdrSuiteSeriesMember = member;
       const poster = member.posterUrl || recordingPosterUrl(recording);
-      const signature = JSON.stringify([member.episodeNumber, member.episodeTitle, poster]);
+      const signature = JSON.stringify([
+        member.episodeNumber,
+        member.episodeEnd,
+        member.episodeTitle,
+        poster,
+        member.seriesHierarchyOverrideAvailable === true,
+        member.seriesHierarchyGroupType,
+        member.seriesHierarchyGroupLabel,
+        member.seriesHierarchyRevision
+      ]);
       if (card.dataset.presentation !== signature) {
         card.dataset.presentation = signature;
         card.dataset.episodeNumber = String(member.episodeNumber);
@@ -1174,11 +2768,44 @@
         const copy = doc.createElement('span');
         copy.className = 'media-home-discovery-copy';
         const label = doc.createElement('strong');
-        label.textContent = member.episodeNumber > 0 ? 'Folge ' + String(member.episodeNumber) : member.episodeTitle;
+        label.textContent = seriesEpisodeNumberLabel(member) || member.episodeTitle;
         const detail = doc.createElement('span');
         detail.textContent = member.episodeTitle;
         copy.append(label, detail);
         card.appendChild(copy);
+
+        if (seriesHierarchyCanEdit(member)) {
+          ensureSeriesHierarchySimpleUiStyle();
+          const hierarchyAction = doc.createElement('span');
+          hierarchyAction.className = 'media-home-series-hierarchy-action';
+          hierarchyAction.setAttribute('role', 'button');
+          hierarchyAction.setAttribute('tabindex', '0');
+          hierarchyAction.textContent =
+            member.seriesHierarchyOverrideAvailable === true
+              ? 'Zuordnung ändern'
+              : 'Zuordnen';
+
+          function openHierarchyEditor(event) {
+            if (event && typeof event.preventDefault === 'function') event.preventDefault();
+            if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+            openSeriesHierarchyEditor(
+              card.__vdrSuiteSeriesMember,
+              view.series,
+              backendId
+            );
+            simplifySeriesHierarchyEditor();
+          }
+
+          hierarchyAction.addEventListener('click', openHierarchyEditor);
+          hierarchyAction.addEventListener('keydown', function (event) {
+            const keyName = event && (event.key || event.code);
+            if (keyName === 'Enter' || keyName === ' ' || keyName === 'Space') {
+              openHierarchyEditor(event);
+            }
+          });
+
+          card.appendChild(hierarchyAction);
+        }
       }
       return card;
     });
@@ -1522,12 +3149,26 @@
     const config = options && typeof options === 'object' ? options : {};
     const seriesKey = text(config.seriesKey);
     const refreshUnsettled = config.refreshUnsettled === true;
+    const refreshIncompleteHierarchy =
+      config.refreshIncompleteHierarchy === true;
+
     if (cache.resolved.has(nativeId)) {
       const cached = cache.resolved.get(nativeId);
       const unsettled = !cached ||
         (cached.available !== true && cached.settled === false);
+      const cachedMediaType = text(cached && cached.mediaType).toLowerCase();
+      const incompleteHierarchy = Boolean(
+        cached &&
+        cached.available === true &&
+        (cachedMediaType === 'series' || cachedMediaType === 'episode') &&
+        (
+          Number(cached.seasonNumber || 0) <= 0 ||
+          Number(cached.episodeNumber || 0) <= 0
+        )
+      );
 
-      if (!refreshUnsettled || !unsettled) {
+      if ((!refreshUnsettled || !unsettled) &&
+          (!refreshIncompleteHierarchy || !incompleteHierarchy)) {
         if (seriesKey) cache.readySeriesKeys.add(seriesKey);
         return Promise.resolve(cached);
       }
@@ -1653,7 +3294,24 @@
     return resolved;
   }
 
-  function scheduleSeriesMetadataRetry(client, recordings, backendId, generation) {
+  function seriesMetadataRetryDelay(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return SERIES_METADATA_RETRY_MS;
+    }
+    return Math.max(
+      SERIES_DETAIL_METADATA_RETRY_MS,
+      Math.min(parsed, SERIES_METADATA_RETRY_MS)
+    );
+  }
+
+  function scheduleSeriesMetadataRetry(
+    client,
+    recordings,
+    backendId,
+    generation,
+    delayMs
+  ) {
     const cache = state.seriesMetadataCache;
     if (!cache ||
         cache.generation !== generation ||
@@ -1666,20 +3324,46 @@
     }
     if (state.seriesMetadataRetryTimer !== null) return true;
     if (typeof global.setTimeout !== 'function') return false;
+
+    const retryDelay = seriesMetadataRetryDelay(delayMs);
+
     state.seriesMetadataRetryTimer = global.setTimeout(function () {
       state.seriesMetadataRetryTimer = null;
-      retryUnsettledSeriesMetadata(client, recordings, backendId, generation);
-    }, SERIES_METADATA_RETRY_MS);
+      retryUnsettledSeriesMetadata(
+        client,
+        recordings,
+        backendId,
+        generation,
+        retryDelay
+      );
+    }, retryDelay);
     return true;
   }
 
-  function retryUnsettledSeriesMetadata(client, recordings, backendId, generation) {
+  function retryUnsettledSeriesMetadata(
+    client,
+    recordings,
+    backendId,
+    generation,
+    delayMs
+  ) {
+    const retryDelay = seriesMetadataRetryDelay(delayMs);
+    const nextRetryDelay = Math.min(
+      retryDelay * 2,
+      SERIES_METADATA_RETRY_MS
+    );
     if (generation !== state.generation || backendId !== selectedBackendId()) {
       clearSeriesMetadataRetry();
       return Promise.resolve(false);
     }
     if (!homeIsActive()) {
-      scheduleSeriesMetadataRetry(client, recordings, backendId, generation);
+      scheduleSeriesMetadataRetry(
+        client,
+        recordings,
+        backendId,
+        generation,
+        nextRetryDelay
+      );
       return Promise.resolve(false);
     }
     if (state.seriesInvalidatedGeneration === generation) {
@@ -2071,6 +3755,15 @@
       return Promise.resolve(false);
     }
 
+    if (client &&
+        typeof client.requestJson === 'function') {
+      loadSeriesCoverSettings(
+        client,
+        backendId,
+        generation
+      );
+    }
+
     if (config.reuseWarm === true && seriesWarm(backendId)) {
       return Promise.resolve(
         reuseWarmSeriesProjection(backendId)
@@ -2321,6 +4014,8 @@
     clearSeriesMetadataRetry();
     const generation = ++state.generation;
     state.loadedBackendId = backendId;
+    state.homeReadyBackendId = '';
+    state.homeReadyGeneration = -1;
     const entry = {
       backendId: backendId,
       generation: generation,
@@ -2331,7 +4026,15 @@
       loadNewly(client, backendId, generation),
       loadGenres(client, backendId, generation, {reuseWarm: config.reuseWarm === true}),
       loadFolders(client, backendId, generation)
-    ]).then(function () { return true; });
+    ]).then(function () {
+      if (generation === state.generation &&
+          backendId === selectedBackendId() &&
+          homeIsActive()) {
+        state.homeReadyBackendId = backendId;
+        state.homeReadyGeneration = generation;
+      }
+      return true;
+    });
     entry.promise = loadPromise.then(function (value) {
       if (state.refreshInFlight === entry) state.refreshInFlight = null;
       return value;
@@ -2344,6 +4047,14 @@
   }
 
   function refreshForHome() {
+    const backendId = selectedBackendId();
+    if (state.homeReadyBackendId === backendId &&
+        state.homeReadyGeneration === state.generation) {
+      if (state.seriesInvalidatedGeneration === state.generation) {
+        state.seriesInvalidatedGeneration = -1;
+      }
+      return Promise.resolve(true);
+    }
     return refresh({reuseWarm: true, coalesce: true});
   }
 
@@ -2372,6 +4083,8 @@
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
       state.generation += 1;
       state.loadedBackendId = '';
+      state.homeReadyBackendId = '';
+      state.homeReadyGeneration = -1;
       state.refreshInFlight = null;
       state.seriesCompletionInFlight = null;
       clearSeriesMetadataRetry();
@@ -2380,6 +4093,10 @@
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      state.seriesCoverBackendId = '';
+      state.seriesCoverSettingsLoaded = false;
+      state.seriesCoverOverrides = new Map();
+      state.seriesCoverSettingsInFlight = null;
       state.folderProjection = {folders: [], rootRecordings: []};
       state.folderBackendId = '';
       state.randomGenreGeneration = -1;
@@ -2413,6 +4130,10 @@
       '.media-home-series-heading{display:flex;align-items:center;gap:.7rem}.media-home-series-back{border:1px solid rgba(148,163,184,.25);border-radius:.7rem;background:rgba(15,23,42,.78);color:#e2e8f0;padding:.5rem .65rem;cursor:pointer}' +
       '.media-home-series-summary{display:grid;grid-template-columns:minmax(5rem,7rem) 1fr;gap:1rem;align-items:center;margin:0 1rem 1rem}.media-home-series-summary .media-home-discovery-artwork{border-radius:.8rem;overflow:hidden}.media-home-series-summary-copy{display:grid;gap:.35rem}.media-home-series-summary-copy strong{font-size:1.1rem;color:#f8fafc}.media-home-series-summary-copy span{color:#94a3b8}' +
       '.media-home-series-subheading{margin:.4rem 1rem .65rem;color:#f8fafc;font-size:1rem}.media-home-series-season-rail{display:flex;gap:.6rem;overflow-x:auto;padding:0 1rem 1rem}.media-home-series-season{flex:0 0 auto;border:1px solid rgba(148,163,184,.25);border-radius:.75rem;background:rgba(30,41,59,.86);color:#e2e8f0;padding:.65rem .8rem;cursor:pointer}.media-home-series-season.selected{border-color:rgba(125,211,252,.72);background:rgba(30,64,175,.45)}' +
+      '.media-home-series-cover-change,.media-home-series-cover-action{width:max-content;border:1px solid rgba(125,211,252,.38);border-radius:.7rem;background:rgba(30,64,175,.32);color:#e0f2fe;padding:.48rem .68rem;cursor:pointer}.media-home-series-cover-change:disabled{opacity:.45;cursor:wait}' +
+      '.media-home-series-cover-search{display:flex;gap:.55rem;align-items:center;margin:.65rem 0}.media-home-series-cover-search input{min-width:14rem;flex:1 1 22rem;padding:.58rem .7rem;border:1px solid rgba(148,163,184,.45);border-radius:.6rem;background:#0f172a;color:#f8fafc}.media-home-series-cover-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.75rem;margin-top:.75rem}.media-home-series-cover-search-result{display:flex;flex-direction:column;overflow:hidden;padding:0;border:1px solid rgba(148,163,184,.28);border-radius:.8rem;background:rgba(15,23,42,.9);color:#f8fafc;text-align:left;cursor:pointer}.media-home-series-cover-search-result img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;background:#111827}.media-home-series-cover-search-result>span{display:flex;flex-direction:column;gap:.2rem;padding:.55rem}.media-home-series-cover-search-result small{color:#94a3b8}.media-home-series-cover-search-result:disabled{opacity:.55;cursor:wait}' +
+      '.media-home-series-cover-picker{margin:0 1rem 1rem;padding:.8rem;border:1px solid rgba(148,163,184,.2);border-radius:.9rem;background:rgba(2,6,23,.72)}.media-home-series-cover-picker[hidden]{display:none!important}.media-home-series-cover-heading{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem}.media-home-series-cover-heading h4{margin:0 auto 0 0;color:#f8fafc}.media-home-series-cover-status{min-height:1.3rem;margin-bottom:.55rem;color:#94a3b8}' +
+      '.media-home-series-cover-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(7rem,9rem);gap:.7rem;overflow-x:auto;padding-bottom:.45rem}.media-home-series-cover-candidate{overflow:hidden;padding:0;border:2px solid transparent;border-radius:.8rem;background:rgba(15,23,42,.88);color:#e2e8f0;cursor:pointer;text-align:left}.media-home-series-cover-candidate.selected{border-color:#7dd3fc}.media-home-series-cover-candidate .media-home-discovery-artwork{border-radius:0}.media-home-series-cover-candidate>span{display:block;padding:.45rem .5rem;font-size:.72rem}' +
       '@media(max-width:46rem){.media-home-discovery-rail{grid-auto-columns:minmax(42vw,11rem);padding:0 .78rem 1rem}.media-home-discovery-state{margin:0 .78rem 1rem}.media-home-series-summary{margin:0 .78rem 1rem}.media-home-series-subheading{margin-left:.78rem;margin-right:.78rem}.media-home-series-season-rail{padding-left:.78rem;padding-right:.78rem}}';
     doc.head.appendChild(style);
   }
@@ -2464,6 +4185,14 @@
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
       buildSeriesProjection: buildSeriesProjection,
+      seriesHierarchyOverride: seriesHierarchyOverride,
+      applySeriesHierarchyOverride: applySeriesHierarchyOverride,
+      seriesEpisodeNumberLabel: seriesEpisodeNumberLabel,
+      requestSeriesHierarchyOverride: requestSeriesHierarchyOverride,
+      setSeriesCoverSettingsSnapshot: setSeriesCoverSettingsSnapshot,
+      seriesCoverPosterUrl: seriesCoverPosterUrl,
+      seriesCoverCandidateImageUrl: seriesCoverCandidateImageUrl,
+      searchSeriesCoverCandidates: searchSeriesCoverCandidates,
       applySeriesProjection: applySeriesProjection,
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
       fetchBoundedRandomGenreRecordings: fetchBoundedRandomGenreRecordings,

@@ -34,6 +34,7 @@ DAEMON_SRC := \
         api/rest/src/SeriesArtworkSettingsApiRuntime.cpp \
         api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
+        api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
         api/rest/src/LiveMediaSessionController.cpp \
@@ -111,6 +112,7 @@ DAEMON_SRC := \
         core/media/src/RecordingMediaSessionRuntime.cpp \
         core/media/src/RecordingMediaSessionSeekTimeline.cpp \
         core/daemon/src/LiveMediaSessionRuntime.cpp \
+        core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \

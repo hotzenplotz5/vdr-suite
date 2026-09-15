@@ -1,9 +1,13 @@
 #include "VdrRecordingQueryController.h"
 
+#include "ManualRecordingMetadataReadModelJson.h"
 #include "VdrRecordingQuery.h"
 #include "VdrRecordingQueryResult.h"
 #include "VdrRecordingQueryResultJsonSerializer.h"
 #include "VdrRecordingQueryService.h"
+
+#include <map>
+#include <utility>
 
 namespace
 {
@@ -43,13 +47,75 @@ VdrRecordingSortOrder parseSortOrder(
 
     return VdrRecordingSortOrder::Ascending;
 }
+
+const ManualRecordingMetadataAssignment* findManualAssignment(
+    const std::map<
+        std::string,
+        ManualRecordingMetadataAssignment>& assignments,
+    const VdrRecording& recording)
+{
+    for (const std::string* key : {
+             &recording.backendNativeId,
+             &recording.path,
+             &recording.id})
+    {
+        if (key->empty())
+        {
+            continue;
+        }
+
+        const auto match =
+            assignments.find(*key);
+
+        if (match != assignments.end())
+        {
+            return &match->second;
+        }
+    }
+
+    return nullptr;
+}
+
+std::string assignmentBackendId(
+    const std::string& requestedBackendId,
+    const VdrRecordingQueryResult& result)
+{
+    if (!requestedBackendId.empty())
+    {
+        return requestedBackendId;
+    }
+
+    for (const VdrRecording& recording :
+         result.recordings())
+    {
+        if (!recording.backendId.empty())
+        {
+            return recording.backendId;
+        }
+    }
+
+    return "default";
+}
 }
 
 VdrRecordingQueryController::VdrRecordingQueryController(
     VdrRecordingQueryService& queryService,
     VdrRecordingQueryResultJsonSerializer& jsonSerializer)
+    : VdrRecordingQueryController(
+          queryService,
+          jsonSerializer,
+          ManualMetadataBatchLookup{})
+{
+}
+
+VdrRecordingQueryController::VdrRecordingQueryController(
+    VdrRecordingQueryService& queryService,
+    VdrRecordingQueryResultJsonSerializer& jsonSerializer,
+    ManualMetadataBatchLookup manualMetadataBatchLookup)
     : queryService_(queryService),
-      jsonSerializer_(jsonSerializer)
+      jsonSerializer_(jsonSerializer),
+      manualMetadataBatchLookup_(
+          std::move(manualMetadataBatchLookup))
 {
 }
 
@@ -140,7 +206,61 @@ ApiResponse VdrRecordingQueryController::getRecordings(
 
     response.statusCode = 200;
     response.contentType = "application/json";
-    response.body = jsonSerializer_.serialize(result);
+
+    if (!manualMetadataBatchLookup_ ||
+        result.recordings().empty())
+    {
+        response.body =
+            jsonSerializer_.serialize(result);
+
+        return response;
+    }
+
+    const std::string manualBackendId =
+        assignmentBackendId(
+            backend,
+            result);
+
+    const std::map<
+        std::string,
+        ManualRecordingMetadataAssignment>
+        manualAssignments =
+            manualMetadataBatchLookup_(
+                manualBackendId);
+
+    if (manualAssignments.empty())
+    {
+        response.body =
+            jsonSerializer_.serialize(result);
+
+        return response;
+    }
+
+    response.body =
+        jsonSerializer_.serialize(
+            result,
+            [&manualAssignments](
+                const VdrRecording& recording)
+            {
+                const auto* assignment =
+                    findManualAssignment(
+                        manualAssignments,
+                        recording);
+
+                if (assignment == nullptr ||
+                    !assignment->found ||
+                    !assignment->relationshipLocked)
+                {
+                    return std::string{};
+                }
+
+                return
+                    vdrsuite::rest::
+                    manual_recording_metadata_json::
+                    serialize(
+                        *assignment,
+                        recording.backendNativeId);
+            });
 
     return response;
 }

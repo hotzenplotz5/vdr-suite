@@ -159,6 +159,29 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         *context->epgAdapter,
         &runtimeLogger_);
 
+    if (epgEventRepository_) {
+        context->epgReadDatabase = std::make_unique<Database>();
+
+        if (!context->epgReadDatabase->open(config_.databasePath()) ||
+            !context->epgReadDatabase->execute("PRAGMA query_only=ON;")) {
+            std::cerr
+                << "failed to initialize dedicated EPG read connection: backend="
+                << context->backendId
+                << std::endl;
+            context->epgReadDatabase.reset();
+        }
+        else {
+            context->epgReadRepository =
+                std::make_unique<EpgEventRepository>(
+                    *context->epgReadDatabase);
+
+            std::cout
+                << "dedicated EPG read connection initialized: backend="
+                << context->backendId
+                << std::endl;
+        }
+    }
+
     context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
         *context->service,
         context->backendId,
@@ -279,93 +302,106 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             }
 
             ISeriesArtworkFallbackProvider* fallbackProvider = nullptr;
-            if (runtimeFallbackConfig.enabled) {
-                context->epgSeriesArtworkProviderCacheRepository =
-                    std::make_unique<
-                        EpgSeriesArtworkProviderCacheRepository>(database_);
-                if (!context->epgSeriesArtworkProviderCacheRepository->ensureSchema()) {
-                    std::cerr
-                        << "failed to initialize EPG series artwork provider cache: backend="
-                        << context->backendId
-                        << std::endl;
-                    context->epgSeriesArtworkProviderCacheRepository.reset();
-                }
-                else {
-                    context->epgExternalArtworkHttpTransport =
-                        std::make_unique<CurlExternalArtworkHttpTransport>();
 
-                    SeriesArtworkBackendSettingsConfig settingsConfig;
-                    settingsConfig.defaultProvider =
-                        tmdbRuntimeConfig.selected
+            // Manual Series-cover settings and their schema are a
+            // backend-scoped product feature.  They must exist even when
+            // automatic external Series-artwork fallback is disabled.
+            context->epgSeriesArtworkProviderCacheRepository =
+                std::make_unique<
+                    EpgSeriesArtworkProviderCacheRepository>(database_);
+
+            if (!context->epgSeriesArtworkProviderCacheRepository->ensureSchema()) {
+                std::cerr
+                    << "failed to initialize EPG series artwork provider cache: backend="
+                    << context->backendId
+                    << std::endl;
+                context->epgSeriesArtworkProviderCacheRepository.reset();
+            }
+            else {
+                context->epgExternalArtworkHttpTransport =
+                    std::make_unique<CurlExternalArtworkHttpTransport>();
+
+                SeriesArtworkBackendSettingsConfig settingsConfig;
+
+                settingsConfig.defaultProvider =
+                    runtimeFallbackConfig.enabled
+                        ? (tmdbRuntimeConfig.selected
                             ? "tmdb"
                             : (tvmazeRuntimeConfig.selected
                                 ? "tvmaze"
-                                : "none");
-                    settingsConfig.environmentTmdbReadAccessToken =
-                        tmdbRuntimeConfig.readAccessToken;
+                                : "none"))
+                        : "none";
 
-                    settingsConfig.tmdb.readAccessToken.clear();
-                    settingsConfig.tmdb.language =
-                        tmdbRuntimeConfig.language;
-                    settingsConfig.tmdb.includeImageLanguages =
-                        tmdbRuntimeConfig.includeImageLanguages;
-                    settingsConfig.tmdb.incomingRoot =
-                        tmdbRuntimeConfig.incomingRoot;
-                    settingsConfig.tmdb.connectTimeoutMs =
-                        tmdbRuntimeConfig.connectTimeoutMs;
-                    settingsConfig.tmdb.totalTimeoutMs =
-                        tmdbRuntimeConfig.totalTimeoutMs;
-                    settingsConfig.tmdb.maximumRetries =
-                        tmdbRuntimeConfig.maximumRetries;
-                    settingsConfig.tmdb.retryBackoffMs =
-                        tmdbRuntimeConfig.retryBackoffMs;
-                    settingsConfig.tmdb.negativeCacheTtlSeconds =
-                        tmdbRuntimeConfig.negativeCacheTtlSeconds;
-                    settingsConfig.tmdb.transientCacheTtlSeconds =
-                        tmdbRuntimeConfig.transientCacheTtlSeconds;
-                    settingsConfig.tmdb.maximumJsonBytes =
-                        tmdbRuntimeConfig.maximumJsonBytes;
-                    settingsConfig.tmdb.maximumImageBytes =
-                        tmdbRuntimeConfig.maximumImageBytes;
+                settingsConfig.environmentTmdbReadAccessToken =
+                    tmdbRuntimeConfig.readAccessToken;
 
-                    settingsConfig.tvmaze.incomingRoot =
-                        tvmazeRuntimeConfig.incomingRoot;
-                    settingsConfig.tvmaze.connectTimeoutMs =
-                        tvmazeRuntimeConfig.connectTimeoutMs;
-                    settingsConfig.tvmaze.totalTimeoutMs =
-                        tvmazeRuntimeConfig.totalTimeoutMs;
-                    settingsConfig.tvmaze.maximumRetries =
-                        tvmazeRuntimeConfig.maximumRetries;
-                    settingsConfig.tvmaze.retryBackoffMs =
-                        tvmazeRuntimeConfig.retryBackoffMs;
-                    settingsConfig.tvmaze.negativeCacheTtlSeconds =
-                        tvmazeRuntimeConfig.negativeCacheTtlSeconds;
-                    settingsConfig.tvmaze.transientCacheTtlSeconds =
-                        tvmazeRuntimeConfig.transientCacheTtlSeconds;
-                    settingsConfig.tvmaze.maximumJsonBytes =
-                        tvmazeRuntimeConfig.maximumJsonBytes;
-                    settingsConfig.tvmaze.maximumImageBytes =
-                        tvmazeRuntimeConfig.maximumImageBytes;
+                settingsConfig.tmdb.readAccessToken.clear();
+                settingsConfig.tmdb.language =
+                    tmdbRuntimeConfig.language;
+                settingsConfig.tmdb.includeImageLanguages =
+                    tmdbRuntimeConfig.includeImageLanguages;
+                settingsConfig.tmdb.incomingRoot =
+                    tmdbRuntimeConfig.incomingRoot;
+                settingsConfig.tmdb.connectTimeoutMs =
+                    tmdbRuntimeConfig.connectTimeoutMs;
+                settingsConfig.tmdb.totalTimeoutMs =
+                    tmdbRuntimeConfig.totalTimeoutMs;
+                settingsConfig.tmdb.maximumRetries =
+                    tmdbRuntimeConfig.maximumRetries;
+                settingsConfig.tmdb.retryBackoffMs =
+                    tmdbRuntimeConfig.retryBackoffMs;
+                settingsConfig.tmdb.negativeCacheTtlSeconds =
+                    tmdbRuntimeConfig.negativeCacheTtlSeconds;
+                settingsConfig.tmdb.transientCacheTtlSeconds =
+                    tmdbRuntimeConfig.transientCacheTtlSeconds;
+                settingsConfig.tmdb.maximumJsonBytes =
+                    tmdbRuntimeConfig.maximumJsonBytes;
+                settingsConfig.tmdb.maximumImageBytes =
+                    tmdbRuntimeConfig.maximumImageBytes;
 
-                    context->epgSeriesArtworkSettingsService =
-                        std::make_unique<SeriesArtworkBackendSettingsService>(
-                            database_,
-                            *context->epgExternalArtworkHttpTransport,
-                            *context->epgSeriesArtworkProviderCacheRepository,
-                            std::move(settingsConfig));
+                settingsConfig.tvmaze.incomingRoot =
+                    tvmazeRuntimeConfig.incomingRoot;
+                settingsConfig.tvmaze.connectTimeoutMs =
+                    tvmazeRuntimeConfig.connectTimeoutMs;
+                settingsConfig.tvmaze.totalTimeoutMs =
+                    tvmazeRuntimeConfig.totalTimeoutMs;
+                settingsConfig.tvmaze.maximumRetries =
+                    tvmazeRuntimeConfig.maximumRetries;
+                settingsConfig.tvmaze.retryBackoffMs =
+                    tvmazeRuntimeConfig.retryBackoffMs;
+                settingsConfig.tvmaze.negativeCacheTtlSeconds =
+                    tvmazeRuntimeConfig.negativeCacheTtlSeconds;
+                settingsConfig.tvmaze.transientCacheTtlSeconds =
+                    tvmazeRuntimeConfig.transientCacheTtlSeconds;
+                settingsConfig.tvmaze.maximumJsonBytes =
+                    tvmazeRuntimeConfig.maximumJsonBytes;
+                settingsConfig.tvmaze.maximumImageBytes =
+                    tvmazeRuntimeConfig.maximumImageBytes;
 
-                    if (!context->epgSeriesArtworkSettingsService->ensureSchema()) {
-                        std::cerr
-                            << "failed to initialize backend series artwork settings: backend="
-                            << context->backendId
-                            << std::endl;
-                        context->epgSeriesArtworkSettingsService.reset();
-                    }
-                    else {
-                        SeriesArtworkSettingsApiRuntime::instance()
-                            .registerBackend(
-                                context->backendId,
-                                *context->epgSeriesArtworkSettingsService);
+                context->epgSeriesArtworkSettingsService =
+                    std::make_unique<SeriesArtworkBackendSettingsService>(
+                        database_,
+                        *context->epgExternalArtworkHttpTransport,
+                        *context->epgSeriesArtworkProviderCacheRepository,
+                        std::move(settingsConfig));
+
+                if (!context->epgSeriesArtworkSettingsService->ensureSchema()) {
+                    std::cerr
+                        << "failed to initialize backend series artwork settings: backend="
+                        << context->backendId
+                        << std::endl;
+                    context->epgSeriesArtworkSettingsService.reset();
+                }
+                else {
+                    SeriesArtworkSettingsApiRuntime::instance()
+                        .registerBackend(
+                            context->backendId,
+                            *context->epgSeriesArtworkSettingsService);
+
+                    // Only automatic EPG fallback receives the provider.
+                    // Manual Series-cover search/settings remain available
+                    // independently.
+                    if (runtimeFallbackConfig.enabled) {
                         fallbackProvider =
                             context->epgSeriesArtworkSettingsService.get();
                     }
@@ -572,7 +608,8 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->epgCacheService = std::make_unique<EpgCacheService>(
             *epgEventRepository_,
             *context->epgService,
-            context->epgArtworkEnrichmentService.get());
+            context->epgArtworkEnrichmentService.get(),
+            context->epgReadRepository.get());
     }
 
     return context;

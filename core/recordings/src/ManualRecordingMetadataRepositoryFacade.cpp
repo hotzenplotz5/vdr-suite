@@ -429,6 +429,13 @@ MetadataRepository::getManualRecordingMetadataForBackend(
     const std::string lookup = cacheAvailable
         ? "COALESCE(NULLIF(c.backend_native_id,''),v.resource_key)"
         : "v.resource_key";
+    const std::string activeTargetJoin =
+        "JOIN suite_metadata_target_bindings b "
+        "ON b.metadata_target_id=v.metadata_target_id "
+        "AND b.backend_id=v.backend_id "
+        "AND b.resource_key=v.resource_key "
+        "AND b.target_type='recording' "
+        "AND b.lifecycle_state='active' ";
     const std::string cacheJoin = cacheAvailable
         ? "LEFT JOIN vdr_recording_cache c "
           "ON c.backend_id=v.backend_id AND c.cache_key=v.resource_key "
@@ -444,7 +451,8 @@ MetadataRepository::getManualRecordingMetadataForBackend(
         "p.display_name,p.normalized_name,r.role,r.character_name,r.ordinal "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
-        "ON a.metadata_assignment_id=v.metadata_assignment_id " + cacheJoin +
+        "ON a.metadata_assignment_id=v.metadata_assignment_id " +
+        activeTargetJoin + cacheJoin +
         "LEFT JOIN suite_metadata_recording_person_relations r "
         "ON r.metadata_assignment_id=v.metadata_assignment_id "
         "LEFT JOIN suite_metadata_person_values p "

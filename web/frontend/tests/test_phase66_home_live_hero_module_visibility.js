@@ -7,6 +7,7 @@ const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
+const nowNextSource = fs.readFileSync(path.join(frontendRoot, 'home-now-next.js'), 'utf8');
 const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'), 'utf8');
 
 assert(heroSource.includes("return text(value.getSelectedModule());"));
@@ -92,10 +93,11 @@ const clientApi = {
       ]
     });
   },
-  fetchClientEpgCacheWindow(options) {
+  fetchClientEpgCacheNowNext(options) {
     epgFetchCount += 1;
     assert.strictEqual(options.query.backend, 'backend-a');
     assert.strictEqual(options.query.channelIds, 'C1');
+    assert.strictEqual(options.query.perChannelLimit, '2');
     return Promise.resolve({
       events: [
         {channelId: 'C1', title: 'Heute Eins', startTime: now - 300, endTime: now + 900},
@@ -134,7 +136,9 @@ const context = vm.createContext({
   createChannelLogoElement() { return createNode('span'); }
 });
 
+vm.runInContext(nowNextSource, context, {filename: 'web/frontend/home-now-next.js'});
 vm.runInContext(heroSource, context, {filename: 'web/frontend/home-live-hero.js'});
+assert.ok(window.VdrSuiteHomeNowNext);
 assert.ok(window.VdrSuiteHomeLiveHero);
 
 (async function () {

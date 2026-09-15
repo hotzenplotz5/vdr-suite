@@ -50,6 +50,12 @@ public:
         const std::string& fromTime,
         int eventLimit) const;
 
+    std::vector<VdrEvent> findNowNextPerChannelForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const;
+
     std::vector<VdrEvent> findWindowForBackend(
         const std::string& backendId,
         const std::string& channelId,

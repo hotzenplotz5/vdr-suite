@@ -130,6 +130,124 @@ std::string serializeEvents(
     return json.str();
 }
 
+std::string serializeCompactProgrammeEvent(
+    const VdrEvent& event)
+{
+    std::ostringstream json;
+    json << "{"
+         << "\"id\":\"" << escapeJsonString(event.id) << "\","
+         << "\"channelId\":\""
+         << escapeJsonString(event.channelId) << "\","
+         << "\"title\":\""
+         << escapeJsonString(event.title) << "\","
+         << "\"subtitle\":\""
+         << escapeJsonString(event.subtitle) << "\","
+         << "\"startTime\":\""
+         << escapeJsonString(event.startTime) << "\","
+         << "\"endTime\":\""
+         << escapeJsonString(event.endTime) << "\","
+         << "\"durationSeconds\":"
+         << event.durationSeconds
+         << "}";
+
+    return json.str();
+}
+
+std::string serializeCompactProgrammeEvents(
+    const std::string& backendId,
+    const std::vector<VdrEvent>& events)
+{
+    std::ostringstream json;
+
+    json << "{\"backendId\":\""
+         << escapeJsonString(backendId)
+         << "\",\"eventCount\":"
+         << events.size()
+         << ",\"events\":[";
+
+    for (std::size_t index = 0;
+         index < events.size();
+         ++index)
+    {
+        if (index > 0)
+        {
+            json << ',';
+        }
+
+        json << serializeCompactProgrammeEvent(
+            events[index]);
+    }
+
+    json << "]}";
+
+    return json.str();
+}
+
+
+std::string serializeNowNextArtworkManifest(
+    const std::string& backendId,
+    const std::vector<VdrEvent>& events,
+    EpgArtworkRepository* repository,
+    EpgArtworkPublicJsonSerializer* serializer)
+{
+    std::vector<std::pair<std::string, std::string>> keys;
+    keys.reserve(events.size());
+
+    for (const VdrEvent& event : events)
+    {
+        if (!event.channelId.empty() && !event.id.empty())
+        {
+            keys.emplace_back(event.channelId, event.id);
+        }
+    }
+
+    std::vector<EpgArtworkReference> artworks;
+    if (repository != nullptr &&
+        serializer != nullptr &&
+        !keys.empty())
+    {
+        artworks = repository->findMany(
+            backendId,
+            keys);
+    }
+
+    std::ostringstream json;
+    json
+        << "{\"backendId\":\""
+        << escapeJsonString(backendId)
+        << "\",\"eventCount\":"
+        << events.size()
+        << ",\"artworkCount\":"
+        << artworks.size()
+        << ",\"items\":[";
+
+    for (std::size_t index = 0;
+         index < artworks.size();
+         ++index)
+    {
+        if (index > 0)
+        {
+            json << ',';
+        }
+
+        const EpgArtworkReference& artwork =
+            artworks[index];
+
+        json
+            << "{\"channelId\":\""
+            << escapeJsonString(artwork.channelId)
+            << "\",\"eventId\":\""
+            << escapeJsonString(artwork.eventId)
+            << "\",\"artwork\":"
+            << serializer->serialize(artwork)
+            << '}';
+    }
+
+    json << "]}";
+    return json.str();
+}
+
+
 std::string serializeRefreshResult(
     const std::string& backendId,
     const EpgCacheRefreshResult& result)
@@ -301,6 +419,78 @@ ApiResponse EpgCacheController::getNowNext(
             artworkRepository_,
             artworkJsonSerializer_));
 }
+
+ApiResponse EpgCacheController::getNowNextPerChannel(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    int perChannelLimit) const
+{
+    const std::string normalizedBackendId =
+        normalizeBackendId(backendId);
+
+    EpgCacheService* service =
+        findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(
+                normalizedBackendId));
+    }
+
+    return jsonResponse(
+        200,
+        serializeCompactProgrammeEvents(
+            normalizedBackendId,
+            service->findNowNextPerChannelForBackend(
+                normalizedBackendId,
+                channelId,
+                fromTime,
+                perChannelLimit)));
+}
+
+
+ApiResponse EpgCacheController::getNowNextArtworkManifest(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    int perChannelLimit) const
+{
+    const std::string normalizedBackendId =
+        normalizeBackendId(backendId);
+
+    EpgCacheService* service =
+        findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(
+                normalizedBackendId));
+    }
+
+    const int boundedPerChannelLimit =
+        perChannelLimit == 1 ? 1 : 2;
+
+    const std::vector<VdrEvent> events =
+        service->findNowNextPerChannelForBackend(
+            normalizedBackendId,
+            channelId,
+            fromTime,
+            boundedPerChannelLimit);
+
+    return jsonResponse(
+        200,
+        serializeNowNextArtworkManifest(
+            normalizedBackendId,
+            events,
+            artworkRepository_,
+            artworkJsonSerializer_));
+}
+
 
 ApiResponse EpgCacheController::getWindow(
     const std::string& backendId,

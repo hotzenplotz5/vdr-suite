@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <map>
 #include <string>
 
 class RecentMoviesAdapter : public MockVdrAdapter
@@ -192,6 +193,77 @@ int main()
 
     assert(durationResponse.statusCode == 200);
     assert(durationResponse.body.find("\"totalCount\":2") != std::string::npos);
+
+    int manualBatchCalls = 0;
+
+    VdrRecordingQueryController manualController(
+        queryService,
+        jsonSerializer,
+        [&manualBatchCalls](const std::string& backendId)
+        {
+            ++manualBatchCalls;
+            assert(backendId == "default");
+
+            ManualRecordingMetadataAssignment assignment;
+            assignment.found = true;
+            assignment.backendId = "default";
+            assignment.resourceKey =
+                "/Mock/Tatort/2026-06-01.20.15.1-0.rec";
+            assignment.providerId = "tmdb";
+            assignment.externalNamespace = "tmdb";
+            assignment.externalId = "12345";
+            assignment.mediaType = "movie";
+            assignment.title = "Tatort manuell";
+            assignment.originalTitle = "Tatort Manual";
+            assignment.overview = "Manuell zugeordnete Metadaten";
+            assignment.releaseDate = "2026-06-01";
+            assignment.posterReference =
+                "/var/cache/vdr-suite/recording-metadata/posters/tatort.webp";
+            assignment.revision = 7;
+            assignment.relationshipLocked = true;
+
+            return std::map<
+                std::string,
+                ManualRecordingMetadataAssignment>{
+                    {
+                        assignment.resourceKey,
+                        assignment
+                    }
+                };
+        });
+
+    const ApiResponse manualResponse =
+        manualController.getRecordings(
+            "",
+            "default",
+            "",
+            "",
+            "",
+            "",
+            "",
+            0,
+            0,
+            10,
+            0);
+
+    assert(manualResponse.statusCode == 200);
+    assert(manualBatchCalls == 1);
+    assert(
+        manualResponse.body.find(
+            "\"source\":\"manual\"") !=
+        std::string::npos);
+    assert(
+        manualResponse.body.find(
+            "\"title\":\"Tatort manuell\"") !=
+        std::string::npos);
+    assert(
+        manualResponse.body.find(
+            "\"manualAssignment\":{\"active\":true,\"revision\":7") !=
+        std::string::npos);
+    assert(
+        manualResponse.body.find(
+            "assignmentRevision=7") !=
+        std::string::npos);
 
     RecentMoviesAdapter moviesAdapter;
     VdrService moviesService(moviesAdapter);

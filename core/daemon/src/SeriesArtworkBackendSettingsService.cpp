@@ -1,4 +1,5 @@
 #include "SeriesArtworkBackendSettingsService.h"
+#include "TmdbRecordingMetadataCandidateProvider.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -114,6 +115,334 @@ bool invalidateUnresolvedSeriesMetadata(
         sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return removed;
+}
+
+
+bool seriesArtworkOverrideColumnExists(
+    Database& database,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            "PRAGMA table_info(backend_series_artwork_overrides);",
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+
+    sqlite3_finalize(statement);
+    return found;
+}
+
+bool ensureSeriesArtworkOverrideColumn(
+    Database& database,
+    const std::string& column,
+    const std::string& definition)
+{
+    if (seriesArtworkOverrideColumnExists(
+            database,
+            column))
+    {
+        return true;
+    }
+
+    return database.execute(
+        "ALTER TABLE backend_series_artwork_overrides "
+        "ADD COLUMN " + definition + ";");
+}
+
+bool digitsOnly(const std::string& value)
+{
+    return !value.empty() &&
+        value.size() <= 16U &&
+        std::all_of(
+            value.begin(),
+            value.end(),
+            [](unsigned char character)
+            {
+                return character >= '0' &&
+                    character <= '9';
+            });
+}
+
+bool validTmdbPosterReference(
+    const std::string& value)
+{
+    return value.size() >= 6U &&
+        value.size() <= 256U &&
+        value.front() == '/' &&
+        value.find('/', 1U) == std::string::npos &&
+        value.find("..") == std::string::npos &&
+        std::all_of(
+            value.begin() + 1U,
+            value.end(),
+            [](unsigned char character)
+            {
+                return
+                    (character >= 'A' &&
+                     character <= 'Z') ||
+                    (character >= 'a' &&
+                     character <= 'z') ||
+                    (character >= '0' &&
+                     character <= '9') ||
+                    character == '_' ||
+                    character == '-' ||
+                    character == '.';
+            });
+}
+
+std::string percentEncodeSeriesArtwork(
+    const std::string& value)
+{
+    static const char Hex[] =
+        "0123456789ABCDEF";
+
+    std::string output;
+
+    for (const unsigned char character : value)
+    {
+        if ((character >= 'A' &&
+             character <= 'Z') ||
+            (character >= 'a' &&
+             character <= 'z') ||
+            (character >= '0' &&
+             character <= '9') ||
+            character == '-' ||
+            character == '_' ||
+            character == '.' ||
+            character == '~')
+        {
+            output.push_back(
+                static_cast<char>(character));
+        }
+        else
+        {
+            output.push_back('%');
+            output.push_back(
+                Hex[character >> 4U]);
+            output.push_back(
+                Hex[character & 0x0fU]);
+        }
+    }
+
+    return output;
+}
+
+std::string seriesArtworkCoverImageUrl(
+    const std::string& backendId,
+    const std::string& seriesKey,
+    int revision)
+{
+    return
+        "/api/backends/" +
+        percentEncodeSeriesArtwork(backendId) +
+        "/settings/series-artwork/image"
+        "?seriesKey=" +
+        percentEncodeSeriesArtwork(seriesKey) +
+        "&revision=" +
+        std::to_string(revision);
+}
+
+bool localSeriesCoverPath(
+    const std::string& path,
+    const std::string& root)
+{
+    if (path.empty() || root.empty())
+    {
+        return false;
+    }
+
+    const std::filesystem::path normalizedPath =
+        std::filesystem::path(path)
+            .lexically_normal();
+
+    const std::filesystem::path normalizedRoot =
+        std::filesystem::path(root)
+            .lexically_normal();
+
+    if (!normalizedPath.is_absolute() ||
+        !normalizedRoot.is_absolute() ||
+        normalizedPath == normalizedPath.root_path() ||
+        normalizedRoot == normalizedRoot.root_path())
+    {
+        return false;
+    }
+
+    std::string rootPrefix =
+        normalizedRoot.string();
+
+    if (!rootPrefix.empty() &&
+        rootPrefix.back() != '/')
+    {
+        rootPrefix.push_back('/');
+    }
+
+    return normalizedPath.string().compare(
+        0,
+        rootPrefix.size(),
+        rootPrefix) == 0;
+}
+
+std::string seriesArtworkImageContentType(
+    const std::string& path)
+{
+    const std::string extension =
+        std::filesystem::path(path)
+            .extension()
+            .string();
+
+    if (extension == ".jpg" ||
+        extension == ".jpeg")
+    {
+        return "image/jpeg";
+    }
+
+    if (extension == ".png")
+    {
+        return "image/png";
+    }
+
+    if (extension == ".webp")
+    {
+        return "image/webp";
+    }
+
+    return {};
+}
+
+SeriesArtworkImageResult readSeriesArtworkImage(
+    const std::string& path,
+    const std::string& root)
+{
+    SeriesArtworkImageResult result;
+
+    if (!localSeriesCoverPath(path, root))
+    {
+        result.statusCode = 404;
+        result.errorCode =
+            "series_cover_image_not_found";
+        result.message =
+            "The Series cover image is unavailable";
+        return result;
+    }
+
+    const std::string contentType =
+        seriesArtworkImageContentType(path);
+
+    if (contentType.empty())
+    {
+        result.statusCode = 415;
+        result.errorCode =
+            "invalid_series_cover_image_type";
+        result.message =
+            "The Series cover image type is unsupported";
+        return result;
+    }
+
+    const int descriptor = ::open(
+        path.c_str(),
+        O_RDONLY |
+        O_CLOEXEC |
+        O_NOFOLLOW);
+
+    if (descriptor < 0)
+    {
+        result.statusCode = 404;
+        result.errorCode =
+            "series_cover_image_not_found";
+        result.message =
+            "The Series cover image is unavailable";
+        return result;
+    }
+
+    struct stat metadata{};
+
+    if (::fstat(
+            descriptor,
+            &metadata) != 0 ||
+        !S_ISREG(metadata.st_mode) ||
+        metadata.st_size <= 0 ||
+        metadata.st_size >
+            32 * 1024 * 1024)
+    {
+        ::close(descriptor);
+
+        result.statusCode = 404;
+        result.errorCode =
+            "series_cover_image_not_found";
+        result.message =
+            "The Series cover image is unavailable";
+        return result;
+    }
+
+    std::string body(
+        static_cast<std::size_t>(
+            metadata.st_size),
+        '\0');
+
+    std::size_t offset = 0;
+
+    while (offset < body.size())
+    {
+        const ssize_t count = ::read(
+            descriptor,
+            &body[offset],
+            body.size() - offset);
+
+        if (count < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+
+            body.clear();
+            break;
+        }
+
+        if (count == 0)
+        {
+            body.clear();
+            break;
+        }
+
+        offset +=
+            static_cast<std::size_t>(count);
+    }
+
+    ::close(descriptor);
+
+    if (body.empty())
+    {
+        result.statusCode = 404;
+        result.errorCode =
+            "series_cover_image_not_found";
+        result.message =
+            "The Series cover image is unavailable";
+        return result;
+    }
+
+    result.success = true;
+    result.statusCode = 200;
+    result.contentType = contentType;
+    result.body = std::move(body);
+
+    return result;
 }
 
 int openDirectoryNoFollow(const std::filesystem::path& path)
@@ -235,6 +564,42 @@ bool SeriesArtworkBackendSettingsService::validProvider(
         provider == "tmdb";
 }
 
+bool SeriesArtworkBackendSettingsService::validSeriesKey(
+    const std::string& seriesKey)
+{
+    return !seriesKey.empty() &&
+        seriesKey.size() <= 1024U &&
+        std::all_of(
+            seriesKey.begin(),
+            seriesKey.end(),
+            [](unsigned char character)
+            {
+                return character >= 0x20U && character != 0x7fU;
+            });
+}
+
+bool SeriesArtworkBackendSettingsService::validCoverPosterUrl(
+    const std::string& posterUrl)
+{
+    if (posterUrl.empty() || posterUrl.size() > 2048U ||
+        posterUrl.find("://") != std::string::npos ||
+        posterUrl.find("..") != std::string::npos)
+    {
+        return false;
+    }
+
+    static const std::string primary =
+        "/api/vdr/recordings/metadata/image?";
+    static const std::string compatibility =
+        "/api/recordings/metadata/image?";
+
+    return posterUrl.compare(0, primary.size(), primary) == 0 ||
+        posterUrl.compare(
+            0,
+            compatibility.size(),
+            compatibility) == 0;
+}
+
 bool SeriesArtworkBackendSettingsService::ensureSchema()
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -243,13 +608,47 @@ bool SeriesArtworkBackendSettingsService::ensureSchema()
 
 bool SeriesArtworkBackendSettingsService::ensureSchemaLocked() const
 {
-    return database_.execute(
-        "CREATE TABLE IF NOT EXISTS backend_series_artwork_settings ("
-        "backend_id TEXT PRIMARY KEY,"
-        "provider TEXT NOT NULL,"
-        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-        "CHECK(provider IN ('none','tvmaze','tmdb'))"
-        ");");
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS backend_series_artwork_settings ("
+            "backend_id TEXT PRIMARY KEY,"
+            "provider TEXT NOT NULL,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "CHECK(provider IN ('none','tvmaze','tmdb'))"
+            ");"
+            "CREATE TABLE IF NOT EXISTS backend_series_artwork_overrides ("
+            "backend_id TEXT NOT NULL,"
+            "series_key TEXT NOT NULL,"
+            "poster_url TEXT NOT NULL DEFAULT '',"
+            "poster_path TEXT NOT NULL DEFAULT '',"
+            "provider_id TEXT NOT NULL DEFAULT '',"
+            "external_id TEXT NOT NULL DEFAULT '',"
+            "poster_reference TEXT NOT NULL DEFAULT '',"
+            "revision INTEGER NOT NULL DEFAULT 1,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "PRIMARY KEY(backend_id,series_key),"
+            "CHECK(revision>0)"
+            ");"))
+    {
+        return false;
+    }
+
+    return
+        ensureSeriesArtworkOverrideColumn(
+            database_,
+            "poster_path",
+            "poster_path TEXT NOT NULL DEFAULT ''") &&
+        ensureSeriesArtworkOverrideColumn(
+            database_,
+            "provider_id",
+            "provider_id TEXT NOT NULL DEFAULT ''") &&
+        ensureSeriesArtworkOverrideColumn(
+            database_,
+            "external_id",
+            "external_id TEXT NOT NULL DEFAULT ''") &&
+        ensureSeriesArtworkOverrideColumn(
+            database_,
+            "poster_reference",
+            "poster_reference TEXT NOT NULL DEFAULT ''");
 }
 
 bool SeriesArtworkBackendSettingsService::readManagedProviderLocked(
@@ -317,6 +716,406 @@ bool SeriesArtworkBackendSettingsService::storeManagedProviderLocked(
         sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return stored;
+}
+
+std::vector<SeriesArtworkCoverOverride>
+SeriesArtworkBackendSettingsService::loadCoverOverridesLocked(
+    const std::string& backendId) const
+{
+    std::vector<SeriesArtworkCoverOverride> overrides;
+
+    if (!ensureSchemaLocked())
+    {
+        return overrides;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+
+    const char* sql =
+        "SELECT series_key,poster_url,revision,"
+        "poster_path,provider_id,external_id,poster_reference "
+        "FROM backend_series_artwork_overrides "
+        "WHERE backend_id=? ORDER BY series_key;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return overrides;
+    }
+
+    if (!bindText(
+            statement,
+            1,
+            backendId))
+    {
+        sqlite3_finalize(statement);
+        return overrides;
+    }
+
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        SeriesArtworkCoverOverride value;
+
+        value.seriesKey =
+            columnText(statement, 0);
+
+        const std::string legacyUrl =
+            columnText(statement, 1);
+
+        value.revision =
+            sqlite3_column_int(
+                statement,
+                2);
+
+        const std::string posterPath =
+            columnText(statement, 3);
+
+        const std::string providerId =
+            columnText(statement, 4);
+
+        const std::string externalId =
+            columnText(statement, 5);
+
+        const std::string posterReference =
+            columnText(statement, 6);
+
+        if (!validSeriesKey(value.seriesKey) ||
+            value.revision <= 0)
+        {
+            continue;
+        }
+
+        if (providerId == "tmdb" &&
+            digitsOnly(externalId) &&
+            validTmdbPosterReference(
+                posterReference) &&
+            localSeriesCoverPath(
+                posterPath,
+                config_.seriesCoverCacheRoot))
+        {
+            value.posterUrl =
+                seriesArtworkCoverImageUrl(
+                    backendId,
+                    value.seriesKey,
+                    value.revision);
+
+            overrides.push_back(
+                std::move(value));
+
+            continue;
+        }
+
+        if (validCoverPosterUrl(
+                legacyUrl))
+        {
+            value.posterUrl = legacyUrl;
+
+            overrides.push_back(
+                std::move(value));
+        }
+    }
+
+    sqlite3_finalize(statement);
+
+    return overrides;
+}
+
+bool SeriesArtworkBackendSettingsService::storeCoverOverrideLocked(
+    const std::string& backendId,
+    const std::string& seriesKey,
+    const std::string& posterUrl) const
+{
+    if (!ensureSchemaLocked())
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT INTO backend_series_artwork_overrides "
+        "(backend_id,series_key,poster_url,revision,updated_at) "
+        "VALUES(?,?,?,1,CURRENT_TIMESTAMP) "
+        "ON CONFLICT(backend_id,series_key) DO UPDATE SET "
+        "poster_url=excluded.poster_url,"
+        "revision=backend_series_artwork_overrides.revision+1,"
+        "updated_at=CURRENT_TIMESTAMP;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool stored =
+        bindText(statement, 1, backendId) &&
+        bindText(statement, 2, seriesKey) &&
+        bindText(statement, 3, posterUrl) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+
+    sqlite3_finalize(statement);
+    return stored;
+}
+
+bool SeriesArtworkBackendSettingsService::storeTmdbCoverOverrideLocked(
+    const std::string& backendId,
+    const std::string& seriesKey,
+    const std::string& posterPath,
+    const std::string& externalId,
+    const std::string& posterReference) const
+{
+    if (!ensureSchemaLocked() ||
+        !localSeriesCoverPath(
+            posterPath,
+            config_.seriesCoverCacheRoot))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+
+    const char* sql =
+        "INSERT INTO backend_series_artwork_overrides "
+        "(backend_id,series_key,poster_url,poster_path,"
+        "provider_id,external_id,poster_reference,"
+        "revision,updated_at) "
+        "VALUES(?,?,'',?,'tmdb',?,?,1,CURRENT_TIMESTAMP) "
+        "ON CONFLICT(backend_id,series_key) DO UPDATE SET "
+        "poster_url='',"
+        "poster_path=excluded.poster_path,"
+        "provider_id='tmdb',"
+        "external_id=excluded.external_id,"
+        "poster_reference=excluded.poster_reference,"
+        "revision=backend_series_artwork_overrides.revision+1,"
+        "updated_at=CURRENT_TIMESTAMP;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool stored =
+        bindText(statement, 1, backendId) &&
+        bindText(statement, 2, seriesKey) &&
+        bindText(statement, 3, posterPath) &&
+        bindText(statement, 4, externalId) &&
+        bindText(statement, 5, posterReference) &&
+        sqlite3_step(statement) ==
+            SQLITE_DONE;
+
+    sqlite3_finalize(statement);
+
+    return stored;
+}
+
+bool SeriesArtworkBackendSettingsService::removeCoverOverrideLocked(
+    const std::string& backendId,
+    const std::string& seriesKey) const
+{
+    if (!ensureSchemaLocked())
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM backend_series_artwork_overrides "
+        "WHERE backend_id=? AND series_key=?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool removed =
+        bindText(statement, 1, backendId) &&
+        bindText(statement, 2, seriesKey) &&
+        sqlite3_step(statement) == SQLITE_DONE;
+
+    sqlite3_finalize(statement);
+    return removed;
+}
+
+std::string
+SeriesArtworkBackendSettingsService::materializeTmdbSeriesPoster(
+    const std::string& backendId,
+    const std::string& externalId,
+    const std::string& posterReference) const
+{
+    if (!validBackendId(backendId) ||
+        !digitsOnly(externalId) ||
+        !validTmdbPosterReference(
+            posterReference))
+    {
+        return {};
+    }
+
+    std::string token;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            mutex_);
+
+        snapshotLocked(
+            backendId,
+            &token);
+    }
+
+    if (token.empty())
+    {
+        return {};
+    }
+
+    TmdbRecordingMetadataCandidateProviderConfig config;
+
+    config.readAccessToken = token;
+    config.language = config_.tmdb.language;
+    config.posterCacheRoot =
+        config_.seriesCoverCacheRoot;
+    config.connectTimeoutMs =
+        config_.tmdb.connectTimeoutMs;
+    config.totalTimeoutMs =
+        config_.tmdb.totalTimeoutMs;
+    config.maximumRetries =
+        config_.tmdb.maximumRetries;
+    config.retryBackoffMs =
+        config_.tmdb.retryBackoffMs;
+    config.maximumJsonBytes =
+        config_.tmdb.maximumJsonBytes;
+    config.maximumImageBytes =
+        config_.tmdb.maximumImageBytes;
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        transport_,
+        std::move(config));
+
+    return provider.materializePoster(
+        "tv",
+        externalId,
+        posterReference);
+}
+
+SeriesArtworkImageResult
+SeriesArtworkBackendSettingsService::tmdbCandidateImage(
+    const std::string& backendId,
+    const std::string& externalId,
+    const std::string& posterReference) const
+{
+    const std::string path =
+        materializeTmdbSeriesPoster(
+            backendId,
+            externalId,
+            posterReference);
+
+    if (path.empty())
+    {
+        SeriesArtworkImageResult result;
+        result.statusCode = 502;
+        result.errorCode =
+            "tmdb_series_cover_unavailable";
+        result.message =
+            "The TMDB Series cover could not be prepared";
+        return result;
+    }
+
+    return readSeriesArtworkImage(
+        path,
+        config_.seriesCoverCacheRoot);
+}
+
+SeriesArtworkImageResult
+SeriesArtworkBackendSettingsService::coverImage(
+    const std::string& backendId,
+    const std::string& seriesKey) const
+{
+    SeriesArtworkImageResult missing;
+
+    missing.statusCode = 404;
+    missing.errorCode =
+        "series_cover_image_not_found";
+    missing.message =
+        "The Series cover image is unavailable";
+
+    if (!validBackendId(backendId) ||
+        !validSeriesKey(seriesKey))
+    {
+        return missing;
+    }
+
+    std::string path;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            mutex_);
+
+        if (!ensureSchemaLocked())
+        {
+            return missing;
+        }
+
+        sqlite3_stmt* statement = nullptr;
+
+        const char* sql =
+            "SELECT poster_path "
+            "FROM backend_series_artwork_overrides "
+            "WHERE backend_id=? AND series_key=? "
+            "AND provider_id='tmdb' "
+            "LIMIT 1;";
+
+        if (sqlite3_prepare_v2(
+                database_.handle(),
+                sql,
+                -1,
+                &statement,
+                nullptr) != SQLITE_OK)
+        {
+            return missing;
+        }
+
+        if (bindText(
+                statement,
+                1,
+                backendId) &&
+            bindText(
+                statement,
+                2,
+                seriesKey) &&
+            sqlite3_step(statement) ==
+                SQLITE_ROW)
+        {
+            path = columnText(
+                statement,
+                0);
+        }
+
+        sqlite3_finalize(statement);
+    }
+
+    if (path.empty())
+    {
+        return missing;
+    }
+
+    return readSeriesArtworkImage(
+        path,
+        config_.seriesCoverCacheRoot);
 }
 
 std::string SeriesArtworkBackendSettingsService::readManagedTokenLocked(
@@ -460,6 +1259,7 @@ SeriesArtworkBackendSettingsService::snapshotLocked(
 {
     SeriesArtworkBackendSettingsSnapshot snapshot;
     snapshot.backendId = backendId;
+    snapshot.coverOverrides = loadCoverOverridesLocked(backendId);
 
     std::string managedProvider;
     const bool providerRead =
@@ -559,6 +1359,142 @@ SeriesArtworkBackendSettingsService::update(
         result.message = "The backend ID is invalid";
         return result;
     }
+    if (request.operation == "set-series-cover-tmdb")
+    {
+        if (!validSeriesKey(
+                request.seriesKey))
+        {
+            result.statusCode = 400;
+            result.errorCode =
+                "invalid_series_key";
+            result.message =
+                "The Series key is invalid";
+            return result;
+        }
+
+        if (request.providerId != "tmdb" ||
+            request.externalNamespace != "tv" ||
+            !digitsOnly(
+                request.externalId) ||
+            !validTmdbPosterReference(
+                request.posterReference))
+        {
+            result.statusCode = 400;
+            result.errorCode =
+                "invalid_tmdb_series_cover";
+            result.message =
+                "The TMDB Series cover candidate is invalid";
+            return result;
+        }
+
+        const std::string posterPath =
+            materializeTmdbSeriesPoster(
+                request.backendId,
+                request.externalId,
+                request.posterReference);
+
+        if (posterPath.empty())
+        {
+            result.statusCode = 502;
+            result.errorCode =
+                "tmdb_series_cover_materialization_failed";
+            result.message =
+                "The TMDB Series cover could not be materialized";
+            return result;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(
+                mutex_);
+
+            if (!storeTmdbCoverOverrideLocked(
+                    request.backendId,
+                    request.seriesKey,
+                    posterPath,
+                    request.externalId,
+                    request.posterReference))
+            {
+                result.statusCode = 503;
+                result.errorCode =
+                    "series_cover_persistence_unavailable";
+                result.message =
+                    "The Series cover override could not be persisted";
+                return result;
+            }
+
+            result.success = true;
+            result.statusCode = 200;
+            result.settings =
+                snapshotLocked(
+                    request.backendId);
+        }
+
+        return result;
+    }
+
+    if (!request.operation.empty())
+    {
+        if (request.operation != "set-series-cover" &&
+            request.operation != "clear-series-cover")
+        {
+            result.statusCode = 400;
+            result.errorCode = "invalid_series_artwork_operation";
+            result.message = "The Series artwork operation is invalid";
+            return result;
+        }
+
+        if (!validSeriesKey(request.seriesKey))
+        {
+            result.statusCode = 400;
+            result.errorCode = "invalid_series_key";
+            result.message = "The Series key is invalid";
+            return result;
+        }
+
+        if (request.operation == "set-series-cover" &&
+            !validCoverPosterUrl(request.posterUrl))
+        {
+            result.statusCode = 400;
+            result.errorCode = "invalid_series_cover_url";
+            result.message =
+                "The Series cover must reference an internal recording metadata image";
+            return result;
+        }
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!ensureSchemaLocked())
+        {
+            result.statusCode = 503;
+            result.errorCode = "settings_persistence_unavailable";
+            result.message = "Backend settings persistence is unavailable";
+            return result;
+        }
+
+        const bool stored =
+            request.operation == "set-series-cover"
+                ? storeCoverOverrideLocked(
+                    request.backendId,
+                    request.seriesKey,
+                    request.posterUrl)
+                : removeCoverOverrideLocked(
+                    request.backendId,
+                    request.seriesKey);
+
+        if (!stored)
+        {
+            result.statusCode = 503;
+            result.errorCode = "series_cover_persistence_unavailable";
+            result.message =
+                "The Series cover override could not be persisted";
+            return result;
+        }
+
+        result.success = true;
+        result.statusCode = 200;
+        result.settings = snapshotLocked(request.backendId);
+        return result;
+    }
+
     if (!validProvider(request.provider))
     {
         result.statusCode = 400;

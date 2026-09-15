@@ -15,6 +15,7 @@
 
   const doc = global.document || (typeof document !== 'undefined' ? document : null);
   const PROGRAMME_RAIL_LIMIT = 24;
+  const PROGRAMME_EAGER_ARTWORK_LIMIT = 6;
   const PROGRAMME_WARM_REUSE_MS = 60000;
   const state = {
     active: false,
@@ -94,6 +95,7 @@
   }
 
   function eventChannelId(event) { return text(pick(event, ['channelId', 'channel', 'channel_id'])); }
+  function eventId(event) { return text(pick(event, ['eventId', 'id', 'nativeId'], '')); }
   function eventStart(event) { return epoch(pick(event, ['startTime', 'start', 'beginTime'], 0)); }
   function eventEnd(event) {
     const start = eventStart(event);
@@ -112,7 +114,30 @@
     return url;
   }
 
+  function cachedEventArtwork(event) {
+    const owner = global.VdrSuiteHomeNowNext;
+    const channel = eventChannelId(event);
+    const id = eventId(event);
+    if (!owner ||
+        typeof owner.artworkForEvent !== 'function' ||
+        !channel ||
+        !id) {
+      return null;
+    }
+    return owner.artworkForEvent(
+      state.backendId,
+      channel,
+      id
+    );
+  }
+
   function eventArtwork(event) {
+    const cached = cachedEventArtwork(event);
+    if (cached &&
+        cached.available === true &&
+        text(cached.url)) {
+      return resolvePublicUrl(cached.url);
+    }
     const artwork = event && event.artwork;
     if (artwork && artwork.available === true && text(artwork.url)) return resolvePublicUrl(artwork.url);
     return resolvePublicUrl(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'], ''));
@@ -336,7 +361,7 @@
     })).filter(entry => Boolean(entry.event));
   }
 
-  function createProgrammeArtwork(channel, event) {
+  function createProgrammeArtwork(channel, event, prioritize) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-live-guide-artwork';
     const fallback = () => {
@@ -350,13 +375,24 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = url;
     image.alt = '';
-    image.loading = 'lazy';
+    image.loading = prioritize ? 'eager' : 'lazy';
     image.decoding = 'async';
-    image.fetchPriority = 'low';
+    image.fetchPriority = prioritize ? 'high' : 'low';
+    image.src = url;
     image.addEventListener('error', fallback);
     artwork.appendChild(image);
+
+    const badge = doc.createElement('span');
+    badge.className = 'media-home-live-guide-logo-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    appendChannelLogo(
+      badge,
+      channel,
+      'media-home-live-guide-logo-badge-logo'
+    );
+    artwork.appendChild(badge);
+
     return artwork;
   }
 
@@ -489,14 +525,27 @@
     });
   }
 
-  function createProgrammeGuideCard(entry, current) {
+  function createProgrammeGuideCard(
+    entry,
+    current,
+    prioritizeArtwork
+  ) {
     const card = doc.createElement('article');
     card.className = 'media-home-live-guide-card' + (current ? ' current' : '');
     card.dataset.channelId = channelId(entry.channel);
+    card.dataset.eventId = eventId(entry.event);
+    card.dataset.artworkPriority =
+      prioritizeArtwork ? 'high' : 'low';
     card.tabIndex = 0;
     card.setAttribute('aria-label', eventTitle(entry.event) + ' – Sendungsdetails öffnen');
     card.setAttribute('aria-expanded', 'false');
-    card.appendChild(createProgrammeArtwork(entry.channel, entry.event));
+    card.appendChild(
+      createProgrammeArtwork(
+        entry.channel,
+        entry.event,
+        prioritizeArtwork
+      )
+    );
     const copy = doc.createElement('div');
     copy.className = 'media-home-live-guide-copy';
     const channel = doc.createElement('span');
@@ -593,7 +642,16 @@
     const rail = doc.createElement('div');
     rail.className = 'media-home-live-guide-rail';
     rail.setAttribute('aria-label', title);
-    entries.forEach(entry => rail.appendChild(createProgrammeGuideCard(entry, current)));
+    entries.forEach((entry, index) => {
+      rail.appendChild(
+        createProgrammeGuideCard(
+          entry,
+          current,
+          current &&
+            index < PROGRAMME_EAGER_ARTWORK_LIMIT
+        )
+      );
+    });
     section.appendChild(rail);
     rail.scrollLeft = previousScrollLeft;
     return true;
@@ -602,6 +660,154 @@
   function renderProgrammeRails() {
     renderProgrammeRail('now', 'Was läuft jetzt', true);
     renderProgrammeRail('next', 'Was läuft danach', false);
+  }
+
+  function channelForId(value) {
+    const id = text(value);
+    if (!id) return null;
+    for (let index = 0; index < state.channels.length; index += 1) {
+      if (channelId(state.channels[index]) === id) {
+        return state.channels[index];
+      }
+    }
+    return null;
+  }
+
+  function eventForIdentity(channelValue, eventValue) {
+    const channel = text(channelValue);
+    const id = text(eventValue);
+    if (!channel || !id) return null;
+
+    const events = state.eventsByChannel instanceof Map
+      ? (state.eventsByChannel.get(channel) || [])
+      : state.events;
+
+    for (let index = 0; index < events.length; index += 1) {
+      if (eventId(events[index]) === id) {
+        return events[index];
+      }
+    }
+    return null;
+  }
+
+  function refreshHeroArtwork(channelIds) {
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+
+    const channel = currentChannel();
+    if (!channel || !ids.has(channelId(channel))) {
+      return false;
+    }
+
+    const root = heroRoot();
+    if (!root || typeof root.querySelector !== 'function') {
+      return false;
+    }
+
+    const artwork =
+      root.querySelector('.media-home-live-artwork');
+
+    if (!artwork || !artwork.style) {
+      return false;
+    }
+
+    const currentEvent =
+      currentEventForChannel(
+        channel,
+        state.events
+      );
+
+    const url = eventArtwork(currentEvent);
+
+    artwork.style.backgroundImage = url
+      ? 'url("' + url.replace(/"/g, '%22') + '")'
+      : '';
+
+    return true;
+  }
+
+  function refreshProgrammeArtworkForChannels(channelIds) {
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+
+    if (ids.size === 0) return false;
+
+    const host = programmeHost();
+
+    if (!host ||
+        typeof host.querySelectorAll !== 'function') {
+      return false;
+    }
+
+    const cards =
+      host.querySelectorAll(
+        '.media-home-live-guide-card'
+      );
+
+    let updated = false;
+
+    Array.from(cards || []).forEach(card => {
+      const channelValue =
+        text(card && card.dataset && card.dataset.channelId);
+
+      if (!ids.has(channelValue)) return;
+
+      const eventValue =
+        text(card && card.dataset && card.dataset.eventId);
+
+      const channel = channelForId(channelValue);
+      const event =
+        eventForIdentity(
+          channelValue,
+          eventValue
+        );
+
+      if (!channel ||
+          !event ||
+          typeof card.querySelector !== 'function') {
+        return;
+      }
+
+      const existing =
+        card.querySelector(
+          '.media-home-live-guide-artwork'
+        );
+
+      if (!existing ||
+          typeof existing.replaceWith !== 'function') {
+        return;
+      }
+
+      existing.replaceWith(
+        createProgrammeArtwork(
+          channel,
+          event,
+          card.dataset.artworkPriority === 'high'
+        )
+      );
+
+      updated = true;
+    });
+
+    return updated;
+  }
+
+  function refreshArtworkForChannels(channelIds) {
+    const heroUpdated =
+      refreshHeroArtwork(channelIds);
+
+    const railsUpdated =
+      refreshProgrammeArtworkForChannels(
+        channelIds
+      );
+
+    return heroUpdated || railsUpdated;
   }
 
   function statusHero(title, message, error) {
@@ -774,28 +980,78 @@
     rebuildEventIndex();
   }
 
+  function loadProgrammeArtworkPage(sequence, owner, ids) {
+    if (!owner ||
+        typeof owner.loadArtworkPage !== 'function' ||
+        !Array.isArray(ids) ||
+        ids.length === 0) {
+      return Promise.resolve(false);
+    }
+
+    const backendId = state.backendId;
+    let request = null;
+
+    try {
+      request = owner.loadArtworkPage({
+        backendId: backendId,
+        channelIds: ids
+      });
+    } catch (_) {
+      return Promise.resolve(false);
+    }
+
+    return Promise.resolve(request)
+      .then(() => {
+        if (!state.active ||
+            sequence !== state.requestSequence ||
+            state.backendId !== backendId) {
+          return false;
+        }
+
+        refreshArtworkForChannels(ids);
+        return true;
+      })
+      .catch(() => false);
+  }
+
   function loadProgrammePage(sequence, offset, reset) {
-    const client = clientApi();
-    if (!client || typeof client.fetchClientEpgCacheWindow !== 'function' || state.channels.length === 0) {
+    const owner = global.VdrSuiteHomeNowNext;
+
+    if (!owner ||
+        typeof owner.loadPage !== 'function' ||
+        state.channels.length === 0) {
       if (reset) state.loadingPrograms = false;
       state.programmeLoadingMore = false;
-      state.programError = state.channels.length === 0 ? '' : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+      state.programError = state.channels.length === 0
+        ? ''
+        : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       render();
       return Promise.resolve(null);
     }
 
     const start = Math.max(0, Number(offset) || 0);
-    const pageChannels = state.channels.slice(start, start + PROGRAMME_RAIL_LIMIT);
-    const ids = pageChannels.map(channelId).filter(Boolean);
+    const pageChannels =
+      state.channels.slice(
+        start,
+        start + PROGRAMME_RAIL_LIMIT
+      );
+
+    const ids =
+      pageChannels
+        .map(channelId)
+        .filter(Boolean);
+
     if (ids.length === 0) {
       if (reset) state.loadingPrograms = false;
       state.programmeLoadingMore = false;
       render();
       return Promise.resolve(null);
     }
-    if (!reset && state.programmeLoadingMore) return Promise.resolve(null);
 
-    const now = Math.floor(Date.now() / 1000);
+    if (!reset && state.programmeLoadingMore) {
+      return Promise.resolve(null);
+    }
+
     if (reset) {
       clearPrograms();
       state.programmeLoadedChannelCount = 0;
@@ -807,40 +1063,58 @@
       state.programmeLoadingMore = true;
     }
 
-    return client.fetchClientEpgCacheWindow({
-      query: {
-        backend: state.backendId,
-        channelIds: ids.join(','),
-        fromTime: String(now - 21600),
-        untilTime: String(now + 21600),
-        limit: '0',
-        _: String(Date.now())
-      },
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return owner.loadPage({
+      backendId: state.backendId,
+      channelIds: ids
     }).then(data => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+      if (!state.active ||
+          sequence !== state.requestSequence) {
+        return null;
+      }
+
       applyPrograms(data, !reset);
-      state.programmeLoadedChannelCount = Math.max(
-        state.programmeLoadedChannelCount,
-        start + pageChannels.length
-      );
+
+      state.programmeLoadedChannelCount =
+        Math.max(
+          state.programmeLoadedChannelCount,
+          start + pageChannels.length
+        );
+
       state.loadingPrograms = false;
       state.programmeLoadingMore = false;
       state.programError = '';
       state.programmeLoadedAt = Date.now();
+
+      /*
+       * H2 stays the first-render owner. Artwork enrichment starts only after
+       * that render and is deliberately not awaited by this page promise.
+       */
       render();
+
+      void loadProgrammeArtworkPage(
+        sequence,
+        owner,
+        ids
+      );
+
       return data;
     }).catch(() => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+      if (!state.active ||
+          sequence !== state.requestSequence) {
+        return null;
+      }
+
       if (reset) {
         clearPrograms();
         state.programmeLoadedChannelCount = 0;
         state.loadingPrograms = false;
-        state.programError = 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
+        state.programError =
+          'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       }
+
       state.programmeLoadingMore = false;
       render();
+
       return null;
     });
   }
@@ -1018,7 +1292,7 @@
 .media-home-live-actions{display:flex;gap:.65rem;flex-wrap:wrap}.media-home-live-action{min-height:2.9rem;padding:.58rem 1rem;border:1px solid rgba(125,211,252,.36);border-radius:.75rem;background:rgba(15,23,42,.78);color:#e0f2fe;font-weight:800;cursor:pointer}.media-home-live-action.primary{border-color:rgba(56,189,248,.74);background:#0369a1;color:#fff}.media-home-live-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-action:disabled{cursor:not-allowed;opacity:.5}.media-home-live-notice{margin:0!important;color:#a8b6c8!important;font-size:.78rem!important}.media-home-live-notice.error{color:#fecaca!important}
 .media-home-live-neighbor{display:grid;align-content:center;gap:.55rem;min-width:2.75rem;min-height:2.75rem;padding:.65rem;border:1px solid rgba(148,163,184,.14);border-radius:1rem;background:rgba(15,23,42,.48);color:#cbd5e1;text-align:left;cursor:pointer;opacity:.64;transition:opacity .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}.media-home-live-neighbor:hover{opacity:.88;border-color:rgba(125,211,252,.42);transform:translateY(-1px)}.media-home-live-neighbor:focus-visible{opacity:1;border-color:rgba(125,211,252,.74);outline:3px solid rgba(125,211,252,.96);outline-offset:2px;box-shadow:0 0 0 1px rgba(2,6,23,.92);transform:translateY(-1px)}.media-home-live-neighbor-logo{width:100%;height:3.2rem;padding:.3rem;border-radius:.65rem;background:rgba(248,250,252,.94);overflow:hidden}.media-home-live-neighbor-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-neighbor-copy{display:grid;gap:.16rem;min-width:0}.media-home-live-neighbor-copy strong,.media-home-live-neighbor-copy span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.media-home-live-neighbor-copy strong{color:#f8fafc;font-size:.82rem}.media-home-live-neighbor-copy span{color:#a8b6c8;font-size:.7rem}.media-home-live-status{display:grid;align-content:center;gap:.7rem;min-height:20rem;padding:clamp(1.5rem,5vw,4rem)}.media-home-live-status h3{max-width:18ch}.media-home-live-status.error{color:#fecaca}
 #detail:has(.module-tab.active[data-module="overview"]) .media-home-additional-sections{display:flex;flex-direction:column}.media-home-additional-sections>*{order:70}.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}.media-home-discovery[data-home-discovery-rail="newly"]{order:40}.media-home-discovery[data-home-discovery-rail="series"]{order:45}.media-home-discovery[data-home-discovery-rail="genres"]{order:50}.media-home-discovery[data-home-discovery-rail="folders"]{order:60}.media-home-recently-watched{order:80}
-.media-home-live-guide{min-width:0}.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.media-home-live-guide-card{scroll-snap-align:start;min-width:0;overflow:hidden;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0;cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}.media-home-live-guide-card:hover,.media-home-live-guide-card.detail-selected{border-color:rgba(125,211,252,.62);box-shadow:0 0 0 1px rgba(56,189,248,.16) inset}.media-home-live-guide-card:hover{transform:translateY(-1px)}.media-home-live-guide-card:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;background:linear-gradient(135deg,#172033,#26364d)}.media-home-live-guide-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-live-guide-artwork.is-fallback{background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.18),transparent 32%),linear-gradient(145deg,#172033,#26364d)}.media-home-live-guide-logo{box-sizing:border-box;width:72%;height:4rem;padding:.35rem;border-radius:.65rem;background:rgba(248,250,252,.96);overflow:hidden}.media-home-live-guide-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-copy{display:grid;gap:.28rem;padding:.7rem}.media-home-live-guide-channel,.media-home-live-guide-subtitle{overflow:hidden;color:#94a3b8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-copy strong{overflow:hidden;color:#f8fafc;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-progress{display:block;width:100%;height:.26rem;margin-top:.2rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-guide-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-guide-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-guide-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}.media-home-live-guide-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.42rem;padding:0 .7rem .7rem}.media-home-live-guide-actions.single{grid-template-columns:1fr}.media-home-live-guide-action{min-width:0;min-height:2.35rem;padding:.42rem .5rem;border:1px solid rgba(125,211,252,.32);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e0f2fe;font-size:.76rem;font-weight:800;cursor:pointer}.media-home-live-guide-action.primary{border-color:rgba(56,189,248,.68);background:#075985;color:#fff}.media-home-live-guide-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-action:disabled{cursor:not-allowed;opacity:.58}.media-home-live-guide-feedback:empty{display:none}.media-home-live-guide-feedback{padding:0 .7rem .7rem}.media-home-live-guide-action-error{margin:0;color:#fecaca;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status{margin:0;padding:.55rem .6rem;border-radius:.62rem;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status h4,.media-home-live-guide-feedback .epg-timer-status p{margin:.1rem 0}
+.media-home-live-guide{min-width:0}.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem);gap:.8rem;overflow-x:auto;padding:0 1rem 1.1rem;scroll-snap-type:x proximity;overscroll-behavior-inline:contain}.media-home-live-guide-card{scroll-snap-align:start;min-width:0;overflow:hidden;border:1px solid rgba(148,163,184,.2);border-radius:.95rem;background:rgba(15,23,42,.76);color:#e2e8f0;cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}.media-home-live-guide-card:hover,.media-home-live-guide-card.detail-selected{border-color:rgba(125,211,252,.62);box-shadow:0 0 0 1px rgba(56,189,248,.16) inset}.media-home-live-guide-card:hover{transform:translateY(-1px)}.media-home-live-guide-card:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-artwork{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;background:linear-gradient(135deg,#172033,#26364d)}.media-home-live-guide-artwork>img{display:block;width:100%;height:100%;object-fit:cover}.media-home-live-guide-artwork.is-fallback{background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.18),transparent 32%),linear-gradient(145deg,#172033,#26364d)}.media-home-live-guide-logo{box-sizing:border-box;width:72%;height:4rem;padding:.35rem;border-radius:.65rem;background:rgba(248,250,252,.96);overflow:hidden}.media-home-live-guide-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-logo-badge{position:absolute;left:.45rem;bottom:.45rem;display:grid;place-items:center;width:3.7rem;height:2.35rem;padding:.2rem;border-radius:.55rem;background:rgba(248,250,252,.94);box-shadow:0 .3rem .8rem rgba(2,6,23,.42);overflow:hidden}.media-home-live-guide-logo-badge-logo{box-sizing:border-box;width:100%;height:100%;padding:.08rem;overflow:hidden}.media-home-live-guide-logo-badge-logo img{width:100%;height:100%;object-fit:contain}.media-home-live-guide-copy{display:grid;gap:.28rem;padding:.7rem}.media-home-live-guide-channel,.media-home-live-guide-subtitle{overflow:hidden;color:#94a3b8;font-size:.78rem;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-copy strong{overflow:hidden;color:#f8fafc;white-space:nowrap;text-overflow:ellipsis}.media-home-live-guide-progress{display:block;width:100%;height:.26rem;margin-top:.2rem;border:0;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden;appearance:none}.media-home-live-guide-progress::-webkit-progress-bar{border-radius:999px;background:rgba(148,163,184,.2)}.media-home-live-guide-progress::-webkit-progress-value{border-radius:999px;background:#38bdf8}.media-home-live-guide-progress::-moz-progress-bar{border-radius:999px;background:#38bdf8}.media-home-live-guide-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.42rem;padding:0 .7rem .7rem}.media-home-live-guide-actions.single{grid-template-columns:1fr}.media-home-live-guide-action{min-width:0;min-height:2.35rem;padding:.42rem .5rem;border:1px solid rgba(125,211,252,.32);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e0f2fe;font-size:.76rem;font-weight:800;cursor:pointer}.media-home-live-guide-action.primary{border-color:rgba(56,189,248,.68);background:#075985;color:#fff}.media-home-live-guide-action:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-action:disabled{cursor:not-allowed;opacity:.58}.media-home-live-guide-feedback:empty{display:none}.media-home-live-guide-feedback{padding:0 .7rem .7rem}.media-home-live-guide-action-error{margin:0;color:#fecaca;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status{margin:0;padding:.55rem .6rem;border-radius:.62rem;font-size:.74rem}.media-home-live-guide-feedback .epg-timer-status h4,.media-home-live-guide-feedback .epg-timer-status p{margin:.1rem 0}
 .media-home-live-guide-detail{box-sizing:border-box;margin:0 1rem 1.25rem;padding:.8rem;border:1px solid rgba(125,211,252,.28);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.9),rgba(2,6,23,.96));box-shadow:0 1rem 2.4rem rgba(2,6,23,.24)}.media-home-live-guide-detail-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:0 0 .7rem}.media-home-live-guide-detail-head h4{margin:0;color:#f8fafc;font-size:1rem}.media-home-live-guide-detail-close{min-height:2.35rem;padding:.42rem .7rem;border:1px solid rgba(148,163,184,.26);border-radius:.62rem;background:rgba(15,23,42,.9);color:#e2e8f0;font-weight:750;cursor:pointer}.media-home-live-guide-detail-close:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}.media-home-live-guide-detail-state{margin:0;padding:.8rem;border:1px solid rgba(148,163,184,.14);border-radius:.72rem;color:#94a3b8;background:rgba(15,23,42,.5)}.media-home-live-guide-detail-state.error{border-color:rgba(239,68,68,.4);color:#fecaca}.media-home-live-guide-detail>.epg-event-detail{margin:0}
 @media(min-width:120rem){.media-home-live-hero-active{min-height:30rem}.media-home-live-carousel{max-width:150rem;margin-inline:auto;padding:clamp(2rem,3vw,4rem)}.media-home-live-focus{padding:clamp(2rem,2vw,3rem)}.media-home-live-channel-copy h3{font-size:clamp(3.2rem,3.4vw,5.2rem)}.media-home-live-program-title{font-size:clamp(1.15rem,1vw,1.45rem)}}
 @media(max-width:72rem){.media-home-live-carousel{grid-template-columns:minmax(5.4rem,.34fr) minmax(0,2.2fr) minmax(5.4rem,.34fr);padding:1rem}.media-home-live-neighbor-copy span{display:none}}
@@ -1097,8 +1371,13 @@
       openProgrammeDetail,
       clearProgrammeDetails,
       renderProgrammeRails,
+      eventArtwork,
+      createProgrammeArtwork,
+      refreshArtworkForChannels,
       applyChannels,
       applyPrograms,
+      loadProgrammeArtworkPage,
+      loadProgrammePage,
       loadNextProgrammePage,
       handleProgrammeRailNearEnd,
       render,

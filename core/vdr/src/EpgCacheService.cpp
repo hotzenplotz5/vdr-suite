@@ -78,8 +78,10 @@ std::vector<std::string> authoritativeChannelsFor(
 EpgCacheService::EpgCacheService(
     EpgEventRepository& repository,
     VdrService& vdrService,
-    EpgArtworkEnrichmentService* artworkEnrichmentService)
+    EpgArtworkEnrichmentService* artworkEnrichmentService,
+    EpgEventRepository* readRepository)
     : repository_(repository),
+      readRepository_(readRepository != nullptr ? readRepository : &repository),
       vdrService_(vdrService),
       artworkEnrichmentService_(artworkEnrichmentService)
 {
@@ -177,7 +179,7 @@ EpgCacheStatus EpgCacheService::getStatusForBackend(
 
     EpgCacheStatus status;
     status.backendId = normalizedBackendId;
-    status.eventCount = repository_.countForBackend(normalizedBackendId);
+    status.eventCount = readRepository_->countForBackend(normalizedBackendId);
     status.ready = status.eventCount > 0;
 
     std::lock_guard<std::mutex> lock(statusMutex_);
@@ -209,11 +211,25 @@ std::vector<VdrEvent> EpgCacheService::findNowNextForBackend(
     const std::string& fromTime,
     int eventLimit) const
 {
-    return repository_.findNowNextForBackend(
+    return readRepository_->findNowNextForBackend(
         backendId,
         channelId,
         fromTime,
         eventLimit);
+}
+
+std::vector<VdrEvent>
+EpgCacheService::findNowNextPerChannelForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    int perChannelLimit) const
+{
+    return readRepository_->findNowNextPerChannelForBackend(
+        backendId,
+        channelId,
+        fromTime,
+        perChannelLimit);
 }
 
 std::vector<VdrEvent> EpgCacheService::findWindowForBackend(
@@ -223,7 +239,7 @@ std::vector<VdrEvent> EpgCacheService::findWindowForBackend(
     const std::string& untilTime,
     int eventLimit) const
 {
-    return repository_.findWindowForBackend(
+    return readRepository_->findWindowForBackend(
         backendId,
         channelId,
         fromTime,
@@ -243,7 +259,7 @@ bool EpgCacheService::deleteExpiredForBackend(
 int EpgCacheService::countForBackend(
     const std::string& backendId) const
 {
-    return repository_.countForBackend(backendId);
+    return readRepository_->countForBackend(backendId);
 }
 
 bool EpgCacheService::containsEventForBackend(
@@ -251,7 +267,7 @@ bool EpgCacheService::containsEventForBackend(
     const std::string& channelId,
     const std::string& eventId) const
 {
-    return repository_.containsEventForBackend(
+    return readRepository_->containsEventForBackend(
         backendId,
         channelId,
         eventId);

@@ -74,6 +74,8 @@ struct GenreRecordingItem
     std::string id;
     std::string backendId;
     std::string backendNativeId;
+    // Canonical recording cache/metadata key. Required for per-recording hierarchy overrides.
+    std::string resourceKey;
     std::string title;
     std::string path;
     std::string startTime;
@@ -91,6 +93,16 @@ struct GenreRecordingItem
     bool seriesArtworkAvailable = false;
     int seriesArtworkIndex = -1;
     int seriesManualRevision = 0;
+    // Presentation-only Series hierarchy override. Native season/episode
+    // metadata remains untouched and continues to be the fallback owner.
+    bool seriesHierarchyOverrideAvailable = false;
+    std::string seriesHierarchyGroupType;
+    int seriesHierarchySeasonNumber = 0;
+    std::string seriesHierarchyGroupLabel;
+    int seriesHierarchySortOrder = 0;
+    int seriesHierarchyEpisodeStart = 0;
+    int seriesHierarchyEpisodeEnd = 0;
+    int seriesHierarchyRevision = 0;
     std::vector<std::string> genreIds;
 };
 

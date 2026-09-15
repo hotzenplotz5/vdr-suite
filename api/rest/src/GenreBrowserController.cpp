@@ -386,6 +386,8 @@ ApiResponse GenreBrowserController::getRecordings(
         appendJsonString(json, recording.backendId);
         json << ",\"backendNativeId\":";
         appendJsonString(json, recording.backendNativeId);
+        json << ",\"resourceKey\":";
+        appendJsonString(json, recording.resourceKey);
         json << ",\"title\":";
         appendJsonString(json, recording.title);
         json << ",\"path\":";
@@ -429,6 +431,40 @@ ApiResponse GenreBrowserController::getRecordings(
             appendJsonString(json, recording.seriesArtworkAvailable ? seriesPoster : "");
             json << "}}";
         }
+
+        if (recording.seriesHierarchyOverrideAvailable)
+        {
+            json << ",\"seriesHierarchyOverride\":{"
+                    "\"available\":true,"
+                    "\"groupType\":";
+
+            appendJsonString(
+                json,
+                recording.seriesHierarchyGroupType);
+
+            json << ",\"seasonNumber\":"
+                 << recording.seriesHierarchySeasonNumber;
+
+            json << ",\"groupLabel\":";
+
+            appendJsonString(
+                json,
+                recording.seriesHierarchyGroupLabel);
+
+            json << ",\"sortOrder\":"
+                 << recording.seriesHierarchySortOrder;
+
+            json << ",\"episodeStart\":"
+                 << recording.seriesHierarchyEpisodeStart;
+
+            json << ",\"episodeEnd\":"
+                 << recording.seriesHierarchyEpisodeEnd;
+
+            json << ",\"revision\":"
+                 << recording.seriesHierarchyRevision
+                 << "}";
+        }
+
         json << "}";
     }
     json << "]}";

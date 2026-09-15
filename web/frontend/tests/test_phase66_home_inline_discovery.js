@@ -15,6 +15,7 @@ assert(source.includes("const INLINE_METADATA_CONCURRENCY = 4"));
 assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
 assert(source.includes('recordingMetadataPosterUrl'));
 assert(source.includes('createInlineRecordingCard(projected, backendId, original)'));
+assert(source.includes('recording && recording.nativeMetadata'));
 assert(source.includes("'media-home-discovery-rail media-home-inline-rail'"));
 assert(source.includes("card.setAttribute('aria-expanded'"));
 assert(source.includes("global.VdrSuiteRecordings2.openRecording(recording"));
@@ -222,8 +223,8 @@ const moduleSelections = [];
 let activeMetadata = 0;
 let maximumActiveMetadata = 0;
 
-function recording(id, title) {
-  return {
+function recording(id, title, nativeMetadata) {
+  const value = {
     recordingId: id,
     backendId: 'backend-a',
     backendNativeId: 'native-' + id,
@@ -237,6 +238,16 @@ function recording(id, title) {
       artwork: {preferredUrl: '/weak/' + id + '.jpg'}
     }
   };
+  if (nativeMetadata) value.nativeMetadata = nativeMetadata;
+  return value;
+}
+
+function nativeImageUrl(id, kind, index) {
+  return '/api/vdr/recordings/metadata/image' +
+    '?backend=backend-a' +
+    '&backendNativeId=native-' + id +
+    '&kind=' + kind +
+    '&index=' + String(index);
 }
 
 function richMetadata(nativeId) {
@@ -247,10 +258,31 @@ function richMetadata(nativeId) {
     title: 'Kanonisch ' + id.toUpperCase(),
     overview: 'Scraper-Zusammenfassung ' + id,
     images: [
-      {url: '/metadata/' + id + '-landscape.jpg', width: 1600, height: 900},
-      {url: '/metadata/' + id + '-poster.jpg', width: 1000, height: 1500}
+      {
+        orientation: 'landscape',
+        image: {
+          available: true,
+          url: nativeImageUrl(id, 'gallery', 0),
+          width: 1600,
+          height: 900
+        }
+      },
+      {
+        orientation: 'portrait',
+        image: {
+          available: true,
+          url: nativeImageUrl(id, 'gallery', 1),
+          width: 1000,
+          height: 1500
+        }
+      }
     ],
-    preferredArtwork: {url: '/metadata/' + id + '-landscape.jpg', width: 1600, height: 900}
+    preferredArtwork: {
+      available: true,
+      url: nativeImageUrl(id, 'preferred', 0),
+      width: 1600,
+      height: 900
+    }
   };
 }
 
@@ -311,7 +343,11 @@ const client = {
             name: 'Leaf Film',
             recordingCount: 1,
             singleRecordingLeaf: true,
-            singleRecording: recording('f1', 'Ordner Film')
+            singleRecording: recording(
+              'f1',
+              'Ordner Film',
+              richMetadata('native-f1')
+            )
           },
           {
             path: 'Action/Marvel',
@@ -331,7 +367,13 @@ const client = {
       recordingCount: 1,
       returnedCount: 1,
       folders: [],
-      recordings: [recording('f2', 'Marvel Film')]
+      recordings: [
+        recording(
+          'f2',
+          'Marvel Film',
+          richMetadata('native-f2')
+        )
+      ]
     });
   }
 };
@@ -345,9 +387,24 @@ const window = {
   },
   VdrSuiteFrontendHelpers: {
     recordingMetadataPosterUrl(value) {
-      const images = value && Array.isArray(value.images) ? value.images : [];
-      const portrait = images.find(image => Number(image.height) > Number(image.width));
-      return portrait ? portrait.url : String(value && value.preferredArtwork && value.preferredArtwork.url || '');
+      const images = value && Array.isArray(value.images)
+        ? value.images
+        : [];
+      for (let index = 0; index < images.length; index += 1) {
+        const entry = images[index];
+        if (!entry ||
+            entry.orientation !== 'portrait' ||
+            !entry.image ||
+            entry.image.available !== true) {
+          continue;
+        }
+        return String(entry.image.url || '');
+      }
+
+      const preferred = value && value.preferredArtwork;
+      return preferred && preferred.available === true
+        ? String(preferred.url || '')
+        : '';
     }
   },
   VdrSuiteRecordings2: {
@@ -424,7 +481,10 @@ function wait(milliseconds) {
   const firstRecording = genreCards[0];
   assert.strictEqual(firstRecording.dataset.recordingId, 'r1');
   assert.strictEqual(firstRecording.querySelector('strong').textContent, 'Kanonisch R1');
-  assert.strictEqual(firstRecording.querySelector('img').src, '/metadata/r1-poster.jpg');
+  assert.strictEqual(
+    firstRecording.querySelector('img').src,
+    nativeImageUrl('r1', 'gallery', 1)
+  );
 
   const notFoundRecording = genreCards[1];
   assert.strictEqual(notFoundRecording.dataset.recordingId, 'r2');
@@ -448,6 +508,7 @@ function wait(milliseconds) {
   assert.strictEqual(genreSection.querySelector('.media-home-inline-expansion'), null, 'second category click must collapse inline contents');
   assert.strictEqual(genreCard.attributes['aria-expanded'], 'false');
 
+  const metadataReadsBeforeFolder = metadataCalls.length;
   const folderCard = makeCard('folder', 'Action', 'Action');
   const folderSection = makeSection('folders', folderCard);
   const folderClick = clickElement(folderCard);
@@ -460,7 +521,24 @@ function wait(milliseconds) {
   assert.strictEqual(folderCalls.length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
-  assert.strictEqual(folderExpansion.querySelector('.media-home-discovery-card.recording').dataset.recordingId, 'f1');
+  const leafRecording =
+    folderExpansion.querySelector('.media-home-discovery-card.recording');
+  assert.strictEqual(leafRecording.dataset.recordingId, 'f1');
+  assert.strictEqual(
+    leafRecording.querySelector('strong').textContent,
+    'Kanonisch F1',
+    'folder recording must use embedded canonical metadata title'
+  );
+  assert.strictEqual(
+    leafRecording.querySelector('img').src,
+    nativeImageUrl('f1', 'gallery', 1),
+    'TVScraper portrait must beat the weak recording frame'
+  );
+  assert.strictEqual(
+    metadataCalls.length,
+    metadataReadsBeforeFolder,
+    'folder cards must not add per-recording metadata HTTP reads'
+  );
   assert.strictEqual(folderCalls[0].query.path, 'Action');
 
   const nestedFolder = folderExpansion.querySelector('.media-home-inline-folder');
@@ -472,6 +550,21 @@ function wait(milliseconds) {
   assert.strictEqual(folderCalls[1].query.path, 'Action/Marvel');
   assert(folderExpansion.querySelector('.media-home-inline-back'), 'nested folder projection must expose inline back navigation');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1);
+  const nestedRecording =
+    folderExpansion.querySelector('.media-home-discovery-card.recording');
+  assert.strictEqual(
+    nestedRecording.querySelector('strong').textContent,
+    'Kanonisch F2'
+  );
+  assert.strictEqual(
+    nestedRecording.querySelector('img').src,
+    nativeImageUrl('f2', 'gallery', 1)
+  );
+  assert.strictEqual(
+    metadataCalls.length,
+    metadataReadsBeforeFolder,
+    'nested folder cards must remain metadata-HTTP-free'
+  );
   assert.strictEqual(moduleSelections.length, 1, 'folder browsing itself must never leave Home');
 
   clickElement(folderExpansion.querySelector('.media-home-inline-back'));

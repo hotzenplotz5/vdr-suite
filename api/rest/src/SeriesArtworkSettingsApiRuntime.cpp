@@ -39,6 +39,199 @@ bool routeBackendId(
     return SeriesArtworkBackendSettingsService::validBackendId(backendId);
 }
 
+bool routeBackendIdForSuffix(
+    const std::string& requestTarget,
+    const std::string& requestedSuffix,
+    std::string& backendId)
+{
+    const std::string path =
+        requestPath(requestTarget);
+
+    const std::string prefix(
+        RoutePrefix);
+
+    if (path.size() <=
+            prefix.size() +
+            requestedSuffix.size() ||
+        path.compare(
+            0,
+            prefix.size(),
+            prefix) != 0 ||
+        path.compare(
+            path.size() -
+                requestedSuffix.size(),
+            requestedSuffix.size(),
+            requestedSuffix) != 0)
+    {
+        return false;
+    }
+
+    backendId = path.substr(
+        prefix.size(),
+        path.size() -
+            prefix.size() -
+            requestedSuffix.size());
+
+    return
+        SeriesArtworkBackendSettingsService::
+            validBackendId(
+                backendId);
+}
+
+int hexValue(char character)
+{
+    if (character >= '0' &&
+        character <= '9')
+    {
+        return character - '0';
+    }
+
+    if (character >= 'a' &&
+        character <= 'f')
+    {
+        return character - 'a' + 10;
+    }
+
+    if (character >= 'A' &&
+        character <= 'F')
+    {
+        return character - 'A' + 10;
+    }
+
+    return -1;
+}
+
+bool urlDecode(
+    const std::string& input,
+    std::string& output)
+{
+    output.clear();
+
+    if (input.size() > 4096U)
+    {
+        return false;
+    }
+
+    for (std::size_t index = 0;
+         index < input.size();
+         ++index)
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(
+                input[index]);
+
+        if (character == '+')
+        {
+            output.push_back(' ');
+        }
+        else if (character == '%')
+        {
+            if (index + 2U >= input.size())
+            {
+                return false;
+            }
+
+            const int high =
+                hexValue(input[index + 1U]);
+
+            const int low =
+                hexValue(input[index + 2U]);
+
+            if (high < 0 || low < 0)
+            {
+                return false;
+            }
+
+            const unsigned char decoded =
+                static_cast<unsigned char>(
+                    (high << 4) | low);
+
+            if (decoded < 0x20U ||
+                decoded == 0x7fU)
+            {
+                return false;
+            }
+
+            output.push_back(
+                static_cast<char>(decoded));
+
+            index += 2U;
+        }
+        else
+        {
+            if (character < 0x20U ||
+                character == 0x7fU)
+            {
+                return false;
+            }
+
+            output.push_back(
+                static_cast<char>(character));
+        }
+
+        if (output.size() > 4096U)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::string queryValue(
+    const std::string& target,
+    const std::string& key)
+{
+    const std::size_t queryStart =
+        target.find('?');
+
+    if (queryStart ==
+        std::string::npos)
+    {
+        return {};
+    }
+
+    std::size_t start =
+        queryStart + 1U;
+
+    while (start <= target.size())
+    {
+        const std::size_t end =
+            target.find('&', start);
+
+        const std::string item =
+            target.substr(
+                start,
+                end == std::string::npos
+                    ? std::string::npos
+                    : end - start);
+
+        const std::size_t equals =
+            item.find('=');
+
+        if (equals != std::string::npos &&
+            item.substr(0, equals) == key)
+        {
+            std::string decoded;
+
+            return urlDecode(
+                item.substr(equals + 1U),
+                decoded)
+                ? decoded
+                : std::string{};
+        }
+
+        if (end == std::string::npos)
+        {
+            break;
+        }
+
+        start = end + 1U;
+    }
+
+    return {};
+}
+
 std::string jsonEscape(const std::string& value)
 {
     std::string escaped;
@@ -68,7 +261,7 @@ std::string jsonEscape(const std::string& value)
 std::string serialize(
     const SeriesArtworkBackendSettingsSnapshot& settings)
 {
-    return
+    std::string json =
         "{\"backendId\":\"" + jsonEscape(settings.backendId) +
         "\",\"provider\":\"" + jsonEscape(settings.provider) +
         "\",\"configurationSource\":\"" +
@@ -77,8 +270,31 @@ std::string serialize(
         (settings.tmdbTokenConfigured ? "true" : "false") +
         ",\"tmdbTokenSource\":\"" +
         jsonEscape(settings.tmdbTokenSource) +
-        "\",\"restartRequired\":false," 
-        "\"availableProviders\":[\"none\",\"tvmaze\",\"tmdb\"]}";
+        "\",\"restartRequired\":false,"
+        "\"availableProviders\":[\"none\",\"tvmaze\",\"tmdb\"],"
+        "\"coverOverrides\":[";
+
+    for (std::size_t index = 0;
+         index < settings.coverOverrides.size();
+         ++index)
+    {
+        if (index > 0U)
+        {
+            json += ',';
+        }
+
+        const SeriesArtworkCoverOverride& value =
+            settings.coverOverrides[index];
+
+        json +=
+            "{\"seriesKey\":\"" + jsonEscape(value.seriesKey) +
+            "\",\"posterUrl\":\"" + jsonEscape(value.posterUrl) +
+            "\",\"revision\":" + std::to_string(value.revision) +
+            "}";
+    }
+
+    json += "]}";
+    return json;
 }
 
 ApiResponse errorResponse(
@@ -308,35 +524,139 @@ bool SeriesArtworkSettingsApiRuntime::tryHandleGet(
     ApiResponse& response) const
 {
     std::string backendId;
-    if (!routeBackendId(requestTarget, backendId))
+
+    if (routeBackendIdForSuffix(
+            requestTarget,
+            "/settings/series-artwork/candidate-image",
+            backendId))
+    {
+        SeriesArtworkBackendSettingsService* service =
+            findService(backendId);
+
+        if (service == nullptr)
+        {
+            response = errorResponse(
+                404,
+                "backend_artwork_settings_not_found",
+                "Series artwork settings are unavailable for this backend");
+            return true;
+        }
+
+        const std::string externalId =
+            queryValue(
+                requestTarget,
+                "externalId");
+
+        const std::string posterReference =
+            queryValue(
+                requestTarget,
+                "posterReference");
+
+        const SeriesArtworkImageResult image =
+            service->tmdbCandidateImage(
+                backendId,
+                externalId,
+                posterReference);
+
+        if (!image.success)
+        {
+            response = errorResponse(
+                image.statusCode,
+                image.errorCode,
+                image.message);
+            return true;
+        }
+
+        response.statusCode = 200;
+        response.contentType =
+            image.contentType;
+        response.body = image.body;
+
+        return true;
+    }
+
+    if (routeBackendIdForSuffix(
+            requestTarget,
+            "/settings/series-artwork/image",
+            backendId))
+    {
+        SeriesArtworkBackendSettingsService* service =
+            findService(backendId);
+
+        if (service == nullptr)
+        {
+            response = errorResponse(
+                404,
+                "backend_artwork_settings_not_found",
+                "Series artwork settings are unavailable for this backend");
+            return true;
+        }
+
+        const std::string seriesKey =
+            queryValue(
+                requestTarget,
+                "seriesKey");
+
+        const SeriesArtworkImageResult image =
+            service->coverImage(
+                backendId,
+                seriesKey);
+
+        if (!image.success)
+        {
+            response = errorResponse(
+                image.statusCode,
+                image.errorCode,
+                image.message);
+            return true;
+        }
+
+        response.statusCode = 200;
+        response.contentType =
+            image.contentType;
+        response.body = image.body;
+
+        return true;
+    }
+
+    if (!routeBackendId(
+            requestTarget,
+            backendId))
     {
         return false;
     }
 
-    SeriesArtworkBackendSettingsService* service = findService(backendId);
+    SeriesArtworkBackendSettingsService* service =
+        findService(backendId);
+
     if (service == nullptr)
     {
         response = errorResponse(
             404,
             "backend_artwork_settings_not_found",
             "Series artwork settings are unavailable for this backend");
+
         return true;
     }
 
     const SeriesArtworkBackendSettingsSnapshot settings =
         service->get(backendId);
+
     if (settings.backendId.empty())
     {
         response = errorResponse(
             503,
             "backend_artwork_settings_unavailable",
             "Series artwork settings could not be read");
+
         return true;
     }
 
     response.statusCode = 200;
-    response.contentType = "application/json";
+    response.contentType =
+        "application/json";
     response.body = serialize(settings);
+
     return true;
 }
 
@@ -366,6 +686,16 @@ bool SeriesArtworkSettingsApiRuntime::tryHandlePost(
     SeriesArtworkBackendSettingsUpdate request;
     request.backendId = stringValue(strings, "backendId");
     request.provider = stringValue(strings, "provider");
+    request.operation = stringValue(strings, "operation");
+    request.seriesKey = stringValue(strings, "seriesKey");
+    request.posterUrl = stringValue(strings, "posterUrl");
+    request.providerId = stringValue(strings, "providerId");
+    request.externalNamespace =
+        stringValue(strings, "externalNamespace");
+    request.externalId =
+        stringValue(strings, "externalId");
+    request.posterReference =
+        stringValue(strings, "posterReference");
     request.tmdbReadAccessToken =
         stringValue(strings, "tmdbReadAccessToken");
     request.clearTmdbReadAccessToken =

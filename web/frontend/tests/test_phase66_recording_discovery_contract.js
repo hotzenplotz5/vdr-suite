@@ -87,7 +87,19 @@ assert(source.includes(
   'function renderSeriesDetail(series, selectedSeason, backendId, options)'
 ));
 assert(source.includes(
-  'const metadataLoading = config.metadataLoading === true;'
+  'function seriesMetadataPendingForDetail(series, backendId)'
+));
+assert(source.includes(
+  'config.metadataLoading === true ||'
+));
+assert(source.includes(
+  'seriesMetadataPendingForDetail(series, backendId)'
+));
+assert(source.includes(
+  'cache.unsettledNativeIds.has(nativeId)'
+));
+assert(source.includes(
+  'cache.inflight.has(nativeId)'
 ));
 assert(source.includes(
   'canEnrich && hierarchyIncomplete'

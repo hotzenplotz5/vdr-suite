@@ -33,6 +33,26 @@ public:
         const std::string& fromTime,
         int eventLimit) const = 0;
 
+    virtual ApiResponse getNowNextPerChannel(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const = 0;
+
+    virtual ApiResponse getNowNextArtworkManifest(
+        const std::string&,
+        const std::string&,
+        const std::string&,
+        int) const
+    {
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.body =
+            "{\"error\":\"epg now-next artwork unavailable\"}";
+        return response;
+    }
+
     virtual ApiResponse getWindow(
         const std::string& backendId,
         const std::string& channelId,
@@ -115,6 +135,18 @@ public:
         const std::string& channelId,
         const std::string& fromTime,
         int eventLimit) const override;
+
+    ApiResponse getNowNextPerChannel(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const override;
+
+    ApiResponse getNowNextArtworkManifest(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        int perChannelLimit) const override;
 
     ApiResponse getWindow(
         const std::string& backendId,

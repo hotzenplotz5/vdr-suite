@@ -175,10 +175,23 @@ assert(heroSource.includes("renderProgrammeRail('now', 'Was läuft jetzt', true)
 assert(heroSource.includes("renderProgrammeRail('next', 'Was läuft danach', false);"));
 assert(heroSource.includes('.media-home-live-guide-now{order:10}.media-home-live-guide-next{order:20}.media-home-continue-watching{order:30}'));
 assert(heroSource.includes('.media-home-live-guide-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(11rem,15rem)'));
-assert(heroSource.includes('.media-home-live-guide-artwork{display:grid;place-items:center;width:100%;aspect-ratio:2/3'));
-assert(heroSource.includes("image.loading = 'lazy'"));
+assert(heroSource.includes('.media-home-live-guide-artwork{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:2/3'));
+assert(
+  heroSource.includes(
+    "image.loading = prioritize ? 'eager' : 'lazy';"
+  )
+);
+assert(
+  heroSource.includes(
+    "image.fetchPriority = prioritize ? 'high' : 'low';"
+  )
+);
 assert(heroSource.includes("image.decoding = 'async'"));
-assert(heroSource.includes("image.fetchPriority = 'low'"));
+assert(
+  heroSource.includes(
+    "image.fetchPriority = prioritize ? 'high' : 'low';"
+  )
+);
 assert(!heroSource.includes('/api/media/sessions'));
 
 // Continue Watching: preserve the canonical playback owner while improving
