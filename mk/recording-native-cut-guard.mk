@@ -12,6 +12,9 @@ DAEMON_RECORDING_CUT_SRC := \
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_CUT_STATE_SRC)
 DAEMON_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 DAEMON_SRC += $(DAEMON_RECORDING_CUT_SRC)
+DAEMON_SRC += $(AGENT_RECORDING_CUT_TRANSPORT_SRC)
+DAEMON_SRC += core/daemon/src/EmbeddedRecordingCutRuntime.cpp
+DAEMON_SRC += core/agent/src/EmbeddedRecordingCutRepository.cpp
 REST_ROUTER_SRC += $(RECORDING_NATIVE_CUT_REST_SRC)
 
 .PHONY: check-recording-cut-runtime-wiring test-recording-cut-api-runtime test-recording-cut-security test-backend-agent-recording-cut test-backend-agent-recording-cut-local-state test-backend-agent-recording-cut-executor test-backend-agent-recording-cut-reconciliation test-suite-bridge-svdrp-recording-cut-transport test-suite-bridge-svdrp-recording-cut-state-transport test-suite-bridge-recording-cut-state-resolver test-suitebridge-recording-cut-protocol test-daemon-recording-cut-reconciliation
@@ -193,3 +196,35 @@ recording-cut-acceptance-preflight: test-recording-cut-acceptance-preflight-harn
 	bash "$(RECORDING_CUT_ACCEPTANCE_PREFLIGHT_RUNNER)"
 
 test-fast: test-recording-cut-acceptance-preflight-harness
+
+
+.PHONY: test-embedded-recording-cut-runtime
+test-embedded-recording-cut-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/daemon/include \
+		-Iapi/rest/include \
+		-Icore/vdr/include \
+		-Icore/agent/include \
+		-Icore/security/include \
+		-Icore/scheduler/include \
+		-Icore/config/include \
+		$(SQLITE_SRC) \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/VdrRecordingNativeIdentity.cpp \
+		core/daemon/src/DaemonRecordingCutReconciliation.cpp \
+		core/daemon/src/EmbeddedRecordingCutRuntime.cpp \
+		core/agent/src/EmbeddedRecordingCutRepository.cpp \
+		core/daemon/tests/test_embedded_recording_cut_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_embedded_recording_cut_runtime
+	$(BUILD_DIR)/test_embedded_recording_cut_runtime
+
+
+test-fast: test-embedded-recording-cut-runtime

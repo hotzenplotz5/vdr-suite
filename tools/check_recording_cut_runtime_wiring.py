@@ -156,6 +156,7 @@ for label, content, tokens in (
         "daemonRecordingCutResultMatches",
         "verifyRecordingCutResult",
         "ensureRecordingCutReconciliationSchema",
+        "embeddedCutRuntime->dispatch(request)",
         'capabilityAvailable(\n                "recording-cut-state")',
     )),
     ("recording editing composition", daemon_editing, (
@@ -310,6 +311,7 @@ for target in (
     "test-suite-bridge-recording-cut-state-resolver",
     "test-suitebridge-recording-cut-protocol",
     "test-daemon-recording-cut-reconciliation",
+    "test-embedded-recording-cut-runtime",
 ):
     if target not in cut_make:
         errors.append(f"Slice-3 test-fast contract missing target: {target}")

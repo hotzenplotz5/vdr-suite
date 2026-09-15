@@ -610,6 +610,31 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->embeddedMarksRuntime.reset();
         }
 
+        SuiteBridgeRecordingCutStateResolver* const embeddedCutResolver =
+            context->ensureRecordingCutStateResolver();
+        if (embeddedCutResolver != nullptr)
+        {
+            context->embeddedCutTransport =
+                std::make_unique<vdrsuite::agent::SuiteBridgeRecordingCutTransport>(
+                    embeddedConfig.transport);
+            context->embeddedCutRuntime =
+                std::make_unique<EmbeddedRecordingCutRuntime>(
+                    database_,
+                    context->backendId,
+                    *context->embeddedCutTransport,
+                    *embeddedCutResolver);
+
+            if (!context->embeddedCutRuntime->ensureSchema())
+            {
+                std::cerr
+                    << "embedded cut journal unavailable: backend="
+                    << context->backendId
+                    << std::endl;
+                context->embeddedCutRuntime.reset();
+                context->embeddedCutTransport.reset();
+            }
+        }
+
         context->suiteBridgeAgentRuntime =
             std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
                 std::move(embeddedConfig));

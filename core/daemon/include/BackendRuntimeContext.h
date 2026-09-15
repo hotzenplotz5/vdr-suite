@@ -2,7 +2,9 @@
 
 #include "CurlExternalArtworkHttpTransport.h"
 #include "Database.h"
+#include "EmbeddedRecordingCutRuntime.h"
 #include "EmbeddedRecordingMarksRuntime.h"
+#include "SuiteBridgeRecordingCutTransport.h"
 #include "SuiteBridgeRecordingMarksModifyTransport.h"
 #include "EpgArtworkEnrichmentService.h"
 #include "EpgEventRepository.h"
@@ -40,6 +42,8 @@
 struct BackendRuntimeContext
 {
     std::string backendId;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingCutTransport> embeddedCutTransport;
+    std::unique_ptr<EmbeddedRecordingCutRuntime> embeddedCutRuntime;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport> embeddedMarksTransport;
     std::unique_ptr<EmbeddedRecordingMarksRuntime> embeddedMarksRuntime;
 

@@ -272,7 +272,7 @@ bool configureDaemonRecordingCutRuntime(
             }
             return access;
         },
-        [agents, commands](const RecordingCutStartRequest& request) {
+        [agents, commands, runtimeContexts](const RecordingCutStartRequest& request) {
             RecordingCutDispatchResult dispatch;
             const auto existing = commands->findAssignmentForOperation(
                 request.backendId,
@@ -320,7 +320,34 @@ bool configureDaemonRecordingCutRuntime(
                     return dispatch;
                 }
             }
-            else if (request.replayOnly)
+            else
+            {
+                /*
+                 * The configured local SuiteBridge backend owns its mutation
+                 * directly in the daemon. Existing legacy Control-Plane
+                 * assignments above remain on their original replay path.
+                 */
+                for (const auto& context : *runtimeContexts)
+                {
+                    if (!context ||
+                        context->backendId != request.backendId ||
+                        !context->suiteBridgeAgentRuntime)
+                    {
+                        continue;
+                    }
+
+                    if (!context->embeddedCutRuntime)
+                    {
+                        dispatch.reasonCode =
+                            "recording_cut_journal_unavailable";
+                        return dispatch;
+                    }
+
+                    return context->embeddedCutRuntime->dispatch(request);
+                }
+            }
+
+            if (!existing.has_value() && request.replayOnly)
             {
                 dispatch.reasonCode = "recording_cut_assignment_not_found";
                 return dispatch;
