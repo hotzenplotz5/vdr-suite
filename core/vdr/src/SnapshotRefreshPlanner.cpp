@@ -32,6 +32,11 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
                 plan.markRecordingsRefresh();
             }
             break;
+        case VdrChangeType::RecordingMarksChanged:
+            // Recording marks are resolved independently from the cached
+            // recording snapshot. Their change event is a narrow SSE hint and
+            // must not trigger recording-domain refresh work.
+            break;
         case VdrChangeType::TimersChanged:
             if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Timers)) {
                 plan.markTimersRefresh();
