@@ -60,6 +60,7 @@ SuiteBridgeStatusSnapshot SuiteBridgeStatusEvents::CaptureSnapshot(
       Count(SuiteBridgeStatusEventKind::Recording),
       Count(SuiteBridgeStatusEventKind::Replaying),
       Count(SuiteBridgeStatusEventKind::TimerChange),
+      Count(SuiteBridgeStatusEventKind::MarksModified),
       CounterEpoch(),
       CounterOverflowed());
 }
@@ -76,6 +77,8 @@ const char *SuiteBridgeStatusEvents::Name(
       return "replaying";
     case SuiteBridgeStatusEventKind::TimerChange:
       return "timer-change";
+    case SuiteBridgeStatusEventKind::MarksModified:
+      return "marks-modified";
     case SuiteBridgeStatusEventKind::Count:
       break;
   }

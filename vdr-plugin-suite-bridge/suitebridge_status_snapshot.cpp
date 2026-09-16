@@ -29,6 +29,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
     unsigned long long recordingCount,
     unsigned long long replayingCount,
     unsigned long long timerChangeCount,
+    unsigned long long marksModifiedCount,
     const char *counterEpoch,
     bool counterOverflow) noexcept
     : monitorActive_(monitorActive),
@@ -36,6 +37,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
       recordingCount_(recordingCount),
       replayingCount_(replayingCount),
       timerChangeCount_(timerChangeCount),
+      marksModifiedCount_(marksModifiedCount),
       totalCount_(0),
       counterEpoch_{{0}},
       counterOverflow_(counterOverflow)
@@ -44,6 +46,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
   AddSaturating(recordingCount_, totalCount_, counterOverflow_);
   AddSaturating(replayingCount_, totalCount_, counterOverflow_);
   AddSaturating(timerChangeCount_, totalCount_, counterOverflow_);
+  AddSaturating(marksModifiedCount_, totalCount_, counterOverflow_);
 
   if (counterEpoch == nullptr) {
     counterOverflow_ = true;
@@ -91,6 +94,11 @@ unsigned long long SuiteBridgeStatusSnapshot::ReplayingCount() const noexcept
 unsigned long long SuiteBridgeStatusSnapshot::TimerChangeCount() const noexcept
 {
   return timerChangeCount_;
+}
+
+unsigned long long SuiteBridgeStatusSnapshot::MarksModifiedCount() const noexcept
+{
+  return marksModifiedCount_;
 }
 
 unsigned long long SuiteBridgeStatusSnapshot::TotalCount() const noexcept

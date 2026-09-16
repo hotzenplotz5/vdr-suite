@@ -26,8 +26,8 @@ int main()
 
   static_assert(SuiteBridgeCapabilityDiscoveryPayload::SchemaVersion() == 1);
   static_assert(SuiteBridgeCapabilities::SchemaVersion() == 1);
-  static_assert(SuiteBridgeStatusSnapshot::SchemaVersion() == 2);
-  static_assert(SuiteBridgeLocalContractPayload::SchemaVersion() == 2);
+  static_assert(SuiteBridgeStatusSnapshot::SchemaVersion() == 3);
+  static_assert(SuiteBridgeLocalContractPayload::SchemaVersion() == 3);
   static_assert(SuiteBridgeCapabilityDiscoveryReply::SuccessReplyCode() == 900);
   static_assert(
       SuiteBridgeCapabilityDiscoveryReply::MalformedOptionReplyCode() == 501);
@@ -37,7 +37,7 @@ int main()
       SuiteBridgeCapabilityDiscoveryReply::PayloadUnavailableReplyCode() == 451);
 
   const char *expected =
-      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.13.0\",\"capability_schema\":1,\"snapshot_schema\":2,\"local_contract_schema\":2,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"recording-marks\",\"state\":\"available\"},{\"id\":\"recording-cut-state\",\"state\":\"available\"},{\"id\":\"epg-type-snapshot\",\"state\":\"available\"},{\"id\":\"vdr.live.stream\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
+      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.13.0\",\"capability_schema\":1,\"snapshot_schema\":3,\"local_contract_schema\":3,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"recording-marks\",\"state\":\"available\"},{\"id\":\"recording-cut-state\",\"state\":\"available\"},{\"id\":\"epg-type-snapshot\",\"state\":\"available\"},{\"id\":\"vdr.live.stream\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
 
   const SuiteBridgeCapabilityDiscoveryPayload payload(
       "suitebridge",

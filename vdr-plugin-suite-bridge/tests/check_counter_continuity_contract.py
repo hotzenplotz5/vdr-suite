@@ -55,7 +55,7 @@ required_content = (
     "CounterEpoch() const noexcept",
     "CounterEpochLength() noexcept",
     "static constexpr std::size_t kCounterEpochLength = 32;",
-    "return 2;",
+    "return 3;",
     "CounterOverflow() const noexcept",
     '\\"counter_epoch\\"',
     '\\"counter_overflow\\"',

@@ -80,7 +80,8 @@ bool countersMonotonic(
            current.channelSwitch >= previous.channelSwitch &&
            current.recording >= previous.recording &&
            current.replaying >= previous.replaying &&
-           current.timerChange >= previous.timerChange;
+           current.timerChange >= previous.timerChange &&
+           current.marksModified >= previous.marksModified;
 }
 
 bool validCurrentState(

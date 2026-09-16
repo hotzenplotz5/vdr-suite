@@ -242,6 +242,8 @@ void SuiteBridgeObservationService::acceptReadySnapshot(
             snapshot_.baseline.replaying - previous.replaying;
         snapshot_.delta.timerChange =
             snapshot_.baseline.timerChange - previous.timerChange;
+        snapshot_.delta.marksModified =
+            snapshot_.baseline.marksModified - previous.marksModified;
     }
 
     snapshot_.lastSuccessAt = now;

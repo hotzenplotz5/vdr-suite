@@ -35,7 +35,7 @@ combined = "\n".join(
 required_content = (
     "class SuiteBridgeStatusSnapshot final",
     "SchemaVersion() noexcept",
-    "return 2;",
+    "return 3;",
     "CounterEpochLength() noexcept",
     "static constexpr std::size_t kCounterEpochLength = 32;",
     "operator=(const SuiteBridgeStatusSnapshot &) = delete;",
@@ -44,6 +44,7 @@ required_content = (
     "bool counterOverflow_;",
     "AddSaturating(",
     "std::numeric_limits<unsigned long long>::max()",
+    "MarksModifiedCount() const noexcept",
     "CounterEpoch() const noexcept",
     "CounterOverflow() const noexcept",
     "CaptureSnapshot(bool monitorActive) const noexcept",

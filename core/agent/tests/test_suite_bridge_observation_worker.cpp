@@ -90,8 +90,8 @@ std::string discovery()
         "\"plugin_name\":\"suitebridge\","
         "\"plugin_version\":\"0.10.0\","
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":2,"
-        "\"local_contract_schema\":2,"
+        "\"snapshot_schema\":3,"
+        "\"local_contract_schema\":3,"
         "\"capabilities\":["
         "{\"id\":\"snapshots\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
@@ -101,15 +101,16 @@ std::string discovery()
 std::string snapshot()
 {
     return
-        "{\"contract_schema\":2,"
+        "{\"contract_schema\":3,"
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":2,"
+        "\"snapshot_schema\":3,"
         "\"active\":true,"
         "\"total\":0,"
         "\"channel_switch\":0,"
         "\"recording\":0,"
         "\"replaying\":0,"
         "\"timer_change\":0,"
+        "\"marks_modified\":0,"
         "\"counter_epoch\":\"11111111111111111111111111111111\","
         "\"counter_overflow\":false}";
 }
@@ -154,6 +155,7 @@ void testStartStopAndSuccessfulPublication()
     assert(worker.snapshot().state ==
            SuiteBridgeObservationState::SnapshotCurrent);
     assert(worker.snapshot().hasBaseline);
+    assert(worker.snapshot().baseline.marksModified == 0);
     assert(!worker.snapshot().mutationsEnabled);
 
     worker.stop();

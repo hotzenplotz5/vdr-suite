@@ -12,6 +12,7 @@ enum class SuiteBridgeStatusEventKind : std::size_t {
   Recording,
   Replaying,
   TimerChange,
+  MarksModified,
   Count,
 };
 

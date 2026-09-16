@@ -89,8 +89,8 @@ std::string discovery()
         "\"plugin_name\":\"suitebridge\","
         "\"plugin_version\":\"0.10.0\","
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":2,"
-        "\"local_contract_schema\":2,"
+        "\"snapshot_schema\":3,"
+        "\"local_contract_schema\":3,"
         "\"capabilities\":["
         "{\"id\":\"snapshots\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
@@ -100,15 +100,16 @@ std::string discovery()
 std::string snapshot()
 {
     return
-        "{\"contract_schema\":2,"
+        "{\"contract_schema\":3,"
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":2,"
+        "\"snapshot_schema\":3,"
         "\"active\":true,"
         "\"total\":4,"
         "\"channel_switch\":4,"
         "\"recording\":0,"
         "\"replaying\":0,"
         "\"timer_change\":0,"
+        "\"marks_modified\":0,"
         "\"counter_epoch\":\"11111111111111111111111111111111\","
         "\"counter_overflow\":false}";
 }
@@ -183,6 +184,7 @@ void testInjectedTransportPublishesBackendScopedHealth()
            SuiteBridgeObservationState::SnapshotCurrent);
     assert(current.observation.hasBaseline);
     assert(current.observation.baseline.total == 4);
+    assert(current.observation.baseline.marksModified == 0);
     assert(!current.observation.mutationsEnabled);
 
     const auto commands = transportView->commands();

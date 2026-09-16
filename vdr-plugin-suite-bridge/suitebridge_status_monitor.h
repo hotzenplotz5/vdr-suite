@@ -42,6 +42,8 @@ protected:
       const cTimer *timer,
       eTimerChange change) override;
 
+  void MarksModified(const cMarks *marks) override;
+
 private:
   void RecordEvent(SuiteBridgeStatusEventKind kind) noexcept;
   void LogSnapshot(const SuiteBridgeStatusSnapshot &snapshot) const noexcept;

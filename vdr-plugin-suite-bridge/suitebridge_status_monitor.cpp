@@ -152,3 +152,11 @@ void SuiteBridgeStatusMonitor::TimerChange(
 
   RecordEvent(SuiteBridgeStatusEventKind::TimerChange);
 }
+
+void SuiteBridgeStatusMonitor::MarksModified(
+    const cMarks *marks)
+{
+  (void)marks;
+
+  RecordEvent(SuiteBridgeStatusEventKind::MarksModified);
+}

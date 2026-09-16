@@ -44,7 +44,8 @@ bool SuiteBridgeSnapshotBaseline::countersAtLeast(
            channelSwitch >= previous.channelSwitch &&
            recording >= previous.recording &&
            replaying >= previous.replaying &&
-           timerChange >= previous.timerChange;
+           timerChange >= previous.timerChange &&
+           marksModified >= previous.marksModified;
 }
 
 SuiteBridgeBaselineUpdate SuiteBridgeBaselineTracker::apply(

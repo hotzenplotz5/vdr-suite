@@ -48,6 +48,7 @@ struct SuiteBridgeSnapshotDelta
     std::uint64_t recording = 0;
     std::uint64_t replaying = 0;
     std::uint64_t timerChange = 0;
+    std::uint64_t marksModified = 0;
 };
 
 struct SuiteBridgeObservationSnapshot

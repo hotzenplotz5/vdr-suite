@@ -51,6 +51,7 @@ struct SuiteBridgeSnapshotBaseline
     std::uint64_t recording = 0;
     std::uint64_t replaying = 0;
     std::uint64_t timerChange = 0;
+    std::uint64_t marksModified = 0;
     std::string counterEpoch;
     bool counterOverflow = false;
 

@@ -38,18 +38,20 @@ int main()
   assert(std::strcmp(events.CounterEpoch(), otherEvents.CounterEpoch()) != 0);
   assert(!events.CounterOverflowed());
 
-  const std::array<SuiteBridgeStatusEventKind, 4> kinds = {{
+  const std::array<SuiteBridgeStatusEventKind, 5> kinds = {{
       SuiteBridgeStatusEventKind::ChannelSwitch,
       SuiteBridgeStatusEventKind::Recording,
       SuiteBridgeStatusEventKind::Replaying,
       SuiteBridgeStatusEventKind::TimerChange,
+      SuiteBridgeStatusEventKind::MarksModified,
   }};
 
-  const std::array<const char *, 4> names = {{
+  const std::array<const char *, 5> names = {{
       "channel-switch",
       "recording",
       "replaying",
       "timer-change",
+      "marks-modified",
   }};
 
   for (std::size_t index = 0; index < kinds.size(); ++index) {

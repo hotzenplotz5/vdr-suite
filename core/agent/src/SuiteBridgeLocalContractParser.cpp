@@ -873,6 +873,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
     bool recordingSeen = false;
     bool replayingSeen = false;
     bool timerChangeSeen = false;
+    bool marksModifiedSeen = false;
     bool counterEpochSeen = false;
     bool counterOverflowSeen = false;
 
@@ -955,6 +956,12 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
                      cursor.parseUnsigned(value.timerChange);
             timerChangeSeen = true;
         }
+        else if (key == "marks_modified")
+        {
+            parsed = !marksModifiedSeen &&
+                     cursor.parseUnsigned(value.marksModified);
+            marksModifiedSeen = true;
+        }
         else if (key == "counter_epoch")
         {
             parsed = !counterEpochSeen &&
@@ -1010,6 +1017,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
         !recordingSeen ||
         !replayingSeen ||
         !timerChangeSeen ||
+        !marksModifiedSeen ||
         !counterEpochSeen ||
         !counterOverflowSeen)
     {
@@ -1030,6 +1038,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
     calculatedTotal = saturatingAdd(calculatedTotal, value.recording);
     calculatedTotal = saturatingAdd(calculatedTotal, value.replaying);
     calculatedTotal = saturatingAdd(calculatedTotal, value.timerChange);
+    calculatedTotal = saturatingAdd(calculatedTotal, value.marksModified);
 
     if (value.total != calculatedTotal)
     {

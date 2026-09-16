@@ -61,6 +61,7 @@ required_content = (
     "SuiteBridgeStatusEventKind::Recording",
     "SuiteBridgeStatusEventKind::Replaying",
     "SuiteBridgeStatusEventKind::TimerChange",
+    "SuiteBridgeStatusEventKind::MarksModified",
     "class SuiteBridgeSaturatingCounter final",
     "std::atomic<unsigned long long>",
     "compare_exchange_weak(",
@@ -76,6 +77,7 @@ required_content = (
     "void Recording(",
     "void Replaying(",
     "void TimerChange(",
+    "void MarksModified(",
     "events_.Record(kind)",
 )
 
@@ -144,6 +146,10 @@ callback_contracts = (
     (
         "void SuiteBridgeStatusMonitor::TimerChange(",
         "RecordEvent(SuiteBridgeStatusEventKind::TimerChange);",
+    ),
+    (
+        "void SuiteBridgeStatusMonitor::MarksModified(",
+        "RecordEvent(SuiteBridgeStatusEventKind::MarksModified);",
     ),
 )
 

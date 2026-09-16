@@ -17,6 +17,7 @@ public:
       unsigned long long recordingCount,
       unsigned long long replayingCount,
       unsigned long long timerChangeCount,
+      unsigned long long marksModifiedCount,
       const char *counterEpoch,
       bool counterOverflow) noexcept;
 
@@ -25,7 +26,7 @@ public:
 
   static constexpr unsigned int SchemaVersion() noexcept
   {
-    return 2;
+    return 3;
   }
 
   bool MonitorActive() const noexcept;
@@ -33,6 +34,7 @@ public:
   unsigned long long RecordingCount() const noexcept;
   unsigned long long ReplayingCount() const noexcept;
   unsigned long long TimerChangeCount() const noexcept;
+  unsigned long long MarksModifiedCount() const noexcept;
   unsigned long long TotalCount() const noexcept;
   const char *CounterEpoch() const noexcept;
   bool CounterOverflow() const noexcept;
@@ -45,6 +47,7 @@ private:
   unsigned long long recordingCount_;
   unsigned long long replayingCount_;
   unsigned long long timerChangeCount_;
+  unsigned long long marksModifiedCount_;
   unsigned long long totalCount_;
   std::array<char, kCounterEpochLength + 1> counterEpoch_;
   bool counterOverflow_;

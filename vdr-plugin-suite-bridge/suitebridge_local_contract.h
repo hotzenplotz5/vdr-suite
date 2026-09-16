@@ -10,7 +10,7 @@ class SuiteBridgeLocalContractPayload final {
 public:
   static constexpr unsigned int SchemaVersion() noexcept
   {
-    return 2;
+    return 3;
   }
 
   static constexpr std::size_t Capacity() noexcept

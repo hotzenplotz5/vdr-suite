@@ -64,14 +64,14 @@ SuiteBridgeHandshakeResult validateDiscovery(
             "unsupported suite bridge capability schema");
     }
 
-    if (discovery.snapshotSchema != 2)
+    if (discovery.snapshotSchema != 3)
     {
         return failure(
             SuiteBridgeHandshakeStatus::IncompatibleSnapshotSchema,
             "unsupported suite bridge snapshot schema");
     }
 
-    if (discovery.localContractSchema != 2)
+    if (discovery.localContractSchema != 3)
     {
         return failure(
             SuiteBridgeHandshakeStatus::IncompatibleLocalContractSchema,

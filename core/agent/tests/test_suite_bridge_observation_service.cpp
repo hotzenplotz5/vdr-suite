@@ -76,8 +76,8 @@ std::string discovery(
         ",\"plugin_name\":\"suitebridge\""
         ",\"plugin_version\":\"0.10.0\""
         ",\"capability_schema\":1"
-        ",\"snapshot_schema\":2"
-        ",\"local_contract_schema\":2"
+        ",\"snapshot_schema\":3"
+        ",\"local_contract_schema\":3"
         ",\"capabilities\":["
         "{\"id\":\"snapshots\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
@@ -88,18 +88,22 @@ std::string discovery(
 std::string snapshot(
     const std::string& epoch,
     const std::uint64_t channelSwitch,
-    const bool overflow = false)
+    const bool overflow = false,
+    const std::uint64_t marksModified = 0)
 {
+    const std::uint64_t total = channelSwitch + marksModified;
+
     return
-        "{\"contract_schema\":2"
+        "{\"contract_schema\":3"
         ",\"capability_schema\":1"
-        ",\"snapshot_schema\":2"
+        ",\"snapshot_schema\":3"
         ",\"active\":true"
-        ",\"total\":" + std::to_string(channelSwitch) +
+        ",\"total\":" + std::to_string(total) +
         ",\"channel_switch\":" + std::to_string(channelSwitch) +
         ",\"recording\":0"
         ",\"replaying\":0"
         ",\"timer_change\":0"
+        ",\"marks_modified\":" + std::to_string(marksModified) +
         ",\"counter_epoch\":\"" + epoch + "\""
         ",\"counter_overflow\":" +
         std::string(overflow ? "true" : "false") + "}";
@@ -126,8 +130,8 @@ void testInitialHandshakeAndSnapshotOnlyPolling()
 {
     FakeTransport transport({
         reply(900, discovery()),
-        reply(900, snapshot("11111111111111111111111111111111", 4)),
-        reply(900, snapshot("11111111111111111111111111111111", 6))
+        reply(900, snapshot("11111111111111111111111111111111", 4, false, 1)),
+        reply(900, snapshot("11111111111111111111111111111111", 6, false, 3))
     });
 
     SuiteBridgeObservationService service(transport, config());
@@ -159,8 +163,9 @@ void testInitialHandshakeAndSnapshotOnlyPolling()
     assert(transport.commands.back() ==
            SuiteBridgeLocalCommand::Snapshot);
     assert(service.snapshot().hasDelta);
-    assert(service.snapshot().delta.total == 2);
+    assert(service.snapshot().delta.total == 4);
     assert(service.snapshot().delta.channelSwitch == 2);
+    assert(service.snapshot().delta.marksModified == 2);
     assert(service.snapshot().consecutiveFailures == 0);
 }
 
@@ -312,7 +317,7 @@ void testFreshnessBoundaries()
 void testEpochOverflowAndCounterRegression()
 {
     FakeTransport transport({
-        reply(900, discovery("1"[0] - '0', "available")),
+        reply(900, discovery(1, "available")),
         reply(900, snapshot("11111111111111111111111111111111", 4)),
         reply(900, snapshot("11111111111111111111111111111111", 8)),
         reply(900, snapshot("22222222222222222222222222222222", 2)),
@@ -340,8 +345,8 @@ void testEpochOverflowAndCounterRegression()
 
     FakeTransport regressionTransport({
         reply(900, discovery()),
-        reply(900, snapshot("33333333333333333333333333333333", 10)),
-        reply(900, snapshot("33333333333333333333333333333333", 9))
+        reply(900, snapshot("33333333333333333333333333333333", 10, false, 5)),
+        reply(900, snapshot("33333333333333333333333333333333", 10, false, 4))
     });
 
     SuiteBridgeObservationService regression(
@@ -353,7 +358,8 @@ void testEpochOverflowAndCounterRegression()
 
     assert(regression.snapshot().state ==
            SuiteBridgeObservationState::TransportDegraded);
-    assert(regression.snapshot().baseline.total == 10);
+    assert(regression.snapshot().baseline.total == 15);
+    assert(regression.snapshot().baseline.marksModified == 5);
     assert(!regression.snapshot().hasDelta);
     assert(regression.snapshot().diagnostic ==
            "suite bridge counters regressed within one epoch");
