@@ -160,7 +160,7 @@
     function previewCut() {
       if (!editable()) return; busy = true; confirmation.replaceChildren(); render();
       request('/api/vdr/recordings/cut').then(function (preview) {
-        if (destroyed) return;
+        if (destroyed) return; busy = false;
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         if (!preview.ready) { setStatus('error', preview.editedDestinationExists ? 'Eine geschnittene Ausgabe existiert bereits.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.'); return; }
         confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
