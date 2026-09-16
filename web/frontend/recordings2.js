@@ -61,17 +61,6 @@
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }
-  function notifyOpenRecordingMarksChanged() {
-    if (!state.active || !state.selectedRecording) return;
-    const detail = global.VdrSuiteRecordings2MarksDetail;
-    const target = shared.mountTarget();
-    const root = target && typeof target.querySelector === 'function'
-      ? target.querySelector('.recordings2-detail')
-      : null;
-    if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) {
-      detail.notifyExternalMarksChanged(root);
-    }
-  }
   const folderRefresh = refreshRuntime.create({
     getState: function () { return state; },
     fetchClientRecordingFolder: function (options) {
@@ -89,7 +78,7 @@
     applyFolderData: applyFolderData,
     render: render,
     loadFolder: loadFolder,
-    onRecordingMarksChanged: notifyOpenRecordingMarksChanged
+    onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); }
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
     stop: stopFolderRefresh, schedule: scheduleFolderRefresh, updatePresentedFolderState} = folderRefresh;
