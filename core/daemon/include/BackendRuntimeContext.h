@@ -17,6 +17,7 @@
 #include "PersistentEpgScraperMetadataResolver.h"
 #include "PersistentSeriesArtworkFallbackResolver.h"
 #include "PollingService.h"
+#include "RecordingMarksChangeTracker.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
@@ -87,6 +88,7 @@ struct BackendRuntimeContext
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
+    RecordingMarksChangeTracker recordingMarksChangeTracker;
 
     SuiteBridgeRecordingMarksResolver* ensureRecordingMarksResolver()
     {

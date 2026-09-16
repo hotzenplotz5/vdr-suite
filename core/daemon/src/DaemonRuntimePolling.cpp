@@ -19,6 +19,23 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             }
         }
 
+        if (backendRuntimeContext->suiteBridgeAgentRuntime) {
+            const auto health =
+                backendRuntimeContext->suiteBridgeAgentRuntime->health();
+            const auto& observation = health.observation;
+
+            if (observation.hasBaseline &&
+                backendRuntimeContext->recordingMarksChangeTracker.observe(
+                    observation.baseline.counterEpoch,
+                    observation.baseline.marksModified,
+                    observation.state ==
+                        vdrsuite::agent::SuiteBridgeObservationState::SnapshotCurrent,
+                    observation.baseline.counterOverflow)) {
+                readyChanges.emplace_back(
+                    VdrChangeType::RecordingMarksChanged);
+            }
+        }
+
         snapshotChangeFeedService_->appendChanges(
             *snapshotChangeFeed_,
             snapshotCacheService_->generation(),

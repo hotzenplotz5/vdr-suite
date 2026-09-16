@@ -1,3 +1,4 @@
+#include "RecordingMarksChangeTracker.h"
 #include "SnapshotChangeFeed.h"
 #include "SnapshotChangeFeedService.h"
 #include "VdrChangeEvent.h"
@@ -96,6 +97,22 @@ static void test_change_feed_service_preserves_backend_id()
     assert(entry.backendId() == "parents-vdr");
     assert(entry.snapshotGeneration() == 42);
     assertDomains(entry, {"channels", "liveOverlay"});
+}
+
+static void test_recording_marks_change_uses_narrow_domain()
+{
+    SnapshotChangeFeedService service;
+    const auto entry = service.createEntry(
+        2,
+        43,
+        {
+            VdrChangeEvent(VdrChangeType::RecordingMarksChanged),
+            VdrChangeEvent(VdrChangeType::RecordingMarksChanged)
+        },
+        "default");
+
+    assert(entry.hasChanges());
+    assertDomains(entry, {"recordingMarks"});
 }
 
 static void test_append_changes_adds_next_sequence_number()
@@ -213,6 +230,31 @@ static void test_explicit_live_overlay_change_is_not_duplicated()
     assertDomains(entry, {"status", "liveOverlay"});
 }
 
+static void test_recording_marks_change_tracker_consumes_each_advance_once()
+{
+    RecordingMarksChangeTracker tracker;
+
+    assert(!tracker.observe("epoch-a", 2, true, false));
+    assert(!tracker.observe("epoch-a", 2, true, false));
+    assert(tracker.observe("epoch-a", 3, true, false));
+    assert(!tracker.observe("epoch-a", 3, true, false));
+    assert(tracker.observe("epoch-a", 5, true, false));
+}
+
+static void test_recording_marks_change_tracker_fences_unusable_continuity()
+{
+    RecordingMarksChangeTracker tracker;
+
+    assert(!tracker.observe("epoch-a", 2, true, false));
+    assert(!tracker.observe("epoch-a", 4, false, false));
+    assert(tracker.observe("epoch-a", 4, true, false));
+
+    assert(!tracker.observe("epoch-a", 5, false, true));
+    assert(!tracker.observe("epoch-a", 6, true, false));
+    assert(!tracker.observe("epoch-b", 7, true, false));
+    assert(tracker.observe("epoch-b", 8, true, false));
+}
+
 int main()
 {
     test_entry_stores_sequence_generation_backend_and_domains();
@@ -221,6 +263,7 @@ int main()
     test_service_creates_feed_from_change_events();
     test_service_does_not_add_empty_feed_entry();
     test_change_feed_service_preserves_backend_id();
+    test_recording_marks_change_uses_narrow_domain();
     test_append_changes_adds_next_sequence_number();
     test_append_changes_increments_sequence_number();
     test_append_changes_does_not_add_empty_entry();
@@ -228,6 +271,8 @@ int main()
     test_append_changes_preserves_multiple_changed_domains();
     test_append_changes_preserves_multiple_backend_entries();
     test_explicit_live_overlay_change_is_not_duplicated();
+    test_recording_marks_change_tracker_consumes_each_advance_once();
+    test_recording_marks_change_tracker_fences_unusable_continuity();
 
     std::cout << "test_snapshot_change_feed passed" << std::endl;
     return 0;
