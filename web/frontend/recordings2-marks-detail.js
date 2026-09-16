@@ -179,16 +179,9 @@
   }
 
   function notifyExternalMarksChanged(root) {
-    if (!root) return false;
-    const editor = root.__vdrSuiteMarksEditor;
-    if (editor && typeof editor.notifyExternalMarksChanged === 'function') {
-      editor.notifyExternalMarksChanged();
-      return true;
-    }
-    root.__vdrSuiteExternalMarksRefreshPending = true;
-    return false;
+    const editor = root && root.__vdrSuiteMarksEditor; if (editor && typeof editor.notifyExternalMarksChanged === 'function') { editor.notifyExternalMarksChanged(); return true; }
+    if (root) root.__vdrSuiteExternalMarksRefreshPending = true; return false;
   }
-
   function enhance(root, recording, selectedBackendId) {
     if (!root || !root.dataset) return Promise.resolve(false);
     if (root.dataset.recordings2MarksDetail === 'true') {
@@ -210,10 +203,8 @@
       const attached = editor
         ? editor.attach(root, panel, recording, selectedBackendId, payload, {renderPayload: renderPayload})
         : null;
-      if (root.__vdrSuiteExternalMarksRefreshPending && attached &&
-          typeof attached.notifyExternalMarksChanged === 'function') {
-        delete root.__vdrSuiteExternalMarksRefreshPending;
-        attached.notifyExternalMarksChanged();
+      if (root.__vdrSuiteExternalMarksRefreshPending && attached && typeof attached.notifyExternalMarksChanged === 'function') {
+        delete root.__vdrSuiteExternalMarksRefreshPending; attached.notifyExternalMarksChanged();
       }
       ensureTimelineRuntime().then(function (timeline) {
         if (!timeline) return;
