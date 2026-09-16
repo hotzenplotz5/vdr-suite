@@ -177,7 +177,6 @@
     panel.body.replaceChildren(node('p', 'recordings2-marks-note', errorText(error)));
     panel.body.children[0].setAttribute('role', 'status');
   }
-
   function notifyExternalMarksChanged(root) {
     const editor = root && root.__vdrSuiteMarksEditor; if (editor && typeof editor.notifyExternalMarksChanged === 'function') { editor.notifyExternalMarksChanged(); return true; }
     if (root) root.__vdrSuiteExternalMarksRefreshPending = true; return false;
