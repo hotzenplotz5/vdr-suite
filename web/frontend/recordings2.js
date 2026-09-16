@@ -61,6 +61,17 @@
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }
+  function notifyOpenRecordingMarksChanged() {
+    if (!state.active || !state.selectedRecording) return;
+    const detail = global.VdrSuiteRecordings2MarksDetail;
+    const target = shared.mountTarget();
+    const root = target && typeof target.querySelector === 'function'
+      ? target.querySelector('.recordings2-detail')
+      : null;
+    if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) {
+      detail.notifyExternalMarksChanged(root);
+    }
+  }
   const folderRefresh = refreshRuntime.create({
     getState: function () { return state; },
     fetchClientRecordingFolder: function (options) {
@@ -77,7 +88,8 @@
     normalizeRecordings: normalizeRecordings,
     applyFolderData: applyFolderData,
     render: render,
-    loadFolder: loadFolder
+    loadFolder: loadFolder,
+    onRecordingMarksChanged: notifyOpenRecordingMarksChanged
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
     stop: stopFolderRefresh, schedule: scheduleFolderRefresh, updatePresentedFolderState} = folderRefresh;
@@ -161,11 +173,11 @@
       });
   }
   function selectRecording(recording) {
-    stopFolderRefresh();
     state.requestSequence += 1;
     clearExternalDetailReturn();
     state.selectedRecording = normalizeRecording(recording);
     render();
+    scheduleFolderRefresh();
   }
   function closeDetail() {
     const detailReturn = state.detailReturn;
@@ -208,7 +220,7 @@
       }
       state.active = true;
       render();
-      if (!state.selectedRecording) scheduleFolderRefresh(0);
+      scheduleFolderRefresh(0);
     },
     deactivate: function () {
       stopFolderRefresh();
@@ -228,7 +240,6 @@
       loadFolder(path || '');
     },
     openRecording: function (recording, options) {
-      stopFolderRefresh();
       const config = options && typeof options === 'object' ? options : {};
       state.requestSequence += 1;
       state.active = true;
@@ -242,6 +253,7 @@
       state.detailReturn = typeof config.onClose === 'function' ? config.onClose : null;
       state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
       render();
+      scheduleFolderRefresh();
     },
     refreshDetailAddon: function () { if (!state.active || !state.selectedRecording) return; const metadataDetail = global.VdrSuiteRecordings2MetadataDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (metadataDetail && typeof metadataDetail.enhance === 'function' && root && root.dataset && root.dataset.recordings2MetadataDetail !== 'true') { metadataDetail.enhance(root, state.selectedRecording, state.backendId); return; } render(); },
     __test: Object.freeze({

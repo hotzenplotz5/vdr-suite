@@ -178,6 +178,17 @@
     panel.body.children[0].setAttribute('role', 'status');
   }
 
+  function notifyExternalMarksChanged(root) {
+    if (!root) return false;
+    const editor = root.__vdrSuiteMarksEditor;
+    if (editor && typeof editor.notifyExternalMarksChanged === 'function') {
+      editor.notifyExternalMarksChanged();
+      return true;
+    }
+    root.__vdrSuiteExternalMarksRefreshPending = true;
+    return false;
+  }
+
   function enhance(root, recording, selectedBackendId) {
     if (!root || !root.dataset) return Promise.resolve(false);
     if (root.dataset.recordings2MarksDetail === 'true') {
@@ -196,7 +207,14 @@
       panel.section.dataset.marksRevision = text(payload.marksRevision);
       renderPayload(panel, payload);
       const editor = global.VdrSuiteRecordings2MarksEditor;
-      if (editor) editor.attach(root, panel, recording, selectedBackendId, payload, {renderPayload: renderPayload});
+      const attached = editor
+        ? editor.attach(root, panel, recording, selectedBackendId, payload, {renderPayload: renderPayload})
+        : null;
+      if (root.__vdrSuiteExternalMarksRefreshPending && attached &&
+          typeof attached.notifyExternalMarksChanged === 'function') {
+        delete root.__vdrSuiteExternalMarksRefreshPending;
+        attached.notifyExternalMarksChanged();
+      }
       ensureTimelineRuntime().then(function (timeline) {
         if (!timeline) return;
         timeline.bind(root, recording, payload);
@@ -246,6 +264,7 @@
     enhance: enhance,
     fetchMarks: fetchMarks,
     renderPayload: renderPayload,
-    errorText: errorText
+    errorText: errorText,
+    notifyExternalMarksChanged: notifyExternalMarksChanged
   });
 }(window));

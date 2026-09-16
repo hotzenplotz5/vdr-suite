@@ -28,7 +28,12 @@ function makeHarness() {
   const sources = [];
   const renders = [];
   const modules = new Map();
-  const target = {classList: {remove() {}}, querySelector() { return null; }};
+  const marksNotifications = [];
+  const detailRoot = {};
+  const target = {
+    classList: {remove() {}},
+    querySelector(selector) { return selector === '.recordings2-detail' ? detailRoot : null; }
+  };
   const tab = {classList: {contains() { return false; }, toggle() {}}, addEventListener() {}};
   const document = {
     hidden: false,
@@ -97,6 +102,9 @@ function makeHarness() {
         return Promise.resolve({folders: data.folders, recordings: []});
       }
     },
+    VdrSuiteRecordings2MarksDetail: {
+      notifyExternalMarksChanged(root) { marksNotifications.push(root); }
+    },
     VdrSuiteRecordings2BrowserView: browserView
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
@@ -132,7 +140,7 @@ function makeHarness() {
     await flush();
   }
   return {sources, api, owner: () => owner, requests, renders, timers, document, listeners,
-    advance, page, respond, failNextLeaves() { failLeaves = true; },
+    marksNotifications, detailRoot, advance, page, respond, failNextLeaves() { failLeaves = true; },
     setBackend(value) { backend = value; }};
 }
 
@@ -166,18 +174,25 @@ async function testLiveUpdates() {
   await h.advance(0);
   assert.strictEqual(h.requests.length, 4, 'daemon sequence reset refreshes');
   await h.respond(3, page);
+
   h.owner().selectRecording({id: '1'});
-  assert(source.closed, 'detail releases folder subscription');
-  source.emit(6, 'default', ['recordings']);
+  assert(!source.closed, 'detail keeps the existing recording subscription');
+  source.emit(6, 'other', ['recordingMarks']);
+  source.emit(7, 'default', ['recordingMarks']);
   await h.advance(0);
-  assert.strictEqual(h.requests.length, 4, 'late closed subscription cannot refresh');
+  assert.strictEqual(h.marksNotifications.length, 1, 'matching backend marks hint reaches detail');
+  assert.strictEqual(h.marksNotifications[0], h.detailRoot);
+  assert.strictEqual(h.requests.length, 4, 'marks hint does not refresh the recording folder');
+  source.emit(8, 'default', ['recordings']);
+  await h.advance(0);
+  assert.strictEqual(h.requests.length, 4, 'folder refresh remains suspended while detail is open');
   h.owner().closeDetail();
   await h.advance(0);
+  assert.strictEqual(h.requests.length, 5, 'deferred folder hint is recovered after closing detail');
   await h.respond(4, page);
-  const replacement = h.sources.at(-1);
-  assert.notStrictEqual(replacement, source);
+  assert.strictEqual(h.sources.at(-1), source, 'detail reuses the same EventSource');
   h.api.deactivate();
-  assert(replacement.closed, 'deactivation releases subscription');
+  assert(source.closed, 'deactivation releases subscription');
 }
 
 async function run() {

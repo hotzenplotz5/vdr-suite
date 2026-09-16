@@ -37,7 +37,7 @@
     actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; status.className = 'recordings2-marks-editor-status';
     confirmation.setAttribute('role', 'group'); confirmation.setAttribute('aria-label', 'Schnitt bestätigen'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(actions); controls.appendChild(confirmation); controls.appendChild(status);
-    let payload = initial, busy = false, pending = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, verificationAttempts = 0;
+    let payload = initial, busy = false, pending = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
     function request(path, body) {
       const api = global.VdrSuiteClientApi; if (!api || typeof api.requestJson !== 'function') return Promise.reject(new Error('client_unavailable'));
@@ -77,10 +77,38 @@
       const timeline = global.VdrSuiteRecordings2MarksTimeline; if (timeline) timeline.bind(root, recording, payload);
     }
     function syncCanonical(operation) { return request('/api/vdr/recordings/marks').then(function (next) { if (destroyed) return null; apply(next, operation); return next; }); }
+    function finishBusy() {
+      busy = false;
+      if (destroyed) return;
+      render();
+      if (externalRefreshPending) { drainExternalRefresh(); return; }
+      if (pending && verificationTimer === null) scheduleVerification();
+    }
+    function drainExternalRefresh() {
+      if (destroyed || busy || !externalRefreshPending) return;
+      externalRefreshPending = false;
+      busy = true;
+      syncCanonical(pending).then(function () {
+        if (destroyed) return;
+        setStatus(
+          pending ? 'pending' : '',
+          pending
+            ? 'Externe Schnittmarkenänderung geladen. Die Bestätigung des bestehenden Auftrags läuft unverändert weiter.'
+            : 'Schnittmarken von VDR aktualisiert.'
+        );
+      }).catch(function (error) {
+        if (!destroyed) setStatus('error', message(error));
+      }).finally(finishBusy);
+    }
+    function notifyExternalMarksChanged() {
+      if (destroyed) return;
+      externalRefreshPending = true;
+      drainExternalRefresh();
+    }
     function reload() {
       if (busy) return; busy = true; confirmation.replaceChildren(); render();
       syncCanonical(null).then(function () { if (!destroyed) setStatus('', pending ? 'Aktueller VDR-Stand geladen. Die Bestätigung des bestehenden Auftrags läuft weiter.' : 'Aktueller VDR-Stand geladen.'); })
-        .catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(function () { busy = false; if (!destroyed) render(); });
+        .catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(finishBusy);
     }
     function token() {
       if (!global.crypto || typeof global.crypto.getRandomValues !== 'function') throw new Error('operation_identity_unavailable');
@@ -122,7 +150,7 @@
           return syncCanonical(null).catch(function () { return null; }).then(function () { if (!destroyed) setStatus('error', message(error)); });
         }
         setStatus('error', message(error)); scheduleVerification();
-      }).finally(function () { busy = false; if (!destroyed) render(); });
+      }).finally(finishBusy);
     }
     function confirm(label, action) {
       confirmation.replaceChildren(node('p', label));
@@ -132,11 +160,11 @@
     function previewCut() {
       if (!editable()) return; busy = true; confirmation.replaceChildren(); render();
       request('/api/vdr/recordings/cut').then(function (preview) {
-        if (destroyed) return; busy = false;
+        if (destroyed) return;
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         if (!preview.ready) { setStatus('error', preview.editedDestinationExists ? 'Eine geschnittene Ausgabe existiert bereits.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.'); return; }
         confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
-      }).catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(function () { busy = false; if (!destroyed) render(); });
+      }).catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(finishBusy);
     }
     function selectAndSeek(mark) {
       selectedFrame = Number(mark.positionFrame); render(); const active = playback(), state = snapshot();
@@ -206,8 +234,8 @@
         const key = JSON.stringify([state && state.sessionId, state && state.state, state && state.transition]); if (!destroyed && key !== lifecycleKey) { lifecycleKey = key; render(); }
       }) : null;
     }
-    function destroy() { destroyed = true; clearVerificationTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
-    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe}); root.__vdrSuiteMarksEditor = result; observe(); render(); return result;
+    function destroy() { destroyed = true; externalRefreshPending = false; clearVerificationTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
+    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe, notifyExternalMarksChanged: notifyExternalMarksChanged}); root.__vdrSuiteMarksEditor = result; observe(); render(); return result;
   }
   global.VdrSuiteRecordings2MarksEditor = Object.freeze({attach: attach});
 }(window));

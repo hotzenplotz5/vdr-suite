@@ -61,6 +61,13 @@ function allText(root) {
   return result;
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return {promise, resolve, reject};
+}
+
 async function flush() { for (let i = 0; i < 16; ++i) await Promise.resolve(); }
 
 async function run() {
@@ -90,6 +97,7 @@ async function run() {
   let mode = 'queued';
   let previewReady = true;
   let revisionCounter = 11;
+  let deferredMutation = null;
   const requests = [];
   const appliedOperations = new Set();
   const timers = new Map();
@@ -155,6 +163,7 @@ async function run() {
       requests.push({path, config, body});
       if (!body) return Promise.resolve(path.endsWith('/cut')
         ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
+      if (deferredMutation) return deferredMutation.promise;
       if (mode === 'lease') return Promise.reject(new Error('active_agent_lease_required'));
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
       if (mode === 'conflict') return Promise.reject(new Error('recording_marks_revision_conflict'));
@@ -186,6 +195,8 @@ async function run() {
   root = mount.querySelector('.recordings2-detail');
   assert(root && root.__vdrSuiteRecordingPlaybackOwner === owner);
   assert.strictEqual(playbackCreations, 1);
+  const editor = root.__vdrSuiteMarksEditor;
+  assert(editor && typeof editor.notifyExternalMarksChanged === 'function');
 
   function findButton(label) {
     let found;
@@ -197,6 +208,7 @@ async function run() {
   }
   function button(label) { const found = findButton(label); assert(found, label); return found; }
   function posts() { return requests.filter(request => request.body); }
+  function markReads() { return requests.filter(request => !request.body && request.path === '/api/vdr/recordings/marks'); }
 
   assert(button('Marke setzen').disabled);
   button('Start im Playback-Owner').click();
@@ -333,7 +345,49 @@ async function run() {
   assert.deepStrictEqual(posts().at(-1).body, lost);
   assert(!findButton('Auftrag prüfen'));
 
-  const editor = root.__vdrSuiteMarksEditor;
+  // External marks hints must not replace, confirm or duplicate an own pending mutation.
+  position = 52;
+  mode = 'queued';
+  const readsBeforeExternalBurst = markReads().length;
+  deferredMutation = deferred();
+  button('Marke setzen').click(); await flush();
+  const externalPendingOperation = posts().at(-1).body;
+  assert.strictEqual(externalPendingOperation.targetFrame, 1300);
+  assert(button('Marke setzen').disabled);
+
+  native = Object.assign({}, native, {
+    marksRevision: revision(),
+    marks: native.marks.concat([markForFrame(1500)]).sort((left, right) => left.positionFrame - right.positionFrame)
+  });
+  editor.notifyExternalMarksChanged();
+  editor.notifyExternalMarksChanged();
+  editor.notifyExternalMarksChanged();
+  await flush();
+  assert.strictEqual(markReads().length, readsBeforeExternalBurst, 'external burst waits for busy mutation');
+
+  const pendingMutationReply = deferredMutation;
+  deferredMutation = null;
+  pendingMutationReply.resolve({
+    accepted: true,
+    operationId: externalPendingOperation.operationId,
+    verification: 'readback_required'
+  });
+  await flush();
+  assert.strictEqual(
+    markReads().length,
+    readsBeforeExternalBurst + 2,
+    'mutation readback plus one coalesced external canonical refresh'
+  );
+  assert(allText(root).includes('Frame 1500'));
+  assert(allText(root).includes('bestehenden Auftrags läuft unverändert weiter'));
+  assert(button('Marke setzen').disabled, 'external refresh never confirms the pending operation');
+  assert.deepStrictEqual(posts().at(-1).body, externalPendingOperation);
+
+  mode = 'verified';
+  await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body, externalPendingOperation, 'verification reuses exact operation identity and body');
+  assert(!button('Marke setzen').disabled);
+
   publish({transition: 'session-replaced', sessionId: 'two', state: 'playing'});
   assert.strictEqual(root.__vdrSuiteMarksEditor, editor);
   assert.strictEqual(playbackCreations, 1, 'editing never creates another playback owner');
@@ -365,7 +419,7 @@ async function run() {
   publish({transition: 'destroyed', state: 'destroyed'});
   assert.strictEqual(listeners.size, 0);
   assert.strictEqual(timers.size, 0);
-  console.log('native marks editor add/delete/reset/move/navigation/readback and failure-state hardening ok');
+  console.log('native marks editor add/delete/reset/move/navigation/readback/external-sync and failure-state hardening ok');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -12,6 +12,12 @@
     let lastSequence = 0;
     let connectionSequence = 0;
 
+    function notifyRecordingMarksChanged() {
+      if (typeof options.onRecordingMarksChanged === 'function') {
+        options.onRecordingMarksChanged();
+      }
+    }
+
     function subscribe() {
       const client = options.shared.clientApi();
       if (source || !client || typeof client.createClientLiveUpdateSource !== 'function') return;
@@ -29,8 +35,11 @@
         if (sequence <= lastSequence) return;
         lastSequence = sequence;
         if (String(data.backendId || 'default') !== state().backendId ||
-            !Array.isArray(data.changedDomains) ||
-            !data.changedDomains.includes('recordings')) return;
+            !Array.isArray(data.changedDomains)) return;
+        if (data.changedDomains.includes('recordingMarks')) {
+          notifyRecordingMarksChanged();
+        }
+        if (!data.changedDomains.includes('recordings')) return;
         pending = true;
         if (!busy) schedule(0);
       });
@@ -41,6 +50,7 @@
         if (connectionSequence < lastSequence) {
           lastSequence = connectionSequence;
           pending = true;
+          if (state().selectedRecording) notifyRecordingMarksChanged();
           if (!busy) schedule(0);
         }
       };
@@ -114,8 +124,9 @@
 
     function schedule(delay) {
       cancelTimer();
-      if (!state().active || state().selectedRecording) return;
+      if (!state().active) return;
       subscribe();
+      if (state().selectedRecording) return;
       timer = global.setTimeout(function () {
         timer = null;
         refresh();
