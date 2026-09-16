@@ -43,6 +43,22 @@ The historical PR #268 checkpoint above remains unchanged. A separate bounded fo
 
 The isolated RMARKS harness uses fake VDR headers and does not perform a Recording mutation. These results do not establish a new installed-plugin runtime acceptance, a new cut, or resolution of the earlier Brisant `index`/`info` observation. No installed yaVDR update, service restart or further Recording mutation is implied by the GitHub merge.
 
+## Native marks live-refresh hardening — 2026-09-16
+
+A later bounded hardening pass completed the external/native marks-observation path and was fast-forwarded to `main` at accepted head `27eb334088fdd5bca1800fc51e9bc90314333912` on 2026-09-16. The accepted path is deliberately narrow:
+
+`VDR MarksModified -> embedded SuiteBridge observation/runtime -> RecordingMarksChanged -> recordingMarks SSE hint -> canonical marks reload in the already-open Recordings 2 detail`
+
+The implementation keeps VDR as the sole authority for marks and cutting. The SuiteBridge status callback records only a counter, the embedded observation runtime compares the counter within its epoch, and the daemon publishes a narrow marks-change signal. `RecordingMarksChanged` does not request the broad Recording snapshot/cache refresh used by `RecordingsChanged`. The existing Recordings 2 SSE owner remains the single EventSource; no second marks-specific EventSource was introduced. Polling remains a recovery path rather than the primary fast path.
+
+The open marks editor refreshes through its existing canonical marks GET path. External refreshes are coalesced, can be deferred until the editor is attached or no longer busy, and do not cancel or falsely confirm a pending Suite-owned marks mutation. The related cut-confirmation regression discovered during the hardening pass was restored before acceptance.
+
+Focused acceptance on the hardening head passed the Recording 2 runtime/modularity contract, SSE auto-refresh tests, marks editor tests, marks detail tests, detail playback-persistence tests, auto-refresh wiring checks and snapshot change-feed tests. The daemon was rebuilt with explicit `RecordingMarksChanged` handling in `SnapshotRefreshPlanner`; the resulting build no longer emitted the missing-switch warning. The installed SuiteBridge plugin, daemon and Recordings frontend were then exercised on the real yaVDR system.
+
+Real yaVDR acceptance is PASS: with one Recording detail already open in the browser, a cut mark changed natively through VDR became visible in that same open detail immediately, without manual reload. This verifies the intended real-system path from the native VDR marks notification through the embedded SuiteBridge observation/runtime and narrow live-update signal into the existing frontend detail refresh.
+
+The focused hardening evidence does not claim a fresh hosted GitHub CI run for `27eb334088fdd5bca1800fc51e9bc90314333912`. A separate existing failure in `test_recordings2_marks_placement_contract.js` was proven to predate this hardening branch: the test expected the marker stem to end at `bottom:0`, while the unchanged timeline implementation already used `bottom:-1.25rem`. That contradiction remains a preexisting, unrelated test issue and is not evidence against the accepted external marks live-refresh path.
+
 ## Remaining boundaries
 
 MARKAD remains optional and is not a second marks authority. No irreversible automatic MARKAD cut, automatic original deletion, active/growing Recording editing, generalized nonlinear editor, broad Home performance work or Phase-67 runtime work is included. Any unresolved acceptance item must retain its precise evidence status in the detailed record rather than being converted into an invented PASS.
