@@ -111,6 +111,10 @@
       repairMetadataImagePaths(root);
       metadataView.applyToDetail(root, presented);
       prioritizeDetailPoster(root);
+      const heroDetail = global.VdrSuiteRecordings2HeroDetail;
+      if (heroDetail && typeof heroDetail.enhance === 'function') {
+        heroDetail.enhance(root, recording, backendId, presented);
+      }
       loadAssignmentRuntime().then(function (runtime) {
         runtime.mount(root, recording, backendId, presented);
       }).catch(function (error) { renderAssignmentLoadError(root, error); });
