@@ -14,6 +14,7 @@ install-recordings2-runtime:
 		web/frontend/recordings2-folder-refresh.js \
 		web/frontend/recordings2-browser-view.js \
 		web/frontend/recordings2-hero-detail.js \
+		web/frontend/recordings2-hero-visibility.js \
 		web/frontend/recordings2-marks-timeline.js \
 		web/frontend/recordings2-marks-editor.js \
 		web/frontend/recordings2-marks-detail.js \
@@ -41,6 +42,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-folder-refresh.js
 	node --check web/frontend/recordings2-browser-view.js
 	node --check web/frontend/recordings2-hero-detail.js
+	node --check web/frontend/recordings2-hero-visibility.js
 	node --check web/frontend/recordings2-marks-editor.js
 	node --check web/frontend/recordings2-marks-detail.js
 	node --check web/frontend/recordings2-marks-timeline.js
@@ -77,6 +79,8 @@ test-recordings2-install-staging: test-install-staging
 	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2FolderRefresh = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2HeroDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'recordings2-metadata-assignment' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'new global.MutationObserver' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksEditor = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
