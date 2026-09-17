@@ -210,7 +210,7 @@
       facts,
       'Genre',
       (Array.isArray(metadata && metadata.genres) ? metadata.genres : [])
-        .map(text).filter(Bolean).slice(0, 3).join(' · ')
+        .map(text).filter(Boolean).slice(0, 3).join(' · ')
     );
     const duration = Number(shared.first(recording, ['durationSeconds', 'duration'], 0));
     if (Number.isFinite(duration) && duration > 0) appendFact(facts, 'Dauer', shared.formatDuration(duration));
