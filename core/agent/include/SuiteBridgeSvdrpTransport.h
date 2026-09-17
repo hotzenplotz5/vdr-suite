@@ -8,6 +8,7 @@
 #include "ISuiteBridgeRecordingCutStateTransport.h"
 #include "ISuiteBridgeRecordingMarksTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
+#include "ISuiteBridgeTeletextTransport.h"
 #include "SuiteBridgeLiveSourceTransport.h"
 
 #include <algorithm>
@@ -45,6 +46,7 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeRecordingCutStateTransport,
     public ::ISuiteBridgeRecordingMarksTransport,
     public ::ISuiteBridgeRecordingMetadataTransport,
+    public ::ISuiteBridgeTeletextTransport,
     public IBackendAgentNativeProbeTransport,
     public ISuiteBridgeLiveSourceTransport
 {
@@ -81,6 +83,11 @@ public:
 
     ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
         const std::string& recordingKey) override;
+
+    ::SuiteBridgeTeletextCommandReply discoverTeletext() override;
+
+    ::SuiteBridgeTeletextCommandReply requestTeletextPage(
+        const ::SuiteBridgeTeletextPageRequest& request) override;
 
     SuiteBridgeCommandReply discoverNativeProbe() override
     {
