@@ -29,6 +29,9 @@ Branch authority: main
 Accepted Home rebuild merge checkpoint:
 ea5967b983aee9ccc3f855b685db01abbfb2326a
 
+Latest post-Phase-66 Live-TV lifecycle correction:
+PR #289 -> main merge 7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b
+
 Latest completed numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
@@ -43,6 +46,8 @@ none - post-Phase-66 Home rebuild is completed; Phase 67 has not started
 ```
 
 The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree. This SHA is a durable Home-rebuild checkpoint, not a substitute for reading the live `main` head.
+
+The later Live-TV lifecycle correction was merged by PR #289 as `7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b`. It is a bounded post-closeout correctness fix, not a new numbered phase and not a Phase-67 kickoff.
 
 ## Phase 66 and post-phase completion state
 
@@ -65,7 +70,8 @@ Merged post-Phase-66 work includes, among other bounded follow-ups:
 - PR #281 Home artwork preview diagnostics;
 - PR #282 artwork-preview cache-hit fast path;
 - PR #283 deferred Series metadata hierarchy completion;
-- the subsequent Home-rebuild commit series ending at `0cce4d1c...`, merged as `ea5967b9...`.
+- the subsequent Home-rebuild commit series ending at `0cce4d1c...`, merged as `ea5967b9...`;
+- PR #289 Live-TV lifecycle correction preventing transient `HTMLMediaElement.ended` from being converted into a synthetic `client_closed` MediaSession termination.
 
 ## Current accepted Home boundary
 
@@ -101,7 +107,7 @@ Home performance work must preserve the accepted reduction of Recording metadata
 - **Phase 62 - Identity, RBAC and Accountability Foundation** remains authoritative for actor identity, backend-scoped authorization, browser session/CSRF and accountability.
 - **Phase 63 - Backend Agent and Secure Multi-Site Runtime** remains authoritative for Agent identity, generation/lease fencing, provider ownership and durable command/result handling.
 - **Phase 64 - Timer Intent and Multi-Backend Orchestration** remains authoritative for `TimerIntent -> TimerAssignment -> NativeTimerBinding`, managed fulfillment and controlled reassignment/failover.
-- **Phase 65 - Streaming Gateway and Media Sessions** remains authoritative for Recording/Live MediaSession, least-transformation delivery and normalized playback ownership.
+- **Phase 65 - Streaming Gateway and Media Sessions** remains authoritative for Recording/Live MediaSession, least-transformation delivery and normalized playback ownership. The post-closeout PR #289 correction preserves that ownership model: transient Live `ended` is not an explicit stop boundary, while explicit stop, backend change, browser-session loss, replacement handoff and fatal player error remain lifecycle boundaries.
 - **Phase 66 - Media Home and Browse Experience** remains the completed numbered Home/browse phase; later Home work is non-numbered hardening.
 
 ## Next authorization boundary
