@@ -25,7 +25,7 @@ Current active numbered runtime phase: **none; Phase 67 has not started**.
 
 Next strict numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
 
-Phase 66 is completed. Later Home/Recording performance and correctness work is non-numbered post-phase hardening and is also completed for the merged accepted scopes. The consolidated evidence is in [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md).
+Phase 66 is completed. Later Home/Recording/Live performance and correctness work is non-numbered post-phase hardening and is also completed for the merged accepted scopes. The consolidated Home evidence is in [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md); the accepted current Recording-detail presentation is captured in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md).
 
 ## Durable foundation
 
@@ -49,7 +49,8 @@ Merged work preserves immediate browse behavior while reducing unnecessary rebui
 - same-backend warm Home return reuses complete projections where valid;
 - Recording Discovery/Series work is progressively fenced and avoids global metadata fan-out;
 - recent movie expansion preserves the mounted rail and position;
-- EPG cache timeout recovery and preview-cache fast paths prevent avoidable stale/fallback presentation.
+- EPG cache timeout recovery and preview-cache fast paths prevent avoidable stale/fallback presentation;
+- the public EPG artwork/metadata cache routes required by the Home/metadata readers are restored and guarded after the H2/H2.1 rewrite regression.
 
 ### Home rebuild / current presentation
 
@@ -72,9 +73,31 @@ The final folder-poster regression was accepted on the real yaVDR/browser path: 
 
 The Phase-66 closeout historically recorded an unresolved Series metadata/artwork projection symptom. That item is no longer current. Subsequent merged work added explicit unsettled/settled metadata semantics, bounded retries, progressive/scoped completion, hierarchy repair and retained canonical Series ownership. The later Home rebuild completed manual hierarchy/artwork behavior and protected the accepted no-fan-out performance boundary.
 
+### Recording detail / cinematic Hero
+
+The current Recordings 2 detail surface is no longer just the older technical detail layout. The accepted post-Phase-66 detail work provides:
+
+- a cinematic/full-page Hero composition for the selected Recording;
+- compact factual metadata and prominent playback entry;
+- cast/person presentation and related-Genre Recording cards;
+- retained metadata, marks and playback modes inside the canonical Recordings 2 detail owner;
+- canonical-owner playback prewarm so explicit Play can start immediately without autoplay, duplicate MediaSessions or false Continue Watching/history publication;
+- corrected related-Genre poster selection where locked manual posters remain authoritative and native portrait metadata wins before weaker preferred-artwork fallback;
+- real yaVDR/browser validation including mobile Hero rendering and corrected portrait covers.
+
+See [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md) for the accepted PR/runtime identity and boundaries.
+
 ### Native Recording editing
 
-Post-Phase-66 native Recording marks/cutting is also merged and documented separately in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md). VDR remains the canonical marks/cutter authority.
+Post-Phase-66 native Recording marks/cutting is also merged and documented separately in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md). VDR remains the canonical marks/cutter authority. Later marks-control hardening must be treated separately until it has its own accepted merged evidence.
+
+### Live-TV lifecycle stabilization
+
+The completed Phase-65 persistent playback architecture remains authoritative. A later browser regression showed that continuous Live/MSE playback could emit `HTMLMediaElement.ended`; the persistent shell incorrectly translated that into a hard stop and destroyed the still-owned MediaSession, producing the observed backend `client_closed` terminal reason.
+
+The accepted stabilization removes `ended` as an implicit Live-TV STOP boundary while retaining the real boundaries: explicit stop, backend change, browser-session loss, replacement handoff and fatal player error. The focused lifecycle regression passed and the corrected frontend ran on the real yaVDR/browser path beyond the previous failure window without dropping.
+
+The durable evidence lives in [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md).
 
 ## Forward ordering
 
@@ -105,6 +128,9 @@ The following are not unfinished Phase 65/66 work:
 
 - [Current State](../CURRENT.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 65 Closeout](phase-65-closeout.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
