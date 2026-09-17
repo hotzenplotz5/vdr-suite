@@ -34,6 +34,7 @@ test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching_home_flush.js
 	node web/frontend/tests/test_phase66_continue_watching_navigation_contract.js
 	node web/frontend/tests/test_phase66_visual_polish_accessibility.js
+	node web/frontend/tests/test_recordings2_hero_prewarm_contract.js
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
 test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
@@ -59,3 +60,4 @@ test-phase66-continue-watching-install-staging:
 	test -f /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js
 	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/home-continue-watching.js >/dev/null
 	grep -F '/api/media/continue-watching' /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null
+	grep -F "state !== 'starting'" /tmp/vdr-suite-phase66-cw-pkgroot/usr/share/vdr-suite/web/frontend/api/continue-watching-sync.js >/dev/null

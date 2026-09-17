@@ -13,6 +13,9 @@ install-recordings2-runtime:
 		web/frontend/recording-playback-restart-choice.js \
 		web/frontend/recordings2-folder-refresh.js \
 		web/frontend/recordings2-browser-view.js \
+		web/frontend/recordings2-hero-detail.js \
+		web/frontend/recordings2-hero-prewarm.js \
+		web/frontend/recordings2-hero-visibility.js \
 		web/frontend/recordings2-marks-timeline.js \
 		web/frontend/recordings2-marks-editor.js \
 		web/frontend/recordings2-marks-detail.js \
@@ -39,6 +42,9 @@ test-recordings2-runtime:
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-folder-refresh.js
 	node --check web/frontend/recordings2-browser-view.js
+	node --check web/frontend/recordings2-hero-detail.js
+	node --check web/frontend/recordings2-hero-prewarm.js
+	node --check web/frontend/recordings2-hero-visibility.js
 	node --check web/frontend/recordings2-marks-editor.js
 	node --check web/frontend/recordings2-marks-detail.js
 	node --check web/frontend/recordings2-marks-timeline.js
@@ -59,6 +65,8 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_marks_placement_contract.js
 	node web/frontend/tests/test_recordings2_marks_editor.js
 	node web/frontend/tests/test_recordings2_metadata_detail.js
+	node web/frontend/tests/test_recordings2_hero_detail_contract.js
+	node web/frontend/tests/test_recordings2_hero_prewarm_contract.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
 	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
 	python3 tools/check_recordings2_runtime_wiring.py
@@ -73,6 +81,10 @@ test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js
 	grep -F 'global.VdrSuiteRecordingPlaybackRestartChoice = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2FolderRefresh = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'global.VdrSuiteRecordings2HeroDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F '__vdrSuiteHeroPlaybackPrewarmPromise' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'recordings2-metadata-assignment' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'new global.MutationObserver' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksEditor = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
