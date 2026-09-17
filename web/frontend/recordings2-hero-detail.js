@@ -24,9 +24,6 @@
 .recordings2-hero-mode-back{position:fixed;top:1.25rem;left:clamp(1rem,3vw,3rem);z-index:14;min-height:2.65rem;padding:.55rem .9rem;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(10,13,18,.76);color:#f8fafc;font-weight:850;box-shadow:0 .5rem 2rem rgba(0,0,0,.25);backdrop-filter:blur(16px)}
 .recordings2-hero-mode-back[hidden]{display:none!important}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-header{display:none}
-.recordings2-hero-page>.recordings2-detail-hero{position:relative;z-index:2;display:grid;grid-template-columns:minmax(12rem,18rem) minmax(0,1fr);gap:clamp(1.5rem,3vw,3rem);align-items:end;min-height:min(78vh,58rem);margin:0;padding:clamp(6rem,11vw,10rem) clamp(1.25rem,5vw,5rem) clamp(3rem,6vw,5.5rem);border:0;border-radius:0;background:linear-gradient(90deg,rgba(7,9,12,.98) 0%,rgba(7,9,12,.9) 32%,rgba(7,9,12,.46) 63%,rgba(7,9,12,.2) 100%)}
-.recordings2-hero-page>.recordings2-detail-hero::before{content:'';position:absolute;inset:0;z-index:-3;background-image:var(--recordings2-hero-backdrop);background-size:cover;background-position:center 24%;opacity:.62;filter:saturate(.92);transform:scale(1.018)}
-.recordings2-hero-page>.recordings2-detail-hero::after{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,rgba(7,9,12,.96) 0%,rgba(7,9,12,.82) 33%,rgba(7,9,12,.34) 68%,rgba(7,9,12,.16) 100%),linear-gradient(180deg,rgba(7,9,12,.08) 0%,rgba(7,9,12,.04) 58%,#090b0f 100%)}
 .recordings2-hero-page .recordings2-detail-poster{align-self:end;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:.9rem;background:#15181e;box-shadow:0 1.6rem 4rem rgba(0,0,0,.48)}
 .recordings2-hero-page .recordings2-detail-poster img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover}
 .recordings2-hero-page .recordings2-detail-copy{display:grid;gap:1rem;max-width:62rem;padding-bottom:.25rem;text-shadow:0 .14rem .9rem rgba(0,0,0,.54)}
@@ -34,20 +31,37 @@
 .recordings2-hero-page .recordings2-subtitle{margin:0;color:#d1d5db;font-size:1rem}
 .recordings2-hero-page .recordings2-detail-description{max-width:54rem;margin:0;color:#e5e7eb;font-size:clamp(1rem,1.35vw,1.18rem);line-height:1.58}
 .recordings2-hero-eyebrow{color:#c7ddff;font-size:.76rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
-.recordings2-hero-badges{display:flex;flex-wrap:wrap;gap:.48rem}.recordings2-hero-badge{display:inline-flex;align-items:center;min-height:1.95rem;padding:.24rem .66rem;border:1px solid rgba(255,255,255,.24);border-radius:.4rem;background:rgba(18,20,25,.58);color:#f8fafc;font-size:.76rem;font-weight:850;backdrop-filter:blur(12px)}
-.recordings2-hero-actions{display:flex;flex-wrap:wrap;gap:.62rem;padding-top:.3rem}.recordings2-hero-actions button{min-height:3rem;padding:.66rem 1.15rem;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(15,18,23,.64);color:#f8fafc;font-weight:850;box-shadow:0 .35rem 1.25rem rgba(0,0,0,.14);backdrop-filter:blur(14px)}.recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}.recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
-.recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem}.recordings2-hero-person img,.recordings2-hero-person-placeholder{width:2.8rem;height:2.8rem;border-radius:50%;object-fit:cover;background:#252a33}.recordings2-hero-person-placeholder{display:grid;place-items:center;color:#6b7280;font-weight:900}.recordings2-hero-person-copy{display:grid;gap:.08rem}.recordings2-hero-person-copy strong{font-size:.8rem}.recordings2-hero-person-copy span{color:#d1d5db;font-size:.68rem}
-.recordings2-hero-page>.recordings2-detail-grid,.recordings2-hero-page>.recordings2-playback,.recordings2-hero-page>.recordings2-actions,.recordings2-hero-page>.recordings2-metadata-tabs,.recordings2-hero-page>.recordings2-metadata-panel,.recordings2-hero-related{position:relative;z-index:2;margin-left:clamp(1.25rem,5vw,5rem);margin-right:clamp(1.25rem,5vw,5rem)}
-.recordings2-hero-page>.recordings2-detail-grid{grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.65rem;margin-top:1rem}.recordings2-hero-page>.recordings2-detail-grid .recordings2-detail-field{border-color:rgba(255,255,255,.1);background:rgba(18,21,27,.68)}
-.recordings2-hero-related{display:grid;gap:.85rem;margin-top:1.9rem}.recordings2-hero-related-head{display:flex;align-items:end;justify-content:space-between;gap:1rem}.recordings2-hero-related-head h4{margin:0;color:#fff;font-size:1.35rem}.recordings2-hero-related-head span{color:#9ca3af;font-size:.78rem}.recordings2-hero-related-rail{display:flex;gap:.85rem;overflow-x:auto;padding:.15rem 0 .7rem;scroll-snap-type:x proximity;scrollbar-width:thin}.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start}.recordings2-hero-related-poster{display:grid;place-items:center;aspect-ratio:2/3;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:.7rem;background:#171a20;color:#d1d5db;font-size:1.3rem;box-shadow:0 .7rem 1.8rem rgba(0,0,0,.2)}.recordings2-hero-related-poster img{display:block;width:100%;height:100%;object-fit:cover}.recordings2-hero-related-card:hover .recordings2-hero-related-poster,.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:#b9d8ff;box-shadow:0 0 0 2px rgba(185,216,255,.2)}.recordings2-hero-related-card:focus-visible{outline:none}.recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
-.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-actions,.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-tabs,.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-detail-hero,.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-detail-grid,.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-actions,.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-metadata-tabs,.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-metadata-panel,.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-hero-related{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-detail-hero,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-detail-grid,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-actions,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-metadata-tabs,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-metadata-panel,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-hero-related{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-detail-hero,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-detail-grid,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-actions,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-hero-related{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-playback{margin-top:5.5rem;margin-bottom:2rem;padding:clamp(1rem,3vw,2rem);border-radius:1rem;background:#05070b;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
-.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
-@media(max-width:820px){.recordings2-hero-page>.recordings2-detail-hero{grid-template-columns:9rem minmax(0,1fr);gap:1.2rem;min-height:auto;padding-top:6rem}.recordings2-hero-page .recordings2-detail-copy h3{font-size:clamp(2.2rem,8vw,3.8rem)}}
-@media(max-width:620px){.recordings2-hero-page>.recordings2-detail-hero{grid-template-columns:1fr;padding-top:5.5rem}.recordings2-hero-page .recordings2-detail-poster{width:min(44vw,10rem)}.recordings2-hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.recordings2-hero-actions button{width:100%}.recordings2-hero-page>.recordings2-detail-grid{grid-template-columns:1fr 1fr}}
+.recordings2-hero-facts{display:flex;flex-wrap:wrap;align-items:center;gap:.42rem 1rem;color:#e2e8f0;font-size:.86rem;font-weight:700;text-shadow:0 .14rem .9rem rgba(0,0,0,.54)}
+.recordings2-hero-fact{display:inline-flex;align-items:baseline;gap:.32rem;white-space:nowrap}
+.recordings2-hero-fact-label{color:#94a3b8;font-size:.69rem;font-weight:850;letter-spacing:.035em;text-transform:uppercase}
+.recordings2-hero-fact-value{color:#f8fafc}
+.recordings2-hero-fact.rating .recordings2-hero-fact-value{color:#fde68a}
+.recordings2-hero-actions{display:flex;flex-wrap:wrap;gap:.62rem;padding-top:.3rem}
+.recordings2-hero-actions button{min-height:3rem;padding:.66rem 1.15rem;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(15,18,23,.64);color:#f8fafc;font-weight:850;box-shadow:0 .35rem 1.25rem rgba(0,0,0,.14);backdrop-filter:blur(14px)}
+.recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}
+.recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
+.recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}
+.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem}
+.recordings2-hero-person img,.recordings2-hero-person-placeholder{width:2.8rem;height:2.8rem;border-radius:50%;object-fit:cover;background:#252a33}
+.recordings2-hero-person-placeholder{display:grid;place-items:center;color:#6b7280;font-weight:900}
+.recordings2-hero-person-copy{display:grid;gap:.08rem}
+.recordings2-hero-person-copy strong{font-size:.8rem}
+.recordings2-hero-person-copy span{color:#d1d5db;font-size:.68rem}
+.recordings2-hero-related{position:relative;z-index:2;display:grid;gap:.85rem;margin:1.9rem clamp(1.25rem,5vw,5rem) 0}
+.recordings2-hero-related-head{display:flex;align-items:end;justify-content:space-between;gap:1rem}
+.recordings2-hero-related-head h4{margin:0;color:#fff;font-size:1.35rem}
+.recordings2-hero-related-head span{color:#9ca3af;font-size:.78rem}
+.recordings2-hero-related-rail{display:flex;gap:.85rem;overflow-x:auto;padding:.15rem 0 .7rem;scroll-snap-type:x proximity;scrollbar-width:thin}
+.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start}
+.recordings2-hero-related-poster{display:grid;place-items:center;aspect-ratio:2/3;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:.7rem;background:#171a20;color:#d1d5db;font-size:1.3rem;box-shadow:0 .7rem 1.8rem rgba(0,0,0,.2)}
+.recordings2-hero-related-poster img{display:block;width:100%;height:100%;object-fit:cover}
+.recordings2-hero-related-card:hover .recordings2-hero-related-poster,.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:#b9d8ff;box-shadow:0 0 0 2px rgba(185,216,255,.2)}
+.recordings2-hero-related-card:focus-visible{outline:none}
+.recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
+.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
+.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
+@media(max-width:820px){.recordings2-hero-page .recordings2-detail-copy h3{font-size:clamp(2.2rem,8vw,3.8rem)}}
+@media(max-width:620px){.recordings2-hero-page .recordings2-detail-poster{width:min(44vw,10rem)}.recordings2-hero-actions{display:grid;grid-template-columns:1fr}.recordings2-hero-actions button{width:100%}}
 `;
     document.head.appendChild(style);
   }
@@ -73,22 +87,11 @@
       : '';
   }
 
-  function releaseYear(metadata) {
-    const value = text(metadata && (metadata.releaseDate || metadata.firstAired));
-    const match = /^(\d{4})/.exec(value);
-    return match ? match[1] : '';
-  }
-
   function actorList(metadata) {
     return (Array.isArray(metadata && metadata.people) ? metadata.people : [])
       .filter(function (person) {
         return person && text(person.role).toLowerCase() === 'actor' && text(person.name);
       });
-  }
-
-  function appendBadge(container, value) {
-    const normalized = text(value);
-    if (normalized) container.appendChild(shared.node('span', 'recordings2-hero-badge', normalized));
   }
 
   function makeButton(label, action, primary) {
@@ -134,38 +137,87 @@
     global.setTimeout(function () { focusSection(root, selector, buttonText); }, 0);
   }
 
-  function renderHeroActions(root, copy) {
+  function resumePosition(recording) {
+    const value = Number(shared.first(recording, ['resumePositionSeconds'], 0));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+
+  function startPlayback(root, recording) {
+    const position = resumePosition(recording);
+    showMode(root, 'playback', '.recordings2-volume-owner-shell');
+    global.setTimeout(function () {
+      const owner = root && root.__vdrSuiteRecordingPlaybackOwner;
+      if (!owner) return;
+      let request = null;
+      try {
+        if (position > 0 && typeof owner.startAtAbsolute === 'function') {
+          request = owner.startAtAbsolute(position);
+        } else if (position > 0 && typeof owner.start === 'function' &&
+                   typeof owner.seekAbsolute === 'function') {
+          request = Promise.resolve(owner.start()).then(function (sessionId) {
+            return sessionId ? owner.seekAbsolute(position) : sessionId;
+          });
+        } else if (typeof owner.start === 'function') {
+          request = owner.start();
+        }
+      } catch (error) {
+        return;
+      }
+      if (request && typeof request.catch === 'function') request.catch(function () {});
+    }, 0);
+  }
+
+  function renderHeroActions(root, copy, recording) {
     if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
     const actions = shared.node('div', 'recordings2-hero-actions');
-    actions.appendChild(makeButton('▶ Abspielen', function () {
-      showMode(root, 'playback', '.recordings2-playback');
-    }, true));
-    actions.appendChild(makeButton('Schnittmarken', function () {
-      showMode(root, 'marks', '.recordings2-marks-detail', 'Marke setzen');
-    }));
-    actions.appendChild(makeButton('Schneiden', function () {
-      showMode(root, 'marks', '.recordings2-marks-detail', 'Schneiden');
-    }));
+    const position = resumePosition(recording);
+    actions.appendChild(makeButton(
+      position > 0 ? '▶ Wiedergabe fortsetzen' : '▶ Abspielen',
+      function () { startPlayback(root, recording); },
+      true
+    ));
     actions.appendChild(makeButton('Metadaten', function () {
       showMode(root, 'metadata', '.recordings2-metadata-tabs');
     }));
     copy.appendChild(actions);
   }
 
-  function renderHeroMetadata(copy, metadata) {
-    if (!copy || copy.querySelector('.recordings2-hero-badges')) return;
-    const eyebrow = shared.node('div', 'recordings2-hero-eyebrow', 'VDR-Suite · Aufnahme');
-    copy.insertBefore(eyebrow, copy.firstChild);
-    const badges = shared.node('div', 'recordings2-hero-badges');
-    appendBadge(badges, releaseYear(metadata));
-    (Array.isArray(metadata && metadata.genres) ? metadata.genres : []).slice(0, 3)
-      .forEach(function (genre) { appendBadge(badges, genre); });
-    if (Number(metadata && metadata.voteAverage) > 0) {
-      appendBadge(badges, '★ ' + Number(metadata.voteAverage).toFixed(1) + ' / 10');
+  function releaseDate(metadata) {
+    const value = text(metadata && (metadata.releaseDate || metadata.firstAired));
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    return match ? match[3] + '.' + match[2] + '.' + match[1] : value;
+  }
+
+  function appendFact(container, label, value, className) {
+    const normalized = text(value);
+    if (!normalized) return;
+    const fact = shared.node('span', 'recordings2-hero-fact' + (className ? ' ' + className : ''));
+    fact.appendChild(shared.node('span', 'recordings2-hero-fact-label', label));
+    fact.appendChild(shared.node('span', 'recordings2-hero-fact-value', normalized));
+    container.appendChild(fact);
+  }
+
+  function renderHeroFacts(copy, recording, metadata) {
+    if (!copy || copy.querySelector('.recordings2-hero-facts')) return;
+    copy.insertBefore(shared.node('div', 'recordings2-hero-eyebrow', 'VDR-Suite · Aufnahme'), copy.firstChild);
+    const facts = shared.node('div', 'recordings2-hero-facts');
+    const rating = Number(metadata && metadata.voteAverage);
+    if (Number.isFinite(rating) && rating > 0) {
+      appendFact(facts, 'Bewertung', '★ ' + rating.toFixed(1) + ' / 10', 'rating');
     }
-    appendBadge(badges, 'Aufnahme');
+    appendFact(facts, 'Veröffentlichung', releaseDate(metadata));
+    appendFact(
+      facts,
+      'Genre',
+      (Array.isArray(metadata && metadata.genres) ? metadata.genres : [])
+        .map(text).filter(Bolean).slice(0, 3).join(' · ')
+    );
+    const duration = Number(shared.first(recording, ['durationSeconds', 'duration'], 0));
+    if (Number.isFinite(duration) && duration > 0) appendFact(facts, 'Dauer', shared.formatDuration(duration));
+    const sizeMb = Number(shared.first(recording, ['sizeMb'], 0));
+    if (Number.isFinite(sizeMb) && sizeMb > 0) appendFact(facts, 'Größe', shared.formatSize(sizeMb));
     const description = copy.querySelector('.recordings2-detail-description');
-    copy.insertBefore(badges, description || null);
+    copy.insertBefore(facts, description || null);
   }
 
   function renderHeroCast(copy, metadata) {
@@ -186,9 +238,7 @@
       }
       const personCopy = shared.node('span', 'recordings2-hero-person-copy');
       personCopy.appendChild(shared.node('strong', '', person.name));
-      if (text(person.characterName)) {
-        personCopy.appendChild(shared.node('span', '', person.characterName));
-      }
+      if (text(person.characterName)) personCopy.appendChild(shared.node('span', '', person.characterName));
       item.appendChild(personCopy);
       cast.appendChild(item);
     });
@@ -219,9 +269,7 @@
       poster.replaceChildren(image);
     }
     button.appendChild(poster);
-    button.appendChild(shared.node(
-      'span', 'recordings2-hero-related-title', shared.recordingTitle(recording)
-    ));
+    button.appendChild(shared.node('span', 'recordings2-hero-related-title', shared.recordingTitle(recording)));
     button.addEventListener('click', function () {
       const runtime = global.VdrSuiteRecordings2;
       if (!runtime || typeof runtime.openRecording !== 'function') return;
@@ -267,9 +315,7 @@
       });
       section.appendChild(rail);
       root.appendChild(section);
-    }).catch(function () {
-      // Related recordings are optional; the primary detail page remains fully usable.
-    });
+    }).catch(function () {});
   }
 
   function enhance(root, recording, backendId, metadata) {
@@ -280,21 +326,25 @@
     ensureModeBack(root).hidden = true;
     const backdrop = backdropUrl(metadata);
     if (backdrop && root.style && typeof root.style.setProperty === 'function') {
-      root.style.setProperty(
-        '--recordings2-hero-backdrop',
-        'url("' + backdrop.replace(/"/g, '%22') + '")'
-      );
+      root.style.setProperty('--recordings2-hero-backdrop', 'url("' + backdrop.replace(/"/g, '%22') + '")');
     }
     const copy = root.querySelector('.recordings2-detail-copy');
-    renderHeroMetadata(copy, metadata);
+    renderHeroFacts(copy, recording, metadata);
     renderHeroCast(copy, metadata);
-    renderHeroActions(root, copy);
+    renderHeroActions(root, copy, recording);
     renderRelated(root, recording, backendId, metadata);
     return root;
   }
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
-    __test: Object.freeze({backdropUrl, releaseYear, actorList, sameRecording, showMode})
+    __test: Object.freeze({
+      backdropUrl,
+      actorList,
+      sameRecording,
+      showMode,
+      resumePosition,
+      releaseDate
+    })
   });
 }(window));

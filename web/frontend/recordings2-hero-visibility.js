@@ -64,10 +64,14 @@
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{position:relative;z-index:2;display:grid;grid-template-columns:minmax(12rem,18rem) minmax(0,1fr);gap:clamp(1.5rem,3vw,3rem);align-items:end;min-height:min(78vh,58rem);margin:0;padding:clamp(6rem,11vw,10rem) clamp(1.25rem,5vw,5rem) clamp(3rem,6vw,5.5rem);border:0;border-radius:0;background:linear-gradient(90deg,rgba(7,9,12,.98) 0%,rgba(7,9,12,.9) 32%,rgba(7,9,12,.46) 63%,rgba(7,9,12,.2) 100%)}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero::before{content:'';position:absolute;inset:0;z-index:-3;background-image:var(--recordings2-hero-backdrop);background-size:cover;background-position:center 24%;opacity:.62;filter:saturate(.92);transform:scale(1.018)}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero::after{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,rgba(7,9,12,.96) 0%,rgba(7,9,12,.82) 33%,rgba(7,9,12,.34) 68%,rgba(7,9,12,.2) 100%),linear-gradient(180deg,rgba(7,9,12,.08) 0%,rgba(7,9,12,.04) 58%,#090b0f 100%)}
-.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid{position:relative;z-index:2;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.65rem;margin:1rem clamp(1.25rem,5vw,5rem) 0}
-.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid .recordings2-detail-field{border-color:rgba(255,255,255,.1);background:rgba(18,21,27,.68)}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-volume-owner-shell{display:none!important}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell>.recordings2-playback{margin:0!important}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-metadata-panel.recordings2-hero-recording-panel,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-metadata-panel.recordings2-hero-recording-panel{position:relative;z-index:2;margin:0 clamp(1.25rem,5vw,5rem)!important;padding:0;border:0;background:transparent}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.65rem;margin:0}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"] .recordings2-marks-detail,.recordings2-hero-page[data-recordings2-hero-mode="marks"] .recordings2-marks-detail{position:relative;z-index:2;margin:1rem clamp(1.25rem,5vw,5rem) 0}
 @media(max-width:820px){.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:9rem minmax(0,1fr);gap:1.2rem;min-height:auto;padding-top:6rem}}
-@media(max-width:620px){.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:1fr;padding-top:5.5rem}.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:1fr;padding-top:5.5rem}}
 `;
     global.document.head.appendChild(style);
   }
@@ -79,6 +83,7 @@
     const playback = mode === 'playback';
     const marks = mode === 'marks';
     const metadata = mode === 'metadata';
+    const playbackSurface = playback || marks;
     const panels = elements(root, '.recordings2-metadata-panel');
     const primary = recordingPanel(root);
 
@@ -87,17 +92,17 @@
     }
 
     setHidden(root, '.recordings2-detail-hero', !(detail || metadata));
-    setHidden(root, '.recordings2-detail-grid', !(detail || metadata));
+    setHidden(root, '.recordings2-detail-grid', !(playbackSurface || metadata));
     setHidden(root, '.recordings2-hero-related', !detail);
-
-    setHidden(root, '.recordings2-playback', !(playback || marks));
+    setHidden(root, '.recordings2-playback', !playbackSurface);
+    setHidden(root, '.recordings2-volume-owner-shell', !playbackSurface);
+    setHidden(root, '.recordings2-marks-detail', !playbackSurface);
     setHidden(root, '.recordings2-actions', true);
-
     setHidden(root, '.recordings2-metadata-tabs', !metadata);
     setHidden(root, '.recordings2-metadata-assignment', !metadata);
     setHidden(root, '[data-recordings2-metadata-assignment-error]', !metadata);
 
-    if (detail) {
+    if (detail || playbackSurface) {
       panels.forEach(function (panel) {
         setElementHidden(panel, panel !== primary, panel === primary ? 'block' : '');
       });
