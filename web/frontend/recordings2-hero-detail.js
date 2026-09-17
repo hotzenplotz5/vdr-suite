@@ -287,35 +287,121 @@
     return button;
   }
 
+  function appendRelatedSection(root, recording, backendId, title, subtitle, matches) {
+    if (!root || root.querySelector('.recordings2-hero-related') || !matches.length) return false;
+    const section = shared.node('section', 'recordings2-hero-related');
+    const head = shared.node('div', 'recordings2-hero-related-head');
+    head.appendChild(shared.node('h4', '', title));
+    head.appendChild(shared.node('span', '', subtitle));
+    section.appendChild(head);
+    const rail = shared.node('div', 'recordings2-hero-related-rail');
+    matches.forEach(function (candidate) {
+      rail.appendChild(createRelatedCard(candidate, recording, backendId));
+    });
+    section.appendChild(rail);
+    root.appendChild(section);
+    return true;
+  }
+
+  function normalizedGenre(value) {
+    return text(value).toLocaleLowerCase('de-DE');
+  }
+
+  function genreLabels(metadata) {
+    return (Array.isArray(metadata && metadata.genres) ? metadata.genres : [])
+      .map(text)
+      .filter(Boolean);
+  }
+
+  function matchingGenre(payload, metadata) {
+    const genres = payload && Array.isArray(payload.genres) ? payload.genres : [];
+    const wanted = genreLabels(metadata).map(normalizedGenre);
+    return genres.find(function (genre) {
+      return wanted.indexOf(normalizedGenre(genre && genre.label)) !== -1 ||
+        wanted.indexOf(normalizedGenre(genre && genre.id)) !== -1;
+    }) || null;
+  }
+
+  function renderGenreRelated(root, recording, backendId, metadata, api) {
+    if (!root || root.querySelector('.recordings2-hero-related')) return Promise.resolve(false);
+    if (!api || typeof api.fetchClientGenres !== 'function' ||
+        typeof api.fetchClientGenreRecordings !== 'function') {
+      return Promise.resolve(false);
+    }
+    if (!genreLabels(metadata).length) return Promise.resolve(false);
+
+    return Promise.resolve(api.fetchClientGenres({
+      backendId: backendId,
+      scope: 'recordings',
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (overview) {
+      const genre = matchingGenre(overview, metadata);
+      if (!genre || !text(genre.id)) return false;
+      return api.fetchClientGenreRecordings({
+        backendId: backendId,
+        genreId: genre.id,
+        limit: 20,
+        offset: 0,
+        cache: 'no-store',
+        credentials: 'same-origin'
+      }).then(function (result) {
+        if (!root.isConnected && typeof root.isConnected === 'boolean') return false;
+        const matches = (result && Array.isArray(result.items) ? result.items : [])
+          .filter(Boolean)
+          .filter(function (candidate) { return !sameRecording(candidate, recording); })
+          .slice(0, 12);
+        return appendRelatedSection(
+          root,
+          recording,
+          backendId,
+          'Mehr aus ' + text(genre.label || genre.id),
+          String(matches.length) + ' Aufnahme(n) im selben Genre',
+          matches
+        );
+      });
+    }).catch(function () { return false; });
+  }
+
   function renderRelated(root, recording, backendId, metadata) {
     if (!root || root.querySelector('.recordings2-hero-related')) return;
     const actor = actorList(metadata)[0];
     const api = shared.clientApi();
-    if (!actor || !api || typeof api.fetchClientRecordingPersons !== 'function') return;
+    if (!api) return;
+
+    const fallback = function () {
+      return renderGenreRelated(root, recording, backendId, metadata, api);
+    };
+
+    if (!actor || typeof api.fetchClientRecordingPersons !== 'function') {
+      fallback();
+      return;
+    }
+
     api.fetchClientRecordingPersons({
       backendId: backendId,
       query: {name: actor.name, limit: 20},
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
-      if (!root.isConnected && typeof root.isConnected === 'boolean') return;
+      if (!root.isConnected && typeof root.isConnected === 'boolean') return false;
       const matches = (result && Array.isArray(result.matches) ? result.matches : [])
         .map(function (match) { return match && match.recording ? match.recording : null; })
         .filter(Boolean)
-        .filter(function (candidate) { return !sameRecording(candidate, recording); });
-      if (!matches.length) return;
-      const section = shared.node('section', 'recordings2-hero-related');
-      const head = shared.node('div', 'recordings2-hero-related-head');
-      head.appendChild(shared.node('h4', '', 'Weitere Filme mit ' + actor.name));
-      head.appendChild(shared.node('span', '', String(matches.length) + ' lokale Aufnahme(n)'));
-      section.appendChild(head);
-      const rail = shared.node('div', 'recordings2-hero-related-rail');
-      matches.forEach(function (candidate) {
-        rail.appendChild(createRelatedCard(candidate, recording, backendId));
-      });
-      section.appendChild(rail);
-      root.appendChild(section);
-    }).catch(function () {});
+        .filter(function (candidate) { return !sameRecording(candidate, recording); })
+        .slice(0, 12);
+      if (matches.length) {
+        return appendRelatedSection(
+          root,
+          recording,
+          backendId,
+          'Weitere Filme mit ' + actor.name,
+          String(matches.length) + ' lokale Aufnahme(n)',
+          matches
+        );
+      }
+      return fallback();
+    }).catch(fallback);
   }
 
   function enhance(root, recording, backendId, metadata) {
@@ -344,7 +430,9 @@
       sameRecording,
       showMode,
       resumePosition,
-      releaseDate
+      releaseDate,
+      genreLabels,
+      matchingGenre
     })
   });
 }(window));

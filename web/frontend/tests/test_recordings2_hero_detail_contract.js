@@ -47,13 +47,23 @@ assert(visibility.includes('detail || playbackSurface'),
   'playback must keep the metadata-owned recording panel available for technical facts');
 assert(visibility.includes('recordings2-hero-recording-panel'),
   'nested recording panel must retain its explicit layout hook');
+assert(visibility.includes('overflow:hidden'),
+  'Hero backdrop must be clipped to prevent an image seam below the Hero');
 assert(visibility.includes('new global.MutationObserver'),
   'visibility wiring must react to async DOM changes');
 
 assert(source.includes("entry.orientation === 'landscape' || entry.orientation === 'banner'"),
   'hero backdrop must prefer landscape/banner metadata artwork');
 assert(source.includes("query: {name: actor.name, limit: 20}"),
-  'related rail must reuse local person search');
+  'related rail must reuse local person search first');
+assert(source.includes('fetchClientGenres'),
+  'related rail must be able to discover recording genres as fallback');
+assert(source.includes('fetchClientGenreRecordings'),
+  'related rail must load same-genre recordings as fallback');
+assert(source.includes("scope: 'recordings'"),
+  'genre fallback must stay scoped to local recordings');
+assert(source.includes("'Mehr aus ' + text(genre.label || genre.id)"),
+  'genre fallback rail must identify the matched genre');
 assert(source.includes('!sameRecording(candidate, recording)'),
   'current recording must be excluded from related recordings');
 assert(source.includes('runtime.openRecording(recording'),
