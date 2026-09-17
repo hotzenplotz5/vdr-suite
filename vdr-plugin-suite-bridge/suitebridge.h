@@ -16,6 +16,8 @@
 #include "suitebridge_recording_marks_modify.h"
 #include "suitebridge_recording_marks_modify_vdr.h"
 #include "suitebridge_status_monitor.h"
+#include "suitebridge_teletext_adapter.h"
+#include "suitebridge_teletext_command.h"
 
 #include <vdr/plugin.h>
 
@@ -44,6 +46,8 @@ private:
   SuiteBridgeNativeProbeService nativeProbe_;
   SuiteBridgeLiveCapabilityService liveCapability_;
   SuiteBridgeLiveSourceService liveSource_;
+  SuiteBridgeTeletextAdapter teletextAdapter_;
+  SuiteBridgeTeletextCommandService teletextCommand_;
   SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;
   SuiteBridgeNativeTimerCreateService nativeTimerCreate_;
   SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_;
