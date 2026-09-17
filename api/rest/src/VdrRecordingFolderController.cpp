@@ -74,6 +74,19 @@ const VdrRecordingNativeArtwork* selectMetadataArtwork(
     const std::string& kind,
     int index)
 {
+    if (kind == "poster")
+    {
+        if (index != 0) return nullptr;
+        for (const VdrRecordingNativeArtwork& artwork : metadata.images)
+        {
+            if (artwork.orientation == "portrait" &&
+                artwork.available && !artwork.path.empty())
+            {
+                return &artwork;
+            }
+        }
+        return &metadata.preferredArtwork;
+    }
     if (kind == "preferred") return index == 0 ? &metadata.preferredArtwork : nullptr;
     if (kind == "person")
     {
@@ -633,7 +646,8 @@ ApiResponse VdrRecordingFolderController::getMetadataImage(
             400,
             "backendNativeId, kind and non-negative index are required");
 
-    if (kind != "preferred" && kind != "person" && kind != "gallery")
+    if (kind != "poster" && kind != "preferred" &&
+        kind != "person" && kind != "gallery")
         return jsonError(400, "unsupported recording metadata image kind");
 
     if (manualMetadataLookup_)
@@ -643,7 +657,7 @@ ApiResponse VdrRecordingFolderController::getMetadataImage(
         if (manual.found && manual.relationshipLocked)
         {
             std::string localPath;
-            if (kind == "preferred" && index == 0)
+            if ((kind == "poster" || kind == "preferred") && index == 0)
                 localPath = manual.posterReference;
             else if (kind == "person" &&
                      static_cast<std::size_t>(index) < manual.people.size())
@@ -655,6 +669,8 @@ ApiResponse VdrRecordingFolderController::getMetadataImage(
                     localPath,
                     metadataImageAllowedRoots_);
             }
+            if (kind == "poster")
+                return jsonError(404, "recording metadata image not found");
         }
     }
 

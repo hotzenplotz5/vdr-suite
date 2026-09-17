@@ -243,6 +243,8 @@ int main()
     // Legacy schema remains usable; native summaries are an additive cache read.
     const ApiResponse legacyRecordings = controller.getRecordings("default", "science-fiction", 10, 0);
     assert(legacyRecordings.statusCode == 200);
+    assert(contains(legacyRecordings, "&kind=poster&index=0"));
+    assert(!contains(legacyRecordings, "&kind=preferred&index=0"));
     assert(!contains(legacyRecordings, "seriesMetadata"));
     assert(database.execute(
         "ALTER TABLE vdr_recording_native_metadata ADD COLUMN title TEXT DEFAULT '';"

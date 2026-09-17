@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <string>
@@ -92,6 +93,19 @@ static int traceSql(
 int main()
 {
     std::remove("/tmp/test_vdr_recording_folder_controller.db");
+    std::remove("/tmp/vdr-suite-movie-landscape.jpg");
+    std::remove("/tmp/vdr-suite-movie-poster.jpg");
+
+    {
+        std::ofstream landscape(
+            "/tmp/vdr-suite-movie-landscape.jpg",
+            std::ios::binary);
+        std::ofstream portrait(
+            "/tmp/vdr-suite-movie-poster.jpg",
+            std::ios::binary);
+        landscape << "LANDSCAPE";
+        portrait << "PORTRAIT";
+    }
 
     Database database;
     assert(database.open("/tmp/test_vdr_recording_folder_controller.db"));
@@ -152,7 +166,7 @@ int main()
             landscape.available = true;
             landscape.provider = "tvscraper";
             landscape.path =
-                "/var/cache/vdr-suite/recording-metadata/movie-landscape.jpg";
+                "/tmp/vdr-suite-movie-landscape.jpg";
             landscape.width = 1600;
             landscape.height = 900;
             landscape.orientation = "landscape";
@@ -162,7 +176,7 @@ int main()
             portrait.available = true;
             portrait.provider = "tvscraper";
             portrait.path =
-                "/var/cache/vdr-suite/recording-metadata/movie-poster.jpg";
+                "/tmp/vdr-suite-movie-poster.jpg";
             portrait.width = 1000;
             portrait.height = 1500;
             portrait.orientation = "portrait";
@@ -200,7 +214,7 @@ int main()
             }
             return assignments;
         },
-        {});
+        {"/tmp"});
 
     const ApiResponse status =
         controller.getStatus("default");
@@ -282,7 +296,7 @@ int main()
         "&kind=gallery&index=0"));
     assert(!contains(
         movies.body,
-        "/var/cache/vdr-suite/recording-metadata/movie-poster.jpg"));
+        "/tmp/vdr-suite-movie-poster.jpg"));
 
     const ApiResponse rootAgain =
         controller.getFolder("default", "", 20, 0);
@@ -308,12 +322,32 @@ int main()
     assert(contains(nativeMetadata.body, "\"name\":\"Tom Hanks\""));
     assert(contains(nativeMetadata.body, "\"characterName\":\"Robert Langdon\""));
 
+    const ApiResponse posterImage = controller.getMetadataImage(
+        "default",
+        "/srv/vdr/video/Movies/Movie/2026-07-02.20.15.1-0.rec",
+        "poster",
+        0);
+    assert(posterImage.statusCode == 200);
+    assert(posterImage.contentType == "image/jpeg");
+    assert(posterImage.body == "PORTRAIT");
+
+    const ApiResponse preferredImage = controller.getMetadataImage(
+        "default",
+        "/srv/vdr/video/Movies/Movie/2026-07-02.20.15.1-0.rec",
+        "preferred",
+        0);
+    assert(preferredImage.statusCode == 200);
+    assert(preferredImage.body == "LANDSCAPE");
+
     const ApiResponse missingMetadata = controller.getMetadata(
         "default",
         "/srv/vdr/video/Movies/Missing.rec");
-    assert(manualLookupCalls == 2);
+    assert(manualLookupCalls == 4);
     assert(missingMetadata.statusCode == 200);
     assert(contains(missingMetadata.body, "\"available\":false"));
+
+    std::remove("/tmp/vdr-suite-movie-landscape.jpg");
+    std::remove("/tmp/vdr-suite-movie-poster.jpg");
 
     std::cout
         << "test_vdr_recording_folder_controller passed"
