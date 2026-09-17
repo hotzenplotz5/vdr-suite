@@ -64,6 +64,13 @@
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{position:relative;z-index:2;display:grid;grid-template-columns:minmax(12rem,18rem) minmax(0,1fr);gap:clamp(1.5rem,3vw,3rem);align-items:end;min-height:min(78vh,58rem);margin:0;padding:clamp(6rem,11vw,10rem) clamp(1.25rem,5vw,5rem) clamp(3rem,6vw,5.5rem);overflow:hidden;border:0;border-radius:0;background:linear-gradient(90deg,rgba(7,9,12,.98) 0%,rgba(7,9,12,.9) 32%,rgba(7,9,12,.46) 63%,rgba(7,9,12,.2) 100%)}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero::before{content:'';position:absolute;inset:0;z-index:-3;background-image:var(--recordings2-hero-backdrop);background-size:cover;background-position:center 24%;opacity:.62;filter:saturate(.92);transform:scale(1.018)}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero::after{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,rgba(7,9,12,.96) 0%,rgba(7,9,12,.82) 33%,rgba(7,9,12,.34) 68%,rgba(7,9,12,.2) 100%),linear-gradient(180deg,rgba(7,9,12,.08) 0%,rgba(7,9,12,.04) 58%,#090b0f 100%)}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-eyebrow{order:0}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>h3{order:1}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-subtitle{order:2}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-facts{order:3}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions{order:4}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-detail-description{order:5}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-cast{order:6}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-volume-owner-shell{display:none!important}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell>.recordings2-playback{margin:0!important}
