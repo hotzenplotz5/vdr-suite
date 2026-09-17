@@ -49,10 +49,22 @@ assert(visibility.includes('recordings2-hero-recording-panel'),
   'nested recording panel must retain its explicit layout hook');
 assert(visibility.includes('overflow:hidden'),
   'Hero backdrop must be clipped to prevent an image seam below the Hero');
-assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-actions{order:4}'),
-  'Hero actions must be placed immediately after the compact film facts');
+assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-actions{display:contents}'),
+  'Hero action wrapper must allow primary and secondary actions to be positioned independently');
+assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-actions>button.primary{order:4}'),
+  'primary playback must stay immediately after the compact film facts');
 assert(visibility.includes('.recordings2-detail-copy>.recordings2-detail-description{order:5}'),
-  'long description must follow the primary Hero actions');
+  'long description must follow primary playback');
+assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-cast{order:6}'),
+  'cast must remain below the description');
+assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-actions>button:not(.primary){order:7'),
+  'secondary metadata action must move below description and cast');
+assert(visibility.includes('syncHeroFactsFromDetail(root)'),
+  'Hero must recover missing compact facts from the canonical recording detail fields');
+assert(visibility.includes("elements(root, '.recordings2-detail-field')"),
+  'Hero fallback must reuse the already-rendered recording detail truth');
+assert(visibility.includes("['Bewertung', 'Veröffentlichung', 'Genre', 'Dauer', 'Größe']"),
+  'Hero fallback must preserve all requested compact facts');
 assert(visibility.includes('new global.MutationObserver'),
   'visibility wiring must react to async DOM changes');
 

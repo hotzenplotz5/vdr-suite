@@ -54,6 +54,76 @@
     return selected >= 0 && selected < panels.length ? selected : 0;
   }
 
+  function detailFieldValue(root, label) {
+    const fields = elements(root, '.recordings2-detail-field');
+    for (let index = 0; index < fields.length; index += 1) {
+      const field = fields[index];
+      if (!field || typeof field.querySelector !== 'function') continue;
+      const fieldLabel = field.querySelector('span');
+      const fieldValue = field.querySelector('strong');
+      if (!fieldLabel || !fieldValue) continue;
+      if (String(fieldLabel.textContent || '').trim() !== label) continue;
+      return String(fieldValue.textContent || '').trim();
+    }
+    return '';
+  }
+
+  function normalizeFallbackFact(label, value) {
+    let normalized = String(value || '').trim();
+    if (!normalized || normalized === '–' || normalized === 'Dauer unbekannt') return '';
+
+    if (label === 'Bewertung') {
+      const rating = Number(normalized.replace(',', '.').split('/')[0].trim());
+      return Number.isFinite(rating) && rating > 0
+        ? '★ ' + rating.toFixed(1) + ' / 10'
+        : '';
+    }
+
+    if (label === 'Veröffentlichung') {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+      if (match) normalized = match[3] + '.' + match[2] + '.' + match[1];
+    }
+
+    if (label === 'Genre') {
+      normalized = normalized
+        .split(/[|,]/)
+        .map(function (entry) { return entry.trim(); })
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' · ');
+    }
+
+    return normalized;
+  }
+
+  function syncHeroFactsFromDetail(root) {
+    if (!root || typeof root.querySelector !== 'function' || !global.document) return;
+    const facts = root.querySelector('.recordings2-hero-facts');
+    if (!facts) return;
+
+    const present = elements(facts, '.recordings2-hero-fact-label').map(function (entry) {
+      return String(entry.textContent || '').trim();
+    });
+
+    ['Bewertung', 'Veröffentlichung', 'Genre', 'Dauer', 'Größe'].forEach(function (label) {
+      if (present.indexOf(label) !== -1) return;
+      const value = normalizeFallbackFact(label, detailFieldValue(root, label));
+      if (!value) return;
+
+      const fact = global.document.createElement('span');
+      fact.className = 'recordings2-hero-fact' + (label === 'Bewertung' ? ' rating' : '');
+      const factLabel = global.document.createElement('span');
+      factLabel.className = 'recordings2-hero-fact-label';
+      factLabel.textContent = label;
+      const factValue = global.document.createElement('span');
+      factValue.className = 'recordings2-hero-fact-value';
+      factValue.textContent = value;
+      fact.append(factLabel, factValue);
+      facts.appendChild(fact);
+      present.push(label);
+    });
+  }
+
   function installNestedStyles() {
     if (!global.document || typeof global.document.getElementById !== 'function' ||
         global.document.getElementById(STYLE_ID)) return;
@@ -68,9 +138,11 @@
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>h3{order:1}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-subtitle{order:2}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-facts{order:3}
-.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions{order:4}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions{display:contents}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions>button.primary{order:4}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-detail-description{order:5}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-cast{order:6}
+.recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions>button:not(.primary){order:7;margin-top:.35rem}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-volume-owner-shell{display:none!important}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell>.recordings2-playback{margin:0!important}
@@ -98,6 +170,7 @@
       primary.classList.add('recordings2-hero-recording-panel');
     }
 
+    syncHeroFactsFromDetail(root);
     setHidden(root, '.recordings2-detail-hero', !(detail || metadata));
     setHidden(root, '.recordings2-detail-grid', !(playbackSurface || metadata));
     setHidden(root, '.recordings2-hero-related', !detail);
@@ -155,6 +228,6 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
-    __test: Object.freeze({apply, recordingPanel, selectedMetadataPanel})
+    __test: Object.freeze({apply, recordingPanel, selectedMetadataPanel, syncHeroFactsFromDetail})
   });
 }(window));
