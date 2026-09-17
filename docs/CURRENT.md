@@ -15,8 +15,10 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Current Project Status](development/current-status.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md)
 - [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md)
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR Index](adr/index.md)
@@ -29,6 +31,9 @@ Branch authority: main
 Accepted Home rebuild merge checkpoint:
 ea5967b983aee9ccc3f855b685db01abbfb2326a
 
+Latest accepted post-phase runtime merge checkpoint:
+7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b
+
 Latest completed numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
@@ -39,10 +44,12 @@ Next strict numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active runtime slice:
-none - post-Phase-66 Home rebuild is completed; Phase 67 has not started
+none - accepted post-Phase-66 Home/Recording/Live hardening is merged; Phase 67 has not started
 ```
 
 The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree. This SHA is a durable Home-rebuild checkpoint, not a substitute for reading the live `main` head.
+
+The later accepted post-phase runtime chain includes the Recordings 2 cinematic detail/presentation work, the related-Genre portrait correction and the Live-TV `ended` lifecycle stabilization. The current live `main` head must still be queried before repository-state actions; the runtime checkpoint above is historical evidence, not a permanent branch tip.
 
 ## Phase 66 and post-phase completion state
 
@@ -65,7 +72,14 @@ Merged post-Phase-66 work includes, among other bounded follow-ups:
 - PR #281 Home artwork preview diagnostics;
 - PR #282 artwork-preview cache-hit fast path;
 - PR #283 deferred Series metadata hierarchy completion;
-- the subsequent Home-rebuild commit series ending at `0cce4d1c...`, merged as `ea5967b9...`.
+- the subsequent Home-rebuild commit series ending at `0cce4d1c...`, merged as `ea5967b9...`;
+- PR #285 restoration of the EPG artwork/metadata cache routes dropped during the Home H2/H2.1 rewrite;
+- PR #287 cinematic Recordings 2 detail/hero presentation and canonical-owner playback prewarm;
+- PR #288 canonical portrait poster selection for related-Genre Recording cards;
+- PR #289 Live-TV `ended` lifecycle stabilization so a transient media-element EOF does not destroy the canonical Live MediaSession;
+- PR #291 documentation of the accepted Live-TV lifecycle stabilization.
+
+Open or draft branches/PRs are not accepted current-state truth until they are merged and separately documented where required.
 
 ## Current accepted Home boundary
 
@@ -86,6 +100,35 @@ The first-party Home state now includes the completed original Phase-66 experien
 
 The earlier Phase-66-closeout note that visible Series metadata/artwork could remain unresolved is historical evidence of the state at that closeout. It is no longer an open current-state item: subsequent merged work established the root causes and completed the bounded Series metadata/artwork/hierarchy corrections.
 
+## Current accepted Recording detail boundary
+
+The merged Recordings 2 detail surface now includes the accepted post-Phase-66 presentation work documented in [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md):
+
+- cinematic/full-page Hero detail composition;
+- compact Recording facts and retained canonical title/subtitle/description metadata;
+- prominent playback entry into the existing canonical Recording playback owner;
+- cast/person presentation and related-Genre Recording rail;
+- metadata, marks and playback submodes retained inside the same Recordings 2 detail owner;
+- canonical-owner playback prewarm without autoplay, duplicate MediaSessions or false Continue Watching/history publication;
+- related-Genre cards using canonical `kind=poster` selection so locked manual posters remain authoritative and native portrait metadata wins before weaker preferred artwork fallback;
+- real yaVDR/browser acceptance for the Hero/mobile presentation, immediate playback startup and corrected portrait covers.
+
+This presentation work does not create a new Recording identity, metadata authority or playback lifecycle. Native Recording marks/cutting remains separately governed by the accepted native Recording editing architecture and closeout.
+
+## Live-TV lifecycle stabilization
+
+The accepted Phase-65 persistent playback architecture remains authoritative. A later real-system regression was traced to the browser shell treating `HTMLMediaElement.ended` as a terminal Live-TV stop even though continuous Live/MSE playback is intentionally open-ended.
+
+PR #289 removed that false stop boundary. The accepted behavior is now:
+
+- a transient Live `ended` signal does not destroy the active canonical MediaSession;
+- explicit Live stop, backend change, browser-session loss and replacement handoff remain real lifecycle boundaries;
+- fatal player `error` remains terminal;
+- the real yaVDR/browser regression test passed and Live-TV continued beyond the prior failure window;
+- the durable evidence is recorded in [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md).
+
+This is post-closeout stabilization of completed Phase-65 playback behavior and does not reopen Phase 65 or Phase 66.
+
 ## Performance boundary retained
 
 Home performance work must preserve the accepted reduction of Recording metadata fan-out. In particular:
@@ -96,13 +139,15 @@ Home performance work must preserve the accepted reduction of Recording metadata
 - preserve generation/backend/Home-active fencing and authoritative owner boundaries;
 - use preview/cache variants without changing original artwork ownership.
 
+Recording-detail enrichment and playback prewarm must remain scoped to the selected/opened Recording and must not become a global Home metadata or MediaSession fan-out.
+
 ## Completed platform foundations retained
 
 - **Phase 62 - Identity, RBAC and Accountability Foundation** remains authoritative for actor identity, backend-scoped authorization, browser session/CSRF and accountability.
 - **Phase 63 - Backend Agent and Secure Multi-Site Runtime** remains authoritative for Agent identity, generation/lease fencing, provider ownership and durable command/result handling.
 - **Phase 64 - Timer Intent and Multi-Backend Orchestration** remains authoritative for `TimerIntent -> TimerAssignment -> NativeTimerBinding`, managed fulfillment and controlled reassignment/failover.
 - **Phase 65 - Streaming Gateway and Media Sessions** remains authoritative for Recording/Live MediaSession, least-transformation delivery and normalized playback ownership.
-- **Phase 66 - Media Home and Browse Experience** remains the completed numbered Home/browse phase; later Home work is non-numbered hardening.
+- **Phase 66 - Media Home and Browse Experience** remains the completed numbered Home/browse phase; later Home/Recording/Live work is non-numbered hardening.
 
 ## Next authorization boundary
 
