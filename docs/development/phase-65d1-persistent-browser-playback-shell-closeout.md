@@ -131,10 +131,47 @@ The accepted slice preserves the established media architecture:
 - shell hide/show does not stop, replace or recreate the stream;
 - ownership transfer moves the existing media element instead of creating parallel playback;
 - stop remains an explicit MediaSession lifecycle action;
-- Phase 66 runtime is not started.
+- at the time of the original Phase 65.D.1 acceptance, Phase 66 runtime had not started.
+
+## Post-closeout Live-TV lifecycle stabilization
+
+A later real-system regression showed that Live-TV could stop after a period of otherwise normal playback. The real yaVDR diagnostics for the failing session showed a browser-side terminal classification of `client_closed` and a matching SuiteBridge `live-source event=close`, without a preceding provider terminal reason such as receiver preemption, backpressure overflow or media-access expiry.
+
+The browser playback shell still treated the `HTMLMediaElement` `ended` event as a terminal Live-TV lifecycle boundary and called `stop('playback_ended')`. That behavior is not valid for the continuous Live/MSE transport: a transient transport EOF can surface as `ended` even though the canonical Suite MediaSession is still owned and should remain alive. Calling `stop()` destroyed the underlying Live playback adapter and converted the browser-side lifecycle decision into the observed backend `client_closed` reason.
+
+The stabilization in PR #289 removes `ended` as an implicit STOP boundary for Live-TV while preserving all intentional lifecycle boundaries:
+
+- explicit Live-TV stop;
+- backend change;
+- browser-session loss;
+- channel replacement / replacement handoff;
+- fatal player `error` remains terminal.
+
+Regression coverage in `web/frontend/tests/test_channel_day_program_compat_runtime.js` now dispatches `ended` against an active Live player and requires that the MediaSession owner remains active, the same session id remains owned, and the playback adapter is not destroyed.
+
+Accepted stabilization identity:
+
+```text
+live_tv_lifecycle_fix_branch=fix/live-tv-ended-client-close
+live_tv_lifecycle_fix_head=fb55975787b6259c84b4fee0822855fbb23e60f1
+live_tv_lifecycle_fix_pr=289
+live_tv_lifecycle_fix_merge=7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b
+```
+
+Real yaVDR/browser validation after installing the corrected frontend runtime:
+
+```text
+LIVE_TV_ENDED_FIX_SYNTAX=PASS
+LIVE_TV_ENDED_FIX_REGRESSION=PASS
+LIVE_TV_ENDED_FIX_RUNTIME_CONTINUITY=PASS
+OBSERVED_CONTINUOUS_PLAYBACK=>10_minutes
+TERMINAL_CLIENT_CLOSED_REPRODUCED_AFTER_FIX=no
+```
+
+This is a post-closeout stabilization of the already accepted persistent playback-shell lifecycle. It does not reopen Phase 65.D.1, introduce a new media ownership model, or change the current Phase 66 scope.
 
 ## Acceptance conclusion
 
 Phase 65.D.1 **Persistent Browser Playback Shell** is accepted and closed for its bounded scope on runtime candidate `eec2f218b19aeb7ac3265fce1aaaa967ed9571b6`.
 
-The accepted runtime evidence remains valid for documentation-only follow-up commits because no product, packaging, installation or runtime input changes in such a follow-up. Full Phase 65.D remains open until its remaining client-playback-abstraction requirements are implemented and accepted; Phase 66 remains blocked until Phase 65 closes and is separately authorized.
+The accepted runtime evidence remains valid for documentation-only follow-up commits because no product, packaging, installation or runtime input changes in such a follow-up. At the time of the original closeout, the remaining Phase 65.D work and the then-blocked Phase 66 transition were still open; subsequent roadmap work has progressed beyond that historical state.
