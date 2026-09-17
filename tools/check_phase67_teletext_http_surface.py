@@ -57,11 +57,20 @@ for forbidden in (
     if forbidden in source or forbidden in header:
         errors.append(f"HTTP surface must not own provider/wire detail: {forbidden}")
 
-# This commit deliberately stages the HTTP surface before permission wiring.
-if "TeletextApiRuntime" in router:
-    errors.append("Teletext HTTP surface must remain unexposed until security permission wiring lands")
-if "TeletextApiRuntime" in daemon:
-    errors.append("Teletext API runtime must remain outside production daemon wiring until security lands")
+for fragment in (
+    '#include "TeletextApiRuntime.h"',
+    "TeletextApiRuntime::instance().tryHandleGet(",
+):
+    if fragment not in router:
+        errors.append(f"ApiRouter missing Teletext HTTP exposure fragment: {fragment}")
+
+for fragment in (
+    '#include "TeletextApiRuntime.h"',
+    "TeletextApiRuntime::instance().configure(*readService)",
+    "TeletextApiRuntime::instance().reset();",
+):
+    if fragment not in daemon:
+        errors.append(f"Daemon Teletext runtime missing API ownership fragment: {fragment}")
 
 for fragment in (
     "Börse und Nachrichten",
@@ -78,4 +87,4 @@ if errors:
         print(error, file=sys.stderr)
     raise SystemExit(1)
 
-print("Phase 67 staged Teletext HTTP surface contract ok")
+print("Phase 67 Teletext HTTP surface contract ok")

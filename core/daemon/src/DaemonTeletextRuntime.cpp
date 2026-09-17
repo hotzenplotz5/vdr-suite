@@ -2,6 +2,7 @@
 
 #include "BackendAgentTeletextAuthority.h"
 #include "BackendRuntimeContext.h"
+#include "TeletextApiRuntime.h"
 #include "TeletextControlPlaneReadService.h"
 
 #include <memory>
@@ -44,6 +45,11 @@ bool configureDaemonTeletextRuntime(
             return nullptr;
         });
 
+    if (!TeletextApiRuntime::instance().configure(*readService))
+    {
+        return false;
+    }
+
     teletextBackendAuthority = std::move(authority);
     teletextControlPlaneReadService = std::move(readService);
     return true;
@@ -51,6 +57,7 @@ bool configureDaemonTeletextRuntime(
 
 void resetDaemonTeletextRuntime()
 {
+    TeletextApiRuntime::instance().reset();
     teletextControlPlaneReadService.reset();
     teletextBackendAuthority.reset();
 }

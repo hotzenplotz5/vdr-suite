@@ -188,16 +188,17 @@ private:
             permission == "media.live.play";
     }
 
-    static bool adminSettingsReadPermission(const std::string& permission)
+    static bool adminReadPermission(const std::string& permission)
     {
-        return permission == "backend.settings.media-transcode.read";
+        return permission == "backend.settings.media-transcode.read" ||
+            permission == "broadcast.teletext.view";
     }
 
     static bool adminRoleGrants(const std::string& permission)
     {
         return protectedMutationPermission(permission) ||
             mediaPermission(permission) ||
-            adminSettingsReadPermission(permission);
+            adminReadPermission(permission);
     }
 
     static bool mutatingPermission(const std::string& permission)

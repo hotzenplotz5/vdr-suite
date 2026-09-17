@@ -35,6 +35,7 @@ DAEMON_SRC := \
         api/rest/src/MediaTranscodeSettingsApiRuntime.cpp \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
+        api/rest/src/TeletextApiRuntime.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
         api/rest/src/LiveMediaSessionController.cpp \
