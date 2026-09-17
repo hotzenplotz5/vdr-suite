@@ -19,10 +19,13 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Current State](CURRENT.md) — sole volatile operational authority.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
 - [Current Project Status](development/current-status.md) — stable narrative platform context.
+- [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md) — current consolidated Home truth after the merged rebuild/hardening work.
+- [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md) — current accepted cinematic Recordings 2 detail, playback-prewarm and poster-selection evidence.
 - [Phase 66 Closeout](development/phase-66-closeout.md) — numbered Media Home/Browse completion and Golden acceptance evidence.
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability.
 - [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md) — merged PR #265 performance evidence.
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md) — persistent Live playback ownership plus accepted later lifecycle stabilization.
 - [Phase 65 Closeout](development/phase-65-closeout.md) — Streaming/MediaSession/playback completion.
 - [Phase 64 Final Closeout](development/phase-64-closeout.md) — Timer orchestration completion.
 - [Strict Roadmap](planning/roadmap.md) — binding numbered order and gates.
@@ -46,8 +49,10 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Latest Completed Marker](development/completed-phases-latest.md)
 - [Completed Phase Archive](development/completed-phases/README.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
+- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
 
@@ -67,7 +72,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - **ROADMAP** — binding dependency/order and phase gates.
 - **ARCHITECTURE** — stable ownership/identity/contract boundaries.
 - **COMPLETED** — historical implementation evidence for closed work.
-- **POST-PHASE HARDENING** — bounded non-numbered correctness/performance work that does not reopen a completed phase.
+- **POST-PHASE HARDENING** — bounded non-numbered correctness/performance/product work that does not reopen a completed phase.
 - **PLANNED** — genuinely open work with explicit prerequisites.
 - **HISTORICAL** — traceability that is not a current work prompt.
 
