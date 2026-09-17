@@ -31,6 +31,7 @@
 #include "SuiteBridgeRecordingMarksResolver.h"
 #include "SuiteBridgeRecordingMetadataResolver.h"
 #include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeTeletextResolver.h"
 #include "VdrRecordingNativeMetadataEnrichmentService.h"
 #include "VdrRecordingNativeMetadataRepository.h"
 #include "VdrService.h"
@@ -67,6 +68,7 @@ struct BackendRuntimeContext
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
+    std::unique_ptr<SuiteBridgeTeletextResolver> teletextResolver;
     std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
     std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
@@ -89,6 +91,19 @@ struct BackendRuntimeContext
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
     RecordingMarksChangeTracker recordingMarksChangeTracker;
+
+    SuiteBridgeTeletextResolver* ensureTeletextResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!teletextResolver) {
+            teletextResolver =
+                std::make_unique<SuiteBridgeTeletextResolver>(
+                    *suiteBridgeTransport);
+        }
+        return teletextResolver.get();
+    }
 
     SuiteBridgeRecordingMarksResolver* ensureRecordingMarksResolver()
     {
