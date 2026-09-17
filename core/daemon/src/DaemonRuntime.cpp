@@ -3,6 +3,7 @@
 #include "ContinueWatchingApiRuntime.h"
 #include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonSqliteShutdownCancellation.h"
+#include "DaemonTeletextRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
@@ -31,6 +32,16 @@ int DaemonRuntime::run()
     }
     if (!httpServer_ || !apiRouter_ || !vdrRecordingQueryService_ || !vdrRecordingCacheRepository_) {
         std::cerr << "HTTP/API runtime unavailable for Media Gateway" << std::endl;
+        return 1;
+    }
+    if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+        !backendAgentLifecycleService_ ||
+        !configureDaemonTeletextRuntime(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *backendAgentLifecycleService_,
+            backendRuntimeContexts_)) {
+        std::cerr << "Teletext control-plane runtime unavailable" << std::endl;
         return 1;
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
@@ -106,6 +117,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    resetDaemonTeletextRuntime();
     resetDaemonRecordingEditingRuntime();
     ContinueWatchingApiRuntime::instance().reset();
     SeriesArtworkSettingsApiRuntime::instance().reset();
