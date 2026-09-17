@@ -573,7 +573,11 @@
     hideMini();
     if (video && typeof video.addEventListener === 'function') {
       video.addEventListener('error', function() { if (state.owner && state.owner.proxy === proxy && !state.owner.yielded) stop('playback_error'); });
-      video.addEventListener('ended', function() { if (state.owner && state.owner.proxy === proxy && !state.owner.yielded) stop('playback_ended'); });
+      // A continuous Live/MSE stream is intentionally open-ended. Chromium can
+      // surface a transient transport EOF as HTMLMediaElement "ended"; treating
+      // that signal as an explicit STOP destroys the still-owned MediaSession
+      // and turns the backend reason into client_closed. Lifetime remains owned
+      // by the explicit shell/session/backend/replacement boundaries below.
       video.addEventListener('play', updateControls);
       video.addEventListener('pause', updateControls);
     }

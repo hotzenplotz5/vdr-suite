@@ -408,6 +408,14 @@ const channelD = {id: 'D', name: 'Sender D', enabled: true};
   assert.strictEqual(createCalls.length, 2);
   assert.strictEqual(createCalls[1].options.replacesSessionId, 'live-session-1');
 
+  // HTMLMediaElement "ended" is not a user STOP boundary for an open-ended
+  // Live/MSE stream. A transient EOF must keep the canonical MediaSession owner.
+  createCalls[1].video.dispatch('ended', {target: createCalls[1].video});
+  assert.strictEqual(destroyCalls, 0, 'Live ended must not destroy the MediaSession');
+  assert.strictEqual(playbackShell.snapshot().active, true);
+  assert.strictEqual(playbackShell.snapshot().sessionId, 'live-session-2');
+  assert.strictEqual(playbackShell.snapshot().lastStopReason, '');
+
   assert.throws(
     () => richWindow.VdrSuiteRecordings2Playback.createLivePanel(channelC, 'living-room', {}),
     /Replacement-Handoff/,
@@ -448,7 +456,7 @@ const channelD = {id: 'D', name: 'Sender D', enabled: true};
   assert.strictEqual(playbackShell.snapshot().active, false);
   assert.strictEqual(playbackShell.snapshot().lastStopReason, 'explicit_shell_stop');
 
-  // Fatal player events end ownership rather than leaving a stale mini-player.
+  // Fatal player errors still end ownership rather than leaving a stale mini-player.
   const playbackE = richWindow.VdrSuiteRecordings2Playback.createLivePanel(channelA, 'living-room', {});
   assert.strictEqual(await playbackE.start(), 'live-session-5');
   createCalls[4].video.dispatch('error', {target: createCalls[4].video});
@@ -489,6 +497,7 @@ const channelD = {id: 'D', name: 'Sender D', enabled: true};
   assert.ok(source.includes('global.VdrSuitePlaybackShell = api'));
   assert.ok(source.includes('replacesSessionId'));
   assert.ok(source.includes('requestPictureInPicture'));
+  assert.ok(!source.includes("stop('playback_ended')"));
   assert.ok(!source.includes('navigator.userAgent'));
   assert.ok(!source.includes('fetch('));
 
