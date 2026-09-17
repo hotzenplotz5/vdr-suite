@@ -131,7 +131,7 @@ The accepted slice preserves the established media architecture:
 - shell hide/show does not stop, replace or recreate the stream;
 - ownership transfer moves the existing media element instead of creating parallel playback;
 - stop remains an explicit MediaSession lifecycle action;
-- Phase 66 runtime is not started.
+- at the time of the original Phase 65.D.1 acceptance, Phase 66 runtime had not started.
 
 ## Post-closeout Live-TV lifecycle stabilization
 
@@ -174,4 +174,4 @@ This is a post-closeout stabilization of the already accepted persistent playbac
 
 Phase 65.D.1 **Persistent Browser Playback Shell** is accepted and closed for its bounded scope on runtime candidate `eec2f218b19aeb7ac3265fce1aaaa967ed9571b6`.
 
-The accepted runtime evidence remains valid for documentation-only follow-up commits because no product, packaging, installation or runtime input changes in such a follow-up. Full Phase 65.D remains open until its remaining client-playback-abstraction requirements are implemented and accepted; Phase 66 remains blocked until Phase 65 closes and is separately authorized.
+The accepted runtime evidence remains valid for documentation-only follow-up commits because no product, packaging, installation or runtime input changes in such a follow-up. At the time of the original closeout, the remaining Phase 65.D work and the then-blocked Phase 66 transition were still open; subsequent roadmap work has progressed beyond that historical state.
