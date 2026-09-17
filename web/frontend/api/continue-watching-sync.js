@@ -187,7 +187,8 @@
     function snapshotActive(snapshot) {
       const state = snapshot && text(snapshot.state);
       return Boolean(snapshot && snapshot.sessionId) &&
-        state !== 'idle' && state !== 'stopped' && state !== 'destroyed' && state !== 'relinquished';
+        state !== 'idle' && state !== 'starting' &&
+        state !== 'stopped' && state !== 'destroyed' && state !== 'relinquished';
     }
     function canResume() {
       return typeof owner.canResume === 'function' && owner.canResume() === true;
