@@ -121,6 +121,47 @@ STALE_MINI_PLAYER_RESURRECTION=absent
 
 The real device showed native Android Picture-in-Picture while the Suite page contained no duplicate large player shell. Navigation continued while PiP remained active. Leaving PiP restored the persistent shell when that shell still owned the video. Returning to the Live-TV view transferred presentation ownership back to the Live-TV view without resurrecting an obsolete mini-player.
 
+## Post-closeout Live-TV lifecycle stability correction
+
+A later post-Phase-66 real-system test exposed a bounded lifecycle regression in the persistent browser playback shell: Live-TV could stop after running for a while even though the VDR receiver and media worker had not independently failed.
+
+Failure evidence from the real yaVDR system showed the Live MediaSession terminating with:
+
+```text
+terminal_reason=client_closed
+```
+
+SuiteBridge logged a normal `live-source event=close` at the same boundary. This proved that the browser/frontend path was actively closing the canonical Live MediaSession instead of the provider or worker failing first.
+
+The root cause was the shell-level listener in `web/frontend/channel-day-program-compat.js`: it treated the live `HTMLMediaElement` `ended` event as an explicit terminal boundary and called `stop('playback_ended')`. For an open-ended MSE Live stream, `ended` is not equivalent to a user-requested stop; a transient transport EOF can surface as `ended` while the Suite MediaSession is still the canonical owner. Calling `stop()` destroyed the underlying playback adapter and converted the backend terminal reason to `client_closed`.
+
+PR #289 (`Fix Live TV ended lifecycle`) removes `ended` as a shell stop boundary while preserving the established real stop/fencing boundaries:
+
+- explicit Live-TV stop;
+- backend change;
+- browser-session loss;
+- sender replacement / handoff;
+- fatal player `error` handling.
+
+Regression coverage in `web/frontend/tests/test_channel_day_program_compat_runtime.js` now dispatches `ended` on an active Live player and requires that:
+
+- the underlying playback adapter is not destroyed;
+- the playback shell remains active;
+- the same Live MediaSession id remains owned;
+- no synthetic `lastStopReason` is introduced.
+
+Real yaVDR validation on branch head `fb55975787b6259c84b4fee0822855fbb23e60f1` passed:
+
+```text
+node --check web/frontend/channel-day-program-compat.js = PASS
+node web/frontend/tests/test_channel_day_program_compat_runtime.js = PASS
+runtime_result = persistent Live playback shell lifecycle ok
+LIVE_TV_STABILITY_AFTER_FIX = PASS (observed continuously for at least 10 minutes)
+PREVIOUS_CLIENT_CLOSED_ABORT = not reproduced during the acceptance interval
+```
+
+The fix was merged through PR #289 to `main` as merge commit `7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b` on 2026-09-17. This is a post-closeout correctness fix and does not reopen Phase 65.D.1 or alter the MediaSession/provider architecture.
+
 ## Safety and lifecycle boundary
 
 The accepted slice preserves the established media architecture:
