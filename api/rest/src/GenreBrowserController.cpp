@@ -192,7 +192,7 @@ std::string recordingPosterUrl(const GenreRecordingItem& recording)
     return "/api/recordings/metadata/image?backend=" +
         percentEncode(recording.backendId) +
         "&backendNativeId=" + percentEncode(recording.backendNativeId) +
-        "&kind=preferred&index=0";
+        "&kind=poster&index=0";
 }
 
 std::string epgArtworkUrl(const GenreEpgItem& event)
