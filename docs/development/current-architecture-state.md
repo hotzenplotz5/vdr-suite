@@ -5,6 +5,11 @@
 - [README](../../README.md)
 - [Documentation Index](../index.md)
 - [Current State](../CURRENT.md)
+- [Current Project Status](current-status.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
@@ -24,7 +29,7 @@
 
 This document summarizes **implemented architecture by durable capability boundary**. It intentionally does not copy active PR tips or transient CI checkpoints from [Current State](../CURRENT.md).
 
-Historical exact acceptance evidence stays in phase/slice closeouts. Volatile implementation progress inside an active phase stays in `docs/CURRENT.md`.
+Historical exact acceptance evidence stays in phase/slice closeouts. Volatile implementation progress belongs in `docs/CURRENT.md`.
 
 ## Ownership model
 
@@ -92,7 +97,7 @@ The implemented Agent architecture includes bounded support for:
 - explicit local provider ownership and selection;
 - protected-write safety contracts that prevent silent provider fallback and stale-generation completion.
 
-This Phase-63 capability is a reusable platform foundation for completed Timer orchestration and active media execution.
+This Phase-63 capability is a reusable platform foundation for completed Timer orchestration, completed media execution foundations and later bounded native operations.
 
 ## Protected-write safety model
 
@@ -143,7 +148,7 @@ Exact final acceptance evidence belongs in [Phase 64 Closeout](phase-64-closeout
 
 A broad polished Timer UI remains outside the completed Phase-64 engine boundary and is separately gated on account/backend access management.
 
-## Media architecture state — implemented Phase 65 foundation
+## Media architecture state — completed Phase 65 foundation
 
 The accepted media target is defined by ADR-0046 and ADR-0053, with ADR-0055 defining media-transcode backend selection/hardware-acceleration policy and ADR-0056 defining normalized playback presentation, timeline, continuity and failure semantics:
 
@@ -165,7 +170,7 @@ source + client capabilities + Suite policy
   -> platform playback engine
 ```
 
-Phase 65 is active and has real accepted runtime implementation. Completed bounded verticals/slices are:
+Phase 65 is completed. Its accepted bounded verticals/slices include:
 
 - **65.A Existing-Recording playback** — authenticated MediaSession/Gateway playback, least-transformation adaptation, real picture/sound and deterministic lifecycle cleanup;
 - **65.B Live-TV playback** — bounded SuiteBridge live provider/replay, one continuous FFmpeg consumer, real picture/sound, repeated zap and stability acceptance;
@@ -175,7 +180,8 @@ Phase 65 is active and has real accepted runtime implementation. Completed bound
 - **normalized Recording track selection** — public audio/subtitle identities, progressive/HLS owner integration and supported browser SRT/WebVTT delivery without PID/provider leakage;
 - **browser-local Volume/Mute** — client-local `HTMLMediaElement` state across the accepted persistent/replaceable owner topology without server/VDR volume mutation;
 - **continuous-fMP4 MSE forward-buffer control** — bounded browser read/append-ahead behavior without changing MediaSession/provider ownership;
-- **compatibility timeline and exact HLS resume follow-up** — user-owned timeline drag target survives active playback updates, and exact non-zero HLS video resume uses a sync-safe implemented transcode path or fails closed while ordinary start-at-zero retains least-transformation copy/remux.
+- **compatibility timeline and exact HLS resume follow-up** — user-owned timeline drag target survives active playback updates, and exact non-zero HLS video resume uses a sync-safe implemented transcode path or fails closed while ordinary start-at-zero retains least-transformation copy/remux;
+- **ADR-0056 semantic consolidation** — normalized provider-free playback contract, canonical owner lifecycle state, explicit continuity/discontinuity and classified failure semantics.
 
 Current accepted delivery/client rules remain:
 
@@ -194,16 +200,62 @@ Current accepted delivery/client rules remain:
 
 The old roadmap label `65.C - Recording seek and growing-recording semantics` is superseded. Its truthfulness invariant remains. Phase 65.D.2 and follow-up fixes provide accepted arbitrary completed-Recording time-seek and stop/resume for the supported progressive-fMP4 and HLS restart-seek profiles. User-visible growing-Recording seek, Live-TV timeshift and broader VDR-index mapping beyond those accepted paths remain deferred until a demonstrated product gap justifies a coherent implementation.
 
-Phase 65.D Client playback abstraction is active. The remaining required architecture is now the ADR-0056 consolidation layer:
+Phase 65.D Client playback abstraction is completed for its accepted scope. The ADR-0056 consolidation requirements are implemented and retained as architecture contracts:
 
 - one normalized provider-free `MediaPlaybackContract` above internal `MediaPresentationProfile` execution detail;
-- canonical persistent-owner lifecycle snapshot/subscription for new session-bound extensions;
+- canonical persistent-owner lifecycle snapshot/subscription for session-bound extensions;
 - explicit continuity/discontinuity and presentation-generation semantics;
 - classified playback failure behavior that preserves detailed reason codes without silent provider/profile/session recovery.
 
-Read-only media diagnostics are allowed after those semantics and remain observational only. Shared fMP4/MSE primitive extraction is technical debt, not an architecture gate.
+Read-only media diagnostics remain observational only. Shared fMP4/MSE primitive extraction is technical debt, not a numbered-phase architecture gate.
 
 Streamdev remains a private possible provider rather than the public API/security boundary.
+
+## Post-closeout Live-TV lifecycle semantics
+
+The persistent playback shell must not infer an explicit user/session stop from every media-element terminal-looking browser event. Continuous Live/MSE playback is open-ended, and a transient transport EOF may surface as `HTMLMediaElement.ended` while the canonical MediaSession is still valid.
+
+The accepted post-closeout rule is therefore:
+
+```text
+HTMLMediaElement ended during owned Live playback
+  -> not an implicit MediaSession STOP
+  -> keep canonical owner/session alive
+
+explicit Live stop / backend change / browser-session loss / replacement handoff
+  -> real lifecycle boundary
+
+fatal player error
+  -> terminal playback failure
+```
+
+This correction preserves the Phase-65 server/client ownership model rather than adding retry or replacement magic. Exact accepted evidence is recorded in [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md).
+
+## Phase 66 and post-phase product architecture
+
+Phase 66 - Media Home and Browse Experience is completed. Later non-numbered work hardens that accepted product model without creating a second Home or Recording architecture.
+
+The retained Home/Recording presentation ownership is:
+
+```text
+canonical Suite read models
+  -> first-party Home browse projections
+  -> canonical Recording identity
+  -> Recordings 2 detail owner
+  -> existing metadata / marks / playback owners
+```
+
+Current accepted post-phase product behavior includes:
+
+- responsive Home shell, Now/Next, newly recorded, Movies/Genres and Series -> seasons -> episodes;
+- scoped/progressive Recording metadata completion instead of global browser metadata fan-out;
+- canonical TVScraper/native portrait artwork priority and manual Series hierarchy/artwork overrides;
+- native Recording marks/cutting with VDR as canonical marks/cutter authority;
+- a cinematic Recordings 2 full-page Hero detail with compact facts, cast/person presentation and related-Genre rail;
+- Recording playback prewarm through the existing canonical playback owner, without autoplay, duplicate MediaSessions or pre-playback Continue Watching/history truth;
+- canonical `kind=poster` selection for related Recording cards, keeping locked manual poster authority and preferring native portrait metadata before weaker preferred-artwork fallback.
+
+The Recording-detail presentation is a presentation layer over the existing Recording domain; it is not a new content owner. Exact evidence belongs in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md).
 
 ## Public API and client boundary
 
@@ -225,13 +277,17 @@ Implementation claims require the appropriate combination of:
 
 Exact historical acceptance heads/hashes belong in the closeout that accepted them.
 
-For Phase-65.D semantic work, the production ownership topology is itself part of acceptance: user-style action -> canonical owner/session transition -> expected Suite request/state chain must be proven rather than inferred from isolated wrappers.
+For playback semantic work, the production ownership topology is itself part of acceptance: user-style action -> canonical owner/session transition -> expected Suite request/state chain must be proven rather than inferred from isolated wrappers.
 
 ## Related documents
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Current Project Status](current-status.md)
+- [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
+- [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
+- [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 64 Closeout](phase-64-closeout.md)
 - [Phase 65 Recording Playback Closeout](phase-65-recording-playback-closeout-readiness.md)
 - [Phase 65 Live-TV Playback Closeout](phase-65-live-tv-closeout.md)
