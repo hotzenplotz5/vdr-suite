@@ -132,6 +132,7 @@ assert.strictEqual(window.VdrSuiteRecordingFallbackControls.__test.formatTime(24
 let creates = 0;
 let starts = 0;
 let destroys = 0;
+const startOptionsSeen = [];
 window.VdrSuiteRecordings2Playback = {
   createPanel(recording, backendId, options) {
     creates += 1;
@@ -145,12 +146,14 @@ window.VdrSuiteRecordings2Playback = {
     let sessionId = '';
     return {
       element: panel,
-      start() {
+      start(startOptions) {
         starts += 1;
+        startOptionsSeen.push(startOptions);
         return Promise.resolve(options.createSession()).then(session => {
           sessionId = session.mediaSession.id;
-          video.paused = false;
-          video.dispatch('play');
+          const shouldAutoPlay = !startOptions || startOptions.autoPlay !== false;
+          video.paused = !shouldAutoPlay;
+          if (shouldAutoPlay) video.dispatch('play');
           return sessionId;
         });
       },
@@ -177,7 +180,15 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(back60Button.disabled, true);
   assert.strictEqual(timeline.disabled, true, 'HLS random seek must remain fail-closed');
 
-  assert.strictEqual(await playback.start(), 'hls-session-1');
+  assert.strictEqual(await playback.start({autoPlay: false}), 'hls-session-1');
+  assert.strictEqual(startOptionsSeen.length, 1);
+  assert.strictEqual(startOptionsSeen[0].autoPlay, false,
+    'HLS fallback decorator must preserve explicit no-autoplay start intent');
+  assert.strictEqual(
+    descendants(playback.element).find(value => value.tagName === 'VIDEO').paused,
+    true,
+    'HLS fallback prewarm must remain paused until explicit play promotion'
+  );
   await flush();
   assert.strictEqual(playback.canResume(), true, 'index status must activate HLS resume without enabling seek');
   assert.strictEqual(playback.duration(), 7134, 'duration must come from the Recording contract, not video.duration');
@@ -198,6 +209,8 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(await playback.resume(2494), 'hls-session-2');
   assert.strictEqual(creates, 2, 'resume must create a fresh HLS transport owner');
   assert.strictEqual(starts, 2);
+  assert.strictEqual(startOptionsSeen[1], undefined,
+    'ordinary HLS resume must keep the default autoplay behavior');
   const createRequests = requests.filter(entry => !entry.body.operation);
   assert.strictEqual(createRequests.length, 2);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(createRequests[0].body, 'startPositionSeconds'), false);
