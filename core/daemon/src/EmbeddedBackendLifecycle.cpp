@@ -27,11 +27,9 @@ bool bindInt64(sqlite3_stmt* statement, int index, std::int64_t value)
     return sqlite3_bind_int64(statement, index, value) == SQLITE_OK;
 }
 
-bool execute(sqlite3_stmt* statement)
+bool stepDone(sqlite3_stmt* statement)
 {
-    const int result = sqlite3_step(statement);
-    sqlite3_finalize(statement);
-    return result == SQLITE_DONE;
+    return sqlite3_step(statement) == SQLITE_DONE;
 }
 
 class Transaction
@@ -139,11 +137,12 @@ bool EmbeddedBackendLifecycleService::startBackend(
             static_cast<std::int64_t>(allocation.generation)) ||
         !bindInt64(statement, 4, now) ||
         !bindInt64(statement, 5, now) ||
-        !execute(statement))
+        !stepDone(statement))
     {
         if (statement != nullptr) sqlite3_finalize(statement);
         return false;
     }
+    sqlite3_finalize(statement);
 
     if (!transaction.commit()) return false;
 
@@ -195,13 +194,14 @@ bool EmbeddedBackendLifecycleService::heartbeatBackend(
             statement,
             6,
             static_cast<std::int64_t>(identity.backendGeneration)) ||
-        !execute(statement))
+        !stepDone(statement))
     {
         if (statement != nullptr) sqlite3_finalize(statement);
         return false;
     }
-
-    return sqlite3_changes(database_.handle()) == 1;
+    const bool changed = sqlite3_changes(database_.handle()) == 1;
+    sqlite3_finalize(statement);
+    return changed;
 }
 
 bool EmbeddedBackendLifecycleService::stopBackend(
@@ -237,11 +237,12 @@ bool EmbeddedBackendLifecycleService::stopBackend(
             statement,
             5,
             static_cast<std::int64_t>(identity.backendGeneration)) ||
-        !execute(statement))
+        !stepDone(statement))
     {
         if (statement != nullptr) sqlite3_finalize(statement);
         return false;
     }
+    sqlite3_finalize(statement);
 
     std::lock_guard<std::mutex> lock(mutex_);
     runtimes_.erase(backendId);
