@@ -9,6 +9,8 @@ cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
       liveCapability_(nativeProbe_.PluginInstanceEpoch()),
       liveSource_(nativeProbe_.PluginInstanceEpoch()),
+      hbbtvAdapter_(),
+      hbbtvCommand_(&hbbtvAdapter_),
       teletextAdapter_(),
       teletextCommand_(&teletextAdapter_),
       nativeTimerCreate_(
@@ -69,6 +71,8 @@ bool cPluginSuiteBridge::Initialize(void)
       "suitebridge: native-operation=vdr.live.stream schema=1 transport=private-unix-stream receiver=bounded provider=suitebridge public-endpoint=none");
   isyslog(
       "suitebridge: native-read=broadcast.teletext.page schema=1 provider=osdteletext transport=in-process-service public-endpoint=none");
+  isyslog(
+      "suitebridge: native-read=broadcast.hbbtv.discovery schema=1 provider=vdr-plugin-web transport=in-process-service public-endpoint=none");
   isyslog(
       "suitebridge: native-operation=vdr.timer.create schema=1 side-effect=timer-create mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   isyslog(
