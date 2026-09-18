@@ -839,8 +839,10 @@
       }
     }
 
-    function start() {
+    function start(startOptions) {
       if (started || destroyed) return sessionCreationPromise;
+      const settings = startOptions && typeof startOptions === 'object' ? startOptions : {};
+      const shouldAutoPlay = settings.autoPlay !== false;
       started = true;
       startButton.disabled = true;
       setStatus('MediaSession wird vorbereitet …', false);
@@ -859,10 +861,10 @@
       video.src = objectUrl;
       video.hidden = false;
 
-      // Keep the user-initiated play request pending while the HLS worker builds
-      // the startup buffer. The first media append is deliberately a >=12 s
-      // batch, so playback cannot consume the first 4 s segment immediately.
-      const playRequest = video.play();
+      // Explicit playback keeps the user-initiated play request pending while
+      // the HLS worker builds the startup buffer. Background prewarm deliberately
+      // leaves the media element paused while the same owner fills its buffer.
+      const playRequest = shouldAutoPlay ? video.play() : null;
       if (playRequest && typeof playRequest.catch === 'function') playRequest.catch(function () {});
 
       const sessionPromise = Promise.resolve().then(sessionCreator).then(function (session) {
@@ -894,13 +896,23 @@
           startButton.hidden = true;
           setStatus(
             'Streaming vorbereitet · ' + text(mediaSession.presentationProfileId || 'hls-fmp4') +
-              ' · Startpuffer ' + STARTUP_BUFFER_SECONDS + ' s',
+              ' · Startpuffer ' + STARTUP_BUFFER_SECONDS + ' s' +
+              (shouldAutoPlay ? '' : ' · pausiert'),
             false
           );
           return pump(mediaPath, prepared.sourceBuffer);
         });
       }).catch(handlePlaybackError);
       return sessionCreationPromise;
+    }
+
+    function play() {
+      if (destroyed || playbackFailed) return Promise.resolve(false);
+      if (!started) return Promise.resolve(start()).then(function () { return true; });
+      const request = video.play();
+      return request && typeof request.then === 'function'
+        ? request.then(function () { return true; })
+        : Promise.resolve(true);
     }
 
     function destroy() {
@@ -960,6 +972,7 @@
       element: panel,
       destroy: destroy,
       start: start,
+      play: play,
       sessionId: function () { return activeSessionId; },
       relinquishForReplacement: relinquishForReplacement
     });
