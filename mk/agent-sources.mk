@@ -8,6 +8,7 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
+	core/agent/src/SuiteBridgeSvdrpHbbtvTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpTeletextTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp \
