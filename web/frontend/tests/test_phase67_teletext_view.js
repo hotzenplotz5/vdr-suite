@@ -21,6 +21,10 @@ assert(teletext.includes("event.key === 'Escape'"));
 assert(teletext.includes("'Unterseite Auto'"));
 assert(teletext.includes("credentials: 'same-origin'"));
 assert(teletext.includes("cache: 'no-store'"));
+assert(teletext.includes("body.vdr-suite-teletext-open .vdr-suite-teletext-overlay"));
+assert(teletext.includes("body.vdr-suite-teletext-open .vdr-suite-live-tv-player"));
+assert(teletext.includes("setDesktopCompanionActive(true)"));
+assert(teletext.includes("setDesktopCompanionActive(false)"));
 
 assert(!teletext.includes('fetch('));
 assert(!teletext.includes('TTXC 1'));
@@ -30,6 +34,8 @@ assert(!teletext.includes('OsdTeletext::'));
 assert(!teletext.includes('VdrSuitePlaybackShell'));
 assert(!teletext.includes('createLivePanel'));
 assert(!teletext.includes('.destroy('));
+assert(!teletext.includes('appendChild(state.playback'));
+assert(!teletext.includes('createMediaSession'));
 
 assert(client.includes("function fetchClientTeletextService(options)"));
 assert(client.includes("requestJson('/api/vdr/broadcast/teletext/service', options)"));
