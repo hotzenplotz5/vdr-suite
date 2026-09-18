@@ -333,7 +333,12 @@
       searchArea.appendChild(row);
     }
 
-    root.appendChild(section);
+    const tabs = root.querySelector('.recordings2-metadata-tabs');
+    if (tabs && tabs.parentNode === root && typeof root.insertBefore === 'function') {
+      root.insertBefore(section, tabs);
+    } else {
+      root.appendChild(section);
+    }
     return section;
   }
 

@@ -98,7 +98,12 @@
     title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
     message.textContent = error && error.message ? error.message : String(error || 'Unbekannter Fehler');
     box.append(title, message);
-    root.appendChild(box);
+    const tabs = root.querySelector('.recordings2-metadata-tabs');
+    if (tabs && tabs.parentNode === root && typeof root.insertBefore === 'function') {
+      root.insertBefore(box, tabs);
+    } else {
+      root.appendChild(box);
+    }
   }
   function enhance(root, recording, backendId) {
     if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root;
