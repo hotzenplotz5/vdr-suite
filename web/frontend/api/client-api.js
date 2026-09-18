@@ -292,6 +292,10 @@
     return requestJson('/api/vdr/broadcast/teletext/page', options);
   }
 
+  function fetchClientHbbtvApplications(options) {
+    return requestJson('/api/vdr/broadcast/hbbtv/applications', options);
+  }
+
   function fetchClientChannelMoveAction(options) {
     return requestJson('/api/vdr/channels/move', jsonPostOptions(options));
   }
@@ -563,6 +567,7 @@
     fetchClientChannels: fetchClientChannels,
     fetchClientTeletextService: fetchClientTeletextService,
     fetchClientTeletextPage: fetchClientTeletextPage,
+    fetchClientHbbtvApplications: fetchClientHbbtvApplications,
     fetchClientChannelMoveAction: fetchClientChannelMoveAction,
     fetchClientCapabilities: fetchClientCapabilities,
     fetchClientVdrOverview: fetchClientVdrOverview,
