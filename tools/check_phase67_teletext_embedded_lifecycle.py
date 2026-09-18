@@ -51,6 +51,7 @@ for fragment in (
     '#include "BackendRuntimeGeneration.h"',
     "generations.allocateInCurrentTransaction(",
     "result.backendGeneration = allocation.generation;",
+    "latestGeneration <= current->backendGeneration",
 ):
     if fragment not in agent_repo:
         errors.append(f"external Agent connect missing shared generation fragment: {fragment}")
@@ -62,6 +63,8 @@ for fragment in (
     "stopBackend(",
     "statusForBackend(",
     "LeaseDurationSeconds = 30",
+    "externalLeaseActive",
+    "generations.latestGeneration(backendId)",
 ):
     if fragment not in lifecycle:
         errors.append(f"embedded lifecycle missing fragment: {fragment}")
