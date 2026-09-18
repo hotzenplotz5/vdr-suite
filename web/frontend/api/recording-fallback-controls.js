@@ -468,7 +468,7 @@
       return inner;
     }
 
-    function startAt(startPositionSeconds) {
+    function startAt(startPositionSeconds, startOptions) {
       if (destroyed) return Promise.resolve('');
       const target = Math.max(0, Math.floor(Number(startPositionSeconds) || 0));
       if (!inner || stopped) {
@@ -493,7 +493,7 @@
         sessionId: null,
         transport: 'hls-compatibility'
       });
-      return Promise.resolve(inner.start()).then(function (sessionId) {
+      return Promise.resolve(inner.start(startOptions)).then(function (sessionId) {
         bindVideo();
         updateControls();
         publishSession(sessionId || activeSessionId);
@@ -512,8 +512,8 @@
       });
     }
 
-    function start() {
-      return startAt(0);
+    function start(startOptions) {
+      return startAt(0, startOptions);
     }
 
     function resume(positionSeconds) {
