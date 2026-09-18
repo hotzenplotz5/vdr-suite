@@ -284,6 +284,14 @@
     return requestJson('/api/vdr/channels', options);
   }
 
+  function fetchClientTeletextService(options) {
+    return requestJson('/api/vdr/broadcast/teletext/service', options);
+  }
+
+  function fetchClientTeletextPage(options) {
+    return requestJson('/api/vdr/broadcast/teletext/page', options);
+  }
+
   function fetchClientChannelMoveAction(options) {
     return requestJson('/api/vdr/channels/move', jsonPostOptions(options));
   }
@@ -544,6 +552,8 @@
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
     fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
+    fetchClientTeletextService: fetchClientTeletextService,
+    fetchClientTeletextPage: fetchClientTeletextPage,
     fetchClientChannelMoveAction: fetchClientChannelMoveAction,
     fetchClientCapabilities: fetchClientCapabilities,
     fetchClientVdrOverview: fetchClientVdrOverview,
