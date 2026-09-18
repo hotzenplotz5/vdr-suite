@@ -21,9 +21,11 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 Latest completed numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
 
-Current active numbered runtime phase: **none; Phase 67 has not started**.
+Current active numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
 
-Next strict numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
+Completed Phase-67 vertical: **Teletext read path / browser-TV view / page navigation**.
+
+Current active Phase-67 slice: **HbbTV discovery**.
 
 Phase 66 is completed. Later Home/Recording/Live performance and correctness work is non-numbered post-phase hardening and is also completed for the merged accepted scopes. The consolidated Home evidence is in [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md); the accepted current Recording-detail presentation is captured in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md).
 
@@ -99,19 +101,38 @@ The accepted stabilization removes `ended` as an implicit Live-TV STOP boundary 
 
 The durable evidence lives in [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md).
 
+## Phase 67 current state
+
+The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`.
+
+The accepted Teletext runtime now provides:
+
+- normalized Teletext service/page/subpage domain contracts;
+- private provider/SuiteBridge transport through the existing Phase-63 Agent path;
+- shared monotonic backend runtime generation and embedded lifecycle fencing;
+- authorized `broadcast.teletext.view` HTTP reads;
+- real 25 x 40 / 1000-cell first-party rendering;
+- Live-TV companion integration and direct Media Home entry;
+- accepted Golden Journey 8 behavior.
+
+See [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md).
+
 ## Forward ordering
 
 ```text
 Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
+  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [ACTIVE]
+       -> Teletext [COMPLETED]
+       -> HbbTV discovery [NEXT]
+       -> HbbTV session/runtime [OPEN]
   -> Phase 68 Legacy OSD Compatibility Bridge
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
 
-Phase 67 requires a separate explicit runtime kickoff. Accepted ADR-0054 defines the domain-first Teletext/HbbTV architecture, but accepted planning is not implementation authorization.
+ADR-0054 remains binding for the open HbbTV work.
 
 ## Retained deferred boundaries
 
@@ -127,6 +148,7 @@ The following are not unfinished Phase 65/66 work:
 ## Related documents
 
 - [Current State](../CURRENT.md)
+- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
 - [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
