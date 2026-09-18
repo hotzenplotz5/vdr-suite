@@ -28,10 +28,22 @@ assert(source.includes("'▶ Abspielen'"),
   'Hero must expose primary playback');
 assert(source.includes("'▶ Wiedergabe fortsetzen'"),
   'Hero must support resume labelling when a resume position exists');
-assert(source.includes('if (!root || !recording) return root;'),
+const enhanceStart = source.indexOf(
+  'function enhance(root, recording, backendId, metadata) {'
+);
+const enhanceEnd = source.indexOf(
+  '\n  global.VdrSuiteRecordings2HeroDetail = Object.freeze',
+  enhanceStart
+);
+assert(enhanceStart >= 0 && enhanceEnd > enhanceStart,
+  'Hero enhance owner must remain discoverable');
+const enhanceSource = source.slice(enhanceStart, enhanceEnd);
+assert(enhanceSource.includes('if (!root || !recording) return root;'),
   'Hero availability must depend on the Recording detail, not on optional extended metadata');
-assert(!source.includes('metadata.available !== true'),
+assert(!enhanceSource.includes('metadata.available !== true'),
   'missing TVScraper metadata must not suppress the Recording Hero');
+assert(source.includes('if (!metadata || metadata.available !== true) return null;'),
+  'Trailer availability may depend on optional extended metadata without suppressing the Hero');
 
 assert(source.includes('root.__vdrSuiteRecordingPlaybackOwner'),
   'Hero playback must reuse the canonical recording playback owner');
