@@ -4,6 +4,7 @@
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
+#include "ISuiteBridgeHbbtvTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingCutStateTransport.h"
 #include "ISuiteBridgeRecordingMarksTransport.h"
@@ -42,6 +43,7 @@ class SuiteBridgeSvdrpTransport final :
     public ISuiteBridgeLocalTransport,
     public ::ISuiteBridgeArtworkTransport,
     public ::ISuiteBridgeEpgTypeSnapshotTransport,
+    public ::ISuiteBridgeHbbtvTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingCutStateTransport,
     public ::ISuiteBridgeRecordingMarksTransport,
@@ -83,6 +85,9 @@ public:
 
     ::SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
         const std::string& recordingKey) override;
+
+    ::SuiteBridgeHbbtvCommandReply discoverHbbtv(
+        const std::string& channelId) override;
 
     ::SuiteBridgeTeletextCommandReply discoverTeletext() override;
 
