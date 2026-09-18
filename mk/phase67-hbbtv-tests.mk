@@ -11,7 +11,7 @@ test-phase67-hbbtv-suitebridge:
 
 test-phase67-hbbtv-agent-transport:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		$(AGENT_SVDRP_TRANSPORT_SRC) \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_hbbtv_transport.cpp \
 		-pthread $(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_hbbtv_transport
