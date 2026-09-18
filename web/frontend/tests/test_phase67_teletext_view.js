@@ -23,6 +23,11 @@ assert(teletext.includes("credentials: 'same-origin'"));
 assert(teletext.includes("cache: 'no-store'"));
 assert(teletext.includes("body.vdr-suite-teletext-open .vdr-suite-teletext-overlay"));
 assert(teletext.includes("body.vdr-suite-teletext-open .vdr-suite-live-tv-player"));
+assert(teletext.includes("right:32vw"));
+assert(teletext.includes("width:32vw"));
+assert(teletext.includes("right:30vw"));
+assert(teletext.includes("width:30vw"));
+assert(teletext.includes("max-height:66vh"));
 assert(teletext.includes("setDesktopCompanionActive(true)"));
 assert(teletext.includes("setDesktopCompanionActive(false)"));
 
