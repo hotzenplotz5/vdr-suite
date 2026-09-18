@@ -41,27 +41,31 @@
 .recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}
 .recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
 .recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}
-.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem;padding:.18rem .35rem .18rem .18rem;border:1px solid transparent;border-radius:.75rem;background:transparent;color:inherit;text-align:left}
-.recordings2-hero-person:hover,.recordings2-hero-person:focus-visible{border-color:rgba(185,216,255,.62);background:rgba(15,18,23,.48);outline:none}
+.recordings2-hero-page button.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem;min-height:0;padding:.18rem .35rem .18rem .18rem;border:1px solid rgba(255,255,255,.08);border-radius:.75rem;background:transparent;color:inherit;text-align:left;box-shadow:none;appearance:none}
+.recordings2-hero-page button.recordings2-hero-person:hover{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.2);box-shadow:none}
+.recordings2-hero-page button.recordings2-hero-person:focus-visible{border-color:rgba(255,255,255,.42);background:rgba(0,0,0,.26);box-shadow:0 0 0 2px rgba(255,255,255,.12);outline:none}
 .recordings2-hero-person img,.recordings2-hero-person-placeholder{width:2.8rem;height:2.8rem;border-radius:50%;object-fit:cover;background:#252a33}
 .recordings2-hero-person-placeholder{display:grid;place-items:center;color:#6b7280;font-weight:900}
 .recordings2-hero-person-copy{display:grid;gap:.08rem}
 .recordings2-hero-person-copy strong{font-size:.8rem}
 .recordings2-hero-person-copy span{color:#d1d5db;font-size:.68rem}
-.recordings2-hero-person-role{color:#9fbfe8!important}
+.recordings2-hero-person-role{color:#b8bec8!important}
 .recordings2-hero-related{position:relative;z-index:2;display:grid;gap:.85rem;margin:1.9rem clamp(1.25rem,5vw,5rem) 0}
 .recordings2-hero-related-head{display:flex;align-items:end;justify-content:space-between;gap:1rem}
 .recordings2-hero-related-head-copy{display:grid;gap:.2rem}
 .recordings2-hero-related-head h4{margin:0;color:#fff;font-size:1.35rem}
 .recordings2-hero-related-head span{color:#9ca3af;font-size:.78rem}
-.recordings2-hero-related-back{min-height:2.45rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(15,18,23,.58);color:#f8fafc;font-weight:800}
+.recordings2-hero-page button.recordings2-hero-related-back{min-height:2.45rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:transparent;color:#f8fafc;font-weight:800;box-shadow:none;appearance:none}
+.recordings2-hero-page button.recordings2-hero-related-back:hover,.recordings2-hero-page button.recordings2-hero-related-back:focus-visible{border-color:rgba(255,255,255,.4);background:rgba(0,0,0,.24);box-shadow:none;outline:none}
 .recordings2-hero-related-status{margin:0;padding:.9rem 1rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(15,18,23,.44);color:#cbd5e1}
 .recordings2-hero-related-rail{display:flex;gap:.85rem;overflow-x:auto;padding:.15rem 0 .7rem;scroll-snap-type:x proximity;scrollbar-width:thin}
-.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start}
+.recordings2-hero-page button.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);min-height:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start;box-shadow:none;appearance:none}
 .recordings2-hero-related-poster{display:grid;place-items:center;aspect-ratio:2/3;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:.7rem;background:#171a20;color:#d1d5db;font-size:1.3rem;box-shadow:0 .7rem 1.8rem rgba(0,0,0,.2)}
 .recordings2-hero-related-poster img{display:block;width:100%;height:100%;object-fit:cover}
-.recordings2-hero-related-card:hover .recordings2-hero-related-poster,.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:#b9d8ff;box-shadow:0 0 0 2px rgba(185,216,255,.2)}
-.recordings2-hero-related-card:focus-visible{outline:none}
+.recordings2-hero-page button.recordings2-hero-related-card:hover,.recordings2-hero-page button.recordings2-hero-related-card:focus-visible{background:transparent;box-shadow:none}
+.recordings2-hero-page button.recordings2-hero-related-card:hover .recordings2-hero-related-poster{border-color:rgba(255,255,255,.28);box-shadow:0 .7rem 1.8rem rgba(0,0,0,.28)}
+.recordings2-hero-page button.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 2px rgba(255,255,255,.12)}
+.recordings2-hero-page button.recordings2-hero-related-card:focus-visible{outline:none}
 .recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
