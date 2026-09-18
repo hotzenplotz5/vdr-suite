@@ -9,6 +9,8 @@ const continueSync = fs.readFileSync('web/frontend/api/continue-watching-sync.js
 const packaging = fs.readFileSync('mk/recordings2.mk', 'utf8');
 const legacyPlayback = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
 const fastPlayback = fs.readFileSync('web/frontend/api/session-frontend-sync.js', 'utf8');
+const fallbackControls = fs.readFileSync('web/frontend/api/recording-fallback-controls.js', 'utf8');
+const fallbackRestartSeek = fs.readFileSync('web/frontend/api/recording-fallback-restart-seek.js', 'utf8');
 
 assert(prewarm.includes('const PREWARM_DELAY_MS = 700;'),
   'Hero prewarm must remain deliberately delayed and bounded');
@@ -44,6 +46,12 @@ assert(fastPlayback.includes('legacy.start({autoPlay: autoPlay !== false})'),
   'fast owner must propagate prewarm autoplay intent into compatibility fallback');
 assert(fastPlayback.includes("typeof fallbackPanel.play === 'function'"),
   'explicit play must delegate to a prepared compatibility fallback');
+assert(fallbackControls.includes('function start(startOptions)'),
+  'fallback controls must accept bounded start options from Hero prewarm');
+assert(fallbackControls.includes('inner.start(startOptions)'),
+  'fallback controls must preserve no-autoplay intent for the inner HLS owner');
+assert(fallbackRestartSeek.includes('playback.start.apply(playback, startArguments)'),
+  'restart-seek decorator must forward Hero prewarm start arguments unchanged');
 
 const scheduled = [];
 const requests = [];
