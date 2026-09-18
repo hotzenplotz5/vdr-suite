@@ -2124,6 +2124,7 @@ def check_client_api_contract():
         "fetchClientMetadata",
         "fetchClientPersons",
         "fetchClientRecordingPersons",
+        "fetchClientRecordingTrailer",
         "fetchClientRecordings",
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution",
@@ -2387,6 +2388,12 @@ def check_client_api_contract():
                 route in client_api,
                 function_name + "() must own read route access for " + route
             )
+
+    require(
+        "function fetchClientRecordingTrailer(options)" in client_api
+        and "'/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer'" in client_api,
+        "fetchClientRecordingTrailer() must own the backend-scoped Recording trailer route"
+    )
 
     missing_backend_route_gap_tokens = [
         "fetchClientPermissionReport",
