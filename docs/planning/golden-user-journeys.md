@@ -122,7 +122,9 @@ Live TV
   -> Live remains usable
 ```
 
-Acceptance must use Suite Teletext service/page contracts with truthful freshness/backend/channel identity and no raw plugin command channel. This is a Phase-67 journey under ADR-0054 and is not yet implemented/accepted.
+Acceptance must use Suite Teletext service/page contracts with truthful freshness/backend/channel identity and no raw plugin command channel.
+
+**Accepted.** Real yaVDR/browser acceptance proved the normalized service/page path, page/subpage navigation, 25 x 40 / 1000-cell rendering, desktop Live-TV companion behavior, close-with-Live-still-usable semantics, and direct Media Home Teletext entry. Durable evidence is in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md).
 
 ## Journey 9 — Launch one HbbTV broadcast application
 
@@ -162,7 +164,7 @@ This remains a cross-cutting product milestone: EPG/Timer -> permission -> revis
 Phase 64 [completed] -> engine portions of Journeys 3, 4 and Timer-related Journey 5
 Phase 65 [completed] -> Journeys 1 and 2 + media Journey 5
 Phase 66 [completed] -> Journeys 6 and 7
-Phase 67 [next; not started] -> Journeys 8 and 9
+Phase 67 [active] -> Journey 8 accepted; Journey 9 open
 Phase 68 -> Journey 10
 Broad Timer Product UI -> Journey 11 + user-facing Journey 3
 Phase 69 -> public/client compatibility hardening
