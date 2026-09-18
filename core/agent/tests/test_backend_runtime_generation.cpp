@@ -20,13 +20,17 @@ int main()
     BackendRuntimeGenerationRepository generations(database);
     assert(generations.ensureSchema());
 
+    assert(generations.latestGeneration("default") == 129);
+
     const auto first = generations.allocate("default", 1000);
     assert(first.accepted);
     assert(first.generation == 130);
+    assert(generations.latestGeneration("default") == 130);
 
     const auto second = generations.allocate("default", 1001);
     assert(second.accepted);
     assert(second.generation == 131);
+    assert(generations.latestGeneration("default") == 131);
 
     const auto other = generations.allocate("secondary", 1002);
     assert(other.accepted);
