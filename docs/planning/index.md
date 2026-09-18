@@ -30,7 +30,7 @@ Phase 62 — Identity, RBAC and Accountability [COMPLETED]
   -> Phase 64 — Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 — Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 — Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 — Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
+  -> Phase 67 — Broadcast Companion Services: Teletext and HbbTV [ACTIVE; TELETEXT COMPLETE]
   -> Phase 68 — Legacy OSD Compatibility Bridge
   -> Phase 69 — Public API and Client Compatibility Hardening
   -> Phase 70 — Recommendation and Content Knowledge Graph
