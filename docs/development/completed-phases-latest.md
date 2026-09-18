@@ -30,13 +30,19 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - **Phase 63 - Backend Agent and Secure Multi-Site Runtime** — secure Agent lifecycle, generation fencing and provider ownership.
 - **Phase 62 - Identity, RBAC and Accountability Foundation** — persistent identity, backend-scoped authorization, browser-session security and accountability.
 
-## Next strict runtime phase
+## Current active numbered runtime phase
 
 ```text
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 ```
 
-Phase 67 is next but **not started**. ADR-0054 defines the accepted domain-first Teletext/HbbTV architecture. A separate explicit runtime kickoff remains required.
+Phase 67 is active. The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`.
+
+Completed Teletext scope includes the normalized service/page domain, embedded backend lifecycle/generation fencing, authorized HTTP reads, real 25 x 40 / 1000-cell rendering, Live-TV companion integration and direct Media Home entry.
+
+See [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md).
+
+The next open Phase-67 vertical is HbbTV discovery.
 
 ## Evidence boundary
 
