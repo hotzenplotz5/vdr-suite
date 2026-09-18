@@ -300,7 +300,8 @@
 
     function start() {
       timelineDragging = false;
-      return Promise.resolve(playback.start()).then(function (sessionId) {
+      const startArguments = arguments;
+      return Promise.resolve(playback.start.apply(playback, startArguments)).then(function (sessionId) {
         bindVideo();
         syncControls();
         scheduleCapabilityPoll();
