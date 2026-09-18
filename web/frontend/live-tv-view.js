@@ -345,11 +345,11 @@
     const stopButton = button('Live-TV beenden', 'vdr-suite-live-tv-stop');
     stopButton.addEventListener('click', stop);
     head.appendChild(stopButton);
-    box.appendChild(head);
     const slot = doc.createElement('div');
     slot.className = 'vdr-suite-live-tv-player-slot';
     slot.appendChild(state.playback.element);
     box.appendChild(slot);
+    box.appendChild(head);
     root.appendChild(box);
   }
 
