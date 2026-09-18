@@ -80,9 +80,9 @@ Phase 65 - Streaming Gateway and Media Sessions is completed. Use [Phase 65 Clos
 
 Phase 66 - Media Home and Browse Experience is completed. The later Home performance, Recording Discovery, Series metadata/artwork and final H0-H5 Home rebuild are completed as non-numbered hardening and do not reopen Phase 66. Use [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the consolidated current Home truth.
 
-The current accepted Recordings 2 detail/presentation layer, including the cinematic Hero, scoped canonical-owner playback prewarm and corrected related-Genre portrait posters, is documented separately in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md). Native marks/cutting remains separately documented in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md).
+The current accepted Recordings 2 detail/presentation layer, including the cinematic Hero, restored actions/cache fallback, clickable cast/local person search, bottom Metadata navigation, strict paused canonical-owner prewarm, corrected related-Recording portrait posters and inline privacy-enhanced YouTube Trailers, is documented separately in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md). Native marks/cutting remains separately documented in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md).
 
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next but has not started. ADR-0054 defines its accepted architecture and a separate explicit runtime kickoff is required.
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV is active. The Teletext vertical is completed and merged; HbbTV discovery is the next bounded Phase-67 vertical. ADR-0054 remains the binding companion-service architecture.
 
 Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work and do not reopen Phase 65.
 
