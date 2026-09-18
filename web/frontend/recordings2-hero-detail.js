@@ -67,14 +67,15 @@
 .recordings2-hero-page button.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 2px rgba(255,255,255,.12)}
 .recordings2-hero-page button.recordings2-hero-related-card:focus-visible{outline:none}
 .recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
-.recordings2-hero-trailer-overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:clamp(1rem,4vw,3rem);background:rgba(2,4,8,.9);backdrop-filter:blur(18px)}
-.recordings2-hero-trailer-shell{display:grid;gap:.85rem;width:min(100%,76rem);max-height:calc(100vh - 2rem);padding:1rem;border:1px solid rgba(255,255,255,.16);border-radius:1rem;background:#090c12;box-shadow:0 2rem 6rem rgba(0,0,0,.55)}
-.recordings2-hero-trailer-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}
-.recordings2-hero-trailer-head strong{color:#f8fafc;font-size:1.05rem}
-.recordings2-hero-page button.recordings2-hero-trailer-close{min-height:2.5rem;padding:.5rem .85rem;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:transparent;color:#f8fafc;font-weight:850;box-shadow:none}
-.recordings2-hero-page button.recordings2-hero-trailer-close:hover,.recordings2-hero-page button.recordings2-hero-trailer-close:focus-visible{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.08);outline:none}
-.recordings2-hero-trailer-status{margin:0;padding:1rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;background:rgba(15,23,42,.68);color:#cbd5e1;text-align:center}
-.recordings2-hero-trailer-frame{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:.8rem;background:#000}
+.recordings2-hero-trailer-section{position:relative;z-index:2;display:grid;gap:.85rem;margin:1.25rem clamp(1.25rem,5vw,5rem) 0}
+.recordings2-hero-trailer-head{display:flex;align-items:end;justify-content:space-between;gap:1rem}
+.recordings2-hero-trailer-head-copy{display:grid;gap:.2rem}
+.recordings2-hero-trailer-head h4{margin:0;color:#fff;font-size:1.35rem}
+.recordings2-hero-trailer-head span{color:#9ca3af;font-size:.78rem}
+.recordings2-hero-page button.recordings2-hero-trailer-close{min-height:2.45rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:transparent;color:#f8fafc;font-weight:800;box-shadow:none;appearance:none}
+.recordings2-hero-page button.recordings2-hero-trailer-close:hover,.recordings2-hero-page button.recordings2-hero-trailer-close:focus-visible{border-color:rgba(255,255,255,.4);background:rgba(0,0,0,.24);box-shadow:none;outline:none}
+.recordings2-hero-trailer-status{margin:0;padding:.9rem 1rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(15,18,23,.44);color:#cbd5e1}
+.recordings2-hero-trailer-frame{display:block;width:min(100%,76rem);aspect-ratio:16/9;border:0;border-radius:.8rem;background:#000;box-shadow:0 .7rem 1.8rem rgba(0,0,0,.28)}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
 .recordings2-hero-page[data-recordings2-hero-mode="actions"]>.recordings2-actions{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
@@ -193,36 +194,57 @@
   }
 
   function closeTrailer(root) {
-    const overlay = root && root.querySelector
-      ? root.querySelector('.recordings2-hero-trailer-overlay')
+    const section = root && root.querySelector
+      ? root.querySelector('.recordings2-hero-trailer-section')
       : null;
-    if (overlay && typeof overlay.remove === 'function') overlay.remove();
+    if (section && typeof section.remove === 'function') section.remove();
+  }
+
+  function placeTrailerAfterRelated(root) {
+    if (!root || typeof root.querySelector !== 'function') return false;
+    const section = root.querySelector('.recordings2-hero-trailer-section');
+    if (!section) return false;
+    const related = root.querySelector('.recordings2-hero-related');
+    if (related && related.parentNode === root && typeof root.insertBefore === 'function') {
+      root.insertBefore(section, related.nextSibling);
+    } else {
+      root.appendChild(section);
+    }
+    return true;
+  }
+
+  function scrollToTrailer(section) {
+    if (section && typeof section.scrollIntoView === 'function') {
+      section.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
   }
 
   function showTrailer(root, backendId, identity) {
     if (!root || !identity) return;
-    closeTrailer(root);
+    const existing = root.querySelector('.recordings2-hero-trailer-section');
+    if (existing) {
+      placeTrailerAfterRelated(root);
+      scrollToTrailer(existing);
+      return;
+    }
 
-    const overlay = shared.node('section', 'recordings2-hero-trailer-overlay');
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Trailer');
-    const shell = shared.node('div', 'recordings2-hero-trailer-shell');
+    const section = shared.node('section', 'recordings2-hero-trailer-section');
+    section.setAttribute('aria-label', 'Trailer');
     const head = shared.node('div', 'recordings2-hero-trailer-head');
-    const title = shared.node('strong', '', 'Trailer');
-    const close = shared.node('button', 'recordings2-hero-trailer-close', '✕ Schließen');
+    const headCopy = shared.node('div', 'recordings2-hero-trailer-head-copy');
+    const title = shared.node('h4', '', 'Trailer');
+    const subtitle = shared.node('span', '', 'YouTube · wird erst nach Auswahl geladen');
+    headCopy.append(title, subtitle);
+    const close = shared.node('button', 'recordings2-hero-trailer-close', 'Trailer schließen');
     close.type = 'button';
     close.addEventListener('click', function () { closeTrailer(root); });
-    head.append(title, close);
+    head.append(headCopy, close);
     const status = shared.node('p', 'recordings2-hero-trailer-status', 'Trailer wird geladen …');
     status.setAttribute('role', 'status');
-    shell.append(head, status);
-    overlay.appendChild(shell);
-    overlay.addEventListener('click', function (event) {
-      if (event && event.target === overlay) closeTrailer(root);
-    });
-    root.appendChild(overlay);
-    if (typeof close.focus === 'function') close.focus();
+    section.append(head, status);
+    root.appendChild(section);
+    placeTrailerAfterRelated(root);
+    scrollToTrailer(section);
 
     const api = shared.clientApi();
     if (!api || typeof api.fetchClientRecordingTrailer !== 'function') {
@@ -239,7 +261,7 @@
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
-      if (!overlay.parentNode) return;
+      if (!section.parentNode) return;
       if (!result || result.available !== true) {
         status.textContent = 'Kein Trailer verfügbar.';
         return;
@@ -251,6 +273,7 @@
       }
 
       title.textContent = text(result.title) || 'Trailer';
+      subtitle.textContent = 'YouTube · Trailer';
       const iframe = document.createElement('iframe');
       iframe.className = 'recordings2-hero-trailer-frame';
       iframe.src = 'https://www.youtube-nocookie.com/embed/' +
@@ -266,9 +289,10 @@
         'allow-scripts allow-same-origin allow-presentation'
       );
       status.remove();
-      shell.appendChild(iframe);
+      section.appendChild(iframe);
+      placeTrailerAfterRelated(root);
     }).catch(function (error) {
-      if (!overlay.parentNode) return;
+      if (!section.parentNode) return;
       status.textContent = 'Trailer konnte nicht geladen werden: ' +
         text(error && error.message ? error.message : error);
     });
@@ -467,6 +491,7 @@
     const existing = root.querySelector('.recordings2-hero-related');
     if (existing && typeof existing.remove === 'function') existing.remove();
     root.appendChild(section);
+    placeTrailerAfterRelated(root);
     return true;
   }
 
@@ -715,7 +740,8 @@
       genreLabels,
       matchingGenre,
       trailerIdentity,
-      validYoutubeVideoId
+      validYoutubeVideoId,
+      placeTrailerAfterRelated
     })
   });
 }(window));
