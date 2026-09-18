@@ -43,6 +43,10 @@ for fragment in (
     "Unterseite Auto",
     "credentials: 'same-origin'",
     "cache: 'no-store'",
+    "body.vdr-suite-teletext-open .vdr-suite-teletext-overlay",
+    "body.vdr-suite-teletext-open .vdr-suite-live-tv-player",
+    "setDesktopCompanionActive(true)",
+    "setDesktopCompanionActive(false)",
 ):
     if fragment not in view:
         errors.append(f"Teletext view missing contract fragment: {fragment}")
@@ -56,6 +60,8 @@ for forbidden in (
     "VdrSuitePlaybackShell",
     "createLivePanel",
     ".destroy(",
+    "appendChild(state.playback",
+    "createMediaSession",
 ):
     if forbidden in view:
         errors.append(f"Teletext view must not own provider/playback detail: {forbidden}")
