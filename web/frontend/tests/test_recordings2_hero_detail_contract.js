@@ -101,6 +101,22 @@ assert(source.includes("scope: 'recordings'"),
   'genre fallback must stay scoped to local recordings');
 assert(source.includes("'Mehr aus ' + text(genre.label || genre.id)"),
   'genre fallback rail must identify the matched genre');
+assert(source.includes("shared.node('button', 'recordings2-hero-person')"),
+  'Hero cast entries must be keyboard-accessible buttons');
+assert(source.includes("person.name + ' in vorhandenen Aufnahmen suchen'"),
+  'Hero cast buttons must expose person-search intent');
+assert(source.includes('personOwner.roleLabel(person && person.role)'),
+  'Hero cast must reuse the canonical translated person role');
+assert(source.includes('personOwner.findRecordings(person, backendId, 20)'),
+  'Hero cast search must reuse the canonical Person Search owner');
+assert(!source.includes('api.fetchClientRecordingPersons'),
+  'Hero must not implement a second direct person-recording API query');
+assert(source.includes("'Keine weitere vorhandene Aufnahme mit dieser Person gefunden.'"),
+  'Hero person search must have an explicit empty state');
+assert(source.includes("'← Zurück'"),
+  'Hero person search must provide local back navigation');
+assert(source.includes('__vdrSuiteHeroRelatedGeneration'),
+  'Hero person search must guard stale async related-result updates');
 assert(source.includes('!sameRecording(candidate, recording)'),
   'current recording must be excluded from related recordings');
 assert(source.includes('runtime.openRecording(recording'),
