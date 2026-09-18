@@ -1,5 +1,7 @@
 #include "suitebridge_hbbtv_command.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <string>
