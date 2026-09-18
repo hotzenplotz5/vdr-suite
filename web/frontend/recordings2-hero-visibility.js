@@ -54,34 +54,6 @@
     return selected >= 0 && selected < panels.length ? selected : 0;
   }
 
-  function selectRecordingMetadataTab(root) {
-    const tabs = elements(root, '.recordings2-metadata-tab');
-    tabs.forEach(function (tab, index) {
-      if (tab && typeof tab.setAttribute === 'function') {
-        tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
-      }
-    });
-  }
-
-  function bindMetadataTabs(root) {
-    const tabs = elements(root, '.recordings2-metadata-tab');
-    tabs.forEach(function (tab, index) {
-      if (!tab || typeof tab.addEventListener !== 'function' ||
-          tab.__vdrSuiteHeroModeBound === true) return;
-      tab.__vdrSuiteHeroModeBound = true;
-      tab.addEventListener('click', function () {
-        if (tab.disabled) return;
-        const showMode = owner.__test && owner.__test.showMode;
-        if (typeof showMode !== 'function') return;
-        if (index === 0) {
-          showMode(root, 'detail');
-          return;
-        }
-        showMode(root, 'metadata', '.recordings2-metadata-tabs');
-      });
-    });
-  }
-
   function detailFieldValue(root, label) {
     const fields = elements(root, '.recordings2-detail-field');
     for (let index = 0; index < fields.length; index += 1) {
@@ -172,7 +144,8 @@
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-cast{order:6}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"] .recordings2-detail-copy>.recordings2-hero-actions>button:not(.primary){order:7;margin-top:.35rem}
 .recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-volume-owner-shell{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-tabs{position:fixed;top:1.25rem;right:clamp(1rem,3vw,3rem);z-index:14;max-width:min(44rem,calc(100vw - 12rem));background:rgba(10,13,18,.76);box-shadow:0 .5rem 2rem rgba(0,0,0,.25);backdrop-filter:blur(16px)}
+.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{position:relative;z-index:2;width:calc(100% - clamp(2rem,6vw,6rem));max-width:80rem;margin:5.5rem auto 1rem!important}
+.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{position:relative;z-index:2;width:calc(100% - clamp(2rem,6vw,6rem));max-width:80rem;margin:0 auto!important}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"],.recordings2-hero-page[data-recordings2-hero-mode="marks"]{--recordings2-technical-max-width:80rem;--recordings2-technical-inline-space:clamp(2rem,6vw,6rem)}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell{position:relative;z-index:2;width:calc(100% - var(--recordings2-technical-inline-space));max-width:var(--recordings2-technical-max-width);margin:5.5rem auto 1rem}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-volume-owner-shell>.recordings2-playback,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-volume-owner-shell>.recordings2-playback{margin:0!important}
@@ -180,7 +153,7 @@
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.65rem;margin:0}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-marks-detail,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-marks-detail{position:relative;z-index:2;width:calc(100% - var(--recordings2-technical-inline-space));max-width:var(--recordings2-technical-max-width);margin:1rem auto 0}
 .recordings2-hero-page[data-recordings2-hero-mode="playback"] .recordings2-volume-owner-shell .recordings2-marks-detail,.recordings2-hero-page[data-recordings2-hero-mode="marks"] .recordings2-volume-owner-shell .recordings2-marks-detail{margin:1rem 0 0}
-@media(max-width:820px){.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-tabs{position:relative;top:auto;right:auto;z-index:12;max-width:none;margin:4.75rem 1rem .5rem}.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:9rem minmax(0,1fr);gap:1.2rem;min-height:auto;padding-top:6rem}}
+@media(max-width:820px){.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{width:calc(100% - 2rem)}.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:9rem minmax(0,1fr);gap:1.2rem;min-height:auto;padding-top:6rem}}
 @media(max-width:620px){.recordings2-hero-page[data-recordings2-hero-mode="detail"]>.recordings2-metadata-panel.recordings2-hero-recording-panel>.recordings2-detail-hero{grid-template-columns:1fr;padding-top:5.5rem}}
 `;
     global.document.head.appendChild(style);
@@ -203,8 +176,6 @@
     }
 
     syncHeroFactsFromDetail(root);
-    bindMetadataTabs(root);
-    if (detail) selectRecordingMetadataTab(root);
     setHidden(root, '.recordings2-detail-hero', !(detail || metadata));
     setHidden(root, '.recordings2-detail-grid', !(playbackSurface || metadata));
     setHidden(root, '.recordings2-hero-related', !detail);
@@ -212,7 +183,7 @@
     setHidden(root, '.recordings2-volume-owner-shell', !playbackSurface);
     setHidden(root, '.recordings2-marks-detail', !playbackSurface);
     setHidden(root, '.recordings2-actions', !actions, 'block');
-    setHidden(root, '.recordings2-metadata-tabs', !(detail || metadata));
+    setHidden(root, '.recordings2-metadata-tabs', !metadata);
     setHidden(root, '.recordings2-metadata-assignment', !metadata);
     setHidden(root, '[data-recordings2-metadata-assignment-error]', !metadata);
 
@@ -262,13 +233,6 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
-    __test: Object.freeze({
-      apply,
-      recordingPanel,
-      selectedMetadataPanel,
-      selectRecordingMetadataTab,
-      bindMetadataTabs,
-      syncHeroFactsFromDetail
-    })
+    __test: Object.freeze({apply, recordingPanel, selectedMetadataPanel, syncHeroFactsFromDetail})
   });
 }(window));
