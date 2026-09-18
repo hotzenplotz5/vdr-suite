@@ -4,6 +4,25 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+const metadataViewSource = fs.readFileSync('web/frontend/recordings2-metadata-view.js', 'utf8');
+const metadataAssignmentSource = fs.readFileSync('web/frontend/recordings2-metadata-assignment.js', 'utf8');
+const metadataDetailSource = fs.readFileSync('web/frontend/recordings2-metadata-detail.js', 'utf8');
+
+assert(metadataViewSource.includes('.recordings2-metadata-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))'),
+  'metadata tabs must render as a visible four-button grid instead of a horizontal scrollbar');
+assert(metadataViewSource.includes('@media(max-width:720px){.recordings2-metadata-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}'),
+  'metadata tabs must reflow to a usable two-column grid on mobile');
+assert(metadataViewSource.indexOf('root.appendChild(panels.images);') <
+  metadataViewSource.indexOf('root.appendChild(tabs);'),
+  'canonical metadata view must place the tab bar after all metadata panels');
+assert(metadataAssignmentSource.includes("root.querySelector('.recordings2-metadata-tabs')") &&
+  metadataAssignmentSource.includes('root.insertBefore(section, tabs)'),
+  'manual metadata assignment must stay above the bottom tab bar');
+assert(metadataDetailSource.includes('root.insertBefore(box, tabs)'),
+  'metadata assignment load errors must stay above the bottom tab bar');
+assert(metadataViewSource.includes("panel.scrollIntoView({behavior: 'smooth', block: 'start'})"),
+  'selecting a bottom metadata tab must bring its content panel into view');
+
 let requestedPath = '';
 let requestedOptions = null;
 let personSearchOptions = null;
