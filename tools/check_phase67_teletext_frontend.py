@@ -50,6 +50,7 @@ for fragment in (
     "right:30vw",
     "width:30vw",
     "max-height:66vh",
+    "height:auto;max-height:100vh;box-sizing:border-box",
     "setDesktopCompanionActive(true)",
     "setDesktopCompanionActive(false)",
 ):
@@ -57,6 +58,8 @@ for fragment in (
         errors.append(f"Teletext view missing contract fragment: {fragment}")
 
 for forbidden in (
+    "width:32vw;height:100vh",
+    "width:30vw;height:100vh",
     "fetch(",
     "TTXC 1",
     "TTXP 1",
