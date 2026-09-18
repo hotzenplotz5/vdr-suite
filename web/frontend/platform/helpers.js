@@ -64,7 +64,9 @@
   }
 
   function isPublicRecordingMetadataImageUrl(value) {
-    return normalizedText(value).startsWith('/api/vdr/recordings/metadata/image?');
+    const url = normalizedText(value);
+    return url.startsWith('/api/vdr/recordings/metadata/image?') ||
+      /^\/recording-artwork\/[^/?#]+\/[0-9a-fA-F]{32}(?:\?|$)/.test(url);
   }
 
   function preferredRecordingMetadataArtworkUrl(value) {
