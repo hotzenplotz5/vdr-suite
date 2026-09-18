@@ -112,6 +112,46 @@ BackendRuntimeGenerationRepository::allocate(
     return result;
 }
 
+std::uint64_t BackendRuntimeGenerationRepository::latestGeneration(
+    const std::string& backendId) const
+{
+    if (!safeBackendId(backendId)) return 0;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT MAX(value) FROM ("
+        "SELECT generation AS value FROM backend_runtime_generations "
+        "WHERE backend_id = ? "
+        "UNION ALL "
+        "SELECT backend_generation AS value FROM backend_agents "
+        "WHERE backend_id = ?"
+        ");";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, backendId) ||
+        !bindText(statement, 2, backendId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return 0;
+    }
+
+    std::uint64_t result = 0;
+    if (sqlite3_step(statement) == SQLITE_ROW &&
+        sqlite3_column_type(statement, 0) != SQLITE_NULL)
+    {
+        const std::int64_t value = sqlite3_column_int64(statement, 0);
+        if (value > 0)
+            result = static_cast<std::uint64_t>(value);
+    }
+    sqlite3_finalize(statement);
+    return result;
+}
+
 BackendRuntimeGenerationAllocation
 BackendRuntimeGenerationRepository::allocateInCurrentTransaction(
     const std::string& backendId,
