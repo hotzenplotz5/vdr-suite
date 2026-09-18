@@ -3,6 +3,7 @@
 #include "ContinueWatchingApiRuntime.h"
 #include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonSqliteShutdownCancellation.h"
+#include "DaemonHbbtvRuntime.h"
 #include "DaemonTeletextRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -42,6 +43,16 @@ int DaemonRuntime::run()
             *embeddedBackendLifecycleService_,
             backendRuntimeContexts_)) {
         std::cerr << "Teletext control-plane runtime unavailable" << std::endl;
+        return 1;
+    }
+    if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+        !embeddedBackendLifecycleService_ ||
+        !configureDaemonHbbtvRuntime(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *embeddedBackendLifecycleService_,
+            backendRuntimeContexts_)) {
+        std::cerr << "HbbTV discovery control-plane runtime unavailable" << std::endl;
         return 1;
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
@@ -126,6 +137,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    resetDaemonHbbtvRuntime();
     resetDaemonTeletextRuntime();
     embeddedBackendLifecycleService_.reset();
     resetDaemonRecordingEditingRuntime();
