@@ -2,16 +2,17 @@ diff --git a/service/vdrsuite_hbbtv_discovery_service.h b/service/vdrsuite_hbbtv
 new file mode 100644
 --- /dev/null
 +++ b/service/vdrsuite_hbbtv_discovery_service.h
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,281 @@
 +#pragma once
 +
 +#include <algorithm>
 +#include <cstddef>
-+#include <cstdint>
 +#include <cstring>
 +#include <ctime>
 +#include <mutex>
++#include <stdint.h>
 +#include <string>
++#include <utility>
 +#include <vector>
 +
 +// Read-only VDR service used by VDR-Suite. Keep byte-compatible with
