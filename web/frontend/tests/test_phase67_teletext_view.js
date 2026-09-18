@@ -28,6 +28,9 @@ assert(teletext.includes("width:32vw"));
 assert(teletext.includes("right:30vw"));
 assert(teletext.includes("width:30vw"));
 assert(teletext.includes("max-height:66vh"));
+assert(teletext.includes("height:auto;max-height:100vh;box-sizing:border-box"));
+assert(!teletext.includes("width:32vw;height:100vh"));
+assert(!teletext.includes("width:30vw;height:100vh"));
 assert(teletext.includes("setDesktopCompanionActive(true)"));
 assert(teletext.includes("setDesktopCompanionActive(false)"));
 
