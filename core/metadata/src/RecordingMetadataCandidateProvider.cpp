@@ -36,6 +36,17 @@ bool safePoster(const std::string& value)
             character == '_' || character == '-' || character == '.';
     });
 }
+
+bool youtubeVideoId(const std::string& value)
+{
+    return value.size() == 11U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return (character >= 'A' && character <= 'Z') ||
+                (character >= 'a' && character <= 'z') ||
+                (character >= '0' && character <= '9') ||
+                character == '_' || character == '-';
+        });
+}
 }
 
 const char* recordingMetadataCandidateKindName(
@@ -91,4 +102,12 @@ bool RecordingMetadataCastMember::valid() const
         safeText(characterName, 512U, true) &&
         safePoster(profileReference) &&
         order >= 0 && order < 100000;
+}
+
+bool RecordingMetadataTrailer::valid() const
+{
+    return providerId == "youtube" &&
+        youtubeVideoId(externalId) &&
+        safeText(title, 512U, true) &&
+        safeText(language, 16U, true);
 }
