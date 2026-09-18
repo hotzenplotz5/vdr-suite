@@ -475,8 +475,7 @@ SuiteBridgeHbbtvResolver::discoverApplications(
 
     for (const ApplicationWire& application : wire.applications)
     {
-        if (application.applicationId == 0 ||
-            application.applicationId >
+        if (application.applicationId >
                 std::numeric_limits<std::uint32_t>::max() ||
             application.controlCode > 0xffU ||
             application.priority > 0xffU ||
