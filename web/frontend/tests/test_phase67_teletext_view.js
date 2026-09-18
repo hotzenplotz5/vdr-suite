@@ -3,6 +3,7 @@ const fs = require('fs');
 
 const teletext = fs.readFileSync('web/frontend/teletext-view.js', 'utf8');
 const live = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
+const homeLive = fs.readFileSync('web/frontend/home-live-hero.js', 'utf8');
 const client = fs.readFileSync('web/frontend/api/client-api.js', 'utf8');
 const index = fs.readFileSync('web/frontend/index.html', 'utf8');
 const paths = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
@@ -63,14 +64,22 @@ assert(live.includes('global.VdrSuiteTeletextView'));
 assert(live.includes('teletext.createLauncher('));
 assert(live.includes('head.appendChild(teletextButton)'));
 
+assert(homeLive.includes("function openTeletext()"));
+assert(homeLive.includes("global.VdrSuiteTeletextView"));
+assert(homeLive.includes("teletext.open(channel, selectedBackendId())"));
+assert(homeLive.includes("createButton('Videotext', 'media-home-live-action')"));
+assert(homeLive.includes("data-home-live-action', 'teletext"));
+
 const playerSlotAppend = live.indexOf('box.appendChild(slot);');
 const playerHeadAppend = live.indexOf('box.appendChild(head);');
 assert(playerSlotAppend >= 0);
 assert(playerHeadAppend > playerSlotAppend);
 
 const teletextPosition = index.indexOf('<script src="../frontend/teletext-view.js"></script>');
+const homeLivePosition = index.indexOf('<script src="../frontend/home-live-hero.js"></script>');
 const livePosition = index.indexOf('<script src="../frontend/live-tv-view.js"></script>');
 assert(teletextPosition >= 0);
+assert(homeLivePosition > teletextPosition);
 assert(livePosition > teletextPosition);
 
 assert(paths.includes('{"/frontend/teletext-view.js", "teletext-view.js", "application/javascript; charset=utf-8", nullptr}'));
