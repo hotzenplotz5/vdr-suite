@@ -52,6 +52,11 @@ public:
         const std::string& movieExternalId,
         int limit) override;
 
+    RecordingMetadataTrailerPage trailers(
+        const std::string& mediaType,
+        const std::string& externalId,
+        int limit) override;
+
     std::string materializePoster(
         const std::string& externalNamespace,
         const std::string& externalId,
@@ -73,6 +78,10 @@ private:
         int limit);
 
     RecordingMetadataCastPage requestMovieCredits(
+        const std::string& url,
+        int limit);
+
+    RecordingMetadataTrailerPage requestTrailers(
         const std::string& url,
         int limit);
 };
