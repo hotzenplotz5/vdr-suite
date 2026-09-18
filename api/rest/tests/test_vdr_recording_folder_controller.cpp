@@ -163,7 +163,10 @@ int main()
                 "root-1",
                 "Root Recording",
                 "/2026-07-03.20.15.1-0.rec"),
-            cachedFallback
+            makeRecording(
+                "drama-1",
+                "Drama Recording",
+                "/Drama/2026-07-04.20.15.1-0.rec")
         }));
 
     assert(repository.markRefreshFinished("default", 4));
@@ -378,6 +381,10 @@ int main()
     assert(manualLookupCalls == 4);
     assert(missingMetadata.statusCode == 200);
     assert(contains(missingMetadata.body, "\"available\":false"));
+
+    assert(repository.upsertRecordingsForBackend(
+        "default",
+        {cachedFallback}));
 
     const ApiResponse cachedMetadata = controller.getMetadata(
         "default",
