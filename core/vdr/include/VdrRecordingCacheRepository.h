@@ -63,6 +63,11 @@ public:
     std::vector<VdrRecording> findAllForBackend(
         const std::string& backendId) const;
 
+    bool findByBackendNativeId(
+        const std::string& backendId,
+        const std::string& backendNativeId,
+        VdrRecording& recording) const;
+
     int countForBackend(
         const std::string& backendId) const;
 
