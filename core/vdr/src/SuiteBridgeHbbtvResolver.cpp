@@ -429,6 +429,8 @@ SuiteBridgeHbbtvResolver::discoverApplications(
     const std::string& channelId) const
 {
     BroadcastApplicationDiscoverySnapshot snapshot;
+    snapshot.backendId = backendId;
+    snapshot.backendGeneration = backendGeneration;
     snapshot.channelId = channelId;
 
     if (!safeIdentity(backendId, 128) ||
