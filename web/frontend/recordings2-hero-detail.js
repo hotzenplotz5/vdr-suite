@@ -23,7 +23,7 @@
 .recordings2-hero-page>.recordings2-header .recordings2-toolbar button:not(.recordings2-primary){display:none}
 .recordings2-hero-mode-back{position:fixed;top:1.25rem;left:clamp(1rem,3vw,3rem);z-index:14;min-height:2.65rem;padding:.55rem .9rem;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(10,13,18,.76);color:#f8fafc;font-weight:850;box-shadow:0 .5rem 2rem rgba(0,0,0,.25);backdrop-filter:blur(16px)}
 .recordings2-hero-mode-back[hidden]{display:none!important}
-.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-header{display:none}
+.recordings2-hero-page[data-recordings2-hero-mode="playback"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="marks"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-header,.recordings2-hero-page[data-recordings2-hero-mode="actions"]>.recordings2-header{display:none}
 .recordings2-hero-page .recordings2-detail-poster{align-self:end;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:.9rem;background:#15181e;box-shadow:0 1.6rem 4rem rgba(0,0,0,.48)}
 .recordings2-hero-page .recordings2-detail-poster img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover}
 .recordings2-hero-page .recordings2-detail-copy{display:grid;gap:1rem;max-width:62rem;padding-bottom:.25rem;text-shadow:0 .14rem .9rem rgba(0,0,0,.54)}
@@ -60,6 +60,7 @@
 .recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
+.recordings2-hero-page[data-recordings2-hero-mode="actions"]>.recordings2-actions{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
 @media(max-width:820px){.recordings2-hero-page .recordings2-detail-copy h3{font-size:clamp(2.2rem,8vw,3.8rem)}}
 @media(max-width:620px){.recordings2-hero-page .recordings2-detail-poster{width:min(44vw,10rem)}.recordings2-hero-actions{display:grid;grid-template-columns:1fr}.recordings2-hero-actions button{width:100%}}
 `;
@@ -126,7 +127,7 @@
 
   function showMode(root, mode, selector, buttonText) {
     if (!root || !root.dataset) return;
-    const normalized = ['detail', 'playback', 'marks', 'metadata'].includes(mode) ? mode : 'detail';
+    const normalized = ['detail', 'playback', 'marks', 'metadata', 'actions'].includes(mode) ? mode : 'detail';
     root.dataset.recordings2HeroMode = normalized;
     const back = ensureModeBack(root);
     back.hidden = normalized === 'detail';
@@ -178,6 +179,9 @@
     ));
     actions.appendChild(makeButton('Metadaten', function () {
       showMode(root, 'metadata', '.recordings2-metadata-tabs');
+    }));
+    actions.appendChild(makeButton('Aufnahmeaktionen', function () {
+      showMode(root, 'actions', '.recordings2-actions');
     }));
     copy.appendChild(actions);
   }
