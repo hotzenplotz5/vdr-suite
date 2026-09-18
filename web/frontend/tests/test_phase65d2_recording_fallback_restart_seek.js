@@ -218,6 +218,7 @@ assert.strictEqual(window.VdrSuiteRecordingFallbackRestartSeek.__test.parseTime(
 let creates = 0;
 let starts = 0;
 let destroys = 0;
+const startOptionsSeen = [];
 window.VdrSuiteRecordings2Playback = {
   createPanel(recording, backendId, options) {
     creates += 1;
@@ -231,12 +232,14 @@ window.VdrSuiteRecordings2Playback = {
     let sessionId = '';
     return {
       element: panel,
-      start() {
+      start(startOptions) {
         starts += 1;
+        startOptionsSeen.push(startOptions);
         return Promise.resolve(options.createSession()).then(session => {
           sessionId = session.mediaSession.id;
-          video.paused = false;
-          video.dispatch('play', {target: video});
+          const shouldAutoPlay = !startOptions || startOptions.autoPlay !== false;
+          video.paused = !shouldAutoPlay;
+          if (shouldAutoPlay) video.dispatch('play', {target: video});
           return sessionId;
         });
       },
@@ -273,7 +276,15 @@ window.VdrSuiteRecordings2Playback = {
     'compatibility timeline must reserve horizontal drag for the native range control on touch browsers'
   );
 
-  assert.strictEqual(await playback.start(), 'hls-session-1');
+  assert.strictEqual(await playback.start({autoPlay: false}), 'hls-session-1');
+  assert.strictEqual(startOptionsSeen.length, 1);
+  assert.strictEqual(startOptionsSeen[0].autoPlay, false,
+    'no-autoplay intent must survive restart-seek and fallback-control decorators');
+  assert.strictEqual(
+    playback.element.querySelector('video').paused,
+    true,
+    'decorated HLS prewarm must not begin playback before the user presses Play'
+  );
   await flush();
   assert.strictEqual(playback.canResume(), true);
   assert.strictEqual(playback.duration(), 7134);
