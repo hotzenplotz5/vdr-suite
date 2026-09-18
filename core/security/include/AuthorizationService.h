@@ -191,7 +191,8 @@ private:
     static bool adminReadPermission(const std::string& permission)
     {
         return permission == "backend.settings.media-transcode.read" ||
-            permission == "broadcast.teletext.view";
+            permission == "broadcast.teletext.view" ||
+            permission == "broadcast.hbbtv.view";
     }
 
     static bool adminRoleGrants(const std::string& permission)
