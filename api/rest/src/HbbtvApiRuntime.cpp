@@ -236,13 +236,6 @@ ApiResponse serializeDiscovery(
         return errorResponse(502, "hbbtv_discovery_payload_invalid");
     }
 
-    std::uint64_t backendGeneration = 0;
-    if (!snapshot.applications.empty())
-    {
-        backendGeneration =
-            snapshot.applications.front().ref.backendGeneration;
-    }
-
     std::ostringstream json;
     json << "{"schemaVersion":1"
          << ","result":"" << jsonEscape(snapshot.result) << """
