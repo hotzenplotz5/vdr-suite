@@ -27,6 +27,11 @@ assert(source.includes("'▶ Abspielen'"),
   'Hero must expose primary playback');
 assert(source.includes("'▶ Wiedergabe fortsetzen'"),
   'Hero must support resume labelling when a resume position exists');
+assert(source.includes('if (!root || !recording) return root;'),
+  'Hero availability must depend on the Recording detail, not on optional extended metadata');
+assert(!source.includes('metadata.available !== true'),
+  'missing TVScraper metadata must not suppress the Recording Hero');
+
 assert(source.includes('root.__vdrSuiteRecordingPlaybackOwner'),
   'Hero playback must reuse the canonical recording playback owner');
 assert(source.includes('owner.startAtAbsolute(position)'),
