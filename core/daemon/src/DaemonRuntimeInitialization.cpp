@@ -106,6 +106,13 @@ bool DaemonRuntime::initialize()
             *backendAgentIdentityRepository_,
             *backendAgentCredentialVerifierRepository_,
             *backendAgentAccountabilityRepository_);
+    embeddedBackendLifecycleService_ =
+        std::make_unique<EmbeddedBackendLifecycleService>(database_);
+    if (!embeddedBackendLifecycleService_->ensureSchema()) {
+        std::cerr << "failed to initialize embedded backend lifecycle schema"
+                  << std::endl;
+        return false;
+    }
     backendAgentCommandDeliveryService_ =
         std::make_unique<BackendAgentCommandDeliveryService>(
             *backendAgentCommandRepository_,
@@ -820,6 +827,19 @@ bool DaemonRuntime::initialize()
 
         if (backendRuntimeContext->suiteBridgeAgentRuntime) {
             backendRuntimeContext->suiteBridgeAgentRuntime->start();
+            const std::int64_t lifecycleNow =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!embeddedBackendLifecycleService_ ||
+                !embeddedBackendLifecycleService_->startBackend(
+                    backendRuntimeContext->backendId,
+                    lifecycleNow)) {
+                std::cerr
+                    << "failed to start embedded backend lifecycle: backend="
+                    << backendRuntimeContext->backendId
+                    << std::endl;
+                return false;
+            }
             std::cout
                 << "Suite Bridge embedded Agent runtime started: backend="
                 << backendRuntimeContext->backendId
