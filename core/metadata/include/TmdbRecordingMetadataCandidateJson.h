@@ -37,3 +37,10 @@ bool parseTmdbRecordingMovieCredits(
     int limit,
     std::vector<RecordingMetadataCastMember>& cast,
     bool& truncated);
+
+bool parseTmdbRecordingTrailers(
+    const std::string& body,
+    std::size_t maximumBytes,
+    int limit,
+    std::vector<RecordingMetadataTrailer>& trailers,
+    bool& truncated);
