@@ -217,6 +217,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_backend_agents_active_backend
 CREATE INDEX IF NOT EXISTS idx_backend_agents_backend_generation
     ON backend_agents (backend_id, backend_generation);
 
+CREATE TABLE IF NOT EXISTS backend_runtime_generations (
+    backend_id TEXT PRIMARY KEY,
+    generation INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS backend_agent_credential_rotations (
     rotation_id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
