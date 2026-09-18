@@ -22,6 +22,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical inside active Phase 67.
 - [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
