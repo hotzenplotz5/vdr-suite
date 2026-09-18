@@ -39,6 +39,7 @@ test-phase67-hbbtv-frontend:
 	node --check web/frontend/api/client-api.js
 	node --check web/frontend/live-tv-view.js
 	node web/frontend/tests/test_phase67_hbbtv_discovery.js
+	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend
 
 test-phase67-hbbtv-daemon-build:
