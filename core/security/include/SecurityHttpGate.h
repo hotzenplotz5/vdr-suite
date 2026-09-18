@@ -144,6 +144,27 @@ public:
             request.method == "GET" && isMediaTranscodeSettingsRoute;
         const bool isMediaTranscodeSettingsAction =
             isPost && isMediaTranscodeSettingsRoute;
+        const bool isHbbtvDiscoveryRead =
+            request.method == "GET" &&
+            path == "/api/vdr/broadcast/hbbtv/applications";
+        std::string hbbtvBackendId;
+        if (isHbbtvDiscoveryRead)
+        {
+            hbbtvBackendId = queryStringValue(request.path, "backend");
+            const bool validBackend =
+                !hbbtvBackendId.empty() &&
+                hbbtvBackendId.size() <= 128U &&
+                std::all_of(
+                    hbbtvBackendId.begin(),
+                    hbbtvBackendId.end(),
+                    [](unsigned char character) {
+                        return std::isalnum(character) ||
+                            character == '.' || character == '_' ||
+                            character == '-';
+                    });
+            if (!validBackend) hbbtvBackendId.clear();
+        }
+
         const bool isTeletextRead =
             request.method == "GET" &&
             (path == "/api/vdr/broadcast/teletext/service" ||
@@ -199,6 +220,47 @@ public:
             isRecordingSeriesHierarchyAction;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
+
+        if (isHbbtvDiscoveryRead)
+        {
+            if (!gate.context.authenticated()) return rejectAuthentication(gate);
+
+            AuthorizationRequest hbbtvRequest;
+            hbbtvRequest.permission = "broadcast.hbbtv.view";
+            hbbtvRequest.backendId = hbbtvBackendId;
+            hbbtvRequest.action = "broadcast.hbbtv.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, hbbtvRequest);
+
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
 
         if (isTeletextRead)
         {
