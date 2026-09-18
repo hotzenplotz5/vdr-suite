@@ -3,8 +3,10 @@
 
 #include <stdint.h>
 
-// Provider ABI expected from vdr-plugin-web. The corresponding provider patch is
-// pinned to upstream commit 34ded5090fbad021338c491355566dbdb4d98f9d.
+// Provider ABI expected from hotzenplotz5/vdr-plugin-web.
+// Discovery implementation: work/vdr-suite-hbbtv-discovery-v1
+// pinned commit: 9ee1697a435e01058df6890323bf979a1ad2fd87
+// upstream base: Zabrimus/vdr-plugin-web@34ded5090fbad021338c491355566dbdb4d98f9d
 // Keep this contract byte-compatible with the provider-side definition.
 #define VDRWEB_SERVICE_HBBTV_DISCOVERY_V1 "VdrWeb::HbbtvDiscovery-v1"
 
