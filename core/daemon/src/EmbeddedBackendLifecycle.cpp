@@ -1,16 +1,46 @@
 #include "EmbeddedBackendLifecycle.h"
 
-#include "BackendAgentLifecycle.h"
 #include "BackendRuntimeGeneration.h"
 #include "Database.h"
 
 #include <sqlite3.h>
 
+#include <algorithm>
+#include <cctype>
+#include <iomanip>
 #include <limits>
+#include <random>
+#include <sstream>
 
 namespace
 {
 constexpr std::int64_t LeaseDurationSeconds = 30;
+
+bool safeBackendId(const std::string& value)
+{
+    if (value.empty() || value.size() > 128U) return false;
+    return std::all_of(
+        value.begin(),
+        value.end(),
+        [](unsigned char character) {
+            return std::isalnum(character) != 0 ||
+                character == '-' || character == '_' ||
+                character == '.' || character == ':';
+        });
+}
+
+std::string runtimeInstanceId()
+{
+    std::random_device random;
+    std::ostringstream output;
+    output << "embedded_runtime_";
+    for (int index = 0; index < 12; ++index)
+    {
+        output << std::hex << std::setw(2) << std::setfill('0')
+               << (random() & 0xffU);
+    }
+    return output.str();
+}
 
 bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
 {
@@ -91,11 +121,10 @@ bool EmbeddedBackendLifecycleService::startBackend(
     const std::string& backendId,
     std::int64_t now)
 {
-    if (!BackendAgentLifecycleService::safeIdentifier(backendId) || now < 0)
+    if (!safeBackendId(backendId) || now < 0)
         return false;
 
-    const std::string instanceId =
-        backendAgentGenerateOpaqueId("embedded_runtime_", 12);
+    const std::string instanceId = runtimeInstanceId();
     if (instanceId.empty()) return false;
 
     Transaction transaction(database_);
