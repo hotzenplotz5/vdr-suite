@@ -580,9 +580,13 @@ bool BackendAgentRepository::acceptConnection(
     result.agentId = current->agentId;
     result.backendId = current->backendId;
     result.credentialGeneration = current->credentialGeneration;
+    BackendRuntimeGenerationRepository generations(database_);
+    const std::uint64_t latestGeneration =
+        generations.latestGeneration(request.backendId);
     const bool sameInstance =
         !current->agentInstanceId.empty() &&
-        current->agentInstanceId == request.agentInstanceId;
+        current->agentInstanceId == request.agentInstanceId &&
+        latestGeneration <= current->backendGeneration;
 
     if (sameInstance)
     {
@@ -603,7 +607,6 @@ bool BackendAgentRepository::acceptConnection(
     }
     else
     {
-        BackendRuntimeGenerationRepository generations(database_);
         const BackendRuntimeGenerationAllocation allocation =
             generations.allocateInCurrentTransaction(
                 request.backendId,
