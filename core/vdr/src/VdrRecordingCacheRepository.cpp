@@ -607,6 +607,51 @@ std::vector<VdrRecording> VdrRecordingCacheRepository::findAllForBackend(
     return recordings;
 }
 
+bool VdrRecordingCacheRepository::findByBackendNativeId(
+    const std::string& backendId,
+    const std::string& backendNativeId,
+    VdrRecording& recording) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    recording = {};
+
+    if (backendNativeId.empty())
+    {
+        return false;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT recording_id, backend_id, backend_native_id, "
+        "title, path, start_time, duration_seconds, size_mb, metadata_payload, "
+        "recording_duration_known "
+        "FROM vdr_recording_cache "
+        "WHERE backend_id = ? AND backend_native_id = ? "
+        "LIMIT 1;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bindText(stmt, 1, normalizeBackendId(backendId));
+    bindText(stmt, 2, backendNativeId);
+
+    const bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    if (found)
+    {
+        recording = readRecording(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+    return found;
+}
+
 int VdrRecordingCacheRepository::countForBackend(
     const std::string& backendId) const
 {
