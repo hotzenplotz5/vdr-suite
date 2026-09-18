@@ -6,6 +6,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 VIEW = ROOT / "web/frontend/teletext-view.js"
 LIVE = ROOT / "web/frontend/live-tv-view.js"
+HOME = ROOT / "web/frontend/home-live-hero.js"
 CLIENT = ROOT / "web/frontend/api/client-api.js"
 INDEX = ROOT / "web/frontend/index.html"
 PATHS = ROOT / "core/http/src/TestHttpServerPaths.inc"
@@ -14,7 +15,7 @@ TEST = ROOT / "web/frontend/tests/test_phase67_teletext_view.js"
 
 errors: list[str] = []
 
-for path in (VIEW, LIVE, CLIENT, INDEX, PATHS, INSTALL, TEST):
+for path in (VIEW, LIVE, HOME, CLIENT, INDEX, PATHS, INSTALL, TEST):
     if not path.is_file():
         errors.append(f"missing Phase 67 Teletext frontend file: {path.relative_to(ROOT)}")
 
@@ -23,6 +24,7 @@ def read(path: Path) -> str:
 
 view = read(VIEW)
 live = read(LIVE)
+home = read(HOME)
 client = read(CLIENT)
 index = read(INDEX)
 paths = read(PATHS)
@@ -90,6 +92,16 @@ for fragment in (
         errors.append(f"Live-TV integration missing Teletext launcher fragment: {fragment}")
 
 for fragment in (
+    "function openTeletext()",
+    "global.VdrSuiteTeletextView",
+    "teletext.open(channel, selectedBackendId())",
+    "createButton('Videotext', 'media-home-live-action')",
+    "data-home-live-action', 'teletext",
+):
+    if fragment not in home:
+        errors.append(f"Media Home missing Teletext action fragment: {fragment}")
+
+for fragment in (
     "function fetchClientTeletextService(options)",
     "function fetchClientTeletextPage(options)",
     "requestJson('/api/vdr/broadcast/teletext/service', options)",
@@ -108,6 +120,8 @@ elif live_script not in index:
     errors.append("index.html missing Live-TV runtime")
 elif index.index(teletext_script) > index.index(live_script):
     errors.append("Teletext runtime must load before Live-TV launcher integration")
+elif index.index(teletext_script) > index.index('<script src="../frontend/home-live-hero.js"></script>'):
+    errors.append("Teletext runtime must load before Media Home Teletext action")
 
 if '{"/frontend/teletext-view.js", "teletext-view.js"' not in paths:
     errors.append("HTTP frontend asset map missing teletext-view.js")
