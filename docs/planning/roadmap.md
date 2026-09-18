@@ -51,16 +51,19 @@ Latest completed numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Current active numbered runtime phase:
-none - Phase 67 has not started
-
-Next strict numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
+Completed Phase-67 vertical:
+Teletext read path / browser-TV view / page navigation
+
 Current active runtime slice:
-none - Phase 67 has not started
+HbbTV discovery
+
+Next numbered phase after Phase 67:
+Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
-Phase 65 and Phase 66 are completed. Durable Media Home evidence lives in [Phase 66 Closeout](../development/phase-66-closeout.md). ADR-0054 defines the next Broadcast Companion architecture, but Phase 67 has not started and still requires a separate explicit runtime kickoff.
+Phase 65 and Phase 66 are completed. Durable Media Home evidence lives in [Phase 66 Closeout](../development/phase-66-closeout.md). Phase 67 is active. Its Teletext vertical is completed and merged through PR #293; durable evidence lives in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md). HbbTV discovery is the next coherent Phase-67 vertical.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -1053,7 +1056,7 @@ A user-visible milestone is not complete from component CI alone.
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
+  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [ACTIVE; TELETEXT COMPLETE]
   -> Phase 68 - Legacy OSD Compatibility Bridge
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
@@ -1078,9 +1081,9 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phase 65 and Phase 66 are completed for their accepted bounded scopes. Phase-66 durable completion evidence is in [Phase 66 Closeout](../development/phase-66-closeout.md).
 
-**Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next but has not started.** ADR-0054 is accepted architecture only. Runtime implementation still requires a separate explicit Phase-67 kickoff.
+**Phase 67 - Broadcast Companion Services: Teletext and HbbTV is active.** The Teletext vertical is completed and accepted through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`.
 
-Before any Phase-67 runtime block, read live `main`, `CURRENT.md`, ADR-0054, the strict Phase-67 roadmap section and the existing Channel/EPG/Agent/media ownership paths, then choose the smallest coherent domain-first change without crossing into Legacy OSD or public-API work.
+The next coherent Phase-67 block is HbbTV discovery. Before that work, read live `main`, `CURRENT.md`, ADR-0054, the Phase-67 Teletext closeout and the existing Channel/EPG/Agent/media ownership paths. Preserve the completed Teletext domain and do not cross into Legacy OSD or Phase-69 public-API hardening.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
