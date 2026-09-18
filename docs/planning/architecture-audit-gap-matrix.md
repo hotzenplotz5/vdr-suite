@@ -73,7 +73,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-35 | Golden vertical product acceptance | Strong planning foundation | Component CI is complemented by real end-to-end Timer/media/failure journeys as capabilities land. | Golden User Journeys |
 | G-36 | Broad Timer Product UI | Planned cross-cutting milestone | Phase-64 engine is complete, but intent-first polished UI remains gated on required account/backend access administration. | Phase 62 + Phase 64 + Roadmap milestone |
 | G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
-| G-38 | Teletext domain service | Planned | No canonical Teletext runtime exists yet. Accepted ADR-0054 models service/page/subpage data independently of OSD rendering. | ADR-0054 / Phase 67 |
+| G-38 | Teletext domain service | Closed foundation | Canonical service/page/subpage domain, fenced provider/Agent path, authorized HTTP reads and first-party 25 x 40 browser/TV rendering are implemented and accepted on real yaVDR. | ADR-0054 / Phase 67 Teletext closeout |
 | G-39 | HbbTV broadcast application domain/runtime | Planned | No canonical HbbTV runtime exists yet. Accepted ADR-0054 models application discovery/session/runtime without public raw plugin/browser commands. | ADR-0054 / Phase 67 |
 | G-40 | Legacy Basic retirement | Deferred deployment migration | Transitional compatibility remains until enforced-mode rollout, recovery and upgrade/rollback are proven. | Phase 62 closeout / deployment milestone |
 | G-41 | Recommendation/content graph | Deferred vision | Requires stable identities, privacy/preferences, provenance and Phase-69 public resource semantics plus a dedicated ADR. | future ADR / Phase 70 |
@@ -88,9 +88,9 @@ Media Home / Browse architecture is accepted via ADR-0058; runtime remains not s
 
 Phase 66 preserves completed Phase-65 MediaSession/playback ownership and existing Channel/ProgramEvent/Recording/Metadata/Genre/artwork truth. Browse focus remains independent of preview state; stale preview must be canceled/relinquished; browser-local state is not fabricated into cross-client authority.
 
-### Following television product domain — Phase 67
+### Current television product domain — Phase 67
 
-Teletext/HbbTV architecture remains accepted via ADR-0054 and follows Phase 66. Runtime is not started.
+Phase 67 is active. Teletext is implemented and accepted. HbbTV discovery is the next open vertical, followed by HbbTV application session/runtime and hardening.
 
 ### Later compatibility/platform work
 
