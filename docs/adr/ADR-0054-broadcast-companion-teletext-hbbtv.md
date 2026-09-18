@@ -25,7 +25,7 @@
 
 Date: 2026-08-17
 
-Accepted during the post-Phase-64 roadmap reconciliation. The Broadcast Companion architecture remains accepted. Its original future phase numbering is superseded by accepted ADR-0058: Broadcast Companion runtime is now Phase 67 and is not started by this ADR.
+Accepted during the post-Phase-64 roadmap reconciliation. The Broadcast Companion architecture remains accepted. Its original future phase numbering is superseded by accepted ADR-0058: Broadcast Companion runtime is Phase 67. This ADR did not itself start runtime work; subsequent implementation has now completed the Teletext vertical while HbbTV remains open.
 
 ---
 
