@@ -409,7 +409,7 @@
   }
 
   function enhance(root, recording, backendId, metadata) {
-    if (!root || !recording || !metadata || metadata.available !== true) return root;
+    if (!root || !recording) return root;
     installStyles();
     root.classList.add('recordings2-hero-page');
     root.dataset.recordings2HeroMode = 'detail';

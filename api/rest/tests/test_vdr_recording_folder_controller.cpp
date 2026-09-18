@@ -112,6 +112,42 @@ int main()
 
     VdrRecordingCacheRepository repository(database);
 
+    VdrRecording cachedFallback = makeRecording(
+        "drama-1",
+        "Drama Recording",
+        "/Drama/2026-07-04.20.15.1-0.rec");
+    cachedFallback.metadata.native.eventTitle = "Mosquito Coast";
+    cachedFallback.metadata.provider.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    cachedFallback.metadata.provider.contentKind =
+        VdrRecordingContentKind::Movie;
+    cachedFallback.metadata.provider.movieId = "11120";
+    cachedFallback.metadata.provider.title = "Mosquito Coast";
+    cachedFallback.metadata.provider.originalTitle = "The Mosquito Coast";
+    cachedFallback.metadata.provider.tagline = "Reise in die Wildnis";
+    cachedFallback.metadata.provider.overview =
+        "Persistierte TVScraper-Beschreibung";
+    cachedFallback.metadata.provider.genreText = "|Drama|Abenteuer|";
+    cachedFallback.metadata.provider.releaseDate = "1986-11-26";
+    cachedFallback.metadata.provider.runtimeMinutes = 117;
+    cachedFallback.metadata.provider.rating = 6.367;
+
+    VdrRecordingArtworkRef cachedPoster;
+    cachedPoster.kind = VdrRecordingArtworkKind::Poster;
+    cachedPoster.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    cachedPoster.reference =
+        "var/cache/vdr/plugins/tvscraper/movies/11120_poster.jpg";
+    cachedFallback.metadata.artwork.push_back(cachedPoster);
+
+    VdrRecordingArtworkRef cachedFanart;
+    cachedFanart.kind = VdrRecordingArtworkKind::Fanart;
+    cachedFanart.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    cachedFanart.reference =
+        "var/cache/vdr/plugins/tvscraper/movies/11120_backdrop.jpg";
+    cachedFallback.metadata.artwork.push_back(cachedFanart);
+
     assert(repository.replaceRecordingsForBackend(
         "default",
         {
@@ -345,6 +381,29 @@ int main()
     assert(manualLookupCalls == 4);
     assert(missingMetadata.statusCode == 200);
     assert(contains(missingMetadata.body, "\"available\":false"));
+
+    assert(repository.upsertRecordingsForBackend(
+        "default",
+        {cachedFallback}));
+
+    const ApiResponse cachedMetadata = controller.getMetadata(
+        "default",
+        cachedFallback.backendNativeId);
+    assert(cachedMetadata.statusCode == 200);
+    assert(contains(cachedMetadata.body, "\"available\":true"));
+    assert(contains(cachedMetadata.body, "\"provider\":\"tvscraper\""));
+    assert(contains(cachedMetadata.body, "\"title\":\"Mosquito Coast\""));
+    assert(contains(
+        cachedMetadata.body,
+        "\"overview\":\"Persistierte TVScraper-Beschreibung\""));
+    assert(contains(cachedMetadata.body, "\"genres\":[\"Drama\",\"Abenteuer\"]"));
+    assert(contains(cachedMetadata.body, "\"voteAverage\":6.367"));
+    assert(contains(cachedMetadata.body, "\"orientation\":\"portrait\""));
+    assert(contains(cachedMetadata.body, "\"orientation\":\"landscape\""));
+    assert(contains(cachedMetadata.body, "/recording-artwork/default/"));
+    assert(!contains(
+        cachedMetadata.body,
+        "var/cache/vdr/plugins/tvscraper"));
 
     std::remove("/tmp/vdr-suite-movie-landscape.jpg");
     std::remove("/tmp/vdr-suite-movie-poster.jpg");

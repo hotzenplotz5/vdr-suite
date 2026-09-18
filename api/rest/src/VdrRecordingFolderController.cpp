@@ -2,6 +2,7 @@
 
 #include "EpgArtworkController.h"
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingArtworkIdentity.h"
 #include "VdrRecordingMetadataJsonSerializer.h"
 #include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
@@ -10,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -369,6 +371,202 @@ void appendRecordingJson(
     json << "}";
 }
 
+std::string trimCachedMetadataText(const std::string& value)
+{
+    const std::size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return {};
+    const std::size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+std::vector<std::string> cachedGenreLabels(const std::string& value)
+{
+    std::vector<std::string> result;
+    std::string current;
+    auto flush = [&result, &current]()
+    {
+        const std::string label = trimCachedMetadataText(current);
+        if (!label.empty()) result.push_back(label);
+        current.clear();
+    };
+
+    for (const char character : value)
+    {
+        if (character == '|' || character == ',' || character == ';')
+            flush();
+        else
+            current.push_back(character);
+    }
+    flush();
+    return result;
+}
+
+void appendCachedStringArray(
+    std::ostringstream& json,
+    const std::vector<std::string>& values)
+{
+    json << '[';
+    for (std::size_t index = 0; index < values.size(); ++index)
+    {
+        if (index > 0) json << ',';
+        appendJsonString(json, values[index]);
+    }
+    json << ']';
+}
+
+std::string cachedMediaType(
+    const VdrRecordingProviderMetadata& provider)
+{
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        return "movie";
+    if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        return "episode";
+    return "unknown";
+}
+
+std::string cachedProviderName(
+    const VdrRecordingProviderMetadata& provider)
+{
+    return provider.source == VdrRecordingMetadataSource::RestfulApiScraperBridge
+        ? "tvscraper"
+        : "recording-cache";
+}
+
+std::string cachedArtworkOrientation(
+    const VdrRecordingArtworkRef& artwork)
+{
+    switch (artwork.kind)
+    {
+    case VdrRecordingArtworkKind::Poster: return "portrait";
+    case VdrRecordingArtworkKind::Banner: return "banner";
+    case VdrRecordingArtworkKind::Fanart:
+    case VdrRecordingArtworkKind::Still:
+    default:
+        return "landscape";
+    }
+}
+
+bool cachedMetadataAvailable(const VdrRecording& recording)
+{
+    return recording.metadata.provider.hasData() ||
+        recording.metadata.native.hasText() ||
+        recording.metadata.hasArtwork();
+}
+
+void appendCachedArtwork(
+    std::ostringstream& json,
+    const VdrRecording& recording,
+    const VdrRecordingArtworkRef* artwork)
+{
+    const std::string url =
+        artwork != nullptr && artwork->isValid()
+            ? VdrRecordingArtworkIdentity::publicUrl(recording, *artwork)
+            : std::string{};
+    const bool available = !url.empty();
+    json << "{\"available\":" << (available ? "true" : "false");
+    if (available)
+    {
+        json << ",\"url\":";
+        appendJsonString(json, url);
+        json << ",\"width\":" << artwork->width
+             << ",\"height\":" << artwork->height;
+    }
+    json << '}';
+}
+
+std::string serializeCachedMetadata(const VdrRecording& recording)
+{
+    if (!cachedMetadataAvailable(recording)) return {};
+
+    const VdrRecordingProviderMetadata& provider =
+        recording.metadata.provider;
+    const VdrRecordingEventMetadata& native =
+        recording.metadata.native;
+    const VdrRecordingArtworkRef* preferred =
+        VdrRecordingArtworkIdentity::preferredArtwork(recording);
+
+    const std::string title =
+        !provider.title.empty()
+            ? provider.title
+            : (!provider.seriesTitle.empty()
+                ? provider.seriesTitle
+                : native.eventTitle);
+    const std::string overview =
+        !provider.overview.empty()
+            ? provider.overview
+            : native.description;
+    const std::string tagline =
+        !provider.tagline.empty()
+            ? provider.tagline
+            : native.shortText;
+
+    std::ostringstream json;
+    json << "{\"available\":true"
+         << ",\"status\":\"ready\""
+         << ",\"provider\":";
+    appendJsonString(json, cachedProviderName(provider));
+    json << ",\"mediaType\":";
+    appendJsonString(json, cachedMediaType(provider));
+    json << ",\"providerId\":0"
+         << ",\"seasonNumber\":" << provider.seasonNumber
+         << ",\"episodeNumber\":" << provider.episodeNumber
+         << ",\"absoluteEpisodeNumber\":0"
+         << ",\"runtimeMinutes\":" << provider.runtimeMinutes
+         << ",\"durationDeviationMinutes\":0"
+         << ",\"popularity\":0"
+         << ",\"voteAverage\":" << provider.rating
+         << ",\"voteCount\":0"
+         << ",\"adult\":false"
+         << ",\"collectionId\":0"
+         << ",\"lastSeason\":0"
+         << ",\"title\":";
+    appendJsonString(json, title);
+    json << ",\"originalTitle\":";
+    appendJsonString(json, provider.originalTitle);
+    json << ",\"episodeName\":";
+    appendJsonString(json, provider.episodeTitle);
+    json << ",\"tagline\":";
+    appendJsonString(json, tagline);
+    json << ",\"overview\":";
+    appendJsonString(json, overview);
+    json << ",\"releaseDate\":";
+    appendJsonString(json, provider.releaseDate);
+    json << ",\"firstAired\":";
+    appendJsonString(
+        json,
+        provider.contentKind == VdrRecordingContentKind::SeriesEpisode
+            ? provider.releaseDate
+            : std::string{});
+    json << ",\"imdbId\":\"\""
+         << ",\"statusText\":\"\""
+         << ",\"collectionName\":\"\""
+         << ",\"genres\":";
+    appendCachedStringArray(json, cachedGenreLabels(provider.genreText));
+    json << ",\"productionCountries\":[]"
+         << ",\"networks\":[]"
+         << ",\"providerHints\":{\"hd\":0,\"language\":-1}"
+         << ",\"preferredArtwork\":";
+    appendCachedArtwork(json, recording, preferred);
+    json << ",\"people\":[]"
+         << ",\"images\":[";
+
+    bool firstImage = true;
+    for (const VdrRecordingArtworkRef& artwork : recording.metadata.artwork)
+    {
+        if (!artwork.isValid()) continue;
+        if (!firstImage) json << ',';
+        firstImage = false;
+        json << "{\"orientation\":";
+        appendJsonString(json, cachedArtworkOrientation(artwork));
+        json << ",\"image\":";
+        appendCachedArtwork(json, recording, &artwork);
+        json << '}';
+    }
+
+    json << "]}";
+    return json.str();
+}
+
 std::string serializeManualMetadata(
     const ManualRecordingMetadataAssignment& assignment,
     const std::string& backendNativeId)
@@ -626,12 +824,37 @@ ApiResponse VdrRecordingFolderController::getMetadata(
             return jsonResponse(serializeManualMetadata(manual, backendNativeId));
     }
 
+    VdrRecordingNativeMetadataRecord nativeMetadata;
+    if (nativeMetadataLookup_)
+    {
+        nativeMetadata =
+            nativeMetadataLookup_(backendId, backendNativeId);
+        if (nativeMetadata.exists() && nativeMetadata.metadata.found)
+        {
+            return jsonResponse(
+                VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
+                    nativeMetadata));
+        }
+    }
+
+    VdrRecording cachedRecording;
+    if (repository_.findByBackendNativeId(
+            backendId,
+            backendNativeId,
+            cachedRecording))
+    {
+        const std::string cachedMetadata =
+            serializeCachedMetadata(cachedRecording);
+        if (!cachedMetadata.empty())
+            return jsonResponse(cachedMetadata);
+    }
+
     if (!nativeMetadataLookup_)
         return jsonError(503, "recording metadata unavailable");
 
     return jsonResponse(
         VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
-            nativeMetadataLookup_(backendId, backendNativeId)));
+            nativeMetadata));
 }
 
 ApiResponse VdrRecordingFolderController::getMetadataImage(

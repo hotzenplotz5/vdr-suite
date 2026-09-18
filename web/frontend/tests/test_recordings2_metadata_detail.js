@@ -85,6 +85,16 @@ assert.strictEqual(
   api.isPublicMetadataImageUrl('/api/vdr/recordings/metadata/image?backend=default'),
   true
 );
+assert.strictEqual(
+  api.isPublicMetadataImageUrl(
+    '/recording-artwork/default/0123456789abcdef0123456789abcdef'
+  ),
+  true
+);
+assert.strictEqual(
+  api.isPublicMetadataImageUrl('/recording-artwork/default/not-an-asset-id'),
+  false
+);
 assert.strictEqual(api.isPublicMetadataImageUrl('https://image.tmdb.org/example.jpg'), false);
 assert.strictEqual(
   api.assignmentRuntimePath(),

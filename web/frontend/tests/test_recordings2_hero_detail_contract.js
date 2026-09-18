@@ -27,6 +27,11 @@ assert(source.includes("'▶ Abspielen'"),
   'Hero must expose primary playback');
 assert(source.includes("'▶ Wiedergabe fortsetzen'"),
   'Hero must support resume labelling when a resume position exists');
+assert(source.includes('if (!root || !recording) return root;'),
+  'Hero availability must depend on the Recording detail, not on optional extended metadata');
+assert(!source.includes('metadata.available !== true'),
+  'missing TVScraper metadata must not suppress the Recording Hero');
+
 assert(source.includes('root.__vdrSuiteRecordingPlaybackOwner'),
   'Hero playback must reuse the canonical recording playback owner');
 assert(source.includes('owner.startAtAbsolute(position)'),
@@ -57,6 +62,12 @@ assert(visibility.includes('detail || playbackSurface'),
   'playback must keep the metadata-owned recording panel available for technical facts');
 assert(visibility.includes('recordings2-hero-recording-panel'),
   'nested recording panel must retain its explicit layout hook');
+assert(visibility.includes('--recordings2-technical-max-width:80rem'),
+  'playback and marks must share a bounded technical desktop rail');
+assert(visibility.includes('max-width:var(--recordings2-technical-max-width)'),
+  'technical playback, facts and marks must stay within the shared maximum width');
+assert(visibility.includes('.recordings2-volume-owner-shell .recordings2-marks-detail{margin:1rem 0 0}'),
+  'marks moved beside the canonical playback timeline must not keep a second viewport gutter');
 assert(visibility.includes('overflow:hidden'),
   'Hero backdrop must be clipped to prevent an image seam below the Hero');
 assert(visibility.includes('.recordings2-detail-copy>.recordings2-hero-actions{display:contents}'),
