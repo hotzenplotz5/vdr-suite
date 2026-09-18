@@ -58,6 +58,8 @@ assert(source.includes('https://www.youtube-nocookie.com/embed/'),
   'YouTube trailers must use the privacy-enhanced embed origin');
 assert(source.includes('?autoplay=0&rel=0'),
   'Trailer iframe must explicitly disable autoplay');
+assert(source.includes('.recordings2-hero-trailer-section{position:relative;z-index:2;display:grid'),
+  'Trailer must use the normal Hero document flow below related recordings');
 assert(!source.includes('enablejsapi'),
   'Trailer embed must not attach YouTube to the Recording MediaSession owner');
 assert(!source.includes('api.themoviedb.org'),
@@ -66,8 +68,20 @@ assert(!source.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'),
   'provider credentials must never enter the browser runtime');
 assert(source.includes("iframe.allow = 'encrypted-media; picture-in-picture; fullscreen'"),
   'Trailer embed permissions must omit autoplay');
-assert(source.includes("overlay.remove()"),
-  'closing the Trailer must remove the iframe and terminate its media');
+assert(source.includes("section.remove()"),
+  'closing the inline Trailer must remove the iframe and terminate its media');
+assert(source.includes("'.recordings2-hero-trailer-section'"),
+  'Trailer must render as an inline Hero section');
+assert(!source.includes("recordings2-hero-trailer-overlay"),
+  'Trailer must not render as a modal overlay');
+assert(!source.includes("aria-modal"),
+  'inline Trailer must not claim modal semantics');
+assert(source.includes('placeTrailerAfterRelated(root);'),
+  'Trailer placement must be repaired after asynchronous related-rail updates');
+assert(source.includes("root.insertBefore(section, related.nextSibling)"),
+  'inline Trailer must be placed directly after the related-film section');
+assert(source.includes("scrollIntoView({behavior: 'smooth', block: 'start'})"),
+  'Trailer action must scroll the inline section into view');
 
 assert(!source.includes("makeButton('Schnittmarken'"),
   'cut marks must not be a Hero action');
