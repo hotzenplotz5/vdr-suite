@@ -36,6 +36,12 @@ assert(!source.includes("makeButton('Schnittmarken'"),
   'cut marks must not be a Hero action');
 assert(!source.includes("makeButton('Schneiden'"),
   'cutting must not be a Hero action');
+assert(source.includes("makeButton('Aufnahmeaktionen'"),
+  'Hero must expose the existing Recording actions panel');
+assert(source.includes("showMode(root, 'actions', '.recordings2-actions')"),
+  'Recording actions must open through the Hero mode owner');
+assert(source.includes("['detail', 'playback', 'marks', 'metadata', 'actions']"),
+  'Hero mode contract must include Recording actions');
 
 assert(visibility.includes("'.recordings2-volume-owner-shell', !playbackSurface"),
   'detail mode must hide the complete decorated playback shell');
@@ -43,6 +49,10 @@ assert(visibility.includes("'.recordings2-detail-grid', !(playbackSurface || met
   'legacy technical detail cards must not appear in the Hero');
 assert(visibility.includes("'.recordings2-marks-detail', !playbackSurface"),
   'cut/marks tooling must belong to the playback surface');
+assert(visibility.includes("const actions = mode === 'actions';"),
+  'Hero visibility owner must model Recording actions explicitly');
+assert(visibility.includes("setHidden(root, '.recordings2-actions', !actions, 'block')"),
+  'Recording actions must be visible only in the dedicated Hero action mode');
 assert(visibility.includes('detail || playbackSurface'),
   'playback must keep the metadata-owned recording panel available for technical facts');
 assert(visibility.includes('recordings2-hero-recording-panel'),
