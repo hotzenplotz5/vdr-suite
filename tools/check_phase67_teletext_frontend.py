@@ -45,6 +45,11 @@ for fragment in (
     "cache: 'no-store'",
     "body.vdr-suite-teletext-open .vdr-suite-teletext-overlay",
     "body.vdr-suite-teletext-open .vdr-suite-live-tv-player",
+    "right:32vw",
+    "width:32vw",
+    "right:30vw",
+    "width:30vw",
+    "max-height:66vh",
     "setDesktopCompanionActive(true)",
     "setDesktopCompanionActive(false)",
 ):
