@@ -81,9 +81,11 @@
 .vdr-suite-teletext-overlay{position:fixed;z-index:2147483000;inset:0;display:grid;grid-template-rows:auto 1fr;background:rgba(2,6,23,.96);color:#f8fafc}
 @media(min-width:1100px){
   body.vdr-suite-teletext-open{overflow:hidden}
-  body.vdr-suite-teletext-open::after{content:"";position:fixed;z-index:2147482400;top:0;right:0;bottom:0;width:32vw;background:linear-gradient(180deg,#020617 0%,#07111f 100%);pointer-events:none}
+  body.vdr-suite-teletext-open::after{content:"";position:fixed;z-index:2147482400;top:0;right:0;bottom:0;width:32vw;background:linear-gradient(180deg,#020617 0%,#07111f 100%);pointer-events:auto}
   body.vdr-suite-teletext-open .vdr-suite-teletext-overlay{right:32vw;background:rgba(2,6,23,.985);box-shadow:1.2rem 0 3.5rem rgba(0,0,0,.42)}
-  body.vdr-suite-teletext-open .vdr-suite-live-tv-player{position:fixed;z-index:2147482500;top:0;right:0;width:32vw;height:auto;max-height:100vh;box-sizing:border-box;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:hidden}
+  body.vdr-suite-teletext-open .vdr-suite-live-tv-grid{pointer-events:none!important}
+  body.vdr-suite-teletext-open .vdr-suite-live-tv-channel{pointer-events:none!important}
+  body.vdr-suite-teletext-open .vdr-suite-live-tv-player{position:fixed;z-index:2147482500;top:0;right:0;width:32vw;height:auto;max-height:100vh;box-sizing:border-box;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:hidden;pointer-events:auto!important}
   body.vdr-suite-teletext-open .vdr-suite-live-tv-player-head{position:relative;z-index:2;background:rgba(2,6,23,.96);backdrop-filter:blur(10px);padding:.7rem .8rem .8rem;border-top:1px solid rgba(148,163,184,.18)}
   body.vdr-suite-teletext-open .vdr-suite-live-tv-player-slot{display:grid;place-items:start center;min-height:0;background:#000;border-radius:0!important}
   body.vdr-suite-teletext-open .vdr-suite-live-tv-player video{display:block;width:100%;height:auto;max-height:62vh;object-fit:contain;background:#000}
