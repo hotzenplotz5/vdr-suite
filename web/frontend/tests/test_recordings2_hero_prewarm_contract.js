@@ -7,6 +7,8 @@ const vm = require('vm');
 const prewarm = fs.readFileSync('web/frontend/recordings2-hero-prewarm.js', 'utf8');
 const continueSync = fs.readFileSync('web/frontend/api/continue-watching-sync.js', 'utf8');
 const packaging = fs.readFileSync('mk/recordings2.mk', 'utf8');
+const legacyPlayback = fs.readFileSync('web/frontend/recordings2-playback.js', 'utf8');
+const fastPlayback = fs.readFileSync('web/frontend/api/session-frontend-sync.js', 'utf8');
 
 assert(prewarm.includes('const PREWARM_DELAY_MS = 700;'),
   'Hero prewarm must remain deliberately delayed and bounded');
@@ -30,6 +32,18 @@ assert(packaging.includes('web/frontend/recordings2-hero-prewarm.js'),
   'prewarm runtime must be included in the Recordings 2 browser bundle');
 assert(packaging.includes('node --check web/frontend/recordings2-hero-prewarm.js'),
   'prewarm runtime must be syntax checked');
+assert(legacyPlayback.includes('function start(startOptions)'),
+  'compatibility Recording owner must accept bounded start options');
+assert(legacyPlayback.includes('const shouldAutoPlay = settings.autoPlay !== false;'),
+  'compatibility Recording owner must preserve explicit no-autoplay intent');
+assert(legacyPlayback.includes('const playRequest = shouldAutoPlay ? video.play() : null;'),
+  'compatibility Recording prewarm must not call video.play');
+assert(legacyPlayback.includes('function play()'),
+  'prepared compatibility owner must expose explicit play promotion');
+assert(fastPlayback.includes('legacy.start({autoPlay: autoPlay !== false})'),
+  'fast owner must propagate prewarm autoplay intent into compatibility fallback');
+assert(fastPlayback.includes("typeof fallbackPanel.play === 'function'"),
+  'explicit play must delegate to a prepared compatibility fallback');
 
 const scheduled = [];
 const requests = [];
