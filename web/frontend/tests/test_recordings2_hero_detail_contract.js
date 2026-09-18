@@ -58,6 +58,16 @@ assert(visibility.includes("const actions = mode === 'actions';"),
   'Hero visibility owner must model Recording actions explicitly');
 assert(visibility.includes("setHidden(root, '.recordings2-actions', !actions, 'block')"),
   'Recording actions must be visible only in the dedicated Hero action mode');
+assert(visibility.includes("setHidden(root, '.recordings2-metadata-tabs', !(detail || metadata))"),
+  'metadata tabs must remain directly reachable from the normal Hero detail');
+assert(visibility.includes("showMode(root, 'metadata', '.recordings2-metadata-tabs')"),
+  'non-recording metadata tabs must enter the canonical Hero metadata mode');
+assert(visibility.includes("showMode(root, 'detail')"),
+  'Aufnahme tab must return to the normal Hero detail mode');
+assert(visibility.includes('selectRecordingMetadataTab(root)'),
+  'normal Hero detail must keep Aufnahme selected in the persistent metadata tab bar');
+assert(visibility.includes('position:fixed;top:1.25rem;right:clamp(1rem,3vw,3rem)'),
+  'desktop Hero must keep the existing metadata tab bar directly reachable at the top right');
 assert(visibility.includes('detail || playbackSurface'),
   'playback must keep the metadata-owned recording panel available for technical facts');
 assert(visibility.includes('recordings2-hero-recording-panel'),
