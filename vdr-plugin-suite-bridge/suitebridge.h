@@ -4,6 +4,8 @@
 #include "suitebridge_lifecycle.h"
 #include "suitebridge_live_capability.h"
 #include "suitebridge_live_source.h"
+#include "suitebridge_hbbtv_adapter.h"
+#include "suitebridge_hbbtv_command.h"
 #include "suitebridge_native_probe.h"
 #include "suitebridge_native_timer_create.h"
 #include "suitebridge_native_timer_create_vdr.h"
@@ -46,6 +48,8 @@ private:
   SuiteBridgeNativeProbeService nativeProbe_;
   SuiteBridgeLiveCapabilityService liveCapability_;
   SuiteBridgeLiveSourceService liveSource_;
+  SuiteBridgeHbbtvAdapter hbbtvAdapter_;
+  SuiteBridgeHbbtvCommandService hbbtvCommand_;
   SuiteBridgeTeletextAdapter teletextAdapter_;
   SuiteBridgeTeletextCommandService teletextCommand_;
   SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;
