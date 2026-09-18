@@ -266,8 +266,7 @@
     return client.fetchClientHbbtvApplications({
       query: {
         backend: state.backendId || selectedBackend(),
-        channel: id,
-        _: String(Date.now())
+        channel: id
       },
       cache: 'no-store',
       credentials: 'same-origin'
