@@ -81,13 +81,19 @@ The current Recordings 2 detail surface is no longer just the older technical de
 
 - a cinematic/full-page Hero composition for the selected Recording;
 - compact factual metadata and prominent playback entry;
-- cast/person presentation and related-Genre Recording cards;
+- restored Recording actions through the existing action owner;
+- selected-Recording metadata/artwork fallback from the existing Recording cache when richer TVScraper metadata is unavailable;
+- clickable cast/person presentation backed by the canonical local person-search owner;
+- related Recording cards using normal Recordings 2 navigation;
 - retained metadata, marks and playback modes inside the canonical Recordings 2 detail owner;
-- canonical-owner playback prewarm so explicit Play can start immediately without autoplay, duplicate MediaSessions or false Continue Watching/history publication;
+- Metadata-mode bottom navigation for `Aufnahme | Scraper | Schauspieler | Bilder`, including a usable 2 x 2 mobile layout;
+- canonical-owner playback prewarm so explicit Play can start immediately while `autoPlay:false` is preserved through fallback/restart-seek decorators and prewarm itself never advances playback;
 - corrected related-Genre poster selection where locked manual posters remain authoritative and native portrait metadata wins before weaker preferred-artwork fallback;
-- real yaVDR/browser validation including mobile Hero rendering and corrected portrait covers.
+- explicit on-demand server-side TMDB Trailer lookup through the Web Client API owner;
+- privacy-enhanced `youtube-nocookie.com` playback with autoplay disabled, rendered inline below related Recording cards instead of in a modal overlay;
+- real yaVDR/browser/mobile validation including Hero rendering, local cast search, metadata navigation, paused prewarm and inline Trailer playback.
 
-See [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md) for the accepted PR/runtime identity and boundaries.
+See [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md) for the accepted PR/runtime identity and boundaries through PR #298 / merge `2b0d0990974244eac90e9be711843678c77e301d`.
 
 ### Native Recording editing
 
