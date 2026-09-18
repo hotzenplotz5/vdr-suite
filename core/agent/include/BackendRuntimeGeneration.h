@@ -27,6 +27,9 @@ public:
         const std::string& backendId,
         std::int64_t now);
 
+    std::uint64_t latestGeneration(
+        const std::string& backendId) const;
+
 private:
     Database& database_;
 };
