@@ -97,33 +97,45 @@
     return entry;
   }
 
-  function searchRecordings(container, person, backendId) {
+  function findRecordings(person, backendId, limit) {
     const api = shared.clientApi();
-    container.hidden = false;
-    container.replaceChildren(status('Suche in vorhandenen Aufnahmen …', false));
+    const name = shared.text(person && person.name).trim();
+    if (!name) return Promise.resolve([]);
     if (!api || typeof api.fetchClientRecordingPersons !== 'function') {
-      container.replaceChildren(status('Aufnahmensuche ist nicht verfügbar.', true));
-      return;
+      return Promise.reject(new Error('recording_person_search_unavailable'));
     }
 
-    api.fetchClientRecordingPersons({
+    return api.fetchClientRecordingPersons({
       backendId: backendId,
-      query: {name: person.name, limit: 20},
+      query: {name: name, limit: Math.max(1, Number(limit) || 20)},
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
-      const matches = result && Array.isArray(result.matches) ? result.matches : [];
+      return (result && Array.isArray(result.matches) ? result.matches : [])
+        .map(function (match) { return match && match.recording ? match.recording : null; })
+        .filter(Boolean);
+    });
+  }
+
+  function searchRecordings(container, person, backendId) {
+    container.hidden = false;
+    container.replaceChildren(status('Suche in vorhandenen Aufnahmen …', false));
+
+    findRecordings(person, backendId, 20).then(function (recordings) {
       container.replaceChildren();
-      if (!matches.length) {
+      if (!recordings.length) {
         container.appendChild(status('Keine vorhandene Aufnahme mit dieser Person gefunden.', false));
         return;
       }
-      container.appendChild(shared.node('p', '', 'Gefundene Aufnahmen: ' + matches.length));
-      matches.forEach(function (match) {
-        const recording = match && match.recording ? match.recording : null;
-        if (recording) container.appendChild(createRecordingResult(recording));
+      container.appendChild(shared.node('p', '', 'Gefundene Aufnahmen: ' + recordings.length));
+      recordings.forEach(function (recording) {
+        container.appendChild(createRecordingResult(recording));
       });
     }).catch(function (error) {
+      if (String(error && error.message || error) === 'recording_person_search_unavailable') {
+        container.replaceChildren(status('Aufnahmensuche ist nicht verfügbar.', true));
+        return;
+      }
       container.replaceChildren(status(
         'Aufnahmensuche fehlgeschlagen: ' + String(error && error.message ? error.message : error),
         true
@@ -187,6 +199,7 @@
 
   global.VdrSuiteRecordings2PersonSearchView = Object.freeze({
     renderCast,
+    findRecordings,
     roleLabel,
     __test: Object.freeze({
       isPublicRecordingImageUrl: isPublicRecordingImageUrl,

@@ -6,6 +6,7 @@ const vm = require('vm');
 
 let requestedPath = '';
 let requestedOptions = null;
+let personSearchOptions = null;
 const document = {
   querySelector() { return null; },
   getElementById() { return null; },
@@ -36,6 +37,16 @@ const window = {
       requestedPath = path;
       requestedOptions = options;
       return Promise.resolve({available: false});
+    },
+    fetchClientRecordingPersons(options) {
+      personSearchOptions = options;
+      return Promise.resolve({
+        matches: [
+          {recording: {id: 'recording-1', title: 'Film A'}},
+          {recording: null},
+          null
+        ]
+      });
     }
   },
   VdrSuitePublicUrl: {
@@ -350,10 +361,21 @@ metadataImage.src = 'unchanged';
 api.repairMetadataImagePaths({querySelectorAll() { return [metadataImage]; }});
 assert.strictEqual(metadataImage.src, 'unchanged');
 
-api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote').then(() => {
+Promise.all([
+  api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote'),
+  personView.findRecordings({name: 'Harrison Ford'}, 'remote', 12)
+]).then(results => {
+  const recordings = results[1];
   assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
   assert.strictEqual(requestedOptions.query.backend, 'remote');
   assert.strictEqual(requestedOptions.query.backendNativeId, '/srv/vdr/video/Inferno.rec');
+  assert.strictEqual(personSearchOptions.backendId, 'remote');
+  assert.strictEqual(personSearchOptions.query.name, 'Harrison Ford');
+  assert.strictEqual(personSearchOptions.query.limit, 12);
+  assert.strictEqual(personSearchOptions.cache, 'no-store');
+  assert.strictEqual(personSearchOptions.credentials, 'same-origin');
+  assert.strictEqual(recordings.length, 1);
+  assert.strictEqual(recordings[0].id, 'recording-1');
   console.log('recordings2 modular metadata detail ok');
 }).catch(error => {
   console.error(error);

@@ -91,8 +91,8 @@ assert(visibility.includes('new global.MutationObserver'),
 
 assert(source.includes("entry.orientation === 'landscape' || entry.orientation === 'banner'"),
   'hero backdrop must prefer landscape/banner metadata artwork');
-assert(source.includes("query: {name: actor.name, limit: 20}"),
-  'related rail must reuse local person search first');
+assert(source.includes('personOwner.findRecordings(actor, backendId, 20)'),
+  'related rail must reuse the canonical Person Search owner first');
 assert(source.includes('fetchClientGenres'),
   'related rail must be able to discover recording genres as fallback');
 assert(source.includes('fetchClientGenreRecordings'),
@@ -101,6 +101,32 @@ assert(source.includes("scope: 'recordings'"),
   'genre fallback must stay scoped to local recordings');
 assert(source.includes("'Mehr aus ' + text(genre.label || genre.id)"),
   'genre fallback rail must identify the matched genre');
+assert(source.includes("shared.node('button', 'recordings2-hero-person')"),
+  'Hero cast entries must be keyboard-accessible buttons');
+assert(source.includes('.recordings2-hero-page button.recordings2-hero-person{'),
+  'Hero cast buttons must override the generic blue Recordings2 button skin');
+assert(source.includes('.recordings2-hero-person-role{color:#b8bec8!important}'),
+  'Hero cast role label must stay neutral instead of blue');
+assert(source.includes('.recordings2-hero-page button.recordings2-hero-related-card{'),
+  'Hero related cards must override the generic blue Recordings2 button skin');
+assert(source.includes('.recordings2-hero-page button.recordings2-hero-related-back{'),
+  'Hero related back action must use the transparent Hero button skin');
+assert(source.includes('border-color:rgba(255,255,255,.28)'),
+  'Hero related hover treatment must remain neutral rather than blue');
+assert(source.includes("person.name + ' in vorhandenen Aufnahmen suchen'"),
+  'Hero cast buttons must expose person-search intent');
+assert(source.includes('owner.roleLabel(person && person.role)'),
+  'Hero cast must reuse the canonical translated person role');
+assert(source.includes('personOwner.findRecordings(person, backendId, 20)'),
+  'Hero cast search must reuse the canonical Person Search owner');
+assert(!source.includes('api.fetchClientRecordingPersons'),
+  'Hero must not implement a second direct person-recording API query');
+assert(source.includes("'Keine weitere vorhandene Aufnahme mit dieser Person gefunden.'"),
+  'Hero person search must have an explicit empty state');
+assert(source.includes("'← Zurück'"),
+  'Hero person search must provide local back navigation');
+assert(source.includes('__vdrSuiteHeroRelatedGeneration'),
+  'Hero person search must guard stale async related-result updates');
 assert(source.includes('!sameRecording(candidate, recording)'),
   'current recording must be excluded from related recordings');
 assert(source.includes('runtime.openRecording(recording'),

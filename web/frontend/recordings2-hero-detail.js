@@ -41,22 +41,31 @@
 .recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}
 .recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
 .recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}
-.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem}
+.recordings2-hero-page button.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem;min-height:0;padding:.18rem .35rem .18rem .18rem;border:1px solid rgba(255,255,255,.08);border-radius:.75rem;background:transparent;color:inherit;text-align:left;box-shadow:none;appearance:none}
+.recordings2-hero-page button.recordings2-hero-person:hover{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.2);box-shadow:none}
+.recordings2-hero-page button.recordings2-hero-person:focus-visible{border-color:rgba(255,255,255,.42);background:rgba(0,0,0,.26);box-shadow:0 0 0 2px rgba(255,255,255,.12);outline:none}
 .recordings2-hero-person img,.recordings2-hero-person-placeholder{width:2.8rem;height:2.8rem;border-radius:50%;object-fit:cover;background:#252a33}
 .recordings2-hero-person-placeholder{display:grid;place-items:center;color:#6b7280;font-weight:900}
 .recordings2-hero-person-copy{display:grid;gap:.08rem}
 .recordings2-hero-person-copy strong{font-size:.8rem}
 .recordings2-hero-person-copy span{color:#d1d5db;font-size:.68rem}
+.recordings2-hero-person-role{color:#b8bec8!important}
 .recordings2-hero-related{position:relative;z-index:2;display:grid;gap:.85rem;margin:1.9rem clamp(1.25rem,5vw,5rem) 0}
 .recordings2-hero-related-head{display:flex;align-items:end;justify-content:space-between;gap:1rem}
+.recordings2-hero-related-head-copy{display:grid;gap:.2rem}
 .recordings2-hero-related-head h4{margin:0;color:#fff;font-size:1.35rem}
 .recordings2-hero-related-head span{color:#9ca3af;font-size:.78rem}
+.recordings2-hero-page button.recordings2-hero-related-back{min-height:2.45rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:transparent;color:#f8fafc;font-weight:800;box-shadow:none;appearance:none}
+.recordings2-hero-page button.recordings2-hero-related-back:hover,.recordings2-hero-page button.recordings2-hero-related-back:focus-visible{border-color:rgba(255,255,255,.4);background:rgba(0,0,0,.24);box-shadow:none;outline:none}
+.recordings2-hero-related-status{margin:0;padding:.9rem 1rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(15,18,23,.44);color:#cbd5e1}
 .recordings2-hero-related-rail{display:flex;gap:.85rem;overflow-x:auto;padding:.15rem 0 .7rem;scroll-snap-type:x proximity;scrollbar-width:thin}
-.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start}
+.recordings2-hero-page button.recordings2-hero-related-card{display:grid;grid-template-rows:auto auto;gap:.48rem;flex:0 0 clamp(8.5rem,13vw,11.5rem);min-height:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;scroll-snap-align:start;box-shadow:none;appearance:none}
 .recordings2-hero-related-poster{display:grid;place-items:center;aspect-ratio:2/3;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:.7rem;background:#171a20;color:#d1d5db;font-size:1.3rem;box-shadow:0 .7rem 1.8rem rgba(0,0,0,.2)}
 .recordings2-hero-related-poster img{display:block;width:100%;height:100%;object-fit:cover}
-.recordings2-hero-related-card:hover .recordings2-hero-related-poster,.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:#b9d8ff;box-shadow:0 0 0 2px rgba(185,216,255,.2)}
-.recordings2-hero-related-card:focus-visible{outline:none}
+.recordings2-hero-page button.recordings2-hero-related-card:hover,.recordings2-hero-page button.recordings2-hero-related-card:focus-visible{background:transparent;box-shadow:none}
+.recordings2-hero-page button.recordings2-hero-related-card:hover .recordings2-hero-related-poster{border-color:rgba(255,255,255,.28);box-shadow:0 .7rem 1.8rem rgba(0,0,0,.28)}
+.recordings2-hero-page button.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 2px rgba(255,255,255,.12)}
+.recordings2-hero-page button.recordings2-hero-related-card:focus-visible{outline:none}
 .recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
@@ -224,13 +233,28 @@
     copy.insertBefore(facts, description || null);
   }
 
-  function renderHeroCast(copy, metadata) {
+  function personSearchOwner() {
+    const owner = global.VdrSuiteRecordings2PersonSearchView;
+    return owner && typeof owner.findRecordings === 'function' ? owner : null;
+  }
+
+  function personRoleLabel(person) {
+    const owner = personSearchOwner();
+    return owner && typeof owner.roleLabel === 'function'
+      ? owner.roleLabel(person && person.role)
+      : 'Schauspiel';
+  }
+
+  function renderHeroCast(root, copy, recording, backendId, metadata) {
     if (!copy || copy.querySelector('.recordings2-hero-cast')) return;
     const actors = actorList(metadata).slice(0, 7);
     if (!actors.length) return;
     const cast = shared.node('div', 'recordings2-hero-cast');
     actors.forEach(function (person) {
-      const item = shared.node('div', 'recordings2-hero-person');
+      const item = shared.node('button', 'recordings2-hero-person');
+      item.type = 'button';
+      item.title = person.name + ' in vorhandenen Aufnahmen suchen';
+      item.setAttribute('aria-label', item.title);
       if (person.image && person.image.available === true && text(person.image.url)) {
         const image = document.createElement('img');
         image.src = publicImageUrl(person.image.url);
@@ -243,7 +267,11 @@
       const personCopy = shared.node('span', 'recordings2-hero-person-copy');
       personCopy.appendChild(shared.node('strong', '', person.name));
       if (text(person.characterName)) personCopy.appendChild(shared.node('span', '', person.characterName));
+      personCopy.appendChild(shared.node('span', 'recordings2-hero-person-role', personRoleLabel(person)));
       item.appendChild(personCopy);
+      item.addEventListener('click', function () {
+        renderPersonRelated(root, recording, backendId, metadata, person);
+      });
       cast.appendChild(item);
     });
     copy.appendChild(cast);
@@ -291,20 +319,60 @@
     return button;
   }
 
-  function appendRelatedSection(root, recording, backendId, title, subtitle, matches) {
-    if (!root || root.querySelector('.recordings2-hero-related') || !matches.length) return false;
-    const section = shared.node('section', 'recordings2-hero-related');
+  function nextRelatedGeneration(root) {
+    const next = Number(root && root.__vdrSuiteHeroRelatedGeneration || 0) + 1;
+    if (root) root.__vdrSuiteHeroRelatedGeneration = next;
+    return next;
+  }
+
+  function relatedGenerationCurrent(root, generation) {
+    return Boolean(root && root.__vdrSuiteHeroRelatedGeneration === generation);
+  }
+
+  function replaceRelatedSection(root, section) {
+    if (!root || !section) return false;
+    const existing = root.querySelector('.recordings2-hero-related');
+    if (existing && typeof existing.remove === 'function') existing.remove();
+    root.appendChild(section);
+    return true;
+  }
+
+  function createRelatedHead(title, subtitle, onBack) {
     const head = shared.node('div', 'recordings2-hero-related-head');
-    head.appendChild(shared.node('h4', '', title));
-    head.appendChild(shared.node('span', '', subtitle));
-    section.appendChild(head);
+    const copy = shared.node('div', 'recordings2-hero-related-head-copy');
+    copy.appendChild(shared.node('h4', '', title));
+    copy.appendChild(shared.node('span', '', subtitle));
+    head.appendChild(copy);
+    if (typeof onBack === 'function') {
+      const back = shared.node('button', 'recordings2-hero-related-back', '← Zurück');
+      back.type = 'button';
+      back.title = 'Zurück zu den Empfehlungen dieser Aufnahme';
+      back.addEventListener('click', onBack);
+      head.appendChild(back);
+    }
+    return head;
+  }
+
+  function showRelatedStatus(root, title, subtitle, message, onBack) {
+    if (!root) return false;
+    const section = shared.node('section', 'recordings2-hero-related');
+    section.appendChild(createRelatedHead(title, subtitle, onBack));
+    const status = shared.node('p', 'recordings2-hero-related-status', message);
+    status.setAttribute('role', 'status');
+    section.appendChild(status);
+    return replaceRelatedSection(root, section);
+  }
+
+  function appendRelatedSection(root, recording, backendId, title, subtitle, matches, onBack) {
+    if (!root || !matches.length) return false;
+    const section = shared.node('section', 'recordings2-hero-related');
+    section.appendChild(createRelatedHead(title, subtitle, onBack));
     const rail = shared.node('div', 'recordings2-hero-related-rail');
     matches.forEach(function (candidate) {
       rail.appendChild(createRelatedCard(candidate, recording, backendId));
     });
     section.appendChild(rail);
-    root.appendChild(section);
-    return true;
+    return replaceRelatedSection(root, section);
   }
 
   function normalizedGenre(value) {
@@ -326,8 +394,8 @@
     }) || null;
   }
 
-  function renderGenreRelated(root, recording, backendId, metadata, api) {
-    if (!root || root.querySelector('.recordings2-hero-related')) return Promise.resolve(false);
+  function renderGenreRelated(root, recording, backendId, metadata, api, generation) {
+    if (!root || !relatedGenerationCurrent(root, generation)) return Promise.resolve(false);
     if (!api || typeof api.fetchClientGenres !== 'function' ||
         typeof api.fetchClientGenreRecordings !== 'function') {
       return Promise.resolve(false);
@@ -340,6 +408,7 @@
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (overview) {
+      if (!relatedGenerationCurrent(root, generation)) return false;
       const genre = matchingGenre(overview, metadata);
       if (!genre || !text(genre.id)) return false;
       return api.fetchClientGenreRecordings({
@@ -350,6 +419,7 @@
         cache: 'no-store',
         credentials: 'same-origin'
       }).then(function (result) {
+        if (!relatedGenerationCurrent(root, generation)) return false;
         if (!root.isConnected && typeof root.isConnected === 'boolean') return false;
         const matches = (result && Array.isArray(result.items) ? result.items : [])
           .filter(Boolean)
@@ -368,30 +438,27 @@
   }
 
   function renderRelated(root, recording, backendId, metadata) {
-    if (!root || root.querySelector('.recordings2-hero-related')) return;
+    if (!root) return;
+    const generation = nextRelatedGeneration(root);
     const actor = actorList(metadata)[0];
     const api = shared.clientApi();
     if (!api) return;
 
     const fallback = function () {
-      return renderGenreRelated(root, recording, backendId, metadata, api);
+      if (!relatedGenerationCurrent(root, generation)) return Promise.resolve(false);
+      return renderGenreRelated(root, recording, backendId, metadata, api, generation);
     };
 
-    if (!actor || typeof api.fetchClientRecordingPersons !== 'function') {
+    const personOwner = personSearchOwner();
+    if (!actor || !personOwner) {
       fallback();
       return;
     }
 
-    api.fetchClientRecordingPersons({
-      backendId: backendId,
-      query: {name: actor.name, limit: 20},
-      cache: 'no-store',
-      credentials: 'same-origin'
-    }).then(function (result) {
+    personOwner.findRecordings(actor, backendId, 20).then(function (recordings) {
+      if (!relatedGenerationCurrent(root, generation)) return false;
       if (!root.isConnected && typeof root.isConnected === 'boolean') return false;
-      const matches = (result && Array.isArray(result.matches) ? result.matches : [])
-        .map(function (match) { return match && match.recording ? match.recording : null; })
-        .filter(Boolean)
+      const matches = recordings
         .filter(function (candidate) { return !sameRecording(candidate, recording); })
         .slice(0, 12);
       if (matches.length) {
@@ -408,6 +475,83 @@
     }).catch(fallback);
   }
 
+  function renderPersonRelated(root, recording, backendId, metadata, person) {
+    if (!root || !person || !text(person.name)) return;
+    const generation = nextRelatedGeneration(root);
+    const title = 'Weitere Filme mit ' + text(person.name);
+    const restore = function () {
+      renderRelated(root, recording, backendId, metadata);
+      global.setTimeout(function () {
+        const section = root.querySelector('.recordings2-hero-related');
+        if (section && typeof section.scrollIntoView === 'function') {
+          section.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+      }, 0);
+    };
+
+    showRelatedStatus(
+      root,
+      title,
+      'Suche in vorhandenen Aufnahmen',
+      'Suche in vorhandenen Aufnahmen …',
+      restore
+    );
+
+    const personOwner = personSearchOwner();
+    if (!personOwner) {
+      showRelatedStatus(
+        root,
+        title,
+        'Lokale Aufnahmensuche',
+        'Aufnahmensuche ist nicht verfügbar.',
+        restore
+      );
+      return;
+    }
+
+    personOwner.findRecordings(person, backendId, 20).then(function (recordings) {
+      if (!relatedGenerationCurrent(root, generation)) return false;
+      if (!root.isConnected && typeof root.isConnected === 'boolean') return false;
+      const matches = recordings
+        .filter(function (candidate) { return !sameRecording(candidate, recording); })
+        .slice(0, 12);
+      if (!matches.length) {
+        return showRelatedStatus(
+          root,
+          title,
+          'Lokale Aufnahmensuche',
+          'Keine weitere vorhandene Aufnahme mit dieser Person gefunden.',
+          restore
+        );
+      }
+      const appended = appendRelatedSection(
+        root,
+        recording,
+        backendId,
+        title,
+        String(matches.length) + ' lokale Aufnahme(n)',
+        matches,
+        restore
+      );
+      global.setTimeout(function () {
+        const section = root.querySelector('.recordings2-hero-related');
+        if (section && typeof section.scrollIntoView === 'function') {
+          section.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+      }, 0);
+      return appended;
+    }).catch(function () {
+      if (!relatedGenerationCurrent(root, generation)) return false;
+      return showRelatedStatus(
+        root,
+        title,
+        'Lokale Aufnahmensuche',
+        'Aufnahmensuche fehlgeschlagen.',
+        restore
+      );
+    });
+  }
+
   function enhance(root, recording, backendId, metadata) {
     if (!root || !recording) return root;
     installStyles();
@@ -420,7 +564,7 @@
     }
     const copy = root.querySelector('.recordings2-detail-copy');
     renderHeroFacts(copy, recording, metadata);
-    renderHeroCast(copy, metadata);
+    renderHeroCast(root, copy, recording, backendId, metadata);
     renderHeroActions(root, copy, recording);
     renderRelated(root, recording, backendId, metadata);
     return root;
