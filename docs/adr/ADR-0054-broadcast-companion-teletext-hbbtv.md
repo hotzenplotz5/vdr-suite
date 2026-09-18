@@ -459,11 +459,25 @@ This supersedes only ADR-0054's former phase-number sequencing statement. It doe
 
 Completed history through Phase 65 is unchanged. Phase 66 Media Home is next and remains not started until a separate explicit kickoff. Broadcast Companion runtime follows as Phase 67.
 
+# Runtime implementation status
+
+Phase 67 is active.
+
+The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`. Durable implementation and real-system evidence is recorded in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md).
+
+The remaining Phase-67 work is HbbTV:
+
+- discovery first;
+- application session/runtime after discovery;
+- media/security/origin hardening after the session boundary is established.
+
+The architecture below remains authoritative for both completed Teletext and open HbbTV work.
+
 # Implementation Direction
 
-After Phase 66 Media Home closes and Phase 67 Broadcast Companion is explicitly authorized, Broadcast Companion implementation should use coherent verticals rather than micro-slices.
+Broadcast Companion implementation uses coherent verticals rather than micro-slices.
 
-## Vertical 1 — Teletext read path
+## Vertical 1 — Teletext read path — COMPLETED
 
 ```text
 real broadcast Teletext
