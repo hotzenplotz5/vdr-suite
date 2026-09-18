@@ -211,7 +211,11 @@
         ? 'HbbTV verfügbar · ' + state.hbbtvApplicationCount + ' Apps'
         : 'HbbTV verfügbar';
     }
-    if (state.hbbtvChannelId) return 'Kein HbbTV erkannt';
+    if (state.hbbtvResult === 'no_applications') return 'Kein HbbTV signalisiert';
+    if (state.hbbtvResult === 'channel_mismatch') return 'HbbTV Senderkontext nicht aktiv';
+    if (state.hbbtvResult === 'receiver_inactive' ||
+        state.hbbtvResult === 'no_live_service') return 'HbbTV Empfänger nicht aktiv';
+    if (state.hbbtvChannelId) return 'HbbTV nicht verfügbar';
     return 'HbbTV';
   }
 
@@ -432,7 +436,19 @@
       return;
     }
     if (snapshot.backendId && snapshot.backendId !== selectedBackend()) return;
-    if (state.playback && state.liveChannelId === snapshot.channelId) return;
+    if (state.playback && state.liveChannelId === snapshot.channelId) {
+      if (state.active && state.hbbtvChannelId !== snapshot.channelId) {
+        const current = state.channels.find(function(entry) {
+          return channelId(entry) === snapshot.channelId;
+        }) || {
+          id: snapshot.channelId,
+          name: snapshot.channelName || snapshot.channelId,
+          enabled: true
+        };
+        beginHbbtvAvailability(current);
+      }
+      return;
+    }
     const playback = playbackApi();
     if (!playback || typeof playback.createLivePanel !== 'function') return;
     const channel = state.channels.find(function(entry) { return channelId(entry) === snapshot.channelId; }) || {id: snapshot.channelId, name: snapshot.channelName || snapshot.channelId, enabled: true};
@@ -759,6 +775,9 @@
     if (!state.active) return false;
     state.active = false;
     state.requestSequence += 1;
+    state.hbbtvRequestSequence += 1;
+    state.hbbtvChannelId = '';
+    state.hbbtvLoading = false;
     state.liveSwitching = false;
     synchronizePlaybackState();
     const shell = playbackShell();
@@ -885,7 +904,7 @@
   }
 
   function snapshot() {
-    return Object.freeze({active: state.active, backendId: state.backendId, channelCount: state.channels.length, eventCount: state.events.length, liveChannelId: state.liveChannelId, liveSwitching: state.liveSwitching, dataError: state.dataError, programError: state.programError});
+    return Object.freeze({active: state.active, backendId: state.backendId, channelCount: state.channels.length, eventCount: state.events.length, liveChannelId: state.liveChannelId, liveSwitching: state.liveSwitching, hbbtvChannelId: state.hbbtvChannelId, hbbtvAvailable: state.hbbtvAvailable, hbbtvApplicationCount: state.hbbtvApplicationCount, hbbtvResult: state.hbbtvResult, dataError: state.dataError, programError: state.programError});
   }
   const api = Object.freeze({
     open,
