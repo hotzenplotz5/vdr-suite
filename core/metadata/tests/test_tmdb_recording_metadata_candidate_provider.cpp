@@ -94,6 +94,15 @@ int main()
     }
 
     {
+        UnsupportedCreditsProvider provider;
+        const auto page = provider.trailers("movie", "13", 1);
+        assert(page.attempted);
+        assert(!page.providerAvailable);
+        assert(page.trailers.empty());
+        assert(page.error == "trailers are not supported");
+    }
+
+    {
         FakeTransport transport;
         transport.responses.push_back(jsonResponse(R"json({
           "results": [
@@ -277,6 +286,114 @@ int main()
 
     {
         FakeTransport transport;
+        transport.responses.push_back(jsonResponse(R"json({
+          "id": 13,
+          "results": [
+            {
+              "name": "Teaser",
+              "key": "TEASER12345",
+              "site": "YouTube",
+              "type": "Teaser",
+              "official": true,
+              "iso_639_1": "de"
+            },
+            {
+              "name": "Fan Trailer",
+              "key": "abcdefghijk",
+              "site": "YouTube",
+              "type": "Trailer",
+              "official": false,
+              "iso_639_1": "de"
+            },
+            {
+              "name": "Offizieller Trailer",
+              "key": "ZYXWVUTSRQP",
+              "site": "YouTube",
+              "type": "Trailer",
+              "official": true,
+              "iso_639_1": "de"
+            },
+            {
+              "name": "Other host",
+              "key": "12345678901",
+              "site": "Vimeo",
+              "type": "Trailer",
+              "official": true,
+              "iso_639_1": "de"
+            }
+          ]
+        })json"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.trailers("movie", "13", 10);
+        assert(page.attempted);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(page.trailers.size() == 2U);
+        assert(page.trailers[0].valid());
+        assert(page.trailers[0].providerId == "youtube");
+        assert(page.trailers[0].externalId == "ZYXWVUTSRQP");
+        assert(page.trailers[0].title == "Offizieller Trailer");
+        assert(page.trailers[0].language == "de");
+        assert(page.trailers[0].official);
+        assert(page.trailers[1].externalId == "abcdefghijk");
+        assert(!page.trailers[1].official);
+        assert(transport.requests.size() == 1U);
+        assert(transport.requests[0].url.find(
+            "/movie/13/videos?language=de-DE") != std::string::npos);
+        assert(transport.requests[0].bearerToken == "test-token");
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse("{\"id\":19885,\"results\":[]}"));
+        transport.responses.push_back(jsonResponse(R"json({
+          "id": 19885,
+          "results": [{
+            "name": "Official Trailer",
+            "key": "12345678901",
+            "site": "YouTube",
+            "type": "Trailer",
+            "official": true,
+            "iso_639_1": "en"
+          }]
+        })json"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.trailers("series", "19885", 3);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(page.trailers.size() == 1U);
+        assert(page.trailers[0].externalId == "12345678901");
+        assert(transport.requests.size() == 2U);
+        assert(transport.requests[0].url.find(
+            "/tv/19885/videos?language=de-DE") != std::string::npos);
+        assert(transport.requests[1].url.find(
+            "/tv/19885/videos?language=en-US") != std::string::npos);
+    }
+
+    {
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse(R"json({
+          "id": 13,
+          "results": [{
+            "name": "Malformed YouTube id",
+            "key": "bad",
+            "site": "YouTube",
+            "type": "Trailer",
+            "official": true,
+            "iso_639_1": "de"
+          }]
+        })json"));
+        transport.responses.push_back(jsonResponse("{\"id\":13,\"results\":[]}"));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.trailers("movie", "13", 10);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(page.trailers.empty());
+        assert(transport.requests.size() == 2U);
+    }
+
+    {
+        FakeTransport transport;
         transport.responses.push_back(jsonResponse("{broken"));
         TmdbRecordingMetadataCandidateProvider provider(transport, config());
         const auto page = provider.movieCredits("13", 128);
@@ -386,6 +503,15 @@ int main()
             "x",
             RecordingMetadataCandidateKind::Episode,
             100);
+        assert(!invalid.attempted);
+        assert(!invalid.error.empty());
+        assert(transport.requests.empty());
+    }
+
+    {
+        FakeTransport transport;
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto invalid = provider.trailers("episode", "13", 10);
         assert(!invalid.attempted);
         assert(!invalid.error.empty());
         assert(transport.requests.empty());
