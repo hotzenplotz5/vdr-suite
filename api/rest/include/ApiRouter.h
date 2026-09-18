@@ -5,6 +5,7 @@
 #include "EpgCacheController.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
+#include "HbbtvApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
@@ -206,6 +207,13 @@ public:
         }
 
         if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        if (HbbtvApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
         {
