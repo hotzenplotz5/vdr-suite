@@ -25,9 +25,9 @@ for token in (
         raise SystemExit(f"missing HbbTV provider ABI token: {token}")
 
 for token in (
-    '"broadcast.hbbtv.discovery"',
-    '"vdr-plugin-web"',
-    '"HBBAPPS"',
+    "broadcast.hbbtv.discovery",
+    "vdr-plugin-web",
+    "HBBAPPS",
 ):
     if token not in command:
         raise SystemExit(f"missing HbbTV private command token: {token}")
