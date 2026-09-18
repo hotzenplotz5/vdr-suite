@@ -53,6 +53,11 @@ assert(live.includes('global.VdrSuiteTeletextView'));
 assert(live.includes('teletext.createLauncher('));
 assert(live.includes('head.appendChild(teletextButton)'));
 
+const playerSlotAppend = live.indexOf('box.appendChild(slot);');
+const playerHeadAppend = live.indexOf('box.appendChild(head);');
+assert(playerSlotAppend >= 0);
+assert(playerHeadAppend > playerSlotAppend);
+
 const teletextPosition = index.indexOf('<script src="../frontend/teletext-view.js"></script>');
 const livePosition = index.indexOf('<script src="../frontend/live-tv-view.js"></script>');
 assert(teletextPosition >= 0);
