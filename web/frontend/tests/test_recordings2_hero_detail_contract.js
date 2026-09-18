@@ -64,8 +64,10 @@ assert(source.includes("showMode(root, 'metadata', '.recordings2-metadata-tabs')
   'the Hero Metadata action must open the canonical metadata mode');
 assert(visibility.includes('data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{position:relative'),
   'metadata tabs must render in normal flow inside metadata mode');
-assert(visibility.includes('max-width:80rem;margin:5.5rem auto 1rem!important'),
-  'metadata tabs must use the bounded metadata content rail');
+assert(visibility.includes('max-width:80rem;margin:1rem auto 3rem!important'),
+  'metadata tabs must live at the bottom of the bounded metadata content rail');
+assert(visibility.includes('recordings2-metadata-panel{position:relative;z-index:2;width:calc(100% - clamp(2rem,6vw,6rem));max-width:80rem;margin:5.5rem auto 0!important'),
+  'metadata content must begin below the fixed Details action while tabs remain below the content');
 assert(!visibility.includes('selectRecordingMetadataTab(root)'),
   'Hero visibility must not take ownership of metadata tab selection');
 assert(!visibility.includes('__vdrSuiteHeroModeBound'),
