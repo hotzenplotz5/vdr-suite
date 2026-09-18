@@ -1,5 +1,7 @@
 #include "DaemonRuntime.h"
 
+#include <chrono>
+
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
     backendPollingCoordinator_->pollAll();
@@ -23,6 +25,21 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             const auto health =
                 backendRuntimeContext->suiteBridgeAgentRuntime->health();
             const auto& observation = health.observation;
+
+            if (embeddedBackendLifecycleService_) {
+                const std::int64_t lifecycleNow =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                const bool healthy =
+                    health.running &&
+                    observation.state ==
+                        vdrsuite::agent::SuiteBridgeObservationState::SnapshotCurrent;
+                embeddedBackendLifecycleService_->heartbeatBackend(
+                    backendRuntimeContext->backendId,
+                    healthy,
+                    lifecycleNow);
+            }
 
             if (observation.hasBaseline &&
                 backendRuntimeContext->recordingMarksChangeTracker.observe(
