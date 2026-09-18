@@ -46,7 +46,7 @@ required = {
         (api, '"/api/vdr/broadcast/hbbtv/applications"'),
         (api, '"autostart"'),
         (api, '"present"'),
-        (api, '"available"'),
+        (api, r'\"available\":'),
         (router, '#include "HbbtvApiRuntime.h"'),
         (router, "HbbtvApiRuntime::instance().tryHandleGet("),
     ),
