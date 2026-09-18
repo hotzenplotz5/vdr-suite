@@ -162,6 +162,7 @@
     const playback = mode === 'playback';
     const marks = mode === 'marks';
     const metadata = mode === 'metadata';
+    const actions = mode === 'actions';
     const playbackSurface = playback || marks;
     const panels = elements(root, '.recordings2-metadata-panel');
     const primary = recordingPanel(root);
@@ -177,7 +178,7 @@
     setHidden(root, '.recordings2-playback', !playbackSurface);
     setHidden(root, '.recordings2-volume-owner-shell', !playbackSurface);
     setHidden(root, '.recordings2-marks-detail', !playbackSurface);
-    setHidden(root, '.recordings2-actions', true);
+    setHidden(root, '.recordings2-actions', !actions, 'block');
     setHidden(root, '.recordings2-metadata-tabs', !metadata);
     setHidden(root, '.recordings2-metadata-assignment', !metadata);
     setHidden(root, '[data-recordings2-metadata-assignment-error]', !metadata);

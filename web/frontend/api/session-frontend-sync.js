@@ -1547,7 +1547,7 @@
       return fallbackPanel;
     }
 
-    function activateFallback(error) {
+    function activateFallback(error, autoPlay) {
       if (destroyed) return Promise.resolve('');
       if (fallbackActivation) return fallbackActivation;
 
@@ -1573,7 +1573,7 @@
         return Promise.resolve('');
       }
 
-      fallbackActivation = Promise.resolve(legacy.start()).catch(function () {
+      fallbackActivation = Promise.resolve(legacy.start({autoPlay: autoPlay !== false})).catch(function () {
         return '';
       });
       return fallbackActivation;
@@ -1621,7 +1621,7 @@
         video,
         activeMediaPath,
         function (error) {
-          if (initialConnection && !firstMediaReported) activateFallback(error);
+          if (initialConnection && !firstMediaReported) activateFallback(error, shouldPlay);
           else failStartedPlayback(
             error,
             repositionedStream,
@@ -1719,12 +1719,12 @@
 
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function () {
-            activateFallback(new Error('Browser hat den schnellen Recording-Start abgelehnt.'));
+            activateFallback(new Error('Browser hat den schnellen Recording-Start abgelehnt.'), shouldAutoPlay);
           });
         }
         return id;
       }).catch(function (error) {
-        return activateFallback(error);
+        return activateFallback(error, shouldAutoPlay);
       });
 
       sessionCreationPromise = promise;
@@ -1733,7 +1733,12 @@
 
     function playPlayback() {
       if (!started) return startPlayback();
-      if (destroyed || stopped || fallbackPanel || seekInFlight) return Promise.resolve(false);
+      if (destroyed || stopped || seekInFlight) return Promise.resolve(false);
+      if (fallbackPanel) {
+        return typeof fallbackPanel.play === 'function'
+          ? fallbackPanel.play()
+          : Promise.resolve(false);
+      }
       const request = video.play();
       updateControls();
       return request && typeof request.then === 'function'
