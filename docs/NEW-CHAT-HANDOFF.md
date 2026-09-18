@@ -12,7 +12,8 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 
 1. [Current State](CURRENT.md) — sole volatile phase/status authority.
 2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — accepted numbered execution order.
-3. [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
+3. [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md) — completed Teletext vertical and Golden Journey 8 evidence.
+4. [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
 4. [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and durable acceptance evidence.
 5. [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted and implemented Phase-66 product/architecture decision.
 6. [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — completed bounded implementation sequence.
@@ -27,12 +28,13 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 ## Stable project position
 
 - Latest completed numbered runtime phase: **Phase 66 - Media Home and Browse Experience**.
-- Current active numbered runtime phase: **none; Phase 67 has not started**.
-- Next strict numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
+- Current active numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
+- Completed Phase-67 vertical: **Teletext**.
+- Current Phase-67 next vertical: **HbbTV discovery**.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
 - Phase 66 Slices 66.1 through 66.8 are completed; the Golden desktop/mobile acceptance passed and PR #264 merged the closeout.
 - ADR-0058 owns the completed Media Home / responsive browse / deferred-preview architecture.
-- ADR-0054 remains accepted Broadcast Companion architecture for Phase 67, but **Phase 67 has not started** and requires a separate explicit runtime authorization.
+- ADR-0054 remains authoritative for Phase 67. The Teletext vertical is completed; HbbTV discovery/session/runtime remain open.
 - Bounded post-phase hardening does not reopen a completed numbered phase and does not silently authorize the next phase.
 - Broad polished Timer UI remains a cross-cutting milestone gated on required access administration.
 
@@ -56,18 +58,17 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65 and Phase 66 are completed. **Phase 67 - Broadcast Companion Services: Teletext and HbbTV is next but has not started.**
+Phase 65 and Phase 66 are completed. **Phase 67 is active.**
 
-Before any Phase-67 runtime work:
+The Teletext vertical is completed and merged. Do not reopen it merely because later HbbTV work shares Broadcast Companion architecture.
 
-1. re-read live `main`, `CURRENT.md`, ADR-0054 and the Strict Roadmap;
-2. verify no Phase-67 runtime branch has already started elsewhere;
-3. require a separate explicit Phase-67 runtime kickoff;
-4. preserve the completed Phase-62/63 identity/Agent boundaries and Phase-65 MediaSession/playback ownership;
-5. model Teletext and HbbTV domain-first as defined by ADR-0054 rather than using Legacy OSD or raw plugin/browser command channels as the primary contract;
-6. do not pull Legacy OSD, public-API hardening, recommendation work or unrelated cross-cutting product milestones into the Phase-67 kickoff.
+For the next Phase-67 work:
 
-Architecture acceptance is not runtime authorization; do not start Phase 67 without the separate explicit kickoff.
+1. re-read live `main`, `CURRENT.md`, ADR-0054, the Strict Roadmap and the Phase-67 Teletext closeout;
+2. treat HbbTV discovery as the next coherent vertical;
+3. preserve the completed Phase-62/63 identity/Agent boundaries, the Teletext service/page contract and Phase-65 MediaSession/playback ownership;
+4. keep HbbTV domain-first rather than using Legacy OSD or raw plugin/browser command channels as the primary contract;
+5. do not pull Legacy OSD, public-API hardening, recommendation work or unrelated cross-cutting milestones into the HbbTV vertical.
 
 ## Phase ordering and broad Timer UI
 
@@ -75,7 +76,7 @@ Architecture acceptance is not runtime authorization; do not start Phase 67 with
 Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
+  -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [ACTIVE; TELETEXT COMPLETE]
   -> Phase 68 Legacy OSD Compatibility Bridge
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
@@ -129,7 +130,7 @@ Seek/growing-recording truthfulness is a cross-cutting media contract rather tha
 
 ## Phase 67 Broadcast Companion planning
 
-Teletext and HbbTV remain planned as normal television-domain capabilities for Phase 67, not as Legacy OSD shortcuts.
+Teletext and HbbTV are normal television-domain capabilities for Phase 67, not Legacy OSD shortcuts. Teletext is now implemented and accepted; HbbTV remains open.
 
 Accepted ADR-0054 defines the distinction:
 
@@ -180,8 +181,8 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
 3. Treat Phases 64, 65 and 66 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
 4. Preserve accepted Phase-65 playback/MediaSession semantics and the completed Phase-66 Home ownership rather than inventing parallel owners during later hardening or Phase-67 work.
-5. Treat Phase 67 - Broadcast Companion Services: Teletext and HbbTV as the next strict numbered runtime phase, but **Phase 67 has not started**.
-6. Read ADR-0054 before any Phase-67 planning or implementation and require a separate explicit runtime kickoff before starting it.
+5. Treat Phase 67 - Broadcast Companion Services: Teletext and HbbTV as the active numbered runtime phase; Teletext is completed and HbbTV remains open.
+6. Read ADR-0054 and the Phase-67 Teletext closeout before continuing HbbTV work; preserve the accepted Teletext contracts rather than rebuilding them.
 7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
 8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
 9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
