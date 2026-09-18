@@ -22,6 +22,9 @@ public:
     bool emptyCredits = false;
     std::string creditError;
     bool creditProviderAvailable = true;
+    int trailerCalls = 0;
+    std::string lastTrailerMediaType;
+    std::string lastTrailerExternalId;
 
     RecordingMetadataCandidatePage search(
         const std::string& query,
@@ -139,6 +142,31 @@ public:
         page.cast.push_back(second);
         return page;
     }
+
+    RecordingMetadataTrailerPage trailers(
+        const std::string& mediaType,
+        const std::string& externalId,
+        int limit) override
+    {
+        ++trailerCalls;
+        lastTrailerMediaType = mediaType;
+        lastTrailerExternalId = externalId;
+        assert(limit == 8);
+
+        RecordingMetadataTrailerPage page;
+        page.attempted = true;
+        page.providerAvailable = true;
+        page.providerId = "tmdb";
+
+        RecordingMetadataTrailer trailer;
+        trailer.providerId = "youtube";
+        trailer.externalId = "abcdefghijk";
+        trailer.title = "Offizieller Trailer";
+        trailer.language = "de";
+        trailer.official = true;
+        page.trailers.push_back(trailer);
+        return page;
+    }
 };
 
 ApiResponse post(
@@ -231,6 +259,33 @@ int main()
         assert(response.statusCode == 200);
         assert(response.body == "{\"found\":false}");
         assert(provider.creditCalls == 0);
+    }
+
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/trailer?mediaType=movie&externalId=13",
+            response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"available\":true") != std::string::npos);
+        assert(response.body.find("\"provider\":\"youtube\"") != std::string::npos);
+        assert(response.body.find("\"videoId\":\"abcdefghijk\"") != std::string::npos);
+        assert(response.body.find("\"official\":true") != std::string::npos);
+        assert(provider.trailerCalls == 1);
+        assert(provider.lastTrailerMediaType == "movie");
+        assert(provider.lastTrailerExternalId == "13");
+        assert(provider.creditCalls == 0);
+    }
+
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/trailer?mediaType=episode&externalId=13",
+            response));
+        assert(response.statusCode == 400);
+        assert(response.body.find("invalid_metadata_trailer_identity") !=
+            std::string::npos);
+        assert(provider.trailerCalls == 1);
     }
 
     provider.creditError = "provider temporarily unavailable";
@@ -350,6 +405,11 @@ int main()
         assert(!runtime.tryHandlePost(
             "/api/backends/living-room/recordings/metadata/manual",
             assignmentBody("cache/key"),
+            "user:test-admin",
+            response));
+        assert(!runtime.tryHandlePost(
+            "/api/backends/living-room/recordings/metadata/trailer",
+            "{}",
             "user:test-admin",
             response));
     }
