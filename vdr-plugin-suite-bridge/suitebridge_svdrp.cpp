@@ -75,6 +75,10 @@ cString cPluginSuiteBridge::SVDRPCommand(
       teletextCommand_.Handle(Command, Option);
   if (teletext.handled) return ReturnResult(teletext, ReplyCode);
 
+  const SuiteBridgeCommandResult hbbtv =
+      hbbtvCommand_.Handle(Command, Option);
+  if (hbbtv.handled) return ReturnResult(hbbtv, ReplyCode);
+
   const SuiteBridgeCommandResult nativeTimerCreate =
       nativeTimerCreate_.Handle(Command, Option);
   if (nativeTimerCreate.handled) return ReturnResult(nativeTimerCreate, ReplyCode);
