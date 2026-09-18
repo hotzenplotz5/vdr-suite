@@ -835,10 +835,9 @@ bool DaemonRuntime::initialize()
                     backendRuntimeContext->backendId,
                     lifecycleNow)) {
                 std::cerr
-                    << "failed to start embedded backend lifecycle: backend="
+                    << "embedded backend lifecycle unavailable: backend="
                     << backendRuntimeContext->backendId
                     << std::endl;
-                return false;
             }
             std::cout
                 << "Suite Bridge embedded Agent runtime started: backend="
