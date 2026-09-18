@@ -51,6 +51,14 @@ Channels:
 - `fetchClientChannels`
 - `fetchClientChannelMoveAction`
 
+Broadcast Companion / Teletext:
+
+- `fetchClientTeletextService`
+- `fetchClientTeletextPage`
+- both wrappers use the Suite-owned authorized Teletext read surface;
+- the browser receives normalized service/page data only and no SuiteBridge,
+  osdteletext cache or raw SVDRP command details.
+
 Capabilities and runtime state:
 
 - `fetchClientCapabilities`
@@ -157,7 +165,7 @@ The former missing-route list that treated Phase-62 identity, Phase-63 Agent, Ph
 
 The remaining forward route/compatibility gaps follow the current strict roadmap:
 
-- **Phase 67** — Teletext service/page/subpage and HbbTV broadcast-application discovery/session contracts;
+- **Phase 67** — Teletext service/page/subpage runtime is under active Vertical-1 implementation on the Phase-67 work branch; HbbTV broadcast-application discovery/session contracts remain open;
 - **Phase 68** — legacy OSD viewer/controller/session contracts;
 - **Phase 69** — stable `/api/v1`, ETags/preconditions and common public error/compatibility contracts;
 - **Phase 70** — recommendation/content-graph contracts after an accepted runtime design.
