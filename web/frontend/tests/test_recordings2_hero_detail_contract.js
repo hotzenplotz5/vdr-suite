@@ -105,7 +105,7 @@ assert(source.includes("shared.node('button', 'recordings2-hero-person')"),
   'Hero cast entries must be keyboard-accessible buttons');
 assert(source.includes("person.name + ' in vorhandenen Aufnahmen suchen'"),
   'Hero cast buttons must expose person-search intent');
-assert(source.includes('personOwner.roleLabel(person && person.role)'),
+assert(source.includes('owner.roleLabel(person && person.role)'),
   'Hero cast must reuse the canonical translated person role');
 assert(source.includes('personOwner.findRecordings(person, backendId, 20)'),
   'Hero cast search must reuse the canonical Person Search owner');
