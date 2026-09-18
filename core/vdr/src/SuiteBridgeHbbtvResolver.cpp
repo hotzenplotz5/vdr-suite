@@ -478,7 +478,7 @@ SuiteBridgeHbbtvResolver::discoverApplications(
                 std::numeric_limits<std::uint32_t>::max() ||
             application.controlCode > 0xffU ||
             application.priority > 0xffU ||
-            !safeText(application.name, 127))
+            !safeText(application.name, 255))
         {
             snapshot.payloadValid = false;
             snapshot.applications.clear();
