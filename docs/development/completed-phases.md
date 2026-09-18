@@ -17,11 +17,14 @@ Latest completed non-numbered Home hardening/rebuild marker:
 work/home-rebuild -> 0cce4d1c9e58abe4d529132e92340ae4cbb7a99c
 merged to main -> ea5967b983aee9ccc3f855b685db01abbfb2326a
 
-Next strict runtime phase:
+Current active numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
-Current active numbered runtime phase:
-none - Phase 67 has not started
+Completed Phase-67 vertical:
+Teletext -> PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
+
+Current active Phase-67 slice:
+HbbTV discovery
 ```
 
 See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate and [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the subsequent Home correctness/performance completion record.
@@ -45,6 +48,7 @@ See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate a
 | Phase 64 | Completed | Timer intent/assignment/binding orchestration, fulfillment, reconciliation and failover. | [Phase 64 closeout](phase-64-closeout.md) |
 | Phase 65 | Completed | Recording/Live MediaSessions, Streaming Gateway, output policy and normalized playback semantics. | [Phase 65 closeout](phase-65-closeout.md) |
 | Phase 66 | Completed | Responsive Media Home, Live hero/preview, Continue Watching, discovery/history and Golden desktop/mobile acceptance. | [Phase 66 closeout](phase-66-closeout.md) |
+| Phase 67 Teletext vertical | Completed within active Phase 67 | Domain-first Teletext service/page path, embedded generation fencing, authorized API, first-party rendering and Golden Journey 8. | [Phase 67 Teletext closeout](phase-67-teletext-closeout.md) |
 | Post-Phase-66 Home hardening/rebuild | Completed, non-numbered | Home performance, Recording Discovery, Series metadata/artwork/hierarchy, preview caching, EPG recovery, Movies/Genres presentation and canonical folder artwork. | [Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) |
 | Post-Phase-66 native Recording editing | Completed, non-numbered | VDR-native marks and cutting through Suite safety boundaries. | [Recording Editing Closeout](post-phase66-recording-editing-closeout.md) |
 
@@ -66,7 +70,9 @@ The numbered Phase-66 completion marker remains PR #264. Later merged Home work 
 ```text
 accepted_home_rebuild_head=0cce4d1c9e58abe4d529132e92340ae4cbb7a99c
 main_merge=ea5967b983aee9ccc3f855b685db01abbfb2326a
-phase67_started=NO
+phase67_started=YES
+phase67_teletext_vertical=COMPLETED
+phase67_hbbtv=OPEN
 ```
 
 The final branch included the canonical folder-poster correction after the broader H0-H5 Home rebuild. Real browser acceptance confirmed canonical TVScraper portrait projection for the reported `The Exorcist` folder case without reintroducing per-Recording metadata HTTP fan-out.
@@ -85,10 +91,12 @@ The final branch included the canonical folder-poster correction after the broad
 ## Next work
 
 ```text
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV [ACTIVE]
+Teletext vertical [COMPLETED]
+HbbTV discovery [NEXT]
 ```
 
-Phase 67 is the next strict numbered runtime phase but remains not started. ADR-0054 defines its architecture; runtime requires a separate explicit kickoff.
+ADR-0054 remains binding. Phase 67 is not complete until the required HbbTV discovery/session/runtime acceptance is closed.
 
 ## Verification
 
@@ -104,6 +112,7 @@ make test-phase-map-coverage
 - [Latest Completed Marker](completed-phases-latest.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](phase-66-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Phase 65 Closeout](phase-65-closeout.md)
