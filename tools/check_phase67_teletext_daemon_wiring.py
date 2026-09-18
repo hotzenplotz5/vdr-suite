@@ -24,7 +24,7 @@ for fragment in (
     'configureDaemonTeletextRuntime(',
     '*backendRegistryService_',
     '*vdrSnapshotReadService_',
-    '*backendAgentLifecycleService_',
+    '*embeddedBackendLifecycleService_',
     'backendRuntimeContexts_',
     'resetDaemonTeletextRuntime();',
 ):
@@ -35,14 +35,14 @@ reset_index = runtime.find('resetDaemonTeletextRuntime();')
 lifecycle_reset_index = runtime.find('backendAgentLifecycleService_.reset();')
 contexts_clear_index = runtime.find('backendRuntimeContexts_.clear();')
 if reset_index < 0 or lifecycle_reset_index < 0 or reset_index > lifecycle_reset_index:
-    errors.append("Teletext runtime must reset before Backend Agent lifecycle teardown")
+    errors.append("Teletext runtime must reset before lifecycle teardown")
 if reset_index < 0 or contexts_clear_index < 0 or reset_index > contexts_clear_index:
     errors.append("Teletext runtime must reset before backend runtime contexts are cleared")
 
 for fragment in (
-    'std::unique_ptr<BackendAgentTeletextAuthority> teletextBackendAuthority;',
+    'std::unique_ptr<EmbeddedBackendTeletextAuthority> teletextBackendAuthority;',
     'std::unique_ptr<TeletextControlPlaneReadService> teletextControlPlaneReadService;',
-    'std::make_unique<BackendAgentTeletextAuthority>',
+    'std::make_unique<EmbeddedBackendTeletextAuthority>',
     'std::make_unique<TeletextControlPlaneReadService>',
     'context->ensureTeletextResolver()',
     'teletextControlPlaneReadService.reset();',
@@ -57,7 +57,8 @@ if service_reset_index < 0 or authority_reset_index < 0 or service_reset_index >
     errors.append("Teletext read service must reset before its lifecycle authority")
 
 for source in (
-    'core/daemon/src/BackendAgentTeletextAuthority.cpp',
+    'core/daemon/src/EmbeddedBackendLifecycle.cpp',
+    'core/daemon/src/EmbeddedBackendTeletextAuthority.cpp',
     'core/daemon/src/TeletextControlPlaneReadService.cpp',
     'core/daemon/src/DaemonTeletextRuntime.cpp',
 ):
