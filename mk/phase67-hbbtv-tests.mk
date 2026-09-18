@@ -1,6 +1,7 @@
 .PHONY: test-phase67-hbbtv-suitebridge \
 	test-phase67-hbbtv-agent-transport \
 	test-phase67-hbbtv-resolver \
+	test-phase67-hbbtv-provider-patch-contract \
 	test-phase67-hbbtv-discovery-foundation
 
 test-phase67-hbbtv-suitebridge:
@@ -25,7 +26,11 @@ test-phase67-hbbtv-resolver:
 		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_resolver
 	$(BUILD_DIR)/test_suite_bridge_hbbtv_resolver
 
+test-phase67-hbbtv-provider-patch-contract:
+	python3 tools/check_phase67_hbbtv_provider_patch.py
+
 test-phase67-hbbtv-discovery-foundation: \
 	test-phase67-hbbtv-suitebridge \
 	test-phase67-hbbtv-agent-transport \
-	test-phase67-hbbtv-resolver
+	test-phase67-hbbtv-resolver \
+	test-phase67-hbbtv-provider-patch-contract
