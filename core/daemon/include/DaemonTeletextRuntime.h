@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-class BackendAgentLifecycleService;
+class EmbeddedBackendLifecycleService;
 class BackendRegistryService;
 class TeletextControlPlaneReadService;
 class VdrSnapshotReadService;
@@ -12,7 +12,7 @@ struct BackendRuntimeContext;
 bool configureDaemonTeletextRuntime(
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
-    BackendAgentLifecycleService& backendAgentLifecycleService,
+    EmbeddedBackendLifecycleService& embeddedBackendLifecycleService,
     std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts);
 
 void resetDaemonTeletextRuntime();
