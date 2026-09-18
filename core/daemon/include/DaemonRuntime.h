@@ -30,6 +30,7 @@
 #include "EpgEventRepository.h"
 #include "EpgQueryService.h"
 #include "EpgSearchResultJsonSerializer.h"
+#include "EmbeddedBackendLifecycle.h"
 #include "EpgSearchService.h"
 #include "EpgSearchNativeFuzzyCapabilityDetector.h"
 #include "EpgSearchNativeFuzzyCapabilityFreshnessPolicy.h"
@@ -208,6 +209,7 @@ private:
     std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
     std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;
     std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
+    std::unique_ptr<EmbeddedBackendLifecycleService> embeddedBackendLifecycleService_;
     std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;

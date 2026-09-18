@@ -1,4 +1,5 @@
 #include "BackendAgentLifecycle.h"
+#include "BackendRuntimeGeneration.h"
 
 #include "Database.h"
 
@@ -231,6 +232,7 @@ bool BackendAgentRepository::ensureSchema()
                "CREATE INDEX IF NOT EXISTS idx_backend_agent_observation_receipt_lookup "
                "ON backend_agent_observation_receipts(backend_id, observation_domain, "
                "snapshot_generation, producer_sequence, outcome); ") &&
+        BackendRuntimeGenerationRepository(database_).ensureSchema() &&
         database_.execute(
                "CREATE TABLE IF NOT EXISTS backend_agent_observation_cursors ("
                "backend_id TEXT NOT NULL,"
@@ -578,9 +580,13 @@ bool BackendAgentRepository::acceptConnection(
     result.agentId = current->agentId;
     result.backendId = current->backendId;
     result.credentialGeneration = current->credentialGeneration;
+    BackendRuntimeGenerationRepository generations(database_);
+    const std::uint64_t latestGeneration =
+        generations.latestGeneration(request.backendId);
     const bool sameInstance =
         !current->agentInstanceId.empty() &&
-        current->agentInstanceId == request.agentInstanceId;
+        current->agentInstanceId == request.agentInstanceId &&
+        latestGeneration <= current->backendGeneration;
 
     if (sameInstance)
     {
@@ -601,14 +607,16 @@ bool BackendAgentRepository::acceptConnection(
     }
     else
     {
-        if (!fitsDatabaseInteger(current->backendGeneration) ||
-            current->backendGeneration == static_cast<std::uint64_t>(
-                std::numeric_limits<std::int64_t>::max()))
+        const BackendRuntimeGenerationAllocation allocation =
+            generations.allocateInCurrentTransaction(
+                request.backendId,
+                connectedAt);
+        if (!allocation.accepted)
         {
-            result.reasonCode = "backend_generation_exhausted";
+            result.reasonCode = allocation.reasonCode;
             return transaction.commit();
         }
-        result.backendGeneration = current->backendGeneration + 1;
+        result.backendGeneration = allocation.generation;
         result.heartbeatSequence = 0;
         result.capabilityRevision = 0;
         result.disposition = "replace";

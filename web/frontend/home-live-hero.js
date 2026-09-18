@@ -867,6 +867,36 @@
     return true;
   }
 
+  function openTeletext() {
+    const channel = currentChannel();
+    const teletext = global.VdrSuiteTeletextView;
+    if (!channel ||
+        !teletext ||
+        typeof teletext.open !== 'function') {
+      state.actionError = 'Videotext ist derzeit nicht verfügbar.';
+      render({programmeRails: false});
+      return Promise.resolve(null);
+    }
+    state.actionError = '';
+    try {
+      return Promise.resolve(
+        teletext.open(channel, selectedBackendId())
+      ).catch(error => {
+        state.actionError = error && error.message
+          ? error.message
+          : 'Videotext konnte nicht geöffnet werden.';
+        render({programmeRails: false});
+        return null;
+      });
+    } catch (error) {
+      state.actionError = error && error.message
+        ? error.message
+        : 'Videotext konnte nicht geöffnet werden.';
+      render({programmeRails: false});
+      return Promise.resolve(null);
+    }
+  }
+
   function render(options) {
     if (!state.active || !doc) return false;
     const root = heroRoot();
@@ -931,6 +961,12 @@
     epg.setAttribute('aria-label', 'EPG für ' + channelName(channel) + ' öffnen');
     epg.addEventListener('click', openEpg);
     actions.appendChild(epg);
+    const teletext = createButton('Videotext', 'media-home-live-action');
+    teletext.disabled = !channelIsEnabled(channel);
+    teletext.setAttribute('data-home-live-action', 'teletext');
+    teletext.setAttribute('aria-label', 'Videotext für ' + channelName(channel) + ' öffnen');
+    teletext.addEventListener('click', openTeletext);
+    actions.appendChild(teletext);
     focus.appendChild(actions);
 
     const noticeText = state.actionError || state.programError || (state.loadingPrograms ? 'Aktuelle Programminformationen werden geladen …' : 'Mit ←/→ oder Wischen Sender wechseln.');

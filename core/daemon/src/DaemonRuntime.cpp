@@ -3,6 +3,7 @@
 #include "ContinueWatchingApiRuntime.h"
 #include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonSqliteShutdownCancellation.h"
+#include "DaemonTeletextRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
@@ -31,6 +32,16 @@ int DaemonRuntime::run()
     }
     if (!httpServer_ || !apiRouter_ || !vdrRecordingQueryService_ || !vdrRecordingCacheRepository_) {
         std::cerr << "HTTP/API runtime unavailable for Media Gateway" << std::endl;
+        return 1;
+    }
+    if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+        !embeddedBackendLifecycleService_ ||
+        !configureDaemonTeletextRuntime(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *embeddedBackendLifecycleService_,
+            backendRuntimeContexts_)) {
+        std::cerr << "Teletext control-plane runtime unavailable" << std::endl;
         return 1;
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
@@ -100,12 +111,23 @@ void DaemonRuntime::shutdown()
 
         if (backendRuntimeContext->suiteBridgeAgentRuntime) {
             backendRuntimeContext->suiteBridgeAgentRuntime->stop();
+            if (embeddedBackendLifecycleService_) {
+                const std::int64_t lifecycleNow =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                embeddedBackendLifecycleService_->stopBackend(
+                    backendRuntimeContext->backendId,
+                    lifecycleNow);
+            }
         }
     }
 
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    resetDaemonTeletextRuntime();
+    embeddedBackendLifecycleService_.reset();
     resetDaemonRecordingEditingRuntime();
     ContinueWatchingApiRuntime::instance().reset();
     SeriesArtworkSettingsApiRuntime::instance().reset();

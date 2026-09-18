@@ -14,6 +14,7 @@
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
+#include "TeletextApiRuntime.h"
 #include "VdrSnapshotReadService.h"
 
 #include <functional>
@@ -205,6 +206,13 @@ public:
         }
 
         if (RecordingMarksApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        if (TeletextApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
         {

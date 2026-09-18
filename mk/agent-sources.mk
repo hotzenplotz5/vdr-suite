@@ -8,6 +8,7 @@ AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp \
+	core/agent/src/SuiteBridgeSvdrpTeletextTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMetadataTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpRecordingCutStateTransport.cpp
@@ -133,6 +134,7 @@ AGENT_COMMAND_CLIENT_SRC := \
 	core/agent/src/BackendAgentCommandClient.cpp
 
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
+	core/agent/src/BackendRuntimeGeneration.cpp \
 	core/agent/src/BackendAgentRepository.cpp \
 	core/agent/src/BackendAgentLifecycle.cpp \
 	$(AGENT_CHANNEL_DOMAIN_SRC) \

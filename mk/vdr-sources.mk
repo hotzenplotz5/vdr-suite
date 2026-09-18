@@ -14,12 +14,16 @@ EPG_SCRAPER_METADATA_RUNTIME_SRC := \
         core/vdr/src/TmdbSeriesArtworkIncomingCleaner.cpp \
         core/vdr/src/PersistentSeriesArtworkFallbackResolver.cpp
 
+BROADCAST_TELETEXT_DOMAIN_SRC := \
+        core/vdr/src/SuiteBridgeTeletextResolver.cpp
+
 VDR_SRC := \
         core/vdr/src/RemoteActionDomain.cpp \
         core/vdr/src/RemoteActionService.cpp \
         core/vdr/src/RestfulApiRemoteActionExecutor.cpp \
         core/vdr/src/LiveOverlay.cpp \
         core/vdr/src/RestfulApiLiveChannelStateProvider.cpp \
+        $(BROADCAST_TELETEXT_DOMAIN_SRC) \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/BackendRegistry.cpp \
         core/vdr/src/BackendRegistryService.cpp \

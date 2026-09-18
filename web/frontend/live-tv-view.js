@@ -334,14 +334,22 @@
     title.appendChild(addText(doc.createElement('strong'), 'Live-TV · ' + (currentChannel ? channelName(currentChannel) : (snapshot && snapshot.channelName ? snapshot.channelName : state.liveChannelId))));
     title.appendChild(addText(doc.createElement('span'), 'Dieselbe VDR-Suite MediaSession bleibt bei interner Navigation aktiv.'));
     head.appendChild(title);
+    const teletext = global.VdrSuiteTeletextView;
+    if (currentChannel && teletext && typeof teletext.createLauncher === 'function') {
+      const teletextButton = teletext.createLauncher(
+        currentChannel,
+        snapshot && snapshot.backendId ? snapshot.backendId : selectedBackend()
+      );
+      if (teletextButton) head.appendChild(teletextButton);
+    }
     const stopButton = button('Live-TV beenden', 'vdr-suite-live-tv-stop');
     stopButton.addEventListener('click', stop);
     head.appendChild(stopButton);
-    box.appendChild(head);
     const slot = doc.createElement('div');
     slot.className = 'vdr-suite-live-tv-player-slot';
     slot.appendChild(state.playback.element);
     box.appendChild(slot);
+    box.appendChild(head);
     root.appendChild(box);
   }
 
