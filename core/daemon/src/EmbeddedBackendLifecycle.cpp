@@ -130,6 +130,31 @@ bool EmbeddedBackendLifecycleService::startBackend(
     Transaction transaction(database_);
     if (!transaction.active()) return false;
 
+    sqlite3_stmt* activeAgent = nullptr;
+    const char* activeAgentSql =
+        "SELECT lease_expires_at FROM backend_agents "
+        "WHERE backend_id=? AND revoked_at=0 "
+        "ORDER BY updated_at DESC LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            activeAgentSql,
+            -1,
+            &activeAgent,
+            nullptr) != SQLITE_OK ||
+        !bindText(activeAgent, 1, backendId))
+    {
+        if (activeAgent != nullptr) sqlite3_finalize(activeAgent);
+        return false;
+    }
+    bool externalLeaseActive = false;
+    if (sqlite3_step(activeAgent) == SQLITE_ROW)
+    {
+        externalLeaseActive =
+            sqlite3_column_int64(activeAgent, 0) >= now;
+    }
+    sqlite3_finalize(activeAgent);
+    if (externalLeaseActive) return false;
+
     BackendRuntimeGenerationRepository generations(database_);
     const BackendRuntimeGenerationAllocation allocation =
         generations.allocateInCurrentTransaction(backendId, now);
@@ -198,6 +223,13 @@ bool EmbeddedBackendLifecycleService::heartbeatBackend(
         const auto iterator = runtimes_.find(backendId);
         if (iterator == runtimes_.end()) return false;
         identity = iterator->second;
+    }
+
+    BackendRuntimeGenerationRepository generations(database_);
+    if (generations.latestGeneration(backendId) !=
+        identity.backendGeneration)
+    {
+        return false;
     }
 
     sqlite3_stmt* statement = nullptr;
@@ -292,6 +324,12 @@ EmbeddedBackendLifecycleService::statusForBackend(
         if (iterator == runtimes_.end()) return result;
         identity = iterator->second;
     }
+
+    BackendRuntimeGenerationRepository generations(database_);
+    const std::uint64_t latestGeneration =
+        generations.latestGeneration(backendId);
+    if (latestGeneration != identity.backendGeneration)
+        return result;
 
     sqlite3_stmt* statement = nullptr;
     const char* sql =
