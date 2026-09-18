@@ -22,7 +22,9 @@ assert(live.includes('attempt < 4'));
 assert(live.includes("state.liveChannelId !== id"));
 assert(live.includes('sequence !== state.hbbtvRequestSequence'));
 assert(live.includes("'HbbTV verfügbar'"));
-assert(live.includes("'Kein HbbTV erkannt'"));
+assert(live.includes("'Kein HbbTV signalisiert'"));
+assert(live.includes("'HbbTV Senderkontext nicht aktiv'"));
+assert(live.includes("'HbbTV Empfänger nicht aktiv'"));
 
 assert(!live.includes('fetchClientHbbtvLaunch'));
 assert(!live.includes('openArbitraryUrl'));
