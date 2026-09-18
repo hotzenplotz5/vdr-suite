@@ -67,6 +67,14 @@
 .recordings2-hero-page button.recordings2-hero-related-card:focus-visible .recordings2-hero-related-poster{border-color:rgba(255,255,255,.55);box-shadow:0 0 0 2px rgba(255,255,255,.12)}
 .recordings2-hero-page button.recordings2-hero-related-card:focus-visible{outline:none}
 .recordings2-hero-related-title{color:#f8fafc;font-size:.8rem;font-weight:850;line-height:1.25}
+.recordings2-hero-trailer-overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:clamp(1rem,4vw,3rem);background:rgba(2,4,8,.9);backdrop-filter:blur(18px)}
+.recordings2-hero-trailer-shell{display:grid;gap:.85rem;width:min(100%,76rem);max-height:calc(100vh - 2rem);padding:1rem;border:1px solid rgba(255,255,255,.16);border-radius:1rem;background:#090c12;box-shadow:0 2rem 6rem rgba(0,0,0,.55)}
+.recordings2-hero-trailer-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.recordings2-hero-trailer-head strong{color:#f8fafc;font-size:1.05rem}
+.recordings2-hero-page button.recordings2-hero-trailer-close{min-height:2.5rem;padding:.5rem .85rem;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:transparent;color:#f8fafc;font-weight:850;box-shadow:none}
+.recordings2-hero-page button.recordings2-hero-trailer-close:hover,.recordings2-hero-page button.recordings2-hero-trailer-close:focus-visible{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.08);outline:none}
+.recordings2-hero-trailer-status{margin:0;padding:1rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;background:rgba(15,23,42,.68);color:#cbd5e1;text-align:center}
+.recordings2-hero-trailer-frame{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:.8rem;background:#000}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{margin-top:5.5rem}
 .recordings2-hero-page[data-recordings2-hero-mode="metadata"]>.recordings2-metadata-panel{margin-top:1rem}
 .recordings2-hero-page[data-recordings2-hero-mode="actions"]>.recordings2-actions{position:relative;z-index:2;margin:5.5rem clamp(1.25rem,5vw,5rem) 1rem}
@@ -147,6 +155,125 @@
     global.setTimeout(function () { focusSection(root, selector, buttonText); }, 0);
   }
 
+  function positiveExternalId(value) {
+    const raw = text(value).trim();
+    return /^[1-9][0-9]{0,15}$/.test(raw) ? raw : '';
+  }
+
+  function trailerIdentity(metadata) {
+    if (!metadata || metadata.available !== true) return null;
+    const manual = metadata.manualAssignment;
+    if (manual && manual.active === true &&
+        text(manual.providerId).toLowerCase() === 'tmdb') {
+      const externalId = positiveExternalId(manual.externalId);
+      const externalNamespace = text(manual.externalNamespace).toLowerCase();
+      if (externalId && externalNamespace === 'movie') {
+        return {mediaType: 'movie', externalId: externalId};
+      }
+      if (externalId && externalNamespace === 'tv') {
+        return {mediaType: 'series', externalId: externalId};
+      }
+      return null;
+    }
+
+    const provider = text(metadata.provider).toLowerCase();
+    if (provider !== 'tvscraper' && provider !== 'recording-cache') return null;
+    const externalId = positiveExternalId(metadata.providerId);
+    if (!externalId) return null;
+    const mediaType = text(metadata.mediaType).toLowerCase();
+    if (mediaType === 'movie') return {mediaType: 'movie', externalId: externalId};
+    if (mediaType === 'series' || mediaType === 'episode') {
+      return {mediaType: 'series', externalId: externalId};
+    }
+    return null;
+  }
+
+  function validYoutubeVideoId(value) {
+    return /^[A-Za-z0-9_-]{11}$/.test(text(value));
+  }
+
+  function closeTrailer(root) {
+    const overlay = root && root.querySelector
+      ? root.querySelector('.recordings2-hero-trailer-overlay')
+      : null;
+    if (overlay && typeof overlay.remove === 'function') overlay.remove();
+  }
+
+  function showTrailer(root, backendId, identity) {
+    if (!root || !identity) return;
+    closeTrailer(root);
+
+    const overlay = shared.node('section', 'recordings2-hero-trailer-overlay');
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Trailer');
+    const shell = shared.node('div', 'recordings2-hero-trailer-shell');
+    const head = shared.node('div', 'recordings2-hero-trailer-head');
+    const title = shared.node('strong', '', 'Trailer');
+    const close = shared.node('button', 'recordings2-hero-trailer-close', '✕ Schließen');
+    close.type = 'button';
+    close.addEventListener('click', function () { closeTrailer(root); });
+    head.append(title, close);
+    const status = shared.node('p', 'recordings2-hero-trailer-status', 'Trailer wird geladen …');
+    status.setAttribute('role', 'status');
+    shell.append(head, status);
+    overlay.appendChild(shell);
+    overlay.addEventListener('click', function (event) {
+      if (event && event.target === overlay) closeTrailer(root);
+    });
+    root.appendChild(overlay);
+    if (typeof close.focus === 'function') close.focus();
+
+    const api = shared.clientApi();
+    if (!api || typeof api.fetchClientRecordingTrailer !== 'function') {
+      status.textContent = 'Trailer-Suche ist nicht verfügbar.';
+      return;
+    }
+
+    api.fetchClientRecordingTrailer({
+      backendId: text(backendId) || 'default',
+      query: {
+        mediaType: identity.mediaType,
+        externalId: identity.externalId
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (result) {
+      if (!overlay.parentNode) return;
+      if (!result || result.available !== true) {
+        status.textContent = 'Kein Trailer verfügbar.';
+        return;
+      }
+      if (text(result.provider).toLowerCase() !== 'youtube' ||
+          !validYoutubeVideoId(result.videoId)) {
+        status.textContent = 'Trailer-Antwort ist ungültig.';
+        return;
+      }
+
+      title.textContent = text(result.title) || 'Trailer';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'recordings2-hero-trailer-frame';
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' +
+        text(result.videoId) + '?autoplay=0&rel=0';
+      iframe.title = title.textContent;
+      iframe.loading = 'lazy';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.allow = 'encrypted-media; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-presentation'
+      );
+      status.remove();
+      shell.appendChild(iframe);
+    }).catch(function (error) {
+      if (!overlay.parentNode) return;
+      status.textContent = 'Trailer konnte nicht geladen werden: ' +
+        text(error && error.message ? error.message : error);
+    });
+  }
+
   function resumePosition(recording) {
     const value = Number(shared.first(recording, ['resumePositionSeconds'], 0));
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
@@ -177,7 +304,7 @@
     }, 0);
   }
 
-  function renderHeroActions(root, copy, recording) {
+  function renderHeroActions(root, copy, recording, backendId, metadata) {
     if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
     const actions = shared.node('div', 'recordings2-hero-actions');
     const position = resumePosition(recording);
@@ -186,6 +313,12 @@
       function () { startPlayback(root, recording); },
       true
     ));
+    const identity = trailerIdentity(metadata);
+    if (identity) {
+      actions.appendChild(makeButton('▶ Trailer', function () {
+        showTrailer(root, backendId, identity);
+      }));
+    }
     actions.appendChild(makeButton('Metadaten', function () {
       showMode(root, 'metadata', '.recordings2-metadata-tabs');
     }));
@@ -565,7 +698,7 @@
     const copy = root.querySelector('.recordings2-detail-copy');
     renderHeroFacts(copy, recording, metadata);
     renderHeroCast(root, copy, recording, backendId, metadata);
-    renderHeroActions(root, copy, recording);
+    renderHeroActions(root, copy, recording, backendId, metadata);
     renderRelated(root, recording, backendId, metadata);
     return root;
   }
@@ -580,7 +713,9 @@
       resumePosition,
       releaseDate,
       genreLabels,
-      matchingGenre
+      matchingGenre,
+      trailerIdentity,
+      validYoutubeVideoId
     })
   });
 }(window));
