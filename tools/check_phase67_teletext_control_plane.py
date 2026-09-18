@@ -6,8 +6,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SERVICE_H = ROOT / "core/daemon/include/TeletextControlPlaneReadService.h"
 SERVICE_CPP = ROOT / "core/daemon/src/TeletextControlPlaneReadService.cpp"
-AUTH_H = ROOT / "core/daemon/include/BackendAgentTeletextAuthority.h"
-AUTH_CPP = ROOT / "core/daemon/src/BackendAgentTeletextAuthority.cpp"
+AUTH_H = ROOT / "core/daemon/include/EmbeddedBackendTeletextAuthority.h"
+AUTH_CPP = ROOT / "core/daemon/src/EmbeddedBackendTeletextAuthority.cpp"
 TEST = ROOT / "core/daemon/tests/test_teletext_control_plane_read_service.cpp"
 
 errors: list[str] = []
@@ -52,11 +52,11 @@ if service_cpp.count("fenceContext(") < 5:
 
 for fragment in (
     "lifecycleService_.statusForBackend(backendId, now)",
-    "status.state == BackendAgentConnectionState::Online",
-    "status.backendGeneration",
+    "state.online",
+    "state.backendGeneration",
 ):
     if fragment not in auth_cpp:
-        errors.append(f"Backend Agent authority missing authoritative lifecycle fragment: {fragment}")
+        errors.append(f"Embedded backend authority missing lifecycle fragment: {fragment}")
 
 for forbidden in (
     "TTXC 1",
