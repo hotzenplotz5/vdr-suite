@@ -252,7 +252,7 @@ Home does not own parallel content identity; browsing does not depend on preview
 
 Phase 67 depends on A-B, completed Phase-65 media semantics where HbbTV/application media uses Suite-owned resources, and follows completed Phase 66 Home.
 
-Architecture is defined by ADR-0054; runtime remains not started and requires an explicit Phase-67 kickoff after Phase 66 closes.
+Architecture is defined by ADR-0054. Phase 67 is active: the Teletext dependency path is implemented and accepted; HbbTV discovery/session/runtime remain open.
 
 ### Teletext dependency direction
 
