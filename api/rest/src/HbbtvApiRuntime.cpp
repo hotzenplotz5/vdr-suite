@@ -8,6 +8,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -154,14 +155,13 @@ std::string jsonEscape(const std::string& value)
     {
         switch (character)
         {
-        case '"': escaped += "\""; break;
-        case '\': escaped += "\\"; break;
-        case '': escaped += "\b"; break;
-        case '': escaped += "\f"; break;
-        case '
-': escaped += "\n"; break;
-        case '': escaped += "\r"; break;
-        case '	': escaped += "\t"; break;
+        case '"': escaped += "\\\""; break;
+        case '\\': escaped += "\\\\"; break;
+        case '\b': escaped += "\\b"; break;
+        case '\f': escaped += "\\f"; break;
+        case '\n': escaped += "\\n"; break;
+        case '\r': escaped += "\\r"; break;
+        case '\t': escaped += "\\t"; break;
         default:
             if (character >= 0x20U)
                 escaped.push_back(static_cast<char>(character));
@@ -194,7 +194,7 @@ ApiResponse errorResponse(int statusCode, const std::string& code)
     response.contentType = "application/json; charset=utf-8";
     response.headers["Cache-Control"] = "no-store";
     response.body =
-        "{"error":{"code":"" + jsonEscape(code) + ""}}";
+        "{\"error\":{\"code\":\"" + jsonEscape(code) + "\"}}";
     return response;
 }
 
@@ -237,34 +237,35 @@ ApiResponse serializeDiscovery(
     }
 
     std::ostringstream json;
-    json << "{"schemaVersion":1"
-         << ","result":"" << jsonEscape(snapshot.result) << """
-         << ","available":"
+    json << "{\"schemaVersion\":1"
+         << ",\"result\":\"" << jsonEscape(snapshot.result) << "\""
+         << ",\"available\":"
          << (!snapshot.applications.empty() ? "true" : "false")
-         << ","receiverActive":"
+         << ",\"receiverActive\":"
          << (snapshot.receiverActive ? "true" : "false")
-         << ","backendGeneration":" << backendGeneration
-         << ","channelId":"" << jsonEscape(snapshot.channelId) << """
-         << ","discoveryRevision":" << snapshot.revision
-         << ","observedAt":" << snapshot.observedAt
-         << ","applications":[";
+         << ",\"backendId\":\"" << jsonEscape(snapshot.backendId) << "\""
+         << ",\"backendGeneration\":" << snapshot.backendGeneration
+         << ",\"channelId\":\"" << jsonEscape(snapshot.channelId) << "\""
+         << ",\"discoveryRevision\":" << snapshot.revision
+         << ",\"observedAt\":" << snapshot.observedAt
+         << ",\"applications\":[";
 
     for (std::size_t index = 0; index < snapshot.applications.size(); ++index)
     {
         if (index != 0U) json << ',';
         const BroadcastApplicationDescriptor& application =
             snapshot.applications[index];
-        json << "{"ref":{"applicationId":"
+        json << "{\"ref\":{\"applicationId\":"
              << application.ref.applicationId
-             << ","descriptorRevision":"
+             << ",\"descriptorRevision\":"
              << application.ref.descriptorRevision
-             << "},"control":{"code":"
+             << "},\"control\":{\"code\":"
              << static_cast<unsigned>(application.controlCode)
-             << ","semantic":""
+             << ",\"semantic\":\""
              << controlSemantic(application.controlCode)
-             << ""},"priority":"
+             << "\"},\"priority\":"
              << static_cast<unsigned>(application.priority)
-             << ","name":"" << jsonEscape(application.name) << ""}";
+             << ",\"name\":\"" << jsonEscape(application.name) << "\"}";
     }
     json << "]}";
 
