@@ -17,6 +17,7 @@ Completed history is never renumbered. Bounded hardening after a completed phase
 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Durable intent/assignment/binding, fulfillment, reconciliation and failover. |
 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Recording/Live playback, delivery/output policy and normalized playback semantics. |
 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home, browse/preview, Continue Watching, discovery/history and Golden journeys. |
+| Phase 67 | Active | Broadcast Companion Services: Teletext and HbbTV | Teletext vertical completed; HbbTV discovery/session/runtime remain open. |
 
 The compact `Phase 1.x-60` row preserves these historical completed subranges for coverage and traceability: `Phase 1.x-7.x`, `Phase 8.x`, `Phase 9.x-29.x`, `Phase 30.x-44.x`, `Phase 45.x`, `Phase 46.x`, `Phase 47.x-50.50`, `Phase 51.x-55.6`, `Phase 56`, `Phase 57`, `Phase 58.0-58.90b`, `Phase 59.00-59.15e`, and `Phase 60.1-60.15`.
 
@@ -29,13 +30,16 @@ Latest completed numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
 
 Current active numbered runtime phase:
-none - Phase 67 has not started
-
-Next strict numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
+Completed Phase-67 vertical:
+Teletext read path / browser-TV view / page navigation
+
 Current active slice:
-none - Phase 66 and the accepted post-Phase-66 Home rebuild are complete
+HbbTV discovery
+
+Next numbered phase after Phase 67:
+Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
 Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently merged through the accepted Home rebuild without creating a new numbered phase. See [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
@@ -47,7 +51,7 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 1 | Phase 64 | Completed | Timer Intent and Multi-Backend Orchestration | Reliable Timer orchestration and controlled failover. |
 | 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback and stable playback semantics. |
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
-| 4 | Phase 67 | Next; not started; not authorized | Broadcast Companion Services: Teletext and HbbTV | Domain-first Teletext and broadcast-application runtime. |
+| 4 | Phase 67 | Active; Teletext vertical completed | Broadcast Companion Services: Teletext and HbbTV | Teletext accepted; HbbTV discovery/session/runtime remain. |
 | 5 | Phase 68 | Planned after Phase 67 | Legacy OSD Compatibility Bridge | Isolated OSD observation/control compatibility. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
@@ -85,7 +89,7 @@ Live Channel / ProgramEvent
   +--> BroadcastApplication -> HbbTV Application Session
 ```
 
-Phase 67 remains not started and requires a separate explicit runtime kickoff.
+Phase 67 is active. The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`. HbbTV discovery is the next open vertical; HbbTV session/runtime follows after discovery.
 
 ## Later phases
 
@@ -107,7 +111,7 @@ Phase 67 remains not started and requires a separate explicit runtime kickoff.
 - Phase 64: Timer scheduling/fail-closed engine journeys.
 - Phase 65: Live-TV and Recording playback journeys.
 - Phase 66: desktop/mobile Media Home journeys — accepted.
-- Phase 67: Teletext and HbbTV journeys — next.
+- Phase 67: Teletext Journey 8 — accepted; HbbTV Journey 9 — open.
 - Phase 68: Legacy OSD compatibility journey.
 - Phase 69: public/client compatibility hardening.
 
@@ -125,6 +129,7 @@ make test-phase
 
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
+- [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](../development/phase-66-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md)
 - [Completed Phases](../development/completed-phases.md)
