@@ -27,6 +27,7 @@ include mk/phase66-recording-discovery.mk
 include mk/phase66-recently-watched.mk
 include mk/phase67-teletext-tests.mk
 include mk/phase67-teletext-frontend.mk
+include mk/phase67-hbbtv-tests.mk
 include mk/phase65-media-tests.mk
 include mk/phase65d-media-playback-contract.mk
 include mk/phase65d-playback-owner-lifecycle.mk
