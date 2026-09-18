@@ -159,6 +159,56 @@ ApiResponse candidateResponse(const RecordingMetadataCandidatePage& page)
     return response;
 }
 
+bool decimalIdentifier(const std::string& value)
+{
+    return !value.empty() && value.size() <= 16U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return character >= '0' && character <= '9';
+        });
+}
+
+ApiResponse trailerResponse(const RecordingMetadataTrailerPage& page)
+{
+    if (!page.error.empty())
+    {
+        return errorResponse(
+            page.providerAvailable ? 502 : 503,
+            page.attempted
+                ? "metadata_trailer_provider_unavailable"
+                : "metadata_trailer_provider_not_configured",
+            page.error);
+    }
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    if (page.trailers.empty())
+    {
+        response.body = "{\"available\":false,\"provider\":\"youtube\"}";
+        return response;
+    }
+
+    const RecordingMetadataTrailer& trailer = page.trailers.front();
+    if (!trailer.valid())
+    {
+        return errorResponse(
+            502,
+            "metadata_trailer_invalid",
+            "The provider returned an invalid trailer descriptor");
+    }
+
+    std::ostringstream json;
+    json << "{\"available\":true,\"provider\":\"youtube\""
+         << ",\"videoId\":\"" << jsonEscape(trailer.externalId) << "\""
+         << ",\"title\":\"" << jsonEscape(trailer.title) << "\""
+         << ",\"language\":\"" << jsonEscape(trailer.language) << "\""
+         << ",\"official\":" << (trailer.official ? "true" : "false")
+         << "}";
+    response.body = json.str();
+    return response;
+}
+
 std::string serializePerson(const ManualRecordingMetadataPerson& person)
 {
     std::ostringstream json;
@@ -367,6 +417,36 @@ ApiResponse MetadataController::getRecordingMetadataEpisodes(
         seriesExternalId,
         seasonNumber,
         limit));
+}
+
+ApiResponse MetadataController::getRecordingMetadataTrailer(
+    const std::string& backendId,
+    const std::string& mediaType,
+    const std::string& externalId)
+{
+    if ((mediaType != "movie" && mediaType != "series") ||
+        !decimalIdentifier(externalId))
+    {
+        return errorResponse(
+            400,
+            "invalid_metadata_trailer_identity",
+            "Trailer lookup requires movie or series metadata with a numeric external id");
+    }
+
+    constexpr int MaximumTrailerCandidates = 8;
+    if (candidateProvider_ != nullptr)
+        return trailerResponse(candidateProvider_->trailers(
+            mediaType,
+            externalId,
+            MaximumTrailerCandidates));
+
+    TmdbRecordingMetadataCandidateProvider provider(
+        defaultTransport(),
+        providerConfig(backendId));
+    return trailerResponse(provider.trailers(
+        mediaType,
+        externalId,
+        MaximumTrailerCandidates));
 }
 
 ApiResponse MetadataController::getManualRecordingMetadata(
