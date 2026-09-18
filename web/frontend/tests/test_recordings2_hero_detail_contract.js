@@ -91,8 +91,8 @@ assert(visibility.includes('new global.MutationObserver'),
 
 assert(source.includes("entry.orientation === 'landscape' || entry.orientation === 'banner'"),
   'hero backdrop must prefer landscape/banner metadata artwork');
-assert(source.includes("query: {name: actor.name, limit: 20}"),
-  'related rail must reuse local person search first');
+assert(source.includes('personOwner.findRecordings(actor, backendId, 20)'),
+  'related rail must reuse the canonical Person Search owner first');
 assert(source.includes('fetchClientGenres'),
   'related rail must be able to discover recording genres as fallback');
 assert(source.includes('fetchClientGenreRecordings'),
