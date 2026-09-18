@@ -7,6 +7,7 @@
 #include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
@@ -432,6 +433,26 @@ std::string cachedProviderName(
         : "recording-cache";
 }
 
+int cachedProviderId(
+    const VdrRecordingProviderMetadata& provider)
+{
+    const std::string* value = nullptr;
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        value = &provider.movieId;
+    else if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        value = &provider.seriesId;
+    if (value == nullptr || value->empty() || value->size() > 10U) return 0;
+
+    long long parsed = 0;
+    for (const unsigned char character : *value)
+    {
+        if (character < '0' || character > '9') return 0;
+        parsed = parsed * 10LL + static_cast<long long>(character - '0');
+        if (parsed > std::numeric_limits<int>::max()) return 0;
+    }
+    return parsed > 0 ? static_cast<int>(parsed) : 0;
+}
+
 std::string cachedArtworkOrientation(
     const VdrRecordingArtworkRef& artwork)
 {
@@ -507,7 +528,7 @@ std::string serializeCachedMetadata(const VdrRecording& recording)
     appendJsonString(json, cachedProviderName(provider));
     json << ",\"mediaType\":";
     appendJsonString(json, cachedMediaType(provider));
-    json << ",\"providerId\":0"
+    json << ",\"providerId\":" << cachedProviderId(provider)
          << ",\"seasonNumber\":" << provider.seasonNumber
          << ",\"episodeNumber\":" << provider.episodeNumber
          << ",\"absoluteEpisodeNumber\":0"
