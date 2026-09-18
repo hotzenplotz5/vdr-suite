@@ -58,16 +58,18 @@ assert(visibility.includes("const actions = mode === 'actions';"),
   'Hero visibility owner must model Recording actions explicitly');
 assert(visibility.includes("setHidden(root, '.recordings2-actions', !actions, 'block')"),
   'Recording actions must be visible only in the dedicated Hero action mode');
-assert(visibility.includes("setHidden(root, '.recordings2-metadata-tabs', !(detail || metadata))"),
-  'metadata tabs must remain directly reachable from the normal Hero detail');
-assert(visibility.includes("showMode(root, 'metadata', '.recordings2-metadata-tabs')"),
-  'non-recording metadata tabs must enter the canonical Hero metadata mode');
-assert(visibility.includes("showMode(root, 'detail')"),
-  'Aufnahme tab must return to the normal Hero detail mode');
-assert(visibility.includes('selectRecordingMetadataTab(root)'),
-  'normal Hero detail must keep Aufnahme selected in the persistent metadata tab bar');
-assert(visibility.includes('position:fixed;top:1.25rem;right:clamp(1rem,3vw,3rem)'),
-  'desktop Hero must keep the existing metadata tab bar directly reachable at the top right');
+assert(visibility.includes("setHidden(root, '.recordings2-metadata-tabs', !metadata)"),
+  'metadata tabs must stay hidden in the normal Hero and appear only in metadata mode');
+assert(source.includes("showMode(root, 'metadata', '.recordings2-metadata-tabs')"),
+  'the Hero Metadata action must open the canonical metadata mode');
+assert(visibility.includes('data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{position:relative'),
+  'metadata tabs must render in normal flow inside metadata mode');
+assert(visibility.includes('max-width:80rem;margin:5.5rem auto 1rem!important'),
+  'metadata tabs must use the bounded metadata content rail');
+assert(!visibility.includes('selectRecordingMetadataTab(root)'),
+  'Hero visibility must not take ownership of metadata tab selection');
+assert(!visibility.includes('__vdrSuiteHeroModeBound'),
+  'Hero visibility must not add a second metadata-tab click owner');
 assert(visibility.includes('detail || playbackSurface'),
   'playback must keep the metadata-owned recording panel available for technical facts');
 assert(visibility.includes('recordings2-hero-recording-panel'),
