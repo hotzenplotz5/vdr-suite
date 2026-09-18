@@ -118,7 +118,8 @@ DAEMON_SRC := \
         core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
-        core/daemon/src/BackendAgentTeletextAuthority.cpp \
+        core/daemon/src/EmbeddedBackendLifecycle.cpp \
+        core/daemon/src/EmbeddedBackendTeletextAuthority.cpp \
         core/daemon/src/TeletextControlPlaneReadService.cpp \
         core/daemon/src/DaemonTeletextRuntime.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
