@@ -7,6 +7,7 @@ test-phase67-hbbtv-suitebridge:
 	$(MAKE) -C vdr-plugin-suite-bridge test-hbbtv
 	$(MAKE) -C vdr-plugin-suite-bridge check-hbbtv-adapter-wiring
 	$(MAKE) -C vdr-plugin-suite-bridge check-hbbtv-svdrp-boundary
+	$(MAKE) -C vdr-plugin-suite-bridge check-build
 
 test-phase67-hbbtv-agent-transport:
 	$(BUILD_CXX) $(CXXFLAGS) \
