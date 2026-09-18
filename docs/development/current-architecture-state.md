@@ -251,11 +251,16 @@ Current accepted post-phase product behavior includes:
 - scoped/progressive Recording metadata completion instead of global browser metadata fan-out;
 - canonical TVScraper/native portrait artwork priority and manual Series hierarchy/artwork overrides;
 - native Recording marks/cutting with VDR as canonical marks/cutter authority;
-- a cinematic Recordings 2 full-page Hero detail with compact facts, cast/person presentation and related-Genre rail;
-- Recording playback prewarm through the existing canonical playback owner, without autoplay, duplicate MediaSessions or pre-playback Continue Watching/history truth;
-- canonical `kind=poster` selection for related Recording cards, keeping locked manual poster authority and preferring native portrait metadata before weaker preferred-artwork fallback.
+- a cinematic Recordings 2 full-page Hero detail with compact facts and existing Recording-action ownership;
+- selected-Recording metadata/artwork fallback through the existing Suite Recording-cache model without broad Home fan-out;
+- clickable cast/person presentation backed by the canonical local person-search owner and normal Recording-detail navigation;
+- Metadata-mode navigation that remains owned by the existing metadata view and is usable on desktop/mobile;
+- Recording playback prewarm through the existing canonical playback owner, with `autoPlay:false` preserved through compatibility decorators and no autoplay, duplicate MediaSessions or pre-playback Continue Watching/history truth;
+- canonical `kind=poster` selection for related Recording cards, keeping locked manual poster authority and preferring native portrait metadata before weaker preferred-artwork fallback;
+- explicit on-demand Trailer lookup through the server-side TMDB adapter and Web Client API owner, returning only bounded provider-neutral Trailer descriptors;
+- privacy-enhanced YouTube embedding rendered inline below related Recording cards, with autoplay disabled and no participation in the Recording MediaSession lifecycle.
 
-The Recording-detail presentation is a presentation layer over the existing Recording domain; it is not a new content owner. Exact evidence belongs in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md).
+The Recording-detail presentation is a presentation layer over the existing Recording domain; it is not a new content owner. Trailer discovery is likewise provider-mediated enrichment: TMDB credentials stay server-side, the browser does not become a metadata provider, and YouTube playback is separate from the canonical Recording playback owner. Exact evidence belongs in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md).
 
 ## Public API and client boundary
 
