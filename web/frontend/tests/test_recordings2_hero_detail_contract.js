@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const vm = require('vm');
 
 const source = fs.readFileSync('web/frontend/recordings2-hero-detail.js', 'utf8');
 const visibility = fs.readFileSync('web/frontend/recordings2-hero-visibility.js', 'utf8');
@@ -36,6 +37,25 @@ assert(source.includes('root.__vdrSuiteRecordingPlaybackOwner'),
   'Hero playback must reuse the canonical recording playback owner');
 assert(source.includes('owner.startAtAbsolute(position)'),
   'Hero resume must reuse the canonical absolute-start path');
+
+assert(source.includes("makeButton('▶ Trailer'"),
+  'Hero must expose Trailer only through the existing action owner');
+assert(source.includes('api.fetchClientRecordingTrailer({'),
+  'Trailer lookup must use the Web Client API owner');
+assert(source.includes('https://www.youtube-nocookie.com/embed/'),
+  'YouTube trailers must use the privacy-enhanced embed origin');
+assert(source.includes('?autoplay=0&rel=0'),
+  'Trailer iframe must explicitly disable autoplay');
+assert(!source.includes('enablejsapi'),
+  'Trailer embed must not attach YouTube to the Recording MediaSession owner');
+assert(!source.includes('api.themoviedb.org'),
+  'Hero must never call TMDB directly');
+assert(!source.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'),
+  'provider credentials must never enter the browser runtime');
+assert(source.includes("iframe.allow = 'encrypted-media; picture-in-picture; fullscreen'"),
+  'Trailer embed permissions must omit autoplay');
+assert(source.includes("overlay.remove()"),
+  'closing the Trailer must remove the iframe and terminate its media');
 
 assert(!source.includes("makeButton('Schnittmarken'"),
   'cut marks must not be a Hero action');
@@ -154,5 +174,80 @@ assert(packaging.includes('web/frontend/recordings2-hero-visibility.js'),
   'hero visibility runtime must be bundled');
 assert(packaging.includes('node --check web/frontend/recordings2-hero-visibility.js'),
   'hero visibility runtime must be syntax checked');
+
+const trailerContext = vm.createContext({
+  window: {
+    VdrSuiteRecordings2Shared: {
+      text(value) {
+        return value === undefined || value === null ? '' : String(value);
+      }
+    }
+  },
+  console
+});
+vm.runInContext(source, trailerContext, {filename: 'recordings2-hero-detail.js'});
+const trailerRuntime = trailerContext.window.VdrSuiteRecordings2HeroDetail;
+assert(trailerRuntime && trailerRuntime.__test);
+const trailerIdentity = trailerRuntime.__test.trailerIdentity;
+
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(trailerIdentity({
+    available: true,
+    manualAssignment: {
+      active: true,
+      providerId: 'tmdb',
+      externalNamespace: 'movie',
+      externalId: '11120'
+    }
+  }))),
+  {mediaType: 'movie', externalId: '11120'}
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(trailerIdentity({
+    available: true,
+    manualAssignment: {
+      active: true,
+      providerId: 'tmdb',
+      externalNamespace: 'tv',
+      externalId: '19885'
+    }
+  }))),
+  {mediaType: 'series', externalId: '19885'}
+);
+assert.strictEqual(trailerIdentity({
+  available: true,
+  manualAssignment: {
+    active: true,
+    providerId: 'tmdb',
+    externalNamespace: 'tv-episode',
+    externalId: '123'
+  }
+}), null, 'episode assignments must not guess a parent TMDB series identity');
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(trailerIdentity({
+    available: true,
+    provider: 'tvscraper',
+    mediaType: 'movie',
+    providerId: 11120
+  }))),
+  {mediaType: 'movie', externalId: '11120'}
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(trailerIdentity({
+    available: true,
+    provider: 'tvscraper',
+    mediaType: 'episode',
+    providerId: 19885
+  }))),
+  {mediaType: 'series', externalId: '19885'}
+);
+assert.strictEqual(trailerIdentity({
+  available: true,
+  provider: 'tvscraper',
+  mediaType: 'series',
+  providerId: -74205
+}), null, 'negative TVDB identity must not be sent to TMDB');
+assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('abcdefghijk'), true);
+assert.strictEqual(trailerRuntime.__test.validYoutubeVideoId('bad'), false);
 
 console.log('recordings2 hero/playback placement contract ok');
