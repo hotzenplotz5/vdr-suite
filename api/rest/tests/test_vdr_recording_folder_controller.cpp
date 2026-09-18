@@ -392,6 +392,7 @@ int main()
     assert(cachedMetadata.statusCode == 200);
     assert(contains(cachedMetadata.body, "\"available\":true"));
     assert(contains(cachedMetadata.body, "\"provider\":\"tvscraper\""));
+    assert(contains(cachedMetadata.body, "\"providerId\":11120"));
     assert(contains(cachedMetadata.body, "\"title\":\"Mosquito Coast\""));
     assert(contains(
         cachedMetadata.body,

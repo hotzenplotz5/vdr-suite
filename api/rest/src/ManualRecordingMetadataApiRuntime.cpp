@@ -54,6 +54,7 @@ bool parseRoute(const std::string& target, Route& route)
         route.operation.find('/') != std::string::npos)
         return false;
     return route.operation == "manual" ||
+        route.operation == "trailer" ||
         route.operation == "search" ||
         route.operation == "seasons" ||
         route.operation == "episodes" ||
@@ -352,7 +353,8 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
     ApiResponse& response) const
 {
     Route route;
-    if (!parseRoute(requestTarget, route) || route.operation != "manual")
+    if (!parseRoute(requestTarget, route) ||
+        (route.operation != "manual" && route.operation != "trailer"))
         return false;
 
     MetadataController* metadata = controller();
@@ -362,6 +364,15 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
             503,
             "manual_metadata_runtime_unavailable",
             "Manual recording metadata is unavailable");
+        return true;
+    }
+
+    if (route.operation == "trailer")
+    {
+        response = metadata->getRecordingMetadataTrailer(
+            route.backendId,
+            queryValue(requestTarget, "mediaType"),
+            queryValue(requestTarget, "externalId"));
         return true;
     }
 
@@ -388,7 +399,9 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     ApiResponse& response) const
 {
     Route route;
-    if (!parseRoute(requestTarget, route) || route.operation == "manual")
+    if (!parseRoute(requestTarget, route) ||
+        route.operation == "manual" ||
+        route.operation == "trailer")
         return false;
 
     MetadataController* metadata = controller();

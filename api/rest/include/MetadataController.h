@@ -70,6 +70,11 @@ public:
             limit);
     }
 
+    ApiResponse getRecordingMetadataTrailer(
+        const std::string& backendId,
+        const std::string& mediaType,
+        const std::string& externalId);
+
     ManualRecordingMetadataAssignment findManualRecordingMetadata(
         const std::string& backendId,
         const std::string& resourceKey)

@@ -274,6 +274,13 @@ double decimal(const Value& object, const char* name)
     return std::max(0.0, std::min(10.0, value->number));
 }
 
+bool boolean(const Value& object, const char* name)
+{
+    const Value* value = object.member(name);
+    return value != nullptr && value->type == Value::Type::Boolean
+        ? value->boolean : false;
+}
+
 bool validLimit(int limit)
 {
     return limit >= 1 && limit <= 20;
@@ -469,5 +476,57 @@ bool parseTmdbRecordingMovieCredits(
     }
 
     if (items->array.size() > cast.size()) truncated = true;
+    return true;
+}
+
+bool parseTmdbRecordingTrailers(
+    const std::string& body,
+    std::size_t maximumBytes,
+    int limit,
+    std::vector<RecordingMetadataTrailer>& trailers,
+    bool& truncated)
+{
+    trailers.clear();
+    truncated = false;
+    if (!validLimit(limit)) return false;
+
+    Value root;
+    if (!Parser(body, maximumBytes).parse(root) || root.type != Value::Type::Object)
+        return false;
+    const Value* items = root.member("results");
+    if (items == nullptr || items->type != Value::Type::Array) return false;
+
+    std::vector<RecordingMetadataTrailer> matching;
+    matching.reserve(items->array.size());
+    for (const Value& item : items->array)
+    {
+        if (item.type != Value::Type::Object ||
+            text(item, "site") != "YouTube" ||
+            text(item, "type") != "Trailer")
+            continue;
+
+        RecordingMetadataTrailer trailer;
+        trailer.providerId = "youtube";
+        trailer.externalId = text(item, "key");
+        trailer.title = text(item, "name");
+        trailer.language = text(item, "iso_639_1");
+        trailer.official = boolean(item, "official");
+        if (trailer.valid()) matching.push_back(std::move(trailer));
+    }
+
+    std::stable_sort(
+        matching.begin(),
+        matching.end(),
+        [](const RecordingMetadataTrailer& left,
+           const RecordingMetadataTrailer& right) {
+            return left.official && !right.official;
+        });
+
+    if (static_cast<int>(matching.size()) > limit)
+    {
+        matching.resize(static_cast<std::size_t>(limit));
+        truncated = true;
+    }
+    trailers = std::move(matching);
     return true;
 }

@@ -253,6 +253,36 @@ TmdbRecordingMetadataCandidateProvider::movieCredits(
         limit);
 }
 
+RecordingMetadataTrailerPage
+TmdbRecordingMetadataCandidateProvider::trailers(
+    const std::string& mediaType,
+    const std::string& externalId,
+    int limit)
+{
+    RecordingMetadataTrailerPage invalid;
+    invalid.providerId = "tmdb";
+    if (!configurationValid(config_) || !digits(externalId) ||
+        (mediaType != "movie" && mediaType != "series") ||
+        limit < 1 || limit > 20)
+    {
+        invalid.error = "invalid trailer request";
+        return invalid;
+    }
+
+    const std::string media = mediaType == "movie" ? "movie" : "tv";
+    const std::string prefix =
+        std::string(ApiBase) + "/" + media + "/" + externalId + "/videos?language=";
+
+    RecordingMetadataTrailerPage localized = requestTrailers(
+        prefix + encodeQuery(config_.language),
+        limit);
+    if (!localized.error.empty() || !localized.trailers.empty() ||
+        config_.language == "en-US")
+        return localized;
+
+    return requestTrailers(prefix + "en-US", limit);
+}
+
 RecordingMetadataCandidatePage
 TmdbRecordingMetadataCandidateProvider::request(
     const std::string& url,
@@ -329,6 +359,40 @@ TmdbRecordingMetadataCandidateProvider::requestMovieCredits(
             page.truncated))
     {
         page.cast.clear();
+        page.error = "provider returned invalid JSON";
+    }
+    return page;
+}
+
+RecordingMetadataTrailerPage
+TmdbRecordingMetadataCandidateProvider::requestTrailers(
+    const std::string& url,
+    int limit)
+{
+    RecordingMetadataTrailerPage page;
+    page.attempted = true;
+    page.providerId = "tmdb";
+
+    const ExternalArtworkHttpResponse response =
+        performJsonRequest(transport_, config_, sleeper_, url);
+    if (!jsonReady(response))
+    {
+        page.providerAvailable =
+            !response.transportError && response.statusCode < 500L &&
+            response.statusCode != 429L;
+        page.error = responseError(response);
+        return page;
+    }
+
+    page.providerAvailable = true;
+    if (!parseTmdbRecordingTrailers(
+            response.body,
+            config_.maximumJsonBytes,
+            limit,
+            page.trailers,
+            page.truncated))
+    {
+        page.trailers.clear();
         page.error = "provider returned invalid JSON";
     }
     return page;

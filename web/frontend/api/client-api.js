@@ -427,6 +427,15 @@
     );
   }
 
+  function fetchClientRecordingTrailer(options) {
+    const normalized = normalizeOptions(options);
+    const backendId = normalized.backendId ? String(normalized.backendId) : 'default';
+    return requestJson(
+      '/api/backends/' + encodeURIComponent(backendId) + '/recordings/metadata/trailer',
+      Object.assign({}, normalized, {backendId: undefined})
+    );
+  }
+
   function fetchClientRecordings(options) {
     return requestJson('/api/vdr/recordings/query', options);
   }
@@ -578,6 +587,7 @@
     fetchClientMetadata: fetchClientMetadata,
     fetchClientPersons: fetchClientPersons,
     fetchClientRecordingPersons: fetchClientRecordingPersons,
+    fetchClientRecordingTrailer: fetchClientRecordingTrailer,
     fetchClientRecordings: fetchClientRecordings,
     fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
     fetchClientRecordingFolder: fetchClientRecordingFolder,

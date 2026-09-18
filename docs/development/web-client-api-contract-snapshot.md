@@ -109,8 +109,16 @@ Recordings:
 - `fetchClientRecordings`
 - `fetchClientRecordingCacheStatus`
 - `fetchClientRecordingFolder`
+- `fetchClientRecordingTrailer`
 - `fetchClientRecordingActionValidation`
 - `fetchClientRecordingActionExecution`
+
+Recording trailer contract:
+
+- `fetchClientRecordingTrailer` owns the authenticated Suite route for an explicit user-requested Recording trailer lookup.
+- the browser passes only a bounded media type and provider identity already present in Suite metadata;
+- provider credentials and TMDB transport remain server-side;
+- normal Recording/metadata rendering performs no trailer provider lookup.
 
 SearchTimer:
 
