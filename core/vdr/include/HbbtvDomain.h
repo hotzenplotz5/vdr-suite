@@ -32,6 +32,8 @@ struct BroadcastApplicationDescriptor
 
 struct BroadcastApplicationDiscoverySnapshot
 {
+    std::string backendId;
+    std::uint64_t backendGeneration = 0;
     bool payloadValid = false;
     bool receiverActive = false;
     std::string result;
