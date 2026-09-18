@@ -33,7 +33,7 @@ Accepted Home rebuild merge checkpoint:
 ea5967b983aee9ccc3f855b685db01abbfb2326a
 
 Latest accepted post-phase runtime merge checkpoint:
-7d850123aaa1d04362d1a94ce584a4cc3c3a5b3b
+2b0d0990974244eac90e9be711843678c77e301d
 
 Latest completed numbered runtime phase:
 Phase 66 - Media Home and Browse Experience
@@ -53,7 +53,7 @@ PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
 
 The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree. This SHA is a durable Home-rebuild checkpoint, not a substitute for reading the live `main` head.
 
-The later accepted post-phase runtime chain includes the Recordings 2 cinematic detail/presentation work, the related-Genre portrait correction and the Live-TV `ended` lifecycle stabilization. The current live `main` head must still be queried before repository-state actions; the runtime checkpoint above is historical evidence, not a permanent branch tip.
+The later accepted post-phase runtime chain includes the Recordings 2 cinematic detail/presentation work, the related-Genre portrait correction, the Live-TV `ended` lifecycle stabilization, and the subsequent Recording-detail hardening through clickable cast/person search, corrected metadata navigation, strict paused prewarm and inline YouTube trailers. The current live `main` head must still be queried before repository-state actions; the runtime checkpoint above is historical evidence, not a permanent branch tip.
 
 ## Phase 66 and post-phase completion state
 
@@ -81,7 +81,12 @@ Merged post-Phase-66 work includes, among other bounded follow-ups:
 - PR #287 cinematic Recordings 2 detail/hero presentation and canonical-owner playback prewarm;
 - PR #288 canonical portrait poster selection for related-Genre Recording cards;
 - PR #289 Live-TV `ended` lifecycle stabilization so a transient media-element EOF does not destroy the canonical Live MediaSession;
-- PR #291 documentation of the accepted Live-TV lifecycle stabilization.
+- PR #291 documentation of the accepted Live-TV lifecycle stabilization;
+- PR #294 restoration of Recording actions plus paused Hero prewarm;
+- PR #295 Recording detail metadata-cache fallback and technical playback/marks layout repair;
+- PR #296 clickable Hero cast with canonical local person search and neutral related-card styling;
+- PR #297 bottom Metadata navigation plus end-to-end preservation of `autoPlay:false` through fallback/restart-seek decorators;
+- PR #298 explicit server-side TMDB Trailer lookup with privacy-enhanced inline YouTube playback below related Recording cards.
 
 Open or draft branches/PRs are not accepted current-state truth until they are merged and separately documented where required.
 
@@ -111,13 +116,19 @@ The merged Recordings 2 detail surface now includes the accepted post-Phase-66 p
 - cinematic/full-page Hero detail composition;
 - compact Recording facts and retained canonical title/subtitle/description metadata;
 - prominent playback entry into the existing canonical Recording playback owner;
-- cast/person presentation and related-Genre Recording rail;
+- restored Recording actions through the existing action workflow;
+- Recording-cache metadata/artwork fallback for the selected detail without restoring Home-wide metadata fan-out;
+- clickable cast/person presentation backed by the existing local person-search owner;
+- related Recording rails that reuse canonical Recording navigation;
 - metadata, marks and playback submodes retained inside the same Recordings 2 detail owner;
-- canonical-owner playback prewarm without autoplay, duplicate MediaSessions or false Continue Watching/history publication;
+- Metadata-mode bottom navigation for `Aufnahme | Scraper | Schauspieler | Bilder`, including usable mobile 2 x 2 layout;
+- canonical-owner playback prewarm that buffers/prepares only and preserves `autoPlay:false` through compatibility decorators;
 - related-Genre cards using canonical `kind=poster` selection so locked manual posters remain authoritative and native portrait metadata wins before weaker preferred artwork fallback;
-- real yaVDR/browser acceptance for the Hero/mobile presentation, immediate playback startup and corrected portrait covers.
+- conditional explicit Trailer lookup through the server-side TMDB provider and canonical Web Client API owner;
+- validated `youtube-nocookie.com` embedding with autoplay disabled and an inline Trailer section below related Recording cards;
+- real yaVDR/browser/mobile acceptance for the Hero, playback/prewarm, metadata navigation, cast search and inline Trailer behavior.
 
-This presentation work does not create a new Recording identity, metadata authority or playback lifecycle. Native Recording marks/cutting remains separately governed by the accepted native Recording editing architecture and closeout.
+This presentation work does not create a new Recording identity, metadata authority or playback lifecycle. TMDB credentials remain server-side, YouTube Trailer playback is not a Recording MediaSession, and normal detail rendering does not perform an external Trailer lookup. Native Recording marks/cutting remains separately governed by the accepted native Recording editing architecture and closeout.
 
 ## Live-TV lifecycle stabilization
 
