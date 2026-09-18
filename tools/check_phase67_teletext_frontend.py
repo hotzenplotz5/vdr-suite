@@ -51,6 +51,9 @@ for fragment in (
     "width:30vw",
     "max-height:66vh",
     "height:auto;max-height:100vh;box-sizing:border-box",
+    "body.vdr-suite-teletext-open::after",
+    "linear-gradient(180deg,#020617 0%,#07111f 100%)",
+    "padding:0!important;border:0!important",
     "setDesktopCompanionActive(true)",
     "setDesktopCompanionActive(false)",
 ):
