@@ -67,6 +67,27 @@ struct RecordingMetadataCastPage
     std::vector<RecordingMetadataCastMember> cast;
 };
 
+struct RecordingMetadataTrailer
+{
+    std::string providerId;
+    std::string externalId;
+    std::string title;
+    std::string language;
+    bool official = false;
+
+    bool valid() const;
+};
+
+struct RecordingMetadataTrailerPage
+{
+    bool attempted = false;
+    bool providerAvailable = false;
+    bool truncated = false;
+    std::string providerId;
+    std::string error;
+    std::vector<RecordingMetadataTrailer> trailers;
+};
+
 class IRecordingMetadataCandidateProvider
 {
 public:
@@ -94,6 +115,18 @@ public:
         page.attempted = true;
         page.providerAvailable = false;
         page.error = "movie credits are not supported";
+        return page;
+    }
+
+    virtual RecordingMetadataTrailerPage trailers(
+        const std::string&,
+        const std::string&,
+        int)
+    {
+        RecordingMetadataTrailerPage page;
+        page.attempted = true;
+        page.providerAvailable = false;
+        page.error = "trailers are not supported";
         return page;
     }
 
