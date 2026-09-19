@@ -60,11 +60,13 @@ Broadcast Companion / Teletext, HbbTV discovery and application sessions:
 - `fetchClientHbbtvSessionStatus`
 - `fetchClientHbbtvSessionInput`
 - `fetchClientHbbtvSessionClose`
+- `fetchClientHbbtvMedia`
 - `fetchClientHbbtvPresentation`
 - the wrappers use Suite-owned authorized Broadcast Companion read and
   application-session surfaces;
-- the browser receives normalized service/page/application/session descriptors
-  plus a session-owned QOI presentation frame for the Live-TV overlay;
+- the browser receives normalized service/page/application/session descriptors,
+  normalized HbbTV media state/geometry and a session-owned QOI presentation
+  frame for the Live-TV overlay;
 - HbbTV input is expressed only as normalized semantic actions within the
   authorized application session;
 - HbbTV browser contracts do not expose provider entry-point URLs, raw AIT
