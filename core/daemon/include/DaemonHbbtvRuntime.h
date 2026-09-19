@@ -1,9 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
-class Database;
 class EmbeddedBackendLifecycleService;
 class BackendRegistryService;
 class HbbtvApplicationSessionService;
@@ -12,7 +12,7 @@ class VdrSnapshotReadService;
 struct BackendRuntimeContext;
 
 bool configureDaemonHbbtvRuntime(
-    Database& database,
+    const std::string& defaultDatabasePath,
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     EmbeddedBackendLifecycleService& embeddedBackendLifecycleService,

@@ -9,6 +9,7 @@
 #include "HbbtvControlPlaneReadService.h"
 #include "SecurityPermissionGrantRepository.h"
 
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
@@ -18,15 +19,27 @@ namespace
 
 std::unique_ptr<EmbeddedBackendHbbtvAuthority> hbbtvBackendAuthority;
 std::unique_ptr<HbbtvControlPlaneReadService> hbbtvControlPlaneReadService;
+std::unique_ptr<Database> hbbtvSecurityDatabase;
 std::unique_ptr<SecurityPermissionGrantRepository>
     hbbtvPermissionGrantRepository;
 std::unique_ptr<HbbtvApplicationSessionService>
     hbbtvApplicationSessionService;
 
+std::string securityDatabasePath(const std::string& fallback)
+{
+    const char* configured =
+        std::getenv("VDR_SUITE_SECURITY_DATABASE_PATH");
+    if (configured != nullptr && configured[0] != '\0')
+    {
+        return configured;
+    }
+    return fallback;
+}
+
 }
 
 bool configureDaemonHbbtvRuntime(
-    Database& database,
+    const std::string& defaultDatabasePath,
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     EmbeddedBackendLifecycleService& embeddedBackendLifecycleService,
@@ -54,8 +67,16 @@ bool configureDaemonHbbtvRuntime(
             return nullptr;
         });
 
+    auto securityDatabase = std::make_unique<Database>();
+    if (!securityDatabase->open(
+            securityDatabasePath(defaultDatabasePath)))
+    {
+        return false;
+    }
+
     auto grantRepository =
-        std::make_unique<SecurityPermissionGrantRepository>(database);
+        std::make_unique<SecurityPermissionGrantRepository>(
+            *securityDatabase);
     if (!grantRepository->ensureSchema())
     {
         return false;
@@ -123,6 +144,7 @@ bool configureDaemonHbbtvRuntime(
 
     hbbtvBackendAuthority = std::move(authority);
     hbbtvControlPlaneReadService = std::move(readService);
+    hbbtvSecurityDatabase = std::move(securityDatabase);
     hbbtvPermissionGrantRepository = std::move(grantRepository);
     hbbtvApplicationSessionService = std::move(sessionService);
     return true;
@@ -133,6 +155,7 @@ void resetDaemonHbbtvRuntime()
     HbbtvApiRuntime::instance().reset();
     hbbtvApplicationSessionService.reset();
     hbbtvPermissionGrantRepository.reset();
+    hbbtvSecurityDatabase.reset();
     hbbtvControlPlaneReadService.reset();
     hbbtvBackendAuthority.reset();
 }
