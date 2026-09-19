@@ -4,14 +4,17 @@
 
 #include <string>
 
-class HbbtvControlPlaneReadService;
+class HbbtvApplicationSessionService;
+class IHbbtvApplicationDiscoveryService;
 
 class HbbtvApiRuntime
 {
 public:
     static HbbtvApiRuntime& instance();
 
-    bool configure(HbbtvControlPlaneReadService& readService);
+    bool configure(
+        IHbbtvApplicationDiscoveryService& readService,
+        HbbtvApplicationSessionService& sessionService);
     void reset();
     bool configured() const;
 
@@ -19,8 +22,17 @@ public:
         const std::string& requestTarget,
         ApiResponse& response) const;
 
+    bool tryHandlePost(
+        const std::string& requestTarget,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& clientRef,
+        const std::string& correlationRef,
+        ApiResponse& response) const;
+
 private:
     HbbtvApiRuntime() = default;
 
-    HbbtvControlPlaneReadService* readService_ = nullptr;
+    IHbbtvApplicationDiscoveryService* readService_ = nullptr;
+    HbbtvApplicationSessionService* sessionService_ = nullptr;
 };

@@ -1,10 +1,13 @@
 #include "HbbtvApiRuntime.h"
 
+#include "HbbtvApplicationSessionService.h"
 #include "HbbtvControlPlaneReadService.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <initializer_list>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
@@ -15,8 +18,19 @@ namespace
 
 constexpr const char* ApplicationsRoute =
     "/api/vdr/broadcast/hbbtv/applications";
+constexpr const char* SessionsRoute =
+    "/api/vdr/broadcast/hbbtv/sessions";
+constexpr const char* SessionStatusRoute =
+    "/api/vdr/broadcast/hbbtv/sessions/status";
+constexpr const char* SessionInputRoute =
+    "/api/vdr/broadcast/hbbtv/sessions/input";
+constexpr const char* SessionCloseRoute =
+    "/api/vdr/broadcast/hbbtv/sessions/close";
+
 constexpr std::size_t MaximumBackendIdBytes = 128U;
 constexpr std::size_t MaximumChannelIdBytes = 63U;
+constexpr std::size_t MaximumIdentityBytes = 128U;
+constexpr std::size_t MaximumBodyBytes = 4096U;
 
 std::string requestPath(const std::string& target)
 {
@@ -72,22 +86,37 @@ bool urlDecode(
     return true;
 }
 
+bool safeToken(
+    const std::string& value,
+    std::size_t maximumBytes,
+    bool allowColon)
+{
+    return !value.empty() && value.size() <= maximumBytes &&
+        std::all_of(
+            value.begin(),
+            value.end(),
+            [allowColon](unsigned char character) {
+                return std::isalnum(character) != 0 ||
+                    character == '-' ||
+                    character == '_' ||
+                    character == '.' ||
+                    (allowColon && character == ':');
+            });
+}
+
 bool validBackendId(const std::string& value)
 {
-    return !value.empty() && value.size() <= MaximumBackendIdBytes &&
-        std::all_of(value.begin(), value.end(), [](unsigned char character) {
-            return std::isalnum(character) != 0 || character == '-' ||
-                character == '_' || character == '.';
-        });
+    return safeToken(value, MaximumBackendIdBytes, false);
 }
 
 bool validChannelId(const std::string& value)
 {
-    return !value.empty() && value.size() <= MaximumChannelIdBytes &&
-        std::all_of(value.begin(), value.end(), [](unsigned char character) {
-            return std::isalnum(character) != 0 || character == '-' ||
-                character == '_' || character == '.' || character == ':';
-        });
+    return safeToken(value, MaximumChannelIdBytes, true);
+}
+
+bool validIdentity(const std::string& value)
+{
+    return safeToken(value, MaximumIdentityBytes, true);
 }
 
 struct HbbtvRequest
@@ -147,6 +176,177 @@ bool parseRequest(const std::string& target, HbbtvRequest& request)
         validChannelId(request.channelId);
 }
 
+void skipWhitespace(const std::string& body, std::size_t& position)
+{
+    while (position < body.size() &&
+           std::isspace(static_cast<unsigned char>(body[position])))
+    {
+        ++position;
+    }
+}
+
+bool parseJsonString(
+    const std::string& body,
+    std::size_t& position,
+    std::string& value,
+    std::size_t maximumBytes)
+{
+    skipWhitespace(body, position);
+    if (position >= body.size() || body[position] != '"') return false;
+    ++position;
+    value.clear();
+
+    while (position < body.size())
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(body[position++]);
+        if (character == '"')
+            return !value.empty() && value.size() <= maximumBytes;
+        if (character < 0x20U) return false;
+
+        if (character != '\\')
+        {
+            value.push_back(static_cast<char>(character));
+        }
+        else
+        {
+            if (position >= body.size()) return false;
+            const char escaped = body[position++];
+            switch (escaped)
+            {
+                case '"': value.push_back('"'); break;
+                case '\\': value.push_back('\\'); break;
+                case '/': value.push_back('/'); break;
+                case 'b': value.push_back('\b'); break;
+                case 'f': value.push_back('\f'); break;
+                case 'n': value.push_back('\n'); break;
+                case 'r': value.push_back('\r'); break;
+                case 't': value.push_back('\t'); break;
+                default: return false;
+            }
+        }
+
+        if (value.size() > maximumBytes) return false;
+    }
+
+    return false;
+}
+
+bool parseJsonUnsigned(
+    const std::string& body,
+    std::size_t& position,
+    std::uint64_t& value)
+{
+    skipWhitespace(body, position);
+    if (position >= body.size() ||
+        !std::isdigit(static_cast<unsigned char>(body[position])))
+    {
+        return false;
+    }
+
+    value = 0;
+    while (position < body.size() &&
+           std::isdigit(static_cast<unsigned char>(body[position])))
+    {
+        const unsigned int digit =
+            static_cast<unsigned int>(body[position] - '0');
+        if (value >
+            (std::numeric_limits<std::uint64_t>::max() - digit) / 10U)
+        {
+            return false;
+        }
+        value = value * 10U + digit;
+        ++position;
+    }
+    return true;
+}
+
+struct FlatJson
+{
+    std::map<std::string, std::string> strings;
+    std::map<std::string, std::uint64_t> unsigneds;
+};
+
+bool parseFlatJson(const std::string& body, FlatJson& json)
+{
+    json = {};
+    if (body.empty() || body.size() > MaximumBodyBytes) return false;
+
+    std::size_t position = 0;
+    skipWhitespace(body, position);
+    if (position >= body.size() || body[position++] != '{') return false;
+
+    bool first = true;
+    while (true)
+    {
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        if (!first)
+        {
+            if (position >= body.size() || body[position++] != ',')
+                return false;
+        }
+
+        std::string key;
+        if (!parseJsonString(body, position, key, 64U)) return false;
+        if (json.strings.count(key) != 0U ||
+            json.unsigneds.count(key) != 0U)
+        {
+            return false;
+        }
+
+        skipWhitespace(body, position);
+        if (position >= body.size() || body[position++] != ':') return false;
+        skipWhitespace(body, position);
+        if (position >= body.size()) return false;
+
+        if (body[position] == '"')
+        {
+            std::string value;
+            if (!parseJsonString(body, position, value, 256U)) return false;
+            json.strings.emplace(std::move(key), std::move(value));
+        }
+        else
+        {
+            std::uint64_t value = 0;
+            if (!parseJsonUnsigned(body, position, value)) return false;
+            json.unsigneds.emplace(std::move(key), value);
+        }
+
+        first = false;
+    }
+
+    skipWhitespace(body, position);
+    return position == body.size();
+}
+
+bool exactKeys(
+    const FlatJson& json,
+    std::initializer_list<const char*> stringKeys,
+    std::initializer_list<const char*> unsignedKeys)
+{
+    if (json.strings.size() != stringKeys.size() ||
+        json.unsigneds.size() != unsignedKeys.size())
+    {
+        return false;
+    }
+
+    for (const char* key : stringKeys)
+    {
+        if (json.strings.count(key) == 0U) return false;
+    }
+    for (const char* key : unsignedKeys)
+    {
+        if (json.unsigneds.count(key) == 0U) return false;
+    }
+    return true;
+}
+
 std::string jsonEscape(const std::string& value)
 {
     std::string escaped;
@@ -187,6 +387,61 @@ const char* controlSemantic(std::uint8_t code)
     }
 }
 
+const char* sessionStateName(BroadcastApplicationSessionState state)
+{
+    switch (state)
+    {
+        case BroadcastApplicationSessionState::Requested: return "requested";
+        case BroadcastApplicationSessionState::Starting: return "starting";
+        case BroadcastApplicationSessionState::Active: return "active";
+        case BroadcastApplicationSessionState::Degraded: return "degraded";
+        case BroadcastApplicationSessionState::Suspended: return "suspended";
+        case BroadcastApplicationSessionState::Closing: return "closing";
+        case BroadcastApplicationSessionState::Closed: return "closed";
+        case BroadcastApplicationSessionState::Expired: return "expired";
+        case BroadcastApplicationSessionState::Failed: return "failed";
+    }
+    return "failed";
+}
+
+bool inputAction(
+    const std::string& value,
+    SuiteBridgeHbbtvInputAction& action)
+{
+    static const std::map<std::string, SuiteBridgeHbbtvInputAction> actions = {
+        {"up", SuiteBridgeHbbtvInputAction::Up},
+        {"down", SuiteBridgeHbbtvInputAction::Down},
+        {"left", SuiteBridgeHbbtvInputAction::Left},
+        {"right", SuiteBridgeHbbtvInputAction::Right},
+        {"ok", SuiteBridgeHbbtvInputAction::Ok},
+        {"back", SuiteBridgeHbbtvInputAction::Back},
+        {"red", SuiteBridgeHbbtvInputAction::Red},
+        {"green", SuiteBridgeHbbtvInputAction::Green},
+        {"yellow", SuiteBridgeHbbtvInputAction::Yellow},
+        {"blue", SuiteBridgeHbbtvInputAction::Blue},
+        {"0", SuiteBridgeHbbtvInputAction::Digit0},
+        {"1", SuiteBridgeHbbtvInputAction::Digit1},
+        {"2", SuiteBridgeHbbtvInputAction::Digit2},
+        {"3", SuiteBridgeHbbtvInputAction::Digit3},
+        {"4", SuiteBridgeHbbtvInputAction::Digit4},
+        {"5", SuiteBridgeHbbtvInputAction::Digit5},
+        {"6", SuiteBridgeHbbtvInputAction::Digit6},
+        {"7", SuiteBridgeHbbtvInputAction::Digit7},
+        {"8", SuiteBridgeHbbtvInputAction::Digit8},
+        {"9", SuiteBridgeHbbtvInputAction::Digit9},
+        {"play", SuiteBridgeHbbtvInputAction::Play},
+        {"pause", SuiteBridgeHbbtvInputAction::Pause},
+        {"stop", SuiteBridgeHbbtvInputAction::Stop},
+        {"fast_forward", SuiteBridgeHbbtvInputAction::FastForward},
+        {"rewind", SuiteBridgeHbbtvInputAction::Rewind},
+    };
+
+    const auto found = actions.find(value);
+    if (found == actions.end()) return false;
+    action = found->second;
+    return true;
+}
+
 ApiResponse errorResponse(int statusCode, const std::string& code)
 {
     ApiResponse response;
@@ -202,22 +457,41 @@ int statusForDomainError(const std::string& error)
 {
     if (error == "hbbtv_backend_id_required" ||
         error == "hbbtv_channel_id_required" ||
-        error == "hbbtv_discovery_request_invalid")
+        error == "hbbtv_discovery_request_invalid" ||
+        error == "hbbtv_session_request_invalid" ||
+        error == "hbbtv_input_action_invalid" ||
+        error == "hbbtv_close_reason_invalid")
     {
         return 400;
     }
     if (error == "hbbtv_backend_not_found" ||
-        error == "hbbtv_channel_not_in_backend_snapshot")
+        error == "hbbtv_channel_not_in_backend_snapshot" ||
+        error == "hbbtv_session_not_found")
     {
         return 404;
     }
+    if (error == "hbbtv_launch_not_authorized" ||
+        error == "hbbtv_input_not_authorized" ||
+        error == "hbbtv_session_manage_not_authorized" ||
+        error == "hbbtv_session_owner_mismatch")
+    {
+        return 403;
+    }
     if (error == "hbbtv_backend_generation_mismatch" ||
-        error == "hbbtv_backend_disabled")
+        error == "hbbtv_backend_disabled" ||
+        error == "hbbtv_application_context_stale" ||
+        error == "hbbtv_runtime_discovery_stale" ||
+        error == "hbbtv_session_not_active" ||
+        error == "hbbtv_session_expired" ||
+        error == "hbbtv_session_backend_mismatch")
     {
         return 409;
     }
     if (error == "hbbtv_discovery_payload_invalid" ||
-        error == "hbbtv_application_descriptor_invalid")
+        error == "hbbtv_application_descriptor_invalid" ||
+        error == "hbbtv_runtime_payload_invalid" ||
+        error == "hbbtv_runtime_identity_mismatch" ||
+        error == "hbbtv_runtime_action_mismatch")
     {
         return 502;
     }
@@ -277,7 +551,73 @@ ApiResponse serializeDiscovery(
     return response;
 }
 
+ApiResponse serializeSession(
+    const BroadcastApplicationSessionResult& result,
+    int successStatus)
+{
+    if (!result.accepted)
+    {
+        const std::string error = result.error.empty()
+            ? "hbbtv_session_operation_failed"
+            : result.error;
+        return errorResponse(statusForDomainError(error), error);
+    }
+
+    const BroadcastApplicationSession& session = result.session;
+    std::ostringstream json;
+    json << "{\"schemaVersion\":1"
+         << ",\"sessionId\":\""
+         << jsonEscape(session.broadcastApplicationSessionId) << "\""
+         << ",\"state\":\"" << sessionStateName(session.state) << "\""
+         << ",\"backendId\":\"" << jsonEscape(session.backendId) << "\""
+         << ",\"backendGeneration\":" << session.backendGeneration
+         << ",\"channelId\":\""
+         << jsonEscape(session.application.channelId) << "\""
+         << ",\"applicationId\":" << session.application.applicationId
+         << ",\"descriptorRevision\":"
+         << session.applicationDescriptorRevision
+         << ",\"createdAt\":" << session.createdAt
+         << ",\"expiresAt\":" << session.expiresAt
+         << ",\"capabilities\":{\"status\":"
+         << (session.runtimeCapabilityProfile.status ? "true" : "false")
+         << ",\"close\":"
+         << (session.runtimeCapabilityProfile.close ? "true" : "false")
+         << ",\"inputActions\":[";
+
+    for (std::size_t index = 0;
+         index < session.runtimeCapabilityProfile.inputActions.size();
+         ++index)
+    {
+        if (index != 0U) json << ',';
+        json << "\""
+             << jsonEscape(session.runtimeCapabilityProfile.inputActions[index])
+             << "\"";
+    }
+
+    json << "]}";
+    if (!session.closeReason.empty())
+    {
+        json << ",\"closeReason\":\""
+             << jsonEscape(session.closeReason) << "\"";
+    }
+    json << '}';
+
+    ApiResponse response;
+    response.statusCode = successStatus;
+    response.contentType = "application/json; charset=utf-8";
+    response.headers["Cache-Control"] = "no-store";
+    response.body = json.str();
+    return response;
 }
+
+std::string effectiveIdentity(
+    const std::string& value,
+    const std::string& fallback)
+{
+    return validIdentity(value) ? value : fallback;
+}
+
+} // namespace
 
 HbbtvApiRuntime& HbbtvApiRuntime::instance()
 {
@@ -285,20 +625,24 @@ HbbtvApiRuntime& HbbtvApiRuntime::instance()
     return runtime;
 }
 
-bool HbbtvApiRuntime::configure(HbbtvControlPlaneReadService& readService)
+bool HbbtvApiRuntime::configure(
+    IHbbtvApplicationDiscoveryService& readService,
+    HbbtvApplicationSessionService& sessionService)
 {
     readService_ = &readService;
+    sessionService_ = &sessionService;
     return true;
 }
 
 void HbbtvApiRuntime::reset()
 {
+    sessionService_ = nullptr;
     readService_ = nullptr;
 }
 
 bool HbbtvApiRuntime::configured() const
 {
-    return readService_ != nullptr;
+    return readService_ != nullptr && sessionService_ != nullptr;
 }
 
 bool HbbtvApiRuntime::tryHandleGet(
@@ -327,5 +671,191 @@ bool HbbtvApiRuntime::tryHandleGet(
         readService_->discoverApplications(
             request.backendId,
             request.channelId));
+    return true;
+}
+
+bool HbbtvApiRuntime::tryHandlePost(
+    const std::string& requestTarget,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& clientRef,
+    const std::string& correlationRef,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path != SessionsRoute &&
+        path != SessionStatusRoute &&
+        path != SessionInputRoute &&
+        path != SessionCloseRoute)
+    {
+        return false;
+    }
+
+    if (readService_ == nullptr || sessionService_ == nullptr)
+    {
+        response = errorResponse(503, "hbbtv_runtime_unavailable");
+        return true;
+    }
+
+    if (!validIdentity(actorRef))
+    {
+        response = errorResponse(403, "hbbtv_actor_context_invalid");
+        return true;
+    }
+
+    const std::string client =
+        effectiveIdentity(clientRef, actorRef);
+    const std::string correlation =
+        effectiveIdentity(correlationRef, actorRef);
+
+    FlatJson json;
+    if (!parseFlatJson(body, json))
+    {
+        response = errorResponse(400, "hbbtv_session_request_invalid");
+        return true;
+    }
+
+    if (path == SessionsRoute)
+    {
+        if (!exactKeys(
+                json,
+                {"backendId", "channelId"},
+                {"applicationId", "descriptorRevision"}))
+        {
+            response = errorResponse(400, "hbbtv_session_request_invalid");
+            return true;
+        }
+
+        const std::string& backendId = json.strings.at("backendId");
+        const std::string& channelId = json.strings.at("channelId");
+        const std::uint64_t applicationId =
+            json.unsigneds.at("applicationId");
+        const std::uint64_t descriptorRevision =
+            json.unsigneds.at("descriptorRevision");
+
+        if (!validBackendId(backendId) ||
+            !validChannelId(channelId) ||
+            applicationId == 0 ||
+            applicationId > std::numeric_limits<std::uint32_t>::max() ||
+            descriptorRevision == 0)
+        {
+            response = errorResponse(400, "hbbtv_session_request_invalid");
+            return true;
+        }
+
+        const BroadcastApplicationDiscoverySnapshot snapshot =
+            readService_->discoverApplications(backendId, channelId);
+        if (!snapshot.error.empty())
+        {
+            response = errorResponse(
+                statusForDomainError(snapshot.error),
+                snapshot.error);
+            return true;
+        }
+        if (!snapshot.payloadValid)
+        {
+            response = errorResponse(502, "hbbtv_discovery_payload_invalid");
+            return true;
+        }
+
+        const auto application = std::find_if(
+            snapshot.applications.begin(),
+            snapshot.applications.end(),
+            [applicationId, descriptorRevision](
+                const BroadcastApplicationDescriptor& descriptor) {
+                return descriptor.ref.applicationId == applicationId &&
+                    descriptor.ref.descriptorRevision == descriptorRevision;
+            });
+
+        if (application == snapshot.applications.end())
+        {
+            response = errorResponse(
+                409,
+                "hbbtv_application_context_stale");
+            return true;
+        }
+
+        BroadcastApplicationLaunchRequest launch;
+        launch.actorId = actorRef;
+        launch.clientContext = client;
+        launch.correlationContext = correlation;
+        launch.application = application->ref;
+        launch.lifetimeSeconds = 3600;
+
+        response = serializeSession(
+            sessionService_->launch(launch),
+            202);
+        return true;
+    }
+
+    if (path == SessionInputRoute)
+    {
+        if (!exactKeys(json, {"backendId", "sessionId", "action"}, {}))
+        {
+            response = errorResponse(400, "hbbtv_session_request_invalid");
+            return true;
+        }
+    }
+    else if (!exactKeys(json, {"backendId", "sessionId"}, {}))
+    {
+        response = errorResponse(400, "hbbtv_session_request_invalid");
+        return true;
+    }
+
+    const std::string& backendId = json.strings.at("backendId");
+    const std::string& sessionId = json.strings.at("sessionId");
+    if (!validBackendId(backendId) || !validIdentity(sessionId))
+    {
+        response = errorResponse(400, "hbbtv_session_request_invalid");
+        return true;
+    }
+
+    const auto existing = sessionService_->find(sessionId);
+    if (!existing.has_value())
+    {
+        response = errorResponse(404, "hbbtv_session_not_found");
+        return true;
+    }
+    if (existing->backendId != backendId)
+    {
+        response = errorResponse(409, "hbbtv_session_backend_mismatch");
+        return true;
+    }
+
+    if (path == SessionStatusRoute)
+    {
+        response = serializeSession(
+            sessionService_->refresh(sessionId, actorRef, client),
+            200);
+        return true;
+    }
+
+    if (path == SessionInputRoute)
+    {
+        SuiteBridgeHbbtvInputAction action =
+            SuiteBridgeHbbtvInputAction::None;
+        if (!inputAction(json.strings.at("action"), action))
+        {
+            response = errorResponse(400, "hbbtv_input_action_invalid");
+            return true;
+        }
+
+        response = serializeSession(
+            sessionService_->input(
+                sessionId,
+                actorRef,
+                client,
+                action),
+            200);
+        return true;
+    }
+
+    response = serializeSession(
+        sessionService_->close(
+            sessionId,
+            actorRef,
+            client,
+            "user_close"),
+        202);
     return true;
 }

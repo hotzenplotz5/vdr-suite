@@ -31,6 +31,27 @@ std::string pathWithoutQuery(const std::string& target)
         : target.substr(0, query);
 }
 
+std::string hbbtvClientContext(
+    const RequestSecurityContext& context)
+{
+    if (context.device.has_value() &&
+        !context.device->deviceId.empty())
+    {
+        return context.device->deviceId;
+    }
+    if (context.session.has_value() &&
+        !context.session->sessionId.empty())
+    {
+        return context.session->sessionId;
+    }
+    if (context.credential.has_value() &&
+        !context.credential->credentialId.empty())
+    {
+        return context.credential->credentialId;
+    }
+    return context.actor.actorId;
+}
+
 std::string securityDatabasePath()
 {
     const char* configured =
@@ -338,7 +359,9 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiRouter_.handleClientPost(
                 request.path,
                 request.body,
-                gate.context.actor.actorId);
+                gate.context.actor.actorId,
+                hbbtvClientContext(gate.context),
+                gate.context.correlationId);
     }
     else
     {

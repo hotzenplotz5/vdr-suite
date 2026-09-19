@@ -147,6 +147,23 @@ public:
         const bool isHbbtvDiscoveryRead =
             request.method == "GET" &&
             path == "/api/vdr/broadcast/hbbtv/applications";
+        const bool isHbbtvSessionLaunch =
+            isPost &&
+            path == "/api/vdr/broadcast/hbbtv/sessions";
+        const bool isHbbtvSessionStatus =
+            isPost &&
+            path == "/api/vdr/broadcast/hbbtv/sessions/status";
+        const bool isHbbtvSessionInput =
+            isPost &&
+            path == "/api/vdr/broadcast/hbbtv/sessions/input";
+        const bool isHbbtvSessionClose =
+            isPost &&
+            path == "/api/vdr/broadcast/hbbtv/sessions/close";
+        const bool isHbbtvSessionMutation =
+            isHbbtvSessionLaunch ||
+            isHbbtvSessionStatus ||
+            isHbbtvSessionInput ||
+            isHbbtvSessionClose;
         std::string hbbtvBackendId;
         if (isHbbtvDiscoveryRead)
         {
@@ -217,7 +234,8 @@ public:
             isNativeFuzzyRefreshAction || isNativeFuzzyStaleProbeDeleteAction ||
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
             isManualRecordingMetadataAction ||
-            isRecordingSeriesHierarchyAction;
+            isRecordingSeriesHierarchyAction ||
+            isHbbtvSessionMutation;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
 
@@ -390,7 +408,25 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isMediaTranscodeSettingsAction)
+        if (isHbbtvSessionLaunch)
+        {
+            requestToAuthorize.permission = "broadcast.hbbtv.launch";
+            requestToAuthorize.action = "broadcast.hbbtv.launch";
+        }
+        else if (isHbbtvSessionInput)
+        {
+            requestToAuthorize.permission = "broadcast.hbbtv.input";
+            requestToAuthorize.action = "broadcast.hbbtv.input";
+        }
+        else if (isHbbtvSessionStatus || isHbbtvSessionClose)
+        {
+            requestToAuthorize.permission = "broadcast.session.manage_own";
+            requestToAuthorize.action =
+                isHbbtvSessionClose
+                    ? "broadcast.hbbtv.close"
+                    : "broadcast.hbbtv.status";
+        }
+        else if (isMediaTranscodeSettingsAction)
         {
             requestToAuthorize.permission = "backend.settings.media-transcode.modify";
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
