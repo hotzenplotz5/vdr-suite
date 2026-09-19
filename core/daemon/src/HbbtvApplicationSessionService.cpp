@@ -374,6 +374,19 @@ BroadcastApplicationSessionResult HbbtvApplicationSessionService::refresh(
         return result;
     }
 
+    if (session.state != BroadcastApplicationSessionState::Closing &&
+        !applicationCurrent(session.application))
+    {
+        session.state = BroadcastApplicationSessionState::Suspended;
+        session.closeReason = "application_context_stale";
+        store(session);
+
+        BroadcastApplicationSessionResult result;
+        result.error = "hbbtv_application_context_stale";
+        result.session = session;
+        return result;
+    }
+
     IHbbtvRuntimeControl* runtime = runtimeFor(session);
     if (runtime == nullptr)
         return reject("hbbtv_runtime_unavailable");

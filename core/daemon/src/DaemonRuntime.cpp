@@ -48,6 +48,7 @@ int DaemonRuntime::run()
     if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
         !embeddedBackendLifecycleService_ ||
         !configureDaemonHbbtvRuntime(
+            database_,
             *backendRegistryService_,
             *vdrSnapshotReadService_,
             *embeddedBackendLifecycleService_,
