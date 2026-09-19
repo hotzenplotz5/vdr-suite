@@ -54,11 +54,11 @@ required = {
         (security, 'path == "/api/vdr/broadcast/hbbtv/applications"'),
         (
             security,
-            "if (isHbbtvDiscoveryRead || isHbbtvPresentationRead)",
+            "if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||",
         ),
         (
             security,
-            "hbbtvRequest.permission = isHbbtvPresentationRead",
+            "hbbtvRequest.permission =",
         ),
         (
             security,
