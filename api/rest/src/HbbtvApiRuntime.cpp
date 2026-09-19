@@ -793,8 +793,15 @@ bool HbbtvApiRuntime::configure(
     return true;
 }
 
+void HbbtvApiRuntime::setMediaSessionHandler(
+    MediaSessionHandler handler)
+{
+    mediaSessionHandler_ = std::move(handler);
+}
+
 void HbbtvApiRuntime::reset()
 {
+    mediaSessionHandler_ = {};
     mediaLookup_ = {};
     presentationLookup_ = {};
     sessionService_ = nullptr;
@@ -1018,7 +1025,8 @@ bool HbbtvApiRuntime::tryHandlePost(
     if (path != SessionsRoute &&
         path != SessionStatusRoute &&
         path != SessionInputRoute &&
-        path != SessionCloseRoute)
+        path != SessionCloseRoute &&
+        path != SessionMediaRoute)
     {
         return false;
     }
@@ -1127,11 +1135,42 @@ bool HbbtvApiRuntime::tryHandlePost(
         return true;
     }
 
+    bool mediaStart = false;
+    bool mediaStop = false;
     if (path == SessionInputRoute)
     {
         if (!exactKeys(json, {"backendId", "sessionId", "action"}, {}))
         {
             response = errorResponse(400, "hbbtv_session_request_invalid");
+            return true;
+        }
+    }
+    else if (path == SessionMediaRoute)
+    {
+        const auto operation = json.strings.find("operation");
+        if (operation == json.strings.end())
+        {
+            response = errorResponse(
+                400,
+                "hbbtv_media_session_request_invalid");
+            return true;
+        }
+        mediaStart = operation->second == "start";
+        mediaStop = operation->second == "stop";
+        const bool keysValid =
+            (mediaStart && exactKeys(
+                json,
+                {"backendId", "sessionId", "operation"},
+                {"mediaRevision"})) ||
+            (mediaStop && exactKeys(
+                json,
+                {"backendId", "sessionId", "operation"},
+                {}));
+        if (!keysValid)
+        {
+            response = errorResponse(
+                400,
+                "hbbtv_media_session_request_invalid");
             return true;
         }
     }
@@ -1145,7 +1184,11 @@ bool HbbtvApiRuntime::tryHandlePost(
     const std::string& sessionId = json.strings.at("sessionId");
     if (!validBackendId(backendId) || !validIdentity(sessionId))
     {
-        response = errorResponse(400, "hbbtv_session_request_invalid");
+        response = errorResponse(
+            400,
+            path == SessionMediaRoute
+                ? "hbbtv_media_session_request_invalid"
+                : "hbbtv_session_request_invalid");
         return true;
     }
 
@@ -1161,10 +1204,108 @@ bool HbbtvApiRuntime::tryHandlePost(
         return true;
     }
 
+    if (path == SessionMediaRoute)
+    {
+        const BroadcastApplicationSessionResult access =
+            sessionService_->authorizePresentation(
+                sessionId,
+                actorRef,
+                client);
+        if (!access.accepted)
+        {
+            response = errorResponse(
+                statusForDomainError(access.error),
+                access.error);
+            return true;
+        }
+        if (!mediaSessionHandler_)
+        {
+            response = errorResponse(
+                503,
+                "hbbtv_media_session_unavailable");
+            return true;
+        }
+
+        HbbtvMediaSessionMutationRequest request;
+        request.operation = mediaStart
+            ? HbbtvMediaSessionMutationOperation::Start
+            : HbbtvMediaSessionMutationOperation::Stop;
+        request.actorId = actorRef;
+        request.clientContext = client;
+        request.backendId = backendId;
+        request.sessionId = sessionId;
+
+        if (mediaStart)
+        {
+            const std::uint64_t requestedRevision =
+                json.unsigneds.at("mediaRevision");
+            if (requestedRevision == 0)
+            {
+                response = errorResponse(
+                    400,
+                    "hbbtv_media_revision_invalid");
+                return true;
+            }
+
+            IHbbtvMediaSourceResolver* source =
+                mediaLookup_ ? mediaLookup_(backendId) : nullptr;
+            if (source == nullptr)
+            {
+                response = errorResponse(
+                    503,
+                    "hbbtv_media_unavailable");
+                return true;
+            }
+
+            const HbbtvMediaSource media =
+                source->resolveMedia(sessionId);
+            if (!media.error.empty())
+            {
+                response = errorResponse(
+                    media.error == "hbbtv_media_payload_invalid"
+                        ? 502 : 503,
+                    media.error);
+                return true;
+            }
+            if (!media.available ||
+                (media.state != HbbtvMediaSourceState::Streaming &&
+                 media.state != HbbtvMediaSourceState::Paused))
+            {
+                response = errorResponse(
+                    409,
+                    "hbbtv_media_not_streaming");
+                return true;
+            }
+            if (media.mediaRevision != requestedRevision)
+            {
+                response = errorResponse(
+                    409,
+                    "hbbtv_media_revision_changed");
+                return true;
+            }
+            if (media.consumerConnected)
+            {
+                response = errorResponse(
+                    409,
+                    "hbbtv_media_revision_already_consumed");
+                return true;
+            }
+
+            request.mediaRevision = requestedRevision;
+            request.media = media;
+        }
+
+        response = mediaSessionHandler_(request);
+        return true;
+    }
+
     if (path == SessionStatusRoute)
     {
         response = serializeSession(
-            sessionService_->refresh(sessionId, actorRef, client),
+            sessionService_->refresh(
+                sessionId,
+                actorRef,
+                client),
             200);
         return true;
     }
@@ -1173,9 +1314,13 @@ bool HbbtvApiRuntime::tryHandlePost(
     {
         SuiteBridgeHbbtvInputAction action =
             SuiteBridgeHbbtvInputAction::None;
-        if (!inputAction(json.strings.at("action"), action))
+        if (!inputAction(
+                json.strings.at("action"),
+                action))
         {
-            response = errorResponse(400, "hbbtv_input_action_invalid");
+            response = errorResponse(
+                400,
+                "hbbtv_input_action_invalid");
             return true;
         }
 
@@ -1189,12 +1334,34 @@ bool HbbtvApiRuntime::tryHandlePost(
         return true;
     }
 
-    response = serializeSession(
+    const BroadcastApplicationSessionResult closed =
         sessionService_->close(
             sessionId,
             actorRef,
             client,
-            "user_close"),
-        202);
+            "user_close");
+    response = serializeSession(closed, 202);
+
+    // Close provider/session first so its one-consumer socket is terminal by
+    // contract; then reap the Suite-side FFmpeg/Gateway owner.
+    if (closed.accepted && mediaSessionHandler_)
+    {
+        HbbtvMediaSessionMutationRequest cleanup;
+        cleanup.operation =
+            HbbtvMediaSessionMutationOperation::Stop;
+        cleanup.actorId = actorRef;
+        cleanup.clientContext = client;
+        cleanup.backendId = backendId;
+        cleanup.sessionId = sessionId;
+        const ApiResponse cleanupResponse =
+            mediaSessionHandler_(cleanup);
+        if (cleanupResponse.statusCode < 200 ||
+            cleanupResponse.statusCode > 299)
+        {
+            response = errorResponse(
+                503,
+                "hbbtv_media_session_stop_failed");
+        }
+    }
     return true;
 }

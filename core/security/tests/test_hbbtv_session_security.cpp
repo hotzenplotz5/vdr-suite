@@ -24,6 +24,26 @@ HttpServerRequest request(
     return value;
 }
 
+HttpServerRequest sessionReadRequest(
+    const SecurityHttpGateBrowserTestFixture& fixture,
+    const std::string& route,
+    const std::string& backendId)
+{
+    HttpServerRequest value;
+    value.method = "GET";
+    value.path =
+        route + "?backend=" + backendId +
+        "&session=bas_test";
+    if (route.find("/presentation") != std::string::npos)
+        value.path += "&revision=0";
+    value.headers["X-Request-ID"] =
+        "phase67-hbbtv-session-read";
+    value.headers["X-Correlation-ID"] =
+        "phase67-hbbtv-session-read-corr";
+    fixture.addBrowserAuthentication(value, false);
+    return value;
+}
+
 HttpServerRequest presentationRequest(
     const SecurityHttpGateBrowserTestFixture& fixture,
     const std::string& backendId)
@@ -80,6 +100,32 @@ int main()
     expectAllowed(
         "/api/vdr/broadcast/hbbtv/sessions/close",
         "broadcast.session.manage_own");
+    expectAllowed(
+        "/api/vdr/broadcast/hbbtv/sessions/media",
+        "broadcast.session.manage_own");
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "broadcast.session.manage_own",
+            "backend-b"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(sessionReadRequest(
+                fixture,
+                "/api/vdr/broadcast/hbbtv/sessions/media",
+                "backend-b"));
+
+        assert(decision.allowed);
+        assert(!decision.protectedMutation);
+        assert(decision.authorizationDecision.permission ==
+            "broadcast.session.manage_own");
+        assert(decision.authorizationDecision.backendId ==
+            "backend-b");
+        assert(decision.authorizationDecision.action ==
+            "broadcast.hbbtv.media");
+    }
 
     {
         SecurityHttpGateBrowserTestFixture fixture;

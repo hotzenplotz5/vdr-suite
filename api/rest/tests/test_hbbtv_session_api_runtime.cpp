@@ -93,6 +93,7 @@ public:
         media.available = true;
         media.state = HbbtvMediaSourceState::Streaming;
         media.mediaRevision = 3;
+        media.consumerConnected = consumerConnected;
         media.fullscreen = false;
         media.x = 100;
         media.y = 50;
@@ -104,6 +105,7 @@ public:
     }
 
     std::string lastSessionId;
+    bool consumerConnected = false;
 };
 
 class FakeRuntime final : public IHbbtvRuntimeControl
@@ -167,6 +169,8 @@ int main()
     FakeRuntime runtime;
     FakePresentation presentation;
     FakeMedia media;
+    int mediaMutationCount = 0;
+    HbbtvMediaSessionMutationRequest lastMediaMutation;
 
     HbbtvApplicationSessionService sessions(
         discovery,
@@ -192,6 +196,31 @@ int main()
             -> IHbbtvMediaSourceResolver* {
             return backendId == "default" ? &media : nullptr;
         }));
+    api.setMediaSessionHandler(
+        [&mediaMutationCount, &lastMediaMutation](
+            const HbbtvMediaSessionMutationRequest& request) {
+            ++mediaMutationCount;
+            lastMediaMutation = request;
+            ApiResponse response;
+            response.statusCode =
+                request.operation ==
+                        HbbtvMediaSessionMutationOperation::Start
+                    ? 201
+                    : 200;
+            response.contentType =
+                "application/json; charset=utf-8";
+            response.body =
+                request.operation ==
+                        HbbtvMediaSessionMutationOperation::Start
+                    ? "{\"mediaSession\":{\"id\":\"ms_hbbtv\","
+                      "\"state\":\"ready\","
+                      "\"mediaRevision\":3,"
+                      "\"mediaPath\":"
+                      "\"/api/media/sessions/ms_hbbtv/live/stream.mp4\"}}"
+                    : "{\"mediaSession\":{\"id\":\"ms_hbbtv\","
+                      "\"state\":\"ended\"}}";
+            return response;
+        });
 
     ApiResponse response;
     assert(api.tryHandlePost(
@@ -273,6 +302,72 @@ int main()
     assert(response.body.find("socketPath") == std::string::npos);
     assert(response.body.find("/run/vdr/") == std::string::npos);
     assert(media.lastSessionId == "bas_api_test");
+
+    assert(api.tryHandlePost(
+        "/api/vdr/broadcast/hbbtv/sessions/media",
+        "{\"backendId\":\"default\","
+        "\"sessionId\":\"bas_api_test\","
+        "\"operation\":\"start\","
+        "\"mediaRevision\":3}",
+        "user-1",
+        "device-1",
+        "corr-media-start",
+        response));
+    assert(response.statusCode == 201);
+    assert(mediaMutationCount == 1);
+    assert(lastMediaMutation.operation ==
+        HbbtvMediaSessionMutationOperation::Start);
+    assert(lastMediaMutation.sessionId == "bas_api_test");
+    assert(lastMediaMutation.backendId == "default");
+    assert(lastMediaMutation.mediaRevision == 3);
+    assert(lastMediaMutation.media.unixSocketPath ==
+        "/run/vdr/vdr-suite-hbbtv-media/private.sock");
+    assert(response.body.find("socketPath") ==
+        std::string::npos);
+    assert(response.body.find("/run/vdr/") ==
+        std::string::npos);
+
+    media.consumerConnected = true;
+    assert(api.tryHandlePost(
+        "/api/vdr/broadcast/hbbtv/sessions/media",
+        "{\"backendId\":\"default\","
+        "\"sessionId\":\"bas_api_test\","
+        "\"operation\":\"start\","
+        "\"mediaRevision\":3}",
+        "user-1",
+        "device-1",
+        "corr-media-repeat",
+        response));
+    assert(response.statusCode == 409);
+    assert(mediaMutationCount == 1);
+    media.consumerConnected = false;
+
+    assert(api.tryHandlePost(
+        "/api/vdr/broadcast/hbbtv/sessions/media",
+        "{\"backendId\":\"default\","
+        "\"sessionId\":\"bas_api_test\","
+        "\"operation\":\"start\","
+        "\"mediaRevision\":3}",
+        "other-user",
+        "device-1",
+        "corr-media-owner",
+        response));
+    assert(response.statusCode == 403);
+    assert(mediaMutationCount == 1);
+
+    assert(api.tryHandlePost(
+        "/api/vdr/broadcast/hbbtv/sessions/media",
+        "{\"backendId\":\"default\","
+        "\"sessionId\":\"bas_api_test\","
+        "\"operation\":\"stop\"}",
+        "user-1",
+        "device-1",
+        "corr-media-stop",
+        response));
+    assert(response.statusCode == 200);
+    assert(mediaMutationCount == 2);
+    assert(lastMediaMutation.operation ==
+        HbbtvMediaSessionMutationOperation::Stop);
 
     assert(api.tryHandleGet(
         "/api/vdr/broadcast/hbbtv/sessions/media"

@@ -7,6 +7,7 @@
 	test-phase67-hbbtv-session-service \
 	test-phase67-hbbtv-session-foundation \
 	test-phase67-hbbtv-session-api \
+	test-phase67-hbbtv-media-session-runtime \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-frontend \
@@ -84,6 +85,22 @@ test-phase67-hbbtv-session-api:
 		-o $(BUILD_DIR)/test_hbbtv_session_api_runtime
 	$(BUILD_DIR)/test_hbbtv_session_api_runtime
 
+test-phase67-hbbtv-media-session-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		-Icore/daemon/include -Icore/media/include -Icore/sqlite/include \
+		-Icore/vdr/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaSessionWorkspace.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/daemon/src/HbbtvMediaSessionRuntime.cpp \
+		core/daemon/tests/test_hbbtv_media_session_runtime.cpp \
+		$(LDFLAGS) -lsqlite3 -lcrypt \
+		-o $(BUILD_DIR)/test_hbbtv_media_session_runtime
+	$(BUILD_DIR)/test_hbbtv_media_session_runtime
+
 test-phase67-hbbtv-security:
 	$(MAKE) test-security-hbbtv-read
 	$(MAKE) test-security-hbbtv-session
@@ -121,6 +138,7 @@ test-phase67-hbbtv-discovery-foundation: \
 test-phase67-hbbtv-session-http-foundation: \
 	test-phase67-hbbtv-session-foundation \
 	test-phase67-hbbtv-session-api \
+	test-phase67-hbbtv-media-session-runtime \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-daemon-build

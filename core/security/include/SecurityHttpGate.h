@@ -165,11 +165,15 @@ public:
         const bool isHbbtvSessionClose =
             isPost &&
             path == "/api/vdr/broadcast/hbbtv/sessions/close";
+        const bool isHbbtvMediaMutation =
+            isPost &&
+            path == "/api/vdr/broadcast/hbbtv/sessions/media";
         const bool isHbbtvSessionMutation =
             isHbbtvSessionLaunch ||
             isHbbtvSessionStatus ||
             isHbbtvSessionInput ||
-            isHbbtvSessionClose;
+            isHbbtvSessionClose ||
+            isHbbtvMediaMutation;
         std::string hbbtvBackendId;
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
@@ -432,13 +436,18 @@ public:
             requestToAuthorize.permission = "broadcast.hbbtv.input";
             requestToAuthorize.action = "broadcast.hbbtv.input";
         }
-        else if (isHbbtvSessionStatus || isHbbtvSessionClose)
+        else if (isHbbtvSessionStatus ||
+                 isHbbtvSessionClose ||
+                 isHbbtvMediaMutation)
         {
-            requestToAuthorize.permission = "broadcast.session.manage_own";
+            requestToAuthorize.permission =
+                "broadcast.session.manage_own";
             requestToAuthorize.action =
                 isHbbtvSessionClose
                     ? "broadcast.hbbtv.close"
-                    : "broadcast.hbbtv.status";
+                    : (isHbbtvMediaMutation
+                        ? "broadcast.hbbtv.media"
+                        : "broadcast.hbbtv.status");
         }
         else if (isMediaTranscodeSettingsAction)
         {

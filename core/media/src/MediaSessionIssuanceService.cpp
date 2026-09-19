@@ -65,7 +65,8 @@ bool safeIdentifier(const std::string& value)
 
 bool supportedResourceKind(const std::string& value)
 {
-    return value == "recording" || value == "live-channel";
+    return value == "recording" || value == "live-channel" ||
+        value == "hbbtv-media";
 }
 
 std::string hexEncode(const unsigned char* bytes, std::size_t size)

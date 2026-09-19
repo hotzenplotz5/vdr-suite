@@ -37,6 +37,7 @@ DAEMON_SRC := \
         api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
         api/rest/src/TeletextApiRuntime.cpp \
         api/rest/src/HbbtvApiRuntime.cpp \
+        api/rest/src/HbbtvMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
         api/rest/src/LiveMediaSessionController.cpp \
@@ -114,6 +115,7 @@ DAEMON_SRC := \
         core/media/src/RecordingMediaSessionRuntime.cpp \
         core/media/src/RecordingMediaSessionSeekTimeline.cpp \
         core/daemon/src/LiveMediaSessionRuntime.cpp \
+        core/daemon/src/HbbtvMediaSessionRuntime.cpp \
         core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
