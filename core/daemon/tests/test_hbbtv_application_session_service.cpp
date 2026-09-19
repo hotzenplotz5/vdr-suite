@@ -203,6 +203,22 @@ int main()
     assert(active.accepted);
     assert(active.session.state == BroadcastApplicationSessionState::Active);
 
+    const auto presentationAccess = service.authorizePresentation(
+        "bas_001122",
+        "user-1",
+        "living-room-tv");
+    assert(presentationAccess.accepted);
+    assert(presentationAccess.session.state ==
+        BroadcastApplicationSessionState::Active);
+
+    const auto presentationWrongOwner = service.authorizePresentation(
+        "bas_001122",
+        "user-1",
+        "other-client");
+    assert(!presentationWrongOwner.accepted);
+    assert(presentationWrongOwner.error ==
+        "hbbtv_session_owner_mismatch");
+
     SuiteBridgeHbbtvRuntimeRequest expectedInput = expectedLaunch;
     expectedInput.operation = SuiteBridgeHbbtvRuntimeOperation::Input;
     expectedInput.inputAction = SuiteBridgeHbbtvInputAction::Left;

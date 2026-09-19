@@ -1,6 +1,7 @@
 #include "HbbtvApiRuntime.h"
 
 #include "HbbtvApplicationSessionService.h"
+#include "SuiteBridgeHbbtvPresentationResolver.h"
 
 #include <cassert>
 #include <string>
@@ -48,6 +49,36 @@ public:
         snapshot.applications.push_back(descriptor);
         return snapshot;
     }
+};
+
+class FakePresentation final : public IHbbtvPresentationSource
+{
+public:
+    HbbtvPresentationFrame readPresentation(
+        const std::string& sessionId,
+        std::uint64_t knownRevision) override
+    {
+        lastSessionId = sessionId;
+        lastKnownRevision = knownRevision;
+
+        HbbtvPresentationFrame frame;
+        frame.available = true;
+        frame.frameRevision = 9;
+        frame.observedAt = 1234;
+        frame.renderWidth = 1280;
+        frame.renderHeight = 720;
+        if (knownRevision == 9)
+        {
+            frame.unchanged = true;
+            return frame;
+        }
+
+        frame.qoi = "qoif-test-frame";
+        return frame;
+    }
+
+    std::string lastSessionId;
+    std::uint64_t lastKnownRevision = 0;
 };
 
 class FakeRuntime final : public IHbbtvRuntimeControl
@@ -109,6 +140,7 @@ int main()
 {
     FakeDiscovery discovery;
     FakeRuntime runtime;
+    FakePresentation presentation;
 
     HbbtvApplicationSessionService sessions(
         discovery,
@@ -123,7 +155,13 @@ int main()
 
     HbbtvApiRuntime& api = HbbtvApiRuntime::instance();
     api.reset();
-    assert(api.configure(discovery, sessions));
+    assert(api.configure(
+        discovery,
+        sessions,
+        [&presentation](const std::string& backendId)
+            -> IHbbtvPresentationSource* {
+            return backendId == "default" ? &presentation : nullptr;
+        }));
 
     ApiResponse response;
     assert(api.tryHandlePost(
@@ -156,6 +194,39 @@ int main()
     assert(response.statusCode == 200);
     assert(response.body.find("\"state\":\"active\"") !=
         std::string::npos);
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/presentation"
+        "?backend=default&session=bas_api_test&revision=0",
+        response,
+        "user-1",
+        "device-1"));
+    assert(response.statusCode == 200);
+    assert(response.contentType == "image/qoi");
+    assert(response.body == "qoif-test-frame");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Revision") == "9");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Width") == "1280");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Height") == "720");
+    assert(presentation.lastSessionId == "bas_api_test");
+    assert(presentation.lastKnownRevision == 0);
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/presentation"
+        "?backend=default&session=bas_api_test&revision=9",
+        response,
+        "user-1",
+        "device-1"));
+    assert(response.statusCode == 204);
+    assert(response.body.empty());
+    assert(presentation.lastKnownRevision == 9);
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/presentation"
+        "?backend=default&session=bas_api_test&revision=0",
+        response,
+        "other-user",
+        "device-1"));
+    assert(response.statusCode == 403);
 
     assert(api.tryHandlePost(
         "/api/vdr/broadcast/hbbtv/sessions/input",

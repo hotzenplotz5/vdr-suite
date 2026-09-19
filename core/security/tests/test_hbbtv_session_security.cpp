@@ -24,6 +24,23 @@ HttpServerRequest request(
     return value;
 }
 
+HttpServerRequest presentationRequest(
+    const SecurityHttpGateBrowserTestFixture& fixture,
+    const std::string& backendId)
+{
+    HttpServerRequest value;
+    value.method = "GET";
+    value.path =
+        "/api/vdr/broadcast/hbbtv/sessions/presentation"
+        "?backend=" + backendId +
+        "&session=bas_test&revision=0";
+    value.headers["X-Request-ID"] = "phase67-hbbtv-presentation";
+    value.headers["X-Correlation-ID"] =
+        "phase67-hbbtv-presentation-corr";
+    fixture.addBrowserAuthentication(value, false);
+    return value;
+}
+
 void expectAllowed(
     const std::string& route,
     const std::string& permission)
@@ -63,6 +80,39 @@ int main()
     expectAllowed(
         "/api/vdr/broadcast/hbbtv/sessions/close",
         "broadcast.session.manage_own");
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "broadcast.session.manage_own",
+            "backend-b"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(
+                presentationRequest(fixture, "backend-b"));
+
+        assert(decision.allowed);
+        assert(!decision.protectedMutation);
+        assert(decision.authorizationDecision.permission ==
+            "broadcast.session.manage_own");
+        assert(decision.authorizationDecision.backendId == "backend-b");
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "broadcast.session.manage_own",
+            "backend-a"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(
+                presentationRequest(fixture, "backend-b"));
+
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+    }
 
     {
         SecurityHttpGateBrowserTestFixture fixture;
