@@ -89,6 +89,8 @@ test-phase67-hbbtv-frontend:
 	node web/frontend/tests/test_phase67_hbbtv_discovery.js
 	node web/frontend/tests/test_phase67_hbbtv_qoi.js
 	node web/frontend/tests/test_phase67_hbbtv_browser_transport.js
+	node web/frontend/tests/test_phase67_hbbtv_overlay.js
+	python3 tools/check_phase67_hbbtv_overlay_frontend.py
 	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend
 
