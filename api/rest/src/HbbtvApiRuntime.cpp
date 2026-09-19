@@ -3,6 +3,7 @@
 #include "HbbtvApplicationSessionService.h"
 #include "HbbtvControlPlaneReadService.h"
 #include "SuiteBridgeHbbtvPresentationResolver.h"
+#include "SuiteBridgeHbbtvMediaResolver.h"
 
 #include <algorithm>
 #include <cctype>
@@ -30,6 +31,8 @@ constexpr const char* SessionCloseRoute =
     "/api/vdr/broadcast/hbbtv/sessions/close";
 constexpr const char* SessionPresentationRoute =
     "/api/vdr/broadcast/hbbtv/sessions/presentation";
+constexpr const char* SessionMediaRoute =
+    "/api/vdr/broadcast/hbbtv/sessions/media";
 
 constexpr std::size_t MaximumBackendIdBytes = 128U;
 constexpr std::size_t MaximumChannelIdBytes = 63U;
@@ -266,6 +269,62 @@ bool parsePresentationRequest(
     return parameters.size() == (revision != parameters.end() ? 3U : 2U);
 }
 
+struct HbbtvMediaRequest
+{
+    std::string backendId;
+    std::string sessionId;
+};
+
+bool parseMediaRequest(
+    const std::string& target,
+    HbbtvMediaRequest& request)
+{
+    request = {};
+    if (requestPath(target) != SessionMediaRoute) return false;
+
+    const std::size_t queryStart = target.find('?');
+    if (queryStart == std::string::npos || queryStart + 1U >= target.size())
+        return false;
+
+    std::map<std::string, std::string> parameters;
+    std::size_t start = queryStart + 1U;
+    while (start <= target.size())
+    {
+        const std::size_t end = target.find('&', start);
+        const std::string item = target.substr(
+            start,
+            end == std::string::npos ? std::string::npos : end - start);
+        if (item.empty()) return false;
+        const std::size_t equals = item.find('=');
+        if (equals == std::string::npos || equals == 0U) return false;
+        const std::string key = item.substr(0, equals);
+        if ((key != "backend" && key != "session") ||
+            parameters.count(key) != 0U)
+            return false;
+
+        std::string decoded;
+        const std::size_t maximum =
+            key == "backend" ? MaximumBackendIdBytes : MaximumIdentityBytes;
+        if (!urlDecode(item.substr(equals + 1U), decoded, maximum))
+            return false;
+        parameters.emplace(key, std::move(decoded));
+
+        if (end == std::string::npos) break;
+        start = end + 1U;
+    }
+
+    if (parameters.size() != 2U) return false;
+    const auto backend = parameters.find("backend");
+    const auto session = parameters.find("session");
+    if (backend == parameters.end() || session == parameters.end())
+        return false;
+
+    request.backendId = backend->second;
+    request.sessionId = session->second;
+    return validBackendId(request.backendId) &&
+        validIdentity(request.sessionId);
+}
+
 void skipWhitespace(const std::string& body, std::size_t& position)
 {
     while (position < body.size() &&
@@ -494,6 +553,19 @@ const char* sessionStateName(BroadcastApplicationSessionState state)
     return "failed";
 }
 
+const char* mediaStateName(HbbtvMediaSourceState state)
+{
+    switch (state)
+    {
+        case HbbtvMediaSourceState::None: return "none";
+        case HbbtvMediaSourceState::Streaming: return "streaming";
+        case HbbtvMediaSourceState::Paused: return "paused";
+        case HbbtvMediaSourceState::Stopped: return "stopped";
+        case HbbtvMediaSourceState::Failed: return "failed";
+    }
+    return "failed";
+}
+
 bool inputAction(
     const std::string& value,
     SuiteBridgeHbbtvInputAction& action)
@@ -711,16 +783,19 @@ HbbtvApiRuntime& HbbtvApiRuntime::instance()
 bool HbbtvApiRuntime::configure(
     IHbbtvApplicationDiscoveryService& readService,
     HbbtvApplicationSessionService& sessionService,
-    PresentationLookup presentationLookup)
+    PresentationLookup presentationLookup,
+    MediaLookup mediaLookup)
 {
     readService_ = &readService;
     sessionService_ = &sessionService;
     presentationLookup_ = std::move(presentationLookup);
+    mediaLookup_ = std::move(mediaLookup);
     return true;
 }
 
 void HbbtvApiRuntime::reset()
 {
+    mediaLookup_ = {};
     presentationLookup_ = {};
     sessionService_ = nullptr;
     readService_ = nullptr;
@@ -739,7 +814,8 @@ bool HbbtvApiRuntime::tryHandleGet(
 {
     const std::string path = requestPath(requestTarget);
     if (path != ApplicationsRoute &&
-        path != SessionPresentationRoute)
+        path != SessionPresentationRoute &&
+        path != SessionMediaRoute)
         return false;
 
     if (readService_ == nullptr || sessionService_ == nullptr)
@@ -771,6 +847,76 @@ bool HbbtvApiRuntime::tryHandleGet(
         return true;
     }
 
+    const std::string client =
+        clientRef.empty() ? actorRef : clientRef;
+
+    if (path == SessionMediaRoute)
+    {
+        HbbtvMediaRequest mediaRequest;
+        if (!parseMediaRequest(requestTarget, mediaRequest))
+        {
+            response = errorResponse(400, "hbbtv_media_request_invalid");
+            return true;
+        }
+
+        const BroadcastApplicationSessionResult access =
+            sessionService_->authorizePresentation(
+                mediaRequest.sessionId,
+                actorRef,
+                client);
+        if (!access.accepted)
+        {
+            response = errorResponse(
+                statusForDomainError(access.error),
+                access.error);
+            return true;
+        }
+        if (access.session.backendId != mediaRequest.backendId)
+        {
+            response = errorResponse(409, "hbbtv_session_backend_mismatch");
+            return true;
+        }
+
+        IHbbtvMediaSourceResolver* source =
+            mediaLookup_ ? mediaLookup_(mediaRequest.backendId) : nullptr;
+        if (source == nullptr)
+        {
+            response = errorResponse(503, "hbbtv_media_unavailable");
+            return true;
+        }
+
+        const HbbtvMediaSource media =
+            source->resolveMedia(mediaRequest.sessionId);
+        if (!media.error.empty())
+        {
+            response = errorResponse(
+                media.error == "hbbtv_media_payload_invalid" ? 502 : 503,
+                media.error);
+            return true;
+        }
+
+        response = ApiResponse{};
+        response.statusCode = 200;
+        response.contentType = "application/json; charset=utf-8";
+        response.headers["Cache-Control"] = "no-store";
+
+        std::ostringstream json;
+        json << "{\"schemaVersion\":1"
+             << ",\"sessionId\":\"" << jsonEscape(mediaRequest.sessionId) << "\""
+             << ",\"backendId\":\"" << jsonEscape(mediaRequest.backendId) << "\""
+             << ",\"available\":" << (media.available ? "true" : "false")
+             << ",\"state\":\"" << mediaStateName(media.state) << "\""
+             << ",\"mediaRevision\":" << media.mediaRevision
+             << ",\"fullscreen\":" << (media.fullscreen ? "true" : "false")
+             << ",\"geometry\":{\"x\":" << media.x
+             << ",\"y\":" << media.y
+             << ",\"width\":" << media.width
+             << ",\"height\":" << media.height
+             << "}}";
+        response.body = json.str();
+        return true;
+    }
+
     HbbtvPresentationRequest request;
     if (!parsePresentationRequest(requestTarget, request))
     {
@@ -780,8 +926,6 @@ bool HbbtvApiRuntime::tryHandleGet(
         return true;
     }
 
-    const std::string client =
-        clientRef.empty() ? actorRef : clientRef;
     const BroadcastApplicationSessionResult access =
         sessionService_->authorizePresentation(
             request.sessionId,
