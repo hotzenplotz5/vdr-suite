@@ -150,6 +150,9 @@ public:
         const bool isHbbtvPresentationRead =
             request.method == "GET" &&
             path == "/api/vdr/broadcast/hbbtv/sessions/presentation";
+        const bool isHbbtvMediaRead =
+            request.method == "GET" &&
+            path == "/api/vdr/broadcast/hbbtv/sessions/media";
         const bool isHbbtvSessionLaunch =
             isPost &&
             path == "/api/vdr/broadcast/hbbtv/sessions";
@@ -168,7 +171,8 @@ public:
             isHbbtvSessionInput ||
             isHbbtvSessionClose;
         std::string hbbtvBackendId;
-        if (isHbbtvDiscoveryRead || isHbbtvPresentationRead)
+        if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
+            isHbbtvMediaRead)
         {
             hbbtvBackendId = queryStringValue(request.path, "backend");
             const bool validBackend =
@@ -247,13 +251,16 @@ public:
             if (!gate.context.authenticated()) return rejectAuthentication(gate);
 
             AuthorizationRequest hbbtvRequest;
-            hbbtvRequest.permission = isHbbtvPresentationRead
-                ? "broadcast.session.manage_own"
-                : "broadcast.hbbtv.view";
+            hbbtvRequest.permission =
+                (isHbbtvPresentationRead || isHbbtvMediaRead)
+                    ? "broadcast.session.manage_own"
+                    : "broadcast.hbbtv.view";
             hbbtvRequest.backendId = hbbtvBackendId;
             hbbtvRequest.action = isHbbtvPresentationRead
                 ? "broadcast.hbbtv.presentation"
-                : "broadcast.hbbtv.view";
+                : (isHbbtvMediaRead
+                    ? "broadcast.hbbtv.media"
+                    : "broadcast.hbbtv.view");
             const AuthorizationDecision decision =
                 authorizationService_.authorize(gate.context, hbbtvRequest);
 
