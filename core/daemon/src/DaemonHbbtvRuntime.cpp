@@ -181,6 +181,16 @@ bool configureDaemonHbbtvRuntime(
                     return context->ensureHbbtvPresentationResolver();
                 }
                 return nullptr;
+            },
+            [&backendRuntimeContexts](const std::string& backendId)
+                -> IHbbtvMediaSourceResolver* {
+                for (const auto& context : backendRuntimeContexts)
+                {
+                    if (!context || context->backendId != backendId)
+                        continue;
+                    return context->ensureHbbtvMediaResolver();
+                }
+                return nullptr;
             }))
     {
         return false;
