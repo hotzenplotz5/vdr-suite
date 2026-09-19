@@ -167,4 +167,17 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvPresentation(
     return toHbbtvReply(executeRequest(wire.str()));
 }
 
+SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvMedia(
+    const SuiteBridgeHbbtvMediaRequest& request)
+{
+    SuiteBridgeHbbtvCommandReply rejected;
+    if (!safeHbbtvToken(request.sessionId, 128))
+        return rejected;
+
+    std::ostringstream wire;
+    wire << "PLUG suitebridge HBBMEDIA 1 "
+         << request.sessionId << "\r\n";
+    return toHbbtvReply(executeRequest(wire.str()));
+}
+
 } // namespace vdrsuite::agent

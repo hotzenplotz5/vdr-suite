@@ -14,7 +14,7 @@ if help_start < 0 or command_start < 0 or command_start <= help_start:
 help_section = source[help_start:command_start]
 command_section = source[command_start:]
 
-for private_command in ("HBBAPPS", "HBBRUN", "HBBPRES"):
+for private_command in ("HBBAPPS", "HBBRUN", "HBBPRES", "HBBMEDIA"):
     if private_command in help_section:
         raise SystemExit(
             f"private HbbTV command leaked into public help: {private_command}"
@@ -28,6 +28,8 @@ if '"HBBRUN"' not in command:
     raise SystemExit("private HbbTV runtime command missing")
 if '"HBBPRES"' not in command:
     raise SystemExit("private HbbTV presentation command missing")
+if '"HBBMEDIA"' not in command:
+    raise SystemExit("private HbbTV media command missing")
 
 for forbidden in (
     "LoadUrl",

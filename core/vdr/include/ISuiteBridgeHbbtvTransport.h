@@ -63,6 +63,11 @@ struct SuiteBridgeHbbtvPresentationRequest
     std::uint32_t offset = 0;
 };
 
+struct SuiteBridgeHbbtvMediaRequest
+{
+    std::string sessionId;
+};
+
 struct SuiteBridgeHbbtvRuntimeRequest
 {
     SuiteBridgeHbbtvRuntimeOperation operation =
@@ -91,6 +96,12 @@ public:
 
     virtual SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
         const SuiteBridgeHbbtvPresentationRequest&)
+    {
+        return {};
+    }
+
+    virtual SuiteBridgeHbbtvCommandReply readHbbtvMedia(
+        const SuiteBridgeHbbtvMediaRequest&)
     {
         return {};
     }

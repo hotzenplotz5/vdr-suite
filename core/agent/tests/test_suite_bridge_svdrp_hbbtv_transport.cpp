@@ -267,7 +267,29 @@ int main()
     }
 
     {
+        Server server(
+            "250 {\"schemaVersion\":1,\"provider\":\"vdr-plugin-web\","
+            "\"providerSchemaVersion\":1,\"capability\":\"broadcast.hbbtv.media\","
+            "\"result\":\"ok\",\"resultCode\":0,\"sessionId\":\"session-a\","
+            "\"state\":\"streaming\",\"stateCode\":1,\"mediaRevision\":3,"
+            "\"fullscreen\":false,\"consumerConnected\":false,"
+            "\"x\":100,\"y\":50,\"width\":640,\"height\":360,"
+            "\"socketPath\":\"/run/vdr/vdr-suite-hbbtv-media/m-123-3.sock\"}\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+        SuiteBridgeHbbtvMediaRequest request;
+        request.sessionId = "session-a";
+        const SuiteBridgeHbbtvCommandReply reply = transport.readHbbtvMedia(request);
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(server.request() == "PLUG suitebridge HBBMEDIA 1 session-a\r\n");
+    }
+
+    {
         SuiteBridgeSvdrpTransport transport;
+
+        SuiteBridgeHbbtvMediaRequest invalidMedia;
+        invalidMedia.sessionId = "bad/session";
+        assert(!transport.readHbbtvMedia(invalidMedia).transportSucceeded);
 
         SuiteBridgeHbbtvPresentationRequest invalidPresentation;
         invalidPresentation.operation =
