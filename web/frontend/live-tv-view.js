@@ -818,8 +818,10 @@
 
     if (state.hbbtvMediaRevision === revision &&
         state.hbbtvMediaSessionId) {
+      const previousState = state.hbbtvMediaState;
       state.hbbtvMediaState = mediaState;
-      if (playback && typeof playback.setExternalPaused === 'function') {
+      if (previousState !== mediaState &&
+          playback && typeof playback.setExternalPaused === 'function') {
         playback.setExternalPaused(mediaState === 'paused');
       }
       return Promise.resolve(true);
