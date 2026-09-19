@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+api = (ROOT / "api/rest/src/HbbtvApiRuntime.cpp").read_text()
+router = (ROOT / "api/rest/include/ApiRouter.h").read_text()
+gate = (ROOT / "core/security/include/SecurityHttpGate.h").read_text()
+authorization = (ROOT / "core/security/include/AuthorizationService.h").read_text()
+http = (ROOT / "core/http/src/TestHttpServer.cpp").read_text()
+daemon = (ROOT / "core/daemon/src/DaemonHbbtvRuntime.cpp").read_text()
+
+required = (
+    (api, '"/api/vdr/broadcast/hbbtv/sessions"'),
+    (api, '"/api/vdr/broadcast/hbbtv/sessions/status"'),
+    (api, '"/api/vdr/broadcast/hbbtv/sessions/input"'),
+    (api, '"/api/vdr/broadcast/hbbtv/sessions/close"'),
+    (api, '"hbbtv_application_context_stale"'),
+    (router, "HbbtvApiRuntime::instance().tryHandlePost("),
+    (gate, 'requestToAuthorize.permission = "broadcast.hbbtv.launch";'),
+    (gate, 'requestToAuthorize.permission = "broadcast.hbbtv.input";'),
+    (gate, 'requestToAuthorize.permission = "broadcast.session.manage_own";'),
+    (authorization, 'permission == "broadcast.hbbtv.launch"'),
+    (authorization, 'permission == "broadcast.hbbtv.input"'),
+    (authorization, 'permission == "broadcast.session.manage_own"'),
+    (http, "hbbtvClientContext(gate.context)"),
+    (http, "gate.context.correlationId"),
+    (daemon, "findActiveGrantsForActor(actorId)"),
+    (daemon, "AuthorizationService().authorize("),
+)
+
+for content, token in required:
+    if token not in content:
+        raise SystemExit(f"missing HbbTV session HTTP token: {token}")
+
+for forbidden in (
+    "urlBase",
+    "urlLocation",
+    "urlExtension",
+    "HBBRUN",
+    "LoadUrl",
+    "RedButton",
+    "ProcessKey",
+    "executeJavascript",
+    "VK_LEFT",
+    "VK_ENTER",
+):
+    if forbidden in api:
+        raise SystemExit(f"public HbbTV session API leaked private detail: {forbidden}")
+
+print("Phase 67 HbbTV session HTTP/security surface: PASS")

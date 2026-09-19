@@ -4,6 +4,7 @@
 	test-phase67-hbbtv-runtime-resolver \
 	test-phase67-hbbtv-session-service \
 	test-phase67-hbbtv-session-foundation \
+	test-phase67-hbbtv-session-api \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-frontend \
@@ -54,11 +55,22 @@ test-phase67-hbbtv-session-foundation: \
 	test-phase67-hbbtv-runtime-resolver \
 	test-phase67-hbbtv-session-service
 
+test-phase67-hbbtv-session-api:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		api/rest/src/HbbtvApiRuntime.cpp \
+		core/daemon/src/HbbtvApplicationSessionService.cpp \
+		api/rest/tests/test_hbbtv_session_api_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_hbbtv_session_api_runtime
+	$(BUILD_DIR)/test_hbbtv_session_api_runtime
+
 test-phase67-hbbtv-security:
 	$(MAKE) test-security-hbbtv-read
+	$(MAKE) test-security-hbbtv-session
 
 test-phase67-hbbtv-public-surface:
 	python3 tools/check_phase67_hbbtv_discovery_surface.py
+	python3 tools/check_phase67_hbbtv_session_http_surface.py
 
 test-phase67-hbbtv-frontend:
 	node --check web/frontend/api/client-api.js
@@ -77,4 +89,13 @@ test-phase67-hbbtv-discovery-foundation: \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-frontend \
+	test-phase67-hbbtv-daemon-build
+
+.PHONY: test-phase67-hbbtv-session-http-foundation
+
+test-phase67-hbbtv-session-http-foundation: \
+	test-phase67-hbbtv-session-foundation \
+	test-phase67-hbbtv-session-api \
+	test-phase67-hbbtv-security \
+	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-daemon-build
