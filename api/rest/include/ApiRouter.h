@@ -195,7 +195,9 @@ public:
         const std::string& body);
 
     ApiResponse handleClientGet(
-        const std::string& requestTarget)
+        const std::string& requestTarget,
+        const std::string& actorRef = "",
+        const std::string& clientRef = "")
     {
         ApiResponse response;
 
@@ -215,7 +217,9 @@ public:
 
         if (HbbtvApiRuntime::instance().tryHandleGet(
                 requestTarget,
-                response))
+                response,
+                actorRef,
+                clientRef))
         {
             return response;
         }

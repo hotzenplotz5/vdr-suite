@@ -351,7 +351,10 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (request.method == "GET")
     {
         apiResponse =
-            apiRouter_.handleClientGet(request.path);
+            apiRouter_.handleClientGet(
+                request.path,
+                gate.context.actor.actorId,
+                hbbtvClientContext(gate.context));
     }
     else if (request.method == "POST")
     {
