@@ -9,17 +9,23 @@ command = (root / "suitebridge_hbbtv_command.cpp").read_text()
 for token in (
     "cPluginManager::CallFirstService",
     "VDRWEB_SERVICE_HBBTV_DISCOVERY_V1",
+    "VDRWEB_SERVICE_HBBTV_RUNTIME_V1",
     "provider_schema_incompatible",
     "provider_application_count_invalid",
+    "provider_runtime_payload_invalid",
+    "provider_runtime_identity_mismatch",
 ):
     if token not in adapter:
         raise SystemExit(f"missing HbbTV adapter wiring: {token}")
 
 for token in (
     '"VdrWeb::HbbtvDiscovery-v1"',
+    '"VdrWeb::HbbtvRuntime-v1"',
     "VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U",
+    "VDRWEB_HBBTV_RUNTIME_SCHEMA_V1 1U",
     "VDRWEB_HBBTV_MAX_APPLICATIONS 16U",
     "9ee1697a435e01058df6890323bf979a1ad2fd87",
+    "1afab943148e91804a3a86ad520ff8d229a38bbe",
     "34ded5090fbad021338c491355566dbdb4d98f9d",
 ):
     if token not in contract:
@@ -27,8 +33,10 @@ for token in (
 
 for token in (
     "broadcast.hbbtv.discovery",
+    "broadcast.hbbtv.runtime",
     "vdr-plugin-web",
     "HBBAPPS",
+    "HBBRUN",
 ):
     if token not in command:
         raise SystemExit(f"missing HbbTV private command token: {token}")

@@ -109,6 +109,29 @@ SuiteBridgeSvdrpTransportConfig configFor(const Server& server)
     return config;
 }
 
+std::string runtimeReply(
+    const char* operation,
+    const char* result,
+    int resultCode,
+    const char* state,
+    int stateCode)
+{
+    return
+        std::string("250 {\"schemaVersion\":1,") +
+        "\"provider\":\"vdr-plugin-web\"," +
+        "\"providerSchemaVersion\":1," +
+        "\"capability\":\"broadcast.hbbtv.runtime\"," +
+        "\"operation\":\"" + operation + "\"," +
+        "\"result\":\"" + result + "\"," +
+        "\"resultCode\":" + std::to_string(resultCode) + "," +
+        "\"state\":\"" + state + "\"," +
+        "\"stateCode\":" + std::to_string(stateCode) + "," +
+        "\"sessionId\":\"session-a\"," +
+        "\"channel\":\"C-1-1051-10301\"," +
+        "\"applicationId\":1," +
+        "\"descriptorRevision\":7}\r\n";
+}
+
 }
 
 int main()
@@ -137,7 +160,68 @@ int main()
     }
 
     {
+        Server server(runtimeReply("launch", "accepted", 1, "starting", 1));
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+
+        SuiteBridgeHbbtvRuntimeRequest request;
+        request.operation = SuiteBridgeHbbtvRuntimeOperation::Launch;
+        request.sessionId = "session-a";
+        request.channelId = "C-1-1051-10301";
+        request.applicationId = 1;
+        request.descriptorRevision = 7;
+
+        const SuiteBridgeHbbtvCommandReply reply =
+            transport.controlHbbtv(request);
+
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(reply.replyCode == 250);
+        assert(reply.payload.find(
+            "\"capability\":\"broadcast.hbbtv.runtime\"") !=
+            std::string::npos);
+        assert(server.request() ==
+            "PLUG suitebridge HBBRUN LAUNCH 1 session-a "
+            "C-1-1051-10301 1 7\r\n");
+    }
+
+    {
+        Server server(runtimeReply("input", "ok", 0, "active", 2));
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+
+        SuiteBridgeHbbtvRuntimeRequest request;
+        request.operation = SuiteBridgeHbbtvRuntimeOperation::Input;
+        request.sessionId = "session-a";
+        request.channelId = "C-1-1051-10301";
+        request.applicationId = 1;
+        request.descriptorRevision = 7;
+        request.inputAction = SuiteBridgeHbbtvInputAction::Left;
+
+        const SuiteBridgeHbbtvCommandReply reply =
+            transport.controlHbbtv(request);
+
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(server.request() ==
+            "PLUG suitebridge HBBRUN INPUT 1 session-a "
+            "C-1-1051-10301 1 7 LEFT\r\n");
+        assert(server.request().find("VK_LEFT") == std::string::npos);
+    }
+
+    {
         SuiteBridgeSvdrpTransport transport;
+
+        SuiteBridgeHbbtvRuntimeRequest invalid;
+        invalid.operation = SuiteBridgeHbbtvRuntimeOperation::Launch;
+        invalid.sessionId = "bad/session";
+        invalid.channelId = "C-1-1051-10301";
+        invalid.applicationId = 1;
+        invalid.descriptorRevision = 7;
+        assert(!transport.controlHbbtv(invalid).transportSucceeded);
+
+        invalid.sessionId = "session-a";
+        invalid.inputAction = SuiteBridgeHbbtvInputAction::Left;
+        assert(!transport.controlHbbtv(invalid).transportSucceeded);
+
         assert(!transport.discoverHbbtv("bad channel").transportSucceeded);
         assert(!transport.discoverHbbtv("").transportSucceeded);
     }

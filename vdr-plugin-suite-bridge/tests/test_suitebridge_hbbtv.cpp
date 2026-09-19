@@ -19,6 +19,7 @@ void copyText(char *target, std::size_t capacity, const char *value)
 class FakeProvider final : public ISuiteBridgeHbbtvProvider {
 public:
   bool available = true;
+  int runtimeCalls = 0;
 
   bool Discover(
       const std::string &channelId,
@@ -46,7 +47,7 @@ public:
     discovery.applicationCount = 1;
     auto &application = discovery.applications[0];
     application.applicationId = 7;
-    application.controlCode = 2;
+    application.controlCode = 1;
     application.priority = 5;
     copyText(
         application.name,
@@ -62,6 +63,42 @@ public:
         "index.html");
     return true;
   }
+
+  bool Runtime(
+      VdrWebHbbtvRuntimeV1 &runtime,
+      std::string &error) const override
+  {
+    if (!available) {
+      error = "provider_unavailable";
+      return false;
+    }
+
+    ++const_cast<FakeProvider *>(this)->runtimeCalls;
+    runtime.schemaVersion = VDRWEB_HBBTV_RUNTIME_SCHEMA_V1;
+
+    switch (runtime.operation) {
+      case VDRWEB_HBBTV_RUNTIME_LAUNCH:
+        runtime.result = VDRWEB_HBBTV_RUNTIME_RESULT_ACCEPTED;
+        runtime.state = VDRWEB_HBBTV_RUNTIME_STATE_STARTING;
+        return true;
+      case VDRWEB_HBBTV_RUNTIME_STATUS:
+        runtime.result = VDRWEB_HBBTV_RUNTIME_RESULT_OK;
+        runtime.state = VDRWEB_HBBTV_RUNTIME_STATE_ACTIVE;
+        return true;
+      case VDRWEB_HBBTV_RUNTIME_INPUT:
+        runtime.result = VDRWEB_HBBTV_RUNTIME_RESULT_OK;
+        runtime.state = VDRWEB_HBBTV_RUNTIME_STATE_ACTIVE;
+        return true;
+      case VDRWEB_HBBTV_RUNTIME_CLOSE:
+        runtime.result = VDRWEB_HBBTV_RUNTIME_RESULT_ACCEPTED;
+        runtime.state = VDRWEB_HBBTV_RUNTIME_STATE_CLOSING;
+        return true;
+    }
+
+    runtime.result = VDRWEB_HBBTV_RUNTIME_RESULT_INVALID_REQUEST;
+    runtime.state = VDRWEB_HBBTV_RUNTIME_STATE_NONE;
+    return true;
+  }
 };
 
 } // namespace
@@ -74,6 +111,9 @@ int main()
   static_assert(
       std::is_standard_layout<VdrWebHbbtvDiscoveryV1>::value,
       "discovery ABI");
+  static_assert(
+      std::is_standard_layout<VdrWebHbbtvRuntimeV1>::value,
+      "runtime ABI");
 
   FakeProvider provider;
   SuiteBridgeHbbtvCommandService service(&provider);
@@ -93,6 +133,59 @@ int main()
   assert(discovery.payload.find(
       "\"urlBase\":\"https://example.invalid/\"") != std::string::npos);
 
+  const SuiteBridgeCommandResult launch =
+      service.Handle(
+          "HBBRUN",
+          "LAUNCH 1 session-a C-1-1051-10301 7 42");
+  assert(launch.handled);
+  assert(launch.replyCode == 250);
+  assert(launch.payload.find(
+      "\"capability\":\"broadcast.hbbtv.runtime\"") !=
+      std::string::npos);
+  assert(launch.payload.find("\"operation\":\"launch\"") !=
+      std::string::npos);
+  assert(launch.payload.find("\"result\":\"accepted\"") !=
+      std::string::npos);
+  assert(launch.payload.find("\"state\":\"starting\"") !=
+      std::string::npos);
+  assert(launch.payload.find("\"sessionId\":\"session-a\"") !=
+      std::string::npos);
+  assert(launch.payload.find("\"descriptorRevision\":42") !=
+      std::string::npos);
+
+  const SuiteBridgeCommandResult input =
+      service.Handle(
+          "HBBRUN",
+          "INPUT 1 session-a C-1-1051-10301 7 42 LEFT");
+  assert(input.handled);
+  assert(input.replyCode == 250);
+  assert(input.payload.find("\"action\":\"LEFT\"") !=
+      std::string::npos);
+  assert(input.payload.find("VK_LEFT") == std::string::npos);
+
+  const SuiteBridgeCommandResult close =
+      service.Handle(
+          "HBBRUN",
+          "CLOSE 1 session-a C-1-1051-10301 7 42");
+  assert(close.handled);
+  assert(close.replyCode == 250);
+  assert(close.payload.find("\"state\":\"closing\"") !=
+      std::string::npos);
+
+  const SuiteBridgeCommandResult rawKey =
+      service.Handle(
+          "HBBRUN",
+          "INPUT 1 session-a C-1-1051-10301 7 42 VK_LEFT");
+  assert(rawKey.handled);
+  assert(rawKey.replyCode == 504);
+
+  const SuiteBridgeCommandResult invalidSession =
+      service.Handle(
+          "HBBRUN",
+          "LAUNCH 1 bad/session C-1-1051-10301 7 42");
+  assert(invalidSession.handled);
+  assert(invalidSession.replyCode == 504);
+
   const SuiteBridgeCommandResult mismatch =
       service.Handle("HBBAPPS", "1 C-1-1-1");
   assert(mismatch.handled);
@@ -107,7 +200,9 @@ int main()
 
   provider.available = false;
   const SuiteBridgeCommandResult unavailable =
-      service.Handle("HBBAPPS", "1 C-1-1051-10301");
+      service.Handle(
+          "HBBRUN",
+          "STATUS 1 session-a C-1-1051-10301 7 42");
   assert(unavailable.handled);
   assert(unavailable.replyCode == 550);
   assert(unavailable.payload.find("provider_unavailable") != std::string::npos);

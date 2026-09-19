@@ -89,6 +89,9 @@ public:
     ::SuiteBridgeHbbtvCommandReply discoverHbbtv(
         const std::string& channelId) override;
 
+    ::SuiteBridgeHbbtvCommandReply controlHbbtv(
+        const ::SuiteBridgeHbbtvRuntimeRequest& request) override;
+
     ::SuiteBridgeTeletextCommandReply discoverTeletext() override;
 
     ::SuiteBridgeTeletextCommandReply requestTeletextPage(

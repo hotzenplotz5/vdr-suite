@@ -74,6 +74,8 @@ bool cPluginSuiteBridge::Initialize(void)
   isyslog(
       "suitebridge: native-read=broadcast.hbbtv.discovery schema=1 provider=vdr-plugin-web transport=in-process-service public-endpoint=none");
   isyslog(
+      "suitebridge: native-operation=broadcast.hbbtv.runtime schema=1 provider=vdr-plugin-web transport=in-process-service public-endpoint=none input=allowlisted");
+  isyslog(
       "suitebridge: native-operation=vdr.timer.create schema=1 side-effect=timer-create mutations=enabled execution=enabled provider=suitebridge acceptance=required");
   isyslog(
       "suitebridge: native-operation=vdr.timer.delete schema=1 side-effect=timer-delete mutations=enabled execution=enabled provider=suitebridge acceptance=required");

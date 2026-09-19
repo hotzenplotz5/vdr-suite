@@ -14,6 +14,10 @@ public:
       const std::string &channelId,
       VdrWebHbbtvDiscoveryV1 &discovery,
       std::string &error) const = 0;
+
+  virtual bool Runtime(
+      VdrWebHbbtvRuntimeV1 &runtime,
+      std::string &error) const = 0;
 };
 
 class SuiteBridgeHbbtvAdapter final : public ISuiteBridgeHbbtvProvider {
@@ -26,6 +30,10 @@ public:
   bool Discover(
       const std::string &channelId,
       VdrWebHbbtvDiscoveryV1 &discovery,
+      std::string &error) const override;
+
+  bool Runtime(
+      VdrWebHbbtvRuntimeV1 &runtime,
       std::string &error) const override;
 
 private:
