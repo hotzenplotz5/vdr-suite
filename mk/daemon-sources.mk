@@ -127,6 +127,7 @@ DAEMON_SRC := \
         core/daemon/src/HbbtvControlPlaneReadService.cpp \
         core/daemon/src/HbbtvApplicationSessionService.cpp \
         core/vdr/src/SuiteBridgeHbbtvRuntimeResolver.cpp \
+        core/vdr/src/SuiteBridgeHbbtvPresentationResolver.cpp \
         core/daemon/src/DaemonHbbtvRuntime.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
         core/daemon/src/DaemonRuntimeInitialization.cpp \

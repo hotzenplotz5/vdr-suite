@@ -433,6 +433,57 @@ BroadcastApplicationSessionResult HbbtvApplicationSessionService::refresh(
     return result;
 }
 
+BroadcastApplicationSessionResult
+HbbtvApplicationSessionService::authorizePresentation(
+    const std::string& sessionId,
+    const std::string& actorId,
+    const std::string& clientContext)
+{
+    const auto stored = find(sessionId);
+    if (!stored.has_value())
+        return reject("hbbtv_session_not_found");
+
+    BroadcastApplicationSession session = *stored;
+    if (!owns(session, actorId, clientContext))
+        return reject("hbbtv_session_owner_mismatch");
+    if (!authorized("broadcast.session.manage_own", session))
+        return reject("hbbtv_session_manage_not_authorized");
+
+    if (nowProvider_() >= session.expiresAt)
+    {
+        session.state = BroadcastApplicationSessionState::Expired;
+        session.closeReason = "expired";
+        store(session);
+
+        BroadcastApplicationSessionResult result;
+        result.error = "hbbtv_session_expired";
+        result.session = session;
+        return result;
+    }
+
+    if (session.state != BroadcastApplicationSessionState::Starting &&
+        session.state != BroadcastApplicationSessionState::Active &&
+        session.state != BroadcastApplicationSessionState::Degraded)
+        return reject("hbbtv_session_not_active");
+
+    if (!applicationCurrent(session.application))
+    {
+        session.state = BroadcastApplicationSessionState::Suspended;
+        session.closeReason = "application_context_stale";
+        store(session);
+
+        BroadcastApplicationSessionResult result;
+        result.error = "hbbtv_application_context_stale";
+        result.session = session;
+        return result;
+    }
+
+    BroadcastApplicationSessionResult result;
+    result.accepted = true;
+    result.session = session;
+    return result;
+}
+
 BroadcastApplicationSessionResult HbbtvApplicationSessionService::input(
     const std::string& sessionId,
     const std::string& actorId,

@@ -171,7 +171,17 @@ bool configureDaemonHbbtvRuntime(
 
     if (!HbbtvApiRuntime::instance().configure(
             *readService,
-            *sessionService))
+            *sessionService,
+            [&backendRuntimeContexts](const std::string& backendId)
+                -> IHbbtvPresentationSource* {
+                for (const auto& context : backendRuntimeContexts)
+                {
+                    if (!context || context->backendId != backendId)
+                        continue;
+                    return context->ensureHbbtvPresentationResolver();
+                }
+                return nullptr;
+            }))
     {
         return false;
     }

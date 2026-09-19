@@ -54,6 +54,11 @@ public:
         const std::string& actorId,
         const std::string& clientContext);
 
+    BroadcastApplicationSessionResult authorizePresentation(
+        const std::string& sessionId,
+        const std::string& actorId,
+        const std::string& clientContext);
+
     BroadcastApplicationSessionResult input(
         const std::string& sessionId,
         const std::string& actorId,
