@@ -28,6 +28,7 @@
 #include "SuiteBridgeEpgArtworkResolver.h"
 #include "SuiteBridgeEpgMetadataResolver.h"
 #include "SuiteBridgeHbbtvResolver.h"
+#include "SuiteBridgeHbbtvRuntimeResolver.h"
 #include "SuiteBridgeRecordingCutStateResolver.h"
 #include "SuiteBridgeRecordingMarksResolver.h"
 #include "SuiteBridgeRecordingMetadataResolver.h"
@@ -70,6 +71,7 @@ struct BackendRuntimeContext
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
+    std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
     std::unique_ptr<SuiteBridgeTeletextResolver> teletextResolver;
     std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
     std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
@@ -105,6 +107,19 @@ struct BackendRuntimeContext
                     *suiteBridgeTransport);
         }
         return hbbtvResolver.get();
+    }
+
+    SuiteBridgeHbbtvRuntimeResolver* ensureHbbtvRuntimeResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvRuntimeResolver) {
+            hbbtvRuntimeResolver =
+                std::make_unique<SuiteBridgeHbbtvRuntimeResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvRuntimeResolver.get();
     }
 
     SuiteBridgeTeletextResolver* ensureTeletextResolver()
