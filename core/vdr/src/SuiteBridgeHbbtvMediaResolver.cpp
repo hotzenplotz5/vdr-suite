@@ -8,6 +8,15 @@
 
 namespace
 {
+bool safeSessionId(const std::string& value)
+{
+    return !value.empty() && value.size() < 128U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char character) {
+            return std::isalnum(character) != 0 || character == '-' ||
+                character == '_' || character == '.' || character == ':';
+        });
+}
+
 bool stringField(const std::string& json, const std::string& key, std::string& value)
 {
     const std::string marker = "\"" + key + "\":\"";
@@ -98,7 +107,7 @@ SuiteBridgeHbbtvMediaResolver::SuiteBridgeHbbtvMediaResolver(
 HbbtvMediaSource SuiteBridgeHbbtvMediaResolver::resolveMedia(const std::string& sessionId)
 {
     HbbtvMediaSource result;
-    if (sessionId.empty() || sessionId.size() >= 128U) {
+    if (!safeSessionId(sessionId)) {
         result.error = "hbbtv_media_request_invalid";
         return result;
     }
