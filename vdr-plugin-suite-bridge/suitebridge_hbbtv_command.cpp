@@ -14,6 +14,39 @@
 namespace {
 
 constexpr std::size_t kMaximumPayloadBytes = 48U * 1024U;
+constexpr std::size_t kMaximumPresentationPayloadBytes = 80U * 1024U;
+
+std::string Base64Encode(const std::uint8_t *data, std::size_t length)
+{
+  static constexpr char alphabet[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+  std::string encoded;
+  encoded.reserve(((length + 2U) / 3U) * 4U);
+
+  for (std::size_t offset = 0; offset < length; offset += 3U) {
+    const std::uint32_t first = data[offset];
+    const std::uint32_t second =
+        offset + 1U < length ? data[offset + 1U] : 0U;
+    const std::uint32_t third =
+        offset + 2U < length ? data[offset + 2U] : 0U;
+    const std::uint32_t value =
+        (first << 16U) | (second << 8U) | third;
+
+    encoded.push_back(alphabet[(value >> 18U) & 0x3fU]);
+    encoded.push_back(alphabet[(value >> 12U) & 0x3fU]);
+    encoded.push_back(
+        offset + 1U < length
+            ? alphabet[(value >> 6U) & 0x3fU]
+            : '=');
+    encoded.push_back(
+        offset + 2U < length
+            ? alphabet[value & 0x3fU]
+            : '=');
+  }
+
+  return encoded;
+}
 
 void AppendJsonString(std::ostringstream &out, const std::string &value)
 {
@@ -380,6 +413,125 @@ SuiteBridgeCommandResult HandleRuntime(
   return result;
 }
 
+const char *PresentationResultName(std::uint8_t result)
+{
+  switch (result) {
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_OK: return "ok";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_INVALID_REQUEST:
+      return "invalid_request";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_NO_SESSION:
+      return "no_session";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_SESSION_MISMATCH:
+      return "session_mismatch";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_NO_FRAME:
+      return "no_frame";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_REVISION_MISMATCH:
+      return "revision_mismatch";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_RANGE_INVALID:
+      return "range_invalid";
+    case VDRWEB_HBBTV_PRESENTATION_RESULT_FRAME_TOO_LARGE:
+      return "frame_too_large";
+  }
+  return "unknown";
+}
+
+SuiteBridgeCommandResult HandlePresentation(
+    const ISuiteBridgeHbbtvProvider *provider,
+    const char *option)
+{
+  if (provider == nullptr) return Rejected(550, "provider_unavailable");
+  if (option == nullptr)
+    return Rejected(504, "hbbtv_presentation_request_invalid");
+
+  std::istringstream input(option);
+  std::string operationText;
+  std::string schema;
+  std::string sessionId;
+  std::string extra;
+  std::uint64_t frameRevision = 0;
+  std::uint64_t offset = 0;
+
+  if (!(input >> operationText >> schema >> sessionId) ||
+      schema != "1" ||
+      !SafeIdentity(sessionId, VDRWEB_HBBTV_SESSION_ID_MAX)) {
+    return Rejected(504, "hbbtv_presentation_request_invalid");
+  }
+
+  std::uint8_t operation = 0;
+  if (strcasecmp(operationText.c_str(), "META") == 0) {
+    operation = VDRWEB_HBBTV_PRESENTATION_META;
+    if (input >> extra)
+      return Rejected(504, "hbbtv_presentation_request_invalid");
+  }
+  else if (strcasecmp(operationText.c_str(), "CHUNK") == 0) {
+    operation = VDRWEB_HBBTV_PRESENTATION_CHUNK;
+    if (!(input >> frameRevision >> offset) ||
+        frameRevision == 0 ||
+        offset > std::numeric_limits<std::uint32_t>::max() ||
+        (input >> extra)) {
+      return Rejected(504, "hbbtv_presentation_request_invalid");
+    }
+  }
+  else {
+    return Rejected(504, "hbbtv_presentation_operation_invalid");
+  }
+
+  VdrWebHbbtvPresentationV1 presentation{};
+  presentation.structSize = sizeof(presentation);
+  presentation.operation = operation;
+  presentation.frameRevision = frameRevision;
+  presentation.offset = static_cast<std::uint32_t>(offset);
+  CopyText(presentation.sessionId, sessionId);
+
+  std::string error;
+  if (!provider->Presentation(presentation, error))
+    return Rejected(550, error.c_str());
+
+  SuiteBridgeCommandResult result;
+  result.handled = true;
+  result.replyCode = 250;
+
+  std::ostringstream payload;
+  payload << "{\"schemaVersion\":1"
+          << ",\"provider\":\"vdr-plugin-web\""
+          << ",\"providerSchemaVersion\":"
+          << presentation.schemaVersion
+          << ",\"capability\":\"broadcast.hbbtv.presentation\""
+          << ",\"operation\":\""
+          << (operation == VDRWEB_HBBTV_PRESENTATION_META
+              ? "meta" : "chunk")
+          << "\""
+          << ",\"result\":";
+  AppendJsonString(payload, PresentationResultName(presentation.result));
+  payload << ",\"resultCode\":"
+          << static_cast<unsigned int>(presentation.result)
+          << ",\"sessionId\":";
+  AppendJsonString(payload, sessionId);
+  payload << ",\"frameRevision\":" << presentation.frameRevision
+          << ",\"observedAt\":" << presentation.observedAt
+          << ",\"renderWidth\":" << presentation.renderWidth
+          << ",\"renderHeight\":" << presentation.renderHeight
+          << ",\"encodedBytes\":" << presentation.encodedBytes
+          << ",\"returnedBytes\":" << presentation.returnedBytes;
+
+  if (operation == VDRWEB_HBBTV_PRESENTATION_CHUNK &&
+      presentation.result == VDRWEB_HBBTV_PRESENTATION_RESULT_OK &&
+      presentation.returnedBytes != 0) {
+    payload << ",\"dataBase64\":";
+    AppendJsonString(
+        payload,
+        Base64Encode(
+            presentation.data,
+            presentation.returnedBytes));
+  }
+
+  payload << '}';
+  result.payload = payload.str();
+  if (result.payload.size() > kMaximumPresentationPayloadBytes)
+    return Rejected(552, "hbbtv_presentation_payload_too_large");
+  return result;
+}
+
 } // namespace
 
 SuiteBridgeCommandResult SuiteBridgeHbbtvCommandService::Handle(
@@ -391,5 +543,7 @@ SuiteBridgeCommandResult SuiteBridgeHbbtvCommandService::Handle(
     return HandleDiscovery(provider_, option);
   if (strcasecmp(command, "HBBRUN") == 0)
     return HandleRuntime(provider_, option);
+  if (strcasecmp(command, "HBBPRES") == 0)
+    return HandlePresentation(provider_, option);
   return {};
 }

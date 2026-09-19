@@ -7,11 +7,12 @@
 // Discovery implementation: work/vdr-suite-hbbtv-discovery-v1
 // Discovery anchor: 9ee1697a435e01058df6890323bf979a1ad2fd87
 // Runtime implementation: work/vdr-suite-hbbtv-runtime-v1
-// Runtime candidate: 1afab943148e91804a3a86ad520ff8d229a38bbe
+// Runtime/presentation candidate: 1d30a97e2cf7343a6294de443c15cde7fcb831cb
 // Upstream base: Zabrimus/vdr-plugin-web@34ded5090fbad021338c491355566dbdb4d98f9d
 // Keep these contracts byte-compatible with the provider-side definitions.
 #define VDRWEB_SERVICE_HBBTV_DISCOVERY_V1 "VdrWeb::HbbtvDiscovery-v1"
 #define VDRWEB_SERVICE_HBBTV_RUNTIME_V1 "VdrWeb::HbbtvRuntime-v1"
+#define VDRWEB_SERVICE_HBBTV_PRESENTATION_V1 "VdrWeb::HbbtvPresentation-v1"
 
 #define VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_CHANNEL_ID_MAX 64U
@@ -23,6 +24,8 @@
 
 #define VDRWEB_HBBTV_RUNTIME_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_SESSION_ID_MAX 128U
+#define VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1 1U
+#define VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX 49152U
 
 enum VdrWebHbbtvDiscoveryResultV1 {
   VDRWEB_HBBTV_RESULT_OK = 0,
@@ -133,6 +136,44 @@ struct VdrWebHbbtvRuntimeV1 {
   uint8_t result;
   uint8_t state;
   uint16_t reservedResponse;
+};
+
+enum VdrWebHbbtvPresentationOperationV1 {
+  VDRWEB_HBBTV_PRESENTATION_META = 1,
+  VDRWEB_HBBTV_PRESENTATION_CHUNK = 2
+};
+
+enum VdrWebHbbtvPresentationResultV1 {
+  VDRWEB_HBBTV_PRESENTATION_RESULT_OK = 0,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_INVALID_REQUEST = 1,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_NO_SESSION = 2,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_SESSION_MISMATCH = 3,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_NO_FRAME = 4,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_REVISION_MISMATCH = 5,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_RANGE_INVALID = 6,
+  VDRWEB_HBBTV_PRESENTATION_RESULT_FRAME_TOO_LARGE = 7
+};
+
+struct VdrWebHbbtvPresentationV1 {
+  uint32_t structSize;
+
+  // Request.
+  uint8_t operation;
+  uint8_t reservedRequest[3];
+  uint64_t frameRevision;
+  uint32_t offset;
+  char sessionId[VDRWEB_HBBTV_SESSION_ID_MAX];
+
+  // Response.
+  uint32_t schemaVersion;
+  uint8_t result;
+  uint8_t reservedResponse[3];
+  uint64_t observedAt;
+  uint32_t renderWidth;
+  uint32_t renderHeight;
+  uint32_t encodedBytes;
+  uint32_t returnedBytes;
+  uint8_t data[VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX];
 };
 
 #endif

@@ -127,3 +127,53 @@ bool SuiteBridgeHbbtvAdapter::Runtime(
 
   return true;
 }
+
+bool SuiteBridgeHbbtvAdapter::Presentation(
+    VdrWebHbbtvPresentationV1 &presentation,
+    std::string &error) const
+{
+  error.clear();
+
+  if (presentation.structSize != sizeof(presentation) ||
+      (presentation.operation != VDRWEB_HBBTV_PRESENTATION_META &&
+       presentation.operation != VDRWEB_HBBTV_PRESENTATION_CHUNK)) {
+    error = "invalid_request";
+    return false;
+  }
+
+  const std::string sessionId =
+      BoundedText(presentation.sessionId, VDRWEB_HBBTV_SESSION_ID_MAX);
+  if (sessionId.empty()) {
+    error = "invalid_request";
+    return false;
+  }
+
+  const uint8_t operation = presentation.operation;
+  if (!caller_ ||
+      !caller_(VDRWEB_SERVICE_HBBTV_PRESENTATION_V1, &presentation)) {
+    error = "provider_unavailable";
+    return false;
+  }
+
+  if (presentation.structSize != sizeof(presentation) ||
+      presentation.schemaVersion != VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1) {
+    error = "provider_schema_incompatible";
+    return false;
+  }
+
+  if (presentation.operation != operation ||
+      BoundedText(
+          presentation.sessionId,
+          VDRWEB_HBBTV_SESSION_ID_MAX) != sessionId ||
+      presentation.result >
+          VDRWEB_HBBTV_PRESENTATION_RESULT_FRAME_TOO_LARGE ||
+      presentation.returnedBytes > VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX ||
+      presentation.encodedBytes > 16U * 1024U * 1024U ||
+      presentation.renderWidth > 3840U ||
+      presentation.renderHeight > 2160U) {
+    error = "provider_presentation_payload_invalid";
+    return false;
+  }
+
+  return true;
+}

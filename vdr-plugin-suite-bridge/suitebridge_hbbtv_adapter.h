@@ -18,6 +18,10 @@ public:
   virtual bool Runtime(
       VdrWebHbbtvRuntimeV1 &runtime,
       std::string &error) const = 0;
+
+  virtual bool Presentation(
+      VdrWebHbbtvPresentationV1 &presentation,
+      std::string &error) const = 0;
 };
 
 class SuiteBridgeHbbtvAdapter final : public ISuiteBridgeHbbtvProvider {
@@ -34,6 +38,10 @@ public:
 
   bool Runtime(
       VdrWebHbbtvRuntimeV1 &runtime,
+      std::string &error) const override;
+
+  bool Presentation(
+      VdrWebHbbtvPresentationV1 &presentation,
       std::string &error) const override;
 
 private:

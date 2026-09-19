@@ -21,11 +21,12 @@ for token in (
 for token in (
     '"VdrWeb::HbbtvDiscovery-v1"',
     '"VdrWeb::HbbtvRuntime-v1"',
+    '"VdrWeb::HbbtvPresentation-v1"',
     "VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U",
     "VDRWEB_HBBTV_RUNTIME_SCHEMA_V1 1U",
     "VDRWEB_HBBTV_MAX_APPLICATIONS 16U",
     "9ee1697a435e01058df6890323bf979a1ad2fd87",
-    "1afab943148e91804a3a86ad520ff8d229a38bbe",
+    "1d30a97e2cf7343a6294de443c15cde7fcb831cb",
     "34ded5090fbad021338c491355566dbdb4d98f9d",
 ):
     if token not in contract:
@@ -34,9 +35,11 @@ for token in (
 for token in (
     "broadcast.hbbtv.discovery",
     "broadcast.hbbtv.runtime",
+    "broadcast.hbbtv.presentation",
     "vdr-plugin-web",
     "HBBAPPS",
     "HBBRUN",
+    "HBBPRES",
 ):
     if token not in command:
         raise SystemExit(f"missing HbbTV private command token: {token}")
