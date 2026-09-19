@@ -399,6 +399,13 @@
     );
   }
 
+  function fetchClientHbbtvMedia(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/media',
+      options
+    );
+  }
+
   function fetchClientHbbtvPresentation(options) {
     const normalized = normalizeOptions(options);
     return requestBinary(
@@ -690,6 +697,7 @@
     fetchClientHbbtvSessionStatus: fetchClientHbbtvSessionStatus,
     fetchClientHbbtvSessionInput: fetchClientHbbtvSessionInput,
     fetchClientHbbtvSessionClose: fetchClientHbbtvSessionClose,
+    fetchClientHbbtvMedia: fetchClientHbbtvMedia,
     fetchClientHbbtvPresentation: fetchClientHbbtvPresentation,
     fetchClientChannelMoveAction: fetchClientChannelMoveAction,
     fetchClientCapabilities: fetchClientCapabilities,
