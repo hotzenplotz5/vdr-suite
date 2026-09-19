@@ -52,8 +52,19 @@ required = {
     ),
     "security": (
         (security, 'path == "/api/vdr/broadcast/hbbtv/applications"'),
-        (security, 'hbbtvRequest.permission = "broadcast.hbbtv.view";'),
-        (security, 'hbbtvRequest.action = "broadcast.hbbtv.view";'),
+        (
+            security,
+            "if (isHbbtvDiscoveryRead || isHbbtvPresentationRead)",
+        ),
+        (
+            security,
+            "hbbtvRequest.permission = isHbbtvPresentationRead",
+        ),
+        (
+            security,
+            "hbbtvRequest.action = isHbbtvPresentationRead",
+        ),
+        (security, ': "broadcast.hbbtv.view";'),
         (authorization, 'permission == "broadcast.hbbtv.view"'),
     ),
     "frontend": (
