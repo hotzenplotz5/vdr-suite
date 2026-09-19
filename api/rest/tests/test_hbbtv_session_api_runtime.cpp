@@ -2,6 +2,7 @@
 
 #include "HbbtvApplicationSessionService.h"
 #include "SuiteBridgeHbbtvPresentationResolver.h"
+#include "SuiteBridgeHbbtvMediaResolver.h"
 
 #include <cassert>
 #include <string>
@@ -81,6 +82,30 @@ public:
     std::uint64_t lastKnownRevision = 0;
 };
 
+class FakeMedia final : public IHbbtvMediaSourceResolver
+{
+public:
+    HbbtvMediaSource resolveMedia(
+        const std::string& sessionId) override
+    {
+        lastSessionId = sessionId;
+        HbbtvMediaSource media;
+        media.available = true;
+        media.state = HbbtvMediaSourceState::Streaming;
+        media.mediaRevision = 3;
+        media.fullscreen = false;
+        media.x = 100;
+        media.y = 50;
+        media.width = 640;
+        media.height = 360;
+        media.unixSocketPath =
+            "/run/vdr/vdr-suite-hbbtv-media/private.sock";
+        return media;
+    }
+
+    std::string lastSessionId;
+};
+
 class FakeRuntime final : public IHbbtvRuntimeControl
 {
 public:
@@ -141,6 +166,7 @@ int main()
     FakeDiscovery discovery;
     FakeRuntime runtime;
     FakePresentation presentation;
+    FakeMedia media;
 
     HbbtvApplicationSessionService sessions(
         discovery,
@@ -161,6 +187,10 @@ int main()
         [&presentation](const std::string& backendId)
             -> IHbbtvPresentationSource* {
             return backendId == "default" ? &presentation : nullptr;
+        },
+        [&media](const std::string& backendId)
+            -> IHbbtvMediaSourceResolver* {
+            return backendId == "default" ? &media : nullptr;
         }));
 
     ApiResponse response;
@@ -224,6 +254,33 @@ int main()
     assert(response.headers.find("X-Vdr-Suite-Hbbtv-Height") ==
         response.headers.end());
     assert(presentation.lastKnownRevision == 9);
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/media"
+        "?backend=default&session=bas_api_test",
+        response,
+        "user-1",
+        "device-1"));
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json; charset=utf-8");
+    assert(response.body.find("\"available\":true") != std::string::npos);
+    assert(response.body.find("\"state\":\"streaming\"") != std::string::npos);
+    assert(response.body.find("\"mediaRevision\":3") != std::string::npos);
+    assert(response.body.find("\"fullscreen\":false") != std::string::npos);
+    assert(response.body.find(
+        "\"geometry\":{\"x\":100,\"y\":50,\"width\":640,\"height\":360}") !=
+        std::string::npos);
+    assert(response.body.find("socketPath") == std::string::npos);
+    assert(response.body.find("/run/vdr/") == std::string::npos);
+    assert(media.lastSessionId == "bas_api_test");
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/media"
+        "?backend=default&session=bas_api_test",
+        response,
+        "other-user",
+        "device-1"));
+    assert(response.statusCode == 403);
 
     assert(api.tryHandleGet(
         "/api/vdr/broadcast/hbbtv/sessions/presentation"
