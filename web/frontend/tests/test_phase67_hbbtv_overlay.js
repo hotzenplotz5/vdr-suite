@@ -23,7 +23,8 @@ for (const token of [
   "fetchClientHbbtvSessionClose",
   "fetchClientHbbtvPresentation",
   "state.hbbtvFrameRevision = 0",
-  "releaseHbbtvSessionBestEffort();"
+  "releaseHbbtvSessionBestEffort();",
+  "alignHbbtvCanvas();"
 ]) {
   assert(live.includes(token), token);
 }

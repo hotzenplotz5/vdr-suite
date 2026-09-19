@@ -654,6 +654,7 @@
       }
 
       state.hbbtvPresentationError = '';
+      alignHbbtvCanvas();
       updateHbbtvSessionUi();
       scheduleHbbtvPresentation(
         sequence,
@@ -1156,6 +1157,12 @@
       }
       return;
     }
+    if (hbbtvSessionId() &&
+        text(state.hbbtvSession && state.hbbtvSession.channelId) !==
+          snapshot.channelId) {
+      releaseHbbtvSessionBestEffort();
+    }
+
     const playback = playbackApi();
     if (!playback || typeof playback.createLivePanel !== 'function') return;
     const channel = state.channels.find(function(entry) { return channelId(entry) === snapshot.channelId; }) || {id: snapshot.channelId, name: snapshot.channelName || snapshot.channelId, enabled: true};
@@ -1566,6 +1573,9 @@
   function open() {
     const nextBackend = selectedBackend();
     const changedBackend = Boolean(state.backendId && state.backendId !== nextBackend);
+    if (changedBackend && hbbtvSessionId()) {
+      releaseHbbtvSessionBestEffort();
+    }
     state.active = true;
     state.backendId = nextBackend;
     state.dataError = '';
