@@ -14,6 +14,10 @@ let continuousMseEnabled = false;
 let continuousFetchCalls = 0;
 let objectUrlSequence = 0;
 let clock = 1000;
+let deferBrowserSessionRestore = false;
+let browserSessionRestored = true;
+let pendingBrowserSessionRestore = null;
+let browserSessionRestoreCalls = 0;
 
 function node(tagName) {
   const listeners = {};
@@ -86,7 +90,26 @@ const window = {
     resolvePath(path) { return '/vdr-suite' + path; }
   },
   VdrSuiteBrowserSession: {
-    csrfHeaders() { return {'X-CSRF-Token': 'csrf-live-token'}; },
+    restore() {
+      browserSessionRestoreCalls += 1;
+      if (!deferBrowserSessionRestore) {
+        browserSessionRestored = true;
+        return Promise.resolve({authenticated: true});
+      }
+      return new Promise(function (resolve) {
+        pendingBrowserSessionRestore = function () {
+          browserSessionRestored = true;
+          deferBrowserSessionRestore = false;
+          pendingBrowserSessionRestore = null;
+          resolve({authenticated: true});
+        };
+      });
+    },
+    csrfHeaders() {
+      return browserSessionRestored
+        ? {'X-CSRF-Token': 'csrf-live-token'}
+        : {};
+    },
     subscribe() {}
   },
   VdrSuiteClientApi: {
@@ -244,6 +267,44 @@ assert.strictEqual(
 (async function () {
   requests.length = 0;
   videos.length = 0;
+
+  // Browser-session restore is asynchronous during startup. A protected
+  // MediaSession mutation must wait for that restore so it cannot race ahead
+  // without X-CSRF-Token and invalidate the just-restoring browser session.
+  deferBrowserSessionRestore = true;
+  browserSessionRestored = false;
+  pendingBrowserSessionRestore = null;
+  const restoreCallsBeforeRace = browserSessionRestoreCalls;
+  const restoreRacePlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1079-10350', name: 'Restore Race'},
+    'living-room',
+    {}
+  );
+  const restoreRaceStart = restoreRacePlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(
+    requests.length,
+    0,
+    'Live-TV MediaSession POST must wait for browser-session restore'
+  );
+  assert.strictEqual(
+    browserSessionRestoreCalls,
+    restoreCallsBeforeRace + 1
+  );
+  assert.strictEqual(typeof pendingBrowserSessionRestore, 'function');
+  pendingBrowserSessionRestore();
+  assert.strictEqual(await restoreRaceStart, 'live_session_test');
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(requests[0].path, '/api/media/sessions');
+  assert.strictEqual(
+    requests[0].options.headers['X-CSRF-Token'],
+    'csrf-live-token'
+  );
+  restoreRacePlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+  browserSessionRestored = true;
 
   const playback = window.VdrSuiteRecordings2Playback.createLivePanel(
     {id: 'C-1-1079-10351', name: 'Das Erste HD'},
