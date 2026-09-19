@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "api/rest/src/HbbtvApiRuntime.cpp").read_text()
 router = (ROOT / "api/rest/include/ApiRouter.h").read_text()
 gate = (ROOT / "core/security/include/SecurityHttpGate.h").read_text()
+gate_normalized = " ".join(gate.split())
 authorization = (ROOT / "core/security/include/AuthorizationService.h").read_text()
 http = (ROOT / "core/http/src/TestHttpServer.cpp").read_text()
 daemon = (ROOT / "core/daemon/src/DaemonHbbtvRuntime.cpp").read_text()
@@ -23,9 +24,9 @@ required = (
     (api, '"hbbtv_application_context_stale"'),
     (router, "HbbtvApiRuntime::instance().tryHandlePost("),
     (router, "HbbtvApiRuntime::instance().tryHandleGet("),
-    (gate, 'requestToAuthorize.permission = "broadcast.hbbtv.launch";'),
-    (gate, 'requestToAuthorize.permission = "broadcast.hbbtv.input";'),
-    (gate, 'requestToAuthorize.permission = "broadcast.session.manage_own";'),
+    (gate_normalized, 'requestToAuthorize.permission = "broadcast.hbbtv.launch";'),
+    (gate_normalized, 'requestToAuthorize.permission = "broadcast.hbbtv.input";'),
+    (gate_normalized, 'requestToAuthorize.permission = "broadcast.session.manage_own";'),
     (gate, '"broadcast.hbbtv.media"'),
     (authorization, 'permission == "broadcast.hbbtv.launch"'),
     (authorization, 'permission == "broadcast.hbbtv.input"'),
