@@ -204,6 +204,20 @@ int main()
     assert(response.body.find("hbbtv_session_backend_mismatch") !=
         std::string::npos);
 
+    assert(api.tryHandlePost(
+        "/api/vdr/broadcast/hbbtv/sessions",
+        "{\"backendId\":\"default\","
+        "\"channelId\":\"C-1-1051-10301\","
+        "\"applicationId\":1,"
+        "\"descriptorRevision\":17}",
+        "user-1",
+        "bad/client",
+        "corr-7",
+        response));
+    assert(response.statusCode == 403);
+    assert(response.body.find("hbbtv_request_context_invalid") !=
+        std::string::npos);
+
     api.reset();
     return 0;
 }

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
@@ -610,13 +611,6 @@ ApiResponse serializeSession(
     return response;
 }
 
-std::string effectiveIdentity(
-    const std::string& value,
-    const std::string& fallback)
-{
-    return validIdentity(value) ? value : fallback;
-}
-
 } // namespace
 
 HbbtvApiRuntime& HbbtvApiRuntime::instance()
@@ -703,10 +697,17 @@ bool HbbtvApiRuntime::tryHandlePost(
         return true;
     }
 
+    if ((!clientRef.empty() && !validIdentity(clientRef)) ||
+        (!correlationRef.empty() && !validIdentity(correlationRef)))
+    {
+        response = errorResponse(403, "hbbtv_request_context_invalid");
+        return true;
+    }
+
     const std::string client =
-        effectiveIdentity(clientRef, actorRef);
+        clientRef.empty() ? actorRef : clientRef;
     const std::string correlation =
-        effectiveIdentity(correlationRef, actorRef);
+        correlationRef.empty() ? actorRef : correlationRef;
 
     FlatJson json;
     if (!parseFlatJson(body, json))
