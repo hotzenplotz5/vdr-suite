@@ -689,6 +689,15 @@
     return headers && typeof headers === 'object' ? headers : {};
   }
 
+  function afterBrowserSessionRestore(action) {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.restore !== 'function') {
+      return Promise.resolve().then(action);
+    }
+
+    return Promise.resolve(session.restore()).then(action);
+  }
+
   function createLiveSession(backendId, channel, replacesSessionId) {
     const api = global.VdrSuiteClientApi;
     const id = channelId(channel);
@@ -709,12 +718,14 @@
     };
     if (replacement) body.replacesSessionId = replacement;
 
-    return api.requestJson('/api/media/sessions', {
-      method: 'POST',
-      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-      body: JSON.stringify(body),
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return afterBrowserSessionRestore(function () {
+      return api.requestJson('/api/media/sessions', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
     });
   }
 
@@ -728,16 +739,18 @@
       return Promise.reject(new Error('Die Aufnahme besitzt keine öffentliche Recording-ID.'));
     }
 
-    return api.requestJson('/api/media/sessions', {
-      method: 'POST',
-      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-      body: JSON.stringify({
-        backendId: text(backendId || 'default'),
-        recordingId: id,
-        capabilities: recordingCapabilities()
-      }),
-      cache: 'no-store',
-      credentials: 'same-origin'
+    return afterBrowserSessionRestore(function () {
+      return api.requestJson('/api/media/sessions', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+        body: JSON.stringify({
+          backendId: text(backendId || 'default'),
+          recordingId: id,
+          capabilities: recordingCapabilities()
+        }),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
     });
   }
 
