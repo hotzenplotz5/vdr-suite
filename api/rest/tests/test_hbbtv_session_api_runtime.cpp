@@ -218,6 +218,11 @@ int main()
         "device-1"));
     assert(response.statusCode == 204);
     assert(response.body.empty());
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Revision") == "9");
+    assert(response.headers.find("X-Vdr-Suite-Hbbtv-Width") ==
+        response.headers.end());
+    assert(response.headers.find("X-Vdr-Suite-Hbbtv-Height") ==
+        response.headers.end());
     assert(presentation.lastKnownRevision == 9);
 
     assert(api.tryHandleGet(

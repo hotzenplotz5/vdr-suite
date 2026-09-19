@@ -823,6 +823,7 @@ bool HbbtvApiRuntime::tryHandleGet(
     {
         if (frame.error == "hbbtv_presentation_changed")
         {
+            response = ApiResponse{};
             response.statusCode = 204;
             response.contentType = "image/qoi";
             response.headers["Cache-Control"] = "no-store";
@@ -838,6 +839,7 @@ bool HbbtvApiRuntime::tryHandleGet(
 
     if (!frame.available || frame.unchanged)
     {
+        response = ApiResponse{};
         response.statusCode = 204;
         response.contentType = "image/qoi";
         response.headers["Cache-Control"] = "no-store";
