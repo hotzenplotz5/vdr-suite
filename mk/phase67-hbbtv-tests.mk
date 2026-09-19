@@ -3,6 +3,7 @@
 	test-phase67-hbbtv-resolver \
 	test-phase67-hbbtv-runtime-resolver \
 	test-phase67-hbbtv-presentation-resolver \
+	test-phase67-hbbtv-media-resolver \
 	test-phase67-hbbtv-session-service \
 	test-phase67-hbbtv-session-foundation \
 	test-phase67-hbbtv-session-api \
@@ -50,6 +51,14 @@ test-phase67-hbbtv-presentation-resolver:
 		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_presentation_resolver
 	$(BUILD_DIR)/test_suite_bridge_hbbtv_presentation_resolver
 
+test-phase67-hbbtv-media-resolver:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SuiteBridgeHbbtvMediaResolver.cpp \
+		core/vdr/tests/test_suite_bridge_hbbtv_media_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_media_resolver
+	$(BUILD_DIR)/test_suite_bridge_hbbtv_media_resolver
+
 test-phase67-hbbtv-session-service:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		core/daemon/src/HbbtvApplicationSessionService.cpp \
@@ -63,6 +72,7 @@ test-phase67-hbbtv-session-foundation: \
 	test-phase67-hbbtv-agent-transport \
 	test-phase67-hbbtv-runtime-resolver \
 	test-phase67-hbbtv-presentation-resolver \
+	test-phase67-hbbtv-media-resolver \
 	test-phase67-hbbtv-session-service
 
 test-phase67-hbbtv-session-api:

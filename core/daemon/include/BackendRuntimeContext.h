@@ -29,6 +29,7 @@
 #include "SuiteBridgeEpgMetadataResolver.h"
 #include "SuiteBridgeHbbtvResolver.h"
 #include "SuiteBridgeHbbtvPresentationResolver.h"
+#include "SuiteBridgeHbbtvMediaResolver.h"
 #include "SuiteBridgeHbbtvRuntimeResolver.h"
 #include "SuiteBridgeRecordingCutStateResolver.h"
 #include "SuiteBridgeRecordingMarksResolver.h"
@@ -75,6 +76,7 @@ struct BackendRuntimeContext
     std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
     std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>
         hbbtvPresentationResolver;
+    std::unique_ptr<SuiteBridgeHbbtvMediaResolver> hbbtvMediaResolver;
     std::unique_ptr<SuiteBridgeTeletextResolver> teletextResolver;
     std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
     std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
@@ -136,6 +138,14 @@ struct BackendRuntimeContext
                     *suiteBridgeTransport);
         }
         return hbbtvPresentationResolver.get();
+    }
+
+    SuiteBridgeHbbtvMediaResolver* ensureHbbtvMediaResolver()
+    {
+        if (!suiteBridgeTransport) return nullptr;
+        if (!hbbtvMediaResolver)
+            hbbtvMediaResolver = std::make_unique<SuiteBridgeHbbtvMediaResolver>(*suiteBridgeTransport);
+        return hbbtvMediaResolver.get();
     }
 
     SuiteBridgeTeletextResolver* ensureTeletextResolver()
