@@ -250,7 +250,8 @@ public:
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
 
-        if (isHbbtvDiscoveryRead || isHbbtvPresentationRead)
+        if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
+            isHbbtvMediaRead)
         {
             if (!gate.context.authenticated()) return rejectAuthentication(gate);
 
