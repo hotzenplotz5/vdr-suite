@@ -532,6 +532,74 @@ SuiteBridgeCommandResult HandlePresentation(
   return result;
 }
 
+
+const char *MediaResultName(std::uint8_t result)
+{
+  switch (result) {
+    case VDRWEB_HBBTV_MEDIA_RESULT_OK: return "ok";
+    case VDRWEB_HBBTV_MEDIA_RESULT_INVALID_REQUEST: return "invalid_request";
+    case VDRWEB_HBBTV_MEDIA_RESULT_NO_SESSION: return "no_session";
+    case VDRWEB_HBBTV_MEDIA_RESULT_SESSION_MISMATCH: return "session_mismatch";
+  }
+  return "unknown";
+}
+const char *MediaStateName(std::uint8_t state)
+{
+  switch (state) {
+    case VDRWEB_HBBTV_MEDIA_STATE_NONE: return "none";
+    case VDRWEB_HBBTV_MEDIA_STATE_STREAMING: return "streaming";
+    case VDRWEB_HBBTV_MEDIA_STATE_PAUSED: return "paused";
+    case VDRWEB_HBBTV_MEDIA_STATE_STOPPED: return "stopped";
+    case VDRWEB_HBBTV_MEDIA_STATE_FAILED: return "failed";
+  }
+  return "unknown";
+}
+SuiteBridgeCommandResult HandleMedia(
+    const ISuiteBridgeHbbtvProvider *provider,
+    const char *option)
+{
+  if (provider == nullptr) return Rejected(550, "provider_unavailable");
+  if (option == nullptr) return Rejected(504, "hbbtv_media_request_invalid");
+  std::istringstream input(option);
+  std::string schema, sessionId, extra;
+  if (!(input >> schema >> sessionId) || (input >> extra) || schema != "1" ||
+      !SafeIdentity(sessionId, VDRWEB_HBBTV_SESSION_ID_MAX))
+    return Rejected(504, "hbbtv_media_request_invalid");
+
+  VdrWebHbbtvMediaV1 media{};
+  media.structSize = sizeof(media);
+  CopyText(media.sessionId, sessionId);
+  std::string error;
+  if (!provider->Media(media, error)) return Rejected(550, error.c_str());
+
+  SuiteBridgeCommandResult result;
+  result.handled = true;
+  result.replyCode = 250;
+  std::ostringstream payload;
+  payload << "{\"schemaVersion\":1,\"provider\":\"vdr-plugin-web\""
+          << ",\"providerSchemaVersion\":" << media.schemaVersion
+          << ",\"capability\":\"broadcast.hbbtv.media\",\"result\":";
+  AppendJsonString(payload, MediaResultName(media.result));
+  payload << ",\"resultCode\":" << static_cast<unsigned int>(media.result)
+          << ",\"sessionId\":";
+  AppendJsonString(payload, sessionId);
+  payload << ",\"state\":";
+  AppendJsonString(payload, MediaStateName(media.state));
+  payload << ",\"stateCode\":" << static_cast<unsigned int>(media.state)
+          << ",\"mediaRevision\":" << media.mediaRevision
+          << ",\"fullscreen\":" << (media.fullscreen ? "true" : "false")
+          << ",\"consumerConnected\":" << (media.consumerConnected ? "true" : "false")
+          << ",\"x\":" << media.x << ",\"y\":" << media.y
+          << ",\"width\":" << media.width << ",\"height\":" << media.height
+          << ",\"socketPath\":";
+  AppendJsonString(payload, BoundedString(media.socketPath, VDRWEB_HBBTV_MEDIA_SOCKET_PATH_MAX));
+  payload << '}';
+  result.payload = payload.str();
+  if (result.payload.size() > kMaximumPayloadBytes)
+    return Rejected(552, "hbbtv_media_payload_too_large");
+  return result;
+}
+
 } // namespace
 
 SuiteBridgeCommandResult SuiteBridgeHbbtvCommandService::Handle(
@@ -545,5 +613,7 @@ SuiteBridgeCommandResult SuiteBridgeHbbtvCommandService::Handle(
     return HandleRuntime(provider_, option);
   if (strcasecmp(command, "HBBPRES") == 0)
     return HandlePresentation(provider_, option);
+  if (strcasecmp(command, "HBBMEDIA") == 0)
+    return HandleMedia(provider_, option);
   return {};
 }

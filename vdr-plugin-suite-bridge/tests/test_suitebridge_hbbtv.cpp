@@ -21,6 +21,7 @@ public:
   bool available = true;
   int runtimeCalls = 0;
   int presentationCalls = 0;
+  int mediaCalls = 0;
 
   bool Discover(
       const std::string &channelId,
@@ -128,6 +129,22 @@ public:
     }
     return true;
   }
+
+  bool Media(VdrWebHbbtvMediaV1 &media, std::string &error) const override
+  {
+    if (!available) { error = "provider_unavailable"; return false; }
+    ++const_cast<FakeProvider *>(this)->mediaCalls;
+    media.schemaVersion = VDRWEB_HBBTV_MEDIA_SCHEMA_V1;
+    media.result = VDRWEB_HBBTV_MEDIA_RESULT_OK;
+    media.state = VDRWEB_HBBTV_MEDIA_STATE_STREAMING;
+    media.fullscreen = 0;
+    media.consumerConnected = 0;
+    media.mediaRevision = 3;
+    media.x = 100; media.y = 50; media.width = 640; media.height = 360;
+    copyText(media.socketPath, VDRWEB_HBBTV_MEDIA_SOCKET_PATH_MAX,
+        "/run/vdr/vdr-suite-hbbtv-media/m-123-3.sock");
+    return true;
+  }
 };
 
 } // namespace
@@ -146,6 +163,7 @@ int main()
   static_assert(
       std::is_standard_layout<VdrWebHbbtvPresentationV1>::value,
       "presentation ABI");
+  static_assert(std::is_standard_layout<VdrWebHbbtvMediaV1>::value, "media ABI");
 
   FakeProvider provider;
   SuiteBridgeHbbtvCommandService service(&provider);
@@ -224,6 +242,19 @@ int main()
   assert(presentationChunk.payload.find(
       "\"dataBase64\":\"cW9pZg==\"") != std::string::npos);
   assert(provider.presentationCalls == 2);
+
+  const SuiteBridgeCommandResult media =
+      service.Handle("HBBMEDIA", "1 session-a");
+  assert(media.handled && media.replyCode == 250);
+  assert(media.payload.find("\"capability\":\"broadcast.hbbtv.media\"") != std::string::npos);
+  assert(media.payload.find("\"state\":\"streaming\"") != std::string::npos);
+  assert(media.payload.find("\"mediaRevision\":3") != std::string::npos);
+  assert(media.payload.find("/run/vdr/vdr-suite-hbbtv-media/m-123-3.sock") != std::string::npos);
+  assert(provider.mediaCalls == 1);
+
+  const SuiteBridgeCommandResult invalidMedia =
+      service.Handle("HBBMEDIA", "1 bad/session");
+  assert(invalidMedia.handled && invalidMedia.replyCode == 504);
 
   const SuiteBridgeCommandResult invalidPresentation =
       service.Handle("HBBPRES", "CHUNK 1 session-a 0 0");

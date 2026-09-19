@@ -7,12 +7,13 @@
 // Discovery implementation: work/vdr-suite-hbbtv-discovery-v1
 // Discovery anchor: 9ee1697a435e01058df6890323bf979a1ad2fd87
 // Runtime implementation: work/vdr-suite-hbbtv-runtime-v1
-// Runtime/presentation candidate: 1d30a97e2cf7343a6294de443c15cde7fcb831cb
+// Runtime/presentation/media candidate: 1b3d2e785a1caf2d9f991fafa9752a433c5a86ae
 // Upstream base: Zabrimus/vdr-plugin-web@34ded5090fbad021338c491355566dbdb4d98f9d
 // Keep these contracts byte-compatible with the provider-side definitions.
 #define VDRWEB_SERVICE_HBBTV_DISCOVERY_V1 "VdrWeb::HbbtvDiscovery-v1"
 #define VDRWEB_SERVICE_HBBTV_RUNTIME_V1 "VdrWeb::HbbtvRuntime-v1"
 #define VDRWEB_SERVICE_HBBTV_PRESENTATION_V1 "VdrWeb::HbbtvPresentation-v1"
+#define VDRWEB_SERVICE_HBBTV_MEDIA_V1 "VdrWeb::HbbtvMedia-v1"
 
 #define VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_CHANNEL_ID_MAX 64U
@@ -26,6 +27,8 @@
 #define VDRWEB_HBBTV_SESSION_ID_MAX 128U
 #define VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX 49152U
+#define VDRWEB_HBBTV_MEDIA_SCHEMA_V1 1U
+#define VDRWEB_HBBTV_MEDIA_SOCKET_PATH_MAX 108U
 
 enum VdrWebHbbtvDiscoveryResultV1 {
   VDRWEB_HBBTV_RESULT_OK = 0,
@@ -154,6 +157,12 @@ enum VdrWebHbbtvPresentationResultV1 {
   VDRWEB_HBBTV_PRESENTATION_RESULT_FRAME_TOO_LARGE = 7
 };
 
+enum VdrWebHbbtvPresentationVisibilityV1 {
+  VDRWEB_HBBTV_PRESENTATION_VISIBILITY_UNKNOWN = 0,
+  VDRWEB_HBBTV_PRESENTATION_VISIBILITY_HIDDEN = 1,
+  VDRWEB_HBBTV_PRESENTATION_VISIBILITY_VISIBLE = 2
+};
+
 struct VdrWebHbbtvPresentationV1 {
   uint32_t structSize;
 
@@ -167,13 +176,45 @@ struct VdrWebHbbtvPresentationV1 {
   // Response.
   uint32_t schemaVersion;
   uint8_t result;
-  uint8_t reservedResponse[3];
+  uint8_t visibility;
+  uint8_t reservedResponse[2];
   uint64_t observedAt;
   uint32_t renderWidth;
   uint32_t renderHeight;
   uint32_t encodedBytes;
   uint32_t returnedBytes;
   uint8_t data[VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX];
+};
+
+enum VdrWebHbbtvMediaResultV1 {
+  VDRWEB_HBBTV_MEDIA_RESULT_OK = 0,
+  VDRWEB_HBBTV_MEDIA_RESULT_INVALID_REQUEST = 1,
+  VDRWEB_HBBTV_MEDIA_RESULT_NO_SESSION = 2,
+  VDRWEB_HBBTV_MEDIA_RESULT_SESSION_MISMATCH = 3
+};
+
+enum VdrWebHbbtvMediaStateV1 {
+  VDRWEB_HBBTV_MEDIA_STATE_NONE = 0,
+  VDRWEB_HBBTV_MEDIA_STATE_STREAMING = 1,
+  VDRWEB_HBBTV_MEDIA_STATE_PAUSED = 2,
+  VDRWEB_HBBTV_MEDIA_STATE_STOPPED = 3,
+  VDRWEB_HBBTV_MEDIA_STATE_FAILED = 4
+};
+
+struct VdrWebHbbtvMediaV1 {
+  uint32_t structSize;
+  char sessionId[VDRWEB_HBBTV_SESSION_ID_MAX];
+  uint32_t schemaVersion;
+  uint8_t result;
+  uint8_t state;
+  uint8_t fullscreen;
+  uint8_t consumerConnected;
+  uint64_t mediaRevision;
+  int32_t x;
+  int32_t y;
+  int32_t width;
+  int32_t height;
+  char socketPath[VDRWEB_HBBTV_MEDIA_SOCKET_PATH_MAX];
 };
 
 #endif

@@ -177,3 +177,40 @@ bool SuiteBridgeHbbtvAdapter::Presentation(
 
   return true;
 }
+
+bool SuiteBridgeHbbtvAdapter::Media(
+    VdrWebHbbtvMediaV1 &media,
+    std::string &error) const
+{
+  error.clear();
+  if (media.structSize != sizeof(media)) {
+    error = "invalid_request";
+    return false;
+  }
+  const std::string sessionId =
+      BoundedText(media.sessionId, VDRWEB_HBBTV_SESSION_ID_MAX);
+  if (sessionId.empty()) {
+    error = "invalid_request";
+    return false;
+  }
+  if (!caller_ || !caller_(VDRWEB_SERVICE_HBBTV_MEDIA_V1, &media)) {
+    error = "provider_unavailable";
+    return false;
+  }
+  if (media.structSize != sizeof(media) ||
+      media.schemaVersion != VDRWEB_HBBTV_MEDIA_SCHEMA_V1) {
+    error = "provider_schema_incompatible";
+    return false;
+  }
+  if (BoundedText(media.sessionId, VDRWEB_HBBTV_SESSION_ID_MAX) != sessionId ||
+      media.result > VDRWEB_HBBTV_MEDIA_RESULT_SESSION_MISMATCH ||
+      media.state > VDRWEB_HBBTV_MEDIA_STATE_FAILED ||
+      media.fullscreen > 1U || media.consumerConnected > 1U ||
+      media.x < 0 || media.y < 0 || media.width < 0 || media.height < 0 ||
+      media.x > 16384 || media.y > 16384 ||
+      media.width > 16384 || media.height > 16384) {
+    error = "provider_media_payload_invalid";
+    return false;
+  }
+  return true;
+}

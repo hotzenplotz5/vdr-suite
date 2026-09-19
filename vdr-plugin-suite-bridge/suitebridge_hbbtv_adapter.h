@@ -22,6 +22,10 @@ public:
   virtual bool Presentation(
       VdrWebHbbtvPresentationV1 &presentation,
       std::string &error) const = 0;
+
+  virtual bool Media(
+      VdrWebHbbtvMediaV1 &media,
+      std::string &error) const = 0;
 };
 
 class SuiteBridgeHbbtvAdapter final : public ISuiteBridgeHbbtvProvider {
@@ -42,6 +46,10 @@ public:
 
   bool Presentation(
       VdrWebHbbtvPresentationV1 &presentation,
+      std::string &error) const override;
+
+  bool Media(
+      VdrWebHbbtvMediaV1 &media,
       std::string &error) const override;
 
 private:
