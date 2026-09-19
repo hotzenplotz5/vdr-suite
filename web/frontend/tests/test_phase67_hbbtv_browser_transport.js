@@ -13,6 +13,8 @@ for (const token of [
   'function fetchClientHbbtvSessionStatus(options)',
   'function fetchClientHbbtvSessionInput(options)',
   'function fetchClientHbbtvSessionClose(options)',
+  'function fetchClientHbbtvMedia(options)',
+  "'/api/vdr/broadcast/hbbtv/sessions/media'",
   'function fetchClientHbbtvPresentation(options)',
   "'/api/vdr/broadcast/hbbtv/sessions/presentation'",
   "Accept: 'image/qoi'",
