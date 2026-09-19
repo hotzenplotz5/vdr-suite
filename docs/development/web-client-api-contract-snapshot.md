@@ -51,16 +51,25 @@ Channels:
 - `fetchClientChannels`
 - `fetchClientChannelMoveAction`
 
-Broadcast Companion / Teletext and HbbTV discovery:
+Broadcast Companion / Teletext, HbbTV discovery and application sessions:
 
 - `fetchClientTeletextService`
 - `fetchClientTeletextPage`
 - `fetchClientHbbtvApplications`
-- the wrappers use Suite-owned authorized Broadcast Companion read surfaces;
-- the browser receives normalized service/page/application descriptors only;
-- HbbTV discovery does not expose provider entry-point URLs, raw AIT transport
-  data, SuiteBridge commands, browser commands, JavaScript execution or raw
-  remote-key codes.
+- `fetchClientHbbtvSessionLaunch`
+- `fetchClientHbbtvSessionStatus`
+- `fetchClientHbbtvSessionInput`
+- `fetchClientHbbtvSessionClose`
+- `fetchClientHbbtvPresentation`
+- the wrappers use Suite-owned authorized Broadcast Companion read and
+  application-session surfaces;
+- the browser receives normalized service/page/application/session descriptors
+  plus a session-owned QOI presentation frame for the Live-TV overlay;
+- HbbTV input is expressed only as normalized semantic actions within the
+  authorized application session;
+- HbbTV browser contracts do not expose provider entry-point URLs, raw AIT
+  transport data, SuiteBridge commands, browser commands, JavaScript execution
+  or raw remote-key codes.
 
 Capabilities and runtime state:
 
@@ -176,7 +185,7 @@ The former missing-route list that treated Phase-62 identity, Phase-63 Agent, Ph
 
 The remaining forward route/compatibility gaps follow the current strict roadmap:
 
-- **Phase 67** — Teletext service/page/subpage runtime is implemented and merged; the current HbbTV discovery branch now owns a normalized application read surface while application-session/runtime contracts remain open;
+- **Phase 67** — Teletext service/page/subpage runtime is implemented and merged; the current HbbTV branch owns normalized application discovery plus the candidate authorized application-session/runtime and session-owned Live-TV presentation surface, while real yaVDR deployment/acceptance remains open;
 - **Phase 68** — legacy OSD viewer/controller/session contracts;
 - **Phase 69** — stable `/api/v1`, ETags/preconditions and common public error/compatibility contracts;
 - **Phase 70** — recommendation/content-graph contracts after an accepted runtime design.
