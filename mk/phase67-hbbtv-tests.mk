@@ -95,6 +95,7 @@ test-phase67-hbbtv-media-session-runtime:
 		core/media/src/MediaProcessRunner.cpp \
 		core/media/src/MediaSessionWorkspace.cpp \
 		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionRepositoryLive.cpp \
 		core/media/src/MediaSessionIssuanceService.cpp \
 		core/daemon/src/HbbtvMediaSessionRuntime.cpp \
 		core/daemon/tests/test_hbbtv_media_session_runtime.cpp \
