@@ -8,18 +8,22 @@
 class HbbtvApplicationSessionService;
 class IHbbtvApplicationDiscoveryService;
 class IHbbtvPresentationSource;
+class IHbbtvMediaSourceResolver;
 
 class HbbtvApiRuntime
 {
 public:
     using PresentationLookup =
         std::function<IHbbtvPresentationSource*(const std::string& backendId)>;
+    using MediaLookup =
+        std::function<IHbbtvMediaSourceResolver*(const std::string& backendId)>;
     static HbbtvApiRuntime& instance();
 
     bool configure(
         IHbbtvApplicationDiscoveryService& readService,
         HbbtvApplicationSessionService& sessionService,
-        PresentationLookup presentationLookup = {});
+        PresentationLookup presentationLookup = {},
+        MediaLookup mediaLookup = {});
     void reset();
     bool configured() const;
 
@@ -43,4 +47,5 @@ private:
     IHbbtvApplicationDiscoveryService* readService_ = nullptr;
     HbbtvApplicationSessionService* sessionService_ = nullptr;
     PresentationLookup presentationLookup_;
+    MediaLookup mediaLookup_;
 };
