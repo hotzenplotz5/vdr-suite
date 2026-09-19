@@ -11,6 +11,9 @@ for (const token of [
   'function openHbbtvSession()',
   'function closeHbbtvSession()',
   'function pollHbbtvPresentation(sequence)',
+  'function pollHbbtvMedia(sequence)',
+  'function startHbbtvMediaPlayback(media, sequence)',
+  'function stopHbbtvMediaPlayback(sequence, notifyServer, restoreBroadcast)',
   'function sendHbbtvInput(action)',
   'function alignHbbtvCanvas()',
   'function drawHbbtvPresentation(frame)',
@@ -21,6 +24,8 @@ for (const token of [
   "fetchClientHbbtvSessionStatus",
   "fetchClientHbbtvSessionInput",
   "fetchClientHbbtvSessionClose",
+  "fetchClientHbbtvMedia",
+  "mutateClientHbbtvMedia",
   "fetchClientHbbtvPresentation",
   "state.hbbtvFrameRevision = 0",
   "releaseHbbtvSessionBestEffort();",
@@ -58,6 +63,8 @@ for (const token of [
   'fetchClientHbbtvSessionStatus: fetchClientHbbtvSessionStatus',
   'fetchClientHbbtvSessionInput: fetchClientHbbtvSessionInput',
   'fetchClientHbbtvSessionClose: fetchClientHbbtvSessionClose',
+  'fetchClientHbbtvMedia: fetchClientHbbtvMedia',
+  'mutateClientHbbtvMedia: mutateClientHbbtvMedia',
   'fetchClientHbbtvPresentation: fetchClientHbbtvPresentation'
 ]) {
   assert(client.includes(token), token);

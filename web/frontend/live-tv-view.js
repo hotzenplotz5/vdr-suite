@@ -39,8 +39,16 @@
     hbbtvSessionSequence: 0,
     hbbtvPresentationTimer: null,
     hbbtvStatusTimer: null,
+    hbbtvMediaTimer: null,
     hbbtvFrameRevision: 0,
     hbbtvPresentationError: '',
+    hbbtvMediaError: '',
+    hbbtvMediaRevision: 0,
+    hbbtvMediaSessionId: '',
+    hbbtvMediaState: 'none',
+    hbbtvMediaFullscreen: true,
+    hbbtvMediaGeometry: {x: 0, y: 0, width: 0, height: 0},
+    hbbtvMediaSwitchTail: Promise.resolve(),
     hbbtvInputTail: Promise.resolve(),
     requestSequence: 0,
     switchSequence: 0,
@@ -409,6 +417,7 @@
   function pauseHbbtvPolling() {
     clearHbbtvTimer('hbbtvPresentationTimer');
     clearHbbtvTimer('hbbtvStatusTimer');
+    clearHbbtvTimer('hbbtvMediaTimer');
   }
 
   function hbbtvCanvas() {
@@ -471,6 +480,7 @@
 
   function hbbtvSessionStatusText() {
     if (state.hbbtvSessionError) return state.hbbtvSessionError;
+    if (state.hbbtvMediaError) return state.hbbtvMediaError;
     if (state.hbbtvPresentationError) return state.hbbtvPresentationError;
 
     switch (hbbtvSessionState()) {
@@ -557,6 +567,12 @@
     state.hbbtvSessionBusy = false;
     state.hbbtvFrameRevision = 0;
     state.hbbtvPresentationError = '';
+    state.hbbtvMediaError = '';
+    state.hbbtvMediaRevision = 0;
+    state.hbbtvMediaSessionId = '';
+    state.hbbtvMediaState = 'none';
+    state.hbbtvMediaFullscreen = true;
+    state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
     state.hbbtvInputTail = Promise.resolve();
     if (!settings.keepError) state.hbbtvSessionError = '';
     clearHbbtvOverlay();
@@ -690,6 +706,292 @@
     );
   }
 
+
+  function hbbtvPlaybackController() {
+    const playback = state.playback;
+    return playback && typeof playback === 'object' ? playback : null;
+  }
+
+  function normalizedHbbtvMediaGeometry(media) {
+    const geometry = media && media.geometry && typeof media.geometry === 'object'
+      ? media.geometry
+      : {};
+    function coordinate(name) {
+      const value = Number(geometry[name]);
+      return Number.isFinite(value) ? Math.trunc(value) : 0;
+    }
+    return {
+      x: coordinate('x'),
+      y: coordinate('y'),
+      width: coordinate('width'),
+      height: coordinate('height')
+    };
+  }
+
+  function queueHbbtvMediaTransition(sequence, action) {
+    state.hbbtvMediaSwitchTail = Promise.resolve(state.hbbtvMediaSwitchTail)
+      .catch(function() {})
+      .then(function() {
+        if (!state.active || sequence !== state.hbbtvSessionSequence ||
+            !hbbtvSessionId()) return null;
+        return action();
+      });
+    return state.hbbtvMediaSwitchTail;
+  }
+
+  function clearHbbtvMediaTracking() {
+    state.hbbtvMediaRevision = 0;
+    state.hbbtvMediaSessionId = '';
+    state.hbbtvMediaState = 'none';
+    state.hbbtvMediaFullscreen = true;
+    state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
+  }
+
+  function restoreBroadcastAfterHbbtv(sequence) {
+    const playback = hbbtvPlaybackController();
+    clearHbbtvMediaTracking();
+    if (!playback || typeof playback.restoreBroadcastStream !== 'function') {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(playback.restoreBroadcastStream()).then(function() {
+      if (sequence === state.hbbtvSessionSequence) alignHbbtvCanvas();
+      return true;
+    });
+  }
+
+  function stopHbbtvMediaPlayback(sequence, notifyServer, restoreBroadcast) {
+    const sessionId = hbbtvSessionId();
+    const backendId = hbbtvSessionBackendId();
+    const client = clientApi();
+
+    return queueHbbtvMediaTransition(sequence, function() {
+      let stopRequest = Promise.resolve(null);
+      if (notifyServer && sessionId && client &&
+          typeof client.mutateClientHbbtvMedia === 'function') {
+        stopRequest = client.mutateClientHbbtvMedia({
+          payload: {
+            backendId: backendId,
+            sessionId: sessionId,
+            operation: 'stop'
+          },
+          cache: 'no-store',
+          credentials: 'same-origin'
+        }).catch(function(error) {
+          if (sequence === state.hbbtvSessionSequence) {
+            state.hbbtvMediaError =
+              error && error.message
+                ? error.message
+                : 'HbbTV-Medienwiedergabe konnte nicht beendet werden.';
+          }
+          return null;
+        });
+      }
+
+      return Promise.resolve(stopRequest).then(function() {
+        if (sequence !== state.hbbtvSessionSequence) return false;
+        if (!restoreBroadcast) {
+          const playback = hbbtvPlaybackController();
+          if (playback && typeof playback.releaseExternalStream === 'function') {
+            playback.releaseExternalStream();
+          }
+          clearHbbtvMediaTracking();
+          return true;
+        }
+        return restoreBroadcastAfterHbbtv(sequence);
+      });
+    });
+  }
+
+  function startHbbtvMediaPlayback(media, sequence) {
+    const revision = Number(media && media.mediaRevision);
+    const mediaState = text(media && media.state).toLowerCase();
+    const playback = hbbtvPlaybackController();
+    const client = clientApi();
+
+    if (!Number.isSafeInteger(revision) || revision <= 0 ||
+        (mediaState !== 'streaming' && mediaState !== 'paused')) {
+      return Promise.resolve(false);
+    }
+
+    state.hbbtvMediaFullscreen = media && media.fullscreen !== false;
+    state.hbbtvMediaGeometry = normalizedHbbtvMediaGeometry(media);
+
+    if (state.hbbtvMediaRevision === revision &&
+        state.hbbtvMediaSessionId) {
+      state.hbbtvMediaState = mediaState;
+      if (playback && typeof playback.setExternalPaused === 'function') {
+        playback.setExternalPaused(mediaState === 'paused');
+      }
+      return Promise.resolve(true);
+    }
+
+    if (!client || typeof client.mutateClientHbbtvMedia !== 'function' ||
+        !playback || typeof playback.switchToExternalStream !== 'function') {
+      state.hbbtvMediaError =
+        'HbbTV Medienwiedergabe ist im Live-TV-Player nicht verfügbar.';
+      updateHbbtvSessionUi();
+      return Promise.resolve(false);
+    }
+
+    return queueHbbtvMediaTransition(sequence, function() {
+      return client.mutateClientHbbtvMedia({
+        payload: {
+          backendId: hbbtvSessionBackendId(),
+          sessionId: hbbtvSessionId(),
+          operation: 'start',
+          mediaRevision: revision
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      }).then(function(result) {
+        if (!state.active || sequence !== state.hbbtvSessionSequence) {
+          return false;
+        }
+
+        const mediaSession = result && result.mediaSession;
+        const mediaSessionId = text(mediaSession && mediaSession.id);
+        const responseRevision = Number(mediaSession && mediaSession.mediaRevision);
+        const mediaPath = text(mediaSession && mediaSession.mediaPath);
+        if (!mediaSessionId ||
+            !mediaSession ||
+            mediaSession.resourceKind !== 'hbbtv-media' ||
+            mediaSession.state !== 'ready' ||
+            responseRevision !== revision ||
+            !mediaPath) {
+          throw new Error('hbbtv_media_session_response_invalid');
+        }
+
+        // Mark this provider revision as consumed before touching the browser
+        // transport. The provider socket is single-consumer; retrying the same
+        // revision after a browser attach failure would be incorrect.
+        state.hbbtvMediaRevision = revision;
+        state.hbbtvMediaSessionId = mediaSessionId;
+        state.hbbtvMediaState = mediaState;
+        state.hbbtvMediaFullscreen = mediaSession.fullscreen !== false;
+        state.hbbtvMediaGeometry =
+          normalizedHbbtvMediaGeometry(mediaSession);
+
+        return Promise.resolve(playback.switchToExternalStream(
+          mediaPath,
+          {
+            label: 'HbbTV-Medium',
+            paused: mediaState === 'paused'
+          }
+        )).then(function(switched) {
+          if (!switched) throw new Error('hbbtv_media_player_switch_failed');
+          state.hbbtvMediaError = '';
+          alignHbbtvCanvas();
+          updateHbbtvSessionUi();
+          return true;
+        });
+      }).catch(function(error) {
+        if (sequence === state.hbbtvSessionSequence) {
+          state.hbbtvMediaError =
+            error && error.message
+              ? error.message
+              : 'HbbTV-Medienwiedergabe konnte nicht gestartet werden.';
+          updateHbbtvSessionUi();
+        }
+        return false;
+      });
+    });
+  }
+
+  function scheduleHbbtvMedia(sequence, delay) {
+    clearHbbtvTimer('hbbtvMediaTimer');
+    if (!state.active || sequence !== state.hbbtvSessionSequence ||
+        !hbbtvSessionId() || typeof global.setTimeout !== 'function') return;
+
+    state.hbbtvMediaTimer = global.setTimeout(function() {
+      pollHbbtvMedia(sequence);
+    }, Math.max(0, Number(delay) || 0));
+  }
+
+  function pollHbbtvMedia(sequence) {
+    if (!state.active || sequence !== state.hbbtvSessionSequence ||
+        !hbbtvSessionId()) return Promise.resolve(null);
+
+    const client = clientApi();
+    if (!client || typeof client.fetchClientHbbtvMedia !== 'function') {
+      state.hbbtvMediaError = 'HbbTV Medienstatus ist nicht verfügbar.';
+      updateHbbtvSessionUi();
+      return Promise.resolve(null);
+    }
+
+    const expectedSessionId = hbbtvSessionId();
+    const expectedBackendId = hbbtvSessionBackendId();
+
+    return client.fetchClientHbbtvMedia({
+      query: {
+        backend: expectedBackendId,
+        session: expectedSessionId
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function(media) {
+      if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (!media ||
+          text(media.sessionId) !== expectedSessionId ||
+          text(media.backendId) !== expectedBackendId) {
+        throw new Error('hbbtv_media_identity_mismatch');
+      }
+
+      const mediaState = text(media.state).toLowerCase();
+      const revision = Number(media.mediaRevision);
+
+      if (media.available === true &&
+          (mediaState === 'streaming' || mediaState === 'paused') &&
+          Number.isSafeInteger(revision) && revision > 0) {
+        return startHbbtvMediaPlayback(media, sequence);
+      }
+
+      if (mediaState === 'failed') {
+        state.hbbtvMediaError = 'HbbTV-Medienquelle ist fehlgeschlagen.';
+      }
+
+      if (state.hbbtvMediaRevision > 0 ||
+          state.hbbtvMediaSessionId) {
+        return stopHbbtvMediaPlayback(sequence, true, true);
+      }
+      return null;
+    }).then(function(result) {
+      if (state.active && sequence === state.hbbtvSessionSequence &&
+          hbbtvSessionId()) {
+        scheduleHbbtvMedia(
+          sequence,
+          doc && doc.hidden ? 1000 : 350
+        );
+      }
+      return result;
+    }).catch(function(error) {
+      if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      state.hbbtvMediaError =
+        error && error.message
+          ? error.message
+          : 'HbbTV Medienstatus konnte nicht geladen werden.';
+      updateHbbtvSessionUi();
+
+      if (error && (error.status === 403 ||
+                    error.status === 404 ||
+                    error.status === 409)) {
+        clearHbbtvTimer('hbbtvMediaTimer');
+        return null;
+      }
+
+      scheduleHbbtvMedia(sequence, 1000);
+      return null;
+    });
+  }
+
+  function startHbbtvMediaPolling(sequence) {
+    clearHbbtvTimer('hbbtvMediaTimer');
+    if (!hbbtvSessionId()) return;
+    scheduleHbbtvMedia(
+      sequence === undefined ? state.hbbtvSessionSequence : sequence,
+      0
+    );
+  }
+
   function scheduleHbbtvStatus(sequence, delay) {
     clearHbbtvTimer('hbbtvStatusTimer');
     if (!state.active || sequence !== state.hbbtvSessionSequence ||
@@ -733,19 +1035,26 @@
 
       const currentState = hbbtvSessionState();
       if (currentState === 'closed') {
-        resetHbbtvSessionState();
-        return session;
+        return stopHbbtvMediaPlayback(sequence, false, true).then(function() {
+          if (sequence === state.hbbtvSessionSequence) {
+            resetHbbtvSessionState();
+          }
+          return session;
+        });
       }
       if (currentState === 'failed' ||
           currentState === 'expired' ||
           currentState === 'suspended') {
         clearHbbtvTimer('hbbtvPresentationTimer');
         clearHbbtvOverlay();
-        return session;
+        return stopHbbtvMediaPlayback(sequence, false, true).then(function() {
+          return session;
+        });
       }
 
       if (currentState === 'active') {
         startHbbtvPresentationPolling(sequence);
+        startHbbtvMediaPolling(sequence);
       }
       scheduleHbbtvStatus(
         sequence,
@@ -825,6 +1134,7 @@
       state.hbbtvSessionError = '';
       updateHbbtvSessionUi();
       startHbbtvPresentationPolling(sequence);
+      startHbbtvMediaPolling(sequence);
       startHbbtvStatusPolling(sequence);
       return session;
     }).catch(function(error) {
@@ -876,8 +1186,10 @@
       state.hbbtvSessionBusy = false;
       state.hbbtvSessionError = '';
       updateHbbtvSessionUi();
-      startHbbtvStatusPolling(sequence);
-      return true;
+      return stopHbbtvMediaPlayback(sequence, false, true).then(function() {
+        startHbbtvStatusPolling(sequence);
+        return true;
+      });
     }).catch(function(error) {
       if (sequence !== state.hbbtvSessionSequence) return false;
       state.hbbtvSessionBusy = false;
@@ -892,7 +1204,11 @@
     const sessionId = hbbtvSessionId();
     const backendId = hbbtvSessionBackendId();
     const client = clientApi();
+    const playback = hbbtvPlaybackController();
 
+    if (playback && typeof playback.releaseExternalStream === 'function') {
+      playback.releaseExternalStream();
+    }
     resetHbbtvSessionState();
     if (!sessionId || !client ||
         typeof client.fetchClientHbbtvSessionClose !== 'function') {
@@ -1335,6 +1651,7 @@
       state.hbbtvFrameRevision = 0;
       const sequence = state.hbbtvSessionSequence;
       startHbbtvPresentationPolling(sequence);
+      startHbbtvMediaPolling(sequence);
       startHbbtvStatusPolling(sequence);
       alignHbbtvCanvas();
     }
@@ -1586,6 +1903,7 @@
     if (hbbtvSessionId() &&
         text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
       startHbbtvPresentationPolling(state.hbbtvSessionSequence);
+      startHbbtvMediaPolling(state.hbbtvSessionSequence);
       startHbbtvStatusPolling(state.hbbtvSessionSequence);
     }
     if (changedBackend || state.channels.length === 0) load();

@@ -91,6 +91,7 @@ test-phase67-hbbtv-media-session-runtime:
 		-Icore/vdr/include \
 		core/sqlite/src/Database.cpp \
 		core/media/src/MediaTranscodePolicy.cpp \
+		core/media/src/FfmpegLiveStreamCommandBuilder.cpp \
 		core/media/src/MediaProcessRunner.cpp \
 		core/media/src/MediaSessionWorkspace.cpp \
 		core/media/src/MediaSessionRepository.cpp \
@@ -117,6 +118,7 @@ test-phase67-hbbtv-frontend:
 	node web/frontend/tests/test_phase67_hbbtv_qoi.js
 	node web/frontend/tests/test_phase67_hbbtv_browser_transport.js
 	node web/frontend/tests/test_phase67_hbbtv_overlay.js
+	node web/frontend/tests/test_live_tv_playback.js
 	python3 tools/check_phase67_hbbtv_overlay_frontend.py
 	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend

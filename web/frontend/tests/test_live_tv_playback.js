@@ -253,6 +253,10 @@ assert.strictEqual(
   assert.ok(playback.element);
   assert.strictEqual(typeof playback.start, 'function');
   assert.strictEqual(typeof playback.relinquishForReplacement, 'function');
+  assert.strictEqual(typeof playback.switchToExternalStream, 'function');
+  assert.strictEqual(typeof playback.restoreBroadcastStream, 'function');
+  assert.strictEqual(typeof playback.releaseExternalStream, 'function');
+  assert.strictEqual(typeof playback.setExternalPaused, 'function');
 
   const sessionId = await playback.start();
   assert.strictEqual(sessionId, 'live_session_test');
@@ -414,6 +418,61 @@ assert.strictEqual(
     const body = JSON.parse(entry.options.body);
     return body.operation === 'stop' && body.sessionId === 'live_session_test';
   }));
+
+
+  // HbbTV broadband media reuses the exact same HTMLMediaElement. Entering the
+  // external stream explicitly closes the current Broadcast MediaSession;
+  // leaving it creates a fresh Broadcast session on the same channel.
+  requests.length = 0;
+  videos.length = 0;
+  const hbbtvSwitchPlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10354', name: 'HbbTV Switch'},
+    'living-room',
+    {}
+  );
+  assert.strictEqual(await hbbtvSwitchPlayback.start(), 'live_session_test');
+  assert.strictEqual(videos.length, 1);
+  const persistentVideo = videos[0];
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.switchToExternalStream(
+      '/api/media/sessions/hbbtv_media_session/live/stream.mp4',
+      {label: 'HbbTV-Medium', paused: false}
+    ),
+    true
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'external');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/hbbtv_media_session/live/stream.mp4'
+  );
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' &&
+      body.resourceKind === 'live-channel' &&
+      body.sessionId === 'live_session_test';
+  }));
+
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(true), true);
+  assert.strictEqual(persistentVideo.paused, true);
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(false), true);
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.restoreBroadcastStream(),
+    'live_session_test'
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+  );
+  hbbtvSwitchPlayback.destroy();
 
   // Android Chromium demonstrated that native <video src=stream.mp4> can route
   // open-ended fMP4 through Android MediaExtractor and fail with

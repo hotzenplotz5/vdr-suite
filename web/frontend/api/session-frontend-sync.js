@@ -889,22 +889,32 @@
 
     let destroyed = false;
     let started = false;
-    let stopIssued = false;
     let playbackFailed = false;
     let activeSessionId = '';
     let continuousTransport = null;
     let sessionCreationPromise = Promise.resolve('');
+    let sourceSwitchPromise = Promise.resolve(true);
+    let sourceMode = 'broadcast';
+    const stoppedSessions = Object.create(null);
 
     function setStatus(message, error) {
       status.textContent = message;
       status.classList.toggle('error', Boolean(error));
     }
 
+    function stopBroadcastSession(sessionId, keepalive) {
+      const id = safeSessionId(sessionId);
+      if (!id || stoppedSessions[id]) return Promise.resolve(null);
+      stoppedSessions[id] = true;
+      if (activeSessionId === id) activeSessionId = '';
+      const request = stopLiveSession(backendId, id, keepalive);
+      return request && typeof request.then === 'function'
+        ? request.catch(function () { return null; })
+        : Promise.resolve(request || null);
+    }
+
     function stopActive(keepalive) {
-      if (stopIssued || !activeSessionId) return;
-      stopIssued = true;
-      const request = stopLiveSession(backendId, activeSessionId, keepalive);
-      if (request && typeof request.catch === 'function') request.catch(function () {});
+      return stopBroadcastSession(activeSessionId, keepalive);
     }
 
     function releaseVideo() {
@@ -919,8 +929,49 @@
       } catch (error) {}
     }
 
+    function externalFailure(error) {
+      if (destroyed || sourceMode !== 'external') return;
+      setStatus(
+        error && error.message
+          ? 'HbbTV-Medium konnte nicht wiedergegeben werden: ' + error.message
+          : 'HbbTV-Medium konnte nicht wiedergegeben werden.',
+        true
+      );
+    }
+
+    function connectMediaPath(mediaPath, label, autoPlay, onFailure) {
+      releaseVideo();
+      const shouldAutoPlay = autoPlay !== false;
+      continuousTransport = createContinuousFmp4Mse(
+        video,
+        mediaPath,
+        onFailure,
+        shouldAutoPlay
+      );
+
+      let playRequest = null;
+      if (continuousTransport) {
+        playRequest = continuousTransport.playRequest;
+        setStatus(
+          label + ' verbunden · Browser-MSE wartet auf ersten Frame …',
+          false
+        );
+      }
+      else {
+        video.src = mediaPath;
+        video.hidden = false;
+        if (typeof video.load === 'function') video.load();
+        setStatus(
+          label + ' verbunden · warte auf ersten decodierbaren Frame …',
+          false
+        );
+        playRequest = shouldAutoPlay ? video.play() : null;
+      }
+      return playRequest;
+    }
+
     function failPlayback(error) {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || sourceMode !== 'broadcast') return;
       playbackFailed = true;
       if (continuousTransport) {
         continuousTransport.destroy();
@@ -935,41 +986,41 @@
       );
     }
 
-    function pageHide() {
-      if (!destroyed) stopActive(true);
-    }
-
-    function startPlayback() {
-      if (started || destroyed) return sessionCreationPromise;
-      started = true;
+    function openBroadcastSession(replacesSessionId) {
+      if (destroyed) return Promise.resolve('');
+      sourceMode = 'broadcast';
+      playbackFailed = false;
       setStatus('Live-Receiver wird geöffnet …', false);
 
-      const promise = createLiveSession(backendId, channel, replacement).then(function (session) {
-        if (destroyed) return '';
+      const promise = createLiveSession(
+        backendId,
+        channel,
+        replacesSessionId || ''
+      ).then(function (session) {
         const mediaSession = session && session.mediaSession;
         const id = safeSessionId(mediaSession && mediaSession.id);
-        const mediaPath = publicLiveMediaPath(mediaSession && mediaSession.mediaPath);
+        const mediaPath = publicLiveMediaPath(
+          mediaSession && mediaSession.mediaPath
+        );
         if (!id || !mediaPath || !mediaSession || mediaSession.state !== 'ready') {
-          throw new Error('Live-MediaSession wurde nicht direkt wiedergabebereit bereitgestellt.');
+          throw new Error(
+            'Live-MediaSession wurde nicht direkt wiedergabebereit bereitgestellt.'
+          );
         }
+
+        if (destroyed || sourceMode !== 'broadcast') {
+          stopBroadcastSession(id, false);
+          return '';
+        }
+
+        delete stoppedSessions[id];
         activeSessionId = id;
-
-        continuousTransport = createContinuousFmp4Mse(video, mediaPath, function (error) {
-          failPlayback(error);
-        });
-
-        let playRequest = null;
-        if (continuousTransport) {
-          playRequest = continuousTransport.playRequest;
-          setStatus('Direktstream verbunden · Browser-MSE wartet auf ersten Frame …', false);
-        }
-        else {
-          video.src = mediaPath;
-          video.hidden = false;
-          if (typeof video.load === 'function') video.load();
-          setStatus('Direktstream verbunden · warte auf ersten decodierbaren Frame …', false);
-          playRequest = video.play();
-        }
+        const playRequest = connectMediaPath(
+          mediaPath,
+          'Direktstream',
+          true,
+          function (error) { failPlayback(error); }
+        );
 
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function (error) {
@@ -977,19 +1028,128 @@
               failPlayback(error);
               return;
             }
-            if (!destroyed && !playbackFailed) {
-              setStatus('Direktstream bereit · Wiedergabe über Player starten.', false);
+            if (!destroyed && !playbackFailed && sourceMode === 'broadcast') {
+              setStatus(
+                'Direktstream bereit · Wiedergabe über Player starten.',
+                false
+              );
             }
           });
         }
         return id;
       }).catch(function (error) {
-        if (!destroyed) failPlayback(error);
+        if (!destroyed && sourceMode === 'broadcast') failPlayback(error);
         return '';
       });
 
       sessionCreationPromise = promise;
       return promise;
+    }
+
+    function pageHide() {
+      if (!destroyed && sourceMode === 'broadcast') stopActive(true);
+    }
+
+    function startPlayback() {
+      if (destroyed) return Promise.resolve('');
+      if (started) return sessionCreationPromise;
+      started = true;
+      return openBroadcastSession(replacement);
+    }
+
+    function switchToExternalStream(mediaPath, options) {
+      const settings =
+        options && typeof options === 'object' ? options : {};
+      const path = publicLiveMediaPath(mediaPath);
+      if (!path) {
+        return Promise.reject(
+          new Error('Ungültiger HbbTV-MediaSession-Pfad.')
+        );
+      }
+
+      sourceSwitchPromise = Promise.resolve(sourceSwitchPromise)
+        .catch(function () { return false; })
+        .then(function () {
+          return Promise.resolve(sessionCreationPromise)
+            .catch(function () { return ''; });
+        })
+        .then(function () {
+          if (destroyed) return false;
+          const stopping = sourceMode === 'broadcast'
+            ? stopActive(false)
+            : Promise.resolve(null);
+          return Promise.resolve(stopping).then(function () {
+            if (destroyed) return false;
+            sourceMode = 'external';
+            playbackFailed = false;
+            const playRequest = connectMediaPath(
+              path,
+              text(settings.label || 'HbbTV-Medium'),
+              settings.paused !== true,
+              externalFailure
+            );
+            if (playRequest && typeof playRequest.catch === 'function') {
+              playRequest.catch(function (error) {
+                if (error && error.name === 'NotSupportedError') {
+                  externalFailure(error);
+                  return;
+                }
+                if (!destroyed && sourceMode === 'external') {
+                  setStatus(
+                    'HbbTV-Medium bereit · Wiedergabe über Player starten.',
+                    false
+                  );
+                }
+              });
+            }
+            return true;
+          });
+        });
+      return sourceSwitchPromise;
+    }
+
+    function restoreBroadcastStream() {
+      sourceSwitchPromise = Promise.resolve(sourceSwitchPromise)
+        .catch(function () { return false; })
+        .then(function () {
+          if (destroyed) return '';
+          if (sourceMode === 'broadcast' && activeSessionId) {
+            return activeSessionId;
+          }
+          releaseVideo();
+          sourceMode = 'broadcast';
+          playbackFailed = false;
+          return openBroadcastSession('');
+        });
+      return sourceSwitchPromise;
+    }
+
+    function releaseExternalStream() {
+      if (destroyed || sourceMode !== 'external') return false;
+      releaseVideo();
+      sourceMode = 'external-released';
+      setStatus('HbbTV-Medium beendet.', false);
+      return true;
+    }
+
+    function setExternalPaused(paused) {
+      if (destroyed || sourceMode !== 'external') return false;
+      if (paused) {
+        try { video.pause(); } catch (error) { return false; }
+        setStatus('HbbTV-Medium pausiert.', false);
+        return true;
+      }
+
+      const request = video.play();
+      if (request && typeof request.catch === 'function') {
+        request.catch(function (error) {
+          if (!destroyed && sourceMode === 'external') {
+            externalFailure(error);
+          }
+        });
+      }
+      setStatus('HbbTV-Medium läuft.', false);
+      return true;
     }
 
     function destroy() {
@@ -998,7 +1158,7 @@
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
       }
-      stopActive(false);
+      if (sourceMode === 'broadcast') stopActive(false);
       releaseVideo();
     }
 
@@ -1007,35 +1167,69 @@
         destroy();
         return Promise.resolve('');
       }
-      return sessionCreationPromise.catch(function () { return ''; }).then(function (sessionId) {
-        const id = safeSessionId(sessionId);
-        if (!id) {
-          destroy();
-          return '';
-        }
-        stopIssued = true;
-        destroyed = true;
-        if (typeof global.removeEventListener === 'function') {
-          global.removeEventListener('pagehide', pageHide);
-        }
-        releaseVideo();
-        return id;
-      });
+
+      return Promise.resolve(sourceSwitchPromise)
+        .catch(function () { return false; })
+        .then(function () {
+          return Promise.resolve(sessionCreationPromise)
+            .catch(function () { return ''; });
+        })
+        .then(function () {
+          const id =
+            sourceMode === 'broadcast'
+              ? safeSessionId(activeSessionId)
+              : '';
+          destroyed = true;
+          if (typeof global.removeEventListener === 'function') {
+            global.removeEventListener('pagehide', pageHide);
+          }
+          if (id) {
+            stoppedSessions[id] = true;
+            activeSessionId = '';
+          }
+          releaseVideo();
+          return id;
+        });
     }
 
     video.addEventListener('playing', function () {
-      if (!destroyed && !playbackFailed) setStatus('Live-TV läuft.', false);
+      if (destroyed || playbackFailed) return;
+      setStatus(
+        sourceMode === 'external'
+          ? 'HbbTV-Medium läuft.'
+          : 'Live-TV läuft.',
+        false
+      );
     });
     video.addEventListener('waiting', function () {
-      if (!destroyed && !playbackFailed) setStatus('Live-TV wartet auf Daten …', false);
+      if (destroyed || playbackFailed) return;
+      setStatus(
+        sourceMode === 'external'
+          ? 'HbbTV-Medium wartet auf Daten …'
+          : 'Live-TV wartet auf Daten …',
+        false
+      );
     });
     video.addEventListener('error', function () {
-      if (!destroyed && !playbackFailed) {
-        const mediaError = video.error;
-        const detail = mediaError && mediaError.message ? ': ' + mediaError.message : '';
-        failPlayback(new Error('Browser konnte den Live-Stream nicht wiedergeben' + detail));
+      if (destroyed || playbackFailed) return;
+      const mediaError = video.error;
+      const detail =
+        mediaError && mediaError.message ? ': ' + mediaError.message : '';
+      if (sourceMode === 'external') {
+        externalFailure(
+          new Error(
+            'Browser konnte das HbbTV-Medium nicht wiedergeben' + detail
+          )
+        );
+        return;
       }
+      failPlayback(
+        new Error(
+          'Browser konnte den Live-Stream nicht wiedergeben' + detail
+        )
+      );
     });
+
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', pageHide);
     }
@@ -1045,6 +1239,11 @@
       destroy: destroy,
       start: startPlayback,
       sessionId: function () { return activeSessionId; },
+      sourceMode: function () { return sourceMode; },
+      switchToExternalStream: switchToExternalStream,
+      restoreBroadcastStream: restoreBroadcastStream,
+      releaseExternalStream: releaseExternalStream,
+      setExternalPaused: setExternalPaused,
       relinquishForReplacement: relinquishForReplacement
     });
   }

@@ -14,6 +14,7 @@ for (const token of [
   'function fetchClientHbbtvSessionInput(options)',
   'function fetchClientHbbtvSessionClose(options)',
   'function fetchClientHbbtvMedia(options)',
+  'function mutateClientHbbtvMedia(options)',
   "'/api/vdr/broadcast/hbbtv/sessions/media'",
   'function fetchClientHbbtvPresentation(options)',
   "'/api/vdr/broadcast/hbbtv/sessions/presentation'",
