@@ -7,6 +7,7 @@
 #include "HbbtvApiRuntime.h"
 #include "HbbtvApplicationSessionService.h"
 #include "HbbtvControlPlaneReadService.h"
+#include "SecurityConfiguration.h"
 #include "SecurityPermissionGrantRepository.h"
 
 #include <cstdlib>
@@ -83,6 +84,8 @@ bool configureDaemonHbbtvRuntime(
     }
 
     SecurityPermissionGrantRepository* grants = grantRepository.get();
+    const SecurityConfiguration securityConfiguration =
+        SecurityConfiguration::fromEnvironment();
 
     auto sessionService =
         std::make_unique<HbbtvApplicationSessionService>(
@@ -99,7 +102,7 @@ bool configureDaemonHbbtvRuntime(
                 }
                 return nullptr;
             },
-            [grants](
+            [grants, securityConfiguration](
                 const std::string& permission,
                 const std::string& actorId,
                 const std::string& backendId) {
@@ -110,7 +113,38 @@ bool configureDaemonHbbtvRuntime(
 
                 const SecurityPermissionGrantResolution resolution =
                     grants->findActiveGrantsForActor(actorId);
-                if (!resolution.available)
+
+                std::vector<PermissionGrant> effectiveGrants;
+                if (resolution.available)
+                {
+                    effectiveGrants = resolution.grants;
+                }
+
+                bool grantSourceAvailable = resolution.available;
+
+                if (securityConfiguration.mode ==
+                        SecurityMode::LegacyBasicCompatibility &&
+                    !securityConfiguration.expectedAuthorizationHeader.empty() &&
+                    actorId == securityConfiguration.actorId)
+                {
+                    effectiveGrants.insert(
+                        effectiveGrants.end(),
+                        securityConfiguration.grants.begin(),
+                        securityConfiguration.grants.end());
+                    grantSourceAvailable = true;
+                }
+
+                if (securityConfiguration.managedBasic.hasAnyConfiguration() &&
+                    actorId == securityConfiguration.managedBasic.actorId)
+                {
+                    effectiveGrants.insert(
+                        effectiveGrants.end(),
+                        securityConfiguration.managedBasic.grants.begin(),
+                        securityConfiguration.managedBasic.grants.end());
+                    grantSourceAvailable = true;
+                }
+
+                if (!grantSourceAvailable)
                 {
                     return false;
                 }
@@ -121,7 +155,7 @@ bool configureDaemonHbbtvRuntime(
                 context.actor.actorId = actorId;
                 context.actor.type = ActorType::User;
                 context.actor.active = true;
-                context.grants = resolution.grants;
+                context.grants = std::move(effectiveGrants);
                 context.permissionGrantResolution =
                     PermissionGrantResolutionState::Resolved;
 

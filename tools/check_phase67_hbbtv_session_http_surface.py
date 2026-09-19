@@ -26,6 +26,9 @@ required = (
     (http, "hbbtvClientContext(gate.context)"),
     (http, "gate.context.correlationId"),
     (daemon, "findActiveGrantsForActor(actorId)"),
+    (daemon, "SecurityConfiguration::fromEnvironment()"),
+    (daemon, "securityConfiguration.grants.begin()"),
+    (daemon, "securityConfiguration.managedBasic.grants.begin()"),
     (daemon, "AuthorizationService().authorize("),
 )
 
