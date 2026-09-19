@@ -98,13 +98,17 @@ for forbidden in (
         errors.append(f"http: provider/browser detail leaked: {forbidden}")
 
 for forbidden in (
-    "fetchClientHbbtvLaunch",
-    "launchHbbtv",
-    "startHbbtv",
     "HBBAPPS",
+    "HBBRUN",
+    "HBBPRES",
+    "LoadUrl",
+    "ProcessKey",
+    "executeJavascript",
+    "VK_LEFT",
+    "VK_ENTER",
 ):
     if forbidden in live:
-        errors.append(f"frontend: discovery slice gained launch authority: {forbidden}")
+        errors.append(f"frontend: private provider detail leaked: {forbidden}")
 
 if errors:
     raise SystemExit("\n".join(errors))

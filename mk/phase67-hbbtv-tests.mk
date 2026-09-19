@@ -84,8 +84,11 @@ test-phase67-hbbtv-public-surface:
 
 test-phase67-hbbtv-frontend:
 	node --check web/frontend/api/client-api.js
+	node --check web/frontend/hbbtv-qoi.js
 	node --check web/frontend/live-tv-view.js
 	node web/frontend/tests/test_phase67_hbbtv_discovery.js
+	node web/frontend/tests/test_phase67_hbbtv_qoi.js
+	node web/frontend/tests/test_phase67_hbbtv_browser_transport.js
 	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend
 
