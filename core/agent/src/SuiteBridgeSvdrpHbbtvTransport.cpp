@@ -129,4 +129,42 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::controlHbbtv(
     return toHbbtvReply(executeRequest(wire.str()));
 }
 
+SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvPresentation(
+    const SuiteBridgeHbbtvPresentationRequest& request)
+{
+    SuiteBridgeHbbtvCommandReply rejected;
+    if (!safeHbbtvToken(request.sessionId, 128))
+    {
+        return rejected;
+    }
+
+    std::ostringstream wire;
+    if (request.operation == SuiteBridgeHbbtvPresentationOperation::Meta)
+    {
+        if (request.frameRevision != 0 || request.offset != 0)
+        {
+            return rejected;
+        }
+        wire << "PLUG suitebridge HBBPRES META 1 "
+             << request.sessionId << "\r\n";
+    }
+    else if (request.operation == SuiteBridgeHbbtvPresentationOperation::Chunk)
+    {
+        if (request.frameRevision == 0)
+        {
+            return rejected;
+        }
+        wire << "PLUG suitebridge HBBPRES CHUNK 1 "
+             << request.sessionId << ' '
+             << request.frameRevision << ' '
+             << request.offset << "\r\n";
+    }
+    else
+    {
+        return rejected;
+    }
+
+    return toHbbtvReply(executeRequest(wire.str()));
+}
+
 } // namespace vdrsuite::agent

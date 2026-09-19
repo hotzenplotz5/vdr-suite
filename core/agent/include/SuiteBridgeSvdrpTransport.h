@@ -92,6 +92,9 @@ public:
     ::SuiteBridgeHbbtvCommandReply controlHbbtv(
         const ::SuiteBridgeHbbtvRuntimeRequest& request) override;
 
+    ::SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
+        const ::SuiteBridgeHbbtvPresentationRequest& request) override;
+
     ::SuiteBridgeTeletextCommandReply discoverTeletext() override;
 
     ::SuiteBridgeTeletextCommandReply requestTeletextPage(

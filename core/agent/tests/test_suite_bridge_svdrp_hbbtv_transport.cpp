@@ -208,7 +208,73 @@ int main()
     }
 
     {
+        Server server(
+            "250 {\"schemaVersion\":1,"
+            "\"provider\":\"vdr-plugin-web\","
+            "\"providerSchemaVersion\":1,"
+            "\"capability\":\"broadcast.hbbtv.presentation\","
+            "\"operation\":\"meta\","
+            "\"result\":\"ok\",\"resultCode\":0,"
+            "\"sessionId\":\"session-a\","
+            "\"frameRevision\":9,"
+            "\"observedAt\":1789671111,"
+            "\"renderWidth\":1280,\"renderHeight\":720,"
+            "\"encodedBytes\":4,\"returnedBytes\":0}\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+
+        SuiteBridgeHbbtvPresentationRequest request;
+        request.operation = SuiteBridgeHbbtvPresentationOperation::Meta;
+        request.sessionId = "session-a";
+
+        const SuiteBridgeHbbtvCommandReply reply =
+            transport.readHbbtvPresentation(request);
+
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(server.request() ==
+            "PLUG suitebridge HBBPRES META 1 session-a\r\n");
+    }
+
+    {
+        Server server(
+            "250 {\"schemaVersion\":1,"
+            "\"provider\":\"vdr-plugin-web\","
+            "\"providerSchemaVersion\":1,"
+            "\"capability\":\"broadcast.hbbtv.presentation\","
+            "\"operation\":\"chunk\","
+            "\"result\":\"ok\",\"resultCode\":0,"
+            "\"sessionId\":\"session-a\","
+            "\"frameRevision\":9,"
+            "\"observedAt\":1789671111,"
+            "\"renderWidth\":1280,\"renderHeight\":720,"
+            "\"encodedBytes\":4,\"returnedBytes\":4,"
+            "\"dataBase64\":\"cW9pZg==\"}\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+
+        SuiteBridgeHbbtvPresentationRequest request;
+        request.operation = SuiteBridgeHbbtvPresentationOperation::Chunk;
+        request.sessionId = "session-a";
+        request.frameRevision = 9;
+        request.offset = 0;
+
+        const SuiteBridgeHbbtvCommandReply reply =
+            transport.readHbbtvPresentation(request);
+
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(server.request() ==
+            "PLUG suitebridge HBBPRES CHUNK 1 session-a 9 0\r\n");
+    }
+
+    {
         SuiteBridgeSvdrpTransport transport;
+
+        SuiteBridgeHbbtvPresentationRequest invalidPresentation;
+        invalidPresentation.operation =
+            SuiteBridgeHbbtvPresentationOperation::Chunk;
+        invalidPresentation.sessionId = "session-a";
+        assert(!transport.readHbbtvPresentation(
+            invalidPresentation).transportSucceeded);
 
         SuiteBridgeHbbtvRuntimeRequest invalid;
         invalid.operation = SuiteBridgeHbbtvRuntimeOperation::Launch;

@@ -48,6 +48,21 @@ enum class SuiteBridgeHbbtvInputAction
     Rewind
 };
 
+enum class SuiteBridgeHbbtvPresentationOperation
+{
+    Meta,
+    Chunk
+};
+
+struct SuiteBridgeHbbtvPresentationRequest
+{
+    SuiteBridgeHbbtvPresentationOperation operation =
+        SuiteBridgeHbbtvPresentationOperation::Meta;
+    std::string sessionId;
+    std::uint64_t frameRevision = 0;
+    std::uint32_t offset = 0;
+};
+
 struct SuiteBridgeHbbtvRuntimeRequest
 {
     SuiteBridgeHbbtvRuntimeOperation operation =
@@ -70,6 +85,12 @@ public:
 
     virtual SuiteBridgeHbbtvCommandReply controlHbbtv(
         const SuiteBridgeHbbtvRuntimeRequest&)
+    {
+        return {};
+    }
+
+    virtual SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
+        const SuiteBridgeHbbtvPresentationRequest&)
     {
         return {};
     }
