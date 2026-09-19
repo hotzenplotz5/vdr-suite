@@ -25,7 +25,18 @@ public:
         std::int64_t now) const = 0;
 };
 
-class HbbtvControlPlaneReadService
+class IHbbtvApplicationDiscoveryService
+{
+public:
+    virtual ~IHbbtvApplicationDiscoveryService() = default;
+
+    virtual BroadcastApplicationDiscoverySnapshot discoverApplications(
+        const std::string& backendId,
+        const std::string& channelId) const = 0;
+};
+
+class HbbtvControlPlaneReadService final :
+    public IHbbtvApplicationDiscoveryService
 {
 public:
     using ResolverLookup =
@@ -41,7 +52,7 @@ public:
 
     BroadcastApplicationDiscoverySnapshot discoverApplications(
         const std::string& backendId,
-        const std::string& channelId) const;
+        const std::string& channelId) const override;
 
 private:
     struct FenceResult

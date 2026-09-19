@@ -332,9 +332,44 @@ const char* actionName(SuiteBridgeHbbtvInputAction action)
     return nullptr;
 }
 
+const char* resultName(std::uint64_t code)
+{
+    switch (code)
+    {
+        case 0: return "ok";
+        case 1: return "accepted";
+        case 2: return "invalid_request";
+        case 3: return "discovery_stale";
+        case 4: return "application_not_launchable";
+        case 5: return "busy";
+        case 6: return "session_not_active";
+        case 7: return "action_unsupported";
+        case 8: return "runtime_unavailable";
+    }
+    return nullptr;
+}
+
+const char* stateName(std::uint64_t code)
+{
+    switch (code)
+    {
+        case 0: return "none";
+        case 1: return "starting";
+        case 2: return "active";
+        case 3: return "closing";
+        case 4: return "failed";
+    }
+    return nullptr;
+}
+
 bool validResult(const RuntimeWire& wire)
 {
-    return wire.resultCode <= 8U && wire.stateCode <= 4U;
+    const char* expectedResult = resultName(wire.resultCode);
+    const char* expectedState = stateName(wire.stateCode);
+    return expectedResult != nullptr &&
+        expectedState != nullptr &&
+        wire.result == expectedResult &&
+        wire.state == expectedState;
 }
 
 } // namespace

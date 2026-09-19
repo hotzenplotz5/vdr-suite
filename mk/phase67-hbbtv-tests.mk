@@ -1,6 +1,9 @@
 .PHONY: test-phase67-hbbtv-suitebridge \
 	test-phase67-hbbtv-agent-transport \
 	test-phase67-hbbtv-resolver \
+	test-phase67-hbbtv-runtime-resolver \
+	test-phase67-hbbtv-session-service \
+	test-phase67-hbbtv-session-foundation \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-frontend \
@@ -28,6 +31,28 @@ test-phase67-hbbtv-resolver:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_resolver
 	$(BUILD_DIR)/test_suite_bridge_hbbtv_resolver
+
+test-phase67-hbbtv-runtime-resolver:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SuiteBridgeHbbtvRuntimeResolver.cpp \
+		core/vdr/tests/test_suite_bridge_hbbtv_runtime_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_runtime_resolver
+	$(BUILD_DIR)/test_suite_bridge_hbbtv_runtime_resolver
+
+test-phase67-hbbtv-session-service:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/daemon/src/HbbtvApplicationSessionService.cpp \
+		core/daemon/tests/test_hbbtv_application_session_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_hbbtv_application_session_service
+	$(BUILD_DIR)/test_hbbtv_application_session_service
+
+test-phase67-hbbtv-session-foundation: \
+	test-phase67-hbbtv-suitebridge \
+	test-phase67-hbbtv-agent-transport \
+	test-phase67-hbbtv-runtime-resolver \
+	test-phase67-hbbtv-session-service
 
 test-phase67-hbbtv-security:
 	$(MAKE) test-security-hbbtv-read

@@ -128,6 +128,19 @@ int main()
     assert(!rawKey.payloadValid);
     assert(rawKey.error == "hbbtv_runtime_action_mismatch");
 
+    transport.reply = launchReply();
+    const std::string acceptedCode = "\"resultCode\":1";
+    const std::size_t codePosition =
+        transport.reply.payload.find(acceptedCode);
+    assert(codePosition != std::string::npos);
+    transport.reply.payload.replace(
+        codePosition,
+        acceptedCode.size(),
+        "\"resultCode\":5");
+    const auto inconsistent = resolver.control(launchRequest());
+    assert(!inconsistent.payloadValid);
+    assert(inconsistent.error == "hbbtv_runtime_payload_invalid");
+
     transport.reply = {};
     const auto unavailable = resolver.control(launchRequest());
     assert(!unavailable.payloadValid);
