@@ -281,6 +281,31 @@ inline void appendStringProperty(
 
 }
 
+inline std::string VdrRecordingMetadataJsonSerializer::presentationTitle(
+    const VdrRecording& recording)
+{
+    return vdr_recording_metadata_json_detail::presentationTitle(recording);
+}
+
+inline std::string VdrRecordingMetadataJsonSerializer::presentationSubtitle(
+    const VdrRecording& recording)
+{
+    return vdr_recording_metadata_json_detail::presentationSubtitle(recording);
+}
+
+inline std::string VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
+    const VdrRecording& recording)
+{
+    const VdrRecordingArtworkRef* preferredArtwork =
+        VdrRecordingArtworkIdentity::preferredArtwork(recording);
+
+    return preferredArtwork == nullptr
+        ? vdr_recording_metadata_json_detail::nativeMetadataPreferredArtworkUrl(recording)
+        : VdrRecordingArtworkIdentity::publicUrl(
+            recording,
+            *preferredArtwork);
+}
+
 inline std::string VdrRecordingMetadataJsonSerializer::serialize(
     const VdrRecording& recording)
 {
@@ -298,13 +323,11 @@ inline std::string VdrRecordingMetadataJsonSerializer::serialize(
                 recording,
                 *preferredArtwork);
     const std::string preferredArtworkUrl =
-        preferredArtwork == nullptr
-            ? nativeMetadataPreferredArtworkUrl(recording)
-            : VdrRecordingArtworkIdentity::publicUrl(
-                recording,
-                *preferredArtwork);
-    const std::string title = presentationTitle(recording);
-    const std::string subtitle = presentationSubtitle(recording);
+        VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(recording);
+    const std::string title =
+        VdrRecordingMetadataJsonSerializer::presentationTitle(recording);
+    const std::string subtitle =
+        VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
     const std::string summary = presentationSummary(recording);
 
     std::ostringstream json;

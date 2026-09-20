@@ -293,12 +293,24 @@ std::string serializeContinueWatching(
                 *currentRecording,
                 manualAssignments);
 
+        const std::string currentTitle =
+            VdrRecordingMetadataJsonSerializer::presentationTitle(
+                *currentRecording);
+        const std::string currentSubtitle =
+            VdrRecordingMetadataJsonSerializer::presentationSubtitle(
+                *currentRecording);
+        const std::string currentPoster =
+            VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
+                *currentRecording);
+
         const std::string projectedTitle =
             manual != nullptr &&
             manual->relationshipLocked &&
             !manual->title.empty()
                 ? manual->title
-                : item.recording.title;
+                : (!currentTitle.empty()
+                    ? currentTitle
+                    : item.recording.title);
 
         const std::string manualPoster =
             manual != nullptr
@@ -308,9 +320,16 @@ std::string serializeContinueWatching(
                 : std::string{};
 
         const std::string projectedPoster =
-            manualPoster.empty()
-                ? item.recording.posterUrl
-                : manualPoster;
+            !manualPoster.empty()
+                ? manualPoster
+                : (!currentPoster.empty()
+                    ? currentPoster
+                    : item.recording.posterUrl);
+
+        const std::string projectedSubtitle =
+            !currentSubtitle.empty()
+                ? currentSubtitle
+                : item.recording.subtitle;
 
         if (!first) out << ',';
         first = false;
@@ -318,7 +337,7 @@ std::string serializeContinueWatching(
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
             << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
             << "\",\"title\":\"" << jsonEscape(projectedTitle)
-            << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
+            << "\",\"subtitle\":\"" << jsonEscape(projectedSubtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
@@ -360,12 +379,24 @@ std::string serializeRecentlyWatched(
                 *currentRecording,
                 manualAssignments);
 
+        const std::string currentTitle =
+            VdrRecordingMetadataJsonSerializer::presentationTitle(
+                *currentRecording);
+        const std::string currentSubtitle =
+            VdrRecordingMetadataJsonSerializer::presentationSubtitle(
+                *currentRecording);
+        const std::string currentPoster =
+            VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
+                *currentRecording);
+
         const std::string projectedTitle =
             manual != nullptr &&
             manual->relationshipLocked &&
             !manual->title.empty()
                 ? manual->title
-                : item.recording.title;
+                : (!currentTitle.empty()
+                    ? currentTitle
+                    : item.recording.title);
 
         const std::string manualPoster =
             manual != nullptr
@@ -375,9 +406,16 @@ std::string serializeRecentlyWatched(
                 : std::string{};
 
         const std::string projectedPoster =
-            manualPoster.empty()
-                ? item.recording.posterUrl
-                : manualPoster;
+            !manualPoster.empty()
+                ? manualPoster
+                : (!currentPoster.empty()
+                    ? currentPoster
+                    : item.recording.posterUrl);
+
+        const std::string projectedSubtitle =
+            !currentSubtitle.empty()
+                ? currentSubtitle
+                : item.recording.subtitle;
 
         if (!first) out << ',';
         first = false;
@@ -385,7 +423,7 @@ std::string serializeRecentlyWatched(
             << "\",\"recordingId\":\"" << jsonEscape(item.recording.recordingId)
             << "\",\"backendNativeId\":\"" << jsonEscape(item.recording.backendNativeId)
             << "\",\"title\":\"" << jsonEscape(projectedTitle)
-            << "\",\"subtitle\":\"" << jsonEscape(item.recording.subtitle)
+            << "\",\"subtitle\":\"" << jsonEscape(projectedSubtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"positionKnown\":" << (item.positionKnown ? "true" : "false")
             << ",\"positionSeconds\":" << item.positionSeconds
@@ -435,12 +473,15 @@ bool ContinueWatchingApiRuntime::configure(
                 truth.backendId = recording.backendId;
                 truth.recordingId = recording.id;
                 truth.backendNativeId = recording.backendNativeId;
-                truth.title = recording.title;
-                const VdrRecordingArtworkRef* preferredArtwork =
-                    VdrRecordingArtworkIdentity::preferredArtwork(recording);
-                if (preferredArtwork != nullptr) {
-                    truth.posterUrl = VdrRecordingArtworkIdentity::publicUrl(recording, *preferredArtwork);
-                }
+                truth.title =
+                    VdrRecordingMetadataJsonSerializer::presentationTitle(
+                        recording);
+                truth.subtitle =
+                    VdrRecordingMetadataJsonSerializer::presentationSubtitle(
+                        recording);
+                truth.posterUrl =
+                    VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
+                        recording);
                 truth.durationSeconds = recording.durationSeconds;
                 truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
                 return truth;
@@ -458,12 +499,15 @@ bool ContinueWatchingApiRuntime::configure(
                 truth.backendId = recording.backendId;
                 truth.recordingId = recording.id;
                 truth.backendNativeId = recording.backendNativeId;
-                truth.title = recording.title;
-                const VdrRecordingArtworkRef* preferredArtwork =
-                    VdrRecordingArtworkIdentity::preferredArtwork(recording);
-                if (preferredArtwork != nullptr) {
-                    truth.posterUrl = VdrRecordingArtworkIdentity::publicUrl(recording, *preferredArtwork);
-                }
+                truth.title =
+                    VdrRecordingMetadataJsonSerializer::presentationTitle(
+                        recording);
+                truth.subtitle =
+                    VdrRecordingMetadataJsonSerializer::presentationSubtitle(
+                        recording);
+                truth.posterUrl =
+                    VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
+                        recording);
                 truth.durationSeconds = recording.durationSeconds;
                 truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
                 return truth;

@@ -38,6 +38,15 @@ assert(apiSource.includes('bool isContinueWatchingRecording('));
 assert(apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
 assert(apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
 assert(apiSource.includes('serializeRecentlyWatched(items, continueWatchingItems, currentRecordings)'));
+assert(
+  (apiSource.match(/VdrRecordingMetadataJsonSerializer::presentationTitle\(/g) || []).length >= 3,
+  'History/Continue-Watching must use current canonical Recording titles'
+);
+assert(
+  (apiSource.match(/VdrRecordingMetadataJsonSerializer::preferredArtworkUrl\(/g) || []).length >= 3,
+  'History/Continue-Watching must use current canonical Recording artwork'
+);
+assert(apiSource.includes('jsonEscape(projectedSubtitle)'));
 
 assert(securitySource.includes('/api/media/recently-watched'));
 assert(historyHeader.includes('MaxItemsPerActorBackend = 100'));
