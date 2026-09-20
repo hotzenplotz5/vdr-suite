@@ -14,6 +14,11 @@ let continuousMseEnabled = false;
 let continuousFetchCalls = 0;
 let objectUrlSequence = 0;
 let clock = 1000;
+let deferBrowserSessionRestore = false;
+let browserSessionRestored = true;
+let failNextLiveSession = false;
+let pendingBrowserSessionRestore = null;
+let browserSessionRestoreCalls = 0;
 
 function node(tagName) {
   const listeners = {};
@@ -86,7 +91,26 @@ const window = {
     resolvePath(path) { return '/vdr-suite' + path; }
   },
   VdrSuiteBrowserSession: {
-    csrfHeaders() { return {'X-CSRF-Token': 'csrf-live-token'}; },
+    restore() {
+      browserSessionRestoreCalls += 1;
+      if (!deferBrowserSessionRestore) {
+        browserSessionRestored = true;
+        return Promise.resolve({authenticated: true});
+      }
+      return new Promise(function (resolve) {
+        pendingBrowserSessionRestore = function () {
+          browserSessionRestored = true;
+          deferBrowserSessionRestore = false;
+          pendingBrowserSessionRestore = null;
+          resolve({authenticated: true});
+        };
+      });
+    },
+    csrfHeaders() {
+      return browserSessionRestored
+        ? {'X-CSRF-Token': 'csrf-live-token'}
+        : {};
+    },
     subscribe() {}
   },
   VdrSuiteClientApi: {
@@ -97,6 +121,12 @@ const window = {
         return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
       }
       if (body.resourceKind === 'live-channel') {
+        if (failNextLiveSession) {
+          failNextLiveSession = false;
+          return Promise.reject(
+            new Error('live_provider_open_failed')
+          );
+        }
         return Promise.resolve({
           mediaSession: {
             id: 'live_session_test',
@@ -245,6 +275,78 @@ assert.strictEqual(
   requests.length = 0;
   videos.length = 0;
 
+  // Browser-session restore is asynchronous during startup. A protected
+  // MediaSession mutation must wait for that restore so it cannot race ahead
+  // without X-CSRF-Token and invalidate the just-restoring browser session.
+  deferBrowserSessionRestore = true;
+  browserSessionRestored = false;
+  pendingBrowserSessionRestore = null;
+  const restoreCallsBeforeRace = browserSessionRestoreCalls;
+  const restoreRacePlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1079-10350', name: 'Restore Race'},
+    'living-room',
+    {}
+  );
+  const restoreRaceStart = restoreRacePlayback.start();
+  await Promise.resolve();
+  assert.strictEqual(
+    requests.length,
+    0,
+    'Live-TV MediaSession POST must wait for browser-session restore'
+  );
+  assert.strictEqual(
+    browserSessionRestoreCalls,
+    restoreCallsBeforeRace + 1
+  );
+  assert.strictEqual(typeof pendingBrowserSessionRestore, 'function');
+  pendingBrowserSessionRestore();
+  assert.strictEqual(await restoreRaceStart, 'live_session_test');
+  assert.strictEqual(requests.length, 1);
+  assert.strictEqual(requests[0].path, '/api/media/sessions');
+  assert.strictEqual(
+    requests[0].options.headers['X-CSRF-Token'],
+    'csrf-live-token'
+  );
+  restoreRacePlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+  browserSessionRestored = true;
+
+  failNextLiveSession = true;
+
+  const retryPlayback =
+    window.VdrSuiteRecordings2Playback.createLivePanel(
+      {id: 'C-1-1079-10349', name: 'Retry Test'},
+      'living-room',
+      {}
+    );
+
+  const failedRetryStart = await retryPlayback.start();
+  assert.strictEqual(failedRetryStart, '');
+  assert.strictEqual(
+    requests.length,
+    1,
+    'failed Live-TV startup must issue exactly one MediaSession POST'
+  );
+
+  const successfulRetryStart = await retryPlayback.start();
+  assert.strictEqual(
+    successfulRetryStart,
+    'live_session_test',
+    'second start() must retry after failed MediaSession creation'
+  );
+  assert.strictEqual(
+    requests.length,
+    2,
+    'second start() must issue a fresh MediaSession POST'
+  );
+
+  retryPlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
+
   const playback = window.VdrSuiteRecordings2Playback.createLivePanel(
     {id: 'C-1-1079-10351', name: 'Das Erste HD'},
     'living-room',
@@ -253,6 +355,10 @@ assert.strictEqual(
   assert.ok(playback.element);
   assert.strictEqual(typeof playback.start, 'function');
   assert.strictEqual(typeof playback.relinquishForReplacement, 'function');
+  assert.strictEqual(typeof playback.switchToExternalStream, 'function');
+  assert.strictEqual(typeof playback.restoreBroadcastStream, 'function');
+  assert.strictEqual(typeof playback.releaseExternalStream, 'function');
+  assert.strictEqual(typeof playback.setExternalPaused, 'function');
 
   const sessionId = await playback.start();
   assert.strictEqual(sessionId, 'live_session_test');
@@ -414,6 +520,61 @@ assert.strictEqual(
     const body = JSON.parse(entry.options.body);
     return body.operation === 'stop' && body.sessionId === 'live_session_test';
   }));
+
+
+  // HbbTV broadband media reuses the exact same HTMLMediaElement. Entering the
+  // external stream explicitly closes the current Broadcast MediaSession;
+  // leaving it creates a fresh Broadcast session on the same channel.
+  requests.length = 0;
+  videos.length = 0;
+  const hbbtvSwitchPlayback = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {channelId: 'C-1-1079-10354', name: 'HbbTV Switch'},
+    'living-room',
+    {}
+  );
+  assert.strictEqual(await hbbtvSwitchPlayback.start(), 'live_session_test');
+  assert.strictEqual(videos.length, 1);
+  const persistentVideo = videos[0];
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.switchToExternalStream(
+      '/api/media/sessions/hbbtv_media_session/live/stream.mp4',
+      {label: 'HbbTV-Medium', paused: false}
+    ),
+    true
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'external');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/hbbtv_media_session/live/stream.mp4'
+  );
+  assert.ok(requests.some(entry => {
+    if (!entry.options || !entry.options.body) return false;
+    const body = JSON.parse(entry.options.body);
+    return body.operation === 'stop' &&
+      body.resourceKind === 'live-channel' &&
+      body.sessionId === 'live_session_test';
+  }));
+
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(true), true);
+  assert.strictEqual(persistentVideo.paused, true);
+  assert.strictEqual(hbbtvSwitchPlayback.setExternalPaused(false), true);
+
+  assert.strictEqual(
+    await hbbtvSwitchPlayback.restoreBroadcastStream(),
+    'live_session_test'
+  );
+  assert.strictEqual(videos.length, 1);
+  assert.strictEqual(videos[0], persistentVideo);
+  assert.strictEqual(hbbtvSwitchPlayback.sourceMode(), 'broadcast');
+  assert.strictEqual(
+    persistentVideo.src,
+    '/vdr-suite/api/media/sessions/live_session_test/live/stream.mp4'
+  );
+  hbbtvSwitchPlayback.destroy();
 
   // Android Chromium demonstrated that native <video src=stream.mp4> can route
   // open-ended fMP4 through Android MediaExtractor and fail with

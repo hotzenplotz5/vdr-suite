@@ -59,8 +59,16 @@ const window = {
     getMountTarget() { return null; },
     getClientApi() { return null; }
   },
+  // Reproduce the real regression: another module loaded the legacy
+  // Recordings2 playback runtime before Recording Detail opens.
   VdrSuiteRecordings2Playback: Object.freeze({
-    createLivePanel() {}
+    createLivePanel() {},
+    createPanel() {
+      return Object.freeze({
+        element: {},
+        start() { return Promise.resolve('legacy-session'); }
+      });
+    }
   }),
   loadVdrSuiteDeferredRuntime(key, path, ready) {
     deferredRuntimeLoads.push({
@@ -176,14 +184,13 @@ async function run() {
       key: 'vdr-suite-session-frontend-sync-runtime',
       path: '/frontend/api/session-frontend-sync.js',
       readyBefore: false
-    },
-    {
-      key: 'vdr-suite-recordings2-playback-runtime',
-      path: '/frontend/recordings2-playback.js',
-      readyBefore: false
     }
-  ]);
+  ], 'legacy-first Recording playback must still load the canonical session owner');
   assert.strictEqual(typeof test.ensurePlaybackRuntime, 'function');
+  assert.ok(
+    window.VdrSuiteRecordingFastPlayback,
+    'legacy-first Recording Detail must establish the canonical fast Recording owner'
+  );
   assert.strictEqual(typeof window.VdrSuiteRecordingPlaybackRestartChoice.install, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createLivePanel, 'function');
   assert.strictEqual(typeof window.VdrSuiteRecordings2Playback.createPanel, 'function');

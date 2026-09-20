@@ -23,11 +23,11 @@ const pageHideStart = source.indexOf('\n    function pageHide()', connectRecordi
 assert.ok(connectRecordingStart >= 0 && pageHideStart > connectRecordingStart, 'Recording stream connection owner must exist');
 const connectRecordingSource = source.slice(connectRecordingStart, pageHideStart);
 assert.ok(
-  connectRecordingSource.includes('if (initialConnection && !firstMediaReported) activateFallback(error);'),
+  connectRecordingSource.includes('if (initialConnection && !firstMediaReported) activateFallback(error, shouldPlay);'),
   'continuous-fMP4 fallback must remain a startup-only rescue before first media'
 );
 assert.ok(
-  !connectRecordingSource.includes('if (initialConnection) activateFallback(error);'),
+  !connectRecordingSource.includes('if (initialConnection) activateFallback(error, shouldPlay);'),
   'a late continuous-fMP4 failure must not silently switch an already-playing Recording to HLS'
 );
 assert.ok(
@@ -307,7 +307,56 @@ function createRuntime(options) {
   assert.strictEqual(typeof playback.seekAbsolute, 'function');
   assert.strictEqual(typeof playback.seekRelative, 'function');
 
+  const canonicalButtons = descendants(playback.element).filter(
+    item => item.tagName === 'BUTTON'
+  );
+  const playPauseControl = canonicalButtons.find(
+    item => item.title === 'Wiedergabe pausieren oder fortsetzen'
+  );
+  const stopControl = canonicalButtons.find(
+    item => item.textContent === 'Stop'
+  );
+  const canonicalControls = find(
+    playback.element,
+    item => item.className === 'recordings2-playback-controls'
+  );
+
+  assert.ok(
+    playPauseControl,
+    'legacy-first playback must be wrapped by the canonical Play/Pause control'
+  );
+  assert.ok(
+    stopControl,
+    'legacy-first playback must be wrapped by the canonical Stop control'
+  );
+  assert.ok(
+    canonicalControls,
+    'legacy-first playback must contain the canonical control surface'
+  );
+  assert.ok(
+    descendants(playback.element).some(
+      item => item.tagName === 'INPUT' && item.type === 'range'
+    ),
+    'legacy-first playback must expose the canonical seek timeline'
+  );
+
   const id = await playback.start();
+
+  assert.strictEqual(
+    canonicalControls.hidden,
+    false,
+    'canonical Recording controls must become visible after playback starts'
+  );
+  assert.strictEqual(
+    playPauseControl.textContent,
+    'Pause',
+    'playing canonical Recording must expose Pause after startup'
+  );
+  assert.strictEqual(
+    stopControl.disabled,
+    false,
+    'canonical Stop control must be enabled while Recording playback is active'
+  );
   assert.strictEqual(id, 'recording_session_1');
   assert.strictEqual(playback.sessionId(), id);
   assert.strictEqual(playback.duration(), 5530);

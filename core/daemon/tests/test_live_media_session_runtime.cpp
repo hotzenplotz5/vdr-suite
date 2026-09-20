@@ -341,6 +341,7 @@ int main()
         lastWorkerArgv,
         "bwdif=mode=send_frame:parity=auto:deint=interlaced"));
     assert(pair(lastWorkerArgv, "-c:a", "aac"));
+    assert(pair(lastWorkerArgv, "-rw_timeout", "5000000"));
     assert(runtime.activeCount() == 1);
     assert(transport.openCount == 1);
     transport.epoch = "pie_2";

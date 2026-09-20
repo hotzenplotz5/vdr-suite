@@ -362,6 +362,26 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(playback.position(), 1200);
   assert.strictEqual(starts, 5);
 
+  // Real browser regression: restart-seek may be requested while the active
+  // HLS video still reports local currentTime 0. Recording resume capability
+  // comes from the indexed Recording contract and must survive stop().
+  const zeroPlayback = factory.createPanel({id: 'recording-zero-position'}, 'default');
+  assert.ok(zeroPlayback && zeroPlayback.element);
+  assert.strictEqual(await zeroPlayback.start({autoPlay: false}), 'hls-session-6');
+  await flush();
+  assert.strictEqual(zeroPlayback.position(), 0);
+  assert.strictEqual(zeroPlayback.canResume(), true);
+  const createCountBeforeZeroSeek = requests.filter(entry => !entry.body.operation).length;
+  assert.strictEqual(await zeroPlayback.seekRelative(60), true);
+  const zeroCreateRequests = requests.filter(entry => !entry.body.operation);
+  assert.strictEqual(zeroCreateRequests.length, createCountBeforeZeroSeek + 1);
+  assert.strictEqual(
+    zeroCreateRequests.at(-1).body.startPositionSeconds,
+    60,
+    'positive restart-seek from local position 0 must preserve resume capability'
+  );
+  assert.strictEqual(zeroPlayback.position(), 60);
+
   console.log('phase65d2 HLS fallback restart-seek controls and focus ownership ok');
 }()).catch(error => {
   console.error(error);

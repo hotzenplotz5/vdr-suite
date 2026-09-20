@@ -147,7 +147,7 @@ const pageHideStart = ownerSource.indexOf('\n    function pageHide()', connectio
 assert.ok(connectionStart >= 0 && pageHideStart > connectionStart);
 const connection = ownerSource.slice(connectionStart, pageHideStart);
 const startupFallback = connection.indexOf(
-  'if (initialConnection && !firstMediaReported) activateFallback(error);'
+  'if (initialConnection && !firstMediaReported) activateFallback(error, shouldPlay);'
 );
 const terminalFailure = connection.indexOf('else failStartedPlayback(');
 const transportClassification = connection.indexOf('classifyClientTransportError(error)');

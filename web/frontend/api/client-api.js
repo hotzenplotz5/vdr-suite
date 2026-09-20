@@ -226,6 +226,77 @@
     });
   }
 
+  function requestBinary(path, options) {
+    const normalized = normalizeOptions(options);
+    const query = queryOptions(normalized);
+    const url = path + buildQueryString(query);
+
+    return fetch(url, requestOptions(normalized)).then(function (response) {
+      const revision = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Revision')
+          : 0
+      ) || 0;
+      const width = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Width')
+          : 0
+      ) || 0;
+      const height = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Height')
+          : 0
+      ) || 0;
+
+      if (response.status === 204) {
+        return {
+          status: 204,
+          revision: revision,
+          width: width,
+          height: height,
+          bytes: new Uint8Array(0)
+        };
+      }
+
+      if (!response.ok) {
+        return response.text().then(function (body) {
+          let payload = null;
+          if (body) {
+            try { payload = JSON.parse(body); } catch (error) { payload = null; }
+          }
+          const failure = new Error(
+            errorMessage(path, response.status, payload)
+          );
+          failure.status = response.status;
+          throw failure;
+        });
+      }
+
+      const contentType = response.headers &&
+        typeof response.headers.get === 'function'
+        ? String(response.headers.get('Content-Type') || '').toLowerCase()
+        : '';
+      if (contentType.indexOf('image/qoi') !== 0) {
+        throw new Error('Invalid binary response type from ' + path);
+      }
+
+      return response.arrayBuffer().then(function (buffer) {
+        if (!buffer || buffer.byteLength === 0 ||
+            buffer.byteLength > 16 * 1024 * 1024) {
+          throw new Error('Invalid binary response size from ' + path);
+        }
+
+        return {
+          status: response.status,
+          revision: revision,
+          width: width,
+          height: height,
+          bytes: new Uint8Array(buffer)
+        };
+      });
+    });
+  }
+
   function requestJsonWithFallback(path, fallbackPath, options) {
     return requestJson(path, options).catch(function (error) {
       if (!fallbackPath) {
@@ -290,6 +361,70 @@
 
   function fetchClientTeletextPage(options) {
     return requestJson('/api/vdr/broadcast/teletext/page', options);
+  }
+
+  function fetchClientHbbtvApplications(options) {
+    return requestJson('/api/vdr/broadcast/hbbtv/applications', options);
+  }
+
+  function hbbtvMutationOptions(options) {
+    return jsonPostOptions(queryMutationOptions(options));
+  }
+
+  function fetchClientHbbtvSessionLaunch(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions',
+      hbbtvMutationOptions(options)
+    );
+  }
+
+  function fetchClientHbbtvSessionStatus(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/status',
+      hbbtvMutationOptions(options)
+    );
+  }
+
+  function fetchClientHbbtvSessionInput(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/input',
+      hbbtvMutationOptions(options)
+    );
+  }
+
+  function fetchClientHbbtvSessionClose(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/close',
+      hbbtvMutationOptions(options)
+    );
+  }
+
+  function fetchClientHbbtvMedia(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/media',
+      options
+    );
+  }
+
+  function mutateClientHbbtvMedia(options) {
+    return requestJson(
+      '/api/vdr/broadcast/hbbtv/sessions/media',
+      hbbtvMutationOptions(options)
+    );
+  }
+
+  function fetchClientHbbtvPresentation(options) {
+    const normalized = normalizeOptions(options);
+    return requestBinary(
+      '/api/vdr/broadcast/hbbtv/sessions/presentation',
+      Object.assign({}, normalized, {
+        headers: Object.assign(
+          {},
+          copyHeaders(normalized.headers),
+          {Accept: 'image/qoi'}
+        )
+      })
+    );
   }
 
   function fetchClientChannelMoveAction(options) {
@@ -555,6 +690,7 @@
 
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
+    requestBinary: requestBinary,
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
@@ -563,6 +699,14 @@
     fetchClientChannels: fetchClientChannels,
     fetchClientTeletextService: fetchClientTeletextService,
     fetchClientTeletextPage: fetchClientTeletextPage,
+    fetchClientHbbtvApplications: fetchClientHbbtvApplications,
+    fetchClientHbbtvSessionLaunch: fetchClientHbbtvSessionLaunch,
+    fetchClientHbbtvSessionStatus: fetchClientHbbtvSessionStatus,
+    fetchClientHbbtvSessionInput: fetchClientHbbtvSessionInput,
+    fetchClientHbbtvSessionClose: fetchClientHbbtvSessionClose,
+    fetchClientHbbtvMedia: fetchClientHbbtvMedia,
+    mutateClientHbbtvMedia: mutateClientHbbtvMedia,
+    fetchClientHbbtvPresentation: fetchClientHbbtvPresentation,
     fetchClientChannelMoveAction: fetchClientChannelMoveAction,
     fetchClientCapabilities: fetchClientCapabilities,
     fetchClientVdrOverview: fetchClientVdrOverview,

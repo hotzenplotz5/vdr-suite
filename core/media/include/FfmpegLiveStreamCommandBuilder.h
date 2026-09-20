@@ -14,13 +14,21 @@ struct FfmpegLiveStreamCommandPlan
     std::vector<std::string> argv;
 };
 
+enum class FfmpegLiveStreamReadTimeoutPolicy
+{
+    Bounded,
+    AllowIdle
+};
+
 class FfmpegLiveStreamCommandBuilder
 {
 public:
     FfmpegLiveStreamCommandPlan build(
         const MediaPresentationProfile& profile,
         const std::string& unixSocketPath,
-        const std::string& outputPath) const
+        const std::string& outputPath,
+        FfmpegLiveStreamReadTimeoutPolicy readTimeoutPolicy =
+            FfmpegLiveStreamReadTimeoutPolicy::Bounded) const
     {
         FfmpegLiveStreamCommandPlan plan;
         if (!profile.available ||
@@ -69,8 +77,22 @@ public:
         plan.argv.insert(plan.argv.end(), {
             "-fflags", "+nobuffer",
             "-analyzeduration", "1000000",
-            "-probesize", "1048576",
-            "-rw_timeout", "5000000",
+            "-probesize", "1048576"
+        });
+
+        // Ordinary live receivers remain bounded when their native source
+        // stops producing data. HbbTV broadband media is different: Pause may
+        // legitimately leave the same socket and media revision idle until a
+        // later Resume, so that path must not kill FFmpeg after five seconds.
+        if (readTimeoutPolicy ==
+            FfmpegLiveStreamReadTimeoutPolicy::Bounded)
+        {
+            plan.argv.insert(plan.argv.end(), {
+                "-rw_timeout", "5000000"
+            });
+        }
+
+        plan.argv.insert(plan.argv.end(), {
             "-f", "mpegts",
             "-i", "unix://" + unixSocketPath
         });

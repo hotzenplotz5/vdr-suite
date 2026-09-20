@@ -49,11 +49,13 @@ SQLITE_SPLIT_REPOSITORY_FILES = {
     "core/agent/src/BackendAgentCommandReservation.cpp",
     "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
+    "core/agent/src/BackendRuntimeGeneration.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
 }
 
 SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
     "api/rest/src/GenreBrowserApiRuntime.cpp",
+    "core/daemon/src/EmbeddedBackendLifecycle.cpp",
     "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
 }
 
@@ -187,11 +189,13 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/agent/src/BackendAgentCommandReservation.cpp",
         "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
         "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
+        "core/agent/src/BackendRuntimeGeneration.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
         "core/operations/src/MutationOperationRepository.cpp",
         "core/media/src/MediaSessionRepository.cpp",
         "core/media/src/MediaSessionRepositoryLive.cpp",
         "api/rest/src/GenreBrowserApiRuntime.cpp",
+        "core/daemon/src/EmbeddedBackendLifecycle.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
         "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",

@@ -17,6 +17,7 @@ RUNTIME_SOURCES = (
     "DaemonRuntimeEpgCache.cpp",
     "DaemonRuntimeRecordingCache.cpp",
     "DaemonRuntime.cpp",
+    "DaemonRuntimeShutdown.cpp",
 )
 RUNTIME_TESTS = ROOT / "mk/runtime-api-tests.mk"
 TMDB_MAKE = ROOT / "mk/tmdb-series-artwork.mk"

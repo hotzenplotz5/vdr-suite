@@ -179,7 +179,11 @@ private:
             permission == "backend.settings.media-transcode.modify" ||
             permission == "backend.agent.enroll" ||
             permission == "backend.agent.revoke" ||
-            permission == "backend.agent.credential.rotate";
+            permission == "backend.agent.credential.rotate" ||
+            permission == "broadcast.hbbtv.launch" ||
+            permission == "broadcast.hbbtv.input" ||
+            permission == "broadcast.session.manage_own" ||
+            permission == "broadcast.session.manage_all";
     }
 
     static bool mediaPermission(const std::string& permission)
@@ -191,7 +195,8 @@ private:
     static bool adminReadPermission(const std::string& permission)
     {
         return permission == "backend.settings.media-transcode.read" ||
-            permission == "broadcast.teletext.view";
+            permission == "broadcast.teletext.view" ||
+            permission == "broadcast.hbbtv.view";
     }
 
     static bool adminRoleGrants(const std::string& permission)

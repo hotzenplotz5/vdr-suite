@@ -46,18 +46,17 @@
   }
   function installPlaybackPipUi() { if (playbackPipUiBound || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return; playbackPipUiBound = true; const mini = function () { return typeof document.getElementById === 'function' ? document.getElementById('vdr-suite-live-mini-player') : null; }; document.addEventListener('enterpictureinpicture', function (event) { const root = mini(); const video = event && event.target; if (!root || !video || typeof root.contains !== 'function') return; if (!root.contains(video)) return; if (root.dataset) root.dataset.vdrSuitePipSuppressed = 'true'; root.hidden = true; }, true); document.addEventListener('leavepictureinpicture', function (event) { const root = mini(); if (!root || !root.dataset || root.dataset.vdrSuitePipSuppressed !== 'true') return; delete root.dataset.vdrSuitePipSuppressed; const video = event && event.target; if (video && typeof root.contains === 'function' && root.contains(video)) root.hidden = false; }, true); }
   function installPlaybackShell() { const shell = global.VdrSuitePlaybackShell; if (shell && typeof shell.install === 'function') shell.install(); installPlaybackPipUi(); }
+  function recordingPlaybackOwnerReady() { return Boolean(global.VdrSuiteRecordingFastPlayback && global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function'); }
   function ensurePlaybackRuntime() {
-    if (global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function') { installPlaybackShell(); return Promise.resolve(); }
+    if (recordingPlaybackOwnerReady()) { installPlaybackShell(); return Promise.resolve(); }
     if (playbackRuntimePromise) return playbackRuntimePromise;
     if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.resolve();
     playbackRuntimePromise = global.loadVdrSuiteDeferredRuntime('vdr-suite-session-frontend-sync-runtime',
-      '/frontend/api/session-frontend-sync.js',
-      function () { return Boolean(global.VdrSuiteRecordingFastPlayback && global.VdrSuiteLivePlayback); }
-    ).then(function () { return global.loadVdrSuiteDeferredRuntime('vdr-suite-recordings2-playback-runtime',
-      '/frontend/recordings2-playback.js',
-      function () { return Boolean(global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function'); }
+      '/frontend/api/session-frontend-sync.js', function () { return Boolean(global.VdrSuiteRecordingFastPlayback && global.VdrSuiteLivePlayback); }
+    ).then(function () { if (recordingPlaybackOwnerReady()) return null; return global.loadVdrSuiteDeferredRuntime('vdr-suite-recordings2-playback-runtime',
+      '/frontend/recordings2-playback.js', function () { return Boolean(global.VdrSuiteRecordings2Playback && typeof global.VdrSuiteRecordings2Playback.createPanel === 'function'); }
     ); }).then(function () {
-      installPlaybackShell(); if (state.active && state.selectedRecording) render();
+      if (!recordingPlaybackOwnerReady()) throw new Error('Canonical Recording playback owner ist nicht verfügbar.'); installPlaybackShell(); if (state.active && state.selectedRecording) render();
     }).catch(function (error) { console.error('VDR-Suite Recordings 2 playback runtime failed', error); });
     return playbackRuntimePromise;
   }

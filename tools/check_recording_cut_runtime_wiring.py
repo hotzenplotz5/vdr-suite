@@ -36,7 +36,10 @@ plugin_capabilities = text("vdr-plugin-suite-bridge/suitebridge_capabilities.cpp
 daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
 daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
 daemon_editing = text("core/daemon/src/DaemonRuntimeRecordingEditing.cpp")
-daemon_runtime = text("core/daemon/src/DaemonRuntime.cpp")
+daemon_runtime = (
+    text("core/daemon/src/DaemonRuntime.cpp") + "\n" +
+    text("core/daemon/src/DaemonRuntimeShutdown.cpp")
+)
 api_router = text("api/rest/include/ApiRouter.h")
 api_runtime = text("api/rest/src/RecordingCutApiRuntime.cpp")
 security_gate = text("core/security/include/SecurityHttpGate.h")

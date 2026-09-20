@@ -5,17 +5,20 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "core/daemon/src/DaemonRuntime.cpp"
+SHUTDOWN = ROOT / "core/daemon/src/DaemonRuntimeShutdown.cpp"
 TELETEXT_HEADER = ROOT / "core/daemon/include/DaemonTeletextRuntime.h"
 TELETEXT_SOURCE = ROOT / "core/daemon/src/DaemonTeletextRuntime.cpp"
 SOURCES = ROOT / "mk/daemon-sources.mk"
 
 errors: list[str] = []
 
-for path in (RUNTIME, TELETEXT_HEADER, TELETEXT_SOURCE, SOURCES):
+for path in (RUNTIME, SHUTDOWN, TELETEXT_HEADER, TELETEXT_SOURCE, SOURCES):
     if not path.is_file():
         errors.append(f"missing Phase 67 Teletext daemon wiring file: {path.relative_to(ROOT)}")
 
-runtime = RUNTIME.read_text(encoding="utf-8") if RUNTIME.is_file() else ""
+runtime = "\n".join(\
+    path.read_text(encoding="utf-8") for path in (RUNTIME, SHUTDOWN) if path.is_file()\
+)
 teletext = TELETEXT_SOURCE.read_text(encoding="utf-8") if TELETEXT_SOURCE.is_file() else ""
 sources = SOURCES.read_text(encoding="utf-8") if SOURCES.is_file() else ""
 

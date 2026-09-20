@@ -8,6 +8,8 @@
 #include "IHttpServer.h"
 #include "LiveMediaSessionController.h"
 #include "LiveMediaSessionRequestParser.h"
+#include "HbbtvApiRuntime.h"
+#include "HbbtvMediaSessionController.h"
 #include "MediaAccessGrantAuthenticator.h"
 #include "MediaGatewayHttpServer.h"
 #include "MediaHlsArtifactReader.h"
@@ -81,6 +83,16 @@ int runRecordingMediaHttpRuntime(
         mediaSessionIssuanceService,
         liveProviderRuntime,
         MediaSessionWorkspaceRoot);
+    HbbtvMediaSessionController hbbtvMediaSessionController(
+        mediaSessionRepository,
+        mediaSessionIssuanceService,
+        MediaSessionWorkspaceRoot);
+    HbbtvApiRuntime::instance().setMediaSessionHandler(
+        [&hbbtvMediaSessionController](
+            const HbbtvMediaSessionMutationRequest& request) {
+            return hbbtvMediaSessionController.handleMutation(
+                request);
+        });
 
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
         mediaSessionRepository,
@@ -106,6 +118,7 @@ int runRecordingMediaHttpRuntime(
     auto mediaRuntimeTick =
         [&recordingMediaSessionController,
          &liveMediaSessionController,
+         &hbbtvMediaSessionController,
          nextMediaSessionReap,
          onTick = std::move(onTick)]() mutable {
             const auto now = std::chrono::steady_clock::now();
@@ -118,6 +131,7 @@ int runRecordingMediaHttpRuntime(
                 // request timeout. Browser disconnect makes the FIFO writer
                 // fail and the worker reaper closes the native receiver.
                 liveMediaSessionController.reapInactiveSessions(0);
+                hbbtvMediaSessionController.reapInactiveSessions(0);
                 nextMediaSessionReap = now + MediaSessionReapInterval;
             }
             if (onTick) onTick();
@@ -150,6 +164,7 @@ int runRecordingMediaHttpRuntime(
     const int result = httpListener->runUntilStopped();
 
     httpListener.reset();
+    HbbtvApiRuntime::instance().setMediaSessionHandler({});
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});
     MediaTranscodeSettingsApiRuntime::instance().reset();

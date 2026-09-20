@@ -5,6 +5,7 @@
 #include "EpgCacheController.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
+#include "HbbtvApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
@@ -194,7 +195,9 @@ public:
         const std::string& body);
 
     ApiResponse handleClientGet(
-        const std::string& requestTarget)
+        const std::string& requestTarget,
+        const std::string& actorRef = "",
+        const std::string& clientRef = "")
     {
         ApiResponse response;
 
@@ -208,6 +211,15 @@ public:
         if (RecordingMarksApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
+        {
+            return response;
+        }
+
+        if (HbbtvApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response,
+                actorRef,
+                clientRef))
         {
             return response;
         }
@@ -276,9 +288,22 @@ public:
     ApiResponse handleClientPost(
         const std::string& requestTarget,
         const std::string& body,
-        const std::string& actorRef = "")
+        const std::string& actorRef = "",
+        const std::string& clientRef = "",
+        const std::string& correlationRef = "")
     {
         ApiResponse response;
+
+        if (HbbtvApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                actorRef,
+                clientRef,
+                correlationRef,
+                response))
+        {
+            return response;
+        }
 
         if (RecordingCutApiRuntime::instance().tryHandlePost(
                 requestTarget,

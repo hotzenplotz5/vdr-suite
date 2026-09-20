@@ -126,6 +126,20 @@ assert(visibility.includes('--recordings2-technical-max-width:80rem'),
   'playback and marks must share a bounded technical desktop rail');
 assert(visibility.includes('max-width:var(--recordings2-technical-max-width)'),
   'technical playback, facts and marks must stay within the shared maximum width');
+assert(visibility.includes('display:grid;grid-template-columns:minmax(0,1fr);justify-items:stretch;width:calc(100% - var(--recordings2-technical-inline-space))'),
+  'the outer playback owner shell must stretch the complete technical rail');
+assert(visibility.includes('.recordings2-hero-page .recordings2-track-owner-shell'),
+  'the real nested track owner must participate in the full-width playback contract');
+assert(visibility.includes('.recordings2-hero-page .recordings2-recording-fallback-shell'),
+  'fallback Recording playback must share the full-width playback contract');
+assert(visibility.includes('.recordings2-hero-page .recordings2-playback-controls'),
+  'canonical Recording controls must explicitly inherit the full technical width');
+assert(visibility.includes('grid-template-columns:repeat(auto-fit,minmax(6.5rem,1fr))!important'),
+  'transport controls must distribute across the available width instead of clustering left');
+assert(visibility.includes('.recordings2-hero-page .recordings2-playback-transport>button{width:100%;min-width:0}'),
+  'every Recording transport button must fill its responsive grid cell');
+assert(!visibility.includes('>.recordings2-volume-owner-shell>.recordings2-playback'),
+  'Hero playback layout must not assume that playback is a direct child of the volume shell');
 assert(visibility.includes('.recordings2-volume-owner-shell .recordings2-marks-detail{margin:1rem 0 0}'),
   'marks moved beside the canonical playback timeline must not keep a second viewport gutter');
 assert(visibility.includes('overflow:hidden'),

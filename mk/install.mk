@@ -61,6 +61,7 @@ install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-adm
 	$(INSTALL) -m 0644 web/frontend/home-live-preview.js $(DESTDIR)$(DATADIR)/web/frontend/home-live-preview.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
 	$(INSTALL) -m 0644 web/frontend/teletext-view.js $(DESTDIR)$(DATADIR)/web/frontend/teletext-view.js
+	$(INSTALL) -m 0644 web/frontend/hbbtv-qoi.js $(DESTDIR)$(DATADIR)/web/frontend/hbbtv-qoi.js
 	$(INSTALL) -m 0644 web/frontend/live-tv-view.js $(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
 	cat \
@@ -173,6 +174,7 @@ test-install-staging:
 	! grep -F '/frontend/recording-trash-ux.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/teletext-view.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
@@ -182,6 +184,7 @@ test-install-staging:
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-hero.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-preview.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/teletext-view.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-detail-owner.js

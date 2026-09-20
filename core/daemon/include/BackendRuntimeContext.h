@@ -27,6 +27,10 @@
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
 #include "SuiteBridgeEpgMetadataResolver.h"
+#include "SuiteBridgeHbbtvResolver.h"
+#include "SuiteBridgeHbbtvPresentationResolver.h"
+#include "SuiteBridgeHbbtvMediaResolver.h"
+#include "SuiteBridgeHbbtvRuntimeResolver.h"
 #include "SuiteBridgeRecordingCutStateResolver.h"
 #include "SuiteBridgeRecordingMarksResolver.h"
 #include "SuiteBridgeRecordingMetadataResolver.h"
@@ -68,6 +72,11 @@ struct BackendRuntimeContext
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
+    std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
+    std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
+    std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>
+        hbbtvPresentationResolver;
+    std::unique_ptr<SuiteBridgeHbbtvMediaResolver> hbbtvMediaResolver;
     std::unique_ptr<SuiteBridgeTeletextResolver> teletextResolver;
     std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
     std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
@@ -91,6 +100,53 @@ struct BackendRuntimeContext
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
     RecordingMarksChangeTracker recordingMarksChangeTracker;
+
+    SuiteBridgeHbbtvResolver* ensureHbbtvResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvResolver) {
+            hbbtvResolver =
+                std::make_unique<SuiteBridgeHbbtvResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvResolver.get();
+    }
+
+    SuiteBridgeHbbtvRuntimeResolver* ensureHbbtvRuntimeResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvRuntimeResolver) {
+            hbbtvRuntimeResolver =
+                std::make_unique<SuiteBridgeHbbtvRuntimeResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvRuntimeResolver.get();
+    }
+
+    SuiteBridgeHbbtvPresentationResolver* ensureHbbtvPresentationResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvPresentationResolver) {
+            hbbtvPresentationResolver =
+                std::make_unique<SuiteBridgeHbbtvPresentationResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvPresentationResolver.get();
+    }
+
+    SuiteBridgeHbbtvMediaResolver* ensureHbbtvMediaResolver()
+    {
+        if (!suiteBridgeTransport) return nullptr;
+        if (!hbbtvMediaResolver)
+            hbbtvMediaResolver = std::make_unique<SuiteBridgeHbbtvMediaResolver>(*suiteBridgeTransport);
+        return hbbtvMediaResolver.get();
+    }
 
     SuiteBridgeTeletextResolver* ensureTeletextResolver()
     {

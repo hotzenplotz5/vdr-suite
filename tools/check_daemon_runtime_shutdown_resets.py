@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import sys
 
-SOURCE = Path("core/daemon/src/DaemonRuntime.cpp")
+SOURCE = Path("core/daemon/src/DaemonRuntimeShutdown.cpp")
 BACKEND_CONTEXT_SOURCE = Path("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 HTTP_CLIENT_HEADER = Path("core/http/include/BasicHttpClient.h")
 HTTP_CLIENT_SOURCE = Path("core/http/src/BasicHttpClient.cpp")

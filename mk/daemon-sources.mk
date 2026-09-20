@@ -36,6 +36,8 @@ DAEMON_SRC := \
         api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
         api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
         api/rest/src/TeletextApiRuntime.cpp \
+        api/rest/src/HbbtvApiRuntime.cpp \
+        api/rest/src/HbbtvMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
         api/rest/src/LiveMediaSessionController.cpp \
@@ -113,6 +115,7 @@ DAEMON_SRC := \
         core/media/src/RecordingMediaSessionRuntime.cpp \
         core/media/src/RecordingMediaSessionSeekTimeline.cpp \
         core/daemon/src/LiveMediaSessionRuntime.cpp \
+        core/daemon/src/HbbtvMediaSessionRuntime.cpp \
         core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
         core/daemon/src/SeriesArtworkBackendSettingsService.cpp \
         core/daemon/src/MediaTranscodeBackendSettingsService.cpp \
@@ -122,12 +125,20 @@ DAEMON_SRC := \
         core/daemon/src/EmbeddedBackendTeletextAuthority.cpp \
         core/daemon/src/TeletextControlPlaneReadService.cpp \
         core/daemon/src/DaemonTeletextRuntime.cpp \
+        core/daemon/src/EmbeddedBackendHbbtvAuthority.cpp \
+        core/daemon/src/HbbtvControlPlaneReadService.cpp \
+        core/daemon/src/HbbtvApplicationSessionService.cpp \
+        core/vdr/src/SuiteBridgeHbbtvRuntimeResolver.cpp \
+        core/vdr/src/SuiteBridgeHbbtvPresentationResolver.cpp \
+        core/vdr/src/SuiteBridgeHbbtvMediaResolver.cpp \
+        core/daemon/src/DaemonHbbtvRuntime.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
         core/daemon/src/DaemonRuntimeInitialization.cpp \
         core/daemon/src/DaemonRuntimePolling.cpp \
         core/daemon/src/DaemonRuntimeEpgCache.cpp \
         core/daemon/src/DaemonRuntimeRecordingCache.cpp \
         core/daemon/src/DaemonRuntimeRecordingMarks.cpp \
+        core/daemon/src/DaemonRuntimeShutdown.cpp \
         core/daemon/src/DaemonRuntimeSignal.cpp \
         core/daemon/src/RecordingMediaHttpRuntime.cpp \
         core/daemon/src/DaemonRuntime.cpp \
