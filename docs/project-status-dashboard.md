@@ -27,7 +27,7 @@ This page is a capability dashboard, not a second operational-status authority. 
 | Streaming Gateway / MediaSession | Completed numbered domain | Phase 65 Recording/Live playback and normalized playback semantics. |
 | Media Home / Browse | Completed numbered domain plus merged post-phase hardening | Phase 66 plus post-phase Home rebuild closeout. |
 | Native Recording marks/cutting | Completed non-numbered capability | VDR remains canonical marks/cutter authority. |
-| Teletext / HbbTV | Next numbered domain, not started | Phase 67 / ADR-0054. |
+| Teletext / HbbTV | Completed numbered domain | Phase 67 / ADR-0054 / Phase-67 closeout. |
 | Legacy OSD compatibility | Planned | Phase 68 / ADR-0047. |
 | Stable public API/SDK | Planned | Phase 69 / ADR-0048. |
 | Recommendation/content graph | Later vision | Phase 70. |
@@ -43,7 +43,7 @@ The current merged Home surface includes responsive shell/navigation, Now/Next, 
 - Timer creation preserves intent/assignment/native-binding safety and authoritative readback.
 - Home browse remains useful independently of preview startup and retains canonical metadata/artwork/playback owners.
 - Failure remains classified without blind duplicate mutation or silent provider switching.
-- Phase-67 Teletext/HbbTV acceptance remains future work and requires real broadcast/yaVDR evidence.
+- Phase-67 Teletext/HbbTV acceptance is completed on the supported real yaVDR/browser deployment; Phase 68 is next and not started.
 
 See [Golden User Journeys](planning/golden-user-journeys.md).
 

@@ -18,18 +18,18 @@ This root file is the compact roadmap entry point. The authoritative execution o
 
 ```text
 Latest completed numbered runtime phase:
-Phase 66 - Media Home and Browse Experience
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active numbered runtime phase:
-none - Phase 67 has not started
+none - Phase 68 not started
 
 Next strict numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
 Phase 66 is completed. The later non-numbered Home performance, Recording Discovery, metadata/artwork, native Recording editing and Home-rebuild work is also completed for the merged accepted scopes and does not reopen Phase 66. The consolidated Home-rebuild evidence is recorded in [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md).
 
-Phase 67 has not started. A separate explicit runtime kickoff is still required before Teletext/HbbTV implementation begins.
+Phase 67 is completed through the accepted Teletext and HbbTV verticals. Durable evidence is in [Phase 67 Closeout](docs/development/phase-67-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is next and has not started.
 
 ## Strict forward sequence
 
@@ -37,8 +37,8 @@ Phase 67 has not started. A separate explicit runtime kickoff is still required 
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [NEXT; NOT STARTED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge
+  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
+  -> Phase 68 - Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
 ```

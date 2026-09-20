@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 67 Closeout](development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
@@ -36,22 +37,26 @@ Latest accepted post-phase runtime merge checkpoint:
 2b0d0990974244eac90e9be711843678c77e301d
 
 Latest completed numbered runtime phase:
-Phase 66 - Media Home and Browse Experience
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+none - Phase 68 not started
 
 Next strict numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 
-Completed Phase-67 vertical:
+Completed Phase-67 verticals:
 Teletext read path / browser-TV view / page navigation
+HbbTV discovery / authorized application session / presentation-media runtime
 
 Current active runtime slice:
-Phase 67 HbbTV discovery/session/media runtime is implemented and accepted on the real yaVDR/browser path; numbered closeout remains open
+none - Phase 68 not started
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
+
+Phase-67 HbbTV / numbered closeout merge checkpoint:
+PR #300 -> 5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30
 ```
 
 The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cce4d1c9e58abe4d529132e92340ae4cbb7a99c` and was merged to `main` as `ea5967b983aee9ccc3f855b685db01abbfb2326a`. The merge tree is identical to the accepted branch tree. This SHA is a durable Home-rebuild checkpoint, not a substitute for reading the live `main` head.
@@ -167,28 +172,25 @@ Recording-detail enrichment and playback prewarm must remain scoped to the selec
 - **Phase 65 - Streaming Gateway and Media Sessions** remains authoritative for Recording/Live MediaSession, least-transformation delivery and normalized playback ownership.
 - **Phase 66 - Media Home and Browse Experience** remains the completed numbered Home/browse phase; later Home/Recording/Live work is non-numbered hardening.
 
-## Current Phase-67 boundary
+## Completed Phase-67 boundary
 
-Phase 67 is **active**. The Teletext vertical is completed and merged through PR #293.
+**Phase 67 is completed.** Teletext merged through PR #293 and the HbbTV discovery/session/presentation-media vertical merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`.
 
-Accepted Teletext capability now includes:
+Accepted Broadcast Companion capability includes:
 
-- normalized Teletext service/page/subpage contracts;
+- normalized Teletext service/page/subpage contracts and first-party 25 x 40 rendering;
 - private SuiteBridge/provider transport through the existing Phase-63 Agent path;
-- backend-generation and embedded-lifecycle fencing;
-- authorized `broadcast.teletext.view` HTTP reads;
-- real 25 x 40 / 1000-cell page rendering;
-- Live-TV companion navigation and direct Media Home entry;
-- accepted Golden Journey 8 behavior on the supported browser/yaVDR deployment.
+- backend-generation, channel/application-context and session fencing;
+- normalized HbbTV application discovery with backend/service/application provenance;
+- authorized Suite-owned HbbTV application sessions with normalized bounded input;
+- session-owned presentation/media integration without exposing raw browser/plugin commands;
+- preservation of Phase-65 MediaSession ownership whenever Suite-owned media is involved;
+- real yaVDR/browser acceptance for Teletext Journey 8 and HbbTV Journey 9 on the supported deployment profile;
+- full PR #300 CI, including architecture, frontend, packaging/install-staging and fast regression.
 
-The HbbTV discovery/session/media runtime vertical is implemented and accepted on the real yaVDR/browser path. Phase 67 remains active until its numbered closeout is completed.
+Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Retained boundaries:
-
-1. do not use Legacy OSD or raw plugin/browser command channels as the primary Teletext/HbbTV contract;
-2. preserve Phase-65 MediaSession ownership whenever Suite-owned media is involved;
-3. keep Phase 68 Legacy OSD, Phase 69 public API hardening and Phase 70 recommendation work outside the current Phase-67 HbbTV vertical;
-4. treat [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md) as the durable Teletext acceptance record.
+Phase 68 Legacy OSD Compatibility Bridge is next and has **not started**. Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
 
 ## Historical evidence rule
 

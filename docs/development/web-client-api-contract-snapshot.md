@@ -187,7 +187,7 @@ The former missing-route list that treated Phase-62 identity, Phase-63 Agent, Ph
 
 The remaining forward route/compatibility gaps follow the current strict roadmap:
 
-- **Phase 67** — Teletext service/page/subpage runtime is implemented and merged; the current HbbTV branch owns normalized application discovery plus the candidate authorized application-session/runtime and session-owned Live-TV presentation surface, while real yaVDR deployment/acceptance remains open;
+- **Phase 67** — completed: normalized Teletext plus HbbTV application discovery, authorized application sessions, normalized input and session-owned Live-TV presentation/media contracts are merged and accepted on the supported real yaVDR/browser deployment;
 - **Phase 68** — legacy OSD viewer/controller/session contracts;
 - **Phase 69** — stable `/api/v1`, ETags/preconditions and common public error/compatibility contracts;
 - **Phase 70** — recommendation/content-graph contracts after an accepted runtime design.

@@ -36,13 +36,13 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 ```
 
-Phase 67 is active. The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`.
+Phase 67 is completed. Teletext merged through PR #293 and HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`.
 
 Completed Teletext scope includes the normalized service/page domain, embedded backend lifecycle/generation fencing, authorized HTTP reads, real 25 x 40 / 1000-cell rendering, Live-TV companion integration and direct Media Home entry.
 
-See [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md).
+See [Phase 67 Closeout](phase-67-closeout.md) and [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md).
 
-The next open Phase-67 vertical is HbbTV discovery.
+Phase 68 Legacy OSD Compatibility Bridge is next and has not started.
 
 ## Evidence boundary
 

@@ -48,22 +48,16 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ```text
 Latest completed numbered runtime phase:
-Phase 66 - Media Home and Browse Experience
-
-Current active numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
-Completed Phase-67 vertical:
-Teletext read path / browser-TV view / page navigation
+Current active numbered runtime phase:
+none - Phase 68 not started
 
-Current active runtime slice:
-HbbTV discovery
-
-Next numbered phase after Phase 67:
+Next strict numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
-Phase 65 and Phase 66 are completed. Durable Media Home evidence lives in [Phase 66 Closeout](../development/phase-66-closeout.md). Phase 67 is active. Its Teletext vertical is completed and merged through PR #293; durable evidence lives in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md). HbbTV discovery is the next coherent Phase-67 vertical.
+Phase 65, Phase 66 and Phase 67 are completed. Durable Broadcast Companion evidence lives in [Phase 67 Closeout](../development/phase-67-closeout.md), with Teletext-specific evidence retained in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is next and has not started.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -509,11 +503,11 @@ Phase 66 required Home to be the accepted first-party landing experience, respon
 
 ## Phase 67 — Broadcast Companion Services: Teletext and HbbTV
 
-Status: **Next; not started.**
+Status: **Completed.**
 
 Binding architecture: [ADR-0054: Broadcast Companion Services — Teletext and HbbTV](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md).
 
-ADR-0054 establishes the domain-first Teletext/HbbTV boundary and the future sequencing. Runtime implementation follows completed Phase 66 Media Home and remains blocked until Phase 67 is explicitly started.
+Phase 67 completed through PR #293 (Teletext) and PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30` (HbbTV discovery/session/presentation-media runtime). Durable numbered evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
 
 ### Why this phase exists before Legacy OSD
 
@@ -658,7 +652,7 @@ Phase 67 closes only when:
 
 ## Phase 68 — Legacy OSD Compatibility Bridge
 
-Status: **Planned after Phase 67.**
+Status: **Next; not started.**
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -1079,11 +1073,9 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 ## Next authorization boundary
 
-Phase 65 and Phase 66 are completed for their accepted bounded scopes. Phase-66 durable completion evidence is in [Phase 66 Closeout](../development/phase-66-closeout.md).
+Phase 65, Phase 66 and Phase 67 are completed for their accepted bounded scopes. Phase-67 durable completion evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
 
-**Phase 67 - Broadcast Companion Services: Teletext and HbbTV is active.** The Teletext vertical is completed and accepted through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`.
-
-The next coherent Phase-67 block is HbbTV discovery. Before that work, read live `main`, `CURRENT.md`, ADR-0054, the Phase-67 Teletext closeout and the existing Channel/EPG/Agent/media ownership paths. Preserve the completed Teletext domain and do not cross into Legacy OSD or Phase-69 public-API hardening.
+**Phase 68 - Legacy OSD Compatibility Bridge is next and has not started.** Before Phase-68 runtime work, read live `main`, `CURRENT.md`, ADR-0047, the Phase-67 closeout and the existing domain-first product surfaces. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
