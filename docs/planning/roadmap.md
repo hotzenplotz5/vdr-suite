@@ -1116,3 +1116,52 @@ Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66
 - [ADR-0047 Legacy OSD](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049 Audit/Security](../adr/ADR-0049-audit-security-event-model.md)
+
+---
+
+# Cross-cutting platform productization roadmap
+
+The following milestones are binding product work but do not silently start or renumber Phase 68/69.
+
+Detailed plan: [Platform Productization Roadmap](platform-productization-roadmap.md).
+
+## Federated MultiBackend sharing
+
+This continues the architecture already defined by:
+
+- [ADR-0013 Permission Model](../adr/ADR-0013-permission-model.md), where a remote VDR-Suite instance is an Actor and Remote Suite B may have selected Recording rights while Live TV/Timer rights are denied;
+- [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md), where a BackendNode may wrap a remote VDR-Suite instance.
+
+Binding completion architecture:
+
+- [ADR-0060: Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+- [ADR-0061: Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
+
+The target product is two autonomous VDR-Suite installations that explicitly pair and then grant rights in **each direction independently**.
+
+Required rights include granular owner-side control over Recording visibility/streaming, marks/cutting and destructive actions, Live TV, Timer view/create/modify/delete, and later other domain operations. Folder/channel/backend scopes remain possible.
+
+Backend Agent multi-site is not redefined as federation: one Control Plane managing a remote Agent/backend remains a supported topology, while independent Control Plane federation adds the long-planned Suite-to-Suite actor/source relationship.
+
+Pairing grants no content rights automatically; capabilities never substitute for permission; the owner site always performs final authorization and native/media execution.
+
+Pure clients are equally valid permissioned actors: a browser, Android app, television app or first-party output/living-room client may receive scoped access without providing any VDR/backend or reciprocal federation service.
+
+## First-party VDR output / living-room client
+
+Binding architecture: [ADR-0062: First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md).
+
+The supported product direction is a first-party television client using Suite domain and MediaSession semantics. A VDR output plugin is a supported integration path, but it must remain a thin integration boundary rather than a second control/media plane.
+
+Supported rollout depends on Phase 69's stable client/API contract. The initial Linux real-hardware acceptance targets the current yaVDR Intel Gemini Lake/UHD 605 system and a mature hardware-accelerated playback engine; legacy VDPAU hardware is not the primary architecture target.
+
+## Debian/Ubuntu package productization
+
+Binding install boundary: [ADR-0037: Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md).
+
+Phase 56 established staged install readiness only. Release-grade Debian/Ubuntu packaging remains open and is explicitly scheduled **after Phase 69 Public API and Client Compatibility Hardening**.
+
+The packaging milestone must add real `debian/` metadata, reproducible package build, dependencies, systemd/conffile/state ownership, database migration/upgrade behavior, remove-versus-purge semantics, SuiteBridge/Agent/Web/output-client ownership, clean-install and upgrade acceptance, and parity with the supported `make install DESTDIR=...` contract.
+
+No public C++ ABI or `-dev` package is implied.
+

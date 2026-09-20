@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0059
+ADR-0062
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -46,11 +46,14 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 - [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0059: VDR-Native Recording Editing, Marks and Cutting Authority](ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
+- [ADR-0060: Federated VDR-Suite Sharing and Reciprocal Site Trust](ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+- [ADR-0061: Actor Permissions, Federation and Client Access](ADR-0061-actor-permissions-federation-client-access.md)
+- [ADR-0062: First-Party Living-Room Output Client](ADR-0062-first-party-living-room-output-client.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0060
+ADR-0063
 ```
 
 Rules:

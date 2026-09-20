@@ -42,6 +42,9 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0056 Playback Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0060 Federated VDR-Suite Sharing and Reciprocal Site Trust](adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+- [ADR-0061 Actor Permissions, Federation and Client Access](adr/ADR-0061-actor-permissions-federation-client-access.md)
+- [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
 
 ## Development and history
@@ -68,6 +71,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Platform Productization Roadmap](planning/platform-productization-roadmap.md)
 - [Repository Truth Refresh 2026-07 Archive](planning/history/repository-truth-refresh-2026-07/README.md) — historical pre-refresh snapshots retained for traceability only.
 
 ## Status model
