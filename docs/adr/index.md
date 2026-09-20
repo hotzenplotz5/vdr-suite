@@ -46,11 +46,14 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0057: Recording Network Interruption Recovery](ADR-0057-recording-network-interruption-recovery.md)
 - [ADR-0058: Media Home, Responsive Browse and Preview Experience](ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0059: VDR-Native Recording Editing, Marks and Cutting Authority](ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md)
+- [ADR-0060: Backend Catalog and Operator Onboarding](ADR-0060-backend-catalog-operator-onboarding.md)
+- [ADR-0061: Client Identity and Permission Profiles](ADR-0061-client-identity-permission-profiles.md)
+- [ADR-0062: First-Party Living-Room Output Client](ADR-0062-first-party-living-room-output-client.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0060
+ADR-0063
 ```
 
 Rules:

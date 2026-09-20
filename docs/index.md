@@ -42,6 +42,9 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0056 Playback Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
+- [ADR-0060 Backend Catalog and Operator Onboarding](adr/ADR-0060-backend-catalog-operator-onboarding.md)
+- [ADR-0061 Client Identity and Permission Profiles](adr/ADR-0061-client-identity-permission-profiles.md)
+- [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
 
 ## Development and history
@@ -68,6 +71,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Platform Productization Roadmap](planning/platform-productization-roadmap.md)
 - [Repository Truth Refresh 2026-07 Archive](planning/history/repository-truth-refresh-2026-07/README.md) — historical pre-refresh snapshots retained for traceability only.
 
 ## Status model

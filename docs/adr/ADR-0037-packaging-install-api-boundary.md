@@ -295,6 +295,29 @@ Planned Phase 56 follow-up items:
 
 ---
 
+## Post-Phase-69 Debian/Ubuntu Productization
+
+The Phase-56 decision above remains the install-layout and ABI boundary. It did **not** create release-grade Debian packaging.
+
+The supported Debian/Ubuntu packaging milestone is now explicitly sequenced after Phase 69 Public API and Client Compatibility Hardening. Packaging readiness before that gate continues to use staged `make install DESTDIR=... PREFIX=/usr`; it must not freeze transitional public/client interfaces.
+
+Release packaging must add and validate:
+
+- canonical `debian/` metadata and reproducible package builds;
+- build/runtime dependency metadata;
+- systemd service lifecycle and runtime-directory ownership;
+- conffile policy and secret-preserving upgrades;
+- database schema migration, supported upgrade and rollback/reinstall behavior;
+- remove versus purge semantics;
+- package ownership for daemon, Web assets, Backend Agent, SuiteBridge and optional first-party living-room/output integration;
+- VDR plugin ABI/version compatibility checks;
+- clean Debian/Ubuntu install and real yaVDR upgrade acceptance;
+- parity between package payload and the supported staged-install contract.
+
+Exact binary package names are deliberately not frozen by this ADR revision. No public C++ ABI, installed public headers or `vdr-suite-dev` package is implied.
+
+Detailed execution plan: [Platform Productization Roadmap](../planning/platform-productization-roadmap.md).
+
 ## Back
 
 - [Back to Development Index](../development/index.md)

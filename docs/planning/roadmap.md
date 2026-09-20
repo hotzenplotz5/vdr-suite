@@ -1116,3 +1116,56 @@ Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66
 - [ADR-0047 Legacy OSD](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048 Public API](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049 Audit/Security](../adr/ADR-0049-audit-security-event-model.md)
+
+---
+
+# Cross-cutting platform productization roadmap
+
+The following milestones are binding product work but do not silently start or renumber Phase 68/69.
+
+Detailed plan: [Platform Productization Roadmap](platform-productization-roadmap.md).
+
+## MultiBackend administration and onboarding
+
+Binding architecture: [ADR-0060: Backend Catalog and Operator Onboarding](../adr/ADR-0060-backend-catalog-operator-onboarding.md).
+
+Required outcome:
+
+- durable server-owned backend catalog;
+- protected create/update/enable/disable/retire workflow;
+- explicit default/preferred backend rather than registry/list order;
+- no `backendRuntimeContexts_.front()` product assumptions;
+- Agent technical identity kept separate from logical backend identity and user permission;
+- real two-backend acceptance with independent health, generation, capabilities, read/write policy and actor/device grants.
+
+This milestone may be implemented as explicitly kicked-off cross-cutting product work because its Phase-62/63/64 foundations already exist. It does not automatically advance Phase 68.
+
+## Client/frontend permission profiles
+
+Binding architecture: [ADR-0061: Client Identity and Permission Profiles](../adr/ADR-0061-client-identity-permission-profiles.md).
+
+Required outcome:
+
+- frontend name is never a security principal;
+- Web, admin, living-room, independent API/Kodi/mobile, automation, Agent and HbbTV identities use the central authorization model;
+- living-room devices have no implicit administrator authority;
+- Backend Agent trust never becomes end-user authority;
+- effective-access state is available for truthful UI while the server remains the enforcement boundary.
+
+## First-party VDR output / living-room client
+
+Binding architecture: [ADR-0062: First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md).
+
+The supported product direction is a first-party television client using Suite domain and MediaSession semantics. A VDR output plugin is a supported integration path, but it must remain a thin integration boundary rather than a second control/media plane.
+
+Supported rollout depends on Phase 69's stable client/API contract. The initial Linux real-hardware acceptance targets the current yaVDR Intel Gemini Lake/UHD 605 system and a mature hardware-accelerated playback engine; legacy VDPAU hardware is not the primary architecture target.
+
+## Debian/Ubuntu package productization
+
+Binding install boundary: [ADR-0037: Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md).
+
+Phase 56 established staged install readiness only. Release-grade Debian/Ubuntu packaging remains open and is explicitly scheduled **after Phase 69 Public API and Client Compatibility Hardening**.
+
+The packaging milestone must add real `debian/` metadata, reproducible package build, dependencies, systemd/conffile/state ownership, database migration/upgrade behavior, remove-versus-purge semantics, SuiteBridge/Agent/Web/output-client ownership, clean-install and upgrade acceptance, and parity with the supported `make install DESTDIR=...` contract.
+
+No public C++ ABI or `-dev` package is implied.
