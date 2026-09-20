@@ -4,140 +4,149 @@
 
 - [Strict Roadmap](roadmap.md)
 - [ADR Index](../adr/index.md)
+- [ADR-0013 Permission Model](../adr/ADR-0013-permission-model.md)
+- [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md)
 - [ADR-0037 Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md)
-- [ADR-0060 Backend Catalog and Operator Onboarding](../adr/ADR-0060-backend-catalog-operator-onboarding.md)
-- [ADR-0061 Client Identity and Permission Profiles](../adr/ADR-0061-client-identity-permission-profiles.md)
+- [ADR-0060 Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+- [ADR-0061 Federated Sharing Permissions and Delegation](../adr/ADR-0061-federated-sharing-permissions-delegation.md)
 - [ADR-0062 First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md)
-- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md)
 - [Current State](../CURRENT.md)
 
 ---
 
 ## Purpose
 
-This document turns four previously scattered productization topics into one explicit, reviewable plan:
+This document makes four productization topics explicit without changing their long-standing architecture:
 
-1. adding and operating multiple VDR backends;
-2. deciding what each client/front end may do;
-3. delivering a first-party television/living-room output client, including a VDR output-plugin integration path;
-4. producing real Debian/Ubuntu packages instead of relying on source-tree installation.
+1. **Federated MultiBackend sharing between independent VDR-Suite installations**, including reciprocal but directional trust and granular rights;
+2. the concrete sharing permission model for Recordings, Live TV, Timers and destructive/editing operations;
+3. the first-party television/living-room output client;
+4. release-grade Debian/Ubuntu packaging.
 
-These are cross-cutting product milestones. They do **not** silently start Phase 68 or renumber the strict numbered runtime roadmap.
+The first two items continue ADR-0013 and ADR-0020. They are not a new interpretation of MultiBackend.
 
-The implementation order is constrained by existing ownership:
+ADR-0013 already states that a remote VDR-Suite instance is an Actor and gives the exact product example that Remote Suite B may see selected recordings from House A while Live TV and Timer creation are denied. ADR-0020 already allows a BackendNode to wrap a remote VDR-Suite instance.
+
+The still-open gap is the production federation layer between **independent Control Planes**. ADR-0041 intentionally did not define that protocol.
+
+These product milestones do **not** silently start Phase 68.
+
+---
+
+## 1. Federated MultiBackend / neighbor-house sharing
+
+### Product model
 
 ```text
-identity/RBAC + BackendRegistry + Agent lifecycle
-  -> durable backend catalog and operator onboarding
-  -> explicit actor/device/service permission profiles
-  -> stable Public API/client contract (Phase 69)
-  -> supported first-party living-room rollout
-  -> release-grade Debian/Ubuntu packaging
+House A
+VDR A + VDR-Suite A
+        |
+        | explicit Suite-to-Suite pairing/trust
+        | directional grants A -> B and B -> A
+        |
+House B
+VDR B + VDR-Suite B
 ```
 
-Packaging preparation may continue before Phase 69, but the supported release package is gated on the stable client/API contract so packaging does not freeze transitional interfaces accidentally.
+Both installations remain autonomous.
 
----
+House A decides what House B may do on A.
+House B independently decides what House A may do on B.
 
-## 1. MultiBackend productization
+Pairing itself grants nothing.
 
-### Current foundation
-
-The repository already has backend identity, `BackendRegistry`, backend-scoped snapshots/caches, backend access policy, Backend Agent generation/lease fencing and Phase-64 multi-backend Timer orchestration.
-
-That is **not yet the same thing as a complete operator workflow for adding arbitrary backends**.
-
-The product gap is an operator-owned, durable backend catalog and lifecycle.
-
-### Target operator workflow
+### Example
 
 ```text
-Administrator
-  -> Add backend
-  -> assign stable backendId + display name
-  -> configure backend type and connection/bootstrap material
-  -> choose enabled/disabled state
-  -> choose server-side access mode
-  -> enroll/bind technical Agent where required
-  -> verify health/capabilities/generation
-  -> explicitly choose default/preferred backend where product behavior needs one
-  -> grant actor/device/service access separately
+House A grants House B:
+  Recordings list/view       YES
+  Recordings stream          YES
+  Live TV                    YES
+  Timer create               YES
+  Timer modify/delete        NO
+  Marks/cutting              YES
+  Recording delete/purge     NO
+
+House B grants House A:
+  Recordings list/view       YES
+  Recordings stream          YES
+  Live TV                    NO
+  Timer create               NO
+  Marks/cutting              NO
 ```
 
-Required operations:
+The product must support asymmetric grants like this.
 
-- list backends;
-- create backend;
-- edit mutable operator metadata/configuration;
-- enable/disable backend;
-- rotate/rebind technical Agent identity without changing the logical backend identity;
-- retire/remove a backend only under explicit safety checks;
-- set or clear an explicit default/preferred backend;
-- show effective health, generation, capabilities and access state;
-- preserve backend-specific data provenance and history when a backend is temporarily unavailable.
+### Existing foundations reused
 
-### Hard rules
+- ADR-0013 Actor/Permission architecture;
+- ADR-0020 remote VDR-Suite as backend/source;
+- Phase-62 actor identity/RBAC/accountability;
+- Phase-63 Backend Agent and secure multi-site trust primitives;
+- Phase-64 Timer orchestration;
+- Phase-65 MediaSession/Gateway;
+- ADR-0059 native Recording marks/cutting authority.
 
-- No backend becomes writable merely because it is reachable.
-- Creating a backend does not auto-grant users or devices access.
-- Agent enrollment proves technical identity; it is not end-user authorization.
-- A backend ID is durable product identity, not a host name or URL.
-- Backend removal must not silently orphan unresolved Timer/media/native operations.
-- Multi-backend code must not use `backendRuntimeContexts_.front()` or list order as product policy.
-- "First backend" is never a substitute for explicit default/preferred-backend state.
-- Cross-backend views preserve backend provenance and partial-failure truth.
-- Backend-specific transport secrets remain private to the server/Agent boundary.
+Backend Agent multi-site and independent VDR-Suite federation are related but not identical:
 
-### Acceptance
+```text
+Agent model:
+one Control Plane owns/orchestrates a remote backend
 
-A supported MultiBackend product milestone requires a real two-backend acceptance:
+Federation model:
+two Control Planes remain independent and authorize each other as peers/actors
+```
 
-- both backends persist across daemon restart;
-- independent health/generation/capability state is visible;
-- one backend may be read-write while the other is read-only;
-- user/device grants can differ between backends;
-- read operations target the intended backend;
-- protected writes are blocked on the read-only or ungranted backend;
-- Timer assignment can deliberately use eligible backends without changing backend administration semantics;
-- disabling one backend does not silently redirect an already-owned operation to another backend;
-- explicit default/preferred-backend behavior is deterministic;
-- no code path depends on registry iteration order.
+### Required product workflow
 
-Binding architecture: [ADR-0060](../adr/ADR-0060-backend-catalog-operator-onboarding.md).
+- create a one-time peer invitation/pairing request;
+- approve it on the other VDR-Suite;
+- establish revocable authenticated site identity;
+- exchange only bounded capabilities/identity needed for federation;
+- configure A->B and B->A grants separately;
+- optionally approve delegated remote users;
+- show remote permitted resources in normal backend-aware views;
+- revoke/rotate peer trust without exposing raw VDR/plugin credentials.
 
----
+### Media
 
-## 2. Client and frontend permission profiles
+Remote Recording/Live playback goes through the **owner site's** MediaSession/Gateway. A peer never receives permanent Streamdev/SuiteBridge/provider credentials.
 
-A frontend is a presentation surface, **not a security principal**. Authorization remains actor/device/service based and is enforced by the server.
+### Mutations
 
-### Product profiles
+Remote Timer, marks/cut, rename/move/delete operations execute through the **owner site's** normal protected mutation path and are authorized there.
 
-The product should support at least these profiles without inventing a separate permission model for each UI:
+### Local backend catalog
 
-| Client family | Identity shape | Typical authority |
-| --- | --- | --- |
-| Web browser | authenticated user/browser session | only operations granted to that actor for that backend/resource |
-| Administrative Web/CLI | authenticated administrator actor | explicit administration grants; never implied by being local |
-| Living-room/output client | paired user/device identity | playback/browse/remote functions deliberately granted to that device/user |
-| Independent API/Kodi/mobile client | user/device or application identity | stable Phase-69 API grants only |
-| Automation/integration | service identity | narrow machine grants, backend/resource scoped |
-| Backend Agent | technical Agent identity | backend-local execution/observation only; not end-user authority |
-| HbbTV application session | bounded application-session identity | HbbTV session capabilities only; no general Suite administration |
+A durable local catalog remains useful implementation infrastructure for local backends, Agent-managed remote backends and registered federated peers. It is **not the definition of MultiBackend federation**.
 
-### Rules
-
-- UI visibility may mirror effective access but never replaces server enforcement.
-- A living-room client does not get administrator rights because it runs beside VDR.
-- A Backend Agent cannot reuse its technical trust as a user session.
-- HbbTV application code never inherits browser-user or Agent credentials.
-- Independent clients depend on the stable Phase-69 public contract.
-- Effective-access reporting should explain why an action is available/blocked without leaking credentials or private policy internals.
-- Backend access mode and actor grants are separate inputs; effective permission is their intersection.
-
-Binding architecture: [ADR-0061](../adr/ADR-0061-client-identity-permission-profiles.md).
+Binding architecture: [ADR-0060](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md).
 
 ---
+
+## 2. Federation permissions
+
+The permission model is operation- and resource-scoped, continuing ADR-0013.
+
+At minimum the product must distinguish:
+
+- Recording view/list;
+- Recording stream/play;
+- marks;
+- cut;
+- rename/move;
+- trash/restore/delete/purge;
+- Live TV;
+- Timer view/create/modify/delete;
+- SearchTimer/automation rights where exposed;
+- later Legacy OSD view/control separately.
+
+The owner may additionally restrict Recording folders, channels/channel groups and backend scope.
+
+A frontend is not the security authority. Web, television, Kodi/mobile or another client only presents the effective grants; the owning server enforces them.
+
+Binding architecture: [ADR-0061](../adr/ADR-0061-federated-sharing-permissions-delegation.md).
+
 
 ## 3. First-party VDR output / living-room client
 

@@ -1125,32 +1125,25 @@ The following milestones are binding product work but do not silently start or r
 
 Detailed plan: [Platform Productization Roadmap](platform-productization-roadmap.md).
 
-## MultiBackend administration and onboarding
+## Federated MultiBackend sharing
 
-Binding architecture: [ADR-0060: Backend Catalog and Operator Onboarding](../adr/ADR-0060-backend-catalog-operator-onboarding.md).
+This continues the architecture already defined by:
 
-Required outcome:
+- [ADR-0013 Permission Model](../adr/ADR-0013-permission-model.md), where a remote VDR-Suite instance is an Actor and Remote Suite B may have selected Recording rights while Live TV/Timer rights are denied;
+- [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md), where a BackendNode may wrap a remote VDR-Suite instance.
 
-- durable server-owned backend catalog;
-- protected create/update/enable/disable/retire workflow;
-- explicit default/preferred backend rather than registry/list order;
-- no `backendRuntimeContexts_.front()` product assumptions;
-- Agent technical identity kept separate from logical backend identity and user permission;
-- real two-backend acceptance with independent health, generation, capabilities, read/write policy and actor/device grants.
+Binding completion architecture:
 
-This milestone may be implemented as explicitly kicked-off cross-cutting product work because its Phase-62/63/64 foundations already exist. It does not automatically advance Phase 68.
+- [ADR-0060: Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+- [ADR-0061: Federated Sharing Permissions and Delegation](../adr/ADR-0061-federated-sharing-permissions-delegation.md)
 
-## Client/frontend permission profiles
+The target product is two autonomous VDR-Suite installations that explicitly pair and then grant rights in **each direction independently**.
 
-Binding architecture: [ADR-0061: Client Identity and Permission Profiles](../adr/ADR-0061-client-identity-permission-profiles.md).
+Required rights include granular owner-side control over Recording visibility/streaming, marks/cutting and destructive actions, Live TV, Timer view/create/modify/delete, and later other domain operations. Folder/channel/backend scopes remain possible.
 
-Required outcome:
+Backend Agent multi-site is not redefined as federation: one Control Plane managing a remote Agent/backend remains a supported topology, while independent Control Plane federation adds the long-planned Suite-to-Suite actor/source relationship.
 
-- frontend name is never a security principal;
-- Web, admin, living-room, independent API/Kodi/mobile, automation, Agent and HbbTV identities use the central authorization model;
-- living-room devices have no implicit administrator authority;
-- Backend Agent trust never becomes end-user authority;
-- effective-access state is available for truthful UI while the server remains the enforcement boundary.
+Pairing grants no content rights automatically; capabilities never substitute for permission; the owner site always performs final authorization and native/media execution.
 
 ## First-party VDR output / living-room client
 
@@ -1169,3 +1162,4 @@ Phase 56 established staged install readiness only. Release-grade Debian/Ubuntu 
 The packaging milestone must add real `debian/` metadata, reproducible package build, dependencies, systemd/conffile/state ownership, database migration/upgrade behavior, remove-versus-purge semantics, SuiteBridge/Agent/Web/output-client ownership, clean-install and upgrade acceptance, and parity with the supported `make install DESTDIR=...` contract.
 
 No public C++ ABI or `-dev` package is implied.
+
