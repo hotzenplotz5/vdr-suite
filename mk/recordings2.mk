@@ -85,6 +85,8 @@ test-recordings2-install-staging: test-install-staging
 	grep -F '__vdrSuiteHeroPlaybackPrewarmPromise' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'recordings2-metadata-assignment' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'new global.MutationObserver' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F 'grid-template-columns:repeat(auto-fit,minmax(6.5rem,1fr))!important' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
+	grep -F '.recordings2-hero-page .recordings2-playback-transport>button{width:100%;min-width:0}' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksTimeline = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksEditor = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
 	grep -F 'global.VdrSuiteRecordings2MarksDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js >/dev/null
@@ -94,6 +96,13 @@ test-recordings2-install-staging: test-install-staging
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-marks-timeline.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js
 	grep -F 'global.VdrSuiteRecordingFallbackControls = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
+	# session-frontend-sync.js is an installed composition, not a bare source copy.
+	# Keep all required Recording playback decorators in the staged runtime.
+	grep -F '__vdrSuiteRecordingFallbackRestartSeekBound' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
+	grep -F '__vdrSuiteRecordingFallbackControlsBound' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
+	grep -F '__vdrSuiteRecordingTimeInputMaskBound' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
+	grep -F '__vdrSuiteRecordingTrackControlsBound' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
+	grep -F '__vdrSuitePlaybackVolumeControlsBound' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js >/dev/null
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-person-search-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-view.js

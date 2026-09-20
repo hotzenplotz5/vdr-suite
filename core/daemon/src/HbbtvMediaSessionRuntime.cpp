@@ -234,7 +234,8 @@ HbbtvMediaSessionRuntime::provisionStream(
         FfmpegLiveStreamCommandBuilder().build(
             result.presentation,
             media.unixSocketPath,
-            workspace->liveStreamPath());
+            workspace->liveStreamPath(),
+            FfmpegLiveStreamReadTimeoutPolicy::AllowIdle);
     if (!command.valid)
     {
         result.reasonCode =

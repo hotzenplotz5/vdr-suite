@@ -43,6 +43,19 @@ assert(live.includes(
 assert(live.indexOf("slot.appendChild(state.playback.element);") <
        live.indexOf("slot.appendChild(hbbtvOverlay);"));
 
+for (const token of [
+  "button(\n      'Vollbild',\n      'vdr-suite-live-tv-fullscreen'\n    )",
+  "typeof slot.requestFullscreen !== 'function'",
+  "const request = slot.requestFullscreen();",
+  "slot.addEventListener('fullscreenchange'",
+  "alignHbbtvCanvas();",
+  ".vdr-suite-live-tv-player-slot:fullscreen",
+  "max-height:none!important",
+  "object-fit:contain!important"
+]) {
+  assert(live.includes(token), token);
+}
+
 for (const action of [
   "'up'", "'down'", "'left'", "'right'", "'ok'", "'back'",
   "'red'", "'green'", "'yellow'", "'blue'"
@@ -86,5 +99,22 @@ for (const forbidden of [
 }
 
 assert(!live.includes('fetch('));
+
+for (const token of [
+  'hbbtvPresentationInFlight: false',
+  'hbbtvPresentationKickPending: false',
+  'function kickHbbtvPresentation(sequence)',
+  'state.hbbtvPresentationKickPending = true;',
+  "scheduleHbbtvPresentation(sequence, 0);",
+  'kickHbbtvPresentation(sessionSequence);',
+  'inputKickPending'
+]) {
+  assert(live.includes(token), token);
+}
+
+assert(
+  live.indexOf('state.hbbtvInputDiagnostic.responseAt = responseAt;') <
+  live.indexOf('kickHbbtvPresentation(sessionSequence);')
+);
 
 console.log('Phase 67 HbbTV Live-TV overlay contract ok');

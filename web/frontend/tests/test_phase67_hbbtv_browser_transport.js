@@ -7,6 +7,7 @@ const client = fs.readFileSync('web/frontend/api/client-api.js', 'utf8');
 const index = fs.readFileSync('web/frontend/index.html', 'utf8');
 const paths = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
 const install = fs.readFileSync('mk/install.mk', 'utf8');
+const live = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
 
 for (const token of [
   'function fetchClientHbbtvSessionLaunch(options)',
@@ -54,3 +55,24 @@ for (const forbidden of [
 }
 
 console.log('Phase 67 HbbTV browser transport contract ok');
+
+const openStart = live.indexOf('function openHbbtvSession()');
+const closeStart = live.indexOf('function closeHbbtvSession()', openStart);
+assert(openStart >= 0);
+assert(closeStart > openStart);
+
+const openSource = live.slice(openStart, closeStart);
+const refreshPosition = openSource.indexOf(
+  'return beginHbbtvAvailability(currentChannel).then(function() {'
+);
+const freshApplicationPosition = openSource.indexOf(
+  'const application = launchableHbbtvApplication();'
+);
+const launchPosition = openSource.indexOf(
+  'return client.fetchClientHbbtvSessionLaunch({',
+  freshApplicationPosition
+);
+
+assert(refreshPosition >= 0);
+assert(freshApplicationPosition > refreshPosition);
+assert(launchPosition > freshApplicationPosition);

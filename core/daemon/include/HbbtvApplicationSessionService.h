@@ -90,6 +90,11 @@ private:
     bool applicationCurrent(
         const BroadcastApplicationRef& application) const;
 
+    BroadcastApplicationSessionResult closeStaleSession(
+        BroadcastApplicationSession session,
+        const std::string& error,
+        const std::string& reason);
+
     IHbbtvRuntimeControl* runtimeFor(
         const BroadcastApplicationSession& session) const;
 

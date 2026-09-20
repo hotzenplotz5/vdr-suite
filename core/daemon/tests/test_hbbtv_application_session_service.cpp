@@ -253,41 +253,40 @@ int main()
     changed.provider.capabilityRevision = 18;
     discoveryService.snapshot = discovery(changed);
 
+    SuiteBridgeHbbtvRuntimeRequest expectedClose = expectedLaunch;
+    expectedClose.operation = SuiteBridgeHbbtvRuntimeOperation::Close;
+    runtime.replies.push_back(runtimeReply(
+        expectedClose, "accepted", 1, "closing", 3));
+
     const int callsBeforeStale = runtime.calls;
     const auto staleInput = service.input(
         "bas_001122",
         "user-1",
         "living-room-tv",
         SuiteBridgeHbbtvInputAction::Right);
+
     assert(!staleInput.accepted);
     assert(staleInput.error == "hbbtv_application_context_stale");
     assert(staleInput.session.state ==
-        BroadcastApplicationSessionState::Suspended);
-    assert(runtime.calls == callsBeforeStale);
-
-    SuiteBridgeHbbtvRuntimeRequest expectedClose = expectedLaunch;
-    expectedClose.operation = SuiteBridgeHbbtvRuntimeOperation::Close;
-    runtime.replies.push_back(runtimeReply(
-        expectedClose, "accepted", 1, "closing", 3));
-
-    const auto closing = service.close(
-        "bas_001122",
-        "user-1",
-        "living-room-tv",
-        "user_close");
-    assert(closing.accepted);
-    assert(closing.session.state ==
         BroadcastApplicationSessionState::Closing);
-    assert(closing.session.closeReason == "user_close");
+    assert(staleInput.session.closeReason ==
+        "application_context_stale");
+    assert(runtime.calls == callsBeforeStale + 1);
+    assert(runtime.lastRequest.operation ==
+        SuiteBridgeHbbtvRuntimeOperation::Close);
+    assert(runtime.lastRequest.sessionId == "bas_001122");
 
     runtime.replies.push_back(runtimeReply(
         expectedStatus, "session_not_active", 6, "none", 0));
 
     const auto closed = service.refresh(
         "bas_001122", "user-1", "living-room-tv");
+
     assert(closed.accepted);
-    assert(closed.session.state == BroadcastApplicationSessionState::Closed);
-    assert(closed.session.closeReason == "user_close");
+    assert(closed.session.state ==
+        BroadcastApplicationSessionState::Closed);
+    assert(closed.session.closeReason ==
+        "application_context_stale");
 
     FakeDiscovery deniedDiscovery;
     deniedDiscovery.snapshot = discovery(applicationRef());

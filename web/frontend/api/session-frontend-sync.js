@@ -1051,7 +1051,10 @@
         }
         return id;
       }).catch(function (error) {
-        if (!destroyed && sourceMode === 'broadcast') failPlayback(error);
+        if (!destroyed && sourceMode === 'broadcast') {
+          started = false;
+          failPlayback(error);
+        }
         return '';
       });
 

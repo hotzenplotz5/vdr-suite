@@ -209,6 +209,12 @@ int main()
         workerArgv,
         "-i",
         "unix:///tmp/vdr-suite-hbbtv-media-test.sock"));
+    assert(
+        std::find(
+            workerArgv.begin(),
+            workerArgv.end(),
+            "-rw_timeout") ==
+        workerArgv.end());
     assert(pair(
         workerArgv,
         "-c:v",

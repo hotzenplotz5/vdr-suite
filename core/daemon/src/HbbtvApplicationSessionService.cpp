@@ -9,6 +9,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <chrono>
+#include <iostream>
 #include <utility>
 
 namespace
@@ -216,6 +218,56 @@ bool HbbtvApplicationSessionService::applicationCurrent(
         });
 }
 
+BroadcastApplicationSessionResult
+HbbtvApplicationSessionService::closeStaleSession(
+    BroadcastApplicationSession session,
+    const std::string& error,
+    const std::string& reason)
+{
+    session.closeReason = reason;
+
+    IHbbtvRuntimeControl* runtime = runtimeFor(session);
+    if (runtime == nullptr)
+    {
+        session.state = BroadcastApplicationSessionState::Suspended;
+        store(session);
+
+        BroadcastApplicationSessionResult result;
+        result.error = error;
+        result.session = session;
+        return result;
+    }
+
+    const SuiteBridgeHbbtvRuntimeResolution closeResult =
+        runtime->control(runtimeRequest(
+            session,
+            SuiteBridgeHbbtvRuntimeOperation::Close));
+
+    if (closeResult.payloadValid &&
+        closeResult.resultCode == 6)
+    {
+        session.state = BroadcastApplicationSessionState::Closed;
+    }
+    else if (closeResult.payloadValid &&
+             (closeResult.resultCode == 0 ||
+              closeResult.resultCode == 1) &&
+             closeResult.stateCode == 3)
+    {
+        session.state = BroadcastApplicationSessionState::Closing;
+    }
+    else
+    {
+        session.state = BroadcastApplicationSessionState::Suspended;
+    }
+
+    store(session);
+
+    BroadcastApplicationSessionResult result;
+    result.error = error;
+    result.session = session;
+    return result;
+}
+
 IHbbtvRuntimeControl* HbbtvApplicationSessionService::runtimeFor(
     const BroadcastApplicationSession& session) const
 {
@@ -377,14 +429,10 @@ BroadcastApplicationSessionResult HbbtvApplicationSessionService::refresh(
     if (session.state != BroadcastApplicationSessionState::Closing &&
         !applicationCurrent(session.application))
     {
-        session.state = BroadcastApplicationSessionState::Suspended;
-        session.closeReason = "application_context_stale";
-        store(session);
-
-        BroadcastApplicationSessionResult result;
-        result.error = "hbbtv_application_context_stale";
-        result.session = session;
-        return result;
+        return closeStaleSession(
+            session,
+            "hbbtv_application_context_stale",
+            "application_context_stale");
     }
 
     IHbbtvRuntimeControl* runtime = runtimeFor(session);
@@ -468,14 +516,10 @@ HbbtvApplicationSessionService::authorizePresentation(
 
     if (!applicationCurrent(session.application))
     {
-        session.state = BroadcastApplicationSessionState::Suspended;
-        session.closeReason = "application_context_stale";
-        store(session);
-
-        BroadcastApplicationSessionResult result;
-        result.error = "hbbtv_application_context_stale";
-        result.session = session;
-        return result;
+        return closeStaleSession(
+            session,
+            "hbbtv_application_context_stale",
+            "application_context_stale");
     }
 
     BroadcastApplicationSessionResult result;
@@ -518,16 +562,40 @@ BroadcastApplicationSessionResult HbbtvApplicationSessionService::input(
     if (action == SuiteBridgeHbbtvInputAction::None)
         return reject("hbbtv_input_action_invalid");
 
-    if (!applicationCurrent(session.application))
-    {
-        session.state = BroadcastApplicationSessionState::Suspended;
-        session.closeReason = "application_context_stale";
-        store(session);
+    const auto inputTimingStarted =
+        std::chrono::steady_clock::now();
 
-        BroadcastApplicationSessionResult result;
-        result.error = "hbbtv_application_context_stale";
-        result.session = session;
-        return result;
+    const auto discoveryTimingStarted =
+        std::chrono::steady_clock::now();
+    const bool applicationIsCurrent =
+        applicationCurrent(session.application);
+    const auto discoveryTimingFinished =
+        std::chrono::steady_clock::now();
+
+    const auto discoveryMilliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            discoveryTimingFinished - discoveryTimingStarted).count();
+
+    if (!applicationIsCurrent)
+    {
+        const auto totalMilliseconds =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                discoveryTimingFinished - inputTimingStarted).count();
+
+        std::clog
+            << "HBBTV_INPUT_TIMING"
+            << " session=" << sessionId
+            << " action=" << static_cast<unsigned int>(action)
+            << " discovery_ms=" << discoveryMilliseconds
+            << " runtime_ms=-1"
+            << " total_ms=" << totalMilliseconds
+            << " result=application_context_stale"
+            << std::endl;
+
+        return closeStaleSession(
+            session,
+            "hbbtv_application_context_stale",
+            "application_context_stale");
     }
 
     IHbbtvRuntimeControl* runtime = runtimeFor(session);
@@ -539,22 +607,48 @@ BroadcastApplicationSessionResult HbbtvApplicationSessionService::input(
         SuiteBridgeHbbtvRuntimeOperation::Input);
     request.inputAction = action;
 
+    const auto runtimeTimingStarted =
+        std::chrono::steady_clock::now();
+
     const SuiteBridgeHbbtvRuntimeResolution runtimeResult =
         runtime->control(request);
+
+    const auto runtimeTimingFinished =
+        std::chrono::steady_clock::now();
+
+    const auto runtimeMilliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            runtimeTimingFinished - runtimeTimingStarted).count();
+    const auto totalMilliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            runtimeTimingFinished - inputTimingStarted).count();
+
+    std::clog
+        << "HBBTV_INPUT_TIMING"
+        << " session=" << sessionId
+        << " action=" << static_cast<unsigned int>(action)
+        << " discovery_ms=" << discoveryMilliseconds
+        << " runtime_ms=" << runtimeMilliseconds
+        << " total_ms=" << totalMilliseconds
+        << " result="
+        << (runtimeResult.payloadValid
+            ? runtimeResult.result
+            : std::string("transport_invalid"))
+        << " state="
+        << (runtimeResult.payloadValid
+            ? runtimeResult.state
+            : std::string("unknown"))
+        << std::endl;
 
     if (!runtimeResult.payloadValid)
         return reject(runtimeResult.error);
 
     if (runtimeResult.resultCode == 3)
     {
-        session.state = BroadcastApplicationSessionState::Suspended;
-        session.closeReason = "discovery_stale";
-        store(session);
-
-        BroadcastApplicationSessionResult result;
-        result.error = "hbbtv_runtime_discovery_stale";
-        result.session = session;
-        return result;
+        return closeStaleSession(
+            session,
+            "hbbtv_runtime_discovery_stale",
+            "discovery_stale");
     }
 
     if (runtimeResult.resultCode != 0 ||

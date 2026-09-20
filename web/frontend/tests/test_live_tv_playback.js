@@ -16,6 +16,7 @@ let objectUrlSequence = 0;
 let clock = 1000;
 let deferBrowserSessionRestore = false;
 let browserSessionRestored = true;
+let failNextLiveSession = false;
 let pendingBrowserSessionRestore = null;
 let browserSessionRestoreCalls = 0;
 
@@ -120,6 +121,12 @@ const window = {
         return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
       }
       if (body.resourceKind === 'live-channel') {
+        if (failNextLiveSession) {
+          failNextLiveSession = false;
+          return Promise.reject(
+            new Error('live_provider_open_failed')
+          );
+        }
         return Promise.resolve({
           mediaSession: {
             id: 'live_session_test',
@@ -305,6 +312,40 @@ assert.strictEqual(
   requests.length = 0;
   videos.length = 0;
   browserSessionRestored = true;
+
+  failNextLiveSession = true;
+
+  const retryPlayback =
+    window.VdrSuiteRecordings2Playback.createLivePanel(
+      {id: 'C-1-1079-10349', name: 'Retry Test'},
+      'living-room',
+      {}
+    );
+
+  const failedRetryStart = await retryPlayback.start();
+  assert.strictEqual(failedRetryStart, '');
+  assert.strictEqual(
+    requests.length,
+    1,
+    'failed Live-TV startup must issue exactly one MediaSession POST'
+  );
+
+  const successfulRetryStart = await retryPlayback.start();
+  assert.strictEqual(
+    successfulRetryStart,
+    'live_session_test',
+    'second start() must retry after failed MediaSession creation'
+  );
+  assert.strictEqual(
+    requests.length,
+    2,
+    'second start() must issue a fresh MediaSession POST'
+  );
+
+  retryPlayback.destroy();
+
+  requests.length = 0;
+  videos.length = 0;
 
   const playback = window.VdrSuiteRecordings2Playback.createLivePanel(
     {id: 'C-1-1079-10351', name: 'Das Erste HD'},

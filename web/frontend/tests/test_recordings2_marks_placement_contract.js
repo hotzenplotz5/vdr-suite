@@ -58,6 +58,6 @@ console.log(
 assert(
   timeline.includes('height:2.25rem!important') &&
   timeline.includes('overflow:visible!important') &&
-  timeline.includes('top:.38rem;bottom:0;width:2px'),
-  'marker stem must end inside the marker hit box at the playback timeline'
+  timeline.includes('top:.38rem;bottom:-1.25rem;width:2px'),
+  'marker stem must extend from the marker hit box down to the playback timeline'
 );

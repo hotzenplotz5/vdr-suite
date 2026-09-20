@@ -26,8 +26,12 @@ const startChannelStart = source.indexOf('\n  function startChannel(', createPla
 assert.ok(createPlaybackStart >= 0 && startChannelStart > createPlaybackStart);
 const createPlaybackSource = source.slice(createPlaybackStart, startChannelStart);
 assert.ok(
-  createPlaybackSource.includes("if (state.active && sequence === state.switchSequence) scrollPlayerIntoView();"),
-  'successful media-session startup may scroll the existing player without re-rendering it'
+  createPlaybackSource.includes(
+    "if (state.active && sequence === state.switchSequence) {"
+  ) &&
+    createPlaybackSource.includes("scrollPlayerIntoView();") &&
+    createPlaybackSource.includes("beginHbbtvAvailability(channel);"),
+  'successful media-session startup may scroll and refresh HbbTV availability without re-rendering it'
 );
 assert.ok(
   !createPlaybackSource.includes("if (state.active && sequence === state.switchSequence) {\n        render();"),
