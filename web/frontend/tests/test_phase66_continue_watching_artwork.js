@@ -13,7 +13,8 @@ const identitySource = fs.readFileSync(path.join(repositoryRoot, 'core', 'vdr', 
 
 assert(apiSource.includes('#include "VdrRecordingArtworkIdentity.h"'));
 assert(apiSource.includes('#include "VdrRecordingMetadataJsonSerializer.h"'));
-assert(apiSource.includes('VdrRecordingArtworkIdentity::preferredArtwork(recording)'));
+assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::preferredArtworkUrl('));
+assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::presentationTitle('));
 assert(apiSource.includes('VdrRecordingArtworkIdentity::publicUrl('));
 assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::serialize(recording)'));
 assert(apiSource.includes('\\",\\\"recording\\\":" << serializeRecording(*currentRecording)'));
