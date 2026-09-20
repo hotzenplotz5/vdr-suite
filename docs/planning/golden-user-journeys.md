@@ -138,7 +138,9 @@ Live Channel
   -> cleanup
 ```
 
-Acceptance proves bounded discovery, isolation, stale-context fencing and reuse of Phase-65 MediaSession semantics for Suite-owned media. This is a Phase-67 journey under ADR-0054 and is not yet implemented/accepted.
+Acceptance proves bounded discovery, isolation, stale-context fencing and reuse of Phase-65 MediaSession semantics for Suite-owned media.
+
+**Accepted.** Real yaVDR/browser acceptance proved discovered HbbTV application launch through a Suite-owned session, normalized input, presentation/media use, same-channel continuity, stale-context close behavior, close/relaunch and stable continued use on the supported deployment profile. Durable evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
 
 ## Journey 10 — Use one legacy native OSD workflow safely
 
@@ -164,8 +166,8 @@ This remains a cross-cutting product milestone: EPG/Timer -> permission -> revis
 Phase 64 [completed] -> engine portions of Journeys 3, 4 and Timer-related Journey 5
 Phase 65 [completed] -> Journeys 1 and 2 + media Journey 5
 Phase 66 [completed] -> Journeys 6 and 7
-Phase 67 [active] -> Journey 8 accepted; Journey 9 open
-Phase 68 -> Journey 10
+Phase 67 [completed] -> Journeys 8 and 9 accepted
+Phase 68 [next; not started] -> Journey 10
 Broad Timer Product UI -> Journey 11 + user-facing Journey 3
 Phase 69 -> public/client compatibility hardening
 ```
