@@ -115,6 +115,10 @@ test-test-http-server: prepare-test-db
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/TeletextApiRuntime.cpp \
+		core/daemon/src/TeletextControlPlaneReadService.cpp \
+		api/rest/src/HbbtvApiRuntime.cpp \
+		core/daemon/src/HbbtvApplicationSessionService.cpp \
 		api/rest/src/ContinueWatchingApiRuntime.cpp \
 		core/media/src/ContinueWatching.cpp \
 		core/media/src/ContinueWatchingRepository.cpp \
