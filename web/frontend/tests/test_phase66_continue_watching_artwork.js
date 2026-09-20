@@ -10,12 +10,14 @@ const repositoryRoot = path.join(frontendRoot, '..', '..');
 const source = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
 const apiSource = fs.readFileSync(path.join(repositoryRoot, 'api', 'rest', 'src', 'ContinueWatchingApiRuntime.cpp'), 'utf8');
 const identitySource = fs.readFileSync(path.join(repositoryRoot, 'core', 'vdr', 'src', 'VdrRecordingArtworkIdentity.cpp'), 'utf8');
+const metadataSerializerSource = fs.readFileSync(path.join(repositoryRoot, 'core', 'vdr', 'include', 'VdrRecordingMetadataJsonSerializer.inl'), 'utf8');
 
 assert(apiSource.includes('#include "VdrRecordingArtworkIdentity.h"'));
 assert(apiSource.includes('#include "VdrRecordingMetadataJsonSerializer.h"'));
 assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::preferredArtworkUrl('));
 assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::presentationTitle('));
-assert(apiSource.includes('VdrRecordingArtworkIdentity::publicUrl('));
+assert(metadataSerializerSource.includes('VdrRecordingArtworkIdentity::publicUrl('),
+  'canonical metadata serializer must remain the artwork URL owner');
 assert(apiSource.includes('VdrRecordingMetadataJsonSerializer::serialize(recording)'));
 assert(apiSource.includes('\\",\\\"recording\\\":" << serializeRecording(*currentRecording)'));
 assert(apiSource.includes('jsonEscape(item.recording.backendNativeId)'));
