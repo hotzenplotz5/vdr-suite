@@ -43,7 +43,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0056 Playback Semantics](adr/ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
 - [ADR-0060 Federated VDR-Suite Sharing and Reciprocal Site Trust](adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
-- [ADR-0061 Federated Sharing Permissions and Delegation](adr/ADR-0061-federated-sharing-permissions-delegation.md)
+- [ADR-0061 Actor Permissions, Federation and Client Access](adr/ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
 

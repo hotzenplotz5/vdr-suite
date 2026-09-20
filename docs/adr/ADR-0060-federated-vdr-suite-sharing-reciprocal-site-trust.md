@@ -11,6 +11,7 @@
 - [ADR-0041 Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
 - [ADR-0046 Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0049 Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
+- [ADR-0061 Actor Permissions, Federation and Client Access](ADR-0061-actor-permissions-federation-client-access.md)
 
 ---
 

@@ -7,7 +7,7 @@
 - [ADR-0046 Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0053 Client Playback Engine and Media Adaptation Strategy](ADR-0053-client-playback-engine-media-adaptation-strategy.md)
 - [ADR-0056 Playback Presentation, Timeline, Continuity and Failure Semantics](ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md)
-- [ADR-0061 Client Identity and Permission Profiles](ADR-0061-client-identity-permission-profiles.md)
+- [ADR-0061 Actor Permissions, Federation and Client Access](ADR-0061-actor-permissions-federation-client-access.md)
 
 ---
 
@@ -44,7 +44,9 @@ VDR-Suite domain APIs / stable client contract
 
 ### Ownership
 
-The client does not create a second server/media authority, read/write Suite SQLite directly, construct private RESTfulAPI/SVDRP/SuiteBridge/provider calls for ordinary behavior, select providers outside Suite policy or fork Recording/EPG/Timer identity.
+The client is a valid permissioned VDR-Suite consumer in its own right. It does not need to expose a VDR, backend or reciprocal federation source in order to receive user/device grants.
+
+It does not create a second server/media authority, read/write Suite SQLite directly, construct private RESTfulAPI/SVDRP/SuiteBridge/provider calls for ordinary behavior, select providers outside Suite policy or fork Recording/EPG/Timer identity.
 
 ### VDR output-plugin boundary
 

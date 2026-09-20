@@ -1135,7 +1135,7 @@ This continues the architecture already defined by:
 Binding completion architecture:
 
 - [ADR-0060: Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
-- [ADR-0061: Federated Sharing Permissions and Delegation](../adr/ADR-0061-federated-sharing-permissions-delegation.md)
+- [ADR-0061: Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
 
 The target product is two autonomous VDR-Suite installations that explicitly pair and then grant rights in **each direction independently**.
 
@@ -1144,6 +1144,8 @@ Required rights include granular owner-side control over Recording visibility/st
 Backend Agent multi-site is not redefined as federation: one Control Plane managing a remote Agent/backend remains a supported topology, while independent Control Plane federation adds the long-planned Suite-to-Suite actor/source relationship.
 
 Pairing grants no content rights automatically; capabilities never substitute for permission; the owner site always performs final authorization and native/media execution.
+
+Pure clients are equally valid permissioned actors: a browser, Android app, television app or first-party output/living-room client may receive scoped access without providing any VDR/backend or reciprocal federation service.
 
 ## First-party VDR output / living-room client
 

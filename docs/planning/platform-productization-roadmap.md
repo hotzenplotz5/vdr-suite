@@ -8,7 +8,7 @@
 - [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md)
 - [ADR-0037 Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md)
 - [ADR-0060 Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
-- [ADR-0061 Federated Sharing Permissions and Delegation](../adr/ADR-0061-federated-sharing-permissions-delegation.md)
+- [ADR-0061 Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062 First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md)
 - [Current State](../CURRENT.md)
 
@@ -145,7 +145,9 @@ The owner may additionally restrict Recording folders, channels/channel groups a
 
 A frontend is not the security authority. Web, television, Kodi/mobile or another client only presents the effective grants; the owning server enforces them.
 
-Binding architecture: [ADR-0061](../adr/ADR-0061-federated-sharing-permissions-delegation.md).
+Pure clients are first-class permissioned consumers. A browser, VDR output/living-room frontend, Android app, TV app, Kodi/mobile client or other API client may authenticate/pair and receive scoped rights **without providing a VDR, BackendNode or reciprocal federation source**. Federation is additional capability, not a prerequisite for access.
+
+Binding architecture: [ADR-0061](../adr/ADR-0061-actor-permissions-federation-client-access.md).
 
 
 ## 3. First-party VDR output / living-room client
@@ -277,7 +279,7 @@ Phase 68 Legacy OSD
        -> supported living-room client rollout
        -> release-grade Debian/Ubuntu packaging
 
-Backend catalog/onboarding + permission-profile work
+Federation + permissioned-client product work
   -> may be implemented as explicit cross-cutting product work
   -> must preserve Phase 62/63/64 authority and fencing
   -> must not silently advance Phase 68/69

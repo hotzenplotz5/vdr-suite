@@ -1,4 +1,4 @@
-# ADR-0061: Federated Sharing Permissions and Delegation
+# ADR-0061: Actor Permissions, Federation and Client Access
 
 ## Navigation
 
@@ -33,17 +33,19 @@ operation allowed
 
 It also explicitly defines federation examples where `Remote Suite B` may see selected recordings from House A while Live TV and Timer creation are denied.
 
-This ADR makes that long-standing direction product-ready and granular enough for reciprocal household/site sharing.
+This ADR makes that long-standing direction product-ready for both reciprocal household/site sharing and ordinary client-only access.
 
 ---
 
 ## Decision
 
-Federated permissions are **owner-site grants over explicit operations and resource scopes**.
+Permissions are **grants over explicit operations and resource scopes**. In federation, the owning site remains the final authorization authority for its resources.
 
-They are not permissions assigned to a frontend name.
+A frontend name is not itself a permission, but a frontend or device may authenticate as an Actor/device/application identity and receive grants. A client does **not** need to provide a VDR, backend, media source or reciprocal federation capability in order to consume VDR-Suite resources it is allowed to access.
 
-The same remote permission must be enforced whether the remote user reaches the peer through Web, television UI, Kodi/mobile or another authorized client of the paired VDR-Suite.
+This explicitly includes pure clients such as the Web UI, a future VDR output/living-room client, Android app, television app, Kodi/mobile client or other API client. They may browse, stream, create timers or perform other granted operations without offering any backend of their own.
+
+The same server-side permission model is enforced whether access comes from a local client, a remote pure client, or a user delegated through a paired VDR-Suite.
 
 ### Core operation families
 
@@ -107,6 +109,22 @@ Grants may be scoped by the owner to resources such as:
 - time/expiry where appropriate.
 
 This continues the scoped examples already present in ADR-0013.
+
+### Pure client access
+
+A pure client is a consumer only:
+
+```text
+Android / TV app / output client / browser
+  -> authenticate or pair as client/device/user
+  -> receive explicit grants
+  -> consume permitted VDR-Suite resources
+  -> provides no BackendNode, VDR source or reciprocal content
+```
+
+A client may therefore have, for example, `recordings.stream` and `livetv.view` while having no server, VDR or federation peer behind it.
+
+Federation is an additional actor/source relationship, not a prerequisite for permissioned client access.
 
 ### Directional reciprocal grants
 
@@ -216,7 +234,7 @@ This makes it possible to answer who at which paired site requested a remote cut
 
 ## Acceptance
 
-Tests and real two-site acceptance must prove independent allow/deny behavior for at least:
+Client and federation acceptance must prove server-side allow/deny behavior. Pure-client tests must prove that an Android/TV/output-style client can receive scoped rights without providing any backend. Real two-site federation acceptance must additionally prove independent allow/deny behavior for at least:
 
 - Recording list/view;
 - Recording stream;

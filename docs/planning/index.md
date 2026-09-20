@@ -20,7 +20,7 @@ This section contains binding future execution order, product acceptance journey
 - [Implementation Dependency Map](implementation-dependency-map.md) — stable prerequisite ordering.
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md) — living accepted-code gap register.
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) — frontend/product parity gap register.
-- [Platform Productization Roadmap](platform-productization-roadmap.md) — MultiBackend onboarding, client permission profiles, first-party living-room/output client and Debian/Ubuntu release packaging.
+- [Platform Productization Roadmap](platform-productization-roadmap.md) — federated MultiBackend sharing, permissioned pure clients, first-party living-room/output client and Debian/Ubuntu release packaging.
 - [ADR Index](../adr/index.md) — accepted architectural decisions.
 
 ## Stable phase dependency chain
