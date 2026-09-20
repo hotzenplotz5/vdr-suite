@@ -41,11 +41,14 @@ Phase 66 - Media Home and Browse Experience
 Current active numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
+Next strict numbered runtime phase:
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+
 Completed Phase-67 vertical:
 Teletext read path / browser-TV view / page navigation
 
 Current active runtime slice:
-Phase 67 HbbTV discovery is next; HbbTV session/runtime is not yet implemented
+Phase 67 HbbTV discovery/session/media runtime is implemented and accepted on the real yaVDR/browser path; numbered closeout remains open
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
@@ -178,7 +181,7 @@ Accepted Teletext capability now includes:
 - Live-TV companion navigation and direct Media Home entry;
 - accepted Golden Journey 8 behavior on the supported browser/yaVDR deployment.
 
-The next coherent Phase-67 vertical is HbbTV discovery. HbbTV session/runtime work remains open after discovery.
+The HbbTV discovery/session/media runtime vertical is implemented and accepted on the real yaVDR/browser path. Phase 67 remains active until its numbered closeout is completed.
 
 Retained boundaries:
 
