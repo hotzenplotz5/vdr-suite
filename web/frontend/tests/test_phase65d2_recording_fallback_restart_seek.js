@@ -293,20 +293,6 @@ window.VdrSuiteRecordings2Playback = {
   assert.strictEqual(directButton.disabled, false);
   assert.strictEqual(timeline.max, '7133');
 
-  // Real browser regression: restart-seek may be requested while the HLS video
-  // still reports local position 0. The already confirmed Recording resume
-  // capability must survive stop() so a positive target can start a fresh
-  // compatibility session instead of failing with "Fortsetzen ... nicht verfügbar".
-  assert.strictEqual(playback.position(), 0);
-  assert.strictEqual(await playback.seekRelative(60), true);
-  let createRequests = requests.filter(entry => !entry.body.operation);
-  assert.strictEqual(
-    createRequests[1].body.startPositionSeconds,
-    60,
-    'restart-seek from local position 0 must preserve resume capability for a positive target'
-  );
-  assert.strictEqual(playback.position(), 60);
-
   let video = playback.element.querySelector('video');
   directTime.focus();
   assert.strictEqual(directTime.focused, true, 'direct seek input must accept focus when restart-seek is available');
@@ -321,10 +307,10 @@ window.VdrSuiteRecordings2Playback = {
   );
 
   assert.strictEqual(await playback.seekRelative(60), true);
-  assert.strictEqual(creates, 3, 'HLS seek must create a fresh transport owner');
-  assert.strictEqual(destroys, 2, 'HLS seek must release the previous transport owner');
-  createRequests = requests.filter(entry => !entry.body.operation);
-  assert.strictEqual(createRequests[2].body.startPositionSeconds, 180);
+  assert.strictEqual(creates, 2, 'HLS seek must create a fresh transport owner');
+  assert.strictEqual(destroys, 1, 'HLS seek must release the previous transport owner');
+  let createRequests = requests.filter(entry => !entry.body.operation);
+  assert.strictEqual(createRequests[1].body.startPositionSeconds, 180);
   assert.strictEqual(playback.position(), 180);
 
   video = playback.element.querySelector('video');
@@ -333,13 +319,13 @@ window.VdrSuiteRecordings2Playback = {
   back10Button.click();
   await flush();
   createRequests = requests.filter(entry => !entry.body.operation);
-  assert.strictEqual(createRequests[3].body.startPositionSeconds, 175, '−10 must use absolute Recording time');
+  assert.strictEqual(createRequests[2].body.startPositionSeconds, 175, '−10 must use absolute Recording time');
 
   directTime.value = '00:10:00';
   directButton.click();
   await flush();
   createRequests = requests.filter(entry => !entry.body.operation);
-  assert.strictEqual(createRequests[4].body.startPositionSeconds, 600, 'direct time seek must restart at requested time');
+  assert.strictEqual(createRequests[3].body.startPositionSeconds, 600, 'direct time seek must restart at requested time');
 
   // Real Android regression: while the user drags the range input, playback
   // continues to emit timeupdate. Browser textContent replacement also emits
@@ -372,9 +358,29 @@ window.VdrSuiteRecordings2Playback = {
   timeline.dispatch('change', {target: timeline});
   await flush();
   createRequests = requests.filter(entry => !entry.body.operation);
-  assert.strictEqual(createRequests[5].body.startPositionSeconds, 1200, 'timeline change must restart HLS at absolute time');
+  assert.strictEqual(createRequests[4].body.startPositionSeconds, 1200, 'timeline change must restart HLS at absolute time');
   assert.strictEqual(playback.position(), 1200);
-  assert.strictEqual(starts, 6);
+  assert.strictEqual(starts, 5);
+
+  // Real browser regression: restart-seek may be requested while the active
+  // HLS video still reports local currentTime 0. Recording resume capability
+  // comes from the indexed Recording contract and must survive stop().
+  const zeroPlayback = factory.createPanel({id: 'recording-zero-position'}, 'default');
+  assert.ok(zeroPlayback && zeroPlayback.element);
+  assert.strictEqual(await zeroPlayback.start({autoPlay: false}), 'hls-session-6');
+  await flush();
+  assert.strictEqual(zeroPlayback.position(), 0);
+  assert.strictEqual(zeroPlayback.canResume(), true);
+  const createCountBeforeZeroSeek = requests.filter(entry => !entry.body.operation).length;
+  assert.strictEqual(await zeroPlayback.seekRelative(60), true);
+  const zeroCreateRequests = requests.filter(entry => !entry.body.operation);
+  assert.strictEqual(zeroCreateRequests.length, createCountBeforeZeroSeek + 1);
+  assert.strictEqual(
+    zeroCreateRequests.at(-1).body.startPositionSeconds,
+    60,
+    'positive restart-seek from local position 0 must preserve resume capability'
+  );
+  assert.strictEqual(zeroPlayback.position(), 60);
 
   console.log('phase65d2 HLS fallback restart-seek controls and focus ownership ok');
 }()).catch(error => {
