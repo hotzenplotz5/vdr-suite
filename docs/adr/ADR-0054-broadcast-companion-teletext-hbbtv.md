@@ -461,17 +461,13 @@ Completed history through Phase 65 is unchanged. Phase 66 Media Home is next and
 
 # Runtime implementation status
 
-Phase 67 is active.
+**Phase 67 is completed.**
 
-The Teletext vertical is completed and merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`. Durable implementation and real-system evidence is recorded in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md).
+The Teletext vertical merged through PR #293 / `d92e7907637122368908ce4c7564a0332db9c487`. The HbbTV discovery/application-session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`.
 
-The remaining Phase-67 work is HbbTV:
+Durable numbered evidence is recorded in [Phase 67 Closeout](../development/phase-67-closeout.md), with Teletext-specific evidence retained in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md).
 
-- discovery first;
-- application session/runtime after discovery;
-- media/security/origin hardening after the session boundary is established.
-
-The architecture below remains authoritative for both completed Teletext and open HbbTV work.
+The architecture below remains authoritative for the completed Broadcast Companion domain and for later compatible hardening.
 
 # Implementation Direction
 
@@ -490,7 +486,7 @@ real broadcast Teletext
 
 No OSD proxy is required.
 
-## Vertical 2 — HbbTV discovery
+## Vertical 2 — HbbTV discovery — COMPLETED
 
 ```text
 real broadcast application signaling
@@ -502,7 +498,7 @@ real broadcast application signaling
 
 No app execution yet until the session/runtime boundary is complete.
 
-## Vertical 3 — HbbTV application session/runtime
+## Vertical 3 — HbbTV application session/runtime — COMPLETED
 
 ```text
 user launches discovered application
@@ -513,7 +509,7 @@ user launches discovered application
   -> deterministic close/channel-change cleanup
 ```
 
-## Vertical 4 — Media integration and hardening
+## Vertical 4 — Media integration and hardening — COMPLETED
 
 - preserve Phase-65 media authorization for Suite-owned media;
 - classify broadcaster-network media separately;

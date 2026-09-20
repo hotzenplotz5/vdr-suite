@@ -22,7 +22,8 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
-- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical inside active Phase 67.
+- [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
+- [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)
 - [Phase 66 Media Home and Browse Experience](phase-66-media-home-browse-experience.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
@@ -82,7 +83,7 @@ Phase 66 - Media Home and Browse Experience is completed. The later Home perform
 
 The current accepted Recordings 2 detail/presentation layer, including the cinematic Hero, restored actions/cache fallback, clickable cast/local person search, bottom Metadata navigation, strict paused canonical-owner prewarm, corrected related-Recording portrait posters and inline privacy-enhanced YouTube Trailers, is documented separately in [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md). Native marks/cutting remains separately documented in [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md).
 
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV is active. The Teletext vertical is completed and merged; HbbTV discovery is the next bounded Phase-67 vertical. ADR-0054 remains the binding companion-service architecture.
+Phase 67 - Broadcast Companion Services: Teletext and HbbTV is completed. Teletext merged through PR #293 and HbbTV discovery/session/presentation-media runtime through PR #300. Use [Phase 67 Closeout](phase-67-closeout.md) for durable evidence; ADR-0054 remains the binding companion-service architecture.
 
 Growing-Recording seek and Live-TV timeshift remain truthful deferred capability work and do not reopen Phase 65.
 

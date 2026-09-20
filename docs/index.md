@@ -22,6 +22,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md) — current consolidated Home truth after the merged rebuild/hardening work.
 - [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md) — current accepted cinematic Recordings 2 detail, playback-prewarm and poster-selection evidence.
+- [Phase 67 Closeout](development/phase-67-closeout.md) — completed Broadcast Companion phase, HbbTV runtime acceptance and Golden Journeys 8/9 evidence.
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md) — merged domain-first Teletext runtime, real yaVDR acceptance and Golden Journey 8 evidence.
 - [Phase 66 Closeout](development/phase-66-closeout.md) — numbered Media Home/Browse completion and Golden acceptance evidence.
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability.
@@ -51,6 +52,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Completed Phase Archive](development/completed-phases/README.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
 - [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md)
+- [Phase 67 Closeout](development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
 - [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md)
