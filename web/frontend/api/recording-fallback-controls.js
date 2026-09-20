@@ -547,7 +547,7 @@
       if (destroyed || stopped || !inner) return Promise.resolve(false);
       stoppedPosition = position();
       stoppedDuration = durationSeconds;
-      stoppedResumeSupported = Boolean(resumeSupported && stoppedPosition > 0);
+      stoppedResumeSupported = Boolean(resumeSupported);
       clearIndexPoll();
       publishLifecycle('stop-requested', {state: 'stopping', sessionId: activeSessionId});
       if (typeof inner.destroy === 'function') inner.destroy();
