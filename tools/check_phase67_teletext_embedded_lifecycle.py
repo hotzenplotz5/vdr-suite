@@ -12,6 +12,7 @@ LIFE_CPP = ROOT / "core/daemon/src/EmbeddedBackendLifecycle.cpp"
 AUTH_CPP = ROOT / "core/daemon/src/EmbeddedBackendTeletextAuthority.cpp"
 TELETEXT_RUNTIME = ROOT / "core/daemon/src/DaemonTeletextRuntime.cpp"
 DAEMON_RUNTIME = ROOT / "core/daemon/src/DaemonRuntime.cpp"
+DAEMON_SHUTDOWN = ROOT / "core/daemon/src/DaemonRuntimeShutdown.cpp"
 INIT = ROOT / "core/daemon/src/DaemonRuntimeInitialization.cpp"
 POLL = ROOT / "core/daemon/src/DaemonRuntimePolling.cpp"
 SOURCES = ROOT / "mk/daemon-sources.mk"
@@ -20,7 +21,7 @@ errors: list[str] = []
 
 for path in (
     GEN_H, GEN_CPP, AGENT_REPO, LIFE_H, LIFE_CPP, AUTH_CPP,
-    TELETEXT_RUNTIME, DAEMON_RUNTIME, INIT, POLL, SOURCES,
+    TELETEXT_RUNTIME, DAEMON_RUNTIME, DAEMON_SHUTDOWN, INIT, POLL, SOURCES,
 ):
     if not path.is_file():
         errors.append(f"missing Phase 67 embedded lifecycle file: {path.relative_to(ROOT)}")
@@ -33,7 +34,7 @@ agent_repo = read(AGENT_REPO)
 lifecycle = read(LIFE_CPP)
 authority = read(AUTH_CPP)
 teletext = read(TELETEXT_RUNTIME)
-runtime = read(DAEMON_RUNTIME)
+runtime = read(DAEMON_RUNTIME) + "\n" + read(DAEMON_SHUTDOWN)
 initialization = read(INIT)
 polling = read(POLL)
 sources = read(SOURCES)
