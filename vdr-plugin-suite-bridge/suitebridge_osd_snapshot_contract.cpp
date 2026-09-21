@@ -1,8 +1,6 @@
 #include "suitebridge_osd_snapshot_contract.h"
 
 #include <cstdio>
-#include <cstring>
-#include <limits>
 #include <string>
 
 namespace {
@@ -20,7 +18,7 @@ const char *KindName(SuiteBridgeOsdFrameKind kind) noexcept
 } // namespace
 
 SuiteBridgeOsdSnapshotPayload::SuiteBridgeOsdSnapshotPayload(
-    const SuiteBridgeOsdSnapshot &snapshot) noexcept
+    const SuiteBridgeOsdSnapshot &snapshot)
 {
   data_.reserve(8192);
 
@@ -93,9 +91,10 @@ SuiteBridgeOsdSnapshotPayload::SuiteBridgeOsdSnapshotPayload(
   if (!complete_) data_.clear();
 }
 
-bool SuiteBridgeOsdSnapshotPayload::Append(const std::string &value) noexcept
+bool SuiteBridgeOsdSnapshotPayload::Append(const std::string &value)
 {
-  if (!complete_ || value.size() > MaximumPayloadBytes - data_.size()) {
+  if (!complete_ || data_.size() > MaximumPayloadBytes ||
+      value.size() > MaximumPayloadBytes - data_.size()) {
     complete_ = false;
     return false;
   }
@@ -103,7 +102,7 @@ bool SuiteBridgeOsdSnapshotPayload::Append(const std::string &value) noexcept
   return true;
 }
 
-bool SuiteBridgeOsdSnapshotPayload::AppendJsonString(const char *value) noexcept
+bool SuiteBridgeOsdSnapshotPayload::AppendJsonString(const char *value)
 {
   if (!Append("\"")) return false;
   if (value != nullptr) {
@@ -141,12 +140,12 @@ bool SuiteBridgeOsdSnapshotPayload::AppendJsonString(const char *value) noexcept
 }
 
 bool SuiteBridgeOsdSnapshotPayload::AppendUnsigned(
-    unsigned long long value) noexcept
+    unsigned long long value)
 {
   return Append(std::to_string(value));
 }
 
-bool SuiteBridgeOsdSnapshotPayload::AppendSigned(long long value) noexcept
+bool SuiteBridgeOsdSnapshotPayload::AppendSigned(long long value)
 {
   return Append(std::to_string(value));
 }
