@@ -15,6 +15,7 @@ std::int64_t nowValue = 5000;
 std::uint64_t generation = 21;
 std::uint64_t frameSequence = 1;
 std::string epoch = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+std::string surfaceId = "primary-native-osd";
 bool authorized = true;
 SourceState sourceState = SourceState::Current;
 int viewerCounter = 0;
@@ -67,7 +68,7 @@ BackendAgentOsdReadResult readFor(
     auto& frame = read.snapshot.buffer.observed.frame;
     frame.surface.backendId = backend;
     frame.surface.backendGeneration = expectedGeneration;
-    frame.surface.surfaceId = "primary-native-osd";
+    frame.surface.surfaceId = surfaceId;
     frame.surface.osdEpoch = epoch;
     frame.state = OsdSurfaceState::Active;
     frame.kind = OsdFrameKind::Menu;
@@ -137,6 +138,7 @@ void resetState()
     generation = 21;
     frameSequence = 1;
     epoch = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    surfaceId = "primary-native-osd";
     authorized = true;
     sourceState = SourceState::Current;
     viewerCounter = 0;
@@ -295,6 +297,91 @@ void testGenerationExpiryAndBounds()
            expired.error == "legacy_osd_viewer_expired");
 }
 
+
+void testOwnershipSequenceAndSourceResync()
+{
+    resetState();
+    auto sessions = makeSessionService("los_viewers_fencing");
+    assert(sessions.create(sessionRequest()).accepted);
+    OsdViewerBindingService viewers(
+        sessions,
+        [] { return "ovb_fencing_001"; },
+        [] { return nowValue; });
+
+    auto wrongAttach = attachRequest("los_viewers_fencing");
+    wrongAttach.actorId = "user:other";
+    const auto deniedAttach = viewers.attach(wrongAttach);
+    assert(!deniedAttach.accepted);
+    assert(deniedAttach.error == "legacy_osd_session_not_found");
+
+    const auto attached =
+        viewers.attach(attachRequest("los_viewers_fencing"));
+    assert(attached.accepted);
+
+    auto wrongClient = readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 0);
+    wrongClient.clientInstanceId = "device:other";
+    const auto deniedRead = viewers.read(wrongClient);
+    assert(!deniedRead.accepted);
+    assert(deniedRead.error == "legacy_osd_viewer_not_found");
+    assert(viewers.find(attached.binding.viewerBindingId).has_value());
+
+    const auto initial = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 0));
+    assert(initial.accepted && initial.hasFrame);
+    assert(initial.frame.frameSequence == 1);
+
+    const auto acknowledged = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 1));
+    assert(acknowledged.accepted);
+    assert(acknowledged.state == OsdViewerDeliveryState::NoChange);
+
+    frameSequence = 3;
+    const auto sequenceGap = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 1));
+    assert(sequenceGap.accepted);
+    assert(sequenceGap.state == OsdViewerDeliveryState::ResyncRequired);
+    assert(sequenceGap.reasonCode == "viewer_sequence_gap");
+    assert(sequenceGap.binding.lastAcknowledgedFrameSequence == 0);
+
+    const auto gapResynced = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 0));
+    assert(gapResynced.accepted && gapResynced.hasFrame);
+    assert(gapResynced.frame.frameSequence == 3);
+
+    sourceState = SourceState::ResyncRequired;
+    frameSequence = 4;
+    const auto sourceResync = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 3));
+    assert(sourceResync.accepted);
+    assert(sourceResync.state == OsdViewerDeliveryState::ResyncRequired);
+    assert(sourceResync.reasonCode == "osd_resync_required");
+    assert(!sourceResync.hasFrame);
+
+    sourceState = SourceState::Current;
+    frameSequence = 5;
+    const auto sourceRecovered = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 0));
+    assert(sourceRecovered.accepted && sourceRecovered.hasFrame);
+    assert(sourceRecovered.frame.frameSequence == 5);
+
+    surfaceId = "secondary-native-osd";
+    frameSequence = 1;
+    const auto surfaceFence = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 5));
+    assert(surfaceFence.accepted);
+    assert(surfaceFence.state == OsdViewerDeliveryState::ResyncRequired);
+    assert(surfaceFence.reasonCode == "osd_surface_or_epoch_changed");
+    assert(surfaceFence.binding.osdSurfaceId == surfaceId);
+    assert(surfaceFence.binding.lastAcknowledgedFrameSequence == 0);
+
+    const auto surfaceResynced = viewers.read(readRequest(
+        "los_viewers_fencing", attached.binding.viewerBindingId, 0));
+    assert(surfaceResynced.accepted && surfaceResynced.hasFrame);
+    assert(surfaceResynced.frame.surface.surfaceId == surfaceId);
+    assert(surfaceResynced.frame.frameSequence == 1);
+}
+
 void testApiBindingLifecycle()
 {
     resetState();
@@ -344,6 +431,7 @@ int main()
 {
     testMultiViewerIsolationAndResync();
     testGenerationExpiryAndBounds();
+    testOwnershipSequenceAndSourceResync();
     testApiBindingLifecycle();
     return 0;
 }
