@@ -1991,6 +1991,8 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         config_.nativeTimerDeleteTransport;
     commandConfig.nativeTimerModifyTransport =
         config_.nativeTimerModifyTransport;
+    commandConfig.legacyOsdInputTransport =
+        config_.legacyOsdInputTransport;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
