@@ -495,14 +495,14 @@
       const buttons = document.createElement('div');
       buttons.className = 'recordings2-action-buttons';
       const apply = shared.createButton('In Papierkorb verschieben', function () {
+        if (!global.confirm(
+          'Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?'
+        )) {
+          setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
+          return;
+        }
         validate(recording, 'DELETE', {}, status, apply, isDryRunReady)
           .then(function () {
-            if (!global.confirm(
-              'Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?'
-            )) {
-              setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
-              return null;
-            }
             return executeDelete(recording, status, apply);
           })
           .catch(function () {
