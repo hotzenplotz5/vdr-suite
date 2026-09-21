@@ -1,110 +1,75 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <string>
-#include <vector>
 
-struct OsdFrameLimits
+enum class LegacyOsdSessionMode
 {
-    static constexpr std::size_t MaximumItems = 128;
-    static constexpr std::size_t TitleBytes = 256;
-    static constexpr std::size_t StatusBytes = 512;
-    static constexpr std::size_t ButtonBytes = 128;
-    static constexpr std::size_t ItemTextBytes = 512;
-    static constexpr std::size_t DetailTextBytes = 4096;
-    static constexpr std::size_t ChannelBytes = 512;
-    static constexpr std::size_t ProgrammeTextBytes = 512;
+    ViewOnly
 };
 
-enum class OsdSurfaceState
+enum class LegacyOsdSessionState
 {
-    Inactive,
+    Requested,
+    Starting,
     Active,
     Degraded,
-    Suppressed
+    ResyncRequired,
+    Suspended,
+    Closing,
+    Closed,
+    Expired,
+    Failed
 };
 
-enum class OsdFrameKind
+inline std::string legacyOsdSessionStateName(LegacyOsdSessionState state)
 {
-    None,
-    Menu,
-    ChannelInfo
+    switch (state)
+    {
+        case LegacyOsdSessionState::Requested: return "requested";
+        case LegacyOsdSessionState::Starting: return "starting";
+        case LegacyOsdSessionState::Active: return "active";
+        case LegacyOsdSessionState::Degraded: return "degraded";
+        case LegacyOsdSessionState::ResyncRequired: return "resync_required";
+        case LegacyOsdSessionState::Suspended: return "suspended";
+        case LegacyOsdSessionState::Closing: return "closing";
+        case LegacyOsdSessionState::Closed: return "closed";
+        case LegacyOsdSessionState::Expired: return "expired";
+        case LegacyOsdSessionState::Failed:
+        default: return "failed";
+    }
+}
+
+struct LegacyOsdCapabilitySnapshot
+{
+    bool viewAvailable = false;
+    bool controlAvailable = false;
 };
 
-struct OsdSurfaceRef
+struct LegacyOsdPolicySnapshot
 {
+    bool viewAuthorized = false;
+    bool controlAuthorized = false;
+};
+
+struct LegacyOsdSession
+{
+    std::string legacyOsdSessionId;
+    std::uint64_t sessionRevision = 0;
+    std::string actorId;
+    std::string clientInstanceId;
     std::string backendId;
     std::uint64_t backendGeneration = 0;
-    std::string surfaceId;
+    LegacyOsdSessionMode mode = LegacyOsdSessionMode::ViewOnly;
+    LegacyOsdSessionState state = LegacyOsdSessionState::Requested;
+    std::int64_t createdAt = 0;
+    std::int64_t expiresAt = 0;
+    std::int64_t idleExpiresAt = 0;
+    std::int64_t lastActivityAt = 0;
+    LegacyOsdCapabilitySnapshot capabilitySnapshot;
+    LegacyOsdPolicySnapshot policySnapshot;
+    std::string osdSurfaceId;
     std::string osdEpoch;
+    std::string closeReason;
+    std::string correlationId;
 };
-
-struct OsdTextItem
-{
-    std::string text;
-    bool selectable = true;
-};
-
-struct OsdProgrammeInfo
-{
-    std::int64_t presentTime = 0;
-    std::string presentTitle;
-    std::string presentSubtitle;
-    std::int64_t followingTime = 0;
-    std::string followingTitle;
-    std::string followingSubtitle;
-};
-
-struct OsdFrame
-{
-    OsdSurfaceRef surface;
-    OsdSurfaceState state = OsdSurfaceState::Inactive;
-    OsdFrameKind kind = OsdFrameKind::None;
-    std::uint64_t frameSequence = 0;
-    std::uint64_t observedAt = 0;
-    bool fullFrame = true;
-    bool complete = true;
-
-    std::string title;
-    std::string statusMessage;
-    std::string red;
-    std::string green;
-    std::string yellow;
-    std::string blue;
-    std::vector<OsdTextItem> items;
-    int selectedIndex = -1;
-    std::string text;
-    std::string channel;
-    OsdProgrammeInfo programme;
-};
-
-inline bool osdFrameWithinLimits(const OsdFrame& frame) noexcept
-{
-    if (frame.title.size() > OsdFrameLimits::TitleBytes ||
-        frame.statusMessage.size() > OsdFrameLimits::StatusBytes ||
-        frame.red.size() > OsdFrameLimits::ButtonBytes ||
-        frame.green.size() > OsdFrameLimits::ButtonBytes ||
-        frame.yellow.size() > OsdFrameLimits::ButtonBytes ||
-        frame.blue.size() > OsdFrameLimits::ButtonBytes ||
-        frame.text.size() > OsdFrameLimits::DetailTextBytes ||
-        frame.channel.size() > OsdFrameLimits::ChannelBytes ||
-        frame.items.size() > OsdFrameLimits::MaximumItems ||
-        frame.programme.presentTitle.size() > OsdFrameLimits::ProgrammeTextBytes ||
-        frame.programme.presentSubtitle.size() > OsdFrameLimits::ProgrammeTextBytes ||
-        frame.programme.followingTitle.size() > OsdFrameLimits::ProgrammeTextBytes ||
-        frame.programme.followingSubtitle.size() > OsdFrameLimits::ProgrammeTextBytes)
-    {
-        return false;
-    }
-
-    for (const OsdTextItem& item : frame.items)
-    {
-        if (item.text.size() > OsdFrameLimits::ItemTextBytes)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
