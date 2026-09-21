@@ -40,6 +40,8 @@ required_content = (
     '{"recording-metadata", SuiteBridgeCapabilityState::Available}',
     '{"recording-marks", SuiteBridgeCapabilityState::Available}',
     '{"epg-type-snapshot", SuiteBridgeCapabilityState::Available}',
+    '{"osd.view", SuiteBridgeCapabilityState::Available}',
+    '{"osd.control", SuiteBridgeCapabilityState::Available}',
     '{"mutations", SuiteBridgeCapabilityState::Disabled}',
     "SuiteBridgeCapabilities::Find(",
     "SuiteBridgeCapabilities::IsAvailable(",
