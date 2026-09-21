@@ -23,6 +23,10 @@ phase_make = read("mk/phase68-legacy-osd-tests.mk")
 plugin_make = read("vdr-plugin-suite-bridge/Makefile")
 
 for fragment in (
+    "struct OsdFrameLimits",
+    "MaximumItems = 128",
+    "DetailTextBytes = 4096",
+    "osdFrameWithinLimits",
     "struct OsdSurfaceRef",
     "backendGeneration",
     "osdEpoch",

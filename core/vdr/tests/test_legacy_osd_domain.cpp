@@ -25,5 +25,15 @@ int main()
     assert(frame.frameSequence == 11);
     assert(frame.fullFrame);
     assert(frame.items.size() == 1);
+    assert(osdFrameWithinLimits(frame));
+
+    frame.title.assign(OsdFrameLimits::TitleBytes + 1, 'x');
+    assert(!osdFrameWithinLimits(frame));
+    frame.title.clear();
+
+    frame.items.assign(
+        OsdFrameLimits::MaximumItems + 1,
+        OsdTextItem{"bounded", true});
+    assert(!osdFrameWithinLimits(frame));
     return 0;
 }
