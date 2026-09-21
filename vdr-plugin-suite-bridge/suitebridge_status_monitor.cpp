@@ -59,6 +59,11 @@ SuiteBridgeStatusSnapshot SuiteBridgeStatusMonitor::CaptureSnapshot() const noex
   return events_.CaptureSnapshot(IsActive());
 }
 
+SuiteBridgeOsdSnapshot SuiteBridgeStatusMonitor::CaptureOsdSnapshot() const noexcept
+{
+  return osdState_.CaptureSnapshot();
+}
+
 void SuiteBridgeStatusMonitor::RecordEvent(
     SuiteBridgeStatusEventKind kind) noexcept
 {
@@ -159,4 +164,75 @@ void SuiteBridgeStatusMonitor::MarksModified(
   (void)marks;
 
   RecordEvent(SuiteBridgeStatusEventKind::MarksModified);
+}
+
+void SuiteBridgeStatusMonitor::OsdClear(void)
+{
+  osdState_.Clear();
+}
+
+void SuiteBridgeStatusMonitor::OsdTitle(const char *title)
+{
+  osdState_.Title(title);
+}
+
+void SuiteBridgeStatusMonitor::OsdStatusMessage(
+    eMessageType type,
+    const char *message)
+{
+  (void)type;
+  osdState_.StatusMessage(message);
+}
+
+void SuiteBridgeStatusMonitor::OsdHelpKeys(
+    const char *red,
+    const char *green,
+    const char *yellow,
+    const char *blue)
+{
+  osdState_.HelpKeys(red, green, yellow, blue);
+}
+
+void SuiteBridgeStatusMonitor::OsdItem(
+    const char *text,
+    int index,
+    bool selectable)
+{
+  osdState_.Item(text, index, selectable);
+}
+
+void SuiteBridgeStatusMonitor::OsdCurrentItem(
+    const char *text,
+    int index)
+{
+  osdState_.CurrentItem(text, index);
+}
+
+void SuiteBridgeStatusMonitor::OsdTextItem(
+    const char *text,
+    bool scroll)
+{
+  osdState_.TextItem(text, scroll);
+}
+
+void SuiteBridgeStatusMonitor::OsdChannel(const char *text)
+{
+  osdState_.Channel(text);
+}
+
+void SuiteBridgeStatusMonitor::OsdProgramme(
+    time_t presentTime,
+    const char *presentTitle,
+    const char *presentSubtitle,
+    time_t followingTime,
+    const char *followingTitle,
+    const char *followingSubtitle)
+{
+  osdState_.Programme(
+      static_cast<std::int64_t>(presentTime),
+      presentTitle,
+      presentSubtitle,
+      static_cast<std::int64_t>(followingTime),
+      followingTitle,
+      followingSubtitle);
 }
