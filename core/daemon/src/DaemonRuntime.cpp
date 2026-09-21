@@ -64,6 +64,9 @@ int DaemonRuntime::run()
             database_,
             *backendAgentIdentityRepository_,
             *backendAgentLifecycleService_,
+            *backendAgentRepository_,
+            *backendAgentCommandRepository_,
+            *backendAgentCommandDeliveryService_,
             *backendRegistryService_,
             *backendAccessPolicy_)) {
         std::cerr
