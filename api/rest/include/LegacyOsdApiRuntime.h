@@ -7,6 +7,7 @@
 class LegacyOsdSessionService;
 class OsdViewerBindingService;
 class OsdControllerLeaseService;
+class LegacyOsdInputService;
 
 class LegacyOsdApiRuntime
 {
@@ -20,6 +21,11 @@ public:
         LegacyOsdSessionService& sessionService,
         OsdViewerBindingService& viewerService,
         OsdControllerLeaseService& controllerService);
+    bool configure(
+        LegacyOsdSessionService& sessionService,
+        OsdViewerBindingService& viewerService,
+        OsdControllerLeaseService& controllerService,
+        LegacyOsdInputService& inputService);
     void reset();
     bool configured() const;
 
@@ -42,4 +48,5 @@ private:
     LegacyOsdSessionService* sessionService_ = nullptr;
     OsdViewerBindingService* viewerService_ = nullptr;
     OsdControllerLeaseService* controllerService_ = nullptr;
+    LegacyOsdInputService* inputService_ = nullptr;
 };
