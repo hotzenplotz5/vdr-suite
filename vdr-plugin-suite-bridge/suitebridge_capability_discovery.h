@@ -11,7 +11,7 @@ public:
     return 1;
   }
 
-  static constexpr std::size_t BufferSize = 768;
+  static constexpr std::size_t BufferSize = 1024;
 
   SuiteBridgeCapabilityDiscoveryPayload(
       const char *pluginName,
