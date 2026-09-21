@@ -19,10 +19,26 @@ Accepted local continuity vertical:
 PR #308 -> 81b9a28759debf5c87fe72afa793bc3db0a486fa
 ```
 
-Active coherent vertical:
+Accepted authenticated transport vertical:
 
 ```text
 68.C - Authenticated read-only Agent OSD transport
+PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
+```
+
+Accepted view-session authorization vertical:
+
+```text
+68.D - Authorized bounded Legacy OSD view sessions
+PR #310 accepted candidate -> 8807d587536daa6c27ae72a3f88d40b0c7de3480
+Hosted CI 35594914471: PASS
+real yaVDR acceptance: PASS
+```
+
+Next coherent vertical:
+
+```text
+68.E - Bounded viewer bindings and multi-viewer delivery
 ```
 
 This document is the durable execution checkpoint for the Phase-68 start. It exists so a later work session does not repeat the complete architecture inventory merely because a tooling or polling session ended.
@@ -74,18 +90,20 @@ The following Phase-68 prerequisites already exist and remain their current owne
 - existing normalized RemoteAction and LiveOverlay domains;
 - private RESTfulAPI transport below Suite-owned adapters.
 
-68.A now implements the bounded semantic `OsdSurfaceRef` / full
-`OsdFrame` foundation. The following ADR-0047 concepts remain later work:
+68.A through 68.D now establish the bounded semantic observation,
+local continuity, authenticated Agent transport and explicit view-session
+authorization foundations. The following ADR-0047 concepts remain later work:
 
-- `LegacyOsdSession`;
-- `OsdViewerBinding`;
-- `OsdDelta`;
+- `OsdViewerBinding` and bounded multi-viewer delivery;
+- optional delta delivery only where exact-base semantics justify it;
 - `OsdControllerLease`;
 - `OsdInputCommand`;
 - `OsdInputResult`;
-- `osd.view` / `osd.control` authorization enforcement for the Legacy OSD plane.
+- `osd.control` authorization and every native input path.
 
-Existing capability catalogue/UI references to the names `osd.view` and `osd.control` are not evidence that the runtime exists.
+`osd.view` now has an enforced runtime path, but remains an explicit
+backend-scoped grant; it is not implied by `role.admin`. `osd.control`
+remains disabled and unavailable.
 
 ## Native/provider source audit - first result
 
@@ -194,7 +212,7 @@ A later work session should:
 
 1. verify the live branch head and compare it with live `main`;
 2. read this checkpoint and any later Phase-68 development notes;
-3. continue the active 68.C transport slice from the verified main and this checkpoint;
+3. continue with 68.E bounded viewer bindings from the verified main and the accepted 68.D view-session boundary;
 4. repeat the full ADR/repository inventory only if repository changes invalidate this checkpoint.
 
 Do not restart Phase 68 merely because an execution/polling session ended.
@@ -299,3 +317,63 @@ SuiteBridge stays `0.13.5`, local schemas remain unchanged, and `osd.control`
 stays disabled. Controller leases, native inputs, raw tunnels, public provider
 exposure, renderer/output clients, Teletext/HbbTV changes and MediaSession work
 remain outside 68.C.
+
+
+## 68.D authorized view-session closeout
+
+Accepted candidate:
+
+```text
+PR #310
+8807d587536daa6c27ae72a3f88d40b0c7de3480
+Hosted CI run 35594914471: SUCCESS
+real yaVDR acceptance: RESULT=PHASE68D_REAL_ACCEPTANCE_PASS
+```
+
+68.D is SB.14 stage 7: authenticated Control Plane admission and refresh of a
+bounded, view-only `LegacyOsdSession`. It consumes the single existing
+`BackendAgentLifecycleService` and the transient 68.C OSD receiver rather than
+creating a second OSD cache or lifecycle owner.
+
+The accepted boundary provides:
+
+- explicit backend-scoped `osd.view` enforcement at HTTP admission and again
+  when a session is refreshed;
+- no implicit `osd.view` grant from `role.admin`;
+- browser CSRF protection for session creation while keeping view-session
+  creation non-mutating;
+- bounded transient session count and lifetime;
+- actor/client/backend binding;
+- backend-generation fencing and current Agent authority/freshness rechecks;
+- view-only session metadata with `Cache-Control: no-store`;
+- no OSD frame/menu text returned through the session admission/status API;
+- fail-closed revocation, expiry and generation-change handling.
+
+Hosted CI passed architecture, documentation, Make inventory, frontend,
+packaging and fast regression jobs. The fast suite includes the 68.D
+view-session/security tests, the accepted 68.C authenticated OSD transport
+regression and a production daemon build.
+
+Real yaVDR acceptance additionally proved:
+
+```text
+DAEMON_BUILD=PASS
+RESULT=PHASE68C_REAL_SOURCE_AUTHENTICATED_RECEIVER_PASS
+REAL_OSD_SOURCE_AUTHENTICATED_RECEIVER=PASS
+NO_CONTROL_INPUT_BOUNDARY=PASS
+WORKTREE_CLEAN_AFTER=PASS
+RESULT=PHASE68D_REAL_ACCEPTANCE_PASS
+```
+
+No production binary was installed or replaced and neither VDR nor the
+production daemon was restarted for this acceptance.
+
+68.D does **not** implement `OsdViewerBinding`, multi-viewer fan-out,
+`OsdControllerLease`, `osd.control`, native input, raw VDR key codes,
+`cRemote`, generic SVDRP/plugin-service tunneling, renderer/browser overlay,
+output-plugin rendering, SkinDesigner/native pixel capture, Teletext/HbbTV
+refactoring, MediaSession changes or Phase 69.
+
+The next coherent Phase-68 slice is 68.E bounded viewer bindings and
+multi-viewer delivery. Controller leasing follows only after the view plane is
+proven end-to-end.

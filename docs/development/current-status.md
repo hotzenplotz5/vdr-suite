@@ -25,7 +25,9 @@ Current active numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bri
 
 Next strict numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
-Current active runtime slice: **68.C - Authenticated read-only Agent OSD transport**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md).
+Accepted Phase-68 slices now include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport and 68.D authorized bounded view sessions**.
+
+Current active runtime slice: **68.E - Bounded viewer bindings and multi-viewer delivery**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md) and [Phase 68.D View-Session Closeout](phase-68d-view-session-authorization-closeout.md).
 
 Phase 67 completed both Broadcast Companion verticals: **Teletext** and **HbbTV discovery/application-session/presentation-media runtime**.
 
