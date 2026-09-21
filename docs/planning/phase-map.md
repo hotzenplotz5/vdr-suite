@@ -30,10 +30,10 @@ Latest completed numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active numbered runtime phase:
-none - Phase 68 not started
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Next strict numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -49,7 +49,7 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback and stable playback semantics. |
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Completed | Broadcast Companion Services: Teletext and HbbTV | Teletext and HbbTV Journeys 8/9 accepted. |
-| 5 | Phase 68 | Next; not started | Legacy OSD Compatibility Bridge | Isolated OSD observation/control compatibility. |
+| 5 | Phase 68 | Active — 68.A | Legacy OSD Compatibility Bridge | Read-only OSD observation first; control remains later in Phase 68. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
 
@@ -86,7 +86,7 @@ Live Channel / ProgramEvent
   +--> BroadcastApplication -> HbbTV Application Session
 ```
 
-Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`. Phase 68 Legacy OSD is next and has not started.
+Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`. Phase 68 Legacy OSD is active at 68.A read-only OSD observation; see [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md).
 
 ## Later phases
 
