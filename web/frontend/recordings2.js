@@ -79,8 +79,8 @@
     loadFolder: loadFolder,
     onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); }
   });
-  const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
-    stop: stopFolderRefresh, schedule: scheduleFolderRefresh, updatePresentedFolderState} = folderRefresh;
+  const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves, stop: stopFolderRefresh,
+    schedule: scheduleFolderRefresh, updatePresentedFolderState, forgetRecording} = folderRefresh;
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
@@ -190,56 +190,13 @@
     if (state.selectedRecording) state.selectedRecording = null;
     loadFolder(state.path || '');
   }
-  function sameRecordingIdentity(candidate, recording) {
-    const candidateId = String(shared.first(candidate, ['recordingId', 'id', 'nativeId'], ''));
-    const recordingId = String(shared.first(recording, ['recordingId', 'id', 'nativeId'], ''));
-    if (candidateId && recordingId) return candidateId === recordingId;
-    const candidateNative = String(shared.first(candidate, ['backendNativeId', 'nativePath', 'path'], ''));
-    const recordingNative = String(shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
-    return Boolean(candidateNative && recordingNative && candidateNative === recordingNative);
-  }
-  function completeDelete(recording) {
-    const detailReturn = state.detailReturn;
-    const beforeServer = state.serverRecordings.length;
-    state.serverRecordings = state.serverRecordings.filter(function (candidate) {
-      return !sameRecordingIdentity(candidate, recording);
-    });
-    state.promotedRecordings = state.promotedRecordings.filter(function (candidate) {
-      return !sameRecordingIdentity(candidate, recording);
-    });
-    const removedServer = beforeServer - state.serverRecordings.length;
-    if (removedServer > 0) {
-      state.serverRecordingCount = Math.max(0, state.serverRecordingCount - removedServer);
-    }
-    if (state.data) {
-      state.data = Object.assign({}, state.data, {
-        recordings: shared.recordingList(state.data).filter(function (candidate) {
-          return !sameRecordingIdentity(candidate, recording);
-        })
-      });
-    }
-    updatePresentedFolderState();
-    if (view && typeof view.destroy === 'function') view.destroy();
-    state.requestSequence += 1;
-    state.selectedRecording = null;
-    clearExternalDetailReturn();
-    if (typeof detailReturn === 'function') {
-      stopFolderRefresh();
-      state.active = false;
-      detailReturn();
-      return;
-    }
-    render();
-    scheduleFolderRefresh(0);
-  }
   view = browserView.create({
     getState: function () { return state; },
     openFolder: loadFolder,
     loadMore: loadMore,
     selectRecording: selectRecording,
     closeDetail: closeDetail,
-    reload: reload,
-    completeDelete: completeDelete
+    reload: reload, completeDelete: function (recording) { forgetRecording(recording); closeDetail(); }
   });
   const moduleApi = Object.freeze({
     activate: function () {
@@ -301,8 +258,6 @@
       formatSize: shared.formatSize,
       normalizeRecording: normalizeRecording,
       applyFolderData: applyFolderData,
-      sameRecordingIdentity: sameRecordingIdentity,
-      completeDelete: completeDelete,
       resolveSingleRecordingLeaves: resolveSingleRecordingLeaves,
       ensurePlaybackRuntime: ensurePlaybackRuntime
     })

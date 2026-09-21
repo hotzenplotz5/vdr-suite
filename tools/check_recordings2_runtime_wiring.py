@@ -7,6 +7,7 @@ runtime_paths = {
     'shared': ROOT / 'web/frontend/recordings2-shared.js',
     'folder_artwork': ROOT / 'web/frontend/recordings2-folder-artwork.js',
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
+    'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
     'marks_editor': ROOT / 'web/frontend/recordings2-marks-editor.js',
@@ -68,7 +69,15 @@ required_tokens = {
         'findMatchingRecording',
         'requestBrowsableFolder',
         'isDryRunReady',
+        'executeDelete',
+        'completeDelete',
         'READBACK_ATTEMPTS',
+    ),
+    'folder_refresh': (
+        'global.VdrSuiteRecordings2FolderRefresh',
+        'sameRecordingIdentity',
+        'forgetRecording',
+        'updatePresentedFolderState',
     ),
     'browser_view': (
         'global.VdrSuiteRecordings2BrowserView',
