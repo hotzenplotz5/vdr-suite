@@ -180,10 +180,10 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phases 64, 65 and 66 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
-4. Preserve accepted Phase-65 playback/MediaSession semantics and the completed Phase-66 Home ownership rather than inventing parallel owners during later hardening or Phase-67 work.
-5. Treat Phase 67 - Broadcast Companion Services: Teletext and HbbTV as the active numbered runtime phase; Teletext is completed and HbbTV remains open.
-6. Read ADR-0054 and the Phase-67 Teletext closeout before continuing HbbTV work; preserve the accepted Teletext contracts rather than rebuilding them.
+3. Treat Phases 64, 65, 66 and 67 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership and completed Phase-67 Teletext/HbbTV domains rather than inventing parallel owners during Phase-68 work.
+5. Treat Phase 68 - Legacy OSD Compatibility Bridge as the active numbered runtime phase and continue from slice 68.A read-only OSD observation.
+6. Read ADR-0047 and `docs/development/phase-68-legacy-osd-kickoff.md` before continuing Phase 68; preserve completed Phase-67 Teletext/HbbTV contracts rather than rebuilding or routing them through Legacy OSD.
 7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
 8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
 9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.

@@ -33,7 +33,8 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 ## Current active numbered runtime phase
 
 ```text
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
+68.A - Read-only OSD observation
 ```
 
 Phase 67 is completed. Teletext merged through PR #293 and HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`.
