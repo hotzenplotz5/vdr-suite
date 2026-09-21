@@ -91,15 +91,16 @@ The normal VDR plugin OSD API allows a plugin to create an OSD through `cOsdProv
 
 Phase 68 must therefore not invent a raw-current-OSD pointer/capture API.
 
-### RESTfulAPI remains a private candidate source
+### Accepted 68.A native observation owner: SuiteBridge cStatus
 
-The existing architecture already records that RESTfulAPI can expose structured current OSD state such as Text/Channel/Programme OSD data.
+The production reference is VDR 2.7.9. Its current cStatus contract exposes observation callbacks for OSD clear/title/status/help/menu items/current item/text/channel/programme state.
 
-A normalized scene/full-frame representation may use such a private source if the current supported yaVDR provider is proven to expose the required bounded facts.
+Phase 68.A therefore extends the existing SuiteBridge status monitor as the local native observation owner. Callback values are copied immediately into fixed-size value storage; VDR pointers are never retained. Writers use a non-blocking try-lock and mark continuity incomplete if an update cannot be captured. Oversized strings/items are bounded and likewise mark the frame incomplete.
 
-RESTfulAPI response shapes and URLs remain private adapter details. They never become the public Legacy OSD contract.
+The local OSD epoch is generated independently from backend generation. Full-frame sequence and observation time are local observation metadata. No input path is added.
 
-This provider choice is not yet accepted until the exact current provider/version and payload are verified.
+RESTfulAPI /osd.json remains useful comparison/fallback evidence, but is not the primary 68.A owner: the existing generic IHttpClient cannot enforce the OSD body bound before reading the response, and RESTfulAPI's event stream does not currently provide OSD sequence continuity.
+
 
 ## Current SuiteBridge truth
 
