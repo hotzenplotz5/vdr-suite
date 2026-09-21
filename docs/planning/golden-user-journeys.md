@@ -167,7 +167,7 @@ Phase 64 [completed] -> engine portions of Journeys 3, 4 and Timer-related Journ
 Phase 65 [completed] -> Journeys 1 and 2 + media Journey 5
 Phase 66 [completed] -> Journeys 6 and 7
 Phase 67 [completed] -> Journeys 8 and 9 accepted
-Phase 68 [next; not started] -> Journey 10
+Phase 68 [active: 68.A read-only observation] -> Journey 10
 Broad Timer Product UI -> Journey 11 + user-facing Journey 3
 Phase 69 -> public/client compatibility hardening
 ```

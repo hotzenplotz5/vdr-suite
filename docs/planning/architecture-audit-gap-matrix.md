@@ -90,7 +90,7 @@ Phase 66 preserves completed Phase-65 MediaSession/playback ownership and existi
 
 ### Current television product domain — Phase 67
 
-Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is next and not started.
+Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is active at 68.A read-only OSD observation.
 
 ### Later compatibility/platform work
 

@@ -21,9 +21,11 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 Latest completed numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
 
-Current active numbered runtime phase: **none - Phase 68 not started**.
+Current active numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
 Next strict numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
+
+Current active runtime slice: **68.A - Read-only OSD observation**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md).
 
 Phase 67 completed both Broadcast Companion verticals: **Teletext** and **HbbTV discovery/application-session/presentation-media runtime**.
 
@@ -122,12 +124,12 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
+  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
 
-ADR-0054 remains the binding completed Broadcast Companion architecture. ADR-0047 owns the next numbered Phase-68 Legacy OSD boundary.
+ADR-0054 remains the binding completed Broadcast Companion architecture. ADR-0047 owns the active Phase-68 Legacy OSD boundary.
 
 ## Retained deferred boundaries
 

@@ -21,7 +21,7 @@ Latest completed numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active numbered runtime phase:
-none - Phase 68 not started
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Next strict numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
@@ -29,7 +29,7 @@ Phase 68 - Legacy OSD Compatibility Bridge
 
 Phase 66 is completed. The later non-numbered Home performance, Recording Discovery, metadata/artwork, native Recording editing and Home-rebuild work is also completed for the merged accepted scopes and does not reopen Phase 66. The consolidated Home-rebuild evidence is recorded in [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md).
 
-Phase 67 is completed through the accepted Teletext and HbbTV verticals. Durable evidence is in [Phase 67 Closeout](docs/development/phase-67-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is next and has not started.
+Phase 67 is completed through the accepted Teletext and HbbTV verticals. Durable evidence is in [Phase 67 Closeout](docs/development/phase-67-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is active at 68.A read-only OSD observation; durable recovery evidence is in [Phase 68 Kickoff](docs/development/phase-68-legacy-osd-kickoff.md).
 
 ## Strict forward sequence
 
@@ -38,7 +38,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
+  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
 ```

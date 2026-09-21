@@ -29,8 +29,10 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 ## Stable project position
 
 - Latest completed numbered runtime phase: **Phase 67 - Broadcast Companion Services: Teletext and HbbTV**.
-- Current active numbered runtime phase: **none - Phase 68 not started**.
+- Current active numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 - Next strict numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
+- Current active runtime slice: **68.A - Read-only OSD observation**.
+- Durable Phase-68 recovery checkpoint: [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
 - Phase 66 Slices 66.1 through 66.8 are completed; the Golden desktop/mobile acceptance passed and PR #264 merged the closeout.
@@ -59,7 +61,7 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65, Phase 66 and **Phase 67 are completed**. Phase 68 has not started.
+Phase 65, Phase 66 and **Phase 67 are completed**. Phase 68 is active at 68.A read-only OSD observation; controller lease and native input remain later Phase-68 slices.
 
 For the next numbered work:
 
@@ -76,7 +78,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
+  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
@@ -129,7 +131,7 @@ Seek/growing-recording truthfulness is a cross-cutting media contract rather tha
 
 ## Phase 67 Broadcast Companion planning
 
-Teletext and HbbTV are normal television-domain capabilities for Phase 67, not Legacy OSD shortcuts. Teletext is now implemented and accepted; HbbTV remains open.
+Teletext and HbbTV are normal television-domain capabilities for Phase 67, not Legacy OSD shortcuts. Both are implemented and accepted; Phase 68 must not route them back through Legacy OSD.
 
 Accepted ADR-0054 defines the distinction:
 

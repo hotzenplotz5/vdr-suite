@@ -42,7 +42,7 @@ Completed Teletext scope includes the normalized service/page domain, embedded b
 
 See [Phase 67 Closeout](phase-67-closeout.md) and [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is next and has not started.
+Phase 68 Legacy OSD Compatibility Bridge is active at 68.A read-only OSD observation. See [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md) for the durable recovery checkpoint.
 
 ## Evidence boundary
 
