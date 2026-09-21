@@ -1,18 +1,24 @@
 #include "LegacyOsdApiRuntime.h"
 
 #include "LegacyOsdSessionService.h"
+#include "OsdViewerBindingService.h"
 
 #include <algorithm>
 #include <cctype>
 #include <map>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace
 {
 constexpr const char* SessionsRoute = "/api/vdr/legacy-osd/sessions";
 constexpr const char* SessionStatusRoute =
     "/api/vdr/legacy-osd/sessions/status";
+constexpr const char* ViewersRoute =
+    "/api/vdr/legacy-osd/viewers";
+constexpr const char* ViewerDetachRoute =
+    "/api/vdr/legacy-osd/viewers/detach";
 constexpr std::size_t MaximumBodyBytes = 1024U;
 
 std::string requestPath(const std::string& target)
@@ -81,6 +87,76 @@ bool parseCreateBody(const std::string& body, std::string& backendId)
     return position == body.size() && safeToken(backendId, false);
 }
 
+bool parseStringObject(
+    const std::string& body,
+    const std::vector<std::string>& expectedKeys,
+    std::map<std::string, std::string>& fields)
+{
+    fields.clear();
+    if (body.empty() || body.size() > MaximumBodyBytes) return false;
+    std::size_t position = 0;
+    if (!consume(body, position, '{')) return false;
+
+    while (true)
+    {
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        std::string value;
+        if (!parseString(body, position, key) ||
+            std::find(expectedKeys.begin(), expectedKeys.end(), key) ==
+                expectedKeys.end() ||
+            fields.count(key) != 0U ||
+            !consume(body, position, ':') ||
+            !parseString(body, position, value) ||
+            !safeToken(value, false))
+            return false;
+        fields.emplace(key, value);
+
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        if (!consume(body, position, ',')) return false;
+    }
+
+    skipWhitespace(body, position);
+    if (position != body.size() ||
+        fields.size() != expectedKeys.size())
+        return false;
+    for (const std::string& key : expectedKeys)
+    {
+        if (fields.count(key) == 0U) return false;
+    }
+    return true;
+}
+
+bool parseViewerBody(
+    const std::string& body,
+    bool detach,
+    std::string& backendId,
+    std::string& sessionId,
+    std::string& viewerId)
+{
+    std::map<std::string, std::string> fields;
+    std::vector<std::string> keys = {
+        "backendId", "legacyOsdSessionId"
+    };
+    if (detach) keys.push_back("viewerBindingId");
+    if (!parseStringObject(body, keys, fields)) return false;
+    backendId = fields["backendId"];
+    sessionId = fields["legacyOsdSessionId"];
+    viewerId = detach ? fields["viewerBindingId"] : std::string{};
+    return true;
+}
+
 bool parseStatusTarget(const std::string& target, std::string& backendId,
                        std::string& sessionId)
 {
@@ -147,6 +223,38 @@ ApiResponse errorResponse(int statusCode, const std::string& error)
         "\",\"message\":\"Legacy OSD session request rejected\"}}");
 }
 
+std::string viewerJson(const OsdViewerBinding& binding)
+{
+    std::ostringstream output;
+    output << "{\"viewerBindingId\":\""
+           << jsonEscape(binding.viewerBindingId)
+           << "\",\"bindingRevision\":" << binding.bindingRevision
+           << ",\"legacyOsdSessionId\":\""
+           << jsonEscape(binding.legacyOsdSessionId)
+           << "\",\"sessionRevision\":" << binding.sessionRevision
+           << ",\"backendId\":\"" << jsonEscape(binding.backendId)
+           << "\",\"backendGeneration\":" << binding.backendGeneration
+           << ",\"state\":\"" << osdViewerBindingStateName(binding.state)
+           << "\",\"attachedAt\":" << binding.attachedAt
+           << ",\"lastSeenAt\":" << binding.lastSeenAt
+           << ",\"expiresAt\":" << binding.expiresAt
+           << ",\"renderingProfile\":\""
+           << jsonEscape(binding.renderingProfile)
+           << "\",\"surface\":{\"surfaceId\":\""
+           << jsonEscape(binding.osdSurfaceId)
+           << "\",\"osdEpoch\":\"" << jsonEscape(binding.osdEpoch)
+           << "\"},\"cursor\":{\"acknowledgedFrameSequence\":"
+           << binding.lastAcknowledgedFrameSequence
+           << ",\"deliveredFrameSequence\":"
+           << binding.lastDeliveredFrameSequence
+           << ",\"acknowledgedEventSequence\":"
+           << binding.lastAcknowledgedEventSequence
+           << "},\"capabilities\":{\"view\":true,\"control\":false}"
+           << ",\"closeReason\":\"" << jsonEscape(binding.closeReason)
+           << "\"}";
+    return output.str();
+}
+
 std::string sessionJson(const LegacyOsdSession& session)
 {
     std::ostringstream output;
@@ -184,6 +292,12 @@ int errorStatus(const std::string& error)
     if (error == "legacy_osd_session_expired") return 410;
     if (error == "legacy_osd_backend_generation_changed") return 409;
     if (error == "legacy_osd_session_capacity_reached") return 429;
+    if (error == "legacy_osd_viewer_request_invalid") return 400;
+    if (error == "legacy_osd_viewer_not_found") return 404;
+    if (error == "legacy_osd_viewer_expired") return 410;
+    if (error == "legacy_osd_viewer_capacity_reached" ||
+        error == "legacy_osd_viewer_session_capacity_reached") return 429;
+    if (error == "legacy_osd_viewer_concurrent_update") return 409;
     return 503;
 }
 }
@@ -197,11 +311,22 @@ LegacyOsdApiRuntime& LegacyOsdApiRuntime::instance()
 bool LegacyOsdApiRuntime::configure(LegacyOsdSessionService& service)
 {
     sessionService_ = &service;
+    viewerService_ = nullptr;
+    return true;
+}
+
+bool LegacyOsdApiRuntime::configure(
+    LegacyOsdSessionService& sessionService,
+    OsdViewerBindingService& viewerService)
+{
+    sessionService_ = &sessionService;
+    viewerService_ = &viewerService;
     return true;
 }
 
 void LegacyOsdApiRuntime::reset()
 {
+    viewerService_ = nullptr;
     sessionService_ = nullptr;
 }
 
@@ -215,7 +340,69 @@ bool LegacyOsdApiRuntime::tryHandlePost(
     const std::string& actorRef, const std::string& clientRef,
     const std::string& correlationRef, ApiResponse& response) const
 {
-    if (requestPath(requestTarget) != SessionsRoute) return false;
+    const std::string path = requestPath(requestTarget);
+    if (path != SessionsRoute &&
+        path != ViewersRoute &&
+        path != ViewerDetachRoute)
+        return false;
+
+    if (path == ViewersRoute || path == ViewerDetachRoute)
+    {
+        if (!viewerService_)
+        {
+            response = errorResponse(
+                503, "legacy_osd_viewer_runtime_unavailable");
+            return true;
+        }
+
+        std::string backendId;
+        std::string sessionId;
+        std::string viewerId;
+        const bool detach = path == ViewerDetachRoute;
+        if (!parseViewerBody(
+                body, detach, backendId, sessionId, viewerId) ||
+            !safeToken(actorRef, true) || !safeToken(clientRef, true))
+        {
+            response = errorResponse(
+                400, "legacy_osd_viewer_request_invalid");
+            return true;
+        }
+
+        if (detach)
+        {
+            OsdViewerDetachRequest request;
+            request.actorId = actorRef;
+            request.clientInstanceId = clientRef;
+            request.backendId = backendId;
+            request.legacyOsdSessionId = sessionId;
+            request.viewerBindingId = viewerId;
+            const auto result = viewerService_->detach(request);
+            if (!result.accepted)
+            {
+                response = errorResponse(
+                    errorStatus(result.error), result.error);
+                return true;
+            }
+            response = jsonResponse(200, viewerJson(result.binding));
+            return true;
+        }
+
+        OsdViewerAttachRequest request;
+        request.actorId = actorRef;
+        request.clientInstanceId = clientRef;
+        request.backendId = backendId;
+        request.legacyOsdSessionId = sessionId;
+        const auto result = viewerService_->attach(request);
+        if (!result.accepted)
+        {
+            response = errorResponse(
+                errorStatus(result.error), result.error);
+            return true;
+        }
+        response = jsonResponse(201, viewerJson(result.binding));
+        return true;
+    }
+
     if (!sessionService_)
     {
         response = errorResponse(503, "legacy_osd_session_runtime_unavailable");

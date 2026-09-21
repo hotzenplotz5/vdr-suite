@@ -150,6 +150,12 @@ public:
         const bool isLegacyOsdSessionCreate =
             isPost &&
             path == "/api/vdr/legacy-osd/sessions";
+        const bool isLegacyOsdViewerAttach =
+            isPost &&
+            path == "/api/vdr/legacy-osd/viewers";
+        const bool isLegacyOsdViewerDetach =
+            isPost &&
+            path == "/api/vdr/legacy-osd/viewers/detach";
         std::string legacyOsdBackendId;
         if (isLegacyOsdSessionStatusRead)
         {
@@ -322,7 +328,9 @@ public:
             isHbbtvSessionMutation;
         const bool isExplicitlyAuthorizedPost =
             (isProtectedMutation || isRecordingPlaybackSessionCreate) ||
-            isLegacyOsdSessionCreate;
+            isLegacyOsdSessionCreate ||
+            isLegacyOsdViewerAttach ||
+            isLegacyOsdViewerDetach;
 
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
@@ -501,10 +509,16 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isLegacyOsdSessionCreate)
+        if (isLegacyOsdSessionCreate ||
+            isLegacyOsdViewerAttach ||
+            isLegacyOsdViewerDetach)
         {
             requestToAuthorize.permission = "osd.view";
-            requestToAuthorize.action = "osd.session.create";
+            requestToAuthorize.action = isLegacyOsdViewerAttach
+                ? "osd.viewer.attach"
+                : (isLegacyOsdViewerDetach
+                    ? "osd.viewer.detach"
+                    : "osd.session.create");
         }
         else if (isHbbtvSessionLaunch)
         {

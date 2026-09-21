@@ -5,12 +5,16 @@
 #include <string>
 
 class LegacyOsdSessionService;
+class OsdViewerBindingService;
 
 class LegacyOsdApiRuntime
 {
 public:
     static LegacyOsdApiRuntime& instance();
     bool configure(LegacyOsdSessionService& sessionService);
+    bool configure(
+        LegacyOsdSessionService& sessionService,
+        OsdViewerBindingService& viewerService);
     void reset();
     bool configured() const;
 
@@ -31,4 +35,5 @@ public:
 private:
     LegacyOsdApiRuntime() = default;
     LegacyOsdSessionService* sessionService_ = nullptr;
+    OsdViewerBindingService* viewerService_ = nullptr;
 };

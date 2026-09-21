@@ -67,7 +67,7 @@ required = {
         'path == "/api/vdr/legacy-osd/sessions"',
         'path == "/api/vdr/legacy-osd/sessions/status"',
         'requestToAuthorize.permission = "osd.view"',
-        'requestToAuthorize.action = "osd.session.create"',
+        '"osd.session.create"',
     ],
 }
 
@@ -87,7 +87,6 @@ joined_runtime = "\n".join(
     ("service", "api", "daemon", "runtime", "router")
 )
 for forbidden in (
-    "OsdViewerBinding",
     "OsdControllerLease",
     "osd.control",
     "cRemote",
@@ -102,6 +101,9 @@ for forbidden in (
         )
 
 api = contents["api"]
+session_start = api.find("std::string sessionJson(")
+session_end = api.find("int errorStatus(", session_start)
+session_api = api[session_start:session_end]
 for forbidden_payload in (
     "frame.title",
     "statusMessage",
@@ -109,7 +111,7 @@ for forbidden_payload in (
     "followingTitle",
     "frame.items",
 ):
-    if forbidden_payload in api:
+    if forbidden_payload in session_api:
         errors.append(
             "Legacy OSD session API leaks frame payload field: "
             + forbidden_payload

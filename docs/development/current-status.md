@@ -25,9 +25,9 @@ Current active numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bri
 
 Next strict numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
-Accepted Phase-68 slices now include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport and 68.D authorized bounded view sessions**.
+Accepted Phase-68 slices now include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport, 68.D authorized bounded view sessions and 68.E bounded viewer bindings/multi-viewer delivery**.
 
-Current active runtime slice: **68.E - Bounded viewer bindings and multi-viewer delivery**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md) and [Phase 68.D View-Session Closeout](phase-68d-view-session-authorization-closeout.md).
+Current active runtime slice: **68.F - Exclusive controller lease and `osd.control` fencing**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md), [Phase 68.D View-Session Closeout](phase-68d-view-session-authorization-closeout.md) and [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md).
 
 Phase 67 completed both Broadcast Companion verticals: **Teletext** and **HbbTV discovery/application-session/presentation-media runtime**.
 
@@ -126,7 +126,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.C]
+  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.F]
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
@@ -147,6 +147,7 @@ The following are not unfinished Phase 65/66 work:
 ## Related documents
 
 - [Current State](../CURRENT.md)
+- [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)

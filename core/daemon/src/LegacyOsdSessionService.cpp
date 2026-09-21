@@ -234,6 +234,7 @@ LegacyOsdSessionResult LegacyOsdSessionService::create(
     LegacyOsdSessionResult result;
     result.accepted = true;
     result.session = session;
+    result.observation = read;
     return result;
 }
 
@@ -351,5 +352,6 @@ LegacyOsdSessionResult LegacyOsdSessionService::status(
     LegacyOsdSessionResult result;
     result.accepted = true;
     result.session = session;
+    result.observation = read;
     return result;
 }
