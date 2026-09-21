@@ -12,6 +12,7 @@ namespace vdrsuite::agent
 class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerDeleteTransport;
 class IBackendAgentNativeTimerModifyTransport;
+class ISuiteBridgeLegacyOsdInputTransport;
 }
 
 struct BackendAgentClientConfig
@@ -35,6 +36,8 @@ struct BackendAgentClientConfig
         nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport*
         nativeTimerModifyTransport = nullptr;
+    vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport*
+        legacyOsdInputTransport = nullptr;
     // Installed by the existing Agent composition root; never a public transport.
     std::function<vdrsuite::agent::SuiteBridgeOsdFrameSourceSnapshot(
         const std::string&, std::uint64_t)> osdObservationSource;
