@@ -156,8 +156,25 @@ public:
         const bool isLegacyOsdViewerDetach =
             isPost &&
             path == "/api/vdr/legacy-osd/viewers/detach";
+        const bool isLegacyOsdControllerAcquire =
+            isPost &&
+            path == "/api/vdr/legacy-osd/controller-leases";
+        const bool isLegacyOsdControllerRenew =
+            isPost &&
+            path == "/api/vdr/legacy-osd/controller-leases/renew";
+        const bool isLegacyOsdControllerRelease =
+            isPost &&
+            path == "/api/vdr/legacy-osd/controller-leases/release";
+        const bool isLegacyOsdControllerStatusRead =
+            request.method == "GET" &&
+            path == "/api/vdr/legacy-osd/controller-leases/status";
+        const bool isLegacyOsdControllerMutation =
+            isLegacyOsdControllerAcquire ||
+            isLegacyOsdControllerRenew ||
+            isLegacyOsdControllerRelease;
         std::string legacyOsdBackendId;
-        if (isLegacyOsdSessionStatusRead)
+        if (isLegacyOsdSessionStatusRead ||
+            isLegacyOsdControllerStatusRead)
         {
             legacyOsdBackendId =
                 queryStringValue(request.path, "backend");
@@ -207,7 +224,8 @@ public:
             isHbbtvSessionClose ||
             isHbbtvMediaMutation;
         std::string hbbtvBackendId;
-        if (isLegacyOsdSessionStatusRead)
+        if (isLegacyOsdSessionStatusRead ||
+            isLegacyOsdControllerStatusRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
@@ -215,7 +233,9 @@ public:
             AuthorizationRequest osdRequest;
             osdRequest.permission = "osd.view";
             osdRequest.backendId = legacyOsdBackendId;
-            osdRequest.action = "osd.session.status";
+            osdRequest.action = isLegacyOsdControllerStatusRead
+                ? "osd.controller.status"
+                : "osd.session.status";
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
                     gate.context,
@@ -325,7 +345,8 @@ public:
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
             isManualRecordingMetadataAction ||
             isRecordingSeriesHierarchyAction ||
-            isHbbtvSessionMutation;
+            isHbbtvSessionMutation ||
+            isLegacyOsdControllerMutation;
         const bool isExplicitlyAuthorizedPost =
             (isProtectedMutation || isRecordingPlaybackSessionCreate) ||
             isLegacyOsdSessionCreate ||
@@ -509,9 +530,18 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isLegacyOsdSessionCreate ||
-            isLegacyOsdViewerAttach ||
-            isLegacyOsdViewerDetach)
+        if (isLegacyOsdControllerMutation)
+        {
+            requestToAuthorize.permission = "osd.control";
+            requestToAuthorize.action = isLegacyOsdControllerAcquire
+                ? "osd.controller.acquire"
+                : (isLegacyOsdControllerRenew
+                    ? "osd.controller.renew"
+                    : "osd.controller.release");
+        }
+        else if (isLegacyOsdSessionCreate ||
+                 isLegacyOsdViewerAttach ||
+                 isLegacyOsdViewerDetach)
         {
             requestToAuthorize.permission = "osd.view";
             requestToAuthorize.action = isLegacyOsdViewerAttach

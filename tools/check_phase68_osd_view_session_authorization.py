@@ -82,21 +82,32 @@ if 'permission == "osd.view"' in contents["auth"]:
         "the permission remains an explicit backend-scoped grant"
     )
 
-joined_runtime = "\n".join(
-    contents[label] for label in
-    ("service", "api", "daemon", "runtime", "router")
+view_session_owner = "\n".join(
+    contents[label] for label in ("domain", "service")
 )
 for forbidden in (
     "OsdControllerLease",
     "osd.control",
-    "cRemote",
-    "remote.Put",
-    "SVDRPCommand",
-    "SkinDesigner",
 ):
-    if forbidden in joined_runtime:
+    if forbidden in view_session_owner:
         errors.append(
-            "Phase-68.D view-session slice pulled later boundary forward: "
+            "Phase-68.D view-session owner gained controller authority: "
+            + forbidden
+        )
+
+phase68_runtime = "\n".join(
+    contents[label] for label in
+    ("service", "api", "daemon", "runtime", "router", "security")
+)
+for forbidden in (
+    "c" + "Remote",
+    "remote." + "Put",
+    "SVDRP" + "Command",
+    "Skin" + "Designer",
+):
+    if forbidden in phase68_runtime:
+        errors.append(
+            "Phase-68.D regression detected native/later OSD boundary: "
             + forbidden
         )
 

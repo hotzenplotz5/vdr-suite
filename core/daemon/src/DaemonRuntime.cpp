@@ -58,10 +58,14 @@ int DaemonRuntime::run()
     }
     if (!backendAgentLifecycleService_ ||
         !backendAgentIdentityRepository_ ||
+        !backendRegistryService_ ||
+        !backendAccessPolicy_ ||
         !configureDaemonLegacyOsdRuntime(
             database_,
             *backendAgentIdentityRepository_,
-            *backendAgentLifecycleService_)) {
+            *backendAgentLifecycleService_,
+            *backendRegistryService_,
+            *backendAccessPolicy_)) {
         std::cerr
             << "Legacy OSD view-session runtime unavailable"
             << std::endl;

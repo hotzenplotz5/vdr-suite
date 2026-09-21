@@ -208,7 +208,8 @@ private:
 
     static bool mutatingPermission(const std::string& permission)
     {
-        return protectedMutationPermission(permission);
+        return protectedMutationPermission(permission) ||
+            permission == "osd.control";
     }
 
     static bool isReadOnlyMutation(
