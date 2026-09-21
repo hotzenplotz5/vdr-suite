@@ -19,6 +19,8 @@ REQUIRED_FILES = (
     "suitebridge_lifecycle.cpp",
     "suitebridge_capabilities.cpp",
     "suitebridge_capability_discovery.cpp",
+    "suitebridge_osd_input.h",
+    "suitebridge_osd_input.cpp",
     "suitebridge_status_monitor.cpp",
     "suitebridge_tvscraper_adapter.cpp",
     "suitebridge_tvscraper_type_adapter.cpp",
@@ -52,23 +54,26 @@ if not errors:
         "suitebridge_recording_identity.o",
         "suitebridge_recording_metadata_contract.o",
         "suitebridge_tvscraper_recording_adapter.o",
+        "suitebridge_osd_input.o",
         "check-recording-metadata-contract:",
         "test-epg-type-snapshot-contract:",
         "test-recording-identity:",
         "test-recording-metadata-contract:",
-        'test "$(VERSION)" = "0.13.5"',
+        'test "$(VERSION)" = "0.14.0"',
     )
     for fragment in make_fragments:
         if fragment not in makefile:
             errors.append(f"missing Makefile contract: {fragment}")
 
     source_fragments = (
-        'inline constexpr const char *Version = "0.13.5";',
+        'inline constexpr const char *Version = "0.14.0";',
         "bool cPluginSuiteBridge::Initialize(void)",
         "bool cPluginSuiteBridge::Start(void)",
         "void cPluginSuiteBridge::Stop(void)",
         "cPluginSuiteBridge::SVDRPHelpPages(void)",
         "cPluginSuiteBridge::SVDRPCommand(",
+        "SuiteBridgeOsdInputService::Handle(",
+        'strcasecmp(command, "OSDINPUT")',
         "statusMonitor_.CaptureSnapshot()",
         "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
         '"ARTW <channel-id> <event-id>\\n"',
