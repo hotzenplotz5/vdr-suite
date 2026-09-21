@@ -6,6 +6,8 @@ CI_FAST_TESTS := \
 	test-phase68-osd-view-session-authorization \
 	test-phase68-osd-viewer-bindings \
 	test-phase68-osd-controller-lease \
+	test-phase68-osd-native-input \
+	test-phase68-osd-native-input \
 	test-backend-agent-foundation \
 	test-backend-agent-client \
 	test-backend-agent-enrollment-tool \
