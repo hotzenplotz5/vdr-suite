@@ -34,6 +34,13 @@ AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservationService.cpp \
 	core/agent/src/SuiteBridgeObservationWorker.cpp
 
+# Phase 68 view-only OSD source stays Agent-local until authenticated
+# delivery is introduced by the later transport slice.
+AGENT_OSD_OBSERVATION_SRC := \
+	core/agent/src/SuiteBridgeOsdFrameParser.cpp \
+	core/agent/src/SuiteBridgeOsdFrameBuffer.cpp \
+	core/agent/src/SuiteBridgeOsdFrameSource.cpp
+
 AGENT_EMBEDDED_RUNTIME_SRC := \
 	core/agent/src/SuiteBridgeEmbeddedAgentRuntime.cpp
 
