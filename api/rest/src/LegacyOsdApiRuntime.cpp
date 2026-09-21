@@ -1,7 +1,6 @@
 #include "LegacyOsdApiRuntime.h"
 
 #include "LegacyOsdSessionService.h"
-#include "LegacyOsdInputService.h"
 #include "OsdControllerLeaseService.h"
 #include "OsdViewerBindingService.h"
 
@@ -720,7 +719,7 @@ bool LegacyOsdApiRuntime::configure(
     LegacyOsdSessionService& sessionService,
     OsdViewerBindingService& viewerService,
     OsdControllerLeaseService& controllerService,
-    LegacyOsdInputService& inputService)
+    ILegacyOsdInputService& inputService)
 {
     sessionService_ = &sessionService;
     viewerService_ = &viewerService;
