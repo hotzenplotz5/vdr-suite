@@ -1,0 +1,195 @@
+#pragma once
+
+#include "CurlExternalArtworkHttpTransport.h"
+#include "Database.h"
+#include "EmbeddedRecordingCutRuntime.h"
+#include "EmbeddedRecordingMarksRuntime.h"
+#include "SuiteBridgeRecordingCutTransport.h"
+#include "SuiteBridgeRecordingMarksModifyTransport.h"
+#include "EpgArtworkEnrichmentService.h"
+#include "EpgEventRepository.h"
+#include "EpgCacheService.h"
+#include "EpgSeriesArtworkFallbackRepository.h"
+#include "EpgSeriesArtworkProviderCacheRepository.h"
+#include "FilesystemSeriesArtworkFallbackMaterializer.h"
+#include "IHttpClient.h"
+#include "IVdrAdapter.h"
+#include "PersistentEpgScraperMetadataResolver.h"
+#include "PersistentSeriesArtworkFallbackResolver.h"
+#include "PollingService.h"
+#include "RecordingMarksChangeTracker.h"
+#include "RestfulApiEventStreamClient.h"
+#include "RestfulApiSearchTimerAdapter.h"
+#include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SeriesArtworkBackendSettingsService.h"
+#include "SeriesArtworkFallbackMaterializingResolver.h"
+#include "SeriesArtworkFallbackResolver.h"
+#include "SuiteBridgeEmbeddedAgentRuntime.h"
+#include "SuiteBridgeEpgArtworkResolver.h"
+#include "SuiteBridgeEpgMetadataResolver.h"
+#include "SuiteBridgeHbbtvResolver.h"
+#include "SuiteBridgeHbbtvPresentationResolver.h"
+#include "SuiteBridgeHbbtvMediaResolver.h"
+#include "SuiteBridgeHbbtvRuntimeResolver.h"
+#include "SuiteBridgeRecordingCutStateResolver.h"
+#include "SuiteBridgeRecordingMarksResolver.h"
+#include "SuiteBridgeRecordingMetadataResolver.h"
+#include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeTeletextResolver.h"
+#include "VdrRecordingNativeMetadataEnrichmentService.h"
+#include "VdrRecordingNativeMetadataRepository.h"
+#include "VdrService.h"
+#include "VdrSnapshotBuilder.h"
+
+#include <cstdint>
+#include <memory>
+#include <string>
+
+struct BackendRuntimeContext
+{
+    std::string backendId;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingCutTransport> embeddedCutTransport;
+    std::unique_ptr<EmbeddedRecordingCutRuntime> embeddedCutRuntime;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport> embeddedMarksTransport;
+    std::unique_ptr<EmbeddedRecordingMarksRuntime> embeddedMarksRuntime;
+
+    std::unique_ptr<IHttpClient> httpClient;
+    std::unique_ptr<IVdrAdapter> adapter;
+    std::unique_ptr<VdrService> service;
+
+    // Large EPG window reads are intentionally isolated from the normal
+    // short-lived backend request path so timer/live/snapshot operations keep
+    // their existing timeout behavior.
+    std::unique_ptr<IHttpClient> epgHttpClient;
+    std::unique_ptr<IVdrAdapter> epgAdapter;
+    std::unique_ptr<VdrService> epgService;
+
+    // Home/EPG cache reads use a dedicated SQLite connection so periodic
+    // metadata writers on the primary runtime connection cannot stall them.
+    std::unique_ptr<Database> epgReadDatabase;
+    std::unique_ptr<EpgEventRepository> epgReadRepository;
+    std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
+    std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
+    std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
+    std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
+    std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
+    std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>
+        hbbtvPresentationResolver;
+    std::unique_ptr<SuiteBridgeHbbtvMediaResolver> hbbtvMediaResolver;
+    std::unique_ptr<SuiteBridgeTeletextResolver> teletextResolver;
+    std::unique_ptr<SuiteBridgeRecordingMarksResolver> recordingMarksResolver;
+    std::unique_ptr<SuiteBridgeRecordingCutStateResolver> recordingCutStateResolver;
+    std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
+    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<CurlExternalArtworkHttpTransport> epgExternalArtworkHttpTransport;
+    std::unique_ptr<EpgSeriesArtworkProviderCacheRepository> epgSeriesArtworkProviderCacheRepository;
+    std::unique_ptr<SeriesArtworkBackendSettingsService> epgSeriesArtworkSettingsService;
+    std::unique_ptr<SeriesArtworkFallbackResolver> epgSeriesArtworkFallbackResolver;
+    std::unique_ptr<FilesystemSeriesArtworkFallbackMaterializer> epgSeriesArtworkFallbackMaterializer;
+    std::unique_ptr<SeriesArtworkFallbackMaterializingResolver> epgSeriesArtworkFallbackMaterializingResolver;
+    std::unique_ptr<EpgSeriesArtworkFallbackRepository> epgSeriesArtworkFallbackRepository;
+    std::unique_ptr<PersistentSeriesArtworkFallbackResolver> epgPersistentSeriesArtworkFallbackResolver;
+    std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
+    std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
+    std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;
+    std::unique_ptr<SuiteBridgeRecordingMetadataResolver> recordingMetadataResolver;
+    std::unique_ptr<VdrRecordingNativeMetadataEnrichmentService> recordingMetadataEnrichmentService;
+    std::unique_ptr<EpgCacheService> epgCacheService;
+    std::unique_ptr<PollingService> pollingService;
+    std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
+    RecordingMarksChangeTracker recordingMarksChangeTracker;
+
+    SuiteBridgeHbbtvResolver* ensureHbbtvResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvResolver) {
+            hbbtvResolver =
+                std::make_unique<SuiteBridgeHbbtvResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvResolver.get();
+    }
+
+    SuiteBridgeHbbtvRuntimeResolver* ensureHbbtvRuntimeResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvRuntimeResolver) {
+            hbbtvRuntimeResolver =
+                std::make_unique<SuiteBridgeHbbtvRuntimeResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvRuntimeResolver.get();
+    }
+
+    SuiteBridgeHbbtvPresentationResolver* ensureHbbtvPresentationResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!hbbtvPresentationResolver) {
+            hbbtvPresentationResolver =
+                std::make_unique<SuiteBridgeHbbtvPresentationResolver>(
+                    *suiteBridgeTransport);
+        }
+        return hbbtvPresentationResolver.get();
+    }
+
+    SuiteBridgeHbbtvMediaResolver* ensureHbbtvMediaResolver()
+    {
+        if (!suiteBridgeTransport) return nullptr;
+        if (!hbbtvMediaResolver)
+            hbbtvMediaResolver = std::make_unique<SuiteBridgeHbbtvMediaResolver>(*suiteBridgeTransport);
+        return hbbtvMediaResolver.get();
+    }
+
+    SuiteBridgeTeletextResolver* ensureTeletextResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!teletextResolver) {
+            teletextResolver =
+                std::make_unique<SuiteBridgeTeletextResolver>(
+                    *suiteBridgeTransport);
+        }
+        return teletextResolver.get();
+    }
+
+    SuiteBridgeRecordingMarksResolver* ensureRecordingMarksResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!recordingMarksResolver) {
+            recordingMarksResolver =
+                std::make_unique<SuiteBridgeRecordingMarksResolver>(
+                    *suiteBridgeTransport);
+        }
+        return recordingMarksResolver.get();
+    }
+
+    SuiteBridgeRecordingCutStateResolver* ensureRecordingCutStateResolver()
+    {
+        if (!suiteBridgeTransport) {
+            return nullptr;
+        }
+        if (!recordingCutStateResolver) {
+            recordingCutStateResolver =
+                std::make_unique<SuiteBridgeRecordingCutStateResolver>(
+                    *suiteBridgeTransport);
+        }
+        return recordingCutStateResolver.get();
+    }
+
+    std::int64_t epgTypeSnapshotFrom = 0;
+    std::int64_t epgTypeSnapshotUntil = 0;
+    std::uint64_t epgTypeSnapshotOffset = 0;
+    bool epgTypeSnapshotComplete = true;
+    bool epgTypeSnapshotSupported = true;
+};

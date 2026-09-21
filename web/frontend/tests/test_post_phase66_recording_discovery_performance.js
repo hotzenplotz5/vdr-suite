@@ -1,0 +1,639 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const source = fs.readFileSync(
+  path.join(__dirname, '..', 'home-recording-discovery.js'),
+  'utf8'
+);
+
+class FakeElement {
+  constructor(tagName) {
+    this.tagName = String(tagName || '').toUpperCase();
+    this.children = [];
+    this.attributes = {};
+    this.dataset = {};
+    this.listeners = {};
+    this.parentNode = null;
+    this.className = '';
+    this.textContent = '';
+    this.type = '';
+    this.src = '';
+    this.alt = '';
+    this.loading = '';
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+
+  appendChild(child) {
+    if (!child) return child;
+    if (child.parentNode && typeof child.remove === 'function') child.remove();
+    child.parentNode = this;
+    this.children.push(child);
+    return child;
+  }
+
+  append() {
+    Array.from(arguments).forEach((child) => this.appendChild(child));
+  }
+
+  replaceChildren() {
+    this.children.forEach((child) => { child.parentNode = null; });
+    this.children = [];
+    Array.from(arguments).forEach((child) => this.appendChild(child));
+  }
+
+  addEventListener(type, handler) {
+    if (!this.listeners[type]) this.listeners[type] = [];
+    this.listeners[type].push(handler);
+  }
+
+  remove() {
+    if (!this.parentNode) return;
+    const index = this.parentNode.children.indexOf(this);
+    if (index >= 0) this.parentNode.children.splice(index, 1);
+    this.parentNode = null;
+  }
+
+  insertBefore(child, reference) {
+    if (!child) return child;
+    if (child.parentNode && typeof child.remove === 'function') child.remove();
+    child.parentNode = this;
+    if (!reference) {
+      this.children.push(child);
+      return child;
+    }
+    const index = this.children.indexOf(reference);
+    if (index < 0) this.children.push(child);
+    else this.children.splice(index, 0, child);
+    return child;
+  }
+
+  get nextElementSibling() {
+    if (!this.parentNode) return null;
+    const index = this.parentNode.children.indexOf(this);
+    return index >= 0 ? this.parentNode.children[index + 1] || null : null;
+  }
+
+  querySelector(selector) {
+    const match = String(selector || '').match(
+      /^\[data-home-discovery-rail="([^"]+)"\]$/
+    );
+    if (!match) return null;
+    return findElement(this, (element) =>
+      element.attributes['data-home-discovery-rail'] === match[1]);
+  }
+
+  querySelectorAll() {
+    return [];
+  }
+
+  closest() {
+    return null;
+  }
+}
+
+function findElement(root, predicate) {
+  if (!root) return null;
+  for (const child of root.children || []) {
+    if (predicate(child)) return child;
+    const nested = findElement(child, predicate);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function findRail(host, key) {
+  return host.querySelector('[data-home-discovery-rail="' + key + '"]');
+}
+
+function makeSeriesRecording(backendId) {
+  return {
+    recordingId: backendId + '-series-1',
+    backendId,
+    backendNativeId: backendId + '-native-series-1',
+    path: 'Serien/Testserie/S01E01 Pilot',
+    title: 'Serien/Testserie/S01E01 Pilot',
+    metadata: {
+      provider: {},
+      presentation: {posterUrl: ''},
+      artwork: {preferredUrl: ''}
+    }
+  };
+}
+
+function createHarness(initialMetadataMode) {
+  const host = new FakeElement('div');
+  const documentListeners = {};
+  const observers = [];
+  const genreCalls = [];
+  const genreListCalls = [];
+  const recordingCalls = [];
+  const folderCalls = [];
+  const metadataResolvers = [];
+  const seriesArtworkSettingsCalls = [];
+  let selectedModule = 'overview';
+  let backendId = 'default';
+  let metadataMode = initialMetadataMode || 'available-false';
+  let seriesMode = 'normal';
+
+  class FakeIntersectionObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.disconnected = false;
+      this.target = null;
+      observers.push(this);
+    }
+
+    observe(target) {
+      this.target = target;
+    }
+
+    disconnect() {
+      this.disconnected = true;
+    }
+
+    fire() {
+      this.callback([{isIntersecting: true, target: this.target}]);
+    }
+  }
+
+  const client = {
+    fetchClientRecordings(request) {
+      recordingCalls.push(request || {});
+      return Promise.resolve({recordings: []});
+    },
+    fetchClientGenres(request) {
+      genreListCalls.push(request);
+      return Promise.resolve({
+        genres: [
+          {id: 'other', label: 'Andere', count: 1},
+          {id: 'series', label: 'Serien', count: 1}
+        ]
+      });
+    },
+    fetchClientGenreRecordings(request) {
+      genreCalls.push({
+        backendId: request.backendId,
+        genreId: request.genreId,
+        offset: Number(request.offset || 0)
+      });
+      if (request.genreId !== 'series') {
+        return Promise.resolve({recordings: [], total: 0, hasMore: false});
+      }
+      if (seriesMode === 'reject') return Promise.reject(new Error('Series transport unavailable'));
+      if (seriesMode === 'empty') return Promise.resolve({recordings: [], total: 0, hasMore: false});
+      const recording = makeSeriesRecording(request.backendId);
+      const recordings = metadataMode === 'deferred-tail' ? [recording, Object.assign({}, recording, {
+        recordingId: recording.recordingId + '-tail',
+        backendNativeId: recording.backendNativeId + '-tail',
+        path: 'Serien/Testserie/S01E02 Second',
+        title: 'Serien/Testserie/S01E02 Second'
+      })] : [recording];
+      return Promise.resolve({
+        recordings,
+        total: recordings.length,
+        hasMore: false
+      });
+    },
+    fetchClientRecordingFolder(request) {
+      folderCalls.push(request || {});
+      return Promise.resolve({folders: [], recordings: [], recordingCount: 0});
+    },
+    requestJson(route, request) {
+      if (String(route || '').includes('/settings/series-artwork')) {
+        assert.strictEqual(
+          route,
+          '/api/backends/' + encodeURIComponent(backendId) +
+            '/settings/series-artwork'
+        );
+
+        seriesArtworkSettingsCalls.push({
+          backendId: backendId,
+          route: route
+        });
+
+        return Promise.resolve({
+          backendId: backendId,
+          provider: 'none',
+          configurationSource: 'environment',
+          tmdbTokenConfigured: false,
+          tmdbTokenSource: 'none',
+          restartRequired: false,
+          availableProviders: ['none', 'tvmaze', 'tmdb'],
+          coverOverrides: []
+        });
+      }
+
+      assert.strictEqual(route, '/api/vdr/recordings/metadata');
+      assert.strictEqual(request.query.backend, backendId);
+      if (metadataMode === 'reject') {
+        return Promise.reject(new Error('metadata unavailable'));
+      }
+      if (metadataMode === 'deferred' ||
+          (metadataMode === 'deferred-tail' && request.query.backendNativeId.endsWith('-tail'))) {
+        return new Promise((resolve) => {
+          metadataResolvers.push(resolve);
+        });
+      }
+      return Promise.resolve({available: false});
+    }
+  };
+
+  const document = {
+    readyState: 'complete',
+    head: null,
+    querySelector(selector) {
+      return selector === '[data-home-zone="additional-sections"]' ? host : null;
+    },
+    createElement(tagName) {
+      return new FakeElement(tagName);
+    },
+    addEventListener(type, handler) {
+      if (!documentListeners[type]) documentListeners[type] = [];
+      documentListeners[type].push(handler);
+    },
+    getElementById() { return null; }
+  };
+
+  const context = {window: {}, console};
+  context.Math = Object.create(Math);
+  context.Math.random = function () { return 0; };
+  context.window.window = context.window;
+  context.window.document = document;
+  context.window.IntersectionObserver = FakeIntersectionObserver;
+  context.window.setTimeout = function (callback) {
+    callback();
+    return 1;
+  };
+  context.window.selectModule = function (moduleName) {
+    selectedModule = moduleName;
+    return true;
+  };
+  context.window.VdrSuiteHomeLivePreview = {cancel() {}};
+  context.window.VdrSuiteHomeRecordingDiscoveryBootstrap = {
+    installMouseDrag() { return true; }
+  };
+  context.window.VdrSuitePlatform = {
+    getSelectedBackendId() { return backendId; },
+    getSelectedModule() { return selectedModule; },
+    getClientApi() { return client; }
+  };
+
+  vm.createContext(context);
+  vm.runInContext(source, context, {
+    filename: 'post-phase66-recording-discovery-performance.js'
+  });
+
+  const publicApi = context.window.VdrSuiteHomeRecordingDiscovery;
+  assert(publicApi && publicApi._test);
+
+  function fireModuleClick(value) {
+    selectedModule = value;
+    const target = {
+      dataset: {module: value},
+      closest(selector) {
+        const candidate = String(selector || '');
+        if (candidate === '.module-tab[data-module], [data-brand-module]') return this;
+        if (candidate.includes('overview') && value === 'overview') return this;
+        return null;
+      }
+    };
+    (documentListeners.click || []).forEach((handler) => handler({target}));
+  }
+
+  return {
+    publicApi,
+    api: publicApi._test,
+    host,
+    observers,
+    genreCalls,
+    genreListCalls,
+    recordingCalls,
+    folderCalls,
+    metadataResolvers,
+    seriesArtworkSettingsCalls,
+    setModule(value) { selectedModule = value; },
+    setBackend(value) { backendId = value; },
+    setMetadataMode(value) { metadataMode = value; },
+    setSeriesMode(value) { seriesMode = value; },
+    fireModuleClick,
+    fireHomeClick() {
+      fireModuleClick('overview');
+    },
+    fireLatestObserver() {
+      assert(observers.length > 0);
+      observers[observers.length - 1].fire();
+    },
+    seriesCalls(requestBackendId) {
+      return genreCalls.filter((call) =>
+        call.genreId === 'series' &&
+        (!requestBackendId || call.backendId === requestBackendId));
+    }
+  };
+}
+
+async function flush(turns) {
+  for (let index = 0; index < (turns || 4); index += 1) {
+    await Promise.resolve();
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+async function proveInFlightCoalescing() {
+  const harness = createHarness('deferred');
+
+  const first = harness.api.refreshForHome();
+  const second = harness.api.refreshForHome();
+
+  assert.strictEqual(
+    first,
+    second,
+    'same-generation Home refreshes must coalesce'
+  );
+
+  assert.strictEqual(await first, true);
+  assert.strictEqual(await second, true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'coalesced initial Home must scan Series exactly once'
+  );
+
+  assert.strictEqual(
+    harness.seriesArtworkSettingsCalls.length,
+    1,
+    'coalesced initial Home must load Series artwork settings exactly once'
+  );
+
+  assert.strictEqual(
+    harness.seriesArtworkSettingsCalls[0].backendId,
+    'default',
+    'Series artwork settings must remain backend-scoped'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'coalesced initial Home may start only one representative artwork metadata request for the Series'
+  );
+
+  assert.strictEqual(
+    harness.api.seriesWarm('default'),
+    true,
+    'Recording-only Series projection becomes warm after canonical scan'
+  );
+}
+
+async function proveExplicitRefreshStartsFreshGeneration() {
+  const harness = createHarness('deferred');
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+  assert.strictEqual(harness.seriesCalls('default').length, 1);
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'initial Home may leave one representative Series artwork Metadata request pending'
+  );
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    2,
+    'explicit refresh must perform a fresh canonical Series scan'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    2,
+    'explicit Home refresh may add exactly one representative Metadata request for the fresh generation'
+  );
+
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+}
+
+async function proveRevalidationRetainsSelectionAndHandlesFailure() {
+  const harness = createHarness('available-false');
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+
+  const section = findRail(harness.host, 'series');
+  const list = findElement(
+    section,
+    element => element.className === 'media-home-discovery-rail series'
+  );
+
+  assert(section);
+  assert(list);
+  assert(list.children.length > 0);
+
+  list.children[0].listeners.click[0]();
+
+  const seasons = findElement(
+    section,
+    element => element.className === 'media-home-series-season-rail'
+  );
+
+  assert(seasons);
+  assert(seasons.children.length > 0);
+
+  seasons.children[0].listeners.click[0]();
+
+  const episodes = findElement(
+    section,
+    element => element.className === 'media-home-discovery-rail series-episodes'
+  );
+
+  assert(episodes);
+  episodes.scrollLeft = 280;
+
+  const seriesCallsBeforeFailure = harness.seriesCalls('default').length;
+
+  harness.setSeriesMode('reject');
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    seriesCallsBeforeFailure + 1
+  );
+
+  assert.strictEqual(
+    episodes.parentNode,
+    section,
+    'failed canonical revalidation keeps valid selected detail visible'
+  );
+
+  assert.strictEqual(episodes.scrollLeft, 280);
+
+  assert(
+    seasons.children[0].className.includes(' selected'),
+    'failed revalidation preserves selected season'
+  );
+
+  assert.strictEqual(
+    harness.api.seriesWarm('default'),
+    false,
+    'failed canonical scan must not certify retained Series UI as warm'
+  );
+
+  harness.setSeriesMode('empty');
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    findRail(harness.host, 'series'),
+    null,
+    'authoritative empty canonical scan removes stale Series UI'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    0,
+    'failure and empty revalidation remain Metadata-free'
+  );
+}
+
+async function proveWarmProductionReturnAndForcedRefresh() {
+  const harness = createHarness('available-false');
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+  assert.strictEqual(harness.seriesCalls('default').length, 1);
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+  assert.strictEqual(harness.metadataResolvers.length, 0);
+
+  const initialSeriesSection = findRail(harness.host, 'series');
+  assert(initialSeriesSection);
+
+  const seriesRail = findElement(
+    initialSeriesSection,
+    element => element.className === 'media-home-discovery-rail series'
+  );
+
+  assert(seriesRail);
+
+  const seriesCard = seriesRail.children[0];
+  seriesRail.scrollLeft = 280;
+
+  const callsBeforeHomeReturn = {
+    recordings: harness.recordingCalls.length,
+    genreLists: harness.genreListCalls.length,
+    genreRecordings: harness.genreCalls.length,
+    folders: harness.folderCalls.length
+  };
+
+  harness.fireModuleClick('recordings2');
+  harness.fireModuleClick('overview');
+  harness.fireLatestObserver();
+  await flush();
+
+  assert.deepStrictEqual(
+    {
+      recordings: harness.recordingCalls.length,
+      genreLists: harness.genreListCalls.length,
+      genreRecordings: harness.genreCalls.length,
+      folders: harness.folderCalls.length
+    },
+    callsBeforeHomeReturn,
+    'same-backend Home return must retain every Home rail without new data-owner requests'
+  );
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'warm production return must reuse canonical Series projection'
+  );
+
+  assert.strictEqual(
+    findRail(harness.host, 'series'),
+    initialSeriesSection,
+    'warm Home return preserves Series section identity'
+  );
+
+  assert.strictEqual(seriesRail.children[0], seriesCard);
+  assert.strictEqual(seriesRail.scrollLeft, 280);
+
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    2,
+    'forced refresh performs one fresh canonical Series scan'
+  );
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    0,
+    'forced refresh must not restore background Metadata completion'
+  );
+
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+
+  harness.setBackend('secondary');
+  harness.fireHomeClick();
+  harness.fireLatestObserver();
+  await flush();
+
+  assert.strictEqual(
+    harness.seriesCalls('secondary').length,
+    1,
+    'backend change must establish a fresh backend-scoped Series projection'
+  );
+
+  assert.strictEqual(harness.api.seriesWarm('secondary'), true);
+  assert.strictEqual(harness.metadataResolvers.length, 0);
+}
+
+async function proveHomeExitDoesNotNeedMetadataFence() {
+  const harness = createHarness('deferred');
+
+  assert.strictEqual(await harness.api.refreshForHome(), true);
+  assert.strictEqual(harness.seriesCalls('default').length, 1);
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'initial Home may leave one representative Series artwork Metadata request pending'
+  );
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+
+  harness.fireModuleClick('recordings2');
+
+  assert.strictEqual(
+    harness.metadataResolvers.length,
+    1,
+    'leaving Home may orphan one representative request, but its stale completion must be fenced from current UI'
+  );
+
+  harness.fireModuleClick('overview');
+  harness.fireLatestObserver();
+  await flush();
+
+  assert.strictEqual(
+    harness.seriesCalls('default').length,
+    1,
+    'return to warm Home reuses the completed Recording-only projection'
+  );
+
+  assert.strictEqual(harness.api.seriesWarm('default'), true);
+}
+
+(async function () {
+  await proveInFlightCoalescing();
+  await proveExplicitRefreshStartsFreshGeneration();
+  await proveRevalidationRetainsSelectionAndHandlesFailure();
+  await proveWarmProductionReturnAndForcedRefresh();
+  await proveHomeExitDoesNotNeedMetadataFence();
+
+  console.log(
+    'post-Phase-66 Metadata-free Series discovery reuse lifecycle contract passed'
+  );
+}()).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

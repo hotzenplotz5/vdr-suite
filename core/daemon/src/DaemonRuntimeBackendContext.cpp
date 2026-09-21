@@ -1,0 +1,652 @@
+#include "DaemonRuntime.h"
+
+#include "BasicHttpClient.h"
+#include "EpgEventRepository.h"
+#include "EpgSeriesArtworkFallbackOrphanCleaner.h"
+#include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
+#include "LiveRemoteApiRuntime.h"
+#include "RestfulApiEventStreamClient.h"
+#include "RestfulApiSearchTimerAdapter.h"
+#include "RestfulApiVdrAdapter.h"
+#include "RestfulApiVdrTimerActionExecutorAdapter.h"
+#include "SeriesArtworkSettingsApiRuntime.h"
+#include "TmdbSeriesArtworkIncomingCleaner.h"
+#include "TmdbSeriesArtworkRuntimeConfig.h"
+#include "TvmazeSeriesArtworkRuntimeConfig.h"
+
+#include <chrono>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
+
+std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
+    const BackendNode& backend)
+{
+    VdrConfig backendConfig = backend.connection;
+
+    if (backendRegistryService_ &&
+        !GenreBrowserApiRuntime::instance().configured() &&
+        !GenreBrowserApiRuntime::instance().configure(
+            database_,
+            *backendRegistryService_))
+    {
+        std::cerr << "failed to initialize genre browser metadata runtime"
+                  << std::endl;
+    }
+
+    if (backendRegistryService_ &&
+        !GlobalSearchApiRuntime::instance().configured() &&
+        !GlobalSearchApiRuntime::instance().configure(
+            database_,
+            *backendRegistryService_))
+    {
+        std::cerr << "failed to initialize global search runtime"
+                  << std::endl;
+    }
+
+    auto context = std::make_unique<BackendRuntimeContext>();
+
+    context->backendId = backend.backendId;
+    context->httpClient = std::make_unique<BasicHttpClient>(
+        backendConfig.host,
+        backendConfig.port,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_,
+        [this]() {
+            return shutdownRequested_.load();
+        });
+    context->adapter = std::make_unique<RestfulApiVdrAdapter>(
+        backendConfig,
+        *context->httpClient);
+
+    context->searchTimerAdapter = std::make_unique<RestfulApiSearchTimerAdapter>(
+        context->backendId,
+        *context->httpClient);
+
+    if (vdrTimerActionExecutorAdapterRegistry_) {
+        vdrTimerActionExecutorAdapterRegistry_->registerAdapter(
+            std::make_shared<RestfulApiVdrTimerActionExecutorAdapter>(
+                context->backendId,
+                "",
+                *context->httpClient));
+    }
+
+    if (backendRegistryService_ &&
+        vdrSnapshotReadService_ &&
+        snapshotCacheService_) {
+        VdrCapabilitySet capabilities = backend.capabilities;
+        capabilities.remoteControl = true;
+        capabilities.liveOverlayRead = true;
+        capabilities.osdView = false;
+        capabilities.osdControl = false;
+        backendRegistryService_->updateBackendCapabilities(
+            context->backendId,
+            capabilities);
+
+        LiveRemoteApiRuntime::instance().configure(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *snapshotCacheService_,
+            [this](const std::string& changedBackendId) {
+                externalVdrChangeHint_.store(true);
+
+                if (!snapshotChangeFeed_ ||
+                    !snapshotChangeFeedService_ ||
+                    !liveTransportService_ ||
+                    !snapshotCacheService_) {
+                    return;
+                }
+
+                const int previousLatestSequenceNumber =
+                    snapshotChangeFeed_->latestSequenceNumber();
+
+                snapshotChangeFeedService_->appendChanges(
+                    *snapshotChangeFeed_,
+                    snapshotCacheService_->generation(),
+                    {VdrChangeEvent(VdrChangeType::LiveOverlayChanged)},
+                    changedBackendId);
+
+                for (const auto& entry : snapshotChangeFeed_->entries()) {
+                    if (entry.sequenceNumber() > previousLatestSequenceNumber) {
+                        liveTransportService_->publishChangeFeedEntry(entry);
+                    }
+                }
+            },
+            [this](
+                const std::string& backendId,
+                const std::string& channelId,
+                long long fromEpoch,
+                int eventLimit) -> std::vector<VdrEvent> {
+                if (!epgEventRepository_) {
+                    return {};
+                }
+
+                return epgEventRepository_->findNowNextForBackend(
+                    backendId,
+                    channelId,
+                    std::to_string(fromEpoch),
+                    eventLimit);
+            });
+
+        LiveRemoteApiRuntime::instance().registerRestfulApiBackend(
+            context->backendId,
+            *context->httpClient);
+    }
+
+    context->service = std::make_unique<VdrService>(
+        *context->adapter,
+        &runtimeLogger_);
+
+    constexpr std::chrono::seconds EpgRequestTimeout(60);
+
+    context->epgHttpClient = std::make_unique<BasicHttpClient>(
+        backendConfig.host,
+        backendConfig.port,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_,
+        [this]() {
+            return shutdownRequested_.load();
+        },
+        EpgRequestTimeout);
+
+    context->epgAdapter = std::make_unique<RestfulApiVdrAdapter>(
+        backendConfig,
+        *context->epgHttpClient);
+
+    context->epgService = std::make_unique<VdrService>(
+        *context->epgAdapter,
+        &runtimeLogger_);
+
+    if (epgEventRepository_) {
+        context->epgReadDatabase = std::make_unique<Database>();
+
+        if (!context->epgReadDatabase->open(config_.databasePath()) ||
+            !context->epgReadDatabase->execute("PRAGMA query_only=ON;")) {
+            std::cerr
+                << "failed to initialize dedicated EPG read connection: backend="
+                << context->backendId
+                << std::endl;
+            context->epgReadDatabase.reset();
+        }
+        else {
+            context->epgReadRepository =
+                std::make_unique<EpgEventRepository>(
+                    *context->epgReadDatabase);
+
+            std::cout
+                << "dedicated EPG read connection initialized: backend="
+                << context->backendId
+                << std::endl;
+        }
+    }
+
+    context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
+        *context->service,
+        context->backendId,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_);
+
+    if (searchTimerPreviewEpgCache_) {
+        context->searchTimerPreviewEpgCacheRefreshService =
+            std::make_unique<SearchTimerPreviewEpgCacheRefreshService>(
+                *searchTimerPreviewEpgCache_,
+                *context->snapshotBuilder);
+    }
+
+    context->pollingService = std::make_unique<PollingService>(
+        *context->snapshotBuilder,
+        *context->service,
+        *snapshotCacheService_,
+        context->backendId,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_);
+
+    context->eventStreamClient = std::make_unique<RestfulApiEventStreamClient>(
+        context->backendId,
+        backendConfig.host,
+        backendConfig.port + 1,
+        [this](const std::string& backendId) {
+            externalVdrChangeHint_.store(true);
+            epgCacheDirtyHint_.store(true);
+            recordingCacheRefreshQueue_.request(backendId);
+        });
+
+    const RuntimeSuiteBridgeConfig& suiteBridgeConfig =
+        config_.suiteBridge();
+
+    if (suiteBridgeConfig.enabled &&
+        context->backendId == suiteBridgeConfig.backendId) {
+        vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
+        transportConfig.host = suiteBridgeConfig.host;
+        transportConfig.port = suiteBridgeConfig.port;
+        transportConfig.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        transportConfig.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        transportConfig.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+
+        context->suiteBridgeTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
+                std::move(transportConfig));
+
+        if (epgArtworkRepository_) {
+            context->epgArtworkResolver =
+                std::make_unique<SuiteBridgeEpgArtworkResolver>(
+                    *context->suiteBridgeTransport);
+            context->epgScraperMetadataDelegate =
+                std::make_unique<SuiteBridgeEpgMetadataResolver>(
+                    *context->suiteBridgeTransport);
+
+            const RuntimeSeriesArtworkFallbackConfig& runtimeFallbackConfig =
+                config_.seriesArtworkFallback();
+            const TmdbSeriesArtworkRuntimeConfig tmdbRuntimeConfig =
+                TmdbSeriesArtworkRuntimeConfig::fromEnvironment(
+                    runtimeFallbackConfig);
+            const TvmazeSeriesArtworkRuntimeConfig tvmazeRuntimeConfig =
+                TvmazeSeriesArtworkRuntimeConfig::fromEnvironment(
+                    runtimeFallbackConfig);
+
+            if (runtimeFallbackConfig.incomingCleanupEnabled) {
+                TmdbSeriesArtworkIncomingCleanupConfig incomingCleanupConfig;
+                incomingCleanupConfig.enabled = true;
+                incomingCleanupConfig.incomingRoot =
+                    tmdbRuntimeConfig.incomingRoot;
+                incomingCleanupConfig.minimumAgeSeconds =
+                    runtimeFallbackConfig.incomingCleanupMinimumAgeSeconds;
+                incomingCleanupConfig.maximumFilesPerRun =
+                    static_cast<std::size_t>(
+                        runtimeFallbackConfig.incomingCleanupMaximumFiles);
+
+                TmdbSeriesArtworkIncomingCleaner incomingCleaner(
+                    std::move(incomingCleanupConfig));
+                const std::int64_t nowEpochSeconds =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                const auto incomingCleanupResult =
+                    incomingCleaner.cleanup(nowEpochSeconds);
+
+                std::ostream& cleanupLog =
+                    incomingCleanupResult.succeeded()
+                        ? std::cout
+                        : std::cerr;
+                cleanupLog
+                    << "EPG series artwork incoming cleanup: backend="
+                    << context->backendId
+                    << ", attempted="
+                    << (incomingCleanupResult.attempted ? "true" : "false")
+                    << ", rootAvailable="
+                    << (incomingCleanupResult.rootAvailable ? "true" : "false")
+                    << ", examined="
+                    << incomingCleanupResult.examinedEntries
+                    << ", recognized="
+                    << incomingCleanupResult.recognizedFiles
+                    << ", young="
+                    << incomingCleanupResult.youngFiles
+                    << ", removedCandidates="
+                    << incomingCleanupResult.removedCandidateFiles
+                    << ", removedTemporary="
+                    << incomingCleanupResult.removedTemporaryFiles
+                    << ", skippedForeign="
+                    << incomingCleanupResult.skippedForeignEntries
+                    << ", skippedUnsafe="
+                    << incomingCleanupResult.skippedUnsafeEntries
+                    << ", errors="
+                    << incomingCleanupResult.errors
+                    << ", limitReached="
+                    << (incomingCleanupResult.limitReached ? "true" : "false")
+                    << std::endl;
+            }
+
+            ISeriesArtworkFallbackProvider* fallbackProvider = nullptr;
+
+            // Manual Series-cover settings and their schema are a
+            // backend-scoped product feature.  They must exist even when
+            // automatic external Series-artwork fallback is disabled.
+            context->epgSeriesArtworkProviderCacheRepository =
+                std::make_unique<
+                    EpgSeriesArtworkProviderCacheRepository>(database_);
+
+            if (!context->epgSeriesArtworkProviderCacheRepository->ensureSchema()) {
+                std::cerr
+                    << "failed to initialize EPG series artwork provider cache: backend="
+                    << context->backendId
+                    << std::endl;
+                context->epgSeriesArtworkProviderCacheRepository.reset();
+            }
+            else {
+                context->epgExternalArtworkHttpTransport =
+                    std::make_unique<CurlExternalArtworkHttpTransport>();
+
+                SeriesArtworkBackendSettingsConfig settingsConfig;
+
+                settingsConfig.defaultProvider =
+                    runtimeFallbackConfig.enabled
+                        ? (tmdbRuntimeConfig.selected
+                            ? "tmdb"
+                            : (tvmazeRuntimeConfig.selected
+                                ? "tvmaze"
+                                : "none"))
+                        : "none";
+
+                settingsConfig.environmentTmdbReadAccessToken =
+                    tmdbRuntimeConfig.readAccessToken;
+
+                settingsConfig.tmdb.readAccessToken.clear();
+                settingsConfig.tmdb.language =
+                    tmdbRuntimeConfig.language;
+                settingsConfig.tmdb.includeImageLanguages =
+                    tmdbRuntimeConfig.includeImageLanguages;
+                settingsConfig.tmdb.incomingRoot =
+                    tmdbRuntimeConfig.incomingRoot;
+                settingsConfig.tmdb.connectTimeoutMs =
+                    tmdbRuntimeConfig.connectTimeoutMs;
+                settingsConfig.tmdb.totalTimeoutMs =
+                    tmdbRuntimeConfig.totalTimeoutMs;
+                settingsConfig.tmdb.maximumRetries =
+                    tmdbRuntimeConfig.maximumRetries;
+                settingsConfig.tmdb.retryBackoffMs =
+                    tmdbRuntimeConfig.retryBackoffMs;
+                settingsConfig.tmdb.negativeCacheTtlSeconds =
+                    tmdbRuntimeConfig.negativeCacheTtlSeconds;
+                settingsConfig.tmdb.transientCacheTtlSeconds =
+                    tmdbRuntimeConfig.transientCacheTtlSeconds;
+                settingsConfig.tmdb.maximumJsonBytes =
+                    tmdbRuntimeConfig.maximumJsonBytes;
+                settingsConfig.tmdb.maximumImageBytes =
+                    tmdbRuntimeConfig.maximumImageBytes;
+
+                settingsConfig.tvmaze.incomingRoot =
+                    tvmazeRuntimeConfig.incomingRoot;
+                settingsConfig.tvmaze.connectTimeoutMs =
+                    tvmazeRuntimeConfig.connectTimeoutMs;
+                settingsConfig.tvmaze.totalTimeoutMs =
+                    tvmazeRuntimeConfig.totalTimeoutMs;
+                settingsConfig.tvmaze.maximumRetries =
+                    tvmazeRuntimeConfig.maximumRetries;
+                settingsConfig.tvmaze.retryBackoffMs =
+                    tvmazeRuntimeConfig.retryBackoffMs;
+                settingsConfig.tvmaze.negativeCacheTtlSeconds =
+                    tvmazeRuntimeConfig.negativeCacheTtlSeconds;
+                settingsConfig.tvmaze.transientCacheTtlSeconds =
+                    tvmazeRuntimeConfig.transientCacheTtlSeconds;
+                settingsConfig.tvmaze.maximumJsonBytes =
+                    tvmazeRuntimeConfig.maximumJsonBytes;
+                settingsConfig.tvmaze.maximumImageBytes =
+                    tvmazeRuntimeConfig.maximumImageBytes;
+
+                context->epgSeriesArtworkSettingsService =
+                    std::make_unique<SeriesArtworkBackendSettingsService>(
+                        database_,
+                        *context->epgExternalArtworkHttpTransport,
+                        *context->epgSeriesArtworkProviderCacheRepository,
+                        std::move(settingsConfig));
+
+                if (!context->epgSeriesArtworkSettingsService->ensureSchema()) {
+                    std::cerr
+                        << "failed to initialize backend series artwork settings: backend="
+                        << context->backendId
+                        << std::endl;
+                    context->epgSeriesArtworkSettingsService.reset();
+                }
+                else {
+                    SeriesArtworkSettingsApiRuntime::instance()
+                        .registerBackend(
+                            context->backendId,
+                            *context->epgSeriesArtworkSettingsService);
+
+                    // Only automatic EPG fallback receives the provider.
+                    // Manual Series-cover search/settings remain available
+                    // independently.
+                    if (runtimeFallbackConfig.enabled) {
+                        fallbackProvider =
+                            context->epgSeriesArtworkSettingsService.get();
+                    }
+                }
+            }
+
+            SeriesArtworkFallbackResolverConfig fallbackConfig;
+            fallbackConfig.enabled = runtimeFallbackConfig.enabled;
+            context->epgSeriesArtworkFallbackResolver =
+                std::make_unique<SeriesArtworkFallbackResolver>(
+                    *context->epgScraperMetadataDelegate,
+                    fallbackProvider,
+                    fallbackConfig);
+
+            ISeriesArtworkFallbackMaterializer* fallbackMaterializer = nullptr;
+            if (runtimeFallbackConfig.enabled) {
+                context->epgSeriesArtworkFallbackRepository =
+                    std::make_unique<EpgSeriesArtworkFallbackRepository>(
+                        database_);
+
+                if (!context->epgSeriesArtworkFallbackRepository->ensureSchema()) {
+                    std::cerr
+                        << "failed to initialize EPG series artwork fallback schema: backend="
+                        << context->backendId
+                        << std::endl;
+                    context->epgSeriesArtworkFallbackRepository.reset();
+                }
+                else {
+                    if (runtimeFallbackConfig.orphanCleanupEnabled) {
+                        EpgSeriesArtworkFallbackOrphanCleanupConfig
+                            orphanCleanupConfig;
+                        orphanCleanupConfig.enabled = true;
+                        orphanCleanupConfig.cacheRoot =
+                            runtimeFallbackConfig.cacheRoot;
+                        orphanCleanupConfig.minimumAgeSeconds =
+                            runtimeFallbackConfig
+                                .orphanCleanupMinimumAgeSeconds;
+                        orphanCleanupConfig.maximumFilesPerRun =
+                            static_cast<std::size_t>(
+                                runtimeFallbackConfig
+                                    .orphanCleanupMaximumFiles);
+
+                        EpgSeriesArtworkFallbackOrphanCleaner orphanCleaner(
+                            *context->epgSeriesArtworkFallbackRepository,
+                            std::move(orphanCleanupConfig));
+                        const std::int64_t nowEpochSeconds =
+                            std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                        const auto orphanCleanupResult =
+                            orphanCleaner.cleanup(nowEpochSeconds);
+
+                        std::ostream& cleanupLog =
+                            orphanCleanupResult.succeeded()
+                                ? std::cout
+                                : std::cerr;
+                        cleanupLog
+                            << "EPG series artwork orphan cleanup: backend="
+                            << context->backendId
+                            << ", attempted="
+                            << (orphanCleanupResult.attempted
+                                ? "true"
+                                : "false")
+                            << ", rootAvailable="
+                            << (orphanCleanupResult.rootAvailable
+                                ? "true"
+                                : "false")
+                            << ", examined="
+                            << orphanCleanupResult.examinedFiles
+                            << ", referenced="
+                            << orphanCleanupResult.referencedFiles
+                            << ", young="
+                            << orphanCleanupResult.youngFiles
+                            << ", removed="
+                            << orphanCleanupResult.removedFiles
+                            << ", skippedUnsafe="
+                            << orphanCleanupResult.skippedUnsafeEntries
+                            << ", errors="
+                            << orphanCleanupResult.errors
+                            << ", limitReached="
+                            << (orphanCleanupResult.limitReached
+                                ? "true"
+                                : "false")
+                            << std::endl;
+                    }
+
+                    FilesystemSeriesArtworkFallbackMaterializerConfig
+                        materializerConfig;
+                    materializerConfig.allowedSourceRoots =
+                        runtimeFallbackConfig.sourceRoots;
+                    materializerConfig.cacheRoot =
+                        runtimeFallbackConfig.cacheRoot;
+                    materializerConfig.maximumSourceBytes =
+                        static_cast<std::uintmax_t>(
+                            runtimeFallbackConfig.maximumSourceBytes);
+                    materializerConfig.maximumDimension =
+                        runtimeFallbackConfig.maximumDimension;
+
+                    context->epgSeriesArtworkFallbackMaterializer =
+                        std::make_unique<
+                            FilesystemSeriesArtworkFallbackMaterializer>(
+                                std::move(materializerConfig));
+                    fallbackMaterializer =
+                        context->epgSeriesArtworkFallbackMaterializer.get();
+                }
+            }
+
+            SeriesArtworkFallbackMaterializingResolverConfig
+                materializingConfig;
+            materializingConfig.enabled =
+                runtimeFallbackConfig.enabled &&
+                fallbackMaterializer != nullptr;
+            context->epgSeriesArtworkFallbackMaterializingResolver =
+                std::make_unique<SeriesArtworkFallbackMaterializingResolver>(
+                    *context->epgSeriesArtworkFallbackResolver,
+                    fallbackMaterializer,
+                    materializingConfig);
+
+            IEpgScraperMetadataResolver* persistentDelegate =
+                context->epgSeriesArtworkFallbackMaterializingResolver.get();
+            if (context->epgSeriesArtworkFallbackRepository) {
+                context->epgPersistentSeriesArtworkFallbackResolver =
+                    std::make_unique<PersistentSeriesArtworkFallbackResolver>(
+                        *persistentDelegate,
+                        *context->epgSeriesArtworkFallbackRepository,
+                        std::vector<std::string>{
+                            runtimeFallbackConfig.cacheRoot});
+                persistentDelegate =
+                    context->epgPersistentSeriesArtworkFallbackResolver.get();
+            }
+
+            context->epgScraperMetadataResolver =
+                std::make_unique<PersistentEpgScraperMetadataResolver>(
+                    *persistentDelegate,
+                    *epgArtworkRepository_);
+            GenreBrowserApiRuntime::instance()
+                .registerEpgScraperMetadataResolver(
+                    context->backendId,
+                    *context->epgScraperMetadataResolver);
+            context->epgArtworkEnrichmentService =
+                std::make_unique<EpgArtworkEnrichmentService>(
+                    *epgArtworkRepository_,
+                    *context->epgArtworkResolver);
+        }
+
+        context->recordingMetadataRepository =
+            std::make_unique<VdrRecordingNativeMetadataRepository>(
+                database_);
+
+        if (!context->recordingMetadataRepository->ensureSchema()) {
+            std::cerr
+                << "failed to initialize native recording metadata schema: backend="
+                << context->backendId
+                << std::endl;
+
+            context->recordingMetadataRepository.reset();
+        }
+        else {
+            context->recordingMetadataResolver =
+                std::make_unique<SuiteBridgeRecordingMetadataResolver>(
+                    *context->suiteBridgeTransport);
+
+            VdrRecordingNativeMetadataEnrichmentConfig enrichmentConfig;
+            enrichmentConfig.maximumQueuedRecordings = 64;
+            enrichmentConfig.maximumBatchSize = 8;
+
+            context->recordingMetadataEnrichmentService =
+                std::make_unique<VdrRecordingNativeMetadataEnrichmentService>(
+                    context->backendId,
+                    *context->recordingMetadataRepository,
+                    *context->recordingMetadataResolver,
+                    enrichmentConfig);
+        }
+
+        vdrsuite::agent::SuiteBridgeEmbeddedAgentConfig embeddedConfig;
+        embeddedConfig.backendId = context->backendId;
+        embeddedConfig.enabled = true;
+        embeddedConfig.transport.host = suiteBridgeConfig.host;
+        embeddedConfig.transport.port = suiteBridgeConfig.port;
+        embeddedConfig.transport.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        embeddedConfig.transport.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        embeddedConfig.transport.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+        embeddedConfig.observation.pollInterval =
+            std::chrono::milliseconds(suiteBridgeConfig.pollIntervalMs);
+        embeddedConfig.observation.staleAfter =
+            std::chrono::milliseconds(suiteBridgeConfig.staleAfterMs);
+        embeddedConfig.observation.offlineAfter =
+            std::chrono::milliseconds(suiteBridgeConfig.offlineAfterMs);
+        embeddedConfig.observation.reconnectInitial =
+            std::chrono::milliseconds(suiteBridgeConfig.reconnectInitialMs);
+        embeddedConfig.observation.reconnectMaximum =
+            std::chrono::milliseconds(suiteBridgeConfig.reconnectMaximumMs);
+
+        context->embeddedMarksTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport>(embeddedConfig.transport);
+        context->embeddedMarksRuntime = std::make_unique<EmbeddedRecordingMarksRuntime>(
+            database_, context->backendId, *context->embeddedMarksTransport,
+            *context->ensureRecordingMarksResolver());
+        if (!context->embeddedMarksRuntime->ensureSchema())
+        {
+            std::cerr << "embedded marks journal unavailable: backend=" << context->backendId << std::endl;
+            context->embeddedMarksRuntime.reset();
+        }
+
+        SuiteBridgeRecordingCutStateResolver* const embeddedCutResolver =
+            context->ensureRecordingCutStateResolver();
+        if (embeddedCutResolver != nullptr)
+        {
+            context->embeddedCutTransport =
+                std::make_unique<vdrsuite::agent::SuiteBridgeRecordingCutTransport>(
+                    embeddedConfig.transport);
+            context->embeddedCutRuntime =
+                std::make_unique<EmbeddedRecordingCutRuntime>(
+                    database_,
+                    context->backendId,
+                    *context->embeddedCutTransport,
+                    *embeddedCutResolver);
+
+            if (!context->embeddedCutRuntime->ensureSchema())
+            {
+                std::cerr
+                    << "embedded cut journal unavailable: backend="
+                    << context->backendId
+                    << std::endl;
+                context->embeddedCutRuntime.reset();
+                context->embeddedCutTransport.reset();
+            }
+        }
+
+        context->suiteBridgeAgentRuntime =
+            std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
+                std::move(embeddedConfig));
+    }
+
+    if (epgEventRepository_) {
+        context->epgCacheService = std::make_unique<EpgCacheService>(
+            *epgEventRepository_,
+            *context->epgService,
+            context->epgArtworkEnrichmentService.get(),
+            context->epgReadRepository.get());
+    }
+
+    return context;
+}

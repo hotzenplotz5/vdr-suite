@@ -1,0 +1,570 @@
+#include "Database.h"
+#include "EpgCacheController.h"
+#include "EpgArtworkRepository.h"
+#include "EpgArtworkPublicJsonSerializer.h"
+#include "EpgCacheService.h"
+#include "IVdrAdapter.h"
+#include "VdrService.h"
+
+#include <cassert>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+class MockEventAdapter : public IVdrAdapter
+{
+public:
+    mutable int unboundedEventCalls = 0;
+    mutable int boundedEventCalls = 0;
+    mutable VdrEventQuery lastQuery;
+
+    std::vector<VdrEvent> events;
+
+    VdrStatus getStatus() const override
+    {
+        return VdrStatus{};
+    }
+
+    std::vector<VdrEvent> getEvents() const override
+    {
+        ++unboundedEventCalls;
+        return events;
+    }
+
+    std::vector<VdrEvent> getEvents(
+        const VdrEventQuery& query) const override
+    {
+        ++boundedEventCalls;
+        lastQuery = query;
+        return events;
+    }
+
+    std::vector<VdrChannel> getChannels() const override
+    {
+        return {};
+    }
+
+    std::vector<VdrTimer> getTimers() const override
+    {
+        return {};
+    }
+
+    std::vector<VdrRecording> getRecordings() const override
+    {
+        return {};
+    }
+
+    VdrChangeState getChangeState() const override
+    {
+        assert(false && "EPG cache controller test must not read change state");
+        __builtin_unreachable();
+    }
+};
+
+static VdrEvent make_event(
+    const std::string& id,
+    const std::string& channelId,
+    const std::string& title,
+    const std::string& startTime,
+    const std::string& endTime)
+{
+    VdrEvent event;
+
+    event.id = id;
+    event.channelId = channelId;
+    event.title = title;
+    event.subtitle = "subtitle-" + title;
+    event.description = "description-" + title;
+    event.startTime = startTime;
+    event.endTime = endTime;
+    event.durationSeconds = 1800;
+    event.parentalRating = 0;
+
+    return event;
+}
+
+
+static EpgArtworkReference make_artwork(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId,
+    const std::string& path)
+{
+    EpgArtworkReference artwork;
+    artwork.backendId = backendId;
+    artwork.channelId = channelId;
+    artwork.eventId = eventId;
+    artwork.provider = "tvscraper";
+    artwork.path = path;
+    artwork.width = 1280;
+    artwork.height = 720;
+    artwork.resolvedAt = 123456789;
+    return artwork;
+}
+
+
+static bool contains(
+    const std::string& text,
+    const std::string& needle)
+{
+    return text.find(needle) != std::string::npos;
+}
+
+static void test_unbounded_refresh_returns_bad_request_without_adapter_fetch()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-unbounded-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-unbounded-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    VdrEventQuery query;
+
+    const ApiResponse response =
+        controller.refreshBackendWindow("home-vdr", query);
+
+    assert(response.statusCode == 400);
+    assert(response.contentType == "application/json");
+    assert(contains(response.body, "\"backendId\":\"home-vdr\""));
+    assert(contains(response.body, "\"accepted\":false"));
+    assert(contains(response.body, "\"fetched\":false"));
+    assert(contains(response.body, "\"stored\":false"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 0);
+}
+
+static void test_bounded_refresh_and_now_next_read_return_backend_scoped_json()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-refresh-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-refresh-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    VdrEventQuery query;
+    query.channelId = "channel-1";
+    query.from = 0;
+    query.channelEventLimit = 2;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Home Current", "0900", "1100"),
+        make_event("event-2", "channel-1", "Home Next", "1200", "1300")};
+
+    const ApiResponse homeRefresh =
+        controller.refreshBackendWindow("home-vdr", query);
+
+    assert(homeRefresh.statusCode == 200);
+    assert(contains(homeRefresh.body, "\"backendId\":\"home-vdr\""));
+    assert(contains(homeRefresh.body, "\"accepted\":true"));
+    assert(contains(homeRefresh.body, "\"fetched\":true"));
+    assert(contains(homeRefresh.body, "\"stored\":true"));
+    assert(contains(homeRefresh.body, "\"eventCount\":2"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Remote Current", "0900", "1100")};
+
+    const ApiResponse remoteRefresh =
+        controller.refreshBackendWindow("parents-vdr", query);
+
+    assert(remoteRefresh.statusCode == 200);
+    assert(contains(remoteRefresh.body, "\"backendId\":\"parents-vdr\""));
+    assert(contains(remoteRefresh.body, "\"eventCount\":1"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 2);
+
+    const ApiResponse homeNowNext =
+        controller.getNowNext("home-vdr", "channel-1", "1000", 5);
+    const ApiResponse remoteNowNext =
+        controller.getNowNext("parents-vdr", "channel-1", "1000", 5);
+
+    assert(homeNowNext.statusCode == 200);
+    assert(contains(homeNowNext.body, "\"backendId\":\"home-vdr\""));
+    assert(contains(homeNowNext.body, "\"eventCount\":2"));
+    assert(contains(homeNowNext.body, "Home Current"));
+    assert(contains(homeNowNext.body, "Home Next"));
+    assert(!contains(homeNowNext.body, "Remote Current"));
+
+    assert(remoteNowNext.statusCode == 200);
+    assert(contains(remoteNowNext.body, "\"backendId\":\"parents-vdr\""));
+    assert(contains(remoteNowNext.body, "\"eventCount\":1"));
+    assert(contains(remoteNowNext.body, "Remote Current"));
+    assert(!contains(remoteNowNext.body, "Home Current"));
+
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 2);
+}
+
+static void test_per_channel_now_next_is_compact_and_bounded()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-cache-controller-per-channel-test.db";
+
+    std::remove(filename.c_str());
+
+    Database database;
+    assert(database.open(filename));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    assert(repository.ensureSchema());
+
+    assert(repository.upsertEventsForBackend(
+        "home-vdr",
+        {
+            make_event(
+                "ch1-current",
+                "channel-1",
+                "One Current",
+                "1000",
+                "2000"),
+            make_event(
+                "ch1-next",
+                "channel-1",
+                "One Next",
+                "2000",
+                "3000"),
+            make_event(
+                "ch1-later",
+                "channel-1",
+                "One Later",
+                "3000",
+                "4000"),
+            make_event(
+                "ch2-current",
+                "channel-2",
+                "Two Current",
+                "1100",
+                "2100"),
+            make_event(
+                "ch2-next",
+                "channel-2",
+                "Two Next",
+                "2100",
+                "3100"),
+            make_event(
+                "ch2-later",
+                "channel-2",
+                "Two Later",
+                "3100",
+                "4100")
+        }));
+
+    const ApiResponse response =
+        controller.getNowNextPerChannel(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1500",
+            2);
+
+    assert(response.statusCode == 200);
+    assert(contains(
+        response.body,
+        "\"backendId\":\"home-vdr\""));
+    assert(contains(
+        response.body,
+        "\"eventCount\":4"));
+
+    assert(contains(response.body, "One Current"));
+    assert(contains(response.body, "One Next"));
+    assert(contains(response.body, "Two Current"));
+    assert(contains(response.body, "Two Next"));
+
+    assert(!contains(response.body, "One Later"));
+    assert(!contains(response.body, "Two Later"));
+
+    assert(!contains(response.body, "\"description\""));
+    assert(!contains(response.body, "\"artwork\""));
+    assert(!contains(response.body, "\"parentalRating\""));
+
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 0);
+}
+
+
+static void test_now_next_artwork_manifest_is_bounded_and_batch_backed()
+{
+    const char* databasePath =
+        "/tmp/vdr-suite-epg-cache-artwork-manifest-test.db";
+
+    std::remove(databasePath);
+
+    Database database;
+    assert(database.open(databasePath));
+
+    EpgEventRepository eventRepository(database);
+    EpgArtworkRepository artworkRepository(database);
+
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(
+        eventRepository,
+        vdrService);
+
+    EpgArtworkPublicJsonSerializer artworkSerializer;
+
+    EpgCacheController controller(
+        service,
+        artworkRepository,
+        artworkSerializer);
+
+    VdrEventQuery query;
+    query.limit = 4;
+
+    adapter.events = {
+        make_event(
+            "event-1",
+            "channel-1",
+            "Current One",
+            "0900",
+            "1100"),
+        make_event(
+            "event-2",
+            "channel-1",
+            "Next One",
+            "1100",
+            "1200"),
+        make_event(
+            "event-3",
+            "channel-2",
+            "Current Two",
+            "0930",
+            "1030"),
+        make_event(
+            "event-4",
+            "channel-2",
+            "Next Two",
+            "1030",
+            "1130")
+    };
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow(
+            "home-vdr",
+            query);
+
+    assert(refresh.statusCode == 200);
+
+    assert(artworkRepository.upsert(
+        make_artwork(
+            "home-vdr",
+            "channel-1",
+            "event-1",
+            "/cover-one.jpg")));
+
+    assert(artworkRepository.upsert(
+        make_artwork(
+            "home-vdr",
+            "channel-2",
+            "event-4",
+            "/cover-two.jpg")));
+
+    const ApiResponse response =
+        controller.getNowNextArtworkManifest(
+            "home-vdr",
+            "channel-1,channel-2",
+            "1000",
+            99);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+
+    assert(contains(
+        response.body,
+        "\"backendId\":\"home-vdr\""));
+
+    assert(contains(
+        response.body,
+        "\"eventCount\":4"));
+
+    assert(contains(
+        response.body,
+        "\"artworkCount\":2"));
+
+    assert(contains(
+        response.body,
+        "\"channelId\":\"channel-1\""));
+
+    assert(contains(
+        response.body,
+        "\"eventId\":\"event-1\""));
+
+    assert(contains(
+        response.body,
+        "\"channelId\":\"channel-2\""));
+
+    assert(contains(
+        response.body,
+        "\"eventId\":\"event-4\""));
+
+    assert(contains(
+        response.body,
+        "/api/epg/cache/artwork?"));
+
+    assert(!contains(response.body, "Current One"));
+    assert(!contains(response.body, "Next Two"));
+    assert(!contains(response.body, "description-"));
+
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+}
+
+
+static void test_status_reports_count_and_last_refresh_metadata()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-status-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-status-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    const ApiResponse initialStatus =
+        controller.getStatus("default");
+
+    assert(initialStatus.statusCode == 200);
+    assert(contains(initialStatus.body, "\"backendId\":\"default\""));
+    assert(contains(initialStatus.body, "\"ready\":false"));
+    assert(contains(initialStatus.body, "\"eventCount\":0"));
+    assert(contains(initialStatus.body, "\"lastRefreshKnown\":false"));
+
+    VdrEventQuery query;
+    query.limit = 1;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Status Cached", "0900", "1100")};
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow("default", query);
+
+    assert(refresh.statusCode == 200);
+
+    const ApiResponse status =
+        controller.getStatus("default");
+
+    assert(status.statusCode == 200);
+    assert(contains(status.body, "\"backendId\":\"default\""));
+    assert(contains(status.body, "\"ready\":true"));
+    assert(contains(status.body, "\"eventCount\":1"));
+    assert(contains(status.body, "\"lastRefreshKnown\":true"));
+    assert(contains(status.body, "\"lastRefreshAccepted\":true"));
+    assert(contains(status.body, "\"lastRefreshFetched\":true"));
+    assert(contains(status.body, "\"lastRefreshStored\":true"));
+    assert(contains(status.body, "\"lastRefreshEventCount\":1"));
+    assert(contains(status.body, "\"lastRefreshDurationMs\":"));
+    assert(contains(status.body, "\"lastError\":\"\""));
+}
+
+
+static void test_window_read_defaults_empty_backend_to_default()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-default-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-default-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    VdrEventQuery query;
+    query.limit = 1;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Default Cached", "0900", "1100")};
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow("", query);
+
+    assert(refresh.statusCode == 200);
+    assert(contains(refresh.body, "\"backendId\":\"default\""));
+
+    const ApiResponse window =
+        controller.getWindow("", "channel-1", "1000", "1200", 5);
+
+    assert(window.statusCode == 200);
+    assert(contains(window.body, "\"backendId\":\"default\""));
+    assert(contains(window.body, "Default Cached"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+}
+
+
+static void test_window_read_filters_multiple_channel_ids()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-batch-window-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-batch-window-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    VdrEventQuery query;
+    query.limit = 3;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Batch One", "0900", "1000"),
+        make_event("event-2", "channel-2", "Batch Two", "0930", "1030"),
+        make_event("event-3", "channel-3", "Batch Three", "1000", "1100")};
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow("home-vdr", query);
+
+    assert(refresh.statusCode == 200);
+
+    const ApiResponse window =
+        controller.getWindow(
+            "home-vdr",
+            "channel-1,channel-3",
+            "0900",
+            "1300",
+            0);
+
+    assert(window.statusCode == 200);
+    assert(contains(window.body, "\"backendId\":\"home-vdr\""));
+    assert(contains(window.body, "\"eventCount\":2"));
+    assert(contains(window.body, "Batch One"));
+    assert(!contains(window.body, "Batch Two"));
+    assert(contains(window.body, "Batch Three"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+}
+
+
+int main()
+{
+    test_unbounded_refresh_returns_bad_request_without_adapter_fetch();
+    test_bounded_refresh_and_now_next_read_return_backend_scoped_json();
+    test_per_channel_now_next_is_compact_and_bounded();
+    test_now_next_artwork_manifest_is_bounded_and_batch_backed();
+    test_status_reports_count_and_last_refresh_metadata();
+    test_window_read_defaults_empty_backend_to_default();
+    test_window_read_filters_multiple_channel_ids();
+
+    return 0;
+}

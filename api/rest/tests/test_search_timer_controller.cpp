@@ -1,0 +1,635 @@
+#include "SearchTimerController.h"
+
+#include "SearchTimerResult.h"
+#include "ISearchTimerCommandExecutor.h"
+#include "ISearchTimerDataSource.h"
+#include "SearchTimerCreateRequest.h"
+#include "SearchTimerUpdateRequest.h"
+#include "SearchTimerCreateRequestParser.h"
+#include "SearchTimerCreateResultJsonSerializer.h"
+#include "SearchTimerCreateService.h"
+#include "SearchTimerDeleteRequestParser.h"
+#include "SearchTimerDeleteResultJsonSerializer.h"
+#include "SearchTimerDeleteService.h"
+#include "SearchTimerUpdateRequestParser.h"
+#include "SearchTimerUpdateResultJsonSerializer.h"
+#include "SearchTimerUpdateService.h"
+#include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerService.h"
+#include "VdrEvent.h"
+
+#include <cassert>
+#include <iostream>
+#include <string>
+#include <vector>
+
+class TestSearchTimerDataSource final : public ISearchTimerDataSource
+{
+public:
+    TestSearchTimerDataSource()
+    {
+        timers_.push_back(SearchTimer::create(
+            SearchTimerId::fromBackendNativeId("default", "1"),
+            "Controller SearchTimer Terra X",
+            "Terra X",
+            SearchTimerState::Active));
+    }
+
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        SearchTimerService service;
+        return service.list(timers_, query);
+    }
+
+private:
+    std::vector<SearchTimer> timers_;
+};
+
+class TestSearchTimerCommandExecutor final : public ISearchTimerCommandExecutor
+{
+public:
+    SearchTimerCreateResult create(
+        const SearchTimerCreateRequest& request) override
+    {
+        ++callCount_;
+        lastCreateRequest_ = request;
+        hasLastCreateRequest_ = true;
+
+        return SearchTimerCreateResult::ok(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    request.backendId,
+                    "created-searchtimer-1"),
+                request.name,
+                request.query,
+                request.active ? SearchTimerState::Active : SearchTimerState::Inactive),
+            "searchtimer created");
+    }
+
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest& request) override
+    {
+        ++updateCallCount_;
+        lastUpdateRequest_ = request;
+        hasLastUpdateRequest_ = true;
+
+        return SearchTimerUpdateResult::ok(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    request.backendId,
+                    request.backendNativeId),
+                request.name,
+                request.query,
+                request.active ? SearchTimerState::Active : SearchTimerState::Inactive),
+            "searchtimer updated");
+    }
+
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest& request) override
+    {
+        ++removeCallCount_;
+
+        return SearchTimerDeleteResult::ok(
+            request.backendId,
+            request.backendNativeId,
+            "searchtimer deleted");
+    }
+
+    int callCount() const
+    {
+        return callCount_;
+    }
+
+    bool hasLastCreateRequest() const
+    {
+        return hasLastCreateRequest_;
+    }
+
+    const SearchTimerCreateRequest& lastCreateRequest() const
+    {
+        return lastCreateRequest_;
+    }
+
+    int updateCallCount() const
+    {
+        return updateCallCount_;
+    }
+
+    bool hasLastUpdateRequest() const
+    {
+        return hasLastUpdateRequest_;
+    }
+
+    const SearchTimerUpdateRequest& lastUpdateRequest() const
+    {
+        return lastUpdateRequest_;
+    }
+
+    int removeCallCount() const
+    {
+        return removeCallCount_;
+    }
+
+private:
+    int callCount_ = 0;
+    int updateCallCount_ = 0;
+    int removeCallCount_ = 0;
+    bool hasLastCreateRequest_ = false;
+    bool hasLastUpdateRequest_ = false;
+    SearchTimerCreateRequest lastCreateRequest_;
+    SearchTimerUpdateRequest lastUpdateRequest_;
+};
+
+int main()
+{
+    SearchTimerService searchTimerService;
+    SearchTimerResultJsonSerializer serializer;
+    TestSearchTimerDataSource dataSource;
+    SearchTimerCreateService createService;
+    SearchTimerCreateResultJsonSerializer createJsonSerializer;
+    SearchTimerCreateRequestParser createRequestParser;
+    SearchTimerUpdateService updateService;
+    SearchTimerUpdateResultJsonSerializer updateJsonSerializer;
+    SearchTimerUpdateRequestParser updateRequestParser;
+    SearchTimerDeleteService deleteService;
+    SearchTimerDeleteResultJsonSerializer deleteJsonSerializer;
+    SearchTimerDeleteRequestParser deleteRequestParser;
+    SearchTimerController controller(
+        searchTimerService,
+        serializer,
+        dataSource,
+        createService,
+        createJsonSerializer,
+        createRequestParser,
+        &updateService,
+        &updateJsonSerializer,
+        &updateRequestParser,
+        &deleteService,
+        &deleteJsonSerializer,
+        &deleteRequestParser);
+
+    std::vector<SearchTimer> timers;
+    timers.push_back(SearchTimer::create(
+        SearchTimerId::fromBackendNativeId("livingroom", "1"),
+        "Terra X",
+        "Terra X",
+        SearchTimerState::Active));
+
+    SearchTimerResult result = SearchTimerResult::from(
+        timers,
+        1,
+        25,
+        0);
+
+    ApiResponse response = controller.getSearchTimers(result);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"searchtimers\"") != std::string::npos);
+    assert(response.body.find("\"backendId\":\"livingroom\"") != std::string::npos);
+    assert(response.body.find("\"backendNativeId\":\"1\"") != std::string::npos);
+    assert(response.body.find("\"name\":\"Terra X\"") != std::string::npos);
+    assert(response.body.find("\"state\":\"active\"") != std::string::npos);
+
+    VdrEvent event;
+    event.id = "event-1";
+    event.channelId = "channel-1";
+    event.title = "Terra X";
+    event.startTime = "1000";
+    event.endTime = "1100";
+    event.durationSeconds = 3600;
+
+    ApiResponse previewResponse =
+        controller.previewSearchTimer(
+            timers[0],
+            {event},
+            10,
+            0);
+
+    assert(previewResponse.statusCode == 200);
+    assert(previewResponse.contentType == "application/json");
+    assert(previewResponse.body.find("\"searchTimer\":{") != std::string::npos);
+    assert(previewResponse.body.find("\"preview\":{") != std::string::npos);
+    assert(previewResponse.body.find("\"totalCount\":1") != std::string::npos);
+    assert(previewResponse.body.find("\"id\":\"event-1\"") != std::string::npos);
+
+    TestSearchTimerCommandExecutor executor;
+    ApiResponse createResponse =
+        controller.createSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}",
+            executor);
+
+    assert(createResponse.statusCode == 200);
+    assert(createResponse.contentType == "application/json");
+    assert(createResponse.body.find("\"success\":true") != std::string::npos);
+    assert(createResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(createResponse.body.find("\"backendNativeId\":\"created-searchtimer-1\"") != std::string::npos);
+    assert(createResponse.body.find("\"name\":\"Terra X Suche\"") != std::string::npos);
+    assert(createResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
+    assert(executor.callCount() == 1);
+
+    ApiResponse updateResponse =
+        controller.updateSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-42\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\","
+            "\"active\":false"
+            "}",
+            executor);
+
+    assert(updateResponse.statusCode == 200);
+    assert(updateResponse.contentType == "application/json");
+    assert(updateResponse.body.find("\"success\":true") != std::string::npos);
+    assert(updateResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(updateResponse.body.find("\"backendNativeId\":\"searchtimer-42\"") != std::string::npos);
+    assert(updateResponse.body.find("\"name\":\"Terra X Suche aktualisiert\"") != std::string::npos);
+    assert(updateResponse.body.find("\"query\":\"Terra X aktualisiert\"") != std::string::npos);
+    assert(updateResponse.body.find("\"state\":\"inactive\"") != std::string::npos);
+    assert(executor.updateCallCount() == 1);
+
+
+    ApiResponse validateResponse =
+        controller.validateSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(validateResponse.statusCode == 200);
+    assert(validateResponse.contentType == "application/json");
+    assert(validateResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(validateResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(validateResponse.body.find("\"writeOperation\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"wantsReadbackAfterWrite\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"errors\":[]") != std::string::npos);
+    assert(executor.callCount() == 1);
+
+    ApiResponse invalidValidateResponse =
+        controller.validateSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidValidateResponse.statusCode == 200);
+    assert(invalidValidateResponse.contentType == "application/json");
+    assert(invalidValidateResponse.body.find("\"valid\":false") != std::string::npos);
+    assert(invalidValidateResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidValidateResponse.body.find("\"backendNativeId is required\"") != std::string::npos);
+    assert(executor.updateCallCount() == 1);
+
+
+    ApiResponse planResponse =
+        controller.planSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(planResponse.statusCode == 200);
+    assert(planResponse.contentType == "application/json");
+    assert(planResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(planResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(planResponse.body.find("\"primaryStep\":\"create\"") != std::string::npos);
+    assert(planResponse.body.find("\"followUpStep\":\"readback\"") != std::string::npos);
+    assert(planResponse.body.find("\"requiresBackendReadback\":true") != std::string::npos);
+    assert(planResponse.body.find("\"requiresExplicitOperatorConfirmation\":true") != std::string::npos);
+    assert(planResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(planResponse.body.find("\"name\":\"Terra X Suche\"") != std::string::npos);
+    assert(planResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+
+    ApiResponse invalidPlanResponse =
+        controller.planSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidPlanResponse.statusCode == 200);
+    assert(invalidPlanResponse.contentType == "application/json");
+    assert(invalidPlanResponse.body.find("\"valid\":false") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"hasExecutionWork\":false") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"writeOperation\":true") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+
+    ApiResponse blockedExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(blockedExecuteResponse.statusCode == 200);
+    assert(blockedExecuteResponse.contentType == "application/json");
+    assert(blockedExecuteResponse.body.find("\"success\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"dryRunOnly\":true") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorOptInProvided\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"backendReadbackVerificationAttached\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"backendReadbackVerified\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"backendReadbackVerification\":{") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"dispatchStage\":\"confirmation-required\"") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("explicit operator confirmation is required") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse acceptedExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"explicitOperatorConfirmation\":true"
+            "}");
+
+    assert(acceptedExecuteResponse.statusCode == 200);
+    assert(acceptedExecuteResponse.contentType == "application/json");
+    assert(acceptedExecuteResponse.body.find("\"success\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"blocked\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"confirmationProvided\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorOptInProvided\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"backendReadbackVerificationAttached\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"backendReadbackVerified\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"backendReadbackVerification\":{") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"dispatchStage\":\"command-request-mapped\"") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executionMode\":\"prepare\"") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("create command request accepted by dispatch skeleton") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("backend command dispatch is not enabled in this skeleton") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse executeModeResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Execute\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true"
+            "}");
+
+    assert(executeModeResponse.statusCode == 200);
+    assert(executeModeResponse.contentType == "application/json");
+    assert(executeModeResponse.body.find("\"success\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(executeModeResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(executeModeResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorOptInProvided\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"dispatchStage\":\"executor-opt-in-required\"") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(executeModeResponse.body.find("real execution mode requires executor opt-in") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse executeModeWithOptInResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Execute OptIn\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true,"
+            "\"executorOptIn\":true"
+            "}");
+
+    assert(executeModeWithOptInResponse.statusCode == 200);
+    assert(executeModeWithOptInResponse.contentType == "application/json");
+    assert(executeModeWithOptInResponse.body.find("\"success\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorOptInProvided\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"backendReadbackVerificationAttached\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"backendReadbackVerified\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"backendReadbackVerification\":{") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"dispatchStage\":\"real-executor-injection-required\"") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("real execution mode requires an injected command executor") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse realTestResponse =
+        controller.realTestSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Real Test\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true,"
+            "\"executorOptIn\":true"
+            "}");
+
+    assert(realTestResponse.statusCode == 200);
+    assert(realTestResponse.contentType == "application/json");
+    assert(realTestResponse.body.find("\"success\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"dryRunOnly\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorOptInProvided\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorInjected\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"dispatchStage\":\"production-policy-gate-closed\"") != std::string::npos);
+    assert(realTestResponse.body.find("production policy gate is closed for real backend mutation") != std::string::npos);
+    assert(realTestResponse.body.find("yaVDR real-test mode: no real backend mutation is performed") != std::string::npos);
+    assert(realTestResponse.body.find("policyStage=production-policy-gate-closed") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse invalidExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidExecuteResponse.statusCode == 200);
+    assert(invalidExecuteResponse.contentType == "application/json");
+    assert(invalidExecuteResponse.body.find("\"success\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"dispatchStage\":\"validation-blocked\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("workflow plan is not executable") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+
+    ApiResponse titleOnlyControllerCreateResponse =
+        controller.createSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}",
+            executor);
+
+    assert(titleOnlyControllerCreateResponse.statusCode == 200);
+    assert(titleOnlyControllerCreateResponse.contentType == "application/json");
+    assert(titleOnlyControllerCreateResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(titleOnlyControllerCreateResponse.body.find("\"name\":\"Amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerCreateResponse.body.find("\"query\":\"Amerika\"")
+           != std::string::npos);
+    assert(executor.callCount() == 2);
+    assert(executor.hasLastCreateRequest());
+
+    const SearchTimerCreateRequest& titleOnlyControllerRequest =
+        executor.lastCreateRequest();
+
+    assert(titleOnlyControllerRequest.backendId == "home-vdr");
+    assert(titleOnlyControllerRequest.name == "Amerika");
+    assert(titleOnlyControllerRequest.query == "Amerika");
+    assert(titleOnlyControllerRequest.active == true);
+    assert(titleOnlyControllerRequest.matchMode == 0);
+    assert(titleOnlyControllerRequest.compareTitle == true);
+    assert(titleOnlyControllerRequest.compareSubtitle == false);
+    assert(titleOnlyControllerRequest.compareSummary == false);
+    assert(titleOnlyControllerRequest.compareCategories == false);
+
+
+    ApiResponse titleOnlyControllerUpdateResponse =
+        controller.updateSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-amerika\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}",
+            executor);
+
+    assert(titleOnlyControllerUpdateResponse.statusCode == 200);
+    assert(titleOnlyControllerUpdateResponse.contentType == "application/json");
+    assert(titleOnlyControllerUpdateResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"backendId\":\"home-vdr\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"backendNativeId\":\"searchtimer-amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"name\":\"Amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"query\":\"Amerika\"")
+           != std::string::npos);
+    assert(executor.updateCallCount() == 2);
+    assert(executor.hasLastUpdateRequest());
+
+    const SearchTimerUpdateRequest& titleOnlyControllerUpdateRequest =
+        executor.lastUpdateRequest();
+
+    assert(titleOnlyControllerUpdateRequest.backendId == "home-vdr");
+    assert(titleOnlyControllerUpdateRequest.backendNativeId == "searchtimer-amerika");
+    assert(titleOnlyControllerUpdateRequest.name == "Amerika");
+    assert(titleOnlyControllerUpdateRequest.query == "Amerika");
+    assert(titleOnlyControllerUpdateRequest.active == true);
+    assert(titleOnlyControllerUpdateRequest.matchMode == 0);
+    assert(titleOnlyControllerUpdateRequest.compareTitle == true);
+    assert(titleOnlyControllerUpdateRequest.compareSubtitle == false);
+    assert(titleOnlyControllerUpdateRequest.compareSummary == false);
+    assert(titleOnlyControllerUpdateRequest.compareCategories == false);
+
+    std::cout << "test_search_timer_controller passed" << std::endl;
+    return 0;
+}

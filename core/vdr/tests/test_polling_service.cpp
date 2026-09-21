@@ -1,0 +1,704 @@
+#include "IRuntimeLogger.h"
+#include "IRuntimeMeasurementSink.h"
+#include "IVdrAdapter.h"
+#include "PollingService.h"
+#include "RuntimeLogEntry.h"
+#include "RuntimeMeasurement.h"
+#include "SnapshotCache.h"
+#include "SnapshotCacheService.h"
+#include "SnapshotChangeFeed.h"
+#include "SnapshotChangeFeedService.h"
+#include "VdrService.h"
+#include "VdrSnapshotBuilder.h"
+
+#include <cassert>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+class RecordingMeasurementSink : public IRuntimeMeasurementSink {
+public:
+    void recordMeasurement(const RuntimeMeasurement& measurement) override
+    {
+        measurements.push_back(measurement);
+    }
+
+    std::vector<RuntimeMeasurement> measurements;
+};
+
+static bool containsMeasurement(
+    const RecordingMeasurementSink& sink,
+    const std::string& component,
+    const std::string& operation)
+{
+    for (const RuntimeMeasurement& measurement : sink.measurements) {
+        if (measurement.component == component && measurement.operation == operation) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+class RecordingRuntimeLogger : public IRuntimeLogger {
+public:
+    void write(const RuntimeLogEntry& entry) override
+    {
+        entries.push_back(entry);
+    }
+
+    bool contains(
+        RuntimeLogLevel level,
+        const std::string& component,
+        const std::string& textSubstring) const
+    {
+        for (const RuntimeLogEntry& entry : entries) {
+            if (entry.level == level
+                && entry.component == component
+                && entry.text.find(textSubstring) != std::string::npos) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::vector<RuntimeLogEntry> entries;
+};
+
+class CountingVdrAdapter : public IVdrAdapter {
+public:
+    mutable int statusReadCount = 0;
+    mutable int recordingsReadCount = 0;
+    mutable int timersReadCount = 0;
+    mutable int channelsReadCount = 0;
+    mutable int eventsReadCount = 0;
+    mutable int selectiveEventsReadCount = 0;
+    mutable int lastSelectiveChannelEventLimit = 0;
+    mutable int changeStateReadCount = 0;
+    bool failChangeStateRead = false;
+
+    VdrChangeState changeState;
+
+    VdrStatus getStatus() const override
+    {
+        ++statusReadCount;
+
+        VdrStatus status;
+        status.enabled = true;
+        status.mode = "test";
+        status.host = "test";
+        status.port = 0;
+        status.state = "connected";
+
+        return status;
+    }
+
+    std::vector<VdrEvent> getEvents() const override
+    {
+        ++eventsReadCount;
+
+        VdrEvent event;
+        event.id = "event-1";
+
+        return { event };
+    }
+
+    std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const override
+    {
+        ++selectiveEventsReadCount;
+        lastSelectiveChannelEventLimit = query.channelEventLimit;
+
+        VdrEvent event;
+        event.id = "event-1";
+
+        return { event };
+    }
+
+    std::vector<VdrChannel> getChannels() const override
+    {
+        ++channelsReadCount;
+
+        VdrChannel channel;
+        channel.id = "channel-1";
+
+        return { channel };
+    }
+
+    std::vector<VdrTimer> getTimers() const override
+    {
+        ++timersReadCount;
+
+        VdrTimer timer;
+        timer.id = "timer-1";
+
+        return { timer };
+    }
+
+    std::vector<VdrRecording> getRecordings() const override
+    {
+        ++recordingsReadCount;
+
+        VdrRecording recording;
+        recording.id = "recording-1";
+
+        return { recording };
+    }
+
+    VdrChangeState getChangeState() const override
+    {
+        ++changeStateReadCount;
+
+        if (failChangeStateRead) {
+            throw std::runtime_error("connect failed to 127.0.0.1:8002");
+        }
+
+        return changeState;
+    }
+
+    int totalDomainReadCount() const
+    {
+        return statusReadCount
+            + recordingsReadCount
+            + timersReadCount
+            + channelsReadCount
+            + eventsReadCount
+            + selectiveEventsReadCount;
+    }
+};
+
+static PollingService createPollingService(
+    VdrSnapshotBuilder& builder,
+    VdrService& service,
+    SnapshotCacheService& snapshotCacheService)
+{
+    return PollingService(builder, service, snapshotCacheService);
+}
+
+static void test_first_poll_builds_lightweight_startup_snapshot_without_change_events()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(adapter.statusReadCount == 1);
+    assert(adapter.recordingsReadCount == 0);
+    assert(adapter.timersReadCount == 1);
+    assert(adapter.channelsReadCount == 1);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 3);
+
+    assert(pollingService.snapshot().status.enabled == true);
+    assert(pollingService.snapshot().recordings.empty());
+    assert(pollingService.snapshot().timers.size() == 1);
+    assert(pollingService.snapshot().channels.size() == 1);
+    assert(pollingService.snapshot().events.empty());
+
+    assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
+}
+
+static void test_first_poll_records_initial_poll_measurements()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(containsMeasurement(sink, "PollingService", "Initial snapshot poll"));
+    assert(containsMeasurement(sink, "PollingService", "Poll cycle"));
+}
+
+static void test_unchanged_change_state_keeps_existing_snapshot_without_change_events()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.channelsVersion = 1;
+
+    pollingService.poll();
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(adapter.totalDomainReadCount() == 3);
+    assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
+}
+
+static void test_unchanged_change_state_records_detection_and_plan_measurements()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    adapter.changeState.channelsVersion = 1;
+
+    pollingService.poll();
+    pollingService.poll();
+
+    assert(containsMeasurement(sink, "PollingService", "Detect changes"));
+    assert(containsMeasurement(sink, "PollingService", "Create update plan"));
+    assert(containsMeasurement(sink, "PollingService", "Poll cycle"));
+}
+
+static void test_channel_change_refreshes_only_channels_domain()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(adapter.statusReadCount == 1);
+    assert(adapter.recordingsReadCount == 0);
+    assert(adapter.timersReadCount == 1);
+    assert(adapter.channelsReadCount == 2);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 4);
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::ChannelsChanged);
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == false);
+}
+
+static void test_channel_change_records_channel_refresh_measurements()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    assert(containsMeasurement(sink, "PollingService", "Channels refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Poll cycle"));
+}
+
+static void test_recording_change_refreshes_only_recordings_domain()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    assert(adapter.statusReadCount == 1);
+    assert(adapter.recordingsReadCount == 1);
+    assert(adapter.timersReadCount == 1);
+    assert(adapter.channelsReadCount == 1);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 4);
+
+    assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == false);
+}
+
+static void test_recording_change_records_recordings_refresh_measurements()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    assert(containsMeasurement(sink, "PollingService", "Recordings refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
+}
+
+static void test_multiple_changes_refresh_only_selected_domains()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.channelsVersion = 1;
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 2);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshTimers() == false);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == false);
+
+    assert(adapter.statusReadCount == 1);
+    assert(adapter.recordingsReadCount == 1);
+    assert(adapter.timersReadCount == 1);
+    assert(adapter.channelsReadCount == 2);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 5);
+}
+
+static void test_event_change_refreshes_selective_events_only()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == false);
+    assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == true);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.selectiveEventsReadCount == 1);
+    assert(adapter.lastSelectiveChannelEventLimit == 2);
+    assert(adapter.totalDomainReadCount() == 4);
+}
+
+static void test_event_change_records_selective_events_refresh_measurement()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(containsMeasurement(sink, "PollingService", "Selective events merge refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
+
+    bool foundSelectiveMeasurement = false;
+
+    for (const auto& measurement : sink.measurements) {
+        if (measurement.component == "PollingService"
+            && measurement.operation == "Selective events merge refresh") {
+            foundSelectiveMeasurement = true;
+            assert(measurement.itemCount == 1);
+        }
+    }
+
+    assert(foundSelectiveMeasurement == true);
+}
+
+static void test_event_change_falls_back_to_full_events_when_selective_refresh_is_disabled()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+
+    DomainRefreshPolicy refreshPolicy;
+    refreshPolicy.setAllowSelectiveEventRefresh(false);
+
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "default",
+        refreshPolicy);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == true);
+    assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == false);
+    assert(adapter.eventsReadCount == 1);
+    assert(adapter.selectiveEventsReadCount == 0);
+}
+
+static void test_change_events_are_cleared_before_next_poll()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == true);
+
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
+}
+
+static void test_polling_service_updates_backend_startup_snapshot_without_recordings()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(
+        service,
+        "parents-vdr",
+        nullptr,
+        nullptr);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "parents-vdr");
+
+    pollingService.poll();
+
+    assert(cache.hasSnapshotForBackend("parents-vdr"));
+
+    const VdrSnapshot* snapshot =
+        cache.snapshotForBackend("parents-vdr");
+
+    assert(snapshot != nullptr);
+    assert(snapshot->backendId == "parents-vdr");
+    assert(snapshot->channels.size() == 1);
+    assert(snapshot->recordings.empty());
+}
+
+static void test_failed_poll_preserves_snapshot_logs_warning_and_recovers()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    RecordingRuntimeLogger logger;
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "default",
+        &logger);
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(adapter.changeStateReadCount == 1);
+    assert(adapter.channelsReadCount == 1);
+
+    const VdrSnapshot snapshotBeforeFailure = pollingService.snapshot();
+    const int domainReadCountBeforeFailure = adapter.totalDomainReadCount();
+
+    adapter.failChangeStateRead = true;
+    pollingService.poll();
+
+    assert(adapter.changeStateReadCount == 2);
+    assert(adapter.totalDomainReadCount() == domainReadCountBeforeFailure);
+    assert(cache.hasSnapshot());
+    assert(pollingService.snapshot().channels.size() == snapshotBeforeFailure.channels.size());
+    assert(pollingService.snapshot().channels[0].id == snapshotBeforeFailure.channels[0].id);
+    assert(pollingService.snapshot().status.state == snapshotBeforeFailure.status.state);
+    assert(logger.contains(
+        RuntimeLogLevel::Warning,
+        "PollingService",
+        "Poll cycle failed for backend default"));
+    assert(logger.contains(
+        RuntimeLogLevel::Warning,
+        "PollingService",
+        "connect failed to 127.0.0.1:8002"));
+
+    adapter.failChangeStateRead = false;
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    assert(adapter.changeStateReadCount == 3);
+    assert(adapter.channelsReadCount == 2);
+    assert(adapter.totalDomainReadCount() == domainReadCountBeforeFailure + 1);
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::ChannelsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+}
+
+static void test_polling_change_events_can_feed_snapshot_change_feed()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.entries().size() == 1);
+    assert(feed.entries()[0].sequenceNumber() == 1);
+    assert(feed.entries()[0].snapshotGeneration() == snapshotCacheService.generation());
+    assert(feed.entries()[0].backendId() == "default");
+    assert(feed.entries()[0].changedDomains().size() == 2);
+    assert(feed.entries()[0].changedDomains()[0] == "channels");
+    assert(feed.entries()[0].changedDomains()[1] == "liveOverlay");
+}
+
+static void test_unchanged_poll_does_not_add_snapshot_change_feed_entry()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.empty() == true);
+    assert(feed.entries().empty());
+}
+
+static void test_multiple_polling_change_events_feed_multiple_domains()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.entries().size() == 1);
+    assert(feed.entries()[0].changedDomains().size() == 3);
+    assert(feed.entries()[0].changedDomains()[0] == "channels");
+    assert(feed.entries()[0].changedDomains()[1] == "liveOverlay");
+    assert(feed.entries()[0].changedDomains()[2] == "recordings");
+}
+
+int main()
+{
+    test_first_poll_builds_lightweight_startup_snapshot_without_change_events();
+    test_first_poll_records_initial_poll_measurements();
+    test_unchanged_change_state_keeps_existing_snapshot_without_change_events();
+    test_unchanged_change_state_records_detection_and_plan_measurements();
+    test_channel_change_refreshes_only_channels_domain();
+    test_channel_change_records_channel_refresh_measurements();
+    test_recording_change_refreshes_only_recordings_domain();
+    test_recording_change_records_recordings_refresh_measurements();
+    test_multiple_changes_refresh_only_selected_domains();
+    test_event_change_refreshes_selective_events_only();
+    test_event_change_records_selective_events_refresh_measurement();
+    test_event_change_falls_back_to_full_events_when_selective_refresh_is_disabled();
+    test_change_events_are_cleared_before_next_poll();
+    test_polling_service_updates_backend_startup_snapshot_without_recordings();
+    test_failed_poll_preserves_snapshot_logs_warning_and_recovers();
+    test_polling_change_events_can_feed_snapshot_change_feed();
+    test_unchanged_poll_does_not_add_snapshot_change_feed_entry();
+    test_multiple_polling_change_events_feed_multiple_domains();
+
+    std::cout << "test_polling_service passed" << std::endl;
+    return 0;
+}

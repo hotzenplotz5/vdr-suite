@@ -1,0 +1,198 @@
+// Channel logo lookup and fallback helpers.
+// Loaded before the channel browser; deferred workflow runtimes start after window load.
+
+function normalizeChannelLogoName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('de-DE');
+}
+
+function addUniqueValue(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+
+  if (normalized !== '' && !values.includes(normalized)) {
+    values.push(normalized);
+  }
+}
+
+function addChannelLogoAliases(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+  const withoutQuality = normalized.replace(/\s+(hd|uhd|sd)$/i, '');
+
+  const aliasMap = {
+    'zdfneo hd': ['zdf_neo hd', 'zdf neo hd', 'zdfneo', 'zdf_neo', 'zdf neo'],
+    'zdfneo': ['zdf_neo', 'zdf neo'],
+    'zdfinfo hd': ['zdfinfo', 'zdf.info', 'zdf info hd', 'zdf info'],
+    'zdfinfo': ['zdf.info', 'zdf info'],
+    'tagesschau24 hd': ['tagesschau24', 'tagesschau 24 hd', 'tagesschau 24'],
+    'tagesschau24': ['tagesschau 24'],
+    'one hd': ['one'],
+    'phoenix hd': ['phoenix'],
+    'arte hd': ['arte'],
+    '3sat hd': ['3sat'],
+    'das erste hd': ['das erste'],
+    'ndr fs hh hd': ['ndr fs hh', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs mv hd': ['ndr fs mv', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs nds hd': ['ndr fs nds', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs sh hd': ['ndr fs sh', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ntv': ['n-tv', 'n tv'],
+    'welt hd': ['welt'],
+    'pro sieben hd': ['pro sieben', 'prosieben hd', 'prosieben', 'pro7 hd', 'pro7'],
+    'pro sieben': ['prosieben', 'pro7'],
+    'sat.1 hd': ['sat.1', 'sat1 hd', 'sat1'],
+    'sat.1': ['sat1'],
+    'rtlup hd': ['rtlup', 'rtl up hd', 'rtl up'],
+    'rtlup': ['rtl up'],
+    'kabel eins hd': ['kabel eins', 'kabeleins hd', 'kabeleins'],
+    'kabel eins': ['kabeleins'],
+    'sixx hd': ['sixx'],
+    'dmax hd': ['dmax'],
+    'tele 5 hd': ['tele 5', 'tele5 hd', 'tele5'],
+    'sport1 hd': ['sport1'],
+    'servustv hd deutschland': ['servustv deutschland', 'servus tv hd deutschland', 'servus tv deutschland'],
+    'servustv deutschland': ['servus tv deutschland']
+  };
+
+  [normalized, withoutQuality].forEach(key => {
+    const aliases = aliasMap[key] || [];
+    aliases.forEach(alias => addUniqueValue(values, alias));
+  });
+
+  if (/^zdf[a-z]/.test(normalized)) {
+    addUniqueValue(values, normalized.replace(/^zdf/, 'zdf_'));
+    addUniqueValue(values, normalized.replace(/^zdf/, 'zdf '));
+  }
+
+  if (/^zdf[a-z]/.test(withoutQuality)) {
+    addUniqueValue(values, withoutQuality.replace(/^zdf/, 'zdf_'));
+    addUniqueValue(values, withoutQuality.replace(/^zdf/, 'zdf '));
+  }
+}
+
+function addChannelLogoNameVariants(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+
+  if (normalized === '') {
+    return;
+  }
+
+  addUniqueValue(values, normalized);
+  addUniqueValue(values, normalized.replace(/\s*;.*$/, ''));
+  addUniqueValue(values, normalized.replace(/\s*\(.*\)\s*$/, ''));
+  addUniqueValue(values, normalized.replace(/\s+(hd|uhd|sd)$/i, ''));
+  addUniqueValue(values, normalized.replace(/\s+/g, '_'));
+  addUniqueValue(values, normalized.replace(/\s+/g, '-'));
+  addUniqueValue(values, normalized.replace(/\s+/g, ''));
+
+  const withoutQuality = normalized.replace(/\s+(hd|uhd|sd)$/i, '');
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, '_'));
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, '-'));
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, ''));
+  addChannelLogoAliases(values, normalized);
+}
+
+function channelLogoPathForName(name, extension) {
+  const parts = normalizeChannelLogoName(name)
+    .split('/')
+    .map(part => part.trim())
+    .filter(part => part !== '');
+
+  if (parts.length === 0) {
+    return '';
+  }
+
+  return '/channel-logos/' + parts.map(part => encodeURIComponent(part)).join('/') + extension;
+}
+
+function uniqueChannelLogoCandidates(title, channelId) {
+  const names = [];
+  const normalizedTitle = normalizeChannelLogoName(title);
+  const normalizedChannelId = normalizeChannelLogoName(channelId);
+
+  addChannelLogoNameVariants(names, normalizedTitle);
+
+  if (normalizedChannelId !== '' && normalizedChannelId !== '-' && normalizedChannelId !== normalizedTitle) {
+    addChannelLogoNameVariants(names, normalizedChannelId);
+  }
+
+  const candidates = [];
+
+  names.forEach(name => {
+    ['.png', '.svg'].forEach(extension => {
+      const path = channelLogoPathForName(name, extension);
+      if (path !== '' && !candidates.includes(path)) {
+        candidates.push(path);
+      }
+    });
+  });
+
+  return candidates;
+}
+
+function channelLogoInitial(title) {
+  const text = String(title || '?').trim();
+
+  if (text === '') {
+    return '?';
+  }
+
+  return Array.from(text)[0].toLocaleUpperCase('de-DE');
+}
+
+function createChannelLogoElement(title, channelId) {
+  const frame = document.createElement('div');
+  frame.className = 'channel-logo-frame';
+  frame.title = 'Logo-Kandidaten: ' + uniqueChannelLogoCandidates(title, channelId).slice(0, 4).join(' | ');
+
+  const fallback = addText(document.createElement('div'), channelLogoInitial(title));
+  fallback.className = 'channel-logo-fallback';
+  frame.appendChild(fallback);
+
+  const candidates = uniqueChannelLogoCandidates(title, channelId);
+
+  if (candidates.length === 0) {
+    return frame;
+  }
+
+  const image = document.createElement('img');
+  image.className = 'channel-logo';
+  image.alt = 'Logo ' + String(title || channelId || 'Kanal');
+  image.style.display = 'block';
+  image.style.maxWidth = '100%';
+  image.style.maxHeight = '100%';
+  image.style.objectFit = 'contain';
+  image.style.opacity = '0';
+
+  let index = 0;
+
+  function tryNextCandidate() {
+    if (index >= candidates.length) {
+      image.remove();
+      frame.classList.remove('loaded');
+      fallback.style.display = '';
+      return;
+    }
+
+    image.src = candidates[index];
+    index += 1;
+  }
+
+  image.addEventListener('load', () => {
+    frame.classList.add('loaded');
+    image.style.opacity = '1';
+    fallback.style.display = 'none';
+  });
+
+  image.addEventListener('error', () => {
+    frame.classList.remove('loaded');
+    image.style.opacity = '0';
+    fallback.style.display = '';
+    tryNextCandidate();
+  });
+
+  frame.appendChild(image);
+  tryNextCandidate();
+
+  return frame;
+}

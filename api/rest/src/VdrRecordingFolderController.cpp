@@ -1,0 +1,937 @@
+#include "VdrRecordingFolderController.h"
+
+#include "EpgArtworkController.h"
+#include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingArtworkIdentity.h"
+#include "VdrRecordingMetadataJsonSerializer.h"
+#include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
+
+#include <filesystem>
+#include <limits>
+#include <map>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace
+{
+
+void appendJsonString(
+    std::ostringstream& json,
+    const std::string& value)
+{
+    json << '"';
+
+    for (const char character : value)
+    {
+        switch (character)
+        {
+        case '"': json << "\\\""; break;
+        case '\\': json << "\\\\"; break;
+        case '\b': json << "\\b"; break;
+        case '\f': json << "\\f"; break;
+        case '\n': json << "\\n"; break;
+        case '\r': json << "\\r"; break;
+        case '\t': json << "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(character) < 0x20)
+            {
+                json << "\\u00";
+                const char* digits = "0123456789abcdef";
+                json << digits[(character >> 4) & 0x0f];
+                json << digits[character & 0x0f];
+            }
+            else json << character;
+            break;
+        }
+    }
+
+    json << '"';
+}
+
+ApiResponse jsonResponse(const std::string& body)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = body;
+    return response;
+}
+
+ApiResponse jsonError(int statusCode, const std::string& message)
+{
+    ApiResponse response;
+    response.statusCode = statusCode;
+    response.contentType = "application/json";
+    std::ostringstream json;
+    json << "{\"error\":";
+    appendJsonString(json, message);
+    json << "}";
+    response.body = json.str();
+    return response;
+}
+
+const VdrRecordingNativeArtwork* selectMetadataArtwork(
+    const VdrRecordingNativeMetadata& metadata,
+    const std::string& kind,
+    int index)
+{
+    if (kind == "poster")
+    {
+        if (index != 0) return nullptr;
+        for (const VdrRecordingNativeArtwork& artwork : metadata.images)
+        {
+            if (artwork.orientation == "portrait" &&
+                artwork.available && !artwork.path.empty())
+            {
+                return &artwork;
+            }
+        }
+        return &metadata.preferredArtwork;
+    }
+    if (kind == "preferred") return index == 0 ? &metadata.preferredArtwork : nullptr;
+    if (kind == "person")
+    {
+        if (index < 0 || static_cast<std::size_t>(index) >= metadata.people.size())
+            return nullptr;
+        return &metadata.people[static_cast<std::size_t>(index)].image;
+    }
+    if (kind == "gallery")
+    {
+        if (index < 0 || static_cast<std::size_t>(index) >= metadata.images.size())
+            return nullptr;
+        return &metadata.images[static_cast<std::size_t>(index)];
+    }
+    return nullptr;
+}
+
+bool localManualImage(const std::string& path)
+{
+    if (path.empty()) return false;
+    const std::filesystem::path normalized =
+        std::filesystem::path(path).lexically_normal();
+    return normalized.is_absolute() &&
+        normalized != normalized.root_path() &&
+        normalized.string().compare(
+            0,
+            std::string("/var/cache/vdr-suite/recording-metadata/posters/").size(),
+            "/var/cache/vdr-suite/recording-metadata/posters/") == 0;
+}
+
+std::string percentEncode(const std::string& value)
+{
+    static const char Hex[] = "0123456789ABCDEF";
+    std::string output;
+    for (const unsigned char character : value)
+    {
+        if ((character >= 'A' && character <= 'Z') ||
+            (character >= 'a' && character <= 'z') ||
+            (character >= '0' && character <= '9') ||
+            character == '-' || character == '_' || character == '.' ||
+            character == '~')
+            output.push_back(static_cast<char>(character));
+        else
+        {
+            output.push_back('%');
+            output.push_back(Hex[character >> 4U]);
+            output.push_back(Hex[character & 0x0fU]);
+        }
+    }
+    return output;
+}
+
+std::string manualImageUrl(
+    const std::string& backendId,
+    const std::string& backendNativeId,
+    const std::string& kind,
+    int index,
+    int revision)
+{
+    return "/api/vdr/recordings/metadata/image?backend=" +
+        percentEncode(backendId) +
+        "&backendNativeId=" + percentEncode(backendNativeId) +
+        "&kind=" + percentEncode(kind) +
+        "&index=" + std::to_string(index) +
+        "&assignmentRevision=" + std::to_string(revision);
+}
+
+std::string manualContentKind(
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    if (assignment.mediaType == "movie") return "movie";
+    if (assignment.mediaType == "series") return "series";
+    if (assignment.mediaType == "episode") return "series-episode";
+    return "unknown";
+}
+
+std::string manualSeasonEpisodeLabel(
+    const ManualRecordingMetadataAssignment& assignment)
+{
+    std::ostringstream label;
+    if (assignment.seasonNumber > 0)
+    {
+        label << 'S';
+        if (assignment.seasonNumber < 10) label << '0';
+        label << assignment.seasonNumber;
+    }
+    if (assignment.episodeNumber > 0)
+    {
+        label << 'E';
+        if (assignment.episodeNumber < 10) label << '0';
+        label << assignment.episodeNumber;
+    }
+    return label.str();
+}
+
+unsigned int manualPlaceholderVariant(const std::string& value)
+{
+    unsigned int hash = 2166136261u;
+    for (const unsigned char character : value)
+    {
+        hash ^= character;
+        hash *= 16777619u;
+    }
+    return hash % 6u;
+}
+
+void appendManualPeople(
+    std::ostringstream& json,
+    const ManualRecordingMetadataAssignment& assignment,
+    const std::string& backendNativeId)
+{
+    json << '[';
+    for (std::size_t index = 0; index < assignment.people.size(); ++index)
+    {
+        if (index > 0U) json << ',';
+        const ManualRecordingMetadataPerson& person = assignment.people[index];
+        const bool imageAvailable = localManualImage(person.profilePath);
+        json << "{\"role\":";
+        appendJsonString(json, person.role);
+        json << ",\"name\":";
+        appendJsonString(json, person.name);
+        json << ",\"characterName\":";
+        appendJsonString(json, person.characterName);
+        json << ",\"image\":{\"available\":"
+             << (imageAvailable ? "true" : "false");
+        if (imageAvailable)
+        {
+            json << ",\"url\":";
+            appendJsonString(
+                json,
+                manualImageUrl(
+                    assignment.backendId,
+                    backendNativeId,
+                    "person",
+                    static_cast<int>(index),
+                    assignment.revision));
+            json << ",\"width\":0,\"height\":0";
+        }
+        json << "}}";
+    }
+    json << ']';
+}
+
+std::string serializeManualFolderMetadata(
+    const ManualRecordingMetadataAssignment& assignment,
+    const std::string& backendNativeId)
+{
+    const bool posterAvailable = localManualImage(assignment.posterReference);
+    const std::string posterUrl = posterAvailable
+        ? manualImageUrl(
+            assignment.backendId,
+            backendNativeId,
+            "preferred",
+            0,
+            assignment.revision)
+        : std::string{};
+    const std::string contentKind = manualContentKind(assignment);
+    const std::string seasonEpisode = manualSeasonEpisodeLabel(assignment);
+
+    std::ostringstream json;
+    json << "{\"native\":{\"eventTitle\":\"\","
+         << "\"shortText\":\"\",\"description\":\"\"},"
+         << "\"provider\":{\"available\":true,\"source\":\"manual\","
+         << "\"contentKind\":";
+    appendJsonString(json, contentKind);
+    json << ",\"movieId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "movie" ? assignment.externalId : std::string{});
+    json << ",\"seriesId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "series" ? assignment.externalId : std::string{});
+    json << ",\"episodeId\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.externalId : std::string{});
+    json << ",\"title\":";
+    appendJsonString(json, assignment.title);
+    json << ",\"originalTitle\":";
+    appendJsonString(json, assignment.originalTitle);
+    json << ",\"tagline\":\"\",\"overview\":";
+    appendJsonString(json, assignment.overview);
+    json << ",\"genreText\":\"\",\"releaseDate\":";
+    appendJsonString(json, assignment.releaseDate);
+    json << ",\"seriesTitle\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "series" ? assignment.title : std::string{});
+    json << ",\"episodeTitle\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.title : std::string{});
+    json << ",\"seasonNumber\":" << assignment.seasonNumber
+         << ",\"episodeNumber\":" << assignment.episodeNumber
+         << ",\"runtimeMinutes\":0,\"rating\":0}"
+         << ",\"artwork\":{\"available\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"count\":" << (posterAvailable ? 1 : 0)
+         << ",\"posterAvailable\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"fanartAvailable\":false,\"bannerAvailable\":false,"
+         << "\"stillAvailable\":false,\"preferredAssetId\":\"\","
+         << "\"preferredUrl\":";
+    appendJsonString(json, posterUrl);
+    json << "}"
+         << ",\"presentation\":{\"title\":";
+    appendJsonString(json, assignment.title);
+    json << ",\"subtitle\":";
+    appendJsonString(json, seasonEpisode);
+    json << ",\"summary\":";
+    appendJsonString(json, assignment.overview);
+    json << ",\"contentKind\":";
+    appendJsonString(json, contentKind);
+    json << ",\"seasonEpisode\":";
+    appendJsonString(json, seasonEpisode);
+    json << ",\"posterAssetId\":\"\",\"posterUrl\":";
+    appendJsonString(json, posterUrl);
+    json << ",\"providerAvailable\":true,\"artworkPrepared\":"
+         << (posterAvailable ? "true" : "false")
+         << ",\"placeholderVariant\":"
+         << manualPlaceholderVariant(assignment.title)
+         << "}"
+         << ",\"manualAssignment\":{\"active\":true,\"revision\":"
+         << assignment.revision
+         << ",\"relationshipLocked\":"
+         << (assignment.relationshipLocked ? "true" : "false")
+         << ",\"providerId\":";
+    appendJsonString(json, assignment.providerId);
+    json << ",\"externalNamespace\":";
+    appendJsonString(json, assignment.externalNamespace);
+    json << ",\"externalId\":";
+    appendJsonString(json, assignment.externalId);
+    json << "}}";
+    return json.str();
+}
+
+void appendRecordingJson(
+    std::ostringstream& json,
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& nativeMetadata)
+{
+    json << "{";
+    json << "\"id\":";
+    appendJsonString(json, recording.id);
+    json << ",\"backendId\":";
+    appendJsonString(json, recording.backendId);
+    json << ",\"backendNativeId\":";
+    appendJsonString(json, recording.backendNativeId);
+    json << ",\"title\":";
+    appendJsonString(json, recording.title);
+    json << ",\"path\":";
+    appendJsonString(json, recording.path);
+    json << ",\"startTime\":";
+    appendJsonString(json, recording.startTime);
+    json << ",\"durationSeconds\":" << recording.durationSeconds;
+    json << ",\"sizeMb\":" << recording.sizeMb;
+    json << ",\"metadata\":";
+
+    if (manual.found && manual.relationshipLocked)
+    {
+        json << serializeManualFolderMetadata(
+            manual,
+            recording.backendNativeId);
+    }
+    else
+    {
+        json << VdrRecordingMetadataJsonSerializer::serialize(
+            recording);
+    }
+
+    if (!(manual.found && manual.relationshipLocked) &&
+        nativeMetadata.exists())
+    {
+        json << ",\"nativeMetadata\":"
+             << VdrRecordingNativeMetadataPublicJsonSerializer()
+                    .serialize(nativeMetadata);
+    }
+
+    json << "}";
+}
+
+std::string trimCachedMetadataText(const std::string& value)
+{
+    const std::size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return {};
+    const std::size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+std::vector<std::string> cachedGenreLabels(const std::string& value)
+{
+    std::vector<std::string> result;
+    std::string current;
+    auto flush = [&result, &current]()
+    {
+        const std::string label = trimCachedMetadataText(current);
+        if (!label.empty()) result.push_back(label);
+        current.clear();
+    };
+
+    for (const char character : value)
+    {
+        if (character == '|' || character == ',' || character == ';')
+            flush();
+        else
+            current.push_back(character);
+    }
+    flush();
+    return result;
+}
+
+void appendCachedStringArray(
+    std::ostringstream& json,
+    const std::vector<std::string>& values)
+{
+    json << '[';
+    for (std::size_t index = 0; index < values.size(); ++index)
+    {
+        if (index > 0) json << ',';
+        appendJsonString(json, values[index]);
+    }
+    json << ']';
+}
+
+std::string cachedMediaType(
+    const VdrRecordingProviderMetadata& provider)
+{
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        return "movie";
+    if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        return "episode";
+    return "unknown";
+}
+
+std::string cachedProviderName(
+    const VdrRecordingProviderMetadata& provider)
+{
+    return provider.source == VdrRecordingMetadataSource::RestfulApiScraperBridge
+        ? "tvscraper"
+        : "recording-cache";
+}
+
+int cachedProviderId(
+    const VdrRecordingProviderMetadata& provider)
+{
+    const std::string* value = nullptr;
+    if (provider.contentKind == VdrRecordingContentKind::Movie)
+        value = &provider.movieId;
+    else if (provider.contentKind == VdrRecordingContentKind::SeriesEpisode)
+        value = &provider.seriesId;
+    if (value == nullptr || value->empty() || value->size() > 10U) return 0;
+
+    long long parsed = 0;
+    for (const unsigned char character : *value)
+    {
+        if (character < '0' || character > '9') return 0;
+        parsed = parsed * 10LL + static_cast<long long>(character - '0');
+        if (parsed > std::numeric_limits<int>::max()) return 0;
+    }
+    return parsed > 0 ? static_cast<int>(parsed) : 0;
+}
+
+std::string cachedArtworkOrientation(
+    const VdrRecordingArtworkRef& artwork)
+{
+    switch (artwork.kind)
+    {
+    case VdrRecordingArtworkKind::Poster: return "portrait";
+    case VdrRecordingArtworkKind::Banner: return "banner";
+    case VdrRecordingArtworkKind::Fanart:
+    case VdrRecordingArtworkKind::Still:
+    default:
+        return "landscape";
+    }
+}
+
+bool cachedMetadataAvailable(const VdrRecording& recording)
+{
+    return recording.metadata.provider.hasData() ||
+        recording.metadata.native.hasText() ||
+        recording.metadata.hasArtwork();
+}
+
+void appendCachedArtwork(
+    std::ostringstream& json,
+    const VdrRecording& recording,
+    const VdrRecordingArtworkRef* artwork)
+{
+    const std::string url =
+        artwork != nullptr && artwork->isValid()
+            ? VdrRecordingArtworkIdentity::publicUrl(recording, *artwork)
+            : std::string{};
+    const bool available = !url.empty();
+    json << "{\"available\":" << (available ? "true" : "false");
+    if (available)
+    {
+        json << ",\"url\":";
+        appendJsonString(json, url);
+        json << ",\"width\":" << artwork->width
+             << ",\"height\":" << artwork->height;
+    }
+    json << '}';
+}
+
+std::string serializeCachedMetadata(const VdrRecording& recording)
+{
+    if (!cachedMetadataAvailable(recording)) return {};
+
+    const VdrRecordingProviderMetadata& provider =
+        recording.metadata.provider;
+    const VdrRecordingEventMetadata& native =
+        recording.metadata.native;
+    const VdrRecordingArtworkRef* preferred =
+        VdrRecordingArtworkIdentity::preferredArtwork(recording);
+
+    const std::string title =
+        !provider.title.empty()
+            ? provider.title
+            : (!provider.seriesTitle.empty()
+                ? provider.seriesTitle
+                : native.eventTitle);
+    const std::string overview =
+        !provider.overview.empty()
+            ? provider.overview
+            : native.description;
+    const std::string tagline =
+        !provider.tagline.empty()
+            ? provider.tagline
+            : native.shortText;
+
+    std::ostringstream json;
+    json << "{\"available\":true"
+         << ",\"status\":\"ready\""
+         << ",\"provider\":";
+    appendJsonString(json, cachedProviderName(provider));
+    json << ",\"mediaType\":";
+    appendJsonString(json, cachedMediaType(provider));
+    json << ",\"providerId\":" << cachedProviderId(provider)
+         << ",\"seasonNumber\":" << provider.seasonNumber
+         << ",\"episodeNumber\":" << provider.episodeNumber
+         << ",\"absoluteEpisodeNumber\":0"
+         << ",\"runtimeMinutes\":" << provider.runtimeMinutes
+         << ",\"durationDeviationMinutes\":0"
+         << ",\"popularity\":0"
+         << ",\"voteAverage\":" << provider.rating
+         << ",\"voteCount\":0"
+         << ",\"adult\":false"
+         << ",\"collectionId\":0"
+         << ",\"lastSeason\":0"
+         << ",\"title\":";
+    appendJsonString(json, title);
+    json << ",\"originalTitle\":";
+    appendJsonString(json, provider.originalTitle);
+    json << ",\"episodeName\":";
+    appendJsonString(json, provider.episodeTitle);
+    json << ",\"tagline\":";
+    appendJsonString(json, tagline);
+    json << ",\"overview\":";
+    appendJsonString(json, overview);
+    json << ",\"releaseDate\":";
+    appendJsonString(json, provider.releaseDate);
+    json << ",\"firstAired\":";
+    appendJsonString(
+        json,
+        provider.contentKind == VdrRecordingContentKind::SeriesEpisode
+            ? provider.releaseDate
+            : std::string{});
+    json << ",\"imdbId\":\"\""
+         << ",\"statusText\":\"\""
+         << ",\"collectionName\":\"\""
+         << ",\"genres\":";
+    appendCachedStringArray(json, cachedGenreLabels(provider.genreText));
+    json << ",\"productionCountries\":[]"
+         << ",\"networks\":[]"
+         << ",\"providerHints\":{\"hd\":0,\"language\":-1}"
+         << ",\"preferredArtwork\":";
+    appendCachedArtwork(json, recording, preferred);
+    json << ",\"people\":[]"
+         << ",\"images\":[";
+
+    bool firstImage = true;
+    for (const VdrRecordingArtworkRef& artwork : recording.metadata.artwork)
+    {
+        if (!artwork.isValid()) continue;
+        if (!firstImage) json << ',';
+        firstImage = false;
+        json << "{\"orientation\":";
+        appendJsonString(json, cachedArtworkOrientation(artwork));
+        json << ",\"image\":";
+        appendCachedArtwork(json, recording, &artwork);
+        json << '}';
+    }
+
+    json << "]}";
+    return json.str();
+}
+
+std::string serializeManualMetadata(
+    const ManualRecordingMetadataAssignment& assignment,
+    const std::string& backendNativeId)
+{
+    const bool posterAvailable = localManualImage(assignment.posterReference);
+    std::ostringstream json;
+    json << "{\"available\":true,\"status\":\"ready\","
+         << "\"provider\":\"manual\","
+         << "\"mediaType\":";
+    appendJsonString(json, assignment.mediaType);
+    json << ",\"providerId\":0"
+         << ",\"seasonNumber\":" << assignment.seasonNumber
+         << ",\"episodeNumber\":" << assignment.episodeNumber
+         << ",\"absoluteEpisodeNumber\":0"
+         << ",\"runtimeMinutes\":0"
+         << ",\"durationDeviationMinutes\":0"
+         << ",\"popularity\":0"
+         << ",\"voteAverage\":0"
+         << ",\"voteCount\":0"
+         << ",\"adult\":false"
+         << ",\"collectionId\":0"
+         << ",\"lastSeason\":0"
+         << ",\"title\":";
+    appendJsonString(json, assignment.title);
+    json << ",\"originalTitle\":";
+    appendJsonString(json, assignment.originalTitle);
+    json << ",\"episodeName\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.title : std::string{});
+    json << ",\"tagline\":\"\""
+         << ",\"overview\":";
+    appendJsonString(json, assignment.overview);
+    json << ",\"releaseDate\":";
+    appendJsonString(json, assignment.releaseDate);
+    json << ",\"firstAired\":";
+    appendJsonString(
+        json,
+        assignment.mediaType == "episode" ? assignment.releaseDate : std::string{});
+    json << ",\"imdbId\":\"\""
+         << ",\"statusText\":\"manual\""
+         << ",\"collectionName\":\"\""
+         << ",\"genres\":[]"
+         << ",\"productionCountries\":[]"
+         << ",\"networks\":[]"
+         << ",\"providerHints\":{\"hd\":0,\"language\":-1}"
+         << ",\"preferredArtwork\":{\"available\":"
+         << (posterAvailable ? "true" : "false");
+    if (posterAvailable)
+    {
+        json << ",\"url\":";
+        appendJsonString(
+            json,
+            manualImageUrl(
+                assignment.backendId,
+                backendNativeId,
+                "preferred",
+                0,
+                assignment.revision));
+        json << ",\"width\":0,\"height\":0";
+    }
+    json << "}"
+         << ",\"people\":";
+    appendManualPeople(json, assignment, backendNativeId);
+    json << ",\"images\":[]"
+         << ",\"manualAssignment\":{"
+         << "\"active\":true,\"revision\":" << assignment.revision
+         << ",\"relationshipLocked\":"
+         << (assignment.relationshipLocked ? "true" : "false")
+         << ",\"providerId\":";
+    appendJsonString(json, assignment.providerId);
+    json << ",\"externalNamespace\":";
+    appendJsonString(json, assignment.externalNamespace);
+    json << ",\"externalId\":";
+    appendJsonString(json, assignment.externalId);
+    json << "}}";
+    return json.str();
+}
+
+}
+
+VdrRecordingFolderController::VdrRecordingFolderController(
+    VdrRecordingCacheRepository& repository,
+    NativeMetadataLookup nativeMetadataLookup,
+    ManualMetadataLookup manualMetadataLookup,
+    ManualMetadataBatchLookup manualMetadataBatchLookup,
+    std::vector<std::string> metadataImageAllowedRoots)
+    : repository_(repository),
+      nativeMetadataLookup_(std::move(nativeMetadataLookup)),
+      manualMetadataLookup_(std::move(manualMetadataLookup)),
+      manualMetadataBatchLookup_(std::move(manualMetadataBatchLookup)),
+      metadataImageAllowedRoots_(std::move(metadataImageAllowedRoots))
+{
+    if (metadataImageAllowedRoots_.empty())
+    {
+        metadataImageAllowedRoots_ = EpgArtworkController::defaultAllowedRoots();
+    }
+    metadataImageAllowedRoots_.push_back(
+        "/var/cache/vdr-suite/recording-metadata/posters");
+}
+
+ApiResponse VdrRecordingFolderController::getStatus(
+    const std::string& backendId)
+{
+    const VdrRecordingCacheStatus status = repository_.statusForBackend(backendId);
+    std::ostringstream json;
+    json << "{\"backendId\":";
+    appendJsonString(json, status.backendId);
+    json << ",\"state\":";
+    appendJsonString(json, status.state);
+    json << ",\"cacheReady\":" << (status.totalCount > 0 ? "true" : "false")
+         << ",\"totalCount\":" << status.totalCount
+         << ",\"startedAt\":";
+    appendJsonString(json, status.startedAt);
+    json << ",\"finishedAt\":";
+    appendJsonString(json, status.finishedAt);
+    json << ",\"lastError\":";
+    appendJsonString(json, status.lastError);
+    json << "}";
+    return jsonResponse(json.str());
+}
+
+ApiResponse VdrRecordingFolderController::getFolder(
+    const std::string& backendId,
+    const std::string& path,
+    int limit,
+    int offset)
+{
+    const VdrRecordingFolderPage page = repository_.folderPageForBackend(
+        backendId, path, limit, offset);
+    const std::map<std::string, ManualRecordingMetadataAssignment>
+        manualAssignments = manualMetadataBatchLookup_
+            ? manualMetadataBatchLookup_(page.backendId)
+            : std::map<std::string, ManualRecordingMetadataAssignment>{};
+    auto manualFor = [this, &page, &manualAssignments](
+        const VdrRecording& recording)
+    {
+        if (manualMetadataBatchLookup_)
+        {
+            for (const std::string* key : {
+                     &recording.backendNativeId,
+                     &recording.path,
+                     &recording.id})
+            {
+                if (key->empty()) continue;
+                const auto match = manualAssignments.find(*key);
+                if (match != manualAssignments.end()) return match->second;
+            }
+            return ManualRecordingMetadataAssignment{};
+        }
+
+        if (!manualMetadataLookup_) return ManualRecordingMetadataAssignment{};
+        return manualMetadataLookup_(
+            recording.backendId.empty() ? page.backendId : recording.backendId,
+            recording.backendNativeId);
+    };
+
+    auto nativeFor = [this, &page](
+        const VdrRecording& recording)
+    {
+        if (!nativeMetadataLookup_ ||
+            recording.backendNativeId.empty())
+        {
+            return VdrRecordingNativeMetadataRecord{};
+        }
+
+        return nativeMetadataLookup_(
+            recording.backendId.empty()
+                ? page.backendId
+                : recording.backendId,
+            recording.backendNativeId);
+    };
+
+    std::ostringstream json;
+    json << "{\"recordingFolder\":true,\"backendId\":";
+    appendJsonString(json, page.backendId);
+    json << ",\"path\":";
+    appendJsonString(json, page.path);
+    json << ",\"parentPath\":";
+    appendJsonString(json, page.parentPath);
+    json << ",\"cacheState\":";
+    appendJsonString(json, page.cacheState);
+    json << ",\"cacheReady\":" << (page.cacheReady ? "true" : "false")
+         << ",\"totalCount\":" << page.totalCount
+         << ",\"folderCount\":" << page.folderCount
+         << ",\"recordingCount\":" << page.recordingCount
+         << ",\"returnedCount\":" << page.recordings.size()
+         << ",\"limit\":" << page.limit
+         << ",\"offset\":" << page.offset
+         << ",\"folders\":[";
+    for (std::size_t index = 0; index < page.folders.size(); ++index)
+    {
+        if (index > 0) json << ",";
+        const auto& folder = page.folders.at(index);
+        json << "{\"name\":";
+        appendJsonString(json, folder.name);
+        json << ",\"path\":";
+        appendJsonString(json, folder.path);
+        json << ",\"recordingCount\":" << folder.recordingCount
+             << ",\"singleRecordingLeaf\":"
+             << (folder.singleRecordingLeaf ? "true" : "false");
+        if (folder.singleRecordingLeaf)
+        {
+            json << ",\"singleRecording\":";
+            const ManualRecordingMetadataAssignment manual =
+                manualFor(folder.singleRecording);
+            const VdrRecordingNativeMetadataRecord nativeMetadata =
+                manual.found && manual.relationshipLocked
+                    ? VdrRecordingNativeMetadataRecord{}
+                    : nativeFor(folder.singleRecording);
+
+            appendRecordingJson(
+                json,
+                folder.singleRecording,
+                manual,
+                nativeMetadata);
+        }
+        json << "}";
+    }
+    json << "],\"recordings\":[";
+    for (std::size_t index = 0; index < page.recordings.size(); ++index)
+    {
+        if (index > 0) json << ",";
+        const VdrRecording& recording =
+            page.recordings.at(index);
+        const ManualRecordingMetadataAssignment manual =
+            manualFor(recording);
+        const VdrRecordingNativeMetadataRecord nativeMetadata =
+            manual.found && manual.relationshipLocked
+                ? VdrRecordingNativeMetadataRecord{}
+                : nativeFor(recording);
+
+        appendRecordingJson(
+            json,
+            recording,
+            manual,
+            nativeMetadata);
+    }
+    json << "]}";
+    return jsonResponse(json.str());
+}
+
+ApiResponse VdrRecordingFolderController::getMetadata(
+    const std::string& backendId,
+    const std::string& backendNativeId) const
+{
+    if (backendNativeId.empty() || backendNativeId.size() > 4096)
+        return jsonError(400, "backendNativeId is required");
+
+    if (manualMetadataLookup_)
+    {
+        const ManualRecordingMetadataAssignment manual =
+            manualMetadataLookup_(backendId, backendNativeId);
+        if (manual.found && manual.relationshipLocked)
+            return jsonResponse(serializeManualMetadata(manual, backendNativeId));
+    }
+
+    VdrRecordingNativeMetadataRecord nativeMetadata;
+    if (nativeMetadataLookup_)
+    {
+        nativeMetadata =
+            nativeMetadataLookup_(backendId, backendNativeId);
+        if (nativeMetadata.exists() && nativeMetadata.metadata.found)
+        {
+            return jsonResponse(
+                VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
+                    nativeMetadata));
+        }
+    }
+
+    VdrRecording cachedRecording;
+    if (repository_.findByBackendNativeId(
+            backendId,
+            backendNativeId,
+            cachedRecording))
+    {
+        const std::string cachedMetadata =
+            serializeCachedMetadata(cachedRecording);
+        if (!cachedMetadata.empty())
+            return jsonResponse(cachedMetadata);
+    }
+
+    if (!nativeMetadataLookup_)
+        return jsonError(503, "recording metadata unavailable");
+
+    return jsonResponse(
+        VdrRecordingNativeMetadataPublicJsonSerializer().serialize(
+            nativeMetadata));
+}
+
+ApiResponse VdrRecordingFolderController::getMetadataImage(
+    const std::string& backendId,
+    const std::string& backendNativeId,
+    const std::string& kind,
+    int index) const
+{
+    if (backendNativeId.empty() || backendNativeId.size() > 4096 ||
+        kind.empty() || index < 0)
+        return jsonError(
+            400,
+            "backendNativeId, kind and non-negative index are required");
+
+    if (kind != "poster" && kind != "preferred" &&
+        kind != "person" && kind != "gallery")
+        return jsonError(400, "unsupported recording metadata image kind");
+
+    if (manualMetadataLookup_)
+    {
+        const ManualRecordingMetadataAssignment manual =
+            manualMetadataLookup_(backendId, backendNativeId);
+        if (manual.found && manual.relationshipLocked)
+        {
+            std::string localPath;
+            if ((kind == "poster" || kind == "preferred") && index == 0)
+                localPath = manual.posterReference;
+            else if (kind == "person" &&
+                     static_cast<std::size_t>(index) < manual.people.size())
+                localPath = manual.people[static_cast<std::size_t>(index)].profilePath;
+
+            if (localManualImage(localPath))
+            {
+                return EpgArtworkController::serveValidatedPath(
+                    localPath,
+                    metadataImageAllowedRoots_);
+            }
+            if (kind == "poster")
+                return jsonError(404, "recording metadata image not found");
+        }
+    }
+
+    if (!nativeMetadataLookup_)
+        return jsonError(503, "recording metadata unavailable");
+
+    const VdrRecordingNativeMetadataRecord record =
+        nativeMetadataLookup_(backendId, backendNativeId);
+    if (!record.exists() || !record.metadata.found)
+        return jsonError(404, "recording metadata not found");
+
+    const VdrRecordingNativeArtwork* artwork =
+        selectMetadataArtwork(record.metadata, kind, index);
+    if (artwork == nullptr || !artwork->available || artwork->path.empty())
+        return jsonError(404, "recording metadata image not found");
+
+    return EpgArtworkController::serveValidatedPath(
+        artwork->path,
+        metadataImageAllowedRoots_);
+}

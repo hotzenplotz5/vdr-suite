@@ -1,0 +1,200 @@
+diff --git a/api/rest/include/EpgArtworkController.h b/api/rest/include/EpgArtworkController.h
+index 19bd5e4d..00000000 100644
+--- a/api/rest/include/EpgArtworkController.h
++++ b/api/rest/include/EpgArtworkController.h
+@@ -9,7 +9,19 @@
+ 
+ class EpgArtworkRepository;
+ 
+-class EpgArtworkController
++class IEpgArtworkController
++{
++public:
++    virtual ~IEpgArtworkController() = default;
++
++    virtual ApiResponse getArtwork(
++        const std::string& backendId,
++        const std::string& channelId,
++        const std::string& eventId) const = 0;
++};
++
++class EpgArtworkController : public IEpgArtworkController
+ {
+ public:
+     explicit EpgArtworkController(EpgArtworkRepository& repository);
+@@ -20,7 +32,7 @@ public:
+     ApiResponse getArtwork(
+         const std::string& backendId,
+         const std::string& channelId,
+-        const std::string& eventId) const;
++        const std::string& eventId) const override;
+ 
+ private:
+     EpgArtworkRepository& repository_;
+diff --git a/api/rest/include/ApiRouter.h b/api/rest/include/ApiRouter.h
+index 7fa8e479..00000000 100644
+--- a/api/rest/include/ApiRouter.h
++++ b/api/rest/include/ApiRouter.h
+@@ -13,6 +13,7 @@
+ class BackendRegistryController;
+ class CapabilityController;
+ class IEpgCacheController;
++class IEpgArtworkController;
+ class EpgController;
+ class EpgSearchNativeFuzzyStaleProbeAdministrationController;
+ class EpgSearchNativeFuzzyOperatorRefreshController;
+@@ -136,7 +137,8 @@ public:
+         SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
+         IEpgCacheController* epgCacheController = nullptr,
+         VdrChannelMoveController* vdrChannelMoveController = nullptr,
+-        VdrRecordingFolderController* vdrRecordingFolderController = nullptr);
++        VdrRecordingFolderController* vdrRecordingFolderController = nullptr,
++        IEpgArtworkController* epgArtworkController = nullptr);
+@@ -183,4 +185,5 @@ private:
+     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
+     VdrChannelMoveController* vdrChannelMoveController_;
+     VdrRecordingFolderController* vdrRecordingFolderController_;
++    IEpgArtworkController* epgArtworkController_;
+ };
+diff --git a/api/rest/src/ApiRouter.cpp b/api/rest/src/ApiRouter.cpp
+index ae3650a6..00000000 100644
+--- a/api/rest/src/ApiRouter.cpp
++++ b/api/rest/src/ApiRouter.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include "BackendRegistryController.h"
+ #include "CapabilityController.h"
++#include "EpgArtworkController.h"
+ #include "EpgCacheController.h"
+ #include "EpgController.h"
+@@ -117,6 +118,17 @@ ApiResponse makeEpgCacheUnavailableResponse()
+     return response;
+ }
+ 
++ApiResponse makeEpgArtworkUnavailableResponse()
++{
++    ApiResponse response;
++
++    response.statusCode = 503;
++    response.contentType = "application/json";
++    response.body = "{\"error\":\"epg artwork unavailable\"}";
++
++    return response;
++}
++
+ ApiResponse makePersonUnavailableResponse()
+ {
+@@ -320,7 +332,8 @@ ApiRouter::ApiRouter(
+     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController,
+     IEpgCacheController* epgCacheController,
+     VdrChannelMoveController* vdrChannelMoveController,
+-    VdrRecordingFolderController* vdrRecordingFolderController)
++    VdrRecordingFolderController* vdrRecordingFolderController,
++    IEpgArtworkController* epgArtworkController)
+@@ -352,7 +365,8 @@ ApiRouter::ApiRouter(
+       nativeFuzzyOperatorRefreshController_(nativeFuzzyOperatorRefreshController),
+       vdrChannelMoveController_(vdrChannelMoveController),
+-      vdrRecordingFolderController_(vdrRecordingFolderController)
++      vdrRecordingFolderController_(vdrRecordingFolderController),
++      epgArtworkController_(epgArtworkController)
+ {
+ }
+@@ -846,6 +860,20 @@ ApiResponse ApiRouter::handleGet(
+             queryParameters.getInt("limit", 5));
+     }
+ 
++    if (path == "/api/epg/cache/artwork")
++    {
++        if (epgArtworkController_ == nullptr)
++        {
++            return makeEpgArtworkUnavailableResponse();
++        }
++
++        return epgArtworkController_->getArtwork(
++            normalizeBackendId(queryParameters.get("backend")),
++            queryParameters.get("channelId"),
++            queryParameters.get("eventId"));
++    }
++
+     if (path == "/api/epg/cache/status")
+     {
+         if (epgCacheController_ == nullptr)
+diff --git a/api/rest/tests/test_api_router_epg_cache_routes.cpp b/api/rest/tests/test_api_router_epg_cache_routes.cpp
+index 59d6e4ec..00000000 100644
+--- a/api/rest/tests/test_api_router_epg_cache_routes.cpp
++++ b/api/rest/tests/test_api_router_epg_cache_routes.cpp
+@@ -14,6 +14,7 @@
+ #include "DashboardFacade.h"
+ #include "DashboardJsonSerializer.h"
+ #include "Database.h"
++#include "EpgArtworkController.h"
+ #include "EpgCacheController.h"
+@@ -156,6 +157,40 @@ public:
+     }
+ };
+ 
++class FakeEpgArtworkController : public IEpgArtworkController
++{
++public:
++    mutable int calls = 0;
++    mutable std::string lastBackendId;
++    mutable std::string lastChannelId;
++    mutable std::string lastEventId;
++
++    ApiResponse getArtwork(
++        const std::string& backendId,
++        const std::string& channelId,
++        const std::string& eventId) const override
++    {
++        ++calls;
++        lastBackendId = backendId;
++        lastChannelId = channelId;
++        lastEventId = eventId;
++
++        ApiResponse response;
++        response.statusCode = 200;
++        response.contentType = "image/jpeg";
++        response.body = "fake-artwork";
++        return response;
++    }
++};
++
+ static bool contains(
+@@ -336,6 +371,12 @@ int main()
+     assert(unavailableStatus.statusCode == 503);
+     assert(contains(unavailableStatus.body, "epg cache unavailable"));
+ 
++    const ApiResponse unavailableArtwork = unavailableRouter.handleGet(
++        "/api/epg/cache/artwork?backend=home-vdr&channelId=channel-1&eventId=4711");
++    assert(unavailableArtwork.statusCode == 503);
++    assert(contains(unavailableArtwork.body, "epg artwork unavailable"));
++
+     FakeEpgCacheController fakeEpgCacheController;
++    FakeEpgArtworkController fakeEpgArtworkController;
+@@ -366,7 +407,10 @@ int main()
+         nullptr,
+         nullptr,
+         nullptr,
+-        &fakeEpgCacheController);
++        &fakeEpgCacheController,
++        nullptr,
++        nullptr,
++        &fakeEpgArtworkController);
+@@ -424,6 +468,19 @@ int main()
+     assert(fakeEpgCacheController.lastUntilTime == "1300");
+     assert(fakeEpgCacheController.lastEventLimit == 0);
+ 
++    const ApiResponse artwork = router.handleGet(
++        "/api/epg/cache/artwork?backend=remote-vdr&channelId=S19.2E-1-1019-10301&eventId=4711");
++
++    assert(artwork.statusCode == 200);
++    assert(artwork.contentType == "image/jpeg");
++    assert(artwork.body == "fake-artwork");
++    assert(fakeEpgArtworkController.calls == 1);
++    assert(fakeEpgArtworkController.lastBackendId == "remote-vdr");
++    assert(fakeEpgArtworkController.lastChannelId == "S19.2E-1-1019-10301");
++    assert(fakeEpgArtworkController.lastEventId == "4711");
++
+     std::cout << "test_api_router_epg_cache_routes passed" << std::endl;
+     return 0;
+ }

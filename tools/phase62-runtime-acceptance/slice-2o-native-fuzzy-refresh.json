@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2o-native-fuzzy-refresh",
+  "title": "Phase 62 Slice 2O Native Fuzzy Operator Refresh",
+  "permission": "epgsearch.native-fuzzy.refresh",
+  "action": "epgsearch.native-fuzzy.refresh",
+  "backendId": "phase62-slice2o-missing-backend",
+  "alternateBackendId": "phase62-slice2o-other-backend",
+  "routes": [
+    "/api/epgsearch/native-fuzzy/refresh",
+    "/api/vdr/epgsearch/native-fuzzy/refresh"
+  ],
+  "querySuffix": "?source=browser",
+  "safeBody": {
+    "backendId": "phase62-slice2o-missing-backend",
+    "probeQuery": "Phase 62 Slice 2O Acceptance",
+    "tolerance": 2,
+    "keepProbeSearchTimer": false,
+    "updateBackendCapabilities": false
+  },
+  "expectedValidation": {
+    "status": 404,
+    "json": {
+      "backendId": "phase62-slice2o-missing-backend",
+      "backendKnown": false,
+      "createAttempted": false,
+      "persisted": false,
+      "backendCapabilitiesUpdated": false,
+      "status": "backend-not-found",
+      "errors": [
+        "backend not found: phase62-slice2o-missing-backend"
+      ]
+    }
+  },
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/backends"
+  }
+}

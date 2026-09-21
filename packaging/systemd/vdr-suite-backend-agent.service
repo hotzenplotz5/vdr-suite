@@ -1,0 +1,38 @@
+[Unit]
+Description=VDR-Suite outbound Backend Agent
+Documentation=man:vdr-suite-backend-agent(8)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/vdr-suite/backend-agent.conf
+
+[Service]
+Type=simple
+User=vdr
+Group=vdr
+ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=15
+NoNewPrivileges=true
+UMask=0077
+StateDirectory=vdr-suite/backend-agent
+StateDirectoryMode=0700
+PrivateTmp=true
+PrivateDevices=true
+ProtectProc=invisible
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/vdr-suite/backend-agent
+
+[Install]
+WantedBy=multi-user.target

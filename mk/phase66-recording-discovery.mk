@@ -1,0 +1,64 @@
+.PHONY: test-phase66-recording-discovery-frontend install-phase66-recording-discovery-assets test-phase66-recording-discovery-install-staging test-home-rebuild-regressions
+
+test-phase66-recording-discovery-frontend:
+	node --check web/frontend/home-recording-discovery-bootstrap.js
+	node --check web/frontend/home-recording-discovery.js
+	node web/frontend/tests/test_phase66_recording_discovery.js
+	node web/frontend/tests/test_phase66_series_return_scroll.js
+	node web/frontend/tests/test_phase66_home_initial_load.js
+	node web/frontend/tests/test_phase66_series_native_group_priority.js
+	node web/frontend/tests/test_phase66_recording_discovery_progressive.js
+	node web/frontend/tests/test_post_phase66_recording_discovery_performance.js
+	node web/frontend/tests/test_post_phase66_series_metadata_artwork_completion.js
+	node web/frontend/tests/test_home_series_cover_override.js
+	node web/frontend/tests/test_home_series_hierarchy_override.js
+	node web/frontend/tests/test_home_series_hierarchy_simple_ui.js
+	node web/frontend/tests/test_post_phase66_home_navigation_retention.js
+	node web/frontend/tests/test_post_phase66_newly_recorded_retention.js
+	node web/frontend/tests/test_phase66_recording_discovery_contract.js
+	node web/frontend/tests/test_phase66_home_mouse_drag_rails.js
+	node web/frontend/tests/test_phase66_home_inline_discovery.js
+	node web/frontend/tests/test_phase66_home_root_random_genre.js
+	node web/frontend/tests/test_phase66_home_native_metadata_rails.js
+	node web/frontend/tests/test_phase66_home_random_genre_placement.js
+	node web/frontend/tests/test_phase66_home_random_folder_autoopen.js
+
+
+test-home-rebuild-regressions:
+	$(MAKE) test-genre-browser-controller
+	$(MAKE) test-series-artwork-settings-api-runtime
+	$(MAKE) test-suite-bridge-epg-metadata-resolver
+	node web/frontend/tests/test_phase66_recording_discovery.js
+	node web/frontend/tests/test_phase66_recording_discovery_contract.js
+	node web/frontend/tests/test_post_phase66_series_metadata_artwork_completion.js
+	node web/frontend/tests/test_phase66_series_native_group_priority.js
+	node web/frontend/tests/test_home_series_cover_override.js
+	node web/frontend/tests/test_genres_runtime.js
+	python3 tools/check_genre_browser_frontend_contracts.py
+	node web/frontend/tests/test_home_now_next_artwork_hero.js
+	node web/frontend/tests/test_phase66_continue_watching_artwork.js
+	python3 tools/check_architecture.py
+	git diff --check
+
+# Slice 66.5 is part of the ordinary frontend and packaging regression surfaces.
+test-frontend-contracts: test-phase66-recording-discovery-frontend
+test-ci-frontend: test-phase66-recording-discovery-frontend
+test-ci-packaging: test-phase66-recording-discovery-install-staging
+
+# Additive install hook keeps the established install-runtime recipe authoritative.
+install-runtime: install-phase66-recording-discovery-assets
+
+install-phase66-recording-discovery-assets:
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
+	$(INSTALL) -m 0644 web/frontend/home-recording-discovery-bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/home-recording-discovery-bootstrap.js
+	$(INSTALL) -m 0644 web/frontend/home-recording-discovery.js $(DESTDIR)$(DATADIR)/web/frontend/home-recording-discovery.js
+
+test-phase66-recording-discovery-install-staging:
+	rm -rf /tmp/vdr-suite-phase66-recording-discovery-pkgroot
+	$(MAKE) install-phase66-recording-discovery-assets DESTDIR=/tmp/vdr-suite-phase66-recording-discovery-pkgroot PREFIX=/usr
+	test -f /tmp/vdr-suite-phase66-recording-discovery-pkgroot/usr/share/vdr-suite/web/frontend/home-recording-discovery-bootstrap.js
+	test -f /tmp/vdr-suite-phase66-recording-discovery-pkgroot/usr/share/vdr-suite/web/frontend/home-recording-discovery.js
+	grep -F '/frontend/home-recording-discovery.js' /tmp/vdr-suite-phase66-recording-discovery-pkgroot/usr/share/vdr-suite/web/frontend/home-recording-discovery-bootstrap.js >/dev/null
+	grep -F '/api/vdr/recordings/query' web/frontend/api/client-api.js >/dev/null
+	grep -F '/api/vdr/recordings/folder' web/frontend/api/client-api.js >/dev/null
+	grep -F '/api/metadata/genres/recordings' web/frontend/api/genre-client-api.js >/dev/null

@@ -1,0 +1,183 @@
+name: VDR-Suite CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: vdr-suite-ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check repository structure
+        run: |
+          test -f README.md
+          test -f docs/project-principles.md
+          test -f docs/phase-0/01-vision.md
+          test -f docs/phase-0/02-architecture.md
+          test -f docs/phase-0/03-data-model.md
+          test -f docs/phase-0/04-service-layer.md
+          test -f docs/adr/ADR-0001-monorepo.md
+          test -f docs/planning/roadmap.md
+          test -f docs/planning/milestones.md
+
+      - name: Run documentation checks
+        shell: bash
+        run: |
+          set -o pipefail
+          make -j2 --output-sync=target test-docs test-phase 2>&1 | tee docs-check.log
+
+      - name: Upload documentation check log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-check-log
+          path: docs-check.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  make-test-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run strict Make and test inventory
+        run: |
+          python3 tools/audit_make_test_inventory.py --check | tee make-test-inventory.txt
+          python3 tools/audit_make_test_inventory.py --json > make-test-inventory.json
+
+      - name: Dry-run complete test graph
+        shell: bash
+        run: |
+          set -o pipefail
+          make -n test-all 2>&1 | tee make-test-dry-run.txt
+
+      - name: Upload Make test audit bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make-test-audit-bundle
+          path: |
+            make-test-inventory.txt
+            make-test-inventory.json
+            make-test-dry-run.txt
+            Makefile
+            mk/
+          if-no-files-found: error
+          retention-days: 14
+
+  architecture-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run architecture guards
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-architecture 2>&1 | tee architecture-check.log
+
+      - name: Upload architecture check log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-check-log
+          path: architecture-check.log
+          if-no-files-found: error
+          retention-days: 14
+
+  frontend-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run frontend contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-ci-frontend 2>&1 | tee frontend-test.log
+
+      - name: Upload frontend test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-log
+          path: frontend-test.log
+          if-no-files-found: error
+          retention-days: 14
+
+  fast-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
+
+      - name: Run fast CI regression test
+        shell: bash
+        run: |
+          set -o pipefail
+          make -j2 --output-sync=target test-ci-fast 2>&1 | tee fast-regression-test.log
+
+      - name: Build daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          make daemon 2>&1 | tee daemon-build.log
+
+      - name: Upload fast regression diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-regression-diagnostics
+          path: |
+            fast-regression-test.log
+            daemon-build.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  packaging-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
+
+      - name: Run packaging and install staging tests
+        run: make -j2 --output-sync=target test-ci-packaging

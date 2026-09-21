@@ -1,0 +1,618 @@
+# EPGSearch Capability Matrix
+
+## Navigation
+
+- [README](../../README.md)
+- [Development Index](index.md)
+- [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+- [Current Status](current-status.md)
+- [Roadmap](../planning/roadmap.md)
+
+---
+
+## Purpose
+
+Phase 48.1 maps Live/EPGSearch capabilities to RESTfulAPI and VDR-Suite.
+
+The goal is to decide which Live goldstandard features should become first-class VDR-Suite capabilities.
+
+---
+
+## Source Findings
+
+EPGSearch service capabilities include:
+
+- Epgsearch-search-v1.0
+- Epgsearch-searchresults-v1.0
+- SearchTimerList
+- AddSearchTimer
+- ModSearchTimer
+- DelSearchTimer
+- QuerySearchTimer
+- QuerySearch
+- ExtEPGInfoList
+- ChanGrpList
+- BlackList
+- DirectoryList
+- TimerConflictList
+- IsConflictCheckAdvised
+- ShortDirectoryList
+- Evaluate
+
+RESTfulAPI epgsearch exposes rich SearchTimer fields and validation rules, including:
+
+- search
+- mode
+- tolerance
+- match_case
+- use_title
+- use_subtitle
+- use_description
+- content_descriptors
+- use_ext_epg_info
+- ext_epg_info
+- use_in_favorites
+- time filters
+- channel filters
+- duration filters
+- day-of-week filters
+- blacklist mode and ids
+- repeat avoidance
+- comparison flags
+- recording retention and deletion policy
+
+---
+
+## Capability Matrix
+
+| Capability | Live / EPGSearch | RESTfulAPI | VDR-Suite Status | Priority |
+| --- | --- | --- | --- | --- |
+| Basic EPG search | yes | likely via events/search capabilities | partial | high |
+| Search result list | yes | available through EPG/event output | partial | high |
+| Search modes | phrase/and/or/regex plus RESTfulAPI fuzzy support | mode 0-5 | partial | high |
+| Title/subtitle/description flags | yes | yes | present in SearchTimer, unclear in EPG query | high |
+| Channel filter | channel number / channel id / group semantics | use_channel, channel_min/max, channels | partial | high |
+| Time filter | yes | start_time/stop_time | partial | medium |
+| Duration filter | yes | duration_min/max | present in SearchTimer | medium |
+| Day-of-week filter | yes | dayofweek | present in SearchTimer | medium |
+| Extended EPG categories | ExtEPGInfoList | ext_epg_info | partial: discovery present, matcher/UI semantics incomplete | high |
+| Content descriptors | yes | content_descriptors | present in SearchTimer write/read | medium |
+| Favorites | use_in_favorites | yes | present in SearchTimer | medium |
+| Blacklists | BlackList | blacklist_mode / blacklist_ids | partial: fields and discovery present, matcher/UI semantics incomplete | high |
+| Channel groups | ChanGrpList | channels when use_channel group | partial: discovery present, matcher/UI semantics incomplete | high |
+| Directories | DirectoryList / ShortDirectoryList | directory fields | partial: discovery present, exact list parity still open | medium |
+| SearchTimer CRUD | SearchTimerList/Add/Mod/Del | yes | implemented and real-VDR tested | done |
+| SearchTimer query preview | QuerySearchTimer | likely not first-class | partial | high |
+| Ad-hoc query search | QuerySearch | likely not first-class | partial | high |
+| Timer conflicts | TimerConflictList | /searchtimers/conflicts.json | partial: backend report present, advice/UI semantics open | high |
+| Conflict-check advice | IsConflictCheckAdvised | unclear | missing | high |
+| Expression evaluation | Evaluate(expr,event) | unclear | missing | low/advanced |
+
+---
+
+## Gap Classification
+
+### Already strong
+
+- SearchTimer read/write model
+- SearchTimer real VDR validation
+- Timer lifecycle real VDR validation
+- RESTfulAPI read-only regression
+- unified real VDR regression command
+
+### Needs mapping before implementation
+
+- EPG search modes
+- EPG result semantics
+- channel-group semantics
+- extended EPG category semantics
+- blacklist discovery
+- SearchTimer query preview
+- ad-hoc EPGSearch query
+- timer conflict reporting
+
+### Should not be implemented blindly
+
+- conflict detection
+- expression evaluation
+- TVScraper-related enrichment
+- series/episode semantics
+
+These need exact upstream source and real-backend behavior validation first.
+
+---
+
+## Recommended Next Phases
+
+### Phase 48.2 - Backend-neutral EPGSearch query model
+
+Define a domain model for EPGSearch-like query capabilities without binding it to one backend.
+
+Required fields:
+
+- query
+- search mode
+- target fields
+- channel scope
+- time scope
+- duration scope
+- day-of-week scope
+- extended EPG categories
+- content descriptors
+- favorite scope
+
+### Phase 48.3 - EPGSearch result semantics
+
+Define a backend-neutral result object for EPGSearch-style query results.
+
+### Phase 48.4 - EPGSearch real VDR query smoke
+
+Add a safe real-VDR read-only query smoke for ad-hoc searches.
+
+### Phase 48.5 - Timer conflict capability analysis
+
+Audit EPGSearch conflict service and determine whether RESTfulAPI can expose it or needs extension.
+
+---
+
+## Decision
+
+The next implementation should not start with conflicts or TVScraper.
+
+The safest and highest-value continuation is a backend-neutral EPGSearch query model followed by a real VDR ad-hoc EPGSearch query smoke.
+
+## Phase 59.07a Refresh Baseline
+
+Phase 59.07a reconciles this matrix with later source work.
+
+Items that should no longer be treated as completely missing:
+
+- SearchTimer discovery catalogs have a backend-neutral model, service, JSON contract and RESTfulAPI provider.
+- Timer conflicts have a backend-neutral report type, RESTfulAPI mapper and adapter method.
+- The web client API exposes timer conflict and SearchTimer loading paths.
+- EPGSearch text search now includes deterministic phrase, exact, all-words, any-word, regex and fuzzy fallback paths.
+- Native epgsearch fuzzy support has probe, persistence, restore and operator refresh foundations.
+
+Remaining open areas:
+
+- exact QuerySearchTimer parity against epgsearch
+- exact QuerySearch parity against epgsearch
+- IsConflictCheckAdvised
+- Evaluate(expr,event)
+- extended EPG, blacklist, channel-group, time-window, weekday and favorites semantics in match execution
+- Live-style UI usage for discovery catalogs and conflicts
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+
+## Phase 48.2 Query Model Result
+
+Phase 48.2 introduced a backend-neutral EPGSearch query model.
+
+The model covers:
+
+- search text
+- search mode
+- fuzzy tolerance
+- title/subtitle/description field selection
+- case sensitivity
+- channel interval, channel group and free-to-air scopes
+- time window
+- duration window
+- day-of-week filter
+- extended EPG info values
+- content descriptors
+- favorites-only scope
+
+No REST endpoint, adapter or backend execution was added in this phase.
+
+## Phase 48.3 Result Model Audit
+
+Phase 48.3 audited the existing EPGSearch result domain model.
+
+Finding:
+
+- `EpgSearchMatch` already wraps a `VdrEvent`, optional backend identity and matched fields.
+- `EpgSearchResult` already provides matches, total count, returned count, limit and offset.
+- No replacement model is needed before introducing the EPGSearch service interface.
+
+The next missing abstraction is a backend-neutral service boundary.
+
+## Phase 48.4 Service Boundary Result
+
+Phase 48.4 introduced a backend-neutral EPGSearch service boundary.
+
+Implemented:
+
+- `EpgSearchService`
+- `search(events, query) -> EpgSearchResult`
+- text matching across title/subtitle/description
+- explicit field selection support
+- case-sensitive and case-insensitive matching behavior
+
+Not implemented in this phase:
+
+- REST endpoint
+- RESTfulAPI adapter
+- real VDR EPGSearch execution
+- fuzzy matching semantics
+- channel/time/duration/day/category filtering
+
+Those belong to later matcher and adapter phases.
+
+## Phase 48.5 Matcher Extraction Result
+
+Phase 48.5 extracted EPGSearch text matching into `EpgSearchMatcher`.
+
+Implemented:
+
+- dedicated matcher class
+- title/subtitle/description matching
+- field-selection aware matching
+- case-sensitive and case-insensitive matching
+- service delegation from `EpgSearchService` to `EpgSearchMatcher`
+
+Not implemented in this phase:
+
+- channel filtering
+- time filtering
+- duration filtering
+- day-of-week filtering
+- extended EPG category filtering
+- fuzzy matching semantics
+
+Those belong to later matcher expansion phases.
+
+## Phase 48.6 Matcher Filter Expansion Result
+
+Phase 48.6 expanded `EpgSearchMatcher` beyond text matching.
+
+Implemented with existing `VdrEvent` fields:
+
+- channel interval matching through event channel id
+- duration window matching through event duration seconds
+- content descriptor matching through event content descriptors
+
+Intentionally not implemented yet:
+
+- extended EPG category filtering
+- channel group semantics
+- favorites semantics
+- time-window semantics
+- day-of-week semantics
+- fuzzy matching semantics
+
+Those require additional domain fields or exact backend semantics before implementation.
+
+## Phase 48.7 Result Serializer Result
+
+Phase 48.7 added JSON serialization for backend-neutral EPGSearch results.
+
+Implemented:
+
+- result metadata serialization
+- match list serialization
+- backend id serialization
+- matched fields serialization
+- nested VDR event serialization
+- content descriptor array serialization
+- JSON string escaping test coverage
+
+No REST controller or route was added in this phase.
+
+## Phase 48.8 Query Alignment Audit
+
+Phase 48.8 audited the relationship between `EpgSearchRequest` and `EpgSearchQuery`.
+
+Finding:
+
+- controller and route already exist
+- `EpgSearchRequest` represents API/controller request concerns
+- `EpgSearchQuery` represents backend-neutral search semantics
+- they should be connected through an explicit mapper, not merged blindly
+
+## Phase 48.9 Request Mapper Result
+
+Phase 48.9 introduced an explicit mapper from `EpgSearchRequest` to `EpgSearchQuery`.
+
+Implemented:
+
+- `EpgSearchRequestMapper`
+- request text to domain search text
+- backend id mapping
+- channel id to single-channel interval mapping
+- title/subtitle/description field selection mapping
+- controller alignment so `EpgSearchService` receives `EpgSearchQuery`
+
+Intentionally not mapped yet:
+
+- paging
+- sorting
+- request window metadata
+
+Those remain API/request concerns and should not be forced into the domain query.
+
+## Phase 49.0 Test Coverage Audit
+
+Phase 49.0 audited EPGSearch test coverage after the request-to-query mapper was introduced.
+
+Finding:
+
+- old underscore-style EPGSearch tests still exist
+- newer compact epgsearch-style tests now cover the query, mapper, matcher, service and serializer path
+- `GET /api/epg/search` is routed, but explicit router regression coverage should wait until test consolidation
+
+Decision:
+
+- do not add another endpoint test yet
+- consolidate the EPGSearch tests first
+
+## Phase 49.1 Matcher Test Consolidation
+
+Phase 49.1 consolidated active matcher coverage.
+
+Result:
+
+- active matcher tests use `EpgSearchQuery`
+- obsolete request-based matcher tests were identified
+- no-search-field behavior is now covered in the compact matcher test
+- fuzzy tolerance remains modeled but not implemented in the matcher
+
+## Phase 49.2 Service Test Consolidation
+
+Phase 49.2 consolidated active service coverage.
+
+Result:
+
+- active service tests use `EpgSearchQuery`
+- backend-scoped query metadata is covered
+- channel interval filtering is covered
+- duration-window filtering is covered
+- paging and sorting remain API/request concerns
+
+## Phase 49.3 Legacy Test Retirement
+
+Phase 49.3 retired obsolete request-era matcher and service tests.
+
+Result:
+
+- request model coverage remains available through `test-epg-search-request`
+- active matcher coverage remains available through `test-epgsearch-matcher`
+- active service coverage remains available through `test-epgsearch-service`
+- obsolete direct `EpgSearchRequest` to matcher/service tests were removed
+
+## Phase 49.4 Endpoint Regression
+
+Phase 49.4 added explicit regression coverage for the EPGSearch HTTP endpoint.
+
+Result:
+
+- `/api/epg/search` is now covered in `test_api_router.cpp`
+- query/backend/channel/time-window/sort/order parameters are routed
+- response JSON shape is verified through the nested `matches[].event` structure
+
+## Phase 49.5 Parameter Regression
+
+Phase 49.5 extended endpoint regression coverage with invalid parameter handling for `/api/epg/search`.
+
+Result:
+
+- invalid `timespan` is rejected
+- invalid `limit` is rejected
+- invalid `offset` is rejected
+- invalid `sort` is rejected
+- invalid `order` is rejected
+
+## Phase 49.6 Search Mode Baseline
+
+Phase 49.6 confirms the currently implemented EPGSearch text behavior.
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Case-insensitive phrase/contains search | Covered | Verified through router and controller regression tests. |
+| All-words mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Any-word mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Exact mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Regular-expression mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Fuzzy mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+
+## Phase 49.7 Deterministic Mode Implementation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Phrase/default contains search | Implemented | Default behavior remains unchanged. |
+| Exact mode | Implemented | `mode=exact`. |
+| All-words mode | Implemented | `mode=all` and `mode=allWords`. |
+| Any-word mode | Implemented | `mode=any` and `mode=anyWord`. |
+| Regular-expression mode | Deferred | Requires safety and invalid-pattern decision. |
+| Fuzzy mode | Deferred | Requires tolerance and ranking decision. |
+
+## Phase 49.8 Regex Mode Safety Decision
+
+Phase 49.8 defines the safety contract for future regex search mode.
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Regex public mode name | Decided | `mode=regex`. |
+| Regex implicit activation | Rejected | Regex must never be enabled by default. |
+| Invalid regex handling | Decided | Must return HTTP 400 and must not fall back to phrase matching. |
+| Regex execution | Deferred | Implementation follows in a later phase. |
+| Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |
+
+## Phase 49.9 Regex Mode Implementation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Regex public mode name | Implemented | `mode=regex`. |
+| Valid regex execution | Implemented | Uses explicit regex mode only. |
+| Invalid regex handling | Implemented | Returns HTTP 400 with `invalid regex pattern`. |
+| Regex fallback behavior | Rejected | Invalid regex does not fall back to phrase matching. |
+| Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |
+
+## Phase 49.10 Fuzzy Mode Decision
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy public mode name | Decided | mode=fuzzy. |
+| Fuzzy tolerance parameter | Decided | tolerance=<int>, default 1 if omitted in future implementation. |
+| Native epgsearch mapping | Decided | Native adapters may map fuzzy to epgsearch-compatible mode 5 plus tolerance. |
+| Fuzzy fallback matcher | Decided | VDR-Suite may provide a backend-neutral boolean fallback. |
+| Fuzzy ranking | Deferred | No public score/ranking contract yet. |
+| Capability distinction | Required | Native and fallback fuzzy support must be exposed separately if needed. |
+
+## Phase 49.11 Fuzzy Fallback Matcher
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy public mode name | Implemented | `mode=fuzzy`. |
+| Fuzzy tolerance parameter | Implemented | `tolerance=<int>`, default 1 when omitted. |
+| Invalid tolerance handling | Implemented | Negative and non-integer tolerance values return HTTP 400. |
+| Backend-neutral fallback matcher | Implemented | Conservative boolean word-distance matcher. |
+| Native epgsearch passthrough | Deferred | Later adapter/capability phase. |
+| Fuzzy ranking | Deferred | No public score/ranking contract yet. |
+
+## Phase 49.12 Native Fuzzy Capability Mapping
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy fallback capability | Implemented | Exposed as `epg.search.fuzzy.fallback`. |
+| Native fuzzy capability | Implemented as capability flag | Exposed as `epg.search.fuzzy.native`; unavailable unless a backend advertises it. |
+| Capability report distinction | Implemented | Fallback and native fuzzy support are reported separately. |
+| Snapshot read-only capability set | Updated | Provides fallback fuzzy support, not native epgsearch fuzzy support. |
+| Native adapter passthrough | Deferred | Follow-up phase. |
+
+## Phase 49.13 Native Fuzzy Adapter Passthrough
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Public SearchTimer mode alias | Implemented | `mode=fuzzy` maps to native mode 5. |
+| Public SearchTimer tolerance alias | Implemented | `tolerance=<int>` maps to native tolerance. |
+| RESTfulAPI command passthrough | Implemented | Create/update bodies pass `mode` and `tolerance` to RESTfulAPI. |
+| RESTfulAPI readback mapping | Covered | Native `mode=5` and `tolerance` are parsed into SearchTimer match options. |
+| Real-backend validation | Deferred | Follow-up phase. |
+
+## Phase 49.14 Native Fuzzy Real-Backend Validation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Real-backend validation harness | Implemented | `tools/validate_real_epgsearch_native_fuzzy.py`. |
+| Dry-run safety | Implemented | Default mode sends no request. |
+| Native create validation | Implemented | Optional `--execute` creates one temporary SearchTimer with `mode=5`. |
+| Native readback validation | Implemented | Verifies `mode=5` and requested `tolerance`. |
+| Cleanup validation | Implemented | Deletes the created SearchTimer unless `--keep-created` is used. |
+| Capability autodetection | Deferred | Follow-up phase. |
+
+## Phase 49.15 Native Fuzzy Capability Autodetection
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Probe model | Implemented | `EpgSearchNativeFuzzyCapabilityProbeResult`. |
+| Capability detector | Implemented | Enables native fuzzy only after a complete successful probe lifecycle. |
+| Fallback preservation | Implemented | `epg.search.fuzzy.fallback` remains independent. |
+| Native fuzzy success signal | Implemented | Validator emits `capability: epg.search.fuzzy.native=true` on successful real validation. |
+| Runtime wiring | Deferred | Follow-up phase wires detector output into runtime/backend capability construction. |
+
+## Phase 49.16 Native Fuzzy Runtime Capability Wiring
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Backend capability update | Implemented | `BackendRegistry::updateBackendCapabilities`. |
+| Service-level capability update | Implemented | `BackendRegistryService::updateBackendCapabilities`. |
+| Native fuzzy runtime wiring | Implemented | Successful probe result can update an existing backend to native fuzzy support. |
+| Missing backend safety | Implemented | Capability update returns false and does not create a backend. |
+| Automatic startup probing | Deferred | Follow-up phase. |
+
+## Phase 49.17 Native Fuzzy Capability Persistence
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| SQLite table | Implemented | `epgsearch_native_fuzzy_capability_probes`. |
+| Repository | Implemented | Save/load native fuzzy probe results per backend id. |
+| Successful probe roundtrip | Implemented | Reloaded result enables detector outcome. |
+| Failed probe roundtrip | Implemented | Reloaded incomplete result keeps native fuzzy disabled. |
+| Multiple backend separation | Implemented | Probe results are keyed by backend id. |
+| Startup restore | Deferred | Follow-up phase reloads persisted result into runtime capability state. |
+
+## Phase 49.18 Persisted Native Fuzzy Capability Restore
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Restore service | Implemented | Loads persisted probe result and updates an existing backend. |
+| Successful restore | Implemented | Restores `epg.search.fuzzy.native=true`. |
+| Failed restore | Implemented | Restores `epg.search.fuzzy.native=false`. |
+| Missing persisted result | Implemented | No backend update. |
+| Missing backend safety | Implemented | No backend is created from persisted data. |
+| Automatic startup invocation | Deferred | Follow-up phase. |
+
+## Phase 49.19 Startup Restore Integration
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Startup restore service | Implemented | Restores persisted results for all existing backends. |
+| Daemon integration | Implemented | Restore runs after backend registry creation and before capability report construction. |
+| Baseline capabilities | Implemented | Default backend starts with `snapshotReadOnly()` capabilities before restore. |
+| Capability report visibility | Implemented | Default report uses restored backend capability state. |
+| Automatic mutation probe | Not implemented | Startup restore is read-only/non-mutating. |
+
+## Phase 49.20 Restore Diagnostics
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Structured restore status | Implemented | `status()` and `reason()` describe restore outcome. |
+| Restore counters | Implemented | Tracks backend, persisted, updated and native true/false counts. |
+| Runtime diagnostics measurement | Implemented | Records `epgsearch-native-fuzzy/startup-restore`. |
+| JSON serialization | Implemented | Serializes restore diagnostics for future API exposure. |
+| Automatic mutation probe | Not implemented | Diagnostics remain read-only/non-mutating. |
+
+
+## Phase 49.21 Restore Freshness Policy
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Persisted result age | Implemented | Repository exposes `updatedAt` and `ageSeconds`. |
+| Freshness policy | Implemented | Default max age is seven days. |
+| Fresh persisted result | Implemented | May restore native fuzzy availability. |
+| Stale persisted result | Implemented | Ignored for native enablement and restores native fuzzy as unavailable. |
+| Future timestamp | Implemented | Not trusted. |
+| Automatic mutation probe | Not implemented | Freshness remains non-mutating. |
+
+
+## Phase 49.22 Stale Probe Administration
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| List stale probe results | Implemented | Returns backend id, updated time, age, max age, status and reason. |
+| Delete stale probe results | Implemented | Deletes only stale/future persisted results. |
+| Keep fresh probe results | Implemented | Fresh persisted results remain untouched. |
+| Missing schema safety | Implemented | Administration creates schema safely when needed. |
+| VDR mutation | Not implemented | No VDR/SearchTimer operation is performed. |
+
+## Phase 49.23 Stale Probe Administration API
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Stale probe list endpoint | Implemented | GET endpoint returns stale/future persisted rows. |
+| Stale probe delete endpoint | Implemented | POST endpoint deletes stale/future persisted rows. |
+| Fresh row safety | Implemented | Fresh persisted results are not deleted. |
+| VDR mutation | Not implemented | API is local persistence administration only. |
+
+## Phase 49.24 Operator Refresh Workflow
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Operator-triggered refresh service | Implemented | Core workflow exists without automatic startup execution. |
+| Temporary SearchTimer probe | Implemented | Creates, reads back and deletes a probe SearchTimer. |
+| Native fuzzy result persistence | Implemented | Probe result is saved into the native fuzzy capability repository. |
+| Backend capability update | Implemented | Backend native fuzzy capability is updated from the probe result. |
+| REST trigger | Deferred | Public/operator trigger endpoint remains a later phase. |
+
+## Phase 49.25 Operator Refresh API
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Operator refresh REST endpoint | Implemented | POST endpoint triggers the Phase 49.24 workflow. |
+| Request body parsing | Implemented | Supports backend/backendId, query/probeQuery and tolerance. |
+| JSON summary response | Implemented | Returns probe, persistence and backend capability update status. |
+| Automatic startup execution | Not implemented | Operator refresh remains explicit only. |

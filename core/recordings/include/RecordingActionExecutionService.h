@@ -1,0 +1,267 @@
+#pragma once
+
+#include "IRecordingActionExecutor.h"
+#include "RecordingActionBackendExecutorAdapterDispatchService.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionBackendPolicy.h"
+#include "RecordingActionExecutionResult.h"
+#include "RecordingActionJobPayloadFactory.h"
+#include "RecordingActionRequest.h"
+#include "RecordingActionSafetyService.h"
+#include "RecordingActionValidationService.h"
+
+#include <algorithm>
+
+class RecordingActionExecutionService
+{
+public:
+    RecordingActionSafetyResult evaluateSafety(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context) const
+    {
+        return safetyService_.evaluate(action, context);
+    }
+
+    RecordingActionSafetyResult evaluateSafety(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionCapabilitySet& capabilitySet) const
+    {
+        return safetyService_.evaluateWithCapabilities(
+            action,
+            context,
+            capabilitySet);
+    }
+
+    RecordingActionSafetyResult evaluateSafety(
+        const RecordingActionRequest& request,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionBackendExecutorAdapterRegistry& registry) const
+    {
+        return evaluateSafety(
+            request.type,
+            context,
+            registry.capabilitiesForBackend(request.backendId));
+    }
+
+    RecordingActionSafetyResult evaluateSafety(
+        const RecordingActionRequest& request,
+        const RecordingActionBackendPolicy& policy) const
+    {
+        RecordingActionSafetyContext context;
+        context.dryRun = request.dryRun;
+        context.backendAvailable = policy.backendAvailable;
+        context.backendReadOnly = policy.readOnly;
+        context.executionAllowed = policy.executionAllowed;
+
+        return safetyService_.evaluateWithCapabilitiesAndPermissions(
+            request.type,
+            context,
+            policy.capabilities,
+            policy.permissions);
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionRequest& request,
+        IRecordingActionExecutor& executor) const
+    {
+        const RecordingActionValidationResult validation =
+            validationService_.validate(request);
+
+        if (!validation.valid)
+        {
+            return validationFailure(request, validation);
+        }
+
+        const RecordingActionJobPayload payload =
+            payloadFactory_.create(request, validation);
+
+        if (payload.dryRun)
+        {
+            RecordingActionExecutionResult result =
+                dryRunSkipped(payload);
+
+            appendValidationWarnings(result, validation);
+
+            return result;
+        }
+
+        RecordingActionExecutionResult result =
+            executor.execute(payload);
+
+        appendValidationWarnings(result, validation);
+
+        return result;
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionRequest& request,
+        const RecordingActionBackendExecutorAdapterRegistry& registry,
+        const RecordingActionBackendPolicy& policy) const
+    {
+        const RecordingActionSafetyResult safety =
+            evaluateSafety(request, policy);
+
+        if (!safety.canExecute)
+        {
+            std::vector<std::string> errors =
+                safety.blockers;
+
+            if (errors.empty())
+            {
+                errors.push_back(
+                    "recording action execution blocked by safety policy");
+            }
+
+            return RecordingActionExecutionResult::failed(
+                request.type,
+                request.recordingId,
+                request.backendId,
+                "recording action execution blocked by safety policy",
+                errors);
+        }
+
+        return execute(request, registry);
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionRequest& request,
+        const RecordingActionBackendExecutorAdapterRegistry& registry) const
+    {
+        const RecordingActionValidationResult validation =
+            validationService_.validate(request);
+
+        if (!validation.valid)
+        {
+            return validationFailure(request, validation);
+        }
+
+        const RecordingActionJobPayload payload =
+            payloadFactory_.create(request, validation);
+
+        /*
+         * Registry-backed execution delegates dry-run semantics to the
+         * selected backend adapter. A backend such as RESTfulAPI can then
+         * execute its read-only preview contract without invoking the
+         * mutation endpoint.
+         */
+        const RecordingActionBackendExecutorAdapterLookupResult resolvedAdapter =
+            registry.findAdapter(payload.backendId);
+
+        if (!resolvedAdapter.found || !resolvedAdapter.adapter)
+        {
+            RecordingActionExecutionResult result =
+                RecordingActionExecutionResult::failed(
+                    payload.type,
+                    payload.recordingId,
+                    payload.backendId,
+                    resolvedAdapter.message,
+                    {resolvedAdapter.message}
+                );
+
+            appendValidationWarnings(result, validation);
+            return result;
+        }
+
+        const RecordingActionDispatchResult dispatchResult =
+            backendDispatchService_.dispatch(resolvedAdapter, payload);
+
+        if (!dispatchResult.dispatched)
+        {
+            RecordingActionExecutionResult result =
+                RecordingActionExecutionResult::failed(
+                    payload.type,
+                    payload.recordingId,
+                    payload.backendId,
+                    dispatchResult.reason,
+                    {dispatchResult.reason}
+                );
+
+            appendValidationWarnings(result, validation);
+            return result;
+        }
+
+        RecordingActionExecutionResult result =
+            dispatchResult.executionResult;
+
+        normalizeSuccessfulBackendDryRun(result, payload);
+        appendValidationWarnings(result, validation);
+
+        return result;
+    }
+
+private:
+    static RecordingActionExecutionResult dryRunSkipped(
+        const RecordingActionJobPayload& payload)
+    {
+        RecordingActionExecutionResult result;
+        result.success = false;
+        result.type = payload.type;
+        result.recordingId = payload.recordingId;
+        result.backendId = payload.backendId;
+        result.message = "dry-run backend execution skipped";
+
+        const auto recordingPath =
+            payload.parameters.find("recordingPath");
+
+        if (recordingPath != payload.parameters.end())
+        {
+            result.recordingPath = recordingPath->second;
+        }
+
+        return result;
+    }
+
+    static void normalizeSuccessfulBackendDryRun(
+        RecordingActionExecutionResult& result,
+        const RecordingActionJobPayload& payload)
+    {
+        if (!payload.dryRun || !result.success || result.hasErrors())
+        {
+            return;
+        }
+
+        result.success = false;
+        result.message = "dry-run backend execution skipped";
+
+        if (std::find(
+                result.warnings.begin(),
+                result.warnings.end(),
+                "dry-run only") == result.warnings.end())
+        {
+            result.warnings.push_back("dry-run only");
+        }
+    }
+
+    static RecordingActionExecutionResult validationFailure(
+        const RecordingActionRequest& request,
+        const RecordingActionValidationResult& validation)
+    {
+        return RecordingActionExecutionResult::failed(
+            request.type,
+            request.recordingId,
+            request.backendId,
+            "recording action validation failed",
+            validation.errors
+        );
+    }
+
+    static void appendValidationWarnings(
+        RecordingActionExecutionResult& result,
+        const RecordingActionValidationResult& validation)
+    {
+        if (!validation.warnings.empty())
+        {
+            result.warnings.insert(
+                result.warnings.end(),
+                validation.warnings.begin(),
+                validation.warnings.end()
+            );
+        }
+    }
+
+    RecordingActionSafetyService safetyService_;
+    RecordingActionValidationService validationService_;
+    RecordingActionJobPayloadFactory payloadFactory_;
+    RecordingActionBackendExecutorAdapterDispatchService backendDispatchService_;
+};

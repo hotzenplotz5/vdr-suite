@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2q-native-fuzzy-stale-probe-delete",
+  "title": "Phase 62 Slice 2Q Native Fuzzy stale probe deletion runtime acceptance",
+  "permission": "epgsearch.native-fuzzy.stale-probes.delete",
+  "action": "epgsearch.native-fuzzy.stale-probes.delete",
+  "backendId": "*",
+  "alternateBackendId": "default",
+  "routes": [
+    "/api/epgsearch/native-fuzzy/stale-probes/delete",
+    "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"
+  ],
+  "safeBody": {},
+  "scopeMode": "global",
+  "requireEmptyStaleSnapshot": true,
+  "querySuffix": "?source=phase62-runtime-acceptance",
+  "expectedValidation": {
+    "status": 200,
+    "json": {
+      "schemaReady": true,
+      "staleResultsFound": 0,
+      "deletedResults": 0,
+      "deleteFailures": 0
+    }
+  },
+  "snapshot": {
+    "mode": "sqlite",
+    "table": "epgsearch_native_fuzzy_capability_probes",
+    "maxAgeSeconds": 604800
+  }
+}

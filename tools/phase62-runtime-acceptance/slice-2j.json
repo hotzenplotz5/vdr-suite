@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2j-searchtimer-create",
+  "title": "Phase 62 Slice 2J SearchTimer Create",
+  "permission": "searchtimers.create",
+  "action": "searchtimers.create",
+  "backendId": "default",
+  "alternateBackendId": "phase62-slice2j-other",
+  "routes": [
+    "/api/searchtimers",
+    "/api/vdr/searchtimers"
+  ],
+  "querySuffix": "?source=browser",
+  "safeBody": {},
+  "expectedValidation": {
+    "status": 200,
+    "json": {
+      "success": false,
+      "message": "searchtimer name is required",
+      "errors": [
+        "name is required"
+      ]
+    }
+  },
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/searchtimers?backend=default&limit=1000&offset=0"
+  }
+}

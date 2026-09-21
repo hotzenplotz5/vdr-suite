@@ -1,0 +1,67 @@
+#ifndef VDR_SUITE_BRIDGE_H
+#define VDR_SUITE_BRIDGE_H
+
+#include "suitebridge_lifecycle.h"
+#include "suitebridge_live_capability.h"
+#include "suitebridge_live_source.h"
+#include "suitebridge_hbbtv_adapter.h"
+#include "suitebridge_hbbtv_command.h"
+#include "suitebridge_native_probe.h"
+#include "suitebridge_native_timer_create.h"
+#include "suitebridge_native_timer_create_vdr.h"
+#include "suitebridge_native_timer_delete.h"
+#include "suitebridge_native_timer_delete_vdr.h"
+#include "suitebridge_native_timer_modify.h"
+#include "suitebridge_native_timer_modify_vdr.h"
+#include "suitebridge_recording_cut.h"
+#include "suitebridge_recording_cut_vdr.h"
+#include "suitebridge_recording_marks_modify.h"
+#include "suitebridge_recording_marks_modify_vdr.h"
+#include "suitebridge_status_monitor.h"
+#include "suitebridge_teletext_adapter.h"
+#include "suitebridge_teletext_command.h"
+
+#include <vdr/plugin.h>
+
+class cPluginSuiteBridge final : public cPlugin {
+public:
+  cPluginSuiteBridge();
+  ~cPluginSuiteBridge() override;
+
+  const char *Version(void) override;
+  const char *Description(void) override;
+
+  bool Initialize(void) override;
+  bool Start(void) override;
+  void Stop(void) override;
+
+  const char *MainMenuEntry(void) override;
+  const char **SVDRPHelpPages(void) override;
+  cString SVDRPCommand(
+      const char *Command,
+      const char *Option,
+      int &ReplyCode) override;
+
+private:
+  SuiteBridgeLifecycle lifecycle_;
+  SuiteBridgeStatusMonitor statusMonitor_;
+  SuiteBridgeNativeProbeService nativeProbe_;
+  SuiteBridgeLiveCapabilityService liveCapability_;
+  SuiteBridgeLiveSourceService liveSource_;
+  SuiteBridgeHbbtvAdapter hbbtvAdapter_;
+  SuiteBridgeHbbtvCommandService hbbtvCommand_;
+  SuiteBridgeTeletextAdapter teletextAdapter_;
+  SuiteBridgeTeletextCommandService teletextCommand_;
+  SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;
+  SuiteBridgeNativeTimerCreateService nativeTimerCreate_;
+  SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_;
+  SuiteBridgeNativeTimerDeleteService nativeTimerDelete_;
+  SuiteBridgeNativeTimerModifyVdrMutationCallback nativeTimerModifyVdrMutation_;
+  SuiteBridgeNativeTimerModifyService nativeTimerModify_;
+  SuiteBridgeRecordingMarksModifyVdrMutationCallback recordingMarksModifyVdrMutation_;
+  SuiteBridgeRecordingMarksModifyService recordingMarksModify_;
+  SuiteBridgeRecordingCutVdrMutationCallback recordingCutVdrMutation_;
+  SuiteBridgeRecordingCutService recordingCut_;
+};
+
+#endif
