@@ -7,7 +7,6 @@ CI_FAST_TESTS := \
 	test-phase68-osd-viewer-bindings \
 	test-phase68-osd-controller-lease \
 	test-phase68-osd-native-input \
-	test-phase68-osd-native-input \
 	test-backend-agent-foundation \
 	test-backend-agent-client \
 	test-backend-agent-enrollment-tool \
@@ -80,6 +79,7 @@ VDR_TESTS := \
 	test-phase68-osd-view-session-authorization \
 	test-phase68-osd-viewer-bindings \
 	test-phase68-osd-controller-lease \
+	test-phase68-osd-native-input \
 	check-vdr-linkage-contracts \
 	test-suite-bridge-agent-boundary \
 	test-suite-bridge-handshake \
