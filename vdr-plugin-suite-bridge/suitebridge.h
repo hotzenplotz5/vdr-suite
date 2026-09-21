@@ -7,6 +7,7 @@
 #include "suitebridge_hbbtv_adapter.h"
 #include "suitebridge_hbbtv_command.h"
 #include "suitebridge_native_probe.h"
+#include "suitebridge_osd_input.h"
 #include "suitebridge_native_timer_create.h"
 #include "suitebridge_native_timer_create_vdr.h"
 #include "suitebridge_native_timer_delete.h"
@@ -46,6 +47,7 @@ private:
   SuiteBridgeLifecycle lifecycle_;
   SuiteBridgeStatusMonitor statusMonitor_;
   SuiteBridgeNativeProbeService nativeProbe_;
+  SuiteBridgeOsdInputService osdInput_;
   SuiteBridgeLiveCapabilityService liveCapability_;
   SuiteBridgeLiveSourceService liveSource_;
   SuiteBridgeHbbtvAdapter hbbtvAdapter_;
