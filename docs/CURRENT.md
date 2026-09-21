@@ -15,6 +15,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Current Project Status](development/current-status.md)
 - [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md)
 - [Phase 68.D View-Session Closeout](development/phase-68d-view-session-authorization-closeout.md)
+- [Phase 68.E Viewer-Binding Closeout](development/phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Closeout](development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
@@ -56,9 +57,10 @@ Accepted Phase-68 verticals:
 68.B - Agent-local buffering and resynchronization
 68.C - Authenticated read-only Agent OSD transport
 68.D - Authorized bounded Legacy OSD view sessions
+68.E - Bounded viewer bindings and multi-viewer delivery
 
 Current active runtime slice:
-68.E - Bounded viewer bindings and multi-viewer delivery
+68.F - Exclusive controller lease and osd.control fencing
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
@@ -67,6 +69,11 @@ Phase-68.D accepted candidate:
 PR #310 -> 8807d587536daa6c27ae72a3f88d40b0c7de3480
 Hosted CI run 35594914471: SUCCESS
 real yaVDR acceptance: PASS
+
+Phase-68.E accepted runtime candidate:
+PR #311 -> 2b74b26ed33ce1a555a9cc037d44ad6768480eb2
+Hosted CI run 35601863603: SUCCESS (6/6)
+real yaVDR acceptance: RESULT=PHASE68E_REAL_ACCEPTANCE_PASS
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487

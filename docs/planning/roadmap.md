@@ -652,7 +652,7 @@ Phase 67 closes only when:
 
 ## Phase 68 — Legacy OSD Compatibility Bridge
 
-Status: **Active — 68.E bounded viewer bindings and multi-viewer delivery.**
+Status: **Active — 68.F exclusive controller lease and `osd.control` fencing.**
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -1069,7 +1069,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.E]
+  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.F]
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
 ```
@@ -1093,7 +1093,7 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phase 65, Phase 66 and Phase 67 are completed for their accepted bounded scopes. Phase-67 durable completion evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
 
-**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. Accepted Phase-68 work now covers 68.A through 68.D. The active coherent vertical is 68.E bounded viewer bindings and multi-viewer delivery. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
+**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. Accepted Phase-68 work now covers 68.A through 68.E. The active coherent vertical is 68.F exclusive controller leasing and `osd.control` fencing; native input remains 68.G. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 

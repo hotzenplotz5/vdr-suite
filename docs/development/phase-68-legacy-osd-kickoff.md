@@ -35,10 +35,19 @@ Hosted CI 35594914471: PASS
 real yaVDR acceptance: PASS
 ```
 
-Next coherent vertical:
+Accepted viewer-binding vertical:
 
 ```text
 68.E - Bounded viewer bindings and multi-viewer delivery
+PR #311 accepted runtime candidate -> 2b74b26ed33ce1a555a9cc037d44ad6768480eb2
+Hosted CI 35601863603: PASS (6/6)
+real yaVDR acceptance: RESULT=PHASE68E_REAL_ACCEPTANCE_PASS
+```
+
+Next coherent vertical:
+
+```text
+68.F - Exclusive controller lease and osd.control fencing
 ```
 
 This document is the durable execution checkpoint for the Phase-68 start. It exists so a later work session does not repeat the complete architecture inventory merely because a tooling or polling session ended.
@@ -90,11 +99,11 @@ The following Phase-68 prerequisites already exist and remain their current owne
 - existing normalized RemoteAction and LiveOverlay domains;
 - private RESTfulAPI transport below Suite-owned adapters.
 
-68.A through 68.D now establish the bounded semantic observation,
-local continuity, authenticated Agent transport and explicit view-session
-authorization foundations. The following ADR-0047 concepts remain later work:
+68.A through 68.E now establish the bounded semantic observation,
+local continuity, authenticated Agent transport, explicit view-session
+authorization and bounded multi-viewer foundations. The following ADR-0047
+concepts remain later work:
 
-- `OsdViewerBinding` and bounded multi-viewer delivery;
 - optional delta delivery only where exact-base semantics justify it;
 - `OsdControllerLease`;
 - `OsdInputCommand`;
@@ -212,7 +221,7 @@ A later work session should:
 
 1. verify the live branch head and compare it with live `main`;
 2. read this checkpoint and any later Phase-68 development notes;
-3. continue with 68.E bounded viewer bindings from the verified main and the accepted 68.D view-session boundary;
+3. continue with 68.F exclusive controller leasing from the verified main and the accepted 68.E viewer-binding boundary;
 4. repeat the full ADR/repository inventory only if repository changes invalidate this checkpoint.
 
 Do not restart Phase 68 merely because an execution/polling session ended.
@@ -374,6 +383,46 @@ production daemon was restarted for this acceptance.
 output-plugin rendering, SkinDesigner/native pixel capture, Teletext/HbbTV
 refactoring, MediaSession changes or Phase 69.
 
-The next coherent Phase-68 slice is 68.E bounded viewer bindings and
-multi-viewer delivery. Controller leasing follows only after the view plane is
-proven end-to-end.
+68.E is accepted as the bounded viewer-binding and multi-viewer delivery
+slice. Controller leasing is now the next coherent Phase-68 slice, 68.F, and
+must remain separate from native input. Allowlisted input follows as 68.G only
+after the controller lease boundary is accepted.
+
+
+## 68.E bounded viewer-binding closeout
+
+Accepted runtime candidate:
+
+```text
+PR #311
+2b74b26ed33ce1a555a9cc037d44ad6768480eb2
+Hosted CI run 35601863603: SUCCESS (6/6)
+real yaVDR acceptance: RESULT=PHASE68E_REAL_ACCEPTANCE_PASS
+```
+
+68.E adds transient bounded `OsdViewerBinding` ownership above the accepted
+68.D `LegacyOsdSession` boundary. It supports independent read-only viewers
+with exact actor/client/session/backend/generation/surface/epoch association,
+per-viewer sequence acknowledgement, bounded backpressure and explicit full
+resynchronization. The binding service reuses the existing transient 68.C OSD
+observation; it does not create a second frame cache or durable payload store.
+
+The public/API layer owns binding attach/detach lifecycle metadata only.
+Sequenced OSD frame delivery remains on the separately defined Legacy OSD
+compatibility plane; 68.E does not invent a public REST frame route,
+WebSocket/SSE transport or renderer.
+
+The accepted implementation remains view-only. It does not add
+`OsdControllerLease`, `osd.control`, native key input, raw key codes,
+`cRemote`, generic SVDRP/plugin-service tunneling, shell execution, direct
+RESTfulAPI/osd2web exposure, Teletext/HbbTV changes, MediaSession changes or
+Phase 69 work.
+
+Real yaVDR acceptance additionally proved the production daemon build, the real
+SuiteBridge/VDR source path through the existing VDR SVDRP endpoint, retention
+of the no-control/no-input boundary, a clean isolated worktree and the full
+Hosted-CI evidence. No production binary replacement or VDR/daemon restart was
+required.
+
+The next coherent slice is 68.F controller leasing. 68.G allowlisted native
+input remains later and is not authorized by this closeout.
