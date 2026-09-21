@@ -105,6 +105,8 @@ public:
     ::SuiteBridgeTeletextCommandReply requestTeletextPage(
         const ::SuiteBridgeTeletextPageRequest& request) override;
 
+    bool legacyOsdInputAvailable() override;
+
     SuiteBridgeCommandReply executeLegacyOsdInput(
         const LegacyOsdInputCommand& request,
         const std::string& requestFingerprint) override
