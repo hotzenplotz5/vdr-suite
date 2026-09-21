@@ -952,12 +952,65 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
             commandRepository_.consumeFault(receipt.backendId, "receipt");
     return result;
 }
-BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(const RequestSecurityContext& context,const BackendAgentCommandResult& value,std::int64_t now)
+BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
+    const RequestSecurityContext& context,
+    const BackendAgentCommandResult& value,
+    std::int64_t now)
 {
-    BackendAgentCommandResultAck result; std::string reason;
-    if(!backendAgentCommandValidResult(value)||!agentContextMatches(context,value.backendId,value.agentId,value.agentInstanceId,value.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_result":reason;return result;}
-    if(!appendEvent(context,"agent.command.result",value.backendId,"", "receive-command-result","allow","command_result_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
-    result=commandRepository_.acceptResult(value); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(value.backendId,"result"); return result;
+    BackendAgentCommandResultAck result;
+    std::string reason;
+    if (!backendAgentCommandValidResult(value) ||
+        !agentContextMatches(
+            context, value.backendId, value.agentId,
+            value.agentInstanceId, value.backendGeneration,
+            false, now, reason))
+    {
+        result.reasonCode =
+            reason.empty() ? "invalid_command_result" : reason;
+        return result;
+    }
+
+    const auto assignment = commandRepository_.findAssignment(value.commandId);
+    if (assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType)
+    {
+        const bool dispatched = value.resultCategory == "succeeded";
+        const std::string reasonCode = dispatched
+            ? "native_dispatch_reported"
+            : (value.errorCategory.empty()
+                ? "native_dispatch_rejected"
+                : value.errorCategory);
+        if (!appendEvent(
+                context,
+                dispatched
+                    ? "legacy-osd.input.accepted"
+                    : "legacy-osd.input.rejected",
+                value.backendId,
+                assignment->operationId,
+                "legacy-osd.input",
+                dispatched ? "allow" : "deny",
+                reasonCode,
+                value.resultCategory,
+                now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
+    if (!appendEvent(
+            context, "agent.command.result", value.backendId, "",
+            "receive-command-result", "allow",
+            "command_result_persist", "attempted", now))
+    {
+        result.reasonCode = "command_accountability_unavailable";
+        return result;
+    }
+    result = commandRepository_.acceptResult(value);
+    if (result.accepted)
+        result.dropResponse =
+            commandRepository_.consumeFault(value.backendId, "result");
+    return result;
 }
 
 std::optional<BackendAgentCommandAssignment> BackendAgentCommandDeliveryService::assignProbe(const RequestSecurityContext& context,const std::string& backendId,std::int64_t now,std::int64_t deadline,std::string& reason)
