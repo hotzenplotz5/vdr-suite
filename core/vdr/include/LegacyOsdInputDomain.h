@@ -60,6 +60,15 @@ inline bool legacyOsdInputActionFromName(
     return true;
 }
 
+struct LegacyOsdInputResult
+{
+    bool accepted = false;
+    bool idempotent = false;
+    std::string category;
+    std::string error;
+    std::string agentCommandId;
+};
+
 struct LegacyOsdInputCommand
 {
     static constexpr std::uint64_t SchemaVersion = 1;
@@ -164,6 +173,14 @@ inline bool legacyOsdInputParseUnsigned(
     output = parsed;
     return true;
 }
+
+class ILegacyOsdInputService
+{
+public:
+    virtual ~ILegacyOsdInputService() = default;
+    virtual LegacyOsdInputResult submit(
+        const LegacyOsdInputCommand& command) = 0;
+};
 
 inline bool legacyOsdInputCommandParse(
     const std::string& encoded,
