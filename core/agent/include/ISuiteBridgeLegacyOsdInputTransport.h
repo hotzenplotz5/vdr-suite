@@ -12,7 +12,8 @@ public:
     virtual ~ISuiteBridgeLegacyOsdInputTransport() = default;
 
     virtual SuiteBridgeCommandReply executeLegacyOsdInput(
-        const LegacyOsdInputCommand& command) = 0;
+        const LegacyOsdInputCommand& command,
+        const std::string& requestFingerprint) = 0;
 };
 
 }
