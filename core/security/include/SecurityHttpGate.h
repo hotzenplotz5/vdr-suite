@@ -150,8 +150,17 @@ public:
         const bool isLegacyOsdSessionCreate =
             isPost &&
             path == "/api/vdr/legacy-osd/sessions";
+        const bool isLegacyOsdViewerAttach =
+            isPost &&
+            path == "/api/vdr/legacy-osd/viewers";
+        const bool isLegacyOsdViewerDetach =
+            isPost &&
+            path == "/api/vdr/legacy-osd/viewers/detach";
+        const bool isLegacyOsdViewerFrameRead =
+            request.method == "GET" &&
+            path == "/api/vdr/legacy-osd/viewers/frame";
         std::string legacyOsdBackendId;
-        if (isLegacyOsdSessionStatusRead)
+        if (isLegacyOsdSessionStatusRead || isLegacyOsdViewerFrameRead)
         {
             legacyOsdBackendId =
                 queryStringValue(request.path, "backend");
@@ -201,7 +210,7 @@ public:
             isHbbtvSessionClose ||
             isHbbtvMediaMutation;
         std::string hbbtvBackendId;
-        if (isLegacyOsdSessionStatusRead)
+        if (isLegacyOsdSessionStatusRead || isLegacyOsdViewerFrameRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
@@ -209,7 +218,8 @@ public:
             AuthorizationRequest osdRequest;
             osdRequest.permission = "osd.view";
             osdRequest.backendId = legacyOsdBackendId;
-            osdRequest.action = "osd.session.status";
+            osdRequest.action = isLegacyOsdViewerFrameRead
+                ? "osd.viewer.frame" : "osd.session.status";
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
                     gate.context,
@@ -322,7 +332,9 @@ public:
             isHbbtvSessionMutation;
         const bool isExplicitlyAuthorizedPost =
             (isProtectedMutation || isRecordingPlaybackSessionCreate) ||
-            isLegacyOsdSessionCreate;
+            isLegacyOsdSessionCreate ||
+            isLegacyOsdViewerAttach ||
+            isLegacyOsdViewerDetach;
 
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
@@ -501,10 +513,16 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isLegacyOsdSessionCreate)
+        if (isLegacyOsdSessionCreate ||
+            isLegacyOsdViewerAttach ||
+            isLegacyOsdViewerDetach)
         {
             requestToAuthorize.permission = "osd.view";
-            requestToAuthorize.action = "osd.session.create";
+            requestToAuthorize.action = isLegacyOsdViewerAttach
+                ? "osd.viewer.attach"
+                : (isLegacyOsdViewerDetach
+                    ? "osd.viewer.detach"
+                    : "osd.session.create");
         }
         else if (isHbbtvSessionLaunch)
         {

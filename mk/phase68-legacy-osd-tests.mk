@@ -4,7 +4,8 @@
 	test-phase68-agent-osd-local-resync \
 	test-phase68-legacy-osd-observation \
 	test-phase68-osd-agent-local-resync \
-	test-phase68-osd-view-session-authorization
+	test-phase68-osd-view-session-authorization \
+	test-phase68-osd-viewer-bindings
 
 test-phase68-legacy-osd-domain:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -73,6 +74,7 @@ test-phase68-osd-authenticated-transport:
 test-phase68-osd-view-session-authorization:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		core/daemon/src/LegacyOsdSessionService.cpp \
+		core/daemon/src/OsdViewerBindingService.cpp \
 		api/rest/src/LegacyOsdApiRuntime.cpp \
 		core/daemon/tests/test_legacy_osd_session_service.cpp \
 		$(LDFLAGS) \
@@ -80,3 +82,18 @@ test-phase68-osd-view-session-authorization:
 	$(BUILD_DIR)/test_legacy_osd_session_service
 	$(MAKE) test-security-osd-session
 	python3 tools/check_phase68_osd_view_session_authorization.py
+
+
+.PHONY: test-phase68-osd-viewer-bindings
+test-phase68-osd-viewer-bindings:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/daemon/src/LegacyOsdSessionService.cpp \
+		core/daemon/src/OsdViewerBindingService.cpp \
+		api/rest/src/LegacyOsdApiRuntime.cpp \
+		core/daemon/tests/test_osd_viewer_binding_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_osd_viewer_binding_service
+	$(BUILD_DIR)/test_osd_viewer_binding_service
+	$(MAKE) test-security-osd-session
+	python3 tools/check_phase68_osd_view_session_authorization.py
+	python3 tools/check_phase68_osd_viewer_bindings.py

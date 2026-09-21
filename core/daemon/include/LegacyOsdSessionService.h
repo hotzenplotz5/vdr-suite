@@ -24,6 +24,7 @@ struct LegacyOsdSessionResult
     bool accepted = false;
     std::string error;
     LegacyOsdSession session;
+    BackendAgentOsdReadResult observation;
 };
 
 class LegacyOsdSessionService

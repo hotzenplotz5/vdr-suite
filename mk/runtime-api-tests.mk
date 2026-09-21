@@ -121,6 +121,7 @@ test-test-http-server: prepare-test-db
 		core/daemon/src/HbbtvApplicationSessionService.cpp \
 		api/rest/src/LegacyOsdApiRuntime.cpp \
 		core/daemon/src/LegacyOsdSessionService.cpp \
+		core/daemon/src/OsdViewerBindingService.cpp \
 		api/rest/src/ContinueWatchingApiRuntime.cpp \
 		core/media/src/ContinueWatching.cpp \
 		core/media/src/ContinueWatchingRepository.cpp \

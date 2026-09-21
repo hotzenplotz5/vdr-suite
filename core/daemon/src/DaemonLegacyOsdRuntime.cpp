@@ -4,6 +4,7 @@
 #include "Database.h"
 #include "LegacyOsdApiRuntime.h"
 #include "LegacyOsdSessionService.h"
+#include "OsdViewerBindingService.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
@@ -17,6 +18,7 @@ namespace
 std::unique_ptr<SecurityPermissionGrantRepository>
     legacyOsdPermissionGrantRepository;
 std::unique_ptr<LegacyOsdSessionService> legacyOsdSessionService;
+std::unique_ptr<OsdViewerBindingService> osdViewerBindingService;
 }
 
 bool configureDaemonLegacyOsdRuntime(
@@ -69,17 +71,21 @@ bool configureDaemonLegacyOsdRuntime(
                 context, backendId, generation, now);
         });
 
-    if (!LegacyOsdApiRuntime::instance().configure(*sessions))
+    auto viewers = std::make_unique<OsdViewerBindingService>(*sessions);
+
+    if (!LegacyOsdApiRuntime::instance().configure(*sessions, *viewers))
         return false;
 
     legacyOsdPermissionGrantRepository = std::move(grants);
     legacyOsdSessionService = std::move(sessions);
+    osdViewerBindingService = std::move(viewers);
     return true;
 }
 
 void resetDaemonLegacyOsdRuntime()
 {
     LegacyOsdApiRuntime::instance().reset();
+    osdViewerBindingService.reset();
     legacyOsdSessionService.reset();
     legacyOsdPermissionGrantRepository.reset();
 }
