@@ -4,6 +4,8 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+const actionsSource = fs.readFileSync('web/frontend/recordings2-actions.js', 'utf8');
+
 function first(object, keys, fallback) {
   for (const key of keys) {
     if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
@@ -194,6 +196,21 @@ async function main() {
       singleRecording: embeddedRecording
     }).recordingId,
     'default:4712'
+  );
+
+  assert(!actionsSource.includes("shared.createButton('Papierkorb prüfen'"));
+  assert(!actionsSource.includes('deleteReadback(recording)'));
+  assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, apply, isDryRunReady)"));
+  assert(actionsSource.includes('return executeDelete(recording, status, apply);'));
+  assert(actionsSource.includes("typeof config.completeDelete === 'function'"));
+
+  const deleteEditorStart = actionsSource.indexOf('function createDeleteEditor(recording)');
+  const deleteEditorEnd = actionsSource.indexOf('function createPanel(recording)', deleteEditorStart);
+  const deleteEditorSource = actionsSource.slice(deleteEditorStart, deleteEditorEnd);
+  assert.strictEqual(
+    (deleteEditorSource.match(/global\.confirm\(/g) || []).length,
+    1,
+    'delete workflow must ask for exactly one user confirmation'
   );
 
   const test = window.VdrSuiteRecordings2Actions.__test;

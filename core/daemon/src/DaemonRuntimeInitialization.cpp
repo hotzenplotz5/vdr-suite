@@ -603,7 +603,7 @@ bool DaemonRuntime::initialize()
         *recordingActionValidationRequestParser_,
         *vdrSnapshotReadService_);
     recordingActionExecutionController_->setAfterSuccessfulExecutionCallback(
-        [this](const RecordingActionRequest& request) {
+        [this](const RecordingActionRequest& request) -> bool {
             const std::string backendId =
                 request.backendId.empty()
                     ? "default"
@@ -612,6 +612,17 @@ bool DaemonRuntime::initialize()
             recordingCacheRefreshQueue_.request(backendId, 8);
             externalVdrChangeHint_.store(true);
 
+            // Delete already has an authoritative successful VDR mutation result.
+            // Do not keep the HTTP request open while rebuilding a potentially
+            // large Recording inventory. The existing backend-scoped refresh
+            // worker reconciles cache, metadata and live-update state afterward.
+            if (request.type == RecordingActionType::Delete) {
+                return false;
+            }
+
+            // Rename and move change backend-native identity. Keep their
+            // synchronous refresh so an immediate follow-up action resolves the
+            // new path rather than a stale pre-mutation snapshot.
             for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
                 if (!backendRuntimeContext ||
                     backendRuntimeContext->backendId != backendId ||
@@ -635,8 +646,10 @@ bool DaemonRuntime::initialize()
                         static_cast<int>(recordings.size()));
                 }
 
-                break;
+                return true;
             }
+
+            return false;
         });
 
     recordingActionRequestPreviewService_ =

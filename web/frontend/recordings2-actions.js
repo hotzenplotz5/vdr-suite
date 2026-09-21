@@ -264,17 +264,6 @@
       };
     }
 
-    function deleteReadback(recording) {
-      const expected = identity(recording);
-      return function () {
-        return requestFolder(state().path || '').then(function (data) {
-          return findMatchingRecording(data, expected, expected.title);
-        }).then(function (candidate) {
-          return !candidate;
-        });
-      };
-    }
-
     function moveReadback(recording, targetPath) {
       const expected = identity(recording);
       return function () {
@@ -326,6 +315,29 @@
           }
           setStatus(status, 'pending', 'Backend bestätigt. Recording-Cache wird abgeglichen …');
           poll(readback, status, successMessage);
+          return result;
+        })
+        .catch(function (error) {
+          button.disabled = false;
+          setStatus(status, 'error', error.message);
+          throw error;
+        });
+    }
+
+    function executeDelete(recording, status, button) {
+      button.disabled = true;
+      setStatus(status, 'pending', 'Aufnahme wird in den VDR-Papierkorb verschoben …');
+      return run('execute', recording, 'DELETE', {dryRun: false})
+        .then(function (result) {
+          if (!result || result.success !== true) {
+            throw new Error(String(result && (result.message || result.error) || 'Das Backend hat die Aktion abgelehnt.'));
+          }
+          setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
+          if (typeof config.completeDelete === 'function') {
+            config.completeDelete(recording);
+          } else {
+            finishAction();
+          }
           return result;
         })
         .catch(function (error) {
@@ -477,22 +489,27 @@
       ui.body.appendChild(shared.node(
         'p',
         'recordings2-action-copy',
-        'Die Aufnahme wird zuerst validiert und anschließend als Dry-Run gegen die Backend-Sicherheitsregeln geprüft.'
+        'Die Sicherheitsprüfung läuft automatisch. Zum Löschen ist genau eine Bestätigung erforderlich.'
       ));
-      const status = shared.node('p', 'recordings2-action-status', 'Papierkorb-Aktion zuerst prüfen.');
+      const status = shared.node('p', 'recordings2-action-status', 'Bereit für Papierkorb-Aktion.');
       const buttons = document.createElement('div');
       buttons.className = 'recordings2-action-buttons';
-      let apply;
-      const check = shared.createButton('Papierkorb prüfen', function () {
-        validate(recording, 'DELETE', {}, status, apply, isDryRunReady).catch(function () {});
-      });
-      apply = shared.createButton('In Papierkorb verschieben', function () {
-        if (!global.confirm('Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?')) return;
-        execute(recording, 'DELETE', {}, status, apply,
-          deleteReadback(recording), 'Papierkorb-Aktion abgeschlossen.').catch(function () {});
+      const apply = shared.createButton('In Papierkorb verschieben', function () {
+        validate(recording, 'DELETE', {}, status, apply, isDryRunReady)
+          .then(function () {
+            if (!global.confirm(
+              'Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?'
+            )) {
+              setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
+              return null;
+            }
+            return executeDelete(recording, status, apply);
+          })
+          .catch(function () {
+            apply.disabled = false;
+          });
       }, 'danger');
-      apply.disabled = true;
-      buttons.append(check, apply);
+      buttons.appendChild(apply);
       ui.body.append(status, buttons);
       return ui.details;
     }

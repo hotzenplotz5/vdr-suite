@@ -45,7 +45,8 @@
       ? actions.create({
           getState: getState,
           closeDetail: options.closeDetail,
-          reload: options.reload
+          reload: options.reload,
+          completeDelete: options.completeDelete
         })
       : null;
     let activePlayback = null; let detailStartRevealed = false;
