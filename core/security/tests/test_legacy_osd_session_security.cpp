@@ -95,11 +95,20 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "role.admin", "default"));
-        const auto status =
+        const auto denied =
             fixture.gate.evaluate(browserStatus(fixture, "default"));
-        assert(status.allowed);
-        assert(status.authorizationDecision.reasonCode ==
-            "role_permission_granted");
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.rejection.body.find("permission_denied") !=
+            std::string::npos);
+
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "default"));
+        const auto explicitView =
+            fixture.gate.evaluate(browserStatus(fixture, "default"));
+        assert(explicitView.allowed);
+        assert(explicitView.authorizationDecision.reasonCode ==
+            "permission_granted");
     }
 
     {
