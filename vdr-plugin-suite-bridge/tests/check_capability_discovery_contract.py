@@ -56,7 +56,7 @@ required_content = (
     "class SuiteBridgeCapabilityDiscoveryPayload final",
     "SchemaVersion() noexcept",
     "return 1;",
-    "BufferSize = 768",
+    "BufferSize = 1024",
     "std::array<char, BufferSize> data_;",
     "SuiteBridgeCapabilities::All()",
     "SuiteBridgeCapabilities::StateName(capability.state)",
@@ -79,7 +79,7 @@ required_content = (
     "strcasecmp(command, CommandName())",
     "ParseRequestedSchema(option)",
     'inline constexpr const char *Name = "suitebridge";',
-    'inline constexpr const char *Version = "0.13.4";',
+    'inline constexpr const char *Version = "0.13.5";',
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     "svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
     "svdrp command=CAPS result=rejected reply=%d",
@@ -96,6 +96,8 @@ for capability_id, state in (
     ("local-contract", "available"),
     ("recording-metadata", "available"),
     ("epg-type-snapshot", "available"),
+    ("osd.view", "available"),
+    ("osd.control", "disabled"),
     ("mutations", "disabled"),
 ):
     source_fragment = (
