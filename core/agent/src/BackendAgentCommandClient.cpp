@@ -17,6 +17,8 @@
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutCommandHandler.h"
 #include "BackendAgentRecordingCutTransport.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <chrono>
@@ -542,6 +544,21 @@ CommandAvailability availableCommands(
         }
     }
 
+    bool legacyOsdInputAvailable = false;
+    if (hasCommandType(config, kLegacyOsdInputCommandType) &&
+        config.legacyOsdInputTransport != nullptr)
+    {
+        try
+        {
+            legacyOsdInputAvailable =
+                config.legacyOsdInputTransport->legacyOsdInputAvailable();
+        }
+        catch (...)
+        {
+            legacyOsdInputAvailable = false;
+        }
+    }
+
     for (const std::string& type : config.commandTypes)
     {
         const bool timerType =
@@ -568,6 +585,12 @@ CommandAvailability availableCommands(
         if (type == vdrsuite::agent::kBackendAgentRecordingCutCommandType)
         {
             if (recordingCutAvailable)
+                availability.commandTypes.push_back(type);
+            continue;
+        }
+        if (type == kLegacyOsdInputCommandType)
+        {
+            if (legacyOsdInputAvailable)
                 availability.commandTypes.push_back(type);
             continue;
         }
@@ -878,6 +901,102 @@ bool reconcileBackendAgentCommandState(
             return false;
         reason = "recording_cut_executor_outcome_reconciled";
         return true;
+    }
+
+    const bool legacyOsdInputCommand =
+        state.assignment.commandType == kLegacyOsdInputCommandType;
+    if (legacyOsdInputCommand && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            createResult(
+                state, state.dispatchState, "outcome_unknown",
+                "outcome_unknown", "executor_unknown", "reconcile_only",
+                "Legacy OSD input recovered after dispatch boundary; not re-executed");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "expired", "none",
+                "Legacy OSD input deadline expired before dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+
+        LegacyOsdInputCommand command;
+        if (!legacyOsdInputCommandParse(state.assignment.payload, command))
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input payload rejected locally");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (config.legacyOsdInputTransport == nullptr)
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input transport unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+
+        const vdrsuite::agent::SuiteBridgeCommandReply reply =
+            config.legacyOsdInputTransport->executeLegacyOsdInput(
+                command, state.assignment.requestFingerprint);
+
+        if (!reply.transportSucceeded())
+        {
+            createResult(
+                state, "starting", "outcome_unknown",
+                "outcome_unknown", "executor_unknown", "reconcile_only",
+                "Legacy OSD input transport outcome unknown; not retried");
+        }
+        else if (reply.replyCode == 900)
+        {
+            createResult(
+                state, "effect_reported", "not_required",
+                "succeeded", "none", "none",
+                "Legacy OSD input dispatched; domain mutation success not implied");
+        }
+        else if (reply.replyCode == 555 || reply.replyCode == 554)
+        {
+            createResult(
+                state, "accepted_by_executor", "not_required",
+                "rejected", "fenced", "none",
+                "Legacy OSD input rejected by local fence");
+        }
+        else if (reply.replyCode == 501 || reply.replyCode == 504)
+        {
+            createResult(
+                state, "accepted_by_executor", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input action or schema unsupported");
+        }
+        else
+        {
+            createResult(
+                state, "accepted_by_executor", "outcome_unknown",
+                "rejected", "executor_unknown", "reconcile_only",
+                "Legacy OSD input rejected by native executor");
+        }
+
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
     }
 
     if (!state.receiptAcknowledged &&
