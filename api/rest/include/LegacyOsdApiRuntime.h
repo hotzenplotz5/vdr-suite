@@ -1,13 +1,13 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <string>
 
 class LegacyOsdSessionService;
 class OsdViewerBindingService;
 class OsdControllerLeaseService;
-class LegacyOsdInputService;
 
 class LegacyOsdApiRuntime
 {
@@ -25,7 +25,7 @@ public:
         LegacyOsdSessionService& sessionService,
         OsdViewerBindingService& viewerService,
         OsdControllerLeaseService& controllerService,
-        LegacyOsdInputService& inputService);
+        ILegacyOsdInputService& inputService);
     void reset();
     bool configured() const;
 
@@ -48,5 +48,5 @@ private:
     LegacyOsdSessionService* sessionService_ = nullptr;
     OsdViewerBindingService* viewerService_ = nullptr;
     OsdControllerLeaseService* controllerService_ = nullptr;
-    LegacyOsdInputService* inputService_ = nullptr;
+    ILegacyOsdInputService* inputService_ = nullptr;
 };
