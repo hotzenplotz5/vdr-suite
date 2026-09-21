@@ -107,8 +107,9 @@ RESTfulAPI /osd.json remains useful comparison/fallback evidence, but is not the
 Current code, not the older plugin roadmap baseline, is authoritative:
 
 ```text
-SuiteBridge plugin version: 0.13.3
-capability schema:          1
+SuiteBridge kickoff baseline: 0.13.3
+SuiteBridge Phase-68.A candidate: 0.13.4
+capability schema:               1
 ```
 
 The current static capability catalogue does not yet advertise an OSD observation/input capability.

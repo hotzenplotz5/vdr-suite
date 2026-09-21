@@ -107,7 +107,7 @@ check-hbbtv-svdrp-boundary:
 	python3 tests/check_hbbtv_svdrp_boundary.py
 
 check-version:
-	test "$(VERSION)" = "0.13.3"
+	test "$(VERSION)" = "0.13.4"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
