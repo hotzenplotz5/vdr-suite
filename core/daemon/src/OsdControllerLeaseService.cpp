@@ -643,6 +643,11 @@ OsdControllerLeaseResult OsdControllerLeaseService::current(
     const std::int64_t now = nowProvider_ ? nowProvider_() : -1;
     if (now < 0) return reject("legacy_osd_time_unavailable");
 
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        reapExpiredLocked(now);
+    }
+
     const auto binding = viewerService_.find(request.viewerBindingId);
     if (!binding.has_value() ||
         binding->actorId != request.actorId ||
@@ -660,7 +665,6 @@ OsdControllerLeaseResult OsdControllerLeaseService::current(
     std::string leaseId;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        reapExpiredLocked(now);
         const auto owner = surfaceOwners_.find(observedKey);
         if (owner != surfaceOwners_.end()) leaseId = owner->second;
     }
