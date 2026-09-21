@@ -67,6 +67,7 @@ REQUIRED_HEADER_FRAGMENTS = [
 REQUIRED_SOURCE_FRAGMENTS = [
     'return "PLUG suitebridge CAPS 1\\r\\n";',
     'return "PLUG suitebridge SNAP\\r\\n";',
+    'return "PLUG suitebridge OSDSNAP\\r\\n";',
     '"PLUG suitebridge ARTW " + channelId + " " + eventId + "\\r\\n"',
     "safeToken(channelId)",
     "safeToken(eventId)",
@@ -102,6 +103,8 @@ REQUIRED_METADATA_SOURCE_FRAGMENTS = [
 REQUIRED_TEST_FRAGMENTS = [
     'server.request() == "PLUG suitebridge CAPS 1\\r\\n"',
     'server.request() == "PLUG suitebridge SNAP\\r\\n"',
+    'server.request() == "PLUG suitebridge OSDSNAP\\r\\n"',
+    "testOsdSnapshotCommand();",
     "testMultilineReply();",
     "testReplyTimeout();",
     "testGreetingTimeout();",
@@ -222,6 +225,7 @@ if "const std::string& command" in header_text:
 expected_fixed_requests = {
     '"PLUG suitebridge CAPS 1\\r\\n"',
     '"PLUG suitebridge SNAP\\r\\n"',
+    '"PLUG suitebridge OSDSNAP\\r\\n"',
 }
 
 observed_fixed_requests = {
@@ -232,7 +236,7 @@ observed_fixed_requests = {
 
 if observed_fixed_requests != expected_fixed_requests:
     errors.append(
-        "SB.10b source must retain exactly the two fixed local Suite Bridge requests"
+        "typed Suite Bridge transport must retain exactly the three fixed local core requests"
     )
 
 if source_text.count('"PLUG suitebridge ARTW "') != 1:
