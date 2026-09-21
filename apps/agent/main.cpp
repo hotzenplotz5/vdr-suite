@@ -219,6 +219,10 @@ int main(int argc, char** argv)
         {
             config.commandTypes.push_back(kLegacyOsdInputCommandType);
         }
+        // Interactive OSD input has a three-second dispatch deadline, so it
+        // cannot wait for the normal heartbeat cadence. Reuse the existing
+        // authenticated command poll path at a bounded low-latency cadence.
+        config.commandPollIntervalMilliseconds = 250;
         config.osdObservationSource = [&](const std::string& backendId, std::uint64_t generation) {
             if (!osdSource || osdGeneration != generation)
             {

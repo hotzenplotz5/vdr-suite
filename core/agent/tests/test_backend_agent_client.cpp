@@ -784,6 +784,89 @@ void test_permissions_and_bounded_backoff()
     removeTree(root);
 }
 
+void test_low_latency_command_poll_between_heartbeats()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-low-latency-command-poll";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    config.commandTypes = {"probe.noop"};
+    config.commandPollIntervalMilliseconds = 250;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\","
+        "\"backendId\":\"default\","
+        "\"backendGeneration\":1,"
+        "\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"heartbeatSequence\":1,"
+        "\"leaseExpiresAt\":123,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200,
+        "{\"hasAssignment\":false,"
+        "\"reasonCode\":\"no_command_available\"}"));
+
+    bool stopRequested = false;
+    std::vector<int> millisecondSleeps;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int) {
+            assert(false);
+        },
+        [](const std::string&) {},
+        [&](int milliseconds) {
+            assert(milliseconds == 250);
+            millisecondSleeps.push_back(milliseconds);
+            if (millisecondSleeps.size() == 2)
+                stopRequested = true;
+        });
+
+    assert(runtime.synchronize(reason));
+    const std::size_t requestsBeforeRun = transport.paths.size();
+    const std::uint64_t heartbeatBeforeRun =
+        runtime.state().heartbeatSequence;
+
+    transport.responses.push_back(success(
+        200,
+        "{\"hasAssignment\":false,"
+        "\"reasonCode\":\"no_command_available\"}"));
+
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(millisecondSleeps == std::vector<int>({250, 250}));
+    assert(transport.paths.size() == requestsBeforeRun + 1);
+    assert(transport.paths.back() == "/api/agent/v1/commands/poll");
+    assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);
+    assert(transport.responses.empty());
+
+    removeTree(root);
+}
+
 void test_heartbeat_wait_is_interruptible()
 {
     const std::string root =
@@ -860,6 +943,7 @@ int main()
     test_channel_observation_publication_change_and_pending_retry();
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
+    test_low_latency_command_poll_between_heartbeats();
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;

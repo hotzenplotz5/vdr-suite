@@ -27,6 +27,10 @@ api = read("api/rest/src/LegacyOsdApiRuntime.cpp")
 security = read("core/security/include/SecurityHttpGate.h")
 delivery = read("core/agent/src/BackendAgentCommandDelivery.cpp")
 client = read("core/agent/src/BackendAgentCommandClient.cpp")
+agent_runtime = read("core/agent/src/BackendAgentClient.cpp")
+agent_runtime_h = read("core/agent/include/BackendAgentClient.h")
+agent_main = read("apps/agent/main.cpp")
+agent_test = read("core/agent/tests/test_backend_agent_client.cpp")
 transport = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
 plugin = read("vdr-plugin-suite-bridge/suitebridge_osd_input.cpp")
 plugin_svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
@@ -139,6 +143,25 @@ for token in (
     "executeLegacyOsdInput(",
 ):
     require(token in client, f"no-blind-retry Agent behavior missing: {token}")
+
+for token in (
+    "commandPollIntervalMilliseconds = 0",
+    "SleepMilliseconds",
+    "pollCommands(std::string& reasonCode)",
+    "sleepMilliseconds_(waitMilliseconds)",
+):
+    require(
+        token in agent_runtime_h + agent_runtime,
+        f"low-latency Agent polling contract missing: {token}",
+    )
+require(
+    "config.commandPollIntervalMilliseconds = 250" in agent_main,
+    "Legacy OSD input must activate bounded 250ms command polling",
+)
+require(
+    "test_low_latency_command_poll_between_heartbeats" in agent_test,
+    "low-latency command polling must be covered by the Agent client test",
+)
 
 require(
     '"PLUG suitebridge OSDINPUT 1 "' in transport,

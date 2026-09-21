@@ -42,6 +42,9 @@ struct BackendAgentClientConfig
     std::function<vdrsuite::agent::SuiteBridgeOsdFrameSourceSnapshot(
         const std::string&, std::uint64_t)> osdObservationSource;
     int heartbeatIntervalSeconds = 30;
+    // Internal runtime cadence only. A positive value keeps command polling
+    // responsive between normal heartbeats without accelerating observations.
+    int commandPollIntervalMilliseconds = 0;
     int reconnectInitialSeconds = 1;
     int reconnectMaximumSeconds = 30;
     long connectTimeoutMilliseconds = 5000;
@@ -145,13 +148,15 @@ class BackendAgentClientRuntime
 {
 public:
     using Sleep = std::function<void(int)>;
+    using SleepMilliseconds = std::function<void(int)>;
     using Log = std::function<void(const std::string&)>;
 
     BackendAgentClientRuntime(
         BackendAgentClientConfig config,
         IBackendAgentControlPlaneTransport& transport,
         Sleep sleep = {},
-        Log log = {});
+        Log log = {},
+        SleepMilliseconds sleepMilliseconds = {});
 
     bool synchronize(std::string& reasonCode);
     bool rotateCredential(std::string& reasonCode);
@@ -202,12 +207,14 @@ private:
     bool preparePendingBackendHealthObservation(std::string& reasonCode);
     bool promotePendingBackendHealthObservation(std::string& reasonCode);
     bool resetObservationLineage(std::string& reasonCode);
+    bool pollCommands(std::string& reasonCode);
     bool persist(std::string& reasonCode);
     void log(const std::string& message) const;
 
     BackendAgentClientConfig config_;
     IBackendAgentControlPlaneTransport& transport_;
     Sleep sleep_;
+    SleepMilliseconds sleepMilliseconds_;
     Log log_;
     BackendAgentClientState state_;
     std::string agentInstanceId_;

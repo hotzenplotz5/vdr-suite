@@ -644,12 +644,20 @@ BackendAgentClientRuntime::BackendAgentClientRuntime(
     BackendAgentClientConfig config,
     IBackendAgentControlPlaneTransport& transport,
     Sleep sleep,
-    Log log)
+    Log log,
+    SleepMilliseconds sleepMilliseconds)
     : config_(std::move(config)),
       transport_(transport),
       sleep_(sleep ? std::move(sleep) : Sleep([](int seconds) {
           std::this_thread::sleep_for(std::chrono::seconds(seconds));
       })),
+      sleepMilliseconds_(
+          sleepMilliseconds
+              ? std::move(sleepMilliseconds)
+              : SleepMilliseconds([](int milliseconds) {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(milliseconds));
+                })),
       log_(std::move(log)),
       agentInstanceId_(generateOpaqueId("agi_", 16))
 {
@@ -1975,6 +1983,47 @@ void BackendAgentClientRuntime::publishOsdObservation()
     // or loss of unrelated health/command service when OSD is unavailable.
 }
 
+bool BackendAgentClientRuntime::pollCommands(
+    std::string& reasonCode)
+{
+    if (!synchronized_ ||
+        state_.backendGeneration == 0 ||
+        state_.capabilityRevision == 0)
+    {
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+
+    BackendAgentCommandClientConfig commandConfig;
+    commandConfig.statePath = config_.commandStatePath;
+    commandConfig.commandTypes = config_.commandTypes;
+    commandConfig.nativeTimerCreateTransport =
+        config_.nativeTimerCreateTransport;
+    commandConfig.nativeTimerDeleteTransport =
+        config_.nativeTimerDeleteTransport;
+    commandConfig.nativeTimerModifyTransport =
+        config_.nativeTimerModifyTransport;
+    commandConfig.legacyOsdInputTransport =
+        config_.legacyOsdInputTransport;
+
+    BackendAgentCommandClientContext commandContext{
+        state_.agentId,
+        state_.credentialSecret,
+        state_.backendId,
+        agentInstanceId_,
+        state_.backendGeneration};
+
+    if (!pollBackendAgentCommand(
+            commandConfig, commandContext, transport_, reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
+
+    reasonCode = "commands_polled";
+    return true;
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -2123,6 +2172,9 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
         }
         return !stopRequested();
     };
+    const int heartbeatIntervalMilliseconds =
+        config_.heartbeatIntervalSeconds * 1000;
+    int millisecondsSinceHeartbeat = 0;
 
     while (!stopRequested())
     {
@@ -2132,6 +2184,7 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
             if (synchronize(reason))
             {
                 reconnectDelay = config_.reconnectInitialSeconds;
+                millisecondsSinceHeartbeat = 0;
                 log("Backend Agent synchronized");
             }
             else
@@ -2146,7 +2199,34 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
                 continue;
             }
         }
-        if (!sleepUntilStop(config_.heartbeatIntervalSeconds)) break;
+
+        if (config_.commandPollIntervalMilliseconds > 0)
+        {
+            const int remainingUntilHeartbeat =
+                heartbeatIntervalMilliseconds - millisecondsSinceHeartbeat;
+            const int waitMilliseconds = std::min(
+                config_.commandPollIntervalMilliseconds,
+                remainingUntilHeartbeat);
+            sleepMilliseconds_(waitMilliseconds);
+            if (stopRequested()) break;
+            millisecondsSinceHeartbeat += waitMilliseconds;
+
+            if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
+            {
+                if (!pollCommands(reason))
+                {
+                    log("Backend Agent command poll failed: " + reason);
+                }
+                continue;
+            }
+
+            millisecondsSinceHeartbeat = 0;
+        }
+        else if (!sleepUntilStop(config_.heartbeatIntervalSeconds))
+        {
+            break;
+        }
+
         if (!heartbeat(reason))
         {
             log("Backend Agent heartbeat failed: " + reason);
