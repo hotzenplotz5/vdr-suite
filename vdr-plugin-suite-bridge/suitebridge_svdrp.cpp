@@ -5,12 +5,16 @@
 #include "suitebridge_command_result.h"
 #include "suitebridge_epg_command_handler.h"
 #include "suitebridge_plugin_identity.h"
+#include "suitebridge_osd_snapshot_contract.h"
 #include "suitebridge_recording_cut_state_command.h"
 #include "suitebridge_recording_marks_command.h"
 #include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_svdrp_contract.h"
 
 #include <vdr/tools.h>
+
+#include <cctype>
+#include <strings.h>
 
 namespace {
 
@@ -22,6 +26,16 @@ cString ReturnResult(
   return cString::sprintf("%s", result.payload.c_str());
 }
 
+bool HasNonWhitespace(const char *value)
+{
+  if (value == nullptr) return false;
+  while (*value != '\0' &&
+         std::isspace(static_cast<unsigned char>(*value))) {
+    ++value;
+  }
+  return *value != '\0';
+}
+
 } // namespace
 
 const char **cPluginSuiteBridge::SVDRPHelpPages(void)
@@ -31,6 +45,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
+      "OSDSNAP\n"
+      "    Return the current bounded semantic Legacy OSD full frame; no skin pixels.",
       "ARTW <channel-id> <event-id>\n"
       "    Resolve preferred TVScraper artwork for one EPG event.",
       "META <channel-id> <event-id>\n"
@@ -119,6 +135,41 @@ cString cPluginSuiteBridge::SVDRPCommand(
           SuiteBridgeCapabilityDiscoveryPayload::SchemaVersion());
     }
     return cString::sprintf("%s", capabilityReply.Data());
+  }
+
+  if (Command != nullptr && strcasecmp(Command, "OSDSNAP") == 0) {
+    if (HasNonWhitespace(Option)) {
+      ReplyCode = 501;
+      esyslog(
+          "suitebridge: svdrp command=OSDSNAP result=rejected reply=%d reason=option",
+          ReplyCode);
+      return cString::sprintf("OSDSNAP accepts no option");
+    }
+
+    const SuiteBridgeOsdSnapshot snapshot =
+        statusMonitor_.CaptureOsdSnapshot();
+    const SuiteBridgeOsdSnapshotPayload payload(snapshot);
+
+    if (!payload.Complete()) {
+      ReplyCode = 451;
+      esyslog(
+          "suitebridge: svdrp command=OSDSNAP result=rejected reply=%d reason=payload",
+          ReplyCode);
+      return cString::sprintf("Suite bridge OSD snapshot payload unavailable");
+    }
+
+    ReplyCode = 900;
+    isyslog(
+        "suitebridge: svdrp command=OSDSNAP result=served reply=%d bytes=%zu schema=%u active=%d complete=%d consistent=%d sequence=%llu dropped=%llu",
+        ReplyCode,
+        payload.Size(),
+        SuiteBridgeOsdSnapshotPayload::SchemaVersion(),
+        snapshot.active ? 1 : 0,
+        snapshot.complete ? 1 : 0,
+        snapshot.consistent ? 1 : 0,
+        snapshot.frameSequence,
+        snapshot.droppedUpdates);
+    return cString::sprintf("%s", payload.Data());
   }
 
   const SuiteBridgeCommandResult artwork =
