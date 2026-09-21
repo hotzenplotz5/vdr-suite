@@ -204,7 +204,7 @@ bool BackendAgentLifecycleService::validCapabilities(
         "suitebridge", "restfulapi", "svdrp", "channels-conf"};
     static const std::set<std::string> Domains = {
         "backend-health", "channels", "epg", "recordings", "timers",
-        "searchtimers", "metadata"};
+        "searchtimers", "metadata", "osd"};
 
     if (!facts.readOnly || facts.adapters.size() + facts.observationDomains.size() > 32 ||
         !uniqueValues(facts.adapters) || !uniqueValues(facts.observationDomains))

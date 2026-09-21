@@ -8,6 +8,8 @@
 #include "SuiteBridgeRecordingMarksModifyTransport.h"
 #include "SuiteBridgeRecordingCutTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeHandshakeService.h"
+#include "SuiteBridgeOsdFrameSource.h"
 
 #include <algorithm>
 #include <atomic>
@@ -132,7 +134,10 @@ int main(int argc, char** argv)
     // user-editable COMMAND_TYPES allowlist preserves the established config
     // parser contract while the runtime advertises each command only after
     // live SuiteBridge capability discovery below.
-    if (!config.suiteBridgeHost.empty())
+    const bool osdReadOnlyConfiguration = config.commandTypes.empty() &&
+        std::find(config.observationDomains.begin(), config.observationDomains.end(),
+                  "osd") != config.observationDomains.end();
+    if (!config.suiteBridgeHost.empty() && !osdReadOnlyConfiguration)
     {
         if (std::find(
                 config.commandTypes.begin(),
@@ -193,6 +198,30 @@ int main(int argc, char** argv)
         setBackendAgentRecordingCutTransport(recordingCutTransport.get());
         setBackendAgentRecordingMarksModifyTransport(
             recordingMarksModifyTransport.get());
+    }
+
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> osdTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeOsdFrameSource> osdSource;
+    std::uint64_t osdGeneration = 0;
+    if (std::find(config.observationDomains.begin(), config.observationDomains.end(),
+                  "osd") != config.observationDomains.end() && !config.suiteBridgeHost.empty())
+    {
+        vdrsuite::agent::SuiteBridgeSvdrpTransportConfig osdConfig;
+        osdConfig.host = config.suiteBridgeHost;
+        osdConfig.port = config.suiteBridgePort;
+        osdTransport = std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(osdConfig);
+        config.osdObservationSource = [&](const std::string& backendId, std::uint64_t generation) {
+            if (!osdSource || osdGeneration != generation)
+            {
+                osdGeneration = generation;
+                osdSource = std::make_unique<vdrsuite::agent::SuiteBridgeOsdFrameSource>(
+                    *osdTransport, backendId, generation);
+            }
+            vdrsuite::agent::SuiteBridgeHandshakeService handshake(*osdTransport);
+            const auto discovery = handshake.discover();
+            return osdSource->read(discovery.compatible()
+                ? discovery.discovery : vdrsuite::agent::SuiteBridgeDiscovery{});
+        };
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;

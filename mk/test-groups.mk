@@ -1,6 +1,8 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-phase68-osd-agent-local-resync \
+	test-phase68-osd-authenticated-transport \
 	test-backend-agent-foundation \
 	test-backend-agent-client \
 	test-backend-agent-enrollment-tool \
@@ -68,6 +70,8 @@ CI_FAST_TESTS := \
 	test-systemd-unit-contract
 
 VDR_TESTS := \
+	test-phase68-osd-agent-local-resync \
+	test-phase68-osd-authenticated-transport \
 	check-vdr-linkage-contracts \
 	test-suite-bridge-agent-boundary \
 	test-suite-bridge-handshake \

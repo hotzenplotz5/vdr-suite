@@ -47,6 +47,7 @@ private:
     HttpServerResponse handleChannelObservation(
         const HttpServerRequest& request,
         const RequestSecurityContext& context) const;
+    HttpServerResponse handleOsdObservation(const HttpServerRequest& request, const RequestSecurityContext& context) const;
     HttpServerResponse handleCommandPoll(const HttpServerRequest& request, const RequestSecurityContext& context) const;
     HttpServerResponse handleCommandReceipt(const HttpServerRequest& request, const RequestSecurityContext& context) const;
     HttpServerResponse handleCommandResult(const HttpServerRequest& request, const RequestSecurityContext& context) const;

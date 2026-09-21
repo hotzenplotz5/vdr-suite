@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BackendAgentOsdObservation.h"
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -34,6 +35,9 @@ struct BackendAgentClientConfig
         nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport*
         nativeTimerModifyTransport = nullptr;
+    // Installed by the existing Agent composition root; never a public transport.
+    std::function<vdrsuite::agent::SuiteBridgeOsdFrameSourceSnapshot(
+        const std::string&, std::uint64_t)> osdObservationSource;
     int heartbeatIntervalSeconds = 30;
     int reconnectInitialSeconds = 1;
     int reconnectMaximumSeconds = 30;
@@ -186,6 +190,7 @@ private:
     bool publishCapabilities(std::string& reasonCode);
     bool publishBackendHealthObservation(std::string& reasonCode);
     bool publishChannelObservation(std::string& reasonCode);
+    void publishOsdObservation();
     bool submitPendingChannelObservation(std::string& reasonCode);
     bool preparePendingChannelObservation(std::string& reasonCode);
     bool resetChannelObservationLineage(std::string& reasonCode);

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "SecurityIdentity.h"
+#include "BackendAgentOsdObservation.h"
+#include <map>
+#include <mutex>
 #include "BackendAgentChannelObservation.h"
 
 #include <cstdint>
@@ -369,6 +372,13 @@ public:
         const std::string& backendId,
         std::int64_t now) const;
 
+    BackendAgentObservationResult ingestOsdObservation(
+        const RequestSecurityContext& context,
+        const BackendAgentOsdObservation& observation, std::int64_t now);
+    BackendAgentOsdReadResult readOsdObservation(
+        const RequestSecurityContext& context, const std::string& backendId,
+        std::uint64_t expectedGeneration, std::int64_t now) const;
+
     static bool supportedProtocol(const std::string& version);
     static bool safeIdentifier(const std::string& value);
     static bool safeSoftwareVersion(const std::string& value);
@@ -389,6 +399,16 @@ private:
         const std::string& deviceId,
         const std::string& credentialId) const;
 
+    bool osdAuthorityCurrent(const std::string& backendId,
+        const std::string& instanceId, std::uint64_t generation,
+        std::int64_t now) const;
+    struct OsdEntry
+    {
+        BackendAgentOsdObservation observation;
+        std::int64_t acceptedAt = 0;
+    };
+    mutable std::mutex osdMutex_;
+    mutable std::map<std::string, OsdEntry> osdObservations_;
     Database& database_;
     BackendAgentRepository& repository_;
     BackendRegistryService& backendRegistryService_;
