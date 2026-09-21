@@ -15,7 +15,7 @@ constexpr std::array<SuiteBridgeCapabilityDescriptor, 12> CAPABILITIES = {{
     {"epg-type-snapshot", SuiteBridgeCapabilityState::Available},
     {"vdr.live.stream", SuiteBridgeCapabilityState::Available},
     {"osd.view", SuiteBridgeCapabilityState::Available},
-    {"osd.control", SuiteBridgeCapabilityState::Disabled},
+    {"osd.control", SuiteBridgeCapabilityState::Available},
     {"mutations", SuiteBridgeCapabilityState::Disabled},
 }};
 
