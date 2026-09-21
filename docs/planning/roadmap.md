@@ -54,7 +54,7 @@ Current active numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Next strict numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
 Phase 65, Phase 66 and Phase 67 are completed. Durable Broadcast Companion evidence lives in [Phase 67 Closeout](../development/phase-67-closeout.md), with Teletext-specific evidence retained in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is active; durable kickoff evidence is in [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md).

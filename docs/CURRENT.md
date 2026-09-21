@@ -44,7 +44,7 @@ Current active numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Next strict numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Completed Phase-67 verticals:
 Teletext read path / browser-TV view / page navigation
