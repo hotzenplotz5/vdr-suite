@@ -3,6 +3,7 @@
 CI_FAST_TESTS := \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
+	test-phase68-osd-view-session-authorization \
 	test-backend-agent-foundation \
 	test-backend-agent-client \
 	test-backend-agent-enrollment-tool \
@@ -72,6 +73,7 @@ CI_FAST_TESTS := \
 VDR_TESTS := \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
+	test-phase68-osd-view-session-authorization \
 	check-vdr-linkage-contracts \
 	test-suite-bridge-agent-boundary \
 	test-suite-bridge-handshake \

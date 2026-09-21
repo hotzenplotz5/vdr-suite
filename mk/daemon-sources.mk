@@ -37,6 +37,7 @@ DAEMON_SRC := \
         api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp \
         api/rest/src/TeletextApiRuntime.cpp \
         api/rest/src/HbbtvApiRuntime.cpp \
+        api/rest/src/LegacyOsdApiRuntime.cpp \
         api/rest/src/HbbtvMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
@@ -128,10 +129,12 @@ DAEMON_SRC := \
         core/daemon/src/EmbeddedBackendHbbtvAuthority.cpp \
         core/daemon/src/HbbtvControlPlaneReadService.cpp \
         core/daemon/src/HbbtvApplicationSessionService.cpp \
+        core/daemon/src/LegacyOsdSessionService.cpp \
         core/vdr/src/SuiteBridgeHbbtvRuntimeResolver.cpp \
         core/vdr/src/SuiteBridgeHbbtvPresentationResolver.cpp \
         core/vdr/src/SuiteBridgeHbbtvMediaResolver.cpp \
         core/daemon/src/DaemonHbbtvRuntime.cpp \
+        core/daemon/src/DaemonLegacyOsdRuntime.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
         core/daemon/src/DaemonRuntimeInitialization.cpp \
         core/daemon/src/DaemonRuntimePolling.cpp \

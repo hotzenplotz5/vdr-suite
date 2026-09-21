@@ -7,6 +7,7 @@
 #include "GlobalSearchApiRuntime.h"
 #include "HbbtvApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
+#include "LegacyOsdApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
@@ -215,6 +216,15 @@ public:
             return response;
         }
 
+        if (LegacyOsdApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response,
+                actorRef,
+                clientRef))
+        {
+            return response;
+        }
+
         if (HbbtvApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response,
@@ -293,6 +303,17 @@ public:
         const std::string& correlationRef = "")
     {
         ApiResponse response;
+
+        if (LegacyOsdApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                actorRef,
+                clientRef,
+                correlationRef,
+                response))
+        {
+            return response;
+        }
 
         if (HbbtvApiRuntime::instance().tryHandlePost(
                 requestTarget,

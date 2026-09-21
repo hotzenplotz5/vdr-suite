@@ -652,7 +652,7 @@ Phase 67 closes only when:
 
 ## Phase 68 — Legacy OSD Compatibility Bridge
 
-Status: **Active — 68.A read-only OSD observation.**
+Status: **Active — 68.E bounded viewer bindings and multi-viewer delivery.**
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -692,15 +692,33 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - `resync_required` instead of guessed state;
 - bounded queues/backpressure.
 
-#### 68.C — Agent transport and viewer sessions
+#### 68.C — Authenticated Agent transport
 
 - authenticated Agent path;
-- `osd.view` authorization;
-- multiple bounded viewers;
+- typed semantic OSD observation transport;
 - backend-generation fencing;
-- privacy/stale-state handling.
+- transient bounded receiver;
+- privacy/stale-state handling;
+- no public client session yet.
 
-#### 68.D — Controller lease
+#### 68.D — Authorized view-session admission
+
+- explicit backend-scoped `osd.view` authorization;
+- bounded transient `LegacyOsdSession`;
+- actor/client/backend binding;
+- generation, expiry and revocation fencing;
+- no frame payload leakage through admission/status metadata;
+- no control or native input.
+
+#### 68.E — Viewer bindings and bounded multi-viewer delivery
+
+- `OsdViewerBinding` lifecycle;
+- several bounded viewers per authorized session/surface;
+- exact session/backend/surface/epoch association;
+- bounded backpressure and resynchronization;
+- no controller authority implied by viewing.
+
+#### 68.F — Controller lease
 
 - separate `osd.control` permission;
 - exactly one active Suite controller per native surface scope;
@@ -708,7 +726,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - read-only backend denial;
 - no native input yet until the lease boundary passes.
 
-#### 68.E — Allowlisted input
+#### 68.G — Allowlisted input
 
 - normalized safe key vocabulary;
 - generation/OSD-epoch/lease fencing;
@@ -1051,7 +1069,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
+  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.E]
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
 ```
@@ -1075,7 +1093,7 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phase 65, Phase 66 and Phase 67 are completed for their accepted bounded scopes. Phase-67 durable completion evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
 
-**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. The active coherent vertical is 68.A read-only OSD observation. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
+**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. Accepted Phase-68 work now covers 68.A through 68.D. The active coherent vertical is 68.E bounded viewer bindings and multi-viewer delivery. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 

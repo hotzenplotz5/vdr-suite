@@ -14,6 +14,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
 - [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md)
+- [Phase 68.D View-Session Closeout](development/phase-68d-view-session-authorization-closeout.md)
 - [Phase 67 Closeout](development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
@@ -50,8 +51,22 @@ Completed Phase-67 verticals:
 Teletext read path / browser-TV view / page navigation
 HbbTV discovery / authorized application session / presentation-media runtime
 
-Current active runtime slice:
+Accepted Phase-68 verticals:
+68.A - Read-only semantic OSD observation
+68.B - Agent-local buffering and resynchronization
 68.C - Authenticated read-only Agent OSD transport
+68.D - Authorized bounded Legacy OSD view sessions
+
+Current active runtime slice:
+68.E - Bounded viewer bindings and multi-viewer delivery
+
+Latest accepted Phase-68 transport merge checkpoint:
+PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
+
+Phase-68.D accepted candidate:
+PR #310 -> 8807d587536daa6c27ae72a3f88d40b0c7de3480
+Hosted CI run 35594914471: SUCCESS
+real yaVDR acceptance: PASS
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487

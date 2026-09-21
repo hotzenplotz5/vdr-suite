@@ -3,6 +3,7 @@
 #include "ContinueWatchingApiRuntime.h"
 #include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonHbbtvRuntime.h"
+#include "DaemonLegacyOsdRuntime.h"
 #include "DaemonTeletextRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -53,6 +54,17 @@ int DaemonRuntime::run()
             *embeddedBackendLifecycleService_,
             backendRuntimeContexts_)) {
         std::cerr << "HbbTV discovery control-plane runtime unavailable" << std::endl;
+        return 1;
+    }
+    if (!backendAgentLifecycleService_ ||
+        !backendAgentIdentityRepository_ ||
+        !configureDaemonLegacyOsdRuntime(
+            database_,
+            *backendAgentIdentityRepository_,
+            *backendAgentLifecycleService_)) {
+        std::cerr
+            << "Legacy OSD view-session runtime unavailable"
+            << std::endl;
         return 1;
     }
     if (!ContinueWatchingApiRuntime::instance().configure(
