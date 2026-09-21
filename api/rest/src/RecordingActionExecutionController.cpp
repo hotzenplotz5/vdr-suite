@@ -65,7 +65,7 @@ RecordingActionExecutionController::RecordingActionExecutionController(
 }
 
 void RecordingActionExecutionController::setAfterSuccessfulExecutionCallback(
-    std::function<void(const RecordingActionRequest&)> callback)
+    std::function<bool(const RecordingActionRequest&)> callback)
 {
     afterSuccessfulExecution_ = std::move(callback);
 }
@@ -86,8 +86,7 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
 
     try
     {
-        afterSuccessfulExecution_(resolvedRequest);
-        return true;
+        return afterSuccessfulExecution_(resolvedRequest);
     }
     catch (...)
     {

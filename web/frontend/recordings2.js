@@ -79,8 +79,8 @@
     loadFolder: loadFolder,
     onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); }
   });
-  const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves,
-    stop: stopFolderRefresh, schedule: scheduleFolderRefresh, updatePresentedFolderState} = folderRefresh;
+  const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves, stop: stopFolderRefresh,
+    schedule: scheduleFolderRefresh, updatePresentedFolderState, forgetRecording} = folderRefresh;
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
@@ -196,7 +196,7 @@
     loadMore: loadMore,
     selectRecording: selectRecording,
     closeDetail: closeDetail,
-    reload: reload
+    reload: reload, completeDelete: function (recording) { forgetRecording(recording); closeDetail(); }
   });
   const moduleApi = Object.freeze({
     activate: function () {
