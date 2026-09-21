@@ -52,5 +52,18 @@ test-phase68-osd-agent-local-resync: \
 
 # Phase 68.A and 68.B are read-only backend/domain slices and belong to
 # normal fast/VDR CI. Neither target exposes OSD through HTTP or enables input.
-test-ci-fast: test-phase68-osd-agent-local-resync
-test-vdr: test-phase68-osd-agent-local-resync
+
+.PHONY: test-phase68-osd-authenticated-transport
+test-phase68-osd-authenticated-transport:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		$(sort $(SQLITE_SRC) $(AGENT_CONTROL_PLANE_SRC) $(AGENT_CLIENT_SRC) $(AGENT_OSD_OBSERVATION_SRC) $(AGENT_HANDSHAKE_SRC) $(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC)) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/agent/tests/test_backend_agent_osd_transport.cpp \
+		$(LDFLAGS) -o $(BUILD_DIR)/test_backend_agent_osd_transport
+	$(BUILD_DIR)/test_backend_agent_osd_transport

@@ -653,13 +653,28 @@ HttpServerResponse BackendAgentHttpServer::handleCommandResult(
         "\",\"reasonCode\":\"" + jsonEscape(result.reasonCode) + "\"}");
 }
 
+HttpServerResponse BackendAgentHttpServer::handleOsdObservation(
+    const HttpServerRequest& request, const RequestSecurityContext& context) const
+{
+    BackendAgentOsdObservation observation;
+    if (!parseBackendAgentOsdObservation(request.body, observation))
+        return errorResponse(400, "invalid_osd_observation");
+    const auto result = lifecycleService_.ingestOsdObservation(context, observation, unixNow());
+    if (!result.accepted) return errorResponse(409, result.reasonCode);
+    return jsonResponse(200, "{\"producerSequence\":" +
+        std::to_string(result.producerSequence) + "}");
+}
+
 HttpServerResponse BackendAgentHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
     if (!isAgentPath(request.path)) return clientServer_->handleRequest(request);
     const bool channelObservation =
         request.path == "/api/agent/v1/observations/channels";
-    const std::size_t maximumBodyBytes = channelObservation
+    const bool osdObservation = request.path == "/api/agent/v1/observations/osd";
+    const std::size_t maximumBodyBytes = osdObservation
+        ? BackendAgentOsdObservation::MaximumBodyBytes
+        : channelObservation
         ? MaximumChannelObservationBodyBytes
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
@@ -680,6 +695,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
         return handleBackendHealthObservation(request, context);
     if (request.path == "/api/agent/v1/observations/channels")
         return handleChannelObservation(request, context);
+    if (osdObservation) return handleOsdObservation(request, context);
     if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);
     if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);
     if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);

@@ -142,6 +142,8 @@ AGENT_COMMAND_CLIENT_SRC := \
 	core/agent/src/BackendAgentCommandClient.cpp
 
 AGENT_CONTROL_PLANE_DOMAIN_SRC := \
+	core/agent/src/BackendAgentOsdObservationService.cpp \
+	core/agent/src/BackendAgentOsdObservation.cpp \
 	core/agent/src/BackendRuntimeGeneration.cpp \
 	core/agent/src/BackendAgentRepository.cpp \
 	core/agent/src/BackendAgentLifecycle.cpp \
@@ -160,6 +162,7 @@ AGENT_CONTROL_PLANE_SRC := \
 	$(AGENT_CONTROL_PLANE_HTTP_SRC)
 
 AGENT_CLIENT_SRC := \
+	core/agent/src/BackendAgentOsdObservation.cpp \
 	core/agent/src/BackendAgentClient.cpp \
 	$(AGENT_CHANNEL_JSON_SRC) \
 	$(AGENT_COMMAND_JSON_SRC) \

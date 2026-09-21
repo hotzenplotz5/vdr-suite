@@ -3,6 +3,8 @@
 backend-agent:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(AGENT_CLIENT_SRC) \
+		$(AGENT_HANDSHAKE_SRC) \
+		$(AGENT_OSD_OBSERVATION_SRC) \
 		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
@@ -26,7 +28,7 @@ backend-agent-enrollment:
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
-		$(AGENT_CLIENT_SRC) \
+		$(filter-out core/agent/src/BackendAgentOsdObservation.cpp,$(AGENT_CLIENT_SRC)) \
 		apps/tools/backend_agent_enrollment_create.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent-enroll

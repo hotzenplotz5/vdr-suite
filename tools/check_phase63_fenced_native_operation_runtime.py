@@ -518,6 +518,55 @@ for label, discriminator, required_handoffs in allowed_timer_discriminators:
         discriminator, "", 1
     )
 
+# Phase 68.C intentionally composes the authenticated read-only OSD source in
+# apps/agent/main.cpp. Keep the old Phase-63 mutation-name heuristic intact,
+# but exempt only the exact, bounded read-only assignment names after proving
+# their composition contract and expected occurrence counts.
+phase68c_osd_required_tokens = (
+    "const bool osdReadOnlyConfiguration = config.commandTypes.empty() &&",
+    'std::find(config.observationDomains.begin(), config.observationDomains.end(),',
+    'std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> osdTransport;',
+    'std::unique_ptr<vdrsuite::agent::SuiteBridgeOsdFrameSource> osdSource;',
+    "SuiteBridgeSvdrpTransportConfig osdConfig;",
+    "osdConfig.host = config.suiteBridgeHost;",
+    "osdConfig.port = config.suiteBridgePort;",
+    "SuiteBridgeHandshakeService handshake(*osdTransport);",
+    "const auto discovery = handshake.discover();",
+    "return osdSource->read(discovery.compatible()",
+)
+phase68c_osd_assignment_counts = (
+    ("osdReadOnlyConfiguration", 1),
+    ("osdGeneration", 2),
+    ("osdTransport", 1),
+    ("osdObservationSource", 1),
+    ("osdSource", 1),
+)
+phase68c_osd_boundary_valid = True
+for token in phase68c_osd_required_tokens:
+    if token not in agent_main:
+        errors.append(
+            "Phase-68.C read-only OSD composition missing bounded token: " + token
+        )
+        phase68c_osd_boundary_valid = False
+
+for name, expected_count in phase68c_osd_assignment_counts:
+    assignment_pattern = rf"\b{re.escape(name)}\s*="
+    actual_count = len(re.findall(assignment_pattern, agent_main))
+    if actual_count != expected_count:
+        errors.append(
+            "Phase-68.C read-only OSD assignment count changed unexpectedly: "
+            f"{name}: expected {expected_count}, got {actual_count}"
+        )
+        phase68c_osd_boundary_valid = False
+
+if phase68c_osd_boundary_valid:
+    for name, _ in phase68c_osd_assignment_counts:
+        scoped_runtime_boundary = re.sub(
+            rf"\b{re.escape(name)}\s*=",
+            name + " /* phase68c-read-only */",
+            scoped_runtime_boundary,
+        )
+
 for pattern in [
     r"\b(?:system|popen|fork|execl|execv|posix_spawn)\s*\(",
     r"\b(?:timer|recording(?!MarksModify|Cut)|searchtimer|channel|epg|remote|osd)[A-Za-z_]*\s*=",

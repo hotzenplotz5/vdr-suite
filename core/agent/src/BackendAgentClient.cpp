@@ -97,7 +97,7 @@ bool validCapabilities(
         "suitebridge", "restfulapi", "svdrp", "channels-conf"};
     static const std::vector<std::string> AllowedDomains = {
         "backend-health", "channels", "epg", "recordings", "timers",
-        "searchtimers", "metadata"};
+        "searchtimers", "metadata", "osd"};
     if (adapters.size() + domains.size() > 32) return false;
     const auto allAllowed = [](const std::vector<std::string>& values,
                                const std::vector<std::string>& allowed) {
@@ -817,6 +817,13 @@ bool BackendAgentClientRuntime::loadConfig(
         (timerCommandsConfigured && config.suiteBridgeHost.empty()))
     {
         reasonCode = "invalid_command_type_configuration";
+        return false;
+    }
+    const bool osdDomain = std::find(config.observationDomains.begin(),
+        config.observationDomains.end(), "osd") != config.observationDomains.end();
+    if (osdDomain && (config.suiteBridgeHost.empty() || config.heartbeatIntervalSeconds > 30))
+    {
+        reasonCode = "invalid_osd_source_configuration";
         return false;
     }
     const bool channelsAdapter = std::find(
@@ -1938,6 +1945,36 @@ bool BackendAgentClientRuntime::publishChannelObservation(
     return submitPendingChannelObservation(reasonCode);
 }
 
+void BackendAgentClientRuntime::publishOsdObservation()
+{
+    if (std::find(config_.observationDomains.begin(), config_.observationDomains.end(),
+                  "osd") == config_.observationDomains.end()) return;
+    BackendAgentOsdObservation observation;
+    observation.backendId = state_.backendId;
+    observation.agentInstanceId = agentInstanceId_;
+    observation.backendGeneration = state_.backendGeneration;
+    observation.producerSequence = state_.heartbeatSequence;
+    if (config_.osdObservationSource)
+        observation.snapshot = config_.osdObservationSource(state_.backendId, state_.backendGeneration);
+    // Never transport last-good contents as current after a failed local read.
+    using State = vdrsuite::agent::SuiteBridgeOsdFrameSourceState;
+    if (observation.snapshot.state != State::Current &&
+        observation.snapshot.state != State::ResyncRequired)
+        observation.snapshot.buffer = {};
+    observation.snapshot.diagnostic.clear();
+    const auto body = serializeBackendAgentOsdObservation(observation);
+    if (body.empty()) { log("osd_observation_invalid"); return; }
+    const auto response = transport_.postAuthenticated(state_.agentId,
+        state_.credentialSecret, "/api/agent/v1/observations/osd", body);
+    std::uint64_t accepted = 0;
+    if (!response.transportSucceeded || response.statusCode != 200 ||
+        !jsonUnsigned(response.body, "producerSequence", accepted) ||
+        accepted != observation.producerSequence)
+        log("osd_observation_delivery_failed");
+    // OSD is transient and optional. No disk queue, payload logging, blind replay,
+    // or loss of unrelated health/command service when OSD is unavailable.
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -2023,6 +2060,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         synchronized_ = false;
         return false;
     }
+    publishOsdObservation();
     if (!pollBackendAgentCommand(commandConfig, commandContext, transport_, reasonCode))
     {
         synchronized_ = false;
