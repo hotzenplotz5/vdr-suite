@@ -310,9 +310,15 @@ bool parseControllerBody(
 
 bool parseInputBody(
     const std::string& body,
-    LegacyOsdInputCommand& command)
+    LegacyOsdInputCommand& command,
+    std::string& parseError)
 {
-    if (body.empty() || body.size() > MaximumBodyBytes) return false;
+    parseError.clear();
+    if (body.empty() || body.size() > MaximumBodyBytes)
+    {
+        parseError = "legacy_osd_input_request_invalid";
+        return false;
+    }
 
     std::map<std::string, std::string> strings;
     std::map<std::string, std::uint64_t> numbers;
@@ -391,7 +397,10 @@ bool parseInputBody(
 
     LegacyOsdInputAction action;
     if (!legacyOsdInputActionFromName(strings["action"], action))
+    {
+        parseError = "legacy_osd_input_action_unsupported";
         return false;
+    }
 
     command = LegacyOsdInputCommand{};
     command.inputCommandId = strings["inputCommandId"];
@@ -758,8 +767,19 @@ bool LegacyOsdApiRuntime::tryHandlePost(
         }
 
         LegacyOsdInputCommand command;
-        if (!parseInputBody(body, command) ||
-            !safeToken(actorRef, true) ||
+        std::string parseError;
+        if (!parseInputBody(body, command, parseError))
+        {
+            const bool unsupported =
+                parseError == "legacy_osd_input_action_unsupported";
+            response = errorResponse(
+                unsupported ? 422 : 400,
+                unsupported
+                    ? parseError
+                    : "legacy_osd_input_request_invalid");
+            return true;
+        }
+        if (!safeToken(actorRef, true) ||
             !safeToken(clientRef, true) ||
             !safeToken(correlationRef, true))
         {
@@ -773,7 +793,7 @@ bool LegacyOsdApiRuntime::tryHandlePost(
         if (!legacyOsdInputCommandValid(command))
         {
             response = errorResponse(
-                400, "legacy_osd_input_request_invalid");
+                422, "legacy_osd_input_semantics_invalid");
             return true;
         }
 
