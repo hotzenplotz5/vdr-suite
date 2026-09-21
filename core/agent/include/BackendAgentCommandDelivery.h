@@ -76,6 +76,8 @@ public:
     bool ensureRecordingCutAssignmentSchema();
     bool ensureRecordingMarksModifyReconciliationSchema();
     bool ensureRecordingCutReconciliationSchema();
+    std::optional<BackendAgentCommandAssignment> findAssignment(
+        const std::string& commandId) const;
     std::optional<BackendAgentCommandAssignment> findAssignmentForOperation(
         const std::string& backendId,
         const std::string& operationId,
