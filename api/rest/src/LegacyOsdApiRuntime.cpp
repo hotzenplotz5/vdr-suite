@@ -223,6 +223,38 @@ ApiResponse errorResponse(int statusCode, const std::string& error)
         "\",\"message\":\"Legacy OSD session request rejected\"}}");
 }
 
+std::string viewerJson(const OsdViewerBinding& binding)
+{
+    std::ostringstream output;
+    output << "{\"viewerBindingId\":\""
+           << jsonEscape(binding.viewerBindingId)
+           << "\",\"bindingRevision\":" << binding.bindingRevision
+           << ",\"legacyOsdSessionId\":\""
+           << jsonEscape(binding.legacyOsdSessionId)
+           << "\",\"sessionRevision\":" << binding.sessionRevision
+           << ",\"backendId\":\"" << jsonEscape(binding.backendId)
+           << "\",\"backendGeneration\":" << binding.backendGeneration
+           << ",\"state\":\"" << osdViewerBindingStateName(binding.state)
+           << "\",\"attachedAt\":" << binding.attachedAt
+           << ",\"lastSeenAt\":" << binding.lastSeenAt
+           << ",\"expiresAt\":" << binding.expiresAt
+           << ",\"renderingProfile\":\""
+           << jsonEscape(binding.renderingProfile)
+           << "\",\"surface\":{\"surfaceId\":\""
+           << jsonEscape(binding.osdSurfaceId)
+           << "\",\"osdEpoch\":\"" << jsonEscape(binding.osdEpoch)
+           << "\"},\"cursor\":{\"acknowledgedFrameSequence\":"
+           << binding.lastAcknowledgedFrameSequence
+           << ",\"deliveredFrameSequence\":"
+           << binding.lastDeliveredFrameSequence
+           << ",\"acknowledgedEventSequence\":"
+           << binding.lastAcknowledgedEventSequence
+           << "},\"capabilities\":{\"view\":true,\"control\":false}"
+           << ",\"closeReason\":\"" << jsonEscape(binding.closeReason)
+           << "\"}";
+    return output.str();
+}
+
 std::string sessionJson(const LegacyOsdSession& session)
 {
     std::ostringstream output;
