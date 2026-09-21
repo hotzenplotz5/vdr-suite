@@ -2,6 +2,7 @@
 
 #include "ContinueWatchingApiRuntime.h"
 #include "DaemonHbbtvRuntime.h"
+#include "DaemonLegacyOsdRuntime.h"
 #include "DaemonRuntimeRecordingEditing.h"
 #include "DaemonSqliteShutdownCancellation.h"
 #include "DaemonTeletextRuntime.h"
@@ -54,6 +55,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    resetDaemonLegacyOsdRuntime();
     resetDaemonHbbtvRuntime();
     resetDaemonTeletextRuntime();
     embeddedBackendLifecycleService_.reset();

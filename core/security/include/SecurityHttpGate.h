@@ -144,6 +144,32 @@ public:
             request.method == "GET" && isMediaTranscodeSettingsRoute;
         const bool isMediaTranscodeSettingsAction =
             isPost && isMediaTranscodeSettingsRoute;
+        const bool isLegacyOsdSessionStatusRead =
+            request.method == "GET" &&
+            path == "/api/vdr/legacy-osd/sessions/status";
+        const bool isLegacyOsdSessionCreate =
+            isPost &&
+            path == "/api/vdr/legacy-osd/sessions";
+        std::string legacyOsdBackendId;
+        if (isLegacyOsdSessionStatusRead)
+        {
+            legacyOsdBackendId =
+                queryStringValue(request.path, "backend");
+            const bool validBackend =
+                !legacyOsdBackendId.empty() &&
+                legacyOsdBackendId.size() <= 128U &&
+                std::all_of(
+                    legacyOsdBackendId.begin(),
+                    legacyOsdBackendId.end(),
+                    [](unsigned char character) {
+                        return std::isalnum(character) ||
+                            character == '.' ||
+                            character == '_' ||
+                            character == '-';
+                    });
+            if (!validBackend) legacyOsdBackendId.clear();
+        }
+
         const bool isHbbtvDiscoveryRead =
             request.method == "GET" &&
             path == "/api/vdr/broadcast/hbbtv/applications";
@@ -175,6 +201,53 @@ public:
             isHbbtvSessionClose ||
             isHbbtvMediaMutation;
         std::string hbbtvBackendId;
+        if (isLegacyOsdSessionStatusRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest osdRequest;
+            osdRequest.permission = "osd.view";
+            osdRequest.backendId = legacyOsdBackendId;
+            osdRequest.action = "osd.session.status";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    osdRequest);
+
+            if (!appendDecisionEvent(
+                    gate.context,
+                    decision,
+                    ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
         {
@@ -246,7 +319,8 @@ public:
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
             isManualRecordingMetadataAction ||
             isRecordingSeriesHierarchyAction ||
-            isHbbtvSessionMutation;
+            isHbbtvSessionMutation ||
+            isLegacyOsdSessionCreate;
         const bool isExplicitlyAuthorizedPost =
             isProtectedMutation || isRecordingPlaybackSessionCreate;
 
@@ -427,7 +501,12 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isHbbtvSessionLaunch)
+        if (isLegacyOsdSessionCreate)
+        {
+            requestToAuthorize.permission = "osd.view";
+            requestToAuthorize.action = "osd.session.create";
+        }
+        else if (isHbbtvSessionLaunch)
         {
             requestToAuthorize.permission = "broadcast.hbbtv.launch";
             requestToAuthorize.action = "broadcast.hbbtv.launch";
