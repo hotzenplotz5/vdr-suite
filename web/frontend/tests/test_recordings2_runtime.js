@@ -361,6 +361,52 @@ async function run() {
     returnedCount: 1
   }, false);
 
+  const deleteState = {
+    data: {
+      folders: [],
+      recordings: [
+        {recordingId: 'delete-me', backendNativeId: '/srv/vdr/video/delete-me.rec'},
+        {recordingId: 'keep-me', backendNativeId: '/srv/vdr/video/keep-me.rec'}
+      ]
+    },
+    serverRecordings: [
+      {recordingId: 'delete-me', backendNativeId: '/srv/vdr/video/delete-me.rec'},
+      {recordingId: 'keep-me', backendNativeId: '/srv/vdr/video/keep-me.rec'}
+    ],
+    promotedRecordings: [],
+    recordings: [],
+    serverRecordingCount: 2
+  };
+  const deleteRefresh = window.VdrSuiteRecordings2FolderRefresh.create({
+    getState() { return deleteState; },
+    fetchClientRecordingFolder() { return Promise.resolve({}); },
+    pageSize: 50,
+    normalizePath(value) { return String(value || ''); },
+    number(value, fallback) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    },
+    shared: shared,
+    folderArtwork: null,
+    normalizeRecordings(value) { return value; },
+    applyFolderData() {},
+    render() {},
+    loadFolder() {}
+  });
+  deleteRefresh.updatePresentedFolderState();
+  assert.strictEqual(deleteState.recordings.length, 2);
+  assert.strictEqual(deleteRefresh.forgetRecording({
+    recordingId: 'delete-me',
+    backendNativeId: '/srv/vdr/video/delete-me.rec'
+  }), true);
+  assert.deepStrictEqual(
+    Array.from(deleteState.recordings).map(item => item.recordingId),
+    ['keep-me']
+  );
+  assert.strictEqual(deleteState.serverRecordingCount, 1);
+  assert.strictEqual(deleteState.data.recordingCount, 1);
+  assert.strictEqual(deleteRefresh.forgetRecording({recordingId: 'missing'}), false);
+
   console.log('recordings2 modular runtime ok');
 }
 

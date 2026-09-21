@@ -7,6 +7,7 @@ runtime_paths = {
     'shared': ROOT / 'web/frontend/recordings2-shared.js',
     'folder_artwork': ROOT / 'web/frontend/recordings2-folder-artwork.js',
     'actions': ROOT / 'web/frontend/recordings2-actions.js',
+    'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
     'marks_editor': ROOT / 'web/frontend/recordings2-marks-editor.js',
@@ -68,7 +69,18 @@ required_tokens = {
         'findMatchingRecording',
         'requestBrowsableFolder',
         'isDryRunReady',
+        'executeDelete',
+        'enqueueDelete',
+        'waitForDeleteSettlement',
+        'DELETE_QUEUE_BY_BACKEND',
+        'completeDelete',
         'READBACK_ATTEMPTS',
+    ),
+    'folder_refresh': (
+        'global.VdrSuiteRecordings2FolderRefresh',
+        'sameRecordingIdentity',
+        'forgetRecording',
+        'updatePresentedFolderState',
     ),
     'browser_view': (
         'global.VdrSuiteRecordings2BrowserView',
@@ -287,6 +299,38 @@ for canonical_path in (
 for token in ('findByBackendNativeId(', 'recordingMetadataRepository'):
     if token not in daemon:
         raise SystemExit(f'missing recording metadata daemon wiring: {token}')
+
+recording_action_callback = daemon.find(
+    'recordingActionExecutionController_->setAfterSuccessfulExecutionCallback('
+)
+if recording_action_callback < 0:
+    raise SystemExit('missing Recording action post-execution callback')
+recording_action_callback_end = daemon.find(
+    'recordingActionRequestPreviewService_ =',
+    recording_action_callback,
+)
+if recording_action_callback_end < 0:
+    raise SystemExit('unable to bound Recording action post-execution callback')
+recording_action_callback_source = daemon[
+    recording_action_callback:recording_action_callback_end
+]
+delete_async_fence = (
+    'if (request.type == RecordingActionType::Delete) {\n'
+    '                return false;\n'
+    '            }'
+)
+if delete_async_fence not in recording_action_callback_source:
+    raise SystemExit(
+        'Recording DELETE must queue cache reconciliation without synchronous refresh'
+    )
+delete_fence_offset = recording_action_callback_source.index(delete_async_fence)
+full_refresh_offset = recording_action_callback_source.find(
+    'snapshotBuilder->buildRecordings()'
+)
+if full_refresh_offset < 0 or delete_fence_offset >= full_refresh_offset:
+    raise SystemExit(
+        'Recording DELETE async fence must precede any synchronous full Recording rebuild'
+    )
 
 runtime_assets = (
     ('recordings2-shared.js', 'VdrSuiteRecordings2Shared'),

@@ -89,6 +89,45 @@
       });
     }
 
+    function sameRecordingIdentity(candidate, recording) {
+      const candidateId = String(options.shared.first(candidate, ['recordingId', 'id', 'nativeId'], ''));
+      const recordingId = String(options.shared.first(recording, ['recordingId', 'id', 'nativeId'], ''));
+      if (candidateId && recordingId) return candidateId === recordingId;
+      const candidateNative = String(options.shared.first(candidate, ['backendNativeId', 'nativePath', 'path'], ''));
+      const recordingNative = String(options.shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
+      return Boolean(
+        candidateNative && recordingNative && candidateNative === recordingNative
+      );
+    }
+
+    function forgetRecording(recording) {
+      const value = state();
+      const beforeServer = value.serverRecordings.length;
+      const beforePromoted = value.promotedRecordings.length;
+      value.serverRecordings = value.serverRecordings.filter(function (candidate) {
+        return !sameRecordingIdentity(candidate, recording);
+      });
+      value.promotedRecordings = value.promotedRecordings.filter(function (candidate) {
+        return !sameRecordingIdentity(candidate, recording);
+      });
+      const removedServer = beforeServer - value.serverRecordings.length;
+      const removedPromoted = beforePromoted - value.promotedRecordings.length;
+      if (removedServer > 0) {
+        value.serverRecordingCount = Math.max(
+          0, value.serverRecordingCount - removedServer
+        );
+      }
+      if (value.data) {
+        value.data = Object.assign({}, value.data, {
+          recordings: options.shared.recordingList(value.data).filter(function (candidate) {
+            return !sameRecordingIdentity(candidate, recording);
+          })
+        });
+      }
+      updatePresentedFolderState();
+      return removedServer > 0 || removedPromoted > 0;
+    }
+
     function resolveLeaves(data, guard) {
       const resolver = options.folderArtwork;
       if (!resolver || typeof resolver.resolveLeaves !== 'function') {
@@ -190,7 +229,7 @@
     }
 
     return Object.freeze({requestFolder, signature, updatePresentedFolderState,
-      resolveLeaves, stop, schedule, refresh});
+      sameRecordingIdentity, forgetRecording, resolveLeaves, stop, schedule, refresh});
   }
 
   global.VdrSuiteRecordings2FolderRefresh = Object.freeze({create});

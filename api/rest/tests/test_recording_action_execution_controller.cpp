@@ -271,7 +271,7 @@ int main()
         [&refreshCount,
          &refreshStarted,
          &releaseRefresh,
-         &refreshedRequest](const RecordingActionRequest& callbackRequest) {
+         &refreshedRequest](const RecordingActionRequest& callbackRequest) -> bool {
             refreshedRequest = callbackRequest;
             refreshStarted.store(true);
 
@@ -281,6 +281,7 @@ int main()
             }
 
             refreshCount.fetch_add(1);
+            return true;
         });
 
     const std::string resolvedBody =
@@ -338,6 +339,29 @@ int main()
     assert(
         refreshedRequest.parameters.at("backendNativeId") ==
         recording.backendNativeId);
+
+    RecordingActionExecutionController queuedRefreshController(
+        resolvedExecutionService,
+        resolvedJsonSerializer,
+        resolvedRegistry,
+        backendRegistry,
+        resolvedRequestParser,
+        snapshotReadService);
+
+    std::atomic<int> queuedRefreshCount{0};
+    queuedRefreshController.setAfterSuccessfulExecutionCallback(
+        [&queuedRefreshCount](const RecordingActionRequest&) -> bool {
+            queuedRefreshCount.fetch_add(1);
+            return false;
+        });
+
+    const ApiResponse queuedRefreshResponse =
+        queuedRefreshController.executeBody(resolvedBody);
+
+    assert(queuedRefreshResponse.statusCode == 200);
+    assert(queuedRefreshResponse.body.find("\"success\":true") != std::string::npos);
+    assert(queuedRefreshResponse.body.find("\"snapshotRefreshed\":false") != std::string::npos);
+    assert(queuedRefreshCount.load() == 1);
 
     return 0;
 }
