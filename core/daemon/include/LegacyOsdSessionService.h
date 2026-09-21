@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BackendAgentLifecycle.h"
-#include "LegacyOsdDomain.h"
+#include "LegacyOsdSessionDomain.h"
 #include "SecurityIdentity.h"
 
 #include <cstdint>

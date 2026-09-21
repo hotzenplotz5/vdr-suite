@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 paths = {
-    "domain": ROOT / "core/vdr/include/LegacyOsdDomain.h",
+    "domain": ROOT / "core/vdr/include/LegacyOsdSessionDomain.h",
     "service": ROOT / "core/daemon/src/LegacyOsdSessionService.cpp",
     "api": ROOT / "api/rest/src/LegacyOsdApiRuntime.cpp",
     "daemon": ROOT / "core/daemon/src/DaemonLegacyOsdRuntime.cpp",
