@@ -15,6 +15,7 @@ class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerModifyTransport;
 class IBackendAgentRecordingMarksModifyTransport;
 class IBackendAgentRecordingCutTransport;
+class ISuiteBridgeLegacyOsdInputTransport;
 
 // Production-only default binding for the native recording-cut transport.
 // Tests may continue to inject an explicit per-config transport below. The
@@ -31,6 +32,7 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport* nativeTimerModifyTransport = nullptr;
+    vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport* legacyOsdInputTransport = nullptr;
     vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport =
         vdrsuite::agent::RecordingCutDefaultTransport;
 };
