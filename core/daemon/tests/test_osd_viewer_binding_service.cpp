@@ -295,7 +295,7 @@ void testGenerationExpiryAndBounds()
            expired.error == "legacy_osd_viewer_expired");
 }
 
-void testApiDelivery()
+void testApiBindingLifecycle()
 {
     resetState();
     nowValue = 9000;
@@ -323,16 +323,7 @@ void testApiDelivery()
     assert(response.body.find("PRIVATE_VIEWER_FRAME_TEXT") ==
         std::string::npos);
 
-    assert(api.tryHandleGet(
-        "/api/vdr/legacy-osd/viewers/frame"
-        "?backend=default&session=los_viewers_api"
-        "&viewer=ovb_api_001&ack=0",
-        response, "user:viewer", "device:viewer"));
-    assert(response.statusCode == 200);
-    assert(response.headers.at("Cache-Control") == "no-store");
-    assert(response.body.find("\"deliveryState\":\"frame\"") !=
-        std::string::npos);
-    assert(response.body.find("PRIVATE_VIEWER_FRAME_TEXT") !=
+    assert(response.body.find("PRIVATE_VIEWER_FRAME_TEXT") ==
         std::string::npos);
 
     assert(api.tryHandlePost(
@@ -345,12 +336,6 @@ void testApiDelivery()
     assert(response.body.find("\"state\":\"closed\"") !=
         std::string::npos);
 
-    assert(api.tryHandleGet(
-        "/api/vdr/legacy-osd/viewers/frame"
-        "?backend=default&session=los_viewers_api"
-        "&viewer=ovb_api_001&ack=0",
-        response, "user:viewer", "device:viewer"));
-    assert(response.statusCode == 404);
     api.reset();
 }
 }
@@ -359,6 +344,6 @@ int main()
 {
     testMultiViewerIsolationAndResync();
     testGenerationExpiryAndBounds();
-    testApiDelivery();
+    testApiBindingLifecycle();
     return 0;
 }

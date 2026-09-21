@@ -156,11 +156,8 @@ public:
         const bool isLegacyOsdViewerDetach =
             isPost &&
             path == "/api/vdr/legacy-osd/viewers/detach";
-        const bool isLegacyOsdViewerFrameRead =
-            request.method == "GET" &&
-            path == "/api/vdr/legacy-osd/viewers/frame";
         std::string legacyOsdBackendId;
-        if (isLegacyOsdSessionStatusRead || isLegacyOsdViewerFrameRead)
+        if (isLegacyOsdSessionStatusRead)
         {
             legacyOsdBackendId =
                 queryStringValue(request.path, "backend");
@@ -210,7 +207,7 @@ public:
             isHbbtvSessionClose ||
             isHbbtvMediaMutation;
         std::string hbbtvBackendId;
-        if (isLegacyOsdSessionStatusRead || isLegacyOsdViewerFrameRead)
+        if (isLegacyOsdSessionStatusRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
@@ -218,8 +215,7 @@ public:
             AuthorizationRequest osdRequest;
             osdRequest.permission = "osd.view";
             osdRequest.backendId = legacyOsdBackendId;
-            osdRequest.action = isLegacyOsdViewerFrameRead
-                ? "osd.viewer.frame" : "osd.session.status";
+            osdRequest.action = "osd.session.status";
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
                     gate.context,

@@ -56,10 +56,7 @@ required = {
     "api": [
         '"/api/vdr/legacy-osd/viewers"',
         '"/api/vdr/legacy-osd/viewers/detach"',
-        '"/api/vdr/legacy-osd/viewers/frame"',
         '"Cache-Control"] = "no-store"',
-        "deliveryJson(",
-        "frameJson(",
     ],
     "daemon": [
         "std::unique_ptr<OsdViewerBindingService>",
@@ -69,7 +66,6 @@ required = {
     "security": [
         '"osd.viewer.attach"',
         '"osd.viewer.detach"',
-        '"osd.viewer.frame"',
         'requestToAuthorize.permission = "osd.view"',
     ],
     "agent": [
@@ -82,6 +78,23 @@ for label, tokens in required.items():
     for token in tokens:
         if token not in contents[label]:
             errors.append(f"{label} missing required token: {token}")
+
+
+# Public API owns viewer-binding lifecycle only. ADR-0048 keeps sequenced
+# OSD frame/delta delivery on the separately defined compatibility plane.
+
+for forbidden_public_delivery in (
+    '"/api/vdr/legacy-osd/viewers/frame"',
+    "frameJson(",
+    "deliveryJson(",
+    '"osd.viewer.frame"',
+):
+    if forbidden_public_delivery in contents["api"] or \
+       forbidden_public_delivery in contents["security"]:
+        errors.append(
+            "68.E must not expose sequenced OSD delivery through public REST: "
+            + forbidden_public_delivery
+        )
 
 viewer_runtime = "\n".join(
     contents[label] for label in ("domain", "service_h", "service", "api")
