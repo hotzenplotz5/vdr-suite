@@ -12,6 +12,7 @@
   const STYLE_ID = 'vdr-suite-recordings2-actions-styles';
   const READBACK_ATTEMPTS = 45;
   const READBACK_DELAY_MS = 1000;
+  const DELETE_QUEUE_BY_BACKEND = new Map();
 
   function normalizeFolderPath(value) {
     const raw = String(value || '').trim();
@@ -347,6 +348,73 @@
         });
     }
 
+    function waitForDeleteSettlement(recording, sourcePath) {
+      const expected = identity(recording);
+      let attempts = 0;
+      return new Promise(function (resolve, reject) {
+        function check() {
+          attempts += 1;
+          requestFolder(sourcePath).then(function (data) {
+            return findMatchingRecording(data, expected, expected.title);
+          }).then(function (candidate) {
+            if (!candidate) {
+              resolve();
+              return;
+            }
+            if (attempts >= READBACK_ATTEMPTS) {
+              reject(new Error('Vorherige Papierkorb-Aktion ist noch nicht vollständig abgeschlossen.'));
+              return;
+            }
+            global.setTimeout(check, READBACK_DELAY_MS);
+          }).catch(function (error) {
+            if (attempts >= READBACK_ATTEMPTS) {
+              reject(error);
+              return;
+            }
+            global.setTimeout(check, READBACK_DELAY_MS);
+          });
+        }
+        check();
+      });
+    }
+
+    function enqueueDelete(recording, status, button) {
+      const backendId = String(state().backendId || shared.selectedBackendId() || 'default');
+      const sourcePath = state().path || '';
+      let queue = DELETE_QUEUE_BY_BACKEND.get(backendId);
+      if (!queue) {
+        queue = {tail: Promise.resolve(), pending: 0};
+        DELETE_QUEUE_BY_BACKEND.set(backendId, queue);
+      }
+      const previous = queue.tail;
+      const wasQueued = queue.pending > 0;
+      queue.pending += 1;
+      button.disabled = true;
+      if (wasQueued) {
+        setStatus(status, 'pending', 'Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion …');
+      }
+      const execution = previous.then(function () {
+        return validate(recording, 'DELETE', {}, status, button, isDryRunReady)
+          .then(function () {
+            return executeDelete(recording, status, button);
+          });
+      });
+      const settled = execution.then(function (result) {
+        return waitForDeleteSettlement(recording, sourcePath).then(function () {
+          return result;
+        });
+      });
+      queue.tail = settled;
+      const cleanup = function () {
+        queue.pending = Math.max(0, queue.pending - 1);
+        if (queue.pending === 0 && queue.tail === settled) {
+          DELETE_QUEUE_BY_BACKEND.delete(backendId);
+        }
+      };
+      settled.then(cleanup, cleanup);
+      return execution;
+    }
+
     function editor(title) {
       const details = document.createElement('details');
       details.className = 'recordings2-action-editor';
@@ -501,10 +569,7 @@
           setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
           return;
         }
-        validate(recording, 'DELETE', {}, status, apply, isDryRunReady)
-          .then(function () {
-            return executeDelete(recording, status, apply);
-          })
+        enqueueDelete(recording, status, apply)
           .catch(function () {
             apply.disabled = false;
           });

@@ -200,8 +200,12 @@ async function main() {
 
   assert(!actionsSource.includes("shared.createButton('Papierkorb prüfen'"));
   assert(!actionsSource.includes('deleteReadback(recording)'));
-  assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, apply, isDryRunReady)"));
-  assert(actionsSource.includes('return executeDelete(recording, status, apply);'));
+  assert(actionsSource.includes('const DELETE_QUEUE_BY_BACKEND = new Map();'));
+  assert(actionsSource.includes('function waitForDeleteSettlement(recording, sourcePath)'));
+  assert(actionsSource.includes('function enqueueDelete(recording, status, button)'));
+  assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, button, isDryRunReady)"));
+  assert(actionsSource.includes('return executeDelete(recording, status, button);'));
+  assert(actionsSource.includes("Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion"));
   assert(actionsSource.includes("typeof config.completeDelete === 'function'"));
 
   const deleteEditorStart = actionsSource.indexOf('function createDeleteEditor(recording)');
