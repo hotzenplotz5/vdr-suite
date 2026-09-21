@@ -146,7 +146,30 @@ bool LegacyOsdInputService::rateAllowed(
     std::int64_t now)
 {
     std::lock_guard<std::mutex> lock(rateMutex_);
-    RateWindow& window = rateWindows_[leaseId];
+
+    auto windowIt = rateWindows_.find(leaseId);
+    if (windowIt == rateWindows_.end())
+    {
+        if (rateWindows_.size() >= MaximumRateWindows)
+        {
+            for (auto it = rateWindows_.begin();
+                 it != rateWindows_.end() &&
+                     rateWindows_.size() >= MaximumRateWindows;)
+            {
+                if (it->second.second != now)
+                    it = rateWindows_.erase(it);
+                else
+                    ++it;
+            }
+        }
+        if (rateWindows_.size() >= MaximumRateWindows)
+            return false;
+
+        windowIt = rateWindows_.emplace(
+            leaseId, RateWindow{now, 0}).first;
+    }
+
+    RateWindow& window = windowIt->second;
     if (window.second != now)
     {
         window.second = now;

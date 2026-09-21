@@ -903,8 +903,10 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     }
 
     const auto assignment = commandRepository_.findAssignment(receipt.commandId);
-    if (assignment.has_value() &&
-        assignment->commandType == kLegacyOsdInputCommandType)
+    const bool legacyOsdInput =
+        assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType;
+    if (legacyOsdInput)
     {
         if (!receiptFenceCheck_)
         {
@@ -927,15 +929,6 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
                 reason.empty() ? "legacy_osd_input_fenced" : reason;
             return result;
         }
-        if (!appendEvent(
-                context, "legacy-osd.input.accepted",
-                receipt.backendId, assignment->operationId,
-                "legacy-osd.input", "allow",
-                "dispatch_fence_current", "accepted_for_dispatch", now))
-        {
-            result.reasonCode = "command_accountability_unavailable";
-            return result;
-        }
     }
 
     if (!appendEvent(
@@ -946,7 +939,40 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
         result.reasonCode = "command_accountability_unavailable";
         return result;
     }
+
     result = commandRepository_.acceptReceipt(receipt);
+
+    if (legacyOsdInput)
+    {
+        if (result.accepted)
+        {
+            if (!appendEvent(
+                    context, "legacy-osd.input.accepted",
+                    receipt.backendId, assignment->operationId,
+                    "legacy-osd.input", "allow",
+                    "dispatch_fence_current", "accepted_for_dispatch", now))
+            {
+                result.accepted = false;
+                result.replayed = false;
+                result.dropResponse = false;
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+        }
+        else if (!appendEvent(
+                     context, "legacy-osd.input.rejected",
+                     receipt.backendId, assignment->operationId,
+                     "legacy-osd.input", "deny",
+                     result.reasonCode.empty()
+                         ? "command_receipt_rejected"
+                         : result.reasonCode,
+                     "rejected", now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
     if (result.accepted)
         result.dropResponse =
             commandRepository_.consumeFault(receipt.backendId, "receipt");
@@ -971,32 +997,9 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
     }
 
     const auto assignment = commandRepository_.findAssignment(value.commandId);
-    if (assignment.has_value() &&
-        assignment->commandType == kLegacyOsdInputCommandType)
-    {
-        const bool dispatched = value.resultCategory == "succeeded";
-        const std::string reasonCode = dispatched
-            ? "native_dispatch_reported"
-            : (value.errorCategory.empty()
-                ? "native_dispatch_rejected"
-                : value.errorCategory);
-        if (!appendEvent(
-                context,
-                dispatched
-                    ? "legacy-osd.input.accepted"
-                    : "legacy-osd.input.rejected",
-                value.backendId,
-                assignment->operationId,
-                "legacy-osd.input",
-                dispatched ? "allow" : "deny",
-                reasonCode,
-                value.resultCategory,
-                now))
-        {
-            result.reasonCode = "command_accountability_unavailable";
-            return result;
-        }
-    }
+    const bool legacyOsdInput =
+        assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType;
 
     if (!appendEvent(
             context, "agent.command.result", value.backendId, "",
@@ -1006,7 +1009,57 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
         result.reasonCode = "command_accountability_unavailable";
         return result;
     }
+
     result = commandRepository_.acceptResult(value);
+
+    if (legacyOsdInput)
+    {
+        if (result.accepted)
+        {
+            const bool dispatched = value.resultCategory == "succeeded";
+            const std::string reasonCode = dispatched
+                ? "native_dispatch_reported"
+                : (value.errorCategory.empty()
+                    ? "native_dispatch_rejected"
+                    : value.errorCategory);
+            if (!appendEvent(
+                    context,
+                    dispatched
+                        ? "legacy-osd.input.accepted"
+                        : "legacy-osd.input.rejected",
+                    value.backendId,
+                    assignment->operationId,
+                    "legacy-osd.input",
+                    dispatched ? "allow" : "deny",
+                    reasonCode,
+                    value.resultCategory,
+                    now))
+            {
+                result.accepted = false;
+                result.replayed = false;
+                result.dropResponse = false;
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+        }
+        else if (!appendEvent(
+                     context,
+                     "legacy-osd.input.rejected",
+                     value.backendId,
+                     assignment->operationId,
+                     "legacy-osd.input",
+                     "deny",
+                     result.reasonCode.empty()
+                         ? "command_result_rejected"
+                         : result.reasonCode,
+                     "rejected",
+                     now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
     if (result.accepted)
         result.dropResponse =
             commandRepository_.consumeFault(value.backendId, "result");

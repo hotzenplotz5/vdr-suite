@@ -75,6 +75,9 @@ for token in (
     "current.lease.osdEpoch != command.osdEpoch",
     "MaximumDeadlineLeadSeconds = 3",
     "MaximumAcceptedCommandsPerSecond = 12",
+    "MaximumRateWindows = 128",
+    "rateWindows_.size() >= MaximumRateWindows",
+    "rateWindows_.erase(",
     'verificationPolicy = "dispatch_only"',
     "findAssignmentForOperation(",
 ):
@@ -110,6 +113,23 @@ for token in (
     "dispatch_fence_current",
 ):
     require(token in delivery + daemon, f"receipt dispatch fence missing: {token}")
+
+receipt_persist = delivery.find(
+    "result = commandRepository_.acceptReceipt(receipt);")
+receipt_accept_audit = delivery.find(
+    '"legacy-osd.input.accepted"', receipt_persist)
+require(
+    receipt_persist >= 0 and receipt_accept_audit > receipt_persist,
+    "accepted input audit must follow durable receipt acceptance",
+)
+result_persist = delivery.find(
+    "result = commandRepository_.acceptResult(value);")
+result_semantic_audit = delivery.find(
+    '"native_dispatch_reported"', result_persist)
+require(
+    result_persist >= 0 and result_semantic_audit > result_persist,
+    "native input result audit must follow durable result acceptance",
+)
 
 for token in (
     "state.dispatchState = \"starting\"",

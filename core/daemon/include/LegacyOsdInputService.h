@@ -3,6 +3,7 @@
 #include "BackendAgentCommand.h"
 #include "LegacyOsdInputDomain.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <mutex>
@@ -20,6 +21,7 @@ class LegacyOsdInputService final : public ILegacyOsdInputService
 public:
     static constexpr std::int64_t MaximumDeadlineLeadSeconds = 3;
     static constexpr std::uint64_t MaximumAcceptedCommandsPerSecond = 12;
+    static constexpr std::size_t MaximumRateWindows = 128;
 
     using NowProvider = std::function<std::int64_t()>;
 
