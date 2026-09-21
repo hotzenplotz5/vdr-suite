@@ -15,7 +15,6 @@
   const SERIES_DETAIL_METADATA_RETRY_MS = 2000;
   const SERIES_METADATA_RETRY_BATCH = 8;
   const FOLDER_LIMIT = 100;
-  const FOLDER_VISIBLE_LIMIT = 12;
   const state = {
     generation: 0,
     loadedBackendId: '',
@@ -3963,13 +3962,19 @@
       if (!current(generation, backendId)) return false;
       state.folderProjection = projection;
       state.folderBackendId = backendId;
-      const visibleFolders = projection.folders.slice(0, FOLDER_VISIBLE_LIMIT);
       const rendered = renderFolderRail(
-        visibleFolders,
+        projection.folders,
         projection.rootRecordings,
         backendId
       );
-      if (rendered) scheduleRandomFolderInline(visibleFolders, backendId, generation, Math.random());
+      if (rendered) {
+        scheduleRandomFolderInline(
+          projection.folders,
+          backendId,
+          generation,
+          Math.random()
+        );
+      }
       return rendered;
     }).catch(function () {
       if (!current(generation, backendId)) return false;
