@@ -24,15 +24,19 @@ Implementation, automated-test and controlled live-acceptance head:
 3396840d41260bb3ed81bc652921b329263d7e58
 ```
 
-SB.10b changes no plugin source, command, capability, schema or version.
+SB.10b originally changed no plugin source, command, capability, schema or version.
 
-The plugin remains read-only and `mutations` remains `disabled`.
+Phase 68.B later extends the same typed local transport with one additional
+read-only semantic OSD command, `OsdSnapshot -> OSDSNAP`. This does not reopen
+the historical SB.10b acceptance and does not create a free-form SVDRP tunnel.
+The plugin remains view-only for OSD: `osd.view=available`,
+`osd.control=disabled`.
 
 ---
 
 ## Purpose
 
-SB.10a defined a transport-neutral Agent boundary for exactly two read-only
+SB.10a originally defined a transport-neutral Agent boundary for two read-only
 logical operations:
 
 ```text
@@ -121,12 +125,17 @@ Daemon integration belongs to a later SB.10 slice.
 
 The public C++ transport method accepts `SuiteBridgeLocalCommand`, not a string.
 
-The only wire requests are:
+The current fixed core wire requests are:
 
 ```text
 DiscoverSchema1 -> PLUG suitebridge CAPS 1\r\n
 Snapshot        -> PLUG suitebridge SNAP\r\n
+OsdSnapshot     -> PLUG suitebridge OSDSNAP\r\n
 ```
+
+`OsdSnapshot` was added by Phase 68.B for one bounded semantic full frame.
+It carries no native/SkinDesigner pixels and accepts no caller-controlled
+argument.
 
 No caller can submit:
 
@@ -270,7 +279,7 @@ Current fixed limits:
 | Resource | Limit |
 | --- | ---: |
 | Greeting bytes | `1024` |
-| Command reply bytes | `8192` |
+| Command reply bytes | `131072` |
 | Reply lines | `64` |
 | Wire commands per connection | `1` |
 | Persistent sockets | `0` |
@@ -332,6 +341,7 @@ The deterministic loopback fixture covers:
 
 - exact `CAPS 1` wire request;
 - exact `SNAP` wire request;
+- exact Phase-68.B `OSDSNAP` wire request;
 - successful single-line reply;
 - CRLF and LF normalization;
 - multiline reply completion;
@@ -357,7 +367,8 @@ The source boundary guard proves:
 - no thread or mutex in the transport;
 - no database, filesystem, RESTfulAPI or daemon coupling;
 - no reuse of `SvdrpChannelMoveExecutor`;
-- exactly two fixed Suite Bridge requests;
+- exactly three fixed core Suite Bridge requests (`CAPS 1`, `SNAP`,
+  `OSDSNAP`);
 - non-blocking connect, `poll()`, `SO_ERROR`, close-on-exec and no-signal send;
 - explicit greeting, size and multiline contracts.
 
