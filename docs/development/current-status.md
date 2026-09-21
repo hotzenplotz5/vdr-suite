@@ -25,7 +25,7 @@ Current active numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bri
 
 Next strict numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
-Current active runtime slice: **68.A - Read-only OSD observation**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md).
+Current active runtime slice: **68.B - Agent-local OSD buffering and resynchronization**. Durable recovery evidence: [Phase 68 Kickoff](phase-68-legacy-osd-kickoff.md).
 
 Phase 67 completed both Broadcast Companion verticals: **Teletext** and **HbbTV discovery/application-session/presentation-media runtime**.
 
@@ -124,7 +124,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 65 Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
+  -> Phase 68 Legacy OSD Compatibility Bridge [ACTIVE: 68.B]
   -> Phase 69 Public API and Client Compatibility Hardening
   -> Phase 70 Recommendation and Content Knowledge Graph
 ```
