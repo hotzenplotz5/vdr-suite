@@ -78,7 +78,7 @@ bool LegacyOsdInputService::authorityCurrent(
         reasonCode = "legacy_osd_controller_session_invalid";
         return false;
     }
-    if (session->sessionRevision != command.sessionRevision)
+    if (command.sessionRevision > session->sessionRevision)
     {
         reasonCode = "revision_conflict";
         return false;
