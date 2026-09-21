@@ -70,6 +70,8 @@ bool cPluginSuiteBridge::Initialize(void)
   isyslog(
       "suitebridge: native-operation=vdr.live.stream schema=1 transport=private-unix-stream receiver=bounded provider=suitebridge public-endpoint=none");
   isyslog(
+      "suitebridge: native-read=legacy-osd.frame schema=1 provider=suitebridge transport=private-svdrp representation=semantic public-endpoint=none input=disabled");
+  isyslog(
       "suitebridge: native-read=broadcast.teletext.page schema=1 provider=osdteletext transport=in-process-service public-endpoint=none");
   isyslog(
       "suitebridge: native-read=broadcast.hbbtv.discovery schema=1 provider=vdr-plugin-web transport=in-process-service public-endpoint=none");

@@ -4,10 +4,18 @@
 
 Phase 68 is active.
 
-Active coherent vertical:
+Accepted coherent vertical:
 
 ```text
 68.A - Read-only OSD observation
+PR #304 -> a37bb0c9cd0c262cde40369bb7c66686c3ba995e
+real yaVDR / VDR 2.7.9 acceptance: PASS
+```
+
+Active coherent vertical:
+
+```text
+68.B - Agent-local OSD buffering and resynchronization
 ```
 
 This document is the durable execution checkpoint for the Phase-68 start. It exists so a later work session does not repeat the complete architecture inventory merely because a tooling or polling session ended.
@@ -59,12 +67,11 @@ The following Phase-68 prerequisites already exist and remain their current owne
 - existing normalized RemoteAction and LiveOverlay domains;
 - private RESTfulAPI transport below Suite-owned adapters.
 
-The following ADR-0047 runtime concepts are not yet implemented as the Legacy OSD runtime:
+68.A now implements the bounded semantic `OsdSurfaceRef` / full
+`OsdFrame` foundation. The following ADR-0047 concepts remain later work:
 
-- `OsdSurfaceRef`;
 - `LegacyOsdSession`;
 - `OsdViewerBinding`;
-- `OsdFrame`;
 - `OsdDelta`;
 - `OsdControllerLease`;
 - `OsdInputCommand`;
@@ -107,16 +114,17 @@ RESTfulAPI /osd.json remains useful comparison/fallback evidence, but is not the
 Current code, not the older plugin roadmap baseline, is authoritative:
 
 ```text
-SuiteBridge kickoff baseline: 0.13.3
-SuiteBridge Phase-68.A candidate: 0.13.4
-capability schema:               1
+SuiteBridge kickoff baseline:   0.13.3
+SuiteBridge Phase-68.A accepted: 0.13.4
+SuiteBridge Phase-68.B candidate: 0.13.5
+capability schema:                1
 ```
 
-The current static capability catalogue does not yet advertise an OSD observation/input capability.
+68.B deliberately advertises `osd.view=available` only after the bounded
+semantic local full-frame source exists. `osd.control=disabled` remains
+explicit. Capability must never be inferred from plugin presence.
 
-Any Phase-68 SuiteBridge capability must therefore be added deliberately and tested; it must not be inferred from plugin presence.
-
-## 68.A scope
+## Accepted 68.A scope
 
 The first coherent vertical remains read-only:
 
@@ -126,9 +134,9 @@ The first coherent vertical remains read-only:
 4. define a backend-local read-only OSD observation source boundary;
 5. prove exact full-frame sequence/freshness semantics;
 6. add focused domain/provider tests and architecture guards;
-7. only then wire the accepted source toward Agent transport in 68.C.
+7. stop before authenticated Agent/client delivery and before every input path.
 
-68.A does not implement:
+The accepted 68.A slice does not implement:
 
 - controller leases;
 - native key input;
@@ -140,6 +148,28 @@ The first coherent vertical remains read-only:
 - public RESTfulAPI/osd2web endpoints;
 - Teletext or HbbTV replacement;
 - MediaSession or playback ownership.
+
+## 68.B scope
+
+68.B is the local continuity slice from SB.14 stage 5:
+
+1. expose one private typed `OSDSNAP` read command from SuiteBridge;
+2. serialize only the bounded semantic full frame, never skin/native OSD pixels;
+3. advertise `osd.view=available` and keep `osd.control=disabled`;
+4. parse the local payload into the Suite-owned `OsdFrame` domain;
+5. maintain one Agent-local latest-full-frame buffer;
+6. treat source inconsistency, dropped native updates, same-sequence divergence
+   and sequence regression as explicit resynchronization requirements;
+7. accept forward sequence gaps because every accepted observation is a full frame;
+8. clear a sticky resync only at a trustworthy new OSD epoch/backend generation
+   or an inactive-to-new-surface transition;
+9. keep the source capability-gated and private.
+
+68.B still does **not** add authenticated remote Agent delivery, Control Plane
+authorization, HTTP/REST/WebSocket exposure, browser rendering, controller
+leases, key input, native `cRemote` calls or output-plugin rendering. Those
+remain later Phase-68 slices. In particular, 68.C is the next transport slice,
+not an input slice.
 
 ## Safety rules retained
 
@@ -157,7 +187,7 @@ A later work session should:
 
 1. verify the live branch head and compare it with live `main`;
 2. read this checkpoint and any later Phase-68 development notes;
-3. continue the active 68.A slice from the latest accepted branch evidence;
+3. continue the active 68.B slice from the latest accepted branch evidence;
 4. repeat the full ADR/repository inventory only if repository changes invalidate this checkpoint.
 
 Do not restart Phase 68 merely because an execution/polling session ended.

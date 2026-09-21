@@ -298,6 +298,24 @@ void testSnapshotCommandAndLfNormalization()
     assert(server.peerClosed());
 }
 
+void testOsdSnapshotCommand()
+{
+    ScriptedSvdrpServer server(
+        "220 local-vdr ready\r\n",
+        "900 {\"osd_schema\":1,\"active\":false}\r\n");
+    SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+
+    const SuiteBridgeCommandReply reply = transport.execute(
+        SuiteBridgeLocalCommand::OsdSnapshot);
+
+    server.wait();
+    assert(reply.transportStatus == SuiteBridgeTransportStatus::Success);
+    assert(reply.replyCode == 900);
+    assert(reply.payload == "{\"osd_schema\":1,\"active\":false}");
+    assert(server.request() == "PLUG suitebridge OSDSNAP\r\n");
+    assert(server.peerClosed());
+}
+
 void testMultilineReply()
 {
     ScriptedSvdrpServer server(
@@ -529,6 +547,7 @@ int main()
 {
     testDiscoverCommandAndSingleLineReply();
     testSnapshotCommandAndLfNormalization();
+    testOsdSnapshotCommand();
     testMultilineReply();
     testRejectedReplyRemainsTransportSuccess();
     testUnexpectedAndMalformedGreeting();
