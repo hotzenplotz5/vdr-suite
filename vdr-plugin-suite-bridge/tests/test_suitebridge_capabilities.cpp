@@ -37,7 +37,7 @@ int main()
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
-      SuiteBridgeCapabilityState::Disabled,
+      SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Disabled,
   }};
 
