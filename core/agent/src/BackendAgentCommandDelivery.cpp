@@ -178,6 +178,31 @@ bool BackendAgentCommandRepository::insertAssignment(
 }
 
 std::optional<BackendAgentCommandAssignment>
+BackendAgentCommandRepository::findAssignment(
+    const std::string& commandId) const
+{
+    if (!backendAgentCommandSafeIdentifier(commandId))
+        return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = std::string("SELECT ") + AssignmentColumns +
+        " FROM backend_agent_commands WHERE command_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, commandId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    std::optional<BackendAgentCommandAssignment> result;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+        result = readAssignment(statement);
+    sqlite3_finalize(statement);
+    return result;
+}
+
+std::optional<BackendAgentCommandAssignment>
 BackendAgentCommandRepository::findAssignmentForOperation(
     const std::string& backendId,
     const std::string& operationId,
