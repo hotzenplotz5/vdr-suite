@@ -43,12 +43,12 @@ require(
     "osd.view must be advertised only after the private full-frame source exists",
 )
 require(
-    '{"osd.control", SuiteBridgeCapabilityState::Disabled}' in caps_cpp,
-    "osd.control must remain disabled during view-only Phase 68.B",
+    '{"osd.control", SuiteBridgeCapabilityState::Available}' in caps_cpp,
+    "osd.control must be advertised after the Phase 68.G typed input path exists",
 )
 require(
-    "representation=semantic public-endpoint=none input=disabled" in plugin,
-    "SuiteBridge must advertise the semantic/no-public/no-input OSD boundary",
+    "representation=semantic public-endpoint=none input=allowlisted" in plugin,
+    "SuiteBridge must preserve semantic/no-public OSD while advertising allowlisted input",
 )
 
 for fragment in (
@@ -141,7 +141,6 @@ for forbidden in (
     "WebSocket",
     "skinDesigner",
     "SkinDesigner",
-    "osd.control\", SuiteBridgeCapabilityState::Available",
 ):
     require(
         forbidden not in combined,
