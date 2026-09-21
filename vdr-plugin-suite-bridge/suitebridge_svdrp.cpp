@@ -47,6 +47,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the current read-only VDR-Suite status payload.",
       "OSDSNAP\n"
       "    Return the current bounded semantic Legacy OSD full frame; no skin pixels.",
+      "OSDINPUT <schema> <command-id> <request-fingerprint> <backend-generation> <surface-id> <osd-epoch> <lease-id> <lease-epoch> <lease-revision> <action> <deadline>\n"
+      "    Dispatch one fenced allowlisted Legacy OSD input action.",
       "ARTW <channel-id> <event-id>\n"
       "    Resolve preferred TVScraper artwork for one EPG event.",
       "META <channel-id> <event-id>\n"
@@ -72,6 +74,10 @@ cString cPluginSuiteBridge::SVDRPCommand(
     const char *Option,
     int &ReplyCode)
 {
+  const SuiteBridgeCommandResult osdInput = osdInput_.Handle(
+      Command, Option, statusMonitor_.CaptureOsdSnapshot());
+  if (osdInput.handled) return ReturnResult(osdInput, ReplyCode);
+
   const SuiteBridgeCommandResult nativeProbe = nativeProbe_.Handle(
       Command,
       Option,
