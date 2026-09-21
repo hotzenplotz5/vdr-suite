@@ -58,6 +58,9 @@ int DaemonRuntime::run()
     }
     if (!backendAgentLifecycleService_ ||
         !backendAgentIdentityRepository_ ||
+        !backendAgentRepository_ ||
+        !backendAgentCommandRepository_ ||
+        !backendAgentCommandDeliveryService_ ||
         !backendRegistryService_ ||
         !backendAccessPolicy_ ||
         !configureDaemonLegacyOsdRuntime(
