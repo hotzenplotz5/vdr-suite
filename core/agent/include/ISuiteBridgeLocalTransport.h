@@ -8,7 +8,8 @@ namespace vdrsuite::agent
 enum class SuiteBridgeLocalCommand
 {
     DiscoverSchema1,
-    Snapshot
+    Snapshot,
+    OsdSnapshot
 };
 
 enum class SuiteBridgeTransportStatus
