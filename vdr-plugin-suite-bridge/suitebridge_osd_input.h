@@ -18,10 +18,17 @@ public:
       const SuiteBridgeOsdSnapshot &snapshot);
 
 private:
-  bool Seen(const std::string &commandId) const;
-  void Remember(const std::string &commandId);
+  struct RecentCommand final {
+    std::string commandId;
+    std::string requestFingerprint;
+  };
 
-  std::array<std::string, RecentCommandCapacity> recentCommandIds_{};
+  const RecentCommand *Find(const std::string &commandId) const;
+  void Remember(
+      const std::string &commandId,
+      const std::string &requestFingerprint);
+
+  std::array<RecentCommand, RecentCommandCapacity> recentCommands_{};
   std::size_t recentCommandIndex_ = 0;
 };
 
