@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+inline constexpr const char* kLegacyOsdInputCommandType = "vdr.legacy-osd.input";
+inline constexpr std::uint64_t kLegacyOsdInputPayloadVersion = 1;
+
 enum class LegacyOsdInputAction
 {
     Up,
@@ -98,7 +101,7 @@ inline bool legacyOsdInputSafeToken(
 
 inline bool legacyOsdInputCommandValid(const LegacyOsdInputCommand& command)
 {
-    return legacyOsdInputSafeToken(command.inputCommandId) &&
+    return legacyOsdInputSafeToken(command.inputCommandId, true, 96U) &&
         legacyOsdInputSafeToken(command.legacyOsdSessionId, false) &&
         command.sessionRevision > 0 &&
         legacyOsdInputSafeToken(command.viewerBindingId, false) &&
