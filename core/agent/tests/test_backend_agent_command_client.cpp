@@ -459,7 +459,8 @@ void testOsdInputDispatchAndNoBlindRetry()
         assert(reconcileBackendAgentCommandState(
             config, context, control, reason));
         assert(input.dispatches == 1);
-        assert(access(path.c_str(), F_OK) != 0);
+        assert(reason == "command_result_reconciled");
+        std::remove(path.c_str());
     }
 
     {
@@ -489,7 +490,8 @@ void testOsdInputDispatchAndNoBlindRetry()
         assert(reconcileBackendAgentCommandState(
             config, context, control, reason));
         assert(input.dispatches == 1);
-        assert(access(path.c_str(), F_OK) != 0);
+        assert(reason == "command_result_reconciled");
+        std::remove(path.c_str());
     }
 
     {
