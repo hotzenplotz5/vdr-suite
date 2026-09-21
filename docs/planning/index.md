@@ -32,7 +32,7 @@ Phase 62 — Identity, RBAC and Accountability [COMPLETED]
   -> Phase 65 — Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 — Media Home and Browse Experience [COMPLETED]
   -> Phase 67 — Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 — Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
+  -> Phase 68 — Legacy OSD Compatibility Bridge [ACTIVE: 68.A]
   -> Phase 69 — Public API and Client Compatibility Hardening
   -> Phase 70 — Recommendation and Content Knowledge Graph
 ```
@@ -43,13 +43,13 @@ Current completed/active/next state belongs only in [Current State](../CURRENT.m
 
 Phase 66 is completed, including its Golden Home journeys. Later non-numbered Home rebuild/hardening is also complete for the merged accepted scope and is recorded in [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-The next numbered planning boundary is Phase 68:
+The active numbered planning boundary is Phase 68:
 
 - [ADR-0054](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) — Teletext/HbbTV domain-first architecture;
 - [Strict Roadmap Phase 67](roadmap.md) — execution sequence and acceptance gate;
 - [Golden User Journeys](golden-user-journeys.md) — Teletext and HbbTV journeys.
 
-Phase 67 runtime is completed; accepted planning does not itself start Phase 68 runtime.
+Phase 67 runtime is completed. Phase 68 runtime was explicitly started at 68.A read-only OSD observation; see [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md).
 
 ## Planning cautions
 
