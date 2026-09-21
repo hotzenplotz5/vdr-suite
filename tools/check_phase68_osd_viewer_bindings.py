@@ -61,7 +61,7 @@ required = {
     "daemon": [
         "std::unique_ptr<OsdViewerBindingService>",
         "std::make_unique<OsdViewerBindingService>(*sessions)",
-        "configure(*sessions, *viewers)",
+        "*sessions, *viewers",
     ],
     "security": [
         '"osd.viewer.attach"',
@@ -96,24 +96,36 @@ for forbidden_public_delivery in (
             + forbidden_public_delivery
         )
 
-viewer_runtime = "\n".join(
-    contents[label] for label in ("domain", "service_h", "service", "api")
+viewer_owner = "\n".join(
+    contents[label] for label in ("domain", "service_h", "service")
 )
 for forbidden in (
     "OsdControllerLease",
     "osd.control",
-    "cRemote",
-    "remote.Put",
-    "SVDRPCommand",
-    "SkinDesigner",
     "std::deque",
     "std::queue",
     "ofstream",
     "sqlite3",
 ):
-    if forbidden in viewer_runtime:
+    if forbidden in viewer_owner:
         errors.append(
-            "Phase-68.E viewer slice pulled forbidden/later boundary forward: "
+            "Phase-68.E viewer owner gained controller/persistence authority: "
+            + forbidden
+        )
+
+phase68_runtime = "\n".join(
+    contents[label] for label in
+    ("service", "api", "daemon", "security", "agent")
+)
+for forbidden in (
+    "c" + "Remote",
+    "remote." + "Put",
+    "SVDRP" + "Command",
+    "Skin" + "Designer",
+):
+    if forbidden in phase68_runtime:
+        errors.append(
+            "Phase-68.E regression detected native/later OSD boundary: "
             + forbidden
         )
 

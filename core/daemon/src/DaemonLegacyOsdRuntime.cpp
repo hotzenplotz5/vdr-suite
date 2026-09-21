@@ -1,9 +1,12 @@
 #include "DaemonLegacyOsdRuntime.h"
 
+#include "BackendAccessPolicy.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendRegistryService.h"
 #include "Database.h"
 #include "LegacyOsdApiRuntime.h"
 #include "LegacyOsdSessionService.h"
+#include "OsdControllerLeaseService.h"
 #include "OsdViewerBindingService.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
@@ -19,12 +22,15 @@ std::unique_ptr<SecurityPermissionGrantRepository>
     legacyOsdPermissionGrantRepository;
 std::unique_ptr<LegacyOsdSessionService> legacyOsdSessionService;
 std::unique_ptr<OsdViewerBindingService> osdViewerBindingService;
+std::unique_ptr<OsdControllerLeaseService> osdControllerLeaseService;
 }
 
 bool configureDaemonLegacyOsdRuntime(
     Database& database,
     SecurityIdentityRepository& identityRepository,
-    BackendAgentLifecycleService& lifecycleService)
+    BackendAgentLifecycleService& lifecycleService,
+    BackendRegistryService& backendRegistryService,
+    BackendAccessPolicy& backendAccessPolicy)
 {
     resetDaemonLegacyOsdRuntime();
 
@@ -33,7 +39,7 @@ bool configureDaemonLegacyOsdRuntime(
     if (!grants->ensureSchema()) return false;
     SecurityPermissionGrantRepository* grantRepository = grants.get();
 
-    auto sessions = std::make_unique<LegacyOsdSessionService>(
+    auto contextResolver =
         [&identityRepository, grantRepository](
             const std::string& actorId, const std::string&)
             -> std::optional<RequestSecurityContext>
@@ -56,7 +62,10 @@ bool configureDaemonLegacyOsdRuntime(
             context.permissionGrantResolution =
                 PermissionGrantResolutionState::Resolved;
             return context;
-        },
+        };
+
+    auto sessions = std::make_unique<LegacyOsdSessionService>(
+        contextResolver,
         [&lifecycleService](const std::string& backendId, std::int64_t now)
         {
             return lifecycleService.statusForBackend(backendId, now);
@@ -72,19 +81,32 @@ bool configureDaemonLegacyOsdRuntime(
         });
 
     auto viewers = std::make_unique<OsdViewerBindingService>(*sessions);
+    auto controllers = std::make_unique<OsdControllerLeaseService>(
+        *sessions,
+        *viewers,
+        contextResolver,
+        [&backendRegistryService, &backendAccessPolicy](
+            const std::string& backendId)
+        {
+            return backendAccessPolicy.canWriteToBackend(
+                backendRegistryService, backendId);
+        });
 
-    if (!LegacyOsdApiRuntime::instance().configure(*sessions, *viewers))
+    if (!LegacyOsdApiRuntime::instance().configure(
+            *sessions, *viewers, *controllers))
         return false;
 
     legacyOsdPermissionGrantRepository = std::move(grants);
     legacyOsdSessionService = std::move(sessions);
     osdViewerBindingService = std::move(viewers);
+    osdControllerLeaseService = std::move(controllers);
     return true;
 }
 
 void resetDaemonLegacyOsdRuntime()
 {
     LegacyOsdApiRuntime::instance().reset();
+    osdControllerLeaseService.reset();
     osdViewerBindingService.reset();
     legacyOsdSessionService.reset();
     legacyOsdPermissionGrantRepository.reset();
