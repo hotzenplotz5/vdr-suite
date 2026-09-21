@@ -69,13 +69,18 @@ required = {
         'requestToAuthorize.permission = "osd.view"',
         'requestToAuthorize.action = "osd.session.create"',
     ],
-    "auth": ['permission == "osd.view"'],
 }
 
 for label, tokens in required.items():
     for token in tokens:
         if token not in contents[label]:
             errors.append(f"{label} missing required token: {token}")
+
+if 'permission == "osd.view"' in contents["auth"]:
+    errors.append(
+        "AuthorizationService must not implicitly grant osd.view; "
+        "the permission remains an explicit backend-scoped grant"
+    )
 
 joined_runtime = "\n".join(
     contents[label] for label in
