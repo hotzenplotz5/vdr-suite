@@ -4,6 +4,7 @@
 #include "BackendAgentNativeTimerModify.h"
 #include "BackendAgentRecordingMarksModify.h"
 #include "BackendAgentRecordingCut.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <cctype>
@@ -249,7 +250,7 @@ bool parseIdentifiers(const Value& value, std::vector<std::string>& identifiers)
 }
 bool parseTypes(const Value& value, std::vector<std::string>& types)
 {
-    if (value.kind != Kind::Array || value.arrayValue.size() > 8) return false;
+    if (value.kind != Kind::Array || value.arrayValue.size() > 16) return false;
     types.clear();
     for (const Value& item : value.arrayValue)
     {
@@ -267,7 +268,8 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
              item.stringValue !=
                  vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
              item.stringValue !=
-                 vdrsuite::agent::kBackendAgentRecordingCutCommandType) ||
+                 vdrsuite::agent::kBackendAgentRecordingCutCommandType &&
+             item.stringValue != kLegacyOsdInputCommandType) ||
             std::find(types.begin(), types.end(), item.stringValue) != types.end())
         {
             return false;
