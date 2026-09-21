@@ -51,7 +51,7 @@ Teletext read path / browser-TV view / page navigation
 HbbTV discovery / authorized application session / presentation-media runtime
 
 Current active runtime slice:
-68.A - Read-only OSD observation
+68.B - Agent-local OSD buffering and resynchronization
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
@@ -191,7 +191,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **active**. The current bounded slice is 68.A read-only OSD observation; controller lease and native input remain later Phase-68 verticals. Durable kickoff evidence is in [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
+Phase 68 Legacy OSD Compatibility Bridge is **active**. 68.A read-only OSD observation is accepted and merged; the current bounded slice is 68.B Agent-local OSD buffering and resynchronization; controller lease and native input remain later Phase-68 verticals. Durable kickoff evidence is in [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
 
 ## Historical evidence rule
 
