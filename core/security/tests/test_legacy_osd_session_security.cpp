@@ -45,7 +45,7 @@ int main()
         const auto create =
             fixture.gate.evaluate(browserCreate(fixture, "default"));
         assert(create.allowed);
-        assert(create.protectedMutation);
+        assert(!create.protectedMutation);
         assert(create.authorizationDecision.permission == Permission);
         assert(create.authorizationDecision.action == "osd.session.create");
 

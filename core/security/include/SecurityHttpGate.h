@@ -319,10 +319,11 @@ public:
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
             isManualRecordingMetadataAction ||
             isRecordingSeriesHierarchyAction ||
-            isHbbtvSessionMutation ||
-            isLegacyOsdSessionCreate;
+            isHbbtvSessionMutation;
         const bool isExplicitlyAuthorizedPost =
-            isProtectedMutation || isRecordingPlaybackSessionCreate;
+            isProtectedMutation ||
+            isRecordingPlaybackSessionCreate ||
+            isLegacyOsdSessionCreate;
 
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
