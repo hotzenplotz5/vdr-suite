@@ -4,6 +4,7 @@
 #include "SecurityIdentity.h"
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -185,6 +186,11 @@ public:
         const RequestSecurityContext& context,
         const BackendAgentCommandReceipt& receipt,
         std::int64_t now);
+    using ReceiptFenceCheck = std::function<bool(
+        const BackendAgentCommandReceipt&, std::string&)>;
+
+    void setReceiptFenceCheck(ReceiptFenceCheck check);
+
     BackendAgentCommandResultAck result(
         const RequestSecurityContext& context,
         const BackendAgentCommandResult& result,
@@ -240,4 +246,5 @@ private:
     BackendAgentCommandRepository& commandRepository_;
     BackendAgentRepository& agentRepository_;
     AccountabilityEventRepository& accountabilityRepository_;
+    ReceiptFenceCheck receiptFenceCheck_;
 };
