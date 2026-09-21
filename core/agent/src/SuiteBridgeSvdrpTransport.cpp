@@ -100,6 +100,8 @@ const char* commandText(SuiteBridgeLocalCommand command)
             return "PLUG suitebridge CAPS 1\r\n";
         case SuiteBridgeLocalCommand::Snapshot:
             return "PLUG suitebridge SNAP\r\n";
+        case SuiteBridgeLocalCommand::OsdSnapshot:
+            return "PLUG suitebridge OSDSNAP\r\n";
     }
     return nullptr;
 }
