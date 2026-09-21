@@ -3,7 +3,8 @@
 	test-phase68-suitebridge-osd-snapshot-contract \
 	test-phase68-agent-osd-local-resync \
 	test-phase68-legacy-osd-observation \
-	test-phase68-osd-agent-local-resync
+	test-phase68-osd-agent-local-resync \
+	test-phase68-osd-view-session-authorization
 
 test-phase68-legacy-osd-domain:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -67,3 +68,15 @@ test-phase68-osd-authenticated-transport:
 		core/agent/tests/test_backend_agent_osd_transport.cpp \
 		$(LDFLAGS) -o $(BUILD_DIR)/test_backend_agent_osd_transport
 	$(BUILD_DIR)/test_backend_agent_osd_transport
+
+.PHONY: test-phase68-osd-view-session-authorization
+test-phase68-osd-view-session-authorization:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/daemon/src/LegacyOsdSessionService.cpp \
+		api/rest/src/LegacyOsdApiRuntime.cpp \
+		core/daemon/tests/test_legacy_osd_session_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_legacy_osd_session_service
+	$(BUILD_DIR)/test_legacy_osd_session_service
+	$(MAKE) test-security-osd-session
+	python3 tools/check_phase68_osd_view_session_authorization.py
