@@ -611,32 +611,6 @@ bool DaemonRuntime::initialize()
 
             recordingCacheRefreshQueue_.request(backendId, 8);
             externalVdrChangeHint_.store(true);
-
-            for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
-                if (!backendRuntimeContext ||
-                    backendRuntimeContext->backendId != backendId ||
-                    !backendRuntimeContext->snapshotBuilder) {
-                    continue;
-                }
-
-                const std::vector<VdrRecording> recordings =
-                    backendRuntimeContext->snapshotBuilder->buildRecordings();
-
-                snapshotCacheService_->updateRecordingsForBackend(
-                    backendRuntimeContext->backendId,
-                    recordings);
-
-                if (vdrRecordingCacheRepository_) {
-                    vdrRecordingCacheRepository_->replaceRecordingsForBackend(
-                        backendRuntimeContext->backendId,
-                        recordings);
-                    vdrRecordingCacheRepository_->markRefreshFinished(
-                        backendRuntimeContext->backendId,
-                        static_cast<int>(recordings.size()));
-                }
-
-                break;
-            }
         });
 
     recordingActionRequestPreviewService_ =

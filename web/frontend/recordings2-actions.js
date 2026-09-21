@@ -316,13 +316,18 @@
         });
     }
 
-    function execute(recording, action, extra, status, button, readback, successMessage) {
+    function execute(recording, action, extra, status, button, readback, successMessage, behavior) {
       button.disabled = true;
       setStatus(status, 'pending', 'Aktion wird ausgeführt …');
       return run('execute', recording, action, Object.assign({dryRun: false}, extra || {}))
         .then(function (result) {
           if (!result || result.success !== true) {
             throw new Error(String(result && (result.message || result.error) || 'Das Backend hat die Aktion abgelehnt.'));
+          }
+          if (behavior && behavior.finishOnBackendSuccess === true) {
+            setStatus(status, 'success', successMessage);
+            global.setTimeout(finishAction, 0);
+            return result;
           }
           setStatus(status, 'pending', 'Backend bestätigt. Recording-Cache wird abgeglichen …');
           poll(readback, status, successMessage);
@@ -477,22 +482,25 @@
       ui.body.appendChild(shared.node(
         'p',
         'recordings2-action-copy',
-        'Die Aufnahme wird zuerst validiert und anschließend als Dry-Run gegen die Backend-Sicherheitsregeln geprüft.'
+        'Einmal bestätigen genügt. Validierung, Berechtigungen und Backend-Sicherheitsregeln werden serverseitig bei der Ausführung geprüft.'
       ));
-      const status = shared.node('p', 'recordings2-action-status', 'Papierkorb-Aktion zuerst prüfen.');
+      const status = shared.node('p', 'recordings2-action-status', 'Aufnahme kann in den VDR-Papierkorb verschoben werden.');
       const buttons = document.createElement('div');
       buttons.className = 'recordings2-action-buttons';
-      let apply;
-      const check = shared.createButton('Papierkorb prüfen', function () {
-        validate(recording, 'DELETE', {}, status, apply, isDryRunReady).catch(function () {});
-      });
-      apply = shared.createButton('In Papierkorb verschieben', function () {
+      const apply = shared.createButton('In Papierkorb verschieben', function () {
         if (!global.confirm('Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?')) return;
-        execute(recording, 'DELETE', {}, status, apply,
-          deleteReadback(recording), 'Papierkorb-Aktion abgeschlossen.').catch(function () {});
+        execute(
+          recording,
+          'DELETE',
+          {},
+          status,
+          apply,
+          null,
+          'Papierkorb-Aktion abgeschlossen.',
+          {finishOnBackendSuccess: true}
+        ).catch(function () {});
       }, 'danger');
-      apply.disabled = true;
-      buttons.append(check, apply);
+      buttons.append(apply);
       ui.body.append(status, buttons);
       return ui.details;
     }

@@ -71,6 +71,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
 	python3 tools/check_recordings2_runtime_wiring.py
 	python3 tools/check_recordings2_auto_refresh_wiring.py
+	python3 tools/check_recording_action_fast_delete_contract.py
 
 test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-shared.js
