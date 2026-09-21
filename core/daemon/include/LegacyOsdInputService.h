@@ -15,16 +15,7 @@ class LegacyOsdSessionService;
 class OsdControllerLeaseService;
 class OsdViewerBindingService;
 
-struct LegacyOsdInputResult
-{
-    bool accepted = false;
-    bool idempotent = false;
-    std::string category;
-    std::string error;
-    std::string agentCommandId;
-};
-
-class LegacyOsdInputService
+class LegacyOsdInputService final : public ILegacyOsdInputService
 {
 public:
     static constexpr std::int64_t MaximumDeadlineLeadSeconds = 3;
@@ -40,7 +31,7 @@ public:
         BackendAgentCommandRepository& commandRepository,
         NowProvider nowProvider = {});
 
-    LegacyOsdInputResult submit(const LegacyOsdInputCommand& command);
+    LegacyOsdInputResult submit(const LegacyOsdInputCommand& command) override;
 
     bool revalidateReceipt(
         const BackendAgentCommandReceipt& receipt,
