@@ -22,7 +22,7 @@ Teletext -> PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
 HbbTV / numbered closeout -> PR #300 -> 5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30
 
 Current active numbered runtime phase:
-none - Phase 68 not started
+Phase 68 - Legacy OSD Compatibility Bridge
 ```
 
 See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate and [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the subsequent Home correctness/performance completion record.
@@ -93,7 +93,7 @@ The final branch included the canonical folder-poster correction after the broad
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
 Teletext vertical [COMPLETED]
 HbbTV discovery/session/presentation-media runtime [COMPLETED]
-Phase 68 - Legacy OSD Compatibility Bridge [NEXT; NOT STARTED]
+Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.A READ-ONLY OSD OBSERVATION]
 ```
 
 ADR-0054 remains binding as the completed Broadcast Companion architecture. Phase-67 numbered evidence is recorded in [Phase 67 Closeout](phase-67-closeout.md).

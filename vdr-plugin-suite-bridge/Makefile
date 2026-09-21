@@ -20,7 +20,7 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_svdrp.o suitebridge_native_probe.o suitebridge_native_timer_create.o suitebridge_native_timer_create_vdr.o suitebridge_native_timer_delete.o suitebridge_native_timer_delete_vdr.o suitebridge_native_timer_modify.o suitebridge_native_timer_modify_vdr.o suitebridge_epg_command_handler.o suitebridge_epg_type_snapshot_command.o suitebridge_recording_metadata_command.o suitebridge_recording_marks.o suitebridge_recording_marks_contract.o suitebridge_recording_marks_command.o suitebridge_recording_marks_modify.o suitebridge_recording_marks_modify_vdr.o suitebridge_recording_cut.o suitebridge_recording_cut_vdr.o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_capability_discovery.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o suitebridge_artwork_reference.o suitebridge_image_dimensions.o suitebridge_tvscraper_adapter.o suitebridge_tvscraper_type_adapter.o suitebridge_epg_artwork_contract.o suitebridge_epg_metadata_contract.o suitebridge_epg_type_snapshot_contract.o suitebridge_recording_identity.o suitebridge_recording_metadata.o suitebridge_recording_metadata_contract.o suitebridge_tvscraper_recording_adapter.o suitebridge_teletext_adapter.o suitebridge_teletext_command.o suitebridge_hbbtv_adapter.o suitebridge_hbbtv_command.o
+OBJS = $(PLUGIN).o suitebridge_svdrp.o suitebridge_native_probe.o suitebridge_native_timer_create.o suitebridge_native_timer_create_vdr.o suitebridge_native_timer_delete.o suitebridge_native_timer_delete_vdr.o suitebridge_native_timer_modify.o suitebridge_native_timer_modify_vdr.o suitebridge_epg_command_handler.o suitebridge_epg_type_snapshot_command.o suitebridge_recording_metadata_command.o suitebridge_recording_marks.o suitebridge_recording_marks_contract.o suitebridge_recording_marks_command.o suitebridge_recording_marks_modify.o suitebridge_recording_marks_modify_vdr.o suitebridge_recording_cut.o suitebridge_recording_cut_vdr.o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_capability_discovery.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o suitebridge_osd_state.o suitebridge_artwork_reference.o suitebridge_image_dimensions.o suitebridge_tvscraper_adapter.o suitebridge_tvscraper_type_adapter.o suitebridge_epg_artwork_contract.o suitebridge_epg_metadata_contract.o suitebridge_epg_type_snapshot_contract.o suitebridge_recording_identity.o suitebridge_recording_metadata.o suitebridge_recording_metadata_contract.o suitebridge_tvscraper_recording_adapter.o suitebridge_teletext_adapter.o suitebridge_teletext_command.o suitebridge_hbbtv_adapter.o suitebridge_hbbtv_command.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
 CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
@@ -45,8 +45,9 @@ RECORDING_MARKS_CONTRACT_TEST = /tmp/test_suitebridge_recording_marks_contract
 RECORDING_CUT_TEST = /tmp/test_suitebridge_recording_cut
 TELETEXT_TEST = /tmp/test_suitebridge_teletext
 HBBTV_TEST = /tmp/test_suitebridge_hbbtv
+OSD_OBSERVATION_TEST = /tmp/test_suitebridge_osd_state
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-cut test-teletext test-hbbtv check-teletext-adapter-wiring check-teletext-svdrp-boundary check-hbbtv-adapter-wiring check-hbbtv-svdrp-boundary check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-cut test-teletext test-hbbtv test-osd-observation check-teletext-adapter-wiring check-teletext-svdrp-boundary check-hbbtv-adapter-wiring check-hbbtv-svdrp-boundary check-build clean
 
 all: $(SOFILE)
 
@@ -106,7 +107,7 @@ check-hbbtv-svdrp-boundary:
 	python3 tests/check_hbbtv_svdrp_boundary.py
 
 check-version:
-	test "$(VERSION)" = "0.13.3"
+	test "$(VERSION)" = "0.13.4"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -307,11 +308,20 @@ test-hbbtv:
 	$(HBBTV_TEST)
 	rm -f $(HBBTV_TEST)
 
+test-osd-observation:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_counter_continuity.cpp \
+		suitebridge_osd_state.cpp \
+		tests/test_suitebridge_osd_state.cpp \
+		-o $(OSD_OBSERVATION_TEST)
+	$(OSD_OBSERVATION_TEST)
+	rm -f $(OSD_OBSERVATION_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-teletext-adapter-wiring check-teletext-svdrp-boundary check-hbbtv-adapter-wiring check-hbbtv-svdrp-boundary check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-cut test-teletext test-hbbtv check-build
+check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-recording-metadata-contract check-teletext-adapter-wiring check-teletext-svdrp-boundary check-hbbtv-adapter-wiring check-hbbtv-svdrp-boundary check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-native-probe test-native-timer-create test-native-timer-delete test-native-timer-modify test-artwork-reference test-image-dimensions test-epg-artwork-contract test-epg-metadata-contract test-epg-type-snapshot-contract test-recording-identity test-recording-metadata-contract test-recording-marks-contract test-recording-cut test-teletext test-hbbtv test-osd-observation check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(NATIVE_PROBE_TEST) $(NATIVE_TIMER_CREATE_TEST) $(NATIVE_TIMER_DELETE_TEST) $(NATIVE_TIMER_MODIFY_TEST) $(ARTWORK_REFERENCE_TEST) $(IMAGE_DIMENSIONS_TEST) $(EPG_ARTWORK_CONTRACT_TEST) $(EPG_METADATA_CONTRACT_TEST) $(EPG_TYPE_SNAPSHOT_CONTRACT_TEST) $(RECORDING_IDENTITY_TEST) $(RECORDING_METADATA_CONTRACT_TEST) $(RECORDING_MARKS_CONTRACT_TEST) $(RECORDING_CUT_TEST) $(TELETEXT_TEST) $(HBBTV_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(NATIVE_PROBE_TEST) $(NATIVE_TIMER_CREATE_TEST) $(NATIVE_TIMER_DELETE_TEST) $(NATIVE_TIMER_MODIFY_TEST) $(ARTWORK_REFERENCE_TEST) $(IMAGE_DIMENSIONS_TEST) $(EPG_ARTWORK_CONTRACT_TEST) $(EPG_METADATA_CONTRACT_TEST) $(EPG_TYPE_SNAPSHOT_CONTRACT_TEST) $(RECORDING_IDENTITY_TEST) $(RECORDING_METADATA_CONTRACT_TEST) $(RECORDING_MARKS_CONTRACT_TEST) $(RECORDING_CUT_TEST) $(TELETEXT_TEST) $(HBBTV_TEST) $(OSD_OBSERVATION_TEST) *.tgz core* *~ ._*

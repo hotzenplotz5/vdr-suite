@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md)
 - [Phase 67 Closeout](development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](development/phase-66-closeout.md)
@@ -40,7 +41,7 @@ Latest completed numbered runtime phase:
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV
 
 Current active numbered runtime phase:
-none - Phase 68 not started
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Next strict numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
@@ -50,7 +51,7 @@ Teletext read path / browser-TV view / page navigation
 HbbTV discovery / authorized application session / presentation-media runtime
 
 Current active runtime slice:
-none - Phase 68 not started
+68.A - Read-only OSD observation
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
@@ -190,7 +191,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is next and has **not started**. Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
+Phase 68 Legacy OSD Compatibility Bridge is **active**. The current bounded slice is 68.A read-only OSD observation; controller lease and native input remain later Phase-68 verticals. Durable kickoff evidence is in [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
 
 ## Historical evidence rule
 

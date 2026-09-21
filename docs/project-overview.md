@@ -64,7 +64,7 @@ Completed product flows include:
 - use canonical TVScraper/native artwork and manual Series hierarchy/artwork overrides where explicitly configured;
 - edit Recording marks/cuts through VDR-native authority under Suite safety boundaries.
 
-Phase 67 Broadcast Companion Services: Teletext and HbbTV is completed. The next strict numbered product domain is Phase 68 Legacy OSD Compatibility Bridge, which has not started.
+Phase 67 Broadcast Companion Services: Teletext and HbbTV is completed. Phase 68 Legacy OSD Compatibility Bridge is active at 68.A read-only OSD observation; controller/input work remains later Phase-68 scope.
 
 ## Key architectural rules
 

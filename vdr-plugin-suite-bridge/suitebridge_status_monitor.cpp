@@ -12,6 +12,7 @@ SuiteBridgeStatusMonitor::SuiteBridgeStatusMonitor() noexcept
 
 void SuiteBridgeStatusMonitor::Activate() noexcept
 {
+  osdState_.Clear();
   active_.store(true, std::memory_order_release);
 
   const SuiteBridgeStatusSnapshot snapshot = CaptureSnapshot();
@@ -29,6 +30,7 @@ void SuiteBridgeStatusMonitor::Deactivate() noexcept
     return;
   }
 
+  osdState_.Clear();
   const SuiteBridgeStatusSnapshot snapshot = events_.CaptureSnapshot(false);
 
   isyslog(
@@ -57,6 +59,11 @@ unsigned long long SuiteBridgeStatusMonitor::EventCount(
 SuiteBridgeStatusSnapshot SuiteBridgeStatusMonitor::CaptureSnapshot() const noexcept
 {
   return events_.CaptureSnapshot(IsActive());
+}
+
+SuiteBridgeOsdSnapshot SuiteBridgeStatusMonitor::CaptureOsdSnapshot() const noexcept
+{
+  return osdState_.CaptureSnapshot();
 }
 
 void SuiteBridgeStatusMonitor::RecordEvent(
@@ -159,4 +166,84 @@ void SuiteBridgeStatusMonitor::MarksModified(
   (void)marks;
 
   RecordEvent(SuiteBridgeStatusEventKind::MarksModified);
+}
+
+void SuiteBridgeStatusMonitor::OsdClear(void)
+{
+  if (!IsActive()) return;
+  osdState_.Clear();
+}
+
+void SuiteBridgeStatusMonitor::OsdTitle(const char *title)
+{
+  if (!IsActive()) return;
+  osdState_.Title(title);
+}
+
+void SuiteBridgeStatusMonitor::OsdStatusMessage(
+    eMessageType type,
+    const char *message)
+{
+  if (!IsActive()) return;
+  (void)type;
+  osdState_.StatusMessage(message);
+}
+
+void SuiteBridgeStatusMonitor::OsdHelpKeys(
+    const char *red,
+    const char *green,
+    const char *yellow,
+    const char *blue)
+{
+  if (!IsActive()) return;
+  osdState_.HelpKeys(red, green, yellow, blue);
+}
+
+void SuiteBridgeStatusMonitor::OsdItem(
+    const char *text,
+    int index,
+    bool selectable)
+{
+  if (!IsActive()) return;
+  osdState_.Item(text, index, selectable);
+}
+
+void SuiteBridgeStatusMonitor::OsdCurrentItem(
+    const char *text,
+    int index)
+{
+  if (!IsActive()) return;
+  osdState_.CurrentItem(text, index);
+}
+
+void SuiteBridgeStatusMonitor::OsdTextItem(
+    const char *text,
+    bool scroll)
+{
+  if (!IsActive()) return;
+  osdState_.TextItem(text, scroll);
+}
+
+void SuiteBridgeStatusMonitor::OsdChannel(const char *text)
+{
+  if (!IsActive()) return;
+  osdState_.Channel(text);
+}
+
+void SuiteBridgeStatusMonitor::OsdProgramme(
+    time_t presentTime,
+    const char *presentTitle,
+    const char *presentSubtitle,
+    time_t followingTime,
+    const char *followingTitle,
+    const char *followingSubtitle)
+{
+  if (!IsActive()) return;
+  osdState_.Programme(
+      static_cast<std::int64_t>(presentTime),
+      presentTitle,
+      presentSubtitle,
+      static_cast<std::int64_t>(followingTime),
+      followingTitle,
+      followingSubtitle);
 }

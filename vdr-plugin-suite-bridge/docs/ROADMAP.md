@@ -159,7 +159,7 @@ The sequence deliberately prioritizes:
 | SB.11 Sequenced native event feed | planned | Plugin + Agent | yes |
 | SB.12 OSD notification feed | planned | Plugin + Agent | yes |
 | SB.13 Replay and AV state | planned | Plugin + Agent | likely |
-| SB.14 View-only Legacy OSD | planned | Plugin + Agent + Control Plane | yes |
+| SB.14 View-only Legacy OSD | active foundation | Plugin + Agent + Control Plane | yes |
 | SB.15 Controller lease and allowlisted OSD input | candidate / blocked | Control Plane + Agent + Plugin | yes, after prerequisites |
 | SB.16 Typed native actions | candidate | Agent + Plugin | only for proven gaps |
 | SB.17 Safe Timer mutations | candidate / blocked | Control Plane + Agent + Plugin | yes, after mutation foundation |
@@ -596,6 +596,8 @@ callback semantics. Do not infer state from a sent key.
 ---
 
 # SB.14 — View-Only Legacy OSD
+
+Status: **Active foundation — Phase 68.A local read-only observation.** Agent transport, viewer authorization and client delivery remain later SB.14/Phase-68 slices.
 
 Status: `planned`
 
