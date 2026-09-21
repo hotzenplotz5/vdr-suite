@@ -11,6 +11,7 @@
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
+#include "LegacyOsdInputDomain.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -876,12 +877,79 @@ BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const Req
     if(!agent.has_value()||!agentContextMatches(context,request.backendId,agent->agentId,request.agentInstanceId,request.backendGeneration,true,now,reason)){result.reasonCode=reason.empty()?"agent_binding_unavailable":reason;return result;}
     result=commandRepository_.poll(request,agent->agentId,now); return result;
 }
-BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(const RequestSecurityContext& context,const BackendAgentCommandReceipt& receipt,std::int64_t now)
+void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
+    ReceiptFenceCheck check)
 {
-    BackendAgentCommandReceiptResult result; std::string reason;
-    if(!backendAgentCommandValidReceipt(receipt)||!agentContextMatches(context,receipt.backendId,receipt.agentId,receipt.agentInstanceId,receipt.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_receipt":reason;return result;}
-    if(!appendEvent(context,"agent.command.receipt",receipt.backendId,"", "receive-command-receipt","allow","command_receipt_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
-    result=commandRepository_.acceptReceipt(receipt); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(receipt.backendId,"receipt"); return result;
+    receiptFenceCheck_ = std::move(check);
+}
+
+BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
+    const RequestSecurityContext& context,
+    const BackendAgentCommandReceipt& receipt,
+    std::int64_t now)
+{
+    BackendAgentCommandReceiptResult result;
+    std::string reason;
+    if (!backendAgentCommandValidReceipt(receipt) ||
+        !agentContextMatches(
+            context, receipt.backendId, receipt.agentId,
+            receipt.agentInstanceId, receipt.backendGeneration,
+            false, now, reason))
+    {
+        result.reasonCode =
+            reason.empty() ? "invalid_command_receipt" : reason;
+        return result;
+    }
+
+    const auto assignment = commandRepository_.findAssignment(receipt.commandId);
+    if (assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType)
+    {
+        if (!receiptFenceCheck_)
+        {
+            result.reasonCode = "legacy_osd_input_fence_unavailable";
+            return result;
+        }
+        if (!receiptFenceCheck_(receipt, reason))
+        {
+            if (!appendEvent(
+                    context, "legacy-osd.input.rejected",
+                    receipt.backendId, assignment->operationId,
+                    "legacy-osd.input", "deny",
+                    reason.empty() ? "legacy_osd_input_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode =
+                reason.empty() ? "legacy_osd_input_fenced" : reason;
+            return result;
+        }
+        if (!appendEvent(
+                context, "legacy-osd.input.accepted",
+                receipt.backendId, assignment->operationId,
+                "legacy-osd.input", "allow",
+                "dispatch_fence_current", "accepted_for_dispatch", now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
+    if (!appendEvent(
+            context, "agent.command.receipt", receipt.backendId, "",
+            "receive-command-receipt", "allow",
+            "command_receipt_persist", "attempted", now))
+    {
+        result.reasonCode = "command_accountability_unavailable";
+        return result;
+    }
+    result = commandRepository_.acceptReceipt(receipt);
+    if (result.accepted)
+        result.dropResponse =
+            commandRepository_.consumeFault(receipt.backendId, "receipt");
+    return result;
 }
 BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(const RequestSecurityContext& context,const BackendAgentCommandResult& value,std::int64_t now)
 {
