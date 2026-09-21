@@ -13,7 +13,9 @@ assert(source.includes('function selectRandomFolder(entries, generation, randomV
 assert(source.includes('folderEntryCount(entry) > 0'));
 assert(source.includes('bootstrap.installMouseDrag();'));
 assert(source.includes('selectedCard.click();'));
-assert(source.includes('scheduleRandomFolderInline(visibleFolders, backendId, generation, Math.random())'));
+assert(!source.includes('FOLDER_VISIBLE_LIMIT'), 'Home recording folders must not be display-capped');
+assert(source.includes('renderFolderRail(\n        projection.folders,'), 'Home must render the complete canonical folder projection');
+assert(source.includes('scheduleRandomFolderInline(\n          projection.folders,'), 'random folder auto-open must use the same complete projection');
 assert(bootstrapSource.includes("doc.addEventListener('click', handleClickCapture, true)"));
 assert(bootstrapSource.includes('handleInlineCategoryClick(event)'));
 assert(bootstrapSource.includes('openFolderInline(card)'));
@@ -196,4 +198,37 @@ assert.strictEqual(actionCard.clickCount, 0);
 assert.strictEqual(emptyCard.clickCount, 0);
 assert.strictEqual(rootTile.clickCount, 0, 'Hauptverzeichnis must never be selected as the random folder expansion');
 
-console.log('phase66 Home random recording-folder auto-open contract ok');
+const completeFolders = Array.from({length: 17}, (_, index) => ({
+  name: 'Ordner ' + String(index + 1),
+  path: 'Ordner-' + String(index + 1),
+  recordingCount: index + 1
+}));
+const completeFolderClient = {
+  fetchClientRecordingFolder() {
+    return Promise.resolve({
+      folders: completeFolders,
+      recordings: [],
+      total: 0
+    });
+  }
+};
+
+api.loadFolders(completeFolderClient, 'default', 0).then((rendered) => {
+  assert.strictEqual(rendered, true);
+  const completeSection = host.querySelector('[data-home-discovery-rail="folders"]');
+  assert(completeSection);
+  const completeCards = completeSection.querySelectorAll('.media-home-discovery-card.folder');
+  assert.strictEqual(
+    completeCards.length,
+    completeFolders.length,
+    'Home must keep every canonical recording folder instead of truncating the rail after 12'
+  );
+  assert(
+    completeCards.some((card) => card.dataset.folderPath === 'Ordner-17'),
+    'recording folders beyond the former 12-card cutoff must remain reachable'
+  );
+  console.log('phase66 Home random recording-folder auto-open contract ok');
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
