@@ -67,7 +67,7 @@ required = {
         'path == "/api/vdr/legacy-osd/sessions"',
         'path == "/api/vdr/legacy-osd/sessions/status"',
         'requestToAuthorize.permission = "osd.view"',
-        'requestToAuthorize.action = "osd.session.create"',
+        '"osd.session.create"',
     ],
 }
 
