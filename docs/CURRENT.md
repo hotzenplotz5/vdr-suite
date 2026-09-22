@@ -44,7 +44,7 @@ Latest completed numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-None - Phase 68 is completed; Phase 69 has not started
+none - Phase 69 - Public API and Client Compatibility Hardening not started
 
 Next strict numbered runtime phase:
 Phase 69 - Public API and Client Compatibility Hardening
@@ -63,7 +63,7 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-None - Phase 68 is completed; Phase 69 has not started
+none - Phase 69 - Public API and Client Compatibility Hardening not started
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88

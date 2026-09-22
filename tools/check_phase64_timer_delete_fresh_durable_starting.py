@@ -55,10 +55,45 @@ for token, label in (
     ("backendAgentNativeTimerDeletePrepareLocalStarting", "typed fresh starting preparation"),
     ("backendAgentNativeTimerDeleteSerializeLocalState", "typed starting serialization"),
     ("backendAgentCommandStateExtensionValidateSupported", "typed extension validation before persist"),
-    ('state.dispatchState = "starting"', "generic starting projection"),
 ):
     require(timer_delete_handler, token, label)
     forbid(command_client, token, "fresh starting implementation in CommandClient")
+
+# Phase 68.G adds a distinct typed Legacy OSD input dispatch boundary in the
+# generic command reconciler. Keep the Slice-31 Timer-delete ownership guard
+# strict while admitting exactly that successor branch: Timer-delete starting
+# state must still live only in its dedicated handler, and the OSD branch must
+# durably persist "starting" before invoking the native transport.
+starting_projection = 'state.dispatchState = "starting"'
+require(timer_delete_handler, starting_projection, "generic starting projection")
+osd_start = command_client.find("if (legacyOsdInputCommand)")
+osd_end = command_client.find(
+    "\n    if (!state.receiptAcknowledged &&",
+    osd_start,
+)
+if osd_start < 0 or osd_end < 0:
+    raise SystemExit("missing bounded Phase-68.G Legacy OSD successor branch")
+osd_branch = command_client[osd_start:osd_end]
+require(osd_branch, starting_projection, "Phase-68.G durable starting projection")
+starting = osd_branch.find(starting_projection)
+persist_starting = osd_branch.find(
+    "persist(config.statePath, state, reason)",
+    starting,
+)
+dispatch = osd_branch.find(
+    "executeLegacyOsdInput(",
+    starting,
+)
+if min(starting, persist_starting, dispatch) < 0 or not starting < persist_starting < dispatch:
+    raise SystemExit(
+        "Phase-68.G ordering must remain starting -> durable persist -> native dispatch"
+    )
+command_client_without_osd = command_client[:osd_start] + command_client[osd_end:]
+forbid(
+    command_client_without_osd,
+    starting_projection,
+    "fresh starting projection outside the typed Phase-68.G successor branch",
+)
 
 fresh_helper = timer_delete_handler.split(
     "bool backendAgentNativeTimerDeleteCommandPrepareFreshStarting(", 1

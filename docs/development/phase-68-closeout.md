@@ -1,6 +1,8 @@
 # Phase 68 Closeout — Legacy OSD Compatibility Bridge
 
-**Phase 68 is completed for the accepted 68.A-G scope.**
+**Phase 68 is completed.**
+
+The accepted completion scope is 68.A through 68.G.
 
 ## Accepted repository identity
 

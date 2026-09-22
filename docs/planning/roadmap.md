@@ -652,7 +652,9 @@ Phase 67 closes only when:
 
 ## Phase 68 — Legacy OSD Compatibility Bridge
 
-Status: **Completed — 68.A through 68.G accepted.**
+Status: **Completed.**
+
+68.A through 68.G are accepted; see the Phase-68 closeout for the final real-runtime evidence.
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -757,7 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Planned after Phase 68.**
+Status: **Next; not started.**
+
+Phase 69 remains planned after completed Phase 68 and requires its own explicit runtime start.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 

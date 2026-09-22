@@ -21,7 +21,7 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
-Current active numbered runtime phase: **None - Phase 68 is completed; Phase 69 has not started**.
+Current active numbered runtime phase: **none - Phase 69 - Public API and Client Compatibility Hardening not started**.
 
 Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
