@@ -194,16 +194,44 @@ require(
     ],
 )
 
-require(
-    PLUGIN_ROADMAP,
-    [
-        "mutations            disabled",
-        "commands             CAPS and SNAP only",
-        "SB.16 Typed native actions",
-        "candidate",
-        "after mutation foundation",
-    ],
-)
+plugin_roadmap_text = normalized(read(PLUGIN_ROADMAP))
+for marker in [
+    "mutations disabled",
+    "SB.16 Typed native actions",
+    "candidate",
+    "after mutation foundation",
+]:
+    if normalized(marker) not in plugin_roadmap_text:
+        failures.append(
+            f"{PLUGIN_ROADMAP.relative_to(ROOT)} misses required marker: {marker}"
+        )
+
+legacy_command_marker = normalized("commands             CAPS and SNAP only")
+phase68_successor_markers = [
+    "Current accepted Phase-68 plugin/runtime contract",
+    "plugin version       0.14.0",
+    "osd.view             available",
+    "osd.control          available",
+    "generic mutations    disabled",
+    "PLUG suitebridge CAPS [discovery-schema]",
+    "PLUG suitebridge SNAP",
+    "PLUG suitebridge OSDSNAP",
+    "PLUG suitebridge OSDINPUT",
+    "Generic/raw mutation capability remains disabled",
+]
+if legacy_command_marker not in plugin_roadmap_text:
+    missing_successor_markers = [
+        marker
+        for marker in phase68_successor_markers
+        if normalized(marker) not in plugin_roadmap_text
+    ]
+    if missing_successor_markers:
+        failures.append(
+            f"{PLUGIN_ROADMAP.relative_to(ROOT)} has neither the historical "
+            "CAPS/SNAP-only boundary nor the complete accepted Phase-68 "
+            "SuiteBridge successor boundary; missing: "
+            + ", ".join(missing_successor_markers)
+        )
 
 require(
     MAKE_FRAGMENT,
