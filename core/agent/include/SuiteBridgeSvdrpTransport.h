@@ -2,6 +2,7 @@
 
 #include "BackendAgentNativeProbe.h"
 #include "ISuiteBridgeLocalTransport.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeHbbtvTransport.h"
@@ -50,7 +51,8 @@ class SuiteBridgeSvdrpTransport final :
     public ::ISuiteBridgeRecordingMetadataTransport,
     public ::ISuiteBridgeTeletextTransport,
     public IBackendAgentNativeProbeTransport,
-    public ISuiteBridgeLiveSourceTransport
+    public ISuiteBridgeLiveSourceTransport,
+    public ISuiteBridgeLegacyOsdInputTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -102,6 +104,33 @@ public:
 
     ::SuiteBridgeTeletextCommandReply requestTeletextPage(
         const ::SuiteBridgeTeletextPageRequest& request) override;
+
+    bool legacyOsdInputAvailable() override;
+
+    SuiteBridgeCommandReply executeLegacyOsdInput(
+        const LegacyOsdInputCommand& request,
+        const std::string& requestFingerprint) override
+    {
+        if (!legacyOsdInputCommandValid(request) ||
+            !safeNativeToken(requestFingerprint))
+        {
+            return {SuiteBridgeTransportStatus::Failed, 0, {},
+                "invalid typed Legacy OSD input request"};
+        }
+        std::ostringstream wire;
+        wire << "PLUG suitebridge OSDINPUT 1 "
+             << request.inputCommandId << ' '
+             << requestFingerprint << ' '
+             << request.backendGeneration << ' '
+             << request.osdSurfaceId << ' '
+             << request.osdEpoch << ' '
+             << request.controllerLeaseId << ' '
+             << request.controllerLeaseEpoch << ' '
+             << request.leaseRevision << ' '
+             << legacyOsdInputActionName(request.action) << ' '
+             << request.deadline << "\r\n";
+        return executeRequest(wire.str());
+    }
 
     SuiteBridgeCommandReply discoverNativeProbe() override
     {

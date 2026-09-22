@@ -15,6 +15,7 @@ class IBackendAgentNativeTimerCreateTransport;
 class IBackendAgentNativeTimerModifyTransport;
 class IBackendAgentRecordingMarksModifyTransport;
 class IBackendAgentRecordingCutTransport;
+class ISuiteBridgeLegacyOsdInputTransport;
 
 // Production-only default binding for the native recording-cut transport.
 // Tests may continue to inject an explicit per-config transport below. The
@@ -31,8 +32,15 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport* nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerModifyTransport* nativeTimerModifyTransport = nullptr;
+    vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport* legacyOsdInputTransport = nullptr;
     vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport =
         vdrsuite::agent::RecordingCutDefaultTransport;
+};
+
+struct BackendAgentCommandAvailabilitySnapshot
+{
+    std::vector<std::string> commandTypes;
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
 };
 
 struct BackendAgentCommandClientContext
@@ -48,6 +56,17 @@ bool reconcileBackendAgentCommandState(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
+    std::string& reasonCode);
+
+BackendAgentCommandAvailabilitySnapshot discoverBackendAgentCommandAvailability(
+    const BackendAgentCommandClientConfig& config);
+
+bool pollBackendAgentCommandWithAvailability(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    const BackendAgentCommandAvailabilitySnapshot& availability,
+    bool refreshCapabilities,
     std::string& reasonCode);
 
 bool pollBackendAgentCommand(

@@ -4,6 +4,7 @@
 #include "BackendAgentNativeTimerModify.h"
 #include "BackendAgentRecordingMarksModify.h"
 #include "BackendAgentRecordingCut.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <cctype>
@@ -249,7 +250,7 @@ bool parseIdentifiers(const Value& value, std::vector<std::string>& identifiers)
 }
 bool parseTypes(const Value& value, std::vector<std::string>& types)
 {
-    if (value.kind != Kind::Array || value.arrayValue.size() > 8) return false;
+    if (value.kind != Kind::Array || value.arrayValue.size() > 16) return false;
     types.clear();
     for (const Value& item : value.arrayValue)
     {
@@ -267,7 +268,8 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
              item.stringValue !=
                  vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
              item.stringValue !=
-                 vdrsuite::agent::kBackendAgentRecordingCutCommandType) ||
+                 vdrsuite::agent::kBackendAgentRecordingCutCommandType &&
+             item.stringValue != kLegacyOsdInputCommandType) ||
             std::find(types.begin(), types.end(), item.stringValue) != types.end())
         {
             return false;
@@ -418,7 +420,10 @@ bool parseBackendAgentCommandPollRequestJson(const std::string& body, BackendAge
         {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes"});
     const bool current = exactKeys(root.objectValue,
         {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration", "supportedCommandTypes", "localProviders"});
-    if (!legacy && !current)
+    const bool boundedFastPoll = exactKeys(root.objectValue,
+        {"protocolVersion", "backendId", "agentInstanceId", "backendGeneration",
+         "refreshCapabilities", "supportedCommandTypes", "localProviders"});
+    if (!legacy && !current && !boundedFastPoll)
     { reason="invalid_command_poll_payload"; return false; }
     const Value* protocol=get(root.objectValue,"protocolVersion",Kind::String);
     const Value* backend=get(root.objectValue,"backendId",Kind::String);
@@ -428,13 +433,26 @@ bool parseBackendAgentCommandPollRequestJson(const std::string& body, BackendAge
     if (!protocol||!backend||!instance||!generation||!types||
         !parseTypes(*types,request.supportedCommandTypes))
     { reason="invalid_command_poll_payload"; return false; }
+    request.refreshCapabilities = true;
+    if (boundedFastPoll)
+    {
+        const Value* refresh =
+            get(root.objectValue, "refreshCapabilities", Kind::Boolean);
+        if (!refresh)
+        { reason="invalid_command_poll_payload"; return false; }
+        request.refreshCapabilities = refresh->boolValue;
+    }
     request.localProviders.clear();
-    if (current)
+    if (current || boundedFastPoll)
     {
         const Value* providers=get(root.objectValue,"localProviders",Kind::Array);
         if (!providers || !parseProviders(*providers, request.localProviders))
         { reason="invalid_command_poll_payload"; return false; }
     }
+    if (!request.refreshCapabilities &&
+        (!request.supportedCommandTypes.empty() ||
+         !request.localProviders.empty()))
+    { reason="invalid_command_poll_payload"; return false; }
     request.protocolVersion=protocol->stringValue; request.backendId=backend->stringValue;
     request.agentInstanceId=instance->stringValue; request.backendGeneration=generation->unsignedValue;
     if (request.protocolVersion!="vdr-suite-agent/1" || !backendAgentCommandSafeIdentifier(request.backendId) ||
@@ -449,6 +467,8 @@ std::string serializeBackendAgentCommandPollRequestJson(const BackendAgentComman
     out << "{\"protocolVersion\":\"vdr-suite-agent/1\",\"backendId\":\"" << escape(request.backendId)
         << "\",\"agentInstanceId\":\"" << escape(request.agentInstanceId)
         << "\",\"backendGeneration\":" << request.backendGeneration
+        << ",\"refreshCapabilities\":"
+        << (request.refreshCapabilities ? "true" : "false")
         << ",\"supportedCommandTypes\":" << stringArray(request.supportedCommandTypes)
         << ",\"localProviders\":" << providersJson(request.localProviders) << '}';
     return out.str();

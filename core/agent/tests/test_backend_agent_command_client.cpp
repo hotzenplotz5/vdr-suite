@@ -5,9 +5,12 @@
 #include "BackendAgentNativeTimerCreateExecutor.h"
 #include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerModifyExecutor.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -171,6 +174,158 @@ public:
     }
 };
 
+
+class OsdInputTransport final
+    : public vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport
+{
+public:
+    bool available = true;
+    int dispatches = 0;
+    LegacyOsdInputCommand lastCommand;
+    std::string lastFingerprint;
+    vdrsuite::agent::SuiteBridgeCommandReply reply{
+        vdrsuite::agent::SuiteBridgeTransportStatus::Success,
+        900,
+        "{\"resultCategory\":\"dispatched_unverified\"}",
+        ""};
+
+    bool legacyOsdInputAvailable() override
+    {
+        return available;
+    }
+
+    vdrsuite::agent::SuiteBridgeCommandReply executeLegacyOsdInput(
+        const LegacyOsdInputCommand& command,
+        const std::string& requestFingerprint) override
+    {
+        ++dispatches;
+        lastCommand = command;
+        lastFingerprint = requestFingerprint;
+        return reply;
+    }
+};
+
+class OsdInputCommandTransport final : public IBackendAgentControlPlaneTransport
+{
+public:
+    BackendAgentCommandAssignment assignment;
+    std::vector<std::string> calls;
+    BackendAgentCommandResult result;
+
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&, const std::string&, const std::string&,
+        const std::string&) override
+    {
+        return {};
+    }
+
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string&, const std::string&,
+        const std::string& path,
+        const std::string& body) override
+    {
+        calls.push_back(path);
+        if (path == "/api/agent/v1/commands/poll")
+        {
+            BackendAgentCommandPollRequest request;
+            std::string reason;
+            assert(parseBackendAgentCommandPollRequestJson(
+                body, request, reason));
+            assert(std::find(
+                request.supportedCommandTypes.begin(),
+                request.supportedCommandTypes.end(),
+                kLegacyOsdInputCommandType) !=
+                request.supportedCommandTypes.end());
+            BackendAgentCommandPollResult poll;
+            poll.accepted = true;
+            poll.reasonCode = "command_assigned";
+            poll.assignment = assignment;
+            return {
+                true, 200,
+                serializeBackendAgentCommandPollResponseJson(poll),
+                ""};
+        }
+        if (path == "/api/agent/v1/commands/receipt")
+        {
+            BackendAgentCommandReceipt receipt;
+            std::string reason;
+            assert(parseBackendAgentCommandReceiptJson(
+                body, receipt, reason));
+            assert(receipt.commandId == assignment.commandId);
+            return {
+                true, 200,
+                "{\"outcome\":\"accepted\","
+                "\"reasonCode\":\"command_receipt_accepted\"}",
+                ""};
+        }
+        if (path == "/api/agent/v1/commands/result")
+        {
+            std::string reason;
+            assert(parseBackendAgentCommandResultJson(
+                body, result, reason));
+            return {
+                true, 200,
+                "{\"outcome\":\"accepted\","
+                "\"reasonCode\":\"command_result_accepted\"}",
+                ""};
+        }
+        assert(false);
+        return {};
+    }
+};
+
+std::int64_t commandNow()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+BackendAgentCommandAssignment osdInputAssignment(
+    const std::string& suffix)
+{
+    const std::int64_t now = commandNow();
+    LegacyOsdInputCommand input;
+    input.inputCommandId = "input_" + suffix;
+    input.legacyOsdSessionId = "los_input";
+    input.sessionRevision = 7;
+    input.viewerBindingId = "ovb_input";
+    input.controllerLeaseId = "ocl_input";
+    input.controllerLeaseEpoch = 3;
+    input.leaseRevision = 2;
+    input.actorId = "user:controller";
+    input.clientInstanceId = "device:browser";
+    input.backendId = "default";
+    input.backendGeneration = 8;
+    input.osdSurfaceId = "primary-native-osd";
+    input.osdEpoch = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    input.action = LegacyOsdInputAction::Ok;
+    input.deadline = now + 3;
+    input.correlationId = "corr:input";
+
+    BackendAgentCommandAssignment value;
+    value.present = true;
+    value.requestId = "req_input_" + suffix;
+    value.correlationId = "corr_input_" + suffix;
+    value.operationId = "osdi:input_" + suffix;
+    value.jobId = "job_input_" + suffix;
+    value.attemptId = "att_input_" + suffix;
+    value.claimEpoch = 1;
+    value.commandId = "cmd_input_" + suffix;
+    value.backendId = "default";
+    value.agentId = "agt_client";
+    value.agentInstanceId = "agi_current";
+    value.backendGeneration = 8;
+    value.commandType = kLegacyOsdInputCommandType;
+    value.payloadVersion = kLegacyOsdInputPayloadVersion;
+    value.payload = legacyOsdInputCommandSerialize(input);
+    value.verificationPolicy = "dispatch_only";
+    value.assignedAt = now;
+    value.deadline = input.deadline;
+    value.requestFingerprint = backendAgentCommandFingerprint(value);
+    assert(backendAgentCommandValidAssignment(value));
+    return value;
+}
+
 BackendAgentCommandPollRequest capturePoll(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
@@ -181,6 +336,7 @@ BackendAgentCommandPollRequest capturePoll(
     BackendAgentCommandPollRequest request;
     assert(parseBackendAgentCommandPollRequestJson(
         transport.requestBody, request, reason));
+    assert(request.refreshCapabilities);
     return request;
 }
 
@@ -236,13 +392,151 @@ void testTimerAdvertisementActivation()
     assert(incoherent.supportedCommandTypes.empty());
     assert(incoherent.localProviders.empty());
 
+
     std::remove(path.c_str());
+}
+
+void testOsdInputAdvertisement()
+{
+    BackendAgentCommandPollRequest legacy;
+    std::string legacyReason;
+    assert(parseBackendAgentCommandPollRequestJson(
+        "{\"protocolVersion\":\"vdr-suite-agent/1\","
+        "\"backendId\":\"default\","
+        "\"agentInstanceId\":\"agi_legacy\","
+        "\"backendGeneration\":1,"
+        "\"supportedCommandTypes\":[]}",
+        legacy,
+        legacyReason));
+    assert(legacy.refreshCapabilities);
+
+    const std::string path = "/tmp/vdr-suite-osd-input-advertisement-state";
+    std::remove(path.c_str());
+    OsdInputTransport input;
+    BackendAgentCommandClientConfig config;
+    config.statePath = path;
+    config.commandTypes = {kLegacyOsdInputCommandType};
+    config.legacyOsdInputTransport = &input;
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    std::string reason;
+
+    PollTransport enabledTransport;
+    const auto enabled =
+        capturePoll(config, context, enabledTransport, reason);
+    assert(enabled.supportedCommandTypes ==
+        std::vector<std::string>{kLegacyOsdInputCommandType});
+
+    input.available = false;
+    PollTransport disabledTransport;
+    const auto disabled =
+        capturePoll(config, context, disabledTransport, reason);
+    assert(disabled.supportedCommandTypes.empty());
+    std::remove(path.c_str());
+}
+
+void testOsdInputDispatchAndNoBlindRetry()
+{
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+
+    {
+        const std::string path =
+            "/tmp/vdr-suite-osd-input-dispatch-state";
+        std::remove(path.c_str());
+        OsdInputTransport input;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.commandTypes = {kLegacyOsdInputCommandType};
+        config.legacyOsdInputTransport = &input;
+
+        OsdInputCommandTransport control;
+        control.assignment = osdInputAssignment("success");
+        std::string reason;
+        assert(pollBackendAgentCommand(
+            config, context, control, reason));
+        assert(input.dispatches == 1);
+        assert(input.lastCommand.inputCommandId == "input_success");
+        assert(input.lastFingerprint ==
+            control.assignment.requestFingerprint);
+        assert(control.calls == std::vector<std::string>({
+            "/api/agent/v1/commands/poll",
+            "/api/agent/v1/commands/receipt",
+            "/api/agent/v1/commands/result"}));
+        assert(control.result.resultCategory == "succeeded");
+        assert(control.result.dispatchState == "effect_reported");
+        assert(control.result.verificationState == "not_required");
+
+        assert(reconcileBackendAgentCommandState(
+            config, context, control, reason));
+        assert(input.dispatches == 1);
+        assert(reason == "command_result_reconciled");
+        std::remove(path.c_str());
+    }
+
+    {
+        const std::string path =
+            "/tmp/vdr-suite-osd-input-unknown-state";
+        std::remove(path.c_str());
+        OsdInputTransport input;
+        input.reply.transportStatus =
+            vdrsuite::agent::SuiteBridgeTransportStatus::Timeout;
+        input.reply.replyCode = 0;
+        input.reply.payload.clear();
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.commandTypes = {kLegacyOsdInputCommandType};
+        config.legacyOsdInputTransport = &input;
+
+        OsdInputCommandTransport control;
+        control.assignment = osdInputAssignment("unknown");
+        std::string reason;
+        assert(pollBackendAgentCommand(
+            config, context, control, reason));
+        assert(input.dispatches == 1);
+        assert(control.result.resultCategory == "outcome_unknown");
+        assert(control.result.dispatchState == "starting");
+        assert(control.result.retryClassification == "reconcile_only");
+
+        assert(reconcileBackendAgentCommandState(
+            config, context, control, reason));
+        assert(input.dispatches == 1);
+        assert(reason == "command_result_reconciled");
+        std::remove(path.c_str());
+    }
+
+    {
+        const std::string path =
+            "/tmp/vdr-suite-osd-input-rejected-state";
+        std::remove(path.c_str());
+        OsdInputTransport input;
+        input.reply.replyCode = 451;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.commandTypes = {kLegacyOsdInputCommandType};
+        config.legacyOsdInputTransport = &input;
+
+        OsdInputCommandTransport control;
+        control.assignment = osdInputAssignment("rejected");
+        std::string reason;
+        assert(pollBackendAgentCommand(
+            config, context, control, reason));
+        assert(input.dispatches == 1);
+        assert(control.result.resultCategory == "rejected");
+        assert(control.result.errorCategory == "executor_unknown");
+        assert(control.result.retryClassification == "reconcile_only");
+        std::remove(path.c_str());
+    }
 }
 }
 
 int main()
 {
     testTimerAdvertisementActivation();
+    testOsdInputAdvertisement();
+    testOsdInputDispatchAndNoBlindRetry();
     const std::string path="/tmp/vdr-suite-command-restart-state";
     std::remove(path.c_str());
     BackendAgentCommandClientConfig config{path,{"probe.noop"}};

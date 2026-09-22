@@ -132,6 +132,7 @@ DAEMON_SRC := \
         core/daemon/src/LegacyOsdSessionService.cpp \
         core/daemon/src/OsdViewerBindingService.cpp \
         core/daemon/src/OsdControllerLeaseService.cpp \
+        core/daemon/src/LegacyOsdInputService.cpp \
         core/vdr/src/SuiteBridgeHbbtvRuntimeResolver.cpp \
         core/vdr/src/SuiteBridgeHbbtvPresentationResolver.cpp \
         core/vdr/src/SuiteBridgeHbbtvMediaResolver.cpp \

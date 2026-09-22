@@ -48,16 +48,16 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ```text
 Latest completed numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+None - Phase 68 is completed; Phase 69 has not started
 
 Next strict numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 ```
 
-Phase 65, Phase 66 and Phase 67 are completed. Durable Broadcast Companion evidence lives in [Phase 67 Closeout](../development/phase-67-closeout.md), with Teletext-specific evidence retained in [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md). Phase 68 Legacy OSD Compatibility Bridge is active; durable kickoff evidence is in [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md).
+Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is next but has not started.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -652,7 +652,9 @@ Phase 67 closes only when:
 
 ## Phase 68 — Legacy OSD Compatibility Bridge
 
-Status: **Active — 68.F exclusive controller lease and `osd.control` fencing.**
+Status: **Completed.**
+
+68.A through 68.G are accepted; see the Phase-68 closeout for the final real-runtime evidence.
 
 Binding architecture: [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md).
 
@@ -749,13 +751,17 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 - local and multi-site real VDR acceptance passes;
 - direct legacy endpoint migration/rollback is documented.
 
+**Gate status: satisfied for the accepted Phase-68 scope.** 68.G real yaVDR acceptance proved native DOWN/UP effect, idempotent replay, dispatch fencing, stale-authority rejection, cleanup and unchanged VDR/daemon/Agent processes. See [Phase 68 Closeout](../development/phase-68-closeout.md).
+
 ---
 
 ---
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Planned after Phase 68.**
+Status: **Next; not started.**
+
+Phase 69 remains planned after completed Phase 68 and requires its own explicit runtime start.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -1069,7 +1075,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.F]
+  -> Phase 68 - Legacy OSD Compatibility Bridge [COMPLETED]
   -> Phase 69 - Public API and Client Compatibility Hardening
   -> Phase 70 - Recommendation and Content Knowledge Graph
 ```

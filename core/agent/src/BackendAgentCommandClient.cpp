@@ -17,6 +17,8 @@
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutCommandHandler.h"
 #include "BackendAgentRecordingCutTransport.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <chrono>
@@ -358,11 +360,7 @@ bool executeFreshRecordingCutAndPersistOutcome(
             reason);
 }
 
-struct CommandAvailability
-{
-    std::vector<std::string> commandTypes;
-    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
-};
+using CommandAvailability = BackendAgentCommandAvailabilitySnapshot;
 
 bool hasCommandType(
     const BackendAgentCommandClientConfig& config,
@@ -542,6 +540,21 @@ CommandAvailability availableCommands(
         }
     }
 
+    bool legacyOsdInputAvailable = false;
+    if (hasCommandType(config, kLegacyOsdInputCommandType) &&
+        config.legacyOsdInputTransport != nullptr)
+    {
+        try
+        {
+            legacyOsdInputAvailable =
+                config.legacyOsdInputTransport->legacyOsdInputAvailable();
+        }
+        catch (...)
+        {
+            legacyOsdInputAvailable = false;
+        }
+    }
+
     for (const std::string& type : config.commandTypes)
     {
         const bool timerType =
@@ -568,6 +581,12 @@ CommandAvailability availableCommands(
         if (type == vdrsuite::agent::kBackendAgentRecordingCutCommandType)
         {
             if (recordingCutAvailable)
+                availability.commandTypes.push_back(type);
+            continue;
+        }
+        if (type == kLegacyOsdInputCommandType)
+        {
+            if (legacyOsdInputAvailable)
                 availability.commandTypes.push_back(type);
             continue;
         }
@@ -880,6 +899,102 @@ bool reconcileBackendAgentCommandState(
         return true;
     }
 
+    const bool legacyOsdInputCommand =
+        state.assignment.commandType == kLegacyOsdInputCommandType;
+    if (legacyOsdInputCommand && !state.resultPresent)
+    {
+        if (state.dispatchState != "not_started")
+        {
+            createResult(
+                state, state.dispatchState, "outcome_unknown",
+                "outcome_unknown", "executor_unknown", "reconcile_only",
+                "Legacy OSD input recovered after dispatch boundary; not re-executed");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        const std::int64_t currentTime = nowSeconds();
+        if (state.assignment.deadline <= currentTime)
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "expired", "none",
+                "Legacy OSD input deadline expired before dispatch");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+
+        LegacyOsdInputCommand command;
+        if (!legacyOsdInputCommandParse(state.assignment.payload, command))
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input payload rejected locally");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (config.legacyOsdInputTransport == nullptr)
+        {
+            createResult(
+                state, "not_started", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input transport unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+
+        const vdrsuite::agent::SuiteBridgeCommandReply reply =
+            config.legacyOsdInputTransport->executeLegacyOsdInput(
+                command, state.assignment.requestFingerprint);
+
+        if (!reply.transportSucceeded())
+        {
+            createResult(
+                state, "starting", "outcome_unknown",
+                "outcome_unknown", "executor_unknown", "reconcile_only",
+                "Legacy OSD input transport outcome unknown; not retried");
+        }
+        else if (reply.replyCode == 900)
+        {
+            createResult(
+                state, "effect_reported", "not_required",
+                "succeeded", "none", "none",
+                "Legacy OSD input dispatched; domain mutation success not implied");
+        }
+        else if (reply.replyCode == 555 || reply.replyCode == 554)
+        {
+            createResult(
+                state, "accepted_by_executor", "not_required",
+                "rejected", "fenced", "none",
+                "Legacy OSD input rejected by local fence");
+        }
+        else if (reply.replyCode == 501 || reply.replyCode == 504)
+        {
+            createResult(
+                state, "accepted_by_executor", "not_required",
+                "rejected", "unsupported", "none",
+                "Legacy OSD input action or schema unsupported");
+        }
+        else
+        {
+            createResult(
+                state, "accepted_by_executor", "outcome_unknown",
+                "rejected", "executor_unknown", "reconcile_only",
+                "Legacy OSD input rejected by native executor");
+        }
+
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
+    }
+
     if (!state.receiptAcknowledged &&
         !sendReceipt(config, context, transport, state, reason)) return false;
     if (state.resultPresent)
@@ -939,10 +1054,18 @@ bool reconcileBackendAgentCommandState(
     return sendResult(config, context, transport, state, reason);
 }
 
-bool pollBackendAgentCommand(
+BackendAgentCommandAvailabilitySnapshot discoverBackendAgentCommandAvailability(
+    const BackendAgentCommandClientConfig& config)
+{
+    return availableCommands(config);
+}
+
+bool pollBackendAgentCommandWithAvailability(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
+    const BackendAgentCommandAvailabilitySnapshot& availability,
+    bool refreshCapabilities,
     std::string& reason)
 {
     if (config.commandTypes.empty())
@@ -958,9 +1081,12 @@ bool pollBackendAgentCommand(
     request.backendId = context.backendId;
     request.agentInstanceId = context.agentInstanceId;
     request.backendGeneration = context.backendGeneration;
-    const CommandAvailability availability = availableCommands(config);
-    request.supportedCommandTypes = availability.commandTypes;
-    request.localProviders = availability.localProviders;
+    request.refreshCapabilities = refreshCapabilities;
+    if (refreshCapabilities)
+    {
+        request.supportedCommandTypes = availability.commandTypes;
+        request.localProviders = availability.localProviders;
+    }
     const auto response = transport.postAuthenticated(
         context.agentId, context.credentialSecret,
         "/api/agent/v1/commands/poll",
@@ -975,7 +1101,7 @@ bool pollBackendAgentCommand(
             response.body, result, reason)) return false;
     if (!result.assignment.present)
     {
-        reason = request.supportedCommandTypes.empty()
+        reason = availability.commandTypes.empty()
             ? "native_capability_unavailable" : "no_command_available";
         return true;
     }
@@ -1032,6 +1158,21 @@ bool pollBackendAgentCommand(
     receipt.reasonCode = "durably_recorded";
     if (!persist(config.statePath, state, reason)) return false;
     return reconcileBackendAgentCommandState(config, context, transport, reason);
+}
+
+bool pollBackendAgentCommand(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reason)
+{
+    return pollBackendAgentCommandWithAvailability(
+        config,
+        context,
+        transport,
+        discoverBackendAgentCommandAvailability(config),
+        true,
+        reason);
 }
 
 void setBackendAgentNativeProbeTransport(

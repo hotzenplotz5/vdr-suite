@@ -4,7 +4,10 @@
 #include "BackendAgentNativeProbe.h"
 #include "Database.h"
 
+#include <sqlite3.h>
+
 #include <cassert>
+#include <cstdint>
 #include <string>
 
 namespace
@@ -20,6 +23,17 @@ RequestSecurityContext context(ActorType type, const std::string& actor)
     value.credential = CredentialIdentity{
         "cred_native_test", true, false, false};
     value.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+    return value;
+}
+
+std::int64_t scalarInt64(Database& database, const std::string& sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(), sql.c_str(), -1, &statement, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const std::int64_t value = sqlite3_column_int64(statement, 0);
+    sqlite3_finalize(statement);
     return value;
 }
 
@@ -76,6 +90,16 @@ int main()
     const auto capabilityPoll = service.poll(agent, capability, 101);
     assert(capabilityPoll.accepted);
     assert(!capabilityPoll.assignment.present);
+    assert(scalarInt64(
+        database,
+        "SELECT published_at FROM backend_agent_command_capabilities "
+        "WHERE backend_id='default' AND command_type='vdr.native.probe';") ==
+        101);
+    assert(scalarInt64(
+        database,
+        "SELECT observed_at FROM backend_agent_local_provider_facts "
+        "WHERE backend_id='default' AND provider_id='suitebridge:local';") ==
+        101);
 
     const auto noOwnership = service.assignNativeProbe(
         system, "default", 102, 500, reason);
@@ -109,9 +133,24 @@ int main()
            backendAgentCommandFingerprint(*assignment));
     assert(backendAgentCommandValidAssignment(*assignment));
 
-    const auto delivered = service.poll(agent, capability, 105);
+    BackendAgentCommandPollRequest fastPoll = capability;
+    fastPoll.refreshCapabilities = false;
+    fastPoll.supportedCommandTypes.clear();
+    fastPoll.localProviders.clear();
+
+    const auto delivered = service.poll(agent, fastPoll, 105);
     assert(delivered.accepted);
     assert(delivered.assignment.present);
     assert(delivered.assignment.commandId == assignment->commandId);
+    assert(scalarInt64(
+        database,
+        "SELECT published_at FROM backend_agent_command_capabilities "
+        "WHERE backend_id='default' AND command_type='vdr.native.probe';") ==
+        101);
+    assert(scalarInt64(
+        database,
+        "SELECT observed_at FROM backend_agent_local_provider_facts "
+        "WHERE backend_id='default' AND provider_id='suitebridge:local';") ==
+        101);
     return 0;
 }

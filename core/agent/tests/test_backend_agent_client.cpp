@@ -2,6 +2,7 @@
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentLifecycle.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
 
 #include <algorithm>
 #include <cassert>
@@ -18,6 +19,26 @@ namespace
 {
 const std::string Secret =
     "agent-client-test-secret-material-00000000000000000000000001";
+
+class FlakyLegacyOsdTransport final
+    : public vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport
+{
+public:
+    int discoveryCalls = 0;
+
+    bool legacyOsdInputAvailable() override
+    {
+        ++discoveryCalls;
+        return discoveryCalls == 1;
+    }
+
+    vdrsuite::agent::SuiteBridgeCommandReply executeLegacyOsdInput(
+        const LegacyOsdInputCommand&,
+        const std::string&) override
+    {
+        return {};
+    }
+};
 
 class FakeTransport : public IBackendAgentControlPlaneTransport
 {
@@ -784,6 +805,132 @@ void test_permissions_and_bounded_backoff()
     removeTree(root);
 }
 
+void test_low_latency_command_poll_between_heartbeats()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-low-latency-command-poll";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    FlakyLegacyOsdTransport osdTransport;
+    config.commandTypes = {"vdr.legacy-osd.input"};
+    config.legacyOsdInputTransport = &osdTransport;
+    config.commandPollIntervalMilliseconds = 250;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200,
+        "{\"agentId\":\"agt_client\","
+        "\"backendId\":\"default\","
+        "\"backendGeneration\":1,"
+        "\"credentialGeneration\":1,"
+        "\"heartbeatSequence\":0,"
+        "\"capabilityRevision\":0,"
+        "\"leaseDurationSeconds\":90,"
+        "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200,
+        "{\"heartbeatSequence\":1,"
+        "\"leaseExpiresAt\":123,"
+        "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200,
+        "{\"hasAssignment\":false,"
+        "\"reasonCode\":\"no_command_available\"}"));
+
+    bool stopRequested = false;
+    std::vector<int> millisecondSleeps;
+    std::vector<std::string> logs;
+    BackendAgentClientRuntime runtime(
+        config,
+        transport,
+        [&](int) {
+            assert(false);
+        },
+        [&](const std::string& message) {
+            logs.push_back(message);
+        },
+        [&](int milliseconds) {
+            assert(milliseconds == 250);
+            millisecondSleeps.push_back(milliseconds);
+            if (millisecondSleeps.size() == 3)
+                stopRequested = true;
+        });
+
+    assert(runtime.synchronize(reason));
+    assert(osdTransport.discoveryCalls == 1);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"refreshCapabilities\":true") !=
+        std::string::npos);
+    const std::size_t requestsBeforeRun = transport.paths.size();
+    const std::uint64_t heartbeatBeforeRun =
+        runtime.state().heartbeatSequence;
+
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    transport.responses.push_back(success(
+        200,
+        "{\"hasAssignment\":false,"
+        "\"reasonCode\":\"no_command_available\"}"));
+
+    assert(runtime.run([&] { return stopRequested; }) == 0);
+    assert(millisecondSleeps == std::vector<int>({250, 250, 250}));
+    assert(transport.paths.size() == requestsBeforeRun + 2);
+    assert(
+        transport.paths[requestsBeforeRun] ==
+        "/api/agent/v1/commands/poll");
+    assert(
+        transport.paths[requestsBeforeRun + 1] ==
+        "/api/agent/v1/commands/poll");
+    assert(
+        transport.bodies.back().find("\"refreshCapabilities\":false") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"supportedCommandTypes\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"localProviders\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") ==
+        std::string::npos);
+    assert(osdTransport.discoveryCalls == 1);
+    assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);
+    assert(
+        std::count(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent command poll failed: protected_transport_failed") ==
+        1);
+    assert(
+        std::find(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent synchronized") == logs.end());
+    assert(transport.responses.empty());
+
+    removeTree(root);
+}
+
 void test_heartbeat_wait_is_interruptible()
 {
     const std::string root =
@@ -860,6 +1007,7 @@ int main()
     test_channel_observation_publication_change_and_pending_retry();
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
+    test_low_latency_command_poll_between_heartbeats();
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;

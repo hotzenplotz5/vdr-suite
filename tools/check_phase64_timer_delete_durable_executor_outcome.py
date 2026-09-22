@@ -83,7 +83,7 @@ if command_client.count(helper_name + "(") != 2:
     raise SystemExit("Slice 33 executor handoff must have one definition and one call")
 client_helper = command_client.split(
     "bool executeFreshNativeTimerDeleteAndPersistOutcome(", 1
-)[1].split("\nstruct CommandAvailability", 1)[0]
+)[1].split("\nCommandAvailability availableCommands(", 1)[0]
 require(
     client_helper,
     "backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome",

@@ -22,6 +22,8 @@ constexpr const char* ControllerReleaseRoute =
     "/api/vdr/legacy-osd/controller-leases/release";
 constexpr const char* ControllerStatusRoute =
     "/api/vdr/legacy-osd/controller-leases/status";
+constexpr const char* InputRoute =
+    "/api/vdr/legacy-osd/input";
 
 HttpServerRequest browserCreate(
     SecurityHttpGateBrowserTestFixture& fixture,
@@ -252,6 +254,50 @@ int main()
         const auto noCsrf = fixture.gate.evaluate(
             browserViewerPost(
                 fixture, ControllerAcquireRoute, "default", false));
+        assert(!noCsrf.allowed);
+        assert(noCsrf.rejection.statusCode == 403);
+        assert(noCsrf.rejection.body.find("csrf_validation_failed") !=
+            std::string::npos);
+    }
+
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, ControlPermission, "default"));
+
+        const auto input = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, InputRoute, "default"));
+        assert(input.allowed);
+        assert(input.protectedMutation);
+        assert(input.authorizationDecision.permission ==
+            ControlPermission);
+        assert(input.authorizationDecision.action == "osd.input");
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.read-only", "default"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, ControlPermission, "default"));
+        const auto denied = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, InputRoute, "default"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.rejection.body.find("role_read_only") !=
+            std::string::npos);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, ControlPermission, "default"));
+        const auto noCsrf = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, InputRoute, "default", false));
         assert(!noCsrf.allowed);
         assert(noCsrf.rejection.statusCode == 403);
         assert(noCsrf.rejection.body.find("csrf_validation_failed") !=

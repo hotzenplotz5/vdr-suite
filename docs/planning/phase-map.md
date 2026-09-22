@@ -27,13 +27,13 @@ Phase 58 remains a historical umbrella label only.
 
 ```text
 Latest completed numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+None - Phase 68 is completed; Phase 69 has not started
 
 Next strict numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -49,7 +49,7 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 2 | Phase 65 | Completed | Streaming Gateway and Media Sessions | Authenticated Recording/Live playback and stable playback semantics. |
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Completed | Broadcast Companion Services: Teletext and HbbTV | Teletext and HbbTV Journeys 8/9 accepted. |
-| 5 | Phase 68 | Active — 68.F | Legacy OSD Compatibility Bridge | 68.A-E accepted through bounded multi-viewer delivery; exclusive controller leasing is next; allowlisted input remains later. |
+| 5 | Phase 68 | Completed | Legacy OSD Compatibility Bridge | 68.A-G accepted through fenced allowlisted native OSD input; Golden Journey 10 accepted. |
 | 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
 
@@ -86,7 +86,7 @@ Live Channel / ProgramEvent
   +--> BroadcastApplication -> HbbTV Application Session
 ```
 
-Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`. Phase 68 Legacy OSD has accepted 68.A semantic observation, 68.B Agent-local continuity, 68.C authenticated Agent transport, 68.D authorized bounded view sessions and 68.E bounded viewer bindings/multi-viewer delivery. It is active at 68.F exclusive controller leasing; see [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md), [Phase 68.D View-Session Closeout](../development/phase-68d-view-session-authorization-closeout.md) and [Phase 68.E Viewer-Binding Closeout](../development/phase-68e-viewer-bindings-closeout.md).
+Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/session/presentation-media runtime merged through PR #300 / `5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30`. Phase 68 Legacy OSD has accepted 68.A semantic observation, 68.B Agent-local continuity, 68.C authenticated Agent transport, 68.D authorized bounded view sessions, 68.E bounded viewer bindings/multi-viewer delivery, 68.F exclusive controller leasing and 68.G fenced allowlisted native input. Phase 68 is completed; see [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md).
 
 ## Later phases
 

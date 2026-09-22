@@ -8,7 +8,7 @@ This is the compact authoritative entry point for completed implementation. Deta
 
 ```text
 Latest completed numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Phase-66 closeout merge:
 PR #264 -> de12956ecc283663c820865bb577e7dcf6c5f0ee
@@ -22,7 +22,7 @@ Teletext -> PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
 HbbTV / numbered closeout -> PR #300 -> 5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30
 
 Current active numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+None - Phase 68 is completed; Phase 69 has not started
 ```
 
 See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate and [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the subsequent Home correctness/performance completion record.
@@ -47,6 +47,7 @@ See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate a
 | Phase 65 | Completed | Recording/Live MediaSessions, Streaming Gateway, output policy and normalized playback semantics. | [Phase 65 closeout](phase-65-closeout.md) |
 | Phase 66 | Completed | Responsive Media Home, Live hero/preview, Continue Watching, discovery/history and Golden desktop/mobile acceptance. | [Phase 66 closeout](phase-66-closeout.md) |
 | Phase 67 | Completed | Broadcast Companion Services: normalized Teletext plus fenced HbbTV discovery/application-session/presentation-media runtime; Golden Journeys 8 and 9 accepted. | [Phase 67 closeout](phase-67-closeout.md) |
+| Phase 68 | Completed | Legacy OSD compatibility: semantic observation, authenticated transport, authorized view sessions, bounded viewers, exclusive controller lease and allowlisted fenced native input. | [Phase 68 closeout](phase-68-closeout.md) |
 | Phase 67 Teletext vertical | Completed | Domain-first Teletext service/page path, embedded generation fencing, authorized API, first-party rendering and Golden Journey 8. | [Phase 67 Teletext closeout](phase-67-teletext-closeout.md) |
 | Post-Phase-66 Home hardening/rebuild | Completed, non-numbered | Home performance, Recording Discovery, Series metadata/artwork/hierarchy, preview caching, EPG recovery, Movies/Genres presentation and canonical folder artwork. | [Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) |
 | Post-Phase-66 native Recording editing | Completed, non-numbered | VDR-native marks and cutting through Suite safety boundaries. | [Recording Editing Closeout](post-phase66-recording-editing-closeout.md) |
@@ -85,6 +86,7 @@ The final branch included the canonical folder-poster correction after the broad
 - Phase 65 is not reopened by later client, Home, Teletext/HbbTV or OSD work using MediaSession/playback contracts.
 - Phase 66 is not reopened by bounded Home correctness/performance work after its accepted closeout.
 - Historical runtime fingerprints remain distinct from later daemon/browser evidence.
+- Phase 68 is not reopened by later renderer/output-client or public-API work that consumes the bounded Legacy OSD contracts.
 - ADR acceptance remains separate from runtime completion.
 
 ## Next work
@@ -93,7 +95,8 @@ The final branch included the canonical folder-poster correction after the broad
 Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
 Teletext vertical [COMPLETED]
 HbbTV discovery/session/presentation-media runtime [COMPLETED]
-Phase 68 - Legacy OSD Compatibility Bridge [ACTIVE: 68.A READ-ONLY OSD OBSERVATION]
+Phase 68 - Legacy OSD Compatibility Bridge [COMPLETED]
+Phase 69 - Public API and Client Compatibility Hardening [NEXT; NOT STARTED]
 ```
 
 ADR-0054 remains binding as the completed Broadcast Companion architecture. Phase-67 numbered evidence is recorded in [Phase 67 Closeout](phase-67-closeout.md).
@@ -112,6 +115,7 @@ make test-phase-map-coverage
 - [Latest Completed Marker](completed-phases-latest.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 68 Closeout](phase-68-closeout.md)
 - [Phase 67 Closeout](phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](phase-66-closeout.md)

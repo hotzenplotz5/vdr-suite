@@ -2,6 +2,8 @@
 
 #include "BackendAccessPolicy.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentCommandDelivery.h"
+#include "LegacyOsdInputService.h"
 #include "BackendRegistryService.h"
 #include "Database.h"
 #include "LegacyOsdApiRuntime.h"
@@ -23,12 +25,17 @@ std::unique_ptr<SecurityPermissionGrantRepository>
 std::unique_ptr<LegacyOsdSessionService> legacyOsdSessionService;
 std::unique_ptr<OsdViewerBindingService> osdViewerBindingService;
 std::unique_ptr<OsdControllerLeaseService> osdControllerLeaseService;
+std::unique_ptr<LegacyOsdInputService> legacyOsdInputService;
+BackendAgentCommandDeliveryService* legacyOsdCommandDeliveryService = nullptr;
 }
 
 bool configureDaemonLegacyOsdRuntime(
     Database& database,
     SecurityIdentityRepository& identityRepository,
     BackendAgentLifecycleService& lifecycleService,
+    BackendAgentRepository& agentRepository,
+    BackendAgentCommandRepository& commandRepository,
+    BackendAgentCommandDeliveryService& commandDeliveryService,
     BackendRegistryService& backendRegistryService,
     BackendAccessPolicy& backendAccessPolicy)
 {
@@ -92,20 +99,44 @@ bool configureDaemonLegacyOsdRuntime(
                 backendRegistryService, backendId);
         });
 
+    auto input = std::make_unique<LegacyOsdInputService>(
+        *sessions,
+        *viewers,
+        *controllers,
+        agentRepository,
+        commandRepository);
+
+    commandDeliveryService.setReceiptFenceCheck(
+        [inputService = input.get()](
+            const BackendAgentCommandReceipt& receipt,
+            std::string& reasonCode)
+        {
+            return inputService->revalidateReceipt(receipt, reasonCode);
+        });
+
     if (!LegacyOsdApiRuntime::instance().configure(
-            *sessions, *viewers, *controllers))
+            *sessions, *viewers, *controllers, *input))
+    {
+        commandDeliveryService.setReceiptFenceCheck({});
         return false;
+    }
 
     legacyOsdPermissionGrantRepository = std::move(grants);
     legacyOsdSessionService = std::move(sessions);
     osdViewerBindingService = std::move(viewers);
     osdControllerLeaseService = std::move(controllers);
+    legacyOsdInputService = std::move(input);
+    legacyOsdCommandDeliveryService = &commandDeliveryService;
     return true;
 }
 
 void resetDaemonLegacyOsdRuntime()
 {
     LegacyOsdApiRuntime::instance().reset();
+    if (legacyOsdCommandDeliveryService != nullptr)
+        legacyOsdCommandDeliveryService->setReceiptFenceCheck({});
+    legacyOsdCommandDeliveryService = nullptr;
+    legacyOsdInputService.reset();
     osdControllerLeaseService.reset();
     osdViewerBindingService.reset();
     legacyOsdSessionService.reset();

@@ -10,6 +10,7 @@
 #include "SuiteBridgeSvdrpTransport.h"
 #include "SuiteBridgeHandshakeService.h"
 #include "SuiteBridgeOsdFrameSource.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <atomic>
@@ -210,6 +211,18 @@ int main(int argc, char** argv)
         osdConfig.host = config.suiteBridgeHost;
         osdConfig.port = config.suiteBridgePort;
         osdTransport = std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(osdConfig);
+        config.legacyOsdInputTransport = osdTransport.get();
+        if (std::find(
+                config.commandTypes.begin(),
+                config.commandTypes.end(),
+                kLegacyOsdInputCommandType) == config.commandTypes.end())
+        {
+            config.commandTypes.push_back(kLegacyOsdInputCommandType);
+        }
+        // Interactive OSD input has a three-second dispatch deadline, so it
+        // cannot wait for the normal heartbeat cadence. Reuse the existing
+        // authenticated command poll path at a bounded low-latency cadence.
+        config.commandPollIntervalMilliseconds = 250;
         config.osdObservationSource = [&](const std::string& backendId, std::uint64_t generation) {
             if (!osdSource || osdGeneration != generation)
             {

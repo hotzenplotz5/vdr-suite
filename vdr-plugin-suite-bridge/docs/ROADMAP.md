@@ -47,76 +47,34 @@ An accepted architecture decision does not make a runtime feature completed.
 
 ## Current Baseline
 
-Completed plugin slices:
-
-| Slice | Result |
-| --- | --- |
-| SB.1 | Plugin foundation and VDR lifecycle integration |
-| SB.2 | Static truthful capability catalogue |
-| SB.3 | Native read-only status-event observation counters |
-| SB.4 | Immutable status snapshots |
-| SB.5 | Bounded local-contract payload |
-| SB.6 | Read-only SVDRP command contract |
-| SB.7 | Lifecycle and callback hardening |
-| SB.8 | Counter epoch, saturation, overflow and resynchronization |
-| SB.9 | Capability discovery and compatibility negotiation |
-
-Current plugin contract:
+Current accepted Phase-68 plugin/runtime contract:
 
 ```text
-plugin version       0.10.0
+plugin version       0.14.0
 discovery schema     1
 capability schema    1
-snapshot schema      2
-local contract       2
-mutations            disabled
-commands             CAPS and SNAP only
+osd.view             available
+osd.control          available
+generic mutations    disabled
 ```
 
-Current local endpoint set:
+Phase-68-relevant local SuiteBridge commands are private typed boundaries:
 
 ```text
 PLUG suitebridge CAPS [discovery-schema]
 PLUG suitebridge SNAP
+PLUG suitebridge OSDSNAP
+PLUG suitebridge OSDINPUT <schema> <command-id> <request-fingerprint> <backend-generation> <surface-id> <osd-epoch> <lease-id> <lease-epoch> <lease-revision> <action> <deadline>
 ```
 
-The current plugin has no menu, listener, outbound connection, worker thread,
-database, filesystem mutation or VDR mutation surface.
+`OSDSNAP` returns a bounded semantic full frame, never skin pixels.
+`OSDINPUT` accepts only the normalized SB.15 navigation vocabulary and
+terminates at VDR's native `cRemote::Put()` after current local OSD/fence
+revalidation. Generic/raw mutation capability remains disabled.
 
-Completed Agent-side SB.10 slices:
-
-| Slice | Acceptance head |
-| --- | --- |
-| SB.10a Transport-neutral handshake contract | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
-| SB.10b Local typed SVDRP transport | `3396840d41260bb3ed81bc652921b329263d7e58` |
-| SB.10c Polling, reconnect and freshness | `7362ecec0d103e1e4659b80476ea5ad321d413e2` |
-
-SB.10a implementation head:
-
-```text
-d70ebee00edcab1cd019ca9e0c2541a06bf7d587
-```
-
-SB.10b implementation, automated-test and live-acceptance head:
-
-```text
-3396840d41260bb3ed81bc652921b329263d7e58
-```
-
-SB.10c focused automated-acceptance head:
-
-```text
-10e82701f5633681b96df13d39ee0c05783ff68c
-```
-
-SB.10c controlled live-acceptance head:
-
-```text
-7362ecec0d103e1e4659b80476ea5ad321d413e2
-```
-
-SB.10a, SB.10b and SB.10c are Agent-side work. They do not change the plugin
-version, plugin commands, capability catalogue or local schemas.
+SB.14 is completed through Phase 68.A-E. SB.15 is completed through Phase
+68.F/G. Historical SB.10-SB.13 planning text below remains useful design history
+but is not current execution authority for the completed Phase-68 boundary.
 
 ---
 
@@ -133,7 +91,7 @@ SB.13  add replay and AV state observations
   ->
 SB.14  add view-only Legacy OSD frames and resynchronization
   ->
-SB.15+ consider control and mutations only after external prerequisites exist
+SB.15  bounded controller lease and allowlisted OSD input [COMPLETED in Phase 68]
 ```
 
 The sequence deliberately prioritizes:
@@ -155,12 +113,12 @@ The sequence deliberately prioritizes:
 | SB.10a Transport-neutral handshake contract | completed | Backend Agent | no |
 | SB.10b Local typed SVDRP transport | completed | Backend Agent | no |
 | SB.10c Polling, reconnect and freshness | completed | Backend Agent | no |
-| SB.10d Embedded-Agent runtime integration | active | Backend Agent / Suite runtime | no, unless a proven compatibility gap exists |
+| SB.10d Embedded-Agent runtime integration | completed | Backend Agent / Suite runtime | no |
 | SB.11 Sequenced native event feed | planned | Plugin + Agent | yes |
 | SB.12 OSD notification feed | planned | Plugin + Agent | yes |
 | SB.13 Replay and AV state | planned | Plugin + Agent | likely |
-| SB.14 View-only Legacy OSD | active foundation | Plugin + Agent + Control Plane | yes |
-| SB.15 Controller lease and allowlisted OSD input | candidate / blocked | Control Plane + Agent + Plugin | yes, after prerequisites |
+| SB.14 View-only Legacy OSD | completed | Plugin + Agent + Control Plane | yes |
+| SB.15 Controller lease and allowlisted OSD input | completed | Control Plane + Agent + Plugin | yes |
 | SB.16 Typed native actions | candidate | Agent + Plugin | only for proven gaps |
 | SB.17 Safe Timer mutations | candidate / blocked | Control Plane + Agent + Plugin | yes, after mutation foundation |
 | SB.18 Safe Recording actions | candidate / blocked | Control Plane + Agent + Plugin | yes, after mutation foundation |
@@ -597,9 +555,7 @@ callback semantics. Do not infer state from a sent key.
 
 # SB.14 — View-Only Legacy OSD
 
-Status: **Active foundation — Phase 68.A local read-only observation.** Agent transport, viewer authorization and client delivery remain later SB.14/Phase-68 slices.
-
-Status: `planned`
+Status: `completed` — Phase 68.A-E accepted semantic observation, Agent continuity/transport, authorized view sessions and bounded viewer bindings.
 
 Primary owners: Plugin, Backend Agent and Control Plane.
 
@@ -655,11 +611,11 @@ proven.
 
 # SB.15 — Controller Lease and Allowlisted OSD Input
 
-Status: `candidate / blocked`
+Status: `completed` — Phase 68.F/G accepted controller leasing and allowlisted native OSD input.
 
 Primary owners: Control Plane, Backend Agent and Plugin.
 
-Blocked by:
+Accepted prerequisites and fences:
 
 - implemented view-only OSD continuity;
 - authenticated client and Agent paths;
@@ -693,10 +649,7 @@ input vocabulary to one current native OSD surface.
 
 ## Initial vocabulary
 
-The first accepted set should be smaller than the complete VDR remote key set.
-It may include only basic navigation, confirmation, back and the four color
-keys. Playback, volume, numeric or menu shortcuts are added only through explicit
-capabilities.
+The accepted SB.15 set is exactly `up`, `down`, `left`, `right`, `ok`, `back`, `red`, `green`, `yellow` and `blue`. Playback, volume, numeric and menu shortcuts remain outside the accepted capability.
 
 ---
 
@@ -984,19 +937,15 @@ A plugin slice is completed only when:
 
 ## Immediate Next Work
 
-The next implementation slice is:
+No additional SuiteBridge implementation slice is authorized by the Phase-68
+closeout.
 
-```text
-SB.10d - Embedded-Agent runtime integration
-```
+The next numbered VDR-Suite runtime phase is Phase 69 — Public API and Client
+Compatibility Hardening. It should consume the completed Suite/Agent/plugin
+boundaries without changing SuiteBridge unless a concrete compatibility gap is
+demonstrated and a new bounded slice is explicitly started.
 
-Before implementation, synchronize the bridge branch with current `main`, then
-review `RuntimeConfig`, `BackendRuntimeContext`, `DaemonRuntime`, lifecycle,
-shutdown, health publication and RESTfulAPI coexistence.
-
-SB.10c is completed at `7362ecec0d103e1e4659b80476ea5ad321d413e2`.
-
-Expected plugin changes: none.
+Expected immediate plugin changes: none.
 
 ---
 
@@ -1005,8 +954,8 @@ Expected plugin changes: none.
 This roadmap does not:
 
 - replace the shared handoff;
-- mark all of SB.10 completed before SB.10d acceptance;
-- enable any mutation;
+- reopen completed Phase-68 OSD work without a demonstrated compatibility gap;
+- enable generic/raw mutation or command tunnels;
 - change plugin version or schema by documentation alone;
 - guarantee implementation of candidate slices;
 - require the plugin to duplicate RESTfulAPI;

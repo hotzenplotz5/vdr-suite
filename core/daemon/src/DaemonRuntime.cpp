@@ -58,12 +58,18 @@ int DaemonRuntime::run()
     }
     if (!backendAgentLifecycleService_ ||
         !backendAgentIdentityRepository_ ||
+        !backendAgentRepository_ ||
+        !backendAgentCommandRepository_ ||
+        !backendAgentCommandDeliveryService_ ||
         !backendRegistryService_ ||
         !backendAccessPolicy_ ||
         !configureDaemonLegacyOsdRuntime(
             database_,
             *backendAgentIdentityRepository_,
             *backendAgentLifecycleService_,
+            *backendAgentRepository_,
+            *backendAgentCommandRepository_,
+            *backendAgentCommandDeliveryService_,
             *backendRegistryService_,
             *backendAccessPolicy_)) {
         std::cerr

@@ -5,6 +5,7 @@
 #include "BackendAgentNativeTimerModifyPayload.h"
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCutPayload.h"
+#include "LegacyOsdInputDomain.h"
 
 #include <algorithm>
 #include <cctype>
@@ -128,6 +129,15 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
             payload.backendId == value.backendId &&
             payload.backendGeneration == value.backendGeneration &&
             payload.controlPlaneClaimedAt <= value.assignedAt;
+    }
+    if (value.commandType == kLegacyOsdInputCommandType &&
+        value.payloadVersion == kLegacyOsdInputPayloadVersion &&
+        value.verificationPolicy == "dispatch_only")
+    {
+        LegacyOsdInputCommand payload;
+        return legacyOsdInputCommandParse(value.payload, payload) &&
+            payload.backendId == value.backendId &&
+            payload.backendGeneration == value.backendGeneration;
     }
     if (value.commandType ==
             vdrsuite::agent::kBackendAgentRecordingCutCommandType &&

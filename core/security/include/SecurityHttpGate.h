@@ -168,6 +168,9 @@ public:
         const bool isLegacyOsdControllerStatusRead =
             request.method == "GET" &&
             path == "/api/vdr/legacy-osd/controller-leases/status";
+        const bool isLegacyOsdInput =
+            isPost &&
+            path == "/api/vdr/legacy-osd/input";
         const bool isLegacyOsdControllerMutation =
             isLegacyOsdControllerAcquire ||
             isLegacyOsdControllerRenew ||
@@ -346,7 +349,8 @@ public:
             isManualRecordingMetadataAction ||
             isRecordingSeriesHierarchyAction ||
             isHbbtvSessionMutation ||
-            isLegacyOsdControllerMutation;
+            isLegacyOsdControllerMutation ||
+            isLegacyOsdInput;
         const bool isExplicitlyAuthorizedPost =
             (isProtectedMutation || isRecordingPlaybackSessionCreate) ||
             isLegacyOsdSessionCreate ||
@@ -530,14 +534,16 @@ public:
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
 
-        if (isLegacyOsdControllerMutation)
+        if (isLegacyOsdControllerMutation || isLegacyOsdInput)
         {
             requestToAuthorize.permission = "osd.control";
-            requestToAuthorize.action = isLegacyOsdControllerAcquire
-                ? "osd.controller.acquire"
-                : (isLegacyOsdControllerRenew
-                    ? "osd.controller.renew"
-                    : "osd.controller.release");
+            requestToAuthorize.action = isLegacyOsdInput
+                ? "osd.input"
+                : (isLegacyOsdControllerAcquire
+                    ? "osd.controller.acquire"
+                    : (isLegacyOsdControllerRenew
+                        ? "osd.controller.renew"
+                        : "osd.controller.release"));
         }
         else if (isLegacyOsdSessionCreate ||
                  isLegacyOsdViewerAttach ||

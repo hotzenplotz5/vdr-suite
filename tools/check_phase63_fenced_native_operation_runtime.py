@@ -239,11 +239,22 @@ for token in [
     "const auto sleepUntilStop",
     "sleep_(1);",
     "if (!sleepUntilStop(reconnectDelay)) break;",
-    "if (!sleepUntilStop(config_.heartbeatIntervalSeconds)) break;",
+    "else if (!sleepUntilStop(config_.heartbeatIntervalSeconds))",
 ]:
     if token not in backend_agent_client:
         errors.append(
             "Backend Agent runtime wait is not stop-interruptible: "
+            + token
+        )
+
+for token in [
+    "sleepMilliseconds_(waitMilliseconds);",
+    "if (stopRequested()) break;",
+    "millisecondsSinceHeartbeat += waitMilliseconds;",
+]:
+    if token not in backend_agent_client:
+        errors.append(
+            "Backend Agent bounded command-poll wait is not stop-interruptible: "
             + token
         )
 
@@ -268,16 +279,28 @@ for token in [
 command_begin_count = command_delivery.count(
     'database_.execute("BEGIN IMMEDIATE;")'
 )
+command_scoped_begin_count = command_delivery.count(
+    'request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;"'
+)
+command_transaction_count = (
+    command_begin_count + command_scoped_begin_count
+)
 command_lease_count = command_delivery.count(
     "database_.acquireTransactionLease()"
 )
-expected_command_begin_count = 5 if PROVIDER_SELECTION_RUNTIME else 4
+expected_command_transaction_count = 5 if PROVIDER_SELECTION_RUNTIME else 4
 expected_command_lease_count = 7 if PROVIDER_SELECTION_RUNTIME else 4
 
-if command_begin_count != expected_command_begin_count:
+if command_transaction_count != expected_command_transaction_count:
     errors.append(
-        "command repository explicit transaction count changed unexpectedly: "
-        f"expected {expected_command_begin_count}, got {command_begin_count}"
+        "command repository transaction count changed unexpectedly: "
+        f"expected {expected_command_transaction_count}, "
+        f"got {command_transaction_count}"
+    )
+if PROVIDER_SELECTION_RUNTIME and command_scoped_begin_count != 1:
+    errors.append(
+        "bounded fast poll must have exactly one scoped "
+        "read-mostly/write transaction selector"
     )
 
 if command_lease_count != expected_command_lease_count:
@@ -286,7 +309,7 @@ if command_lease_count != expected_command_lease_count:
         f"expected {expected_command_lease_count}, got {command_lease_count}"
     )
 
-if command_lease_count < command_begin_count:
+if command_lease_count < command_transaction_count:
     errors.append(
         "every command repository transaction must hold the database lease"
     )

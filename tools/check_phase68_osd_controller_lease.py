@@ -112,7 +112,7 @@ required = {
         "controlAuthorized = false",
     ],
     "plugin_caps": [
-        '{"osd.control", SuiteBridgeCapabilityState::Disabled}',
+        '{"osd.control", SuiteBridgeCapabilityState::Available}',
     ],
 }
 
@@ -142,7 +142,6 @@ if "isLegacyOsdControllerMutation" not in security[protected_start:protected_end
 
 api = contents["api"]
 for forbidden_route in (
-    "/api/vdr/legacy-osd/" + "input",
     "/api/vdr/legacy-osd/" + "key",
     "/api/vdr/legacy-osd/" + "press",
     "/api/vdr/legacy-osd/" + "remote",
@@ -153,9 +152,9 @@ for forbidden_route in (
             + forbidden_route
         )
 
-controller_runtime = "\n".join(
+controller_lease_only = "\n".join(
     contents[label] for label in
-    ("domain", "service_h", "service", "api", "daemon", "runtime", "security")
+    ("domain", "service_h", "service")
 )
 for forbidden in (
     "OsdInput" + "Command",
@@ -167,9 +166,9 @@ for forbidden in (
     "call" + "Plugin",
     "SVDRP" + "Command",
 ):
-    if forbidden in controller_runtime:
+    if forbidden in controller_lease_only:
         errors.append(
-            "Phase-68.F pulled native input/command dispatch forward: "
+            "Phase-68.F controller lease owner absorbed native input dispatch: "
             + forbidden
         )
 

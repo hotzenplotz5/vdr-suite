@@ -6,7 +6,8 @@
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-view-session-authorization \
 	test-phase68-osd-viewer-bindings \
-	test-phase68-osd-controller-lease
+	test-phase68-osd-controller-lease \
+	test-phase68-osd-native-input
 
 test-phase68-legacy-osd-domain:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -117,3 +118,30 @@ test-phase68-osd-controller-lease:
 	python3 tools/check_phase68_osd_view_session_authorization.py
 	python3 tools/check_phase68_osd_viewer_bindings.py
 	python3 tools/check_phase68_osd_controller_lease.py
+
+.PHONY: test-phase68-osd-native-input
+test-phase68-osd-native-input:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_legacy_osd_input_domain.cpp \
+		-o $(BUILD_DIR)/test_legacy_osd_input_domain
+	$(BUILD_DIR)/test_legacy_osd_input_domain
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		$(sort $(SQLITE_SRC) $(AGENT_CONTROL_PLANE_SRC)) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/daemon/src/LegacyOsdSessionService.cpp \
+		core/daemon/src/OsdViewerBindingService.cpp \
+		core/daemon/src/OsdControllerLeaseService.cpp \
+		core/daemon/src/LegacyOsdInputService.cpp \
+		core/daemon/tests/test_legacy_osd_input_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_legacy_osd_input_service
+	$(BUILD_DIR)/test_legacy_osd_input_service
+	$(MAKE) test-backend-agent-client
+	$(MAKE) test-security-osd-session
+	python3 tools/check_phase68_osd_native_input.py

@@ -55,7 +55,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-17 | Suite-owned metadata entities and artwork | Closed foundation for accepted scope | Persistent metadata/people/Genre/artwork read models plus manual metadata/cast assignment exist behind Suite contracts. | ADR-0038, ADR-0051, ADR-0052 |
 | G-18 | Unified automation-provider boundary | Strong foundation | SearchTimer/epgsearch remain sources/proposals; central TimerIntent orchestration is authoritative. Broad automation-product unification remains separate. | ADR-0029, ADR-0044 |
 | G-19 | Streaming Gateway and authenticated MediaSession | Closed foundation | Phase 65 is completed with Recording/Live MediaSession/Gateway runtime, provider privacy/leases, least-transformation delivery/output policy, deterministic cleanup and normalized persistent playback semantics. | ADR-0046, ADR-0053, ADR-0055 / Phase 65 |
-| G-20 | Legacy OSD viewer/controller bridge | Active foundation | Phase 68 is active at 68.A read-only OSD observation. ADR-0047 remains authoritative; RemoteAction/LiveOverlay is not the Legacy OSD plane. Controller/input runtime is still open. | ADR-0047 / Phase 68 |
+| G-20 | Legacy OSD viewer/controller bridge | Closed foundation for accepted scope | Phase 68 is completed through 68.G: semantic observation, authenticated transport, authorized sessions/viewers, exclusive controller lease and fenced allowlisted native input. RemoteAction/LiveOverlay remains separate from the Legacy OSD plane. | ADR-0047 / Phase 68 Closeout |
 | G-21 | Central database is not a client/Agent protocol | Continuous invariant | Repository/service boundaries remain mandatory for clients, Agents and providers. | ADR-0038, ADR-0039, ADR-0050 |
 | G-22 | Agent authentication and credential lifecycle | Closed foundation | Agent identity, enrolled trust and credential generation/lifecycle are established. | ADR-0041 |
 | G-23 | Explicit multi-site trust boundary | Closed foundation | Agent/backend/site identity and generation fencing provide the platform trust boundary; media and later domains must reuse it. | ADR-0039-0041 |
@@ -90,7 +90,7 @@ Phase 66 preserves completed Phase-65 MediaSession/playback ownership and existi
 
 ### Current television product domain — Phase 67
 
-Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is active at 68.A read-only OSD observation.
+Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is also completed through fenced allowlisted native input.
 
 ### Later compatibility/platform work
 

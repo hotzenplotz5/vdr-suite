@@ -30,6 +30,8 @@ constexpr const char* ControllerReleaseRoute =
     "/api/vdr/legacy-osd/controller-leases/release";
 constexpr const char* ControllerStatusRoute =
     "/api/vdr/legacy-osd/controller-leases/status";
+constexpr const char* InputRoute =
+    "/api/vdr/legacy-osd/input";
 constexpr std::size_t MaximumBodyBytes = 1024U;
 
 std::string requestPath(const std::string& target)
@@ -305,6 +307,119 @@ bool parseControllerBody(
     return true;
 }
 
+bool parseInputBody(
+    const std::string& body,
+    LegacyOsdInputCommand& command,
+    std::string& parseError)
+{
+    parseError.clear();
+    if (body.empty() || body.size() > MaximumBodyBytes)
+    {
+        parseError = "legacy_osd_input_request_invalid";
+        return false;
+    }
+
+    std::map<std::string, std::string> strings;
+    std::map<std::string, std::uint64_t> numbers;
+    const std::vector<std::string> stringKeys = {
+        "inputCommandId", "backendId", "legacyOsdSessionId",
+        "viewerBindingId", "controllerLeaseId", "osdSurfaceId",
+        "osdEpoch", "action", "inputMode"
+    };
+    const std::vector<std::string> numberKeys = {
+        "sessionRevision", "controllerLeaseEpoch", "leaseRevision",
+        "backendGeneration", "repeatCount", "deadline"
+    };
+
+    std::size_t position = 0;
+    if (!consume(body, position, '{')) return false;
+    while (true)
+    {
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseString(body, position, key) ||
+            !consume(body, position, ':') ||
+            strings.count(key) != 0U ||
+            numbers.count(key) != 0U)
+            return false;
+
+        if (std::find(stringKeys.begin(), stringKeys.end(), key) !=
+            stringKeys.end())
+        {
+            std::string parsed;
+            if (!parseString(body, position, parsed))
+                return false;
+            strings.emplace(key, parsed);
+        }
+        else if (std::find(numberKeys.begin(), numberKeys.end(), key) !=
+                 numberKeys.end())
+        {
+            std::uint64_t parsed = 0;
+            if (!parseUnsigned(body, position, parsed) || parsed == 0)
+                return false;
+            numbers.emplace(key, parsed);
+        }
+        else
+        {
+            return false;
+        }
+
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        if (!consume(body, position, ',')) return false;
+    }
+
+    skipWhitespace(body, position);
+    if (position != body.size() ||
+        strings.size() != stringKeys.size() ||
+        numbers.size() != numberKeys.size())
+        return false;
+
+    for (const auto& key : stringKeys)
+        if (strings.count(key) == 0U) return false;
+    for (const auto& key : numberKeys)
+        if (numbers.count(key) == 0U) return false;
+
+    if (numbers["deadline"] >
+        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+        return false;
+
+    LegacyOsdInputAction action;
+    if (!legacyOsdInputActionFromName(strings["action"], action))
+    {
+        parseError = "legacy_osd_input_action_unsupported";
+        return false;
+    }
+
+    command = LegacyOsdInputCommand{};
+    command.inputCommandId = strings["inputCommandId"];
+    command.backendId = strings["backendId"];
+    command.legacyOsdSessionId = strings["legacyOsdSessionId"];
+    command.viewerBindingId = strings["viewerBindingId"];
+    command.controllerLeaseId = strings["controllerLeaseId"];
+    command.osdSurfaceId = strings["osdSurfaceId"];
+    command.osdEpoch = strings["osdEpoch"];
+    command.inputMode = strings["inputMode"];
+    command.action = action;
+    command.sessionRevision = numbers["sessionRevision"];
+    command.controllerLeaseEpoch = numbers["controllerLeaseEpoch"];
+    command.leaseRevision = numbers["leaseRevision"];
+    command.backendGeneration = numbers["backendGeneration"];
+    command.repeatCount = numbers["repeatCount"];
+    command.deadline = static_cast<std::int64_t>(numbers["deadline"]);
+    return true;
+}
+
 bool parseStatusTarget(const std::string& target, std::string& backendId,
                        std::string& sessionId)
 {
@@ -548,6 +663,16 @@ int errorStatus(const std::string& error)
     if (error == "legacy_osd_controller_capacity_reached" ||
         error == "legacy_osd_controller_surface_capacity_reached")
         return 429;
+    if (error == "legacy_osd_input_request_invalid") return 400;
+    if (error == "legacy_osd_input_duplicate_conflict") return 409;
+    if (error == "legacy_osd_input_deadline_invalid" ||
+        error == "legacy_osd_input_deadline_expired")
+        return 409;
+    if (error == "rate_limited") return 429;
+    if (error == "legacy_osd_input_agent_unavailable" ||
+        error == "legacy_osd_input_capability_unavailable" ||
+        error == "legacy_osd_input_assignment_failed")
+        return 503;
     return 503;
 }
 }
@@ -563,6 +688,7 @@ bool LegacyOsdApiRuntime::configure(LegacyOsdSessionService& service)
     sessionService_ = &service;
     viewerService_ = nullptr;
     controllerService_ = nullptr;
+    inputService_ = nullptr;
     return true;
 }
 
@@ -573,6 +699,7 @@ bool LegacyOsdApiRuntime::configure(
     sessionService_ = &sessionService;
     viewerService_ = &viewerService;
     controllerService_ = nullptr;
+    inputService_ = nullptr;
     return true;
 }
 
@@ -584,11 +711,26 @@ bool LegacyOsdApiRuntime::configure(
     sessionService_ = &sessionService;
     viewerService_ = &viewerService;
     controllerService_ = &controllerService;
+    inputService_ = nullptr;
+    return true;
+}
+
+bool LegacyOsdApiRuntime::configure(
+    LegacyOsdSessionService& sessionService,
+    OsdViewerBindingService& viewerService,
+    OsdControllerLeaseService& controllerService,
+    ILegacyOsdInputService& inputService)
+{
+    sessionService_ = &sessionService;
+    viewerService_ = &viewerService;
+    controllerService_ = &controllerService;
+    inputService_ = &inputService;
     return true;
 }
 
 void LegacyOsdApiRuntime::reset()
 {
+    inputService_ = nullptr;
     controllerService_ = nullptr;
     viewerService_ = nullptr;
     sessionService_ = nullptr;
@@ -610,8 +752,72 @@ bool LegacyOsdApiRuntime::tryHandlePost(
         path != ViewerDetachRoute &&
         path != ControllerLeasesRoute &&
         path != ControllerRenewRoute &&
-        path != ControllerReleaseRoute)
+        path != ControllerReleaseRoute &&
+        path != InputRoute)
         return false;
+
+    if (path == InputRoute)
+    {
+        if (!inputService_)
+        {
+            response = errorResponse(
+                503, "legacy_osd_input_runtime_unavailable");
+            return true;
+        }
+
+        LegacyOsdInputCommand command;
+        std::string parseError;
+        if (!parseInputBody(body, command, parseError))
+        {
+            const bool unsupported =
+                parseError == "legacy_osd_input_action_unsupported";
+            response = errorResponse(
+                unsupported ? 422 : 400,
+                unsupported
+                    ? parseError
+                    : "legacy_osd_input_request_invalid");
+            return true;
+        }
+        if (!safeToken(actorRef, true) ||
+            !safeToken(clientRef, true) ||
+            !safeToken(correlationRef, true))
+        {
+            response = errorResponse(
+                400, "legacy_osd_input_request_invalid");
+            return true;
+        }
+        command.actorId = actorRef;
+        command.clientInstanceId = clientRef;
+        command.correlationId = correlationRef;
+        if (!legacyOsdInputCommandValid(command))
+        {
+            response = errorResponse(
+                422, "legacy_osd_input_semantics_invalid");
+            return true;
+        }
+
+        const LegacyOsdInputResult result =
+            inputService_->submit(command);
+        if (!result.accepted)
+        {
+            response = errorResponse(
+                errorStatus(result.error), result.error);
+            return true;
+        }
+
+        std::ostringstream output;
+        output << "{\"inputCommandId\":\""
+               << jsonEscape(command.inputCommandId)
+               << "\",\"agentCommandId\":\""
+               << jsonEscape(result.agentCommandId)
+               << "\",\"resultCategory\":\""
+               << jsonEscape(result.category)
+               << "\",\"idempotent\":"
+               << (result.idempotent ? "true" : "false")
+               << "}";
+        response = jsonResponse(202, output.str());
+        return true;
+    }
 
     if (path == ControllerLeasesRoute ||
         path == ControllerRenewRoute ||

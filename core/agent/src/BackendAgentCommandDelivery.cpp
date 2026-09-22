@@ -11,6 +11,7 @@
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
+#include "LegacyOsdInputDomain.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -19,6 +20,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -175,6 +177,31 @@ bool BackendAgentCommandRepository::insertAssignment(
     }
     if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;}
     return true;
+}
+
+std::optional<BackendAgentCommandAssignment>
+BackendAgentCommandRepository::findAssignment(
+    const std::string& commandId) const
+{
+    if (!backendAgentCommandSafeIdentifier(commandId))
+        return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = std::string("SELECT ") + AssignmentColumns +
+        " FROM backend_agent_commands WHERE command_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, commandId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    std::optional<BackendAgentCommandAssignment> result;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+        result = readAssignment(statement);
+    sqlite3_finalize(statement);
+    return result;
 }
 
 std::optional<BackendAgentCommandAssignment>
@@ -475,50 +502,60 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     std::string advertisementReason;
-    if(!backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
+    if(request.refreshCapabilities &&
+       !backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
     {result.accepted=false;result.reasonCode=advertisementReason;return result;}
-    if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
-    bool ok=database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
-        database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
-        database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
-    sqlite3_stmt* clear=nullptr;
-    const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
-    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
-        bindText(clear,1,request.backendId)&&done(clear);
-    sqlite3_stmt* clearProviders=nullptr;
-    const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
-    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearProvidersSql,-1,&clearProviders,nullptr)==SQLITE_OK&&
-        bindText(clearProviders,1,request.backendId)&&done(clearProviders);
-    for (const std::string& type:request.supportedCommandTypes)
+
+    const char* beginSql =
+        request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;";
+    if (!database_.execute(beginSql))
+    {result.accepted=false;result.reasonCode="command_database_unavailable";return result;}
+
+    bool ok=true;
+    if (request.refreshCapabilities)
     {
-        sqlite3_stmt* cap=nullptr;
-        const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
-        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
-            !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
-    }
-    for(const auto& facts:request.localProviders)
-    {
-        if(!ok)break;
-        if(!backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
-        sqlite3_stmt* provider=nullptr;
-        const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
-        if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
-           !bindText(provider,1,request.backendId)||!bindText(provider,2,agentId)||!bindText(provider,3,request.agentInstanceId)||
-           !bindInt(provider,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(provider,5,facts.providerId)||
-           !bindText(provider,6,facts.providerKind)||!bindText(provider,7,facts.providerInstanceEpoch)||
-           !bindInt(provider,8,static_cast<std::int64_t>(facts.providerGeneration))||
-           !bindInt(provider,9,static_cast<std::int64_t>(facts.capabilityRevision))||
-           !bindInt(provider,10,facts.available?1:0)||!bindText(provider,11,identifiers(facts.capabilities))||
-           !bindInt(provider,12,now)||!done(provider)){ok=false;break;}
-    }
-    if (ok)
-    {
-        sqlite3_stmt* expire=nullptr;
-        const char* sql="UPDATE backend_agent_commands SET state='expired',updated_at=? WHERE backend_id=? AND state IN('assigned','received') AND deadline<?;";
-        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&expire,nullptr)!=SQLITE_OK||!bindInt(expire,1,now)||!bindText(expire,2,request.backendId)||!bindInt(expire,3,now)||!done(expire)) ok=false;
+        ok=database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
+        sqlite3_stmt* clear=nullptr;
+        const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
+        ok=ok&&sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
+            bindText(clear,1,request.backendId)&&done(clear);
+        sqlite3_stmt* clearProviders=nullptr;
+        const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
+        ok=ok&&sqlite3_prepare_v2(database_.handle(),clearProvidersSql,-1,&clearProviders,nullptr)==SQLITE_OK&&
+            bindText(clearProviders,1,request.backendId)&&done(clearProviders);
+        for (const std::string& type:request.supportedCommandTypes)
+        {
+            sqlite3_stmt* cap=nullptr;
+            const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
+            if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
+                !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
+        }
+        for(const auto& facts:request.localProviders)
+        {
+            if(!ok)break;
+            if(!backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
+            sqlite3_stmt* provider=nullptr;
+            const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
+            if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
+               !bindText(provider,1,request.backendId)||!bindText(provider,2,agentId)||!bindText(provider,3,request.agentInstanceId)||
+               !bindInt(provider,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(provider,5,facts.providerId)||
+               !bindText(provider,6,facts.providerKind)||!bindText(provider,7,facts.providerInstanceEpoch)||
+               !bindInt(provider,8,static_cast<std::int64_t>(facts.providerGeneration))||
+               !bindInt(provider,9,static_cast<std::int64_t>(facts.capabilityRevision))||
+               !bindInt(provider,10,facts.available?1:0)||!bindText(provider,11,identifiers(facts.capabilities))||
+               !bindInt(provider,12,now)||!done(provider)){ok=false;break;}
+        }
+        if (ok)
+        {
+            sqlite3_stmt* expire=nullptr;
+            const char* sql="UPDATE backend_agent_commands SET state='expired',updated_at=? WHERE backend_id=? AND state IN('assigned','received') AND deadline<?;";
+            if (sqlite3_prepare_v2(database_.handle(),sql,-1,&expire,nullptr)!=SQLITE_OK||!bindInt(expire,1,now)||!bindText(expire,2,request.backendId)||!bindInt(expire,3,now)||!done(expire)) ok=false;
+        }
     }
     if (ok)
     {
@@ -851,19 +888,192 @@ BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const Req
     if(!agent.has_value()||!agentContextMatches(context,request.backendId,agent->agentId,request.agentInstanceId,request.backendGeneration,true,now,reason)){result.reasonCode=reason.empty()?"agent_binding_unavailable":reason;return result;}
     result=commandRepository_.poll(request,agent->agentId,now); return result;
 }
-BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(const RequestSecurityContext& context,const BackendAgentCommandReceipt& receipt,std::int64_t now)
+void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
+    ReceiptFenceCheck check)
 {
-    BackendAgentCommandReceiptResult result; std::string reason;
-    if(!backendAgentCommandValidReceipt(receipt)||!agentContextMatches(context,receipt.backendId,receipt.agentId,receipt.agentInstanceId,receipt.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_receipt":reason;return result;}
-    if(!appendEvent(context,"agent.command.receipt",receipt.backendId,"", "receive-command-receipt","allow","command_receipt_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
-    result=commandRepository_.acceptReceipt(receipt); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(receipt.backendId,"receipt"); return result;
+    receiptFenceCheck_ = std::move(check);
 }
-BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(const RequestSecurityContext& context,const BackendAgentCommandResult& value,std::int64_t now)
+
+BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
+    const RequestSecurityContext& context,
+    const BackendAgentCommandReceipt& receipt,
+    std::int64_t now)
 {
-    BackendAgentCommandResultAck result; std::string reason;
-    if(!backendAgentCommandValidResult(value)||!agentContextMatches(context,value.backendId,value.agentId,value.agentInstanceId,value.backendGeneration,false,now,reason)){result.reasonCode=reason.empty()?"invalid_command_result":reason;return result;}
-    if(!appendEvent(context,"agent.command.result",value.backendId,"", "receive-command-result","allow","command_result_persist","attempted",now)){result.reasonCode="command_accountability_unavailable";return result;}
-    result=commandRepository_.acceptResult(value); if(result.accepted)result.dropResponse=commandRepository_.consumeFault(value.backendId,"result"); return result;
+    BackendAgentCommandReceiptResult result;
+    std::string reason;
+    if (!backendAgentCommandValidReceipt(receipt) ||
+        !agentContextMatches(
+            context, receipt.backendId, receipt.agentId,
+            receipt.agentInstanceId, receipt.backendGeneration,
+            false, now, reason))
+    {
+        result.reasonCode =
+            reason.empty() ? "invalid_command_receipt" : reason;
+        return result;
+    }
+
+    const auto assignment = commandRepository_.findAssignment(receipt.commandId);
+    const bool legacyOsdInput =
+        assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType;
+    if (legacyOsdInput)
+    {
+        if (!receiptFenceCheck_)
+        {
+            result.reasonCode = "legacy_osd_input_fence_unavailable";
+            return result;
+        }
+        if (!receiptFenceCheck_(receipt, reason))
+        {
+            if (!appendEvent(
+                    context, "legacy-osd.input.rejected",
+                    receipt.backendId, assignment->operationId,
+                    "legacy-osd.input", "deny",
+                    reason.empty() ? "legacy_osd_input_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode =
+                reason.empty() ? "legacy_osd_input_fenced" : reason;
+            return result;
+        }
+    }
+
+    if (!appendEvent(
+            context, "agent.command.receipt", receipt.backendId, "",
+            "receive-command-receipt", "allow",
+            "command_receipt_persist", "attempted", now))
+    {
+        result.reasonCode = "command_accountability_unavailable";
+        return result;
+    }
+
+    result = commandRepository_.acceptReceipt(receipt);
+
+    if (legacyOsdInput)
+    {
+        if (result.accepted)
+        {
+            if (!appendEvent(
+                    context, "legacy-osd.input.accepted",
+                    receipt.backendId, assignment->operationId,
+                    "legacy-osd.input", "allow",
+                    "dispatch_fence_current", "accepted_for_dispatch", now))
+            {
+                result.accepted = false;
+                result.replayed = false;
+                result.dropResponse = false;
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+        }
+        else if (!appendEvent(
+                     context, "legacy-osd.input.rejected",
+                     receipt.backendId, assignment->operationId,
+                     "legacy-osd.input", "deny",
+                     result.reasonCode.empty()
+                         ? "command_receipt_rejected"
+                         : result.reasonCode,
+                     "rejected", now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
+    if (result.accepted)
+        result.dropResponse =
+            commandRepository_.consumeFault(receipt.backendId, "receipt");
+    return result;
+}
+BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
+    const RequestSecurityContext& context,
+    const BackendAgentCommandResult& value,
+    std::int64_t now)
+{
+    BackendAgentCommandResultAck result;
+    std::string reason;
+    if (!backendAgentCommandValidResult(value) ||
+        !agentContextMatches(
+            context, value.backendId, value.agentId,
+            value.agentInstanceId, value.backendGeneration,
+            false, now, reason))
+    {
+        result.reasonCode =
+            reason.empty() ? "invalid_command_result" : reason;
+        return result;
+    }
+
+    const auto assignment = commandRepository_.findAssignment(value.commandId);
+    const bool legacyOsdInput =
+        assignment.has_value() &&
+        assignment->commandType == kLegacyOsdInputCommandType;
+
+    if (!appendEvent(
+            context, "agent.command.result", value.backendId, "",
+            "receive-command-result", "allow",
+            "command_result_persist", "attempted", now))
+    {
+        result.reasonCode = "command_accountability_unavailable";
+        return result;
+    }
+
+    result = commandRepository_.acceptResult(value);
+
+    if (legacyOsdInput)
+    {
+        if (result.accepted)
+        {
+            const bool dispatched = value.resultCategory == "succeeded";
+            const std::string reasonCode = dispatched
+                ? "native_dispatch_reported"
+                : (value.errorCategory.empty()
+                    ? "native_dispatch_rejected"
+                    : value.errorCategory);
+            if (!appendEvent(
+                    context,
+                    dispatched
+                        ? "legacy-osd.input.accepted"
+                        : "legacy-osd.input.rejected",
+                    value.backendId,
+                    assignment->operationId,
+                    "legacy-osd.input",
+                    dispatched ? "allow" : "deny",
+                    reasonCode,
+                    value.resultCategory,
+                    now))
+            {
+                result.accepted = false;
+                result.replayed = false;
+                result.dropResponse = false;
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+        }
+        else if (!appendEvent(
+                     context,
+                     "legacy-osd.input.rejected",
+                     value.backendId,
+                     assignment->operationId,
+                     "legacy-osd.input",
+                     "deny",
+                     result.reasonCode.empty()
+                         ? "command_result_rejected"
+                         : result.reasonCode,
+                     "rejected",
+                     now))
+        {
+            result.reasonCode = "command_accountability_unavailable";
+            return result;
+        }
+    }
+
+    if (result.accepted)
+        result.dropResponse =
+            commandRepository_.consumeFault(value.backendId, "result");
+    return result;
 }
 
 std::optional<BackendAgentCommandAssignment> BackendAgentCommandDeliveryService::assignProbe(const RequestSecurityContext& context,const std::string& backendId,std::int64_t now,std::int64_t deadline,std::string& reason)

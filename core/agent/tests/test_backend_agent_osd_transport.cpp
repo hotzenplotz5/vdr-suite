@@ -487,7 +487,7 @@ void test_live_source()
         const auto discovered = handshake.discover();
         assert(discovered.compatible());
         assert(discovered.discovery.capabilityAvailable("osd.view"));
-        assert(!discovered.discovery.capabilityAvailable("osd.control"));
+        assert(discovered.discovery.capabilityAvailable("osd.control"));
         return source->read(discovered.discovery);
     };
     BackendAgentClientRuntime runtime(config, transport);

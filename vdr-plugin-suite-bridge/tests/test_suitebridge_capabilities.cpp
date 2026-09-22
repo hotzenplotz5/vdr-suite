@@ -37,7 +37,7 @@ int main()
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
-      SuiteBridgeCapabilityState::Disabled,
+      SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Disabled,
   }};
 
@@ -71,7 +71,7 @@ int main()
   assert(SuiteBridgeCapabilities::IsAvailable("epg-type-snapshot"));
   assert(SuiteBridgeCapabilities::IsAvailable("vdr.live.stream"));
   assert(SuiteBridgeCapabilities::IsAvailable("osd.view"));
-  assert(!SuiteBridgeCapabilities::IsAvailable("osd.control"));
+  assert(SuiteBridgeCapabilities::IsAvailable("osd.control"));
   assert(!SuiteBridgeCapabilities::IsAvailable("mutations"));
   assert(!SuiteBridgeCapabilities::IsAvailable("unknown"));
   assert(SuiteBridgeCapabilities::Find(nullptr) == nullptr);

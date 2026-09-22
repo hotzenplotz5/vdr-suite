@@ -1,4 +1,5 @@
 #include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeHandshakeService.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -14,6 +15,15 @@
 
 namespace vdrsuite::agent
 {
+
+bool SuiteBridgeSvdrpTransport::legacyOsdInputAvailable()
+{
+    SuiteBridgeHandshakeService handshake(*this);
+    const auto result = handshake.discover();
+    return result.compatible() &&
+        result.discovery.capabilityAvailable("osd.control");
+}
+
 namespace
 {
 

@@ -154,7 +154,7 @@ Explicit Legacy OSD
   -> close
 ```
 
-This is a Phase-68 journey.
+This is a Phase-68 journey. It is accepted: the real yaVDR 68.G acceptance created an authorized session/viewer/controller lease, dispatched fenced DOWN/UP input through the native path, observed the resulting OSD frame selection changes, rejected stale authority after lease release and closed/cleaned the test state.
 
 ## Journey 11 — Manage a Timer safely through the broad Timer UI
 
@@ -167,7 +167,7 @@ Phase 64 [completed] -> engine portions of Journeys 3, 4 and Timer-related Journ
 Phase 65 [completed] -> Journeys 1 and 2 + media Journey 5
 Phase 66 [completed] -> Journeys 6 and 7
 Phase 67 [completed] -> Journeys 8 and 9 accepted
-Phase 68 [active: 68.A read-only observation] -> Journey 10
+Phase 68 [completed] -> Journey 10 accepted
 Broad Timer Product UI -> Journey 11 + user-facing Journey 3
 Phase 69 -> public/client compatibility hardening
 ```
