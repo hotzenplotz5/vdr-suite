@@ -66,12 +66,18 @@ for token, label in (
 # durably persist "starting" before invoking the native transport.
 starting_projection = 'state.dispatchState = "starting"'
 require(timer_delete_handler, starting_projection, "generic starting projection")
-osd_start = command_client.find("if (legacyOsdInputCommand)")
-osd_end = command_client.find(
-    "\n    if (!state.receiptAcknowledged &&",
+osd_start = command_client.find(
+    "if (legacyOsdInputCommand && !state.resultPresent)"
+)
+dispatch_marker = command_client.find(
+    "executeLegacyOsdInput(",
     osd_start,
 )
-if osd_start < 0 or osd_end < 0:
+osd_end = command_client.find(
+    "\n    if (!state.receiptAcknowledged &&",
+    dispatch_marker,
+)
+if osd_start < 0 or dispatch_marker < 0 or osd_end < 0:
     raise SystemExit("missing bounded Phase-68.G Legacy OSD successor branch")
 osd_branch = command_client[osd_start:osd_end]
 require(osd_branch, starting_projection, "Phase-68.G durable starting projection")
