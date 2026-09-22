@@ -62,6 +62,7 @@ SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
 SQLITE_ALLOWED_CONTRACT_TESTS = {
     "api/rest/tests/test_vdr_recording_folder_controller.cpp",
     "core/agent/tests/test_backend_agent_lifecycle.cpp",
+    "core/agent/tests/test_backend_agent_native_probe_delivery.cpp",
     "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
     "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
     "core/metadata/tests/test_genre_epg_refresh_fast_path.cpp",
@@ -198,6 +199,7 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/daemon/src/EmbeddedBackendLifecycle.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+        "core/agent/tests/test_backend_agent_native_probe_delivery.cpp",
         "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
         "core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp",
         "core/metadata/tests/test_recording_series_hierarchy_override_repository.cpp",
