@@ -2035,6 +2035,7 @@ bool BackendAgentClientRuntime::pollCommands(
             commandContext,
             transport_,
             commandAvailability_,
+            false,
             reasonCode))
     {
         if (commandPollFailureRequiresResynchronization(reasonCode))
@@ -2147,6 +2148,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
             commandContext,
             transport_,
             commandAvailability_,
+            true,
             reasonCode))
     {
         if (commandPollFailureRequiresResynchronization(reasonCode))

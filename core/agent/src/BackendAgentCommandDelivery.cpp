@@ -502,50 +502,60 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     std::string advertisementReason;
-    if(!backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
+    if(request.refreshCapabilities &&
+       !backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
     {result.accepted=false;result.reasonCode=advertisementReason;return result;}
-    if (!database_.execute("BEGIN IMMEDIATE;")) { result.accepted=false; result.reasonCode="command_database_unavailable"; return result; }
-    bool ok=database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
-        database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
-        database_.execute(
-        "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
-    sqlite3_stmt* clear=nullptr;
-    const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
-    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
-        bindText(clear,1,request.backendId)&&done(clear);
-    sqlite3_stmt* clearProviders=nullptr;
-    const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
-    ok=ok&&sqlite3_prepare_v2(database_.handle(),clearProvidersSql,-1,&clearProviders,nullptr)==SQLITE_OK&&
-        bindText(clearProviders,1,request.backendId)&&done(clearProviders);
-    for (const std::string& type:request.supportedCommandTypes)
+
+    const char* beginSql =
+        request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;";
+    if (!database_.execute(beginSql))
+    {result.accepted=false;result.reasonCode="command_database_unavailable";return result;}
+
+    bool ok=true;
+    if (request.refreshCapabilities)
     {
-        sqlite3_stmt* cap=nullptr;
-        const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
-        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
-            !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
-    }
-    for(const auto& facts:request.localProviders)
-    {
-        if(!ok)break;
-        if(!backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
-        sqlite3_stmt* provider=nullptr;
-        const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
-        if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
-           !bindText(provider,1,request.backendId)||!bindText(provider,2,agentId)||!bindText(provider,3,request.agentInstanceId)||
-           !bindInt(provider,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(provider,5,facts.providerId)||
-           !bindText(provider,6,facts.providerKind)||!bindText(provider,7,facts.providerInstanceEpoch)||
-           !bindInt(provider,8,static_cast<std::int64_t>(facts.providerGeneration))||
-           !bindInt(provider,9,static_cast<std::int64_t>(facts.capabilityRevision))||
-           !bindInt(provider,10,facts.available?1:0)||!bindText(provider,11,identifiers(facts.capabilities))||
-           !bindInt(provider,12,now)||!done(provider)){ok=false;break;}
-    }
-    if (ok)
-    {
-        sqlite3_stmt* expire=nullptr;
-        const char* sql="UPDATE backend_agent_commands SET state='expired',updated_at=? WHERE backend_id=? AND state IN('assigned','received') AND deadline<?;";
-        if (sqlite3_prepare_v2(database_.handle(),sql,-1,&expire,nullptr)!=SQLITE_OK||!bindInt(expire,1,now)||!bindText(expire,2,request.backendId)||!bindInt(expire,3,now)||!done(expire)) ok=false;
+        ok=database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
+        sqlite3_stmt* clear=nullptr;
+        const char* clearSql="DELETE FROM backend_agent_command_capabilities WHERE backend_id=?;";
+        ok=ok&&sqlite3_prepare_v2(database_.handle(),clearSql,-1,&clear,nullptr)==SQLITE_OK&&
+            bindText(clear,1,request.backendId)&&done(clear);
+        sqlite3_stmt* clearProviders=nullptr;
+        const char* clearProvidersSql="DELETE FROM backend_agent_local_provider_facts WHERE backend_id=?;";
+        ok=ok&&sqlite3_prepare_v2(database_.handle(),clearProvidersSql,-1,&clearProviders,nullptr)==SQLITE_OK&&
+            bindText(clearProviders,1,request.backendId)&&done(clearProviders);
+        for (const std::string& type:request.supportedCommandTypes)
+        {
+            sqlite3_stmt* cap=nullptr;
+            const char* sql="INSERT INTO backend_agent_command_capabilities(backend_id,agent_id,agent_instance_id,backend_generation,command_type,published_at) VALUES(?,?,?,?,?,?);";
+            if (sqlite3_prepare_v2(database_.handle(),sql,-1,&cap,nullptr)!=SQLITE_OK || !bindText(cap,1,request.backendId)||!bindText(cap,2,agentId)||
+                !bindText(cap,3,request.agentInstanceId)||!bindInt(cap,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(cap,5,type)||!bindInt(cap,6,now)||!done(cap)) { ok=false; break; }
+        }
+        for(const auto& facts:request.localProviders)
+        {
+            if(!ok)break;
+            if(!backendAgentLocalProviderValidFacts(facts)){ok=false;break;}
+            sqlite3_stmt* provider=nullptr;
+            const char* sql="INSERT INTO backend_agent_local_provider_facts(backend_id,agent_id,agent_instance_id,backend_generation,provider_id,provider_kind,provider_instance_epoch,provider_generation,capability_revision,available,capabilities,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);";
+            if(sqlite3_prepare_v2(database_.handle(),sql,-1,&provider,nullptr)!=SQLITE_OK||
+               !bindText(provider,1,request.backendId)||!bindText(provider,2,agentId)||!bindText(provider,3,request.agentInstanceId)||
+               !bindInt(provider,4,static_cast<std::int64_t>(request.backendGeneration))||!bindText(provider,5,facts.providerId)||
+               !bindText(provider,6,facts.providerKind)||!bindText(provider,7,facts.providerInstanceEpoch)||
+               !bindInt(provider,8,static_cast<std::int64_t>(facts.providerGeneration))||
+               !bindInt(provider,9,static_cast<std::int64_t>(facts.capabilityRevision))||
+               !bindInt(provider,10,facts.available?1:0)||!bindText(provider,11,identifiers(facts.capabilities))||
+               !bindInt(provider,12,now)||!done(provider)){ok=false;break;}
+        }
+        if (ok)
+        {
+            sqlite3_stmt* expire=nullptr;
+            const char* sql="UPDATE backend_agent_commands SET state='expired',updated_at=? WHERE backend_id=? AND state IN('assigned','received') AND deadline<?;";
+            if (sqlite3_prepare_v2(database_.handle(),sql,-1,&expire,nullptr)!=SQLITE_OK||!bindInt(expire,1,now)||!bindText(expire,2,request.backendId)||!bindInt(expire,3,now)||!done(expire)) ok=false;
+        }
     }
     if (ok)
     {

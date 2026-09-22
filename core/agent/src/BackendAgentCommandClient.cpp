@@ -1065,6 +1065,7 @@ bool pollBackendAgentCommandWithAvailability(
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
     const BackendAgentCommandAvailabilitySnapshot& availability,
+    bool refreshCapabilities,
     std::string& reason)
 {
     if (config.commandTypes.empty())
@@ -1080,8 +1081,12 @@ bool pollBackendAgentCommandWithAvailability(
     request.backendId = context.backendId;
     request.agentInstanceId = context.agentInstanceId;
     request.backendGeneration = context.backendGeneration;
-    request.supportedCommandTypes = availability.commandTypes;
-    request.localProviders = availability.localProviders;
+    request.refreshCapabilities = refreshCapabilities;
+    if (refreshCapabilities)
+    {
+        request.supportedCommandTypes = availability.commandTypes;
+        request.localProviders = availability.localProviders;
+    }
     const auto response = transport.postAuthenticated(
         context.agentId, context.credentialSecret,
         "/api/agent/v1/commands/poll",
@@ -1096,7 +1101,7 @@ bool pollBackendAgentCommandWithAvailability(
             response.body, result, reason)) return false;
     if (!result.assignment.present)
     {
-        reason = request.supportedCommandTypes.empty()
+        reason = availability.commandTypes.empty()
             ? "native_capability_unavailable" : "no_command_available";
         return true;
     }
@@ -1166,6 +1171,7 @@ bool pollBackendAgentCommand(
         context,
         transport,
         discoverBackendAgentCommandAvailability(config),
+        true,
         reason);
 }
 

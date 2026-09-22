@@ -336,6 +336,7 @@ BackendAgentCommandPollRequest capturePoll(
     BackendAgentCommandPollRequest request;
     assert(parseBackendAgentCommandPollRequestJson(
         transport.requestBody, request, reason));
+    assert(request.refreshCapabilities);
     return request;
 }
 
@@ -397,6 +398,18 @@ void testTimerAdvertisementActivation()
 
 void testOsdInputAdvertisement()
 {
+    BackendAgentCommandPollRequest legacy;
+    std::string legacyReason;
+    assert(parseBackendAgentCommandPollRequestJson(
+        "{\"protocolVersion\":\"vdr-suite-agent/1\","
+        "\"backendId\":\"default\","
+        "\"agentInstanceId\":\"agi_legacy\","
+        "\"backendGeneration\":1,"
+        "\"supportedCommandTypes\":[]}",
+        legacy,
+        legacyReason));
+    assert(legacy.refreshCapabilities);
+
     const std::string path = "/tmp/vdr-suite-osd-input-advertisement-state";
     std::remove(path.c_str());
     OsdInputTransport input;

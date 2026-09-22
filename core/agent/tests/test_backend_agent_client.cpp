@@ -878,6 +878,9 @@ void test_low_latency_command_poll_between_heartbeats()
     assert(
         transport.bodies.back().find("vdr.legacy-osd.input") !=
         std::string::npos);
+    assert(
+        transport.bodies.back().find("\"refreshCapabilities\":true") !=
+        std::string::npos);
     const std::size_t requestsBeforeRun = transport.paths.size();
     const std::uint64_t heartbeatBeforeRun =
         runtime.state().heartbeatSequence;
@@ -899,7 +902,16 @@ void test_low_latency_command_poll_between_heartbeats()
         transport.paths[requestsBeforeRun + 1] ==
         "/api/agent/v1/commands/poll");
     assert(
-        transport.bodies.back().find("vdr.legacy-osd.input") !=
+        transport.bodies.back().find("\"refreshCapabilities\":false") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"supportedCommandTypes\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("\"localProviders\":[]") !=
+        std::string::npos);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") ==
         std::string::npos);
     assert(osdTransport.discoveryCalls == 1);
     assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);

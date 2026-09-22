@@ -37,6 +37,10 @@ struct BackendAgentCommandPollRequest
     std::string backendId;
     std::string agentInstanceId;
     std::uint64_t backendGeneration = 0;
+    // Existing poll payloads refresh advertisements by default. Bounded
+    // high-frequency polls explicitly disable refresh and fetch only against
+    // the last heartbeat-published capability/provider snapshot.
+    bool refreshCapabilities = true;
     std::vector<std::string> supportedCommandTypes;
     std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
 };

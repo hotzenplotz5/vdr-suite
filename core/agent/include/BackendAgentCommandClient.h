@@ -66,6 +66,7 @@ bool pollBackendAgentCommandWithAvailability(
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
     const BackendAgentCommandAvailabilitySnapshot& availability,
+    bool refreshCapabilities,
     std::string& reasonCode);
 
 bool pollBackendAgentCommand(

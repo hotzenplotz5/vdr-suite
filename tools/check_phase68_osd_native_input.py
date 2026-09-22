@@ -29,6 +29,8 @@ delivery = read("core/agent/src/BackendAgentCommandDelivery.cpp")
 client = read("core/agent/src/BackendAgentCommandClient.cpp")
 agent_runtime = read("core/agent/src/BackendAgentClient.cpp")
 agent_runtime_h = read("core/agent/include/BackendAgentClient.h")
+command_domain = read("core/agent/include/BackendAgentCommand.h")
+command_json = read("core/agent/src/BackendAgentCommandJson.cpp")
 agent_main = read("apps/agent/main.cpp")
 agent_test = read("core/agent/tests/test_backend_agent_client.cpp")
 transport = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
@@ -182,6 +184,21 @@ require(
 require(
     "const CommandAvailability availability = availableCommands(config);" not in client,
     "fast command polling must not rediscover providers on every poll",
+)
+require(
+    "bool refreshCapabilities = true" in command_domain and
+    '"refreshCapabilities"' in command_json,
+    "command-poll protocol must carry an explicit advertisement-refresh fence",
+)
+require(
+    "request.refreshCapabilities = refreshCapabilities" in client and
+    "request.supportedCommandTypes = availability.commandTypes" in client,
+    "Agent command polling must make advertisement refresh explicit",
+)
+require(
+    'request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;"' in delivery and
+    "if (request.refreshCapabilities)" in delivery,
+    "Control Plane fast polls must avoid unconditional SQLite write transactions",
 )
 
 require(
