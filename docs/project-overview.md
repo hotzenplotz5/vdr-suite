@@ -64,7 +64,7 @@ Completed product flows include:
 - use canonical TVScraper/native artwork and manual Series hierarchy/artwork overrides where explicitly configured;
 - edit Recording marks/cuts through VDR-native authority under Suite safety boundaries.
 
-Phase 67 Broadcast Companion Services: Teletext and HbbTV is completed. Phase 68 Legacy OSD Compatibility Bridge is active at 68.A read-only OSD observation; controller/input work remains later Phase-68 scope.
+Phase 67 Broadcast Companion Services and Phase 68 Legacy OSD Compatibility Bridge are completed. Phase 68 now provides bounded semantic OSD observation, authorized view sessions/viewers, exclusive controller leasing and fenced allowlisted native input. Phase 69 public API/client compatibility hardening is next but has not started.
 
 ## Key architectural rules
 
@@ -85,6 +85,7 @@ Binding numbered phase order and completion gates live in the [Strict Roadmap](p
 
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 68 Closeout](development/phase-68-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
 - [Current Architecture State](development/current-architecture-state.md)
 - [Strict Roadmap](planning/roadmap.md)

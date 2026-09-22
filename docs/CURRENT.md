@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 68 Closeout](development/phase-68-closeout.md)
 - [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md)
 - [Phase 68.D View-Session Closeout](development/phase-68d-view-session-authorization-closeout.md)
 - [Phase 68.E Viewer-Binding Closeout](development/phase-68e-viewer-bindings-closeout.md)
@@ -40,13 +41,13 @@ Latest accepted post-phase runtime merge checkpoint:
 2b0d0990974244eac90e9be711843678c77e301d
 
 Latest completed numbered runtime phase:
-Phase 67 - Broadcast Companion Services: Teletext and HbbTV
+Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+None - Phase 68 is completed; Phase 69 has not started
 
 Next strict numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Completed Phase-67 verticals:
 Teletext read path / browser-TV view / page navigation
@@ -58,9 +59,11 @@ Accepted Phase-68 verticals:
 68.C - Authenticated read-only Agent OSD transport
 68.D - Authorized bounded Legacy OSD view sessions
 68.E - Bounded viewer bindings and multi-viewer delivery
+68.F - Exclusive controller lease and osd.control fencing
+68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-68.F - Exclusive controller lease and osd.control fencing
+None - Phase 68 is completed; Phase 69 has not started
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
@@ -74,6 +77,14 @@ Phase-68.E accepted runtime candidate:
 PR #311 -> 2b74b26ed33ce1a555a9cc037d44ad6768480eb2
 Hosted CI run 35601863603: SUCCESS (6/6)
 real yaVDR acceptance: RESULT=PHASE68E_REAL_ACCEPTANCE_PASS
+
+Phase-68.F merge checkpoint:
+PR #312 -> e3f9215f5f80dd230e1e855e3ce09f2ac70231ef
+Hosted CI run 35610473828: SUCCESS
+
+Phase-68.G accepted real-runtime candidate:
+PR #313 runtime candidate -> 7ae51d090cbe06570b8a70e787137232df83f124
+real yaVDR acceptance: RESULT=PHASE68G_REAL_NATIVE_OSD_INPUT_PASS
 
 Latest Phase-67 Teletext merge checkpoint:
 PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
@@ -213,7 +224,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **active**. 68.A read-only OSD observation is accepted and merged; the current bounded slice is 68.C authenticated read-only Agent OSD transport; controller lease and native input remain later Phase-68 verticals. Durable kickoff evidence is in [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API hardening and Phase 70 recommendation work remain later roadmap domains.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API hardening is next but has not started; Phase 70 recommendation work remains later.
 
 ## Historical evidence rule
 

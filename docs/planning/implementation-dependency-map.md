@@ -252,7 +252,7 @@ Home does not own parallel content identity; browsing does not depend on preview
 
 Phase 67 depends on A-B, completed Phase-65 media semantics where HbbTV/application media uses Suite-owned resources, and follows completed Phase 66 Home.
 
-Architecture is defined by ADR-0054. Phase 67 is completed: both Teletext and HbbTV discovery/session/presentation-media dependency paths are implemented and accepted. Phase 68 remains a later, separate Legacy OSD compatibility domain.
+Architecture is defined by ADR-0054. Phase 67 is completed: both Teletext and HbbTV discovery/session/presentation-media dependency paths are implemented and accepted. Phase 68 is also completed as a separate Legacy OSD compatibility domain.
 
 ### Teletext dependency direction
 
@@ -321,7 +321,7 @@ read-only native OSD observation
   -> allowlisted/rate-limited input
 ```
 
-Viewing precedes control. No arbitrary command tunnel is created. This subsystem is separate from LiveOverlay, MediaSession, Teletext and HbbTV application sessions.
+Viewing precedes control. Phase 68 completed this dependency chain through a separate fenced controller lease and allowlisted native input; no arbitrary command tunnel is created. This subsystem remains separate from LiveOverlay, MediaSession, Teletext and HbbTV application sessions.
 
 ---
 

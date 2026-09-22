@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 68 is active.
+Phase 68 is completed for the accepted 68.A-G scope.
 
 Accepted coherent vertical:
 
@@ -44,10 +44,20 @@ Hosted CI 35601863603: PASS (6/6)
 real yaVDR acceptance: RESULT=PHASE68E_REAL_ACCEPTANCE_PASS
 ```
 
-Next coherent vertical:
+Accepted controller-lease vertical:
 
 ```text
 68.F - Exclusive controller lease and osd.control fencing
+PR #312 -> e3f9215f5f80dd230e1e855e3ce09f2ac70231ef
+Hosted CI 35610473828: SUCCESS
+```
+
+Accepted allowlisted-input vertical:
+
+```text
+68.G - Allowlisted native OSD input
+PR #313 runtime candidate -> 7ae51d090cbe06570b8a70e787137232df83f124
+real yaVDR acceptance: RESULT=PHASE68G_REAL_NATIVE_OSD_INPUT_PASS
 ```
 
 This document is the durable execution checkpoint for the Phase-68 start. It exists so a later work session does not repeat the complete architecture inventory merely because a tooling or polling session ended.
@@ -99,20 +109,21 @@ The following Phase-68 prerequisites already exist and remain their current owne
 - existing normalized RemoteAction and LiveOverlay domains;
 - private RESTfulAPI transport below Suite-owned adapters.
 
-68.A through 68.E now establish the bounded semantic observation,
-local continuity, authenticated Agent transport, explicit view-session
-authorization and bounded multi-viewer foundations. The following ADR-0047
-concepts remain later work:
+68.A through 68.G establish the bounded semantic observation, local continuity,
+authenticated Agent transport, explicit view-session authorization, bounded
+multi-viewer delivery, exclusive controller authority and allowlisted native
+input required by ADR-0047.
 
-- optional delta delivery only where exact-base semantics justify it;
-- `OsdControllerLease`;
-- `OsdInputCommand`;
-- `OsdInputResult`;
-- `osd.control` authorization and every native input path.
+`osd.view` and `osd.control` remain independent backend-scoped permissions and
+are not implied by `role.admin`. The view session intentionally remains
+`view_only`; controller authority is acquired separately through the fenced
+`OsdControllerLease`. SuiteBridge 0.14.0 advertises
+`osd.view=available` and `osd.control=available`, while generic
+`mutations` remains disabled.
 
-`osd.view` now has an enforced runtime path, but remains an explicit
-backend-scoped grant; it is not implied by `role.admin`. `osd.control`
-remains disabled and unavailable.
+Optional fidelity work such as deltas is not required to close Phase 68.
+Renderer/output-client work, raw command tunnels and Phase-69 public API
+stabilization remain separate scopes.
 
 ## Native/provider source audit - first result
 
@@ -426,3 +437,67 @@ required.
 
 The next coherent slice is 68.F controller leasing. 68.G allowlisted native
 input remains later and is not authorized by this closeout.
+
+
+## 68.G final closeout checkpoint
+
+Accepted real-runtime candidate:
+
+```text
+7ae51d090cbe06570b8a70e787137232df83f124
+```
+
+The real yaVDR/VDR 2.7.9 acceptance used the production daemon and the manually
+started, deliberately disabled Backend Agent service state. No additional build,
+installation or restart was performed for the final input acceptance.
+
+The acceptance proved:
+
+```text
+OSD_OBSERVATION_SYNCHRONIZED=PASS
+NATIVE_OSD_READY=PASS
+VIEW_SESSION_BOUNDARY=PASS
+LEGACY_OSD_SESSION_EPOCH_CURRENT=PASS
+VIEWER_ATTACH=PASS
+OSD_CONTROL_AUTHORITY=PASS
+CONTROLLER_LEASE=PASS
+DOWN_INPUT_ACCEPTED=PASS
+DOWN_IDEMPOTENT_REPLAY=PASS
+DOWN_NATIVE_DISPATCH=PASS
+DOWN_OSD_SELECTION_CHANGED=PASS
+UP_INPUT_ACCEPTED=PASS
+UP_NATIVE_DISPATCH=PASS
+UP_OSD_SELECTION_RESTORED=PASS
+DISPATCH_FENCE_AUDIT=PASS
+NATIVE_RESULT_AUDIT=PASS
+AUDIT_NO_RAW_KEY_PAYLOAD=PASS
+CONTROLLER_RELEASE=PASS
+STALE_AUTHORITY_REJECTED=PASS
+STALE_AUTHORITY_NO_ASSIGNMENT=PASS
+STALE_AUTHORITY_NO_NATIVE_DISPATCH=PASS
+VIEWER_DETACH=PASS
+OSD_PERMISSION_STATE_RESTORED=PASS
+BROWSER_SESSION_LOGOUT=PASS
+SQLITE_QUICK_CHECK=PASS
+VDR_NOT_RESTARTED=PASS
+DAEMON_NOT_RESTARTED=PASS
+AGENT_NOT_RESTARTED=PASS
+AGENT_ENABLEMENT_UNCHANGED=PASS
+RESULT=PHASE68G_REAL_NATIVE_OSD_INPUT_PASS
+```
+
+The native semantic effect was observed directly through SuiteBridge OSDSNAP:
+DOWN changed the selected menu index from 0 to 1 and UP restored it from 1 to
+0. An identical replay reused the same Agent command without a second
+assignment. After controller release, stale authority returned conflict without
+creating an assignment or causing native dispatch.
+
+The final acceptance also confirmed an important ownership detail: the
+`LegacyOsdSession` remains `view_only`; `osd.control` authority belongs to
+the separate controller lease. Because authenticated OSD observations are
+published on accepted Agent heartbeats, the acceptance synchronized one fresh
+heartbeat after opening the native menu before creating the session.
+
+PR #313 is the Phase-68.G/Phase-68-closeout integration PR. Its final hosted CI
+is a merge gate; the accepted real-runtime evidence above belongs to the exact
+runtime candidate and is not invalidated by documentation-only closeout changes.
