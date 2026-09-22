@@ -2013,8 +2013,19 @@ bool BackendAgentClientRuntime::pollCommands(
         agentInstanceId_,
         state_.backendGeneration};
 
-    if (!pollBackendAgentCommand(
-            commandConfig, commandContext, transport_, reasonCode))
+    if (!commandAvailabilityReady_)
+    {
+        reasonCode = "command_availability_not_initialized";
+        synchronized_ = false;
+        return false;
+    }
+
+    if (!pollBackendAgentCommandWithAvailability(
+            commandConfig,
+            commandContext,
+            transport_,
+            commandAvailability_,
+            reasonCode))
     {
         synchronized_ = false;
         return false;
@@ -2112,7 +2123,20 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         return false;
     }
     publishOsdObservation();
-    if (!pollBackendAgentCommand(commandConfig, commandContext, transport_, reasonCode))
+
+    // Capability discovery remains on the normal heartbeat cadence. Fast
+    // interactive polls below reuse this complete snapshot instead of
+    // re-probing local providers and replacing advertisements four times/sec.
+    commandAvailability_ =
+        discoverBackendAgentCommandAvailability(commandConfig);
+    commandAvailabilityReady_ = true;
+
+    if (!pollBackendAgentCommandWithAvailability(
+            commandConfig,
+            commandContext,
+            transport_,
+            commandAvailability_,
+            reasonCode))
     {
         synchronized_ = false;
         return false;
@@ -2123,6 +2147,9 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 
 bool BackendAgentClientRuntime::synchronize(std::string& reasonCode)
 {
+    commandAvailability_ = {};
+    commandAvailabilityReady_ = false;
+
     if (agentInstanceId_.empty())
     {
         reasonCode = "agent_instance_generation_failed";

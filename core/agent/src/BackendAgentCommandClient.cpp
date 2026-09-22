@@ -360,11 +360,7 @@ bool executeFreshRecordingCutAndPersistOutcome(
             reason);
 }
 
-struct CommandAvailability
-{
-    std::vector<std::string> commandTypes;
-    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
-};
+using CommandAvailability = BackendAgentCommandAvailabilitySnapshot;
 
 bool hasCommandType(
     const BackendAgentCommandClientConfig& config,
@@ -1058,10 +1054,17 @@ bool reconcileBackendAgentCommandState(
     return sendResult(config, context, transport, state, reason);
 }
 
-bool pollBackendAgentCommand(
+BackendAgentCommandAvailabilitySnapshot discoverBackendAgentCommandAvailability(
+    const BackendAgentCommandClientConfig& config)
+{
+    return availableCommands(config);
+}
+
+bool pollBackendAgentCommandWithAvailability(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
+    const BackendAgentCommandAvailabilitySnapshot& availability,
     std::string& reason)
 {
     if (config.commandTypes.empty())
@@ -1077,7 +1080,6 @@ bool pollBackendAgentCommand(
     request.backendId = context.backendId;
     request.agentInstanceId = context.agentInstanceId;
     request.backendGeneration = context.backendGeneration;
-    const CommandAvailability availability = availableCommands(config);
     request.supportedCommandTypes = availability.commandTypes;
     request.localProviders = availability.localProviders;
     const auto response = transport.postAuthenticated(
@@ -1151,6 +1153,20 @@ bool pollBackendAgentCommand(
     receipt.reasonCode = "durably_recorded";
     if (!persist(config.statePath, state, reason)) return false;
     return reconcileBackendAgentCommandState(config, context, transport, reason);
+}
+
+bool pollBackendAgentCommand(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    std::string& reason)
+{
+    return pollBackendAgentCommandWithAvailability(
+        config,
+        context,
+        transport,
+        discoverBackendAgentCommandAvailability(config),
+        reason);
 }
 
 void setBackendAgentNativeProbeTransport(

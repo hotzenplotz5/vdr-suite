@@ -37,6 +37,12 @@ struct BackendAgentCommandClientConfig
         vdrsuite::agent::RecordingCutDefaultTransport;
 };
 
+struct BackendAgentCommandAvailabilitySnapshot
+{
+    std::vector<std::string> commandTypes;
+    std::vector<vdrsuite::agent::BackendAgentLocalProviderFacts> localProviders;
+};
+
 struct BackendAgentCommandClientContext
 {
     std::string agentId;
@@ -50,6 +56,16 @@ bool reconcileBackendAgentCommandState(
     const BackendAgentCommandClientConfig& config,
     const BackendAgentCommandClientContext& context,
     IBackendAgentControlPlaneTransport& transport,
+    std::string& reasonCode);
+
+BackendAgentCommandAvailabilitySnapshot discoverBackendAgentCommandAvailability(
+    const BackendAgentCommandClientConfig& config);
+
+bool pollBackendAgentCommandWithAvailability(
+    const BackendAgentCommandClientConfig& config,
+    const BackendAgentCommandClientContext& context,
+    IBackendAgentControlPlaneTransport& transport,
+    const BackendAgentCommandAvailabilitySnapshot& availability,
     std::string& reasonCode);
 
 bool pollBackendAgentCommand(

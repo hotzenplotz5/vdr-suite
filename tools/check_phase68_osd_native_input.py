@@ -149,6 +149,9 @@ for token in (
     "SleepMilliseconds",
     "pollCommands(std::string& reasonCode)",
     "sleepMilliseconds_(waitMilliseconds)",
+    "commandAvailabilityReady_",
+    "discoverBackendAgentCommandAvailability(commandConfig)",
+    "pollBackendAgentCommandWithAvailability(",
 ):
     require(
         token in agent_runtime_h + agent_runtime,
@@ -161,6 +164,14 @@ require(
 require(
     "test_low_latency_command_poll_between_heartbeats" in agent_test,
     "low-latency command polling must be covered by the Agent client test",
+)
+require(
+    "osdTransport.discoveryCalls == 1" in agent_test,
+    "fast command polling must reuse the heartbeat capability snapshot",
+)
+require(
+    "const CommandAvailability availability = availableCommands(config);" not in client,
+    "fast command polling must not rediscover providers on every poll",
 )
 
 require(

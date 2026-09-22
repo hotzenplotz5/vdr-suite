@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BackendAgentCommandClient.h"
 #include "BackendAgentOsdObservation.h"
 #include <atomic>
 #include <cstdint>
@@ -218,6 +219,8 @@ private:
     Log log_;
     BackendAgentClientState state_;
     std::string agentInstanceId_;
+    BackendAgentCommandAvailabilitySnapshot commandAvailability_;
+    bool commandAvailabilityReady_ = false;
     bool synchronized_ = false;
 };
 

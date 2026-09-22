@@ -2,6 +2,7 @@
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentLifecycle.h"
+#include "ISuiteBridgeLegacyOsdInputTransport.h"
 
 #include <algorithm>
 #include <cassert>
@@ -18,6 +19,26 @@ namespace
 {
 const std::string Secret =
     "agent-client-test-secret-material-00000000000000000000000001";
+
+class FlakyLegacyOsdTransport final
+    : public vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport
+{
+public:
+    int discoveryCalls = 0;
+
+    bool legacyOsdInputAvailable() override
+    {
+        ++discoveryCalls;
+        return discoveryCalls == 1;
+    }
+
+    vdrsuite::agent::SuiteBridgeCommandReply executeLegacyOsdInput(
+        const LegacyOsdInputCommand&,
+        const std::string&) override
+    {
+        return {};
+    }
+};
 
 class FakeTransport : public IBackendAgentControlPlaneTransport
 {
@@ -792,7 +813,9 @@ void test_low_latency_command_poll_between_heartbeats()
     assert(mkdir(root.c_str(), 0700) == 0);
 
     BackendAgentClientConfig config = configFor(root);
-    config.commandTypes = {"probe.noop"};
+    FlakyLegacyOsdTransport osdTransport;
+    config.commandTypes = {"vdr.legacy-osd.input"};
+    config.legacyOsdInputTransport = &osdTransport;
     config.commandPollIntervalMilliseconds = 250;
 
     BackendAgentClientState state;
@@ -848,6 +871,10 @@ void test_low_latency_command_poll_between_heartbeats()
         });
 
     assert(runtime.synchronize(reason));
+    assert(osdTransport.discoveryCalls == 1);
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") !=
+        std::string::npos);
     const std::size_t requestsBeforeRun = transport.paths.size();
     const std::uint64_t heartbeatBeforeRun =
         runtime.state().heartbeatSequence;
@@ -861,6 +888,10 @@ void test_low_latency_command_poll_between_heartbeats()
     assert(millisecondSleeps == std::vector<int>({250, 250}));
     assert(transport.paths.size() == requestsBeforeRun + 1);
     assert(transport.paths.back() == "/api/agent/v1/commands/poll");
+    assert(
+        transport.bodies.back().find("vdr.legacy-osd.input") !=
+        std::string::npos);
+    assert(osdTransport.discoveryCalls == 1);
     assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);
     assert(transport.responses.empty());
 
