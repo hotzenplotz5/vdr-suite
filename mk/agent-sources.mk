@@ -174,11 +174,12 @@ AGENT_SRC := \
 	$(AGENT_OBSERVATION_SRC) \
 	$(AGENT_EMBEDDED_RUNTIME_SRC)
 
-# Standalone agent binaries do not link the daemon-owned recording metadata
-# module. They still need the native recording identity implementation because
-# SuiteBridgeSvdrpRecordingMetadataTransport and native recording read transports
-# validate opaque recording keys before issuing SVDRP requests.
+# Standalone users of SuiteBridgeSvdrpTransport need its handshake implementation
+# as well as the transport sources. They do not link the daemon-owned recording
+# metadata module. Native recording identity remains required because recording
+# read transports validate opaque recording keys before issuing SVDRP requests.
 AGENT_SVDRP_TRANSPORT_STANDALONE_SRC = \
+	$(AGENT_HANDSHAKE_SRC) \
 	$(AGENT_SVDRP_TRANSPORT_SRC) \
 	$(VDR_RECORDING_NATIVE_IDENTITY_SRC)
 
