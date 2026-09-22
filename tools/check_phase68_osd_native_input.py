@@ -170,6 +170,16 @@ require(
     "fast command polling must reuse the heartbeat capability snapshot",
 )
 require(
+    "commandPollFailureRequiresResynchronization" in agent_runtime and
+    'return reasonCode != "protected_transport_failed";' in agent_runtime,
+    "transient fast-poll transport failures must not invalidate the Agent lease",
+)
+require(
+    "Backend Agent command poll failed: protected_transport_failed" in agent_test and
+    "Backend Agent synchronized" in agent_test,
+    "fast-poll transport-loss regression must prove no reconnect",
+)
+require(
     "const CommandAvailability availability = availableCommands(config);" not in client,
     "fast command polling must not rediscover providers on every poll",
 )

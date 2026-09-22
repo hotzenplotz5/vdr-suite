@@ -856,17 +856,20 @@ void test_low_latency_command_poll_between_heartbeats()
 
     bool stopRequested = false;
     std::vector<int> millisecondSleeps;
+    std::vector<std::string> logs;
     BackendAgentClientRuntime runtime(
         config,
         transport,
         [&](int) {
             assert(false);
         },
-        [](const std::string&) {},
+        [&](const std::string& message) {
+            logs.push_back(message);
+        },
         [&](int milliseconds) {
             assert(milliseconds == 250);
             millisecondSleeps.push_back(milliseconds);
-            if (millisecondSleeps.size() == 2)
+            if (millisecondSleeps.size() == 3)
                 stopRequested = true;
         });
 
@@ -879,20 +882,38 @@ void test_low_latency_command_poll_between_heartbeats()
     const std::uint64_t heartbeatBeforeRun =
         runtime.state().heartbeatSequence;
 
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
     transport.responses.push_back(success(
         200,
         "{\"hasAssignment\":false,"
         "\"reasonCode\":\"no_command_available\"}"));
 
     assert(runtime.run([&] { return stopRequested; }) == 0);
-    assert(millisecondSleeps == std::vector<int>({250, 250}));
-    assert(transport.paths.size() == requestsBeforeRun + 1);
-    assert(transport.paths.back() == "/api/agent/v1/commands/poll");
+    assert(millisecondSleeps == std::vector<int>({250, 250, 250}));
+    assert(transport.paths.size() == requestsBeforeRun + 2);
+    assert(
+        transport.paths[requestsBeforeRun] ==
+        "/api/agent/v1/commands/poll");
+    assert(
+        transport.paths[requestsBeforeRun + 1] ==
+        "/api/agent/v1/commands/poll");
     assert(
         transport.bodies.back().find("vdr.legacy-osd.input") !=
         std::string::npos);
     assert(osdTransport.discoveryCalls == 1);
     assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);
+    assert(
+        std::count(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent command poll failed: protected_transport_failed") ==
+        1);
+    assert(
+        std::find(
+            logs.begin(),
+            logs.end(),
+            "Backend Agent synchronized") == logs.end());
     assert(transport.responses.empty());
 
     removeTree(root);

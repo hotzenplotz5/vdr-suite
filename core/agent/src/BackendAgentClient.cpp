@@ -485,6 +485,16 @@ std::string responseErrorCode(const BackendAgentTransportResponse& response)
     std::string code;
     return jsonString(response.body, "code", code) ? code : "agent_protocol_rejected";
 }
+
+bool commandPollFailureRequiresResynchronization(
+    const std::string& reasonCode)
+{
+    // A transport-only miss on the high-frequency command poll does not
+    // invalidate the authenticated Agent lease. The next bounded poll retries
+    // against the same fenced context. Protocol/auth/generation/lease failures
+    // remain fail-closed and force the existing synchronization path.
+    return reasonCode != "protected_transport_failed";
+}
 }
 
 CurlBackendAgentControlPlaneTransport::CurlBackendAgentControlPlaneTransport(
@@ -2027,7 +2037,8 @@ bool BackendAgentClientRuntime::pollCommands(
             commandAvailability_,
             reasonCode))
     {
-        synchronized_ = false;
+        if (commandPollFailureRequiresResynchronization(reasonCode))
+            synchronized_ = false;
         return false;
     }
 
@@ -2138,7 +2149,8 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
             commandAvailability_,
             reasonCode))
     {
-        synchronized_ = false;
+        if (commandPollFailureRequiresResynchronization(reasonCode))
+            synchronized_ = false;
         return false;
     }
     reasonCode = "lease_observations_and_commands_renewed";
