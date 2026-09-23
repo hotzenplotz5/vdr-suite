@@ -30,10 +30,12 @@ int main()
 {
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
     runtime.resetTimerCreateSubmission();
+    runtime.resetTimerCreateReplayLookup();
     runtime.resetTimerAssignmentLookup();
 
+    std::string lookupRevision = "7";
     runtime.registerTimerAssignmentLookup(
-        [](
+        [&](
             const std::string& timerAssignmentId,
             const std::string& backendId)
         {
@@ -48,7 +50,32 @@ int main()
             result.status = PublicTimerAssignmentLookupStatus::ok;
             result.assignment.timerAssignmentId = timerAssignmentId;
             result.assignment.backendId = backendId;
-            result.assignment.resourceRevision = "7";
+            result.assignment.resourceRevision = lookupRevision;
+            return result;
+        });
+
+    bool replayExists = false;
+    runtime.registerTimerCreateReplayLookup(
+        [&](const PublicTimerCreateReplayRequest& request)
+        {
+            assert(request.timerAssignmentId == "assignment:one");
+            assert(request.backendId == "backend-one");
+            assert(request.actorRef == "actor:one");
+            PublicTimerCreateReplayResult result;
+            if (!replayExists)
+            {
+                result.status = PublicTimerCreateReplayStatus::notFound;
+                return result;
+            }
+            if (request.idempotencyKey != "idem-success" ||
+                request.specification.title != "Evening News")
+            {
+                result.status =
+                    PublicTimerCreateReplayStatus::idempotencyConflict;
+                return result;
+            }
+            result.status = PublicTimerCreateReplayStatus::matched;
+            result.expectedResourceRevision = "7";
             return result;
         });
 
@@ -213,6 +240,50 @@ int main()
         "\"state\":\"dispatching\"") !=
         std::string::npos);
 
+    // The resource may advance after the original submission. An exact retry
+    // still binds to the original durable precondition and same operation.
+    replayExists = true;
+    lookupRevision = "8";
+    ApiResponse replayed;
+    assert(runtime.tryHandlePost(
+        Route,
+        validBody(),
+        "actor:one",
+        "request-replay",
+        "",
+        replayed,
+        "idem-success",
+        etag,
+        "backend-one"));
+    assert(replayed.statusCode == 202);
+    assert(replayed.headers.at("Location") ==
+        "/api/v1/operations/op-public-create-1");
+
+    ApiResponse changedReplay;
+    std::string changedBody = validBody();
+    const std::string title = "\"title\":\"Evening News\"";
+    changedBody.replace(
+        changedBody.find(title),
+        title.size(),
+        "\"title\":\"Changed\"");
+    assert(runtime.tryHandlePost(
+        Route,
+        changedBody,
+        "actor:one",
+        "request-replay-conflict",
+        "",
+        changedReplay,
+        "idem-success",
+        etag,
+        "backend-one"));
+    assert(changedReplay.statusCode == 409);
+    assert(changedReplay.body.find(
+        "\"code\":\"idempotency_conflict\"") !=
+        std::string::npos);
+
+    replayExists = false;
+    lookupRevision = "7";
+
     runtime.registerTimerCreateSubmission(
         [](const PublicTimerCreateSubmissionRequest&)
         {
@@ -262,6 +333,7 @@ int main()
     assert(deleteMismatch.headers.at("Allow") == "GET, POST");
 
     runtime.resetTimerCreateSubmission();
+    runtime.resetTimerCreateReplayLookup();
     runtime.resetTimerAssignmentLookup();
     return 0;
 }
