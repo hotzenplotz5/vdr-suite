@@ -87,7 +87,7 @@
 #include "RecordingPersonSearchService.h"
 #include "RecordingPersonSearchResultJsonSerializer.h"
 #include "RecordingPersonSearchController.h"
-#include "RuntimeConfig.h"
+#include "DaemonTimerCreateSubmissionService.h"\n#include "RuntimeConfig.h"
 #include "RuntimeDiagnosticsController.h"
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
@@ -238,6 +238,8 @@ private:
         backendAgentNativeTimerCreateReservationService_;
     std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerCreateActivationService>
         backendAgentNativeTimerCreateActivationService_;
+    std::unique_ptr<DaemonTimerCreateSubmissionService>
+        daemonTimerCreateSubmissionService_;
     std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
     std::unique_ptr<EmbeddedBackendLifecycleService> embeddedBackendLifecycleService_;
     std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;
