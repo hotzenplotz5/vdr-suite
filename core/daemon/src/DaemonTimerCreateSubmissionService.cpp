@@ -322,65 +322,6 @@ DaemonTimerCreateSubmissionService::submit(
     const std::int64_t now = nowSeconds();
     const std::int64_t deadline = now + SubmissionDeadlineSeconds;
 
-    const auto assignmentResult =
-        assignmentRepository_.findById(request.timerAssignmentId);
-    if (assignmentResult.status ==
-        TimerAssignmentRepositoryStatus::notFound)
-    {
-        return result(DaemonTimerCreateSubmissionStatus::notFound);
-    }
-    if (!assignmentResult.ok())
-        return result(DaemonTimerCreateSubmissionStatus::unavailable);
-
-    const TimerAssignment& assignment = assignmentResult.assignment;
-    if (assignment.backendId != request.backendId)
-        return result(DaemonTimerCreateSubmissionStatus::notFound);
-    if (assignment.assignmentRevision !=
-        request.expectedAssignmentRevision)
-    {
-        return result(DaemonTimerCreateSubmissionStatus::revisionConflict);
-    }
-    if (assignment.state != TimerAssignmentState::provisioning ||
-        !assignment.nativeTimerBindingId.empty())
-    {
-        return result(DaemonTimerCreateSubmissionStatus::stateConflict);
-    }
-
-    const auto intentResult =
-        intentRepository_.findById(assignment.timerIntentId);
-    if (intentResult.status == TimerIntentRepositoryStatus::notFound)
-        return result(DaemonTimerCreateSubmissionStatus::notFound);
-    if (!intentResult.ok())
-        return result(DaemonTimerCreateSubmissionStatus::unavailable);
-    if (intentResult.intent.intentRevision != assignment.intentRevision)
-        return result(DaemonTimerCreateSubmissionStatus::revisionConflict);
-
-    const auto agent = agentRepository_.findAgentForBackend(
-        request.backendId);
-    if (!agent.has_value() || agent->revoked || agent->incompatible ||
-        agent->agentInstanceId.empty() ||
-        agent->backendGeneration == 0 ||
-        agent->leaseExpiresAt < now)
-    {
-        return result(DaemonTimerCreateSubmissionStatus::backendUnavailable);
-    }
-    if (agent->backendGeneration != assignment.backendGeneration)
-        return result(DaemonTimerCreateSubmissionStatus::generationConflict);
-
-    NativeTimerSpecification specification =
-        request.requestedSpecification;
-    specification.channelId =
-        assignment.channelBinding.backendChannelId;
-    if (!nativeTimerSpecificationValid(specification))
-        return result(DaemonTimerCreateSubmissionStatus::invalid);
-
-    const std::string requestFingerprint =
-        submissionFingerprint(
-            request.expectedAssignmentRevision,
-            specification);
-    if (requestFingerprint.empty())
-        return result(DaemonTimerCreateSubmissionStatus::unavailable);
-
     const auto existing =
         operationRepository_.findByIdempotencyScope(
             request.actorId,
@@ -396,14 +337,58 @@ DaemonTimerCreateSubmissionService::submit(
     if (existing.ok())
     {
         const MutationOperation& operation = existing.operation;
-        if (operation.requestFingerprint != requestFingerprint ||
-            operation.expectedRevision !=
+        if (operation.expectedRevision !=
                 request.expectedAssignmentRevision ||
             operation.actorId != request.actorId ||
             operation.backendId != request.backendId ||
             operation.resourceType != "TimerAssignment" ||
             operation.resourceId != request.timerAssignmentId ||
             operation.actionFamily != "timer.create")
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::idempotencyConflict,
+                operation);
+        }
+
+        const auto storedPayload =
+            operationRepository_.findPayloadByOperationId(
+                operation.operationId);
+        NativeTimerCreateOperationPayload payload;
+        if (!storedPayload.ok() ||
+            storedPayload.payload.payloadType != "native.timer.create" ||
+            storedPayload.payload.payloadVersion != 1U ||
+            !parseNativeTimerCreateOperationPayload(
+                storedPayload.payload.payload,
+                payload) ||
+            payload.timerAssignmentId != request.timerAssignmentId ||
+            payload.expectedAssignmentRevision !=
+                operation.expectedRevision ||
+            payload.backendId != request.backendId)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::idempotencyConflict,
+                operation);
+        }
+
+        NativeTimerSpecification replaySpecification =
+            request.requestedSpecification;
+        replaySpecification.channelId =
+            payload.expectedSpecification.channelId;
+        const std::string replayFingerprint =
+            submissionFingerprint(
+                operation.expectedRevision,
+                replaySpecification);
+        if (replayFingerprint.empty())
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::unavailable,
+                operation);
+        }
+        if (operation.requestFingerprint != replayFingerprint ||
+            nativeTimerSpecificationFingerprint(
+                replaySpecification) !=
+                nativeTimerSpecificationFingerprint(
+                    payload.expectedSpecification))
         {
             return result(
                 DaemonTimerCreateSubmissionStatus::idempotencyConflict,
@@ -450,31 +435,6 @@ DaemonTimerCreateSubmissionService::submit(
                 operation);
         }
 
-        const auto storedPayload =
-            operationRepository_.findPayloadByOperationId(
-                operation.operationId);
-        NativeTimerCreateOperationPayload payload;
-        if (!storedPayload.ok() ||
-            storedPayload.payload.payloadType != "native.timer.create" ||
-            storedPayload.payload.payloadVersion != 1U ||
-            !parseNativeTimerCreateOperationPayload(
-                storedPayload.payload.payload,
-                payload) ||
-            payload.timerAssignmentId != request.timerAssignmentId ||
-            payload.expectedAssignmentRevision !=
-                request.expectedAssignmentRevision ||
-            payload.expectedIntentRevision != assignment.intentRevision ||
-            payload.assignmentEpoch != assignment.assignmentEpoch ||
-            payload.backendId != request.backendId ||
-            payload.backendGeneration != assignment.backendGeneration ||
-            nativeTimerSpecificationFingerprint(
-                payload.expectedSpecification) !=
-                nativeTimerSpecificationFingerprint(specification))
-        {
-            return result(
-                DaemonTimerCreateSubmissionStatus::idempotencyConflict,
-                operation);
-        }
         if (operation.deadline > 0 && operation.deadline < now)
         {
             return result(
@@ -491,27 +451,120 @@ DaemonTimerCreateSubmissionService::submit(
     else if (existing.status ==
         MutationOperationRepositoryStatus::notFound)
     {
+        const auto assignmentResult =
+            assignmentRepository_.findById(
+                request.timerAssignmentId);
+        if (assignmentResult.status ==
+            TimerAssignmentRepositoryStatus::notFound)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::notFound);
+        }
+        if (!assignmentResult.ok())
+            return result(
+                DaemonTimerCreateSubmissionStatus::unavailable);
+
+        const TimerAssignment& assignment =
+            assignmentResult.assignment;
+        if (assignment.backendId != request.backendId)
+            return result(
+                DaemonTimerCreateSubmissionStatus::notFound);
+        if (assignment.assignmentRevision !=
+            request.expectedAssignmentRevision)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::revisionConflict);
+        }
+        if (assignment.state != TimerAssignmentState::provisioning ||
+            !assignment.nativeTimerBindingId.empty())
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::stateConflict);
+        }
+
+        const auto intentResult =
+            intentRepository_.findById(
+                assignment.timerIntentId);
+        if (intentResult.status ==
+            TimerIntentRepositoryStatus::notFound)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::notFound);
+        }
+        if (!intentResult.ok())
+            return result(
+                DaemonTimerCreateSubmissionStatus::unavailable);
+        if (intentResult.intent.intentRevision !=
+            assignment.intentRevision)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::revisionConflict);
+        }
+
+        const auto agent =
+            agentRepository_.findAgentForBackend(
+                request.backendId);
+        if (!agent.has_value() ||
+            agent->revoked ||
+            agent->incompatible ||
+            agent->agentInstanceId.empty() ||
+            agent->backendGeneration == 0 ||
+            agent->leaseExpiresAt < now)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::backendUnavailable);
+        }
+        if (agent->backendGeneration !=
+            assignment.backendGeneration)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::generationConflict);
+        }
+
+        NativeTimerSpecification specification =
+            request.requestedSpecification;
+        specification.channelId =
+            assignment.channelBinding.backendChannelId;
+        if (!nativeTimerSpecificationValid(specification))
+            return result(
+                DaemonTimerCreateSubmissionStatus::invalid);
+
+        const std::string requestFingerprint =
+            submissionFingerprint(
+                request.expectedAssignmentRevision,
+                specification);
+        if (requestFingerprint.empty())
+            return result(
+                DaemonTimerCreateSubmissionStatus::unavailable);
+
         const std::string operationId =
             backendAgentGenerateOpaqueId("op_", 12);
         const std::string nativeTimerBindingId =
             backendAgentGenerateOpaqueId("ntb_", 12);
-        if (operationId.empty() || nativeTimerBindingId.empty())
-            return result(DaemonTimerCreateSubmissionStatus::unavailable);
+        if (operationId.empty() ||
+            nativeTimerBindingId.empty())
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::unavailable);
+        }
 
         NativeTimerCreateOperationPreparationRequest preparation;
         preparation.operationId = operationId;
         preparation.idempotencyKey = request.idempotencyKey;
         preparation.actorId = request.actorId;
         preparation.requestFingerprint = requestFingerprint;
-        preparation.timerAssignmentId = request.timerAssignmentId;
+        preparation.timerAssignmentId =
+            request.timerAssignmentId;
         preparation.expectedAssignmentRevision =
             request.expectedAssignmentRevision;
         preparation.expectedIntentRevision =
             assignment.intentRevision;
         preparation.expectedAssignmentEpoch =
             assignment.assignmentEpoch;
-        preparation.nativeTimerBindingId = nativeTimerBindingId;
-        preparation.expectedBackendId = request.backendId;
+        preparation.nativeTimerBindingId =
+            nativeTimerBindingId;
+        preparation.expectedBackendId =
+            request.backendId;
         preparation.expectedBackendGeneration =
             assignment.backendGeneration;
         preparation.expectedSpecification = specification;
@@ -529,11 +582,13 @@ DaemonTimerCreateSubmissionService::submit(
     else if (existing.status ==
         MutationOperationRepositoryStatus::invalid)
     {
-        return result(DaemonTimerCreateSubmissionStatus::invalid);
+        return result(
+            DaemonTimerCreateSubmissionStatus::invalid);
     }
     else
     {
-        return result(DaemonTimerCreateSubmissionStatus::unavailable);
+        return result(
+            DaemonTimerCreateSubmissionStatus::unavailable);
     }
 
     vdrsuite::agent::BackendAgentNativeTimerCreateReservationRequest
@@ -576,14 +631,16 @@ DaemonTimerCreateSubmissionService::submit(
     }
 
     NativeTimerCreateDispatchClaimRequest claim;
-    claim.operationId = prepared.operation.operationId;
+    claim.operationId =
+        prepared.operation.operationId;
     claim.expectedOperationRevision =
         prepared.operation.operationRevision;
     claim.timerAssignmentId =
         prepared.payload.timerAssignmentId;
     claim.nativeTimerBindingId =
         prepared.payload.nativeTimerBindingId;
-    claim.backendId = prepared.payload.backendId;
+    claim.backendId =
+        prepared.payload.backendId;
     claim.backendGeneration =
         prepared.payload.backendGeneration;
     claim.expectedSpecificationFingerprint =
@@ -610,9 +667,11 @@ DaemonTimerCreateSubmissionService::submit(
                 activationService_.activateDispatching(
                     current.operation.operationId);
             if (!activated.ok())
+            {
                 return result(
                     DaemonTimerCreateSubmissionStatus::unavailable,
                     current.operation);
+            }
             return result(
                 DaemonTimerCreateSubmissionStatus::accepted,
                 current.operation);
