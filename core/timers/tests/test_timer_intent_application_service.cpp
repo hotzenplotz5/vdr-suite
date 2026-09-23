@@ -104,6 +104,9 @@ int main()
     assert(first.assignment.role == TimerAssignmentRole::primary);
     assert(first.assignment.backendId == "backend:alpha");
     assert(first.assignment.backendGeneration == 7);
+    assert(first.assignment.desiredNativeTimerSpecificationPresent);
+    assert(first.assignment.desiredNativeTimerSpecification.title
+        == "Application");
 
     // Stable identifiers allow restart-safe replay across every durable step.
     TimerIntentApplicationService restarted(intents, assignments, bindings);
