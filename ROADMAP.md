@@ -29,7 +29,7 @@ Phase 69 - Public API and Client Compatibility Hardening
 
 Phase 66 is completed. The later non-numbered Home performance, Recording Discovery, metadata/artwork, native Recording editing and Home-rebuild work is also completed for the merged accepted scopes and does not reopen Phase 66. The consolidated Home-rebuild evidence is recorded in [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md).
 
-Phase 67 is completed through the accepted Teletext and HbbTV verticals. Phase 68 Legacy OSD Compatibility Bridge is also completed through 68.G fenced allowlisted native input; durable evidence is in [Phase 68 Closeout](docs/development/phase-68-closeout.md) and [Phase 68 Kickoff](docs/development/phase-68-legacy-osd-kickoff.md). Phase 69 is active at 69.A Public resource and route inventory; see [Phase 69 Kickoff](docs/development/phase-69-public-api-kickoff.md).
+Phase 67 is completed through the accepted Teletext and HbbTV verticals. Phase 68 Legacy OSD Compatibility Bridge is also completed through 68.G fenced allowlisted native input; durable evidence is in [Phase 68 Closeout](docs/development/phase-68-closeout.md) and [Phase 68 Kickoff](docs/development/phase-68-legacy-osd-kickoff.md). Phase 69 is active at 69.C Revision/precondition/idempotency exposure; 69.A and 69.B are accepted. See [Phase 69 Kickoff](docs/development/phase-69-public-api-kickoff.md) and [Phase 69.B Closeout](docs/development/phase-69b-closeout.md).
 
 ## Strict forward sequence
 
