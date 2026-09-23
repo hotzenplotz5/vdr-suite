@@ -109,14 +109,10 @@ if not (
     raise SystemExit(
         "CREATE preparation service must stop before its repository dependencies")
 
-for forbidden_source in [
-    "NativeTimerCreateDispatchService.cpp",
-    "BackendAgentNativeTimerCreateActivation.cpp",
-]:
-    if forbidden_source in contents["daemon_sources"]:
-        raise SystemExit(
-            f"CREATE preparation composition must not link dispatch/native execution: {forbidden_source}")
-
+# A later Phase-69.C slice may compose the already accepted durable
+# reservation/dispatch/activation owners. This preparation guard continues to
+# own only the one-repository/one-service preparation boundary and the fact that
+# public mutation remains closed until separately reviewed.
 for label in ["public_h", "public_cpp", "security"]:
     for forbidden in [
         "NativeTimerCreateOperationPreparationService",
