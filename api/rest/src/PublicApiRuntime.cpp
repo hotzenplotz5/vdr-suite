@@ -1,9 +1,11 @@
 #include "PublicApiRuntime.h"
 
-#include "ServerBuildIdentity.h"
 #include "PublicProblemDetails.h"
+#include "PublicResourcePreconditions.h"
+#include "ServerBuildIdentity.h"
 
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -17,6 +19,7 @@ std::string requestPath(const std::string& requestTarget)
 }
 
 constexpr const char* PublicApiV1Root = "/api/v1";
+constexpr const char* PublicOperationPrefix = "/api/v1/operations/";
 
 bool isPublicV1Path(const std::string& path)
 {
@@ -25,6 +28,51 @@ bool isPublicV1Path(const std::string& path)
         (path.size() > root.size() &&
          path.compare(0, root.size(), root) == 0 &&
          path[root.size()] == '/');
+}
+
+bool publicOperationPath(
+    const std::string& path,
+    std::string& operationId)
+{
+    const std::string prefix(PublicOperationPrefix);
+
+    if (path.compare(0, prefix.size(), prefix) != 0)
+    {
+        return false;
+    }
+
+    operationId = path.substr(prefix.size());
+    return !operationId.empty() &&
+        operationId.find('/') == std::string::npos;
+}
+
+std::string jsonEscape(const std::string& value)
+{
+    std::string escaped;
+    escaped.reserve(value.size());
+
+    for (const unsigned char character : value)
+    {
+        switch (character)
+        {
+            case '"': escaped += "\\\""; break;
+            case '\\': escaped += "\\\\"; break;
+            case '\b': escaped += "\\b"; break;
+            case '\f': escaped += "\\f"; break;
+            case '\n': escaped += "\\n"; break;
+            case '\r': escaped += "\\r"; break;
+            case '\t': escaped += "\\t"; break;
+            default:
+                if (character >= 0x20U)
+                {
+                    escaped.push_back(
+                        static_cast<char>(character));
+                }
+                break;
+        }
+    }
+
+    return escaped;
 }
 
 void addRequestContextHeaders(
@@ -43,6 +91,19 @@ void addRequestContextHeaders(
     }
 }
 
+void addPublicSuccessHeaders(
+    ApiResponse& response,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    addRequestContextHeaders(
+        response,
+        requestId,
+        correlationId);
+}
+
 ApiResponse jsonResponse(
     const std::string& body,
     const std::string& requestId,
@@ -51,9 +112,7 @@ ApiResponse jsonResponse(
     ApiResponse response;
     response.statusCode = 200;
     response.contentType = "application/json; charset=utf-8";
-    response.headers["Cache-Control"] = "no-store";
-    response.headers["X-Content-Type-Options"] = "nosniff";
-    addRequestContextHeaders(
+    addPublicSuccessHeaders(
         response,
         requestId,
         correlationId);
@@ -73,9 +132,7 @@ ApiResponse problemResponse(
     ApiResponse response;
     response.statusCode = statusCode;
     response.contentType = PublicProblemDetails::contentType();
-    response.headers["Cache-Control"] = "no-store";
-    response.headers["X-Content-Type-Options"] = "nosniff";
-    addRequestContextHeaders(
+    addPublicSuccessHeaders(
         response,
         requestId,
         correlationId);
@@ -102,6 +159,52 @@ ApiResponse notFoundProblem(
         "not_found",
         "Resource not found",
         "The requested public API resource is not available.",
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse invalidRequestProblem(
+    const std::string& path,
+    const std::string& detail,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        400,
+        "invalid_request",
+        "Invalid request",
+        detail,
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse unauthorizedProblem(
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        401,
+        "unauthorized",
+        "Authentication required",
+        "Authentication is required for this public API resource.",
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse serviceUnavailableProblem(
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        503,
+        "service_unavailable",
+        "Service unavailable",
+        "The requested public API resource is temporarily unavailable.",
         path,
         requestId,
         correlationId);
@@ -145,10 +248,70 @@ ApiResponse platformCapabilities(
 {
     return jsonResponse(
         "{\"apiVersion\":\"v1\",\"capabilities\":["
-        "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"}"
+        "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"},"
+        "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"available\"}"
         "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
         correlationId);
+}
+
+ApiResponse publicOperationResponse(
+    const PublicOperationResource& operation,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            operation.resourceRevision);
+
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path,
+            requestId,
+            correlationId);
+    }
+
+    const vdrsuite::http::PublicEntityTagConditionResult condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response,
+            requestId,
+            correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    ApiResponse response = jsonResponse(
+        "{\"operationId\":\"" + jsonEscape(operation.operationId) +
+        "\",\"state\":\"" + jsonEscape(operation.state) +
+        "\",\"backendId\":\"" + jsonEscape(operation.backendId) +
+        "\",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        requestId,
+        correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
 }
 
 }
@@ -159,12 +322,55 @@ PublicApiRuntime& PublicApiRuntime::instance()
     return runtime;
 }
 
+void PublicApiRuntime::registerOperationLookup(
+    OperationLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        operationLookupMutex_);
+    operationLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetOperationLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        operationLookupMutex_);
+    operationLookup_ = OperationLookup{};
+}
+
+bool PublicApiRuntime::operationLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        operationLookupMutex_);
+    return static_cast<bool>(operationLookup_);
+}
+
+PublicOperationLookupResult PublicApiRuntime::lookupOperation(
+    const std::string& operationId,
+    const std::string& actorRef) const
+{
+    OperationLookup lookup;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            operationLookupMutex_);
+        lookup = operationLookup_;
+    }
+
+    if (!lookup)
+    {
+        return {};
+    }
+
+    return lookup(operationId, actorRef);
+}
+
 bool PublicApiRuntime::tryHandleGet(
     const std::string& requestTarget,
     const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& ifNoneMatch) const
 {
     const std::string path = requestPath(requestTarget);
 
@@ -183,6 +389,69 @@ bool PublicApiRuntime::tryHandleGet(
             requestId,
             correlationId);
         return true;
+    }
+
+    std::string operationId;
+    if (publicOperationPath(path, operationId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicOperationLookupResult found =
+            lookupOperation(operationId, actorRef);
+
+        switch (found.status)
+        {
+            case PublicOperationLookupStatus::ok:
+                if (found.operation.operationId.empty() ||
+                    found.operation.state.empty() ||
+                    found.operation.backendId.empty() ||
+                    found.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response = publicOperationResponse(
+                        found.operation,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                }
+                return true;
+
+            case PublicOperationLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The operation identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicOperationLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicOperationLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
     }
 
     if (isPublicV1Path(path))
@@ -204,9 +473,11 @@ bool PublicApiRuntime::tryHandlePost(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    std::string operationId;
 
     if (path == "/api/v1" ||
-        path == "/api/v1/capabilities")
+        path == "/api/v1/capabilities" ||
+        publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
             path,
@@ -232,9 +503,11 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     }
 
     const std::string path = requestPath(requestTarget);
+    std::string operationId;
 
     if (path == "/api/v1" ||
-        path == "/api/v1/capabilities")
+        path == "/api/v1/capabilities" ||
+        publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
             path,
