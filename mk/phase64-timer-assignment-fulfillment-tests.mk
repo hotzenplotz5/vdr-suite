@@ -10,6 +10,7 @@ test-phase64-timer-assignment-fulfillment: test-phase64-timer-assignment-fulfill
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerBindingRepository.cpp \
 		core/timers/src/NativeTimerBindingReadRepository.cpp \
