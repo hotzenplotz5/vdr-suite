@@ -22,6 +22,13 @@ public:
         const std::string& correlationId,
         ApiResponse& response) const;
 
+    bool tryHandleUnsupportedMethod(
+        const std::string& method,
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response) const;
+
 private:
     PublicApiRuntime() = default;
 };

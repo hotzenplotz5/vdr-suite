@@ -117,6 +117,75 @@ int main()
         unknownPost));
     assert(unknownPost.statusCode == 418);
 
+    for (const std::string& method :
+         {std::string("PUT"),
+          std::string("PATCH"),
+          std::string("DELETE"),
+          std::string("HEAD"),
+          std::string("OPTIONS")})
+    {
+        ApiResponse methodMismatch;
+        assert(runtime.tryHandleUnsupportedMethod(
+            method,
+            "/api/v1/capabilities?ignored=true",
+            requestId,
+            correlationId,
+            methodMismatch));
+        assert(methodMismatch.statusCode == 405);
+        assert(methodMismatch.contentType ==
+            "application/problem+json");
+        assert(methodMismatch.headers.at("Allow") == "GET");
+        assert(methodMismatch.headers.at("X-Request-ID") ==
+            requestId);
+        assert(methodMismatch.headers.at("X-Correlation-ID") ==
+            correlationId);
+        assert(methodMismatch.body.find(
+            "\"code\":\"method_not_allowed\"") !=
+            std::string::npos);
+        assert(methodMismatch.body.find(
+            "\"instance\":\"/api/v1/capabilities\"") !=
+            std::string::npos);
+    }
+
+    ApiResponse unknownDelete;
+    assert(runtime.tryHandleUnsupportedMethod(
+        "DELETE",
+        "/api/v1/private?ignored=true",
+        requestId,
+        correlationId,
+        unknownDelete));
+    assert(unknownDelete.statusCode == 404);
+    assert(unknownDelete.contentType ==
+        "application/problem+json");
+    assert(unknownDelete.headers.find("Allow") ==
+        unknownDelete.headers.end());
+    assert(unknownDelete.body.find(
+        "\"code\":\"not_found\"") !=
+        std::string::npos);
+    assert(unknownDelete.body.find(
+        "\"instance\":\"/api/v1/private\"") !=
+        std::string::npos);
+
+    ApiResponse unsupportedGet;
+    unsupportedGet.statusCode = 418;
+    assert(!runtime.tryHandleUnsupportedMethod(
+        "GET",
+        "/api/v1",
+        requestId,
+        correlationId,
+        unsupportedGet));
+    assert(unsupportedGet.statusCode == 418);
+
+    ApiResponse legacyDelete;
+    legacyDelete.statusCode = 418;
+    assert(!runtime.tryHandleUnsupportedMethod(
+        "DELETE",
+        "/api/vdr/status",
+        requestId,
+        correlationId,
+        legacyDelete));
+    assert(legacyDelete.statusCode == 418);
+
     ApiResponse legacyGet;
     legacyGet.statusCode = 418;
     assert(!runtime.tryHandleGet(

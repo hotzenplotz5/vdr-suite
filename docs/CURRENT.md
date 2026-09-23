@@ -71,9 +71,11 @@ PR #314 -> d34058220653496a35fb7e1c073cc6981f4c72db
 PR #315 -> bca8ff3bfd1216bda39f29105911f64853bd263c
 PR #315 hosted CI run 35818928861 / #9074: SUCCESS (6/6)
 
-Accepted Phase-69.B checkpoint:
+Accepted Phase-69.B checkpoints:
 PR #316 -> 72a637cc6f18fc1c1c1a77859abb3ab1f15e2b03
 PR #316 hosted CI run 35843808669 / #9081: SUCCESS (6/6)
+PR #317 -> 5ff36d635072c63e1c46ccb377c830ec99988108
+PR #317 hosted CI run 35846333459 / #9083: SUCCESS (6/6)
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88

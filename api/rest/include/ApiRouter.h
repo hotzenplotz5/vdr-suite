@@ -308,6 +308,30 @@ public:
         return handleGet(requestTarget);
     }
 
+    ApiResponse handleClientUnsupportedMethod(
+        const std::string& method,
+        const std::string& requestTarget,
+        const std::string& requestRef = "",
+        const std::string& correlationRef = "")
+    {
+        ApiResponse response;
+
+        if (PublicApiRuntime::instance().tryHandleUnsupportedMethod(
+                method,
+                requestTarget,
+                requestRef,
+                correlationRef,
+                response))
+        {
+            return response;
+        }
+
+        response.statusCode = 405;
+        response.contentType = "application/json";
+        response.body = "{\"error\":\"method not allowed\"}";
+        return response;
+    }
+
     ApiResponse handleClientPost(
         const std::string& requestTarget,
         const std::string& body,

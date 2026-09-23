@@ -255,3 +255,40 @@ bool PublicApiRuntime::tryHandlePost(
 
     return false;
 }
+
+bool PublicApiRuntime::tryHandleUnsupportedMethod(
+    const std::string& method,
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response) const
+{
+    if (method == "GET" ||
+        method == "POST")
+    {
+        return false;
+    }
+
+    const std::string path = requestPath(requestTarget);
+
+    if (path == "/api/v1" ||
+        path == "/api/v1/capabilities")
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId);
+        return true;
+    }
+
+    if (isPublicV1Path(path))
+    {
+        response = notFoundProblem(
+            path,
+            requestId,
+            correlationId);
+        return true;
+    }
+
+    return false;
+}
