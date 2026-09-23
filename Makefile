@@ -29,6 +29,7 @@ include mk/phase67-teletext-tests.mk
 include mk/phase67-teletext-frontend.mk
 include mk/phase67-hbbtv-tests.mk
 include mk/phase68-legacy-osd-tests.mk
+include mk/phase69-public-api-tests.mk
 include mk/phase65-media-tests.mk
 include mk/phase65d-media-playback-contract.mk
 include mk/phase65d-playback-owner-lifecycle.mk

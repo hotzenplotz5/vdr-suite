@@ -7,6 +7,7 @@ DAEMON_SRC := \
         core/recordings/src/RecordingDashboardService.cpp \
         core/recordings/src/DashboardFacade.cpp \
         core/recordings/src/DashboardJsonSerializer.cpp \
+        $(REST_PUBLIC_API_SRC) \
         api/rest/src/DashboardController.cpp \
         api/rest/src/JobsController.cpp \
         api/rest/src/RecordingsController.cpp \

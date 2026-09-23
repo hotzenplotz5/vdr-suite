@@ -1,3 +1,6 @@
+REST_PUBLIC_API_SRC := \
+        api/rest/src/PublicApiContractRuntime.cpp
+
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
@@ -46,6 +49,7 @@ REST_SERIES_HIERARCHY_SRC := \
         api/rest/src/RecordingSeriesHierarchyApiRuntime.cpp
 
 REST_ROUTER_SRC := \
+        $(REST_PUBLIC_API_SRC) \
         $(GLOBAL_SEARCH_SRC) \
         $(GENRE_BROWSER_REST_SRC) \
         $(REST_LIVE_REMOTE_SRC) \

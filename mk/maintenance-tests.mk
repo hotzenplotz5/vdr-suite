@@ -57,7 +57,7 @@ test-architecture:
 	python3 tools/check_architecture.py
 
 .PHONY: test-phase
-test-phase:
+test-phase: test-phase69-public-api-contract-root
 	python3 tools/check_phase_consistency.py
 	python3 tools/check_phase69_public_api_inventory.py
 
