@@ -44,6 +44,7 @@ test-phase69-timer-assignment-read-facade:
 		$(SQLITE_SRC) \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentReadService.cpp \
 		core/timers/tests/test_timer_assignment_read_service.cpp \
 		$(LDFLAGS) \
