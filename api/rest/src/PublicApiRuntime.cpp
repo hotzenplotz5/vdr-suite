@@ -243,13 +243,16 @@ ApiResponse contractRoot(
 }
 
 ApiResponse platformCapabilities(
+    const bool operationReadAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
     return jsonResponse(
         "{\"apiVersion\":\"v1\",\"capabilities\":["
         "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"available\"}"
+        "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"" +
+        std::string(operationReadAvailable ? "available" : "unavailable") +
+        "\"}"
         "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
         correlationId);
@@ -386,6 +389,7 @@ bool PublicApiRuntime::tryHandleGet(
     if (path == "/api/v1/capabilities")
     {
         response = platformCapabilities(
+            operationLookupConfigured(),
             requestId,
             correlationId);
         return true;
@@ -409,7 +413,7 @@ bool PublicApiRuntime::tryHandleGet(
         switch (found.status)
         {
             case PublicOperationLookupStatus::ok:
-                if (found.operation.operationId.empty() ||
+                if (found.operation.operationId != operationId ||
                     found.operation.state.empty() ||
                     found.operation.backendId.empty() ||
                     found.operation.resourceRevision.empty())
