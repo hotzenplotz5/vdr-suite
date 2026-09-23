@@ -164,14 +164,21 @@ int main()
         "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
-    ApiResponse postMismatch;
+    ApiResponse postRequiresPrecondition;
     assert(runtime.tryHandlePost(
         "/api/v1/timer-assignments/assignment:one?backend=backend-one",
+        "{}",
+        "actor:test",
         "phase69c-timer-read-post",
         "",
-        postMismatch));
-    assert(postMismatch.statusCode == 405);
-    assert(postMismatch.headers.at("Allow") == "GET");
+        postRequiresPrecondition,
+        "phase69c-read-test-idempotency",
+        "",
+        "backend-one"));
+    assert(postRequiresPrecondition.statusCode == 428);
+    assert(postRequiresPrecondition.body.find(
+        "\"code\":\"precondition_required\"") !=
+        std::string::npos);
 
     ApiResponse deleteMismatch;
     assert(runtime.tryHandleUnsupportedMethod(
@@ -181,7 +188,7 @@ int main()
         "",
         deleteMismatch));
     assert(deleteMismatch.statusCode == 405);
-    assert(deleteMismatch.headers.at("Allow") == "GET");
+    assert(deleteMismatch.headers.at("Allow") == "GET, POST");
 
     runtime.resetTimerAssignmentLookup();
     return 0;
