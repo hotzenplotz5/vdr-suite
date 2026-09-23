@@ -10,7 +10,7 @@ test-phase64-timer-intent-application: test-phase64-timer-intent-application-arc
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
-\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
 		core/timers/src/TimerAssignmentPlanner.cpp \
 		core/timers/src/TimerAssignmentSchedulingService.cpp \
