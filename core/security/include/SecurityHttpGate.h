@@ -383,12 +383,14 @@ public:
         const bool isPublicTimerAssignmentRead =
             request.method == "GET" &&
             isPublicTimerAssignmentResource;
+        const bool isPublicTimerAssignmentCreate =
+            isPost &&
+            isPublicTimerAssignmentResource;
         const bool isPublicV1ReadOnlyMethodMismatch =
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
-             isPublicOperationResource ||
-             isPublicTimerAssignmentResource);
+             isPublicOperationResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -409,6 +411,7 @@ public:
             isSeriesArtworkSettingsAction || isMediaTranscodeSettingsAction ||
             isManualRecordingMetadataAction ||
             isRecordingSeriesHierarchyAction ||
+            isPublicTimerAssignmentCreate ||
             isHbbtvSessionMutation ||
             isLegacyOsdControllerMutation ||
             isLegacyOsdInput;
@@ -545,6 +548,54 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicTimerAssignmentCreate)
+        {
+            if (!gate.context.authenticated())
+            {
+                return rejectAuthentication(gate);
+            }
+
+            AuthorizationRequest timerCreateRequest;
+            timerCreateRequest.permission = "timers.create";
+            timerCreateRequest.backendId =
+                publicTimerAssignmentBackendId;
+            timerCreateRequest.action = "timers.create";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    timerCreateRequest);
+
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.protectedMutation = true;
             gate.allowed = true;
             return gate;
         }
