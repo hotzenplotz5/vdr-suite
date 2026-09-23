@@ -120,7 +120,7 @@ if not (0 <= dispatch_reset < operation_reset):
     raise SystemExit(
         "CREATE dispatch service must stop before MutationOperationRepository")
 
-for label in ["public_h", "public_cpp", "security"]:
+for label in ["public_h", "public_cpp"]:
     for forbidden in [
         "BackendAgentNativeTimerCreateReservationService",
         "NativeTimerCreateDispatchService",
@@ -132,6 +132,27 @@ for label in ["public_h", "public_cpp", "security"]:
         if forbidden in contents[label]:
             raise SystemExit(
                 f"CREATE dispatch composition opened public mutation semantics in {label}: {forbidden}")
+
+for forbidden in [
+    "BackendAgentNativeTimerCreateReservationService",
+    "NativeTimerCreateDispatchService",
+    "BackendAgentNativeTimerCreateActivationService",
+    "Idempotency-Key",
+]:
+    if forbidden in contents["security"]:
+        raise SystemExit(
+            f"CREATE dispatch composition opened public mutation service/header semantics in security: {forbidden}")
+
+for required_read_only_marker in [
+    'const bool isPublicTimerAssignmentRead =',
+    'request.method == "GET" &&',
+    'isPublicV1ReadOnlyMethodMismatch =',
+    'isPublicTimerAssignmentResource);',
+]:
+    if required_read_only_marker not in contents["security"]:
+        raise SystemExit(
+            "public TimerAssignment security boundary is no longer read-only: "
+            + required_read_only_marker)
 
 # Composition only: no runtime orchestration call is allowed yet. The method
 # names occur in their accepted domain implementations, so scan only API,
