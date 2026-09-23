@@ -139,6 +139,21 @@ public:
         const std::string& ifMatch = "",
         const std::string& authorizedBackendId = "") const;
 
+    bool tryHandlePost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response) const
+    {
+        return tryHandlePost(
+            requestTarget,
+            "",
+            "",
+            requestId,
+            correlationId,
+            response);
+    }
+
     bool tryHandleUnsupportedMethod(
         const std::string& method,
         const std::string& requestTarget,
