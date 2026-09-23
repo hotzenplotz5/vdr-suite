@@ -183,21 +183,29 @@ PR #317 -> 5ff36d635072c63e1c46ccb377c830ec99988108
 CI -> 35846333459 / run #9083 -> SUCCESS (6/6)
 ```
 
-The next bounded 69.B step completes the current method-error boundary:
+PR #318 merged the public unsupported-method boundary:
 
-- `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` and other methods not
-  implemented by the current server are delegated through `ApiRouter` to the
-  public-v1 owner before the legacy generic method response;
-- known current v1 resources return Problem Details-compatible
-  `405 method_not_allowed` with `Allow: GET`;
-- unknown `/api/v1/...` paths return `404 not_found` rather than falsely
-  claiming that a resource exists with a different method;
-- non-v1 paths retain the existing generic `405` compatibility response;
-- no new mutation route or authorization bypass is introduced.
+```text
+PR #318 -> e9d59b87349d7e1be9356efc5cd656f41e11ea12
+CI -> 35861961215 / run #9085 -> SUCCESS (6/6)
+```
 
-Broader legacy controller error normalization remains later 69.B work. This step
-must not change Phase-62 authorization policy or promote pre-v1 routes into the
-public contract.
+The remaining 69.B foundation work now centralizes the public Problem Details
+representation itself:
+
+- one lower-level `PublicProblemDetails` model/serializer is shared by the
+  public REST runtime and the SecurityHttpGate;
+- public security responses map internal Phase-62 reason codes onto stable
+  ADR-0048 public categories instead of freezing transition/internal names such
+  as `security_policy_not_migrated` into the client contract;
+- audit/accountability retains the original internal reason code;
+- pre-v1 error bodies remain unchanged;
+- route-specific public details such as `instance` remain optional and are set
+  only when the public owner has that route context.
+
+This preserves the dependency direction: `core/security` does not depend on
+`api/rest`; both consume a transport-level public error model from
+`core/http`.
 
 ## 69.A acceptance
 
