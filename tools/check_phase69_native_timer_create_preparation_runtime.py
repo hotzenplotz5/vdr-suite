@@ -109,39 +109,22 @@ if not (
     raise SystemExit(
         "CREATE preparation service must stop before its repository dependencies")
 
-# A later Phase-69.C slice may compose the already accepted durable
-# reservation/dispatch/activation owners. This preparation guard continues to
-# own only the one-repository/one-service preparation boundary and the fact that
-# public mutation remains closed until separately reviewed.
-for label in ["public_h", "public_cpp", "security"]:
-    for forbidden in [
-        "NativeTimerCreateOperationPreparationService",
-        "nativeTimerCreateOperationPreparationService_",
-        "Idempotency-Key",
-    ]:
-        if forbidden in contents[label]:
-            raise SystemExit(
-                f"CREATE preparation composition opened public mutation semantics in {label}: {forbidden}")
-
-scan_roots = [
-    ROOT / "api",
-    ROOT / "core" / "daemon",
-    ROOT / "core" / "http",
-    ROOT / "core" / "security",
-]
-for scan_root in scan_roots:
-    if not scan_root.exists():
-        continue
-    for path in scan_root.rglob("*"):
-        if not path.is_file() or path.suffix not in {
-            ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc"
-        }:
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        if "nativeTimerCreateOperationPreparationService_->prepare(" in text:
-            raise SystemExit(
-                "CREATE preparation service must remain dormant in this slice: "
-                + str(path.relative_to(ROOT)))
+# The public mutation successor may now invoke this already accepted owner.
+# Keep this guard responsible for ownership/composition and require the focused
+# successor guard before public mutation semantics are allowed.
+successor_guard = ROOT / "tools/check_phase69_public_timer_create_submission.py"
+if not successor_guard.is_file():
+    raise SystemExit("public Timer CREATE successor guard is missing")
+successor = successor_guard.read_text(encoding="utf-8")
+for marker in [
+    "preparationService_.prepare(preparation)",
+    "findByIdempotencyScope(",
+    "accepted Timer CREATE replay must recover durable payload",
+]:
+    if marker not in successor:
+        raise SystemExit(
+            "public Timer CREATE successor guard missing preparation marker: "
+            + marker)
 
 print("Phase-69.C native Timer CREATE preparation runtime composition check passed")
-print("Boundary: one TimerIntent repository + one dormant preparation service; no dispatch/public mutation")
+print("Boundary: one TimerIntent repository + one preparation authority; invocation owned by guarded public successor")
