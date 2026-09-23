@@ -120,17 +120,29 @@ text_suffixes = {
     ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk",
     ".conf", ".service",
 }
+reviewed_runtime_files = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+}
+for reviewed in reviewed_runtime_files:
+    if not (ROOT / reviewed).is_file():
+        raise SystemExit(
+            f"missing reviewed TimerAssignment repository runtime file: {reviewed}")
+
 for root in forbidden_roots:
     if not root.exists():
         continue
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix not in text_suffixes:
             continue
+        relative = path.relative_to(ROOT)
+        if relative in reviewed_runtime_files:
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if "TimerAssignmentRepository" in text:
             raise SystemExit(
                 "premature TimerAssignment repository runtime wiring: "
-                + str(path.relative_to(ROOT)))
+                + str(relative))
 
 for relative in [
     required_files[2],

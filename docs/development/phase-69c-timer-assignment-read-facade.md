@@ -111,10 +111,19 @@ This slice does **not** add:
 - any pre-v1 route change;
 - Agent, SuiteBridge, VDR-native or media-plane changes.
 
+## Accepted checkpoint
+
+This read-facade slice was accepted in PR #324:
+
+```text
+merge=b971b074725351004d676c001ee976f574587390
+CI=35890789047 / #9098 / SUCCESS (6/6)
+```
+
 ## Next bounded slice
 
-After this facade is accepted, compose exactly one existing
-`TimerAssignmentRepository` over the DaemonRuntime shared database and expose
-the read service through a narrow callback. That composition must open the
-Phase-64 runtime guard only for the exact reviewed files and must not introduce
-a second database or Timer lifecycle authority.
+The next step is [TimerAssignment Runtime Composition](phase-69c-timer-assignment-runtime-composition.md):
+compose exactly one existing `TimerAssignmentRepository` over the DaemonRuntime
+shared database and expose the read service through a narrow dormant callback.
+The composition must keep the public HTTP route closed and open the Phase-64
+runtime guards only for the exact reviewed files.

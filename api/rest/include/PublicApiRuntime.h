@@ -29,6 +29,28 @@ struct PublicOperationLookupResult
     PublicOperationResource operation;
 };
 
+enum class PublicTimerAssignmentLookupStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unavailable,
+};
+
+struct PublicTimerAssignmentRevisionResource
+{
+    std::string timerAssignmentId;
+    std::string backendId;
+    std::string resourceRevision;
+};
+
+struct PublicTimerAssignmentLookupResult
+{
+    PublicTimerAssignmentLookupStatus status =
+        PublicTimerAssignmentLookupStatus::unavailable;
+    PublicTimerAssignmentRevisionResource assignment;
+};
+
 class PublicApiRuntime
 {
 public:
@@ -37,11 +59,23 @@ public:
             const std::string& operationId,
             const std::string& actorRef)>;
 
+    using TimerAssignmentLookup =
+        std::function<PublicTimerAssignmentLookupResult(
+            const std::string& timerAssignmentId,
+            const std::string& backendId)>;
+
     static PublicApiRuntime& instance();
 
     void registerOperationLookup(OperationLookup lookup);
     void resetOperationLookup();
     bool operationLookupConfigured() const;
+
+    void registerTimerAssignmentLookup(TimerAssignmentLookup lookup);
+    void resetTimerAssignmentLookup();
+    bool timerAssignmentLookupConfigured() const;
+    PublicTimerAssignmentLookupResult lookupTimerAssignment(
+        const std::string& timerAssignmentId,
+        const std::string& backendId) const;
 
     bool tryHandleGet(
         const std::string& requestTarget,
@@ -73,4 +107,7 @@ private:
 
     mutable std::mutex operationLookupMutex_;
     OperationLookup operationLookup_;
+
+    mutable std::mutex timerAssignmentLookupMutex_;
+    TimerAssignmentLookup timerAssignmentLookup_;
 };

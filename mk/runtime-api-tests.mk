@@ -164,7 +164,7 @@ test-mock-http-client:
 	$(BUILD_DIR)/test_mock_http_client
 
 daemon:
-	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/timers/include \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \

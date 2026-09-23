@@ -49,3 +49,13 @@ test-phase69-timer-assignment-read-facade:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_timer_assignment_read_service
 	$(BUILD_DIR)/test_timer_assignment_read_service
+
+.PHONY: test-phase69-timer-assignment-runtime-composition
+
+test-phase69-timer-assignment-runtime-composition:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_timer_assignment_lookup.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
+	$(BUILD_DIR)/test_public_timer_assignment_lookup
+	python3 tools/check_phase69_timer_assignment_runtime_composition.py

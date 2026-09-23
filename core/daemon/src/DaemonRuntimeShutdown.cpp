@@ -55,6 +55,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();
     resetDaemonHbbtvRuntime();
@@ -179,6 +180,8 @@ void DaemonRuntime::shutdown()
     metadataRepository_.reset();
     recordingRepository_.reset();
     jobRepository_.reset();
+    timerAssignmentReadService_.reset();
+    timerAssignmentRepository_.reset();
     mutationOperationReadService_.reset();
     mutationOperationRepository_.reset();
 

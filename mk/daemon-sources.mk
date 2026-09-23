@@ -3,6 +3,9 @@ DAEMON_SRC := \
         core/operations/src/MutationOperation.cpp \
         core/operations/src/MutationOperationRepository.cpp \
         core/operations/src/MutationOperationReadService.cpp \
+        core/timers/src/TimerAssignment.cpp \
+        core/timers/src/TimerAssignmentRepository.cpp \
+        core/timers/src/TimerAssignmentReadService.cpp \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
