@@ -35,7 +35,7 @@ required = {
         "authorizedBackendId",
         "publicStrongEntityTag(",
         "publicEvaluateIfNoneMatch(",
-        '"public-api.timer-assignments-read"',
+        "public-api.timer-assignments-read",
         "PublicTimerAssignmentLookupStatus::notFound",
     ],
     "router": [
@@ -66,7 +66,7 @@ required = {
         'headers.at("ETag")',
         '"resourceRevision"',
         '"nativeTimerBindingId"',
-        '"public-api.timer-assignments-read"',
+        "public-api.timer-assignments-read",
         "collectionStillClosed",
     ],
     "security_test": [
