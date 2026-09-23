@@ -1368,6 +1368,10 @@ private:
             ? PublicProblemDetails::contentType()
             : "application/json";
         response.headers["Cache-Control"] = "no-store";
+        if (publicApiV1)
+        {
+            response.headers["X-Content-Type-Options"] = "nosniff";
+        }
         if (advertiseBasic)
             response.headers["WWW-Authenticate"] = "Basic realm=\"VDR-Suite\", charset=\"UTF-8\"";
 
