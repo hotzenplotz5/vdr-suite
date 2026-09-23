@@ -262,7 +262,33 @@ int main()
     assert(durablePayload.payload.payloadType ==
         "native.timer.create");
 
-    // Exact public retry returns the same durable operation and same command.
+    DaemonTimerCreateReplayRequest replayLookup;
+    replayLookup.timerAssignmentId = request.timerAssignmentId;
+    replayLookup.backendId = request.backendId;
+    replayLookup.actorId = request.actorId;
+    replayLookup.idempotencyKey = request.idempotencyKey;
+    replayLookup.requestedSpecification =
+        request.requestedSpecification;
+    const auto durableReplay =
+        service.lookupReplay(replayLookup);
+    assert(durableReplay.status ==
+        DaemonTimerCreateReplayStatus::matched);
+    assert(durableReplay.expectedAssignmentRevision ==
+        assignment.assignmentRevision);
+
+    // Simulate later reconciliation advancing the public resource revision.
+    assert(database.execute(
+        "UPDATE timer_assignments "
+        "SET assignment_revision=assignment_revision+1 "
+        "WHERE timer_assignment_id='assignment:public:create:1';"));
+    const auto advanced =
+        assignments.findById(assignment.timerAssignmentId);
+    assert(advanced.ok());
+    assert(advanced.assignment.assignmentRevision !=
+        assignment.assignmentRevision);
+
+    // Exact public retry returns the same durable operation and same command
+    // without consulting the now-advanced current assignment revision.
     const auto replay = service.submit(request);
     assert(replay.status ==
         DaemonTimerCreateSubmissionStatus::accepted);
@@ -279,6 +305,17 @@ int main()
     // Same idempotency scope with changed desired native state fails closed.
     auto changed = request;
     changed.requestedSpecification.title = "Changed CREATE";
+    const auto replayConflict =
+        service.lookupReplay(
+            DaemonTimerCreateReplayRequest{
+                request.timerAssignmentId,
+                request.backendId,
+                request.actorId,
+                request.idempotencyKey,
+                changed.requestedSpecification});
+    assert(replayConflict.status ==
+        DaemonTimerCreateReplayStatus::idempotencyConflict);
+
     const auto conflict = service.submit(changed);
     assert(conflict.status ==
         DaemonTimerCreateSubmissionStatus::idempotencyConflict);
