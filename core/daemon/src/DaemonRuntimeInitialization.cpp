@@ -47,6 +47,24 @@ bool DaemonRuntime::initialize()
         << "mutation operation read runtime initialized"
         << std::endl;
 
+    timerAssignmentRepository_ =
+        std::make_unique<vdrsuite::timers::TimerAssignmentRepository>(
+            database_);
+    if (!timerAssignmentRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize TimerAssignment schema"
+            << std::endl;
+        return false;
+    }
+    timerAssignmentReadService_ =
+        std::make_unique<vdrsuite::timers::TimerAssignmentReadService>(
+            *timerAssignmentRepository_);
+
+    std::cout
+        << "TimerAssignment read runtime initialized"
+        << std::endl;
+
     if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
         !RecordingSeriesHierarchyApiRuntime::instance().configure(database_))
     {
@@ -824,7 +842,50 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerTimerAssignmentLookup(
+        [this](
+            const std::string& timerAssignmentId,
+            const std::string& backendId)
+        {
+            PublicTimerAssignmentLookupResult result;
+            const auto found =
+                timerAssignmentReadService_->findForBackend(
+                    timerAssignmentId,
+                    backendId);
 
+            switch (found.status)
+            {
+                case vdrsuite::timers::TimerAssignmentReadStatus::ok:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::ok;
+                    result.assignment.timerAssignmentId =
+                        found.assignment.timerAssignmentId;
+                    result.assignment.backendId =
+                        found.assignment.backendId;
+                    result.assignment.resourceRevision =
+                        found.assignment.assignmentRevision;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::invalid:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::notFound:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::notFound;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentReadStatus::storageError:
+                    result.status =
+                        PublicTimerAssignmentLookupStatus::unavailable;
+                    return result;
+            }
+
+            return result;
+        });
+
+ 
     apiRouter_ = std::make_unique<ApiRouter>(
         *dashboardController_,
         *jobsController_,
