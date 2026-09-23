@@ -264,6 +264,42 @@ int main()
         "permission_denied") !=
         std::string::npos);
 
+    HttpServerRequest publicRootPost =
+        fixture.mutationRequest(
+            "/api/v1",
+            "default");
+    fixture.addBrowserAuthentication(publicRootPost);
+
+    const SecurityGateDecision publicRootPostDecision =
+        fixture.gate.evaluate(publicRootPost);
+    assert(publicRootPostDecision.allowed);
+    assert(!publicRootPostDecision.protectedMutation);
+
+    HttpServerRequest publicCapabilitiesPost =
+        fixture.mutationRequest(
+            "/api/v1/capabilities",
+            "default");
+    fixture.addBrowserAuthentication(publicCapabilitiesPost);
+
+    const SecurityGateDecision publicCapabilitiesPostDecision =
+        fixture.gate.evaluate(publicCapabilitiesPost);
+    assert(publicCapabilitiesPostDecision.allowed);
+    assert(!publicCapabilitiesPostDecision.protectedMutation);
+
+    HttpServerRequest unknownPublicPost =
+        fixture.mutationRequest(
+            "/api/v1/private",
+            "default");
+    fixture.addBrowserAuthentication(unknownPublicPost);
+
+    const SecurityGateDecision unknownPublicPostDecision =
+        fixture.gate.evaluate(unknownPublicPost);
+    assert(!unknownPublicPostDecision.allowed);
+    assert(unknownPublicPostDecision.rejection.statusCode == 503);
+    assert(unknownPublicPostDecision.rejection.body.find(
+        "security_policy_not_migrated") !=
+        std::string::npos);
+
     HttpServerRequest unmigrated =
         fixture.mutationRequest(
             "/api/phase62/unmapped-mutation",
