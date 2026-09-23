@@ -1,6 +1,7 @@
 #include "PublicApiRuntime.h"
 
 #include "ServerBuildIdentity.h"
+#include "PublicProblemDetails.h"
 
 #include <string>
 
@@ -24,34 +25,6 @@ bool isPublicV1Path(const std::string& path)
         (path.size() > root.size() &&
          path.compare(0, root.size(), root) == 0 &&
          path[root.size()] == '/');
-}
-
-std::string jsonEscape(const std::string& value)
-{
-    std::string escaped;
-    escaped.reserve(value.size());
-
-    for (const char character : value)
-    {
-        switch (character)
-        {
-            case '"': escaped += "\\\""; break;
-            case '\\': escaped += "\\\\"; break;
-            case '\b': escaped += "\\b"; break;
-            case '\f': escaped += "\\f"; break;
-            case '\n': escaped += "\\n"; break;
-            case '\r': escaped += "\\r"; break;
-            case '\t': escaped += "\\t"; break;
-            default:
-                if (static_cast<unsigned char>(character) >= 0x20)
-                {
-                    escaped.push_back(character);
-                }
-                break;
-        }
-    }
-
-    return escaped;
 }
 
 void addRequestContextHeaders(
@@ -90,7 +63,6 @@ ApiResponse jsonResponse(
 
 ApiResponse problemResponse(
     int statusCode,
-    const std::string& typeSuffix,
     const std::string& code,
     const std::string& title,
     const std::string& detail,
@@ -100,7 +72,7 @@ ApiResponse problemResponse(
 {
     ApiResponse response;
     response.statusCode = statusCode;
-    response.contentType = "application/problem+json";
+    response.contentType = PublicProblemDetails::contentType();
     response.headers["Cache-Control"] = "no-store";
     response.headers["X-Content-Type-Options"] = "nosniff";
     addRequestContextHeaders(
@@ -108,23 +80,15 @@ ApiResponse problemResponse(
         requestId,
         correlationId);
 
-    response.body =
-        "{\"type\":\"urn:vdr-suite:error:" + jsonEscape(typeSuffix) +
-        "\",\"title\":\"" + jsonEscape(title) +
-        "\",\"status\":" + std::to_string(statusCode) +
-        ",\"detail\":\"" + jsonEscape(detail) +
-        "\",\"instance\":\"" + jsonEscape(instance) +
-        "\",\"code\":\"" + jsonEscape(code) +
-        "\",\"requestId\":\"" + jsonEscape(requestId) + "\"";
-
-    if (!correlationId.empty())
-    {
-        response.body +=
-            ",\"correlationId\":\"" +
-            jsonEscape(correlationId) + "\"";
-    }
-
-    response.body += "}";
+    PublicProblemDetails problem;
+    problem.statusCode = statusCode;
+    problem.code = code;
+    problem.title = title;
+    problem.detail = detail;
+    problem.instance = instance;
+    problem.requestId = requestId;
+    problem.correlationId = correlationId;
+    response.body = problem.serialize();
     return response;
 }
 
@@ -135,7 +99,6 @@ ApiResponse notFoundProblem(
 {
     return problemResponse(
         404,
-        "not-found",
         "not_found",
         "Resource not found",
         "The requested public API resource is not available.",
@@ -151,7 +114,6 @@ ApiResponse methodNotAllowedProblem(
 {
     ApiResponse response = problemResponse(
         405,
-        "method-not-allowed",
         "method_not_allowed",
         "Method not allowed",
         "The requested public API resource does not support this method.",
