@@ -102,7 +102,7 @@ daemon_manifest = ROOT / "mk/daemon-sources.mk"
 if daemon_manifest.is_file() and "BackendAgentCommandReservation.cpp" in daemon_manifest.read_text(
     encoding="utf-8", errors="ignore"
 ):
-    successor_guard = ROOT / "tools/check_phase69_native_timer_create_dispatch_runtime.py"
+    successor_guard = ROOT / "tools/check_phase69_public_timer_create_submission.py"
     if not successor_guard.is_file():
         raise SystemExit(
             "daemon command reservation wiring requires Phase-69.C successor guard")
@@ -110,11 +110,11 @@ if daemon_manifest.is_file() and "BackendAgentCommandReservation.cpp" in daemon_
     for marker in [
         "BackendAgentCommandReservation.cpp",
         "backendAgentCommandReservationRepository_",
-        "CREATE dispatch runtime must remain dormant in this slice",
+        "Timer CREATE orchestration must remain prepare -> reserve -> claim -> activate",
     ]:
         if marker not in successor:
             raise SystemExit(
-                "Phase-69.C command reservation successor guard missing marker: "
+                "Phase-69.C public command reservation successor guard missing marker: "
                 + marker)
 
 print("Phase-64 backend Agent command reservation check passed")
