@@ -50,6 +50,7 @@ required = {
     "daemon_sources": [
         "core/timers/src/TimerIntent.cpp",
         "core/timers/src/TimerIntentRepository.cpp",
+        "core/timers/src/NativeTimerBinding.cpp",
         "core/timers/src/NativeTimerSpecification.cpp",
         "core/timers/src/NativeTimerCreateOperationPayload.cpp",
         "core/timers/src/NativeTimerCreateOperationPreparationService.cpp",
@@ -80,6 +81,7 @@ if contents["daemon_h"].count(
 for source in [
     "core/timers/src/TimerIntent.cpp",
     "core/timers/src/TimerIntentRepository.cpp",
+    "core/timers/src/NativeTimerBinding.cpp",
     "core/timers/src/NativeTimerSpecification.cpp",
     "core/timers/src/NativeTimerCreateOperationPayload.cpp",
     "core/timers/src/NativeTimerCreateOperationPreparationService.cpp",
