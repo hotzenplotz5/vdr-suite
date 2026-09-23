@@ -55,6 +55,8 @@
 #include "LiveTransportService.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
+#include "MutationOperationReadService.h"
+#include "MutationOperationRepository.h"
 #include "PollingService.h"
 #include "PersonSearchService.h"
 #include "PersonResolutionJsonSerializer.h"
@@ -185,6 +187,10 @@ private:
     ConsoleRuntimeLogger runtimeLogger_;
     RuntimeDiagnosticsService runtimeDiagnosticsService_;
     Database database_;
+    std::unique_ptr<vdrsuite::operations::MutationOperationRepository>
+        mutationOperationRepository_;
+    std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
+        mutationOperationReadService_;
 
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
