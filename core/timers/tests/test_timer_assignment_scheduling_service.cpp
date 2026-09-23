@@ -212,6 +212,7 @@ int main()
     assert(unassigned.assignment.channelBinding.backendChannelId.empty());
     assert(unassigned.assignment.capabilityRevision.empty());
     assert(unassigned.assignment.backendHealthRevision.empty());
+    assert(!unassigned.assignment.desiredNativeTimerSpecificationPresent);
     assert(!unassigned.assignment.decisionEvidence.reasons.empty());
     assert(unassigned.assignment.decisionEvidence.reasons.front() ==
         "no_eligible_backend");
