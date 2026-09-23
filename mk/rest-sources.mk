@@ -1,5 +1,6 @@
 REST_PUBLIC_API_SRC := \
-        api/rest/src/PublicApiRuntime.cpp
+        api/rest/src/PublicApiRuntime.cpp \
+        api/rest/src/PublicTimerCreateRequestParser.cpp
 
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \
