@@ -19,8 +19,7 @@ HttpServerRequest browserPost(
     request.body = "{\"nativeTimer\":{}}";
     request.headers["X-Request-ID"] =
         "phase69c-public-timer-create";
-    fixture.addBrowserAuthentication(request);
-    fixture.addCsrf(request);
+    fixture.addBrowserAuthentication(request, true);
     return request;
 }
 
