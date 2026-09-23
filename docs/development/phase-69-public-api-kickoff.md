@@ -1,8 +1,8 @@
-# Phase 69.A — Public API Route Inventory Kickoff
+# Phase 69 — Public API Kickoff and Runtime Progress
 
 ## Status
 
-**ACTIVE — Phase 69 has explicitly started. Current slice: 69.A Public resource and route inventory.**
+**ACTIVE — 69.A is accepted on `main`; current slice: 69.B Common request/response metadata and errors.**
 
 Start baseline:
 
@@ -134,13 +134,51 @@ value with its truthful package release identity. This value is explicitly
 separate from `apiVersion`, Agent protocol/software versions and SuiteBridge
 plugin/schema versions.
 
-Request IDs, correlation IDs and common Problem Details errors remain 69.B work;
-this 69.A step does not claim those later contracts are implemented.
+69.A is accepted on `main`:
 
-## Acceptance for this kickoff slice
+```text
+PR #314 -> d34058220653496a35fb7e1c073cc6981f4c72db
+PR #315 -> bca8ff3bfd1216bda39f29105911f64853bd263c
+PR #315 CI -> 35818928861 / run #9074 -> SUCCESS (6/6)
+```
 
-- Phase 69/69.A is the canonical active status;
+No repeated real-yaVDR acceptance was required because 69.A introduced only
+read-only contract discovery and repository guards.
+
+## 69.B current bounded slice
+
+Phase 62 already generates and validates the HTTP request/correlation context and
+decorates final HTTP responses with `X-Request-ID` and, when present,
+`X-Correlation-ID`. Phase 69.B reuses that authority; it does not create a
+second request-ID generator.
+
+The first 69.B runtime step is deliberately limited to the new public-v1 owner:
+
+- propagate the accepted Phase-62 request/correlation identity into
+  `PublicApiRuntime`;
+- include the same identifiers on direct v1 responses;
+- claim unknown `/api/v1/...` GET routes inside the public owner and return
+  Problem Details-compatible `404 not_found` instead of falling through into
+  pre-v1 routing;
+- return Problem Details-compatible `405 method_not_allowed` plus `Allow: GET`
+  for POST to the two current GET-only v1 resources;
+- allow that method rejection through Phase-62 security without treating it as a
+  business mutation;
+- keep unknown/future v1 POST routes fail-closed at the Phase-62
+  `security_policy_not_migrated` boundary until each real mutation receives an
+  explicit authorization contract;
+- leave every pre-v1 `/api/...` route unchanged.
+
+Authentication/authorization rejection conversion and unsupported HTTP methods
+outside the current GET/POST server surface remain later 69.B work. This bounded
+step must not rewrite Phase-62 security policy or turn the v1 namespace into a
+generic mutation bypass.
+
+## 69.A acceptance
+
+- Phase 69 is active and 69.A is accepted;
 - the pre-v1 route baseline and declared public-v1 route set are machine checked;
-- only the new read-only `GET /api/v1` and `GET /api/v1/capabilities` runtime routes are added;
-- no existing client path is removed or redirected;
+- only the read-only `GET /api/v1` and `GET /api/v1/capabilities` resource set
+  was added in 69.A;
+- no existing client path was removed or redirected;
 - Phase-62 through Phase-68 ownership and safety contracts remain unchanged.

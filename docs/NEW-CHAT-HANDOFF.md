@@ -34,7 +34,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 - Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 - Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 - Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
-- Current active runtime slice: **69.A - Public resource and route inventory**.
+- Current active runtime slice: **69.B - Common request/response metadata and errors**; 69.A inventory and contract-root work is merged.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -64,7 +64,7 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.A Public resource and route inventory.
+Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.B Common request/response metadata and errors; 69.A is accepted on `main`.
 
 For the next numbered work:
 

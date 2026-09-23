@@ -12,6 +12,14 @@ public:
     bool tryHandleGet(
         const std::string& requestTarget,
         const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response) const;
+
+    bool tryHandlePost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
         ApiResponse& response) const;
 
 private:

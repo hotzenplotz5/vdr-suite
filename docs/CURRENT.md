@@ -64,7 +64,12 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.A - Public resource and route inventory
+69.B - Common request/response metadata and errors
+
+Accepted Phase-69.A checkpoints:
+PR #314 -> d34058220653496a35fb7e1c073cc6981f4c72db
+PR #315 -> bca8ff3bfd1216bda39f29105911f64853bd263c
+PR #315 hosted CI run 35818928861 / #9074: SUCCESS (6/6)
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
