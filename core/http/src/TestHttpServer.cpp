@@ -6,6 +6,7 @@
 #include "SecurityConfiguration.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -29,6 +30,48 @@ std::string pathWithoutQuery(const std::string& target)
     return query == std::string::npos
         ? target
         : target.substr(0, query);
+}
+
+bool sameHeaderName(
+    const std::string& left,
+    const std::string& right)
+{
+    if (left.size() != right.size())
+    {
+        return false;
+    }
+
+    for (std::size_t index = 0;
+         index < left.size();
+         ++index)
+    {
+        const unsigned char lhs =
+            static_cast<unsigned char>(left[index]);
+        const unsigned char rhs =
+            static_cast<unsigned char>(right[index]);
+
+        if (std::tolower(lhs) != std::tolower(rhs))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::string requestHeaderValue(
+    const HttpServerRequest& request,
+    const std::string& name)
+{
+    for (const auto& header : request.headers)
+    {
+        if (sameHeaderName(header.first, name))
+        {
+            return header.second;
+        }
+    }
+
+    return "";
 }
 
 std::string hbbtvClientContext(
@@ -356,7 +399,10 @@ HttpServerResponse TestHttpServer::handleRequest(
                 gate.context.actor.actorId,
                 hbbtvClientContext(gate.context),
                 gate.context.requestId,
-                gate.context.correlationId);
+                gate.context.correlationId,
+                requestHeaderValue(
+                    request,
+                    "If-None-Match"));
     }
     else if (request.method == "POST")
     {
