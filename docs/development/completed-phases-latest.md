@@ -38,10 +38,11 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 
 ```text
 Phase 69 - Public API and Client Compatibility Hardening
-Current slice: 69.A - Public resource and route inventory
+Current slice: 69.C - Revision/precondition/idempotency exposure
+Accepted slices: 69.A, 69.B
 ```
 
-Phase 69 has explicitly started at bounded Slice 69.A. Phase-68 completion does
+Phase 69 has explicitly started; 69.A and 69.B are accepted and bounded Slice 69.C is active. Phase-68 completion does
 not authorize work outside the accepted Phase-69 public/client compatibility
 scope.
 

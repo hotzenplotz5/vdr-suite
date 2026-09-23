@@ -50,7 +50,7 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Completed | Broadcast Companion Services: Teletext and HbbTV | Teletext and HbbTV Journeys 8/9 accepted. |
 | 5 | Phase 68 | Completed | Legacy OSD Compatibility Bridge | 68.A-G accepted through fenced allowlisted native OSD input; Golden Journey 10 accepted. |
-| 6 | Phase 69 | Active — 69.A | Public API and Client Compatibility Hardening | Public route/resource inventory, then stable `/api/v1` and independent-client contracts. |
+| 6 | Phase 69 | Active — 69.C | Public API and Client Compatibility Hardening | 69.A inventory and 69.B common error/request foundations accepted; revision/precondition/idempotency exposure is active. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
 
 ## Phase 64 compact boundary

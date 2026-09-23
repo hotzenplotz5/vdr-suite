@@ -43,7 +43,7 @@ The current merged Home surface includes responsive shell/navigation, Now/Next, 
 - Timer creation preserves intent/assignment/native-binding safety and authoritative readback.
 - Home browse remains useful independently of preview startup and retains canonical metadata/artwork/playback owners.
 - Failure remains classified without blind duplicate mutation or silent provider switching.
-- Phase-67 Teletext/HbbTV and Phase-68 Legacy OSD acceptance are completed on the supported real yaVDR/browser deployment; Phase 69 is active at 69.A Public resource and route inventory.
+- Phase-67 Teletext/HbbTV and Phase-68 Legacy OSD acceptance are completed on the supported real yaVDR/browser deployment; Phase 69 is active at 69.C Revision/precondition/idempotency exposure, with 69.A and 69.B accepted.
 
 See [Golden User Journeys](planning/golden-user-journeys.md).
 

@@ -759,9 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.A Public resource and route inventory.**
+Status: **Active — 69.C Revision/precondition/idempotency exposure.**
 
-Phase 69 has explicitly started after completed Phase 68. The active bounded slice is 69.A route/resource inventory; no existing pre-v1 route is thereby declared stable.
+Phase 69 has explicitly started after completed Phase 68. Slices 69.A and 69.B are accepted; the active bounded slice is 69.C revision/precondition/idempotency exposure. No existing pre-v1 route is thereby declared stable.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -787,11 +787,15 @@ without confusing it with:
 
 #### 69.A — Public resource and route inventory
 
+Status: **Completed.**
+
 - classify existing routes as public v1, internal/transition, deprecated alias or private;
 - define stable Suite identities for every public representation;
 - prevent backend/provider implementation details from leaking into public contracts.
 
 #### 69.B — Common request/response metadata and errors
+
+Status: **Completed.** Durable evidence: [Phase 69.B Closeout](../development/phase-69b-closeout.md).
 
 - request/correlation IDs;
 - stable problem/error codes;
@@ -800,6 +804,8 @@ without confusing it with:
 - no machine logic based on human error strings.
 
 #### 69.C — Revision/precondition/idempotency exposure
+
+Status: **Active.**
 
 - resource-specific revisions;
 - ETag/conditional requests where appropriate;

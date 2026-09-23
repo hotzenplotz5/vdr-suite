@@ -43,7 +43,7 @@ Current completed/active/next state belongs only in [Current State](../CURRENT.m
 
 Phase 66 is completed, including its Golden Home journeys. Later non-numbered Home rebuild/hardening is also complete for the merged accepted scope and is recorded in [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.A Public resource and route inventory:
+The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.C Revision/precondition/idempotency exposure, with 69.A and 69.B accepted:
 
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md) — completed Legacy OSD compatibility architecture;
 - [Phase 68 Closeout](../development/phase-68-closeout.md) — accepted 68.A-G runtime evidence;
