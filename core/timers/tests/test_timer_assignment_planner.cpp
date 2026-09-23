@@ -58,6 +58,17 @@ TimerAssignmentPlanningBackendCandidate makeCandidate(
     candidate.channel.backendChannelId = "S19.2E-1-1011-11100";
     candidate.channel.current = true;
     candidate.channel.ambiguous = false;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification.channelId =
+        candidate.channel.backendChannelId;
+    candidate.desiredNativeTimerSpecification.title = "Planner";
+    candidate.desiredNativeTimerSpecification.day = "2026-09-23";
+    candidate.desiredNativeTimerSpecification.weekdays = "-------";
+    candidate.desiredNativeTimerSpecification.startTime = "1000";
+    candidate.desiredNativeTimerSpecification.endTime = "1100";
+    candidate.desiredNativeTimerSpecification.priority = 50;
+    candidate.desiredNativeTimerSpecification.lifetime = 99;
+    candidate.desiredNativeTimerSpecification.enabled = true;
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
     return candidate;
 }
