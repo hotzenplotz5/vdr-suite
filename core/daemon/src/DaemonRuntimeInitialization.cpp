@@ -934,6 +934,74 @@ bool DaemonRuntime::initialize()
         });
 
  
+    PublicApiRuntime::instance().registerTimerCreateReplayLookup(
+        [this](const PublicTimerCreateReplayRequest& request)
+        {
+            PublicTimerCreateReplayResult result;
+            if (!daemonTimerCreateSubmissionService_)
+            {
+                result.status =
+                    PublicTimerCreateReplayStatus::unavailable;
+                return result;
+            }
+
+            DaemonTimerCreateReplayRequest replay;
+            replay.timerAssignmentId = request.timerAssignmentId;
+            replay.backendId = request.backendId;
+            replay.actorId = request.actorRef;
+            replay.idempotencyKey = request.idempotencyKey;
+            replay.requestedSpecification.title =
+                request.specification.title;
+            replay.requestedSpecification.directory =
+                request.specification.directory;
+            replay.requestedSpecification.day =
+                request.specification.day;
+            replay.requestedSpecification.weekdays =
+                request.specification.weekdays;
+            replay.requestedSpecification.startTime =
+                request.specification.startTime;
+            replay.requestedSpecification.endTime =
+                request.specification.endTime;
+            replay.requestedSpecification.priority =
+                request.specification.priority;
+            replay.requestedSpecification.lifetime =
+                request.specification.lifetime;
+            replay.requestedSpecification.enabled =
+                request.specification.enabled;
+            replay.requestedSpecification.vps =
+                request.specification.vps;
+
+            const DaemonTimerCreateReplayResult found =
+                daemonTimerCreateSubmissionService_->lookupReplay(
+                    replay);
+            switch (found.status)
+            {
+                case DaemonTimerCreateReplayStatus::notFound:
+                    result.status =
+                        PublicTimerCreateReplayStatus::notFound;
+                    break;
+                case DaemonTimerCreateReplayStatus::matched:
+                    result.status =
+                        PublicTimerCreateReplayStatus::matched;
+                    result.expectedResourceRevision =
+                        found.expectedAssignmentRevision;
+                    break;
+                case DaemonTimerCreateReplayStatus::idempotencyConflict:
+                    result.status =
+                        PublicTimerCreateReplayStatus::idempotencyConflict;
+                    break;
+                case DaemonTimerCreateReplayStatus::invalid:
+                    result.status =
+                        PublicTimerCreateReplayStatus::invalid;
+                    break;
+                case DaemonTimerCreateReplayStatus::unavailable:
+                    result.status =
+                        PublicTimerCreateReplayStatus::unavailable;
+                    break;
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerTimerCreateSubmission(
         [this](const PublicTimerCreateSubmissionRequest& request)
         {
