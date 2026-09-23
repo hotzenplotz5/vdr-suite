@@ -26,6 +26,31 @@ class TimerAssignmentRepository;
 class TimerIntentRepository;
 }
 
+enum class DaemonTimerCreateReplayStatus
+{
+    notFound,
+    matched,
+    idempotencyConflict,
+    invalid,
+    unavailable,
+};
+
+struct DaemonTimerCreateReplayRequest
+{
+    std::string timerAssignmentId;
+    std::string backendId;
+    std::string actorId;
+    std::string idempotencyKey;
+    vdrsuite::timers::NativeTimerSpecification requestedSpecification;
+};
+
+struct DaemonTimerCreateReplayResult
+{
+    DaemonTimerCreateReplayStatus status =
+        DaemonTimerCreateReplayStatus::unavailable;
+    std::string expectedAssignmentRevision;
+};
+
 enum class DaemonTimerCreateSubmissionStatus
 {
     accepted,
@@ -79,6 +104,9 @@ public:
         vdrsuite::timers::NativeTimerCreateDispatchService& dispatchService,
         vdrsuite::agent::BackendAgentNativeTimerCreateActivationService&
             activationService);
+
+    DaemonTimerCreateReplayResult lookupReplay(
+        const DaemonTimerCreateReplayRequest& request);
 
     DaemonTimerCreateSubmissionResult submit(
         const DaemonTimerCreateSubmissionRequest& request);
