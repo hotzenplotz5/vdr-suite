@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — bounded runtime-composition prerequisite for the first public durable Timer resource/mutation.**
+**ACCEPTED — bounded runtime-composition prerequisite for the first public durable Timer resource/mutation.**
 
 Baseline:
 
@@ -140,10 +140,19 @@ This slice does **not** add:
 - any pre-v1 route change;
 - Agent, SuiteBridge, VDR-native or media-plane behavior.
 
+## Accepted checkpoint
+
+This runtime-composition slice was accepted in PR #325:
+
+```text
+merge=92c127fbe40d8d20ac2294e1b4b28fd3ea3a6560
+CI=35892930603 / #9100 / SUCCESS (6/6)
+```
+
 ## Next bounded slice
 
-After this composition is accepted, the next slice may expose exactly one
-authenticated backend-scoped TimerAssignment item resource with a deliberately
-reviewed public representation, strong opaque ETag and `If-None-Match`
-handling. That HTTP slice must perform `timers.view` authorization before
-revision or existence information is returned.
+The next step is [Public TimerAssignment Resource](phase-69c-public-timer-assignment-resource.md):
+one authenticated backend-scoped item read with a deliberately reviewed public
+representation, strong opaque ETag and `If-None-Match` handling.
+`timers.view` authorization must occur before revision or existence
+information is returned.

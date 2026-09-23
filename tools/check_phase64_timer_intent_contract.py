@@ -282,6 +282,7 @@ reviewed_runtime_files = {
     Path("api/rest/include/PublicApiRuntime.h"),
     Path("api/rest/src/PublicApiRuntime.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
+    Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),

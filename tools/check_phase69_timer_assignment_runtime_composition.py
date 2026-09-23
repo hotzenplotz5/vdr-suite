@@ -69,8 +69,6 @@ required = {
         "runtime.resetTimerAssignmentLookup()",
         "runtime.registerTimerAssignmentLookup(",
         "runtime.lookupTimerAssignment(",
-        '"/api/v1/timer-assignments/assignment:one?backend=backend:one"',
-        "routeStillClosed.statusCode == 404",
     ],
 }
 
@@ -102,14 +100,9 @@ for path in [
         raise SystemExit(
             f"TimerAssignment repository guard missing reviewed runtime path: {path}")
 
-route_literal = '"/api/v1/timer-assignments/'
-if route_literal in contents["public_cpp"]:
-    raise SystemExit(
-        "TimerAssignment public HTTP route opened prematurely in runtime-composition slice")
-
 if "Idempotency-Key" in contents["public_h"]:
     raise SystemExit(
-        "runtime-composition slice must not add public idempotency request handling")
+        "TimerAssignment read composition must not add public idempotency request handling")
 
 print("Phase-69.C TimerAssignment runtime composition check passed")
-print("Boundary: one daemon repository/read service + dormant public lookup; HTTP route closed")
+print("Boundary: one daemon repository/read service + lifecycle-safe public lookup; no mutation authority")

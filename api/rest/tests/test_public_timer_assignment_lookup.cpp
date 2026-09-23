@@ -13,7 +13,7 @@ int main()
     const auto unavailable =
         runtime.lookupTimerAssignment(
             "assignment:one",
-            "backend:one");
+            "backend-one");
     assert(
         unavailable.status ==
         PublicTimerAssignmentLookupStatus::unavailable);
@@ -33,7 +33,7 @@ int main()
             }
 
             if (timerAssignmentId != "assignment:one" ||
-                backendId != "backend:one")
+                backendId != "backend-one")
             {
                 result.status =
                     PublicTimerAssignmentLookupStatus::notFound;
@@ -56,41 +56,29 @@ int main()
     const auto found =
         runtime.lookupTimerAssignment(
             "assignment:one",
-            "backend:one");
+            "backend-one");
     assert(found.status ==
         PublicTimerAssignmentLookupStatus::ok);
     assert(found.assignment.timerAssignmentId ==
         "assignment:one");
     assert(found.assignment.backendId ==
-        "backend:one");
+        "backend-one");
     assert(found.assignment.resourceRevision ==
         "revision:7");
 
     const auto hidden =
         runtime.lookupTimerAssignment(
             "assignment:one",
-            "backend:two");
+            "backend-two");
     assert(hidden.status ==
         PublicTimerAssignmentLookupStatus::notFound);
 
     const auto invalid =
         runtime.lookupTimerAssignment(
             "",
-            "backend:one");
+            "backend-one");
     assert(invalid.status ==
         PublicTimerAssignmentLookupStatus::invalid);
-
-    ApiResponse routeStillClosed;
-    assert(runtime.tryHandleGet(
-        "/api/v1/timer-assignments/assignment:one?backend=backend:one",
-        "actor:test",
-        "phase69c-runtime-composition-request",
-        "",
-        routeStillClosed));
-    assert(routeStillClosed.statusCode == 404);
-    assert(routeStillClosed.body.find(
-        "\"code\":\"not_found\"") !=
-        std::string::npos);
 
     runtime.resetTimerAssignmentLookup();
     assert(!runtime.timerAssignmentLookupConfigured());

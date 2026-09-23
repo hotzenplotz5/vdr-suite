@@ -402,7 +402,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                 gate.context.correlationId,
                 requestHeaderValue(
                     request,
-                    "If-None-Match"));
+                    "If-None-Match"),
+                gate.authorizationDecision.backendId);
     }
     else if (request.method == "POST")
     {
