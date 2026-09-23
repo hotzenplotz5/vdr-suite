@@ -109,14 +109,13 @@ int main()
         "\"code\":\"method_not_allowed\"") != std::string::npos);
 
     ApiResponse unknownPost;
-    assert(runtime.tryHandlePost(
+    unknownPost.statusCode = 418;
+    assert(!runtime.tryHandlePost(
         "/api/v1/private",
         requestId,
         "",
         unknownPost));
-    assert(unknownPost.statusCode == 404);
-    assert(unknownPost.body.find(
-        "\"code\":\"not_found\"") != std::string::npos);
+    assert(unknownPost.statusCode == 418);
 
     ApiResponse legacyGet;
     legacyGet.statusCode = 418;
