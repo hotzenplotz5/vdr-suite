@@ -25,7 +25,7 @@ Current active numbered runtime phase: **Phase 69 - Public API and Client Compat
 
 Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
-Current active runtime slice: **69.B - Common request/response metadata and errors**. Phase 69.A inventory plus the first `/api/v1` contract root are merged; ongoing runtime evidence remains in [Phase 69 Public API Kickoff and Runtime Progress](phase-69-public-api-kickoff.md).
+Current active runtime slice: **69.C - Revision/precondition/idempotency exposure**. Phase 69.A route/resource inventory and Phase 69.B request/error foundations are accepted; see [Phase 69.B Closeout](phase-69b-closeout.md) and [Phase 69 Public API Kickoff and Runtime Progress](phase-69-public-api-kickoff.md).
 
 Accepted Phase-68 slices include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport, 68.D authorized bounded view sessions, 68.E bounded viewer bindings/multi-viewer delivery, 68.F exclusive controller leasing and 68.G allowlisted native OSD input**.
 
