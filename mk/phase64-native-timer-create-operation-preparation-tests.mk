@@ -12,7 +12,7 @@ test-phase64-native-timer-create-operation-preparation: test-phase64-native-time
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
-\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
