@@ -170,6 +170,17 @@ bool DaemonRuntime::initialize()
                 *backendAgentCommandReservationRepository_,
                 *backendAgentCommandRepository_);
 
+    daemonTimerCreateSubmissionService_ =
+        std::make_unique<DaemonTimerCreateSubmissionService>(
+            *timerIntentRepository_,
+            *timerAssignmentRepository_,
+            *mutationOperationRepository_,
+            *nativeTimerCreateOperationPreparationService_,
+            *backendAgentRepository_,
+            *backendAgentNativeTimerCreateReservationService_,
+            *nativeTimerCreateDispatchService_,
+            *backendAgentNativeTimerCreateActivationService_);
+
     backendAgentLifecycleService_ =
         std::make_unique<BackendAgentLifecycleService>(
             database_,
@@ -923,6 +934,99 @@ bool DaemonRuntime::initialize()
         });
 
  
+    PublicApiRuntime::instance().registerTimerCreateSubmission(
+        [this](const PublicTimerCreateSubmissionRequest& request)
+        {
+            PublicTimerCreateSubmissionResult result;
+            if (!daemonTimerCreateSubmissionService_)
+            {
+                result.status =
+                    PublicTimerCreateSubmissionStatus::unavailable;
+                return result;
+            }
+
+            DaemonTimerCreateSubmissionRequest submission;
+            submission.timerAssignmentId = request.timerAssignmentId;
+            submission.backendId = request.backendId;
+            submission.actorId = request.actorRef;
+            submission.idempotencyKey = request.idempotencyKey;
+            submission.expectedAssignmentRevision =
+                request.expectedResourceRevision;
+            submission.requestId = request.requestId;
+            submission.correlationId = request.correlationId;
+            submission.requestedSpecification.title =
+                request.specification.title;
+            submission.requestedSpecification.directory =
+                request.specification.directory;
+            submission.requestedSpecification.day =
+                request.specification.day;
+            submission.requestedSpecification.weekdays =
+                request.specification.weekdays;
+            submission.requestedSpecification.startTime =
+                request.specification.startTime;
+            submission.requestedSpecification.endTime =
+                request.specification.endTime;
+            submission.requestedSpecification.priority =
+                request.specification.priority;
+            submission.requestedSpecification.lifetime =
+                request.specification.lifetime;
+            submission.requestedSpecification.enabled =
+                request.specification.enabled;
+            submission.requestedSpecification.vps =
+                request.specification.vps;
+
+            const DaemonTimerCreateSubmissionResult submitted =
+                daemonTimerCreateSubmissionService_->submit(submission);
+
+            switch (submitted.status)
+            {
+                case DaemonTimerCreateSubmissionStatus::accepted:
+                    result.status = PublicTimerCreateSubmissionStatus::accepted;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::invalid:
+                    result.status = PublicTimerCreateSubmissionStatus::invalid;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::notFound:
+                    result.status = PublicTimerCreateSubmissionStatus::notFound;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::revisionConflict:
+                    result.status = PublicTimerCreateSubmissionStatus::revisionConflict;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::idempotencyConflict:
+                    result.status = PublicTimerCreateSubmissionStatus::idempotencyConflict;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::stateConflict:
+                    result.status = PublicTimerCreateSubmissionStatus::stateConflict;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::generationConflict:
+                    result.status = PublicTimerCreateSubmissionStatus::generationConflict;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::backendUnavailable:
+                    result.status = PublicTimerCreateSubmissionStatus::backendUnavailable;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::capabilityUnavailable:
+                    result.status = PublicTimerCreateSubmissionStatus::capabilityUnavailable;
+                    break;
+                case DaemonTimerCreateSubmissionStatus::unavailable:
+                    result.status = PublicTimerCreateSubmissionStatus::unavailable;
+                    break;
+            }
+
+            if (!submitted.operation.operationId.empty())
+            {
+                result.operation.operationId =
+                    submitted.operation.operationId;
+                result.operation.state =
+                    vdrsuite::operations::mutationOperationStateName(
+                        submitted.operation.state);
+                result.operation.backendId =
+                    submitted.operation.backendId;
+                result.operation.resourceRevision =
+                    submitted.operation.operationRevision;
+            }
+            return result;
+        });
+
     apiRouter_ = std::make_unique<ApiRouter>(
         *dashboardController_,
         *jobsController_,
