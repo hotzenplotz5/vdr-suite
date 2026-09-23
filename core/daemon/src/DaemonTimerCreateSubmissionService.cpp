@@ -283,8 +283,9 @@ DaemonTimerCreateSubmissionService::submit(
             "timer.create",
             request.idempotencyKey);
 
-    std::string operationId;
-    std::string nativeTimerBindingId;
+    NativeTimerCreateOperationPreparationResult prepared;
+    std::int64_t effectiveDeadline = deadline;
+
     if (existing.ok())
     {
         const MutationOperation& operation = existing.operation;
@@ -347,12 +348,18 @@ DaemonTimerCreateSubmissionService::submit(
                 operation.operationId);
         NativeTimerCreateOperationPayload payload;
         if (!storedPayload.ok() ||
+            storedPayload.payload.payloadType != "native.timer.create" ||
+            storedPayload.payload.payloadVersion != 1U ||
             !parseNativeTimerCreateOperationPayload(
                 storedPayload.payload.payload,
                 payload) ||
             payload.timerAssignmentId != request.timerAssignmentId ||
             payload.expectedAssignmentRevision !=
                 request.expectedAssignmentRevision ||
+            payload.expectedIntentRevision != assignment.intentRevision ||
+            payload.assignmentEpoch != assignment.assignmentEpoch ||
+            payload.backendId != request.backendId ||
+            payload.backendGeneration != assignment.backendGeneration ||
             nativeTimerSpecificationFingerprint(
                 payload.expectedSpecification) !=
                 nativeTimerSpecificationFingerprint(specification))
@@ -361,17 +368,56 @@ DaemonTimerCreateSubmissionService::submit(
                 DaemonTimerCreateSubmissionStatus::idempotencyConflict,
                 operation);
         }
-        operationId = operation.operationId;
-        nativeTimerBindingId = payload.nativeTimerBindingId;
+        if (operation.deadline > 0 && operation.deadline < now)
+        {
+            return result(
+                DaemonTimerCreateSubmissionStatus::stateConflict,
+                operation);
+        }
+
+        prepared.status =
+            NativeTimerCreateOperationPreparationStatus::alreadyPrepared;
+        prepared.operation = operation;
+        prepared.payload = payload;
+        effectiveDeadline = operation.deadline;
     }
     else if (existing.status ==
         MutationOperationRepositoryStatus::notFound)
     {
-        operationId = backendAgentGenerateOpaqueId("op_", 12);
-        nativeTimerBindingId =
+        const std::string operationId =
+            backendAgentGenerateOpaqueId("op_", 12);
+        const std::string nativeTimerBindingId =
             backendAgentGenerateOpaqueId("ntb_", 12);
         if (operationId.empty() || nativeTimerBindingId.empty())
             return result(DaemonTimerCreateSubmissionStatus::unavailable);
+
+        NativeTimerCreateOperationPreparationRequest preparation;
+        preparation.operationId = operationId;
+        preparation.idempotencyKey = request.idempotencyKey;
+        preparation.actorId = request.actorId;
+        preparation.requestFingerprint = requestFingerprint;
+        preparation.timerAssignmentId = request.timerAssignmentId;
+        preparation.expectedAssignmentRevision =
+            request.expectedAssignmentRevision;
+        preparation.expectedIntentRevision =
+            assignment.intentRevision;
+        preparation.expectedAssignmentEpoch =
+            assignment.assignmentEpoch;
+        preparation.nativeTimerBindingId = nativeTimerBindingId;
+        preparation.expectedBackendId = request.backendId;
+        preparation.expectedBackendGeneration =
+            assignment.backendGeneration;
+        preparation.expectedSpecification = specification;
+        preparation.requestedAt = now;
+        preparation.deadline = deadline;
+
+        prepared = preparationService_.prepare(preparation);
+        if (!prepared.ok())
+        {
+            return result(
+                preparationFailure(prepared.status),
+                prepared.operation);
+        }
     }
     else if (existing.status ==
         MutationOperationRepositoryStatus::invalid)
@@ -381,35 +427,6 @@ DaemonTimerCreateSubmissionService::submit(
     else
     {
         return result(DaemonTimerCreateSubmissionStatus::unavailable);
-    }
-
-    NativeTimerCreateOperationPreparationRequest preparation;
-    preparation.operationId = operationId;
-    preparation.idempotencyKey = request.idempotencyKey;
-    preparation.actorId = request.actorId;
-    preparation.requestFingerprint = requestFingerprint;
-    preparation.timerAssignmentId = request.timerAssignmentId;
-    preparation.expectedAssignmentRevision =
-        request.expectedAssignmentRevision;
-    preparation.expectedIntentRevision =
-        assignment.intentRevision;
-    preparation.expectedAssignmentEpoch =
-        assignment.assignmentEpoch;
-    preparation.nativeTimerBindingId = nativeTimerBindingId;
-    preparation.expectedBackendId = request.backendId;
-    preparation.expectedBackendGeneration =
-        assignment.backendGeneration;
-    preparation.expectedSpecification = specification;
-    preparation.requestedAt = now;
-    preparation.deadline = deadline;
-
-    const auto prepared =
-        preparationService_.prepare(preparation);
-    if (!prepared.ok())
-    {
-        return result(
-            preparationFailure(prepared.status),
-            prepared.operation);
     }
 
     vdrsuite::agent::BackendAgentNativeTimerCreateReservationRequest
@@ -443,7 +460,7 @@ DaemonTimerCreateSubmissionService::submit(
             systemContext(request),
             reservation,
             now,
-            deadline);
+            effectiveDeadline);
     if (!reserved.accepted)
     {
         return result(
