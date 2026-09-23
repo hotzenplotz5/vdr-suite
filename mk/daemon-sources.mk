@@ -12,6 +12,11 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerSpecification.cpp \
         core/timers/src/NativeTimerCreateOperationPayload.cpp \
         core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
+        core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+        core/timers/src/NativeTimerCreateDispatchService.cpp \
+        core/agent/src/BackendAgentCommandReservation.cpp \
+        core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
+        core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
