@@ -166,10 +166,34 @@ for forbidden in [
 
 for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
-    if "MutationOperation.cpp" in text or "MutationOperationRepository.cpp" in text:
-        failures.append(
-            f"mutation operation source is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
-        )
+    has_operation_authority = (
+        "MutationOperation.cpp" in text
+        or "MutationOperationRepository.cpp" in text
+    )
+    if not has_operation_authority:
+        continue
+
+    # Phase 64 intentionally introduced the generic authority without runtime
+    # composition. Phase 69.C is the reviewed later owner of the first runtime
+    # composition, and it is restricted to the daemon's shared database plus
+    # the read-only MutationOperationReadService. Other runtime manifests remain
+    # forbidden so Agent/VDR/provider layers cannot create parallel authorities.
+    if source_manifest.name == "daemon-sources.mk":
+        for marker in [
+            "core/operations/src/MutationOperation.cpp",
+            "core/operations/src/MutationOperationRepository.cpp",
+            "core/operations/src/MutationOperationReadService.cpp",
+        ]:
+            if marker not in text:
+                failures.append(
+                    "Phase-69.C daemon operation-read composition is incomplete: "
+                    + marker
+                )
+        continue
+
+    failures.append(
+        f"mutation operation source is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
+    )
 
 if failures:
     print("Phase-64 mutation operation repository architecture check failed:", file=sys.stderr)

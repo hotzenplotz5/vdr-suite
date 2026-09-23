@@ -14,3 +14,16 @@ test-phase69-public-resource-preconditions:
 		core/http/tests/test_public_resource_preconditions.cpp \
 		-o $(BUILD_DIR)/test_public_resource_preconditions
 	$(BUILD_DIR)/test_public_resource_preconditions
+
+.PHONY: test-phase69-operation-read-facade
+
+test-phase69-operation-read-facade:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/operations/src/MutationOperationReadService.cpp \
+		core/operations/tests/test_mutation_operation_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_mutation_operation_read_service
+	$(BUILD_DIR)/test_mutation_operation_read_service

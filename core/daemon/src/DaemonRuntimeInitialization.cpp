@@ -29,6 +29,24 @@ bool DaemonRuntime::initialize()
 
     std::cout << "database opened" << std::endl;
 
+    mutationOperationRepository_ =
+        std::make_unique<vdrsuite::operations::MutationOperationRepository>(
+            database_);
+    if (!mutationOperationRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize mutation operation schema"
+            << std::endl;
+        return false;
+    }
+    mutationOperationReadService_ =
+        std::make_unique<vdrsuite::operations::MutationOperationReadService>(
+            *mutationOperationRepository_);
+
+    std::cout
+        << "mutation operation read runtime initialized"
+        << std::endl;
+
     if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
         !RecordingSeriesHierarchyApiRuntime::instance().configure(database_))
     {

@@ -81,14 +81,19 @@ This slice does **not** yet:
 - change existing pre-v1 routes;
 - change Phase-64 mutation lifecycle or durable idempotency semantics.
 
+## Accepted checkpoint
+
+This foundation was accepted in PR #321:
+
+```text
+merge=beb98f6edab39d962bd6415db7be21cf145e05cb
+CI=35873370127 / #9091 / SUCCESS (6/6)
+```
+
 ## Next step
 
-After this shared contract is accepted, the next 69.C slice must select one real
-resource whose authoritative revision already exists and whose runtime owner can
-supply it without inventing a second lifecycle authority.
-
-The strongest current candidate is a public operation resource backed by the
-existing durable `MutationOperationRepository`, but it requires an explicit
-daemon/API read facade first. That wiring must be established deliberately rather
-than by opening a second database or duplicating repository ownership.
+The next bounded 69.C slice is documented in
+[MutationOperation Read Facade](phase-69c-operation-read-facade.md). It creates
+the required actor-scoped read boundary and one shared DaemonRuntime repository
+composition before any public operation route is added.
 
