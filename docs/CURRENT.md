@@ -68,9 +68,9 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Native Timer CREATE dispatch runtime composition: durable command reservation,
-dispatch-state and activation owners composed in DaemonRuntime while all
-prepare/reserve/claim/activate calls and the public Timer POST remain closed.
+Durable TimerAssignment native specification: new selected scheduling decisions
+retain one exact internal NativeTimerSpecification with additive legacy-safe
+persistence, while the public Timer POST and native execution remain closed.
 
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
@@ -84,6 +84,8 @@ PR #326 -> 61f933d1ae23aaa26d0ff3715e68e9686450ee7f
 PR #326 hosted CI run 35895657815 / #9103: SUCCESS (6/6)
 PR #327 -> b80003de33127827fc121d7d92d7f11c6f4451e6
 PR #327 hosted CI run 35899013477 / #9105: SUCCESS (6/6)
+PR #328 -> 6d822db653093ab5f513b8106929cfcf02fa85af
+PR #328 hosted CI run 35902606474 / #9108: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
