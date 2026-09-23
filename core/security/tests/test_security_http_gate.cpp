@@ -74,6 +74,8 @@ int main()
     assert(publicAnonymous.rejection.statusCode == 401);
     assert(publicAnonymous.rejection.headers.at("Content-Type") ==
         "application/problem+json");
+    assert(publicAnonymous.rejection.headers.at("X-Content-Type-Options") ==
+        "nosniff");
     assert(publicAnonymous.rejection.headers.at("X-Request-ID") ==
         "phase69b-public-security-request");
     assert(publicAnonymous.rejection.headers.at("X-Correlation-ID") ==
