@@ -43,6 +43,7 @@ EXPECTED_RUNTIME_OWNERS = {
 EXPECTED_ROUTE_LITERALS = {
     "/api/v1",
     "/api/v1/capabilities",
+    "/api/v1/operations/",
     "/api/backends",
     "/api/backends/",
     "/api/backends/default",
@@ -166,6 +167,7 @@ EXPECTED_ROUTE_LITERALS = {
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1",
     "/api/v1/capabilities",
+    "/api/v1/operations/",
 }
 
 DYNAMIC_ROUTE_MARKERS = {
