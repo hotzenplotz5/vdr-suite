@@ -231,7 +231,8 @@ ApiResponse serviceUnavailableProblem(
 ApiResponse methodNotAllowedProblem(
     const std::string& path,
     const std::string& requestId,
-    const std::string& correlationId)
+    const std::string& correlationId,
+    const std::string& allow = "GET")
 {
     ApiResponse response = problemResponse(
         405,
@@ -241,7 +242,121 @@ ApiResponse methodNotAllowedProblem(
         path,
         requestId,
         correlationId);
-    response.headers["Allow"] = "GET";
+    response.headers["Allow"] = allow;
+    return response;
+}
+
+bool validIdempotencyKey(const std::string& value)
+{
+    if (value.empty() || value.size() > 160U) return false;
+    for (unsigned char character : value)
+    {
+        if (character < 0x21U || character > 0x7eU) return false;
+    }
+    return true;
+}
+
+ApiResponse invalidJsonProblem(
+    const std::string& path,
+    const std::string& detail,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        400,
+        "invalid_json",
+        "Invalid JSON",
+        detail,
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse validationProblem(
+    const std::string& path,
+    const std::string& detail,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        422,
+        "validation_error",
+        "Validation failed",
+        detail,
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse preconditionRequiredProblem(
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        428,
+        "precondition_required",
+        "Precondition required",
+        "If-Match is required for this mutation.",
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse revisionConflictProblem(
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        412,
+        "revision_conflict",
+        "Revision conflict",
+        "If-Match does not match the current TimerAssignment revision.",
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse conflictProblem(
+    const std::string& path,
+    const std::string& code,
+    const std::string& detail,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        409,
+        code,
+        "Conflict",
+        detail,
+        path,
+        requestId,
+        correlationId);
+}
+
+ApiResponse acceptedOperationResponse(
+    const PublicOperationResource& operation,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string location =
+        std::string(PublicOperationPrefix) + operation.operationId;
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            operation.resourceRevision);
+    if (entityTag.empty()) return {};
+
+    ApiResponse response = jsonResponse(
+        "{\"operationId\":\"" + jsonEscape(operation.operationId) +
+        "\",\"state\":\"" + jsonEscape(operation.state) +
+        "\",\"backendId\":\"" + jsonEscape(operation.backendId) +
+        "\",\"links\":{\"self\":\"" + jsonEscape(location) + "\"}}",
+        requestId,
+        correlationId);
+    response.statusCode = 202;
+    response.headers["Location"] = location;
+    response.headers["ETag"] = entityTag;
     return response;
 }
 
@@ -263,6 +378,7 @@ ApiResponse contractRoot(
 ApiResponse platformCapabilities(
     const bool operationReadAvailable,
     const bool timerAssignmentReadAvailable,
+    const bool timerCreateAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -274,6 +390,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
         std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.timer-assignments-create\",\"version\":1,\"availability\":\"" +
+        std::string(timerCreateAvailable ? "available" : "unavailable") +
         "\"}"
         "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
@@ -475,6 +594,42 @@ PublicApiRuntime::lookupTimerAssignment(
     return lookup(timerAssignmentId, backendId);
 }
 
+void PublicApiRuntime::registerTimerCreateSubmission(
+    TimerCreateSubmission submission)
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateSubmissionMutex_);
+    timerCreateSubmission_ = std::move(submission);
+}
+
+void PublicApiRuntime::resetTimerCreateSubmission()
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateSubmissionMutex_);
+    timerCreateSubmission_ = TimerCreateSubmission{};
+}
+
+bool PublicApiRuntime::timerCreateSubmissionConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateSubmissionMutex_);
+    return static_cast<bool>(timerCreateSubmission_);
+}
+
+PublicTimerCreateSubmissionResult
+PublicApiRuntime::submitTimerCreate(
+    const PublicTimerCreateSubmissionRequest& request) const
+{
+    TimerCreateSubmission submission;
+    {
+        std::lock_guard<std::mutex> lock(
+            timerCreateSubmissionMutex_);
+        submission = timerCreateSubmission_;
+    }
+    if (!submission) return {};
+    return submission(request);
+}
+
 PublicOperationLookupResult PublicApiRuntime::lookupOperation(
     const std::string& operationId,
     const std::string& actorRef) const
@@ -520,6 +675,7 @@ bool PublicApiRuntime::tryHandleGet(
         response = platformCapabilities(
             operationLookupConfigured(),
             timerAssignmentLookupConfigured(),
+            timerCreateSubmissionConfigured(),
             requestId,
             correlationId);
         return true;
@@ -681,9 +837,14 @@ bool PublicApiRuntime::tryHandleGet(
 
 bool PublicApiRuntime::tryHandlePost(
     const std::string& requestTarget,
+    const std::string& body,
+    const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& idempotencyKey,
+    const std::string& ifMatch,
+    const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
     std::string operationId;
@@ -691,12 +852,258 @@ bool PublicApiRuntime::tryHandlePost(
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId) ||
-        publicTimerAssignmentPath(
-            path,
-            timerAssignmentId))
+        publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId);
+        return true;
+    }
+
+    if (publicTimerAssignmentPath(path, timerAssignmentId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicTimerAssignmentLookupResult found =
+            lookupTimerAssignment(
+                timerAssignmentId,
+                authorizedBackendId);
+        if (found.status ==
+            PublicTimerAssignmentLookupStatus::invalid)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The TimerAssignment identifier is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (found.status ==
+            PublicTimerAssignmentLookupStatus::notFound)
+        {
+            response = notFoundProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (found.status !=
+                PublicTimerAssignmentLookupStatus::ok ||
+            found.assignment.timerAssignmentId != timerAssignmentId ||
+            found.assignment.backendId != authorizedBackendId ||
+            found.assignment.resourceRevision.empty())
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string entityTag =
+            vdrsuite::http::publicStrongEntityTag(
+                found.assignment.resourceRevision);
+        if (entityTag.empty())
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const vdrsuite::http::PublicEntityTagConditionResult condition =
+            vdrsuite::http::publicEvaluateIfMatch(
+                ifMatch,
+                entityTag);
+        if (condition ==
+            vdrsuite::http::PublicEntityTagConditionResult::missing)
+        {
+            response = preconditionRequiredProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (condition ==
+            vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match is not a valid entity-tag condition.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (condition !=
+            vdrsuite::http::PublicEntityTagConditionResult::matched)
+        {
+            response = revisionConflictProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!validIdempotencyKey(idempotencyKey))
+        {
+            response = invalidRequestProblem(
+                path,
+                "A valid Idempotency-Key header is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerCreateRequestParser parser;
+        const PublicTimerCreateRequestParseResult parsed =
+            parser.parse(body);
+        if (parsed.status ==
+            PublicTimerCreateRequestParseStatus::invalidJson)
+        {
+            response = invalidJsonProblem(
+                path,
+                parsed.detail,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (parsed.status ==
+            PublicTimerCreateRequestParseStatus::invalidRequest)
+        {
+            response = invalidRequestProblem(
+                path,
+                parsed.detail,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (parsed.status ==
+            PublicTimerCreateRequestParseStatus::validationError)
+        {
+            response = validationProblem(
+                path,
+                parsed.detail,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerCreateSubmissionRequest submission;
+        submission.timerAssignmentId = timerAssignmentId;
+        submission.backendId = authorizedBackendId;
+        submission.actorRef = actorRef;
+        submission.idempotencyKey = idempotencyKey;
+        submission.expectedResourceRevision =
+            found.assignment.resourceRevision;
+        submission.specification = parsed.specification;
+        submission.requestId = requestId;
+        submission.correlationId = correlationId;
+
+        const PublicTimerCreateSubmissionResult submitted =
+            submitTimerCreate(submission);
+        switch (submitted.status)
+        {
+            case PublicTimerCreateSubmissionStatus::accepted:
+                if (submitted.operation.operationId.empty() ||
+                    submitted.operation.state.empty() ||
+                    submitted.operation.backendId !=
+                        authorizedBackendId ||
+                    submitted.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response = acceptedOperationResponse(
+                        submitted.operation,
+                        requestId,
+                        correlationId);
+                    if (response.statusCode == 200)
+                    {
+                        response = serviceUnavailableProblem(
+                            path,
+                            requestId,
+                            correlationId);
+                    }
+                }
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Timer CREATE submission is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::revisionConflict:
+                response = revisionConflictProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::idempotencyConflict:
+                response = conflictProblem(
+                    path,
+                    "idempotency_conflict",
+                    "The Idempotency-Key is already bound to a different request.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::stateConflict:
+            case PublicTimerCreateSubmissionStatus::generationConflict:
+                response = conflictProblem(
+                    path,
+                    "state_conflict",
+                    "The TimerAssignment can no longer accept this CREATE.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateSubmissionStatus::backendUnavailable:
+            case PublicTimerCreateSubmissionStatus::capabilityUnavailable:
+            case PublicTimerCreateSubmissionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
+    if (isPublicV1Path(path))
+    {
+        response = notFoundProblem(
             path,
             requestId,
             correlationId);
@@ -723,12 +1130,21 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
 
-    if (path == "/api/v1" ||
-        path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId) ||
-        publicTimerAssignmentPath(
+    if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
+
+    if (path == "/api/v1" ||
+        path == "/api/v1/capabilities" ||
+        publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
             path,
