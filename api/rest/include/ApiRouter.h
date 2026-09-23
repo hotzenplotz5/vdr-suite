@@ -9,7 +9,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "LegacyOsdApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
-#include "PublicApiContractRuntime.h"
+#include "PublicApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingCutApiRuntime.h"
@@ -203,7 +203,7 @@ public:
     {
         ApiResponse response;
 
-        if (PublicApiContractRuntime::instance().tryHandleGet(
+        if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
                 response))

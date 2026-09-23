@@ -1,5 +1,5 @@
 REST_PUBLIC_API_SRC := \
-        api/rest/src/PublicApiContractRuntime.cpp
+        api/rest/src/PublicApiRuntime.cpp
 
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \

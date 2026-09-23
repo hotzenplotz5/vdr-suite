@@ -1,4 +1,4 @@
-#include "PublicApiContractRuntime.h"
+#include "PublicApiRuntime.h"
 #include "ServerBuildIdentity.h"
 
 #include <cassert>
@@ -6,7 +6,7 @@
 
 int main()
 {
-    PublicApiContractRuntime& runtime = PublicApiContractRuntime::instance();
+    PublicApiRuntime& runtime = PublicApiRuntime::instance();
 
     ApiResponse authenticatedRoot;
     assert(runtime.tryHandleGet(

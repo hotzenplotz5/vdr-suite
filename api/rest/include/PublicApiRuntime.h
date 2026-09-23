@@ -4,10 +4,10 @@
 
 #include <string>
 
-class PublicApiContractRuntime
+class PublicApiRuntime
 {
 public:
-    static PublicApiContractRuntime& instance();
+    static PublicApiRuntime& instance();
 
     bool tryHandleGet(
         const std::string& requestTarget,
@@ -15,5 +15,5 @@ public:
         ApiResponse& response) const;
 
 private:
-    PublicApiContractRuntime() = default;
+    PublicApiRuntime() = default;
 };

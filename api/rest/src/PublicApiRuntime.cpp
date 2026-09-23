@@ -1,4 +1,4 @@
-#include "PublicApiContractRuntime.h"
+#include "PublicApiRuntime.h"
 
 #include "ServerBuildIdentity.h"
 
@@ -46,13 +46,13 @@ ApiResponse platformCapabilities()
 
 }
 
-PublicApiContractRuntime& PublicApiContractRuntime::instance()
+PublicApiRuntime& PublicApiRuntime::instance()
 {
-    static PublicApiContractRuntime runtime;
+    static PublicApiRuntime runtime;
     return runtime;
 }
 
-bool PublicApiContractRuntime::tryHandleGet(
+bool PublicApiRuntime::tryHandleGet(
     const std::string& requestTarget,
     const std::string& actorRef,
     ApiResponse& response) const
