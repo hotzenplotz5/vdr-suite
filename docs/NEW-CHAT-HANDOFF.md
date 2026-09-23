@@ -12,7 +12,8 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 
 1. [Current State](CURRENT.md) — sole volatile phase/status authority.
 2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — accepted numbered execution order.
-3. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) — active public API route/resource inventory and migration guard.
+3. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) — active Phase-69 implementation record and migration guard.
+4. [Phase 69.B Closeout](development/phase-69b-closeout.md) — accepted request/response metadata and public error foundation.
 4. [Phase 68 Closeout](development/phase-68-closeout.md) — completed Legacy OSD phase and Golden Journey 10 evidence.
 4. [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md) — durable A-G implementation checkpoints and real-runtime evidence.
 5. [Phase 67 Closeout](development/phase-67-closeout.md) — completed Broadcast Companion phase and Golden Journeys 8/9 evidence.
@@ -34,7 +35,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 - Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 - Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 - Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
-- Current active runtime slice: **69.B - Common request/response metadata and errors**; 69.A inventory and contract-root work is merged.
+- Current active runtime slice: **69.C - Revision/precondition/idempotency exposure**; 69.A and 69.B are accepted.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -64,7 +65,7 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.B Common request/response metadata and errors; 69.A is accepted on `main`.
+Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.C Revision/precondition/idempotency exposure; 69.A and 69.B are accepted on `main`.
 
 For the next numbered work:
 
