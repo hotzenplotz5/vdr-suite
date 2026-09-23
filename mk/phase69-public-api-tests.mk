@@ -2,7 +2,7 @@
 
 test-phase69-public-api-contract-root:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \\
 		api/rest/tests/test_public_api_contract_runtime.cpp \
 		-o $(BUILD_DIR)/test_public_api_contract_runtime
 	$(BUILD_DIR)/test_public_api_contract_runtime
@@ -32,7 +32,7 @@ test-phase69-operation-read-facade:
 
 test-phase69-public-operation-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \\
 		api/rest/tests/test_public_operation_resource.cpp \
 		-o $(BUILD_DIR)/test_public_operation_resource
 	$(BUILD_DIR)/test_public_operation_resource
@@ -54,7 +54,7 @@ test-phase69-timer-assignment-read-facade:
 
 test-phase69-timer-assignment-runtime-composition:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \\
 		api/rest/tests/test_public_timer_assignment_lookup.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
 	$(BUILD_DIR)/test_public_timer_assignment_lookup
@@ -64,7 +64,7 @@ test-phase69-timer-assignment-runtime-composition:
 
 test-phase69-public-timer-assignment-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \\
 		api/rest/tests/test_public_timer_assignment_resource.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_resource
 	$(BUILD_DIR)/test_public_timer_assignment_resource
