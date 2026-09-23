@@ -9,6 +9,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/agent/include \
         -Icore/vdr/include \
         -Icore/http/include \
+        -Icore/operations/include \
         -Icore/runtime/include \
         -Iapi/rest/include \
         -DVDR_SUITE_SERVER_VERSION=\"$(VDR_SUITE_SERVER_VERSION)\"
