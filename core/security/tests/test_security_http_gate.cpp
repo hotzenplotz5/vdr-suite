@@ -79,13 +79,16 @@ int main()
     assert(publicAnonymous.rejection.headers.at("X-Correlation-ID") ==
         "phase69b-public-security-correlation");
     assert(publicAnonymous.rejection.body.find(
-        "\"type\":\"urn:vdr-suite:error:authentication-required\"") !=
+        "\"type\":\"urn:vdr-suite:error:unauthorized\"") !=
         std::string::npos);
     assert(publicAnonymous.rejection.body.find(
         "\"status\":401") !=
         std::string::npos);
     assert(publicAnonymous.rejection.body.find(
-        "\"code\":\"authentication_required\"") !=
+        "\"code\":\"unauthorized\"") !=
+        std::string::npos);
+    assert(publicAnonymous.rejection.body.find(
+        "authentication_required") ==
         std::string::npos);
     assert(publicAnonymous.rejection.body.find(
         "\"requestId\":\"phase69b-public-security-request\"") !=
@@ -146,7 +149,10 @@ int main()
     assert(invalidPublicBrowserDecision.rejection.headers.at("Content-Type") ==
         "application/problem+json");
     assert(invalidPublicBrowserDecision.rejection.body.find(
-        "\"code\":\"invalid_credentials\"") !=
+        "\"code\":\"unauthorized\"") !=
+        std::string::npos);
+    assert(invalidPublicBrowserDecision.rejection.body.find(
+        "invalid_credentials") ==
         std::string::npos);
 
     Database closedGrantDatabase;
@@ -357,10 +363,13 @@ int main()
     assert(unknownPublicPostDecision.rejection.headers.at("Content-Type") ==
         "application/problem+json");
     assert(unknownPublicPostDecision.rejection.body.find(
-        "\"type\":\"urn:vdr-suite:error:security-policy-not-migrated\"") !=
+        "\"type\":\"urn:vdr-suite:error:service-unavailable\"") !=
         std::string::npos);
     assert(unknownPublicPostDecision.rejection.body.find(
-        "\"code\":\"security_policy_not_migrated\"") !=
+        "\"code\":\"service_unavailable\"") !=
+        std::string::npos);
+    assert(unknownPublicPostDecision.rejection.body.find(
+        "security_policy_not_migrated") ==
         std::string::npos);
 
     HttpServerRequest unmigrated =
