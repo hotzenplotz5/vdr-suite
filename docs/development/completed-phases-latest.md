@@ -37,12 +37,13 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 ## Current active numbered runtime phase
 
 ```text
-None - Phase 68 is completed
-Next: Phase 69 - Public API and Client Compatibility Hardening
+Phase 69 - Public API and Client Compatibility Hardening
+Current slice: 69.A - Public resource and route inventory
 ```
 
-Phase 69 has not started. Completing Phase 68 does not silently authorize
-Phase-69 implementation.
+Phase 69 has explicitly started at bounded Slice 69.A. Phase-68 completion does
+not authorize work outside the accepted Phase-69 public/client compatibility
+scope.
 
 ## Evidence boundary
 
