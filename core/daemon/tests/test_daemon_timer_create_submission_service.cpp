@@ -324,6 +324,7 @@ int main()
 
     // A stale public If-Match translation remains an assignment revision conflict.
     auto stale = request;
+    stale.idempotencyKey = "idem-public-create-stale";
     stale.expectedAssignmentRevision = "1";
     const auto staleResult = service.submit(stale);
     assert(staleResult.status ==
