@@ -87,3 +87,17 @@ test-phase69-native-timer-create-preparation-runtime:
 
 test-phase69-native-timer-create-dispatch-runtime:
 	python3 tools/check_phase69_native_timer_create_dispatch_runtime.py
+
+.PHONY: test-phase69-timer-assignment-native-specification
+
+test-phase69-timer-assignment-native-specification:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/tests/test_timer_assignment_desired_native_specification.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_desired_native_specification
+	$(BUILD_DIR)/test_timer_assignment_desired_native_specification
+	python3 tools/check_phase69_timer_assignment_native_specification.py
