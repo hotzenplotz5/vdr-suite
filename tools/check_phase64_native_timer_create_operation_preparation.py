@@ -126,8 +126,20 @@ for token in [
 if "include mk/phase64-native-timer-create-operation-preparation-tests.mk" not in makefile:
     raise SystemExit("CREATE preparation make fragment is not included")
 
-# This slice must remain a Control-Plane contract only; runtime consumption is
-# opened later together with durable dispatch/start fencing.
+# Phase 64 originally prohibited every runtime consumer. Later Phase-69.C
+# composition may consume the accepted preparation service only in the reviewed
+# DaemonRuntime ownership/lifecycle files below. Public HTTP mutation, Agent,
+# SuiteBridge and native execution remain separate reviews.
+reviewed_runtime_files = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+    Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+}
+for reviewed in reviewed_runtime_files:
+    if not (ROOT / reviewed).is_file():
+        raise SystemExit(
+            f"missing reviewed CREATE preparation runtime file: {reviewed}")
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",
@@ -141,11 +153,14 @@ for scan_root in [
             ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk"
         }:
             continue
+        relative = path.relative_to(ROOT)
+        if relative in reviewed_runtime_files:
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if "NativeTimerCreateOperationPreparationService" in text:
             raise SystemExit(
-                "premature CREATE preparation runtime wiring: "
-                + str(path.relative_to(ROOT))
+                "unreviewed CREATE preparation runtime wiring: "
+                + str(relative)
             )
 
 print("Phase-64 native Timer CREATE operation preparation check passed")

@@ -180,8 +180,10 @@ void DaemonRuntime::shutdown()
     metadataRepository_.reset();
     recordingRepository_.reset();
     jobRepository_.reset();
+    nativeTimerCreateOperationPreparationService_.reset();
     timerAssignmentReadService_.reset();
     timerAssignmentRepository_.reset();
+    timerIntentRepository_.reset();
     mutationOperationReadService_.reset();
     mutationOperationRepository_.reset();
 

@@ -76,3 +76,8 @@ test-phase69-public-timer-assignment-resource:
 		-o $(BUILD_DIR)/test_public_timer_assignment_read_security
 	$(BUILD_DIR)/test_public_timer_assignment_read_security
 	python3 tools/check_phase69_public_timer_assignment_resource.py
+
+.PHONY: test-phase69-native-timer-create-preparation-runtime
+
+test-phase69-native-timer-create-preparation-runtime:
+	python3 tools/check_phase69_native_timer_create_preparation_runtime.py

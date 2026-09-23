@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — first stable public-v1 Timer domain item read.**
+**ACCEPTED — first stable public-v1 Timer domain item read.**
 
 Baseline:
 
@@ -193,16 +193,21 @@ No repeated real-yaVDR acceptance is required for this slice because it changes
 only Control-Plane HTTP read/security semantics and does not alter native VDR
 mutation or media behavior.
 
+## Accepted checkpoint
+
+This public TimerAssignment resource slice was accepted in PR #326:
+
+```text
+merge=61f933d1ae23aaa26d0ff3715e68e9686450ee7f
+CI=35895657815 / #9103 / SUCCESS (6/6)
+```
+
 ## Next bounded slice
 
-After this item resource is accepted, Phase 69.C can derive the first durable
-public Timer mutation from the accepted native Timer CREATE preparation path.
+The next step is [Native Timer CREATE Preparation Runtime Composition](phase-69c-native-timer-create-preparation-runtime.md):
+one DaemonRuntime `TimerIntentRepository` plus the already accepted
+`NativeTimerCreateOperationPreparationService` over the existing assignment
+and mutation-operation authorities.
 
-That next slice must still prove, before implementation:
-
-- canonical request body and closed-field parsing;
-- required `Idempotency-Key`;
-- required `If-Match` against this public TimerAssignment ETag;
-- exact actor/backend/resource/action idempotency scope;
-- operation response / `Location` semantics;
-- no speculative retry or pre-v1 mutation fallback.
+That composition remains dormant: no public mutation, no `prepare()` call,
+no dispatch and no native execution.

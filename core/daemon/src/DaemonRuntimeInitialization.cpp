@@ -47,6 +47,17 @@ bool DaemonRuntime::initialize()
         << "mutation operation read runtime initialized"
         << std::endl;
 
+    timerIntentRepository_ =
+        std::make_unique<vdrsuite::timers::TimerIntentRepository>(
+            database_);
+    if (!timerIntentRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize TimerIntent schema"
+            << std::endl;
+        return false;
+    }
+
     timerAssignmentRepository_ =
         std::make_unique<vdrsuite::timers::TimerAssignmentRepository>(
             database_);
@@ -61,8 +72,15 @@ bool DaemonRuntime::initialize()
         std::make_unique<vdrsuite::timers::TimerAssignmentReadService>(
             *timerAssignmentRepository_);
 
+    nativeTimerCreateOperationPreparationService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateOperationPreparationService>(
+                *timerIntentRepository_,
+                *timerAssignmentRepository_,
+                *mutationOperationRepository_);
+
     std::cout
-        << "TimerAssignment read runtime initialized"
+        << "TimerAssignment read and native Timer CREATE preparation runtime initialized"
         << std::endl;
 
     if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
