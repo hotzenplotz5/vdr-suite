@@ -347,6 +347,49 @@ bool PublicApiRuntime::operationLookupConfigured() const
     return static_cast<bool>(operationLookup_);
 }
 
+void PublicApiRuntime::registerTimerAssignmentLookup(
+    TimerAssignmentLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    timerAssignmentLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetTimerAssignmentLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    timerAssignmentLookup_ = TimerAssignmentLookup{};
+}
+
+bool PublicApiRuntime::timerAssignmentLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    return static_cast<bool>(timerAssignmentLookup_);
+}
+
+PublicTimerAssignmentLookupResult
+PublicApiRuntime::lookupTimerAssignment(
+    const std::string& timerAssignmentId,
+    const std::string& backendId) const
+{
+    TimerAssignmentLookup lookup;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            timerAssignmentLookupMutex_);
+        lookup = timerAssignmentLookup_;
+    }
+
+    if (!lookup)
+    {
+        return {};
+    }
+
+    return lookup(timerAssignmentId, backendId);
+}
+
 PublicOperationLookupResult PublicApiRuntime::lookupOperation(
     const std::string& operationId,
     const std::string& actorRef) const
