@@ -1,5 +1,8 @@
 DAEMON_SRC := \
         core/daemon/src/RuntimeConfig.cpp \
+        core/operations/src/MutationOperation.cpp \
+        core/operations/src/MutationOperationRepository.cpp \
+        core/operations/src/MutationOperationReadService.cpp \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
