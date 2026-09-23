@@ -286,6 +286,10 @@ reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+    Path("core/daemon/include/DaemonTimerCreateSubmissionService.h"),
+    Path("core/daemon/src/DaemonTimerCreateSubmissionService.cpp"),
+    Path("core/daemon/tests/test_daemon_timer_create_submission_service.cpp"),
+    Path("api/rest/tests/test_public_timer_create_submission.cpp"),
 }
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
