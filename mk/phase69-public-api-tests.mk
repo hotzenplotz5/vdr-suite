@@ -86,3 +86,19 @@ test-phase69-native-timer-create-preparation-runtime:
 
 test-phase69-native-timer-create-dispatch-runtime:
 	python3 tools/check_phase69_native_timer_create_dispatch_runtime.py
+
+.PHONY: test-phase69-public-timer-create-submission
+
+test-phase69-public-timer-create-submission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_timer_create_submission.cpp \
+		-o $(BUILD_DIR)/test_public_timer_create_submission
+	$(BUILD_DIR)/test_public_timer_create_submission
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_create_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_create_security
+	$(BUILD_DIR)/test_public_timer_create_security
