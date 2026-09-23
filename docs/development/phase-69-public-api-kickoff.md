@@ -169,10 +169,31 @@ The first 69.B runtime step is deliberately limited to the new public-v1 owner:
   explicit authorization contract;
 - leave every pre-v1 `/api/...` route unchanged.
 
-Authentication/authorization rejection conversion and unsupported HTTP methods
-outside the current GET/POST server surface remain later 69.B work. This bounded
-step must not rewrite Phase-62 security policy or turn the v1 namespace into a
-generic mutation bypass.
+PR #316 merged the first 69.B runtime step:
+
+```text
+PR #316 -> 72a637cc6f18fc1c1c1a77859abb3ab1f15e2b03
+CI -> 35843808669 / run #9081 -> SUCCESS (6/6)
+```
+
+The next bounded 69.B step normalizes SecurityHttpGate rejections for the public
+v1 namespace without changing authorization decisions or accountability:
+
+- current `/api/v1` authentication/security failures use
+  `application/problem+json`;
+- the stable Phase-62 reason code becomes the public `code`;
+- the same accepted request/correlation IDs are returned as structured fields and
+  response headers;
+- the Problem Details `type` is derived from the stable code, not from a human
+  message;
+- existing pre-v1 `/api/...` rejections retain their current JSON shape;
+- unknown/future v1 mutations remain fail-closed and merely receive the public
+  error representation.
+
+Unsupported HTTP methods outside the current GET/POST server surface and broader
+legacy controller error normalization remain later 69.B work. This step must not
+rewrite Phase-62 security policy or turn the v1 namespace into a generic mutation
+bypass.
 
 ## 69.A acceptance
 
