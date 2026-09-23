@@ -56,6 +56,7 @@ void DaemonRuntime::shutdown()
     httpServer_.reset();
     apiRouter_.reset();
     PublicApiRuntime::instance().resetTimerCreateSubmission();
+    PublicApiRuntime::instance().resetTimerCreateReplayLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();
