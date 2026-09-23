@@ -95,6 +95,8 @@ struct TimerAssignmentPlanningBackendCandidate
     TimerAssignmentPlanningCapabilityEvidence capability;
     TimerAssignmentPlanningHealthEvidence health;
     TimerAssignmentPlanningChannelEvidence channel;
+    bool desiredNativeTimerSpecificationPresent = false;
+    NativeTimerSpecification desiredNativeTimerSpecification;
     TimerAssignmentPlanningConflictState conflict =
         TimerAssignmentPlanningConflictState::unavailable;
 };
@@ -133,6 +135,8 @@ struct TimerAssignmentPlanningDecision
     TimerAssignmentChannelBinding selectedChannelBinding;
     std::string selectedCapabilityRevision;
     std::string selectedBackendHealthRevision;
+    bool selectedNativeTimerSpecificationPresent = false;
+    NativeTimerSpecification selectedNativeTimerSpecification;
 
     TimerAssignmentDecisionEvidence decisionEvidence;
     std::vector<TimerAssignmentPlanningCandidateEvaluation> candidates;
