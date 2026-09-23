@@ -201,7 +201,8 @@ public:
         const std::string& actorRef = "",
         const std::string& clientRef = "",
         const std::string& requestRef = "",
-        const std::string& correlationRef = "")
+        const std::string& correlationRef = "",
+        const std::string& ifNoneMatch = "")
     {
         ApiResponse response;
 
@@ -210,7 +211,8 @@ public:
                 actorRef,
                 requestRef,
                 correlationRef,
-                response))
+                response,
+                ifNoneMatch))
         {
             return response;
         }
