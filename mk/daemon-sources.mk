@@ -8,6 +8,7 @@ DAEMON_SRC := \
         core/timers/src/TimerAssignment.cpp \
         core/timers/src/TimerAssignmentRepository.cpp \
         core/timers/src/TimerAssignmentReadService.cpp \
+        core/timers/src/NativeTimerBinding.cpp \
         core/timers/src/NativeTimerSpecification.cpp \
         core/timers/src/NativeTimerCreateOperationPayload.cpp \
         core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
