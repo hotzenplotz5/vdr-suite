@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — 69.A is accepted on `main`; current slice: 69.B Common request/response metadata and errors.**
+**ACTIVE — 69.A and 69.B are accepted on `main`; current slice: 69.C Revision/precondition/idempotency exposure.**
 
 Start baseline:
 
@@ -145,7 +145,7 @@ PR #315 CI -> 35818928861 / run #9074 -> SUCCESS (6/6)
 No repeated real-yaVDR acceptance was required because 69.A introduced only
 read-only contract discovery and repository guards.
 
-## 69.B current bounded slice
+## 69.B accepted implementation
 
 Phase 62 already generates and validates the HTTP request/correlation context and
 decorates final HTTP responses with `X-Request-ID` and, when present,
@@ -206,6 +206,17 @@ representation itself:
 This preserves the dependency direction: `core/security` does not depend on
 `api/rest`; both consume a transport-level public error model from
 `core/http`.
+
+69.B is closed by [Phase 69.B Closeout](phase-69b-closeout.md). PR #319 merged the
+shared public Problem Details model and stable public security-code mapping:
+
+```text
+PR #319 -> 0248db3d63626a87d391f7649a984adc97b45232
+CI -> 35863518112 / run #9087 -> SUCCESS (6/6)
+```
+
+The active bounded slice is now 69.C. Retry intervals are not invented without
+an owning operation/resource semantic; deprecation/sunset policy remains 69.E.
 
 ## 69.A acceptance
 
