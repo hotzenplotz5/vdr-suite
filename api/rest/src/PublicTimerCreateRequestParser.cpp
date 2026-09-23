@@ -5,7 +5,7 @@
 #include <limits>
 #include <map>
 #include <set>
-#include <string>
+#include <string>\n#include <utility>
 
 namespace
 {
