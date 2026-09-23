@@ -176,24 +176,28 @@ PR #316 -> 72a637cc6f18fc1c1c1a77859abb3ab1f15e2b03
 CI -> 35843808669 / run #9081 -> SUCCESS (6/6)
 ```
 
-The next bounded 69.B step normalizes SecurityHttpGate rejections for the public
-v1 namespace without changing authorization decisions or accountability:
+PR #317 merged the v1 security-error normalization step:
 
-- current `/api/v1` authentication/security failures use
-  `application/problem+json`;
-- the stable Phase-62 reason code becomes the public `code`;
-- the same accepted request/correlation IDs are returned as structured fields and
-  response headers;
-- the Problem Details `type` is derived from the stable code, not from a human
-  message;
-- existing pre-v1 `/api/...` rejections retain their current JSON shape;
-- unknown/future v1 mutations remain fail-closed and merely receive the public
-  error representation.
+```text
+PR #317 -> 5ff36d635072c63e1c46ccb377c830ec99988108
+CI -> 35846333459 / run #9083 -> SUCCESS (6/6)
+```
 
-Unsupported HTTP methods outside the current GET/POST server surface and broader
-legacy controller error normalization remain later 69.B work. This step must not
-rewrite Phase-62 security policy or turn the v1 namespace into a generic mutation
-bypass.
+The next bounded 69.B step completes the current method-error boundary:
+
+- `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` and other methods not
+  implemented by the current server are delegated through `ApiRouter` to the
+  public-v1 owner before the legacy generic method response;
+- known current v1 resources return Problem Details-compatible
+  `405 method_not_allowed` with `Allow: GET`;
+- unknown `/api/v1/...` paths return `404 not_found` rather than falsely
+  claiming that a resource exists with a different method;
+- non-v1 paths retain the existing generic `405` compatibility response;
+- no new mutation route or authorization bypass is introduced.
+
+Broader legacy controller error normalization remains later 69.B work. This step
+must not change Phase-62 authorization policy or promote pre-v1 routes into the
+public contract.
 
 ## 69.A acceptance
 
