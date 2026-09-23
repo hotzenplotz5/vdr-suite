@@ -10,6 +10,7 @@ ROUTE_SOURCE_FILES = (
     "api/rest/src/RecordingCutApiRuntime.cpp",
     "api/rest/src/RecordingMarksApiRuntime.cpp",
     "api/rest/src/LegacyOsdApiRuntime.cpp",
+    "api/rest/src/PublicApiRuntime.cpp",
     "api/rest/src/HbbtvApiRuntime.cpp",
     "api/rest/src/TeletextApiRuntime.cpp",
     "api/rest/src/ManualRecordingMetadataApiRuntime.cpp",
@@ -30,6 +31,7 @@ EXPECTED_RUNTIME_OWNERS = {
     "LegacyOsdApiRuntime",
     "LiveRemoteApiRuntime",
     "ManualRecordingMetadataApiRuntime",
+    "PublicApiRuntime",
     "MediaTranscodeSettingsApiRuntime",
     "RecordingCutApiRuntime",
     "RecordingMarksApiRuntime",
@@ -39,6 +41,8 @@ EXPECTED_RUNTIME_OWNERS = {
 }
 
 EXPECTED_ROUTE_LITERALS = {
+    "/api/v1",
+    "/api/v1/capabilities",
     "/api/backends",
     "/api/backends/",
     "/api/backends/default",
@@ -159,6 +163,11 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/vdr/timers/live",
 }
 
+EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
+    "/api/v1",
+    "/api/v1/capabilities",
+}
+
 DYNAMIC_ROUTE_MARKERS = {
     "api/rest/src/ManualRecordingMetadataApiRuntime.cpp": (
         '"/recordings/metadata/"',
@@ -231,12 +240,13 @@ def main():
             if marker not in source:
                 errors.append(f"{relative} misses dynamic-route marker: {marker}")
 
-    v1 = sorted(route for route in observed if route.startswith("/api/v1"))
-    if v1:
-        errors.append(
-            "public v1 route requires an explicit Phase-69 inventory update: "
-            + ", ".join(v1)
-        )
+    v1 = {route for route in observed if route.startswith("/api/v1")}
+    missing_v1 = sorted(EXPECTED_PUBLIC_V1_ROUTE_LITERALS - v1)
+    added_v1 = sorted(v1 - EXPECTED_PUBLIC_V1_ROUTE_LITERALS)
+    if missing_v1:
+        errors.append("inventoried public v1 routes disappeared: " + ", ".join(missing_v1))
+    if added_v1:
+        errors.append("unclassified public v1 routes appeared: " + ", ".join(added_v1))
 
     if errors:
         print("Phase 69 public API inventory check failed:")
@@ -245,9 +255,9 @@ def main():
         return 1
 
     print("Phase 69 public API inventory check passed.")
-    print(f"Inventoried pre-v1 route literals: {len(observed)}")
+    print(f"Inventoried route literals: {len(observed)}")
     print(f"Delegated API runtime owners: {len(owners)}")
-    print("Public /api/v1 routes at 69.A kickoff: 0")
+    print(f"Public /api/v1 route literals: {len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS)}")
     return 0
 
 

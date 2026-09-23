@@ -9,6 +9,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "LegacyOsdApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
+#include "PublicApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingCutApiRuntime.h"
@@ -201,6 +202,14 @@ public:
         const std::string& clientRef = "")
     {
         ApiResponse response;
+
+        if (PublicApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                actorRef,
+                response))
+        {
+            return response;
+        }
 
         if (RecordingCutApiRuntime::instance().tryHandleGet(
                 requestTarget,

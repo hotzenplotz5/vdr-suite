@@ -51,10 +51,21 @@ contract.
 
 ### Public v1
 
-None at kickoff.
+At kickoff there were no public-v1 routes. The first bounded runtime step now
+establishes exactly:
 
-A route becomes public v1 only through an explicit `/api/v1/...` contract and
-compatibility test. Existing behavior is not grandfathered into v1.
+```text
+GET /api/v1
+GET /api/v1/capabilities
+```
+
+The contract root exposes the public API major, a truthful daemon build identity,
+the supported public API majors, caller authentication state and canonical links.
+The capability resource is platform-level discovery only; it does not publish
+Agent, plugin, media or Legacy OSD protocol versions.
+
+Existing behavior is not grandfathered into v1. Any additional route requires an
+explicit Phase-69 inventory and compatibility update.
 
 ### Pre-v1 compatibility candidates
 
@@ -112,19 +123,24 @@ The guard fails when:
 
 This is a migration guard, not a promise that the pre-v1 routes are permanent.
 
-## Next bounded implementation step
+## First bounded runtime step
 
-After this inventory is green in CI, the next 69.A step is to define the first
-stable resource set and the `GET /api/v1` contract root.
+The first stable v1 resource set is deliberately small: the contract root and
+platform capability discovery only. No existing domain route is aliased into v1.
 
-The contract root must not fabricate `serverVersion`. Phase 69 must first bind
-that field to a truthful runtime/build identity rather than hard-code a temporary
-value merely to satisfy the ADR example.
+`serverVersion` comes from `VDR_SUITE_SERVER_VERSION`. Repository builds default
+to `git-<short-commit>` from the exact source tree; packaging may override that
+value with its truthful package release identity. This value is explicitly
+separate from `apiVersion`, Agent protocol/software versions and SuiteBridge
+plugin/schema versions.
+
+Request IDs, correlation IDs and common Problem Details errors remain 69.B work;
+this 69.A step does not claim those later contracts are implemented.
 
 ## Acceptance for this kickoff slice
 
 - Phase 69/69.A is the canonical active status;
-- the pre-v1 route baseline is machine checked;
-- no runtime endpoint behavior changes;
+- the pre-v1 route baseline and declared public-v1 route set are machine checked;
+- only the new read-only `GET /api/v1` and `GET /api/v1/capabilities` runtime routes are added;
 - no existing client path is removed or redirected;
 - Phase-62 through Phase-68 ownership and safety contracts remain unchanged.
