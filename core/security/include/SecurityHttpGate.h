@@ -8,6 +8,7 @@
 #include "LegacyBasicAuthenticator.h"
 #include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
+#include "PublicProblemDetails.h"
 #include "SecurityConfiguration.h"
 
 #include <algorithm>
@@ -1324,6 +1325,35 @@ private:
         return gate;
     }
 
+    static std::string publicProblemCode(
+        int statusCode,
+        const std::string& internalCode)
+    {
+        if (internalCode == "read_only_backend")
+        {
+            return "read_only_backend";
+        }
+
+        switch (statusCode)
+        {
+            case 400: return "invalid_request";
+            case 401: return "unauthorized";
+            case 403: return "forbidden";
+            case 404: return "not_found";
+            case 409: return "operation_conflict";
+            case 410: return "not_found";
+            case 412: return "revision_conflict";
+            case 415: return "invalid_request";
+            case 422: return "validation_error";
+            case 428: return "precondition_required";
+            case 429: return "rate_limited";
+            case 502: return "upstream_error";
+            case 503: return "service_unavailable";
+            case 504: return "upstream_timeout";
+            default: return "internal_error";
+        }
+    }
+
     HttpServerResponse errorResponse(
         int statusCode,
         const std::string& code,
@@ -1335,7 +1365,7 @@ private:
         HttpServerResponse response;
         response.statusCode = statusCode;
         response.headers["Content-Type"] = publicApiV1
-            ? "application/problem+json"
+            ? PublicProblemDetails::contentType()
             : "application/json";
         response.headers["Cache-Control"] = "no-store";
         if (advertiseBasic)
@@ -1343,39 +1373,15 @@ private:
 
         if (publicApiV1)
         {
-            std::string typeCode = code;
-            std::replace(
-                typeCode.begin(),
-                typeCode.end(),
-                '_',
-                '-');
-
-            std::string title = "Request failed";
-            if (statusCode == 400) title = "Invalid request";
-            else if (statusCode == 401) title = "Authentication required";
-            else if (statusCode == 403) title = "Request forbidden";
-            else if (statusCode == 404) title = "Resource not found";
-            else if (statusCode == 409) title = "Conflict";
-            else if (statusCode == 412) title = "Precondition failed";
-            else if (statusCode == 429) title = "Rate limit exceeded";
-            else if (statusCode == 503) title = "Service unavailable";
-
-            response.body =
-                "{\"type\":\"urn:vdr-suite:error:" + jsonEscape(typeCode) +
-                "\",\"title\":\"" + jsonEscape(title) +
-                "\",\"status\":" + std::to_string(statusCode) +
-                ",\"detail\":\"" + jsonEscape(message) +
-                "\",\"code\":\"" + jsonEscape(code) +
-                "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"";
-
-            if (!context.correlationId.empty())
-            {
-                response.body +=
-                    ",\"correlationId\":\"" +
-                    jsonEscape(context.correlationId) + "\"";
-            }
-
-            response.body += "}";
+            PublicProblemDetails problem;
+            problem.statusCode = statusCode;
+            problem.code = publicProblemCode(
+                statusCode,
+                code);
+            problem.detail = message;
+            problem.requestId = context.requestId;
+            problem.correlationId = context.correlationId;
+            response.body = problem.serialize();
         }
         else
         {
