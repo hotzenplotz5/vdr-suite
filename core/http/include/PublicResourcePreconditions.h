@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace vdrsuite::http
