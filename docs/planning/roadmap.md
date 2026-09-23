@@ -759,13 +759,13 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Next; not started.**
+Status: **Active — 69.A Public resource and route inventory.**
 
-Phase 69 remains planned after completed Phase 68 and requires its own explicit runtime start.
+Phase 69 has explicitly started after completed Phase 68. The active bounded slice is 69.A route/resource inventory; no existing pre-v1 route is thereby declared stable.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
-Planning note: ADR-0048 architecture remains accepted. The strict roadmap now places its not-yet-started runtime after Streaming, Broadcast Companion and Legacy OSD so the stable public API can describe mature implementations instead of prematurely freezing internal transition shapes.
+Planning note: ADR-0048 architecture remains accepted. Phase 69 now consumes the mature Streaming, Broadcast Companion and Legacy OSD implementations without freezing their private transport shapes into the public API. The kickoff inventory is documented in [Phase 69.A Public API Route Inventory Kickoff](../development/phase-69-public-api-kickoff.md).
 
 ### Phase goal
 
