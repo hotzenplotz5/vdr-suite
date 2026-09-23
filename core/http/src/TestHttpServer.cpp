@@ -371,13 +371,12 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
     else
     {
-        return finalizeResponse(
-            gate.context,
-            mapApiResponse(
-                405,
-                "application/json",
-                "{\"error\":\"method not allowed\"}",
-                {}));
+        apiResponse =
+            apiRouter_.handleClientUnsupportedMethod(
+                request.method,
+                request.path,
+                gate.context.requestId,
+                gate.context.correlationId);
     }
 
     if (gate.protectedMutation &&
