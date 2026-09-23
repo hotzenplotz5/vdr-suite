@@ -161,13 +161,18 @@ The first 69.B runtime step is deliberately limited to the new public-v1 owner:
   Problem Details-compatible `404 not_found` instead of falling through into
   pre-v1 routing;
 - return Problem Details-compatible `405 method_not_allowed` plus `Allow: GET`
-  for POST to the current GET-only v1 resources;
-- return `404 not_found` for POST to an unknown v1 resource;
+  for POST to the two current GET-only v1 resources;
+- allow that method rejection through Phase-62 security without treating it as a
+  business mutation;
+- keep unknown/future v1 POST routes fail-closed at the Phase-62
+  `security_policy_not_migrated` boundary until each real mutation receives an
+  explicit authorization contract;
 - leave every pre-v1 `/api/...` route unchanged.
 
 Authentication/authorization rejection conversion and unsupported HTTP methods
 outside the current GET/POST server surface remain later 69.B work. This bounded
-step must not rewrite Phase-62 security policy or legacy error contracts.
+step must not rewrite Phase-62 security policy or turn the v1 namespace into a
+generic mutation bypass.
 
 ## 69.A acceptance
 
