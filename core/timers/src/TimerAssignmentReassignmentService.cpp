@@ -115,6 +115,10 @@ TimerAssignment replacementFromDecision(
     replacement.channelBinding = decision.selectedChannelBinding;
     replacement.capabilityRevision = decision.selectedCapabilityRevision;
     replacement.backendHealthRevision = decision.selectedBackendHealthRevision;
+    replacement.desiredNativeTimerSpecificationPresent =
+        decision.selectedNativeTimerSpecificationPresent;
+    replacement.desiredNativeTimerSpecification =
+        decision.selectedNativeTimerSpecification;
     replacement.decisionPolicyVersion = decision.decisionPolicyVersion;
     replacement.decisionEvidence = decision.decisionEvidence;
     replacement.createdAt = request.createdAt;
