@@ -594,6 +594,42 @@ PublicApiRuntime::lookupTimerAssignment(
     return lookup(timerAssignmentId, backendId);
 }
 
+void PublicApiRuntime::registerTimerCreateReplayLookup(
+    TimerCreateReplayLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateReplayLookupMutex_);
+    timerCreateReplayLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetTimerCreateReplayLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateReplayLookupMutex_);
+    timerCreateReplayLookup_ = TimerCreateReplayLookup{};
+}
+
+bool PublicApiRuntime::timerCreateReplayLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateReplayLookupMutex_);
+    return static_cast<bool>(timerCreateReplayLookup_);
+}
+
+PublicTimerCreateReplayResult
+PublicApiRuntime::lookupTimerCreateReplay(
+    const PublicTimerCreateReplayRequest& request) const
+{
+    TimerCreateReplayLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            timerCreateReplayLookupMutex_);
+        lookup = timerCreateReplayLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
 void PublicApiRuntime::registerTimerCreateSubmission(
     TimerCreateSubmission submission)
 {
@@ -675,7 +711,8 @@ bool PublicApiRuntime::tryHandleGet(
         response = platformCapabilities(
             operationLookupConfigured(),
             timerAssignmentLookupConfigured(),
-            timerCreateSubmissionConfigured(),
+            timerCreateReplayLookupConfigured() &&
+                timerCreateSubmissionConfigured(),
             requestId,
             correlationId);
         return true;
@@ -880,61 +917,7 @@ bool PublicApiRuntime::tryHandlePost(
                 correlationId);
             return true;
         }
-
-        const PublicTimerAssignmentLookupResult found =
-            lookupTimerAssignment(
-                timerAssignmentId,
-                authorizedBackendId);
-        if (found.status ==
-            PublicTimerAssignmentLookupStatus::invalid)
-        {
-            response = invalidRequestProblem(
-                path,
-                "The TimerAssignment identifier is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-        if (found.status ==
-            PublicTimerAssignmentLookupStatus::notFound)
-        {
-            response = notFoundProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-        if (found.status !=
-                PublicTimerAssignmentLookupStatus::ok ||
-            found.assignment.timerAssignmentId != timerAssignmentId ||
-            found.assignment.backendId != authorizedBackendId ||
-            found.assignment.resourceRevision.empty())
-        {
-            response = serviceUnavailableProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const std::string entityTag =
-            vdrsuite::http::publicStrongEntityTag(
-                found.assignment.resourceRevision);
-        if (entityTag.empty())
-        {
-            response = serviceUnavailableProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const vdrsuite::http::PublicEntityTagConditionResult condition =
-            vdrsuite::http::publicEvaluateIfMatch(
-                ifMatch,
-                entityTag);
-        if (condition ==
-            vdrsuite::http::PublicEntityTagConditionResult::missing)
+        if (ifMatch.empty())
         {
             response = preconditionRequiredProblem(
                 path,
@@ -942,26 +925,6 @@ bool PublicApiRuntime::tryHandlePost(
                 correlationId);
             return true;
         }
-        if (condition ==
-            vdrsuite::http::PublicEntityTagConditionResult::malformed)
-        {
-            response = invalidRequestProblem(
-                path,
-                "If-Match is not a valid entity-tag condition.",
-                requestId,
-                correlationId);
-            return true;
-        }
-        if (condition !=
-            vdrsuite::http::PublicEntityTagConditionResult::matched)
-        {
-            response = revisionConflictProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
         if (!validIdempotencyKey(idempotencyKey))
         {
             response = invalidRequestProblem(
@@ -1006,13 +969,170 @@ bool PublicApiRuntime::tryHandlePost(
             return true;
         }
 
+        PublicTimerCreateReplayRequest replayRequest;
+        replayRequest.timerAssignmentId = timerAssignmentId;
+        replayRequest.backendId = authorizedBackendId;
+        replayRequest.actorRef = actorRef;
+        replayRequest.idempotencyKey = idempotencyKey;
+        replayRequest.specification = parsed.specification;
+
+        const PublicTimerCreateReplayResult replay =
+            lookupTimerCreateReplay(replayRequest);
+        if (replay.status ==
+            PublicTimerCreateReplayStatus::idempotencyConflict)
+        {
+            response = conflictProblem(
+                path,
+                "idempotency_conflict",
+                "The Idempotency-Key is already bound to a different request.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (replay.status ==
+            PublicTimerCreateReplayStatus::invalid)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Timer CREATE replay scope is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (replay.status ==
+            PublicTimerCreateReplayStatus::unavailable)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedRevision;
+        if (replay.status == PublicTimerCreateReplayStatus::matched)
+        {
+            expectedRevision = replay.expectedResourceRevision;
+            const std::string originalEntityTag =
+                vdrsuite::http::publicStrongEntityTag(
+                    expectedRevision);
+            if (originalEntityTag.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            const auto replayCondition =
+                vdrsuite::http::publicEvaluateIfMatch(
+                    ifMatch,
+                    originalEntityTag);
+            if (replayCondition ==
+                vdrsuite::http::PublicEntityTagConditionResult::malformed)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "If-Match is not a valid entity-tag condition.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            if (replayCondition !=
+                vdrsuite::http::PublicEntityTagConditionResult::matched)
+            {
+                response = conflictProblem(
+                    path,
+                    "idempotency_conflict",
+                    "The Idempotency-Key is bound to a different precondition.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+        else
+        {
+            const PublicTimerAssignmentLookupResult found =
+                lookupTimerAssignment(
+                    timerAssignmentId,
+                    authorizedBackendId);
+            if (found.status ==
+                PublicTimerAssignmentLookupStatus::invalid)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            if (found.status ==
+                PublicTimerAssignmentLookupStatus::notFound)
+            {
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            if (found.status !=
+                    PublicTimerAssignmentLookupStatus::ok ||
+                found.assignment.timerAssignmentId != timerAssignmentId ||
+                found.assignment.backendId != authorizedBackendId ||
+                found.assignment.resourceRevision.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            const std::string entityTag =
+                vdrsuite::http::publicStrongEntityTag(
+                    found.assignment.resourceRevision);
+            if (entityTag.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            const auto condition =
+                vdrsuite::http::publicEvaluateIfMatch(
+                    ifMatch,
+                    entityTag);
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::malformed)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "If-Match is not a valid entity-tag condition.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            if (condition !=
+                vdrsuite::http::PublicEntityTagConditionResult::matched)
+            {
+                response = revisionConflictProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+            expectedRevision =
+                found.assignment.resourceRevision;
+        }
+
         PublicTimerCreateSubmissionRequest submission;
         submission.timerAssignmentId = timerAssignmentId;
         submission.backendId = authorizedBackendId;
         submission.actorRef = actorRef;
         submission.idempotencyKey = idempotencyKey;
-        submission.expectedResourceRevision =
-            found.assignment.resourceRevision;
+        submission.expectedResourceRevision = expectedRevision;
         submission.specification = parsed.specification;
         submission.requestId = requestId;
         submission.correlationId = correlationId;
@@ -1024,8 +1144,7 @@ bool PublicApiRuntime::tryHandlePost(
             case PublicTimerCreateSubmissionStatus::accepted:
                 if (submitted.operation.operationId.empty() ||
                     submitted.operation.state.empty() ||
-                    submitted.operation.backendId !=
-                        authorizedBackendId ||
+                    submitted.operation.backendId != authorizedBackendId ||
                     submitted.operation.resourceRevision.empty())
                 {
                     response = serviceUnavailableProblem(
@@ -1081,17 +1200,45 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
 
             case PublicTimerCreateSubmissionStatus::stateConflict:
-            case PublicTimerCreateSubmissionStatus::generationConflict:
                 response = conflictProblem(
                     path,
-                    "state_conflict",
+                    "operation_conflict",
                     "The TimerAssignment can no longer accept this CREATE.",
                     requestId,
                     correlationId);
                 return true;
 
+            case PublicTimerCreateSubmissionStatus::generationConflict:
+                response = conflictProblem(
+                    path,
+                    "generation_conflict",
+                    "The backend generation changed before Timer CREATE dispatch.",
+                    requestId,
+                    correlationId);
+                return true;
+
             case PublicTimerCreateSubmissionStatus::backendUnavailable:
+                response = problemResponse(
+                    503,
+                    "backend_unavailable",
+                    "Backend unavailable",
+                    "The backend or Agent cannot currently accept Timer CREATE.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
             case PublicTimerCreateSubmissionStatus::capabilityUnavailable:
+                response = problemResponse(
+                    503,
+                    "capability_unavailable",
+                    "Capability unavailable",
+                    "The required native Timer CREATE capability is unavailable.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
             case PublicTimerCreateSubmissionStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path,
