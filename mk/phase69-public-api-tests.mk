@@ -102,3 +102,35 @@ test-phase69-public-timer-create-submission:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_timer_create_security
 	$(BUILD_DIR)/test_public_timer_create_security
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+		core/agent/src/BackendAgentCommandReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
+		core/daemon/src/DaemonTimerCreateSubmissionService.cpp \
+		core/daemon/tests/test_daemon_timer_create_submission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_daemon_timer_create_submission_service
+	$(BUILD_DIR)/test_daemon_timer_create_submission_service
