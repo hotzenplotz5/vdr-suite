@@ -97,16 +97,18 @@ This slice does **not** yet add:
 - `Idempotency-Key` request handling;
 - any pre-v1 route change.
 
+## Accepted checkpoint
+
+This read-facade/runtime-composition slice was accepted in PR #322:
+
+```text
+merge=377f59e7b2d8e5ec3c7cbf22522c3c1789fd9849
+CI=35876551406 / #9094 / SUCCESS (6/6)
+```
+
 ## Next bounded slice
 
-The next 69.C slice may bind this read service into PublicApiRuntime and expose
-the first read-only operation resource. That route must:
-
-- use the authenticated actor reference;
-- expose only a reviewed public representation;
-- derive its ETag from `operationRevision` using the shared 69.C precondition
-  contract;
-- return 304 for a matching `If-None-Match`;
-- preserve existence hiding across actors;
-- keep internal payloads, request fingerprints and result references private
-  unless separately reviewed for public exposure.
+The next 69.C slice is [Public Operation Resource](phase-69c-public-operation-resource.md).
+It binds this read service into `PublicApiRuntime` and exposes the first
+read-only durable operation item with authenticated ownership, opaque ETag and
+conditional GET semantics.
