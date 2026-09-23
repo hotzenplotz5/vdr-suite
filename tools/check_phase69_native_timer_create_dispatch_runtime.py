@@ -120,67 +120,23 @@ if not (0 <= dispatch_reset < operation_reset):
     raise SystemExit(
         "CREATE dispatch service must stop before MutationOperationRepository")
 
-for label in ["public_h", "public_cpp"]:
-    for forbidden in [
-        "BackendAgentNativeTimerCreateReservationService",
-        "NativeTimerCreateDispatchService",
-        "BackendAgentNativeTimerCreateActivationService",
-        "Idempotency-Key",
-        "timers.create",
-        "timer.create",
-    ]:
-        if forbidden in contents[label]:
-            raise SystemExit(
-                f"CREATE dispatch composition opened public mutation semantics in {label}: {forbidden}")
-
-for forbidden in [
-    "BackendAgentNativeTimerCreateReservationService",
-    "NativeTimerCreateDispatchService",
-    "BackendAgentNativeTimerCreateActivationService",
-    "Idempotency-Key",
+# The public mutation successor may now invoke the accepted durable chain.
+# This guard continues to own the exact repository/service composition and
+# delegates admission/idempotency/no-fallback rules to the focused successor.
+successor_guard = ROOT / "tools/check_phase69_public_timer_create_submission.py"
+if not successor_guard.is_file():
+    raise SystemExit("public Timer CREATE successor guard is missing")
+successor = successor_guard.read_text(encoding="utf-8")
+for marker in [
+    "reservationService_.reserve(",
+    "dispatchService_.claimAfterReservation(",
+    "activationService_.activateDispatching(",
+    "Timer CREATE orchestration must remain prepare -> reserve -> claim -> activate",
 ]:
-    if forbidden in contents["security"]:
+    if marker not in successor:
         raise SystemExit(
-            f"CREATE dispatch composition opened public mutation service/header semantics in security: {forbidden}")
-
-for required_read_only_marker in [
-    'const bool isPublicTimerAssignmentRead =',
-    'request.method == "GET" &&',
-    'isPublicV1ReadOnlyMethodMismatch =',
-    'isPublicTimerAssignmentResource);',
-]:
-    if required_read_only_marker not in contents["security"]:
-        raise SystemExit(
-            "public TimerAssignment security boundary is no longer read-only: "
-            + required_read_only_marker)
-
-# Composition only: no runtime orchestration call is allowed yet. The method
-# names occur in their accepted domain implementations, so scan only API,
-# daemon, HTTP and security integration surfaces.
-for scan_root in [
-    ROOT / "api",
-    ROOT / "core" / "daemon",
-    ROOT / "core" / "http",
-    ROOT / "core" / "security",
-]:
-    if not scan_root.exists():
-        continue
-    for path in scan_root.rglob("*"):
-        if not path.is_file() or path.suffix not in {
-            ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc"
-        }:
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        for forbidden_call in [
-            "nativeTimerCreateOperationPreparationService_->prepare(",
-            "backendAgentNativeTimerCreateReservationService_->reserve(",
-            "nativeTimerCreateDispatchService_->claimAfterReservation(",
-            "backendAgentNativeTimerCreateActivationService_->activateDispatching(",
-        ]:
-            if forbidden_call in text:
-                raise SystemExit(
-                    "CREATE dispatch runtime must remain dormant in this slice: "
-                    + str(path.relative_to(ROOT)) + " -> " + forbidden_call)
+            "public Timer CREATE successor guard missing dispatch marker: "
+            + marker)
 
 print("Phase-69.C native Timer CREATE dispatch runtime composition check passed")
-print("Boundary: durable reservation/dispatch/activation owners composed; no public or native invocation")
+print("Boundary: durable reservation/dispatch/activation owners remain singular; invocation owned by guarded public successor")
