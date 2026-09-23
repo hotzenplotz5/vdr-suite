@@ -161,10 +161,7 @@ int main()
         capabilities));
     assert(capabilities.statusCode == 200);
     assert(capabilities.body.find(
-        "\"id\":\"public-api.timer-assignments-read\"") !=
-        std::string::npos);
-    assert(capabilities.body.find(
-        "\"availability\":\"available\"") !=
+        "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
     ApiResponse postMismatch;
