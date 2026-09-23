@@ -342,15 +342,23 @@ public:
         const std::string& actorRef = "",
         const std::string& clientRef = "",
         const std::string& correlationRef = "",
-        const std::string& requestRef = "")
+        const std::string& requestRef = "",
+        const std::string& idempotencyKey = "",
+        const std::string& ifMatch = "",
+        const std::string& authorizedBackendRef = "")
     {
         ApiResponse response;
 
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,
+                body,
+                actorRef,
                 requestRef,
                 correlationRef,
-                response))
+                response,
+                idempotencyKey,
+                ifMatch,
+                authorizedBackendRef))
         {
             return response;
         }
