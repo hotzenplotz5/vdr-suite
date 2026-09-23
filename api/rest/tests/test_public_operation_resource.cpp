@@ -247,15 +247,26 @@ int main()
     assert(post.statusCode == 405);
     assert(post.headers.at("Allow") == "GET");
 
-    ApiResponse deleteResponse;
-    assert(runtime.tryHandleUnsupportedMethod(
-        "DELETE",
-        "/api/v1/operations/op-1",
-        requestId,
-        "",
-        deleteResponse));
-    assert(deleteResponse.statusCode == 405);
-    assert(deleteResponse.headers.at("Allow") == "GET");
+    for (const std::string& method :
+         {std::string("PUT"),
+          std::string("PATCH"),
+          std::string("DELETE"),
+          std::string("HEAD"),
+          std::string("OPTIONS")})
+    {
+        ApiResponse methodMismatch;
+        assert(runtime.tryHandleUnsupportedMethod(
+            method,
+            "/api/v1/operations/op-1",
+            requestId,
+            "",
+            methodMismatch));
+        assert(methodMismatch.statusCode == 405);
+        assert(methodMismatch.headers.at("Allow") == "GET");
+        assert(methodMismatch.body.find(
+            "\"code\":\"method_not_allowed\"") !=
+            std::string::npos);
+    }
 
     ApiResponse nested;
     assert(runtime.tryHandleGet(
