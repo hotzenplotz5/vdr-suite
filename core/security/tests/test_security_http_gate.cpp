@@ -19,6 +19,18 @@ HttpServerRequest getRequest()
     return request;
 }
 
+HttpServerRequest publicV1GetRequest()
+{
+    HttpServerRequest request;
+    request.method = "GET";
+    request.path = "/api/v1";
+    request.headers["X-Request-ID"] =
+        "phase69b-public-security-request";
+    request.headers["X-Correlation-ID"] =
+        "phase69b-public-security-correlation";
+    return request;
+}
+
 SecurityConfiguration enforcedConfiguration()
 {
     SecurityConfiguration configuration;
@@ -54,6 +66,33 @@ int main()
     assert(anonymous.rejection.headers.find(
         "WWW-Authenticate") ==
         anonymous.rejection.headers.end());
+
+    const SecurityGateDecision publicAnonymous =
+        fixture.gate.evaluate(publicV1GetRequest());
+    assert(!publicAnonymous.allowed);
+    assert(publicAnonymous.publicApiV1);
+    assert(publicAnonymous.rejection.statusCode == 401);
+    assert(publicAnonymous.rejection.headers.at("Content-Type") ==
+        "application/problem+json");
+    assert(publicAnonymous.rejection.headers.at("X-Request-ID") ==
+        "phase69b-public-security-request");
+    assert(publicAnonymous.rejection.headers.at("X-Correlation-ID") ==
+        "phase69b-public-security-correlation");
+    assert(publicAnonymous.rejection.body.find(
+        "\"type\":\"urn:vdr-suite:error:authentication-required\"") !=
+        std::string::npos);
+    assert(publicAnonymous.rejection.body.find(
+        "\"status\":401") !=
+        std::string::npos);
+    assert(publicAnonymous.rejection.body.find(
+        "\"code\":\"authentication_required\"") !=
+        std::string::npos);
+    assert(publicAnonymous.rejection.body.find(
+        "\"requestId\":\"phase69b-public-security-request\"") !=
+        std::string::npos);
+    assert(publicAnonymous.rejection.body.find(
+        "\"correlationId\":\"phase69b-public-security-correlation\"") !=
+        std::string::npos);
 
     HttpServerRequest legacyGet = getRequest();
     fixture.addLegacyAuthentication(legacyGet);
@@ -91,6 +130,24 @@ int main()
     assert(invalidBrowserDecision.rejection.headers.find(
         "WWW-Authenticate") ==
         invalidBrowserDecision.rejection.headers.end());
+
+    HttpServerRequest invalidPublicBrowser =
+        publicV1GetRequest();
+    invalidPublicBrowser.headers["Cookie"] =
+        "vdr_suite_session=" + fixture.tokenId +
+        ".invalid-session-secret";
+
+    const SecurityGateDecision invalidPublicBrowserDecision =
+        fixture.gate.evaluate(invalidPublicBrowser);
+    assert(!invalidPublicBrowserDecision.allowed);
+    assert(invalidPublicBrowserDecision.publicApiV1);
+    assert(invalidPublicBrowserDecision.browserSessionPresented);
+    assert(invalidPublicBrowserDecision.rejection.statusCode == 401);
+    assert(invalidPublicBrowserDecision.rejection.headers.at("Content-Type") ==
+        "application/problem+json");
+    assert(invalidPublicBrowserDecision.rejection.body.find(
+        "\"code\":\"invalid_credentials\"") !=
+        std::string::npos);
 
     Database closedGrantDatabase;
     SecurityPermissionGrantRepository unavailableGrants(
@@ -295,9 +352,15 @@ int main()
     const SecurityGateDecision unknownPublicPostDecision =
         fixture.gate.evaluate(unknownPublicPost);
     assert(!unknownPublicPostDecision.allowed);
+    assert(unknownPublicPostDecision.publicApiV1);
     assert(unknownPublicPostDecision.rejection.statusCode == 503);
+    assert(unknownPublicPostDecision.rejection.headers.at("Content-Type") ==
+        "application/problem+json");
     assert(unknownPublicPostDecision.rejection.body.find(
-        "security_policy_not_migrated") !=
+        "\"type\":\"urn:vdr-suite:error:security-policy-not-migrated\"") !=
+        std::string::npos);
+    assert(unknownPublicPostDecision.rejection.body.find(
+        "\"code\":\"security_policy_not_migrated\"") !=
         std::string::npos);
 
     HttpServerRequest unmigrated =
@@ -311,9 +374,15 @@ int main()
     const SecurityGateDecision unmigratedBrowser =
         fixture.gate.evaluate(unmigrated);
     assert(!unmigratedBrowser.allowed);
+    assert(!unmigratedBrowser.publicApiV1);
     assert(unmigratedBrowser.rejection.statusCode == 503);
+    assert(unmigratedBrowser.rejection.headers.at("Content-Type") ==
+        "application/json");
     assert(unmigratedBrowser.rejection.body.find(
         "security_policy_not_migrated") !=
+        std::string::npos);
+    assert(unmigratedBrowser.rejection.body.find(
+        "\"error\":{") !=
         std::string::npos);
 
     HttpServerRequest legacyUnmigrated =

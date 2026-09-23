@@ -26,6 +26,7 @@ struct SecurityGateDecision
     bool protectedMutation = false;
     bool browserSessionPresented = false;
     bool browserAuthenticated = false;
+    bool publicApiV1 = false;
     AuthorizationDecision authorizationDecision;
     std::string operationId;
     RequestSecurityContext context;
@@ -61,6 +62,10 @@ public:
     SecurityGateDecision evaluate(const HttpServerRequest& request) const
     {
         SecurityGateDecision gate;
+        const std::string path = requestPath(request.path);
+        gate.publicApiV1 =
+            path == "/api/v1" ||
+            path.rfind("/api/v1/", 0) == 0;
         AuthenticationResult authentication = authenticate(request);
         gate.browserSessionPresented = authentication.browserSessionPresented;
         gate.browserAuthenticated = authentication.browserAuthenticated;
@@ -97,7 +102,6 @@ public:
         }
 
         const bool isPost = request.method == "POST";
-        const std::string path = requestPath(request.path);
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -1305,11 +1309,18 @@ private:
                 503,
                 "accountability_unavailable",
                 "Security accountability persistence is unavailable",
-                gate.context);
+                gate.context,
+                false,
+                gate.publicApiV1);
             return gate;
         }
         gate.rejection = errorResponse(
-            statusCode, decision.reasonCode, message, gate.context, advertiseBasic);
+            statusCode,
+            decision.reasonCode,
+            message,
+            gate.context,
+            advertiseBasic,
+            gate.publicApiV1);
         return gate;
     }
 
@@ -1318,18 +1329,62 @@ private:
         const std::string& code,
         const std::string& message,
         const RequestSecurityContext& context,
-        bool advertiseBasic = false) const
+        bool advertiseBasic = false,
+        bool publicApiV1 = false) const
     {
         HttpServerResponse response;
         response.statusCode = statusCode;
-        response.headers["Content-Type"] = "application/json";
+        response.headers["Content-Type"] = publicApiV1
+            ? "application/problem+json"
+            : "application/json";
         response.headers["Cache-Control"] = "no-store";
         if (advertiseBasic)
             response.headers["WWW-Authenticate"] = "Basic realm=\"VDR-Suite\", charset=\"UTF-8\"";
-        response.body =
-            "{\"error\":{\"code\":\"" + jsonEscape(code) +
-            "\",\"message\":\"" + jsonEscape(message) +
-            "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"}}";
+
+        if (publicApiV1)
+        {
+            std::string typeCode = code;
+            std::replace(
+                typeCode.begin(),
+                typeCode.end(),
+                '_',
+                '-');
+
+            std::string title = "Request failed";
+            if (statusCode == 400) title = "Invalid request";
+            else if (statusCode == 401) title = "Authentication required";
+            else if (statusCode == 403) title = "Request forbidden";
+            else if (statusCode == 404) title = "Resource not found";
+            else if (statusCode == 409) title = "Conflict";
+            else if (statusCode == 412) title = "Precondition failed";
+            else if (statusCode == 429) title = "Rate limit exceeded";
+            else if (statusCode == 503) title = "Service unavailable";
+
+            response.body =
+                "{\"type\":\"urn:vdr-suite:error:" + jsonEscape(typeCode) +
+                "\",\"title\":\"" + jsonEscape(title) +
+                "\",\"status\":" + std::to_string(statusCode) +
+                ",\"detail\":\"" + jsonEscape(message) +
+                "\",\"code\":\"" + jsonEscape(code) +
+                "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"";
+
+            if (!context.correlationId.empty())
+            {
+                response.body +=
+                    ",\"correlationId\":\"" +
+                    jsonEscape(context.correlationId) + "\"";
+            }
+
+            response.body += "}";
+        }
+        else
+        {
+            response.body =
+                "{\"error\":{\"code\":\"" + jsonEscape(code) +
+                "\",\"message\":\"" + jsonEscape(message) +
+                "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"}}";
+        }
+
         decorateResponse(context, response);
         return response;
     }
