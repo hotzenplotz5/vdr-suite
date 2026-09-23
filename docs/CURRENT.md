@@ -11,6 +11,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
+- [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -64,7 +65,7 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.B - Common request/response metadata and errors
+69.C - Revision/precondition/idempotency exposure
 
 Accepted Phase-69.A checkpoints:
 PR #314 -> d34058220653496a35fb7e1c073cc6981f4c72db
@@ -78,6 +79,9 @@ PR #317 -> 5ff36d635072c63e1c46ccb377c830ec99988108
 PR #317 hosted CI run 35846333459 / #9083: SUCCESS (6/6)
 PR #318 -> e9d59b87349d7e1be9356efc5cd656f41e11ea12
 PR #318 hosted CI run 35861961215 / #9085: SUCCESS (6/6)
+PR #319 -> 0248db3d63626a87d391f7649a984adc97b45232
+PR #319 hosted CI run 35863518112 / #9087: SUCCESS (6/6)
+69.B=COMPLETED
 
 Latest accepted Phase-68 transport merge checkpoint:
 PR #309 -> ed2f451d824e43c4264dee6caf8ae49dbeb71a88
@@ -238,7 +242,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active with 69.A Public resource and route inventory; Phase 70 recommendation work remains later.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.C Revision/precondition/idempotency exposure; 69.A and 69.B are accepted. Phase 70 recommendation work remains later.
 
 ## Historical evidence rule
 
