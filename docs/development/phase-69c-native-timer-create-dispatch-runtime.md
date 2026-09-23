@@ -154,6 +154,19 @@ The dispatch-state service is destroyed before the MutationOperation repository.
 This preserves dependency lifetime while leaving the existing generic
 `BackendAgentCommandRepository` lifecycle unchanged.
 
+## Phase-64 reservation guard evolution
+
+The original Phase-64 command-reservation guard intentionally rejected
+`BackendAgentCommandReservation.cpp` from every productive runtime manifest.
+
+Phase 69.C opens only `mk/daemon-sources.mk`, and only when the dedicated
+Phase-69 successor guard is present and pins the dormant composition boundary.
+`mk/agent-sources.mk` and `mk/backend-agent-runtime.mk` remain forbidden so
+the Agent/client side cannot acquire a second reservation authority.
+
+This preserves the original crash-safety and ownership rule while allowing the
+Control Plane to prepare the already accepted future CREATE handoff.
+
 ## Phase-69 architecture guard
 
 The focused guard proves:
