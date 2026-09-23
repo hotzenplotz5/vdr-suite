@@ -143,7 +143,17 @@ int main()
     assert(first.assignment.assignmentEpoch == 1);
     assert(first.assignment.decisionPolicyVersion ==
         timerAssignmentPlanningPolicyVersion());
+    assert(first.assignment.desiredNativeTimerSpecificationPresent);
+    assert(first.assignment.desiredNativeTimerSpecification.channelId
+        == "S19.2E-1-1019-10301");
     assert(first.assignment.nativeTimerBindingId.empty());
+
+    const auto durableFirst =
+        assignmentRepository.findById("assignment:first");
+    assert(durableFirst.ok());
+    assert(durableFirst.assignment.desiredNativeTimerSpecificationPresent);
+    assert(durableFirst.assignment.desiredNativeTimerSpecification.title
+        == "Scheduled");
 
     const auto replay = service.schedulePrimary(firstRequest);
     assert(replay.status ==
