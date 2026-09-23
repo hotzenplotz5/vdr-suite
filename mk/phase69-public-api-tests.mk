@@ -59,3 +59,20 @@ test-phase69-timer-assignment-runtime-composition:
 		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
 	$(BUILD_DIR)/test_public_timer_assignment_lookup
 	python3 tools/check_phase69_timer_assignment_runtime_composition.py
+
+.PHONY: test-phase69-public-timer-assignment-resource
+
+test-phase69-public-timer-assignment-resource:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_timer_assignment_resource.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_resource
+	$(BUILD_DIR)/test_public_timer_assignment_resource
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_assignment_read_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_assignment_read_security
+	$(BUILD_DIR)/test_public_timer_assignment_read_security
+	python3 tools/check_phase69_public_timer_assignment_resource.py
