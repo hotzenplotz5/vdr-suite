@@ -57,6 +57,8 @@
 #include "MetadataRepository.h"
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
+#include "TimerAssignmentReadService.h"
+#include "TimerAssignmentRepository.h"
 #include "PollingService.h"
 #include "PersonSearchService.h"
 #include "PersonResolutionJsonSerializer.h"
@@ -191,6 +193,10 @@ private:
         mutationOperationRepository_;
     std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
         mutationOperationReadService_;
+    std::unique_ptr<vdrsuite::timers::TimerAssignmentRepository>
+        timerAssignmentRepository_;
+    std::unique_ptr<vdrsuite::timers::TimerAssignmentReadService>
+        timerAssignmentReadService_;
 
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
