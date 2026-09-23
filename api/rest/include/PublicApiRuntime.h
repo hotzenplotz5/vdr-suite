@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "PublicTimerCreateRequestParser.h"
 
 #include <functional>
 #include <mutex>
@@ -51,6 +52,39 @@ struct PublicTimerAssignmentLookupResult
     PublicTimerAssignmentRevisionResource assignment;
 };
 
+enum class PublicTimerCreateSubmissionStatus
+{
+    accepted,
+    invalid,
+    notFound,
+    revisionConflict,
+    idempotencyConflict,
+    stateConflict,
+    generationConflict,
+    backendUnavailable,
+    capabilityUnavailable,
+    unavailable,
+};
+
+struct PublicTimerCreateSubmissionRequest
+{
+    std::string timerAssignmentId;
+    std::string backendId;
+    std::string actorRef;
+    std::string idempotencyKey;
+    std::string expectedResourceRevision;
+    PublicTimerCreateSpecification specification;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicTimerCreateSubmissionResult
+{
+    PublicTimerCreateSubmissionStatus status =
+        PublicTimerCreateSubmissionStatus::unavailable;
+    PublicOperationResource operation;
+};
+
 class PublicApiRuntime
 {
 public:
@@ -63,6 +97,10 @@ public:
         std::function<PublicTimerAssignmentLookupResult(
             const std::string& timerAssignmentId,
             const std::string& backendId)>;
+
+    using TimerCreateSubmission =
+        std::function<PublicTimerCreateSubmissionResult(
+            const PublicTimerCreateSubmissionRequest& request)>;
 
     static PublicApiRuntime& instance();
 
@@ -77,6 +115,10 @@ public:
         const std::string& timerAssignmentId,
         const std::string& backendId) const;
 
+    void registerTimerCreateSubmission(TimerCreateSubmission submission);
+    void resetTimerCreateSubmission();
+    bool timerCreateSubmissionConfigured() const;
+
     bool tryHandleGet(
         const std::string& requestTarget,
         const std::string& actorRef,
@@ -88,9 +130,14 @@ public:
 
     bool tryHandlePost(
         const std::string& requestTarget,
+        const std::string& body,
+        const std::string& actorRef,
         const std::string& requestId,
         const std::string& correlationId,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& idempotencyKey = "",
+        const std::string& ifMatch = "",
+        const std::string& authorizedBackendId = "") const;
 
     bool tryHandleUnsupportedMethod(
         const std::string& method,
@@ -106,9 +153,15 @@ private:
         const std::string& operationId,
         const std::string& actorRef) const;
 
+    PublicTimerCreateSubmissionResult submitTimerCreate(
+        const PublicTimerCreateSubmissionRequest& request) const;
+
     mutable std::mutex operationLookupMutex_;
     OperationLookup operationLookup_;
 
     mutable std::mutex timerAssignmentLookupMutex_;
     TimerAssignmentLookup timerAssignmentLookup_;
+
+    mutable std::mutex timerCreateSubmissionMutex_;
+    TimerCreateSubmission timerCreateSubmission_;
 };
