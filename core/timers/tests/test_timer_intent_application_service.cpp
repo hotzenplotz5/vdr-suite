@@ -114,6 +114,9 @@ int main()
     assert(replay.status == TimerIntentApplicationStatus::alreadyProvisioning);
     assert(replay.assignment.timerAssignmentId ==
         first.assignment.timerAssignmentId);
+    assert(replay.assignment.desiredNativeTimerSpecificationPresent);
+    assert(replay.assignment.desiredNativeTimerSpecification.channelId
+        == first.assignment.desiredNativeTimerSpecification.channelId);
 
     auto changed = request();
     changed.intent.spec.schedule.stopAt = 2100;
