@@ -1,6 +1,5 @@
 #include "NativeTimerSpecification.h"
 
-#include <cctype>
 #include <cstddef>
 #include <string>
 
@@ -8,42 +7,6 @@ namespace vdrsuite::timers
 {
 namespace
 {
-
-constexpr std::size_t kMaxIdentityLength = 160;
-constexpr std::size_t kMaxTextLength = 1024;
-
-bool bounded(const std::string& value, std::size_t maximum)
-{
-    return value.size() <= maximum;
-}
-
-bool nonEmptyBounded(const std::string& value, std::size_t maximum)
-{
-    return !value.empty() && bounded(value, maximum);
-}
-
-bool validWeekdays(const std::string& value)
-{
-    if (value.size() != 7) return false;
-    for (const unsigned char ch : value)
-    {
-        if (ch != '-' && !std::isalpha(ch)) return false;
-    }
-    return true;
-}
-
-bool validHhmm(const std::string& value)
-{
-    if (value.empty() || value.size() > 4) return false;
-    for (const unsigned char ch : value)
-        if (!std::isdigit(ch)) return false;
-
-    std::string normalized(4 - value.size(), '0');
-    normalized += value;
-    const int hour = (normalized[0] - '0') * 10 + normalized[1] - '0';
-    const int minute = (normalized[2] - '0') * 10 + normalized[3] - '0';
-    return hour <= 23 && minute <= 59;
-}
 
 std::string normalizedHhmm(const std::string& value)
 {
@@ -68,22 +31,6 @@ void append(std::string& output, bool value)
     append(output, std::string(value ? "1" : "0"));
 }
 
-}
-
-bool nativeTimerSpecificationValid(
-    const NativeTimerSpecification& specification)
-{
-    return nonEmptyBounded(specification.channelId, kMaxIdentityLength)
-        && bounded(specification.title, kMaxTextLength)
-        && bounded(specification.directory, kMaxTextLength)
-        && bounded(specification.day, kMaxIdentityLength)
-        && validWeekdays(specification.weekdays)
-        && validHhmm(specification.startTime)
-        && validHhmm(specification.endTime)
-        && specification.priority >= 0
-        && specification.priority <= 99
-        && specification.lifetime >= 0
-        && specification.lifetime <= 99;
 }
 
 std::string nativeTimerSpecificationFingerprint(
