@@ -55,6 +55,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    PublicApiRuntime::instance().resetTimerCreateSubmission();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();
@@ -140,6 +141,7 @@ void DaemonRuntime::shutdown()
     capabilitySet_.reset();
     backendRegistryController_.reset();
     backendRegistryJsonSerializer_.reset();
+    daemonTimerCreateSubmissionService_.reset();
     backendAgentNativeTimerCreateActivationService_.reset();
     backendAgentNativeTimerCreateReservationService_.reset();
     backendAgentCommandReservationRepository_.reset();
