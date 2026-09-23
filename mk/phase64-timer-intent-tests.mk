@@ -59,6 +59,7 @@ test-phase64-timer-assignment-repository: test-phase64-timer-assignment-reposito
 		$(SQLITE_SRC) \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/tests/test_timer_assignment_repository.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_timer_assignment_repository
@@ -69,6 +70,7 @@ test-phase64-timer-assignment-set-revision: test-phase64-timer-assignment-set-re
 		$(SQLITE_SRC) \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
 		core/timers/tests/test_timer_assignment_set_revision_repository.cpp \
 		$(LDFLAGS) \
@@ -101,6 +103,7 @@ test-phase64-timer-assignment-scheduling: test-phase64-timer-assignment-scheduli
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
 		core/timers/src/TimerAssignmentPlanner.cpp \
 		core/timers/src/TimerAssignmentSchedulingService.cpp \
@@ -116,6 +119,7 @@ test-phase64-timer-assignment-replica-scheduling: test-phase64-timer-assignment-
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+\t\tcore/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
 		core/timers/src/TimerAssignmentPlanner.cpp \
 		core/timers/src/TimerAssignmentSchedulingService.cpp \
