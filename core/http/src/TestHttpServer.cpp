@@ -354,7 +354,9 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiRouter_.handleClientGet(
                 request.path,
                 gate.context.actor.actorId,
-                hbbtvClientContext(gate.context));
+                hbbtvClientContext(gate.context),
+                gate.context.requestId,
+                gate.context.correlationId);
     }
     else if (request.method == "POST")
     {
@@ -364,7 +366,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                 request.body,
                 gate.context.actor.actorId,
                 hbbtvClientContext(gate.context),
-                gate.context.correlationId);
+                gate.context.correlationId,
+                gate.context.requestId);
     }
     else
     {
