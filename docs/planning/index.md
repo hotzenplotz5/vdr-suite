@@ -43,13 +43,14 @@ Current completed/active/next state belongs only in [Current State](../CURRENT.m
 
 Phase 66 is completed, including its Golden Home journeys. Later non-numbered Home rebuild/hardening is also complete for the merged accepted scope and is recorded in [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-The completed numbered planning boundary is Phase 68; Phase 69 is next but not started:
+The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.A Public resource and route inventory:
 
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md) — completed Legacy OSD compatibility architecture;
 - [Phase 68 Closeout](../development/phase-68-closeout.md) — accepted 68.A-G runtime evidence;
-- [Golden User Journeys](golden-user-journeys.md) — Journey 10 accepted.
+- [Golden User Journeys](golden-user-journeys.md) — Journey 10 accepted;
+- [Phase 69 Kickoff](../development/phase-69-public-api-kickoff.md) — active 69.A route/resource inventory and guard.
 
-Before Phase-69 runtime starts, re-read live `main`, CURRENT, the Strict Roadmap and ADR-0048.
+For Phase-69 work, re-read live `main`, CURRENT, the Strict Roadmap, the Phase-69 kickoff and ADR-0048 before repository changes.
 
 ## Planning cautions
 

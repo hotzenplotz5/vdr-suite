@@ -21,9 +21,11 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 
-Current active numbered runtime phase: **none - Phase 69 - Public API and Client Compatibility Hardening not started**.
+Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
 Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
+
+Current active runtime slice: **69.A - Public resource and route inventory**. The kickoff inventory and guard are documented in [Phase 69.A Public API Route Inventory Kickoff](phase-69-public-api-kickoff.md).
 
 Accepted Phase-68 slices include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport, 68.D authorized bounded view sessions, 68.E bounded viewer bindings/multi-viewer delivery, 68.F exclusive controller leasing and 68.G allowlisted native OSD input**.
 

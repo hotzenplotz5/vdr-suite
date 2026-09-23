@@ -59,6 +59,7 @@ test-architecture:
 .PHONY: test-phase
 test-phase:
 	python3 tools/check_phase_consistency.py
+	python3 tools/check_phase69_public_api_inventory.py
 
 
 .PHONY: test-capability-report-service

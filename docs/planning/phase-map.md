@@ -30,7 +30,7 @@ Latest completed numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-None - Phase 68 is completed; Phase 69 has not started
+Phase 69 - Public API and Client Compatibility Hardening
 
 Next strict numbered runtime phase:
 Phase 69 - Public API and Client Compatibility Hardening
@@ -50,7 +50,7 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Completed | Broadcast Companion Services: Teletext and HbbTV | Teletext and HbbTV Journeys 8/9 accepted. |
 | 5 | Phase 68 | Completed | Legacy OSD Compatibility Bridge | 68.A-G accepted through fenced allowlisted native OSD input; Golden Journey 10 accepted. |
-| 6 | Phase 69 | Planned after Phase 68 | Public API and Client Compatibility Hardening | Stable `/api/v1` and independent-client contracts. |
+| 6 | Phase 69 | Active — 69.A | Public API and Client Compatibility Hardening | Public route/resource inventory, then stable `/api/v1` and independent-client contracts. |
 | 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
 
 ## Phase 64 compact boundary
