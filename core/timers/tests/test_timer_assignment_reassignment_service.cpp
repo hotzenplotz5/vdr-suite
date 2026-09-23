@@ -259,6 +259,9 @@ int main()
         == TimerAssignmentRole::replacement);
     assert(replaced.replacementAssignment.state == TimerAssignmentState::selected);
     assert(replaced.replacementAssignment.backendId == "backend:beta");
+    assert(replaced.replacementAssignment.desiredNativeTimerSpecificationPresent);
+    assert(replaced.replacementAssignment.desiredNativeTimerSpecification.channelId
+        == "native:backend:beta");
     assert(replaced.replacementAssignment.assignmentEpoch == 2);
     assert(replaced.evidence.oldAssignmentEpoch == 1);
     assert(replaced.evidence.newAssignmentEpoch == 2);
