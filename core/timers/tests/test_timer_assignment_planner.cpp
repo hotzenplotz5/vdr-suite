@@ -170,6 +170,35 @@ int main()
         assert(first.candidates[0].backendId == "backend:a");
         assert(first.candidates[1].backendId == "backend:b");
         assert(first.decisionEvidence.decisionScore == -32);
+        assert(first.selectedNativeTimerSpecificationPresent);
+        assert(first.selectedNativeTimerSpecification.channelId
+            == "S19.2E-1-1011-11100");
+    }
+
+    {
+        TimerAssignmentPlanningRequest request;
+        request.intent = makeIntent();
+        auto missing = makeCandidate("backend:a");
+        missing.desiredNativeTimerSpecificationPresent = false;
+        request.candidates = {missing};
+        const auto decision = planTimerAssignment(request);
+        assertUnassigned(decision, "no_eligible_backend");
+        assert(containsFragment(
+            decision.decisionEvidence.exclusions,
+            "native_timer_specification_missing"));
+    }
+
+    {
+        TimerAssignmentPlanningRequest request;
+        request.intent = makeIntent();
+        auto mismatch = makeCandidate("backend:a");
+        mismatch.desiredNativeTimerSpecification.channelId = "C-9-9-9";
+        request.candidates = {mismatch};
+        const auto decision = planTimerAssignment(request);
+        assertUnassigned(decision, "no_eligible_backend");
+        assert(containsFragment(
+            decision.decisionEvidence.exclusions,
+            "native_timer_specification_channel_mismatch"));
     }
 
     {
