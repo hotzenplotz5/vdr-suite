@@ -31,6 +31,16 @@ DaemonTimerCreateSubmissionResult result(
     return value;
 }
 
+DaemonTimerCreateReplayResult replayResult(
+    DaemonTimerCreateReplayStatus status,
+    const std::string& expectedRevision = {})
+{
+    DaemonTimerCreateReplayResult value;
+    value.status = status;
+    value.expectedAssignmentRevision = expectedRevision;
+    return value;
+}
+
 std::int64_t nowSeconds()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
@@ -195,6 +205,101 @@ DaemonTimerCreateSubmissionService::DaemonTimerCreateSubmissionService(
       dispatchService_(dispatchService),
       activationService_(activationService)
 {
+}
+
+DaemonTimerCreateReplayResult
+DaemonTimerCreateSubmissionService::lookupReplay(
+    const DaemonTimerCreateReplayRequest& request)
+{
+    using namespace vdrsuite::operations;
+    using namespace vdrsuite::timers;
+
+    if (request.timerAssignmentId.empty() ||
+        request.backendId.empty() ||
+        request.actorId.empty() ||
+        request.idempotencyKey.empty() ||
+        !request.requestedSpecification.channelId.empty())
+    {
+        return replayResult(DaemonTimerCreateReplayStatus::invalid);
+    }
+
+    const auto existing =
+        operationRepository_.findByIdempotencyScope(
+            request.actorId,
+            request.backendId,
+            "TimerAssignment",
+            request.timerAssignmentId,
+            "timer.create",
+            request.idempotencyKey);
+    if (existing.status ==
+        MutationOperationRepositoryStatus::notFound)
+    {
+        return replayResult(DaemonTimerCreateReplayStatus::notFound);
+    }
+    if (existing.status ==
+        MutationOperationRepositoryStatus::invalid)
+    {
+        return replayResult(DaemonTimerCreateReplayStatus::invalid);
+    }
+    if (!existing.ok())
+        return replayResult(DaemonTimerCreateReplayStatus::unavailable);
+
+    const MutationOperation& operation = existing.operation;
+    if (operation.expectedRevision.empty() ||
+        operation.requestFingerprint.empty() ||
+        operation.actorId != request.actorId ||
+        operation.backendId != request.backendId ||
+        operation.resourceType != "TimerAssignment" ||
+        operation.resourceId != request.timerAssignmentId ||
+        operation.actionFamily != "timer.create")
+    {
+        return replayResult(
+            DaemonTimerCreateReplayStatus::idempotencyConflict);
+    }
+
+    const auto storedPayload =
+        operationRepository_.findPayloadByOperationId(
+            operation.operationId);
+    NativeTimerCreateOperationPayload payload;
+    if (!storedPayload.ok() ||
+        storedPayload.payload.payloadType != "native.timer.create" ||
+        storedPayload.payload.payloadVersion != 1U ||
+        !parseNativeTimerCreateOperationPayload(
+            storedPayload.payload.payload,
+            payload) ||
+        payload.timerAssignmentId != request.timerAssignmentId ||
+        payload.expectedAssignmentRevision !=
+            operation.expectedRevision ||
+        payload.backendId != request.backendId)
+    {
+        return replayResult(
+            DaemonTimerCreateReplayStatus::idempotencyConflict);
+    }
+
+    NativeTimerSpecification replaySpecification =
+        request.requestedSpecification;
+    replaySpecification.channelId =
+        payload.expectedSpecification.channelId;
+    const std::string fingerprint =
+        submissionFingerprint(
+            operation.expectedRevision,
+            replaySpecification);
+    if (fingerprint.empty())
+        return replayResult(DaemonTimerCreateReplayStatus::unavailable);
+
+    if (fingerprint != operation.requestFingerprint ||
+        nativeTimerSpecificationFingerprint(
+            replaySpecification) !=
+        nativeTimerSpecificationFingerprint(
+            payload.expectedSpecification))
+    {
+        return replayResult(
+            DaemonTimerCreateReplayStatus::idempotencyConflict);
+    }
+
+    return replayResult(
+        DaemonTimerCreateReplayStatus::matched,
+        operation.expectedRevision);
 }
 
 DaemonTimerCreateSubmissionResult
