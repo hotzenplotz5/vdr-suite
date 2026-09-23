@@ -56,10 +56,8 @@ int main()
         unavailableCapabilities));
     assert(unavailableCapabilities.statusCode == 200);
     assert(unavailableCapabilities.body.find(
-        "\"id\":\"public-api.durable-operations-read\"") !=
-        std::string::npos);
-    assert(unavailableCapabilities.body.find(
-        "\"availability\":\"unavailable\"") !=
+        "{\"id\":\"public-api.durable-operations-read\","
+        "\"version\":1,\"availability\":\"unavailable\"}") !=
         std::string::npos);
 
     runtime.registerOperationLookup(operationResult);
@@ -73,10 +71,8 @@ int main()
         "",
         availableCapabilities));
     assert(availableCapabilities.body.find(
-        "\"id\":\"public-api.durable-operations-read\"") !=
-        std::string::npos);
-    assert(availableCapabilities.body.find(
-        "\"availability\":\"available\"") !=
+        "{\"id\":\"public-api.durable-operations-read\","
+        "\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
     const std::string requestId = "request-operation-1";
@@ -145,6 +141,17 @@ int main()
         "W/" + expectedTag));
     assert(weakNotModified.statusCode == 304);
     assert(weakNotModified.headers.at("ETag") == expectedTag);
+
+    ApiResponse wildcardNotModified;
+    assert(runtime.tryHandleGet(
+        "/api/v1/operations/op-1",
+        "actor-owner",
+        requestId,
+        "",
+        wildcardNotModified,
+        "*"));
+    assert(wildcardNotModified.statusCode == 304);
+    assert(wildcardNotModified.headers.at("ETag") == expectedTag);
 
     ApiResponse listNotModified;
     assert(runtime.tryHandleGet(
