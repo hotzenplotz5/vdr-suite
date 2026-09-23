@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — bounded dispatch-chain composition prerequisite for the first public Timer mutation.**
+**ACCEPTED — bounded dispatch-chain composition prerequisite for the first public Timer mutation.**
 
 Baseline:
 
@@ -221,30 +221,27 @@ This slice does **not**:
   NativeTimerBinding identity;
 - add retry or compatibility fallback.
 
+## Accepted checkpoint
+
+This dispatch-runtime composition slice was accepted in PR #328:
+
+```text
+merge=6d822db653093ab5f513b8106929cfcf02fa85af
+CI=35902606474 / #9108 / SUCCESS (6/6)
+```
+
 ## Next bounded slice
 
-After acceptance, the next slice can implement the canonical public admission:
+Live architecture review after acceptance proved one remaining internal
+prerequisite before the public POST can be opened safely: the durable
+`TimerAssignment` did not yet retain the exact selected
+`NativeTimerSpecification` required by the accepted preparation contract.
 
-```text
-POST /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}
-```
+The successor
+[Durable TimerAssignment Native Specification](phase-69c-timer-assignment-native-specification.md)
+closes that gap internally and keeps backend/VDR-native fields out of the public
+v1 contract.
 
-That slice must execute one fenced transaction-like orchestration sequence:
-
-```text
-authorize timers.create
--> lookup TimerAssignment after authorization
--> validate required strong If-Match
--> validate closed public request + Idempotency-Key
--> derive all internal revisions/generation/specification/identities
--> prepare durable operation + immutable payload
--> reserve exact Agent command
--> claim exact reservation into dispatching operation
--> activate exact command
--> return 202 + durable operation representation
-   Location: /api/v1/operations/{operationId}
-```
-
-Failure before activation must map precisely to the ADR-0048 public error model.
-Once dispatch/activation becomes ambiguous, the server must never invent a
-replacement operation or retry through a legacy route.
+After that prerequisite is accepted, the public admission can execute the full
+authorize -> precondition -> prepare -> reserve -> claim -> activate sequence
+and return the durable operation resource.
