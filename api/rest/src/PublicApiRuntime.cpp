@@ -243,11 +243,6 @@ bool PublicApiRuntime::tryHandlePost(
 {
     const std::string path = requestPath(requestTarget);
 
-    if (!isPublicV1Path(path))
-    {
-        return false;
-    }
-
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities")
     {
@@ -258,9 +253,5 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
-    response = notFoundProblem(
-        path,
-        requestId,
-        correlationId);
-    return true;
+    return false;
 }
