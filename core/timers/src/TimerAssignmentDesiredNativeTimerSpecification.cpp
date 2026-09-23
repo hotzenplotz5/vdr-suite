@@ -27,7 +27,7 @@ void appendField(std::string& output, std::int32_t value)
 
 void appendField(std::string& output, bool value)
 {
-    appendField(output, value ? "1" : "0");
+    appendField(output, std::string(value ? "1" : "0"));
 }
 
 bool readField(
