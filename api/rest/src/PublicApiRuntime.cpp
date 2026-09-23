@@ -15,10 +15,15 @@ std::string requestPath(const std::string& requestTarget)
         : requestTarget.substr(0, separator);
 }
 
+constexpr const char* PublicApiV1Root = "/api/v1";
+
 bool isPublicV1Path(const std::string& path)
 {
-    return path == "/api/v1" ||
-        path.rfind("/api/v1/", 0) == 0;
+    const std::string root(PublicApiV1Root);
+    return path == root ||
+        (path.size() > root.size() &&
+         path.compare(0, root.size(), root) == 0 &&
+         path[root.size()] == '/');
 }
 
 std::string jsonEscape(const std::string& value)
