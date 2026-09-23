@@ -199,13 +199,17 @@ public:
     ApiResponse handleClientGet(
         const std::string& requestTarget,
         const std::string& actorRef = "",
-        const std::string& clientRef = "")
+        const std::string& clientRef = "",
+        const std::string& requestRef = "",
+        const std::string& correlationRef = "")
     {
         ApiResponse response;
 
         if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
+                requestRef,
+                correlationRef,
                 response))
         {
             return response;
@@ -309,9 +313,19 @@ public:
         const std::string& body,
         const std::string& actorRef = "",
         const std::string& clientRef = "",
-        const std::string& correlationRef = "")
+        const std::string& correlationRef = "",
+        const std::string& requestRef = "")
     {
         ApiResponse response;
+
+        if (PublicApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                requestRef,
+                correlationRef,
+                response))
+        {
+            return response;
+        }
 
         if (LegacyOsdApiRuntime::instance().tryHandlePost(
                 requestTarget,
