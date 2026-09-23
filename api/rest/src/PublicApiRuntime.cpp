@@ -20,6 +20,8 @@ std::string requestPath(const std::string& requestTarget)
 
 constexpr const char* PublicApiV1Root = "/api/v1";
 constexpr const char* PublicOperationPrefix = "/api/v1/operations/";
+constexpr const char* PublicTimerAssignmentPrefix =
+    "/api/v1/timer-assignments/";
 
 bool isPublicV1Path(const std::string& path)
 {
@@ -44,6 +46,22 @@ bool publicOperationPath(
     operationId = path.substr(prefix.size());
     return !operationId.empty() &&
         operationId.find('/') == std::string::npos;
+}
+
+bool publicTimerAssignmentPath(
+    const std::string& path,
+    std::string& timerAssignmentId)
+{
+    const std::string prefix(PublicTimerAssignmentPrefix);
+
+    if (path.compare(0, prefix.size(), prefix) != 0)
+    {
+        return false;
+    }
+
+    timerAssignmentId = path.substr(prefix.size());
+    return !timerAssignmentId.empty() &&
+        timerAssignmentId.find('/') == std::string::npos;
 }
 
 std::string jsonEscape(const std::string& value)
@@ -244,6 +262,7 @@ ApiResponse contractRoot(
 
 ApiResponse platformCapabilities(
     const bool operationReadAvailable,
+    const bool timerAssignmentReadAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -252,6 +271,9 @@ ApiResponse platformCapabilities(
         "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"" +
         std::string(operationReadAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
+        std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
         "\"}"
         "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
@@ -311,6 +333,69 @@ ApiResponse publicOperationResponse(
         "\",\"state\":\"" + jsonEscape(operation.state) +
         "\",\"backendId\":\"" + jsonEscape(operation.backendId) +
         "\",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        requestId,
+        correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicTimerAssignmentResponse(
+    const PublicTimerAssignmentRevisionResource& assignment,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            assignment.resourceRevision);
+
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path,
+            requestId,
+            correlationId);
+    }
+
+    const vdrsuite::http::PublicEntityTagConditionResult condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response,
+            requestId,
+            correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const std::string self =
+        path + "?backend=" + assignment.backendId;
+    ApiResponse response = jsonResponse(
+        "{\"timerAssignmentId\":\"" +
+        jsonEscape(assignment.timerAssignmentId) +
+        "\",\"backendId\":\"" +
+        jsonEscape(assignment.backendId) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\"}}",
         requestId,
         correlationId);
     response.headers["ETag"] = entityTag;
@@ -416,7 +501,8 @@ bool PublicApiRuntime::tryHandleGet(
     const std::string& requestId,
     const std::string& correlationId,
     ApiResponse& response,
-    const std::string& ifNoneMatch) const
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
 
@@ -433,6 +519,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         response = platformCapabilities(
             operationLookupConfigured(),
+            timerAssignmentLookupConfigured(),
             requestId,
             correlationId);
         return true;
@@ -501,6 +588,85 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    std::string timerAssignmentId;
+    if (publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicTimerAssignmentLookupResult found =
+            lookupTimerAssignment(
+                timerAssignmentId,
+                authorizedBackendId);
+
+        switch (found.status)
+        {
+            case PublicTimerAssignmentLookupStatus::ok:
+                if (found.assignment.timerAssignmentId !=
+                        timerAssignmentId ||
+                    found.assignment.backendId !=
+                        authorizedBackendId ||
+                    found.assignment.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicTimerAssignmentResponse(
+                            found.assignment,
+                            path,
+                            requestId,
+                            correlationId,
+                            ifNoneMatch);
+                }
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
     if (isPublicV1Path(path))
     {
         response = notFoundProblem(
@@ -521,10 +687,14 @@ bool PublicApiRuntime::tryHandlePost(
 {
     const std::string path = requestPath(requestTarget);
     std::string operationId;
+    std::string timerAssignmentId;
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId))
+        publicOperationPath(path, operationId) ||
+        publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
     {
         response = methodNotAllowedProblem(
             path,
@@ -551,10 +721,14 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
 
     const std::string path = requestPath(requestTarget);
     std::string operationId;
+    std::string timerAssignmentId;
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId))
+        publicOperationPath(path, operationId) ||
+        publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
     {
         response = methodNotAllowedProblem(
             path,
