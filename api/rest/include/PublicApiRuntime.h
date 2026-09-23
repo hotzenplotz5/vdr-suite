@@ -83,7 +83,8 @@ public:
         const std::string& requestId,
         const std::string& correlationId,
         ApiResponse& response,
-        const std::string& ifNoneMatch = "") const;
+        const std::string& ifNoneMatch = "",
+        const std::string& authorizedBackendId = "") const;
 
     bool tryHandlePost(
         const std::string& requestTarget,
