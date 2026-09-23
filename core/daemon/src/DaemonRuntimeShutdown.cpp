@@ -140,6 +140,9 @@ void DaemonRuntime::shutdown()
     capabilitySet_.reset();
     backendRegistryController_.reset();
     backendRegistryJsonSerializer_.reset();
+    backendAgentNativeTimerCreateActivationService_.reset();
+    backendAgentNativeTimerCreateReservationService_.reset();
+    backendAgentCommandReservationRepository_.reset();
     backendAgentLifecycleService_.reset();
     backendAgentRepository_.reset();
     backendAgentAccountabilityRepository_.reset();
@@ -180,6 +183,7 @@ void DaemonRuntime::shutdown()
     metadataRepository_.reset();
     recordingRepository_.reset();
     jobRepository_.reset();
+    nativeTimerCreateDispatchService_.reset();
     nativeTimerCreateOperationPreparationService_.reset();
     timerAssignmentReadService_.reset();
     timerAssignmentRepository_.reset();

@@ -81,19 +81,40 @@ for token in [
 if "include mk/phase64-backend-agent-command-reservation-tests.mk" not in makefile:
     raise SystemExit("backend Agent command reservation make fragment is not included")
 
-# Reservation is a persistence primitive only at this point. Productive runtime
-# use is opened later together with the exact CREATE command contract.
+# Reservation started as a persistence primitive with no productive runtime
+# owner. Phase 69.C may now compose it in the Control-Plane daemon, but only
+# behind the dedicated successor guard that proves the CREATE chain remains
+# dormant. Agent/client runtime manifests remain forbidden: they must never
+# acquire a second reservation authority.
 for manifest in [
     ROOT / "mk/agent-sources.mk",
     ROOT / "mk/backend-agent-runtime.mk",
-    ROOT / "mk/daemon-sources.mk",
 ]:
     if manifest.is_file() and "BackendAgentCommandReservation.cpp" in manifest.read_text(
         encoding="utf-8", errors="ignore"
     ):
         raise SystemExit(
-            "premature command reservation runtime wiring: "
+            "forbidden command reservation Agent runtime wiring: "
             + str(manifest.relative_to(ROOT))
         )
+
+daemon_manifest = ROOT / "mk/daemon-sources.mk"
+if daemon_manifest.is_file() and "BackendAgentCommandReservation.cpp" in daemon_manifest.read_text(
+    encoding="utf-8", errors="ignore"
+):
+    successor_guard = ROOT / "tools/check_phase69_native_timer_create_dispatch_runtime.py"
+    if not successor_guard.is_file():
+        raise SystemExit(
+            "daemon command reservation wiring requires Phase-69.C successor guard")
+    successor = successor_guard.read_text(encoding="utf-8")
+    for marker in [
+        "BackendAgentCommandReservation.cpp",
+        "backendAgentCommandReservationRepository_",
+        "CREATE dispatch runtime must remain dormant in this slice",
+    ]:
+        if marker not in successor:
+            raise SystemExit(
+                "Phase-69.C command reservation successor guard missing marker: "
+                + marker)
 
 print("Phase-64 backend Agent command reservation check passed")

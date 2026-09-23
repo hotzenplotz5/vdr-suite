@@ -6,6 +6,9 @@
 #include "BackendAgentHttpServer.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentCommandDelivery.h"
+#include "BackendAgentCommandReservation.h"
+#include "BackendAgentNativeTimerCreateActivation.h"
+#include "BackendAgentNativeTimerCreateReservation.h"
 #include "BackendRuntimeContext.h"
 #include "BackendPollingCoordinator.h"
 #include "BackendRegistry.h"
@@ -57,6 +60,7 @@
 #include "MetadataRepository.h"
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
+#include "NativeTimerCreateDispatchService.h"
 #include "NativeTimerCreateOperationPreparationService.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentReadService.h"
@@ -203,6 +207,8 @@ private:
         timerAssignmentReadService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationPreparationService>
         nativeTimerCreateOperationPreparationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerCreateDispatchService>
+        nativeTimerCreateDispatchService_;
 
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
@@ -226,6 +232,12 @@ private:
     std::unique_ptr<AccountabilityEventRepository> backendAgentAccountabilityRepository_;
     std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
     std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;
+    std::unique_ptr<BackendAgentCommandReservationRepository>
+        backendAgentCommandReservationRepository_;
+    std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>
+        backendAgentNativeTimerCreateReservationService_;
+    std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerCreateActivationService>
+        backendAgentNativeTimerCreateActivationService_;
     std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
     std::unique_ptr<EmbeddedBackendLifecycleService> embeddedBackendLifecycleService_;
     std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;

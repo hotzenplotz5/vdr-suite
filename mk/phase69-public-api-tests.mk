@@ -81,3 +81,8 @@ test-phase69-public-timer-assignment-resource:
 
 test-phase69-native-timer-create-preparation-runtime:
 	python3 tools/check_phase69_native_timer_create_preparation_runtime.py
+
+.PHONY: test-phase69-native-timer-create-dispatch-runtime
+
+test-phase69-native-timer-create-dispatch-runtime:
+	python3 tools/check_phase69_native_timer_create_dispatch_runtime.py

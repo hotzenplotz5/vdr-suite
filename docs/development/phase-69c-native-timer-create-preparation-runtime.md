@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — bounded daemon composition prerequisite for the first public Timer mutation.**
+**ACCEPTED — bounded daemon composition prerequisite for the first public Timer mutation.**
 
 Baseline:
 
@@ -146,7 +146,7 @@ The focused Phase-69 guard verifies:
   mutation-operation repositories;
 - service shutdown precedes repository destruction;
 - required daemon sources are linked exactly once;
-- CREATE dispatch/native execution sources are not pulled into this slice;
+- at this slice's acceptance point, CREATE dispatch/native execution sources were not yet pulled into the daemon;
 - no `prepare()` call exists in API/daemon/http/security runtime code;
 - no PublicApiRuntime or SecurityHttpGate mutation handling is introduced;
 - the Phase-64 runtime allow-list remains exact and narrow.
@@ -195,22 +195,23 @@ This slice does **not** add:
 - SuiteBridge/VDR mutation;
 - retry/fallback behavior.
 
+## Accepted checkpoint
+
+This preparation-runtime composition slice was accepted in PR #327:
+
+```text
+merge=b80003de33127827fc121d7d92d7f11c6f4451e6
+CI=35899013477 / #9105 / SUCCESS (6/6)
+```
+
+The successor [Native Timer CREATE Dispatch Runtime Composition](phase-69c-native-timer-create-dispatch-runtime.md)
+now composes the already accepted durable command reservation, dispatch-state
+and activation owners while keeping every orchestration call dormant.
+
 ## Next bounded slice
 
-After this composition is accepted, the remaining 69.C implementation can open
-the reviewed public Timer CREATE admission/submission boundary.
-
-That slice must translate public inputs into the internal preparation contract
-without exposing internal TimerIntent revision, assignment epoch, backend
-generation or NativeTimerBinding identity.
-
-Before dispatch is allowed it must enforce the accepted public mutation rules:
-
-- explicit backend-scoped `timers.create` authorization;
-- closed request JSON;
-- required `Idempotency-Key`;
-- required strong `If-Match` against the public TimerAssignment ETag;
-- durable actor/backend/resource/action idempotency;
-- stable operation response and `Location`;
-- `409`, `412` and `428` semantics from ADR-0048;
-- no speculative retry and no pre-v1 mutation fallback.
+After that successor composition is accepted, the remaining 69.C implementation
+can open the reviewed public Timer CREATE admission/submission boundary with
+explicit `timers.create`, closed JSON, required `Idempotency-Key`, strong
+`If-Match`, durable operation response/`Location`, exact `409/412/428`
+mapping and no speculative fallback.

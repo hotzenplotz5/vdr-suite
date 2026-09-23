@@ -78,6 +78,9 @@ bool DaemonRuntime::initialize()
                 *timerIntentRepository_,
                 *timerAssignmentRepository_,
                 *mutationOperationRepository_);
+    nativeTimerCreateDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerCreateDispatchService>(
+            *mutationOperationRepository_);
 
     std::cout
         << "TimerAssignment read and native Timer CREATE preparation runtime initialized"
@@ -141,15 +144,31 @@ bool DaemonRuntime::initialize()
         std::make_unique<BackendAgentRepository>(database_);
     backendAgentCommandRepository_ =
         std::make_unique<BackendAgentCommandRepository>(database_);
+    backendAgentCommandReservationRepository_ =
+        std::make_unique<BackendAgentCommandReservationRepository>(database_);
 
     if (!backendAgentIdentityRepository_->ensureSchema() ||
         !backendAgentCredentialVerifierRepository_->ensureSchema() ||
         !backendAgentAccountabilityRepository_->ensureSchema() ||
         !backendAgentRepository_->ensureSchema() ||
-        !backendAgentCommandRepository_->ensureSchema()) {
+        !backendAgentCommandRepository_->ensureSchema() ||
+        !backendAgentCommandReservationRepository_->ensureSchema()) {
         std::cerr << "failed to initialize Backend Agent control-plane schema" << std::endl;
         return false;
     }
+
+    backendAgentNativeTimerCreateReservationService_ =
+        std::make_unique<
+            vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>(
+                *backendAgentCommandRepository_,
+                *backendAgentCommandReservationRepository_,
+                *backendAgentRepository_);
+    backendAgentNativeTimerCreateActivationService_ =
+        std::make_unique<
+            vdrsuite::agent::BackendAgentNativeTimerCreateActivationService>(
+                *mutationOperationRepository_,
+                *backendAgentCommandReservationRepository_,
+                *backendAgentCommandRepository_);
 
     backendAgentLifecycleService_ =
         std::make_unique<BackendAgentLifecycleService>(

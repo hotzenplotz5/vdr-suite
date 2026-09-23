@@ -57,7 +57,7 @@ test-architecture:
 	python3 tools/check_architecture.py
 
 .PHONY: test-phase
-test-phase: test-phase69-public-api-contract-root test-phase69-public-resource-preconditions test-phase69-operation-read-facade test-phase69-public-operation-resource test-phase69-timer-assignment-read-facade test-phase69-timer-assignment-runtime-composition test-phase69-public-timer-assignment-resource test-phase69-native-timer-create-preparation-runtime
+test-phase: test-phase69-public-api-contract-root test-phase69-public-resource-preconditions test-phase69-operation-read-facade test-phase69-public-operation-resource test-phase69-timer-assignment-read-facade test-phase69-timer-assignment-runtime-composition test-phase69-public-timer-assignment-resource test-phase69-native-timer-create-preparation-runtime test-phase69-native-timer-create-dispatch-runtime
 	python3 tools/check_phase_consistency.py
 	python3 tools/check_phase69_public_api_inventory.py
 

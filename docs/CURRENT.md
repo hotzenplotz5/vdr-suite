@@ -68,13 +68,22 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Authenticated GET /api/v1/operations/{operationId} with ETag / If-None-Match
+Native Timer CREATE dispatch runtime composition: durable command reservation,
+dispatch-state and activation owners composed in DaemonRuntime while all
+prepare/reserve/claim/activate calls and the public Timer POST remain closed.
 
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
 PR #321 hosted CI run 35873370127 / #9091: SUCCESS (6/6)
 PR #322 -> 377f59e7b2d8e5ec3c7cbf22522c3c1789fd9849
 PR #322 hosted CI run 35876551406 / #9094: SUCCESS (6/6)
+PR #323 -> 50c51ea0fab08cbae8149ad33136dec869c6c3b0
+PR #324 -> b971b074725351004d676c001ee976f574587390
+PR #325 -> 92c127fbe40d8d20ac2294e1b4b28fd3ea3a6560
+PR #326 -> 61f933d1ae23aaa26d0ff3715e68e9686450ee7f
+PR #326 hosted CI run 35895657815 / #9103: SUCCESS (6/6)
+PR #327 -> b80003de33127827fc121d7d92d7f11c6f4451e6
+PR #327 hosted CI run 35899013477 / #9105: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
