@@ -333,10 +333,26 @@ public:
                 recordingSeriesHierarchyBackendId);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        const std::string publicOperationPrefix =
+            "/api/v1/operations/";
+        const bool isPublicOperationResource =
+            path.compare(
+                0,
+                publicOperationPrefix.size(),
+                publicOperationPrefix) == 0 &&
+            path.size() > publicOperationPrefix.size() &&
+            path.find(
+                '/',
+                publicOperationPrefix.size()) ==
+                std::string::npos;
+        const bool isPublicOperationRead =
+            request.method == "GET" &&
+            isPublicOperationResource;
         const bool isPublicV1ReadOnlyMethodMismatch =
             isPost &&
             (path == "/api/v1" ||
-             path == "/api/v1/capabilities");
+             path == "/api/v1/capabilities" ||
+             isPublicOperationResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -493,6 +509,17 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicOperationRead)
+        {
+            if (!gate.context.authenticated())
+            {
+                return rejectAuthentication(gate);
+            }
+
             gate.allowed = true;
             return gate;
         }

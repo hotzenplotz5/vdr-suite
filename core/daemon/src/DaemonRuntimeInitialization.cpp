@@ -779,6 +779,52 @@ bool DaemonRuntime::initialize()
     std::cout << "live transport service initialized" << std::endl;
     std::cout << "live transport controller initialized" << std::endl;
 
+    PublicApiRuntime::instance().registerOperationLookup(
+        [this](
+            const std::string& operationId,
+            const std::string& actorRef)
+        {
+            PublicOperationLookupResult result;
+            const auto found =
+                mutationOperationReadService_->findForActor(
+                    operationId,
+                    actorRef);
+
+            switch (found.status)
+            {
+                case vdrsuite::operations::MutationOperationReadStatus::ok:
+                    result.status = PublicOperationLookupStatus::ok;
+                    result.operation.operationId =
+                        found.operation.operationId;
+                    result.operation.state =
+                        vdrsuite::operations::mutationOperationStateName(
+                            found.operation.state);
+                    result.operation.backendId =
+                        found.operation.backendId;
+                    result.operation.resourceRevision =
+                        found.operation.operationRevision;
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::invalid:
+                    result.status =
+                        PublicOperationLookupStatus::invalid;
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::notFound:
+                    result.status =
+                        PublicOperationLookupStatus::notFound;
+                    return result;
+
+                case vdrsuite::operations::MutationOperationReadStatus::storageError:
+                    result.status =
+                        PublicOperationLookupStatus::unavailable;
+                    return result;
+            }
+
+            return result;
+        });
+
+
     apiRouter_ = std::make_unique<ApiRouter>(
         *dashboardController_,
         *jobsController_,

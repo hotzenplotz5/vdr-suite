@@ -218,6 +218,36 @@ CI -> 35863518112 / run #9087 -> SUCCESS (6/6)
 The active bounded slice is now 69.C. Retry intervals are not invented without
 an owning operation/resource semantic; deprecation/sunset policy remains 69.E.
 
+## 69.C accepted foundation and active resource
+
+69.C has accepted two prerequisite checkpoints:
+
+```text
+PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
+CI #9091 -> 35873370127 -> SUCCESS (6/6)
+
+PR #322 -> 377f59e7b2d8e5ec3c7cbf22522c3c1789fd9849
+CI #9094 -> 35876551406 -> SUCCESS (6/6)
+```
+
+PR #321 established the shared opaque ETag / conditional-request helper. PR #322
+established one actor-scoped `MutationOperationReadService` over the single
+DaemonRuntime-owned durable operation repository.
+
+The active 69.C resource step is
+[Public Operation Resource](phase-69c-public-operation-resource.md):
+
+```text
+GET /api/v1/operations/{operationId}
+```
+
+It is an authenticated actor-owned item read, not an operation collection or
+mutation endpoint. It exposes a reviewed representation, derives a strong opaque
+ETag from the durable operation revision and supports `If-None-Match -> 304`.
+Cross-actor lookup preserves the same `404 not_found` result as a missing
+operation. Internal idempotency keys, request/resource fingerprints, mutation
+payloads and result references remain private.
+
 ## 69.A acceptance
 
 - Phase 69 is active and 69.A is accepted;

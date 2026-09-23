@@ -318,6 +318,30 @@ int main()
         nullptr,
         &searchTimerDiscoveryController);
 
+    PublicApiRuntime::instance().resetOperationLookup();
+    PublicApiRuntime::instance().registerOperationLookup(
+        [](
+            const std::string& operationId,
+            const std::string& actorRef)
+        {
+            PublicOperationLookupResult result;
+
+            if (operationId != "http-op-1" ||
+                actorRef.empty())
+            {
+                result.status =
+                    PublicOperationLookupStatus::notFound;
+                return result;
+            }
+
+            result.status = PublicOperationLookupStatus::ok;
+            result.operation.operationId = "http-op-1";
+            result.operation.state = "dispatching";
+            result.operation.backendId = "default";
+            result.operation.resourceRevision = "3";
+            return result;
+        });
+
     TestHttpServer server(router);
 
     HttpServerRequest anonymousFrontendRequest;
@@ -354,6 +378,52 @@ int main()
         "authentication_required") != std::string::npos);
     assert(anonymousApiResponse.headers.find("WWW-Authenticate") ==
         anonymousApiResponse.headers.end());
+
+    HttpServerRequest anonymousOperationRequest;
+    anonymousOperationRequest.method = "GET";
+    anonymousOperationRequest.path =
+        "/api/v1/operations/http-op-1";
+    const HttpServerResponse anonymousOperationResponse =
+        server.handleRequest(anonymousOperationRequest);
+    assert(anonymousOperationResponse.statusCode == 401);
+    assert(
+        anonymousOperationResponse.headers.at("Content-Type") ==
+        "application/problem+json");
+    assert(anonymousOperationResponse.body.find(
+        "\"code\":\"unauthorized\"") !=
+        std::string::npos);
+
+    HttpServerRequest operationRequest;
+    operationRequest.method = "GET";
+    operationRequest.path =
+        "/api/v1/operations/http-op-1";
+    authorize(operationRequest);
+    const HttpServerResponse operationResponse =
+        server.handleRequest(operationRequest);
+    assert(operationResponse.statusCode == 200);
+    assert(
+        operationResponse.headers.at("Content-Type") ==
+        "application/json; charset=utf-8");
+    assert(operationResponse.headers.find("ETag") !=
+        operationResponse.headers.end());
+    assert(operationResponse.body.find(
+        "\"operationId\":\"http-op-1\"") !=
+        std::string::npos);
+    assert(operationResponse.body.find(
+        "\"state\":\"dispatching\"") !=
+        std::string::npos);
+
+    HttpServerRequest conditionalOperationRequest =
+        operationRequest;
+    conditionalOperationRequest.headers["if-none-match"] =
+        operationResponse.headers.at("ETag");
+    const HttpServerResponse conditionalOperationResponse =
+        server.handleRequest(
+            conditionalOperationRequest);
+    assert(conditionalOperationResponse.statusCode == 304);
+    assert(conditionalOperationResponse.body.empty());
+    assert(conditionalOperationResponse.headers.at("ETag") ==
+        operationResponse.headers.at("ETag"));
 
     HttpServerRequest dashboardRequest;
     dashboardRequest.method = "GET";
@@ -534,6 +604,8 @@ int main()
         server.handleRequest(unsupportedMethodRequest);
     assertJsonResponse(unsupportedMethodResponse, 405);
     assert(unsupportedMethodResponse.body == "{\"error\":\"method not allowed\"}");
+
+    PublicApiRuntime::instance().resetOperationLookup();
 
     db.close();
 

@@ -31,6 +31,16 @@ HttpServerRequest publicV1GetRequest()
     return request;
 }
 
+HttpServerRequest publicOperationGetRequest()
+{
+    HttpServerRequest request;
+    request.method = "GET";
+    request.path = "/api/v1/operations/operation-security-1";
+    request.headers["X-Request-ID"] =
+        "phase69c-operation-security-request";
+    return request;
+}
+
 SecurityConfiguration enforcedConfiguration()
 {
     SecurityConfiguration configuration;
@@ -414,6 +424,32 @@ int main()
         enforcedConfiguration(),
         fixture.accountabilityRepository,
         &fixture.identityResolver);
+
+    const SecurityGateDecision anonymousOperationRead =
+        enforcedGate.evaluate(publicOperationGetRequest());
+    assert(!anonymousOperationRead.allowed);
+    assert(anonymousOperationRead.publicApiV1);
+    assert(
+        anonymousOperationRead.rejection.statusCode ==
+        401);
+    assert(
+        anonymousOperationRead.rejection.headers.at(
+            "Content-Type") ==
+        "application/problem+json");
+    assert(anonymousOperationRead.rejection.body.find(
+        "\"code\":\"unauthorized\"") !=
+        std::string::npos);
+
+    HttpServerRequest authenticatedOperationRead =
+        publicOperationGetRequest();
+    fixture.addLegacyAuthentication(
+        authenticatedOperationRead);
+    const SecurityGateDecision allowedOperationRead =
+        enforcedGate.evaluate(
+            authenticatedOperationRead);
+    assert(allowedOperationRead.allowed);
+    assert(allowedOperationRead.publicApiV1);
+    assert(allowedOperationRead.context.authenticated());
 
     const SecurityGateDecision remoteAllowed =
         enforcedGate.evaluate(remote);

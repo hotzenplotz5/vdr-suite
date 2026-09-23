@@ -27,3 +27,12 @@ test-phase69-operation-read-facade:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_mutation_operation_read_service
 	$(BUILD_DIR)/test_mutation_operation_read_service
+
+.PHONY: test-phase69-public-operation-resource
+
+test-phase69-public-operation-resource:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_operation_resource.cpp \
+		-o $(BUILD_DIR)/test_public_operation_resource
+	$(BUILD_DIR)/test_public_operation_resource
