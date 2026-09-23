@@ -66,6 +66,8 @@ The daemon links only the sources needed by the accepted preparation boundary:
 
 - `TimerIntent.cpp`;
 - `TimerIntentRepository.cpp`;
+- `NativeTimerBinding.cpp` for the observation-state validation dependency used by
+  `NativeTimerSpecification.cpp`;
 - `NativeTimerSpecification.cpp`;
 - `NativeTimerCreateOperationPayload.cpp`;
 - `NativeTimerCreateOperationPreparationService.cpp`.
