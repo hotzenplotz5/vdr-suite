@@ -161,6 +161,8 @@ DaemonTimerCreateSubmissionStatus reservationFailure(
         return DaemonTimerCreateSubmissionStatus::backendUnavailable;
     if (reason == "native_timer_create_provider_selection_missing" ||
         reason == "native_timer_create_provider_selection_stale" ||
+        reason == "local_provider_ownership_required" ||
+        reason == "local_provider_capability_not_observed" ||
         reason == "command_capability_required")
         return DaemonTimerCreateSubmissionStatus::capabilityUnavailable;
     if (reason == "native_timer_create_active_assignment_conflict" ||
