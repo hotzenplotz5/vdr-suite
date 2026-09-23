@@ -90,6 +90,7 @@ test-phase69-native-timer-create-dispatch-runtime:
 .PHONY: test-phase69-public-timer-create-submission
 
 test-phase69-public-timer-create-submission:
+	python3 tools/check_phase69_public_timer_create_submission.py
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_create_submission.cpp \
