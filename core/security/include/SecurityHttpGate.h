@@ -328,6 +328,10 @@ public:
                 recordingSeriesHierarchyBackendId);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        const bool isPublicV1ReadOnlyMethodMismatch =
+            isPost &&
+            (path == "/api/v1" ||
+             path == "/api/v1/capabilities");
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -484,6 +488,12 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicV1ReadOnlyMethodMismatch)
+        {
             gate.allowed = true;
             return gate;
         }
