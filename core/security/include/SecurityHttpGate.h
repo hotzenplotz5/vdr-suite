@@ -348,11 +348,47 @@ public:
         const bool isPublicOperationRead =
             request.method == "GET" &&
             isPublicOperationResource;
+        const std::string publicTimerAssignmentPrefix =
+            "/api/v1/timer-assignments/";
+        const bool isPublicTimerAssignmentResource =
+            path.compare(
+                0,
+                publicTimerAssignmentPrefix.size(),
+                publicTimerAssignmentPrefix) == 0 &&
+            path.size() > publicTimerAssignmentPrefix.size() &&
+            path.find(
+                '/',
+                publicTimerAssignmentPrefix.size()) ==
+                std::string::npos;
+        std::string publicTimerAssignmentBackendId;
+        if (isPublicTimerAssignmentResource)
+        {
+            const std::string candidate =
+                queryStringValue(request.path, "backend");
+            const bool validBackend =
+                !candidate.empty() &&
+                candidate.size() <= 128U &&
+                std::all_of(
+                    candidate.begin(),
+                    candidate.end(),
+                    [](unsigned char character) {
+                        return std::isalnum(character) ||
+                            character == '.' ||
+                            character == '_' ||
+                            character == '-';
+                    });
+            if (validBackend)
+                publicTimerAssignmentBackendId = candidate;
+        }
+        const bool isPublicTimerAssignmentRead =
+            request.method == "GET" &&
+            isPublicTimerAssignmentResource;
         const bool isPublicV1ReadOnlyMethodMismatch =
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
-             isPublicOperationResource);
+             isPublicOperationResource ||
+             isPublicTimerAssignmentResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -482,6 +518,53 @@ public:
             settingsRequest.action = "backend.settings.media-transcode.read";
             const AuthorizationDecision decision =
                 authorizationService_.authorize(gate.context, settingsRequest);
+
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicTimerAssignmentRead)
+        {
+            if (!gate.context.authenticated())
+            {
+                return rejectAuthentication(gate);
+            }
+
+            AuthorizationRequest timerReadRequest;
+            timerReadRequest.permission = "timers.view";
+            timerReadRequest.backendId =
+                publicTimerAssignmentBackendId;
+            timerReadRequest.action = "timers.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    timerReadRequest);
 
             if (!appendDecisionEvent(gate.context, decision, ""))
             {
