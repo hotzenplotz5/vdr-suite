@@ -36,3 +36,16 @@ test-phase69-public-operation-resource:
 		api/rest/tests/test_public_operation_resource.cpp \
 		-o $(BUILD_DIR)/test_public_operation_resource
 	$(BUILD_DIR)/test_public_operation_resource
+
+.PHONY: test-phase69-timer-assignment-read-facade
+
+test-phase69-timer-assignment-read-facade:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentReadService.cpp \
+		core/timers/tests/test_timer_assignment_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_read_service
+	$(BUILD_DIR)/test_timer_assignment_read_service
