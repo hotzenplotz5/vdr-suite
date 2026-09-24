@@ -13,6 +13,7 @@ const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-
 const continueSource = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
 const historySource = fs.readFileSync(path.join(frontendRoot, 'home-recently-watched.js'), 'utf8');
 const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'), 'utf8');
+const epgCacheSource = fs.readFileSync(path.join(frontendRoot, 'epg-cache.js'), 'utf8');
 const serverPaths = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerPaths.inc'), 'utf8');
 const serverAssets = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerAssets.inc'), 'utf8');
 
@@ -48,6 +49,20 @@ assert(
 assert(
   !remote.includes("'vdr-suite:home-resume'"),
   'the capture fence must not duplicate app-owned Home lifecycle publication'
+);
+assert(
+  appSource.includes('function refreshBackendSnapshot(backend)'),
+  'the app owner must expose a retained snapshot-only Home revalidation path'
+);
+assert(
+  epgCacheSource.includes("typeof refreshBackendSnapshot === 'function'") &&
+    !epgCacheSource.includes("selectedModule === 'overview' && typeof loadBackendDetails === 'function'"),
+  'the VDR change feed must revalidate Home data without re-entering the full Home lifecycle'
+);
+assert(
+  heroSource.includes('revalidate: options =>') &&
+    heroSource.includes('channelsChanged'),
+  'the Live Hero must expose targeted programme/channel revalidation'
 );
 assert(discoverySource.includes('Promise.allSettled(loads)'));
 assert(discoverySource.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));

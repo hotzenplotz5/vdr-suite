@@ -26,6 +26,8 @@
     eventsByChannel: new Map(),
     selectedIndex: 0,
     loadingChannels: false,
+    channelLoadPromise: null,
+    channelLoadBackendId: '',
     loadingPrograms: false,
     programmeLoadingMore: false,
     programmeLoadedChannelCount: 0,
@@ -1252,6 +1254,11 @@
         renderUnchanged: !revalidatePrograms
       });
     }
+    if (state.loadingChannels &&
+        state.channelLoadPromise &&
+        state.channelLoadBackendId === state.backendId) {
+      return state.channelLoadPromise;
+    }
     if (!client || typeof client.fetchClientChannels !== 'function') {
       state.loadingChannels = false;
       state.dataError = 'Senderliste ist derzeit nicht verfügbar.';
@@ -1259,17 +1266,28 @@
       return Promise.resolve(null);
     }
     const sequence = ++state.requestSequence;
+    const requestBackendId = state.backendId;
     state.loadingChannels = true;
+    state.channelLoadBackendId = requestBackendId;
     if (!retainVisible) render();
-    return client.fetchClientChannels({query: {backend: state.backendId, _: String(Date.now())}, cache: 'no-store', credentials: 'same-origin'}).then(data => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+
+    const request = client.fetchClientChannels({
+      query: {backend: requestBackendId, _: String(Date.now())},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(data => {
+      if (!state.active ||
+          sequence !== state.requestSequence ||
+          requestBackendId !== state.backendId) return null;
       applyChannels(data);
       state.loadingChannels = false;
       return loadPrograms(sequence, {
         retainVisible: retainVisible
       });
     }).catch(error => {
-      if (!state.active || sequence !== state.requestSequence) return null;
+      if (!state.active ||
+          sequence !== state.requestSequence ||
+          requestBackendId !== state.backendId) return null;
       state.loadingChannels = false;
       if (!retainVisible) {
         state.channels = [];
@@ -1281,6 +1299,23 @@
       if (!retainVisible) render();
       return null;
     });
+
+    let completion;
+    completion = request.then(function (value) {
+      if (state.channelLoadPromise === completion) {
+        state.channelLoadPromise = null;
+        state.channelLoadBackendId = '';
+      }
+      return value;
+    }, function (error) {
+      if (state.channelLoadPromise === completion) {
+        state.channelLoadPromise = null;
+        state.channelLoadBackendId = '';
+      }
+      throw error;
+    });
+    state.channelLoadPromise = completion;
+    return completion;
   }
 
   function sync(force, options) {
@@ -1288,6 +1323,8 @@
     if (!active) {
       state.active = false;
       state.requestSequence += 1;
+      state.channelLoadPromise = null;
+      state.channelLoadBackendId = '';
       const root = heroRoot();
       if (root && root.classList) root.classList.remove('media-home-live-hero-active');
       return Promise.resolve(null);
@@ -1459,6 +1496,13 @@
 
   const api = Object.freeze({
     refresh: () => sync(true, {retainVisible: true}),
+    revalidate: options => {
+      const config = options && typeof options === 'object' ? options : {};
+      return sync(Boolean(config.channelsChanged), {
+        retainVisible: true,
+        revalidatePrograms: true
+      });
+    },
     snapshot,
     selectOffset,
     watchLive,

@@ -218,9 +218,13 @@ function cachedEpgChangedDomainsFromEntries(entries) {
 }
 
 function cachedEpgRefreshVisibleModuleForChanges(entries) {
-  const domains = cachedEpgChangedDomainsFromEntries(entries);
+  const backendId = frontendSelectedBackendId();
+  const scopedEntries = entries.filter(entry =>
+    String(entry && entry.backendId ? entry.backendId : 'default') === backendId
+  );
+  const domains = cachedEpgChangedDomainsFromEntries(scopedEntries);
 
-  if (typeof selectedModule === 'undefined') {
+  if (typeof selectedModule === 'undefined' || domains.size === 0) {
     return;
   }
 
@@ -234,8 +238,18 @@ function cachedEpgRefreshVisibleModuleForChanges(entries) {
     return;
   }
 
-  if (selectedModule === 'overview' && typeof loadBackendDetails === 'function' && selectedBackend) {
-    loadBackendDetails(selectedBackend);
+  if (selectedModule === 'overview') {
+    if (typeof refreshBackendSnapshot === 'function' && selectedBackend) {
+      refreshBackendSnapshot(selectedBackend);
+    }
+
+    const hero = window.VdrSuiteHomeLiveHero;
+    if (hero && typeof hero.revalidate === 'function' &&
+        (domains.has('channels') || domains.has('events'))) {
+      hero.revalidate({
+        channelsChanged: domains.has('channels')
+      });
+    }
   }
 }
 

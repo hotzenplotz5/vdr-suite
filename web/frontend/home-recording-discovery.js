@@ -648,11 +648,14 @@
       state.randomGenreId = '';
       return null;
     }
-    if (state.randomGenreGeneration === generation && state.randomGenreId) {
+    if (state.randomGenreId) {
       const existing = available.find(function (entry) {
         return text(entry.id) === state.randomGenreId;
       });
-      if (existing) return existing;
+      if (existing) {
+        state.randomGenreGeneration = generation;
+        return existing;
+      }
     }
     const raw = Number(randomValue);
     const bounded = Number.isFinite(raw)
@@ -690,11 +693,14 @@
       state.randomFolderPath = '';
       return null;
     }
-    if (state.randomFolderGeneration === generation && state.randomFolderPath) {
+    if (state.randomFolderPath) {
       const existing = available.find(function (entry) {
         return text(entry.path || entry.folderPath || entry.name) === state.randomFolderPath;
       });
-      if (existing) return existing;
+      if (existing) {
+        state.randomFolderGeneration = generation;
+        return existing;
+      }
     }
     const raw = Number(randomValue);
     const bounded = Number.isFinite(raw)
@@ -904,6 +910,27 @@
     });
   }
 
+  function recordingRailDirectChild(parent, className) {
+    return Array.from(parent && parent.children ? parent.children : []).find(function (child) {
+      return String(child && child.className || '').split(/\s+/).includes(className);
+    }) || null;
+  }
+
+  function recordingRailCardKey(recording, backendId) {
+    const id = recordingId(recording) ||
+      recordingBackendNativeId(recording) ||
+      recordingPath(recording);
+    return recordingBackendId(recording, backendId) + '\n' + id;
+  }
+
+  function recordingRailPresentationSignature(projected) {
+    return [
+      text(projected && projected.title),
+      text(projected && projected.subtitle),
+      text(projected && projected.posterUrl)
+    ].join('\n');
+  }
+
   function renderRecordingRail(key, title, recordings, backendId, options) {
     if (!recordings.length) {
       clearRail(key);
@@ -911,47 +938,95 @@
     }
     const section = sectionFor(key);
     if (!section) return false;
-    section.replaceChildren();
     const config = options && typeof options === 'object' ? options : {};
     const rich = config.richMetadataByNativeId instanceof Map
       ? config.richMetadataByNativeId
       : null;
-    appendSectionHeading(section, title, config.backLabel, config.onBack);
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail';
-    recordings.forEach(function (recording) {
+    const headingSignature = [
+      text(title),
+      text(config.backLabel),
+      typeof config.onBack === 'function' ? 'back' : ''
+    ].join('\n');
+
+    let rail = section.dataset &&
+      section.dataset.recordingRailMode === 'recordings' &&
+      section.dataset.recordingRailHeadingSignature === headingSignature
+      ? recordingRailDirectChild(section, 'media-home-discovery-rail')
+      : null;
+
+    if (!rail) {
+      section.replaceChildren();
+      appendSectionHeading(section, title, config.backLabel, config.onBack);
+      rail = doc.createElement('div');
+      rail.className = 'media-home-discovery-rail';
+      section.appendChild(rail);
+      if (section.dataset) {
+        section.dataset.recordingRailMode = 'recordings';
+        section.dataset.recordingRailHeadingSignature = headingSignature;
+      }
+    }
+
+    const existingCards = new Map();
+    Array.from(rail.children || []).forEach(function (card) {
+      const cardBackendId = text(card && card.dataset && card.dataset.backendId);
+      const cardRecordingId = text(card && card.dataset && card.dataset.recordingId);
+      if (cardBackendId && cardRecordingId) {
+        existingCards.set(cardBackendId + '\n' + cardRecordingId, card);
+      }
+    });
+
+    const nextCards = recordings.map(function (recording) {
       const nativeId = recordingBackendNativeId(recording);
       const projected = recordingMetadataProjection(
         recording,
         rich && nativeId ? rich.get(nativeId) || null : null
       );
-      const card = doc.createElement('button');
-      card.type = 'button';
-      card.className = 'media-home-discovery-card recording';
-      card.dataset.recordingId = recordingId(recording);
-      card.dataset.backendId = recordingBackendId(recording, backendId);
-      card.appendChild(createPosterArtwork(
-        projected.title,
-        projected.posterUrl,
-        projected.title.slice(0, 1).toUpperCase()
-      ));
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const name = doc.createElement('strong');
-      name.textContent = projected.title;
-      copy.appendChild(name);
-      if (projected.subtitle) {
-        const detail = doc.createElement('span');
-        detail.textContent = projected.subtitle;
-        copy.appendChild(detail);
+      const cardKey = recordingRailCardKey(recording, backendId);
+      let card = existingCards.get(cardKey) || null;
+
+      if (!card) {
+        card = doc.createElement('button');
+        card.type = 'button';
+        card.className = 'media-home-discovery-card recording';
+        card.addEventListener('click', function () {
+          openRecording(
+            card.__vdrSuiteRecording,
+            card.__vdrSuiteBackendId
+          );
+        });
       }
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openRecording(recording, backendId);
-      });
-      rail.appendChild(card);
+
+      card.__vdrSuiteRecording = recording;
+      card.__vdrSuiteBackendId = recordingBackendId(recording, backendId);
+      card.dataset.recordingId = recordingId(recording);
+      card.dataset.backendId = card.__vdrSuiteBackendId;
+
+      const presentationSignature = recordingRailPresentationSignature(projected);
+      if (card.dataset.presentationSignature !== presentationSignature) {
+        card.replaceChildren();
+        card.appendChild(createPosterArtwork(
+          projected.title,
+          projected.posterUrl,
+          projected.title.slice(0, 1).toUpperCase()
+        ));
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const name = doc.createElement('strong');
+        name.textContent = projected.title;
+        copy.appendChild(name);
+        if (projected.subtitle) {
+          const detail = doc.createElement('span');
+          detail.textContent = projected.subtitle;
+          copy.appendChild(detail);
+        }
+        card.appendChild(copy);
+        card.dataset.presentationSignature = presentationSignature;
+      }
+
+      return card;
     });
-    section.appendChild(rail);
+
+    reconcileSeriesChildren(rail, nextCards);
     return true;
   }
 
@@ -3665,6 +3740,7 @@
   function loadRandomGenre(client, backendId, generation, entry) {
     const id = text(entry && entry.id);
     const label = genreLabel(entry);
+    const retainVisible = hasVisibleRail('random-genre');
     if (!id) {
       clearRail('random-genre');
       return Promise.resolve(false);
@@ -3673,13 +3749,15 @@
     function performLoad() {
       if (!current(generation, backendId)) return Promise.resolve(false);
 
-      renderState(
-        'random-genre',
-        label,
-        'Aufnahmen werden geladen …',
-        false
-      );
-      positionRandomGenreRail();
+      if (!retainVisible) {
+        renderState(
+          'random-genre',
+          label,
+          'Aufnahmen werden geladen …',
+          false
+        );
+        positionRandomGenreRail();
+      }
 
       return fetchBoundedRandomGenreRecordings(
         client,
@@ -3690,7 +3768,7 @@
         if (!current(generation, backendId)) return false;
 
         if (!recordings.length) {
-          clearRail('random-genre');
+          if (!retainVisible) clearRail('random-genre');
           return false;
         }
 
@@ -3741,6 +3819,7 @@
       }).catch(function () {
         if (!current(generation, backendId)) return false;
 
+        if (retainVisible) return false;
         const rendered = renderState(
           'random-genre',
           label,

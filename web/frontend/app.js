@@ -3663,12 +3663,16 @@ function renderSelectedModule(data) {
 }
 
 function publishHomeResume(previousModule) {
+  const backendId = selectedBackendId || 'default';
+  if (previousModule === 'overview' &&
+      publishHomeResume.lastBackendId === backendId) return false;
   if (typeof document.dispatchEvent !== 'function' ||
       typeof window.CustomEvent !== 'function') return false;
+  publishHomeResume.lastBackendId = backendId;
   document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
     detail: {
       previousModule: previousModule || '',
-      backendId: selectedBackendId || 'default'
+      backendId: backendId
     }
   }));
   return true;
@@ -3733,7 +3737,6 @@ function loadBackendDetails(backend) {
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
   markSelected(backendId);
-  selectedModule = 'overview';
   selectModule('overview');
   refreshDetailButton.disabled = true;
   detailMetaElement.className = 'detail-meta';
@@ -3766,6 +3769,47 @@ function loadBackendDetails(backend) {
       detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
       detailDataElement.replaceChildren();
       refreshDetailButton.disabled = false;
+    });
+}
+
+function refreshBackendSnapshot(backend) {
+  if (!backend) return Promise.resolve(null);
+  const selector = backend.frontendSelector || backend;
+  const backendId = selector.id || backend.backendId || 'default';
+  if (backendId !== selectedBackendId) return Promise.resolve(null);
+
+  selectedBackend = backend;
+  refreshDetailButton.disabled = true;
+
+  const clientApi = frontendPlatformClientApi();
+
+  if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
+    detailMetaElement.className = 'detail-meta error';
+    detailMetaElement.textContent = 'Details konnten nicht aktualisiert werden: Client API wrapper is not available';
+    refreshDetailButton.disabled = false;
+    return Promise.resolve(null);
+  }
+
+  return clientApi.fetchClientBackendSnapshot(backendId, {
+    cache: 'no-store'
+  })
+    .then(data => {
+      if (selectedBackendId !== backendId) return null;
+      currentSnapshot = data;
+      detailMetaElement.className = 'detail-meta';
+      detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
+      if (selectedModule === 'overview') {
+        renderSelectedModule(data);
+      }
+      refreshDetailButton.disabled = false;
+      return data;
+    })
+    .catch(error => {
+      if (selectedBackendId !== backendId) return null;
+      detailMetaElement.className = 'detail-meta error';
+      detailMetaElement.textContent = 'Details konnten nicht aktualisiert werden: ' + error.message;
+      refreshDetailButton.disabled = false;
+      return null;
     });
 }
 
