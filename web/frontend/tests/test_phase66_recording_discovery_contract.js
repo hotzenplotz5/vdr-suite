@@ -18,6 +18,7 @@ const genreClientApi = read('web/frontend/api/genre-client-api.js');
 const genres = read('web/frontend/modules/genres.js');
 const continueWatching = read('web/frontend/home-continue-watching.js');
 const httpPaths = read('core/http/src/TestHttpServerPaths.inc');
+const index = read('web/frontend/index.html');
 const makefile = read('Makefile');
 const sliceMake = read('mk/phase66-recording-discovery.mk');
 
@@ -152,9 +153,11 @@ assert(
   'Series must publish an initial Recording-derived projection without Rich Metadata'
 );
 
-// Below-the-fold discovery is bounded, deferred, and each rail settles independently.
-assert(source.includes('new global.IntersectionObserver'));
-assert(source.includes("rootMargin: '320px 0px'"));
+// Home-root discovery is immediate: viewport position must not gate Recording rails.
+assert(!source.includes('new global.IntersectionObserver'));
+assert(!source.includes("rootMargin: '320px 0px'"));
+assert(source.includes('global.setTimeout(function () {'));
+assert(source.includes('refreshForHome();'));
 assert(source.includes('Promise.allSettled(loads)'));
 assert(source.includes('loadNewly(client, backendId, generation, {'));
 assert(source.includes('loadGenres(client, backendId, generation, {'));
@@ -172,7 +175,13 @@ assert(source.includes("'Neu aufgenommene Inhalte sind vorübergehend nicht verf
 assert(source.includes("'Genres sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Aufnahmeordner sind vorübergehend nicht verfügbar.'"));
 
-// The discovery runtime is itself deferred from the established production loader.
+// Home registers Recording owners before the Live Hero. The deferred loader remains
+// an idempotent fallback for older/bootstrap paths, not the Home critical-path gate.
+const discoveryScript = '<script src="../frontend/home-recording-discovery.js"></script>';
+const heroScript = '<script src="../frontend/home-live-hero.js"></script>';
+assert(index.includes(discoveryScript));
+assert(index.includes(heroScript));
+assert(index.indexOf(discoveryScript) < index.indexOf(heroScript));
 assert(bootstrap.includes("loadVdrSuiteDeferredRuntime("));
 assert(bootstrap.includes("'/frontend/home-recording-discovery.js'"));
 assert(httpPaths.includes('{"/frontend/home-recording-discovery.js", "home-recording-discovery.js"'));
