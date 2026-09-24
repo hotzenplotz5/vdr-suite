@@ -104,13 +104,10 @@ for label in ["public_h", "public_cpp", "security"]:
         "NativeTimerBindingIdentity",
         "generateMutationOperationId",
         "generateNativeTimerBindingId",
-        "isPublicTimerAssignmentCreate",
-        "publicTimerAssignmentCreate",
-        "Idempotency-Key",
     ]:
         if forbidden in contents[label]:
             raise SystemExit(
-                f"identity prerequisite opened public CREATE semantics in {label}: {forbidden}")
+                f"Suite identity issuance leaked into public HTTP/security in {label}: {forbidden}")
 
 print("Phase-69.C Timer CREATE identity authority check passed")
-print("Boundary: operation and binding IDs are Suite-issued by their owning domains; preparation/public mutation remain closed")
+print("Boundary: operation and binding IDs remain Suite-issued by owning domains; public admission consumes only durable results")
