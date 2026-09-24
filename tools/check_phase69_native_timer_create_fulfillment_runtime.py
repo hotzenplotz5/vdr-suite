@@ -98,11 +98,16 @@ for label in ["public_h", "public_cpp"]:
             raise SystemExit(
                 f"CREATE fulfillment composition opened public mutation semantics in {label}: {forbidden}")
 
+# SecurityHttpGate already owns the accepted pre-v1 Timer CRUD permission
+# mapping, including "timers.create". Do not mistake that existing permission
+# for the still-closed public-v1 TimerAssignment POST. Guard only new public
+# admission markers plus mutation-specific Idempotency-Key handling here.
 for forbidden in [
     "NativeTimerBindingRepository",
     "TimerAssignmentFulfillmentService",
     "Idempotency-Key",
-    "timers.create",
+    "isPublicTimerAssignmentCreate",
+    "publicTimerAssignmentCreate",
 ]:
     if forbidden in contents["security"]:
         raise SystemExit(
