@@ -12,16 +12,15 @@ const source = fs.readFileSync(
 );
 
 assert(source.includes("const HOME_RESUME_EVENT = 'vdr-suite:home-resume';"));
-assert(source.includes('Promise.allSettled(['));
-assert(source.includes('loadNewly(client, backendId, generation, {'));
-assert(source.includes('loadGenres(client, backendId, generation, {'));
+assert(source.includes('Promise.allSettled(loads)'));
+assert(source.includes('parallelHomeResume'));
+assert(source.includes('state.seriesAvailable === true'));
 assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
-assert(source.includes('loadFolders(client, backendId, generation, {'));
-assert(source.includes('includeSeries: false'));
 assert(source.includes('retainVisible: true'));
 assert(!source.includes('refreshRecordingPresentationDependents'));
 
 let selectedModule = 'overview';
+let mode = 'initial';
 let recordingFetches = 0;
 let genreFetches = 0;
 let seriesFetches = 0;
@@ -33,10 +32,54 @@ function pending() {
   return new Promise(() => {});
 }
 
+function element(tagName) {
+  return {
+    tagName: String(tagName || '').toUpperCase(),
+    id: '',
+    className: '',
+    textContent: '',
+    dataset: Object.create(null),
+    style: Object.create(null),
+    children: [],
+    childNodes: [],
+    parentNode: null,
+    appendChild(child) {
+      if (child) child.parentNode = this;
+      this.children.push(child);
+      this.childNodes.push(child);
+      return child;
+    },
+    append() {
+      Array.from(arguments).forEach(child => this.appendChild(child));
+    },
+    addEventListener() {},
+    setAttribute(name, value) {
+      if (name === 'data-home-discovery-rail') {
+        this.dataset.homeDiscoveryRail = String(value);
+      }
+    },
+    replaceChildren() {
+      this.children = [];
+      this.childNodes = [];
+      Array.from(arguments).forEach(child => this.appendChild(child));
+    },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    remove() {}
+  };
+}
+
 const host = {
+  children: [],
   querySelector() { return null; },
-  appendChild() {},
-  insertBefore() {}
+  appendChild(child) {
+    this.children.push(child);
+    child.parentNode = this;
+    return child;
+  },
+  insertBefore(child) {
+    return this.appendChild(child);
+  }
 };
 
 const document = {
@@ -47,36 +90,7 @@ const document = {
       if (node && node.id) styleNodes.set(node.id, node);
     }
   },
-  createElement(tagName) {
-    return {
-      tagName: String(tagName || '').toUpperCase(),
-      id: '',
-      className: '',
-      textContent: '',
-      dataset: Object.create(null),
-      style: Object.create(null),
-      children: [],
-      childNodes: [],
-      appendChild(child) {
-        this.children.push(child);
-        this.childNodes.push(child);
-        return child;
-      },
-      append() {
-        Array.from(arguments).forEach(child => this.appendChild(child));
-      },
-      addEventListener() {},
-      setAttribute() {},
-      replaceChildren() {
-        this.children = [];
-        this.childNodes = [];
-        Array.from(arguments).forEach(child => this.appendChild(child));
-      },
-      querySelector() { return null; },
-      querySelectorAll() { return []; },
-      remove() {}
-    };
-  },
+  createElement: element,
   getElementById(id) {
     return styleNodes.get(id) || null;
   },
@@ -101,20 +115,27 @@ const document = {
 const client = {
   fetchClientRecordings() {
     recordingFetches += 1;
-    return pending();
+    return mode === 'initial'
+      ? Promise.resolve({recordings: []})
+      : pending();
   },
   fetchClientGenres() {
     genreFetches += 1;
-    return pending();
+    return mode === 'initial'
+      ? Promise.resolve({genres: [{id: 'series', label: 'Serien', count: 1}]})
+      : pending();
   },
-  fetchClientGenreRecordings(request) {
-    if (request && request.genreId === 'series') seriesFetches += 1;
-    else seriesFetches += 1;
-    return pending();
+  fetchClientGenreRecordings() {
+    seriesFetches += 1;
+    return mode === 'initial'
+      ? Promise.resolve({recordings: [], totalCount: 0, hasMore: false})
+      : pending();
   },
   fetchClientRecordingFolder() {
     folderFetches += 1;
-    return pending();
+    return mode === 'initial'
+      ? Promise.resolve({folders: [], recordings: []})
+      : pending();
   },
   createClientLiveUpdateSource() {
     return {
@@ -174,26 +195,41 @@ const api = window.VdrSuiteHomeRecordingDiscovery;
 assert(api);
 assert.strictEqual(api.install(), true);
 
-assert.strictEqual(recordingFetches, 0, 'lazy install must not fetch Newly Recorded eagerly');
-assert.strictEqual(genreFetches, 0, 'lazy install must not fetch Genres eagerly');
-assert.strictEqual(seriesFetches, 0, 'lazy install must not fetch Series eagerly');
-assert.strictEqual(folderFetches, 0, 'lazy install must not fetch folders eagerly');
+(async function () {
+  assert.strictEqual(recordingFetches, 0, 'lazy install must not fetch Newly Recorded eagerly');
+  assert.strictEqual(genreFetches, 0, 'lazy install must not fetch Genres eagerly');
+  assert.strictEqual(seriesFetches, 0, 'lazy install must not fetch Series eagerly');
+  assert.strictEqual(folderFetches, 0, 'lazy install must not fetch folders eagerly');
 
-const homeResumeListeners = listeners.get('vdr-suite:home-resume') || [];
-assert.strictEqual(homeResumeListeners.length, 1,
-  'Recording Discovery must have one canonical Home-resume listener');
+  // Cold Home first establishes canonical genre availability. Series may depend
+  // on that first genre result, but all later Home returns must not.
+  assert.strictEqual(await api.refresh(), true);
 
-document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
-  detail: {backendId: 'default', previousModule: 'recordings2'}
-}));
+  recordingFetches = 0;
+  genreFetches = 0;
+  seriesFetches = 0;
+  folderFetches = 0;
+  mode = 'pending';
 
-assert.strictEqual(recordingFetches, 1,
-  'Home resume must start Newly Recorded immediately');
-assert.strictEqual(genreFetches, 1,
-  'Home resume must start Genres immediately');
-assert.strictEqual(seriesFetches, 1,
-  'Series must start immediately without waiting for the unresolved Genres request');
-assert.strictEqual(folderFetches, 1,
-  'Home resume must start Recording folders immediately');
+  const homeResumeListeners = listeners.get('vdr-suite:home-resume') || [];
+  assert.strictEqual(homeResumeListeners.length, 1,
+    'Recording Discovery must have one canonical Home-resume listener');
 
-console.log('post-Phase-66 parallel Home Recording revalidation contract ok');
+  document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
+    detail: {backendId: 'default', previousModule: 'recordings2'}
+  }));
+
+  assert.strictEqual(recordingFetches, 1,
+    'Home resume must start Newly Recorded immediately');
+  assert.strictEqual(genreFetches, 1,
+    'Home resume must start Genres immediately');
+  assert.strictEqual(seriesFetches, 1,
+    'known canonical Series must start immediately without waiting for the unresolved Genres revalidation');
+  assert.strictEqual(folderFetches, 1,
+    'Home resume must start Recording folders immediately');
+
+  console.log('post-Phase-66 parallel Home Recording revalidation contract ok');
+}()).catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
