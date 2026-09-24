@@ -1,3 +1,132 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+
+const frontendRoot = path.join(__dirname, '..');
+const repoRoot = path.join(frontendRoot, '..', '..');
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+const source = read('web/frontend/home-recording-discovery.js');
+const bootstrap = read('web/frontend/home-recording-discovery-bootstrap.js');
+const clientApi = read('web/frontend/api/client-api.js');
+const genreClientApi = read('web/frontend/api/genre-client-api.js');
+const genres = read('web/frontend/modules/genres.js');
+const continueWatching = read('web/frontend/home-continue-watching.js');
+const httpPaths = read('core/http/src/TestHttpServerPaths.inc');
+const makefile = read('Makefile');
+const sliceMake = read('mk/phase66-recording-discovery.mk');
+
+// Newly Recorded consumes the existing bounded recording query and explicit backend scope.
+assert(source.includes("fetchClientRecordings({"));
+assert(source.includes("backend: backendId"));
+assert(source.includes("sort: 'startTime'"));
+assert(source.includes("order: 'desc'"));
+assert(source.includes('limit: NEW_LIMIT'));
+assert(clientApi.includes("requestJson('/api/vdr/recordings/query', options)"));
+
+// Folder discovery consumes the existing recording hierarchy and canonical folder owner.
+assert(source.includes('fetchClientRecordingFolder({'));
+assert(source.includes("path: ''"));
+assert(source.includes('limit: FOLDER_LIMIT'));
+assert(source.includes("global.VdrSuiteRecordings2.openFolder(path)"));
+assert(clientApi.includes("requestJson('/api/vdr/recordings/folder', backendQueryOptions(options))"));
+
+// Genre discovery consumes the existing metadata genre truth and existing genre browser.
+assert(source.includes("scope: 'recordings'"));
+assert(source.includes('fetchClientGenreRecordings({'));
+assert(source.includes("global.VdrSuiteGenres.openRecordingGenre(entry"));
+assert(genreClientApi.includes("base.requestJson('/api/metadata/genres'"));
+assert(genreClientApi.includes("base.requestJson('/api/metadata/genres/recordings'"));
+assert(genres.includes('client.fetchClientGenreRecordings(options)'));
+assert(genres.includes('openRecordingGenre: function (entry, options)'));
+
+// Series membership is projection-only: the canonical `series` endpoint remains the sole membership authority.
+assert(source.includes("text(entry.id).toLowerCase() === 'series'"));
+assert(source.includes('canonicalRecordings(payload, backendId)'));
+assert(source.includes('limit: SERIES_PAGE_LIMIT'));
+assert(source.includes('offset: offset'));
+assert(source.includes('page.hasMore') || source.includes('payload.hasMore'));
+assert(!source.includes('filter(isSeriesRecording)'));
+assert(!source.includes('function isSeriesRecording'));
+assert(!source.includes("text(value.contentKind) === 'series-episode'"));
+assert(!source.includes('homeSeriesId'));
+assert(!source.includes('seriesCatalog'));
+assert(!source.includes('SERIES_MEMBER_LIMIT'));
+assert(!source.includes('SERIES_LIMIT'));
+
+// Persisted Native Recording Metadata enriches canonical members only, via backendNativeId,
+// a shared backend/generation-scoped request cache and the established concurrency ceiling.
+assert(source.includes("client.requestJson('/api/vdr/recordings/metadata'"));
+assert(source.includes('backendNativeId: task.nativeId'));
+assert(source.includes("cache: 'no-store'"));
+assert(source.includes("credentials: 'same-origin'"));
+assert(source.includes('const SERIES_METADATA_CONCURRENCY = 4'));
+assert(source.includes('const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY'));
+assert(source.includes('cache.active < SERIES_METADATA_TOTAL_CONCURRENCY'));
+assert(source.includes('cache.inflight.has(nativeId)'));
+assert(source.includes('requestSeriesRecordingMetadata(client, backendId, nativeId, generation)'));
+assert(source.includes('richProviderId !== 0'));
+assert(source.includes('rich.get(nativeId) || null'));
+assert(!source.includes('fetch("https://'));
+assert(!source.includes('tmdb.org'));
+assert(!source.includes('tvmaze'));
+
+// Recording identity and navigation remain owned by Recordings 2; Home does not synthesize a second ID.
+assert(source.includes("return text(recording && (recording.recordingId || recording.id))"));
+assert(source.includes("global.VdrSuiteRecordings2.openRecording(recording"));
+assert(source.includes("selectShellModule('recordings2')"));
+assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
+assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
+assert(source.includes("backLabel: '← Zurück zur Staffel'"));
+assert(source.includes(
+  'function renderSeriesDetail(series, selectedSeason, backendId, options)'
+));
+assert(source.includes(
+  'function seriesMetadataPendingForDetail(series, backendId)'
+));
+assert(source.includes(
+  'config.metadataLoading === true ||'
+));
+assert(source.includes(
+  'seriesMetadataPendingForDetail(series, backendId)'
+));
+assert(source.includes(
+  'cache.unsettledNativeIds.has(nativeId)'
+));
+assert(source.includes(
+  'cache.inflight.has(nativeId)'
+));
+assert(source.includes(
+  'canEnrich && hierarchyIncomplete'
+));
+assert(!source.includes('homeRecordingId'));
+
+// Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
+assert(source.includes('presentation(recording).posterUrl || artwork.preferredUrl'));
+assert(source.includes('member.posterUrl || recordingPosterUrl(recording)'));
+assert(source.includes("image.loading = 'lazy'"));
+assert(!source.includes('resolveArtwork'));
+assert(!source.includes('fetchArtwork'));
+
+// Initial Home discovery must render from canonical Recording data without starting
+// Native Recording Metadata fan-out. Rich metadata remains available to later
+// interaction-owned paths, but it is not part of initial Home readiness.
+function functionBody(name, nextName) {
+  const start = source.indexOf('  function ' + name + '(');
+  const end = source.indexOf('  function ' + nextName + '(', start + 1);
+  assert(start >= 0, name + ' must exist');
+  assert(end > start, nextName + ' must follow ' + name);
+  return source.slice(start, end);
+}
+
+const initialRandomGenre = functionBody('loadRandomGenre', 'loadSeries');
+const initialSeries = functionBody('loadSeries', 'loadGenres');
+const seriesScan = functionBody('fetchAllSeriesRecordings', 'fetchBoundedRandomGenreRecordings');
 
 assert(initialRandomGenre.includes('fetchSeriesRecordingMetadata('));
 assert(
@@ -59,3 +188,9 @@ assert(!source.includes('ranking'));
 
 // The ordinary frontend and packaging gates include the actual production assets.
 assert(makefile.includes('include mk/phase66-recording-discovery.mk'));
+assert(sliceMake.includes('test-ci-frontend: test-phase66-recording-discovery-frontend'));
+assert(sliceMake.includes('test-ci-packaging: test-phase66-recording-discovery-install-staging'));
+assert(sliceMake.includes('web/frontend/home-recording-discovery-bootstrap.js'));
+assert(sliceMake.includes('web/frontend/home-recording-discovery.js'));
+
+console.log('phase66 recording discovery production composition contract ok');
