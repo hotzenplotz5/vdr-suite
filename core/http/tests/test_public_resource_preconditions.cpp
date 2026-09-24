@@ -16,6 +16,32 @@ int main()
         publicStrongEntityTag("revision-7");
     assert(!current.empty());
 
+    std::string decodedRevision;
+    assert(publicStrongEntityTagResourceRevision(
+        publicStrongEntityTag("7"),
+        decodedRevision));
+    assert(decodedRevision == "7");
+    assert(publicStrongEntityTagResourceRevision(
+        publicStrongEntityTag("revision:42"),
+        decodedRevision));
+    assert(decodedRevision == "revision:42");
+    assert(!publicStrongEntityTagResourceRevision(
+        "W/" + publicStrongEntityTag("7"),
+        decodedRevision));
+    assert(!publicStrongEntityTagResourceRevision(
+        "*",
+        decodedRevision));
+    assert(!publicStrongEntityTagResourceRevision(
+        "\"vsr-3A\"",
+        decodedRevision));
+    assert(!publicStrongEntityTagResourceRevision(
+        "\"other-31\"",
+        decodedRevision));
+    assert(!publicStrongEntityTagResourceRevision(
+        publicStrongEntityTag("7") + ", " +
+            publicStrongEntityTag("8"),
+        decodedRevision));
+
     assert(publicEvaluateIfMatch("", current) ==
         PublicEntityTagConditionResult::missing);
     assert(publicEvaluateIfMatch("*", current) ==

@@ -168,6 +168,69 @@ inline bool publicEntityTagParseSingle(
     return true;
 }
 
+inline bool publicStrongEntityTagResourceRevision(
+    const std::string& entityTag,
+    std::string& resourceRevision)
+{
+    resourceRevision.clear();
+
+    PublicEntityTag parsed;
+    if (!publicEntityTagParseSingle(entityTag, parsed) || parsed.weak)
+    {
+        return false;
+    }
+
+    static constexpr char Prefix[] = "vsr-";
+    const std::string opaque = parsed.opaque;
+    const std::size_t prefixLength = sizeof(Prefix) - 1U;
+
+    if (opaque.size() <= prefixLength ||
+        opaque.compare(0, prefixLength, Prefix) != 0)
+    {
+        return false;
+    }
+
+    const std::string encoded = opaque.substr(prefixLength);
+    if ((encoded.size() % 2U) != 0U)
+    {
+        return false;
+    }
+
+    auto hexValue = [](char character) -> int
+    {
+        if (character >= '0' && character <= '9')
+            return character - '0';
+        if (character >= 'a' && character <= 'f')
+            return character - 'a' + 10;
+        return -1;
+    };
+
+    std::string decoded;
+    decoded.reserve(encoded.size() / 2U);
+
+    for (std::size_t index = 0; index < encoded.size(); index += 2U)
+    {
+        const int high = hexValue(encoded[index]);
+        const int low = hexValue(encoded[index + 1U]);
+        if (high < 0 || low < 0)
+        {
+            return false;
+        }
+
+        decoded.push_back(
+            static_cast<char>((high << 4) | low));
+    }
+
+    if (decoded.empty() ||
+        publicStrongEntityTag(decoded) != entityTag)
+    {
+        return false;
+    }
+
+    resourceRevision = std::move(decoded);
+    return true;
+}
+
 inline PublicEntityTagConditionResult publicEvaluateIfMatch(
     const std::string& headerValue,
     const std::string& currentEntityTag)

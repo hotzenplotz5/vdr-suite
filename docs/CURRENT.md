@@ -12,6 +12,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
+- [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -68,11 +69,12 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Atomic Timer CREATE admission foundation: the accepted selected->provisioning
-fulfillment transition and durable MutationOperation + immutable CREATE payload
-reservation now share one outer SQLite commit boundary. Exact idempotent replay
-is resolved before stale-current-state checks; public Timer POST and native
-execution remain closed.
+Public Timer CREATE admission: POST on the backend-scoped public TimerAssignment
+item now enforces timers.create authorization, browser CSRF, application/json,
+a closed empty JSON action object, strong If-Match and Idempotency-Key before
+the existing backend write policy and accepted atomic admission owner. It
+returns 202 + the durable operation resource/Location. Agent command
+reservation, dispatch activation and native VDR Timer execution remain closed.
 
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
@@ -94,6 +96,9 @@ PR #330 -> 27d040ec362264bdd3de01b1b8b65c8301269748
 PR #330 hosted CI run 35940968821 / #9124: SUCCESS (6/6)
 PR #331 -> ac7807c0fce364ab5c918dfa5d1f28427e928db3
 PR #331 hosted CI run 35943072158 / #9126: SUCCESS (6/6)
+PR #332 -> 1f19726a0b387a7b1de3f078dbf836a51254e724
+PR #332 accepted head c1d156408fd3895a33499635ec5475340d6d049b
+PR #332 hosted CI run 35960066328 / #9130: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a

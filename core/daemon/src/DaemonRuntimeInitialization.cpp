@@ -945,6 +945,131 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerTimerCreateAdmission(
+        [this](
+            const PublicTimerCreateAdmissionRequest& request)
+        {
+            PublicTimerCreateAdmissionResult result;
+
+            if (!backendRegistryService_ ||
+                !backendAccessPolicy_ ||
+                !nativeTimerCreateAdmissionService_)
+            {
+                result.status =
+                    PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                return result;
+            }
+
+            const BackendAccessDecision access =
+                backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_,
+                    request.backendId);
+
+            if (!access.allowed)
+            {
+                result.status = access.readOnly
+                    ? PublicTimerCreateAdmissionStatus::readOnlyBackend
+                    : PublicTimerCreateAdmissionStatus::backendUnavailable;
+                return result;
+            }
+
+            const std::int64_t requestedAt =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now()
+                        .time_since_epoch()).count();
+            if (requestedAt <= 0)
+            {
+                result.status =
+                    PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                return result;
+            }
+
+            vdrsuite::timers::NativeTimerCreateAdmissionRequest
+                admissionRequest;
+            admissionRequest.actorId = request.actorRef;
+            admissionRequest.idempotencyKey =
+                request.idempotencyKey;
+            admissionRequest.timerAssignmentId =
+                request.timerAssignmentId;
+            admissionRequest.expectedAssignmentRevision =
+                request.expectedAssignmentRevision;
+            admissionRequest.expectedBackendId =
+                request.backendId;
+            admissionRequest.requestedAt = requestedAt;
+
+            const auto admitted =
+                nativeTimerCreateAdmissionService_->admit(
+                    admissionRequest);
+
+            switch (admitted.status)
+            {
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::prepared:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::accepted;
+                    break;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::replayed:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::replayed;
+                    break;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentNotFound:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::notFound;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentRevisionConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::revisionConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::generationConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::generationConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::idempotencyConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::idempotencyConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::operationConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::operationConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::assignmentStateConflict:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::backendConflict:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::specificationUnavailable:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::intentRevisionConflict:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::stateConflict;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::invalid:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::identityGenerationFailed:
+                case vdrsuite::timers::NativeTimerCreateAdmissionStatus::repositoryError:
+                    result.status =
+                        PublicTimerCreateAdmissionStatus::serviceUnavailable;
+                    return result;
+            }
+
+            result.operation.operationId =
+                admitted.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    admitted.operation.state);
+            result.operation.backendId =
+                admitted.operation.backendId;
+            result.operation.resourceRevision =
+                admitted.operation.operationRevision;
+            return result;
+        });
+
  
     apiRouter_ = std::make_unique<ApiRouter>(
         *dashboardController_,

@@ -383,12 +383,14 @@ public:
         const bool isPublicTimerAssignmentRead =
             request.method == "GET" &&
             isPublicTimerAssignmentResource;
+        const bool isPublicTimerAssignmentCreate =
+            isPost &&
+            isPublicTimerAssignmentResource;
         const bool isPublicV1ReadOnlyMethodMismatch =
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
-             isPublicOperationResource ||
-             isPublicTimerAssignmentResource);
+             isPublicOperationResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -399,7 +401,8 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
-            isRemoteAction || isTimerCreateAction || isTimerUpdateAction ||
+            isRemoteAction || isTimerCreateAction ||
+            isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -729,10 +732,16 @@ public:
             requestToAuthorize.permission = "remote.control";
             requestToAuthorize.action = "remote.control";
         }
-        else if (isTimerCreateAction)
+        else if (isTimerCreateAction ||
+                 isPublicTimerAssignmentCreate)
         {
             requestToAuthorize.permission = "timers.create";
             requestToAuthorize.action = "timers.create";
+            if (isPublicTimerAssignmentCreate)
+            {
+                requestToAuthorize.backendId =
+                    publicTimerAssignmentBackendId;
+            }
         }
         else if (isTimerUpdateAction)
         {

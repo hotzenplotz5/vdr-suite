@@ -342,7 +342,11 @@ public:
         const std::string& actorRef = "",
         const std::string& clientRef = "",
         const std::string& correlationRef = "",
-        const std::string& requestRef = "")
+        const std::string& requestRef = "",
+        const std::string& ifMatch = "",
+        const std::string& idempotencyKey = "",
+        const std::string& contentType = "",
+        const std::string& authorizedBackendRef = "")
     {
         ApiResponse response;
 
@@ -350,7 +354,13 @@ public:
                 requestTarget,
                 requestRef,
                 correlationRef,
-                response))
+                response,
+                body,
+                actorRef,
+                ifMatch,
+                idempotencyKey,
+                contentType,
+                authorizedBackendRef))
         {
             return response;
         }

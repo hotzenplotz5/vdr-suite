@@ -91,10 +91,14 @@ if "queryStringValue" in contents["public_cpp"]:
     raise SystemExit(
         "PublicApiRuntime must consume an authorized backend scope, not reparse query parameters")
 
-for token in ["Idempotency-Key", "timer.create", "timers.create"]:
-    if token in contents["public_cpp"] or token in contents["public_h"]:
+for forbidden in [
+    "NativeTimerCreateAdmissionService",
+    "generateMutationOperationId",
+    "generateNativeTimerBindingId",
+]:
+    if forbidden in contents["public_cpp"] or forbidden in contents["public_h"]:
         raise SystemExit(
-            f"public TimerAssignment read slice opened mutation semantics prematurely: {token}")
+            f"public TimerAssignment resource leaked domain/native CREATE authority: {forbidden}")
 
 print("Phase-69.C public TimerAssignment resource check passed")
-print("Boundary: authenticated timers.view item read + opaque ETag; collection and mutations closed")
+print("Boundary: authenticated timers.view item read + opaque ETag retained; later CREATE admission is separately guarded")

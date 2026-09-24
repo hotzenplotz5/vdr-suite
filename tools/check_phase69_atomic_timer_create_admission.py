@@ -149,39 +149,21 @@ for forbidden in [
         raise SystemExit(
             f"atomic admission acquired post-admission/native execution authority: {forbidden}")
 
-for label in ["public_h", "public_cpp"]:
-    for forbidden in [
-        "NativeTimerCreateAdmissionService",
-        "Idempotency-Key",
-        "timers.create",
-        "timer.create",
-        "isPublicTimerAssignmentCreate",
-        "publicTimerAssignmentCreate",
-    ]:
-        if forbidden in contents[label]:
-            raise SystemExit(
-                f"atomic admission opened public mutation semantics in {label}: {forbidden}")
-
-for forbidden in [
-    "NativeTimerCreateAdmissionService",
-    "Idempotency-Key",
-    "isPublicTimerAssignmentCreate",
-    "publicTimerAssignmentCreate",
-]:
-    if forbidden in contents["security"]:
+for label in ["public_h", "public_cpp", "security"]:
+    if "NativeTimerCreateAdmissionService" in contents[label]:
         raise SystemExit(
-            f"atomic admission opened public mutation security: {forbidden}")
+            f"domain admission service leaked directly into public HTTP/security in {label}")
 
-for required_read_only_marker in [
+for required_public_marker in [
     'const bool isPublicTimerAssignmentRead =',
-    'request.method == "GET" &&',
+    'const bool isPublicTimerAssignmentCreate =',
     'isPublicV1ReadOnlyMethodMismatch =',
-    'isPublicTimerAssignmentResource);',
+    'isPublicTimerAssignmentResource;',
 ]:
-    if required_read_only_marker not in contents["security"]:
+    if required_public_marker not in contents["security"]:
         raise SystemExit(
-            "public TimerAssignment boundary is no longer read-only: "
-            + required_read_only_marker)
+            "reviewed public TimerAssignment read/create classification missing: "
+            + required_public_marker)
 
 for label in ["assignment_cpp", "operation_cpp"]:
     if "BEGIN IMMEDIATE TRANSACTION;" not in contents[label]:
@@ -189,4 +171,4 @@ for label in ["assignment_cpp", "operation_cpp"]:
             f"normal repository transaction ownership disappeared from {label}")
 
 print("Phase-69.C atomic Timer CREATE admission check passed")
-print("Boundary: selected->provisioning and operation+payload reserve share one commit; public/native dispatch remain closed")
+print("Boundary: selected->provisioning and operation+payload reserve share one commit; public HTTP may enter only through the reviewed callback, native dispatch remains closed")

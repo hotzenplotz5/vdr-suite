@@ -146,3 +146,20 @@ test-phase69-atomic-timer-create-admission:
 		-o $(BUILD_DIR)/test_native_timer_create_admission_service
 	$(BUILD_DIR)/test_native_timer_create_admission_service
 	python3 tools/check_phase69_atomic_timer_create_admission.py
+
+.PHONY: test-phase69-public-timer-create-admission
+
+test-phase69-public-timer-create-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_timer_create_admission.cpp \
+		-o $(BUILD_DIR)/test_public_timer_create_admission
+	$(BUILD_DIR)/test_public_timer_create_admission
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_create_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_create_security
+	$(BUILD_DIR)/test_public_timer_create_security
+	python3 tools/check_phase69_public_timer_create_admission.py

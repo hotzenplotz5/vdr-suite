@@ -112,16 +112,15 @@ if not (
 # A later Phase-69.C slice may compose the already accepted durable
 # reservation/dispatch/activation owners. This preparation guard continues to
 # own only the one-repository/one-service preparation boundary and the fact that
-# public mutation remains closed until separately reviewed.
+# public mutation may be opened only through a separately reviewed admission boundary.
 for label in ["public_h", "public_cpp", "security"]:
     for forbidden in [
         "NativeTimerCreateOperationPreparationService",
         "nativeTimerCreateOperationPreparationService_",
-        "Idempotency-Key",
     ]:
         if forbidden in contents[label]:
             raise SystemExit(
-                f"CREATE preparation composition opened public mutation semantics in {label}: {forbidden}")
+                f"CREATE preparation authority leaked into public HTTP/security in {label}: {forbidden}")
 
 scan_roots = [
     ROOT / "api",
