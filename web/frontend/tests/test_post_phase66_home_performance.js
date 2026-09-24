@@ -39,12 +39,18 @@ assert(channelEventsSource.includes('state.eventsByChannel.get(id) || []'));
 
 const applyProgramsSource = between(
   'function applyPrograms(data, append)',
-  'function loadProgrammePage('
+  'function loadProgrammeArtworkPage('
 );
 assert.strictEqual(
   (applyProgramsSource.match(/rebuildEventIndex\(\)/g) || []).length,
   2,
   'both reset and append EPG updates must rebuild the channel index'
+);
+assert(applyProgramsSource.includes('const previousSignature = programmeSignature(state.events);'));
+assert.strictEqual(
+  (applyProgramsSource.match(/programmeSignature\(state\.events\) !== previousSignature/g) || []).length,
+  2,
+  'programme application must report whether the visible projection actually changed'
 );
 
 const programmeRailSource = between(
@@ -81,18 +87,31 @@ const clearProgramsSource = between(
 );
 assert(clearProgramsSource.includes('state.programmeLoadedAt = 0;'));
 const programmeLoadSource = between(
-  'function loadProgrammePage(sequence, offset, reset)',
-  'function loadPrograms('
+  'function loadProgrammePage(sequence, offset, reset, options)',
+  'function loadPrograms(sequence, options)'
 );
 assert(programmeLoadSource.includes('state.programmeLoadedAt = Date.now();'));
+assert(programmeLoadSource.includes('const programmesChanged ='));
+assert(programmeLoadSource.includes('config.renderUnchanged !== false'));
+assert(programmeLoadSource.includes("if (!reset || config.retainVisible !== true) render();"));
 const loadSource = between(
-  'function load(force)',
-  'function sync(force)'
+  'function load(force, options)',
+  'function sync(force, options)'
 );
 assert(loadSource.includes('const reuseWarmPrograms = state.events.length > 0'));
 assert(loadSource.includes('Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS'));
 assert(loadSource.includes('render({programmeRails: !reuseWarmPrograms});'));
 assert(loadSource.includes('if (reuseWarmPrograms) return Promise.resolve(null);'));
+assert(loadSource.includes('const revalidatePrograms = config.revalidatePrograms === true;'));
+assert(loadSource.includes('renderUnchanged: !revalidatePrograms'));
+const syncSource = between(
+  'function sync(force, options)',
+  'function scheduleSync(force, options)'
+);
+assert(syncSource.includes('config.revalidatePrograms === true'));
+assert(source.includes('scheduleSync(false, {'));
+assert(source.includes('retainVisible: true'));
+assert(source.includes('revalidatePrograms: true'));
 
 assert(source.includes('function clearPrograms()'));
 assert(source.includes('state.eventsByChannel = new Map();'));

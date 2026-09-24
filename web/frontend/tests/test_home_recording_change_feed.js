@@ -26,21 +26,27 @@ class Element {
 }
 const host = new Element();
 const listeners = {};
-const observers = [];
 const timers = new Map();
 const sources = [];
 let timerId = 0;
 let backend = 'A';
 let moduleName = 'overview';
+let canonicalBackendReady = false;
 let recordingReads = 0;
 let folderReads = 0;
-let pendingRead = null;
+const queuedRecordingResponses = [];
 const doc = {
   hidden: false,
   head: new Element(),
   createElement() { return new Element(); },
   getElementById() { return null; },
-  querySelector(selector) { return selector === '[data-home-zone="additional-sections"]' ? host : null; },
+  querySelector(selector) {
+    if (selector === '[data-home-zone="additional-sections"]') return host;
+    if (selector === '#backends .backend-card.selected, #backends [aria-selected="true"]') {
+      return canonicalBackendReady ? {dataset: {backendId: backend}} : null;
+    }
+    return null;
+  },
   addEventListener(type, listener) { (listeners[type] ||= []).push(listener); }
 };
 const client = {
@@ -60,7 +66,9 @@ const client = {
     recordingReads++;
     assert.strictEqual(options.cache, 'no-store');
     assert.strictEqual(options.query.backend, backend);
-    if (pendingRead) return pendingRead;
+    if (queuedRecordingResponses.length) {
+      return queuedRecordingResponses.shift()();
+    }
     return Promise.resolve({recordings: [{
       recordingId: 'import-' + recordingReads, backendId: backend,
       backendNativeId: '/recordings/import-' + recordingReads,
@@ -79,11 +87,6 @@ const window = {
   document: doc, console,
   setTimeout(fn) { const id = ++timerId; timers.set(id, fn); return id; },
   clearTimeout(id) { timers.delete(id); },
-  IntersectionObserver: class {
-    constructor(callback) { this.callback = callback; observers.push(this); }
-    observe() {}
-    disconnect() {}
-  },
   VdrSuitePlatform: {
     getClientApi() { return client; },
     getSelectedModule() { return moduleName; },
@@ -114,8 +117,13 @@ function navigate(next) {
 }
 
 (async () => {
-  // Real install -> lazy visibility -> canonical Home refresh, no test-only subscription call.
-  observers[0].callback([{isIntersecting: true}]);
+  // Production shell selects the canonical backend before publishing Home resume.
+  // Recording Discovery must start immediately from that lifecycle event; no
+  // viewport/IntersectionObserver gate is allowed.
+  canonicalBackendReady = true;
+  (listeners['vdr-suite:home-resume'] || []).forEach(fn => fn({
+    detail: {backendId: backend}
+  }));
   await tick();
   assert.strictEqual(sources.length, 1, 'Home must subscribe through the production lifecycle');
   assert.strictEqual(recordingReads, 1);
@@ -138,18 +146,51 @@ function navigate(next) {
   await window.VdrSuiteHomeRecordingDiscovery._test.refreshForHome();
   assert.strictEqual(recordingReads, 2, 'unchanged Home remains retained');
 
-  let resolveRead;
-  pendingRead = new Promise(resolve => { resolveRead = resolve; });
+  let resolveStaleRead;
+  queuedRecordingResponses.push(() => new Promise(resolve => {
+    resolveStaleRead = resolve;
+  }));
+  queuedRecordingResponses.push(() => Promise.resolve({recordings: [{
+    recordingId: 'manual-current',
+    backendId: backend,
+    backendNativeId: '/recordings/manual-current',
+    title: 'Manual current',
+    metadata: {
+      presentation: {posterUrl: '/manual/current.webp'},
+      artwork: {preferredUrl: '/manual/current.webp'}
+    }
+  }]}));
   first.emit(5);
   await tick();
   first.emit(6);
   await tick();
-  assert.strictEqual(recordingReads, 3, 'one in-flight refresh only');
-  pendingRead = null;
-  resolveRead({recordings: []});
+  assert.strictEqual(recordingReads, 4,
+    'a newer recording invalidation must start without waiting for a slow older generation');
+  assert(flatten(host).some(node => node.dataset.recordingId === 'manual-current'),
+    'newer presentation generation must publish while an older request is still pending');
+  assert(flatten(host).some(node => node.src === '/manual/current.webp'),
+    'newer manual artwork must be visible before the stale request finishes');
+
+  resolveStaleRead({recordings: [{
+    recordingId: 'stale-old',
+    backendId: backend,
+    backendNativeId: '/recordings/stale-old',
+    title: 'Stale old',
+    metadata: {
+      presentation: {posterUrl: '/stale/old.webp'},
+      artwork: {preferredUrl: '/stale/old.webp'}
+    }
+  }]});
   await settle();
   await tick();
-  assert.strictEqual(recordingReads, 4, 'a hint during a read survives');
+  assert.strictEqual(recordingReads, 4,
+    'stale completion must not trigger another serialized catch-up refresh');
+  assert(!flatten(host).some(node => node.dataset.recordingId === 'stale-old'),
+    'older generation must not overwrite newer recording presentation');
+  assert(flatten(host).some(node => node.src === '/manual/current.webp'),
+    'older generation must not overwrite newer manual artwork');
+  assert(!flatten(host).some(node => node.src === '/stale/old.webp'),
+    'stale artwork must never replace the newer manual artwork');
 
   visibility(true);
   assert(first.closed);
@@ -184,7 +225,6 @@ function navigate(next) {
   backend = 'B';
   navigate('overview');
   await tick();
-  observers[observers.length - 1].callback([{isIntersecting: true}]);
   await tick();
   const third = sources[sources.length - 1];
   assert(!third.closed);

@@ -27,6 +27,11 @@ assert(indexSource.includes('@media (max-width: 46rem)'));
 assert(indexSource.includes('@media (max-height: 34rem) and (min-width: 40rem) and (max-width: 64rem)'));
 assert(indexSource.includes('@media (prefers-reduced-motion: reduce)'));
 
+// Optional programme artwork must remain scoped to the Hero. It must never
+// become a full-Home dependency or background for headers and recording rails.
+assert(!indexSource.includes('var(--media-home-backdrop-image'));
+assert(!heroSource.includes('function applyHomeBackdrop'));
+
 // Hero: keyboard focus must be unmistakable, touch controls practical, live
 // progress semantic, and JS scrolling must respect reduced motion.
 assert(heroSource.includes("root.setAttribute('role', 'region')"));

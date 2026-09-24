@@ -13,10 +13,12 @@ const source = fs.readFileSync(
 
 assert(source.includes("const HOME_RESUME_EVENT = 'vdr-suite:home-resume';"));
 assert(source.includes('Promise.allSettled(loads)'));
-assert(source.includes('parallelHomeResume'));
-assert(source.includes('state.seriesAvailable === true'));
 assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
 assert(source.includes('retainVisible: true'));
+assert(!source.includes('parallelHomeResume'));
+assert(!source.includes('state.seriesAvailable'));
+assert(!source.includes('recordingRefreshBusy'));
+assert(!source.includes('includeSeries'));
 assert(!source.includes('refreshRecordingPresentationDependents'));
 
 let selectedModule = 'overview';
@@ -201,9 +203,17 @@ assert.strictEqual(api.install(), true);
   assert.strictEqual(seriesFetches, 0, 'lazy install must not fetch Series eagerly');
   assert.strictEqual(folderFetches, 0, 'lazy install must not fetch folders eagerly');
 
-  // Cold Home first establishes canonical genre availability. Series may depend
-  // on that first genre result, but all later Home returns must not.
-  assert.strictEqual(await api.refresh(), true);
+  // Cold Home launches all Recording-derived rails in the same turn.
+  const coldRefresh = api.refresh();
+  assert.strictEqual(recordingFetches, 1,
+    'cold Home must start Newly Recorded immediately');
+  assert.strictEqual(genreFetches, 1,
+    'cold Home must start Genres immediately');
+  assert.strictEqual(seriesFetches, 1,
+    'cold Home must start Series immediately without waiting for Genres');
+  assert.strictEqual(folderFetches, 1,
+    'cold Home must start Recording folders immediately');
+  assert.strictEqual(await coldRefresh, true);
 
   recordingFetches = 0;
   genreFetches = 0;

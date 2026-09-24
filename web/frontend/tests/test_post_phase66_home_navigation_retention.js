@@ -49,8 +49,10 @@ assert(
   !remote.includes("'vdr-suite:home-resume'"),
   'the capture fence must not duplicate app-owned Home lifecycle publication'
 );
-assert(discoverySource.includes('parallelHomeResume: true'));
 assert(discoverySource.includes('Promise.allSettled(loads)'));
+assert(discoverySource.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
+assert(!discoverySource.includes('parallelHomeResume'));
+assert(!discoverySource.includes('recordingRefreshBusy'));
 assert(discoverySource.includes('retainVisible: true'));
 assert(!discoverySource.includes('refreshRecordingPresentationDependents'));
 assert(continueSource.includes('refresh({retainVisible: true});'));
@@ -59,7 +61,12 @@ assert.strictEqual(
   2,
   'Recently Watched and Recent Movies must subscribe independently'
 );
-assert(heroSource.includes('sync(true, {retainVisible: true});'));
+assert(
+  heroSource.includes('scheduleSync(false, {') &&
+    heroSource.includes('retainVisible: true') &&
+    heroSource.includes('revalidatePrograms: true'),
+  'Home resume must defer Live Hero revalidation behind synchronous primary Home owners'
+);
 assert(
   remote.includes("document.addEventListener('click',homeNavigationClick,true)"),
   'the fence must run in capture phase before the existing bubble listeners'

@@ -32,6 +32,13 @@ assert(source.includes(
   'if (reuseWarmPrograms) return Promise.resolve(null);'
 ));
 assert(source.includes('card.dataset.eventId = eventId(entry.event);'));
+assert(source.includes('function programmeSignature(events)'));
+assert(source.includes('config.renderUnchanged !== false'));
+assert(source.includes('scheduleSync(false, {'));
+assert(source.includes('revalidatePrograms: true'));
+assert(source.includes('pendingSyncOptions'));
+assert(source.includes('state.loadingPrograms && state.events.length > 0'));
+assert(!source.includes('sync(false, {retainVisible: true, revalidatePrograms: true});'));
 
 assert(!source.includes('fetchClientMetadata'));
 assert(!source.includes('fetchClientEpgArtwork'));
@@ -39,12 +46,12 @@ assert(!source.includes('/api/epg/cache/artwork?'));
 
 const pageStart =
   source.indexOf(
-    'function loadProgrammePage(sequence, offset, reset)'
+    'function loadProgrammePage(sequence, offset, reset, options)'
   );
 
 const pageEnd =
   source.indexOf(
-    'function loadPrograms(sequence)',
+    'function loadPrograms(sequence, options)',
     pageStart
   );
 
@@ -77,6 +84,7 @@ assert(artworkMarker > renderMarker);
 
 let nowNextRequests = 0;
 let manifestRequests = 0;
+let channelRequests = 0;
 
 const nowNextPages = [];
 const manifestPages = [];
@@ -137,7 +145,19 @@ const window = {
   console,
   Date,
   Promise,
-  VdrSuiteHomeNowNext: owner
+  VdrSuiteHomeNowNext: owner,
+  VdrSuitePlatform: {
+    getClientApi() {
+      return {
+        fetchClientChannels() {
+          channelRequests += 1;
+          return Promise.resolve({channels: []});
+        }
+      };
+    },
+    getSelectedBackendId() { return 'backend-a'; },
+    getSelectedModule() { return 'overview'; }
+  }
 };
 
 const context = vm.createContext({
@@ -288,6 +308,19 @@ assert.ok(window.VdrSuiteHomeLiveHero);
 
   await Promise.resolve();
   await Promise.resolve();
+
+  /*
+   * Canonical Home return revalidates Now/Next directly from the retained
+   * channel IDs. It must bypass both the 60-second warm shortcut and the
+   * slower channel-list request.
+   */
+  const beforeResumeRequests = nowNextRequests;
+  await hero.__test.load(false, {
+    retainVisible: true,
+    revalidatePrograms: true
+  });
+  assert.strictEqual(channelRequests, 0);
+  assert.strictEqual(nowNextRequests, beforeResumeRequests + 1);
 
   const snapshot =
     hero.snapshot();

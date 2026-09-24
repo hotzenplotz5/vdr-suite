@@ -35,6 +35,8 @@ def combined_install_source_with_public_origin():
         _original_combined_install_source()
         + "\n"
         + _original_read(current.ROOT / "mk/public-origin.mk")
+        + "\n"
+        + _original_read(current.ROOT / "mk/phase66-recording-discovery.mk")
     )
 
 

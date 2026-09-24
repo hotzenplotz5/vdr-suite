@@ -1782,11 +1782,15 @@ async function proveCanonicalSeriesHierarchyProductionPath() {
   const noCanonicalSeries = createProductionHarness({
     newly: {recordings: [heuristicOnly]},
     genres: {genres: [{id: 'movie', label: 'Film', count: 1}]},
-    seriesItems: [scopedEpisode],
+    seriesItems: [],
     folders: {folders: [{name: 'Filme', path: 'Filme', count: 1}]}
   });
   assert.strictEqual(await noCanonicalSeries.api.refresh(), true);
-  assert.strictEqual(noCanonicalSeries.calls.genreRecordings.length, 0);
+  assert.strictEqual(
+    noCanonicalSeries.calls.genreRecordings.length,
+    1,
+    'Series must query its canonical membership endpoint independently of the Genres rail'
+  );
   assert.strictEqual(noCanonicalSeries.calls.metadata.length, 0);
   assert.strictEqual(findRail(noCanonicalSeries.host, 'series'), null);
 

@@ -44,10 +44,13 @@ const channelLoadSequence = heroSource.slice(
   heroSource.indexOf('}).catch(error =>', heroSource.indexOf('return client.fetchClientChannels('))
 );
 assert(channelLoadSequence.includes(
-  'applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence);'
+  'applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence, {'
+));
+assert(channelLoadSequence.includes(
+  'retainVisible: retainVisible'
 ));
 assert(!channelLoadSequence.includes(
-  'state.loadingChannels = false;\n      render();\n      return loadPrograms(sequence);'
+  'state.loadingChannels = false;\n      render();\n      return loadPrograms(sequence'
 ));
 
 function createClassList(initial) {

@@ -39,7 +39,6 @@
     randomFolderPath: '',
     homeReadyBackendId: '',
     homeReadyGeneration: -1,
-    seriesAvailable: false,
     seriesMetadataCache: null,
 
     seriesCoverBackendId: '',
@@ -73,6 +72,13 @@
       if (client) return client;
     }
     return global.VdrSuiteClientApi || null;
+  }
+
+  function canonicalBackendSelected() {
+    const selected = doc && doc.querySelector
+      ? doc.querySelector('#backends .backend-card.selected, #backends [aria-selected="true"]')
+      : null;
+    return Boolean(text(selected && selected.dataset && selected.dataset.backendId));
   }
 
   function selectedBackendId() {
@@ -3918,43 +3924,17 @@
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
       const entries = canonicalGenres(payload);
-      const seriesEntry = entries.find(function (entry) {
-        return text(entry && entry.id).toLowerCase() === 'series';
-      }) || null;
-      state.seriesAvailable = Boolean(seriesEntry);
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
-      if (options.includeSeries === false && !seriesEntry) {
-        clearSeriesMetadataRetry();
-        clearSeriesWarm();
-        state.seriesProjection = [];
-        state.seriesBackendId = '';
-        state.seriesViewKey = '';
-        state.seriesSeasonNumber = null;
-        clearRail('series');
-      }
       const randomGenre = selectRandomGenre(entries, generation, Math.random());
       if (!randomGenre) clearRail('random-genre');
-      const followUps = [
+      return Promise.allSettled([
         randomGenre
           ? loadRandomGenre(client, backendId, generation, randomGenre)
           : Promise.resolve(false)
-      ];
-      if (options.includeSeries !== false) {
-        followUps.push(loadSeries(client, backendId, generation, entries, options));
-      }
-      return Promise.allSettled(followUps).then(function () { return true; });
+      ]).then(function () { return true; });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
-      if (options.includeSeries !== false) {
-        clearSeriesMetadataRetry();
-        clearSeriesWarm();
-        state.seriesProjection = [];
-        state.seriesBackendId = '';
-        state.seriesViewKey = '';
-        state.seriesSeasonNumber = null;
-        clearRail('series');
-      }
       state.randomGenreGeneration = generation;
       state.randomGenreId = '';
       clearRail('random-genre');
@@ -4075,27 +4055,21 @@
       invalidated: false,
       promise: null
     };
-    const parallelSeries =
-      config.parallelHomeResume === true &&
-      state.seriesAvailable === true;
     const loads = [
       loadNewly(client, backendId, generation, {
         retainVisible: config.retainVisible === true
       }),
       loadGenres(client, backendId, generation, {
         reuseWarm: config.reuseWarm === true,
-        retainVisible: config.retainVisible === true,
-        includeSeries: !parallelSeries
+        retainVisible: config.retainVisible === true
+      }),
+      loadSeries(client, backendId, generation, [{id: 'series'}], {
+        reuseWarm: config.reuseWarm === true
       }),
       loadFolders(client, backendId, generation, {
         retainVisible: config.retainVisible === true
       })
     ];
-    if (parallelSeries) {
-      loads.push(loadSeries(client, backendId, generation, [{id: 'series'}], {
-        reuseWarm: config.reuseWarm === true
-      }));
-    }
     const loadPromise = Promise.allSettled(loads).then(function () {
       if (generation === state.generation &&
           backendId === selectedBackendId() &&
@@ -4116,19 +4090,18 @@
     return entry.promise;
   }
 
-
   // The cache-committed recordings feed invalidates this retained Home owner.
   // Coalesce bursts and fence reads through refresh()'s existing generation.
   let recordingSource = null;
   let recordingSequence = 0;
   let recordingConnectionSequence = 0;
   let recordingRefreshTimer = null;
-  let recordingRefreshBusy = false;
   let recordingRefreshPending = false;
 
   function scheduleRecordingChangeRefresh() {
-    if (!recordingRefreshPending || recordingRefreshBusy ||
-        recordingRefreshTimer !== null || !homeIsActive() || (doc && doc.hidden)) return;
+    if (!recordingRefreshPending ||
+        recordingRefreshTimer !== null ||
+        !homeIsActive() || (doc && doc.hidden)) return;
     recordingRefreshTimer = global.setTimeout(function () {
       recordingRefreshTimer = null;
       if (!homeIsActive() || (doc && doc.hidden)) return;
@@ -4136,16 +4109,10 @@
       state.homeReadyBackendId = '';
       state.homeReadyGeneration = -1;
       clearSeriesWarm();
-      recordingRefreshBusy = true;
       Promise.resolve(refresh({
         reuseWarm: false,
-        retainVisible: true,
-        parallelHomeResume: true,
-        coalesce: true
-      })).finally(function () {
-        recordingRefreshBusy = false;
-        scheduleRecordingChangeRefresh();
-      });
+        retainVisible: true
+      })).catch(function () { return false; });
     }, 0);
   }
 
@@ -4213,20 +4180,13 @@
 
   function armLazyLoad() {
     if (state.armed) return true;
-    const target = host();
-    if (!target) return false;
+    if (!host()) return false;
     state.armed = true;
-    if (typeof global.IntersectionObserver === 'function') {
-      state.observer = new global.IntersectionObserver(function (entries) {
-        if (!entries.some(function (entry) { return entry && entry.isIntersecting; })) return;
-        state.observer.disconnect();
-        state.observer = null;
-        refreshForHome();
-      }, {rootMargin: '320px 0px'});
-      state.observer.observe(target);
-      return true;
-    }
-    global.setTimeout(refreshForHome, 0);
+    global.setTimeout(function () {
+      if (!state.armed) return;
+      state.armed = false;
+      refreshForHome();
+    }, 0);
     return true;
   }
 
@@ -4295,7 +4255,7 @@
   function install() {
     if (!doc) return false;
     installStyles();
-    armLazyLoad();
+    if (canonicalBackendSelected()) armLazyLoad();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         subscribeRecordingChanges();
@@ -4305,7 +4265,6 @@
         Promise.resolve(refresh({
           reuseWarm: false,
           retainVisible: true,
-          parallelHomeResume: true,
           coalesce: true
         })).catch(function () { return false; });
       });

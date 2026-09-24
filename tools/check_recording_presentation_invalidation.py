@@ -16,6 +16,7 @@ remote = (ROOT / "web/frontend/modules/remote.js").read_text()
 continue_watching = (ROOT / "web/frontend/home-continue-watching.js").read_text()
 history = (ROOT / "web/frontend/home-recently-watched.js").read_text()
 hero = (ROOT / "web/frontend/home-live-hero.js").read_text()
+index = (ROOT / "web/frontend/index.html").read_text()
 
 def require(fragment, text, message):
     if fragment not in text:
@@ -57,12 +58,49 @@ for name, source in (
             name + " must subscribe to canonical Home resume lifecycle")
 require("retainVisible: true", frontend,
         "Recording Discovery Home revalidation must retain visible UI")
-require("parallelHomeResume", frontend,
-        "Home revalidation must explicitly enable parallel Series refresh")
-require("includeSeries: !parallelSeries", frontend,
-        "Genres must retain cold-load Series ownership and skip it only for parallel Home return")
+if "new global.IntersectionObserver" in frontend or "rootMargin: '320px 0px'" in frontend:
+    raise AssertionError("Home Recording rails must not be gated by viewport intersection")
+discovery_script = '<script src="../frontend/home-recording-discovery.js"></script>'
+hero_script = '<script src="../frontend/home-live-hero.js"></script>'
+require(discovery_script, index,
+        "Home must register Recording Discovery in the production shell")
+require(hero_script, index,
+        "Home must register the Live Hero in the production shell")
+if index.index(discovery_script) > index.index(hero_script):
+    raise AssertionError("Recording Home owners must register before the Live Hero")
+require("scheduleSync(false, {", hero,
+        "Live Hero Home resume must be deferred behind primary Home owners")
+require("revalidatePrograms: true", hero,
+        "deferred Live Hero resume must still revalidate Now/Next")
+require("state.loadingPrograms && state.events.length > 0", hero,
+        "retained Now/Next must not be rebuilt into a loading state")
+require("Promise.allSettled(loads)", frontend,
+        "Recording Discovery must launch rail work as independent promises")
+require("loadNewly(client, backendId, generation, {", frontend,
+        "Newly Recorded must be an independent refresh owner")
+require("loadGenres(client, backendId, generation, {", frontend,
+        "Genres must be an independent refresh owner")
 require("loadSeries(client, backendId, generation, [{id: 'series'}]", frontend,
-        "known canonical Series must start in parallel on Home return")
+        "Series must start from its canonical membership endpoint independently")
+require("loadFolders(client, backendId, generation, {", frontend,
+        "Recording folders must be an independent refresh owner")
+if "parallelHomeResume" in frontend or "includeSeries" in frontend:
+    raise AssertionError("Recording Discovery must not gate Series behind Genres")
+if "recordingRefreshBusy" in frontend:
+    raise AssertionError("Recording feed refresh must not wait for the slowest older rail")
+
+genre_start = frontend.index("function loadGenres(")
+genre_end = frontend.index("function scheduleRandomFolderInline(", genre_start)
+if "loadSeries(" in frontend[genre_start:genre_end]:
+    raise AssertionError("Genres must not own or await Series refresh")
+
+feed_start = frontend.index("function scheduleRecordingChangeRefresh()")
+feed_end = frontend.index("function stopRecordingChanges()", feed_start)
+feed_refresh = frontend[feed_start:feed_end]
+require("retainVisible: true", feed_refresh,
+        "recording feed refresh must preserve visible Home presentation")
+if "coalesce: true" in feed_refresh:
+    raise AssertionError("new recording generations must supersede slow older refreshes")
 if "refreshRecordingPresentationDependents" in frontend:
     raise AssertionError("Recording Discovery must not directly refresh foreign Home owners")
 

@@ -40,7 +40,13 @@ requires(previewSource, /@media\(max-width:46rem\)/, '66.3 mobile preview must b
 assert(!previewSource.includes('position:fixed'), '66.3 Home preview must not create a floating mini-player');
 
 function makeHarness(options) {
-  const settings = Object.assign({deferredStart: false, fullOwner: false, failStart: false}, options || {});
+  const settings = Object.assign({
+    deferredStart: false,
+    fullOwner: false,
+    failStart: false,
+    emptyStart: false,
+    emptyStartMessage: 'live_provider_capability_unavailable'
+  }, options || {});
   const hero = {active: true, backendId: 'backend-a', selectedChannelId: '1'};
   const shell = {
     active: Boolean(settings.fullOwner),
@@ -103,6 +109,9 @@ function makeHarness(options) {
         shell.channelName = String(channel.name || shell.channelId);
         shell.sessionId = '';
 
+        const playbackStatus = {
+          textContent: 'Live-TV wird vorbereitet …'
+        };
         const video = {
           muted: false,
           controls: true,
@@ -117,11 +126,19 @@ function makeHarness(options) {
         let destroyed = false;
         return {
           element: {
-            querySelector(selector) { return selector === 'video' ? video : null; }
+            querySelector(selector) {
+              if (selector === 'video') return video;
+              if (selector === '.recordings2-playback-status') return playbackStatus;
+              return null;
+            }
           },
           start() {
             metrics.starts += 1;
             if (settings.failStart) return Promise.reject(new Error('preview failed'));
+            if (settings.emptyStart) {
+              playbackStatus.textContent = settings.emptyStartMessage;
+              return Promise.resolve('');
+            }
             if (settings.deferredStart && metrics.starts === 1) {
               return new Promise((resolve, reject) => {
                 deferredResolve = resolve;
@@ -318,6 +335,23 @@ async function startSettled(harness) {
     h.resolveDeferred('promoted-session');
     await flushPromises();
     assert.strictEqual(h.metrics.destroys, 0, 'promoted in-flight owner must survive session readiness');
+  }
+
+  // A playback adapter that resolves without a session ID must preserve its
+  // concrete failure evidence instead of collapsing to a generic Home message.
+  {
+    const h = makeHarness({
+      emptyStart: true,
+      emptyStartMessage: 'live_provider_capability_unavailable'
+    });
+    await startSettled(h);
+    assert.strictEqual(h.api.snapshot().active, false);
+    assert.strictEqual(
+      h.api.snapshot().status,
+      'live_provider_capability_unavailable',
+      'empty session startup must surface the canonical playback failure'
+    );
+    assert.strictEqual(h.metrics.destroys, 1, 'failed empty-session adapter must be cleaned up');
   }
 
   // Preview failure remains local evidence. It must neither throw into browsing
