@@ -109,6 +109,26 @@ for token in [
     if token not in make_fragment:
         raise SystemExit(f"missing NativeTimerBinding repository test-graph marker: {token}")
 
+# The repository started as a persistence-only primitive. Phase 69.C may now
+# compose exactly one owner in the Control-Plane daemon, but only behind the
+# dedicated successor guard that proves fulfillment remains dormant and no
+# public/API or Agent authority is created.
+allowed_phase69_daemon_paths = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+}
+successor_guard = ROOT / "tools/check_phase69_native_timer_create_fulfillment_runtime.py"
+successor_valid = False
+if successor_guard.is_file():
+    successor = successor_guard.read_text(encoding="utf-8")
+    successor_valid = all(marker in successor for marker in [
+        "NativeTimerBindingRepository.cpp",
+        "NativeTimerBindingReadRepository.cpp",
+        "NativeTimerBindingWriteRepository.cpp",
+        "TimerAssignmentFulfillmentService",
+        "CREATE fulfillment runtime must remain dormant in this slice",
+    ])
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",
@@ -124,10 +144,18 @@ for scan_root in [
         }:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        if "NativeTimerBindingRepository" in text:
-            raise SystemExit(
-                "premature NativeTimerBinding repository runtime wiring: "
-                + str(path.relative_to(ROOT)))
+        if "NativeTimerBindingRepository" not in text:
+            continue
+        relative = path.relative_to(ROOT)
+        if relative in allowed_phase69_daemon_paths:
+            if not successor_valid:
+                raise SystemExit(
+                    "Phase-69.C NativeTimerBinding repository daemon wiring "
+                    "requires the exact dormant fulfillment successor guard")
+            continue
+        raise SystemExit(
+            "premature NativeTimerBinding repository runtime wiring: "
+            + str(relative))
 
 contract_text = header + source + test
 for forbidden in [
