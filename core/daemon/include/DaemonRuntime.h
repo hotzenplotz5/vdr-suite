@@ -60,6 +60,7 @@
 #include "MetadataRepository.h"
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
+#include "NativeTimerCreateAdmissionService.h"
 #include "NativeTimerCreateDispatchService.h"
 #include "NativeTimerCreateOperationPreparationService.h"
 #include "NativeTimerBindingRepository.h"
@@ -213,6 +214,8 @@ private:
         timerAssignmentFulfillmentService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationPreparationService>
         nativeTimerCreateOperationPreparationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerCreateAdmissionService>
+        nativeTimerCreateAdmissionService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateDispatchService>
         nativeTimerCreateDispatchService_;
 
