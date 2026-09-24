@@ -11,7 +11,11 @@ daemon_run = (ROOT / "core/daemon/src/DaemonRuntime.cpp").read_text()
 daemon_publish = (ROOT / "core/daemon/src/DaemonRuntimeRecordingCache.cpp").read_text()
 daemon_shutdown = (ROOT / "core/daemon/src/DaemonRuntimeShutdown.cpp").read_text()
 frontend = (ROOT / "web/frontend/home-recording-discovery.js").read_text()
+app = (ROOT / "web/frontend/app.js").read_text()
 remote = (ROOT / "web/frontend/modules/remote.js").read_text()
+continue_watching = (ROOT / "web/frontend/home-continue-watching.js").read_text()
+history = (ROOT / "web/frontend/home-recently-watched.js").read_text()
+hero = (ROOT / "web/frontend/home-live-hero.js").read_text()
 
 def require(fragment, text, message):
     if fragment not in text:
@@ -39,9 +43,25 @@ require("publishChangeFeedEntry(", publication,
         "presentation mutation must use existing live transport")
 require("ManualRecordingMetadataApiRuntime::instance().reset();", daemon_shutdown,
         "shutdown must detach metadata invalidation callback")
-require("'vdr-suite:home-resume'", remote,
-        "canonical Home navigation must publish Home resume lifecycle")
-require("refreshRecordingPresentationDependents", frontend,
-        "recordings invalidation must refresh retained Recording Home projections")
+require("'vdr-suite:home-resume'", app,
+        "canonical app shell must publish Home resume lifecycle")
+if "'vdr-suite:home-resume'" in remote:
+    raise AssertionError("remote addon must not own or duplicate Home resume lifecycle")
+for name, source in (
+    ("Recording Discovery", frontend),
+    ("Continue Watching", continue_watching),
+    ("Home history", history),
+    ("Live Hero", hero),
+):
+    require("'vdr-suite:home-resume'", source,
+            name + " must subscribe to canonical Home resume lifecycle")
+require("retainVisible: true", frontend,
+        "Recording Discovery Home revalidation must retain visible UI")
+require("includeSeries: false", frontend,
+        "Series must be launched independently from the Genres request")
+require("loadSeries(client, backendId, generation, [{id: 'series'}]", frontend,
+        "Series must start in parallel with the other Recording rails")
+if "refreshRecordingPresentationDependents" in frontend:
+    raise AssertionError("Recording Discovery must not directly refresh foreign Home owners")
 
 print("recording presentation invalidation architecture ok")
