@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+struct BackendAgentCommandAssignment;
+
 namespace vdrsuite::agent
 {
 
@@ -95,6 +97,22 @@ bool backendAgentNativeTimerCreateValidCommand(
 bool backendAgentNativeTimerCreateEvidenceMatches(
     const BackendAgentNativeTimerCreateEvidence& evidence,
     const BackendAgentNativeTimerCreateCommand& command,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerCreateCommandFromAssignment(
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerCreateCommand& command,
+    std::string& reasonCode);
+
+std::string backendAgentNativeTimerCreateResultEvidence(
+    const BackendAgentNativeTimerCreateEvidence& evidence,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerCreateParseResultEvidence(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerCreateEvidence& evidence,
     std::string& reasonCode);
 
 } // namespace vdrsuite::agent
