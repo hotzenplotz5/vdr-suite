@@ -101,3 +101,8 @@ test-phase69-timer-assignment-native-specification:
 		-o $(BUILD_DIR)/test_timer_assignment_desired_native_specification
 	$(BUILD_DIR)/test_timer_assignment_desired_native_specification
 	python3 tools/check_phase69_timer_assignment_native_specification.py
+
+.PHONY: test-phase69-native-timer-create-fulfillment-runtime
+
+test-phase69-native-timer-create-fulfillment-runtime:
+	python3 tools/check_phase69_native_timer_create_fulfillment_runtime.py
