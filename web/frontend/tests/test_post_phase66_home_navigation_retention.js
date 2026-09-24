@@ -61,7 +61,12 @@ assert.strictEqual(
   2,
   'Recently Watched and Recent Movies must subscribe independently'
 );
-assert(heroSource.includes('sync(false, {retainVisible: true, revalidatePrograms: true});'));
+assert(
+  heroSource.includes('scheduleSync(false, {') &&
+    heroSource.includes('retainVisible: true') &&
+    heroSource.includes('revalidatePrograms: true'),
+  'Home resume must defer Live Hero revalidation behind synchronous primary Home owners'
+);
 assert(
   remote.includes("document.addEventListener('click',homeNavigationClick,true)"),
   'the fence must run in capture phase before the existing bubble listeners'
