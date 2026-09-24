@@ -57,10 +57,12 @@ for name, source in (
             name + " must subscribe to canonical Home resume lifecycle")
 require("retainVisible: true", frontend,
         "Recording Discovery Home revalidation must retain visible UI")
-require("includeSeries: false", frontend,
-        "Series must be launched independently from the Genres request")
+require("parallelHomeResume", frontend,
+        "Home revalidation must explicitly enable parallel Series refresh")
+require("includeSeries: !parallelSeries", frontend,
+        "Genres must retain cold-load Series ownership and skip it only for parallel Home return")
 require("loadSeries(client, backendId, generation, [{id: 'series'}]", frontend,
-        "Series must start in parallel with the other Recording rails")
+        "known canonical Series must start in parallel on Home return")
 if "refreshRecordingPresentationDependents" in frontend:
     raise AssertionError("Recording Discovery must not directly refresh foreign Home owners")
 
