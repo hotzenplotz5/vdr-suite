@@ -90,39 +90,29 @@ for label in ["public_h", "public_cpp"]:
     for forbidden in [
         "NativeTimerBindingRepository",
         "TimerAssignmentFulfillmentService",
-        "Idempotency-Key",
-        "timers.create",
-        "timer.create",
     ]:
         if forbidden in contents[label]:
             raise SystemExit(
-                f"CREATE fulfillment composition opened public mutation semantics in {label}: {forbidden}")
+                f"CREATE fulfillment authority leaked into public HTTP in {label}: {forbidden}")
 
-# SecurityHttpGate already owns the accepted pre-v1 Timer CRUD permission
-# mapping, including "timers.create". Do not mistake that existing permission
-# for the still-closed public-v1 TimerAssignment POST. Guard only new public
-# admission markers plus mutation-specific Idempotency-Key handling here.
 for forbidden in [
     "NativeTimerBindingRepository",
     "TimerAssignmentFulfillmentService",
-    "Idempotency-Key",
-    "isPublicTimerAssignmentCreate",
-    "publicTimerAssignmentCreate",
 ]:
     if forbidden in contents["security"]:
         raise SystemExit(
-            f"CREATE fulfillment composition opened public mutation security: {forbidden}")
+            f"CREATE fulfillment authority leaked into public security: {forbidden}")
 
-for required_read_only_marker in [
+for required_public_marker in [
     'const bool isPublicTimerAssignmentRead =',
-    'request.method == "GET" &&',
+    'const bool isPublicTimerAssignmentCreate =',
     'isPublicV1ReadOnlyMethodMismatch =',
-    'isPublicTimerAssignmentResource);',
+    'isPublicTimerAssignmentResource;',
 ]:
-    if required_read_only_marker not in contents["security"]:
+    if required_public_marker not in contents["security"]:
         raise SystemExit(
-            "public TimerAssignment security boundary is no longer read-only: "
-            + required_read_only_marker)
+            "reviewed public TimerAssignment read/create classification missing: "
+            + required_public_marker)
 
 for scan_root in [
     ROOT / "api",
@@ -148,4 +138,4 @@ for scan_root in [
                     + str(path.relative_to(ROOT)) + " -> " + forbidden_call)
 
 print("Phase-69.C native Timer CREATE fulfillment runtime composition check passed")
-print("Boundary: accepted Phase-64 fulfillment owner composed exactly once; public mutation and native invocation remain closed")
+print("Boundary: accepted fulfillment owner remains the only transition authority; public HTTP cannot call it directly")
