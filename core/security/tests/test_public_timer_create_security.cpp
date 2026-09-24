@@ -117,8 +117,15 @@ int main()
         assert(missingCsrf.protectedMutation);
         assert(missingCsrf.rejection.statusCode == 403);
         assert(missingCsrf.rejection.body.find(
-            "csrf_validation_failed") !=
+            "\"code\":\"forbidden\"") !=
             std::string::npos);
+        assert(missingCsrf.rejection.body.find(
+            "csrf_validation_failed") ==
+            std::string::npos);
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "csrf_validation_failed",
+            "backend-one"));
     }
 
     {
