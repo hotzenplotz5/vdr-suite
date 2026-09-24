@@ -130,7 +130,6 @@ function makeSeriesRecording(backendId) {
 function createHarness(initialMetadataMode) {
   const host = new FakeElement('div');
   const documentListeners = {};
-  const observers = [];
   const genreCalls = [];
   const genreListCalls = [];
   const recordingCalls = [];
@@ -141,27 +140,6 @@ function createHarness(initialMetadataMode) {
   let backendId = 'default';
   let metadataMode = initialMetadataMode || 'available-false';
   let seriesMode = 'normal';
-
-  class FakeIntersectionObserver {
-    constructor(callback) {
-      this.callback = callback;
-      this.disconnected = false;
-      this.target = null;
-      observers.push(this);
-    }
-
-    observe(target) {
-      this.target = target;
-    }
-
-    disconnect() {
-      this.disconnected = true;
-    }
-
-    fire() {
-      this.callback([{isIntersecting: true, target: this.target}]);
-    }
-  }
 
   const client = {
     fetchClientRecordings(request) {
@@ -266,7 +244,6 @@ function createHarness(initialMetadataMode) {
   context.Math.random = function () { return 0; };
   context.window.window = context.window;
   context.window.document = document;
-  context.window.IntersectionObserver = FakeIntersectionObserver;
   context.window.setTimeout = function (callback) {
     callback();
     return 1;
@@ -311,7 +288,6 @@ function createHarness(initialMetadataMode) {
     publicApi,
     api: publicApi._test,
     host,
-    observers,
     genreCalls,
     genreListCalls,
     recordingCalls,
@@ -325,10 +301,6 @@ function createHarness(initialMetadataMode) {
     fireModuleClick,
     fireHomeClick() {
       fireModuleClick('overview');
-    },
-    fireLatestObserver() {
-      assert(observers.length > 0);
-      observers[observers.length - 1].fire();
     },
     seriesCalls(requestBackendId) {
       return genreCalls.filter((call) =>
@@ -530,7 +502,6 @@ async function proveWarmProductionReturnAndForcedRefresh() {
 
   harness.fireModuleClick('recordings2');
   harness.fireModuleClick('overview');
-  harness.fireLatestObserver();
   await flush();
 
   assert.deepStrictEqual(
@@ -577,7 +548,6 @@ async function proveWarmProductionReturnAndForcedRefresh() {
 
   harness.setBackend('secondary');
   harness.fireHomeClick();
-  harness.fireLatestObserver();
   await flush();
 
   assert.strictEqual(
@@ -611,7 +581,6 @@ async function proveHomeExitDoesNotNeedMetadataFence() {
   );
 
   harness.fireModuleClick('overview');
-  harness.fireLatestObserver();
   await flush();
 
   assert.strictEqual(
