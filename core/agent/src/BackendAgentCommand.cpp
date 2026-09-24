@@ -237,6 +237,7 @@ std::string backendAgentCommandResultIdentity(const BackendAgentCommandResult& r
     appendField(canonical, result.errorCategory);
     appendField(canonical, result.retryClassification);
     appendField(canonical, result.boundedDiagnostics);
+    appendField(canonical, result.resultEvidence);
     appendField(canonical, result.completedAt);
     return stableIdentity(canonical.str());
 }
@@ -292,5 +293,6 @@ bool backendAgentCommandValidResult(const BackendAgentCommandResult& value)
         allowed(value.errorCategory, {"none", "fenced", "expired", "unsupported", "executor_unknown"}) &&
         allowed(value.retryClassification, {"none", "reconcile_only"}) &&
         backendAgentCommandSafeText(value.boundedDiagnostics, 1024) &&
+        backendAgentCommandSafeText(value.resultEvidence, 4096) &&
         value.completedAt > 0;
 }
