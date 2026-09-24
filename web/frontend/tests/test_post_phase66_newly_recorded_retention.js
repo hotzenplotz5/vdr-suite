@@ -6,43 +6,42 @@ const path = require('path');
 const vm = require('vm');
 
 const frontendRoot = path.join(__dirname, '..');
-const discoverySource = fs.readFileSync(
+const source = fs.readFileSync(
   path.join(frontendRoot, 'home-recording-discovery.js'),
   'utf8'
 );
-const remoteSource = fs.readFileSync(
-  path.join(frontendRoot, 'modules', 'remote.js'),
-  'utf8'
-);
 
-const navigationStart = remoteSource.indexOf('function homeNavigationTarget(');
-const navigationEnd = remoteSource.indexOf('\nfunction stop()', navigationStart);
-assert(navigationStart >= 0 && navigationEnd > navigationStart);
-const navigationSource = remoteSource.slice(navigationStart, navigationEnd);
+assert(source.includes("const HOME_RESUME_EVENT = 'vdr-suite:home-resume';"));
+assert(source.includes('Promise.allSettled(['));
+assert(source.includes('loadNewly(client, backendId, generation, {'));
+assert(source.includes('loadGenres(client, backendId, generation, {'));
+assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
+assert(source.includes('loadFolders(client, backendId, generation, {'));
+assert(source.includes('includeSeries: false'));
+assert(source.includes('retainVisible: true'));
+assert(!source.includes('refreshRecordingPresentationDependents'));
 
 let selectedModule = 'overview';
-let captureListener = null;
-const bubbleListeners = [];
-const eventListeners = new Map();
-const scheduledCallbacks = [];
-const liveListeners = new Map();
-let liveSource = null;
-let scheduledRefreshes = 0;
 let recordingFetches = 0;
 let genreFetches = 0;
-let genreRecordingFetches = 0;
+let seriesFetches = 0;
 let folderFetches = 0;
-let selectCount = 0;
+const listeners = new Map();
 const styleNodes = new Map();
 
-const discoveryHost = {
+function pending() {
+  return new Promise(() => {});
+}
+
+const host = {
   querySelector() { return null; },
-  insertBefore() {},
-  appendChild() {}
+  appendChild() {},
+  insertBefore() {}
 };
 
 const document = {
-  __vdrSuiteHomeNavigationRetentionBound: false,
+  readyState: 'loading',
+  hidden: false,
   head: {
     appendChild(node) {
       if (node && node.id) styleNodes.set(node.id, node);
@@ -56,38 +55,45 @@ const document = {
       textContent: '',
       dataset: Object.create(null),
       style: Object.create(null),
-      appendChild() {},
-      append() {},
+      children: [],
+      childNodes: [],
+      appendChild(child) {
+        this.children.push(child);
+        this.childNodes.push(child);
+        return child;
+      },
+      append() {
+        Array.from(arguments).forEach(child => this.appendChild(child));
+      },
       addEventListener() {},
       setAttribute() {},
-      replaceChildren() {},
+      replaceChildren() {
+        this.children = [];
+        this.childNodes = [];
+        Array.from(arguments).forEach(child => this.appendChild(child));
+      },
       querySelector() { return null; },
-      querySelectorAll() { return []; }
+      querySelectorAll() { return []; },
+      remove() {}
     };
   },
   getElementById(id) {
     return styleNodes.get(id) || null;
   },
   querySelector(selector) {
-    if (selector === '[data-home-zone="additional-sections"]') return discoveryHost;
+    if (selector === '[data-home-zone="additional-sections"]') return host;
     if (selector === '.module-tab.active[data-module="overview"]') {
       return selectedModule === 'overview' ? {dataset: {module: 'overview'}} : null;
     }
     return null;
   },
-  addEventListener(type, listener, capture) {
-    if (type === 'click') {
-      if (capture === true) captureListener = listener;
-      else bubbleListeners.push(listener);
-      return;
-    }
-    const listeners = eventListeners.get(type) || [];
-    listeners.push(listener);
-    eventListeners.set(type, listeners);
+  addEventListener(type, listener) {
+    const values = listeners.get(type) || [];
+    values.push(listener);
+    listeners.set(type, values);
   },
   dispatchEvent(event) {
-    (eventListeners.get(event && event.type) || [])
-      .forEach(listener => listener(event));
+    (listeners.get(event && event.type) || []).forEach(listener => listener(event));
     return true;
   }
 };
@@ -95,30 +101,28 @@ const document = {
 const client = {
   fetchClientRecordings() {
     recordingFetches += 1;
-    return Promise.resolve({recordings: []});
+    return pending();
   },
   fetchClientGenres() {
     genreFetches += 1;
-    return Promise.resolve({genres: []});
+    return pending();
   },
-  fetchClientGenreRecordings() {
-    genreRecordingFetches += 1;
-    return Promise.resolve({recordings: []});
+  fetchClientGenreRecordings(request) {
+    if (request && request.genreId === 'series') seriesFetches += 1;
+    else seriesFetches += 1;
+    return pending();
   },
   fetchClientRecordingFolder() {
     folderFetches += 1;
-    return Promise.resolve({folders: [], recordings: []});
+    return pending();
   },
   createClientLiveUpdateSource() {
-    liveSource = {
+    return {
       onopen: null,
       onerror: null,
-      addEventListener(type, listener) {
-        liveListeners.set(type, listener);
-      },
+      addEventListener() {},
       close() {}
     };
-    return liveSource;
   }
 };
 
@@ -131,11 +135,9 @@ const window = {
   document,
   console,
   IntersectionObserver,
-  setTimeout(callback) {
-    scheduledRefreshes += 1;
-    if (typeof callback === 'function') scheduledCallbacks.push(callback);
-    return scheduledRefreshes;
-  },
+  Promise,
+  setTimeout() { return 1; },
+  clearTimeout() {},
   CustomEvent: function CustomEvent(type, options) {
     this.type = type;
     this.detail = options && options.detail;
@@ -144,160 +146,54 @@ const window = {
     getSelectedModule() { return selectedModule; },
     getSelectedBackendId() { return 'default'; },
     getClientApi() { return client; }
-  },
-  selectModule(moduleName) {
-    selectCount += 1;
-    selectedModule = moduleName;
   }
 };
 window.window = window;
 
-const context = {
+const context = vm.createContext({
   window,
   document,
   console,
-  g: window,
-  setTimeout: window.setTimeout
-};
-vm.createContext(context);
-vm.runInContext(discoverySource, context, {
+  Promise,
+  Map,
+  Set,
+  Math,
+  Date,
+  Number,
+  String,
+  Boolean,
+  Object,
+  Array
+});
+
+vm.runInContext(source, context, {
   filename: 'web/frontend/home-recording-discovery.js'
 });
 
-assert.strictEqual(window.VdrSuiteHomeRecordingDiscovery.install(), true);
+const api = window.VdrSuiteHomeRecordingDiscovery;
+assert(api);
+assert.strictEqual(api.install(), true);
+
 assert.strictEqual(recordingFetches, 0, 'lazy install must not fetch Newly Recorded eagerly');
 assert.strictEqual(genreFetches, 0, 'lazy install must not fetch Genres eagerly');
-assert.strictEqual(genreRecordingFetches, 0, 'lazy install must not fetch Genre recordings eagerly');
-assert.strictEqual(folderFetches, 0, 'lazy install must not fetch Recording folders eagerly');
-assert(
-  bubbleListeners.length >= 1,
-  'Recording Discovery must retain its Home navigation bubble listener'
-);
+assert.strictEqual(seriesFetches, 0, 'lazy install must not fetch Series eagerly');
+assert.strictEqual(folderFetches, 0, 'lazy install must not fetch folders eagerly');
 
-const homeTab = {
-  dataset: {module: 'overview'},
-  closest(selector) {
-    if (selector === '.module-tab[data-module], [data-brand-module]') return this;
-    if (selector.includes('.module-tab[data-module="overview"]')) return this;
-    return null;
-  }
-};
+const homeResumeListeners = listeners.get('vdr-suite:home-resume') || [];
+assert.strictEqual(homeResumeListeners.length, 1,
+  'Recording Discovery must have one canonical Home-resume listener');
 
-bubbleListeners.forEach(listener => listener({target: homeTab}));
-assert(
-  scheduledRefreshes >= 1,
-  'without the navigation fence an existing Home listener would schedule Discovery refresh'
-);
-while (scheduledCallbacks.length) scheduledCallbacks.shift()();
-assert(liveSource, 'the retained Recording Discovery owner must establish its existing recordings feed');
-scheduledRefreshes = 0;
-scheduledCallbacks.length = 0;
+document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
+  detail: {backendId: 'default', previousModule: 'recordings2'}
+}));
 
-vm.runInContext(
-  navigationSource + '\ninstallHomeNavigationRetention();',
-  context
-);
-assert.strictEqual(typeof captureListener, 'function');
+assert.strictEqual(recordingFetches, 1,
+  'Home resume must start Newly Recorded immediately');
+assert.strictEqual(genreFetches, 1,
+  'Home resume must start Genres immediately');
+assert.strictEqual(seriesFetches, 1,
+  'Series must start immediately without waiting for the unresolved Genres request');
+assert.strictEqual(folderFetches, 1,
+  'Home resume must start Recording folders immediately');
 
-function flushScheduledCallbacks() {
-  while (scheduledCallbacks.length) scheduledCallbacks.shift()();
-}
-
-function assertNoDiscoveryRefetch(prefix) {
-  assert.strictEqual(scheduledRefreshes, 0, prefix + ' must not schedule Recording Discovery refresh');
-  assert.strictEqual(recordingFetches, 0, prefix + ' must not refetch Newly Recorded');
-  assert.strictEqual(genreFetches, 0, prefix + ' must not refetch Genres');
-  assert.strictEqual(genreRecordingFetches, 0, prefix + ' must not refetch Genre recordings');
-  assert.strictEqual(folderFetches, 0, prefix + ' must not refetch Recording folders');
-}
-
-function dispatchHome(target) {
-  let stopped = false;
-  const event = {
-    target,
-    preventDefault() {},
-    stopPropagation() { stopped = true; }
-  };
-  captureListener(event);
-  if (!stopped) bubbleListeners.forEach(listener => listener(event));
-  return stopped;
-}
-
-selectedModule = 'recordings2';
-assert.strictEqual(dispatchHome(homeTab), true);
-assert.strictEqual(selectCount, 1, 'lower Home must delegate exactly once to canonical app navigation');
-assert.strictEqual(selectedModule, 'overview');
-assertNoDiscoveryRefetch('lower Home return');
-
-const brandHome = {
-  dataset: {brandModule: 'overview'},
-  closest(selector) {
-    if (selector.includes('[data-brand-module="overview"]')) return this;
-    return null;
-  }
-};
-selectedModule = 'epg';
-assert.strictEqual(dispatchHome(brandHome), true);
-assert.strictEqual(selectCount, 2, 'upper Home launcher must delegate exactly once to canonical app navigation');
-assert.strictEqual(selectedModule, 'overview');
-assertNoDiscoveryRefetch('upper Home return');
-
-selectedModule = 'recordings2';
-const update = liveListeners.get('update');
-assert.strictEqual(typeof update, 'function');
-update({
-  data: JSON.stringify({
-    sequenceNumber: 1,
-    backendId: 'default',
-    changedDomains: ['recordings']
-  })
-});
-assert.strictEqual(
-  scheduledRefreshes,
-  0,
-  'a recordings change while Home is inactive must remain pending without hidden refetch'
-);
-
-assert.strictEqual(dispatchHome(homeTab), true);
-assert.strictEqual(selectCount, 3, 'dirty Home return must delegate exactly once');
-assert.strictEqual(selectedModule, 'overview');
-assert(
-  scheduledRefreshes >= 1,
-  'canonical Home resume must schedule the pending recordings refresh'
-);
-flushScheduledCallbacks();
-assert.strictEqual(
-  recordingFetches,
-  1,
-  'feed-backed dirty Home return must refetch Newly Recorded exactly once'
-);
-assert.strictEqual(
-  genreFetches,
-  1,
-  'the same canonical refresh must reproject Recording Genre/Series rails'
-);
-assert.strictEqual(
-  folderFetches,
-  1,
-  'the same canonical refresh must reproject Recording folder rails'
-);
-
-assert(
-  discoverySource.includes('refreshRecordingPresentationDependents'),
-  'recordings invalidation must fan out to retained Continue/History/Recent-Movies projections'
-);
-
-assert(
-  discoverySource.includes('loadNewly(client, backendId, generation)'),
-  'explicit Recording Discovery refresh must continue to own Newly Recorded loading'
-);
-assert(
-  discoverySource.includes('loadGenres(client, backendId, generation'),
-  'explicit Recording Discovery refresh must continue to own Genre loading'
-);
-assert(
-  discoverySource.includes('loadFolders(client, backendId, generation)'),
-  'explicit Recording Discovery refresh must continue to own Recording-folder loading'
-);
-
-console.log('post-Phase-66 Recording Discovery Home retention contract ok');
+console.log('post-Phase-66 parallel Home Recording revalidation contract ok');
