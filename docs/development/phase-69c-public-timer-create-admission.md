@@ -350,8 +350,17 @@ path is still unreachable.
 
 ## Next bounded slice
 
-After this public admission contract is accepted, Phase 69.C can review the
-post-admission Agent handoff as a separate native-effect boundary:
+Live review after this public admission contract was accepted proved one bounded
+composition prerequisite before Agent activation can safely become reachable:
+the existing Phase-64 readback-verification and operation-completion owners were
+not yet composed in DaemonRuntime.
+
+The successor
+[Native Timer CREATE Reconciliation Runtime Composition](phase-69c-native-timer-create-reconciliation-runtime.md)
+closes that runtime gap without making a command pollable.
+
+Only after that prerequisite is accepted should Phase 69.C open the native-effect
+handoff:
 
 ```text
 durable accepted operation/payload
@@ -359,9 +368,9 @@ durable accepted operation/payload
 -> dispatch claim
 -> activation/pollability
 -> native executor
--> readback/reconciliation
+-> outcome application
+-> authoritative readback/reconciliation
 ```
 
-That next boundary must re-prove restart/replay behavior and, once it can cause a
-real native Timer CREATE, requires exact-candidate real yaVDR acceptance before
-merge.
+The first candidate that makes a real native Timer CREATE reachable requires
+exact-head real yaVDR acceptance before merge.
