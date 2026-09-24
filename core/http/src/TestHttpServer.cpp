@@ -414,7 +414,17 @@ HttpServerResponse TestHttpServer::handleRequest(
                 gate.context.actor.actorId,
                 hbbtvClientContext(gate.context),
                 gate.context.correlationId,
-                gate.context.requestId);
+                gate.context.requestId,
+                requestHeaderValue(
+                    request,
+                    "If-Match"),
+                requestHeaderValue(
+                    request,
+                    "Idempotency-Key"),
+                requestHeaderValue(
+                    request,
+                    "Content-Type"),
+                gate.authorizationDecision.backendId);
     }
     else
     {
