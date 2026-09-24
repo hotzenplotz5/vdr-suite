@@ -184,6 +184,7 @@ void DaemonRuntime::shutdown()
     recordingRepository_.reset();
     jobRepository_.reset();
     nativeTimerCreateDispatchService_.reset();
+    nativeTimerCreateAdmissionService_.reset();
     nativeTimerCreateOperationPreparationService_.reset();
     timerAssignmentFulfillmentService_.reset();
     nativeTimerBindingRepository_.reset();
