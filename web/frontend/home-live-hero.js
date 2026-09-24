@@ -153,6 +153,22 @@
     ].join('\n');
   }
 
+  function programmeSignature(events) {
+    return (Array.isArray(events) ? events : [])
+      .map(function (event) {
+        return [
+          eventChannelId(event),
+          eventId(event),
+          String(eventStart(event)),
+          String(eventEnd(event)),
+          eventTitle(event),
+          eventSubtitle(event)
+        ].join('\n');
+      })
+      .sort()
+      .join('\n\n');
+  }
+
   function rebuildEventIndex() {
     const index = new Map();
     state.events.forEach(event => {
@@ -1003,11 +1019,12 @@
     state.selectedIndex = Math.max(0, nextIndex);
   }
   function applyPrograms(data, append) {
+    const previousSignature = programmeSignature(state.events);
     const incoming = list(data, 'events').slice();
     if (!append) {
       state.events = incoming;
       rebuildEventIndex();
-      return;
+      return programmeSignature(state.events) !== previousSignature;
     }
     const merged = new Map();
     state.events.concat(incoming).forEach(event => {
@@ -1015,6 +1032,7 @@
     });
     state.events = Array.from(merged.values());
     rebuildEventIndex();
+    return programmeSignature(state.events) !== previousSignature;
   }
 
   function loadProgrammeArtworkPage(sequence, owner, ids) {
@@ -1112,7 +1130,8 @@
         return null;
       }
 
-      applyPrograms(data, !reset);
+      const programmesChanged =
+        applyPrograms(data, !reset);
 
       state.programmeLoadedChannelCount =
         Math.max(
@@ -1126,10 +1145,11 @@
       state.programmeLoadedAt = Date.now();
 
       /*
-       * H2 stays the first-render owner. Artwork enrichment starts only after
-       * that render and is deliberately not awaited by this page promise.
+       * H2 stays the first-render owner. A retained Home revalidation can skip
+       * a full DOM rebuild when the programme projection is unchanged.
+       * Artwork enrichment remains independent and starts after this point.
        */
-      render();
+      if (programmesChanged || config.renderUnchanged !== false) render();
 
       void loadProgrammeArtworkPage(
         sequence,
@@ -1145,17 +1165,17 @@
       }
 
       if (reset) {
+        state.loadingPrograms = false;
         if (config.retainVisible !== true) {
           clearPrograms();
           state.programmeLoadedChannelCount = 0;
+          state.programError =
+            'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
         }
-        state.loadingPrograms = false;
-        state.programError =
-          'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
       }
 
       state.programmeLoadingMore = false;
-      render();
+      if (!reset || config.retainVisible !== true) render();
 
       return null;
     });
@@ -1216,14 +1236,18 @@
       state.programmeLoadedChannelCount = 0;
       state.programmeLoadingMore = false;
     }
+    const revalidatePrograms = config.revalidatePrograms === true;
     if (!force && !backendChanged && state.channels.length > 0) {
-      const reuseWarmPrograms = state.events.length > 0 &&
-        state.programmeLoadedAt > 0 &&
-        Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS;
-      render({programmeRails: !reuseWarmPrograms});
-      if (reuseWarmPrograms) return Promise.resolve(null);
+      if (!revalidatePrograms) {
+        const reuseWarmPrograms = state.events.length > 0 &&
+          state.programmeLoadedAt > 0 &&
+          Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS;
+        render({programmeRails: !reuseWarmPrograms});
+        if (reuseWarmPrograms) return Promise.resolve(null);
+      }
       return loadPrograms(++state.requestSequence, {
-        retainVisible: retainVisible
+        retainVisible: retainVisible,
+        renderUnchanged: !revalidatePrograms
       });
     }
     if (!client || typeof client.fetchClientChannels !== 'function') {
@@ -1266,11 +1290,13 @@
       if (root && root.classList) root.classList.remove('media-home-live-hero-active');
       return Promise.resolve(null);
     }
+    const config = options && typeof options === 'object' ? options : {};
     const becameActive = !state.active;
     state.active = true;
     const backendChanged = state.backendId !== selectedBackendId();
-    if (becameActive || backendChanged || state.channels.length === 0 || force) {
-      return load(Boolean(force || backendChanged), options);
+    if (becameActive || backendChanged || state.channels.length === 0 || force ||
+        config.revalidatePrograms === true) {
+      return load(Boolean(force || backendChanged), config);
     }
     render();
     return Promise.resolve(null);
@@ -1382,7 +1408,7 @@
     installObserver();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
-        sync(true, {retainVisible: true});
+        sync(false, {retainVisible: true, revalidatePrograms: true});
       });
     }
     scheduleSync(false);
