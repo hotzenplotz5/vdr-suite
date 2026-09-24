@@ -17,9 +17,11 @@ bool validScope(
 
 ContinueWatchingService::ContinueWatchingService(
     ContinueWatchingRepository& repository,
-    RecordingResolver resolver)
+    RecordingIdResolver idResolver,
+    RecordingNativeResolver nativeResolver)
     : repository_(repository),
-      resolver_(std::move(resolver))
+      idResolver_(std::move(idResolver)),
+      nativeResolver_(std::move(nativeResolver))
 {
 }
 
@@ -34,7 +36,8 @@ bool ContinueWatchingService::recordProgress(
     if (!validScope(actorId, backendId, recordingId) || operationId.empty())
         return false;
 
-    const auto current = resolver_ ? resolver_(backendId, recordingId) : std::nullopt;
+    const auto current =
+        idResolver_ ? idResolver_(backendId, recordingId) : std::nullopt;
     if (!current.has_value() ||
         !resumeSupported ||
         positionSeconds <= 0 ||
@@ -44,10 +47,14 @@ bool ContinueWatchingService::recordProgress(
         return repository_.clear(actorId, backendId, recordingId);
     }
 
+    if (current->backendNativeId.empty())
+        return repository_.clear(actorId, backendId, recordingId);
+
     return repository_.upsert(
         actorId,
         backendId,
         recordingId,
+        current->backendNativeId,
         positionSeconds,
         operationId);
 }
@@ -58,7 +65,13 @@ bool ContinueWatchingService::clear(
     const std::string& recordingId,
     const std::string&)
 {
-    return repository_.clear(actorId, backendId, recordingId);
+    const auto current =
+        idResolver_ ? idResolver_(backendId, recordingId) : std::nullopt;
+    return repository_.clear(
+        actorId,
+        backendId,
+        recordingId,
+        current.has_value() ? current->backendNativeId : std::string());
 }
 
 std::vector<ContinueWatchingItem> ContinueWatchingService::list(
@@ -70,16 +83,28 @@ std::vector<ContinueWatchingItem> ContinueWatchingService::list(
     items.reserve(states.size());
 
     for (const auto& state : states) {
-        const auto current = resolver_ ? resolver_(state.backendId, state.recordingId) : std::nullopt;
+        if (state.backendNativeId.empty()) {
+            repository_.clear(state.actorId, state.backendId, state.recordingId);
+            continue;
+        }
+
+        const auto current = nativeResolver_
+            ? nativeResolver_(state.backendId, state.backendNativeId)
+            : std::nullopt;
         const bool invalid =
             !current.has_value() ||
             state.positionSeconds <= 0 ||
             (current->durationKnown && current->durationSeconds > 0 &&
              state.positionSeconds >= current->durationSeconds);
         if (invalid) {
-            repository_.clear(state.actorId, state.backendId, state.recordingId);
+            repository_.clear(
+                state.actorId,
+                state.backendId,
+                state.recordingId,
+                state.backendNativeId);
             continue;
         }
+
         ContinueWatchingItem item;
         item.recording = *current;
         item.resumePositionSeconds = state.positionSeconds;
