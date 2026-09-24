@@ -221,59 +221,6 @@ BackendAgentNativeTimerCreateEvidence evidenceFor(
 }
 }
 
-bool backendAgentNativeTimerCreateCommandFromAssignment(
-    const BackendAgentCommandAssignment& assignment,
-    BackendAgentNativeTimerCreateCommand& command,
-    std::string& reasonCode)
-{
-    if (!backendAgentCommandValidAssignment(assignment) ||
-        assignment.commandType != kBackendAgentNativeTimerCreateCommandType ||
-        assignment.payloadVersion != kBackendAgentNativeTimerCreatePayloadVersion ||
-        assignment.verificationPolicy != "readback_required")
-    {
-        reasonCode = "invalid_native_timer_create_assignment";
-        return false;
-    }
-
-    BackendAgentNativeTimerCreatePayload payload;
-    if (!backendAgentNativeTimerCreateParsePayload(
-            assignment.payload, payload, reasonCode))
-    {
-        reasonCode = "invalid_native_timer_create_assignment_payload";
-        return false;
-    }
-
-    BackendAgentNativeTimerCreateCommand candidate;
-    candidate.commandId = assignment.commandId;
-    candidate.requestFingerprint = assignment.requestFingerprint;
-    candidate.operationId = assignment.operationId;
-    candidate.operationRevision = payload.operationRevision;
-    candidate.timerAssignmentId = payload.timerAssignmentId;
-    candidate.expectedAssignmentRevision = payload.expectedAssignmentRevision;
-    candidate.expectedIntentRevision = payload.expectedIntentRevision;
-    candidate.assignmentEpoch = payload.assignmentEpoch;
-    candidate.nativeTimerBindingId = payload.nativeTimerBindingId;
-    candidate.expectedSpecificationFingerprint = payload.expectedSpecificationFingerprint;
-    candidate.jobId = assignment.jobId;
-    candidate.attemptId = assignment.attemptId;
-    candidate.claimEpoch = assignment.claimEpoch;
-    candidate.backendId = assignment.backendId;
-    candidate.agentId = assignment.agentId;
-    candidate.agentInstanceId = assignment.agentInstanceId;
-    candidate.backendGeneration = assignment.backendGeneration;
-    candidate.controlPlaneClaimedAt = payload.controlPlaneClaimedAt;
-    candidate.specification = payload.specification;
-    candidate.localProviderSelection = payload.localProviderSelection;
-    if (!backendAgentNativeTimerCreateValidCommand(candidate, reasonCode))
-    {
-        reasonCode = "invalid_native_timer_create_assignment_contract";
-        return false;
-    }
-    command = std::move(candidate);
-    reasonCode.clear();
-    return true;
-}
-
 bool backendAgentNativeTimerCreatePrepareLocalStarting(
     const BackendAgentNativeTimerCreateCommand& command,
     std::int64_t persistedAt,
