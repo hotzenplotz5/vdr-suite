@@ -219,23 +219,15 @@
 
     #detail:has(.module-tab.active[data-module="overview"]) {
       padding: 0;
-      border-color: rgba(125, 211, 252, 0.18);
-      background:
-        radial-gradient(circle at 84% 7%, rgba(56, 189, 248, 0.055), transparent 24rem),
-        radial-gradient(circle at 14% 5%, rgba(251, 191, 36, 0.025), transparent 20rem),
-        linear-gradient(180deg, #07101f 0%, #040b17 34%, #020712 100%);
-      box-shadow:
-        inset 0 1px 0 rgba(248, 250, 252, 0.045),
-        0 1.8rem 4.5rem rgba(2, 6, 23, 0.38);
+      border-color: rgba(96, 165, 250, 0.18);
+      background: rgba(2, 6, 23, 0.72);
+      box-shadow: 0 1.8rem 4rem rgba(2, 6, 23, 0.24);
     }
 
     #detail:has(.module-tab.active[data-module="overview"]) .detail-header {
       margin: 0;
       padding: 0.8rem 1rem 0.55rem;
       border-bottom: 0;
-      background: linear-gradient(180deg, rgba(7, 16, 31, 0.96), rgba(5, 12, 25, 0.90));
-      backdrop-filter: blur(12px) saturate(1.06);
-      -webkit-backdrop-filter: blur(12px) saturate(1.06);
     }
 
     #detail:has(.module-tab.active[data-module="overview"]) .detail-header h2 {
@@ -256,10 +248,7 @@
     #detail:has(.module-tab.active[data-module="overview"]) .module-nav {
       margin: 0;
       padding: 0 1rem 0.85rem;
-      border-bottom: 1px solid rgba(186, 230, 253, 0.12);
-      background: linear-gradient(180deg, rgba(5, 12, 25, 0.90), rgba(4, 10, 22, 0.94));
-      backdrop-filter: blur(12px) saturate(1.06);
-      -webkit-backdrop-filter: blur(12px) saturate(1.06);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
     }
 
     #detail:has(.module-tab.active[data-module="overview"]) .media-home-only {
@@ -272,11 +261,12 @@
       min-height: 19rem;
       margin: 0;
       overflow: hidden;
-      border-bottom: 1px solid rgba(251, 191, 36, 0.10);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
       background:
-        radial-gradient(circle at 80% 30%, rgba(56, 189, 248, 0.08), transparent 28%),
-        radial-gradient(circle at 90% 72%, rgba(251, 191, 36, 0.035), transparent 25%),
-        #030914;
+        linear-gradient(90deg, rgba(2, 6, 23, 0.98) 0%, rgba(2, 6, 23, 0.84) 42%, rgba(2, 6, 23, 0.28) 72%, rgba(2, 6, 23, 0.54) 100%),
+        radial-gradient(circle at 78% 36%, rgba(14, 165, 233, 0.3), transparent 22%),
+        radial-gradient(circle at 86% 68%, rgba(37, 99, 235, 0.22), transparent 24%),
+        linear-gradient(135deg, #020617 0%, #071427 55%, #0f2743 100%);
     }
 
     .media-home-hero::after {
@@ -346,7 +336,6 @@
       color: #f8fafc;
       font-size: clamp(1.2rem, 2vw, 1.55rem);
       letter-spacing: -0.02em;
-      text-shadow: 0 0.45rem 1.6rem rgba(2, 6, 23, 0.72);
     }
 
     .media-home-section-heading p {
