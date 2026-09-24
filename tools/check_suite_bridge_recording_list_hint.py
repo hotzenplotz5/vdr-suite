@@ -118,9 +118,13 @@ if MONITOR_SOURCE.is_file():
 if POLLING.is_file():
     polling = POLLING.read_text(encoding="utf-8")
     marker = "recordingListChangeTracker.observe("
+    next_marker = "recordingMarksChangeTracker.observe("
     start = polling.find(marker)
-    block = polling[start:start + 1600] if start >= 0 else ""
-    if "publishChangeFeedEntry(" in block or "replaceRecordingsForBackend(" in block:
+    end = polling.find(next_marker, start) if start >= 0 else -1
+    block = polling[start:end] if start >= 0 and end > start else ""
+    if not block:
+        errors.append("unable to isolate SuiteBridge recording-list hint block")
+    elif "publishChangeFeedEntry(" in block or "replaceRecordingsForBackend(" in block:
         errors.append("SuiteBridge list hint must not publish or mutate cache directly")
 
 if errors:
