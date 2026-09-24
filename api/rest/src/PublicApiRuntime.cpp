@@ -1345,15 +1345,6 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
-    if (isPublicV1Path(path))
-    {
-        response = notFoundProblem(
-            path,
-            requestId,
-            correlationId);
-        return true;
-    }
-
     return false;
 }
 
