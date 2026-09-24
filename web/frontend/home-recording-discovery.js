@@ -4062,28 +4062,6 @@
   let recordingRefreshBusy = false;
   let recordingRefreshPending = false;
 
-  function refreshRecordingPresentationDependents() {
-    const owners = [
-      global.VdrSuiteHomeContinueWatching,
-      global.VdrSuiteHomeRecentlyWatched,
-      global.VdrSuiteHomeRecentMovies
-    ];
-    const refreshes = [];
-
-    owners.forEach(function (owner) {
-      if (!owner || typeof owner.refresh !== 'function') return;
-      refreshes.push(
-        Promise.resolve()
-          .then(function () { return owner.refresh(); })
-          .catch(function () { return false; })
-      );
-    });
-
-    return Promise.allSettled(refreshes).then(function () {
-      return true;
-    });
-  }
-
   function scheduleRecordingChangeRefresh() {
     if (!recordingRefreshPending || recordingRefreshBusy ||
         recordingRefreshTimer !== null || !homeIsActive() || (doc && doc.hidden)) return;
@@ -4095,16 +4073,10 @@
       state.homeReadyGeneration = -1;
       clearSeriesWarm();
       recordingRefreshBusy = true;
-      Promise.resolve(refresh({reuseWarm: false}))
-        .then(function (refreshed) {
-          return refreshed === true
-            ? refreshRecordingPresentationDependents()
-            : false;
-        })
-        .finally(function () {
-          recordingRefreshBusy = false;
-          scheduleRecordingChangeRefresh();
-        });
+      Promise.resolve(refresh({reuseWarm: false})).finally(function () {
+        recordingRefreshBusy = false;
+        scheduleRecordingChangeRefresh();
+      });
     }, 0);
   }
 
