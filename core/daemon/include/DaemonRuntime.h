@@ -62,7 +62,9 @@
 #include "MutationOperationRepository.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "NativeTimerCreateDispatchService.h"
+#include "NativeTimerCreateOperationCompletionService.h"
 #include "NativeTimerCreateOperationPreparationService.h"
+#include "NativeTimerCreateReadbackVerificationService.h"
 #include "NativeTimerBindingRepository.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentFulfillmentService.h"
@@ -218,6 +220,10 @@ private:
         nativeTimerCreateAdmissionService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateDispatchService>
         nativeTimerCreateDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerCreateReadbackVerificationService>
+        nativeTimerCreateReadbackVerificationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationCompletionService>
+        nativeTimerCreateOperationCompletionService_;
 
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;

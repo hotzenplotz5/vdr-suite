@@ -163,3 +163,8 @@ test-phase69-public-timer-create-admission:
 		-o $(BUILD_DIR)/test_public_timer_create_security
 	$(BUILD_DIR)/test_public_timer_create_security
 	python3 tools/check_phase69_public_timer_create_admission.py
+
+.PHONY: test-phase69-native-timer-create-reconciliation-runtime
+
+test-phase69-native-timer-create-reconciliation-runtime:
+	python3 tools/check_phase69_native_timer_create_reconciliation_runtime.py

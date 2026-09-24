@@ -93,6 +93,42 @@ include_line = "include mk/phase64-native-timer-create-readback-verification-tes
 if include_line not in makefile:
     raise SystemExit("CREATE verification make fragment is not included")
 
+# Phase 64 originally prohibited every runtime consumer because this slice
+# established only the readback-verification domain owner. Phase 69.C may now
+# compose that accepted owner in DaemonRuntime, but only behind its dedicated
+# successor guard. Keep every other runtime surface closed.
+successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_reconciliation_runtime.py"
+)
+if not successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C CREATE reconciliation successor guard is required before "
+        "readback runtime composition"
+    )
+successor_guard_text = successor_guard.read_text(encoding="utf-8")
+for token in [
+    "NativeTimerCreateReadbackVerificationService",
+    "NativeTimerCreateOperationCompletionService",
+    "nativeTimerCreateReadbackVerificationService_->verify(",
+    "nativeTimerCreateOperationCompletionService_->complete(",
+]:
+    if token not in successor_guard_text:
+        raise SystemExit(
+            "Phase-69.C CREATE reconciliation successor guard missing marker: "
+            + token
+        )
+
+reviewed_runtime_files = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+    Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+}
+for reviewed in reviewed_runtime_files:
+    if not (ROOT / reviewed).is_file():
+        raise SystemExit(
+            f"missing reviewed CREATE readback runtime file: {reviewed}"
+        )
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",
@@ -106,12 +142,15 @@ for scan_root in [
             ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk"
         }:
             continue
+        relative = path.relative_to(ROOT)
+        if relative in reviewed_runtime_files:
+            continue
         if "NativeTimerCreateReadbackVerificationService" in path.read_text(
             encoding="utf-8", errors="ignore"
         ):
             raise SystemExit(
-                "premature CREATE readback runtime wiring: "
-                + str(path.relative_to(ROOT))
+                "unreviewed CREATE readback runtime wiring: "
+                + str(relative)
             )
 
 print("Phase-64 native Timer CREATE readback verification check passed")
