@@ -61,11 +61,15 @@ const client = {
     assert.strictEqual(options.cache, 'no-store');
     assert.strictEqual(options.query.backend, backend);
     if (pendingRead) return pendingRead;
-    return Promise.resolve({recordings: []});
+    return Promise.resolve({recordings: [{
+      recordingId: 'import-' + recordingReads, backendId: backend,
+      backendNativeId: '/recordings/import-' + recordingReads,
+      title: 'Imported movie ' + recordingReads
+    }]});
   },
   fetchClientRecordingFolder(options) {
     folderReads++;
-    assert.strictEqual(options.query.backend, backend);
+    assert.strictEqual(options.backendId, backend);
     return Promise.resolve({folders: [], recordings: []});
   },
   fetchClientGenres() { return Promise.resolve({genres: []}); },
@@ -128,7 +132,9 @@ function navigate(next) {
   await tick();
   assert.strictEqual(recordingReads, 2, 'same-backend recording burst invalidates retained Home once');
   assert.strictEqual(folderReads, 2);
-  assert(host.children.length > 0, 'canonical Home renders the refreshed projection');
+  const flatten = node => [node, ...node.children.flatMap(flatten)];
+  assert(flatten(host).some(node => node.dataset.recordingId === 'import-2'),
+    'native import hint reaches the actual Home card projection');
   await window.VdrSuiteHomeRecordingDiscovery._test.refreshForHome();
   assert.strictEqual(recordingReads, 2, 'unchanged Home remains retained');
 
