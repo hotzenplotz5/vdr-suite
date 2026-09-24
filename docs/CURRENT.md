@@ -68,10 +68,11 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Timer CREATE Suite-owned identity authority: canonical new-operation IDs are
-issued by core/operations and canonical pre-reserved NativeTimerBinding IDs by
-core/timers. Existing durable legacy IDs remain compatibility-valid; public
-Timer POST and native execution remain closed.
+Atomic Timer CREATE admission foundation: the accepted selected->provisioning
+fulfillment transition and durable MutationOperation + immutable CREATE payload
+reservation now share one outer SQLite commit boundary. Exact idempotent replay
+is resolved before stale-current-state checks; public Timer POST and native
+execution remain closed.
 
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
@@ -91,6 +92,8 @@ PR #329 -> b5ef507a94e4c36a2472d1697c4c973efefe01f0
 PR #329 hosted CI run 35907951511 / #9119: SUCCESS (6/6)
 PR #330 -> 27d040ec362264bdd3de01b1b8b65c8301269748
 PR #330 hosted CI run 35940968821 / #9124: SUCCESS (6/6)
+PR #331 -> ac7807c0fce364ab5c918dfa5d1f28427e928db3
+PR #331 hosted CI run 35943072158 / #9126: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
