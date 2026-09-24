@@ -35,6 +35,7 @@
     programError: '',
     actionError: '',
     requestSequence: 0,
+    channelLoadInFlight: null,
     syncScheduled: false,
     pendingSyncForce: false,
     pendingSyncOptions: null,
@@ -1258,10 +1259,24 @@
       render();
       return Promise.resolve(null);
     }
+    if (state.loadingChannels &&
+        state.channelLoadInFlight &&
+        state.channelLoadInFlight.backendId === state.backendId) {
+      return state.channelLoadInFlight.promise;
+    }
     const sequence = ++state.requestSequence;
     state.loadingChannels = true;
     if (!retainVisible) render();
-    return client.fetchClientChannels({query: {backend: state.backendId, _: String(Date.now())}, cache: 'no-store', credentials: 'same-origin'}).then(data => {
+    const entry = {
+      backendId: state.backendId,
+      sequence: sequence,
+      promise: null
+    };
+    const request = client.fetchClientChannels({
+      query: {backend: state.backendId, _: String(Date.now())},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(data => {
       if (!state.active || sequence !== state.requestSequence) return null;
       applyChannels(data);
       state.loadingChannels = false;
@@ -1281,6 +1296,15 @@
       if (!retainVisible) render();
       return null;
     });
+    entry.promise = request.then(function (value) {
+      if (state.channelLoadInFlight === entry) state.channelLoadInFlight = null;
+      return value;
+    }, function (error) {
+      if (state.channelLoadInFlight === entry) state.channelLoadInFlight = null;
+      throw error;
+    });
+    state.channelLoadInFlight = entry;
+    return entry.promise;
   }
 
   function sync(force, options) {
@@ -1288,6 +1312,7 @@
     if (!active) {
       state.active = false;
       state.requestSequence += 1;
+      state.channelLoadInFlight = null;
       const root = heroRoot();
       if (root && root.classList) root.classList.remove('media-home-live-hero-active');
       return Promise.resolve(null);
@@ -1459,6 +1484,10 @@
 
   const api = Object.freeze({
     refresh: () => sync(true, {retainVisible: true}),
+    refreshPrograms: () => sync(false, {
+      retainVisible: true,
+      revalidatePrograms: true
+    }),
     snapshot,
     selectOffset,
     watchLive,
