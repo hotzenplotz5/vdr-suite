@@ -15,8 +15,13 @@ const bootstrapSource = fs.readFileSync(
 
 const deferredIndex = indexSource.indexOf('../frontend/platform/deferred-runtime-loader.js');
 const clientIndex = indexSource.indexOf('../frontend/api/client-api.js');
+const discoveryIndex = indexSource.indexOf('../frontend/home-recording-discovery.js');
+const heroIndex = indexSource.indexOf('../frontend/home-live-hero.js');
 const appIndex = indexSource.indexOf('../frontend/app.js');
-assert(deferredIndex >= 0 && clientIndex > deferredIndex && appIndex > clientIndex);
+assert(deferredIndex >= 0 && clientIndex > deferredIndex);
+assert(discoveryIndex > clientIndex);
+assert(heroIndex > discoveryIndex);
+assert(appIndex > heroIndex);
 
 const markStart = appSource.indexOf('function markSelected(backendId)');
 const markEnd = appSource.indexOf('\nfunction loadBackendDetails(', markStart);
@@ -28,8 +33,9 @@ const markSelectedSource = appSource.slice(markStart, markEnd);
 const loadBackendDetailsSource = appSource.slice(loadStart, loadEnd);
 assert(loadBackendDetailsSource.includes('markSelected(backendId);'));
 assert(
-  loadBackendDetailsSource.indexOf("selectModule('overview');") <
-  loadBackendDetailsSource.indexOf('markSelected(backendId);')
+  loadBackendDetailsSource.indexOf('markSelected(backendId);') <
+  loadBackendDetailsSource.indexOf("selectModule('overview');"),
+  'Home resume must publish only after the canonical backend is selected'
 );
 
 function classList(initial) {
