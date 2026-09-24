@@ -234,8 +234,19 @@ function cachedEpgRefreshVisibleModuleForChanges(entries) {
     return;
   }
 
-  if (selectedModule === 'overview' && typeof loadBackendDetails === 'function' && selectedBackend) {
-    loadBackendDetails(selectedBackend);
+  if (selectedModule === 'overview') {
+    const hero = typeof window !== 'undefined'
+      ? window.VdrSuiteHomeLiveHero
+      : null;
+
+    if (domains.has('channels') && hero && typeof hero.refresh === 'function') {
+      hero.refresh();
+      return;
+    }
+
+    if (domains.has('events') && hero && typeof hero.refreshPrograms === 'function') {
+      hero.refreshPrograms();
+    }
   }
 }
 
