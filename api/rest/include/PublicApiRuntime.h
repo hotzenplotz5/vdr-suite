@@ -51,6 +51,38 @@ struct PublicTimerAssignmentLookupResult
     PublicTimerAssignmentRevisionResource assignment;
 };
 
+enum class PublicTimerCreateAdmissionStatus
+{
+    accepted,
+    replayed,
+    invalid,
+    notFound,
+    readOnlyBackend,
+    backendUnavailable,
+    revisionConflict,
+    stateConflict,
+    generationConflict,
+    idempotencyConflict,
+    operationConflict,
+    serviceUnavailable,
+};
+
+struct PublicTimerCreateAdmissionRequest
+{
+    std::string actorRef;
+    std::string backendId;
+    std::string timerAssignmentId;
+    std::string expectedAssignmentRevision;
+    std::string idempotencyKey;
+};
+
+struct PublicTimerCreateAdmissionResult
+{
+    PublicTimerCreateAdmissionStatus status =
+        PublicTimerCreateAdmissionStatus::serviceUnavailable;
+    PublicOperationResource operation;
+};
+
 class PublicApiRuntime
 {
 public:
@@ -63,6 +95,10 @@ public:
         std::function<PublicTimerAssignmentLookupResult(
             const std::string& timerAssignmentId,
             const std::string& backendId)>;
+
+    using TimerCreateAdmission =
+        std::function<PublicTimerCreateAdmissionResult(
+            const PublicTimerCreateAdmissionRequest& request)>;
 
     static PublicApiRuntime& instance();
 
@@ -77,6 +113,10 @@ public:
         const std::string& timerAssignmentId,
         const std::string& backendId) const;
 
+    void registerTimerCreateAdmission(TimerCreateAdmission admission);
+    void resetTimerCreateAdmission();
+    bool timerCreateAdmissionConfigured() const;
+
     bool tryHandleGet(
         const std::string& requestTarget,
         const std::string& actorRef,
@@ -90,7 +130,13 @@ public:
         const std::string& requestTarget,
         const std::string& requestId,
         const std::string& correlationId,
-        ApiResponse& response) const;
+        ApiResponse& response,
+        const std::string& body = "",
+        const std::string& actorRef = "",
+        const std::string& ifMatch = "",
+        const std::string& idempotencyKey = "",
+        const std::string& contentType = "",
+        const std::string& authorizedBackendId = "") const;
 
     bool tryHandleUnsupportedMethod(
         const std::string& method,
@@ -111,4 +157,7 @@ private:
 
     mutable std::mutex timerAssignmentLookupMutex_;
     TimerAssignmentLookup timerAssignmentLookup_;
+
+    mutable std::mutex timerCreateAdmissionMutex_;
+    TimerCreateAdmission timerCreateAdmission_;
 };
