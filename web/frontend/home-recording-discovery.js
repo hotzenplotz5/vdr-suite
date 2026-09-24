@@ -39,6 +39,7 @@
     randomFolderPath: '',
     homeReadyBackendId: '',
     homeReadyGeneration: -1,
+    seriesAvailable: false,
     seriesMetadataCache: null,
 
     seriesCoverBackendId: '',
@@ -3917,7 +3918,20 @@
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
       const entries = canonicalGenres(payload);
+      const seriesEntry = entries.find(function (entry) {
+        return text(entry && entry.id).toLowerCase() === 'series';
+      }) || null;
+      state.seriesAvailable = Boolean(seriesEntry);
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
+      if (options.includeSeries === false && !seriesEntry) {
+        clearSeriesMetadataRetry();
+        clearSeriesWarm();
+        state.seriesProjection = [];
+        state.seriesBackendId = '';
+        state.seriesViewKey = '';
+        state.seriesSeasonNumber = null;
+        clearRail('series');
+      }
       const randomGenre = selectRandomGenre(entries, generation, Math.random());
       if (!randomGenre) clearRail('random-genre');
       const followUps = [
@@ -4061,22 +4075,28 @@
       invalidated: false,
       promise: null
     };
-    const loadPromise = Promise.allSettled([
+    const parallelSeries =
+      config.parallelHomeResume === true &&
+      state.seriesAvailable === true;
+    const loads = [
       loadNewly(client, backendId, generation, {
         retainVisible: config.retainVisible === true
       }),
       loadGenres(client, backendId, generation, {
         reuseWarm: config.reuseWarm === true,
         retainVisible: config.retainVisible === true,
-        includeSeries: false
-      }),
-      loadSeries(client, backendId, generation, [{id: 'series'}], {
-        reuseWarm: config.reuseWarm === true
+        includeSeries: !parallelSeries
       }),
       loadFolders(client, backendId, generation, {
         retainVisible: config.retainVisible === true
       })
-    ]).then(function () {
+    ];
+    if (parallelSeries) {
+      loads.push(loadSeries(client, backendId, generation, [{id: 'series'}], {
+        reuseWarm: config.reuseWarm === true
+      }));
+    }
+    const loadPromise = Promise.allSettled(loads).then(function () {
       if (generation === state.generation &&
           backendId === selectedBackendId() &&
           homeIsActive()) {
@@ -4120,6 +4140,7 @@
       Promise.resolve(refresh({
         reuseWarm: false,
         retainVisible: true,
+        parallelHomeResume: true,
         coalesce: true
       })).finally(function () {
         recordingRefreshBusy = false;
@@ -4284,6 +4305,7 @@
         Promise.resolve(refresh({
           reuseWarm: false,
           retainVisible: true,
+          parallelHomeResume: true,
           coalesce: true
         })).catch(function () { return false; });
       });
