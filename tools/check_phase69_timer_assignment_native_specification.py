@@ -114,15 +114,16 @@ for label in ["public_h", "public_cpp"]:
             raise SystemExit(
                 f"public v1 exposed internal native Timer specification in {label}: {forbidden}")
 
-# This prerequisite must not open the public mutation/security branch.
+# Later public admission may reference the TimerAssignment resource, but the
+# internal desired specification must never cross into HTTP/security contracts.
 for forbidden in [
-    "publicTimerAssignmentCreate",
-    "isPublicTimerAssignmentCreate",
-    "Idempotency-Key",
+    "NativeTimerSpecification",
+    "desiredNativeTimerSpecification",
+    "desired_native_timer_specification",
 ]:
     if forbidden in contents["security"]:
         raise SystemExit(
-            f"assignment specification prerequisite opened public mutation security: {forbidden}")
+            f"internal native Timer specification leaked into public security: {forbidden}")
 
 print("Phase-69.C TimerAssignment desired native specification check passed")
-print("Boundary: durable internal specification for new scheduler decisions; legacy rows remain readable; public v1 unchanged")
+print("Boundary: durable internal specification remains hidden while later public CREATE admission consumes it only below the callback")
