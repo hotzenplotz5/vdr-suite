@@ -74,6 +74,29 @@ int main()
             fixture.accountabilityRepository,
             "permission_granted",
             "backend-one"));
+
+        // Public CREATE does not accept a caller operationId. The Suite issues
+        // it only after authorization, so the outer Phase-62 HTTP outcome may
+        // legitimately have no operation correlation at gate time.
+        assert(decision.operationId.empty());
+        assert(fixture.gate.appendProtectedMutationOutcome(
+            decision,
+            202));
+
+        bool sawOutcome = false;
+        for (const AccountabilityEvent& event :
+             fixture.accountabilityRepository.listAll())
+        {
+            if (event.eventType == "operation.succeeded" &&
+                event.permission == Permission &&
+                event.backendId == "backend-one" &&
+                event.reasonCode == "http_status_202")
+            {
+                sawOutcome = true;
+                assert(event.operationId.empty());
+            }
+        }
+        assert(sawOutcome);
     }
 
     {
