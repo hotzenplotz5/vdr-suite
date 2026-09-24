@@ -158,6 +158,25 @@ text_suffixes = {
     ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk",
     ".conf", ".service",
 }
+# Slice 9 originally prohibited every productive runtime reference. Phase 69.C
+# may now compose the already accepted repository/fulfillment owners in exactly
+# the Control-Plane daemon files below, but only when the dedicated successor
+# guard proves the public mutation and fulfillment calls remain dormant.
+allowed_phase69_daemon_paths = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+}
+successor_guard = ROOT / "tools/check_phase69_native_timer_create_fulfillment_runtime.py"
+successor_valid = False
+if successor_guard.is_file():
+    successor = successor_guard.read_text(encoding="utf-8")
+    successor_valid = all(marker in successor for marker in [
+        "NativeTimerBindingRepository",
+        "TimerAssignmentFulfillmentService",
+        "CREATE fulfillment runtime must remain dormant in this slice",
+        "timerAssignmentFulfillmentService_->beginProvisioning(",
+    ])
+
 for scan_root in forbidden_roots:
     if not scan_root.exists():
         continue
@@ -165,10 +184,18 @@ for scan_root in forbidden_roots:
         if not path.is_file() or path.suffix not in text_suffixes:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        if "NativeTimerBinding" in text:
-            raise SystemExit(
-                "premature NativeTimerBinding runtime wiring: "
-                + str(path.relative_to(ROOT)))
+        if "NativeTimerBinding" not in text:
+            continue
+        relative = path.relative_to(ROOT)
+        if relative in allowed_phase69_daemon_paths:
+            if not successor_valid:
+                raise SystemExit(
+                    "Phase-69.C NativeTimerBinding daemon wiring requires "
+                    "the exact dormant fulfillment successor guard")
+            continue
+        raise SystemExit(
+            "premature NativeTimerBinding runtime wiring: "
+            + str(relative))
 
 print("Phase-64 NativeTimerBinding contract check passed")
 print(
