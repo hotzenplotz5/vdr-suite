@@ -66,7 +66,7 @@ required = {
         '"unsupported_media_type"',
         "response.statusCode = 202",
         'response.headers["Location"] = operationPath',
-        '"public-api.timer-create-admission"',
+        "public-api.timer-create-admission",
         '"GET, POST"',
     ],
     "router": [
