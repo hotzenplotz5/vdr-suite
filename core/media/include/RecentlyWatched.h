@@ -12,6 +12,7 @@ struct RecentlyWatchedState
     std::string actorId;
     std::string backendId;
     std::string recordingId;
+    std::string backendNativeId;
     int positionSeconds = 0;
     bool positionKnown = false;
     bool completionKnown = false;
@@ -80,13 +81,17 @@ public:
     static constexpr const char* CanonicalPlaybackEvidence =
         "canonical-recording-playback-owner";
 
-    using RecordingResolver = std::function<std::optional<RecentlyWatchedRecordingTruth>(
+    using RecordingIdResolver = std::function<std::optional<RecentlyWatchedRecordingTruth>(
         const std::string& backendId,
         const std::string& recordingId)>;
+    using RecordingNativeResolver = std::function<std::optional<RecentlyWatchedRecordingTruth>(
+        const std::string& backendId,
+        const std::string& backendNativeId)>;
 
     RecentlyWatchedService(
         RecentlyWatchedRepository& repository,
-        RecordingResolver resolver);
+        RecordingIdResolver idResolver,
+        RecordingNativeResolver nativeResolver);
 
     bool recordActivity(
         const std::string& actorId,
@@ -104,5 +109,6 @@ public:
 
 private:
     RecentlyWatchedRepository& repository_;
-    RecordingResolver resolver_;
+    RecordingIdResolver idResolver_;
+    RecordingNativeResolver nativeResolver_;
 };

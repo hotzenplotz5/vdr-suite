@@ -648,11 +648,14 @@
       state.randomGenreId = '';
       return null;
     }
-    if (state.randomGenreGeneration === generation && state.randomGenreId) {
+    if (state.randomGenreId) {
       const existing = available.find(function (entry) {
         return text(entry.id) === state.randomGenreId;
       });
-      if (existing) return existing;
+      if (existing) {
+        state.randomGenreGeneration = generation;
+        return existing;
+      }
     }
     const raw = Number(randomValue);
     const bounded = Number.isFinite(raw)
@@ -690,11 +693,14 @@
       state.randomFolderPath = '';
       return null;
     }
-    if (state.randomFolderGeneration === generation && state.randomFolderPath) {
+    if (state.randomFolderPath) {
       const existing = available.find(function (entry) {
         return text(entry.path || entry.folderPath || entry.name) === state.randomFolderPath;
       });
-      if (existing) return existing;
+      if (existing) {
+        state.randomFolderGeneration = generation;
+        return existing;
+      }
     }
     const raw = Number(randomValue);
     const bounded = Number.isFinite(raw)
@@ -904,6 +910,153 @@
     });
   }
 
+  function directChildWithClass(parent, className) {
+    const children = parent && parent.children ? Array.from(parent.children) : [];
+    return children.find(function (child) {
+      return String(child && child.className || '').split(/\s+/).includes(className);
+    }) || null;
+  }
+
+  function reconcileDiscoveryChildren(parent, children) {
+    const previous = Array.from(parent && parent.children || []);
+    if (previous.length === children.length && previous.every(function (child, index) {
+      return child === children[index];
+    })) return;
+
+    const scrollLeft = parent.scrollLeft;
+    const focused = doc && doc.activeElement;
+    const retained = new Set(children);
+
+    previous.forEach(function (child) {
+      if (retained.has(child)) return;
+      if (child && typeof child.remove === 'function') child.remove();
+      else if (parent && typeof parent.removeChild === 'function') parent.removeChild(child);
+    });
+
+    if (typeof parent.insertBefore === 'function') {
+      children.forEach(function (child, index) {
+        if (parent.children[index] !== child) {
+          parent.insertBefore(child, parent.children[index] || null);
+        }
+      });
+    } else if (typeof parent.replaceChildren === 'function') {
+      parent.replaceChildren.apply(parent, children);
+    }
+
+    if (focused && children.indexOf(focused) >= 0 &&
+        doc.activeElement !== focused && typeof focused.focus === 'function') {
+      focused.focus({preventScroll: true});
+    }
+    if (Number.isFinite(scrollLeft)) parent.scrollLeft = scrollLeft;
+  }
+
+  function ensureDiscoveryRail(section, title, railClassName, options) {
+    const config = options && typeof options === 'object' ? options : {};
+    const signature = [
+      text(title),
+      text(railClassName),
+      text(config.backLabel)
+    ].join('\u001f');
+
+    let rail = section.dataset &&
+      section.dataset.discoveryViewSignature === signature
+      ? directChildWithClass(section, 'media-home-discovery-rail')
+      : null;
+    if (rail) return rail;
+
+    section.replaceChildren();
+    if (config.recordingHeading === true) {
+      appendSectionHeading(section, title, config.backLabel, config.onBack);
+    } else {
+      const heading = doc.createElement('div');
+      heading.className = 'media-home-section-heading';
+      const name = doc.createElement('h3');
+      name.textContent = title;
+      heading.appendChild(name);
+      section.appendChild(heading);
+    }
+
+    rail = doc.createElement('div');
+    rail.className = railClassName;
+    section.appendChild(rail);
+    if (section.dataset) section.dataset.discoveryViewSignature = signature;
+    return rail;
+  }
+
+  function recordingCardKey(recording, backendId) {
+    return recordingBackendId(recording, backendId) + '\u001f' + recordingId(recording);
+  }
+
+  function replaceCardChild(card, previous, next, other) {
+    if (previous && typeof card.replaceChild === 'function') {
+      card.replaceChild(next, previous);
+      return;
+    }
+    if (typeof card.replaceChildren === 'function') {
+      if (previous === card.children[0]) card.replaceChildren(next, other);
+      else card.replaceChildren(other, next);
+      return;
+    }
+    if (previous && typeof previous.remove === 'function') previous.remove();
+    card.appendChild(next);
+  }
+
+  function updateRecordingCard(card, recording, backendId, projected) {
+    const scopedBackend = recordingBackendId(recording, backendId);
+    const posterUrl = text(projected.posterUrl);
+    const fallback = text(projected.title).slice(0, 1).toUpperCase() || '▶';
+    const artworkSignature = posterUrl ? 'poster:' + posterUrl : 'fallback:' + fallback;
+    const copySignature = [
+      text(projected.title),
+      text(projected.subtitle)
+    ].join('\u001f');
+
+    card.dataset.recordingId = recordingId(recording);
+    card.dataset.backendId = scopedBackend;
+    card.__vdrSuiteRecording = recording;
+    card.__vdrSuiteRecordingBackendId = scopedBackend;
+
+    let artwork = directChildWithClass(card, 'media-home-discovery-artwork');
+    let copy = directChildWithClass(card, 'media-home-discovery-copy');
+
+    if (!artwork || card.dataset.artworkSignature !== artworkSignature) {
+      const nextArtwork = createPosterArtwork(
+        projected.title,
+        projected.posterUrl,
+        fallback
+      );
+      if (artwork) replaceCardChild(card, artwork, nextArtwork, copy);
+      else if (copy && typeof card.insertBefore === 'function') card.insertBefore(nextArtwork, copy);
+      else card.appendChild(nextArtwork);
+      artwork = nextArtwork;
+      card.dataset.artworkSignature = artworkSignature;
+    }
+
+    if (!copy || card.dataset.copySignature !== copySignature) {
+      const nextCopy = doc.createElement('span');
+      nextCopy.className = 'media-home-discovery-copy';
+      const name = doc.createElement('strong');
+      name.textContent = projected.title;
+      nextCopy.appendChild(name);
+      if (projected.subtitle) {
+        const detail = doc.createElement('span');
+        detail.textContent = projected.subtitle;
+        nextCopy.appendChild(detail);
+      }
+      if (copy) replaceCardChild(card, copy, nextCopy, artwork);
+      else card.appendChild(nextCopy);
+      card.dataset.copySignature = copySignature;
+    }
+
+    if (card.__vdrSuiteRecordingClickBound !== true) {
+      card.__vdrSuiteRecordingClickBound = true;
+      card.addEventListener('click', function () {
+        openRecording(card.__vdrSuiteRecording, card.__vdrSuiteRecordingBackendId);
+      });
+    }
+    return card;
+  }
+
   function renderRecordingRail(key, title, recordings, backendId, options) {
     if (!recordings.length) {
       clearRail(key);
@@ -911,47 +1064,40 @@
     }
     const section = sectionFor(key);
     if (!section) return false;
-    section.replaceChildren();
     const config = options && typeof options === 'object' ? options : {};
     const rich = config.richMetadataByNativeId instanceof Map
       ? config.richMetadataByNativeId
       : null;
-    appendSectionHeading(section, title, config.backLabel, config.onBack);
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail';
-    recordings.forEach(function (recording) {
+    const rail = ensureDiscoveryRail(
+      section,
+      title,
+      'media-home-discovery-rail',
+      {
+        recordingHeading: true,
+        backLabel: config.backLabel,
+        onBack: config.onBack
+      }
+    );
+    const existing = new Map();
+    Array.from(rail.children || []).forEach(function (card) {
+      const id = text(card && card.dataset && card.dataset.recordingId);
+      const scopedBackend = text(card && card.dataset && card.dataset.backendId);
+      if (id) existing.set(scopedBackend + '\u001f' + id, card);
+    });
+
+    const cards = recordings.map(function (recording) {
       const nativeId = recordingBackendNativeId(recording);
       const projected = recordingMetadataProjection(
         recording,
         rich && nativeId ? rich.get(nativeId) || null : null
       );
-      const card = doc.createElement('button');
+      const identity = recordingCardKey(recording, backendId);
+      const card = existing.get(identity) || doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card recording';
-      card.dataset.recordingId = recordingId(recording);
-      card.dataset.backendId = recordingBackendId(recording, backendId);
-      card.appendChild(createPosterArtwork(
-        projected.title,
-        projected.posterUrl,
-        projected.title.slice(0, 1).toUpperCase()
-      ));
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const name = doc.createElement('strong');
-      name.textContent = projected.title;
-      copy.appendChild(name);
-      if (projected.subtitle) {
-        const detail = doc.createElement('span');
-        detail.textContent = projected.subtitle;
-        copy.appendChild(detail);
-      }
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openRecording(recording, backendId);
-      });
-      rail.appendChild(card);
+      return updateRecordingCard(card, recording, backendId, projected);
     });
-    section.appendChild(rail);
+    reconcileDiscoveryChildren(rail, cards);
     return true;
   }
 
@@ -962,34 +1108,51 @@
     }
     const section = sectionFor('genres');
     if (!section) return false;
-    section.replaceChildren();
-    const heading = doc.createElement('div');
-    heading.className = 'media-home-section-heading';
-    const name = doc.createElement('h3');
-    name.textContent = 'Genres';
-    heading.appendChild(name);
-    section.appendChild(heading);
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail genres';
-    entries.forEach(function (entry) {
-      const card = doc.createElement('button');
+    const rail = ensureDiscoveryRail(
+      section,
+      'Genres',
+      'media-home-discovery-rail genres'
+    );
+    const existing = new Map();
+    Array.from(rail.children || []).forEach(function (card) {
+      const id = text(card && card.dataset && card.dataset.genreId);
+      if (id) existing.set(id, card);
+    });
+
+    const cards = entries.map(function (entry) {
+      const id = text(entry.id);
+      const labelText = genreLabel(entry);
+      const countText = String(Number(entry.count || 0)) + ' Aufnahmen';
+      const signature = labelText + '\u001f' + countText;
+      const card = existing.get(id) || doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card genre';
-      card.dataset.genreId = text(entry.id);
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = genreLabel(entry);
-      const count = doc.createElement('span');
-      count.textContent = String(Number(entry.count || 0)) + ' Aufnahmen';
-      copy.append(label, count);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openGenre(entry, backendId);
-      });
-      rail.appendChild(card);
+      card.dataset.genreId = id;
+      card.__vdrSuiteGenreEntry = entry;
+      card.__vdrSuiteGenreBackendId = backendId;
+
+      if (card.dataset.presentationSignature !== signature) {
+        card.replaceChildren();
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const label = doc.createElement('strong');
+        label.textContent = labelText;
+        const count = doc.createElement('span');
+        count.textContent = countText;
+        copy.append(label, count);
+        card.appendChild(copy);
+        card.dataset.presentationSignature = signature;
+      }
+      if (card.__vdrSuiteGenreClickBound !== true) {
+        card.__vdrSuiteGenreClickBound = true;
+        card.addEventListener('click', function () {
+          openGenre(card.__vdrSuiteGenreEntry, card.__vdrSuiteGenreBackendId);
+        });
+      }
+      return card;
     });
-    section.appendChild(rail);
+
+    reconcileDiscoveryChildren(rail, cards);
     return true;
   }
 
@@ -1001,63 +1164,105 @@
     }
     const section = sectionFor('folders');
     if (!section) return false;
-    section.replaceChildren();
-    const heading = doc.createElement('div');
-    heading.className = 'media-home-section-heading';
-    const name = doc.createElement('h3');
-    name.textContent = 'Aufnahmeordner';
-    heading.appendChild(name);
-    section.appendChild(heading);
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail folders';
+    const rail = ensureDiscoveryRail(
+      section,
+      'Aufnahmeordner',
+      'media-home-discovery-rail folders'
+    );
+    const existingRoot = Array.from(rail.children || []).find(function (card) {
+      return card && card.dataset && card.dataset.rootRecordingGroup === 'true';
+    }) || null;
+    const existingFolders = new Map();
+    Array.from(rail.children || []).forEach(function (card) {
+      const path = text(card && card.dataset && card.dataset.folderPath);
+      if (path) existingFolders.set(path, card);
+    });
+    const cards = [];
+
     if (roots.length) {
-      const rootCard = doc.createElement('button');
+      const rootCard = existingRoot || doc.createElement('button');
       rootCard.type = 'button';
       rootCard.className = 'media-home-discovery-card folder-root';
       rootCard.dataset.rootRecordingGroup = 'true';
-      const rootCopy = doc.createElement('span');
-      rootCopy.className = 'media-home-discovery-copy';
-      const rootLabel = doc.createElement('strong');
-      rootLabel.textContent = 'Hauptverzeichnis';
-      const rootCount = doc.createElement('span');
-      rootCount.textContent = String(roots.length) + ' Aufnahmen';
-      rootCopy.append(rootLabel, rootCount);
-      rootCard.appendChild(rootCopy);
-      rootCard.addEventListener('click', function () {
-        renderRecordingRail('folders', 'Hauptverzeichnis', roots, backendId, {
-          backLabel: '← Aufnahmeordner',
-          onBack: function () {
-            renderFolderRail(
-              state.folderProjection.folders,
-              state.folderProjection.rootRecordings,
-              state.folderBackendId || backendId
-            );
-          }
+      rootCard.__vdrSuiteRootRecordings = roots;
+      rootCard.__vdrSuiteRootBackendId = backendId;
+      const signature = String(roots.length);
+
+      if (rootCard.dataset.presentationSignature !== signature) {
+        rootCard.replaceChildren();
+        const rootCopy = doc.createElement('span');
+        rootCopy.className = 'media-home-discovery-copy';
+        const rootLabel = doc.createElement('strong');
+        rootLabel.textContent = 'Hauptverzeichnis';
+        const rootCount = doc.createElement('span');
+        rootCount.textContent = String(roots.length) + ' Aufnahmen';
+        rootCopy.append(rootLabel, rootCount);
+        rootCard.appendChild(rootCopy);
+        rootCard.dataset.presentationSignature = signature;
+      }
+
+      if (rootCard.__vdrSuiteRootClickBound !== true) {
+        rootCard.__vdrSuiteRootClickBound = true;
+        rootCard.addEventListener('click', function () {
+          renderRecordingRail(
+            'folders',
+            'Hauptverzeichnis',
+            rootCard.__vdrSuiteRootRecordings,
+            rootCard.__vdrSuiteRootBackendId,
+            {
+              backLabel: '← Aufnahmeordner',
+              onBack: function () {
+                renderFolderRail(
+                  state.folderProjection.folders,
+                  state.folderProjection.rootRecordings,
+                  state.folderBackendId || rootCard.__vdrSuiteRootBackendId
+                );
+              }
+            }
+          );
         });
-      });
-      rail.appendChild(rootCard);
+      }
+      cards.push(rootCard);
     }
+
     entries.forEach(function (entry) {
       const path = text(entry.path || entry.folderPath || entry.name);
-      const card = doc.createElement('button');
+      const labelText = text(entry.name || entry.title) ||
+        path.split('/').filter(Boolean).pop() ||
+        path;
+      const total = Number(entry.totalCount || entry.count || entry.recordingCount || 0);
+      const countText = total > 0 ? String(total) + ' Aufnahmen' : path;
+      const signature = labelText + '\u001f' + countText;
+      const card = existingFolders.get(path) || doc.createElement('button');
       card.type = 'button';
       card.className = 'media-home-discovery-card folder';
       card.dataset.folderPath = path;
-      const copy = doc.createElement('span');
-      copy.className = 'media-home-discovery-copy';
-      const label = doc.createElement('strong');
-      label.textContent = text(entry.name || entry.title) || path.split('/').filter(Boolean).pop() || path;
-      const count = doc.createElement('span');
-      const total = Number(entry.totalCount || entry.count || entry.recordingCount || 0);
-      count.textContent = total > 0 ? String(total) + ' Aufnahmen' : path;
-      copy.append(label, count);
-      card.appendChild(copy);
-      card.addEventListener('click', function () {
-        openFolder(entry, backendId);
-      });
-      rail.appendChild(card);
+      card.__vdrSuiteFolderEntry = entry;
+      card.__vdrSuiteFolderBackendId = backendId;
+
+      if (card.dataset.presentationSignature !== signature) {
+        card.replaceChildren();
+        const copy = doc.createElement('span');
+        copy.className = 'media-home-discovery-copy';
+        const label = doc.createElement('strong');
+        label.textContent = labelText;
+        const count = doc.createElement('span');
+        count.textContent = countText;
+        copy.append(label, count);
+        card.appendChild(copy);
+        card.dataset.presentationSignature = signature;
+      }
+
+      if (card.__vdrSuiteFolderClickBound !== true) {
+        card.__vdrSuiteFolderClickBound = true;
+        card.addEventListener('click', function () {
+          openFolder(card.__vdrSuiteFolderEntry, card.__vdrSuiteFolderBackendId);
+        });
+      }
+      cards.push(card);
     });
-    section.appendChild(rail);
+
+    reconcileDiscoveryChildren(rail, cards);
     return true;
   }
 
@@ -3662,9 +3867,12 @@
     });
   }
 
-  function loadRandomGenre(client, backendId, generation, entry) {
+  function loadRandomGenre(client, backendId, generation, entry, options) {
     const id = text(entry && entry.id);
     const label = genreLabel(entry);
+    const config = options && typeof options === 'object' ? options : {};
+    const retainVisible = config.retainVisible === true &&
+      hasVisibleRail('random-genre');
     if (!id) {
       clearRail('random-genre');
       return Promise.resolve(false);
@@ -3673,13 +3881,15 @@
     function performLoad() {
       if (!current(generation, backendId)) return Promise.resolve(false);
 
-      renderState(
-        'random-genre',
-        label,
-        'Aufnahmen werden geladen …',
-        false
-      );
-      positionRandomGenreRail();
+      if (!retainVisible) {
+        renderState(
+          'random-genre',
+          label,
+          'Aufnahmen werden geladen …',
+          false
+        );
+        positionRandomGenreRail();
+      }
 
       return fetchBoundedRandomGenreRecordings(
         client,
@@ -3740,6 +3950,7 @@
         return rendered;
       }).catch(function () {
         if (!current(generation, backendId)) return false;
+        if (retainVisible) return false;
 
         const rendered = renderState(
           'random-genre',
@@ -3929,7 +4140,9 @@
       if (!randomGenre) clearRail('random-genre');
       return Promise.allSettled([
         randomGenre
-          ? loadRandomGenre(client, backendId, generation, randomGenre)
+          ? loadRandomGenre(client, backendId, generation, randomGenre, {
+              retainVisible: options.retainVisible === true
+            })
           : Promise.resolve(false)
       ]).then(function () { return true; });
     }).catch(function () {
@@ -3967,6 +4180,11 @@
         return true;
       });
       if (!selectedCard || typeof selectedCard.click !== 'function') return false;
+      if (selectedCard.classList &&
+          typeof selectedCard.classList.contains === 'function' &&
+          selectedCard.classList.contains('inline-selected')) return true;
+      if (typeof selectedCard.getAttribute === 'function' &&
+          selectedCard.getAttribute('aria-expanded') === 'true') return true;
       selectedCard.click();
       return true;
     }

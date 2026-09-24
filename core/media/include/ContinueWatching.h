@@ -12,6 +12,7 @@ struct ContinueWatchingState
     std::string actorId;
     std::string backendId;
     std::string recordingId;
+    std::string backendNativeId;
     int positionSeconds = 0;
     std::string lastActivityAt;
     std::string lastOperationId;
@@ -46,12 +47,14 @@ public:
         const std::string& actorId,
         const std::string& backendId,
         const std::string& recordingId,
+        const std::string& backendNativeId,
         int positionSeconds,
         const std::string& operationId);
     bool clear(
         const std::string& actorId,
         const std::string& backendId,
-        const std::string& recordingId);
+        const std::string& recordingId,
+        const std::string& backendNativeId = std::string());
     std::vector<ContinueWatchingState> findForActorBackend(
         const std::string& actorId,
         const std::string& backendId) const;
@@ -63,13 +66,17 @@ private:
 class ContinueWatchingService
 {
 public:
-    using RecordingResolver = std::function<std::optional<ContinueWatchingRecordingTruth>(
+    using RecordingIdResolver = std::function<std::optional<ContinueWatchingRecordingTruth>(
         const std::string& backendId,
         const std::string& recordingId)>;
+    using RecordingNativeResolver = std::function<std::optional<ContinueWatchingRecordingTruth>(
+        const std::string& backendId,
+        const std::string& backendNativeId)>;
 
     ContinueWatchingService(
         ContinueWatchingRepository& repository,
-        RecordingResolver resolver);
+        RecordingIdResolver idResolver,
+        RecordingNativeResolver nativeResolver);
 
     bool recordProgress(
         const std::string& actorId,
@@ -89,5 +96,6 @@ public:
 
 private:
     ContinueWatchingRepository& repository_;
-    RecordingResolver resolver_;
+    RecordingIdResolver idResolver_;
+    RecordingNativeResolver nativeResolver_;
 };

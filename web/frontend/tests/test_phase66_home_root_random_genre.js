@@ -284,7 +284,11 @@ function createHarness() {
   const firstRandom = api.selectRandomGenre(genres, 10, 0.95);
   assert.strictEqual(firstRandom.id, 'fantasy');
   assert.strictEqual(api.selectRandomGenre(genres, 10, 0).id, 'fantasy');
-  assert.strictEqual(api.selectRandomGenre(genres, 11, 0).id, 'drama');
+  assert.strictEqual(
+    api.selectRandomGenre(genres, 11, 0).id,
+    'fantasy',
+    'revalidation generation must retain the already visible random genre'
+  );
   assert.strictEqual(api.selectRandomGenre([{id: 'empty', count: 0}], 12, 0.5), null);
 
   const dramaRecordings = Array.from({length: 20}, (_, index) => ({
@@ -321,6 +325,45 @@ function createHarness() {
   const randomRail = findElement(randomSection, (element) =>
     String(element.className).split(/\s+/).includes('media-home-discovery-rail'));
   assert(randomRail);
+
+  const firstRandomCard = findElement(randomRail, (element) =>
+    element.dataset && element.dataset.recordingId === 'drama-1');
+  assert(firstRandomCard);
+  const firstArtwork = findElement(firstRandomCard, (element) =>
+    String(element.className).split(/\s+/).includes('media-home-discovery-artwork'));
+  assert(firstArtwork);
+
+  api.renderRecordingRail(
+    'random-genre',
+    'Drama',
+    dramaRecordings.slice(0, 12),
+    'default'
+  );
+
+  const retainedRandomSection =
+    harness.host.querySelector('[data-home-discovery-rail="random-genre"]');
+  const retainedRandomRail = findElement(retainedRandomSection, (element) =>
+    String(element.className).split(/\s+/).includes('media-home-discovery-rail'));
+  const retainedRandomCard = findElement(retainedRandomRail, (element) =>
+    element.dataset && element.dataset.recordingId === 'drama-1');
+  const retainedArtwork = findElement(retainedRandomCard, (element) =>
+    String(element.className).split(/\s+/).includes('media-home-discovery-artwork'));
+
+  assert.strictEqual(
+    retainedRandomRail,
+    randomRail,
+    'successful Home revalidation must retain the existing recording rail DOM'
+  );
+  assert.strictEqual(
+    retainedRandomCard,
+    firstRandomCard,
+    'unchanged recording identity must retain its existing card DOM'
+  );
+  assert.strictEqual(
+    retainedArtwork,
+    firstArtwork,
+    'unchanged poster presentation must retain its existing artwork DOM'
+  );
 
   assert(source.includes('const RANDOM_GENRE_LIMIT = 12'));
   assert(source.includes('fetchBoundedRandomGenreRecordings'));
