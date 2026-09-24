@@ -74,6 +74,13 @@
     return global.VdrSuiteClientApi || null;
   }
 
+  function canonicalBackendSelected() {
+    const selected = doc && doc.querySelector
+      ? doc.querySelector('#backends .backend-card.selected, #backends [aria-selected="true"]')
+      : null;
+    return Boolean(text(selected && selected.dataset && selected.dataset.backendId));
+  }
+
   function selectedBackendId() {
     const owner = platform();
     if (owner && typeof owner.getSelectedBackendId === 'function') {
@@ -4173,20 +4180,13 @@
 
   function armLazyLoad() {
     if (state.armed) return true;
-    const target = host();
-    if (!target) return false;
+    if (!host()) return false;
     state.armed = true;
-    if (typeof global.IntersectionObserver === 'function') {
-      state.observer = new global.IntersectionObserver(function (entries) {
-        if (!entries.some(function (entry) { return entry && entry.isIntersecting; })) return;
-        state.observer.disconnect();
-        state.observer = null;
-        refreshForHome();
-      }, {rootMargin: '320px 0px'});
-      state.observer.observe(target);
-      return true;
-    }
-    global.setTimeout(refreshForHome, 0);
+    global.setTimeout(function () {
+      if (!state.armed) return;
+      state.armed = false;
+      refreshForHome();
+    }, 0);
     return true;
   }
 
@@ -4255,7 +4255,7 @@
   function install() {
     if (!doc) return false;
     installStyles();
-    armLazyLoad();
+    if (canonicalBackendSelected()) armLazyLoad();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         subscribeRecordingChanges();
