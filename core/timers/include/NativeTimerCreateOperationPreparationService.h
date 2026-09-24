@@ -87,7 +87,14 @@ public:
     NativeTimerCreateOperationPreparationResult prepare(
         const NativeTimerCreateOperationPreparationRequest& request);
 
+    NativeTimerCreateOperationPreparationResult prepareInCurrentTransaction(
+        const NativeTimerCreateOperationPreparationRequest& request);
+
 private:
+    NativeTimerCreateOperationPreparationResult prepareImpl(
+        const NativeTimerCreateOperationPreparationRequest& request,
+        bool currentTransaction);
+
     TimerIntentRepository& intentRepository_;
     TimerAssignmentRepository& assignmentRepository_;
     vdrsuite::operations::MutationOperationRepository& operationRepository_;

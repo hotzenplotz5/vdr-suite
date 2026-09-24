@@ -25,6 +25,7 @@ public:
 
     bool execute(const std::string& sql);
     bool tableExists(const std::string& tableName);
+    bool transactionActive() const;
 
     TransactionLease acquireTransactionLease();
 

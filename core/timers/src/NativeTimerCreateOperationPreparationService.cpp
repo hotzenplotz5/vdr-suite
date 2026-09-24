@@ -68,6 +68,21 @@ NativeTimerCreateOperationPreparationResult
 NativeTimerCreateOperationPreparationService::prepare(
     const NativeTimerCreateOperationPreparationRequest& request)
 {
+    return prepareImpl(request, false);
+}
+
+NativeTimerCreateOperationPreparationResult
+NativeTimerCreateOperationPreparationService::prepareInCurrentTransaction(
+    const NativeTimerCreateOperationPreparationRequest& request)
+{
+    return prepareImpl(request, true);
+}
+
+NativeTimerCreateOperationPreparationResult
+NativeTimerCreateOperationPreparationService::prepareImpl(
+    const NativeTimerCreateOperationPreparationRequest& request,
+    bool currentTransaction)
+{
     using namespace vdrsuite::operations;
 
     if (!validRequest(request))
@@ -174,8 +189,11 @@ NativeTimerCreateOperationPreparationService::prepare(
     durablePayload.payload = serialized;
     durablePayload.payloadFingerprint = payloadFingerprint;
 
-    const auto reserved =
-        operationRepository_.reserveWithPayload(operation, durablePayload);
+    const auto reserved = currentTransaction
+        ? operationRepository_.reserveWithPayloadInCurrentTransaction(
+            operation,
+            durablePayload)
+        : operationRepository_.reserveWithPayload(operation, durablePayload);
     switch (reserved.status)
     {
         case MutationOperationRepositoryStatus::ok:

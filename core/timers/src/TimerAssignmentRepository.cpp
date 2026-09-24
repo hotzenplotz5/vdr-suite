@@ -1224,11 +1224,20 @@ TimerAssignmentRepository::findActivePrimaryForIntent(
         assignment);
 }
 
-TimerAssignmentRepositoryResult
-TimerAssignmentRepository::update(
+namespace
+{
+
+TimerAssignmentRepositoryResult updateInCurrentTransactionInternal(
+    Database& database,
     const TimerAssignment& next,
     const std::string& expectedRevision)
 {
+    if (!database.transactionActive())
+    {
+        return statusResult(
+            TimerAssignmentRepositoryStatus::storageError);
+    }
+
     std::int64_t expectedRevisionNumber = 0;
     if (!parseRevisionToken(
             expectedRevision,
@@ -1240,29 +1249,19 @@ TimerAssignmentRepository::update(
             TimerAssignmentRepositoryStatus::invalid);
     }
 
-    auto lease = database_.acquireTransactionLease();
-    if (!ensureSchema() ||
-        !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
-    {
-        return statusResult(
-            TimerAssignmentRepositoryStatus::storageError);
-    }
-
     TimerAssignment current;
     bool found = false;
     if (!selectById(
-            database_,
+            database,
             next.timerAssignmentId,
             current,
             found))
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
     if (!found)
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::notFound);
     }
@@ -1270,7 +1269,6 @@ TimerAssignmentRepository::update(
             expectedRevision,
             current.assignmentRevision))
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::conflict,
             current);
@@ -1291,16 +1289,14 @@ TimerAssignmentRepository::update(
              current.state,
              next.state)))
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::invalid);
     }
 
     const TimerAssignmentRepositoryStatus intentStatus =
-        validateIntentRevision(database_, next);
+        validateIntentRevision(database, next);
     if (intentStatus != TimerAssignmentRepositoryStatus::ok)
     {
-        database_.execute("ROLLBACK;");
         return statusResult(intentStatus);
     }
 
@@ -1309,7 +1305,6 @@ TimerAssignmentRepository::update(
         std::to_string(expectedRevisionNumber + 1);
     if (!timerAssignmentValid(durable))
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::invalid);
     }
@@ -1320,18 +1315,16 @@ TimerAssignmentRepository::update(
     {
         bool activePrimary = false;
         if (!hasOtherActivePrimary(
-                database_,
+                database,
                 durable.timerIntentId,
                 durable.timerAssignmentId,
                 activePrimary))
         {
-            database_.execute("ROLLBACK;");
             return statusResult(
                 TimerAssignmentRepositoryStatus::storageError);
         }
         if (activePrimary)
         {
-            database_.execute("ROLLBACK;");
             return statusResult(
                 TimerAssignmentRepositoryStatus::ownershipConflict);
         }
@@ -1354,13 +1347,12 @@ TimerAssignmentRepository::update(
 
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(
-            database_.handle(),
+            database.handle(),
             sql,
             -1,
             &statement,
             nullptr) != SQLITE_OK)
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
@@ -1380,7 +1372,6 @@ TimerAssignmentRepository::update(
             expectedRevisionNumber) != SQLITE_OK)
     {
         sqlite3_finalize(statement);
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
@@ -1389,17 +1380,47 @@ TimerAssignmentRepository::update(
     sqlite3_finalize(statement);
     if (step != SQLITE_DONE)
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
-            sqlite3_errcode(database_.handle()) == SQLITE_CONSTRAINT
+            sqlite3_errcode(database.handle()) == SQLITE_CONSTRAINT
                 ? TimerAssignmentRepositoryStatus::ownershipConflict
                 : TimerAssignmentRepositoryStatus::storageError);
     }
-    if (sqlite3_changes(database_.handle()) != 1)
+    if (sqlite3_changes(database.handle()) != 1)
     {
-        database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
+    }
+
+    return statusResult(
+        TimerAssignmentRepositoryStatus::ok,
+        durable);
+}
+
+} // namespace
+
+TimerAssignmentRepositoryResult
+TimerAssignmentRepository::update(
+    const TimerAssignment& next,
+    const std::string& expectedRevision)
+{
+    auto lease = database_.acquireTransactionLease();
+    if (!ensureSchema() ||
+        !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    {
+        return statusResult(
+            TimerAssignmentRepositoryStatus::storageError);
+    }
+
+    const TimerAssignmentRepositoryResult result =
+        updateInCurrentTransactionInternal(
+            database_,
+            next,
+            expectedRevision);
+
+    if (!result.ok())
+    {
+        database_.execute("ROLLBACK;");
+        return result;
     }
 
     if (!database_.execute("COMMIT;"))
@@ -1409,9 +1430,19 @@ TimerAssignmentRepository::update(
             TimerAssignmentRepositoryStatus::storageError);
     }
 
-    return statusResult(
-        TimerAssignmentRepositoryStatus::ok,
-        durable);
+    return result;
+}
+
+TimerAssignmentRepositoryResult
+TimerAssignmentRepository::updateInCurrentTransaction(
+    const TimerAssignment& next,
+    const std::string& expectedRevision)
+{
+    auto lease = database_.acquireTransactionLease();
+    return updateInCurrentTransactionInternal(
+        database_,
+        next,
+        expectedRevision);
 }
 
 }

@@ -63,6 +63,13 @@ public:
         std::uint64_t expectedBackendGeneration,
         std::int64_t updatedAt);
 
+    TimerAssignmentFulfillmentResult beginProvisioningInCurrentTransaction(
+        const std::string& timerAssignmentId,
+        const std::string& expectedAssignmentRevision,
+        const std::string& expectedIntentRevision,
+        std::uint64_t expectedBackendGeneration,
+        std::int64_t updatedAt);
+
     TimerAssignmentFulfillmentResult bindVerified(
         const std::string& timerAssignmentId,
         const std::string& expectedAssignmentRevision,
@@ -73,6 +80,14 @@ public:
         std::int64_t updatedAt);
 
 private:
+    TimerAssignmentFulfillmentResult beginProvisioningImpl(
+        const std::string& timerAssignmentId,
+        const std::string& expectedAssignmentRevision,
+        const std::string& expectedIntentRevision,
+        std::uint64_t expectedBackendGeneration,
+        std::int64_t updatedAt,
+        bool currentTransaction);
+
     TimerAssignmentRepository& assignmentRepository_;
     NativeTimerBindingRepository& bindingRepository_;
 };

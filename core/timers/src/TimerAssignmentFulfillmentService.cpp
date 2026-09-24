@@ -81,6 +81,41 @@ TimerAssignmentFulfillmentService::beginProvisioning(
     std::uint64_t expectedBackendGeneration,
     std::int64_t updatedAt)
 {
+    return beginProvisioningImpl(
+        timerAssignmentId,
+        expectedAssignmentRevision,
+        expectedIntentRevision,
+        expectedBackendGeneration,
+        updatedAt,
+        false);
+}
+
+TimerAssignmentFulfillmentResult
+TimerAssignmentFulfillmentService::beginProvisioningInCurrentTransaction(
+    const std::string& timerAssignmentId,
+    const std::string& expectedAssignmentRevision,
+    const std::string& expectedIntentRevision,
+    std::uint64_t expectedBackendGeneration,
+    std::int64_t updatedAt)
+{
+    return beginProvisioningImpl(
+        timerAssignmentId,
+        expectedAssignmentRevision,
+        expectedIntentRevision,
+        expectedBackendGeneration,
+        updatedAt,
+        true);
+}
+
+TimerAssignmentFulfillmentResult
+TimerAssignmentFulfillmentService::beginProvisioningImpl(
+    const std::string& timerAssignmentId,
+    const std::string& expectedAssignmentRevision,
+    const std::string& expectedIntentRevision,
+    std::uint64_t expectedBackendGeneration,
+    std::int64_t updatedAt,
+    bool currentTransaction)
+{
     if (!validCommon(
             timerAssignmentId,
             expectedAssignmentRevision,
@@ -124,9 +159,13 @@ TimerAssignmentFulfillmentService::beginProvisioning(
     TimerAssignment next = current;
     next.state = TimerAssignmentState::provisioning;
     next.updatedAt = updatedAt;
-    const auto updated = assignmentRepository_.update(
-        next,
-        current.assignmentRevision);
+    const auto updated = currentTransaction
+        ? assignmentRepository_.updateInCurrentTransaction(
+            next,
+            current.assignmentRevision)
+        : assignmentRepository_.update(
+            next,
+            current.assignmentRevision);
     if (updated.ok())
         return result(
             TimerAssignmentFulfillmentStatus::provisioningStarted,

@@ -354,11 +354,14 @@ bool insertPayload(Database& database, const MutationOperationPayload& payload)
     return step == SQLITE_DONE;
 }
 
-MutationOperationRepositoryResult reserveInternal(
+MutationOperationRepositoryResult reserveInCurrentTransactionInternal(
     Database& database,
     const MutationOperation& operation,
     const MutationOperationPayload* payload)
 {
+    if (!database.transactionActive())
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+
     if (!mutationOperationValidForCreate(operation)
         || (payload != nullptr
             && (!validPayload(*payload)
@@ -370,23 +373,16 @@ MutationOperationRepositoryResult reserveInternal(
     MutationOperation durable = operation;
     durable.operationRevision = "1";
 
-    auto lease = database.acquireTransactionLease();
-    if (!database.execute("BEGIN IMMEDIATE TRANSACTION;"))
-        return statusResult(MutationOperationRepositoryStatus::storageError);
-    auto rollback = [&database]() { database.execute("ROLLBACK;"); };
-
     MutationOperation existing;
     bool found = false;
     if (!selectById(database, operation.operationId, existing, found))
     {
-        rollback();
         return statusResult(MutationOperationRepositoryStatus::storageError);
     }
     if (found)
     {
         if (!sameLogicalOperation(existing, durable))
         {
-            rollback();
             return operationResult(
                 MutationOperationRepositoryStatus::operationConflict,
                 existing);
@@ -400,20 +396,17 @@ MutationOperationRepositoryResult reserveInternal(
                     database, operation.operationId,
                     existingPayload, payloadFound))
             {
-                rollback();
                 return statusResult(
                     MutationOperationRepositoryStatus::storageError);
             }
             if (!payloadFound || !samePayload(existingPayload, *payload))
             {
-                rollback();
                 return operationResult(
                     MutationOperationRepositoryStatus::operationConflict,
                     existing);
             }
         }
 
-        rollback();
         return operationResult(
             MutationOperationRepositoryStatus::idempotentReplay,
             existing);
@@ -425,12 +418,10 @@ MutationOperationRepositoryResult reserveInternal(
             operation.actionFamily, operation.idempotencyKey,
             existing, found))
     {
-        rollback();
         return statusResult(MutationOperationRepositoryStatus::storageError);
     }
     if (found)
     {
-        rollback();
         return operationResult(
             MutationOperationRepositoryStatus::idempotencyConflict, existing);
     }
@@ -438,18 +429,42 @@ MutationOperationRepositoryResult reserveInternal(
     if (!insertOperation(database, durable)
         || (payload != nullptr && !insertPayload(database, *payload)))
     {
-        rollback();
         return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+
+    return operationResult(MutationOperationRepositoryStatus::ok, durable);
+}
+
+MutationOperationRepositoryResult reserveInternal(
+    Database& database,
+    const MutationOperation& operation,
+    const MutationOperationPayload* payload)
+{
+    auto lease = database.acquireTransactionLease();
+    if (!database.execute("BEGIN IMMEDIATE TRANSACTION;"))
+        return statusResult(MutationOperationRepositoryStatus::storageError);
+
+    const MutationOperationRepositoryResult result =
+        reserveInCurrentTransactionInternal(
+            database,
+            operation,
+            payload);
+
+    if (result.status != MutationOperationRepositoryStatus::ok)
+    {
+        database.execute("ROLLBACK;");
+        return result;
     }
 
     if (!database.execute("COMMIT;"))
     {
-        rollback();
+        database.execute("ROLLBACK;");
         return statusResult(MutationOperationRepositoryStatus::storageError);
     }
-    return operationResult(MutationOperationRepositoryStatus::ok, durable);
+    return result;
 }
-}
+
+} // namespace
 
 MutationOperationRepository::MutationOperationRepository(Database& database)
     : database_(database)
@@ -513,6 +528,18 @@ MutationOperationRepositoryResult MutationOperationRepository::reserveWithPayloa
     const MutationOperationPayload& payload)
 {
     return reserveInternal(database_, operation, &payload);
+}
+
+MutationOperationRepositoryResult
+MutationOperationRepository::reserveWithPayloadInCurrentTransaction(
+    const MutationOperation& operation,
+    const MutationOperationPayload& payload)
+{
+    auto lease = database_.acquireTransactionLease();
+    return reserveInCurrentTransactionInternal(
+        database_,
+        operation,
+        &payload);
 }
 
 MutationOperationRepositoryResult MutationOperationRepository::findById(

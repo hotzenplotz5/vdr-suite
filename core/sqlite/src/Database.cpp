@@ -181,6 +181,11 @@ bool Database::tableExists(const std::string& tableName)
     return found;
 }
 
+bool Database::transactionActive() const
+{
+    return db_ != nullptr && sqlite3_get_autocommit(db_) == 0;
+}
+
 Database::TransactionLease Database::acquireTransactionLease()
 {
     const std::string databaseFilename = filename();

@@ -79,6 +79,13 @@ public:
         const MutationOperation& operation,
         const MutationOperationPayload& payload);
 
+    // Participates in an already-active transaction owned by a higher-level
+    // coordinator. It performs the exact reserveWithPayload validation and
+    // idempotency checks but never begins, commits or rolls back that transaction.
+    MutationOperationRepositoryResult reserveWithPayloadInCurrentTransaction(
+        const MutationOperation& operation,
+        const MutationOperationPayload& payload);
+
     MutationOperationRepositoryResult findById(
         const std::string& operationId);
 
