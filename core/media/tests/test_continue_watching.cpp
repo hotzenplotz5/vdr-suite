@@ -20,6 +20,7 @@ ContinueWatchingRecordingTruth recording(
     ContinueWatchingRecordingTruth value;
     value.backendId = backendId;
     value.recordingId = recordingId;
+    value.backendNativeId = "/recordings/" + recordingId + ".rec";
     value.title = "Recording " + recordingId;
     value.subtitle = "Episode";
     value.durationSeconds = durationSeconds;
@@ -52,7 +53,17 @@ int main()
     put(recording("default", "r2", 0, false));
     put(recording("other", "r1", 1800));
 
-    ContinueWatchingService service(repository, resolve);
+    auto resolveNative = [&](const std::string& backendId, const std::string& backendNativeId)
+        -> std::optional<ContinueWatchingRecordingTruth> {
+        for (const auto& entry : recordings) {
+            if (entry.second.backendId == backendId &&
+                entry.second.backendNativeId == backendNativeId)
+                return entry.second;
+        }
+        return std::nullopt;
+    };
+
+    ContinueWatchingService service(repository, resolve, resolveNative);
 
     // Position zero and playback without canonical resume support never become Continue Watching truth.
     assert(service.recordProgress("actor-a", "default", "r1", 0, true, "op-zero"));
@@ -127,8 +138,19 @@ int main()
     assert(items.size() == 2);
     assert(items[0].recording.recordingId == "r3");
 
-    // Deleted/stale current recording identity fails closed and is cleaned from durable current-state rows.
+    // A changed backend list number must still resolve the same Recording
+    // through its persisted native identity.
+    auto renumbered = recording("default", "r3-new", 900);
+    renumbered.backendNativeId = "/recordings/r3.rec";
     recordings.erase("default:r3");
+    put(renumbered);
+    items = service.list("actor-a", "default");
+    assert(items.size() == 2);
+    assert(items[0].recording.recordingId == "r3-new");
+    assert(items[0].resumePositionSeconds == 15);
+
+    // Deleted/stale native identity fails closed and is cleaned.
+    recordings.erase("default:r3-new");
     items = service.list("actor-a", "default");
     assert(items.size() == 1);
     assert(items[0].recording.recordingId == "r2");
@@ -138,6 +160,24 @@ int main()
     assert(service.clear("actor-a", "default", "r2", "op-clear"));
     assert(service.list("actor-a", "default").empty());
     assert(service.list("actor-a", "other").size() == 1);
+
+    // Existing pre-migration rows have no native identity evidence. They must
+    // be discarded instead of binding a reused numeric ID to today's Recording.
+    Database legacyDatabase;
+    assert(legacyDatabase.open(":memory:"));
+    assert(legacyDatabase.execute(
+        "CREATE TABLE continue_watching_state("
+        "actor_id TEXT NOT NULL, backend_id TEXT NOT NULL, recording_id TEXT NOT NULL, "
+        "position_seconds INTEGER NOT NULL, last_activity_at TEXT NOT NULL, "
+        "last_operation_id TEXT NOT NULL, PRIMARY KEY(actor_id, backend_id, recording_id));"));
+    assert(legacyDatabase.execute(
+        "INSERT INTO continue_watching_state VALUES("
+        "'legacy','default','r2',33,'2026-09-04T21:45:02.580Z','legacy-op');"));
+    ContinueWatchingRepository legacyRepository(legacyDatabase);
+    assert(legacyRepository.ensureSchema());
+    ContinueWatchingService legacyService(legacyRepository, resolve, resolveNative);
+    assert(legacyService.list("legacy", "default").empty());
+    assert(legacyRepository.findForActorBackend("legacy", "default").empty());
 
     return 0;
 }
