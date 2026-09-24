@@ -4,6 +4,8 @@
 #include "PublicResourcePreconditions.h"
 #include "ServerBuildIdentity.h"
 
+#include <cctype>
+#include <cstddef>
 #include <string>
 #include <utility>
 
@@ -91,6 +93,322 @@ std::string jsonEscape(const std::string& value)
     }
 
     return escaped;
+}
+
+std::string lowerAscii(std::string value)
+{
+    for (char& character : value)
+    {
+        character = static_cast<char>(
+            std::tolower(static_cast<unsigned char>(character)));
+    }
+    return value;
+}
+
+bool asciiWhitespace(char character)
+{
+    return character == ' ' || character == '\t' ||
+        character == '\r' || character == '\n';
+}
+
+std::string trimAsciiWhitespace(std::string value)
+{
+    std::size_t begin = 0;
+    while (begin < value.size() && asciiWhitespace(value[begin]))
+        ++begin;
+
+    std::size_t end = value.size();
+    while (end > begin && asciiWhitespace(value[end - 1U]))
+        --end;
+
+    return value.substr(begin, end - begin);
+}
+
+bool applicationJsonContentType(const std::string& value)
+{
+    if (value.empty()) return false;
+    const std::size_t separator = value.find(';');
+    const std::string mediaType = trimAsciiWhitespace(
+        value.substr(0, separator));
+    return lowerAscii(mediaType) == "application/json";
+}
+
+bool publicIdempotencyKeyValid(const std::string& value)
+{
+    if (value.empty() || value.size() > 160U) return false;
+    for (const unsigned char character : value)
+    {
+        if (character < 0x21U || character > 0x7eU)
+            return false;
+    }
+    return true;
+}
+
+class JsonSyntaxValidator
+{
+public:
+    explicit JsonSyntaxValidator(const std::string& input)
+        : input_(input)
+    {
+    }
+
+    bool valid()
+    {
+        position_ = 0;
+        skipWhitespace();
+        if (!parseValue(0U)) return false;
+        skipWhitespace();
+        return position_ == input_.size();
+    }
+
+private:
+    void skipWhitespace()
+    {
+        while (position_ < input_.size() &&
+               asciiWhitespace(input_[position_]))
+        {
+            ++position_;
+        }
+    }
+
+    bool parseValue(std::size_t depth)
+    {
+        if (depth > 16U || position_ >= input_.size())
+            return false;
+
+        const char current = input_[position_];
+        if (current == '"') return parseString();
+        if (current == '{') return parseObject(depth + 1U);
+        if (current == '[') return parseArray(depth + 1U);
+        if (current == 't') return parseLiteral("true");
+        if (current == 'f') return parseLiteral("false");
+        if (current == 'n') return parseLiteral("null");
+        return parseNumber();
+    }
+
+    bool parseLiteral(const char* literal)
+    {
+        const std::string value(literal);
+        if (input_.compare(position_, value.size(), value) != 0)
+            return false;
+        position_ += value.size();
+        return true;
+    }
+
+    bool parseString()
+    {
+        if (position_ >= input_.size() ||
+            input_[position_] != '"')
+        {
+            return false;
+        }
+        ++position_;
+
+        while (position_ < input_.size())
+        {
+            const unsigned char character =
+                static_cast<unsigned char>(input_[position_++]);
+
+            if (character == '"') return true;
+            if (character < 0x20U) return false;
+            if (character != '\\') continue;
+
+            if (position_ >= input_.size()) return false;
+            const char escaped = input_[position_++];
+            if (escaped == '"' || escaped == '\\' ||
+                escaped == '/' || escaped == 'b' ||
+                escaped == 'f' || escaped == 'n' ||
+                escaped == 'r' || escaped == 't')
+            {
+                continue;
+            }
+
+            if (escaped != 'u' ||
+                position_ + 4U > input_.size())
+            {
+                return false;
+            }
+
+            for (std::size_t index = 0; index < 4U; ++index)
+            {
+                const unsigned char hex =
+                    static_cast<unsigned char>(
+                        input_[position_ + index]);
+                if (!std::isxdigit(hex)) return false;
+            }
+            position_ += 4U;
+        }
+
+        return false;
+    }
+
+    bool parseNumber()
+    {
+        const std::size_t start = position_;
+        if (position_ < input_.size() &&
+            input_[position_] == '-')
+        {
+            ++position_;
+        }
+        if (position_ >= input_.size()) return false;
+
+        if (input_[position_] == '0')
+        {
+            ++position_;
+        }
+        else
+        {
+            if (input_[position_] < '1' ||
+                input_[position_] > '9')
+            {
+                return false;
+            }
+            while (position_ < input_.size() &&
+                   input_[position_] >= '0' &&
+                   input_[position_] <= '9')
+            {
+                ++position_;
+            }
+        }
+
+        if (position_ < input_.size() &&
+            input_[position_] == '.')
+        {
+            ++position_;
+            const std::size_t fractionStart = position_;
+            while (position_ < input_.size() &&
+                   input_[position_] >= '0' &&
+                   input_[position_] <= '9')
+            {
+                ++position_;
+            }
+            if (position_ == fractionStart) return false;
+        }
+
+        if (position_ < input_.size() &&
+            (input_[position_] == 'e' ||
+             input_[position_] == 'E'))
+        {
+            ++position_;
+            if (position_ < input_.size() &&
+                (input_[position_] == '+' ||
+                 input_[position_] == '-'))
+            {
+                ++position_;
+            }
+            const std::size_t exponentStart = position_;
+            while (position_ < input_.size() &&
+                   input_[position_] >= '0' &&
+                   input_[position_] <= '9')
+            {
+                ++position_;
+            }
+            if (position_ == exponentStart) return false;
+        }
+
+        return position_ > start;
+    }
+
+    bool parseObject(std::size_t depth)
+    {
+        ++position_;
+        skipWhitespace();
+        if (position_ < input_.size() &&
+            input_[position_] == '}')
+        {
+            ++position_;
+            return true;
+        }
+
+        while (position_ < input_.size())
+        {
+            if (!parseString()) return false;
+            skipWhitespace();
+            if (position_ >= input_.size() ||
+                input_[position_] != ':')
+            {
+                return false;
+            }
+            ++position_;
+            skipWhitespace();
+            if (!parseValue(depth)) return false;
+            skipWhitespace();
+
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == '}')
+            {
+                ++position_;
+                return true;
+            }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            skipWhitespace();
+        }
+        return false;
+    }
+
+    bool parseArray(std::size_t depth)
+    {
+        ++position_;
+        skipWhitespace();
+        if (position_ < input_.size() &&
+            input_[position_] == ']')
+        {
+            ++position_;
+            return true;
+        }
+
+        while (position_ < input_.size())
+        {
+            if (!parseValue(depth)) return false;
+            skipWhitespace();
+            if (position_ >= input_.size()) return false;
+            if (input_[position_] == ']')
+            {
+                ++position_;
+                return true;
+            }
+            if (input_[position_] != ',') return false;
+            ++position_;
+            skipWhitespace();
+        }
+        return false;
+    }
+
+    const std::string& input_;
+    std::size_t position_ = 0;
+};
+
+bool emptyJsonObject(const std::string& input)
+{
+    std::size_t position = 0;
+    while (position < input.size() &&
+           asciiWhitespace(input[position]))
+    {
+        ++position;
+    }
+
+    if (position >= input.size() || input[position] != '{')
+        return false;
+    ++position;
+
+    while (position < input.size() &&
+           asciiWhitespace(input[position]))
+    {
+        ++position;
+    }
+
+    if (position >= input.size() || input[position] != '}')
+        return false;
+    ++position;
+
+    while (position < input.size() &&
+           asciiWhitespace(input[position]))
+    {
+        ++position;
+    }
+
+    return position == input.size();
 }
 
 void addRequestContextHeaders(
@@ -231,7 +549,8 @@ ApiResponse serviceUnavailableProblem(
 ApiResponse methodNotAllowedProblem(
     const std::string& path,
     const std::string& requestId,
-    const std::string& correlationId)
+    const std::string& correlationId,
+    const std::string& allow = "GET")
 {
     ApiResponse response = problemResponse(
         405,
@@ -241,8 +560,27 @@ ApiResponse methodNotAllowedProblem(
         path,
         requestId,
         correlationId);
-    response.headers["Allow"] = "GET";
+    response.headers["Allow"] = allow;
     return response;
+}
+
+ApiResponse publicTimerCreateProblem(
+    int statusCode,
+    const std::string& code,
+    const std::string& title,
+    const std::string& detail,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return problemResponse(
+        statusCode,
+        code,
+        title,
+        detail,
+        path,
+        requestId,
+        correlationId);
 }
 
 ApiResponse contractRoot(
@@ -263,6 +601,7 @@ ApiResponse contractRoot(
 ApiResponse platformCapabilities(
     const bool operationReadAvailable,
     const bool timerAssignmentReadAvailable,
+    const bool timerCreateAdmissionAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -274,6 +613,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
         std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
+        std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
         "\"}"
         "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
@@ -454,6 +796,28 @@ bool PublicApiRuntime::timerAssignmentLookupConfigured() const
     return static_cast<bool>(timerAssignmentLookup_);
 }
 
+void PublicApiRuntime::registerTimerCreateAdmission(
+    TimerCreateAdmission admission)
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateAdmissionMutex_);
+    timerCreateAdmission_ = std::move(admission);
+}
+
+void PublicApiRuntime::resetTimerCreateAdmission()
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateAdmissionMutex_);
+    timerCreateAdmission_ = TimerCreateAdmission{};
+}
+
+bool PublicApiRuntime::timerCreateAdmissionConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerCreateAdmissionMutex_);
+    return static_cast<bool>(timerCreateAdmission_);
+}
+
 PublicTimerAssignmentLookupResult
 PublicApiRuntime::lookupTimerAssignment(
     const std::string& timerAssignmentId,
@@ -520,6 +884,7 @@ bool PublicApiRuntime::tryHandleGet(
         response = platformCapabilities(
             operationLookupConfigured(),
             timerAssignmentLookupConfigured(),
+            timerCreateAdmissionConfigured(),
             requestId,
             correlationId);
         return true;
@@ -683,20 +1048,306 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string& requestTarget,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response) const
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
     std::string operationId;
     std::string timerAssignmentId;
 
-    if (path == "/api/v1" ||
-        path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId) ||
-        publicTimerAssignmentPath(
+    if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
     {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = publicTimerCreateProblem(
+                415,
+                "unsupported_media_type",
+                "Unsupported media type",
+                "Timer CREATE requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Timer CREATE request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = publicTimerCreateProblem(
+                400,
+                "invalid_json",
+                "Invalid JSON",
+                "The Timer CREATE request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!emptyJsonObject(body))
+        {
+            response = publicTimerCreateProblem(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Timer CREATE accepts a closed empty JSON object.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = publicTimerCreateProblem(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Timer CREATE requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedAssignmentRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedAssignmentRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match must contain exactly one canonical strong VDR-Suite entity tag.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(
+                path,
+                idempotencyKey.empty()
+                    ? "Idempotency-Key is required for Timer CREATE."
+                    : "Idempotency-Key is malformed or too long.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        TimerCreateAdmission admission;
+        {
+            std::lock_guard<std::mutex> lock(
+                timerCreateAdmissionMutex_);
+            admission = timerCreateAdmission_;
+        }
+
+        if (!admission)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerCreateAdmissionRequest admissionRequest;
+        admissionRequest.actorRef = actorRef;
+        admissionRequest.backendId = authorizedBackendId;
+        admissionRequest.timerAssignmentId = timerAssignmentId;
+        admissionRequest.expectedAssignmentRevision =
+            expectedAssignmentRevision;
+        admissionRequest.idempotencyKey = idempotencyKey;
+
+        const PublicTimerCreateAdmissionResult admitted =
+            admission(admissionRequest);
+
+        switch (admitted.status)
+        {
+            case PublicTimerCreateAdmissionStatus::accepted:
+            case PublicTimerCreateAdmissionStatus::replayed:
+            {
+                if (admitted.operation.operationId.empty() ||
+                    admitted.operation.state.empty() ||
+                    admitted.operation.backendId !=
+                        authorizedBackendId ||
+                    admitted.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                    return true;
+                }
+
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) +
+                    admitted.operation.operationId;
+                response = publicOperationResponse(
+                    admitted.operation,
+                    operationPath,
+                    requestId,
+                    correlationId,
+                    "");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                return true;
+            }
+
+            case PublicTimerCreateAdmissionStatus::invalid:
+                response = publicTimerCreateProblem(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Timer CREATE submission is not valid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::readOnlyBackend:
+                response = publicTimerCreateProblem(
+                    403,
+                    "read_only_backend",
+                    "Backend is read-only",
+                    "The selected backend does not permit Timer mutation.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::backendUnavailable:
+                response = publicTimerCreateProblem(
+                    503,
+                    "backend_unavailable",
+                    "Backend unavailable",
+                    "The selected backend cannot currently accept Timer mutation.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::revisionConflict:
+                response = publicTimerCreateProblem(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The TimerAssignment changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::stateConflict:
+                response = publicTimerCreateProblem(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The TimerAssignment state does not permit Timer CREATE.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::generationConflict:
+                response = publicTimerCreateProblem(
+                    409,
+                    "generation_conflict",
+                    "Backend generation conflict",
+                    "The TimerAssignment backend generation is no longer current.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::idempotencyConflict:
+                response = publicTimerCreateProblem(
+                    409,
+                    "idempotency_conflict",
+                    "Idempotency conflict",
+                    "Idempotency-Key was already used for a different Timer CREATE submission.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::operationConflict:
+                response = publicTimerCreateProblem(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The durable operation state conflicts with Timer CREATE.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerCreateAdmissionStatus::serviceUnavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
+    if (path == "/api/v1" ||
+        path == "/api/v1/capabilities" ||
+        publicOperationPath(path, operationId))
+    {
         response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId);
+        return true;
+    }
+
+    if (isPublicV1Path(path))
+    {
+        response = notFoundProblem(
             path,
             requestId,
             correlationId);
@@ -723,12 +1374,21 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
 
-    if (path == "/api/v1" ||
-        path == "/api/v1/capabilities" ||
-        publicOperationPath(path, operationId) ||
-        publicTimerAssignmentPath(
+    if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
+
+    if (path == "/api/v1" ||
+        path == "/api/v1/capabilities" ||
+        publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
             path,
