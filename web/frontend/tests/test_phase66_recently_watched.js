@@ -30,14 +30,14 @@ assert(pathsSource.includes(
 assert(apiSource.includes('RecentlyWatchedRoute = "/api/media/recently-watched"'));
 assert(apiSource.includes('recentlyWatchedService_->recordActivity'));
 
-// History remains its own durable activity source, but its Home projection is
-// mutually exclusive with the current canonical Continue-Watching set. The API
-// runtime owns both existing services and filters only the list representation;
-// it does not derive resume truth from History itself or delete History rows.
-assert(apiSource.includes('bool isContinueWatchingRecording('));
-assert(apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
-assert(apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
-assert(apiSource.includes('serializeRecentlyWatched(items, continueWatchingItems, currentRecordings)'));
+// Recently Watched is durable viewing History, independent of whether a
+// Recording is currently resumable in Continue Watching. A resumable Recording
+// therefore remains eligible for both rails; History must not be collapsed by
+// filtering current Continue-Watching identities from the list projection.
+assert(!apiSource.includes('bool isContinueWatchingRecording('));
+assert(!apiSource.includes('if (isContinueWatchingRecording(item, continueWatchingItems)) continue;'));
+assert(!apiSource.includes('const auto continueWatchingItems = service_->list(actorRef, backendId);'));
+assert(apiSource.includes('serializeRecentlyWatched(items, currentRecordings)'));
 assert(
   (apiSource.match(/VdrRecordingMetadataJsonSerializer::presentationTitle\(/g) || []).length >= 3,
   'History/Continue-Watching must use current canonical Recording titles'
