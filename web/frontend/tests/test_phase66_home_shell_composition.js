@@ -148,6 +148,7 @@ const context = {
   currentSnapshot: null,
   selectedBackendId: 'default',
   selectedModule: 'overview',
+  homeResumeBackendId: '',
   renderSelectedModule() {}
 };
 vm.createContext(context);
@@ -173,6 +174,13 @@ assert(moduleTab('overview').classList.contains('active'));
 assert(!moduleTab('recordings2').classList.contains('active'));
 assert.strictEqual(homeResumeEvents, 1,
   'canonical Home navigation must publish exactly one Home-resume lifecycle event');
+
+brandButton('overview').dispatch('click');
+assert.strictEqual(
+  homeResumeEvents,
+  1,
+  'reselecting already-active Home must not publish another Home-resume lifecycle event'
+);
 
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));

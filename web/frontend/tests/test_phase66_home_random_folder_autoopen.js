@@ -38,6 +38,12 @@ class FakeElement {
     this.attributes[name] = String(value);
   }
 
+  getAttribute(name) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name)
+      ? this.attributes[name]
+      : null;
+  }
+
   appendChild(child) {
     if (!child) return child;
     if (child.parentNode) child.remove();
@@ -171,7 +177,11 @@ assert.strictEqual(api.folderEntryCount(action), 48);
 assert.strictEqual(api.folderEntryCount(fantasy), 47);
 assert.strictEqual(api.selectRandomFolder(folders, 10, 0.99).path, 'Fantasy');
 assert.strictEqual(api.selectRandomFolder(folders, 10, 0).path, 'Fantasy', 'selection must stay stable within one generation');
-assert.strictEqual(api.selectRandomFolder(folders, 11, 0).path, 'Action', 'a later generation may choose another folder');
+assert.strictEqual(
+  api.selectRandomFolder(folders, 11, 0).path,
+  'Fantasy',
+  'revalidation generation must retain the visible random folder'
+);
 assert.strictEqual(api.selectRandomFolder([empty], 12, 0.5), null, 'empty folders must not be auto-open candidates');
 
 const rootRecording = {recordingId: 'root-1', backendId: 'default', title: 'Root'};
@@ -197,6 +207,16 @@ assert.strictEqual(fantasyCard.clickCount, 1, 'selected non-empty folder must re
 assert.strictEqual(actionCard.clickCount, 0);
 assert.strictEqual(emptyCard.clickCount, 0);
 assert.strictEqual(rootTile.clickCount, 0, 'Hauptverzeichnis must never be selected as the random folder expansion');
+
+fantasyCard.setAttribute('aria-expanded', 'true');
+assert.strictEqual(api.scheduleRandomFolderInline(folders, 'default', 1, 0), true);
+assert.strictEqual(scheduled.length, 1);
+scheduled.shift()();
+assert.strictEqual(
+  fantasyCard.clickCount,
+  1,
+  'revalidation must not toggle an already expanded random folder closed'
+);
 
 const completeFolders = Array.from({length: 17}, (_, index) => ({
   name: 'Ordner ' + String(index + 1),

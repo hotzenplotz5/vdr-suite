@@ -414,6 +414,47 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert.strictEqual(epgNavigationCount, 1);
   assert.strictEqual(sessionRequestCount, 0);
 
+  // A duplicate same-backend Home revalidation while the initial channel read
+  // is pending must join that read instead of invalidating its sequence.
+  const originalFetchClientChannels = clientApi.fetchClientChannels;
+  const channelFetchBaseline = channelFetchCount;
+  let resolveDeferredChannels;
+  const deferredChannels = new Promise(resolve => {
+    resolveDeferredChannels = resolve;
+  });
+
+  clientApi.fetchClientChannels = function(options) {
+    channelFetchCount += 1;
+    assert.strictEqual(options.query.backend, 'backend-a');
+    return deferredChannels;
+  };
+
+  hero.__test.applyChannels({channels: []});
+  hero.__test.setActive(true);
+  hero.__test.setBackendId('backend-a');
+
+  const initialChannelLoad = hero.__test.load(false, {});
+  const overlappingHomeResume = hero.__test.sync(false, {
+    retainVisible: true,
+    revalidatePrograms: true
+  });
+
+  assert.strictEqual(
+    channelFetchCount,
+    channelFetchBaseline + 1,
+    'overlapping Home resume must coalesce with the pending channel request'
+  );
+
+  resolveDeferredChannels(channelResponse);
+  await Promise.all([initialChannelLoad, overlappingHomeResume]);
+  clientApi.fetchClientChannels = originalFetchClientChannels;
+
+  assert.strictEqual(
+    hero.snapshot().channelCount,
+    31,
+    'the original channel response must remain authoritative after coalescing'
+  );
+
   console.log('phase66 live tv hero browse-only production contract ok');
 }()).catch(error => {
   console.error(error);
