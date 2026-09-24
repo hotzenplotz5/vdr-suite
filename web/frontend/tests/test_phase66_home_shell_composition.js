@@ -115,7 +115,7 @@ const brandButtons = productionNodes(indexSource, 'article', 'data-brand-module'
 assert(moduleTabs.length >= 8);
 assert(brandButtons.length >= 5);
 
-const selectStart = appSource.indexOf('function selectModule(moduleName)');
+const selectStart = appSource.indexOf('function publishHomeResume(previousModule)');
 const selectEnd = appSource.indexOf('\nfunction markSelected(', selectStart);
 const bindingStart = appSource.indexOf("document.querySelectorAll('.module-tab').forEach(button =>", selectEnd);
 const bindingEnd = appSource.indexOf('\nrefreshDetailButton.addEventListener(', bindingStart);
@@ -123,7 +123,12 @@ assert(selectStart >= 0 && selectEnd > selectStart);
 assert(bindingStart >= 0 && bindingEnd > bindingStart);
 
 const detailDataElement = {scrollIntoView() { this.scrolled = true; }};
+let homeResumeEvents = 0;
 const document = {
+  dispatchEvent(event) {
+    if (event && event.type === 'vdr-suite:home-resume') homeResumeEvents += 1;
+    return true;
+  },
   querySelectorAll(selector) {
     if (selector === '.module-tab') return moduleTabs;
     if (selector === '[data-brand-module]') return brandButtons;
@@ -131,10 +136,17 @@ const document = {
   }
 };
 const context = {
-  window: {VdrSuiteChannels2: null},
+  window: {
+    VdrSuiteChannels2: null,
+    CustomEvent: function CustomEvent(type, options) {
+      this.type = type;
+      this.detail = options && options.detail;
+    }
+  },
   document,
   detailDataElement,
   currentSnapshot: null,
+  selectedBackendId: 'default',
   selectedModule: 'overview',
   renderSelectedModule() {}
 };
@@ -159,6 +171,8 @@ assert.strictEqual(detailDataElement.scrolled, true);
 brandButton('overview').dispatch('keydown', {key: 'Enter'});
 assert(moduleTab('overview').classList.contains('active'));
 assert(!moduleTab('recordings2').classList.contains('active'));
+assert.strictEqual(homeResumeEvents, 1,
+  'canonical Home navigation must publish exactly one Home-resume lifecycle event');
 
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));
