@@ -123,9 +123,9 @@ std::string snapshot(
         channelSwitch + recording + recordingList + replaying + timerChange + marksModified;
 
     return
-        "{\"contract_schema\":3"
+        "{\"contract_schema\":4"
         ",\"capability_schema\":1"
-        ",\"snapshot_schema\":3"
+        ",\"snapshot_schema\":4"
         ",\"active\":" + std::string(active ? "true" : "false") +
         ",\"total\":" + std::to_string(total) +
         ",\"channel_switch\":" + std::to_string(channelSwitch) +
@@ -198,9 +198,9 @@ void testOrderAndAdditiveCapabilities()
             "{\"counter_overflow\":false,"
             "\"counter_epoch\":\"26f5b0fc557edf7767a4f2ea3a02584d\","
             "\"marks_modified\":0,\"timer_change\":0,\"replaying\":0,"
-            "\"recording\":0,\"channel_switch\":4,\"total\":4,"
-            "\"active\":true,\"snapshot_schema\":3,"
-            "\"capability_schema\":1,\"contract_schema\":3,"
+            "\"recording_list\":0,\"recording\":0,\"channel_switch\":4,\"total\":4,"
+            "\"active\":true,\"snapshot_schema\":4,"
+            "\"capability_schema\":1,\"contract_schema\":4,"
             "\"future\":[1,2,3]}")
     });
 
