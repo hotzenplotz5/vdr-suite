@@ -34,7 +34,11 @@ assert(source.includes(
 assert(source.includes('card.dataset.eventId = eventId(entry.event);'));
 assert(source.includes('function programmeSignature(events)'));
 assert(source.includes('config.renderUnchanged !== false'));
-assert(source.includes('sync(false, {retainVisible: true, revalidatePrograms: true});'));
+assert(source.includes('scheduleSync(false, {'));
+assert(source.includes('revalidatePrograms: true'));
+assert(source.includes('pendingSyncOptions'));
+assert(source.includes('state.loadingPrograms && state.events.length > 0'));
+assert(!source.includes('sync(false, {retainVisible: true, revalidatePrograms: true});'));
 
 assert(!source.includes('fetchClientMetadata'));
 assert(!source.includes('fetchClientEpgArtwork'));
