@@ -79,6 +79,7 @@ bool countersMonotonic(
     return current.total >= previous.total &&
            current.channelSwitch >= previous.channelSwitch &&
            current.recording >= previous.recording &&
+           current.recordingList >= previous.recordingList &&
            current.replaying >= previous.replaying &&
            current.timerChange >= previous.timerChange &&
            current.marksModified >= previous.marksModified;

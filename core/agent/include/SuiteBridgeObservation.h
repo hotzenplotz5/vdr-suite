@@ -46,6 +46,7 @@ struct SuiteBridgeSnapshotDelta
     std::uint64_t total = 0;
     std::uint64_t channelSwitch = 0;
     std::uint64_t recording = 0;
+    std::uint64_t recordingList = 0;
     std::uint64_t replaying = 0;
     std::uint64_t timerChange = 0;
     std::uint64_t marksModified = 0;

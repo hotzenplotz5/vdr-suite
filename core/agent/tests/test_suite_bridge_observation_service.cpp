@@ -76,8 +76,8 @@ std::string discovery(
         ",\"plugin_name\":\"suitebridge\""
         ",\"plugin_version\":\"0.10.0\""
         ",\"capability_schema\":1"
-        ",\"snapshot_schema\":3"
-        ",\"local_contract_schema\":3"
+        ",\"snapshot_schema\":4"
+        ",\"local_contract_schema\":4"
         ",\"capabilities\":["
         "{\"id\":\"snapshots\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
@@ -89,18 +89,20 @@ std::string snapshot(
     const std::string& epoch,
     const std::uint64_t channelSwitch,
     const bool overflow = false,
-    const std::uint64_t marksModified = 0)
+    const std::uint64_t marksModified = 0,
+    const std::uint64_t recordingList = 0)
 {
-    const std::uint64_t total = channelSwitch + marksModified;
+    const std::uint64_t total = channelSwitch + marksModified + recordingList;
 
     return
-        "{\"contract_schema\":3"
+        "{\"contract_schema\":4"
         ",\"capability_schema\":1"
-        ",\"snapshot_schema\":3"
+        ",\"snapshot_schema\":4"
         ",\"active\":true"
         ",\"total\":" + std::to_string(total) +
         ",\"channel_switch\":" + std::to_string(channelSwitch) +
         ",\"recording\":0"
+        ",\"recording_list\":" + std::to_string(recordingList) +
         ",\"replaying\":0"
         ",\"timer_change\":0"
         ",\"marks_modified\":" + std::to_string(marksModified) +
@@ -130,8 +132,8 @@ void testInitialHandshakeAndSnapshotOnlyPolling()
 {
     FakeTransport transport({
         reply(900, discovery()),
-        reply(900, snapshot("11111111111111111111111111111111", 4, false, 1)),
-        reply(900, snapshot("11111111111111111111111111111111", 6, false, 3))
+        reply(900, snapshot("11111111111111111111111111111111", 4, false, 1, 7)),
+        reply(900, snapshot("11111111111111111111111111111111", 6, false, 3, 8))
     });
 
     SuiteBridgeObservationService service(transport, config());
@@ -163,8 +165,9 @@ void testInitialHandshakeAndSnapshotOnlyPolling()
     assert(transport.commands.back() ==
            SuiteBridgeLocalCommand::Snapshot);
     assert(service.snapshot().hasDelta);
-    assert(service.snapshot().delta.total == 4);
+    assert(service.snapshot().delta.total == 5);
     assert(service.snapshot().delta.channelSwitch == 2);
+    assert(service.snapshot().delta.recordingList == 1);
     assert(service.snapshot().delta.marksModified == 2);
     assert(service.snapshot().consecutiveFailures == 0);
 }

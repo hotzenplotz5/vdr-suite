@@ -58,6 +58,7 @@ SuiteBridgeStatusSnapshot SuiteBridgeStatusEvents::CaptureSnapshot(
       monitorActive,
       Count(SuiteBridgeStatusEventKind::ChannelSwitch),
       Count(SuiteBridgeStatusEventKind::Recording),
+      Count(SuiteBridgeStatusEventKind::RecordingList),
       Count(SuiteBridgeStatusEventKind::Replaying),
       Count(SuiteBridgeStatusEventKind::TimerChange),
       Count(SuiteBridgeStatusEventKind::MarksModified),
@@ -73,6 +74,8 @@ const char *SuiteBridgeStatusEvents::Name(
       return "channel-switch";
     case SuiteBridgeStatusEventKind::Recording:
       return "recording";
+    case SuiteBridgeStatusEventKind::RecordingList:
+      return "recording-list";
     case SuiteBridgeStatusEventKind::Replaying:
       return "replaying";
     case SuiteBridgeStatusEventKind::TimerChange:

@@ -43,6 +43,7 @@ bool SuiteBridgeSnapshotBaseline::countersAtLeast(
     return total >= previous.total &&
            channelSwitch >= previous.channelSwitch &&
            recording >= previous.recording &&
+           recordingList >= previous.recordingList &&
            replaying >= previous.replaying &&
            timerChange >= previous.timerChange &&
            marksModified >= previous.marksModified;

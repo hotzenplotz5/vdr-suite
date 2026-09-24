@@ -30,6 +30,7 @@ CI_FAST_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-suite-bridge-recording-list-hint \
 	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
 	test-live-remote \
@@ -97,6 +98,7 @@ VDR_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-suite-bridge-recording-list-hint \
 	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
 	test-live-remote \

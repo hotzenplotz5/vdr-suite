@@ -238,6 +238,8 @@ void SuiteBridgeObservationService::acceptReadySnapshot(
             snapshot_.baseline.channelSwitch - previous.channelSwitch;
         snapshot_.delta.recording =
             snapshot_.baseline.recording - previous.recording;
+        snapshot_.delta.recordingList =
+            snapshot_.baseline.recordingList - previous.recordingList;
         snapshot_.delta.replaying =
             snapshot_.baseline.replaying - previous.replaying;
         snapshot_.delta.timerChange =
