@@ -17,6 +17,7 @@
   const PROGRAMME_RAIL_LIMIT = 24;
   const PROGRAMME_EAGER_ARTWORK_LIMIT = 6;
   const PROGRAMME_WARM_REUSE_MS = 60000;
+  const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   const state = {
     active: false,
     backendId: '',
@@ -1050,7 +1051,8 @@
       .catch(() => false);
   }
 
-  function loadProgrammePage(sequence, offset, reset) {
+  function loadProgrammePage(sequence, offset, reset, options) {
+    const config = options && typeof options === 'object' ? options : {};
     const owner = global.VdrSuiteHomeNowNext;
 
     if (!owner ||
@@ -1089,12 +1091,14 @@
     }
 
     if (reset) {
-      clearPrograms();
-      state.programmeLoadedChannelCount = 0;
+      if (config.retainVisible !== true) {
+        clearPrograms();
+        state.programmeLoadedChannelCount = 0;
+      }
       state.loadingPrograms = true;
       state.programmeLoadingMore = false;
       state.programError = '';
-      render();
+      if (config.retainVisible !== true) render();
     } else {
       state.programmeLoadingMore = true;
     }
@@ -1141,8 +1145,10 @@
       }
 
       if (reset) {
-        clearPrograms();
-        state.programmeLoadedChannelCount = 0;
+        if (config.retainVisible !== true) {
+          clearPrograms();
+          state.programmeLoadedChannelCount = 0;
+        }
         state.loadingPrograms = false;
         state.programError =
           'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
@@ -1155,8 +1161,8 @@
     });
   }
 
-  function loadPrograms(sequence) {
-    return loadProgrammePage(sequence, 0, true);
+  function loadPrograms(sequence, options) {
+    return loadProgrammePage(sequence, 0, true, options);
   }
 
   function loadNextProgrammePage() {
@@ -1193,15 +1199,19 @@
     return true;
   }
 
-  function load(force) {
+  function load(force, options) {
     if (!state.active) return Promise.resolve(null);
+    const config = options && typeof options === 'object' ? options : {};
     const client = clientApi();
     const nextBackend = selectedBackendId();
     const backendChanged = state.backendId !== nextBackend;
     state.backendId = nextBackend;
     state.dataError = '';
     state.programError = '';
-    if (force || backendChanged) {
+    const retainVisible = config.retainVisible === true &&
+      !backendChanged &&
+      state.channels.length > 0;
+    if ((force || backendChanged) && !retainVisible) {
       clearPrograms();
       state.programmeLoadedChannelCount = 0;
       state.programmeLoadingMore = false;
@@ -1212,7 +1222,9 @@
         Date.now() - state.programmeLoadedAt <= PROGRAMME_WARM_REUSE_MS;
       render({programmeRails: !reuseWarmPrograms});
       if (reuseWarmPrograms) return Promise.resolve(null);
-      return loadPrograms(++state.requestSequence);
+      return loadPrograms(++state.requestSequence, {
+        retainVisible: retainVisible
+      });
     }
     if (!client || typeof client.fetchClientChannels !== 'function') {
       state.loadingChannels = false;
@@ -1222,26 +1234,30 @@
     }
     const sequence = ++state.requestSequence;
     state.loadingChannels = true;
-    render();
+    if (!retainVisible) render();
     return client.fetchClientChannels({query: {backend: state.backendId, _: String(Date.now())}, cache: 'no-store', credentials: 'same-origin'}).then(data => {
       if (!state.active || sequence !== state.requestSequence) return null;
       applyChannels(data);
       state.loadingChannels = false;
-      return loadPrograms(sequence);
+      return loadPrograms(sequence, {
+        retainVisible: retainVisible
+      });
     }).catch(error => {
       if (!state.active || sequence !== state.requestSequence) return null;
       state.loadingChannels = false;
-      state.channels = [];
-      clearPrograms();
-      state.programmeLoadedChannelCount = 0;
-      state.programmeLoadingMore = false;
+      if (!retainVisible) {
+        state.channels = [];
+        clearPrograms();
+        state.programmeLoadedChannelCount = 0;
+        state.programmeLoadingMore = false;
+      }
       state.dataError = error && error.message ? error.message : 'Senderliste konnte nicht geladen werden.';
-      render();
+      if (!retainVisible) render();
       return null;
     });
   }
 
-  function sync(force) {
+  function sync(force, options) {
     const active = homeIsActive();
     if (!active) {
       state.active = false;
@@ -1253,7 +1269,9 @@
     const becameActive = !state.active;
     state.active = true;
     const backendChanged = state.backendId !== selectedBackendId();
-    if (becameActive || backendChanged || state.channels.length === 0 || force) return load(Boolean(force || backendChanged));
+    if (becameActive || backendChanged || state.channels.length === 0 || force) {
+      return load(Boolean(force || backendChanged), options);
+    }
     render();
     return Promise.resolve(null);
   }
@@ -1362,6 +1380,11 @@
     bindNavigation();
     bindProgrammeRailNearEnd();
     installObserver();
+    if (typeof doc.addEventListener === 'function') {
+      doc.addEventListener(HOME_RESUME_EVENT, function () {
+        sync(true, {retainVisible: true});
+      });
+    }
     scheduleSync(false);
   }
 
@@ -1390,7 +1413,7 @@
   }
 
   const api = Object.freeze({
-    refresh: () => sync(true),
+    refresh: () => sync(true, {retainVisible: true}),
     snapshot,
     selectOffset,
     watchLive,
