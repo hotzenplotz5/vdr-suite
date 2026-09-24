@@ -746,6 +746,17 @@
     if (section && typeof section.remove === 'function') section.remove();
   }
 
+  function hasVisibleRail(key) {
+    const target = host();
+    const section = target && target.querySelector
+      ? target.querySelector('[data-home-discovery-rail="' + key + '"]')
+      : null;
+    if (!section) return false;
+    if (section.children && section.children.length > 0) return true;
+    if (section.childNodes && section.childNodes.length > 0) return true;
+    return false;
+  }
+
   function renderState(key, title, message, error) {
     const section = sectionFor(key);
     if (!section) return false;
@@ -3607,8 +3618,13 @@
     return true;
   }
 
-  function loadNewly(client, backendId, generation) {
-    renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
+  function loadNewly(client, backendId, generation, options) {
+    const config = options && typeof options === 'object' ? options : {};
+    const retainVisible = config.retainVisible === true &&
+      hasVisibleRail('newly-recorded');
+    if (!retainVisible) {
+      renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
+    }
     return Promise.resolve(client.fetchClientRecordings({
       query: {
         backend: backendId,
@@ -3629,6 +3645,7 @@
       );
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      if (retainVisible) return false;
       return renderState(
         'newly-recorded',
         'Neu aufgenommen',
@@ -3885,8 +3902,12 @@
   function loadGenres(client, backendId, generation) {
     const options = arguments.length > 3 && arguments[3] && typeof arguments[3] === 'object'
       ? arguments[3]
-      : null;
-    renderState('genres', 'Genres', 'Genres werden geladen …', false);
+      : {};
+    const retainVisible = options.retainVisible === true &&
+      hasVisibleRail('genres');
+    if (!retainVisible) {
+      renderState('genres', 'Genres', 'Genres werden geladen …', false);
+    }
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
       scope: 'recordings',
@@ -3899,24 +3920,30 @@
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
       const randomGenre = selectRandomGenre(entries, generation, Math.random());
       if (!randomGenre) clearRail('random-genre');
-      return Promise.allSettled([
+      const followUps = [
         randomGenre
           ? loadRandomGenre(client, backendId, generation, randomGenre)
-          : Promise.resolve(false),
-        loadSeries(client, backendId, generation, entries, options)
-      ]).then(function () { return true; });
+          : Promise.resolve(false)
+      ];
+      if (options.includeSeries !== false) {
+        followUps.push(loadSeries(client, backendId, generation, entries, options));
+      }
+      return Promise.allSettled(followUps).then(function () { return true; });
     }).catch(function () {
       if (!current(generation, backendId)) return false;
-      clearSeriesMetadataRetry();
-      clearSeriesWarm();
-      state.seriesProjection = [];
-      state.seriesBackendId = '';
-      state.seriesViewKey = '';
-      state.seriesSeasonNumber = null;
+      if (retainVisible) return false;
+      if (options.includeSeries !== false) {
+        clearSeriesMetadataRetry();
+        clearSeriesWarm();
+        state.seriesProjection = [];
+        state.seriesBackendId = '';
+        state.seriesViewKey = '';
+        state.seriesSeasonNumber = null;
+        clearRail('series');
+      }
       state.randomGenreGeneration = generation;
       state.randomGenreId = '';
       clearRail('random-genre');
-      clearRail('series');
       return renderState(
         'genres',
         'Genres',
@@ -3957,8 +3984,13 @@
     return openSelectedFolder();
   }
 
-  function loadFolders(client, backendId, generation) {
-    renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
+  function loadFolders(client, backendId, generation, options) {
+    const config = options && typeof options === 'object' ? options : {};
+    const retainVisible = config.retainVisible === true &&
+      hasVisibleRail('folders');
+    if (!retainVisible) {
+      renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
+    }
     return fetchRootFolderProjection(client, backendId, generation).then(function (projection) {
       if (!current(generation, backendId)) return false;
       state.folderProjection = projection;
@@ -3979,6 +4011,7 @@
       return rendered;
     }).catch(function () {
       if (!current(generation, backendId)) return false;
+      if (retainVisible) return false;
       state.folderProjection = {folders: [], rootRecordings: []};
       state.folderBackendId = '';
       state.randomFolderGeneration = generation;
@@ -4029,9 +4062,20 @@
       promise: null
     };
     const loadPromise = Promise.allSettled([
-      loadNewly(client, backendId, generation),
-      loadGenres(client, backendId, generation, {reuseWarm: config.reuseWarm === true}),
-      loadFolders(client, backendId, generation)
+      loadNewly(client, backendId, generation, {
+        retainVisible: config.retainVisible === true
+      }),
+      loadGenres(client, backendId, generation, {
+        reuseWarm: config.reuseWarm === true,
+        retainVisible: config.retainVisible === true,
+        includeSeries: false
+      }),
+      loadSeries(client, backendId, generation, [{id: 'series'}], {
+        reuseWarm: config.reuseWarm === true
+      }),
+      loadFolders(client, backendId, generation, {
+        retainVisible: config.retainVisible === true
+      })
     ]).then(function () {
       if (generation === state.generation &&
           backendId === selectedBackendId() &&
@@ -4073,7 +4117,11 @@
       state.homeReadyGeneration = -1;
       clearSeriesWarm();
       recordingRefreshBusy = true;
-      Promise.resolve(refresh({reuseWarm: false})).finally(function () {
+      Promise.resolve(refresh({
+        reuseWarm: false,
+        retainVisible: true,
+        coalesce: true
+      })).finally(function () {
         recordingRefreshBusy = false;
         scheduleRecordingChangeRefresh();
       });
@@ -4230,7 +4278,14 @@
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         subscribeRecordingChanges();
-        scheduleRecordingChangeRefresh();
+        state.homeReadyBackendId = '';
+        state.homeReadyGeneration = -1;
+        clearSeriesWarm();
+        Promise.resolve(refresh({
+          reuseWarm: false,
+          retainVisible: true,
+          coalesce: true
+        })).catch(function () { return false; });
       });
       doc.addEventListener('visibilitychange', function () {
         if (doc.hidden || !homeIsActive()) stopRecordingChanges();
