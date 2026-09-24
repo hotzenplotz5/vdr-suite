@@ -8,6 +8,11 @@ const vm = require('vm');
 const frontendRoot = path.join(__dirname, '..');
 const repoRoot = path.join(frontendRoot, '..', '..');
 const remote = fs.readFileSync(path.join(frontendRoot, 'modules', 'remote.js'), 'utf8');
+const appSource = fs.readFileSync(path.join(frontendRoot, 'app.js'), 'utf8');
+const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
+const continueSource = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
+const historySource = fs.readFileSync(path.join(frontendRoot, 'home-recently-watched.js'), 'utf8');
+const heroSource = fs.readFileSync(path.join(frontendRoot, 'home-live-hero.js'), 'utf8');
 const serverPaths = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerPaths.inc'), 'utf8');
 const serverAssets = fs.readFileSync(path.join(repoRoot, 'core/http/src/TestHttpServerAssets.inc'), 'utf8');
 
@@ -35,6 +40,26 @@ assert(
   remote.includes("if(typeof v.stopPropagation==='function')v.stopPropagation()"),
   'Home navigation must not bubble into independent Home data refresh listeners'
 );
+assert(
+  appSource.includes("'vdr-suite:home-resume'") &&
+    appSource.includes('function publishHomeResume(previousModule)'),
+  'the canonical app shell must publish one Home resume lifecycle signal'
+);
+assert(
+  !remote.includes("'vdr-suite:home-resume'"),
+  'the capture fence must not duplicate app-owned Home lifecycle publication'
+);
+assert(discoverySource.includes('parallelHomeResume: true'));
+assert(discoverySource.includes('Promise.allSettled(loads)'));
+assert(discoverySource.includes('retainVisible: true'));
+assert(!discoverySource.includes('refreshRecordingPresentationDependents'));
+assert(continueSource.includes('refresh({retainVisible: true});'));
+assert.strictEqual(
+  (historySource.match(/doc\.addEventListener\(HOME_RESUME_EVENT/g) || []).length,
+  2,
+  'Recently Watched and Recent Movies must subscribe independently'
+);
+assert(heroSource.includes('sync(true, {retainVisible: true});'));
 assert(
   remote.includes("document.addEventListener('click',homeNavigationClick,true)"),
   'the fence must run in capture phase before the existing bubble listeners'

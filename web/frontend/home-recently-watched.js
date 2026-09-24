@@ -5,7 +5,14 @@
 
   const doc = global.document;
   const LIMIT = 12;
-  const state = {generation: 0, placementObserver: null, moduleObserver: null};
+  const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
+  const state = {
+    generation: 0,
+    placementObserver: null,
+    moduleObserver: null,
+    refreshInFlight: null,
+    refreshBackendId: ''
+  };
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value).trim();
@@ -241,19 +248,31 @@
     if (owner && owner.lastElementChild !== target) owner.appendChild(target);
     return true;
   }
-  function refresh() {
+  function refresh(options) {
     if (!homeIsActive()) return Promise.resolve(false);
+    const config = options && typeof options === 'object' ? options : {};
     const backendId = selectedBackendId();
+    if (state.refreshInFlight && state.refreshBackendId === backendId) {
+      return state.refreshInFlight;
+    }
     const generation = ++state.generation;
-    return post({operation: 'list', backendId: backendId}).then(function (payload) {
+    const request = post({operation: 'list', backendId: backendId}).then(function (payload) {
       if (generation !== state.generation || backendId !== selectedBackendId() || !homeIsActive()) return false;
       const raw = payload && Array.isArray(payload.items) ? payload.items : [];
       const items = raw.map(function (item) { return normalizeItem(item, backendId); }).filter(Boolean).slice(0, LIMIT);
       return render(items);
     }).catch(function () {
-      if (generation === state.generation) clear();
+      if (generation === state.generation && config.retainVisible !== true) clear();
       return false;
+    }).finally(function () {
+      if (state.refreshInFlight === request) {
+        state.refreshInFlight = null;
+        state.refreshBackendId = '';
+      }
     });
+    state.refreshBackendId = backendId;
+    state.refreshInFlight = request;
+    return request;
   }
   function installPlacementObserver() {
     const target = host();
@@ -297,12 +316,8 @@
     installPlacementObserver();
     installModuleObserver();
     if (typeof doc.addEventListener === 'function') {
-      doc.addEventListener('click', function (event) {
-        const target = event && event.target;
-        if (target && typeof target.closest === 'function' &&
-            target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
-          global.setTimeout(refresh, 0);
-        }
+      doc.addEventListener(HOME_RESUME_EVENT, function () {
+        refresh({retainVisible: true});
       });
     }
     if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
@@ -341,6 +356,7 @@
   const PAGE_LIMIT = 100;
   const WARM_RETURN_MS = 60000;
   const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
+  const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   const state = {
     generation: 0,
     placementObserver: null,
@@ -687,8 +703,9 @@
       Date.now() - state.completedAt < WARM_RETURN_MS;
   }
 
-  function refresh() {
+  function refresh(options) {
     if (!homeIsActive()) return Promise.resolve(false);
+    const config = options && typeof options === 'object' ? options : {};
     const client = clientApi();
     const owner = discoveryTestApi();
     if (!client || typeof client.fetchClientRecordings !== 'function' ||
@@ -699,11 +716,16 @@
     const backendId = selectedBackendId();
     const generation = ++state.generation;
     const currentYear = new Date().getFullYear();
-    state.movies = [];
+    const retainVisible = config.retainVisible === true &&
+      state.backendId === backendId &&
+      state.movies.length > 0;
+    if (!retainVisible) {
+      state.movies = [];
+      state.visibleLimit = LIMIT;
+      renderState('Filme werden geladen …', false);
+    }
     state.backendId = backendId;
     state.completedAt = 0;
-    state.visibleLimit = LIMIT;
-    renderState('Filme werden geladen …', false);
     const load = fetchAllRecordings(client, backendId, generation, currentYear).then(function (recordings) {
       if (generation !== state.generation ||
           backendId !== selectedBackendId() ||
@@ -719,7 +741,9 @@
     }).catch(function () {
       if (generation !== state.generation) return false;
       state.completedAt = 0;
-      return renderState('Filme sind vorübergehend nicht verfügbar.', true);
+      return config.retainVisible === true
+        ? false
+        : renderState('Filme sind vorübergehend nicht verfügbar.', true);
     });
     state.loadingBackendId = backendId;
     state.loadingPromise = load;
@@ -829,12 +853,8 @@
     installModuleObserver();
     bindNearEnd();
     if (typeof doc.addEventListener === 'function') {
-      doc.addEventListener('click', function (event) {
-        const target = event && event.target;
-        if (target && typeof target.closest === 'function' &&
-            target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
-          global.setTimeout(refreshForHome, 0);
-        }
+      doc.addEventListener(HOME_RESUME_EVENT, function () {
+        refresh({retainVisible: true});
       });
     }
     if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);

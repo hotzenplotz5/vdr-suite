@@ -2,6 +2,7 @@
 
 #include "ApiRouter.h"
 #include "RecordingCacheRefreshQueue.h"
+#include "RecordingPresentationChangeQueue.h"
 #include "BackendAccessPolicy.h"
 #include "BackendAgentHttpServer.h"
 #include "BackendAgentLifecycle.h"
@@ -184,6 +185,7 @@ private:
     void refreshRecordingCacheForAllBackends(
         const std::string& reason, const std::string& backendId = "");
     void publishCompletedRecordingRefreshes();
+    void publishRecordingPresentationChanges();
     std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
         const BackendNode& backend);
 
@@ -193,6 +195,7 @@ private:
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
     RecordingCacheRefreshQueue recordingCacheRefreshQueue_;
+    RecordingPresentationChangeQueue recordingPresentationChangeQueue_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
 

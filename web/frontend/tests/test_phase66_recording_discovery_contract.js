@@ -155,10 +155,15 @@ assert(
 // Below-the-fold discovery is bounded, deferred, and each rail settles independently.
 assert(source.includes('new global.IntersectionObserver'));
 assert(source.includes("rootMargin: '320px 0px'"));
-assert(source.includes('return Promise.allSettled(['));
-assert(source.includes('loadNewly(client, backendId, generation)'));
-assert(source.includes('loadGenres(client, backendId, generation)'));
-assert(source.includes('loadFolders(client, backendId, generation)'));
+assert(source.includes('Promise.allSettled(loads)'));
+assert(source.includes('loadNewly(client, backendId, generation, {'));
+assert(source.includes('loadGenres(client, backendId, generation, {'));
+assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
+assert(source.includes('loadFolders(client, backendId, generation, {'));
+assert(source.includes('parallelHomeResume'));
+assert(source.includes('includeSeries: !parallelSeries'));
+assert(source.includes('state.seriesAvailable === true'));
+assert(source.includes('retainVisible: true'));
 assert(source.includes("'Neu aufgenommene Inhalte sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Genres sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Aufnahmeordner sind vorübergehend nicht verfügbar.'"));

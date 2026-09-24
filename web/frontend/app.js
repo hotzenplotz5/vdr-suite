@@ -3662,7 +3662,20 @@ function renderSelectedModule(data) {
   renderModulePlaceholder(selectedModule, data);
 }
 
+function publishHomeResume(previousModule) {
+  if (typeof document.dispatchEvent !== 'function' ||
+      typeof window.CustomEvent !== 'function') return false;
+  document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
+    detail: {
+      previousModule: previousModule || '',
+      backendId: selectedBackendId || 'default'
+    }
+  }));
+  return true;
+}
+
 function selectModule(moduleName) {
+  const previousModule = selectedModule;
   const channels2 = window.VdrSuiteChannels2;
 
   if (
@@ -3701,6 +3714,10 @@ function selectModule(moduleName) {
 
   if (currentSnapshot) {
     renderSelectedModule(currentSnapshot);
+  }
+
+  if (moduleName === 'overview') {
+    publishHomeResume(previousModule);
   }
 }
 

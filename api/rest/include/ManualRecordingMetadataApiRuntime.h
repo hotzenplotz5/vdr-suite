@@ -3,6 +3,7 @@
 #include "DashboardController.h"
 #include "MetadataController.h"
 
+#include <functional>
 #include <map>
 #include <mutex>
 #include <string>
@@ -12,7 +13,12 @@ class ManualRecordingMetadataApiRuntime
 public:
     static ManualRecordingMetadataApiRuntime& instance();
 
+    using RecordingPresentationChangedCallback =
+        std::function<void(const std::string& backendId)>;
+
     void registerController(MetadataController& controller);
+    void registerRecordingPresentationChangedCallback(
+        RecordingPresentationChangedCallback callback);
     void reset();
 
     ManualRecordingMetadataAssignment findSelected(
@@ -49,7 +55,11 @@ private:
     ManualRecordingMetadataApiRuntime() = default;
 
     MetadataController* controller() const;
+    void notifyRecordingPresentationChanged(
+        const std::string& backendId) const;
 
     mutable std::mutex mutex_;
     MetadataController* controller_ = nullptr;
+    RecordingPresentationChangedCallback
+        recordingPresentationChangedCallback_;
 };

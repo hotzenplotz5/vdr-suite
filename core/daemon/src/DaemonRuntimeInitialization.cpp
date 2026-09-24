@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
+#include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
@@ -861,6 +862,13 @@ bool DaemonRuntime::initialize()
     liveTransport_ = std::make_unique<SseLiveTransport>();
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
+
+    ManualRecordingMetadataApiRuntime::instance()
+        .registerRecordingPresentationChangedCallback(
+            [this](const std::string& backendId)
+            {
+                recordingPresentationChangeQueue_.request(backendId);
+            });
 
     std::cout << "runtime diagnostics controller initialized" << std::endl;
     std::cout << "snapshot change feed controller initialized" << std::endl;
