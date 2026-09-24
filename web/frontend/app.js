@@ -8,6 +8,7 @@ const refreshDetailButton = document.getElementById('refresh-detail');
 let selectedBackendId = '';
 let selectedBackend = null;
 let selectedModule = 'overview';
+let homeResumeBackendId = '';
 let currentSnapshot = null;
 let currentChannels = null;
 let currentEvents = null;
@@ -3665,13 +3666,20 @@ function renderSelectedModule(data) {
 function publishHomeResume(previousModule) {
   if (typeof document.dispatchEvent !== 'function' ||
       typeof window.CustomEvent !== 'function') return false;
+  const backendId = selectedBackendId || 'default';
   document.dispatchEvent(new window.CustomEvent('vdr-suite:home-resume', {
     detail: {
       previousModule: previousModule || '',
-      backendId: selectedBackendId || 'default'
+      backendId: backendId
     }
   }));
+  homeResumeBackendId = backendId;
   return true;
+}
+
+function shouldPublishHomeResume(previousModule) {
+  const backendId = selectedBackendId || 'default';
+  return previousModule !== 'overview' || homeResumeBackendId !== backendId;
 }
 
 function selectModule(moduleName) {
@@ -3716,7 +3724,7 @@ function selectModule(moduleName) {
     renderSelectedModule(currentSnapshot);
   }
 
-  if (moduleName === 'overview') {
+  if (moduleName === 'overview' && shouldPublishHomeResume(previousModule)) {
     publishHomeResume(previousModule);
   }
 }
@@ -3733,7 +3741,6 @@ function loadBackendDetails(backend) {
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
   markSelected(backendId);
-  selectedModule = 'overview';
   selectModule('overview');
   refreshDetailButton.disabled = true;
   detailMetaElement.className = 'detail-meta';
