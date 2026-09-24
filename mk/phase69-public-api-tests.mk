@@ -117,3 +117,32 @@ test-phase69-timer-create-identity-authority:
 		-o $(BUILD_DIR)/test_timer_create_identity_authority
 	$(BUILD_DIR)/test_timer_create_identity_authority
 	python3 tools/check_phase69_timer_create_identity_authority.py
+
+.PHONY: test-phase69-atomic-timer-create-admission
+
+test-phase69-atomic-timer-create-admission:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/operations/include -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingIdentity.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
+		core/timers/src/NativeTimerCreateAdmissionService.cpp \
+		core/timers/tests/test_native_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_admission_service
+	$(BUILD_DIR)/test_native_timer_create_admission_service
+	python3 tools/check_phase69_atomic_timer_create_admission.py
