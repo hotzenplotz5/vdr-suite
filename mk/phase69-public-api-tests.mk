@@ -106,3 +106,14 @@ test-phase69-timer-assignment-native-specification:
 
 test-phase69-native-timer-create-fulfillment-runtime:
 	python3 tools/check_phase69_native_timer_create_fulfillment_runtime.py
+
+.PHONY: test-phase69-timer-create-identity-authority
+
+test-phase69-timer-create-identity-authority:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/operations/include -Icore/timers/include \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/timers/src/NativeTimerBindingIdentity.cpp \
+		core/timers/tests/test_timer_create_identity_authority.cpp \
+		-o $(BUILD_DIR)/test_timer_create_identity_authority
+	$(BUILD_DIR)/test_timer_create_identity_authority
+	python3 tools/check_phase69_timer_create_identity_authority.py
