@@ -125,34 +125,30 @@ for label in ["public_h", "public_cpp"]:
         "BackendAgentNativeTimerCreateReservationService",
         "NativeTimerCreateDispatchService",
         "BackendAgentNativeTimerCreateActivationService",
-        "Idempotency-Key",
-        "timers.create",
-        "timer.create",
     ]:
         if forbidden in contents[label]:
             raise SystemExit(
-                f"CREATE dispatch composition opened public mutation semantics in {label}: {forbidden}")
+                f"CREATE dispatch authority leaked into public HTTP in {label}: {forbidden}")
 
 for forbidden in [
     "BackendAgentNativeTimerCreateReservationService",
     "NativeTimerCreateDispatchService",
     "BackendAgentNativeTimerCreateActivationService",
-    "Idempotency-Key",
 ]:
     if forbidden in contents["security"]:
         raise SystemExit(
-            f"CREATE dispatch composition opened public mutation service/header semantics in security: {forbidden}")
+            f"CREATE dispatch authority leaked into public security: {forbidden}")
 
-for required_read_only_marker in [
+for required_public_marker in [
     'const bool isPublicTimerAssignmentRead =',
-    'request.method == "GET" &&',
+    'const bool isPublicTimerAssignmentCreate =',
     'isPublicV1ReadOnlyMethodMismatch =',
-    'isPublicTimerAssignmentResource);',
+    'isPublicTimerAssignmentResource;',
 ]:
-    if required_read_only_marker not in contents["security"]:
+    if required_public_marker not in contents["security"]:
         raise SystemExit(
-            "public TimerAssignment security boundary is no longer read-only: "
-            + required_read_only_marker)
+            "reviewed public TimerAssignment read/create classification missing: "
+            + required_public_marker)
 
 # Composition only: no runtime orchestration call is allowed yet. The method
 # names occur in their accepted domain implementations, so scan only API,
@@ -183,4 +179,4 @@ for scan_root in [
                     + str(path.relative_to(ROOT)) + " -> " + forbidden_call)
 
 print("Phase-69.C native Timer CREATE dispatch runtime composition check passed")
-print("Boundary: durable reservation/dispatch/activation owners composed; no public or native invocation")
+print("Boundary: dispatch/activation owners stay composed but uninvoked; public admission cannot call them")
