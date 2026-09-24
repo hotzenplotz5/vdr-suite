@@ -115,10 +115,11 @@ read/write storage implementation.
 CI/build/architecture validation is sufficient because the new service remains
 dormant and no native effect is activated.
 
-The original Phase-64 NativeTimerBinding guard is retained as a safety
-boundary. Its blanket runtime prohibition is narrowed only for
-`DaemonRuntime.h` and `DaemonRuntimeInitialization.cpp`, and only when this
-Phase-69 successor guard is present with the exact dormant-fulfillment markers.
+The original Phase-64 NativeTimerBinding and NativeTimerBindingRepository
+guards are retained as safety boundaries. Their blanket runtime prohibitions are
+narrowed only for `DaemonRuntime.h` and
+`DaemonRuntimeInitialization.cpp`, and only when this Phase-69 successor guard
+is present with the exact dormant-fulfillment and repository-source markers.
 All other runtime surfaces remain forbidden.
 
 The focused Phase-69 guard proves:
