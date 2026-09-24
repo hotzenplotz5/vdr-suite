@@ -44,6 +44,7 @@ required = {
         "nativeTimerCreateReadbackVerificationService_.reset();",
     ],
     "daemon_sources": [
+        "core/timers/src/NativeTimerObservation.cpp",
         "core/timers/src/NativeTimerCreateReadbackEvidence.cpp",
         "core/timers/src/NativeTimerCreateReadbackVerificationService.cpp",
         "core/timers/src/NativeTimerCreateOperationCompletionService.cpp",
