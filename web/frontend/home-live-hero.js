@@ -36,6 +36,8 @@
     actionError: '',
     requestSequence: 0,
     syncScheduled: false,
+    pendingSyncForce: false,
+    pendingSyncOptions: null,
     observer: null,
     navigationBound: false,
     touchStartX: null,
@@ -1298,17 +1300,32 @@
         config.revalidatePrograms === true) {
       return load(Boolean(force || backendChanged), config);
     }
+    if (state.loadingPrograms && state.events.length > 0) {
+      return Promise.resolve(null);
+    }
     render();
     return Promise.resolve(null);
   }
 
-  function scheduleSync(force) {
+  function scheduleSync(force, options) {
+    state.pendingSyncForce = state.pendingSyncForce || Boolean(force);
+    if (options && typeof options === 'object') {
+      state.pendingSyncOptions = Object.assign(
+        {},
+        state.pendingSyncOptions || {},
+        options
+      );
+    }
     if (state.syncScheduled) return;
     state.syncScheduled = true;
     const schedule = typeof global.setTimeout === 'function' ? global.setTimeout : setTimeout;
     schedule(() => {
+      const scheduledForce = state.pendingSyncForce;
+      const scheduledOptions = state.pendingSyncOptions;
+      state.pendingSyncForce = false;
+      state.pendingSyncOptions = null;
       state.syncScheduled = false;
-      sync(Boolean(force));
+      sync(scheduledForce, scheduledOptions);
     }, 0);
   }
 
@@ -1408,10 +1425,12 @@
     installObserver();
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
-        sync(false, {retainVisible: true, revalidatePrograms: true});
+        scheduleSync(false, {
+          retainVisible: true,
+          revalidatePrograms: true
+        });
       });
     }
-    scheduleSync(false);
   }
 
   function snapshot() {
