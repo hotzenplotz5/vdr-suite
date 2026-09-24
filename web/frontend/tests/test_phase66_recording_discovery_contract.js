@@ -156,9 +156,12 @@ assert(
 assert(source.includes('new global.IntersectionObserver'));
 assert(source.includes("rootMargin: '320px 0px'"));
 assert(source.includes('return Promise.allSettled(['));
-assert(source.includes('loadNewly(client, backendId, generation)'));
-assert(source.includes('loadGenres(client, backendId, generation)'));
-assert(source.includes('loadFolders(client, backendId, generation)'));
+assert(source.includes('loadNewly(client, backendId, generation, {'));
+assert(source.includes('loadGenres(client, backendId, generation, {'));
+assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
+assert(source.includes('loadFolders(client, backendId, generation, {'));
+assert(source.includes('includeSeries: false'));
+assert(source.includes('retainVisible: true'));
 assert(source.includes("'Neu aufgenommene Inhalte sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Genres sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Aufnahmeordner sind vorübergehend nicht verfügbar.'"));
