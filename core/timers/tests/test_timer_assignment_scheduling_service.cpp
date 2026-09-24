@@ -78,6 +78,17 @@ TimerAssignmentPlanningBackendCandidate healthyCandidate(
     candidate.channel.backendChannelId = "S19.2E-1-1019-10301";
     candidate.channel.current = true;
     candidate.channel.ambiguous = false;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification.channelId =
+        candidate.channel.backendChannelId;
+    candidate.desiredNativeTimerSpecification.title = "Scheduled";
+    candidate.desiredNativeTimerSpecification.day = "2026-09-23";
+    candidate.desiredNativeTimerSpecification.weekdays = "-------";
+    candidate.desiredNativeTimerSpecification.startTime = "1000";
+    candidate.desiredNativeTimerSpecification.endTime = "1100";
+    candidate.desiredNativeTimerSpecification.priority = 50;
+    candidate.desiredNativeTimerSpecification.lifetime = 99;
+    candidate.desiredNativeTimerSpecification.enabled = true;
 
     candidate.conflict =
         TimerAssignmentPlanningConflictState::confirmedClear;
@@ -132,7 +143,17 @@ int main()
     assert(first.assignment.assignmentEpoch == 1);
     assert(first.assignment.decisionPolicyVersion ==
         timerAssignmentPlanningPolicyVersion());
+    assert(first.assignment.desiredNativeTimerSpecificationPresent);
+    assert(first.assignment.desiredNativeTimerSpecification.channelId
+        == "S19.2E-1-1019-10301");
     assert(first.assignment.nativeTimerBindingId.empty());
+
+    const auto durableFirst =
+        assignmentRepository.findById("assignment:first");
+    assert(durableFirst.ok());
+    assert(durableFirst.assignment.desiredNativeTimerSpecificationPresent);
+    assert(durableFirst.assignment.desiredNativeTimerSpecification.title
+        == "Scheduled");
 
     const auto replay = service.schedulePrimary(firstRequest);
     assert(replay.status ==
@@ -191,6 +212,7 @@ int main()
     assert(unassigned.assignment.channelBinding.backendChannelId.empty());
     assert(unassigned.assignment.capabilityRevision.empty());
     assert(unassigned.assignment.backendHealthRevision.empty());
+    assert(!unassigned.assignment.desiredNativeTimerSpecificationPresent);
     assert(!unassigned.assignment.decisionEvidence.reasons.empty());
     assert(unassigned.assignment.decisionEvidence.reasons.front() ==
         "no_eligible_backend");

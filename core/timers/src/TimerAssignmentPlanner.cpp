@@ -96,7 +96,8 @@ bool selectedTargetEmpty(const TimerAssignmentPlanningDecision& decision)
         && decision.selectedChannelBinding.mappingSource.empty()
         && decision.selectedChannelBinding.mappingRevision.empty()
         && decision.selectedCapabilityRevision.empty()
-        && decision.selectedBackendHealthRevision.empty();
+        && decision.selectedBackendHealthRevision.empty()
+        && !decision.selectedNativeTimerSpecificationPresent;
 }
 
 bool candidateIdentityValid(
@@ -356,6 +357,21 @@ TimerAssignmentPlanningCandidateEvaluation evaluateCandidate(
         exclude("channel_source_mismatch");
     }
 
+    if (!candidate.desiredNativeTimerSpecificationPresent)
+    {
+        exclude("native_timer_specification_missing");
+    }
+    else if (!nativeTimerSpecificationValid(
+                 candidate.desiredNativeTimerSpecification))
+    {
+        exclude("native_timer_specification_invalid");
+    }
+    else if (candidate.desiredNativeTimerSpecification.channelId
+        != candidate.channel.backendChannelId)
+    {
+        exclude("native_timer_specification_channel_mismatch");
+    }
+
     switch (candidate.conflict)
     {
         case TimerAssignmentPlanningConflictState::confirmedClear:
@@ -431,6 +447,23 @@ bool sameChannelBinding(
         && left.backendChannelId == right.backendChannelId
         && left.mappingSource == right.mappingSource
         && left.mappingRevision == right.mappingRevision;
+}
+
+bool sameNativeTimerSpecification(
+    const NativeTimerSpecification& left,
+    const NativeTimerSpecification& right)
+{
+    return left.channelId == right.channelId
+        && left.title == right.title
+        && left.directory == right.directory
+        && left.day == right.day
+        && left.weekdays == right.weekdays
+        && left.startTime == right.startTime
+        && left.endTime == right.endTime
+        && left.priority == right.priority
+        && left.lifetime == right.lifetime
+        && left.enabled == right.enabled
+        && left.vps == right.vps;
 }
 
 bool sameEvidence(
@@ -632,6 +665,10 @@ TimerAssignmentPlanningDecision planTimerAssignment(
         selected->channel.mappingRevision;
     decision.selectedCapabilityRevision = selected->capability.revision;
     decision.selectedBackendHealthRevision = selected->health.revision;
+    decision.selectedNativeTimerSpecificationPresent =
+        selected->desiredNativeTimerSpecificationPresent;
+    decision.selectedNativeTimerSpecification =
+        selected->desiredNativeTimerSpecification;
 
     appendBounded(decision.decisionEvidence.reasons, "selected_eligible_backend");
     appendBounded(
@@ -685,6 +722,12 @@ bool timerAssignmentPlanningDecisionEquivalent(
         || left.selectedCapabilityRevision != right.selectedCapabilityRevision
         || left.selectedBackendHealthRevision
             != right.selectedBackendHealthRevision
+        || left.selectedNativeTimerSpecificationPresent
+            != right.selectedNativeTimerSpecificationPresent
+        || (left.selectedNativeTimerSpecificationPresent
+            && !sameNativeTimerSpecification(
+                left.selectedNativeTimerSpecification,
+                right.selectedNativeTimerSpecification))
         || !sameEvidence(left.decisionEvidence, right.decisionEvidence)
         || left.candidates.size() != right.candidates.size())
     {

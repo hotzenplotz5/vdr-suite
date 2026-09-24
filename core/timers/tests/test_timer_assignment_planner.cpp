@@ -58,6 +58,17 @@ TimerAssignmentPlanningBackendCandidate makeCandidate(
     candidate.channel.backendChannelId = "S19.2E-1-1011-11100";
     candidate.channel.current = true;
     candidate.channel.ambiguous = false;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification.channelId =
+        candidate.channel.backendChannelId;
+    candidate.desiredNativeTimerSpecification.title = "Planner";
+    candidate.desiredNativeTimerSpecification.day = "2026-09-23";
+    candidate.desiredNativeTimerSpecification.weekdays = "-------";
+    candidate.desiredNativeTimerSpecification.startTime = "1000";
+    candidate.desiredNativeTimerSpecification.endTime = "1100";
+    candidate.desiredNativeTimerSpecification.priority = 50;
+    candidate.desiredNativeTimerSpecification.lifetime = 99;
+    candidate.desiredNativeTimerSpecification.enabled = true;
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
     return candidate;
 }
@@ -159,6 +170,35 @@ int main()
         assert(first.candidates[0].backendId == "backend:a");
         assert(first.candidates[1].backendId == "backend:b");
         assert(first.decisionEvidence.decisionScore == -32);
+        assert(first.selectedNativeTimerSpecificationPresent);
+        assert(first.selectedNativeTimerSpecification.channelId
+            == "S19.2E-1-1011-11100");
+    }
+
+    {
+        TimerAssignmentPlanningRequest request;
+        request.intent = makeIntent();
+        auto missing = makeCandidate("backend:a");
+        missing.desiredNativeTimerSpecificationPresent = false;
+        request.candidates = {missing};
+        const auto decision = planTimerAssignment(request);
+        assertUnassigned(decision, "no_eligible_backend");
+        assert(containsFragment(
+            decision.decisionEvidence.exclusions,
+            "native_timer_specification_missing"));
+    }
+
+    {
+        TimerAssignmentPlanningRequest request;
+        request.intent = makeIntent();
+        auto mismatch = makeCandidate("backend:a");
+        mismatch.desiredNativeTimerSpecification.channelId = "C-9-9-9";
+        request.candidates = {mismatch};
+        const auto decision = planTimerAssignment(request);
+        assertUnassigned(decision, "no_eligible_backend");
+        assert(containsFragment(
+            decision.decisionEvidence.exclusions,
+            "native_timer_specification_channel_mismatch"));
     }
 
     {

@@ -56,6 +56,17 @@ TimerAssignmentPlanningBackendCandidate candidate()
     value.channel.canonicalChannelId = "channel:ard";
     value.channel.backendChannelId = "S19.2E-1-1019-10301";
     value.channel.current = true;
+    value.desiredNativeTimerSpecificationPresent = true;
+    value.desiredNativeTimerSpecification.channelId =
+        value.channel.backendChannelId;
+    value.desiredNativeTimerSpecification.title = "Application";
+    value.desiredNativeTimerSpecification.day = "2026-09-23";
+    value.desiredNativeTimerSpecification.weekdays = "-------";
+    value.desiredNativeTimerSpecification.startTime = "1000";
+    value.desiredNativeTimerSpecification.endTime = "1100";
+    value.desiredNativeTimerSpecification.priority = 50;
+    value.desiredNativeTimerSpecification.lifetime = 99;
+    value.desiredNativeTimerSpecification.enabled = true;
     value.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
     return value;
 }
@@ -93,6 +104,9 @@ int main()
     assert(first.assignment.role == TimerAssignmentRole::primary);
     assert(first.assignment.backendId == "backend:alpha");
     assert(first.assignment.backendGeneration == 7);
+    assert(first.assignment.desiredNativeTimerSpecificationPresent);
+    assert(first.assignment.desiredNativeTimerSpecification.title
+        == "Application");
 
     // Stable identifiers allow restart-safe replay across every durable step.
     TimerIntentApplicationService restarted(intents, assignments, bindings);
@@ -100,6 +114,9 @@ int main()
     assert(replay.status == TimerIntentApplicationStatus::alreadyProvisioning);
     assert(replay.assignment.timerAssignmentId ==
         first.assignment.timerAssignmentId);
+    assert(replay.assignment.desiredNativeTimerSpecificationPresent);
+    assert(replay.assignment.desiredNativeTimerSpecification.channelId
+        == first.assignment.desiredNativeTimerSpecification.channelId);
 
     auto changed = request();
     changed.intent.spec.schedule.stopAt = 2100;

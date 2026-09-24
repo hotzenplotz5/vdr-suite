@@ -10,6 +10,7 @@ test-phase64-timer-reassignment-failover: test-phase64-timer-reassignment-failov
 		core/timers/src/TimerIntentRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
 		core/timers/src/TimerAssignmentReassignmentRepository.cpp \
 		core/timers/src/TimerAssignmentPlanner.cpp \

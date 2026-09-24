@@ -1,5 +1,7 @@
 #pragma once
 
+#include "NativeTimerSpecification.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -62,6 +64,8 @@ struct TimerAssignment
     std::string backendHealthRevision;
     std::string decisionPolicyVersion;
     TimerAssignmentDecisionEvidence decisionEvidence;
+    bool desiredNativeTimerSpecificationPresent = false;
+    NativeTimerSpecification desiredNativeTimerSpecification;
     std::string nativeTimerBindingId;
     std::int64_t createdAt = 0;
     std::int64_t updatedAt = 0;

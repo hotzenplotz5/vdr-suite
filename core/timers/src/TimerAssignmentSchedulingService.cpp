@@ -117,6 +117,10 @@ TimerAssignment assignmentFromDecision(
             decision.selectedCapabilityRevision;
         assignment.backendHealthRevision =
             decision.selectedBackendHealthRevision;
+        assignment.desiredNativeTimerSpecificationPresent =
+            decision.selectedNativeTimerSpecificationPresent;
+        assignment.desiredNativeTimerSpecification =
+            decision.selectedNativeTimerSpecification;
     }
     else
     {

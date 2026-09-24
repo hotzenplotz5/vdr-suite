@@ -70,6 +70,7 @@ bool unassignedShapeValid(const TimerAssignment& assignment)
         && !channelBindingPresent(assignment.channelBinding)
         && assignment.capabilityRevision.empty()
         && assignment.backendHealthRevision.empty()
+        && !assignment.desiredNativeTimerSpecificationPresent
         && assignment.nativeTimerBindingId.empty();
 }
 

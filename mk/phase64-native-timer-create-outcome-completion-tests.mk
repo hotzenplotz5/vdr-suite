@@ -10,6 +10,7 @@ test-phase64-native-timer-create-outcome-completion: test-phase64-native-timer-c
 		core/operations/src/MutationOperationRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerBindingRepository.cpp \
 		core/timers/src/NativeTimerBindingReadRepository.cpp \

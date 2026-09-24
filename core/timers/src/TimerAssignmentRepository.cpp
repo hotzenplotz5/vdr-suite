@@ -1,6 +1,7 @@
 #include "TimerAssignmentRepository.h"
 
 #include "Database.h"
+#include "TimerAssignmentDesiredNativeTimerSpecification.h"
 
 #include <sqlite3.h>
 
@@ -23,7 +24,8 @@ const char* kSelectColumns =
     "channel_mapping_revision,capability_revision,backend_health_revision,"
     "decision_policy_version,decision_reasons,decision_warnings,"
     "decision_exclusions,decision_conflict_facts,decision_score,"
-    "native_timer_binding_id,created_at,updated_at";
+    "native_timer_binding_id,created_at,updated_at,"
+    "desired_native_timer_specification";
 
 bool safeIdentity(const std::string& value)
 {
@@ -84,6 +86,63 @@ bool bindText(
         value.data(),
         static_cast<int>(value.size()),
         SQLITE_TRANSIENT) == SQLITE_OK;
+}
+
+bool hasColumn(
+    Database& database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql.c_str(), -1, &statement, nullptr)
+        != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
+bool desiredNativeTimerSpecificationValidForAssignment(
+    const TimerAssignment& assignment)
+{
+    if (!assignment.desiredNativeTimerSpecificationPresent)
+    {
+        return true;
+    }
+
+    return assignment.state != TimerAssignmentState::unassigned
+        && nativeTimerSpecificationValid(
+            assignment.desiredNativeTimerSpecification)
+        && assignment.desiredNativeTimerSpecification.channelId
+            == assignment.channelBinding.backendChannelId;
+}
+
+bool desiredNativeTimerSpecificationImmutable(
+    const TimerAssignment& current,
+    const TimerAssignment& next)
+{
+    if (current.desiredNativeTimerSpecificationPresent
+        != next.desiredNativeTimerSpecificationPresent)
+    {
+        return false;
+    }
+    return !current.desiredNativeTimerSpecificationPresent
+        || timerAssignmentDesiredNativeTimerSpecificationEquivalent(
+            current.desiredNativeTimerSpecification,
+            next.desiredNativeTimerSpecification);
 }
 
 bool parseRevisionToken(
@@ -224,6 +283,11 @@ bool bindAssignmentColumns(
     const TimerAssignment& assignment,
     bool includeId)
 {
+    if (!desiredNativeTimerSpecificationValidForAssignment(assignment))
+    {
+        return false;
+    }
+
     int index = startIndex;
     std::int64_t revision = 0;
     if (!parseRevisionToken(
@@ -390,10 +454,28 @@ bool bindAssignmentColumns(
     {
         return false;
     }
-    return sqlite3_bind_int64(
+    if (sqlite3_bind_int64(
+            statement,
+            index++,
+            assignment.updatedAt) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const std::string desiredNativeTimerSpecification =
+        assignment.desiredNativeTimerSpecificationPresent
+            ? serializeTimerAssignmentDesiredNativeTimerSpecification(
+                assignment.desiredNativeTimerSpecification)
+            : std::string();
+    if (assignment.desiredNativeTimerSpecificationPresent
+        && desiredNativeTimerSpecification.empty())
+    {
+        return false;
+    }
+    return bindText(
         statement,
         index,
-        assignment.updatedAt) == SQLITE_OK;
+        desiredNativeTimerSpecification);
 }
 
 bool readAssignment(
@@ -471,7 +553,20 @@ bool readAssignment(
     assignment.createdAt = sqlite3_column_int64(statement, 22);
     assignment.updatedAt = sqlite3_column_int64(statement, 23);
 
-    return timerAssignmentValid(assignment);
+    const std::string desiredNativeTimerSpecification =
+        columnText(statement, 24);
+    assignment.desiredNativeTimerSpecificationPresent =
+        !desiredNativeTimerSpecification.empty();
+    if (assignment.desiredNativeTimerSpecificationPresent
+        && !parseTimerAssignmentDesiredNativeTimerSpecification(
+            desiredNativeTimerSpecification,
+            assignment.desiredNativeTimerSpecification))
+    {
+        return false;
+    }
+
+    return timerAssignmentValid(assignment)
+        && desiredNativeTimerSpecificationValidForAssignment(assignment);
 }
 
 bool selectById(
@@ -720,7 +815,7 @@ bool TimerAssignmentRepository::ensureSchema()
 {
     auto lease = database_.acquireTransactionLease();
 
-    return database_.execute(
+    if (!database_.execute(
         "CREATE TABLE IF NOT EXISTS timer_assignments ("
         "timer_assignment_id TEXT PRIMARY KEY NOT NULL,"
         "assignment_revision INTEGER NOT NULL "
@@ -753,6 +848,7 @@ bool TimerAssignmentRepository::ensureSchema()
         "native_timer_binding_id TEXT NOT NULL DEFAULT '',"
         "created_at INTEGER NOT NULL,"
         "updated_at INTEGER NOT NULL,"
+        "desired_native_timer_specification TEXT NOT NULL DEFAULT '',"
         "UNIQUE(timer_intent_id,assignment_epoch),"
         "FOREIGN KEY(timer_intent_id) "
         "REFERENCES timer_intents(timer_intent_id)"
@@ -767,7 +863,19 @@ bool TimerAssignmentRepository::ensureSchema()
         "WHERE role IN ('primary','replacement') AND state IN "
         "('selected','provisioning','bound',"
         "'reconciling','superseding');"
-        "DROP INDEX IF EXISTS idx_timer_assignments_active_primary;");
+        "DROP INDEX IF EXISTS idx_timer_assignments_active_primary;"))
+    {
+        return false;
+    }
+
+    return hasColumn(
+               database_,
+               "timer_assignments",
+               "desired_native_timer_specification")
+        || database_.execute(
+            "ALTER TABLE timer_assignments "
+            "ADD COLUMN desired_native_timer_specification "
+            "TEXT NOT NULL DEFAULT '';");
 }
 
 TimerAssignmentRepositoryResult
@@ -777,7 +885,8 @@ TimerAssignmentRepository::create(
     if (!assignment.assignmentRevision.empty() ||
         assignment.assignmentEpoch != 0 ||
         !safeIdentity(assignment.timerAssignmentId) ||
-        !safeIdentity(assignment.timerIntentId))
+        !safeIdentity(assignment.timerIntentId) ||
+        !desiredNativeTimerSpecificationValidForAssignment(assignment))
     {
         return statusResult(
             TimerAssignmentRepositoryStatus::invalid);
@@ -875,9 +984,10 @@ TimerAssignmentRepository::create(
         "backend_health_revision,decision_policy_version,"
         "decision_reasons,decision_warnings,decision_exclusions,"
         "decision_conflict_facts,decision_score,"
-        "native_timer_binding_id,created_at,updated_at"
+        "native_timer_binding_id,created_at,updated_at,"
+        "desired_native_timer_specification"
         ") VALUES "
-        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
 
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(
@@ -1172,6 +1282,8 @@ TimerAssignmentRepository::update(
         next.role != current.role ||
         next.createdAt != current.createdAt ||
         next.updatedAt <= current.updatedAt ||
+        !desiredNativeTimerSpecificationValidForAssignment(next) ||
+        !desiredNativeTimerSpecificationImmutable(current, next) ||
         (!current.backendId.empty() &&
          next.backendId != current.backendId) ||
         (next.state != current.state &&
@@ -1235,7 +1347,8 @@ TimerAssignmentRepository::update(
         "decision_policy_version=?,decision_reasons=?,"
         "decision_warnings=?,decision_exclusions=?,"
         "decision_conflict_facts=?,decision_score=?,"
-        "native_timer_binding_id=?,created_at=?,updated_at=? "
+        "native_timer_binding_id=?,created_at=?,updated_at=?,"
+        "desired_native_timer_specification=? "
         "WHERE timer_assignment_id=? "
         "AND assignment_revision=?;";
 
@@ -1259,11 +1372,11 @@ TimerAssignmentRepository::update(
             false) ||
         !bindText(
             statement,
-            24,
+            25,
             durable.timerAssignmentId) ||
         sqlite3_bind_int64(
             statement,
-            25,
+            26,
             expectedRevisionNumber) != SQLITE_OK)
     {
         sqlite3_finalize(statement);
