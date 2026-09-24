@@ -157,6 +157,13 @@ public:
         const TimerAssignment& next,
         const std::string& expectedRevision);
 
+    // Uses the same revision/immutability/ownership checks as update(), but
+    // participates in an already-active transaction owned by a higher-level
+    // coordinator and never commits or rolls it back.
+    TimerAssignmentRepositoryResult updateInCurrentTransaction(
+        const TimerAssignment& next,
+        const std::string& expectedRevision);
+
 private:
     Database& database_;
 };
