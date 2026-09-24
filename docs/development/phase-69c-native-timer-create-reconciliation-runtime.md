@@ -100,8 +100,10 @@ Shutdown reverses the relevant dependency boundary.
 
 ## Linked sources
 
-The daemon links the existing Phase-64 implementations:
+The daemon links the existing Phase-64 implementations and their canonical
+present-observation validator dependency:
 
+- `core/timers/src/NativeTimerObservation.cpp`;
 - `core/timers/src/NativeTimerCreateReadbackEvidence.cpp`;
 - `core/timers/src/NativeTimerCreateReadbackVerificationService.cpp`;
 - `core/timers/src/NativeTimerCreateOperationCompletionService.cpp`.
