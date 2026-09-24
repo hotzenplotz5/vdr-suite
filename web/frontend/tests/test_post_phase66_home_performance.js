@@ -106,10 +106,12 @@ assert(loadSource.includes('const revalidatePrograms = config.revalidatePrograms
 assert(loadSource.includes('renderUnchanged: !revalidatePrograms'));
 const syncSource = between(
   'function sync(force, options)',
-  'function scheduleSync(force)'
+  'function scheduleSync(force, options)'
 );
 assert(syncSource.includes('config.revalidatePrograms === true'));
-assert(source.includes('sync(false, {retainVisible: true, revalidatePrograms: true});'));
+assert(source.includes('scheduleSync(false, {'));
+assert(source.includes('retainVisible: true'));
+assert(source.includes('revalidatePrograms: true'));
 
 assert(source.includes('function clearPrograms()'));
 assert(source.includes('state.eventsByChannel = new Map();'));
