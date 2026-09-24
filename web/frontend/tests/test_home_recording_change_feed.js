@@ -26,12 +26,12 @@ class Element {
 }
 const host = new Element();
 const listeners = {};
-const observers = [];
 const timers = new Map();
 const sources = [];
 let timerId = 0;
 let backend = 'A';
 let moduleName = 'overview';
+let canonicalBackendReady = false;
 let recordingReads = 0;
 let folderReads = 0;
 const queuedRecordingResponses = [];
@@ -40,7 +40,13 @@ const doc = {
   head: new Element(),
   createElement() { return new Element(); },
   getElementById() { return null; },
-  querySelector(selector) { return selector === '[data-home-zone="additional-sections"]' ? host : null; },
+  querySelector(selector) {
+    if (selector === '[data-home-zone="additional-sections"]') return host;
+    if (selector === '#backends .backend-card.selected, #backends [aria-selected="true"]') {
+      return canonicalBackendReady ? {dataset: {backendId: backend}} : null;
+    }
+    return null;
+  },
   addEventListener(type, listener) { (listeners[type] ||= []).push(listener); }
 };
 const client = {
@@ -81,11 +87,6 @@ const window = {
   document: doc, console,
   setTimeout(fn) { const id = ++timerId; timers.set(id, fn); return id; },
   clearTimeout(id) { timers.delete(id); },
-  IntersectionObserver: class {
-    constructor(callback) { this.callback = callback; observers.push(this); }
-    observe() {}
-    disconnect() {}
-  },
   VdrSuitePlatform: {
     getClientApi() { return client; },
     getSelectedModule() { return moduleName; },
@@ -116,8 +117,13 @@ function navigate(next) {
 }
 
 (async () => {
-  // Real install -> lazy visibility -> canonical Home refresh, no test-only subscription call.
-  observers[0].callback([{isIntersecting: true}]);
+  // Production shell selects the canonical backend before publishing Home resume.
+  // Recording Discovery must start immediately from that lifecycle event; no
+  // viewport/IntersectionObserver gate is allowed.
+  canonicalBackendReady = true;
+  (listeners['vdr-suite:home-resume'] || []).forEach(fn => fn({
+    detail: {backendId: backend}
+  }));
   await tick();
   assert.strictEqual(sources.length, 1, 'Home must subscribe through the production lifecycle');
   assert.strictEqual(recordingReads, 1);
@@ -219,7 +225,6 @@ function navigate(next) {
   backend = 'B';
   navigate('overview');
   await tick();
-  observers[observers.length - 1].callback([{isIntersecting: true}]);
   await tick();
   const third = sources[sources.length - 1];
   assert(!third.closed);
