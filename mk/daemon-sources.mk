@@ -1,6 +1,7 @@
 DAEMON_SRC := \
         core/daemon/src/RuntimeConfig.cpp \
         core/operations/src/MutationOperation.cpp \
+        core/operations/src/MutationOperationIdentity.cpp \
         core/operations/src/MutationOperationRepository.cpp \
         core/operations/src/MutationOperationReadService.cpp \
         core/timers/src/TimerIntent.cpp \
@@ -10,6 +11,7 @@ DAEMON_SRC := \
         core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
         core/timers/src/TimerAssignmentReadService.cpp \
         core/timers/src/NativeTimerBinding.cpp \
+        core/timers/src/NativeTimerBindingIdentity.cpp \
         core/timers/src/NativeTimerBindingRepository.cpp \
         core/timers/src/NativeTimerBindingReadRepository.cpp \
         core/timers/src/NativeTimerBindingWriteRepository.cpp \
