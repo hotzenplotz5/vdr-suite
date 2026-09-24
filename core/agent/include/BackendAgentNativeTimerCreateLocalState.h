@@ -40,11 +40,6 @@ struct BackendAgentNativeTimerCreateRecoveryResult
     BackendAgentNativeTimerCreateEvidence evidence;
 };
 
-bool backendAgentNativeTimerCreateCommandFromAssignment(
-    const BackendAgentCommandAssignment& assignment,
-    BackendAgentNativeTimerCreateCommand& command,
-    std::string& reasonCode);
-
 bool backendAgentNativeTimerCreatePrepareLocalStarting(
     const BackendAgentNativeTimerCreateCommand& command,
     std::int64_t persistedAt,
