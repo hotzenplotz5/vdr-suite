@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
+- [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -70,12 +71,12 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Post-admission Agent handoff review: derive and prove the exact transition from
-the accepted durable Timer CREATE operation/payload into Agent command
-reservation, dispatch claim and activation/pollability without introducing a
-second lifecycle authority or speculative retry. Native VDR Timer CREATE is not
-accepted until an exact candidate reaches that effect and passes real yaVDR
-acceptance.
+Native Timer CREATE reconciliation runtime composition: compose the existing
+Phase-64 readback-verification and operation-completion owners over the accepted
+MutationOperation, TimerAssignment and NativeTimerBinding repositories before
+any Agent command becomes pollable. Reservation, dispatch claim, activation,
+executor outcome application, readback verification, assignment binding and
+operation completion remain uninvoked in this candidate.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
