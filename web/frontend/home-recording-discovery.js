@@ -15,6 +15,7 @@
   const SERIES_DETAIL_METADATA_RETRY_MS = 2000;
   const SERIES_METADATA_RETRY_BATCH = 8;
   const FOLDER_LIMIT = 100;
+  const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   const state = {
     generation: 0,
     loadedBackendId: '',
@@ -4061,6 +4062,28 @@
   let recordingRefreshBusy = false;
   let recordingRefreshPending = false;
 
+  function refreshRecordingPresentationDependents() {
+    const owners = [
+      global.VdrSuiteHomeContinueWatching,
+      global.VdrSuiteHomeRecentlyWatched,
+      global.VdrSuiteHomeRecentMovies
+    ];
+    const refreshes = [];
+
+    owners.forEach(function (owner) {
+      if (!owner || typeof owner.refresh !== 'function') return;
+      refreshes.push(
+        Promise.resolve()
+          .then(function () { return owner.refresh(); })
+          .catch(function () { return false; })
+      );
+    });
+
+    return Promise.allSettled(refreshes).then(function () {
+      return true;
+    });
+  }
+
   function scheduleRecordingChangeRefresh() {
     if (!recordingRefreshPending || recordingRefreshBusy ||
         recordingRefreshTimer !== null || !homeIsActive() || (doc && doc.hidden)) return;
@@ -4072,10 +4095,16 @@
       state.homeReadyGeneration = -1;
       clearSeriesWarm();
       recordingRefreshBusy = true;
-      Promise.resolve(refresh({reuseWarm: false})).finally(function () {
-        recordingRefreshBusy = false;
-        scheduleRecordingChangeRefresh();
-      });
+      Promise.resolve(refresh({reuseWarm: false}))
+        .then(function (refreshed) {
+          return refreshed === true
+            ? refreshRecordingPresentationDependents()
+            : false;
+        })
+        .finally(function () {
+          recordingRefreshBusy = false;
+          scheduleRecordingChangeRefresh();
+        });
     }, 0);
   }
 
@@ -4227,6 +4256,10 @@
     installStyles();
     armLazyLoad();
     if (typeof doc.addEventListener === 'function') {
+      doc.addEventListener(HOME_RESUME_EVENT, function () {
+        subscribeRecordingChanges();
+        scheduleRecordingChangeRefresh();
+      });
       doc.addEventListener('visibilitychange', function () {
         if (doc.hidden || !homeIsActive()) stopRecordingChanges();
         else subscribeRecordingChanges();

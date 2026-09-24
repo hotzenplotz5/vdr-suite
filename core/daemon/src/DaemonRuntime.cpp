@@ -104,6 +104,7 @@ int DaemonRuntime::run()
         },
         [this, lastVdrPoll]() mutable {
             publishCompletedRecordingRefreshes();
+            publishRecordingPresentationChanges();
             const auto now = std::chrono::steady_clock::now();
             const bool externalHint = externalVdrChangeHint_.exchange(false);
 

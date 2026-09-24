@@ -23,6 +23,10 @@ const navigationSource = remoteSource.slice(navigationStart, navigationEnd);
 let selectedModule = 'overview';
 let captureListener = null;
 const bubbleListeners = [];
+const eventListeners = new Map();
+const scheduledCallbacks = [];
+const liveListeners = new Map();
+let liveSource = null;
 let scheduledRefreshes = 0;
 let recordingFetches = 0;
 let genreFetches = 0;
@@ -72,9 +76,19 @@ const document = {
     return null;
   },
   addEventListener(type, listener, capture) {
-    if (type !== 'click') return;
-    if (capture === true) captureListener = listener;
-    else bubbleListeners.push(listener);
+    if (type === 'click') {
+      if (capture === true) captureListener = listener;
+      else bubbleListeners.push(listener);
+      return;
+    }
+    const listeners = eventListeners.get(type) || [];
+    listeners.push(listener);
+    eventListeners.set(type, listeners);
+  },
+  dispatchEvent(event) {
+    (eventListeners.get(event && event.type) || [])
+      .forEach(listener => listener(event));
+    return true;
   }
 };
 
@@ -94,6 +108,17 @@ const client = {
   fetchClientRecordingFolder() {
     folderFetches += 1;
     return Promise.resolve({folders: [], recordings: []});
+  },
+  createClientLiveUpdateSource() {
+    liveSource = {
+      onopen: null,
+      onerror: null,
+      addEventListener(type, listener) {
+        liveListeners.set(type, listener);
+      },
+      close() {}
+    };
+    return liveSource;
   }
 };
 
@@ -106,9 +131,14 @@ const window = {
   document,
   console,
   IntersectionObserver,
-  setTimeout() {
+  setTimeout(callback) {
     scheduledRefreshes += 1;
+    if (typeof callback === 'function') scheduledCallbacks.push(callback);
     return scheduledRefreshes;
+  },
+  CustomEvent: function CustomEvent(type, options) {
+    this.type = type;
+    this.detail = options && options.detail;
   },
   VdrSuitePlatform: {
     getSelectedModule() { return selectedModule; },
@@ -158,13 +188,20 @@ assert(
   scheduledRefreshes >= 1,
   'without the navigation fence an existing Home listener would schedule Discovery refresh'
 );
+while (scheduledCallbacks.length) scheduledCallbacks.shift()();
+assert(liveSource, 'the retained Recording Discovery owner must establish its existing recordings feed');
 scheduledRefreshes = 0;
+scheduledCallbacks.length = 0;
 
 vm.runInContext(
   navigationSource + '\ninstallHomeNavigationRetention();',
   context
 );
 assert.strictEqual(typeof captureListener, 'function');
+
+function flushScheduledCallbacks() {
+  while (scheduledCallbacks.length) scheduledCallbacks.shift()();
+}
 
 function assertNoDiscoveryRefetch(prefix) {
   assert.strictEqual(scheduledRefreshes, 0, prefix + ' must not schedule Recording Discovery refresh');
@@ -204,6 +241,51 @@ assert.strictEqual(dispatchHome(brandHome), true);
 assert.strictEqual(selectCount, 2, 'upper Home launcher must delegate exactly once to canonical app navigation');
 assert.strictEqual(selectedModule, 'overview');
 assertNoDiscoveryRefetch('upper Home return');
+
+selectedModule = 'recordings2';
+const update = liveListeners.get('update');
+assert.strictEqual(typeof update, 'function');
+update({
+  data: JSON.stringify({
+    sequenceNumber: 1,
+    backendId: 'default',
+    changedDomains: ['recordings']
+  })
+});
+assert.strictEqual(
+  scheduledRefreshes,
+  0,
+  'a recordings change while Home is inactive must remain pending without hidden refetch'
+);
+
+assert.strictEqual(dispatchHome(homeTab), true);
+assert.strictEqual(selectCount, 3, 'dirty Home return must delegate exactly once');
+assert.strictEqual(selectedModule, 'overview');
+assert(
+  scheduledRefreshes >= 1,
+  'canonical Home resume must schedule the pending recordings refresh'
+);
+flushScheduledCallbacks();
+assert.strictEqual(
+  recordingFetches,
+  1,
+  'feed-backed dirty Home return must refetch Newly Recorded exactly once'
+);
+assert.strictEqual(
+  genreFetches,
+  1,
+  'the same canonical refresh must reproject Recording Genre/Series rails'
+);
+assert.strictEqual(
+  folderFetches,
+  1,
+  'the same canonical refresh must reproject Recording folder rails'
+);
+
+assert(
+  discoverySource.includes('refreshRecordingPresentationDependents'),
+  'recordings invalidation must fan out to retained Continue/History/Recent-Movies projections'
+);
 
 assert(
   discoverySource.includes('loadNewly(client, backendId, generation)'),

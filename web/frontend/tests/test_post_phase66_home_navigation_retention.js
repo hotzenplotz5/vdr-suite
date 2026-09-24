@@ -36,6 +36,10 @@ assert(
   'Home navigation must not bubble into independent Home data refresh listeners'
 );
 assert(
+  remote.includes("'vdr-suite:home-resume'"),
+  'the canonical Home fence must publish one lifecycle signal for retained data owners'
+);
+assert(
   remote.includes("document.addEventListener('click',homeNavigationClick,true)"),
   'the fence must run in capture phase before the existing bubble listeners'
 );
@@ -54,6 +58,7 @@ let selectCount = 0;
 let prevented = 0;
 let stopped = 0;
 let scrolled = 0;
+let resumed = 0;
 const detail = {
   scrollIntoView(options) {
     scrolled += 1;
@@ -68,11 +73,16 @@ const document = {
     assert.strictEqual(capture, true);
     captureListener = listener;
   },
+  dispatchEvent(event) {
+    if (event && event.type === 'vdr-suite:home-resume') resumed += 1;
+    return true;
+  },
   getElementById(id) {
     return id === 'detail-data' ? detail : null;
   }
 };
 const g = {
+  CustomEvent: function CustomEvent(type) { this.type = type; },
   selectModule(moduleName) {
     selectCount += 1;
     assert.strictEqual(moduleName, 'overview');
@@ -101,6 +111,7 @@ assert.strictEqual(selectCount, 1, 'bottom Home must delegate exactly once to ap
 assert.strictEqual(prevented, 1);
 assert.strictEqual(stopped, 1, 'bottom Home must not reach refresh listeners');
 assert.strictEqual(scrolled, 0);
+assert.strictEqual(resumed, 1);
 
 const brandHome = {
   dataset: {brandModule: 'overview'},
@@ -115,6 +126,7 @@ assert.strictEqual(selectCount, 2, 'top Home launcher must delegate exactly once
 assert.strictEqual(prevented, 2);
 assert.strictEqual(stopped, 2, 'top Home launcher must not reach refresh listeners');
 assert.strictEqual(scrolled, 1, 'top Home launcher keeps its existing scroll affordance');
+assert.strictEqual(resumed, 2);
 
 const otherTarget = {closest() { return null; }};
 captureListener({target: otherTarget});

@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -214,6 +215,13 @@ int main()
     runtime.reset();
     runtime.registerController(controller);
 
+    std::vector<std::string> presentationChanges;
+    runtime.registerRecordingPresentationChangedCallback(
+        [&presentationChanges](const std::string& backendId)
+        {
+            presentationChanges.push_back(backendId);
+        });
+
     {
         const ApiResponse response = post(
             runtime,
@@ -308,6 +316,7 @@ int main()
             readback));
         assert(readback.body == "{\"found\":false}");
         assert(provider.creditCalls == 1);
+        assert(presentationChanges.empty());
     }
 
     provider.creditError.clear();
@@ -329,6 +338,8 @@ int main()
         assert(response.body.find("user:real-admin") == std::string::npos);
         assert(response.body.find("/candidate.jpg") == std::string::npos);
         assert(provider.creditCalls == 2);
+        assert(presentationChanges ==
+            std::vector<std::string>{"living-room"});
     }
 
     {
@@ -355,6 +366,8 @@ int main()
         assert(response.body.find("\"castComplete\":true") != std::string::npos);
         assert(response.body.find("\"people\":[]") != std::string::npos);
         assert(provider.creditCalls == 3);
+        assert(presentationChanges ==
+            (std::vector<std::string>{"living-room", "living-room"}));
     }
     provider.emptyCredits = false;
 
@@ -366,6 +379,7 @@ int main()
             "");
         assert(response.statusCode == 401);
         assert(provider.creditCalls == 3);
+        assert(presentationChanges.size() == 2);
     }
 
     {
@@ -374,6 +388,7 @@ int main()
             "/api/backends/living-room/recordings/metadata/withdraw",
             "{\"resourceKey\":\"cache/key\",\"expectedRevision\":9}");
         assert(response.statusCode == 409);
+        assert(presentationChanges.size() == 2);
     }
 
     {
@@ -383,6 +398,9 @@ int main()
             "{\"resourceKey\":\"cache/key\",\"expectedRevision\":1}");
         assert(response.statusCode == 200);
         assert(response.body.find("\"relationshipLocked\":false") != std::string::npos);
+        assert(presentationChanges ==
+            (std::vector<std::string>{
+                "living-room", "living-room", "living-room"}));
     }
 
     {

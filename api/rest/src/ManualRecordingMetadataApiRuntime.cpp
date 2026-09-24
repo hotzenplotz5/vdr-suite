@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <map>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -336,16 +337,36 @@ void ManualRecordingMetadataApiRuntime::registerController(
     controller_ = &controller;
 }
 
+void ManualRecordingMetadataApiRuntime::
+registerRecordingPresentationChangedCallback(
+    RecordingPresentationChangedCallback callback)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    recordingPresentationChangedCallback_ = std::move(callback);
+}
+
 void ManualRecordingMetadataApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     controller_ = nullptr;
+    recordingPresentationChangedCallback_ = {};
 }
 
 MetadataController* ManualRecordingMetadataApiRuntime::controller() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
     return controller_;
+}
+
+void ManualRecordingMetadataApiRuntime::notifyRecordingPresentationChanged(
+    const std::string& backendId) const
+{
+    RecordingPresentationChangedCallback callback;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        callback = recordingPresentationChangedCallback_;
+    }
+    if (callback) callback(backendId);
 }
 
 bool ManualRecordingMetadataApiRuntime::tryHandleGet(
@@ -493,6 +514,10 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
         response = metadata->assignManualRecordingMetadata(
             std::move(selection),
             actorRef);
+        if (response.statusCode >= 200 && response.statusCode < 300)
+        {
+            notifyRecordingPresentationChanged(route.backendId);
+        }
         return true;
     }
 
@@ -503,6 +528,10 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             stringValue(strings, "resourceKey"),
             intValue(integers, "expectedRevision", 0),
             actorRef);
+        if (response.statusCode >= 200 && response.statusCode < 300)
+        {
+            notifyRecordingPresentationChanged(route.backendId);
+        }
         return true;
     }
 

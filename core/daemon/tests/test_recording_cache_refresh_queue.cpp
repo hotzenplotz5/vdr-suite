@@ -1,4 +1,5 @@
 #include "RecordingCacheRefreshQueue.h"
+#include "RecordingPresentationChangeQueue.h"
 
 #include <cassert>
 #include <thread>
@@ -59,4 +60,18 @@ int main()
     queue.request("");
     queue.request("A", 0);
     assert(queue.takePending().empty());
+
+    RecordingPresentationChangeQueue presentation;
+    presentation.request("A");
+    presentation.request("A");
+    std::thread presentationIncoming([&] {
+        presentation.request("B");
+        presentation.request("A");
+    });
+    presentationIncoming.join();
+    assert(presentation.takePending() ==
+        (std::set<std::string>{"A", "B"}));
+    assert(presentation.takePending().empty());
+    presentation.request("");
+    assert(presentation.takePending().empty());
 }
