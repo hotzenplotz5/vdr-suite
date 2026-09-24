@@ -30,6 +30,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
 - [ADR-0058 Media Home](adr/ADR-0058-media-home-responsive-browse-preview.md)
+- [ADR-0063 Mutation Complexity Proportionality and Reuse](adr/ADR-0063-mutation-complexity-proportionality-reuse.md)
 - [ADR Index](adr/index.md)
 
 ## Current verified position
@@ -69,12 +70,19 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Public Timer CREATE admission: POST on the backend-scoped public TimerAssignment
-item now enforces timers.create authorization, browser CSRF, application/json,
-a closed empty JSON action object, strong If-Match and Idempotency-Key before
-the existing backend write policy and accepted atomic admission owner. It
-returns 202 + the durable operation resource/Location. Agent command
-reservation, dispatch activation and native VDR Timer execution remain closed.
+Post-admission Agent handoff review: derive and prove the exact transition from
+the accepted durable Timer CREATE operation/payload into Agent command
+reservation, dispatch claim and activation/pollability without introducing a
+second lifecycle authority or speculative retry. Native VDR Timer CREATE is not
+accepted until an exact candidate reaches that effect and passes real yaVDR
+acceptance.
+
+Architecture guard:
+ADR-0063 now makes mutation complexity proportional to the concrete authority
+and failure model. The Timer CREATE orchestration chain is a high-complexity
+reference case, not a mandatory template for simpler mutations such as native
+Recording marks. Reuse common mutation guarantees; add Timer-like lifecycle
+layers only when their distinct failure/authority responsibility is proven.
 
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
@@ -99,6 +107,9 @@ PR #331 hosted CI run 35943072158 / #9126: SUCCESS (6/6)
 PR #332 -> 1f19726a0b387a7b1de3f078dbf836a51254e724
 PR #332 accepted head c1d156408fd3895a33499635ec5475340d6d049b
 PR #332 hosted CI run 35960066328 / #9130: SUCCESS (6/6)
+PR #333 -> f3363f0ec88db2cbeef6dea24ab4349738094ade
+PR #333 accepted head 2f74fb86aaaf6b969eea5822fb807f7f0002585a
+PR #333 hosted CI run 35964190859 / #9134: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
