@@ -93,12 +93,20 @@ bool DaemonRuntime::initialize()
                 *timerIntentRepository_,
                 *timerAssignmentRepository_,
                 *mutationOperationRepository_);
+    nativeTimerCreateAdmissionService_ =
+        std::make_unique<
+            vdrsuite::timers::NativeTimerCreateAdmissionService>(
+                database_,
+                *timerAssignmentRepository_,
+                *mutationOperationRepository_,
+                *timerAssignmentFulfillmentService_,
+                *nativeTimerCreateOperationPreparationService_);
     nativeTimerCreateDispatchService_ =
         std::make_unique<vdrsuite::timers::NativeTimerCreateDispatchService>(
             *mutationOperationRepository_);
 
     std::cout
-        << "TimerAssignment read, fulfillment and native Timer CREATE preparation runtime initialized"
+        << "TimerAssignment read, fulfillment, atomic native Timer CREATE admission and preparation runtime initialized"
         << std::endl;
 
     if (!RecordingSeriesHierarchyApiRuntime::instance().configured() &&
