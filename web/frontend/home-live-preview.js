@@ -113,6 +113,16 @@
     host.appendChild(status);
   }
 
+  function playbackFailureStatus(playback) {
+    const element = playback && playback.element;
+    if (!element || typeof element.querySelector !== 'function') return '';
+    const status = element.querySelector('.recordings2-playback-status');
+    const message = text(status && status.textContent);
+    if (!message) return '';
+    if (/wird vorbereitet|wird geöffnet|verbunden|warte auf/i.test(message)) return '';
+    return message;
+  }
+
   function preparePreviewElement(playback) {
     const element = playback && playback.element;
     if (!element || typeof element.querySelector !== 'function') return element || null;
@@ -303,11 +313,12 @@
       }
 
       if (!text(sessionId)) {
+        const detail = playbackFailureStatus(playback);
         if (playback && typeof playback.destroy === 'function') {
           try { playback.destroy(); } catch (_) {}
         }
         state.failedToken = token;
-        setPreviewStatus('Live-Vorschau konnte nicht gestartet werden.', true);
+        setPreviewStatus(detail || 'Live-Vorschau konnte nicht gestartet werden.', true);
         return '';
       }
 
