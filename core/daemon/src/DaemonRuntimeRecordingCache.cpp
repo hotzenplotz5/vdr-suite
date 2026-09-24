@@ -316,6 +316,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                         backendRuntimeContext->backendId);
             }
             else {
+                recordingCacheRefreshQueue_.failed(backendRuntimeContext->backendId);
                 vdrRecordingCacheRepository_->markRefreshFailed(
                     backendRuntimeContext->backendId,
                     "repository replace failed");
@@ -333,6 +334,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 << std::endl;
         }
         catch (const std::exception& error) {
+            recordingCacheRefreshQueue_.failed(backendRuntimeContext->backendId);
             vdrRecordingCacheRepository_->markRefreshFailed(
                 backendRuntimeContext->backendId,
                 error.what());
@@ -345,6 +347,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 << std::endl;
         }
         catch (...) {
+            recordingCacheRefreshQueue_.failed(backendRuntimeContext->backendId);
             vdrRecordingCacheRepository_->markRefreshFailed(
                 backendRuntimeContext->backendId,
                 "unknown exception");

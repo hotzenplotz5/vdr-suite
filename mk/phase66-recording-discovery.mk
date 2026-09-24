@@ -6,6 +6,7 @@ test-phase66-recording-discovery-frontend:
 	node web/frontend/tests/test_phase66_recording_discovery.js
 	node web/frontend/tests/test_phase66_series_return_scroll.js
 	node web/frontend/tests/test_phase66_home_initial_load.js
+	node web/frontend/tests/test_home_recording_change_feed.js
 	node web/frontend/tests/test_phase66_series_native_group_priority.js
 	node web/frontend/tests/test_phase66_recording_discovery_progressive.js
 	node web/frontend/tests/test_post_phase66_recording_discovery_performance.js

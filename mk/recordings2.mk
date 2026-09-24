@@ -126,3 +126,4 @@ test-fast: test-recording-cache-refresh-queue
 test-recording-cache-refresh-queue:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/daemon/include core/daemon/tests/test_recording_cache_refresh_queue.cpp -o $(BUILD_DIR)/test_recording_cache_refresh_queue
 	$(BUILD_DIR)/test_recording_cache_refresh_queue
+	python3 tools/check_recording_cache_failure_recovery.py
