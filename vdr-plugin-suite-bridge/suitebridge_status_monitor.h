@@ -7,6 +7,7 @@
 
 #include <atomic>
 
+#include <vdr/recording.h>
 #include <vdr/status.h>
 
 class SuiteBridgeStatusMonitor final : public cStatus {
@@ -16,6 +17,7 @@ public:
   void Activate() noexcept;
   void Deactivate() noexcept;
   bool IsActive() const noexcept;
+  void ObserveRecordingListState() noexcept;
 
   unsigned long long EventCount(
       SuiteBridgeStatusEventKind kind) const noexcept;
@@ -73,6 +75,7 @@ private:
   std::atomic<bool> active_;
   SuiteBridgeStatusEvents events_;
   SuiteBridgeOsdState osdState_;
+  cStateKey recordingsStateKey_;
 };
 
 #endif

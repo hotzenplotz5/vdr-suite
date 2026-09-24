@@ -59,14 +59,14 @@ if not errors:
         "test-epg-type-snapshot-contract:",
         "test-recording-identity:",
         "test-recording-metadata-contract:",
-        'test "$(VERSION)" = "0.14.0"',
+        'test "$(VERSION)" = "0.14.1"',
     )
     for fragment in make_fragments:
         if fragment not in makefile:
             errors.append(f"missing Makefile contract: {fragment}")
 
     source_fragments = (
-        'inline constexpr const char *Version = "0.14.0";',
+        'inline constexpr const char *Version = "0.14.1";',
         "bool cPluginSuiteBridge::Initialize(void)",
         "bool cPluginSuiteBridge::Start(void)",
         "void cPluginSuiteBridge::Stop(void)",

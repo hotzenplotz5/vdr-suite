@@ -15,6 +15,7 @@ public:
       bool monitorActive,
       unsigned long long channelSwitchCount,
       unsigned long long recordingCount,
+      unsigned long long recordingListCount,
       unsigned long long replayingCount,
       unsigned long long timerChangeCount,
       unsigned long long marksModifiedCount,
@@ -26,12 +27,13 @@ public:
 
   static constexpr unsigned int SchemaVersion() noexcept
   {
-    return 3;
+    return 4;
   }
 
   bool MonitorActive() const noexcept;
   unsigned long long ChannelSwitchCount() const noexcept;
   unsigned long long RecordingCount() const noexcept;
+  unsigned long long RecordingListCount() const noexcept;
   unsigned long long ReplayingCount() const noexcept;
   unsigned long long TimerChangeCount() const noexcept;
   unsigned long long MarksModifiedCount() const noexcept;
@@ -45,6 +47,7 @@ private:
   bool monitorActive_;
   unsigned long long channelSwitchCount_;
   unsigned long long recordingCount_;
+  unsigned long long recordingListCount_;
   unsigned long long replayingCount_;
   unsigned long long timerChangeCount_;
   unsigned long long marksModifiedCount_;

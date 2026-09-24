@@ -90,8 +90,8 @@ std::string discovery()
         "\"plugin_name\":\"suitebridge\","
         "\"plugin_version\":\"0.10.0\","
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":3,"
-        "\"local_contract_schema\":3,"
+        "\"snapshot_schema\":4,"
+        "\"local_contract_schema\":4,"
         "\"capabilities\":["
         "{\"id\":\"snapshots\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
@@ -101,13 +101,14 @@ std::string discovery()
 std::string snapshot()
 {
     return
-        "{\"contract_schema\":3,"
+        "{\"contract_schema\":4,"
         "\"capability_schema\":1,"
-        "\"snapshot_schema\":3,"
+        "\"snapshot_schema\":4,"
         "\"active\":true,"
         "\"total\":0,"
         "\"channel_switch\":0,"
         "\"recording\":0,"
+        "\"recording_list\":0,"
         "\"replaying\":0,"
         "\"timer_change\":0,"
         "\"marks_modified\":0,"

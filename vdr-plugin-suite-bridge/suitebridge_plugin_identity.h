@@ -4,7 +4,7 @@
 namespace SuiteBridgePluginIdentity {
 
 inline constexpr const char *Name = "suitebridge";
-inline constexpr const char *Version = "0.14.0";
+inline constexpr const char *Version = "0.14.1";
 inline constexpr const char *Description =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 

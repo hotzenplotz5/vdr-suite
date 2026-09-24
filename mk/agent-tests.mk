@@ -82,6 +82,11 @@ test-suite-bridge-embedded-runtime:
 test-suite-bridge-daemon-runtime-wiring:
 	python3 tools/check_suite_bridge_daemon_runtime_wiring.py
 
+.PHONY: test-suite-bridge-recording-list-hint
+
+test-suite-bridge-recording-list-hint:
+	python3 tools/check_suite_bridge_recording_list_hint.py
+
 test-sb10d-live-acceptance-contract:
 	python3 tools/check_sb10d_live_acceptance_contract.py
 

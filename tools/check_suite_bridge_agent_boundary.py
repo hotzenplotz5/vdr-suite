@@ -52,8 +52,8 @@ REQUIRED_HANDSHAKE_FRAGMENTS = [
     "snapshotReply.replyCode != 900",
     "discovery.discoverySchema != 1",
     "discovery.capabilitySchema != 1",
-    "discovery.snapshotSchema != 3",
-    "discovery.localContractSchema != 3",
+    "discovery.snapshotSchema != 4",
+    "discovery.localContractSchema != 4",
     "result.mutationsEnabled = false",
 ]
 

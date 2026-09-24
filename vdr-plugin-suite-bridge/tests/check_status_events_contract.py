@@ -59,6 +59,7 @@ required_content = (
     "enum class SuiteBridgeStatusEventKind",
     "SuiteBridgeStatusEventKind::ChannelSwitch",
     "SuiteBridgeStatusEventKind::Recording",
+    "SuiteBridgeStatusEventKind::RecordingList",
     "SuiteBridgeStatusEventKind::Replaying",
     "SuiteBridgeStatusEventKind::TimerChange",
     "SuiteBridgeStatusEventKind::MarksModified",
@@ -78,6 +79,8 @@ required_content = (
     "void Replaying(",
     "void TimerChange(",
     "void MarksModified(",
+    "ObserveRecordingListState() noexcept",
+    "cRecordings::GetRecordingsRead(recordingsStateKey_, 1)",
     "events_.Record(kind)",
 )
 

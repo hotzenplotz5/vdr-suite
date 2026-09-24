@@ -10,6 +10,7 @@
 enum class SuiteBridgeStatusEventKind : std::size_t {
   ChannelSwitch,
   Recording,
+  RecordingList,
   Replaying,
   TimerChange,
   MarksModified,

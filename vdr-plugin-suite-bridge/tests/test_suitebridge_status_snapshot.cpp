@@ -9,7 +9,7 @@
 int main()
 {
   static_assert(!std::is_copy_assignable<SuiteBridgeStatusSnapshot>::value);
-  static_assert(SuiteBridgeStatusSnapshot::SchemaVersion() == 3);
+  static_assert(SuiteBridgeStatusSnapshot::SchemaVersion() == 4);
   static_assert(SuiteBridgeStatusSnapshot::CounterEpochLength() == 32);
 
   SuiteBridgeStatusEvents events;
@@ -23,6 +23,7 @@ int main()
   events.Record(SuiteBridgeStatusEventKind::ChannelSwitch);
   events.Record(SuiteBridgeStatusEventKind::ChannelSwitch);
   events.Record(SuiteBridgeStatusEventKind::Recording);
+  events.Record(SuiteBridgeStatusEventKind::RecordingList);
   events.Record(SuiteBridgeStatusEventKind::Replaying);
   events.Record(SuiteBridgeStatusEventKind::TimerChange);
   events.Record(SuiteBridgeStatusEventKind::MarksModified);
@@ -31,10 +32,11 @@ int main()
   assert(active.MonitorActive());
   assert(active.ChannelSwitchCount() == 2);
   assert(active.RecordingCount() == 1);
+  assert(active.RecordingListCount() == 1);
   assert(active.ReplayingCount() == 1);
   assert(active.TimerChangeCount() == 1);
   assert(active.MarksModifiedCount() == 1);
-  assert(active.TotalCount() == 6);
+  assert(active.TotalCount() == 7);
   assert(std::strcmp(active.CounterEpoch(), initial.CounterEpoch()) == 0);
   assert(!active.CounterOverflow());
 
@@ -45,16 +47,17 @@ int main()
   assert(active.ChannelSwitchCount() == 2);
   assert(active.TimerChangeCount() == 1);
   assert(active.MarksModifiedCount() == 1);
-  assert(active.TotalCount() == 6);
+  assert(active.TotalCount() == 7);
 
   const SuiteBridgeStatusSnapshot later = events.CaptureSnapshot(false);
   assert(!later.MonitorActive());
   assert(later.ChannelSwitchCount() == 3);
   assert(later.RecordingCount() == 1);
+  assert(later.RecordingListCount() == 1);
   assert(later.ReplayingCount() == 1);
   assert(later.TimerChangeCount() == 2);
   assert(later.MarksModifiedCount() == 2);
-  assert(later.TotalCount() == 9);
+  assert(later.TotalCount() == 10);
   assert(std::strcmp(later.CounterEpoch(), initial.CounterEpoch()) == 0);
   assert(!later.CounterOverflow());
 
@@ -65,6 +68,7 @@ int main()
       true,
       maximum,
       1,
+      0,
       0,
       0,
       0,
@@ -79,14 +83,16 @@ int main()
       false,
       1,
       2,
+      6,
       3,
       4,
       5,
       epoch,
       true);
 
+  assert(explicitOverflow.RecordingListCount() == 6);
   assert(explicitOverflow.MarksModifiedCount() == 5);
-  assert(explicitOverflow.TotalCount() == 15);
+  assert(explicitOverflow.TotalCount() == 21);
   assert(explicitOverflow.CounterOverflow());
 
   return 0;

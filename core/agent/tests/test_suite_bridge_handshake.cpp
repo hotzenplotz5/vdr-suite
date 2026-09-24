@@ -68,8 +68,8 @@ SuiteBridgeCommandReply transportFailure(
 std::string discovery(
     const std::uint64_t discoverySchema = 1,
     const std::uint64_t capabilitySchema = 1,
-    const std::uint64_t snapshotSchema = 3,
-    const std::uint64_t localContractSchema = 3,
+    const std::uint64_t snapshotSchema = 4,
+    const std::uint64_t localContractSchema = 4,
     const std::string& capabilities =
         "[{\"id\":\"lifecycle\",\"state\":\"available\"},"
         "{\"id\":\"status-events\",\"state\":\"available\"},"
@@ -98,8 +98,8 @@ std::string reorderedDiscovery()
         "{\"id\":\"future-extra\",\"state\":\"available\"},"
         "{\"id\":\"local-contract\",\"state\":\"available\"},"
         "{\"id\":\"mutations\",\"state\":\"disabled\"}],"
-        "\"local_contract_schema\":3,"
-        "\"snapshot_schema\":3,"
+        "\"local_contract_schema\":4,"
+        "\"snapshot_schema\":4,"
         "\"plugin_version\":\"0.10.0\","
         "\"capability_schema\":1,"
         "\"plugin_name\":\"suitebridge\","
@@ -116,10 +116,11 @@ std::string snapshot(
     const std::uint64_t recording = 0,
     const std::uint64_t replaying = 0,
     const std::uint64_t timerChange = 0,
-    const std::uint64_t marksModified = 0)
+    const std::uint64_t marksModified = 0,
+    const std::uint64_t recordingList = 0)
 {
     const std::uint64_t total =
-        channelSwitch + recording + replaying + timerChange + marksModified;
+        channelSwitch + recording + recordingList + replaying + timerChange + marksModified;
 
     return
         "{\"contract_schema\":3"
@@ -129,6 +130,7 @@ std::string snapshot(
         ",\"total\":" + std::to_string(total) +
         ",\"channel_switch\":" + std::to_string(channelSwitch) +
         ",\"recording\":" + std::to_string(recording) +
+        ",\"recording_list\":" + std::to_string(recordingList) +
         ",\"replaying\":" + std::to_string(replaying) +
         ",\"timer_change\":" + std::to_string(timerChange) +
         ",\"marks_modified\":" + std::to_string(marksModified) +
@@ -168,8 +170,8 @@ void testSuccessfulHandshake()
     assert(result.discovery.pluginVersion == "0.10.0");
     assert(result.discovery.discoverySchema == 1);
     assert(result.discovery.capabilitySchema == 1);
-    assert(result.discovery.snapshotSchema == 3);
-    assert(result.discovery.localContractSchema == 3);
+    assert(result.discovery.snapshotSchema == 4);
+    assert(result.discovery.localContractSchema == 4);
     assert(result.discovery.capabilityAvailable("snapshots"));
     assert(result.discovery.capabilityAvailable("local-contract"));
     assert(result.discovery.capabilityState("missing") ==
@@ -177,6 +179,7 @@ void testSuccessfulHandshake()
     assert(result.baseline.active);
     assert(result.baseline.total == 4);
     assert(result.baseline.channelSwitch == 4);
+    assert(result.baseline.recordingList == 0);
     assert(result.baseline.marksModified == 0);
     assert(!result.baseline.counterOverflow);
     assert(transport.commands.size() == 2);
@@ -215,7 +218,7 @@ void testMutationFailClosed()
         "{\"id\":\"local-contract\",\"state\":\"available\"}]";
 
     FakeTransport absentTransport({
-        reply(900, discovery(1, 1, 3, 3, withoutMutations)),
+        reply(900, discovery(1, 1, 4, 4, withoutMutations)),
         reply(900, snapshot())
     });
 
@@ -231,7 +234,7 @@ void testMutationFailClosed()
         "{\"id\":\"mutations\",\"state\":\"available\"}]";
 
     FakeTransport availableTransport({
-        reply(900, discovery(1, 1, 3, 3, availableMutations)),
+        reply(900, discovery(1, 1, 4, 4, availableMutations)),
         reply(900, snapshot())
     });
 
@@ -282,13 +285,13 @@ void testSchemaFailuresStopBeforeSnapshot()
     };
 
     const std::vector<Case> cases = {
-        {discovery(2, 1, 3, 3),
+        {discovery(2, 1, 4, 4),
          SuiteBridgeHandshakeStatus::IncompatibleDiscoverySchema},
-        {discovery(1, 2, 3, 3),
+        {discovery(1, 2, 4, 4),
          SuiteBridgeHandshakeStatus::IncompatibleCapabilitySchema},
-        {discovery(1, 1, 2, 3),
+        {discovery(1, 1, 2, 4),
          SuiteBridgeHandshakeStatus::IncompatibleSnapshotSchema},
-        {discovery(1, 1, 3, 2),
+        {discovery(1, 1, 4, 2),
          SuiteBridgeHandshakeStatus::IncompatibleLocalContractSchema}
     };
 
@@ -342,7 +345,7 @@ void testDiscoveryPayloadFailures()
         "{\"id\":\"local-contract\",\"state\":\"available\"}]";
 
     FakeTransport unavailableCapability({
-        reply(900, discovery(1, 1, 3, 3, unknownSnapshots))
+        reply(900, discovery(1, 1, 4, 4, unknownSnapshots))
     });
     assert(perform(unavailableCapability).status ==
            SuiteBridgeHandshakeStatus::RequiredCapabilityUnavailable);
@@ -369,7 +372,7 @@ void testSnapshotFailures()
 
     FakeTransport invalid({
         reply(900, discovery()),
-        reply(900, "{\"contract_schema\":3}")
+        reply(900, "{\"contract_schema\":4}")
     });
     assert(perform(invalid).status ==
            SuiteBridgeHandshakeStatus::InvalidSnapshotPayload);
@@ -387,9 +390,9 @@ void testSnapshotFailures()
         reply(900, discovery()),
         reply(
             900,
-            "{\"contract_schema\":3,\"capability_schema\":1,"
-            "\"snapshot_schema\":3,\"active\":true,\"total\":5,"
-            "\"channel_switch\":4,\"recording\":0,\"replaying\":0,"
+            "{\"contract_schema\":4,\"capability_schema\":1,"
+            "\"snapshot_schema\":4,\"active\":true,\"total\":5,"
+            "\"channel_switch\":4,\"recording\":0,\"recording_list\":0,\"replaying\":0,"
             "\"timer_change\":0,\"marks_modified\":0,"
             "\"counter_epoch\":\"26f5b0fc557edf7767a4f2ea3a02584d\","
             "\"counter_overflow\":false}")

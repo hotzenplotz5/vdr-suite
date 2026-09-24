@@ -6,7 +6,8 @@
 #include <vdr/tools.h>
 
 SuiteBridgeStatusMonitor::SuiteBridgeStatusMonitor() noexcept
-    : active_(false)
+    : active_(false),
+      recordingsStateKey_(true)
 {
 }
 
@@ -34,9 +35,10 @@ void SuiteBridgeStatusMonitor::Deactivate() noexcept
   const SuiteBridgeStatusSnapshot snapshot = events_.CaptureSnapshot(false);
 
   isyslog(
-      "suitebridge: status-monitor state=inactive channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
+      "suitebridge: status-monitor state=inactive channel-switch=%llu recording=%llu recording-list=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
       snapshot.ChannelSwitchCount(),
       snapshot.RecordingCount(),
+      snapshot.RecordingListCount(),
       snapshot.ReplayingCount(),
       snapshot.TimerChangeCount(),
       snapshot.CounterEpoch(),
@@ -48,6 +50,24 @@ void SuiteBridgeStatusMonitor::Deactivate() noexcept
 bool SuiteBridgeStatusMonitor::IsActive() const noexcept
 {
   return active_.load(std::memory_order_acquire);
+}
+
+void SuiteBridgeStatusMonitor::ObserveRecordingListState() noexcept
+{
+  if (!IsActive()) {
+    return;
+  }
+
+  const cRecordings *recordings =
+      cRecordings::GetRecordingsRead(recordingsStateKey_, 1);
+
+  if (recordings == nullptr) {
+    return;
+  }
+
+  (void)recordings;
+  recordingsStateKey_.Remove();
+  RecordEvent(SuiteBridgeStatusEventKind::RecordingList);
 }
 
 unsigned long long SuiteBridgeStatusMonitor::EventCount(
@@ -80,12 +100,13 @@ void SuiteBridgeStatusMonitor::LogSnapshot(
     const SuiteBridgeStatusSnapshot &snapshot) const noexcept
 {
   isyslog(
-      "suitebridge: status-snapshot schema=%u active=%s total=%llu channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
+      "suitebridge: status-snapshot schema=%u active=%s total=%llu channel-switch=%llu recording=%llu recording-list=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
       SuiteBridgeStatusSnapshot::SchemaVersion(),
       snapshot.MonitorActive() ? "true" : "false",
       snapshot.TotalCount(),
       snapshot.ChannelSwitchCount(),
       snapshot.RecordingCount(),
+      snapshot.RecordingListCount(),
       snapshot.ReplayingCount(),
       snapshot.TimerChangeCount(),
       snapshot.CounterEpoch(),

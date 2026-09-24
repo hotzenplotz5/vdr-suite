@@ -99,7 +99,8 @@ struct BackendRuntimeContext
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
-    RecordingMarksChangeTracker recordingMarksChangeTracker;
+    SuiteBridgeCounterChangeTracker recordingMarksChangeTracker;
+    SuiteBridgeCounterChangeTracker recordingListChangeTracker;
 
     SuiteBridgeHbbtvResolver* ensureHbbtvResolver()
     {

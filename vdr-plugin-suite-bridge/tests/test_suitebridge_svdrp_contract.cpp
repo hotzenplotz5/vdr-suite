@@ -15,12 +15,13 @@ int main()
   static_assert(SuiteBridgeSvdrpReply::SuccessReplyCode() == 900);
   static_assert(SuiteBridgeSvdrpReply::InvalidOptionReplyCode() == 504);
   static_assert(SuiteBridgeSvdrpReply::PayloadUnavailableReplyCode() == 451);
-  static_assert(SuiteBridgeLocalContractPayload::SchemaVersion() == 3);
+  static_assert(SuiteBridgeLocalContractPayload::SchemaVersion() == 4);
 
   const SuiteBridgeStatusSnapshot snapshot(
       true,
       12,
       2,
+      6,
       3,
       4,
       5,
@@ -33,7 +34,7 @@ int main()
       1,
       snapshot);
   const char *expected =
-      "{\"contract_schema\":3,\"capability_schema\":1,\"snapshot_schema\":3,\"active\":true,\"total\":26,\"channel_switch\":12,\"recording\":2,\"replaying\":3,\"timer_change\":4,\"marks_modified\":5,\"counter_epoch\":\"0123456789abcdef0123456789abcdef\",\"counter_overflow\":false}";
+      "{\"contract_schema\":4,\"capability_schema\":1,\"snapshot_schema\":4,\"active\":true,\"total\":32,\"channel_switch\":12,\"recording\":2,\"recording_list\":6,\"replaying\":3,\"timer_change\":4,\"marks_modified\":5,\"counter_epoch\":\"0123456789abcdef0123456789abcdef\",\"counter_overflow\":false}";
 
   assert(reply.Handled());
   assert(reply.HasPayload());

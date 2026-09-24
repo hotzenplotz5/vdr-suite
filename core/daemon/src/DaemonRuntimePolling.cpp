@@ -41,15 +41,31 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                     lifecycleNow);
             }
 
-            if (observation.hasBaseline &&
-                backendRuntimeContext->recordingMarksChangeTracker.observe(
-                    observation.baseline.counterEpoch,
-                    observation.baseline.marksModified,
+            if (observation.hasBaseline) {
+                const bool snapshotCurrent =
                     observation.state ==
-                        vdrsuite::agent::SuiteBridgeObservationState::SnapshotCurrent,
-                    observation.baseline.counterOverflow)) {
-                readyChanges.emplace_back(
-                    VdrChangeType::RecordingMarksChanged);
+                    vdrsuite::agent::SuiteBridgeObservationState::SnapshotCurrent;
+
+                if (backendRuntimeContext->recordingListChangeTracker.observe(
+                        observation.baseline.counterEpoch,
+                        observation.baseline.recordingList,
+                        snapshotCurrent,
+                        observation.baseline.counterOverflow)) {
+                    // SuiteBridge is an additional native dirty hint only.
+                    // The cache worker remains the sole inventory reader/writer,
+                    // and completion is published only after a successful commit.
+                    recordingCacheRefreshQueue_.request(
+                        backendRuntimeContext->backendId);
+                }
+
+                if (backendRuntimeContext->recordingMarksChangeTracker.observe(
+                        observation.baseline.counterEpoch,
+                        observation.baseline.marksModified,
+                        snapshotCurrent,
+                        observation.baseline.counterOverflow)) {
+                    readyChanges.emplace_back(
+                        VdrChangeType::RecordingMarksChanged);
+                }
             }
         }
 

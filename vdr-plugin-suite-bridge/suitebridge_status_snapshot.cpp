@@ -27,6 +27,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
     bool monitorActive,
     unsigned long long channelSwitchCount,
     unsigned long long recordingCount,
+    unsigned long long recordingListCount,
     unsigned long long replayingCount,
     unsigned long long timerChangeCount,
     unsigned long long marksModifiedCount,
@@ -35,6 +36,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
     : monitorActive_(monitorActive),
       channelSwitchCount_(channelSwitchCount),
       recordingCount_(recordingCount),
+      recordingListCount_(recordingListCount),
       replayingCount_(replayingCount),
       timerChangeCount_(timerChangeCount),
       marksModifiedCount_(marksModifiedCount),
@@ -44,6 +46,7 @@ SuiteBridgeStatusSnapshot::SuiteBridgeStatusSnapshot(
 {
   AddSaturating(channelSwitchCount_, totalCount_, counterOverflow_);
   AddSaturating(recordingCount_, totalCount_, counterOverflow_);
+  AddSaturating(recordingListCount_, totalCount_, counterOverflow_);
   AddSaturating(replayingCount_, totalCount_, counterOverflow_);
   AddSaturating(timerChangeCount_, totalCount_, counterOverflow_);
   AddSaturating(marksModifiedCount_, totalCount_, counterOverflow_);
@@ -84,6 +87,11 @@ unsigned long long SuiteBridgeStatusSnapshot::ChannelSwitchCount() const noexcep
 unsigned long long SuiteBridgeStatusSnapshot::RecordingCount() const noexcept
 {
   return recordingCount_;
+}
+
+unsigned long long SuiteBridgeStatusSnapshot::RecordingListCount() const noexcept
+{
+  return recordingListCount_;
 }
 
 unsigned long long SuiteBridgeStatusSnapshot::ReplayingCount() const noexcept

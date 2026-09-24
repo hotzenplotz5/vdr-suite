@@ -3,12 +3,12 @@
 #include <cstdint>
 #include <string>
 
-class RecordingMarksChangeTracker final
+class SuiteBridgeCounterChangeTracker final
 {
 public:
     bool observe(
         const std::string& counterEpoch,
-        const std::uint64_t marksModified,
+        const std::uint64_t counterValue,
         const bool snapshotCurrent,
         const bool counterOverflow)
     {
@@ -42,16 +42,16 @@ public:
         {
             initialized_ = true;
             counterEpoch_ = counterEpoch;
-            consumedMarksModified_ = marksModified;
+            consumedCounter_ = counterValue;
             return false;
         }
 
-        if (marksModified <= consumedMarksModified_)
+        if (counterValue <= consumedCounter_)
         {
             return false;
         }
 
-        consumedMarksModified_ = marksModified;
+        consumedCounter_ = counterValue;
         return true;
     }
 
@@ -59,5 +59,7 @@ private:
     bool initialized_ = false;
     std::string counterEpoch_;
     std::string blockedEpoch_;
-    std::uint64_t consumedMarksModified_ = 0;
+    std::uint64_t consumedCounter_ = 0;
 };
+
+using RecordingMarksChangeTracker = SuiteBridgeCounterChangeTracker;

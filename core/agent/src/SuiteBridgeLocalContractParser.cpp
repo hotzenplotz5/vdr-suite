@@ -871,6 +871,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
     bool totalSeen = false;
     bool channelSwitchSeen = false;
     bool recordingSeen = false;
+    bool recordingListSeen = false;
     bool replayingSeen = false;
     bool timerChangeSeen = false;
     bool marksModifiedSeen = false;
@@ -944,6 +945,12 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
                      cursor.parseUnsigned(value.recording);
             recordingSeen = true;
         }
+        else if (key == "recording_list")
+        {
+            parsed = !recordingListSeen &&
+                     cursor.parseUnsigned(value.recordingList);
+            recordingListSeen = true;
+        }
         else if (key == "replaying")
         {
             parsed = !replayingSeen &&
@@ -1015,6 +1022,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
         !totalSeen ||
         !channelSwitchSeen ||
         !recordingSeen ||
+        !recordingListSeen ||
         !replayingSeen ||
         !timerChangeSeen ||
         !marksModifiedSeen ||
@@ -1036,6 +1044,7 @@ SuiteBridgeSnapshotParseResult SuiteBridgeLocalContractParser::parseSnapshot(
     std::uint64_t calculatedTotal = 0;
     calculatedTotal = saturatingAdd(calculatedTotal, value.channelSwitch);
     calculatedTotal = saturatingAdd(calculatedTotal, value.recording);
+    calculatedTotal = saturatingAdd(calculatedTotal, value.recordingList);
     calculatedTotal = saturatingAdd(calculatedTotal, value.replaying);
     calculatedTotal = saturatingAdd(calculatedTotal, value.timerChange);
     calculatedTotal = saturatingAdd(calculatedTotal, value.marksModified);

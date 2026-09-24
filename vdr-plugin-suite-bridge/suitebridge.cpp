@@ -144,6 +144,11 @@ void cPluginSuiteBridge::Stop(void)
       SuiteBridgePluginIdentity::Version);
 }
 
+void cPluginSuiteBridge::MainThreadHook(void)
+{
+  statusMonitor_.ObserveRecordingListState();
+}
+
 const char *cPluginSuiteBridge::MainMenuEntry(void)
 {
   return nullptr;

@@ -22,7 +22,9 @@
 #include "suitebridge_teletext_adapter.h"
 #include "suitebridge_teletext_command.h"
 
+#define MUTE_DEPRECATED_MAINTHREADHOOK
 #include <vdr/plugin.h>
+#undef MUTE_DEPRECATED_MAINTHREADHOOK
 
 class cPluginSuiteBridge final : public cPlugin {
 public:
@@ -35,6 +37,7 @@ public:
   bool Initialize(void) override;
   bool Start(void) override;
   void Stop(void) override;
+  void MainThreadHook(void) override;
 
   const char *MainMenuEntry(void) override;
   const char **SVDRPHelpPages(void) override;
