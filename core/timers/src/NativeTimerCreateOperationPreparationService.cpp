@@ -193,9 +193,7 @@ NativeTimerCreateOperationPreparationService::prepareImpl(
         ? operationRepository_.reserveWithPayloadInCurrentTransaction(
             operation,
             durablePayload)
-        : operationRepository_.reserveWithPayload(
-            operation,
-            durablePayload);
+        : operationRepository_.reserveWithPayload(operation, durablePayload);
     switch (reserved.status)
     {
         case MutationOperationRepositoryStatus::ok:
