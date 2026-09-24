@@ -160,10 +160,14 @@ assert(source.includes('loadNewly(client, backendId, generation, {'));
 assert(source.includes('loadGenres(client, backendId, generation, {'));
 assert(source.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));
 assert(source.includes('loadFolders(client, backendId, generation, {'));
-assert(source.includes('parallelHomeResume'));
-assert(source.includes('includeSeries: !parallelSeries'));
-assert(source.includes('state.seriesAvailable === true'));
 assert(source.includes('retainVisible: true'));
+assert(!source.includes('parallelHomeResume'));
+assert(!source.includes('includeSeries'));
+assert(!source.includes('state.seriesAvailable'));
+assert(!source.includes('recordingRefreshBusy'));
+const genreLoad = functionBody('loadGenres', 'scheduleRandomFolderInline');
+assert(!genreLoad.includes('loadSeries('),
+  'Genres must not own or await Series refresh work');
 assert(source.includes("'Neu aufgenommene Inhalte sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Genres sind vorübergehend nicht verfügbar.'"));
 assert(source.includes("'Aufnahmeordner sind vorübergehend nicht verfügbar.'"));
