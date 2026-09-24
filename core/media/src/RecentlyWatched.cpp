@@ -17,9 +17,11 @@ bool validScope(
 
 RecentlyWatchedService::RecentlyWatchedService(
     RecentlyWatchedRepository& repository,
-    RecordingResolver resolver)
+    RecordingIdResolver idResolver,
+    RecordingNativeResolver nativeResolver)
     : repository_(repository),
-      resolver_(std::move(resolver))
+      idResolver_(std::move(idResolver)),
+      nativeResolver_(std::move(nativeResolver))
 {
 }
 
@@ -40,13 +42,15 @@ bool RecentlyWatchedService::recordActivity(
         return false;
     }
 
-    const auto current = resolver_ ? resolver_(backendId, recordingId) : std::nullopt;
-    if (!current.has_value()) return false;
+    const auto current =
+        idResolver_ ? idResolver_(backendId, recordingId) : std::nullopt;
+    if (!current.has_value() || current->backendNativeId.empty()) return false;
 
     RecentlyWatchedState state;
     state.actorId = actorId;
     state.backendId = backendId;
     state.recordingId = recordingId;
+    state.backendNativeId = current->backendNativeId;
     state.positionSeconds = positionKnown ? positionSeconds : 0;
     state.positionKnown = positionKnown;
     state.sourceEvidence = CanonicalPlaybackEvidence;
@@ -80,7 +84,14 @@ std::vector<RecentlyWatchedItem> RecentlyWatchedService::list(
     items.reserve(states.size());
 
     for (const auto& state : states) {
-        const auto current = resolver_ ? resolver_(state.backendId, state.recordingId) : std::nullopt;
+        if (state.backendNativeId.empty()) {
+            repository_.remove(state.actorId, state.backendId, state.recordingId);
+            continue;
+        }
+
+        const auto current = nativeResolver_
+            ? nativeResolver_(state.backendId, state.backendNativeId)
+            : std::nullopt;
         if (!current.has_value()) {
             repository_.remove(state.actorId, state.backendId, state.recordingId);
             continue;

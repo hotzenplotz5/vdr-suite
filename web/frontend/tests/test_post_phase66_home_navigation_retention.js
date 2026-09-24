@@ -9,6 +9,7 @@ const frontendRoot = path.join(__dirname, '..');
 const repoRoot = path.join(frontendRoot, '..', '..');
 const remote = fs.readFileSync(path.join(frontendRoot, 'modules', 'remote.js'), 'utf8');
 const appSource = fs.readFileSync(path.join(frontendRoot, 'app.js'), 'utf8');
+const epgSource = fs.readFileSync(path.join(frontendRoot, 'epg-cache.js'), 'utf8');
 const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
 const continueSource = fs.readFileSync(path.join(frontendRoot, 'home-continue-watching.js'), 'utf8');
 const historySource = fs.readFileSync(path.join(frontendRoot, 'home-recently-watched.js'), 'utf8');
@@ -48,6 +49,26 @@ assert(
 assert(
   !remote.includes("'vdr-suite:home-resume'"),
   'the capture fence must not duplicate app-owned Home lifecycle publication'
+);
+assert(
+  appSource.includes('function shouldPublishHomeResume(previousModule)'),
+  'the app shell must distinguish real Home entry from same-Home data refresh'
+);
+assert(
+  !epgSource.includes("selectedModule === 'overview' && typeof loadBackendDetails === 'function'"),
+  'snapshot polling must not restart the whole Home lifecycle'
+);
+assert(
+  epgSource.includes("domains.has('channels')") &&
+    epgSource.includes("typeof hero.refresh === 'function'") &&
+    epgSource.includes("domains.has('events')") &&
+    epgSource.includes("typeof hero.refreshPrograms === 'function'"),
+  'Home snapshot polling must refresh only the affected Live Hero owner'
+);
+assert(
+  heroSource.includes('channelLoadInFlight') &&
+    heroSource.includes('refreshPrograms: () => sync(false, {'),
+  'Live Hero must coalesce channel reads and expose targeted programme revalidation'
 );
 assert(discoverySource.includes('Promise.allSettled(loads)'));
 assert(discoverySource.includes("loadSeries(client, backendId, generation, [{id: 'series'}]"));

@@ -235,19 +235,6 @@ std::string manualMetadataPosterUrl(
         std::to_string(assignment.revision);
 }
 
-bool isContinueWatchingRecording(
-    const RecentlyWatchedItem& item,
-    const std::vector<ContinueWatchingItem>& continueWatchingItems)
-{
-    for (const auto& current : continueWatchingItems) {
-        if (current.recording.backendId == item.recording.backendId &&
-            current.recording.recordingId == item.recording.recordingId) {
-            return true;
-        }
-    }
-    return false;
-}
-
 std::string serializeRecording(const VdrRecording& recording)
 {
     std::ostringstream out;
@@ -352,7 +339,6 @@ std::string serializeContinueWatching(
 
 std::string serializeRecentlyWatched(
     const std::vector<RecentlyWatchedItem>& items,
-    const std::vector<ContinueWatchingItem>& continueWatchingItems,
     const std::vector<VdrRecording>& recordings)
 {
     const std::string backendId =
@@ -369,7 +355,6 @@ std::string serializeRecentlyWatched(
     out << "{\"items\":[";
     bool first = true;
     for (const auto& item : items) {
-        if (isContinueWatchingRecording(item, continueWatchingItems)) continue;
         const VdrRecording* currentRecording = findRecording(
             recordings, item.recording.backendId, item.recording.recordingId);
         if (currentRecording == nullptr) continue;
@@ -462,55 +447,75 @@ bool ContinueWatchingApiRuntime::configure(
         recordings_ = nullptr;
         return false;
     }
+    auto continueTruth = [](const VdrRecording& recording) {
+        ContinueWatchingRecordingTruth truth;
+        truth.backendId = recording.backendId;
+        truth.recordingId = recording.id;
+        truth.backendNativeId = recording.backendNativeId;
+        truth.title =
+            VdrRecordingMetadataJsonSerializer::presentationTitle(recording);
+        truth.subtitle =
+            VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+        truth.posterUrl =
+            VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(recording);
+        truth.durationSeconds = recording.durationSeconds;
+        truth.durationKnown =
+            recording.recordingDurationKnown && recording.durationSeconds > 0;
+        return truth;
+    };
+    auto recentTruth = [](const VdrRecording& recording) {
+        RecentlyWatchedRecordingTruth truth;
+        truth.backendId = recording.backendId;
+        truth.recordingId = recording.id;
+        truth.backendNativeId = recording.backendNativeId;
+        truth.title =
+            VdrRecordingMetadataJsonSerializer::presentationTitle(recording);
+        truth.subtitle =
+            VdrRecordingMetadataJsonSerializer::presentationSubtitle(recording);
+        truth.posterUrl =
+            VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(recording);
+        truth.durationSeconds = recording.durationSeconds;
+        truth.durationKnown =
+            recording.recordingDurationKnown && recording.durationSeconds > 0;
+        return truth;
+    };
+
     service_ = std::make_unique<ContinueWatchingService>(
         *repository_,
-        [&recordings](const std::string& backendId, const std::string& recordingId)
+        [&recordings, continueTruth](const std::string& backendId, const std::string& recordingId)
             -> std::optional<ContinueWatchingRecordingTruth> {
             const auto current = recordings.findAllForBackend(backendId);
             for (const auto& recording : current) {
-                if (recording.id != recordingId) continue;
-                ContinueWatchingRecordingTruth truth;
-                truth.backendId = recording.backendId;
-                truth.recordingId = recording.id;
-                truth.backendNativeId = recording.backendNativeId;
-                truth.title =
-                    VdrRecordingMetadataJsonSerializer::presentationTitle(
-                        recording);
-                truth.subtitle =
-                    VdrRecordingMetadataJsonSerializer::presentationSubtitle(
-                        recording);
-                truth.posterUrl =
-                    VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
-                        recording);
-                truth.durationSeconds = recording.durationSeconds;
-                truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
-                return truth;
+                if (recording.id == recordingId) return continueTruth(recording);
+            }
+            return std::nullopt;
+        },
+        [&recordings, continueTruth](const std::string& backendId, const std::string& backendNativeId)
+            -> std::optional<ContinueWatchingRecordingTruth> {
+            const auto current = recordings.findAllForBackend(backendId);
+            for (const auto& recording : current) {
+                if (recording.backendNativeId == backendNativeId)
+                    return continueTruth(recording);
             }
             return std::nullopt;
         });
+
     recentlyWatchedService_ = std::make_unique<RecentlyWatchedService>(
         *recentlyWatchedRepository_,
-        [&recordings](const std::string& backendId, const std::string& recordingId)
+        [&recordings, recentTruth](const std::string& backendId, const std::string& recordingId)
             -> std::optional<RecentlyWatchedRecordingTruth> {
             const auto current = recordings.findAllForBackend(backendId);
             for (const auto& recording : current) {
-                if (recording.id != recordingId) continue;
-                RecentlyWatchedRecordingTruth truth;
-                truth.backendId = recording.backendId;
-                truth.recordingId = recording.id;
-                truth.backendNativeId = recording.backendNativeId;
-                truth.title =
-                    VdrRecordingMetadataJsonSerializer::presentationTitle(
-                        recording);
-                truth.subtitle =
-                    VdrRecordingMetadataJsonSerializer::presentationSubtitle(
-                        recording);
-                truth.posterUrl =
-                    VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(
-                        recording);
-                truth.durationSeconds = recording.durationSeconds;
-                truth.durationKnown = recording.recordingDurationKnown && recording.durationSeconds > 0;
-                return truth;
+                if (recording.id == recordingId) return recentTruth(recording);
+            }
+            return std::nullopt;
+        },
+        [&recordings, recentTruth](const std::string& backendId, const std::string& backendNativeId)
+            -> std::optional<RecentlyWatchedRecordingTruth> {
+            const auto current = recordings.findAllForBackend(backendId);
+            for (const auto& recording : current) {
+                if (recording.backendNativeId == backendNativeId)
+                    return recentTruth(recording);
             }
             return std::nullopt;
         });
@@ -572,12 +577,11 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     if (recentlyWatched) {
         if (operation == "list") {
             const auto items = recentlyWatchedService_->list(actorRef, backendId);
-            const auto continueWatchingItems = service_->list(actorRef, backendId);
             const auto currentRecordings = recordings_->findAllForBackend(backendId);
             response.statusCode = 200;
             response.contentType = "application/json";
             response.headers["Cache-Control"] = "no-store";
-            response.body = serializeRecentlyWatched(items, continueWatchingItems, currentRecordings);
+            response.body = serializeRecentlyWatched(items, currentRecordings);
             return true;
         }
         if (operation != "activity") {

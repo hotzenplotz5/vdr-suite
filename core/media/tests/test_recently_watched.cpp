@@ -19,6 +19,7 @@ RecentlyWatchedRecordingTruth recording(
     RecentlyWatchedRecordingTruth value;
     value.backendId = backendId;
     value.recordingId = recordingId;
+    value.backendNativeId = "/recordings/" + recordingId + ".rec";
     value.title = "Recording " + recordingId;
     value.durationSeconds = durationSeconds;
     value.durationKnown = durationKnown;
@@ -47,7 +48,17 @@ int main()
     put(recording("default", "r1", 100));
     put(recording("default", "r2", 0, false));
     put(recording("other", "r1", 100));
-    RecentlyWatchedService service(repository, resolve);
+    auto resolveNative = [&](const std::string& backendId, const std::string& backendNativeId)
+        -> std::optional<RecentlyWatchedRecordingTruth> {
+        for (const auto& entry : recordings) {
+            if (entry.second.backendId == backendId &&
+                entry.second.backendNativeId == backendNativeId)
+                return entry.second;
+        }
+        return std::nullopt;
+    };
+
+    RecentlyWatchedService service(repository, resolve, resolveNative);
 
     // Canonical active playback creates History independently of Continue Watching semantics.
     assert(service.recordActivity("actor-a", "default", "r1", 25, true, true, true, false, "op-1"));
@@ -100,8 +111,21 @@ int main()
     assert(items.size() == 2);
     assert(items[0].recording.recordingId == "r1");
 
-    // Missing/deleted Recording truth is not exposed and stale history is cleaned.
+    // A changed backend list number must still resolve the same Recording
+    // through its persisted native identity.
+    auto renumbered = recording("default", "r1-new", 100);
+    renumbered.backendNativeId = "/recordings/r1.rec";
     recordings.erase("default:r1");
+    put(renumbered);
+    items = service.list("actor-a", "default");
+    bool sawRenumbered = false;
+    for (const auto& item : items) {
+        if (item.recording.recordingId == "r1-new") sawRenumbered = true;
+    }
+    assert(sawRenumbered);
+
+    // Missing/deleted native identity is not exposed and stale history is cleaned.
+    recordings.erase("default:r1-new");
     items = service.list("actor-a", "default");
     assert(items.size() == 1);
     assert(items[0].recording.recordingId == "r2");
@@ -119,6 +143,28 @@ int main()
 
     // Unsupported identity never creates History truth.
     assert(!service.recordActivity("actor-a", "default", "missing", 1, true, true, true, false, "op-missing"));
+
+    // Existing pre-migration rows have no native identity evidence. They must
+    // not be relabelled as whichever Recording happens to reuse that number.
+    Database legacyDatabase;
+    assert(legacyDatabase.open(":memory:"));
+    assert(legacyDatabase.execute(
+        "CREATE TABLE recently_watched_state("
+        "actor_id TEXT NOT NULL, backend_id TEXT NOT NULL, recording_id TEXT NOT NULL, "
+        "position_seconds INTEGER NOT NULL, position_known INTEGER NOT NULL, "
+        "completion_known INTEGER NOT NULL, completed INTEGER NOT NULL, "
+        "resume_relevance_known INTEGER NOT NULL, resume_relevant INTEGER NOT NULL, "
+        "source_evidence TEXT NOT NULL, last_activity_at TEXT NOT NULL, "
+        "last_operation_id TEXT NOT NULL, PRIMARY KEY(actor_id, backend_id, recording_id));"));
+    assert(legacyDatabase.execute(
+        "INSERT INTO recently_watched_state VALUES("
+        "'legacy','default','r2',55,1,1,0,1,1,"
+        "'canonical-recording-playback-owner','2026-09-04T21:45:02.580Z','legacy-op');"));
+    RecentlyWatchedRepository legacyRepository(legacyDatabase);
+    assert(legacyRepository.ensureSchema());
+    RecentlyWatchedService legacyService(legacyRepository, resolve, resolveNative);
+    assert(legacyService.list("legacy", "default").empty());
+    assert(legacyRepository.findForActorBackend("legacy", "default").empty());
 
     return 0;
 }
