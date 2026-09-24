@@ -27,6 +27,14 @@ assert(indexSource.includes('@media (max-width: 46rem)'));
 assert(indexSource.includes('@media (max-height: 34rem) and (min-width: 40rem) and (max-width: 64rem)'));
 assert(indexSource.includes('@media (prefers-reduced-motion: reduce)'));
 
+// Luxury Home keeps arbitrary programme art inside the Hero. Full-page
+// programme artwork makes headers and rails wash out when the source is a
+// poster/logo crop rather than a cinematic landscape.
+assert(!indexSource.includes('var(--media-home-backdrop-image'));
+assert(!heroSource.includes('function applyHomeBackdrop'));
+assert(heroSource.includes('.media-home-live-artwork{position:absolute;z-index:-2;inset:0;background-position:center 28%;background-size:cover;opacity:.58'));
+assert(heroSource.includes('background:linear-gradient(145deg,rgba(4,10,24,.88),rgba(7,16,31,.78))'));
+
 // Hero: keyboard focus must be unmistakable, touch controls practical, live
 // progress semantic, and JS scrolling must respect reduced motion.
 assert(heroSource.includes("root.setAttribute('role', 'region')"));
