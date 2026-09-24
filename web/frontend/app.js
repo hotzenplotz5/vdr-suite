@@ -3730,11 +3730,11 @@ function markSelected(backendId) {
 
 function loadBackendDetails(backend) {
   selectedBackend = backend;
-  selectedModule = 'overview';
-  selectModule('overview');
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
   markSelected(backendId);
+  selectedModule = 'overview';
+  selectModule('overview');
   refreshDetailButton.disabled = true;
   detailMetaElement.className = 'detail-meta';
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
