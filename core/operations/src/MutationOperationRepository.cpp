@@ -464,6 +464,8 @@ MutationOperationRepositoryResult reserveInternal(
     return result;
 }
 
+} // namespace
+
 MutationOperationRepository::MutationOperationRepository(Database& database)
     : database_(database)
 {
