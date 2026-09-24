@@ -4051,7 +4051,85 @@
     return entry.promise;
   }
 
+
+  // The cache-committed recordings feed invalidates this retained Home owner.
+  // Coalesce bursts and fence reads through refresh()'s existing generation.
+  let recordingSource = null;
+  let recordingSequence = 0;
+  let recordingConnectionSequence = 0;
+  let recordingRefreshTimer = null;
+  let recordingRefreshBusy = false;
+  let recordingRefreshPending = false;
+
+  function scheduleRecordingChangeRefresh() {
+    if (!recordingRefreshPending || recordingRefreshBusy ||
+        recordingRefreshTimer !== null || !homeIsActive() || (doc && doc.hidden)) return;
+    recordingRefreshTimer = global.setTimeout(function () {
+      recordingRefreshTimer = null;
+      if (!homeIsActive() || (doc && doc.hidden)) return;
+      recordingRefreshPending = false;
+      state.homeReadyBackendId = '';
+      state.homeReadyGeneration = -1;
+      clearSeriesWarm();
+      recordingRefreshBusy = true;
+      Promise.resolve(refresh({reuseWarm: false})).finally(function () {
+        recordingRefreshBusy = false;
+        scheduleRecordingChangeRefresh();
+      });
+    }, 0);
+  }
+
+  function stopRecordingChanges() {
+    if (recordingSource) {
+      recordingSource.close();
+      recordingSource = null;
+      // Catch up after returning, even if the finite feed has rolled over.
+      recordingRefreshPending = true;
+    }
+    if (recordingRefreshTimer !== null) {
+      global.clearTimeout(recordingRefreshTimer);
+      recordingRefreshTimer = null;
+    }
+  }
+
+  function subscribeRecordingChanges() {
+    const client = clientApi();
+    if (recordingSource || !homeIsActive() || (doc && doc.hidden) ||
+        !client || typeof client.createClientLiveUpdateSource !== 'function') return;
+    const source = client.createClientLiveUpdateSource();
+    if (!source) return;
+    recordingSource = source;
+    source.onopen = function () { recordingConnectionSequence = 0; };
+    source.addEventListener('update', function (event) {
+      if (recordingSource !== source) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch (_) { return; }
+      const sequence = Number(data && data.sequenceNumber);
+      if (!Number.isSafeInteger(sequence) || sequence < 1) return;
+      recordingConnectionSequence = Math.max(recordingConnectionSequence, sequence);
+      if (sequence <= recordingSequence) return;
+      recordingSequence = sequence;
+      if (String(data.backendId || 'default') !== selectedBackendId() ||
+          !Array.isArray(data.changedDomains) ||
+          !data.changedDomains.includes('recordings')) return;
+      recordingRefreshPending = true;
+      scheduleRecordingChangeRefresh();
+    });
+    source.onerror = function () {
+      if (recordingSource !== source) return;
+      // This endpoint replays a finite feed, then reconnects. Only a sequence
+      // reset needs a catch-up read, not every normal stream termination.
+      if (recordingConnectionSequence < recordingSequence) {
+        recordingSequence = recordingConnectionSequence;
+        recordingRefreshPending = true;
+        scheduleRecordingChangeRefresh();
+      }
+    };
+    scheduleRecordingChangeRefresh();
+  }
+
   function refreshForHome() {
+    subscribeRecordingChanges();
     const backendId = selectedBackendId();
     if (state.homeReadyBackendId === backendId &&
         state.homeReadyGeneration === state.generation) {
@@ -4083,7 +4161,8 @@
   }
 
   function scheduleForHome() {
-    if (!homeIsActive()) return;
+    if (!homeIsActive()) { stopRecordingChanges(); return; }
+    subscribeRecordingChanges();
     const backendId = selectedBackendId();
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
       state.generation += 1;
@@ -4148,6 +4227,10 @@
     installStyles();
     armLazyLoad();
     if (typeof doc.addEventListener === 'function') {
+      doc.addEventListener('visibilitychange', function () {
+        if (doc.hidden || !homeIsActive()) stopRecordingChanges();
+        else subscribeRecordingChanges();
+      });
       doc.addEventListener('click', function (event) {
         const target = event && event.target;
         if (!target || typeof target.closest !== 'function') return;
@@ -4157,6 +4240,7 @@
           (moduleTarget.dataset.module || moduleTarget.dataset.brandModule)
         );
         if (requestedModule && requestedModule !== 'overview') {
+          stopRecordingChanges();
           invalidateSeriesForHomeExit(state.generation);
           return;
         }
