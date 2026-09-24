@@ -39,9 +39,11 @@ assert(!heroSource.includes('/api/media/sessions'));
 assert(!heroSource.includes('createLivePanel('));
 assert(!heroSource.includes('<video'));
 
+const channelRequestStart = heroSource.indexOf('const request = client.fetchClientChannels(');
+assert(channelRequestStart >= 0, 'Live Hero must create one tracked channel request');
 const channelLoadSequence = heroSource.slice(
-  heroSource.indexOf('return client.fetchClientChannels('),
-  heroSource.indexOf('}).catch(error =>', heroSource.indexOf('return client.fetchClientChannels('))
+  channelRequestStart,
+  heroSource.indexOf('}).catch(error =>', channelRequestStart)
 );
 assert(channelLoadSequence.includes(
   'applyChannels(data);\n      state.loadingChannels = false;\n      return loadPrograms(sequence, {'
