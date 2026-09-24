@@ -179,7 +179,12 @@ actor
 The normalized admission fingerprint also binds the submitted backend,
 TimerAssignment identity and original pre-mutation assignment revision.
 
-Same scope + same fingerprint returns the existing operation.
+After the current authentication, authorization and backend mutation-policy
+gates still permit the request, same scope + same fingerprint returns the
+existing operation. Idempotent replay does not bypass a permission revocation or
+a backend that has since become read-only, matching the ADR-0042 decision
+ordering.
+
 Same scope + different fingerprint returns:
 
 ```text
