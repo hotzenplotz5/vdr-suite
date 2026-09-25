@@ -143,6 +143,16 @@ for scan_root in [
                     "Timer CREATE reconciliation runtime must remain dormant in this slice: "
                     + str(path.relative_to(ROOT)) + " -> " + forbidden_call)
 
+        # A successor prerequisite may expose only the stateless durable-result
+        # adapter. Direct DaemonRuntime member invocation remains forbidden.
+        if (
+            path.name != "NativeTimerCreateResultOutcomeApplication.cpp"
+            and "dispatchService.applyOutcome(" in text
+        ):
+            raise SystemExit(
+                "Timer CREATE applyOutcome may only exist in the guarded dormant adapter: "
+                + str(path.relative_to(ROOT)))
+
 if "registerTimerCreateAdmission" not in contents["daemon_init"]:
     raise SystemExit("accepted public Timer CREATE admission callback disappeared")
 
