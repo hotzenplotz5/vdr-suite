@@ -16,6 +16,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
 - [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
 - [Native Timer CREATE Outcome Application](development/phase-69c-native-timer-create-outcome-application.md)
+- [Native Timer CREATE Readback Reconciliation](development/phase-69c-native-timer-create-readback-reconciliation.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -73,13 +74,14 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Native Timer CREATE outcome application: correlate the existing durable
-BackendAgentCommandResult/resultEvidence with the repository-owned dispatching
-MutationOperation revision, then map the exact typed Agent evidence into the
-existing NativeTimerCreateExecutorOutcome and delegate only to
-NativeTimerCreateDispatchService::applyOutcome(). The adapter is stateless and
-productively uninvoked; reservation, dispatch claim, activation, authoritative
-readback, assignment binding and operation completion remain closed.
+Native Timer CREATE readback reconciliation: consume an existing
+NativeTimerCreateReadbackExpectation plus authoritative complete Timer readback
+evidence, reload the immutable native.timer.create operation payload and delegate
+only to the existing NativeTimerCreateReadbackVerificationService,
+TimerAssignmentFulfillmentService and NativeTimerCreateOperationCompletionService
+owners. The adapter is stateless and productively uninvoked; Agent reservation,
+dispatch claim, activation, polling, SuiteBridge/VDR CREATE and authoritative
+native Timer inventory acquisition remain closed.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
@@ -120,6 +122,9 @@ PR #334 hosted CI run 35967848509 / #9143: SUCCESS (6/6)
 PR #341 -> 54ee022361bd796529578de46edb3d5a9a8bec4a
 PR #341 accepted head ed1cc9739351045e0824530273a93a55700f5e5d
 PR #341 hosted CI run 36094237108 / #9205: SUCCESS (6/6)
+PR #342 -> d1e543b977da45f732c768f4efdf8877910dd90e
+PR #342 accepted head 78880a00e0cc330b7375ee24086162a89e6cd5ac
+PR #342 hosted CI run 36132407130 / #9210: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a

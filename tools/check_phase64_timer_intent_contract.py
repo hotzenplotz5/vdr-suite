@@ -276,10 +276,33 @@ for token in [
 # cross that boundary only when the specific runtime file or its focused
 # regression is protected by its own architecture guard. Keep this allow-list
 # intentionally narrow: adding another integration point is a separate review.
+readback_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_readback_reconciliation.py"
+)
+if not readback_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C readback-reconciliation guard is required for the reviewed "
+        "dormant TimerAssignment consumer"
+    )
+readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+for marker in [
+    "reconcileNativeTimerCreateReadback(",
+    "must remain productively",
+    "fulfillmentService.bindVerified(",
+]:
+    if marker not in readback_successor:
+        raise SystemExit(
+            "Phase-69.C readback-reconciliation guard missing TimerAssignment "
+            "consumer marker: " + marker
+        )
+
 reviewed_runtime_files = {
     Path("core/agent/src/BackendAgentNativeTimerCreateActivation.cpp"),
     Path("core/agent/tests/test_backend_agent_native_timer_create_activation.cpp"),
     Path("core/daemon/tests/test_native_timer_create_result_outcome_application.cpp"),
+    Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
+    Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
     Path("api/rest/include/PublicApiRuntime.h"),
     Path("api/rest/src/PublicApiRuntime.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
