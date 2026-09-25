@@ -113,7 +113,8 @@ bool createTimerCreateResult(
 bool genericResultMatchesTimerCreateEvidence(
     const LocalState& state,
     const NativeTimerCreateGenericProjection& projection,
-    const vdrsuite::agent::BackendAgentNativeTimerCreateEvidence& evidence)
+    const vdrsuite::agent::BackendAgentNativeTimerCreateEvidence& evidence,
+    std::string& reason)
 {
     if (!state.resultPresent)
         return false;
@@ -217,7 +218,7 @@ bool backendAgentNativeTimerCreateCommandReconcileExisting(
     if (state.resultPresent)
     {
         if (!genericResultMatchesTimerCreateEvidence(
-                state, projection, recovery.evidence))
+                state, projection, recovery.evidence, reason))
         {
             reason = "native_create_result_evidence_conflict";
             return false;
