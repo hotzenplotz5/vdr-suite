@@ -61,6 +61,30 @@ The supported deployment evidence is intentionally narrower than universal HbbTV
 
 PR #300 also repaired regressions found during real-system validation: the composed Recording fallback controls are install-staging guarded, prewarm remains paused/silent, and HLS restart-seek only activates from truthful duration/resume evidence while preserving proven resume capability across replacement. These fixes preserve completed Phase-65 playback ownership and do not redefine Phase 67 as a Recording-playback phase.
 
+## Post-phase cross-phase generation hardening
+
+Later Phase-68 deployment can run the standalone Backend Agent for authenticated
+OSD transport while the local SuiteBridge Broadcast Companion provider remains
+available. Backend generation is backend-wide, so a newer online standalone
+Agent generation legitimately supersedes an older embedded generation.
+
+Broadcast Companion therefore resolves its backend-generation fence from the
+current online standalone Agent when that Agent owns the latest shared backend
+generation, while Teletext/HbbTV provider reads remain on the existing private
+local SuiteBridge resolver. The existing before/after generation recheck remains
+authoritative and still fails closed if generation changes during a provider
+read.
+
+The embedded lifecycle remains the fallback authority only when it is current.
+An active standalone Agent lease blocks embedded takeover. After that lease
+expires, periodic lifecycle maintenance may allocate a new monotonic embedded
+generation and renew it; an older embedded generation is never revived.
+
+This hardening preserves the Phase-63/67 generation and lease model and fixes
+the cross-phase failure mode where a healthy local Teletext/HbbTV provider was
+permanently hidden behind `*_backend_generation_unavailable` after Phase-68
+standalone Agent synchronization.
+
 ## Retained boundaries
 
 This closeout does not claim pixel-perfect compatibility with every broadcaster or proprietary HbbTV extension, unrestricted arbitrary-web browsing, a universal public browser-engine contract, Legacy OSD as the implementation of Teletext/HbbTV, Phase-69 public API stabilization, Phase-70 recommendation work, or unrelated cross-cutting Timer/administration milestones.

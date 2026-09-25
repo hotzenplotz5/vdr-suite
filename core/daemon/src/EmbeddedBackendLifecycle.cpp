@@ -265,6 +265,36 @@ bool EmbeddedBackendLifecycleService::heartbeatBackend(
     return changed;
 }
 
+bool EmbeddedBackendLifecycleService::maintainBackend(
+    const std::string& backendId,
+    bool healthy,
+    std::int64_t now)
+{
+    if (!healthy)
+    {
+        return heartbeatBackend(backendId, false, now);
+    }
+
+    if (heartbeatBackend(backendId, true, now))
+    {
+        return true;
+    }
+
+    const EmbeddedBackendLifecycleState current =
+        statusForBackend(backendId, now);
+    if (current.present)
+    {
+        return false;
+    }
+
+    if (!startBackend(backendId, now))
+    {
+        return false;
+    }
+
+    return heartbeatBackend(backendId, true, now);
+}
+
 bool EmbeddedBackendLifecycleService::stopBackend(
     const std::string& backendId,
     std::int64_t now)

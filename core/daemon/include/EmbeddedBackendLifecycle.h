@@ -34,6 +34,11 @@ public:
         bool healthy,
         std::int64_t now);
 
+    bool maintainBackend(
+        const std::string& backendId,
+        bool healthy,
+        std::int64_t now);
+
     bool stopBackend(
         const std::string& backendId,
         std::int64_t now);

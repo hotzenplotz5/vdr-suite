@@ -37,21 +37,27 @@ int DaemonRuntime::run()
     }
     if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
         !embeddedBackendLifecycleService_ ||
+        !backendAgentLifecycleService_ ||
         !configureDaemonTeletextRuntime(
+            database_,
             *backendRegistryService_,
             *vdrSnapshotReadService_,
             *embeddedBackendLifecycleService_,
+            *backendAgentLifecycleService_,
             backendRuntimeContexts_)) {
         std::cerr << "Teletext control-plane runtime unavailable" << std::endl;
         return 1;
     }
     if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
         !embeddedBackendLifecycleService_ ||
+        !backendAgentLifecycleService_ ||
         !configureDaemonHbbtvRuntime(
+            database_,
             config_.databasePath(),
             *backendRegistryService_,
             *vdrSnapshotReadService_,
             *embeddedBackendLifecycleService_,
+            *backendAgentLifecycleService_,
             backendRuntimeContexts_)) {
         std::cerr << "HbbTV discovery control-plane runtime unavailable" << std::endl;
         return 1;
