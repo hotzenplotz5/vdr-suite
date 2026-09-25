@@ -209,14 +209,18 @@ test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcod
 TMPFILESDIR ?= /usr/lib/tmpfiles.d
 
 # The SuiteBridge plugin runs inside VDR as the unprivileged vdr user. Its
-# private live transport cannot create a missing parent below root-owned /run,
-# so provision the volatile socket root through systemd-tmpfiles.
+# private Live-TV and HbbTV transports cannot create directories below
+# root-owned /run/vdr. Provision their roots at boot and on direct installs;
+# staged package installs must only install the tmpfiles configuration.
 install-systemd: install-phase65-live-socket-runtime
 
 install-phase65-live-socket-runtime:
 	$(INSTALL) -d $(DESTDIR)$(TMPFILESDIR)
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-live.conf \
 		$(DESTDIR)$(TMPFILESDIR)/vdr-suite-live.conf
+	if test -z "$(DESTDIR)"; then \
+		systemd-tmpfiles --create "$(TMPFILESDIR)/vdr-suite-live.conf"; \
+	fi
 
 test-phase65-live-socket-runtime-install:
 	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
@@ -225,6 +229,9 @@ test-phase65-live-socket-runtime-install:
 	test -f /tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf
 	grep -Fx 'd /run/vdr/vdr-suite-live 0700 vdr vdr -' \
 		/tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf >/dev/null
+	grep -Fx 'd /run/vdr/vdr-suite-hbbtv-media 0700 vdr vdr -' \
+		/tmp/vdr-suite-live-runtime-install/usr/lib/tmpfiles.d/vdr-suite-live.conf >/dev/null
+	test ! -e /tmp/vdr-suite-live-runtime-install/run
 	python3 -c 'import shutil; shutil.rmtree("/tmp/vdr-suite-live-runtime-install", ignore_errors=True)'
 
 # Keep both the fast Phase-65 graph and the packaging staging graph aware of
