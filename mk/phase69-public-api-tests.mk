@@ -193,6 +193,7 @@ test-phase69-native-timer-create-outcome-application: test-phase69-native-timer-
 		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerSpecification.cpp \
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
 		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
