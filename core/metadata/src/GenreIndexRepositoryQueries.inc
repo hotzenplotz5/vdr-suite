@@ -19,10 +19,21 @@ GenreOverview GenreIndexRepository::overview(
         timePredicate = " AND b.end_time>? AND b.start_time<? ";
     }
 
+    const std::string effectiveRecordingGenreJoin =
+        targetType == "recording"
+            ? " AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
+              "SELECT 1 FROM suite_metadata_assignments ma "
+              "WHERE ma.metadata_target_id=b.metadata_target_id "
+              "AND ma.assignment_state='selected' "
+              "AND ma.manual_assignment=1 "
+              "AND ma.relationship_locked=1)) "
+            : "";
+
     const std::string totalsSql =
         "SELECT COUNT(DISTINCT b.metadata_target_id),COUNT(a.genre_id) "
         "FROM suite_metadata_target_bindings b LEFT JOIN suite_metadata_genre_assignments a "
-        "ON a.metadata_target_id=b.metadata_target_id "
+        "ON a.metadata_target_id=b.metadata_target_id " +
+        effectiveRecordingGenreJoin +
         "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" + timePredicate + ";";
     sqlite3_stmt* totals = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), totalsSql.c_str(), -1, &totals, nullptr) == SQLITE_OK)
@@ -51,7 +62,16 @@ GenreOverview GenreIndexRepository::overview(
         "FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
         "JOIN suite_metadata_genres g ON g.genre_id=a.genre_id "
-        "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" + timePredicate +
+        "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" +
+        (targetType == "recording"
+            ? " AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
+              "SELECT 1 FROM suite_metadata_assignments ma "
+              "WHERE ma.metadata_target_id=b.metadata_target_id "
+              "AND ma.assignment_state='selected' "
+              "AND ma.manual_assignment=1 "
+              "AND ma.relationship_locked=1)) "
+            : "") +
+        timePredicate +
         "GROUP BY g.genre_id,g.label_de,g.label_en,g.known "
         "ORDER BY CASE WHEN g.genre_id='unclassified' THEN 1 ELSE 0 END,g.label_de,g.genre_id;";
     sqlite3_stmt* statement = nullptr;
@@ -215,13 +235,22 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
     page.offset = boundedOffset(offset);
     if (!ensureSchemaLocked()) return page;
 
-    const char* countSql =
+    const std::string effectiveRecordingGenrePredicate =
+        " AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
+        "SELECT 1 FROM suite_metadata_assignments ma "
+        "WHERE ma.metadata_target_id=b.metadata_target_id "
+        "AND ma.assignment_state='selected' "
+        "AND ma.manual_assignment=1 "
+        "AND ma.relationship_locked=1)) ";
+
+    const std::string countSql =
         "SELECT COUNT(DISTINCT b.metadata_target_id) FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
         "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
-        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?;";
+        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?" +
+        effectiveRecordingGenrePredicate + ";";
     sqlite3_stmt* count = nullptr;
-    if (sqlite3_prepare_v2(database_.handle(), countSql, -1, &count, nullptr) == SQLITE_OK)
+    if (sqlite3_prepare_v2(database_.handle(), countSql.c_str(), -1, &count, nullptr) == SQLITE_OK)
     {
         bindText(count, 1, page.backendId);
         bindText(count, 2, genreId);
@@ -229,16 +258,24 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
     }
     sqlite3_finalize(count);
 
-    const char* sql =
+    const std::string sql =
         "SELECT c.recording_id,c.backend_id,c.backend_native_id,b.resource_key,c.title,c.path,c.start_time,c.duration_seconds,c.size_mb,c.metadata_payload,"
-        "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
+        "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 "
+        "WHERE a2.metadata_target_id=b.metadata_target_id "
+        "AND NOT (a2.source_kind='recording-metadata' AND EXISTS ("
+        "SELECT 1 FROM suite_metadata_assignments ma2 "
+        "WHERE ma2.metadata_target_id=b.metadata_target_id "
+        "AND ma2.assignment_state='selected' "
+        "AND ma2.manual_assignment=1 "
+        "AND ma2.relationship_locked=1))) "
         "FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
         "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
-        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=? "
+        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?" +
+        effectiveRecordingGenrePredicate +
         "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title LIMIT ? OFFSET ?;";
     sqlite3_stmt* statement = nullptr;
-    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return page;
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) return page;
     bindText(statement, 1, page.backendId);
     bindText(statement, 2, genreId);
     sqlite3_bind_int(statement, 3, page.limit);
