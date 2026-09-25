@@ -14,6 +14,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
+- [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -71,12 +72,13 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Native Timer CREATE reconciliation runtime composition: compose the existing
-Phase-64 readback-verification and operation-completion owners over the accepted
-MutationOperation, TimerAssignment and NativeTimerBinding repositories before
-any Agent command becomes pollable. Reservation, dispatch claim, activation,
-executor outcome application, readback verification, assignment binding and
-operation completion remain uninvoked in this candidate.
+Native Timer CREATE outcome evidence: carry the already durable typed Agent
+executor evidence through the existing BackendAgentCommandResult and
+backend_agent_command_results authority so dispatchStartedAt and the native
+evidence reference are not lost before reconciliation. No second result table,
+repository or lifecycle owner is introduced. Reservation, dispatch claim,
+activation, executor outcome application, readback verification, assignment
+binding and operation completion remain uninvoked in this candidate.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
@@ -111,6 +113,9 @@ PR #332 hosted CI run 35960066328 / #9130: SUCCESS (6/6)
 PR #333 -> f3363f0ec88db2cbeef6dea24ab4349738094ade
 PR #333 accepted head 2f74fb86aaaf6b969eea5822fb807f7f0002585a
 PR #333 hosted CI run 35964190859 / #9134: SUCCESS (6/6)
+PR #334 -> 94dcffa8fc77b9087472ec09056853819515308a
+PR #334 accepted head 0f187a77d5f50330378da714c8c1f440964cfed6
+PR #334 hosted CI run 35968776190 / #9137: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
