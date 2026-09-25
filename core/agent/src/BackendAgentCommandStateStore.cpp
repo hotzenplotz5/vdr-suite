@@ -362,6 +362,28 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         result.retryClassification = values["retry_classification"];
         result.boundedDiagnostics = values["bounded_diagnostics"];
         result.completedAt = static_cast<std::int64_t>(completed);
+        if (assignment.commandType ==
+            kBackendAgentNativeTimerCreateCommandType)
+        {
+            BackendAgentNativeTimerCreateLocalState createState;
+            if (!state.stateExtensionPresent ||
+                !backendAgentNativeTimerCreateParseLocalState(
+                    state.stateExtension.payload, createState, reason) ||
+                createState.phase !=
+                    BackendAgentNativeTimerCreateLocalPhase::completed)
+            {
+                reason = "command_state_invalid_create_result_evidence";
+                return false;
+            }
+            result.resultEvidence =
+                backendAgentNativeTimerCreateResultEvidence(
+                    createState.evidence, assignment, reason);
+            if (result.resultEvidence.empty())
+            {
+                reason = "command_state_invalid_create_result_evidence";
+                return false;
+            }
+        }
         if (!backendAgentCommandValidResult(result))
         {
             reason = "command_state_invalid_result";
@@ -397,6 +419,29 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         if (stateExtension.empty())
         {
             reason = "command_state_invalid_extension";
+            return false;
+        }
+    }
+
+    if (state.resultPresent &&
+        assignment.commandType == kBackendAgentNativeTimerCreateCommandType)
+    {
+        BackendAgentNativeTimerCreateLocalState createState;
+        if (!state.stateExtensionPresent ||
+            !backendAgentNativeTimerCreateParseLocalState(
+                state.stateExtension.payload, createState, reason) ||
+            createState.phase != BackendAgentNativeTimerCreateLocalPhase::completed)
+        {
+            reason = "command_state_invalid_create_result_evidence";
+            return false;
+        }
+        const std::string expectedEvidence =
+            backendAgentNativeTimerCreateResultEvidence(
+                createState.evidence, assignment, reason);
+        if (expectedEvidence.empty() ||
+            result.resultEvidence != expectedEvidence)
+        {
+            reason = "command_state_create_result_evidence_conflict";
             return false;
         }
     }

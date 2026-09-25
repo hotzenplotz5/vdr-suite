@@ -168,3 +168,9 @@ test-phase69-public-timer-create-admission:
 
 test-phase69-native-timer-create-reconciliation-runtime:
 	python3 tools/check_phase69_native_timer_create_reconciliation_runtime.py
+
+
+.PHONY: test-phase69-native-timer-create-outcome-evidence
+
+test-phase69-native-timer-create-outcome-evidence: test-phase64-native-timer-create-delivery
+	python3 tools/check_phase69_native_timer_create_outcome_evidence.py

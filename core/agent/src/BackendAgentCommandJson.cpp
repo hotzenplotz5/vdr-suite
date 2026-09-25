@@ -197,6 +197,24 @@ bool exactKeys(const std::map<std::string, Value>& object, const std::vector<std
     if (object.size() != keys.size()) return false;
     return std::all_of(keys.begin(), keys.end(), [&](const std::string& key) { return object.count(key) == 1; });
 }
+const std::vector<std::string>& legacyResultKeys()
+{
+    static const std::vector<std::string> keys = {
+        "protocolVersion","commandId","requestFingerprint","jobId","attemptId",
+        "claimEpoch","backendId","agentId","agentInstanceId","backendGeneration",
+        "dispatchState","verificationState","resultCategory","errorCategory",
+        "retryClassification","boundedDiagnostics","completedAt"};
+    return keys;
+}
+const std::vector<std::string>& extendedResultKeys()
+{
+    static const std::vector<std::string> keys = [] {
+        std::vector<std::string> value = legacyResultKeys();
+        value.insert(value.end() - 1, "resultEvidence");
+        return value;
+    }();
+    return keys;
+}
 const Value* get(const std::map<std::string, Value>& object, const std::string& key, Kind kind)
 {
     const auto found = object.find(key);
@@ -540,23 +558,28 @@ std::string serializeBackendAgentCommandReceiptJson(const BackendAgentCommandRec
 bool parseBackendAgentCommandResultJson(const std::string& body, BackendAgentCommandResult& result, std::string& reason)
 {
     Value root;
-    if (!Parser(body).parse(root)||root.kind!=Kind::Object||!exactKeys(root.objectValue,
-        {"protocolVersion","commandId","requestFingerprint","jobId","attemptId","claimEpoch","backendId","agentId","agentInstanceId","backendGeneration","dispatchState","verificationState","resultCategory","errorCategory","retryClassification","boundedDiagnostics","completedAt"}))
+    if (!Parser(body).parse(root)||root.kind!=Kind::Object)
+    { reason="invalid_command_result_payload"; return false; }
+    const bool legacyShape=exactKeys(root.objectValue,legacyResultKeys());
+    const bool extendedShape=exactKeys(root.objectValue,extendedResultKeys());
+    if (!legacyShape && !extendedShape)
     { reason="invalid_command_result_payload"; return false; }
     const auto s=[&](const char* key){return get(root.objectValue,key,Kind::String);};
     const auto u=[&](const char* key){return get(root.objectValue,key,Kind::Unsigned);};
     const Value *protocol=s("protocolVersion"),*command=s("commandId"),*finger=s("requestFingerprint"),*job=s("jobId"),
         *attempt=s("attemptId"),*claim=u("claimEpoch"),*backend=s("backendId"),*agent=s("agentId"),*instance=s("agentInstanceId"),
         *generation=u("backendGeneration"),*dispatch=s("dispatchState"),*verification=s("verificationState"),*category=s("resultCategory"),
-        *error=s("errorCategory"),*retry=s("retryClassification"),*diagnostics=s("boundedDiagnostics"),*completed=u("completedAt");
-    if (!protocol||!command||!finger||!job||!attempt||!claim||!backend||!agent||!instance||!generation||!dispatch||!verification||!category||!error||!retry||!diagnostics||!completed)
+        *error=s("errorCategory"),*retry=s("retryClassification"),*diagnostics=s("boundedDiagnostics"),*completed=u("completedAt"),
+        *evidence=extendedShape?s("resultEvidence"):nullptr;
+    if (!protocol||!command||!finger||!job||!attempt||!claim||!backend||!agent||!instance||!generation||!dispatch||!verification||!category||!error||!retry||!diagnostics||!completed||(extendedShape&&!evidence))
     { reason="invalid_command_result_payload"; return false; }
     result.protocolVersion=protocol->stringValue; result.commandId=command->stringValue; result.requestFingerprint=finger->stringValue;
     result.jobId=job->stringValue; result.attemptId=attempt->stringValue; result.claimEpoch=claim->unsignedValue;
     result.backendId=backend->stringValue; result.agentId=agent->stringValue; result.agentInstanceId=instance->stringValue;
     result.backendGeneration=generation->unsignedValue; result.dispatchState=dispatch->stringValue; result.verificationState=verification->stringValue;
     result.resultCategory=category->stringValue; result.errorCategory=error->stringValue; result.retryClassification=retry->stringValue;
-    result.boundedDiagnostics=diagnostics->stringValue; result.completedAt=static_cast<std::int64_t>(completed->unsignedValue);
+    result.boundedDiagnostics=diagnostics->stringValue; result.resultEvidence=evidence?evidence->stringValue:std::string{};
+    result.completedAt=static_cast<std::int64_t>(completed->unsignedValue);
     if (!backendAgentCommandValidResult(result)) { reason="invalid_command_result_payload"; return false; }
     reason="command_result_parsed"; return true;
 }
@@ -571,7 +594,9 @@ std::string serializeBackendAgentCommandResultJson(const BackendAgentCommandResu
         <<"\",\"agentInstanceId\":\""<<escape(r.agentInstanceId)<<"\",\"backendGeneration\":"<<r.backendGeneration
         <<",\"dispatchState\":\""<<escape(r.dispatchState)<<"\",\"verificationState\":\""<<escape(r.verificationState)
         <<"\",\"resultCategory\":\""<<escape(r.resultCategory)<<"\",\"errorCategory\":\""<<escape(r.errorCategory)
-        <<"\",\"retryClassification\":\""<<escape(r.retryClassification)<<"\",\"boundedDiagnostics\":\""<<escape(r.boundedDiagnostics)
-        <<"\",\"completedAt\":"<<r.completedAt<<'}';
+        <<"\",\"retryClassification\":\""<<escape(r.retryClassification)<<"\",\"boundedDiagnostics\":\""<<escape(r.boundedDiagnostics);
+    if (!r.resultEvidence.empty())
+        out << "\",\"resultEvidence\":\"" << escape(r.resultEvidence);
+    out << "\",\"completedAt\":"<<r.completedAt<<'}';
     return out.str();
 }

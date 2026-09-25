@@ -131,6 +131,7 @@ BackendAgentCommandResult boundedResult(
     const BackendAgentCommandAssignment& value,
     std::int64_t completedAt)
 {
+    using namespace vdrsuite::agent;
     BackendAgentCommandResult result;
     result.commandId = value.commandId;
     result.requestFingerprint = value.requestFingerprint;
@@ -144,10 +145,39 @@ BackendAgentCommandResult boundedResult(
     result.dispatchState = "accepted_by_executor";
     result.verificationState = "outcome_unknown";
     result.resultCategory = "outcome_unknown";
-    result.errorCategory = "executor_unknown";
+    result.errorCategory = "none";
     result.retryClassification = "reconcile_only";
     result.boundedDiagnostics = "CREATE dispatched; authoritative readback required";
     result.completedAt = completedAt;
+
+    BackendAgentNativeTimerCreateCommand command;
+    std::string reason;
+    assert(backendAgentNativeTimerCreateCommandFromAssignment(
+        value, command, reason));
+    BackendAgentNativeTimerCreateEvidence evidence;
+    evidence.commandId = command.commandId;
+    evidence.requestFingerprint = command.requestFingerprint;
+    evidence.operationId = command.operationId;
+    evidence.operationRevision = command.operationRevision;
+    evidence.timerAssignmentId = command.timerAssignmentId;
+    evidence.nativeTimerBindingId = command.nativeTimerBindingId;
+    evidence.jobId = command.jobId;
+    evidence.attemptId = command.attemptId;
+    evidence.claimEpoch = command.claimEpoch;
+    evidence.backendId = command.backendId;
+    evidence.agentId = command.agentId;
+    evidence.agentInstanceId = command.agentInstanceId;
+    evidence.backendGeneration = command.backendGeneration;
+    evidence.providerInstanceEpoch =
+        command.localProviderSelection.providerInstanceEpoch;
+    evidence.localStartingPersistedAt = completedAt - 2;
+    evidence.outcome = BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified;
+    evidence.dispatchStartedAt = completedAt - 1;
+    evidence.completedAt = completedAt;
+    evidence.evidenceReference = "suitebridge-create-outcome-unknown";
+    result.resultEvidence = backendAgentNativeTimerCreateResultEvidence(
+        evidence, value, reason);
+    assert(!result.resultEvidence.empty());
     assert(backendAgentCommandValidResult(result));
     return result;
 }
@@ -255,12 +285,35 @@ int main()
     assert(replayedReceipt.replayed);
 
     const auto result = boundedResult(second, 141);
+
+    auto missingEvidence = result;
+    missingEvidence.resultEvidence.clear();
+    const auto rejectedMissingEvidence =
+        commands.acceptResult(missingEvidence);
+    assert(!rejectedMissingEvidence.accepted);
+    assert(rejectedMissingEvidence.reasonCode ==
+        "native_timer_create_result_evidence_invalid");
+
     const auto acceptedResult = commands.acceptResult(result);
     assert(acceptedResult.accepted);
     assert(!acceptedResult.replayed);
     const auto replayedResult = commands.acceptResult(result);
     assert(replayedResult.accepted);
     assert(replayedResult.replayed);
+
+    const auto durableResult =
+        commands.resultForCommand(second.commandId);
+    assert(durableResult.has_value());
+    assert(durableResult->resultEvidence == result.resultEvidence);
+    BackendAgentNativeTimerCreateEvidence parsedEvidence;
+    assert(backendAgentNativeTimerCreateParseResultEvidence(
+        durableResult->resultEvidence, second, parsedEvidence, reason));
+    assert(parsedEvidence.outcome ==
+        BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified);
+    assert(parsedEvidence.dispatchStartedAt == 140);
+    assert(parsedEvidence.completedAt == 141);
+    assert(parsedEvidence.evidenceReference ==
+        "suitebridge-create-outcome-unknown");
 
     // A CREATE assignment without its durable provider-selection sidecar is
     // never deliverable, even when the currently observed provider is healthy.

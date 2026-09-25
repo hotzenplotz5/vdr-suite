@@ -95,6 +95,9 @@ struct BackendAgentCommandResult
     std::string errorCategory;
     std::string retryClassification;
     std::string boundedDiagnostics;
+    // Optional command-type-specific, bounded execution evidence. Empty for
+    // legacy/generic results; once present it participates in result identity.
+    std::string resultEvidence;
     std::int64_t completedAt = 0;
 };
 

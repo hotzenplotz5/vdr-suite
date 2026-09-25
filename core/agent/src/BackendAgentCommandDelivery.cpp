@@ -43,6 +43,28 @@ bool done(sqlite3_stmt* statement)
     sqlite3_finalize(statement);
     return result==SQLITE_DONE;
 }
+bool tableHasColumn(
+    sqlite3* database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (text(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
 std::string identifiers(const std::vector<std::string>& values)
 {
     std::ostringstream output;
@@ -91,7 +113,7 @@ BackendAgentCommandRepository::BackendAgentCommandRepository(Database& database)
 
 bool BackendAgentCommandRepository::ensureSchema()
 {
-    return database_.execute(
+    const bool schemaReady = database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_commands ("
         "command_id TEXT PRIMARY KEY,protocol_version TEXT NOT NULL,request_id TEXT NOT NULL,correlation_id TEXT NOT NULL,"
         "operation_id TEXT NOT NULL,job_id TEXT NOT NULL,attempt_id TEXT NOT NULL,claim_epoch INTEGER NOT NULL,"
@@ -130,7 +152,8 @@ bool BackendAgentCommandRepository::ensureSchema()
         database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_results ("
         "command_id TEXT PRIMARY KEY,result_identity TEXT NOT NULL,dispatch_state TEXT NOT NULL,verification_state TEXT NOT NULL,"
-        "result_category TEXT NOT NULL,error_category TEXT NOT NULL,retry_classification TEXT NOT NULL,bounded_diagnostics TEXT NOT NULL,completed_at INTEGER NOT NULL,"
+        "result_category TEXT NOT NULL,error_category TEXT NOT NULL,retry_classification TEXT NOT NULL,bounded_diagnostics TEXT NOT NULL,"
+        "result_evidence TEXT NOT NULL DEFAULT '',completed_at INTEGER NOT NULL,"
         "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
         database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_faults ("
@@ -141,6 +164,16 @@ bool BackendAgentCommandRepository::ensureSchema()
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;") &&
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
+    if (!schemaReady)
+        return false;
+    if (tableHasColumn(
+            database_.handle(),
+            "backend_agent_command_results",
+            "result_evidence"))
+        return true;
+    return database_.execute(
+        "ALTER TABLE backend_agent_command_results "
+        "ADD COLUMN result_evidence TEXT NOT NULL DEFAULT '';");
 }
 
 bool BackendAgentCommandRepository::insertAssignment(
@@ -201,6 +234,62 @@ BackendAgentCommandRepository::findAssignment(
     if (sqlite3_step(statement) == SQLITE_ROW)
         result = readAssignment(statement);
     sqlite3_finalize(statement);
+    return result;
+}
+
+std::optional<BackendAgentCommandResult>
+BackendAgentCommandRepository::resultForCommand(
+    const std::string& commandId) const
+{
+    const auto assignment = findAssignment(commandId);
+    if (!assignment.has_value())
+        return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT result_identity,dispatch_state,verification_state,"
+        "result_category,error_category,retry_classification,"
+        "bounded_diagnostics,result_evidence,completed_at "
+        "FROM backend_agent_command_results WHERE command_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, commandId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    if (sqlite3_step(statement) != SQLITE_ROW)
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    const std::string durableIdentity = text(statement, 0);
+    BackendAgentCommandResult result;
+    result.protocolVersion = assignment->protocolVersion;
+    result.commandId = assignment->commandId;
+    result.requestFingerprint = assignment->requestFingerprint;
+    result.jobId = assignment->jobId;
+    result.attemptId = assignment->attemptId;
+    result.claimEpoch = assignment->claimEpoch;
+    result.backendId = assignment->backendId;
+    result.agentId = assignment->agentId;
+    result.agentInstanceId = assignment->agentInstanceId;
+    result.backendGeneration = assignment->backendGeneration;
+    result.dispatchState = text(statement, 1);
+    result.verificationState = text(statement, 2);
+    result.resultCategory = text(statement, 3);
+    result.errorCategory = text(statement, 4);
+    result.retryClassification = text(statement, 5);
+    result.boundedDiagnostics = text(statement, 6);
+    result.resultEvidence = text(statement, 7);
+    result.completedAt = sqlite3_column_int64(statement, 8);
+    sqlite3_finalize(statement);
+
+    if (!backendAgentCommandValidResult(result) ||
+        backendAgentCommandResultIdentity(result) != durableIdentity)
+        return std::nullopt;
     return result;
 }
 
@@ -696,6 +785,12 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     const std::string payload=text(query,10);
     sqlite3_finalize(query);
     if(!match){result.reasonCode="command_result_fenced";return result;}
+    const auto durableAssignment = findAssignment(r.commandId);
+    if (!durableAssignment.has_value())
+    {
+        result.reasonCode = "command_database_unavailable";
+        return result;
+    }
     if(commandType=="vdr.native.probe")
     {
         if(payloadVersion==2)
@@ -739,6 +834,53 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
         sqlite3_finalize(selected);
         if(!recorded)
         {result.reasonCode="local_provider_selection_required";return result;}
+
+        BackendAgentNativeTimerCreateEvidence evidence;
+        if (r.resultEvidence.empty() ||
+            !backendAgentNativeTimerCreateParseResultEvidence(
+                r.resultEvidence,
+                *durableAssignment,
+                evidence,
+                payloadReason) ||
+            evidence.completedAt != r.completedAt)
+        {
+            result.reasonCode = "native_timer_create_result_evidence_invalid";
+            return result;
+        }
+
+        bool projectionMatches = false;
+        switch (evidence.outcome)
+        {
+            case BackendAgentNativeTimerCreateOutcomeCategory::rejectedWithoutEffect:
+                projectionMatches =
+                    r.dispatchState == "not_started" &&
+                    r.verificationState == "verified" &&
+                    r.resultCategory == "rejected" &&
+                    r.errorCategory == "fenced" &&
+                    r.retryClassification == "none";
+                break;
+            case BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified:
+                projectionMatches =
+                    r.dispatchState == "accepted_by_executor" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "none" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+            case BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown:
+                projectionMatches =
+                    r.dispatchState == "starting" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "executor_unknown" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+        }
+        if (!projectionMatches)
+        {
+            result.reasonCode = "native_timer_create_result_evidence_conflict";
+            return result;
+        }
     }
     else if(commandType==kBackendAgentNativeTimerDeleteCommandType)
     {
@@ -820,8 +962,8 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET result_replay_count=result_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}}return result;} sqlite3_finalize(existing);
     if(!database_.execute("BEGIN IMMEDIATE;")){result.reasonCode="command_database_unavailable";return result;}
     sqlite3_stmt* insert=nullptr;
-    const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,completed_at) VALUES(?,?,?,?,?,?,?,?,?);";
-    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.dispatchState)&&bindText(insert,4,r.verificationState)&&bindText(insert,5,r.resultCategory)&&bindText(insert,6,r.errorCategory)&&bindText(insert,7,r.retryClassification)&&bindText(insert,8,r.boundedDiagnostics)&&bindInt(insert,9,r.completedAt)&&done(insert);
+    const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,result_evidence,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?);";
+    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.dispatchState)&&bindText(insert,4,r.verificationState)&&bindText(insert,5,r.resultCategory)&&bindText(insert,6,r.errorCategory)&&bindText(insert,7,r.retryClassification)&&bindText(insert,8,r.boundedDiagnostics)&&bindText(insert,9,r.resultEvidence)&&bindInt(insert,10,r.completedAt)&&done(insert);
     sqlite3_stmt* update=nullptr;
     const char* updateSql="UPDATE backend_agent_commands SET state=?,updated_at=? WHERE command_id=?;";
     const std::string state=r.resultCategory=="outcome_unknown"?"waiting_reconciliation":"completed";

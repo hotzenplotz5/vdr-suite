@@ -69,10 +69,11 @@ bool nativeTimerCreateGenericProjection(
     return false;
 }
 
-void createTimerCreateResult(
+bool createTimerCreateResult(
     LocalState& state,
     const NativeTimerCreateGenericProjection& projection,
-    std::int64_t completedAt)
+    const vdrsuite::agent::BackendAgentNativeTimerCreateEvidence& evidence,
+    std::string& reason)
 {
     state.dispatchState = projection.dispatchState;
     state.resultPresent = true;
@@ -96,13 +97,24 @@ void createTimerCreateResult(
     result.errorCategory = projection.errorCategory;
     result.retryClassification = projection.retryClassification;
     result.boundedDiagnostics = projection.diagnostics;
-    result.completedAt = completedAt;
+    result.resultEvidence =
+        vdrsuite::agent::backendAgentNativeTimerCreateResultEvidence(
+            evidence, assignment, reason);
+    result.completedAt = evidence.completedAt;
+    if (result.resultEvidence.empty() ||
+        !backendAgentCommandValidResult(result))
+    {
+        reason = "native_create_result_evidence_invalid";
+        return false;
+    }
+    return true;
 }
 
 bool genericResultMatchesTimerCreateEvidence(
     const LocalState& state,
     const NativeTimerCreateGenericProjection& projection,
-    const vdrsuite::agent::BackendAgentNativeTimerCreateEvidence& evidence)
+    const vdrsuite::agent::BackendAgentNativeTimerCreateEvidence& evidence,
+    std::string& reason)
 {
     if (!state.resultPresent)
         return false;
@@ -116,6 +128,10 @@ bool genericResultMatchesTimerCreateEvidence(
         result.errorCategory == projection.errorCategory &&
         result.retryClassification == projection.retryClassification &&
         result.boundedDiagnostics == projection.diagnostics &&
+        result.resultEvidence ==
+            vdrsuite::agent::backendAgentNativeTimerCreateResultEvidence(
+                evidence, state.assignment, reason) &&
+        !result.resultEvidence.empty() &&
         result.completedAt == evidence.completedAt;
 }
 
@@ -202,7 +218,7 @@ bool backendAgentNativeTimerCreateCommandReconcileExisting(
     if (state.resultPresent)
     {
         if (!genericResultMatchesTimerCreateEvidence(
-                state, projection, recovery.evidence))
+                state, projection, recovery.evidence, reason))
         {
             reason = "native_create_result_evidence_conflict";
             return false;
@@ -210,8 +226,9 @@ bool backendAgentNativeTimerCreateCommandReconcileExisting(
     }
     else
     {
-        createTimerCreateResult(
-            state, projection, recovery.evidence.completedAt);
+        if (!createTimerCreateResult(
+                state, projection, recovery.evidence, reason))
+            return false;
         stateChanged = true;
     }
 
@@ -350,8 +367,9 @@ bool backendAgentNativeTimerCreateCommandExecuteFreshStartingAndPersistOutcome(
         return false;
     }
 
-    createTimerCreateResult(
-        state, projection, evidence.completedAt);
+    if (!createTimerCreateResult(
+            state, projection, evidence, reason))
+        return false;
 
     if (!persist(statePath, state, reason))
         return false;
