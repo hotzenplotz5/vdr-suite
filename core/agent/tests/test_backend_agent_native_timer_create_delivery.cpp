@@ -131,6 +131,7 @@ BackendAgentCommandResult boundedResult(
     const BackendAgentCommandAssignment& value,
     std::int64_t completedAt)
 {
+    using namespace vdrsuite::agent;
     BackendAgentCommandResult result;
     result.commandId = value.commandId;
     result.requestFingerprint = value.requestFingerprint;
