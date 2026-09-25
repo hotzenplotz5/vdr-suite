@@ -237,7 +237,8 @@ std::string backendAgentCommandResultIdentity(const BackendAgentCommandResult& r
     appendField(canonical, result.errorCategory);
     appendField(canonical, result.retryClassification);
     appendField(canonical, result.boundedDiagnostics);
-    appendField(canonical, result.resultEvidence);
+    if (!result.resultEvidence.empty())
+        appendField(canonical, result.resultEvidence);
     appendField(canonical, result.completedAt);
     return stableIdentity(canonical.str());
 }
