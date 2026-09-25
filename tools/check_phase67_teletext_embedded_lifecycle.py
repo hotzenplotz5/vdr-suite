@@ -61,6 +61,7 @@ for fragment in (
     "embedded_backend_lifecycle",
     "startBackend(",
     "heartbeatBackend(",
+    "maintainBackend(",
     "stopBackend(",
     "statusForBackend(",
     "LeaseDurationSeconds = 30",
@@ -71,6 +72,10 @@ for fragment in (
         errors.append(f"embedded lifecycle missing fragment: {fragment}")
 
 for fragment in (
+    "agentLifecycleService_.statusForBackend(backendId, now)",
+    "generations.latestGeneration(backendId)",
+    "agent.backendGeneration == latestGeneration",
+    "BackendAgentConnectionState::Online",
     "lifecycleService_.statusForBackend(backendId, now)",
     "result.online = state.online",
     "result.backendGeneration = state.backendGeneration",
@@ -81,6 +86,7 @@ for fragment in (
 for fragment in (
     "EmbeddedBackendTeletextAuthority",
     "EmbeddedBackendLifecycleService& embeddedBackendLifecycleService",
+    "BackendAgentLifecycleService& backendAgentLifecycleService",
 ):
     if fragment not in teletext:
         errors.append(f"Teletext runtime missing embedded authority fragment: {fragment}")
@@ -95,7 +101,7 @@ for fragment in (
 
 for fragment in (
     "SuiteBridgeObservationState::SnapshotCurrent",
-    "embeddedBackendLifecycleService_->heartbeatBackend(",
+    "embeddedBackendLifecycleService_->maintainBackend(",
 ):
     if fragment not in polling:
         errors.append(f"daemon polling missing lifecycle renewal fragment: {fragment}")
