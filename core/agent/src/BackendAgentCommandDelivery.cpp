@@ -237,6 +237,62 @@ BackendAgentCommandRepository::findAssignment(
     return result;
 }
 
+std::optional<BackendAgentCommandResult>
+BackendAgentCommandRepository::resultForCommand(
+    const std::string& commandId) const
+{
+    const auto assignment = findAssignment(commandId);
+    if (!assignment.has_value())
+        return std::nullopt;
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT result_identity,dispatch_state,verification_state,"
+        "result_category,error_category,retry_classification,"
+        "bounded_diagnostics,result_evidence,completed_at "
+        "FROM backend_agent_command_results WHERE command_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, commandId))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    if (sqlite3_step(statement) != SQLITE_ROW)
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    const std::string durableIdentity = text(statement, 0);
+    BackendAgentCommandResult result;
+    result.protocolVersion = assignment->protocolVersion;
+    result.commandId = assignment->commandId;
+    result.requestFingerprint = assignment->requestFingerprint;
+    result.jobId = assignment->jobId;
+    result.attemptId = assignment->attemptId;
+    result.claimEpoch = assignment->claimEpoch;
+    result.backendId = assignment->backendId;
+    result.agentId = assignment->agentId;
+    result.agentInstanceId = assignment->agentInstanceId;
+    result.backendGeneration = assignment->backendGeneration;
+    result.dispatchState = text(statement, 1);
+    result.verificationState = text(statement, 2);
+    result.resultCategory = text(statement, 3);
+    result.errorCategory = text(statement, 4);
+    result.retryClassification = text(statement, 5);
+    result.boundedDiagnostics = text(statement, 6);
+    result.resultEvidence = text(statement, 7);
+    result.completedAt = sqlite3_column_int64(statement, 8);
+    sqlite3_finalize(statement);
+
+    if (!backendAgentCommandValidResult(result) ||
+        backendAgentCommandResultIdentity(result) != durableIdentity)
+        return std::nullopt;
+    return result;
+}
+
 std::optional<BackendAgentCommandAssignment>
 BackendAgentCommandRepository::findAssignmentForOperation(
     const std::string& backendId,
