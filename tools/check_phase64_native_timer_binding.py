@@ -166,6 +166,11 @@ allowed_phase69_daemon_paths = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
 }
+allowed_phase69_readback_paths = {
+    Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
+    Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
+}
 successor_guard = ROOT / "tools/check_phase69_native_timer_create_fulfillment_runtime.py"
 successor_valid = False
 if successor_guard.is_file():
@@ -175,6 +180,18 @@ if successor_guard.is_file():
         "TimerAssignmentFulfillmentService",
         "CREATE fulfillment runtime must remain dormant in this slice",
         "timerAssignmentFulfillmentService_->beginProvisioning(",
+    ])
+
+readback_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_readback_reconciliation.py"
+)
+readback_successor_valid = False
+if readback_successor_guard.is_file():
+    readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+    readback_successor_valid = all(marker in readback_successor for marker in [
+        "reconcileNativeTimerCreateReadback(",
+        "verificationService.verify(expectation, readbackEvidence)",
+        "must remain productively",
     ])
 
 for scan_root in forbidden_roots:
@@ -192,6 +209,12 @@ for scan_root in forbidden_roots:
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding daemon wiring requires "
                     "the exact dormant fulfillment successor guard")
+            continue
+        if relative in allowed_phase69_readback_paths:
+            if not readback_successor_valid:
+                raise SystemExit(
+                    "Phase-69.C NativeTimerBinding readback wiring requires "
+                    "the exact dormant readback-reconciliation successor guard")
             continue
         raise SystemExit(
             "premature NativeTimerBinding runtime wiring: "
