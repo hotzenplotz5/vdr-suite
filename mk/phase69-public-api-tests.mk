@@ -179,7 +179,7 @@ test-phase69-native-timer-create-outcome-evidence: test-phase64-native-timer-cre
 .PHONY: test-phase69-native-timer-create-outcome-application
 
 test-phase69-native-timer-create-outcome-application: test-phase69-native-timer-create-outcome-evidence
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/CredentialVerifierRepository.cpp \
