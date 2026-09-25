@@ -1,6 +1,7 @@
 #include "DaemonHbbtvRuntime.h"
 
 #include "AuthorizationService.h"
+#include "BackendAgentLifecycle.h"
 #include "BackendRuntimeContext.h"
 #include "Database.h"
 #include "EmbeddedBackendHbbtvAuthority.h"
@@ -40,16 +41,20 @@ std::string securityDatabasePath(const std::string& fallback)
 }
 
 bool configureDaemonHbbtvRuntime(
+    Database& database,
     const std::string& defaultDatabasePath,
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     EmbeddedBackendLifecycleService& embeddedBackendLifecycleService,
+    BackendAgentLifecycleService& backendAgentLifecycleService,
     std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts)
 {
     resetDaemonHbbtvRuntime();
 
     auto authority = std::make_unique<EmbeddedBackendHbbtvAuthority>(
-        embeddedBackendLifecycleService);
+        database,
+        embeddedBackendLifecycleService,
+        backendAgentLifecycleService);
 
     auto readService = std::make_unique<HbbtvControlPlaneReadService>(
         backendRegistryService,
