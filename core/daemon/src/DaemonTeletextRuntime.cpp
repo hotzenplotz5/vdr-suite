@@ -1,6 +1,8 @@
 #include "DaemonTeletextRuntime.h"
 
 #include "EmbeddedBackendTeletextAuthority.h"
+#include "BackendAgentLifecycle.h"
+#include "Database.h"
 #include "BackendRuntimeContext.h"
 #include "TeletextApiRuntime.h"
 #include "TeletextControlPlaneReadService.h"
@@ -18,15 +20,19 @@ std::unique_ptr<TeletextControlPlaneReadService> teletextControlPlaneReadService
 }
 
 bool configureDaemonTeletextRuntime(
+    Database& database,
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     EmbeddedBackendLifecycleService& embeddedBackendLifecycleService,
+    BackendAgentLifecycleService& backendAgentLifecycleService,
     std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts)
 {
     resetDaemonTeletextRuntime();
 
     auto authority = std::make_unique<EmbeddedBackendTeletextAuthority>(
-        embeddedBackendLifecycleService);
+        database,
+        embeddedBackendLifecycleService,
+        backendAgentLifecycleService);
 
     auto readService = std::make_unique<TeletextControlPlaneReadService>(
         backendRegistryService,
