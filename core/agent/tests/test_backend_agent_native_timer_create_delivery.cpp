@@ -145,7 +145,7 @@ BackendAgentCommandResult boundedResult(
     result.dispatchState = "accepted_by_executor";
     result.verificationState = "outcome_unknown";
     result.resultCategory = "outcome_unknown";
-    result.errorCategory = "executor_unknown";
+    result.errorCategory = "none";
     result.retryClassification = "reconcile_only";
     result.boundedDiagnostics = "CREATE dispatched; authoritative readback required";
     result.completedAt = completedAt;
@@ -171,7 +171,7 @@ BackendAgentCommandResult boundedResult(
     evidence.providerInstanceEpoch =
         command.localProviderSelection.providerInstanceEpoch;
     evidence.localStartingPersistedAt = completedAt - 2;
-    evidence.outcome = BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown;
+    evidence.outcome = BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified;
     evidence.dispatchStartedAt = completedAt - 1;
     evidence.completedAt = completedAt;
     evidence.evidenceReference = "suitebridge-create-outcome-unknown";
@@ -309,7 +309,7 @@ int main()
     assert(backendAgentNativeTimerCreateParseResultEvidence(
         durableResult->resultEvidence, second, parsedEvidence, reason));
     assert(parsedEvidence.outcome ==
-        BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown);
+        BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified);
     assert(parsedEvidence.dispatchStartedAt == 140);
     assert(parsedEvidence.completedAt == 141);
     assert(parsedEvidence.evidenceReference ==
