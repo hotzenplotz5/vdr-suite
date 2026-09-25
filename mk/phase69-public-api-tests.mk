@@ -204,3 +204,34 @@ test-phase69-native-timer-create-outcome-application: test-phase69-native-timer-
 		-o $(BUILD_DIR)/test_native_timer_create_result_outcome_application
 	$(BUILD_DIR)/test_native_timer_create_result_outcome_application
 	python3 tools/check_phase69_native_timer_create_outcome_application.py
+
+.PHONY: test-phase69-native-timer-create-readback-reconciliation
+
+test-phase69-native-timer-create-readback-reconciliation: test-phase69-native-timer-create-outcome-application
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/sqlite/include -Icore/operations/include -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerObservation.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
+		core/timers/src/NativeTimerCreateReadbackVerificationService.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
+		core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
+		core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_readback_reconciliation
+	$(BUILD_DIR)/test_native_timer_create_readback_reconciliation
+	python3 tools/check_phase69_native_timer_create_readback_reconciliation.py
+
