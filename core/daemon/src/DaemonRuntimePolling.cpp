@@ -35,7 +35,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                     health.running &&
                     observation.state ==
                         vdrsuite::agent::SuiteBridgeObservationState::SnapshotCurrent;
-                embeddedBackendLifecycleService_->heartbeatBackend(
+                embeddedBackendLifecycleService_->maintainBackend(
                     backendRuntimeContext->backendId,
                     healthy,
                     lifecycleNow);
