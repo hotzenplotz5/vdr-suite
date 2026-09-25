@@ -120,9 +120,25 @@ text_suffixes = {
     ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc", ".mk",
     ".conf", ".service",
 }
+readback_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_readback_reconciliation.py"
+)
+if not readback_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C readback-reconciliation guard is required for the reviewed "
+        "TimerAssignment repository regression consumer"
+    )
+readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+if "core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp" not in readback_successor:
+    raise SystemExit(
+        "Phase-69.C readback-reconciliation guard must pin its repository "
+        "regression consumer"
+    )
+
 reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
 }
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
