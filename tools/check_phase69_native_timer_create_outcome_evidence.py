@@ -38,7 +38,7 @@ required = {
         "r.resultEvidence",
     ],
     "delivery_h": [
-        "BackendAgentCommandResult resultForCommand(",
+        "std::optional<BackendAgentCommandResult> resultForCommand(",
     ],
     "delivery_cpp": [
         "result_evidence TEXT NOT NULL DEFAULT ''",
