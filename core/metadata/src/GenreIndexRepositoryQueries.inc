@@ -63,14 +63,7 @@ GenreOverview GenreIndexRepository::overview(
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
         "JOIN suite_metadata_genres g ON g.genre_id=a.genre_id "
         "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" +
-        (targetType == "recording"
-            ? " AND NOT (a.source_kind='recording-metadata' AND EXISTS ("
-              "SELECT 1 FROM suite_metadata_assignments ma "
-              "WHERE ma.metadata_target_id=b.metadata_target_id "
-              "AND ma.assignment_state='selected' "
-              "AND ma.manual_assignment=1 "
-              "AND ma.relationship_locked=1)) "
-            : "") +
+        effectiveRecordingGenreJoin +
         timePredicate +
         "GROUP BY g.genre_id,g.label_de,g.label_en,g.known "
         "ORDER BY CASE WHEN g.genre_id='unclassified' THEN 1 ELSE 0 END,g.label_de,g.genre_id;";
