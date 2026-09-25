@@ -7,6 +7,9 @@ domain = (ROOT / "core/vdr/include/HbbtvDomain.h").read_text()
 resolver = (ROOT / "core/vdr/src/SuiteBridgeHbbtvResolver.cpp").read_text()
 control = (ROOT / "core/daemon/src/HbbtvControlPlaneReadService.cpp").read_text()
 daemon = (ROOT / "core/daemon/src/DaemonHbbtvRuntime.cpp").read_text()
+authority = (
+    ROOT / "core/daemon/src/EmbeddedBackendHbbtvAuthority.cpp"
+).read_text()
 runtime = (ROOT / "core/daemon/src/DaemonRuntime.cpp").read_text()
 api = (ROOT / "api/rest/src/HbbtvApiRuntime.cpp").read_text()
 router = (ROOT / "api/rest/include/ApiRouter.h").read_text()
@@ -38,7 +41,13 @@ required = {
     ),
     "daemon": (
         (daemon, "EmbeddedBackendHbbtvAuthority"),
+        (daemon, "BackendAgentLifecycleService& backendAgentLifecycleService"),
         (daemon, "ensureHbbtvResolver()"),
+        (authority, "agentLifecycleService_.statusForBackend(backendId, now)"),
+        (authority, "generations.latestGeneration(backendId)"),
+        (authority, "agent.backendGeneration == latestGeneration"),
+        (authority, "BackendAgentConnectionState::Online"),
+        (authority, "lifecycleService_.statusForBackend(backendId, now)"),
         (runtime, "configureDaemonHbbtvRuntime("),
         (runtime, "resetDaemonHbbtvRuntime();"),
     ),

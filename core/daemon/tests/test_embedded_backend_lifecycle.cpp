@@ -50,31 +50,34 @@ int main()
     const auto externalTakeover = generations.allocate("default", 1033);
     assert(externalTakeover.accepted);
     assert(externalTakeover.generation == 131);
-    assert(!lifecycle.heartbeatBackend("default", true, 1033));
+
+    assert(database.execute(
+        "UPDATE backend_agents SET "
+        "backend_generation=131,lease_expires_at=1060,updated_at=1033 "
+        "WHERE backend_id='default';"));
+
+    assert(!lifecycle.maintainBackend("default", true, 1033));
     state = lifecycle.statusForBackend("default", 1033);
     assert(!state.present);
 
-    assert(lifecycle.stopBackend("default", 1034));
-    state = lifecycle.statusForBackend("default", 1033);
-    assert(!state.present);
+    // An active standalone Agent lease must block embedded takeover.
+    assert(!lifecycle.startBackend("default", 1050));
 
-    assert(lifecycle.startBackend("default", 1040));
-    state = lifecycle.statusForBackend("default", 1040);
+    // Once the standalone lease expires, the same maintenance path may
+    // allocate a new monotonic generation and make embedded authority current.
+    assert(lifecycle.maintainBackend("default", true, 1061));
+    state = lifecycle.statusForBackend("default", 1061);
     assert(state.present);
-    assert(!state.online);
-    assert(state.backendGeneration == 132);
-
-    assert(lifecycle.heartbeatBackend("default", true, 1041));
-    state = lifecycle.statusForBackend("default", 1041);
     assert(state.online);
     assert(state.backendGeneration == 132);
+    assert(state.heartbeatSequence == 1);
 
     assert(database.execute(
         "UPDATE backend_agents SET lease_expires_at=2000,updated_at=2000 "
         "WHERE backend_id='default';"));
     EmbeddedBackendLifecycleService blocked(database);
     assert(blocked.ensureSchema());
-    assert(!blocked.startBackend("default", 1050));
+    assert(!blocked.startBackend("default", 1070));
 
     return 0;
 }

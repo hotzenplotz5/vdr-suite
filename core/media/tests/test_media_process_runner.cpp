@@ -3,6 +3,8 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <fcntl.h>
+#include <unistd.h>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -56,6 +58,29 @@ int main()
     }
 
     {
+        const int sourceFd = ::open("/dev/null", O_RDONLY);
+        assert(sourceFd >= 0);
+        const int inheritedFd = ::fcntl(sourceFd, F_DUPFD, 100);
+        assert(inheritedFd >= 100);
+        ::close(sourceFd);
+
+        const auto result = runner.runAndCapture(
+            {"/bin/sh", "-c",
+             "if [ -e /proc/self/fd/" + std::to_string(inheritedFd) +
+             " ]; then printf inherited; else printf closed; fi"},
+            workingDirectory,
+            std::chrono::milliseconds(1000),
+            4096);
+
+        ::close(inheritedFd);
+
+        assert(result.started);
+        assert(result.completed);
+        assert(result.success);
+        assert(result.output == "closed");
+    }
+
+    {
         const auto result = runner.runAndCapture(
             {"printf", "unsafe"},
             workingDirectory,
@@ -105,6 +130,30 @@ int main()
         assert(pid > 0);
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         assert(runner.terminateAndWait(pid, std::chrono::milliseconds(200)));
+    }
+
+    {
+        const int sourceFd = ::open("/dev/null", O_RDONLY);
+        assert(sourceFd >= 0);
+        const int inheritedFd = ::fcntl(sourceFd, F_DUPFD, 100);
+        assert(inheritedFd >= 100);
+        ::close(sourceFd);
+
+        const std::filesystem::path logPath =
+            testRoot / "descriptor-isolation.log";
+        const pid_t pid = runner.spawnLogged(
+            {"/bin/sh", "-c",
+             "if [ -e /proc/self/fd/" + std::to_string(inheritedFd) +
+             " ]; then printf inherited; else printf closed; fi"},
+            testRoot.string(),
+            logPath.string());
+
+        assert(pid > 0);
+        assert(runner.terminateAndWait(
+            pid,
+            std::chrono::milliseconds(1000)));
+        ::close(inheritedFd);
+        assert(readFile(logPath) == "closed");
     }
 
     std::filesystem::remove_all(testRoot, ignored);

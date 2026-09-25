@@ -501,10 +501,22 @@
     return 0;
   }
 
-  function createContinuousFmp4Mse(video, mediaPath, onFailure, autoPlay) {
+  function createContinuousFmp4Mse(
+    video,
+    mediaPath,
+    onFailure,
+    autoPlay,
+    forwardBufferBackpressure
+  ) {
     if (!supportsContinuousFmp4Mse()) return null;
 
     const shouldAutoPlay = autoPlay !== false;
+    // Completed Recordings can outrun playback and therefore need the bounded
+    // forward high-water mark introduced by PR #219. Broadcast Live-TV is
+    // already paced by the real-time provider and has bounded upstream
+    // buffering; propagating a browser/MSE pause upstream can otherwise fill
+    // that provider and terminate the Live session as backpressure_overflow.
+    const shouldBoundForwardBuffer = forwardBufferBackpressure !== false;
     const MediaSource = global.MediaSource;
     const mediaSource = new MediaSource();
     const abortController = new global.AbortController();
@@ -528,7 +540,7 @@
     }
 
     function waitForContinuousBufferRoom() {
-      if (destroyed || !sourceBuffer ||
+      if (!shouldBoundForwardBuffer || destroyed || !sourceBuffer ||
           continuousBufferedAheadSeconds(sourceBuffer, video) + CONTINUOUS_BUFFER_EPSILON_SECONDS <
             CONTINUOUS_BUFFER_FORWARD_SECONDS) {
         return Promise.resolve();
@@ -952,14 +964,21 @@
       );
     }
 
-    function connectMediaPath(mediaPath, label, autoPlay, onFailure) {
+    function connectMediaPath(
+      mediaPath,
+      label,
+      autoPlay,
+      onFailure,
+      forwardBufferBackpressure
+    ) {
       releaseVideo();
       const shouldAutoPlay = autoPlay !== false;
       continuousTransport = createContinuousFmp4Mse(
         video,
         mediaPath,
         onFailure,
-        shouldAutoPlay
+        shouldAutoPlay,
+        forwardBufferBackpressure
       );
 
       let playRequest = null;
@@ -1032,7 +1051,8 @@
           mediaPath,
           'Direktstream',
           true,
-          function (error) { failPlayback(error); }
+          function (error) { failPlayback(error); },
+          false
         );
 
         if (playRequest && typeof playRequest.catch === 'function') {

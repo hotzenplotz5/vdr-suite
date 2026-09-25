@@ -49,6 +49,21 @@ int decodedExitCode(int status)
     return -1;
 }
 
+long maximumOpenDescriptor()
+{
+    const long value = ::sysconf(_SC_OPEN_MAX);
+    return value > 3 ? value : 1024;
+}
+
+void closeInheritedDescriptors(long maximumDescriptor)
+{
+    for (long descriptor = 3;
+         descriptor < maximumDescriptor;
+         ++descriptor) {
+        ::close(static_cast<int>(descriptor));
+    }
+}
+
 bool waitForChildUntil(
     pid_t pid,
     std::chrono::steady_clock::time_point deadline,
@@ -111,6 +126,7 @@ MediaProcessCaptureResult MediaProcessRunner::runAndCapture(
     }
 
     const std::vector<char*> arguments = mutableArgv(argv);
+    const long maximumDescriptor = maximumOpenDescriptor();
     const pid_t pid = ::fork();
     if (pid < 0) {
         ::close(pipeFds[0]);
@@ -139,6 +155,7 @@ MediaProcessCaptureResult MediaProcessRunner::runAndCapture(
             ::close(nullFd);
         }
         ::close(pipeFds[1]);
+        closeInheritedDescriptors(maximumDescriptor);
         ::execv(argv.front().c_str(), arguments.data());
         _exit(127);
     }
@@ -239,6 +256,7 @@ pid_t MediaProcessRunner::spawnLogged(
     }
 
     const std::vector<char*> arguments = mutableArgv(argv);
+    const long maximumDescriptor = maximumOpenDescriptor();
     const pid_t pid = ::fork();
     if (pid < 0) {
         return -1;
@@ -263,6 +281,7 @@ pid_t MediaProcessRunner::spawnLogged(
         }
         ::close(nullFd);
         ::close(logFd);
+        closeInheritedDescriptors(maximumDescriptor);
         ::execv(argv.front().c_str(), arguments.data());
         _exit(127);
     }

@@ -144,6 +144,24 @@ GenreEvidenceInput recordingEvidence(
     return input;
 }
 
+GenreEvidenceInput recordingFolderEvidence(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    const std::string& nativeId)
+{
+    GenreEvidenceInput input;
+    input.backendId = backendId;
+    input.targetType = "recording";
+    input.resourceKey = resourceKey;
+    input.nativeId = nativeId;
+    input.providerId = "recording-folder";
+    input.sourceKind = "recording-folder-genre";
+    input.originalValues = {"Action"};
+    input.confidence = 0.7;
+    input.observedAt = 1001;
+    return input;
+}
+
 bool contains(const ApiResponse& response, const std::string& text)
 {
     return response.body.find(text) != std::string::npos;
@@ -268,6 +286,9 @@ int main()
     const ApiResponse remoteSummary = controller.getRecordings("remote", "science-fiction", 10, 0);
     assert(!contains(remoteSummary, "seriesMetadata"));
 
+    assert(repository.replaceEvidence(recordingFolderEvidence(
+        "default", "recording-1", "native/one")));
+
     assert(database.execute(
         "CREATE TABLE suite_metadata_manual_assignment_values(metadata_assignment_id TEXT,backend_id TEXT,"
         "resource_key TEXT,title TEXT,season_number INTEGER,episode_number INTEGER,media_type TEXT,"
@@ -281,9 +302,36 @@ int main()
         "WHERE backend_id='default' AND resource_key='recording-1';"
         "INSERT INTO suite_metadata_manual_assignment_values VALUES('mdasg_11111111111111111111111111111111','default','recording-1',"
         "'Manuelle Serie',4,9,'episode','/var/cache/vdr-suite/recording-metadata/posters/manual.jpg',7);"));
-    const ApiResponse manualSummary = controller.getRecordings("default", "science-fiction", 10, 0);
+    const ApiResponse lockedNativeGenre =
+        controller.getRecordings(
+            "default",
+            "science-fiction",
+            10,
+            0);
+    assert(lockedNativeGenre.statusCode == 200);
+    assert(contains(lockedNativeGenre, "\"total\":0"));
+    assert(!contains(lockedNativeGenre, "\"recordingId\":\"recording-id-1\""));
+
+    const ApiResponse lockedRecordingOverview =
+        controller.getOverview(
+            "default",
+            "recordings",
+            "de",
+            -1,
+            -1);
+    assert(lockedRecordingOverview.statusCode == 200);
+    assert(contains(lockedRecordingOverview, "\"id\":\"action\""));
+    assert(!contains(lockedRecordingOverview, "\"id\":\"science-fiction\""));
+
+    const ApiResponse manualSummary =
+        controller.getRecordings(
+            "default",
+            "action",
+            10,
+            0);
     assert(contains(manualSummary, "\"seasonNumber\":4,\"episodeNumber\":9"));
     assert(contains(manualSummary, "\"provider\":\"manual\""));
+    assert(contains(manualSummary, "\"genreIds\":[\"action\"]"));
     assert(contains(manualSummary, "&assignmentRevision=7"));
     assert(!contains(manualSummary, "&kind=gallery"));
 
@@ -297,7 +345,7 @@ int main()
     const ApiResponse manualSeriesSummary =
         controller.getRecordings(
             "default",
-            "science-fiction",
+            "action",
             10,
             0);
 
