@@ -785,6 +785,12 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     const std::string payload=text(query,10);
     sqlite3_finalize(query);
     if(!match){result.reasonCode="command_result_fenced";return result;}
+    const auto durableAssignment = findAssignment(r.commandId);
+    if (!durableAssignment.has_value())
+    {
+        result.reasonCode = "command_database_unavailable";
+        return result;
+    }
     if(commandType=="vdr.native.probe")
     {
         if(payloadVersion==2)
@@ -828,6 +834,53 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
         sqlite3_finalize(selected);
         if(!recorded)
         {result.reasonCode="local_provider_selection_required";return result;}
+
+        BackendAgentNativeTimerCreateEvidence evidence;
+        if (r.resultEvidence.empty() ||
+            !backendAgentNativeTimerCreateParseResultEvidence(
+                r.resultEvidence,
+                *durableAssignment,
+                evidence,
+                payloadReason) ||
+            evidence.completedAt != r.completedAt)
+        {
+            result.reasonCode = "native_timer_create_result_evidence_invalid";
+            return result;
+        }
+
+        bool projectionMatches = false;
+        switch (evidence.outcome)
+        {
+            case BackendAgentNativeTimerCreateOutcomeCategory::rejectedWithoutEffect:
+                projectionMatches =
+                    r.dispatchState == "not_started" &&
+                    r.verificationState == "verified" &&
+                    r.resultCategory == "rejected" &&
+                    r.errorCategory == "fenced" &&
+                    r.retryClassification == "none";
+                break;
+            case BackendAgentNativeTimerCreateOutcomeCategory::acceptedUnverified:
+                projectionMatches =
+                    r.dispatchState == "accepted_by_executor" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "none" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+            case BackendAgentNativeTimerCreateOutcomeCategory::outcomeUnknown:
+                projectionMatches =
+                    r.dispatchState == "starting" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "executor_unknown" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+        }
+        if (!projectionMatches)
+        {
+            result.reasonCode = "native_timer_create_result_evidence_conflict";
+            return result;
+        }
     }
     else if(commandType==kBackendAgentNativeTimerDeleteCommandType)
     {
@@ -909,8 +962,8 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
     if(sqlite3_step(existing)==SQLITE_ROW){result.accepted=text(existing,0)==identity;result.replayed=result.accepted;result.reasonCode=result.accepted?"command_result_replayed":"command_result_conflict";sqlite3_finalize(existing);if(result.accepted){sqlite3_stmt* replay=nullptr;const char* replaySql="UPDATE backend_agent_commands SET result_replay_count=result_replay_count+1 WHERE command_id=?;";if(sqlite3_prepare_v2(database_.handle(),replaySql,-1,&replay,nullptr)!=SQLITE_OK||!bindText(replay,1,r.commandId)||!done(replay)){result.accepted=false;result.replayed=false;result.reasonCode="command_database_unavailable";}}return result;} sqlite3_finalize(existing);
     if(!database_.execute("BEGIN IMMEDIATE;")){result.reasonCode="command_database_unavailable";return result;}
     sqlite3_stmt* insert=nullptr;
-    const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,completed_at) VALUES(?,?,?,?,?,?,?,?,?);";
-    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.dispatchState)&&bindText(insert,4,r.verificationState)&&bindText(insert,5,r.resultCategory)&&bindText(insert,6,r.errorCategory)&&bindText(insert,7,r.retryClassification)&&bindText(insert,8,r.boundedDiagnostics)&&bindInt(insert,9,r.completedAt)&&done(insert);
+    const char* insertSql="INSERT INTO backend_agent_command_results(command_id,result_identity,dispatch_state,verification_state,result_category,error_category,retry_classification,bounded_diagnostics,result_evidence,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?);";
+    bool ok=sqlite3_prepare_v2(database_.handle(),insertSql,-1,&insert,nullptr)==SQLITE_OK&&bindText(insert,1,r.commandId)&&bindText(insert,2,identity)&&bindText(insert,3,r.dispatchState)&&bindText(insert,4,r.verificationState)&&bindText(insert,5,r.resultCategory)&&bindText(insert,6,r.errorCategory)&&bindText(insert,7,r.retryClassification)&&bindText(insert,8,r.boundedDiagnostics)&&bindText(insert,9,r.resultEvidence)&&bindInt(insert,10,r.completedAt)&&done(insert);
     sqlite3_stmt* update=nullptr;
     const char* updateSql="UPDATE backend_agent_commands SET state=?,updated_at=? WHERE command_id=?;";
     const std::string state=r.resultCategory=="outcome_unknown"?"waiting_reconciliation":"completed";
