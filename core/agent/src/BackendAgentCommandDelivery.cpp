@@ -43,6 +43,28 @@ bool done(sqlite3_stmt* statement)
     sqlite3_finalize(statement);
     return result==SQLITE_DONE;
 }
+bool tableHasColumn(
+    sqlite3* database,
+    const std::string& table,
+    const std::string& column)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ");";
+    if (sqlite3_prepare_v2(
+            database, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (text(statement, 1) == column)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
 std::string identifiers(const std::vector<std::string>& values)
 {
     std::ostringstream output;
@@ -91,7 +113,7 @@ BackendAgentCommandRepository::BackendAgentCommandRepository(Database& database)
 
 bool BackendAgentCommandRepository::ensureSchema()
 {
-    return database_.execute(
+    const bool schemaReady = database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_commands ("
         "command_id TEXT PRIMARY KEY,protocol_version TEXT NOT NULL,request_id TEXT NOT NULL,correlation_id TEXT NOT NULL,"
         "operation_id TEXT NOT NULL,job_id TEXT NOT NULL,attempt_id TEXT NOT NULL,claim_epoch INTEGER NOT NULL,"
@@ -130,7 +152,8 @@ bool BackendAgentCommandRepository::ensureSchema()
         database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_results ("
         "command_id TEXT PRIMARY KEY,result_identity TEXT NOT NULL,dispatch_state TEXT NOT NULL,verification_state TEXT NOT NULL,"
-        "result_category TEXT NOT NULL,error_category TEXT NOT NULL,retry_classification TEXT NOT NULL,bounded_diagnostics TEXT NOT NULL,completed_at INTEGER NOT NULL,"
+        "result_category TEXT NOT NULL,error_category TEXT NOT NULL,retry_classification TEXT NOT NULL,bounded_diagnostics TEXT NOT NULL,"
+        "result_evidence TEXT NOT NULL DEFAULT '',completed_at INTEGER NOT NULL,"
         "FOREIGN KEY(command_id) REFERENCES backend_agent_commands(command_id));") &&
         database_.execute(
         "CREATE TABLE IF NOT EXISTS backend_agent_command_faults ("
@@ -141,6 +164,16 @@ bool BackendAgentCommandRepository::ensureSchema()
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;") &&
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
+    if (!schemaReady)
+        return false;
+    if (tableHasColumn(
+            database_.handle(),
+            "backend_agent_command_results",
+            "result_evidence"))
+        return true;
+    return database_.execute(
+        "ALTER TABLE backend_agent_command_results "
+        "ADD COLUMN result_evidence TEXT NOT NULL DEFAULT '';");
 }
 
 bool BackendAgentCommandRepository::insertAssignment(
