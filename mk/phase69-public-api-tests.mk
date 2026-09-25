@@ -174,3 +174,33 @@ test-phase69-native-timer-create-reconciliation-runtime:
 
 test-phase69-native-timer-create-outcome-evidence: test-phase64-native-timer-create-delivery
 	python3 tools/check_phase69_native_timer_create_outcome_evidence.py
+
+
+.PHONY: test-phase69-native-timer-create-outcome-application
+
+test-phase69-native-timer-create-outcome-application: test-phase69-native-timer-create-outcome-evidence
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+		core/daemon/tests/test_native_timer_create_result_outcome_application.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_result_outcome_application
+	$(BUILD_DIR)/test_native_timer_create_result_outcome_application
+	python3 tools/check_phase69_native_timer_create_outcome_application.py

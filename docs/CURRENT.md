@@ -15,6 +15,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
 - [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
+- [Native Timer CREATE Outcome Application](development/phase-69c-native-timer-create-outcome-application.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -72,13 +73,13 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Native Timer CREATE outcome evidence: carry the already durable typed Agent
-executor evidence through the existing BackendAgentCommandResult and
-backend_agent_command_results authority so dispatchStartedAt and the native
-evidence reference are not lost before reconciliation. No second result table,
-repository or lifecycle owner is introduced. Reservation, dispatch claim,
-activation, executor outcome application, readback verification, assignment
-binding and operation completion remain uninvoked in this candidate.
+Native Timer CREATE outcome application: correlate the existing durable
+BackendAgentCommandResult/resultEvidence with the repository-owned dispatching
+MutationOperation revision, then map the exact typed Agent evidence into the
+existing NativeTimerCreateExecutorOutcome and delegate only to
+NativeTimerCreateDispatchService::applyOutcome(). The adapter is stateless and
+productively uninvoked; reservation, dispatch claim, activation, authoritative
+readback, assignment binding and operation completion remain closed.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
@@ -116,6 +117,9 @@ PR #333 hosted CI run 35964190859 / #9134: SUCCESS (6/6)
 PR #334 -> 94dcffa8fc77b9087472ec09056853819515308a
 PR #334 accepted head c4b0be094f69d74e68787f3487d678af4c783550
 PR #334 hosted CI run 35967848509 / #9143: SUCCESS (6/6)
+PR #341 -> 54ee022361bd796529578de46edb3d5a9a8bec4a
+PR #341 accepted head ed1cc9739351045e0824530273a93a55700f5e5d
+PR #341 hosted CI run 36094237108 / #9205: SUCCESS (6/6)
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
