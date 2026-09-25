@@ -2,6 +2,7 @@
 
 CI_FAST_TESTS := \
 	test-phase69-native-timer-create-readback-reconciliation \
+	test-phase69-native-timer-create-outcome-application \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
 	test-phase68-osd-view-session-authorization \
