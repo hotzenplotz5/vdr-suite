@@ -95,8 +95,9 @@ if include_line not in makefile:
 
 # Phase 64 originally prohibited every runtime consumer because this slice
 # established only the readback-verification domain owner. Phase 69.C may now
-# compose that accepted owner in DaemonRuntime, but only behind its dedicated
-# successor guard. Keep every other runtime surface closed.
+# compose that accepted owner in DaemonRuntime and may add one exact dormant
+# readback-reconciliation adapter, but only behind dedicated successor guards.
+# Keep every other runtime surface closed.
 successor_guard = (
     ROOT / "tools/check_phase69_native_timer_create_reconciliation_runtime.py"
 )
@@ -118,10 +119,35 @@ for token in [
             + token
         )
 
+readback_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_readback_reconciliation.py"
+)
+if not readback_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C CREATE readback-reconciliation successor guard is required "
+        "before the dormant adapter may consume the verification owner"
+    )
+readback_successor_guard_text = readback_successor_guard.read_text(
+    encoding="utf-8"
+)
+for token in [
+    "reconcileNativeTimerCreateReadback(",
+    "must remain productively",
+    "verificationService.verify(expectation, readbackEvidence)",
+]:
+    if token not in readback_successor_guard_text:
+        raise SystemExit(
+            "Phase-69.C CREATE readback-reconciliation successor guard missing "
+            "marker: " + token
+        )
+
 reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+    Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
+    Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
 }
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
