@@ -1,7 +1,7 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
-	test-phase69-native-timer-create-outcome-application \
+	test-phase69-native-timer-create-readback-reconciliation \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
 	test-phase68-osd-view-session-authorization \
