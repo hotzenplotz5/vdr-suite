@@ -2,17 +2,18 @@
 
 ## Status
 
-**ACTIVE — bounded dormant reconciliation adapter after PR #341.**
+**ACCEPTED — bounded dormant outcome-application prerequisite.**
 
-Live baseline used for this slice:
+Accepted checkpoint:
 
 ```text
-main=54ee022361bd796529578de46edb3d5a9a8bec4a
-PR #341 merge=54ee022361bd796529578de46edb3d5a9a8bec4a
+PR #342 merge=d1e543b977da45f732c768f4efdf8877910dd90e
+PR #342 accepted head=78880a00e0cc330b7375ee24086162a89e6cd5ac
+PR #342 CI=36132407130 / #9210 / SUCCESS (6/6)
 69.C=ACTIVE
 ```
 
-## Proven boundary after PR #341
+## Accepted boundary in PR #342
 
 The existing Agent result path durably ends at:
 
@@ -88,14 +89,14 @@ NativeTimerCreateOperationCompletionService::complete()
 Therefore **no Agent command becomes pollable**, SuiteBridge CREATE is not sent
 and no VDR Timer can be created by this slice.
 
-## Why readback is not in this slice
+## Successor boundary
 
 `applyOutcome()` yields the existing `NativeTimerCreateReadbackExpectation`
 for `acceptedUnverified` and `outcomeUnknown`. Authoritative Timer readback
 is a different evidence source and cannot be derived from the Agent result.
 
-The later native-effect slice must connect that expectation to authoritative
-Timer inventory/readback, then reuse:
+The immediate successor may therefore remain dormant: it can consume an already
+supplied authoritative complete Timer readback evidence object and reuse:
 
 ```text
 NativeTimerCreateReadbackVerificationService::verify()
@@ -103,7 +104,10 @@ NativeTimerCreateReadbackVerificationService::verify()
 -> NativeTimerCreateOperationCompletionService::complete()
 ```
 
-before productive reservation/claim/activation is opened.
+without opening Agent pollability or native CREATE. Only the later productive
+native-effect/runtime slice may open reservation/claim/activation and the real
+readback acquisition trigger, and that slice requires exact-head real yaVDR
+acceptance before merge.
 
 ## Acceptance
 
