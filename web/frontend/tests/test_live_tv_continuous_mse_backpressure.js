@@ -315,10 +315,9 @@ function flush(rounds) {
 
   assert.ok(activeSourceBuffer, 'Live-TV MSE must create one SourceBuffer');
   assert.ok(activeVideo, 'Live-TV must own one HTMLMediaElement');
-  assert.strictEqual(
-    activeSourceBuffer.bufferedEnd,
-    12,
-    'reproduction must reach the shared 12-second continuous-MSE high-water mark'
+  assert.ok(
+    activeSourceBuffer.bufferedEnd > 12,
+    'Live-TV must not freeze its HTTP pull at the Recording 12-second forward high-water mark'
   );
 
   assert.ok(
