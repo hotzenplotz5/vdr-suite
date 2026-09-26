@@ -35,6 +35,7 @@ public:
     int forcedOpenReplyCode = 250;
     std::string forcedOpenPayload;
     int discoverTimeoutsRemaining = 0;
+    int statusTimeoutsRemaining = 0;
 
     vdrsuite::agent::SuiteBridgeCommandReply discoverLiveSource() override
     {
@@ -86,6 +87,14 @@ public:
     vdrsuite::agent::SuiteBridgeCommandReply statusLiveSource(
         const vdrsuite::agent::SuiteBridgeLiveSourceLeaseRequest& request) override
     {
+        if (statusTimeoutsRemaining > 0) {
+            --statusTimeoutsRemaining;
+            vdrsuite::agent::SuiteBridgeCommandReply reply;
+            reply.transportStatus =
+                vdrsuite::agent::SuiteBridgeTransportStatus::Timeout;
+            reply.diagnostic = "forced transient live status timeout";
+            return reply;
+        }
         if (request.pluginInstanceEpoch != epoch)
             return success(555, "live_source_plugin_instance_epoch_stale");
         return success(
@@ -367,6 +376,14 @@ int main()
         sessions.findSession(first.session.sessionId);
     assert(firstAfterTransient.has_value());
     assert(firstAfterTransient->state != "ended");
+
+    // The same non-terminal rule applies when NLCAP succeeds but the concrete
+    // NLIVE STATUS read itself times out.
+    transport.statusTimeoutsRemaining = 1;
+    assert(runtime.reapInactive(60) == 0);
+    assert(runtime.activeCount() == 1);
+    assert(transport.closeCount == 0);
+    assert(::kill(firstProvision.workerPid, 0) == 0);
 
     transport.epoch = "pie_2";
     assert(runtime.reapInactive(60) == 1);
