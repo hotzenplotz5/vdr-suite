@@ -87,6 +87,8 @@ struct BackendRuntimeContext
         epgMetadataTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedRecordingMetadataTransport>
         recordingMetadataTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedEpgTypeSnapshotTransport>
+        epgTypeSnapshotTransport;
     std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
     std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
     std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>

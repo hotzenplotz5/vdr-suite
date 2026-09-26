@@ -286,6 +286,11 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                 vdrsuite::agent::SuiteBridgePrioritizedRecordingMetadataTransport>(
                     *context->providerLocalControlTransport,
                     *context->suiteBridgeTransport);
+        context->epgTypeSnapshotTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedEpgTypeSnapshotTransport>(
+                    *context->providerLocalControlTransport,
+                    *context->suiteBridgeTransport);
 
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
