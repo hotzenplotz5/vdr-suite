@@ -8,6 +8,7 @@
 #include <future>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
