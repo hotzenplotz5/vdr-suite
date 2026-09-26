@@ -11,13 +11,13 @@ constexpr std::size_t RequestHeaderBytes=32, ResponseHeaderBytes=32;
 constexpr std::size_t MaximumRequestPayloadBytes=2048, MaximumResponsePayloadBytes=65536;
 constexpr std::size_t MaximumRequestFrameBytes=RequestHeaderBytes+MaximumRequestPayloadBytes;
 constexpr std::size_t MaximumResponseFrameBytes=ResponseHeaderBytes+MaximumResponsePayloadBytes;
-enum class Operation:std::uint16_t { LiveCapability=1, LiveOpen=2, LiveStatus=3, LiveClose=4 };
+enum class Operation:std::uint16_t { LiveCapability=1, LiveOpen=2, LiveStatus=3, LiveClose=4, NativeProbeCapability=5, NativeProbeExecute=6, NativeProbeReadback=7 };
 enum class ServiceClass:std::uint16_t { CriticalControl=1 };
 enum class Result:std::uint16_t { Success=0, NativeRejected=1, StaleRejected=2, Overloaded=3, DeadlineExpired=4, ProviderUnavailable=5, ProtocolMismatch=6, PeerRejected=7, InternalFailure=8 };
 struct Request { std::uint16_t major=ProtocolMajor, minor=ProtocolMinor; Operation operation=Operation::LiveCapability; std::uint64_t requestId=0, deadlineNanoseconds=0; std::string payload; };
 struct Response { std::uint16_t major=ProtocolMajor, minor=ProtocolMinor; Result result=Result::InternalFailure; std::uint64_t requestId=0; std::int32_t replyCode=0; std::string payload; };
-inline const char* operationName(Operation op){ switch(op){case Operation::LiveCapability:return "live-capability";case Operation::LiveOpen:return "live-open";case Operation::LiveStatus:return "live-status";case Operation::LiveClose:return "live-close";} return "unknown"; }
-inline bool knownOperation(Operation op){ return op==Operation::LiveCapability||op==Operation::LiveOpen||op==Operation::LiveStatus||op==Operation::LiveClose; }
+inline const char* operationName(Operation op){ switch(op){case Operation::LiveCapability:return "live-capability";case Operation::LiveOpen:return "live-open";case Operation::LiveStatus:return "live-status";case Operation::LiveClose:return "live-close";case Operation::NativeProbeCapability:return "native-probe-capability";case Operation::NativeProbeExecute:return "native-probe-execute";case Operation::NativeProbeReadback:return "native-probe-readback";} return "unknown"; }
+inline bool knownOperation(Operation op){ return op==Operation::LiveCapability||op==Operation::LiveOpen||op==Operation::LiveStatus||op==Operation::LiveClose||op==Operation::NativeProbeCapability||op==Operation::NativeProbeExecute||op==Operation::NativeProbeReadback; }
 inline ServiceClass serviceClass(Operation){ return ServiceClass::CriticalControl; }
 inline std::uint64_t monotonicNowNanoseconds(){ timespec v{}; if(clock_gettime(CLOCK_MONOTONIC,&v)!=0)return 0; return static_cast<std::uint64_t>(v.tv_sec)*1000000000ULL+static_cast<std::uint64_t>(v.tv_nsec); }
 inline void append16(std::vector<std::uint8_t>&o,std::uint16_t v){o.push_back((v>>8)&0xff);o.push_back(v&0xff);}
