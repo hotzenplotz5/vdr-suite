@@ -2,8 +2,9 @@
 
 ## Status
 
-ADR-0064 Foundation and the first two productive **Critical Control** migration slices
-are implemented on the internal VDR-Suite/SuiteBridge boundary.
+ADR-0064 Foundation, both initial **Critical Control** slices and the first
+**Interactive Control** slice are implemented on the internal
+VDR-Suite/SuiteBridge boundary.
 
 This does not change Phase 69, the public API, actor authorization or mutation
 semantics.
@@ -44,14 +45,21 @@ The initial registry is deliberately small:
 | NCAP / native-probe capability | Critical Control | migrated |
 | NPROBE EXEC | Critical Control | migrated |
 | NPROBE READ | Critical Control | migrated |
+| CAPS schema 1 | Interactive Control/Read | migrated for OSD flow |
+| OSDSNAP | Interactive Control/Read | migrated |
+| OSDINPUT | Interactive Control/Read | migrated |
 
 ## Admission, deadline and lane
 
-The endpoint owns one finite Critical-Control queue and exactly one
-Critical-Control worker. Live control and native-probe capability/execute/readback
-therefore share the explicitly ordered fast lane, while remaining isolated from
-legacy SVDRP head-of-line blocking. This does **not** introduce new parallel
-native execution.
+The endpoint now owns two independent finite execution lanes:
+
+- one **Critical Control** queue/worker for Live and native-probe fencing;
+- one **Interactive Control/Read** queue/worker for Legacy OSD capability,
+  semantic snapshots and fenced native input.
+
+A blocked Interactive request therefore cannot consume the Critical worker.
+Within each class execution remains serialized. This adds transport/lane
+isolation without claiming generic VDR or provider parallel safety.
 
 Admission never waits for queue capacity. Saturation returns typed
 \`Overloaded/queue_full\`. Deadlines are checked at admission and again
@@ -109,7 +117,6 @@ control-plane target is attached to both \`test-fast\` and hosted \`test-ci-fast
 
 Not migrated by this slice:
 
-- Legacy OSD;
 - Teletext and HbbTV;
 - Timer CREATE/DELETE/MODIFY;
 - Recording marks/cut;

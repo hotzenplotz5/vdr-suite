@@ -34,6 +34,7 @@ command_json = read("core/agent/src/BackendAgentCommandJson.cpp")
 agent_main = read("apps/agent/main.cpp")
 agent_test = read("core/agent/tests/test_backend_agent_client.cpp")
 transport = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
+local_transport = read("core/agent/include/SuiteBridgeLocalControlTransport.h")
 plugin = read("vdr-plugin-suite-bridge/suitebridge_osd_input.cpp")
 plugin_svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 caps = read("vdr-plugin-suite-bridge/suitebridge_capabilities.cpp")
@@ -203,8 +204,17 @@ require(
 
 require(
     '"PLUG suitebridge OSDINPUT 1 "' in transport,
-    "Agent must use one typed private OSDINPUT request",
+    "SVDRP compatibility must preserve one typed private OSDINPUT request",
 )
+for token in (
+    "SuiteBridgePrioritizedLegacyOsdInputTransport",
+    "executeLegacyOsdInput(",
+    "SuiteBridgeTransportStatus::Unavailable",
+):
+    require(
+        token in local_transport,
+        f"local-control OSD input migration missing token: {token}",
+    )
 require(
     'strcasecmp(command, "OSDINPUT")' in plugin,
     "SuiteBridge must accept only the named OSDINPUT operation",

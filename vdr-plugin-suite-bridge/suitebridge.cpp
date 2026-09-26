@@ -1,6 +1,8 @@
 #include "suitebridge.h"
 
 #include "suitebridge_capabilities.h"
+#include "suitebridge_capability_discovery.h"
+#include "suitebridge_osd_snapshot_contract.h"
 #include "suitebridge_plugin_identity.h"
 
 #include <vdr/tools.h>
@@ -146,8 +148,57 @@ bool cPluginSuiteBridge::Start(void)
                     return statusMonitor_.CaptureSnapshot().MonitorActive();
                   });
             }
+            if (operation == Operation::CapabilityDiscovery) {
+              if (!payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "capability_discovery_payload_invalid"};
+              }
+              const SuiteBridgeCapabilityDiscoveryReply reply(
+                  "CAPS",
+                  "1",
+                  SuiteBridgePluginIdentity::Name,
+                  SuiteBridgePluginIdentity::Version);
+              return SuiteBridgeCommandResult{
+                  true,
+                  reply.ReplyCode(),
+                  reply.HasPayload()
+                      ? std::string(reply.Data())
+                      : std::string()};
+            }
+            if (operation == Operation::OsdSnapshot) {
+              if (!payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "osd_snapshot_payload_invalid"};
+              }
+              const SuiteBridgeOsdSnapshot snapshot =
+                  statusMonitor_.CaptureOsdSnapshot();
+              const SuiteBridgeOsdSnapshotPayload response(snapshot);
+              if (!response.Complete()) {
+                return SuiteBridgeCommandResult{
+                    true,
+                    451,
+                    "Suite bridge OSD snapshot payload unavailable"};
+              }
+              return SuiteBridgeCommandResult{
+                  true, 900, std::string(response.Data())};
+            }
 
             const auto fields = split(payload);
+            if (operation == Operation::OsdInput) {
+              if (fields.size() != 10) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "osd_input_payload_invalid"};
+              }
+              std::ostringstream option;
+              option << "1 " << fields[0] << ' ' << fields[1] << ' '
+                     << fields[2] << ' ' << fields[3] << ' ' << fields[4]
+                     << ' ' << fields[5] << ' ' << fields[6] << ' '
+                     << fields[7] << ' ' << fields[8] << ' ' << fields[9];
+              return osdInput_.Handle(
+                  "OSDINPUT",
+                  option.str().c_str(),
+                  statusMonitor_.CaptureOsdSnapshot());
+            }
             if (operation == Operation::NativeProbeExecute) {
               if (fields.size() != 12) {
                 return SuiteBridgeCommandResult{
@@ -245,7 +296,7 @@ void cPluginSuiteBridge::Stop(void)
     controlPlane_.Stop();
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
-        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu queue-high-water=%llu",
+        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu",
         static_cast<unsigned long long>(
             controlMetrics.admittedByOperation[0] +
             controlMetrics.admittedByOperation[1] +
@@ -253,7 +304,10 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[3] +
             controlMetrics.admittedByOperation[4] +
             controlMetrics.admittedByOperation[5] +
-            controlMetrics.admittedByOperation[6]),
+            controlMetrics.admittedByOperation[6] +
+            controlMetrics.admittedByOperation[7] +
+            controlMetrics.admittedByOperation[8] +
+            controlMetrics.admittedByOperation[9]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
@@ -261,12 +315,18 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.executedByOperation[3] +
             controlMetrics.executedByOperation[4] +
             controlMetrics.executedByOperation[5] +
-            controlMetrics.executedByOperation[6]),
+            controlMetrics.executedByOperation[6] +
+            controlMetrics.executedByOperation[7] +
+            controlMetrics.executedByOperation[8] +
+            controlMetrics.executedByOperation[9]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(
             controlMetrics.deadlineExpiredBeforeExecution),
-        static_cast<unsigned long long>(controlMetrics.queueHighWaterMark));
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[0]),
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[1]));
     liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
