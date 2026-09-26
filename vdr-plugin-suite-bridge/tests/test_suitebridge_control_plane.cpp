@@ -329,7 +329,7 @@ int main()
   assert(metrics.queueHighWaterByClass[2] == 1);
   assert(metrics.queueHighWaterByClass[3] == 1);
   assert(metrics.executedByOperation[2] == 1);
-  assert(metrics.executedByOperation[8] == 2);
+  assert(metrics.executedByOperation[8] == 3);
   assert(metrics.executedByOperation[12] == 1);
   assert(metrics.executedByOperation[18] == 1);
 
