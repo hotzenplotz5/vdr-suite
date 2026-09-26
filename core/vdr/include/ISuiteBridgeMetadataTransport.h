@@ -7,10 +7,10 @@
 struct SuiteBridgeMetadataCommandReply
 {
     bool transportSucceeded = false;
-    SuiteBridgeReadTransportStatus transportStatus =
-        SuiteBridgeReadTransportStatus::Failed;
     int replyCode = 0;
     std::string payload;
+    SuiteBridgeReadTransportStatus transportStatus =
+        SuiteBridgeReadTransportStatus::Failed;
 };
 
 class ISuiteBridgeMetadataTransport
