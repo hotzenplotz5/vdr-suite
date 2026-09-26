@@ -107,6 +107,7 @@ SuiteBridgeCommandResult SuiteBridgeOsdInputService::Handle(
     const SuiteBridgeOsdSnapshot &snapshot)
 {
   if (command == nullptr || strcasecmp(command, "OSDINPUT") != 0) return {};
+  std::lock_guard<std::mutex> guard(mutex_);
 
   const std::vector<std::string> values = split(option);
   if (values.size() != 11 || values[0] != "1")
