@@ -368,7 +368,9 @@ int main()
     // receiver became terminal. The active worker/session must survive so the
     // next regular reap cycle can observe current state again.
     transport.discoverTimeoutsRemaining = 1;
-    assert(runtime.reapInactive(60) == 0);
+    // Production Live reaping deliberately disables idle-grant expiry; keep
+    // this regression focused on provider liveness rather than elapsed test time.
+    assert(runtime.reapInactive(0) == 0);
     assert(runtime.activeCount() == 1);
     assert(transport.closeCount == 0);
     assert(::kill(firstProvision.workerPid, 0) == 0);
@@ -380,7 +382,7 @@ int main()
     // The same non-terminal rule applies when NLCAP succeeds but the concrete
     // NLIVE STATUS read itself times out.
     transport.statusTimeoutsRemaining = 1;
-    assert(runtime.reapInactive(60) == 0);
+    assert(runtime.reapInactive(0) == 0);
     assert(runtime.activeCount() == 1);
     assert(transport.closeCount == 0);
     assert(::kill(firstProvision.workerPid, 0) == 0);
