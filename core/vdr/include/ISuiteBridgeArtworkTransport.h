@@ -1,10 +1,14 @@
 #pragma once
 
+#include "SuiteBridgeReadTransportStatus.h"
+
 #include <string>
 
 struct SuiteBridgeArtworkCommandReply
 {
     bool transportSucceeded = false;
+    SuiteBridgeReadTransportStatus transportStatus =
+        SuiteBridgeReadTransportStatus::Failed;
     int replyCode = 0;
     std::string payload;
 };
