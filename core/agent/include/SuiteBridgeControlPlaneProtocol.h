@@ -15,7 +15,7 @@ constexpr std::uint16_t ProtocolMinor = 0;
 constexpr std::size_t RequestHeaderBytes = 32;
 constexpr std::size_t ResponseHeaderBytes = 32;
 constexpr std::size_t MaximumRequestPayloadBytes = 2048;
-constexpr std::size_t MaximumResponsePayloadBytes = 65536;
+constexpr std::size_t MaximumResponsePayloadBytes = 131072;
 constexpr std::size_t MaximumRequestFrameBytes =
     RequestHeaderBytes + MaximumRequestPayloadBytes;
 constexpr std::size_t MaximumResponseFrameBytes =
