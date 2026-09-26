@@ -54,7 +54,9 @@ VDR remains authoritative for VDR-native runtime state and execution. VDR-Suite 
 - [RESTfulAPI Integration](restfulapi-integration.md)
 - [Suite Bridge Agent Handshake](suite-bridge-agent-handshake.md)
 - [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
+- [SuiteBridge Control-Plane Audit](suitebridge-control-plane-audit.md)
 - [Suite Bridge Observation Lifecycle](suite-bridge-observation-lifecycle.md)
+- [ADR-0064 SuiteBridge Local Prioritized Control Plane](../adr/ADR-0064-suitebridge-local-prioritized-control-plane.md)
 - [ADR-0039](../adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040](../adr/ADR-0040-backend-lifecycle-generation-lease-health.md)
 
