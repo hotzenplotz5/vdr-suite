@@ -9,7 +9,7 @@ plugin=read("vdr-plugin-suite-bridge/suitebridge.cpp")
 runtime=read("core/daemon/src/RecordingMediaHttpRuntime.cpp")
 agent_main=read("apps/agent/main.cpp")
 tmpfiles=read("packaging/systemd/vdr-suite-live.conf")
-for marker in ("ProtocolMajor=1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability=1","LiveOpen=2","LiveStatus=3","LiveClose=4","NativeProbeCapability=5","NativeProbeExecute=6","NativeProbeReadback=7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","CriticalControl = 1","InteractiveControlRead = 2","DeadlineExpired","Overloaded"):
+for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","CriticalControl = 1","InteractiveControlRead = 2","DeadlineExpired","Overloaded"):
     if marker not in protocol: raise SystemExit(f"control-plane protocol missing {marker}")
 for marker in ("AF_UNIX","SOCK_SEQPACKET","SO_PEERCRED","queues_[lane].size() < queueCapacity_[lane]","ServiceClass::CriticalControl","ServiceClass::InteractiveControlRead","deadline_expired_at_admission","deadline_expired_before_execution","queue_full"):
     if marker not in server: raise SystemExit(f"control-plane server missing {marker}")
