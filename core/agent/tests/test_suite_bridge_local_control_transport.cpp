@@ -206,6 +206,56 @@ public:
     }
 };
 
+
+class TeletextCompatibility final : public ISuiteBridgeTeletextTransport
+{
+public:
+    std::atomic<int> pageCalls{0};
+
+    SuiteBridgeTeletextCommandReply discoverTeletext() override
+    {
+        return {
+            true,
+            SuiteBridgeTeletextTransportStatus::Success,
+            250,
+            "{}"};
+    }
+
+    SuiteBridgeTeletextCommandReply requestTeletextPage(
+        const SuiteBridgeTeletextPageRequest&) override
+    {
+        ++pageCalls;
+        return {
+            true,
+            SuiteBridgeTeletextTransportStatus::Success,
+            250,
+            "{}"};
+    }
+};
+
+class TeletextTimeoutTransport final : public ISuiteBridgeTeletextTransport
+{
+public:
+    SuiteBridgeTeletextCommandReply discoverTeletext() override
+    {
+        return {
+            false,
+            SuiteBridgeTeletextTransportStatus::Timeout,
+            0,
+            {}};
+    }
+
+    SuiteBridgeTeletextCommandReply requestTeletextPage(
+        const SuiteBridgeTeletextPageRequest&) override
+    {
+        return {
+            false,
+            SuiteBridgeTeletextTransportStatus::Timeout,
+            0,
+            {}};
+    }
+};
+
 void serveOperation(
     const std::string& path,
     Operation expectedOperation,
@@ -560,7 +610,64 @@ int main()
         SuiteBridgeHbbtvTransportStatus::Timeout);
     assert(hbbtvCompatibility.runtimeCalls.load() == 1);
 
+
+    const std::string teletextPath =
+        "/tmp/vdr-suite-teletext-control-" +
+        std::to_string(getpid()) + ".sock";
+
+    std::thread teletextServer([&] {
+        serveOperation(
+            teletextPath,
+            Operation::TeletextPage,
+            250,
+            "{\"result\":\"ok\"}");
+    });
+    waitForSocket(teletextPath);
+
+    SuiteBridgeLocalControlTransportConfig teletextConfig;
+    teletextConfig.socketPath = teletextPath;
+    SuiteBridgeLocalControlTransport teletextDedicated(teletextConfig);
+    TeletextCompatibility teletextCompatibility;
+    SuiteBridgePrioritizedTeletextTransport teletextRouted(
+        teletextDedicated,
+        teletextCompatibility);
+
+    SuiteBridgeTeletextPageRequest teletextRequest;
+    teletextRequest.channelId = "C-1-1051-10301";
+    teletextRequest.pageNumber = 100;
+    teletextRequest.automaticSubpage = true;
+
+    const auto teletextReply =
+        teletextRouted.requestTeletextPage(teletextRequest);
+    assert(teletextReply.transportSucceeded);
+    assert(teletextReply.transportStatus ==
+        SuiteBridgeTeletextTransportStatus::Success);
+    assert(teletextCompatibility.pageCalls.load() == 0);
+    teletextServer.join();
+
+    SuiteBridgeLocalControlTransportConfig teletextMissingConfig;
+    teletextMissingConfig.socketPath = teletextPath + ".missing";
+    SuiteBridgeLocalControlTransport teletextMissing(
+        teletextMissingConfig);
+    SuiteBridgePrioritizedTeletextTransport teletextFallback(
+        teletextMissing,
+        teletextCompatibility);
+    assert(teletextFallback.requestTeletextPage(
+        teletextRequest).transportSucceeded);
+    assert(teletextCompatibility.pageCalls.load() == 1);
+
+    TeletextTimeoutTransport teletextTimeout;
+    SuiteBridgePrioritizedTeletextTransport teletextNoReplay(
+        teletextTimeout,
+        teletextCompatibility);
+    const auto teletextTimeoutReply =
+        teletextNoReplay.requestTeletextPage(teletextRequest);
+    assert(!teletextTimeoutReply.transportSucceeded);
+    assert(teletextTimeoutReply.transportStatus ==
+        SuiteBridgeTeletextTransportStatus::Timeout);
+    assert(teletextCompatibility.pageCalls.load() == 1);
+
     std::puts(
-        "SuiteBridge local control transport Live/native/OSD/HbbTV tests passed");
+        "SuiteBridge local control transport Live/native/OSD/HbbTV/Teletext tests passed");
     return 0;
 }
