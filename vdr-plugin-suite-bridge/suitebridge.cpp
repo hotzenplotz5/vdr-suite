@@ -2,6 +2,8 @@
 
 #include "suitebridge_capabilities.h"
 #include "suitebridge_capability_discovery.h"
+#include "suitebridge_epg_command_handler.h"
+#include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_osd_snapshot_contract.h"
 #include "suitebridge_plugin_identity.h"
 
