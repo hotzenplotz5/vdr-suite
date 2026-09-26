@@ -1,4 +1,5 @@
 #include "SuiteBridgeLocalControlTransport.h"
+#include "SuiteBridgeHandshakeService.h"
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -21,20 +22,64 @@ std::string diagnostic(control::Result r){switch(r){case control::Result::Overlo
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverNativeProbe(){return execute(control::Operation::NativeProbeCapability,{});}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverNativeProbe(){return executeOperation(control::Operation::NativeProbeCapability,{});}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::executeNativeProbe(const SuiteBridgeNativeProbeRequest&r){
  if(!safeToken(r.commandId)||!safeToken(r.requestFingerprint)||!safeToken(r.operationId)||!safeToken(r.jobId)||!safeToken(r.attemptId)||r.claimEpoch==0||!safeToken(r.backendId)||!safeToken(r.agentId)||!safeToken(r.agentInstanceId)||r.backendGeneration==0||!safeToken(r.pluginInstanceEpoch)||!safeToken(r.probeNonce))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed native probe request");
- return execute(control::Operation::NativeProbeExecute,r.commandId+"\n"+r.requestFingerprint+"\n"+r.operationId+"\n"+r.jobId+"\n"+r.attemptId+"\n"+std::to_string(r.claimEpoch)+"\n"+r.backendId+"\n"+r.agentId+"\n"+r.agentInstanceId+"\n"+std::to_string(r.backendGeneration)+"\n"+r.pluginInstanceEpoch+"\n"+r.probeNonce);
+ return executeOperation(control::Operation::NativeProbeExecute,r.commandId+"\n"+r.requestFingerprint+"\n"+r.operationId+"\n"+r.jobId+"\n"+r.attemptId+"\n"+std::to_string(r.claimEpoch)+"\n"+r.backendId+"\n"+r.agentId+"\n"+r.agentInstanceId+"\n"+std::to_string(r.backendGeneration)+"\n"+r.pluginInstanceEpoch+"\n"+r.probeNonce);
 }
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::readNativeProbe(const SuiteBridgeNativeProbeReadbackRequest&r){
  if(!safeToken(r.commandId)||!safeToken(r.requestFingerprint)||!safeToken(r.pluginInstanceEpoch)||r.nativeExecutionSequence==0)return fail(SuiteBridgeTransportStatus::Failed,"invalid typed native probe readback request");
- return execute(control::Operation::NativeProbeReadback,r.commandId+"\n"+r.requestFingerprint+"\n"+r.pluginInstanceEpoch+"\n"+std::to_string(r.nativeExecutionSequence));
+ return executeOperation(control::Operation::NativeProbeReadback,r.commandId+"\n"+r.requestFingerprint+"\n"+r.pluginInstanceEpoch+"\n"+std::to_string(r.nativeExecutionSequence));
 }
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverLiveSource(){return execute(control::Operation::LiveCapability,{});}
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.channelId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source open request");return execute(control::Operation::LiveOpen,r.leaseId+"\n"+r.channelId+"\n"+r.pluginInstanceEpoch);}
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source close request");return execute(control::Operation::LiveClose,r.leaseId+"\n"+r.pluginInstanceEpoch);}
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::statusLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source status request");return execute(control::Operation::LiveStatus,r.leaseId+"\n"+r.pluginInstanceEpoch);}
-SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::execute(control::Operation op,const std::string&payload){
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverLiveSource(){return executeOperation(control::Operation::LiveCapability,{});}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.channelId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source open request");return executeOperation(control::Operation::LiveOpen,r.leaseId+"\n"+r.channelId+"\n"+r.pluginInstanceEpoch);}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source close request");return executeOperation(control::Operation::LiveClose,r.leaseId+"\n"+r.pluginInstanceEpoch);}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::statusLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source status request");return executeOperation(control::Operation::LiveStatus,r.leaseId+"\n"+r.pluginInstanceEpoch);}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::execute(
+    SuiteBridgeLocalCommand command)
+{
+ switch(command){
+  case SuiteBridgeLocalCommand::DiscoverSchema1:
+   return executeOperation(control::Operation::CapabilityDiscovery,{});
+  case SuiteBridgeLocalCommand::OsdSnapshot:
+   return executeOperation(control::Operation::OsdSnapshot,{});
+  case SuiteBridgeLocalCommand::Snapshot:
+   return fail(
+       SuiteBridgeTransportStatus::Unavailable,
+       "local control operation not migrated");
+ }
+ return fail(SuiteBridgeTransportStatus::Failed,"unknown local command");
+}
+bool SuiteBridgeLocalControlTransport::legacyOsdInputAvailable()
+{
+ SuiteBridgeHandshakeService handshake(*this);
+ const auto result=handshake.discover();
+ return result.compatible() &&
+     result.discovery.capabilityAvailable("osd.control");
+}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::executeLegacyOsdInput(
+    const LegacyOsdInputCommand& request,
+    const std::string& requestFingerprint)
+{
+ if(!legacyOsdInputCommandValid(request) ||
+    !safeToken(requestFingerprint))
+  return fail(
+      SuiteBridgeTransportStatus::Failed,
+      "invalid typed Legacy OSD input request");
+ return executeOperation(
+     control::Operation::OsdInput,
+     request.inputCommandId+"\n"+
+     requestFingerprint+"\n"+
+     std::to_string(request.backendGeneration)+"\n"+
+     request.osdSurfaceId+"\n"+
+     request.osdEpoch+"\n"+
+     request.controllerLeaseId+"\n"+
+     std::to_string(request.controllerLeaseEpoch)+"\n"+
+     std::to_string(request.leaseRevision)+"\n"+
+     legacyOsdInputActionName(request.action)+"\n"+
+     std::to_string(request.deadline));
+}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::executeOperation(control::Operation op,const std::string&payload){
  if(config_.socketPath.empty()||config_.socketPath.size()>=sizeof(sockaddr_un::sun_path))return fail(SuiteBridgeTransportStatus::Failed,"invalid local control socket path");
  auto operationDeadline=Clock::now()+config_.operationTimeout; ScopedFd fd(socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0)); if(!fd.valid())return fail(SuiteBridgeTransportStatus::Unavailable,"local control socket unavailable");
  int flags=fcntl(fd.get(),F_GETFL,0);if(flags<0||fcntl(fd.get(),F_SETFL,flags|O_NONBLOCK)!=0)return fail(SuiteBridgeTransportStatus::Failed,"local control socket configuration failed");
@@ -52,6 +97,32 @@ SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::execute(control::Opera
  std::vector<std::uint8_t>b(control::MaximumResponseFrameBytes+1);ssize_t n=recv(fd.get(),b.data(),b.size(),MSG_TRUNC);if(n<=0||static_cast<std::size_t>(n)>control::MaximumResponseFrameBytes)return fail(SuiteBridgeTransportStatus::Failed,"local control response framing failed");b.resize(static_cast<std::size_t>(n));control::Response p;std::string why;if(!control::decodeResponse(b,p,why)||p.requestId!=q.requestId)return fail(SuiteBridgeTransportStatus::Failed,"local control response protocol mismatch");
  if(p.result!=control::Result::Success&&p.result!=control::Result::NativeRejected&&p.result!=control::Result::StaleRejected)return fail(p.result==control::Result::DeadlineExpired?SuiteBridgeTransportStatus::Timeout:SuiteBridgeTransportStatus::Failed,diagnostic(p.result));
  SuiteBridgeCommandReply r;r.transportStatus=SuiteBridgeTransportStatus::Success;r.replyCode=p.replyCode;r.payload=std::move(p.payload);r.diagnostic=diagnostic(p.result);return r;
+}
+SuiteBridgeCommandReply SuiteBridgePrioritizedLocalTransport::execute(
+    SuiteBridgeLocalCommand command)
+{
+ auto reply=dedicated_.execute(command);
+ if(reply.transportStatus!=SuiteBridgeTransportStatus::Unavailable)
+  return reply;
+ return compatibility_.execute(command);
+}
+bool SuiteBridgePrioritizedLegacyOsdInputTransport::legacyOsdInputAvailable()
+{
+ SuiteBridgeHandshakeService handshake(capabilityTransport_);
+ const auto result=handshake.discover();
+ return result.compatible() &&
+     result.discovery.capabilityAvailable("osd.control");
+}
+SuiteBridgeCommandReply SuiteBridgePrioritizedLegacyOsdInputTransport::executeLegacyOsdInput(
+    const LegacyOsdInputCommand& request,
+    const std::string& requestFingerprint)
+{
+ auto reply=dedicated_.executeLegacyOsdInput(
+     request,requestFingerprint);
+ if(reply.transportStatus!=SuiteBridgeTransportStatus::Unavailable)
+  return reply;
+ return compatibility_.executeLegacyOsdInput(
+     request,requestFingerprint);
 }
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::discoverLiveSource(){return select([](auto&t){return t.discoverLiveSource();});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){return select([&](auto&t){return t.openLiveSource(r);});}
