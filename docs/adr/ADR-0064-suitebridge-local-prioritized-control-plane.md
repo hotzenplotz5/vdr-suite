@@ -17,7 +17,7 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive slice implemented; later operation families remain staged.**
+Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV External Plugin Interactive slices implemented; later operation families remain staged.**
 
 Implementation record:
 [SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
@@ -211,6 +211,20 @@ Initial members include:
 - HbbTV discovery, status/control and presentation metadata;
 - Recording marks/cut-state reads;
 - capability/status discovery used by interactive flows.
+
+#### External plugin interactive
+
+Provider-backed interactive operations that are user-visible but may perform
+material provider work use a distinct serial lane when provider-specific audit
+shows that sharing the Legacy-OSD worker would create avoidable coupling.
+
+The first member is HbbTV. Its SuiteBridge adapter synchronously calls
+`vdr-plugin-web` services. Provider discovery/media reads are bounded
+mutex-protected snapshots, runtime control retains the provider's existing
+VDR-main-context scheduling, and presentation may perform QOI encoding while
+holding provider presentation state. HbbTV therefore uses one dedicated serial
+External Plugin Interactive worker. This isolates provider latency without
+asserting provider re-entrancy or parallel Service-call safety.
 
 #### Native mutation
 
