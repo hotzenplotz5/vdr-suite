@@ -129,6 +129,15 @@ if not readback_successor_guard.is_file():
         "TimerAssignment repository regression consumer"
     )
 readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+if not productive_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C productive Timer CREATE guard is required for the "
+        "reviewed TimerAssignment repository runtime consumer"
+    )
+productive_successor = productive_successor_guard.read_text(encoding="utf-8")
 if "core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp" not in readback_successor:
     raise SystemExit(
         "Phase-69.C readback-reconciliation guard must pin its repository "
@@ -139,7 +148,19 @@ reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
 }
+for marker in [
+    "core/daemon/tests/test_native_timer_create_productive_runtime.cpp",
+    "MutationOperationState::succeeded",
+    "TimerAssignmentState::bound",
+]:
+    if marker not in productive_successor:
+        raise SystemExit(
+            "productive Timer CREATE guard missing TimerAssignment repository "
+            "consumer marker: " + marker
+        )
+
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
         raise SystemExit(

@@ -3,7 +3,9 @@
 #include "MutationOperation.h"
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 class Database;
 
@@ -47,6 +49,18 @@ struct MutationOperationPayload
     std::string payloadFingerprint;
 };
 
+struct MutationOperationRepositoryListResult
+{
+    MutationOperationRepositoryStatus status =
+        MutationOperationRepositoryStatus::storageError;
+    std::vector<MutationOperation> operations;
+
+    bool ok() const
+    {
+        return status == MutationOperationRepositoryStatus::ok;
+    }
+};
+
 struct MutationOperationPayloadRepositoryResult
 {
     MutationOperationRepositoryStatus status =
@@ -88,6 +102,14 @@ public:
 
     MutationOperationRepositoryResult findById(
         const std::string& operationId);
+
+    // Bounded lifecycle discovery for productive runtime owners. This is a
+    // read of the existing MutationOperation authority, not a scheduling or
+    // retry queue. Callers select the exact action family and states they own.
+    MutationOperationRepositoryListResult listByActionFamilyAndStates(
+        const std::string& actionFamily,
+        const std::vector<MutationOperationState>& states,
+        std::size_t limit) const;
 
     MutationOperationPayloadRepositoryResult findPayloadByOperationId(
         const std::string& operationId);

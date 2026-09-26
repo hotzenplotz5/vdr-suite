@@ -326,11 +326,45 @@ if not (
 plugin_svdrp = read(
     "vdr-plugin-suite-bridge/suitebridge_svdrp.cpp"
 )
+plugin_create = read(
+    "vdr-plugin-suite-bridge/suitebridge_native_timer_create.cpp"
+)
+plugin_create_test = read(
+    "vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_create.cpp"
+)
 
 require(
     plugin_svdrp,
     "nativeTimerCreate_.Handle(Command, Option)",
     "private CREATE command-service dispatch",
+)
+
+for needle, label in (
+    (
+        '"native-timer-specification/1|"',
+        "canonical Timer specification fingerprint prefix",
+    ),
+    (
+        "specificationFingerprint(request)",
+        "canonical Timer specification fingerprint validation",
+    ),
+    (
+        "MaximumDecodedSpecificationFingerprintBytes",
+        "bounded canonical fingerprint wire decode",
+    ),
+):
+    require(plugin_create, needle, label)
+
+forbid(
+    plugin_create,
+    'value.compare(0, 7, "sha256:")',
+    "obsolete SHA-only Timer specification fingerprint contract",
+)
+
+require(
+    plugin_create_test,
+    '"native-timer-specification/1|"',
+    "real canonical Timer specification fingerprint regression",
 )
 
 help_start = plugin_svdrp.find("SVDRPHelpPages")

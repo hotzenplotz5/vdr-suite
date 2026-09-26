@@ -23,11 +23,13 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
         core/timers/src/NativeTimerObservation.cpp \
         core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
+        core/timers/src/NativeTimerInventoryEvidence.cpp \
         core/timers/src/NativeTimerCreateReadbackVerificationService.cpp \
         core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
         core/timers/src/NativeTimerCreateDispatchService.cpp \
         core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
         core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
+        core/daemon/src/NativeTimerCreateProductiveRuntime.cpp \
         core/agent/src/BackendAgentCommandReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
@@ -80,6 +82,10 @@ DAEMON_SRC := \
         $(REST_LIVE_REMOTE_SRC) \
         core/vdr/src/EpgEventRepository.cpp \
         core/vdr/src/VdrRecordingCacheRepository.cpp \
+        core/vdr/src/VdrNativeTimerObservationMapper.cpp \
+        core/vdr/src/VdrTimerManagedCorrelation.cpp \
+        core/vdr/src/RestfulApiNativeTimerInventoryReader.cpp \
+        core/vdr/src/VdrManagedTimerCreateReadbackEvidenceBuilder.cpp \
         core/vdr/src/VdrRecordingIndexUpdater.cpp \
         core/vdr/src/VdrRecordingArtworkService.cpp \
         core/vdr/src/EpgCacheService.cpp \

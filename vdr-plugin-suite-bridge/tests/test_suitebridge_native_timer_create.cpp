@@ -6,9 +6,32 @@
 #include <string>
 
 namespace {
-std::string fingerprintToken(char digit = 'a')
+void appendFingerprintField(
+    std::string &output,
+    const std::string &value)
 {
-  return "sha256:" + std::string(64, digit);
+  output += std::to_string(value.size());
+  output += ':';
+  output += value;
+  output += '|';
+}
+
+std::string fingerprintToken(
+    const std::string &title = "Tagesschau 20 Uhr")
+{
+  std::string fingerprint = "native-timer-specification/1|";
+  appendFingerprintField(fingerprint, "S19.2E-1-1101-28106");
+  appendFingerprintField(fingerprint, title);
+  appendFingerprintField(fingerprint, "TV News");
+  appendFingerprintField(fingerprint, "2026-08-17");
+  appendFingerprintField(fingerprint, "---W---");
+  appendFingerprintField(fingerprint, "2000");
+  appendFingerprintField(fingerprint, "2030");
+  appendFingerprintField(fingerprint, "50");
+  appendFingerprintField(fingerprint, "99");
+  appendFingerprintField(fingerprint, "1");
+  appendFingerprintField(fingerprint, "0");
+  return fingerprint;
 }
 
 std::string hexToken(const std::string &value)
@@ -154,12 +177,15 @@ int main()
     assert(replay.payload == first.payload);
     assert(callback.calls == 1);
 
-    const std::string conflictingNativeTimerFingerprint =
-        request("cmd_1", "fp_1", "op_1", "pie_1", fingerprintToken('b'));
-    const SuiteBridgeCommandResult nativeTimerFingerprintConflict =
-        service.Handle("NTCREATE", conflictingNativeTimerFingerprint.c_str());
-    assert(nativeTimerFingerprintConflict.replyCode == 559);
-    assert(nativeTimerFingerprintConflict.payload ==
+    const std::string changedTitle = "Tagesschau spaeter";
+    const std::string conflictingNativeTimerSpecification =
+        request(
+            "cmd_1", "fp_1", "op_1", "pie_1",
+            fingerprintToken(changedTitle), changedTitle);
+    const SuiteBridgeCommandResult nativeTimerSpecificationConflict =
+        service.Handle("NTCREATE", conflictingNativeTimerSpecification.c_str());
+    assert(nativeTimerSpecificationConflict.replyCode == 559);
+    assert(nativeTimerSpecificationConflict.payload ==
         "vdr-suite-ntcreate-result/1 cmd_1 fp_1 vdr.timer.create 1 pie_1 1 1 "
         "rejected_without_effect replay_conflict ntcreate:replay-conflict:cmd_1");
     assert(callback.calls == 1);
@@ -182,10 +208,10 @@ int main()
 
   {
     SuiteBridgeNativeTimerCreateService service("pie_1");
-    const std::string malformedDigest =
-        "sha256:" + std::string(63, 'a') + "g";
     const std::string invalidFingerprint =
-        request("cmd_i", "fp_i", "op_i", "pie_1", malformedDigest);
+        request(
+            "cmd_i", "fp_i", "op_i", "pie_1",
+            fingerprintToken("different title"));
     const SuiteBridgeCommandResult reply =
         service.Handle("NTCREATE", invalidFingerprint.c_str());
     assert(reply.handled);

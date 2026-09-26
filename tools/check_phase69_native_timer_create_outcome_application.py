@@ -12,6 +12,7 @@ paths = {
     "phase69_make": ROOT / "mk/phase69-public-api-tests.mk",
     "ci_groups": ROOT / "mk/test-groups.mk",
     "doc": ROOT / "docs/development/phase-69c-native-timer-create-outcome-application.md",
+    "productive_runtime": ROOT / "core/daemon/src/NativeTimerCreateProductiveRuntime.cpp",
 }
 
 contents = {}
@@ -124,7 +125,7 @@ for scan_root in [
             ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inc"
         }:
             continue
-        if path in {paths["header"], paths["source"], paths["test"]}:
+        if path in {paths["header"], paths["source"], paths["test"], paths["productive_runtime"]}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if adapter_call in text:
