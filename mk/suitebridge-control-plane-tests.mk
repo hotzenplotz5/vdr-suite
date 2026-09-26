@@ -5,6 +5,7 @@ test-suitebridge-control-plane-architecture:
 
 test-suitebridge-control-plane-agent:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		$(AGENT_HANDSHAKE_SRC) \
 		core/agent/src/SuiteBridgeLocalControlTransport.cpp \
 		core/agent/tests/test_suite_bridge_local_control_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_local_control_transport
