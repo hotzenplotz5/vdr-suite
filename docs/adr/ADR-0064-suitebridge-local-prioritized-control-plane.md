@@ -17,7 +17,7 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV/Teletext External Plugin Interactive + initial Background Provider (RMETA/META/ARTW) slices implemented; later operation families remain staged.**
+Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV/Teletext External Plugin Interactive + Background Provider (RMETA/META/ARTW/ETYPES) slices implemented; native mutation families remain staged.**
 
 Implementation record:
 [SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
@@ -250,11 +250,13 @@ Potentially slow enrichment and bulk/provider work, including:
 
 Background/provider work cannot consume reserved critical capacity.
 
-The first implemented background/provider slice keeps RMETA, META and ARTW on
+The implemented background/provider lane keeps RMETA, META, ARTW and ETYPES on
 one serial TVScraper worker. This is deliberate: transport isolation is proven,
-but TVScraper Service() re-entrancy is not. ETYPES remains a separate follow-up
-because it retains a different real-event/EPG-lock and paginated parser
-boundary.
+but TVScraper Service() re-entrancy is not. ETYPES joined the lane only after a
+separate audit preserved its paginated parser contract, stable-window cursor
+semantics and real schedule-owned cEvent resolution under Channels/Schedules
+read locks. MCOMPARE remains diagnostic-only SVDRP because no productive owner
+has been identified.
 
 Scheduling must be starvation-safe. Strict permanent priority starvation is not
 accepted; reserved critical capacity plus bounded fair service is preferred.
