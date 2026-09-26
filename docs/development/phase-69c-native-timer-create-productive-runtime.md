@@ -2,13 +2,13 @@
 
 ## Status
 
-**ACTIVE — first productive native-effect Timer CREATE candidate.**
+**ACCEPTED — productive native-effect Timer CREATE boundary closed by PR #361.**
 
 Live implementation baseline for this candidate:
 
 ```text
 main=feb45998dbb447ff0e3534422a97d3df47ac879d
-69.C=ACTIVE
+69.C=COMPLETED
 ADR-0064=CLOSED
 Timer mutation transport=typed SVDRP
 ```
@@ -274,7 +274,8 @@ restart persistence where exercised.
 
 ## Boundary after this slice
 
-This slice does not complete all of Phase 69.C by itself. It closes the
-productive native Timer CREATE runtime boundary. Subsequent 69.C work must be
-derived from the live public revision/precondition/idempotency exposure roadmap
-after this candidate is accepted; it must not reopen ADR-0064 transport work.
+At candidate time this slice closed the productive native Timer CREATE runtime
+boundary but did not by itself declare all of 69.C complete. The post-acceptance
+completion audit found the 69.C roadmap gate satisfied and recorded the durable
+result in [Phase 69.C Closeout](phase-69c-closeout.md). 69.D is now active.
+ADR-0064 remains closed and is not reopened by the phase transition.

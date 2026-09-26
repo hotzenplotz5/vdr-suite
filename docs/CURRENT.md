@@ -12,6 +12,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
+- [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
 - [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
@@ -72,25 +73,18 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.C - Revision/precondition/idempotency exposure
+69.D - Collections, pagination and partial results
 
-Current bounded 69.C step:
-Native Timer CREATE productive runtime: reuse the existing daemon VDR-poll
-cadence to advance only durable non-terminal timer.create operations through
-exact Agent reservation, dispatch claim and activation, then consume only the
-durable typed Agent result and authoritative complete Timer readback for outcome
-application, verified NativeTimerBinding, bound TimerAssignment and succeeded
-MutationOperation. Runtime discovery is a bounded read of the existing
-MutationOperationRepository, not a second queue or lifecycle. outcome_unknown
-is reconciliation-only and never authorizes redispatch. Timer mutation transport
-remains typed SVDRP under the closed ADR-0064 decision. Phase-64 provider
-selection remains fail-closed: observed SuiteBridge capability does not create
-`vdr.timer` authority. The existing command-admin authority now exposes explicit
-Timer-CREATE ownership status/set/clear for `suitebridge:local` and only
-`vdr.timer.create` in this slice.
+Current bounded 69.D step:
+derive the first stable public collection boundary from the live Phase-69
+inventory before implementation. No existing pre-v1 collection is promoted by
+analogy. The selected collection must define stable ordering, bounded limits,
+cursor/pagination semantics and explicit multi-backend partial-result/source
+failure behavior under ADR-0048.
 
-This is the first 69.C candidate with NATIVE_EFFECT_REACHABLE=YES and therefore
-requires exact-head real yaVDR acceptance after hosted CI and before merge.
+69.C is completed. Its closeout records the accepted public revision/ETag,
+strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus
+the exact-head real yaVDR Timer CREATE acceptance from PR #361.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
@@ -144,6 +138,11 @@ PR #341 hosted CI run 36094237108 / #9205: SUCCESS (6/6)
 PR #342 -> d1e543b977da45f732c768f4efdf8877910dd90e
 PR #342 accepted head 78880a00e0cc330b7375ee24086162a89e6cd5ac
 PR #342 hosted CI run 36132407130 / #9210: SUCCESS (6/6)
+PR #361 -> a38e2363929c2a1f1b60984f6176aa88446a9054
+PR #361 accepted head 9316fb48a49f3e61ff89d3c01a225915003fa8e8
+PR #361 hosted CI run 36275800779 / #9285: SUCCESS (6/6)
+PR #361 real yaVDR acceptance: PR361_REAL_YAVDR_ACCEPTANCE=PASS
+69.C=COMPLETED
 
 Phase-69.B closeout checkpoint:
 PR #320 -> c4b9fc66d0f1286e72e82406ffd1f49acf4b331a
@@ -324,7 +323,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.C Revision/precondition/idempotency exposure; 69.A and 69.B are accepted. Phase 70 recommendation work remains later.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.D Collections, pagination and partial results; 69.A, 69.B and 69.C are accepted. Phase 70 recommendation work remains later.
 
 ## Historical evidence rule
 
