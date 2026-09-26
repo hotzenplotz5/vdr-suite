@@ -238,6 +238,23 @@ bool cPluginSuiteBridge::Start(void)
                   payload.c_str());
             }
 
+            if (operation == Operation::NativeTimerCreateCapability) {
+              if (!payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "native_timer_create_capability_payload_invalid"};
+              }
+              return nativeTimerCreate_.Handle("NTCREATE", "CAP 1");
+            }
+            if (operation == Operation::NativeTimerCreateExecute) {
+              if (payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "native_timer_create_execute_payload_invalid"};
+              }
+              return nativeTimerCreate_.Handle(
+                  "NTCREATE",
+                  payload.c_str());
+            }
+
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
               if (fields.size() != 10) {
@@ -351,7 +368,7 @@ void cPluginSuiteBridge::Stop(void)
     controlPlane_.Stop();
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
-        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu external-plugin-high-water=%llu background-provider-high-water=%llu",
+        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu external-plugin-high-water=%llu background-provider-high-water=%llu native-mutation-high-water=%llu",
         static_cast<unsigned long long>(
             controlMetrics.admittedByOperation[0] +
             controlMetrics.admittedByOperation[1] +
@@ -372,7 +389,9 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[16] +
             controlMetrics.admittedByOperation[17] +
             controlMetrics.admittedByOperation[18] +
-            controlMetrics.admittedByOperation[19]),
+            controlMetrics.admittedByOperation[19] +
+            controlMetrics.admittedByOperation[20] +
+            controlMetrics.admittedByOperation[21]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
@@ -393,7 +412,9 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.executedByOperation[16] +
             controlMetrics.executedByOperation[17] +
             controlMetrics.executedByOperation[18] +
-            controlMetrics.executedByOperation[19]),
+            controlMetrics.executedByOperation[19] +
+            controlMetrics.executedByOperation[20] +
+            controlMetrics.executedByOperation[21]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(
@@ -405,7 +426,9 @@ void cPluginSuiteBridge::Stop(void)
         static_cast<unsigned long long>(
             controlMetrics.queueHighWaterByClass[2]),
         static_cast<unsigned long long>(
-            controlMetrics.queueHighWaterByClass[3]));
+            controlMetrics.queueHighWaterByClass[3]),
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[4]));
     liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
