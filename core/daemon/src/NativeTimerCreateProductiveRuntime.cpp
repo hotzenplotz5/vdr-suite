@@ -118,7 +118,6 @@ std::int64_t commandDeadline(
 }
 
 bool reserveClaimAndActivate(
-    MutationOperationRepository& operationRepository,
     BackendAgentNativeTimerCreateReservationService& reservationService,
     NativeTimerCreateDispatchService& dispatchService,
     BackendAgentNativeTimerCreateActivationService& activationService,
@@ -264,7 +263,6 @@ advanceNativeTimerCreateRuntimeOnce(
         if (current.state == MutationOperationState::accepted)
         {
             if (!reserveClaimAndActivate(
-                    operationRepository,
                     reservationService,
                     dispatchService,
                     activationService,
