@@ -39,6 +39,9 @@ enum class Operation : std::uint16_t
     HbbtvMedia = 14,
     TeletextCapability = 15,
     TeletextPage = 16,
+    EpgMetadata = 17,
+    EpgArtwork = 18,
+    RecordingMetadata = 19,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -46,6 +49,7 @@ enum class ServiceClass : std::uint16_t
     CriticalControl = 1,
     InteractiveControlRead = 2,
     ExternalPluginInteractive = 3,
+    BackgroundProvider = 4,
 };
 
 enum class Result : std::uint16_t
@@ -101,6 +105,9 @@ inline const char* operationName(Operation operation)
         case Operation::HbbtvMedia: return "hbbtv-media";
         case Operation::TeletextCapability: return "teletext-capability";
         case Operation::TeletextPage: return "teletext-page";
+        case Operation::EpgMetadata: return "epg-metadata";
+        case Operation::EpgArtwork: return "epg-artwork";
+        case Operation::RecordingMetadata: return "recording-metadata";
     }
     return "unknown";
 }
@@ -108,7 +115,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 16;
+    return value >= 1 && value <= 19;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -126,6 +133,10 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::TeletextCapability:
         case Operation::TeletextPage:
             return ServiceClass::ExternalPluginInteractive;
+        case Operation::EpgMetadata:
+        case Operation::EpgArtwork:
+        case Operation::RecordingMetadata:
+            return ServiceClass::BackgroundProvider;
         default:
             return ServiceClass::CriticalControl;
     }
