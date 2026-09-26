@@ -759,9 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.C Revision/precondition/idempotency exposure.**
+Status: **Active — 69.D Collections, pagination and partial results.**
 
-Phase 69 has explicitly started after completed Phase 68. Slices 69.A and 69.B are accepted; the active bounded slice is 69.C revision/precondition/idempotency exposure. No existing pre-v1 route is thereby declared stable.
+Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B and 69.C are accepted; the active bounded slice is 69.D collections, pagination and partial results. No existing pre-v1 route is thereby declared stable.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -805,7 +805,7 @@ Status: **Completed.** Durable evidence: [Phase 69.B Closeout](../development/ph
 
 #### 69.C — Revision/precondition/idempotency exposure
 
-Status: **Active.**
+Status: **Completed.** Durable evidence: [Phase 69.C Closeout](../development/phase-69c-closeout.md).
 
 - resource-specific revisions;
 - ETag/conditional requests where appropriate;
@@ -813,6 +813,8 @@ Status: **Active.**
 - no unsafe client fallback after ambiguous mutation errors.
 
 #### 69.D — Collections, pagination and partial results
+
+Status: **Active.**
 
 - stable ordering;
 - pagination/cursors;
