@@ -82,6 +82,27 @@ SuiteBridgeHbbtvCommandReply hbbtvReply(const SuiteBridgeCommandReply& reply)
      result.replyCode==250;
  return result;
 }
+
+SuiteBridgeTeletextCommandReply teletextReply(const SuiteBridgeCommandReply& reply)
+{
+ SuiteBridgeTeletextCommandReply result;
+ result.replyCode=reply.replyCode;
+ result.payload=reply.payload;
+ switch(reply.transportStatus){
+  case SuiteBridgeTransportStatus::Success:
+   result.transportStatus=SuiteBridgeTeletextTransportStatus::Success;break;
+  case SuiteBridgeTransportStatus::Unavailable:
+   result.transportStatus=SuiteBridgeTeletextTransportStatus::Unavailable;break;
+  case SuiteBridgeTransportStatus::Timeout:
+   result.transportStatus=SuiteBridgeTeletextTransportStatus::Timeout;break;
+  case SuiteBridgeTransportStatus::Failed:
+   result.transportStatus=SuiteBridgeTeletextTransportStatus::Failed;break;
+ }
+ result.transportSucceeded=
+     result.transportStatus==SuiteBridgeTeletextTransportStatus::Success &&
+     result.replyCode==250;
+ return result;
+}
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
@@ -123,6 +144,15 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvPresenta
 SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){
  if(!safeToken(r.sessionId)||r.sessionId.size()>=128)return {};
  return hbbtvReply(executeOperation(control::Operation::HbbtvMedia,"1 "+r.sessionId));
+}
+SuiteBridgeTeletextCommandReply SuiteBridgeLocalControlTransport::discoverTeletext(){
+ return teletextReply(executeOperation(control::Operation::TeletextCapability,"1"));
+}
+SuiteBridgeTeletextCommandReply SuiteBridgeLocalControlTransport::requestTeletextPage(const SuiteBridgeTeletextPageRequest&r){
+ if(!safeToken(r.channelId)||r.channelId.size()>=64||r.pageNumber<100||r.pageNumber>899||(!r.automaticSubpage&&r.subpageCode==0xffffU))return {};
+ std::string payload="1 "+r.channelId+" "+std::to_string(r.pageNumber)+" ";
+ payload+=r.automaticSubpage?"auto":std::to_string(r.subpageCode);
+ return teletextReply(executeOperation(control::Operation::TeletextPage,payload));
 }
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverLiveSource(){return executeOperation(control::Operation::LiveCapability,{});}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.channelId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source open request");return executeOperation(control::Operation::LiveOpen,r.leaseId+"\n"+r.channelId+"\n"+r.pluginInstanceEpoch);}
@@ -221,6 +251,8 @@ SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::discoverHbbtv
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::controlHbbtv(const SuiteBridgeHbbtvRuntimeRequest&r){return select([&](auto&t){return t.controlHbbtv(r);});}
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvPresentation(const SuiteBridgeHbbtvPresentationRequest&r){return select([&](auto&t){return t.readHbbtvPresentation(r);});}
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){return select([&](auto&t){return t.readHbbtvMedia(r);});}
+SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::discoverTeletext(){return select([](auto&t){return t.discoverTeletext();});}
+SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::requestTeletextPage(const SuiteBridgeTeletextPageRequest&r){return select([&](auto&t){return t.requestTeletextPage(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::discoverLiveSource(){return select([](auto&t){return t.discoverLiveSource();});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){return select([&](auto&t){return t.openLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.closeLiveSource(r);});}
