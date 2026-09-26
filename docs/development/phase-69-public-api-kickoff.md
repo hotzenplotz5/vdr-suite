@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — 69.A and 69.B are accepted on `main`; current slice: 69.C Revision/precondition/idempotency exposure.**
+**ACTIVE — 69.A, 69.B and 69.C are accepted on `main`; current slice: 69.D Collections, pagination and partial results.**
 
 Start baseline:
 
@@ -215,10 +215,9 @@ PR #319 -> 0248db3d63626a87d391f7649a984adc97b45232
 CI -> 35863518112 / run #9087 -> SUCCESS (6/6)
 ```
 
-The active bounded slice is now 69.C. Retry intervals are not invented without
-an owning operation/resource semantic; deprecation/sunset policy remains 69.E.
+69.C is completed; durable evidence is in [Phase 69.C Closeout](phase-69c-closeout.md). The active bounded slice is now 69.D. Retry intervals are not invented without an owning collection/source semantic; deprecation/sunset policy remains 69.E.
 
-## 69.C accepted foundation and active resource
+## 69.C accepted foundation and completion
 
 69.C has accepted two prerequisite checkpoints:
 
@@ -247,6 +246,10 @@ ETag from the durable operation revision and supports `If-None-Match -> 304`.
 Cross-actor lookup preserves the same `404 not_found` result as a missing
 operation. Internal idempotency keys, request/resource fingerprints, mutation
 payloads and result references remain private.
+
+## 69.C completion
+
+PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D is now active and must derive the first stable collection from the live inventory rather than freezing a pre-v1 collection by analogy.
 
 ## 69.A acceptance
 

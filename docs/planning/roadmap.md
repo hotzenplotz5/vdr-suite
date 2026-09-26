@@ -51,13 +51,13 @@ Latest completed numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-None - Phase 68 is completed; Phase 69 has not started
+Phase 69 - Public API and Client Compatibility Hardening
 
 Next strict numbered runtime phase:
 Phase 69 - Public API and Client Compatibility Hardening
 ```
 
-Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is next but has not started.
+Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is active at 69.D; 69.A, 69.B and 69.C are accepted.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -759,9 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.C Revision/precondition/idempotency exposure.**
+Status: **Active — 69.D Collections, pagination and partial results.**
 
-Phase 69 has explicitly started after completed Phase 68. Slices 69.A and 69.B are accepted; the active bounded slice is 69.C revision/precondition/idempotency exposure. No existing pre-v1 route is thereby declared stable.
+Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B and 69.C are accepted; the active bounded slice is 69.D collections, pagination and partial results. No existing pre-v1 route is thereby declared stable.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -805,7 +805,7 @@ Status: **Completed.** Durable evidence: [Phase 69.B Closeout](../development/ph
 
 #### 69.C — Revision/precondition/idempotency exposure
 
-Status: **Active.**
+Status: **Completed.** Durable evidence: [Phase 69.C Closeout](../development/phase-69c-closeout.md).
 
 - resource-specific revisions;
 - ETag/conditional requests where appropriate;
@@ -813,6 +813,8 @@ Status: **Active.**
 - no unsafe client fallback after ambiguous mutation errors.
 
 #### 69.D — Collections, pagination and partial results
+
+Status: **Active.**
 
 - stable ordering;
 - pagination/cursors;

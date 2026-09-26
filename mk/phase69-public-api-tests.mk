@@ -301,3 +301,9 @@ test-phase69-native-timer-create-real-acceptance-fixture:
 	$(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture --self-test
 	python3 tools/check_phase69_native_timer_create_real_acceptance_fixture.py
 
+
+
+.PHONY: test-phase69c-closeout
+
+test-phase69c-closeout:
+	python3 tools/check_phase69c_closeout.py

@@ -36,7 +36,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 - Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 - Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 - Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
-- Current active runtime slice: **69.C - Revision/precondition/idempotency exposure**; 69.A and 69.B are accepted.
+- Current active runtime slice: **69.D - Collections, pagination and partial results**; 69.A, 69.B and 69.C are accepted.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -70,7 +70,7 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 ## Current implementation boundary
 
-Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.C Revision/precondition/idempotency exposure; 69.A and 69.B are accepted on `main`.
+Phase 65, Phase 66, Phase 67 and **Phase 68 are completed**. Phase 69 public API/client compatibility hardening is active at 69.D Collections, pagination and partial results; 69.A, 69.B and 69.C are accepted on `main`. Phase-69.C completion evidence is in [Phase 69.C Closeout](development/phase-69c-closeout.md).
 
 For the next numbered work:
 
@@ -189,10 +189,10 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phases 64, 65, 66 and 67 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
-4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership and completed Phase-67 Teletext/HbbTV domains rather than inventing parallel owners during Phase-68 work.
-5. Treat Phase 68 - Legacy OSD Compatibility Bridge as the active numbered runtime phase and continue from slice 68.A read-only OSD observation.
-6. Read ADR-0047 and `docs/development/phase-68-legacy-osd-kickoff.md` before continuing Phase 68; preserve completed Phase-67 Teletext/HbbTV contracts rather than rebuilding or routing them through Legacy OSD.
+3. Treat Phases 64, 65, 66, 67 and 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains and completed Phase-68 Legacy OSD ownership rather than inventing parallel owners during Phase-69 work.
+5. Treat Phase 69 - Public API and Client Compatibility Hardening as the active numbered runtime phase and continue from slice 69.D Collections, pagination and partial results; 69.A, 69.B and 69.C are accepted.
+6. Read ADR-0048, `docs/development/phase-69-public-api-kickoff.md` and `docs/development/phase-69c-closeout.md` before continuing 69.D; do not freeze a pre-v1 collection shape without an explicit stable collection contract.
 7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
 8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
 9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
