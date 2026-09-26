@@ -21,6 +21,7 @@
 #include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionController.h"
 #include "SimpleHttpListener.h"
+#include "SuiteBridgeLocalControlTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 #include "VdrRecordingQueryService.h"
 
@@ -75,9 +76,13 @@ int runRecordingMediaHttpRuntime(
 
     BackendAgentRepository agentRepository(database);
     BackendAgentCommandRepository commandRepository(database);
-    vdrsuite::agent::SuiteBridgeSvdrpTransport suiteBridgeTransport;
+    vdrsuite::agent::SuiteBridgeSvdrpTransport suiteBridgeCompatibilityTransport;
+    vdrsuite::agent::SuiteBridgeLocalControlTransport suiteBridgeLocalControlTransport;
+    vdrsuite::agent::SuiteBridgePrioritizedLiveTransport suiteBridgeLiveTransport(
+        suiteBridgeLocalControlTransport,
+        suiteBridgeCompatibilityTransport);
     vdrsuite::agent::BackendAgentLiveProviderRuntime liveProviderRuntime(
-        agentRepository, commandRepository, suiteBridgeTransport);
+        agentRepository, commandRepository, suiteBridgeLiveTransport);
     LiveMediaSessionController liveMediaSessionController(
         mediaSessionRepository,
         mediaSessionIssuanceService,
