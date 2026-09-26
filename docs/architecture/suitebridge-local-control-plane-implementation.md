@@ -103,7 +103,7 @@ make test-suitebridge-control-plane
 \`\`\`
 
 The architecture guard is also attached to \`test-architecture\`, and the full
-control-plane target is attached to \`test-fast\`.
+control-plane target is attached to both \`test-fast\` and hosted \`test-ci-fast\`.
 
 ## Still staged on existing paths
 
