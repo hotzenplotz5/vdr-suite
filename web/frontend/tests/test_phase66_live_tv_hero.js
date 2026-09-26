@@ -406,6 +406,36 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   const c2NowBefore = findByClass(nowSection, 'media-home-live-guide-rail')
     .children.find(card => card.dataset.channelId === 'C2');
 
+  await hero.refreshPrograms();
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-focus'),
+    focusBeforeProgrammeRefresh,
+    'unchanged programme revalidation must preserve the focused Hero DOM'
+  );
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-preview'),
+    previewHost,
+    'unchanged programme revalidation must preserve preview DOM identity'
+  );
+  assert.strictEqual(
+    findByClass(nowSection, 'media-home-live-guide-rail')
+      .children.find(card => card.dataset.channelId === 'C1'),
+    c1NowBefore,
+    'unchanged programme revalidation must preserve programme-card identity'
+  );
+
+  hero.__test.refreshArtworkForChannels(['C1']);
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-focus'),
+    focusBeforeProgrammeRefresh,
+    'artwork enrichment must preserve the focused Hero DOM'
+  );
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-preview'),
+    previewHost,
+    'artwork enrichment must preserve preview DOM identity'
+  );
+
   events.find(event =>
     event.channelId === 'C2' &&
     event.title === 'Heute Zwei'
