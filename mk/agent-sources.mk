@@ -4,6 +4,9 @@ AGENT_HANDSHAKE_SRC := \
 	core/agent/src/SuiteBridgeLocalContractParser.cpp \
 	core/agent/src/SuiteBridgeHandshakeService.cpp
 
+AGENT_LOCAL_CONTROL_TRANSPORT_SRC := \
+	core/agent/src/SuiteBridgeLocalControlTransport.cpp
+
 AGENT_SVDRP_TRANSPORT_SRC := \
 	core/agent/src/SuiteBridgeSvdrpTransport.cpp \
 	core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp \
@@ -170,6 +173,7 @@ AGENT_CLIENT_SRC := \
 
 AGENT_SRC := \
 	$(AGENT_HANDSHAKE_SRC) \
+	$(AGENT_LOCAL_CONTROL_TRANSPORT_SRC) \
 	$(AGENT_SVDRP_TRANSPORT_SRC) \
 	$(AGENT_OBSERVATION_SRC) \
 	$(AGENT_EMBEDDED_RUNTIME_SRC)

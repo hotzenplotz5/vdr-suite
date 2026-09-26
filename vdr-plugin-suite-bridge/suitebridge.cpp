@@ -5,6 +5,9 @@
 
 #include <vdr/tools.h>
 
+#include <sstream>
+#include <vector>
+
 cPluginSuiteBridge::cPluginSuiteBridge()
     : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
       liveCapability_(nativeProbe_.PluginInstanceEpoch()),
@@ -103,6 +106,74 @@ bool cPluginSuiteBridge::Start(void)
 
   statusMonitor_.Activate();
 
+  if (!controlPlane_.Start(
+          [this](
+              SuiteBridgeControlPlane::Operation operation,
+              const std::string &payload) {
+            using Operation = vdrsuite::agent::control::Operation;
+            auto split = [](const std::string &value) {
+              std::vector<std::string> fields;
+              std::size_t start = 0;
+              while (true) {
+                const std::size_t end = value.find('\n', start);
+                fields.push_back(value.substr(
+                    start,
+                    end == std::string::npos
+                        ? std::string::npos
+                        : end - start));
+                if (end == std::string::npos) break;
+                start = end + 1;
+              }
+              return fields;
+            };
+
+            if (operation == Operation::LiveCapability) {
+              if (!payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "live_capability_payload_invalid"};
+              }
+              return liveCapability_.Handle("NLCAP", "1");
+            }
+
+            const auto fields = split(payload);
+            std::ostringstream option;
+            if (operation == Operation::LiveOpen) {
+              if (fields.size() != 3) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "live_open_payload_invalid"};
+              }
+              option << "OPEN 1 " << fields[0] << ' ' << fields[1]
+                     << ' ' << fields[2];
+            } else if (
+                operation == Operation::LiveStatus ||
+                operation == Operation::LiveClose) {
+              if (fields.size() != 2) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "live_lease_payload_invalid"};
+              }
+              option << (operation == Operation::LiveStatus ? "STATUS" : "CLOSE")
+                     << " 1 " << fields[0] << ' ' << fields[1];
+            } else {
+              return SuiteBridgeCommandResult{};
+            }
+            return liveSource_.Handle("NLIVE", option.str().c_str());
+          },
+          [](const std::string &message) {
+            isyslog("%s", message.c_str());
+          })) {
+    statusMonitor_.Deactivate();
+    (void)lifecycle_.BeginStop();
+    (void)lifecycle_.CompleteStop();
+    esyslog(
+        "suitebridge: control-plane event=start result=rejected path=%s",
+        controlPlane_.SocketPath().c_str());
+    return false;
+  }
+
+  isyslog(
+      "suitebridge: control-plane event=start result=accepted transport=af-unix-seqpacket path=%s",
+      controlPlane_.SocketPath().c_str());
+
   isyslog(
       "suitebridge: lifecycle event=start result=accepted state=%s version=%s",
       lifecycle_.StateName(),
@@ -126,6 +197,25 @@ void cPluginSuiteBridge::Stop(void)
         lifecycle_.StateName(),
         SuiteBridgePluginIdentity::Version);
 
+    controlPlane_.Stop();
+    const auto controlMetrics = controlPlane_.SnapshotMetrics();
+    isyslog(
+        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu queue-high-water=%llu",
+        static_cast<unsigned long long>(
+            controlMetrics.admittedByOperation[0] +
+            controlMetrics.admittedByOperation[1] +
+            controlMetrics.admittedByOperation[2] +
+            controlMetrics.admittedByOperation[3]),
+        static_cast<unsigned long long>(
+            controlMetrics.executedByOperation[0] +
+            controlMetrics.executedByOperation[1] +
+            controlMetrics.executedByOperation[2] +
+            controlMetrics.executedByOperation[3]),
+        static_cast<unsigned long long>(controlMetrics.rejected),
+        static_cast<unsigned long long>(controlMetrics.overloaded),
+        static_cast<unsigned long long>(
+            controlMetrics.deadlineExpiredBeforeExecution),
+        static_cast<unsigned long long>(controlMetrics.queueHighWaterMark));
     liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
