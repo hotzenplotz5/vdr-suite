@@ -3,9 +3,19 @@
 #include <cstdint>
 #include <string>
 
+enum class SuiteBridgeHbbtvTransportStatus
+{
+    Success,
+    Unavailable,
+    Failed,
+    Timeout
+};
+
 struct SuiteBridgeHbbtvCommandReply
 {
     bool transportSucceeded = false;
+    SuiteBridgeHbbtvTransportStatus transportStatus =
+        SuiteBridgeHbbtvTransportStatus::Failed;
     int replyCode = 0;
     std::string payload;
 };

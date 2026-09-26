@@ -24,8 +24,8 @@ public:
       Operation, const std::string &)>;
   using Logger = std::function<void(const std::string &)>;
 
-  static constexpr std::size_t OperationCount = 10;
-  static constexpr std::size_t ServiceClassCount = 2;
+  static constexpr std::size_t OperationCount = 14;
+  static constexpr std::size_t ServiceClassCount = 3;
 
   struct Metrics final {
     std::array<std::uint64_t, OperationCount> admittedByOperation{};
@@ -47,7 +47,8 @@ public:
       std::string socketPath =
           "/run/vdr/vdr-suite-control/control.sock",
       std::size_t criticalQueueCapacity = 16,
-      std::size_t interactiveQueueCapacity = 16);
+      std::size_t interactiveQueueCapacity = 16,
+      std::size_t externalPluginQueueCapacity = 16);
   ~SuiteBridgeControlPlane();
 
   bool Start(Handler handler, Logger logger = {});

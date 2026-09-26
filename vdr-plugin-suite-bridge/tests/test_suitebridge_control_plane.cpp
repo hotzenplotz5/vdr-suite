@@ -80,7 +80,10 @@ int main()
   bool interactiveStarted = false;
   bool releaseInteractive = false;
 
-  SuiteBridgeControlPlane server(path, 1, 1);
+  bool externalPluginStarted = false;
+  bool releaseExternalPlugin = false;
+
+  SuiteBridgeControlPlane server(path, 1, 1, 1);
   assert(server.Start(
       [&](Operation operation, const std::string&) {
         SuiteBridgeCommandResult result{true, 250, "{}"};
@@ -101,6 +104,13 @@ int main()
           changed.notify_all();
           changed.wait(lock, [&] { return releaseInteractive; });
           result.replyCode = 900;
+        }
+
+        if (operation == Operation::HbbtvPresentation) {
+          std::unique_lock<std::mutex> lock(mutex);
+          externalPluginStarted = true;
+          changed.notify_all();
+          changed.wait(lock, [&] { return releaseExternalPlugin; });
         }
 
         return result;
@@ -203,19 +213,71 @@ int main()
 
   assert(blockedInteractive.get().result == Result::Success);
 
+  auto blockedExternalPlugin = std::async(std::launch::async, [&] {
+    return transact(
+        path,
+        Operation::HbbtvPresentation,
+        7,
+        longDeadline,
+        "META 1 session-a");
+  });
+
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    assert(changed.wait_for(
+        lock,
+        std::chrono::seconds(1),
+        [&] { return externalPluginStarted; }));
+  }
+
+  const auto osdStarted = std::chrono::steady_clock::now();
+  const auto osdWhileHbbtvBlocked = transact(
+      path,
+      Operation::OsdSnapshot,
+      8,
+      longDeadline);
+  const auto osdElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - osdStarted);
+
+  assert(osdWhileHbbtvBlocked.result == Result::Success);
+  assert(osdElapsed < std::chrono::milliseconds(150));
+
+  const auto liveStarted = std::chrono::steady_clock::now();
+  const auto liveWhileHbbtvBlocked = transact(
+      path,
+      Operation::LiveCapability,
+      9,
+      longDeadline);
+  const auto liveElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - liveStarted);
+
+  assert(liveWhileHbbtvBlocked.result == Result::Success);
+  assert(liveElapsed < std::chrono::milliseconds(150));
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    releaseExternalPlugin = true;
+  }
+  changed.notify_all();
+  assert(blockedExternalPlugin.get().result == Result::Success);
+
   const auto metrics = server.SnapshotMetrics();
   assert(metrics.overloaded >= 1);
   assert(metrics.deadlineExpiredBeforeExecution >= 2);
   assert(metrics.queueHighWaterByClass[0] == 1);
   assert(metrics.queueHighWaterByClass[1] == 1);
+  assert(metrics.queueHighWaterByClass[2] == 1);
   assert(metrics.executedByOperation[2] == 1);
-  assert(metrics.executedByOperation[8] == 1);
+  assert(metrics.executedByOperation[8] == 2);
+  assert(metrics.executedByOperation[12] == 1);
 
   server.Stop();
   assert(!server.Running());
   assert(access(path.c_str(), F_OK) != 0);
 
   std::puts(
-      "SuiteBridge critical/interactive control-plane lane tests passed");
+      "SuiteBridge critical/interactive/external-plugin control-plane lane tests passed");
   return 0;
 }

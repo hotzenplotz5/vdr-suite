@@ -70,8 +70,29 @@ SuiteBridgeHbbtvCommandReply toHbbtvReply(
     SuiteBridgeHbbtvCommandReply result;
     result.replyCode = reply.replyCode;
     result.payload = reply.payload;
+    switch (reply.transportStatus)
+    {
+        case SuiteBridgeTransportStatus::Success:
+            result.transportStatus =
+                SuiteBridgeHbbtvTransportStatus::Success;
+            break;
+        case SuiteBridgeTransportStatus::Unavailable:
+            result.transportStatus =
+                SuiteBridgeHbbtvTransportStatus::Unavailable;
+            break;
+        case SuiteBridgeTransportStatus::Timeout:
+            result.transportStatus =
+                SuiteBridgeHbbtvTransportStatus::Timeout;
+            break;
+        case SuiteBridgeTransportStatus::Failed:
+            result.transportStatus =
+                SuiteBridgeHbbtvTransportStatus::Failed;
+            break;
+    }
     result.transportSucceeded =
-        reply.transportSucceeded() && reply.replyCode == 250;
+        result.transportStatus ==
+            SuiteBridgeHbbtvTransportStatus::Success &&
+        reply.replyCode == 250;
     return result;
 }
 
