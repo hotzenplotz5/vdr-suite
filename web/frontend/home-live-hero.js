@@ -1329,6 +1329,22 @@
     return programmeSignature(state.events) !== previousSignature;
   }
 
+  function applyProgramsForChannels(data, channelIds) {
+    const previousSignature = programmeSignature(state.events);
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+    const incoming = list(data, 'events').slice();
+    const retained = state.events.filter(event =>
+      !ids.has(eventChannelId(event))
+    );
+    state.events = retained.concat(incoming);
+    rebuildEventIndex();
+    return programmeSignature(state.events) !== previousSignature;
+  }
+
   function loadProgrammeArtworkPage(sequence, owner, ids) {
     if (!owner ||
         typeof owner.loadArtworkPage !== 'function' ||
@@ -1427,7 +1443,9 @@
       }
 
       const programmesChanged =
-        applyPrograms(data, !reset);
+        reset && config.retainVisible === true
+          ? applyProgramsForChannels(data, ids)
+          : applyPrograms(data, !reset);
 
       state.programmeLoadedChannelCount =
         Math.max(
@@ -1482,7 +1500,11 @@
       }
 
       state.programmeLoadingMore = false;
-      if (!reset || config.retainVisible !== true) render();
+      const preserveProjection =
+        heroHasProgrammeProjection() &&
+        (config.retainVisible === true || !reset);
+      if (preserveProjection) refreshHeroNotice();
+      else if (!reset || config.retainVisible !== true) render();
 
       return null;
     });
