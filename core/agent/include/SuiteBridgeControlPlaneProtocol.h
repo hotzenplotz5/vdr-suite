@@ -14,7 +14,11 @@ constexpr std::uint16_t ProtocolMajor = 1;
 constexpr std::uint16_t ProtocolMinor = 0;
 constexpr std::size_t RequestHeaderBytes = 32;
 constexpr std::size_t ResponseHeaderBytes = 32;
-constexpr std::size_t MaximumRequestPayloadBytes = 2048;
+// Timer CREATE carries the existing fully fenced command envelope, including
+// whitespace-safe hex encoding of the bounded 1024-byte title/directory fields
+// and the specification fingerprint. Keep the local frame finite without
+// narrowing the already accepted mutation contract.
+constexpr std::size_t MaximumRequestPayloadBytes = 16384;
 constexpr std::size_t MaximumResponsePayloadBytes = 131072;
 constexpr std::size_t MaximumRequestFrameBytes =
     RequestHeaderBytes + MaximumRequestPayloadBytes;
@@ -43,6 +47,8 @@ enum class Operation : std::uint16_t
     EpgArtwork = 18,
     RecordingMetadata = 19,
     EpgTypeSnapshot = 20,
+    NativeTimerCreateCapability = 21,
+    NativeTimerCreateExecute = 22,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -51,6 +57,7 @@ enum class ServiceClass : std::uint16_t
     InteractiveControlRead = 2,
     ExternalPluginInteractive = 3,
     BackgroundProvider = 4,
+    NativeMutation = 5,
 };
 
 enum class Result : std::uint16_t
@@ -110,6 +117,10 @@ inline const char* operationName(Operation operation)
         case Operation::EpgArtwork: return "epg-artwork";
         case Operation::RecordingMetadata: return "recording-metadata";
         case Operation::EpgTypeSnapshot: return "epg-type-snapshot";
+        case Operation::NativeTimerCreateCapability:
+            return "native-timer-create-capability";
+        case Operation::NativeTimerCreateExecute:
+            return "native-timer-create-execute";
     }
     return "unknown";
 }
@@ -117,7 +128,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 20;
+    return value >= 1 && value <= 22;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -140,6 +151,9 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::RecordingMetadata:
         case Operation::EpgTypeSnapshot:
             return ServiceClass::BackgroundProvider;
+        case Operation::NativeTimerCreateCapability:
+        case Operation::NativeTimerCreateExecute:
+            return ServiceClass::NativeMutation;
         default:
             return ServiceClass::CriticalControl;
     }
