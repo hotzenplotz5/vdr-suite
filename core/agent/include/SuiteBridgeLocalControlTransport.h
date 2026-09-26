@@ -148,7 +148,7 @@ private:
     {
         auto reply = call(dedicated_);
         if (reply.transportStatus !=
-            SuiteBridgeTransportStatus::Unavailable)
+            SuiteBridgeHbbtvTransportStatus::Unavailable)
             return reply;
         return call(compatibility_);
     }
