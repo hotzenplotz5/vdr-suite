@@ -24,8 +24,8 @@ public:
       Operation, const std::string &)>;
   using Logger = std::function<void(const std::string &)>;
 
-  static constexpr std::size_t OperationCount = 20;
-  static constexpr std::size_t ServiceClassCount = 4;
+  static constexpr std::size_t OperationCount = 22;
+  static constexpr std::size_t ServiceClassCount = 5;
 
   struct Metrics final {
     std::array<std::uint64_t, OperationCount> admittedByOperation{};
@@ -49,7 +49,8 @@ public:
       std::size_t criticalQueueCapacity = 16,
       std::size_t interactiveQueueCapacity = 16,
       std::size_t externalPluginQueueCapacity = 16,
-      std::size_t backgroundProviderQueueCapacity = 16);
+      std::size_t backgroundProviderQueueCapacity = 16,
+      std::size_t nativeMutationQueueCapacity = 16);
   ~SuiteBridgeControlPlane();
 
   bool Start(Handler handler, Logger logger = {});
