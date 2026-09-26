@@ -136,11 +136,20 @@ BackendAgentLiveProviderRuntime::BackendAgentLiveProviderRuntime(
 
 bool BackendAgentLiveProviderRuntime::discoverFacts(
     BackendAgentLocalProviderFacts& facts,
-    std::string& reasonCode) const
+    std::string& reasonCode,
+    BackendAgentLiveProviderLiveness* liveness) const
 {
     facts = {};
+    if (liveness != nullptr)
+        *liveness = BackendAgentLiveProviderLiveness::Terminal;
     const SuiteBridgeCommandReply reply = transport_.discoverLiveSource();
-    if (!reply.transportSucceeded() || reply.replyCode != 250 ||
+    if (!reply.transportSucceeded()) {
+        if (liveness != nullptr)
+            *liveness = BackendAgentLiveProviderLiveness::Indeterminate;
+        reasonCode = "live_provider_capability_unavailable";
+        return false;
+    }
+    if (reply.replyCode != 250 ||
         reply.payload.empty() || reply.payload.size() > 2048) {
         reasonCode = "live_provider_capability_unavailable";
         return false;
@@ -170,6 +179,11 @@ bool BackendAgentLiveProviderRuntime::discoverFacts(
     reasonCode = available
         ? "live_provider_capability_current"
         : "live_provider_unavailable";
+    if (liveness != nullptr) {
+        *liveness = available
+            ? BackendAgentLiveProviderLiveness::Current
+            : BackendAgentLiveProviderLiveness::Terminal;
+    }
     return available;
 }
 
@@ -216,34 +230,48 @@ BackendAgentLiveProviderPreparation BackendAgentLiveProviderRuntime::prepare(
     return result;
 }
 
-bool BackendAgentLiveProviderRuntime::current(
+BackendAgentLiveProviderLiveness BackendAgentLiveProviderRuntime::currentLiveness(
     const BackendAgentLiveProviderPreparation& preparation,
     std::string& reasonCode) const
 {
     if (!preparation.valid || !preparation.pin.valid) {
         reasonCode = "live_provider_pin_required";
-        return false;
+        return BackendAgentLiveProviderLiveness::Terminal;
     }
     const auto& fence = preparation.pin.channelFence;
     const auto agent = agentRepository_.findAgentForBackend(fence.backendId);
     if (!agent.has_value()) {
         reasonCode = "live_backend_generation_stale";
-        return false;
+        return BackendAgentLiveProviderLiveness::Terminal;
     }
     const auto cursor = agentRepository_.observationCursorForBackend(
         fence.backendId, BackendAgentLiveProviderAuthority::ChannelObservationDomain);
     const auto channels = agentRepository_.channelFactsForBackend(fence.backendId);
     BackendAgentLocalProviderFacts currentFacts;
-    if (!discoverFacts(currentFacts, reasonCode)) return false;
+    BackendAgentLiveProviderLiveness discoveryLiveness =
+        BackendAgentLiveProviderLiveness::Terminal;
+    if (!discoverFacts(currentFacts, reasonCode, &discoveryLiveness))
+        return discoveryLiveness;
     const auto ownership = commandRepository_.localProviderOwnershipStatus(
         fence.backendId, BackendAgentLiveProviderAuthority::AuthorityDomain);
     if (!ownership.present || !ownership.active) {
         reasonCode = "live_provider_ownership_required";
-        return false;
+        return BackendAgentLiveProviderLiveness::Terminal;
     }
-    return authority_.usable(
-        preparation.pin, *agent, cursor, channels,
-        ownership.ownership, currentFacts, reasonCode);
+    if (!authority_.usable(
+            preparation.pin, *agent, cursor, channels,
+            ownership.ownership, currentFacts, reasonCode)) {
+        return BackendAgentLiveProviderLiveness::Terminal;
+    }
+    return BackendAgentLiveProviderLiveness::Current;
+}
+
+bool BackendAgentLiveProviderRuntime::current(
+    const BackendAgentLiveProviderPreparation& preparation,
+    std::string& reasonCode) const
+{
+    return currentLiveness(preparation, reasonCode) ==
+        BackendAgentLiveProviderLiveness::Current;
 }
 
 BackendAgentLiveProviderOpenResult BackendAgentLiveProviderRuntime::open(
@@ -294,15 +322,20 @@ BackendAgentLiveProviderStatus BackendAgentLiveProviderRuntime::status(
     const std::string& leaseId) const
 {
     BackendAgentLiveProviderStatus result;
-    std::string currentReason;
-    if (!current(preparation, currentReason)) {
-        result.reasonCode = currentReason;
+    result.liveness = currentLiveness(preparation, result.reasonCode);
+    if (result.liveness != BackendAgentLiveProviderLiveness::Current)
         return result;
-    }
+
     SuiteBridgeLiveSourceLeaseRequest request{
         leaseId, preparation.pin.providerSelection.providerInstanceEpoch};
     const auto reply = transport_.statusLiveSource(request);
-    if (!reply.transportSucceeded() || reply.replyCode != 250) {
+    if (!reply.transportSucceeded()) {
+        result.liveness = BackendAgentLiveProviderLiveness::Indeterminate;
+        result.reasonCode = "live_provider_status_unavailable";
+        return result;
+    }
+    if (reply.replyCode != 250) {
+        result.liveness = BackendAgentLiveProviderLiveness::Terminal;
         result.reasonCode = "live_provider_status_failed";
         return result;
     }
@@ -314,12 +347,15 @@ BackendAgentLiveProviderStatus BackendAgentLiveProviderRuntime::status(
         !parseBooleanToken(receiver, result.receiverAttached) ||
         !keyValue(reply.payload, "channelId", channel) ||
         channel != preparation.pin.channelFence.channelId) {
-        result.current = false;
+        result.liveness = BackendAgentLiveProviderLiveness::Terminal;
         result.reasonCode = "live_provider_status_invalid";
         return result;
     }
-    result.current = result.state == "active" && result.receiverAttached;
-    if (result.current) result.reasonCode = "live_provider_active";
+    const bool current = result.state == "active" && result.receiverAttached;
+    result.liveness = current
+        ? BackendAgentLiveProviderLiveness::Current
+        : BackendAgentLiveProviderLiveness::Terminal;
+    if (current) result.reasonCode = "live_provider_active";
     return result;
 }
 
