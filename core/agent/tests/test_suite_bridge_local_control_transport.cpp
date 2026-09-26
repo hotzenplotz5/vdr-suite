@@ -154,6 +154,58 @@ public:
     }
 };
 
+
+class HbbtvCompatibility final : public ISuiteBridgeHbbtvTransport
+{
+public:
+    std::atomic<int> runtimeCalls{0};
+
+    SuiteBridgeHbbtvCommandReply discoverHbbtv(
+        const std::string&) override
+    {
+        return {
+            true,
+            SuiteBridgeHbbtvTransportStatus::Success,
+            250,
+            "{}"};
+    }
+
+    SuiteBridgeHbbtvCommandReply controlHbbtv(
+        const SuiteBridgeHbbtvRuntimeRequest&) override
+    {
+        ++runtimeCalls;
+        return {
+            true,
+            SuiteBridgeHbbtvTransportStatus::Success,
+            250,
+            "{}"};
+    }
+};
+
+class HbbtvTimeoutTransport final : public ISuiteBridgeHbbtvTransport
+{
+public:
+    SuiteBridgeHbbtvCommandReply discoverHbbtv(
+        const std::string&) override
+    {
+        return {
+            false,
+            SuiteBridgeHbbtvTransportStatus::Timeout,
+            0,
+            {}};
+    }
+
+    SuiteBridgeHbbtvCommandReply controlHbbtv(
+        const SuiteBridgeHbbtvRuntimeRequest&) override
+    {
+        return {
+            false,
+            SuiteBridgeHbbtvTransportStatus::Timeout,
+            0,
+            {}};
+    }
+};
+
 void serveOperation(
     const std::string& path,
     Operation expectedOperation,
@@ -451,7 +503,64 @@ int main()
         SuiteBridgeTransportStatus::Timeout);
     assert(osdInputCompatibility.executeCalls.load() == 1);
 
+
+    const std::string hbbtvPath =
+        "/tmp/vdr-suite-hbbtv-control-" +
+        std::to_string(getpid()) + ".sock";
+
+    std::thread hbbtvServer([&] {
+        serveOperation(
+            hbbtvPath,
+            Operation::HbbtvRuntime,
+            250,
+            "{\"state\":\"active\"}");
+    });
+    waitForSocket(hbbtvPath);
+
+    SuiteBridgeLocalControlTransportConfig hbbtvConfig;
+    hbbtvConfig.socketPath = hbbtvPath;
+    SuiteBridgeLocalControlTransport hbbtvDedicated(hbbtvConfig);
+    HbbtvCompatibility hbbtvCompatibility;
+    SuiteBridgePrioritizedHbbtvTransport hbbtvRouted(
+        hbbtvDedicated,
+        hbbtvCompatibility);
+
+    SuiteBridgeHbbtvRuntimeRequest hbbtvRequest;
+    hbbtvRequest.operation = SuiteBridgeHbbtvRuntimeOperation::Status;
+    hbbtvRequest.sessionId = "session-a";
+    hbbtvRequest.channelId = "C-1-1051-10301";
+    hbbtvRequest.applicationId = 1;
+    hbbtvRequest.descriptorRevision = 2;
+
+    const auto hbbtvReply = hbbtvRouted.controlHbbtv(hbbtvRequest);
+    assert(hbbtvReply.transportSucceeded);
+    assert(hbbtvReply.transportStatus ==
+        SuiteBridgeHbbtvTransportStatus::Success);
+    assert(hbbtvReply.replyCode == 250);
+    assert(hbbtvCompatibility.runtimeCalls.load() == 0);
+    hbbtvServer.join();
+
+    SuiteBridgeLocalControlTransportConfig hbbtvMissingConfig;
+    hbbtvMissingConfig.socketPath = hbbtvPath + ".missing";
+    SuiteBridgeLocalControlTransport hbbtvMissing(hbbtvMissingConfig);
+    SuiteBridgePrioritizedHbbtvTransport hbbtvFallback(
+        hbbtvMissing,
+        hbbtvCompatibility);
+    assert(hbbtvFallback.controlHbbtv(hbbtvRequest).transportSucceeded);
+    assert(hbbtvCompatibility.runtimeCalls.load() == 1);
+
+    HbbtvTimeoutTransport hbbtvTimeout;
+    SuiteBridgePrioritizedHbbtvTransport hbbtvNoReplay(
+        hbbtvTimeout,
+        hbbtvCompatibility);
+    const auto hbbtvTimeoutReply =
+        hbbtvNoReplay.controlHbbtv(hbbtvRequest);
+    assert(!hbbtvTimeoutReply.transportSucceeded);
+    assert(hbbtvTimeoutReply.transportStatus ==
+        SuiteBridgeHbbtvTransportStatus::Timeout);
+    assert(hbbtvCompatibility.runtimeCalls.load() == 1);
+
     std::puts(
-        "SuiteBridge local control transport Live/native/OSD tests passed");
+        "SuiteBridge local control transport Live/native/OSD/HbbTV tests passed");
     return 0;
 }
