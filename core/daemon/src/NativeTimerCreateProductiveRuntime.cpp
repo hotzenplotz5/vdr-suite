@@ -33,8 +33,7 @@ constexpr std::int64_t kAgentCommandLifetimeSeconds = 300;
 RequestSecurityContext systemContext()
 {
     RequestSecurityContext context;
-    context.requestId =
-        backendAgentGenerateOpaqueId("req_timer_create_runtime_", 8);
+    context.requestId = "req:native-timer-create-runtime";
     context.correlationId = context.requestId;
     context.authenticationState = AuthenticationState::Authenticated;
     context.actor = ActorIdentity{
