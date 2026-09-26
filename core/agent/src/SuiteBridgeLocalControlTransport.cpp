@@ -57,8 +57,7 @@ SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::discoverLiveSource(
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){return select([&](auto&t){return t.openLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.closeLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::statusLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.statusLiveSource(r);});}
-} // namespace vdrsuite::agent
-
 SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::discoverNativeProbe(){return select([](auto&t){return t.discoverNativeProbe();});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::executeNativeProbe(const SuiteBridgeNativeProbeRequest&r){return select([&](auto&t){return t.executeNativeProbe(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::readNativeProbe(const SuiteBridgeNativeProbeReadbackRequest&r){return select([&](auto&t){return t.readNativeProbe(r);});}
+} // namespace vdrsuite::agent
