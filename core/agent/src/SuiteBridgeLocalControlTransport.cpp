@@ -1,4 +1,5 @@
 #include "SuiteBridgeLocalControlTransport.h"
+#include "SuiteBridgeEpgTypeSnapshotPayloadParser.h"
 #include "SuiteBridgeHandshakeService.h"
 #include <algorithm>
 #include <cctype>
@@ -181,6 +182,23 @@ SuiteBridgeArtworkCommandReply SuiteBridgeLocalControlTransport::requestArtwork(
  return readReply<SuiteBridgeArtworkCommandReply>(
      executeOperation(control::Operation::EpgArtwork,channelId+" "+eventId));
 }
+SuiteBridgeEpgTypeSnapshotTransportPage SuiteBridgeLocalControlTransport::requestEpgTypeSnapshot(std::int64_t fromTime,std::int64_t untilTime,std::uint64_t offset,std::size_t limit){
+ SuiteBridgeEpgTypeSnapshotTransportPage page;
+ if(fromTime<=0||untilTime<=fromTime||untilTime-fromTime>72*60*60||offset>1000000||limit==0||limit>64)return page;
+ const auto reply=executeOperation(control::Operation::EpgTypeSnapshot,std::to_string(fromTime)+" "+std::to_string(untilTime)+" "+std::to_string(offset)+" "+std::to_string(limit));
+ page.replyCode=reply.replyCode;
+ switch(reply.transportStatus){
+  case SuiteBridgeTransportStatus::Success:page.transportStatus=SuiteBridgeReadTransportStatus::Success;break;
+  case SuiteBridgeTransportStatus::Unavailable:page.transportStatus=SuiteBridgeReadTransportStatus::Unavailable;break;
+  case SuiteBridgeTransportStatus::Timeout:page.transportStatus=SuiteBridgeReadTransportStatus::Timeout;break;
+  case SuiteBridgeTransportStatus::Failed:page.transportStatus=SuiteBridgeReadTransportStatus::Failed;break;
+ }
+ page.transportSucceeded=page.transportStatus==SuiteBridgeReadTransportStatus::Success&&page.replyCode==250;
+ if(!page.transportSucceeded)return page;
+ page.payloadValid=detail::parseEpgTypeSnapshotPayload(reply.payload,fromTime,untilTime,offset,limit,page);
+ if(!page.payloadValid)page.items.clear();
+ return page;
+}
 SuiteBridgeMetadataCommandReply SuiteBridgeLocalControlTransport::requestMetadata(const std::string& channelId,const std::string& eventId){
  if(!safeToken(channelId)||!safeToken(eventId))return {};
  return readReply<SuiteBridgeMetadataCommandReply>(
@@ -294,6 +312,11 @@ SuiteBridgeArtworkCommandReply SuiteBridgePrioritizedArtworkTransport::requestAr
  auto reply=dedicated_.requestArtwork(channelId,eventId);
  if(reply.transportStatus!=SuiteBridgeReadTransportStatus::Unavailable)return reply;
  return compatibility_.requestArtwork(channelId,eventId);
+}
+SuiteBridgeEpgTypeSnapshotTransportPage SuiteBridgePrioritizedEpgTypeSnapshotTransport::requestEpgTypeSnapshot(std::int64_t fromTime,std::int64_t untilTime,std::uint64_t offset,std::size_t limit){
+ auto reply=dedicated_.requestEpgTypeSnapshot(fromTime,untilTime,offset,limit);
+ if(reply.transportStatus!=SuiteBridgeReadTransportStatus::Unavailable)return reply;
+ return compatibility_.requestEpgTypeSnapshot(fromTime,untilTime,offset,limit);
 }
 SuiteBridgeMetadataCommandReply SuiteBridgePrioritizedMetadataTransport::requestMetadata(const std::string& channelId,const std::string& eventId){
  auto reply=dedicated_.requestMetadata(channelId,eventId);
