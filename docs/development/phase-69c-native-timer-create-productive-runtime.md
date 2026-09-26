@@ -188,7 +188,9 @@ TimerIntentRepository::create()
 ```
 
 It consumes the real backend generation and an existing VDR channel selected by
-the acceptance runner. It does not dispatch a native effect. The subsequent
+the acceptance runner. The fixture specification is disabled (`enabled=false`)
+so the real native Timer produced by the subsequent acceptance cannot start a
+recording. The fixture itself does not dispatch a native effect. The subsequent
 public-v1 POST remains the first operation that transitions the selected
 assignment into the productive CREATE lifecycle.
 
