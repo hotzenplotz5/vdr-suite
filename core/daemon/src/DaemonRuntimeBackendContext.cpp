@@ -232,6 +232,24 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
                 std::move(transportConfig));
 
+        vdrsuite::agent::SuiteBridgeLocalControlTransportConfig
+            hbbtvLocalConfig;
+        hbbtvLocalConfig.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        hbbtvLocalConfig.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        hbbtvLocalConfig.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+        context->hbbtvLocalControlTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgeLocalControlTransport>(
+                    std::move(hbbtvLocalConfig));
+        context->hbbtvTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedHbbtvTransport>(
+                    *context->hbbtvLocalControlTransport,
+                    *context->suiteBridgeTransport);
+
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
