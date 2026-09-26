@@ -345,6 +345,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(firstProvision.ready);
+    assert(sessions.activateBundle(first.session.sessionId));
     assert(probeCalls == 0);
     assert(firstProvision.presentation.profileId == "live-progressive-fmp4");
     assert(firstProvision.presentation.videoAction == MediaTrackAction::Transcode);
@@ -412,6 +413,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(secondProvision.ready);
+    assert(sessions.activateBundle(second.session.sessionId));
     assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
@@ -438,6 +440,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(thirdProvision.ready);
+    assert(sessions.activateBundle(third.session.sessionId));
     assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
