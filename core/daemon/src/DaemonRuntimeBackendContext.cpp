@@ -256,13 +256,41 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                     *context->hbbtvLocalControlTransport,
                     *context->suiteBridgeTransport);
 
+        vdrsuite::agent::SuiteBridgeLocalControlTransportConfig
+            providerLocalConfig;
+        providerLocalConfig.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        providerLocalConfig.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        providerLocalConfig.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+        context->providerLocalControlTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgeLocalControlTransport>(
+                    std::move(providerLocalConfig));
+        context->epgArtworkTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedArtworkTransport>(
+                    *context->providerLocalControlTransport,
+                    *context->suiteBridgeTransport);
+        context->epgMetadataTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedMetadataTransport>(
+                    *context->providerLocalControlTransport,
+                    *context->suiteBridgeTransport);
+        context->recordingMetadataTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedRecordingMetadataTransport>(
+                    *context->providerLocalControlTransport,
+                    *context->suiteBridgeTransport);
+
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
-                    *context->suiteBridgeTransport);
+                    *context->epgArtworkTransport);
             context->epgScraperMetadataDelegate =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
-                    *context->suiteBridgeTransport);
+                    *context->epgMetadataTransport);
 
             const RuntimeSeriesArtworkFallbackConfig& runtimeFallbackConfig =
                 config_.seriesArtworkFallback();
@@ -587,7 +615,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         else {
             context->recordingMetadataResolver =
                 std::make_unique<SuiteBridgeRecordingMetadataResolver>(
-                    *context->suiteBridgeTransport);
+                    *context->recordingMetadataTransport);
 
             VdrRecordingNativeMetadataEnrichmentConfig enrichmentConfig;
             enrichmentConfig.maximumQueuedRecordings = 64;
