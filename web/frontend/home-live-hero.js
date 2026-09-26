@@ -172,6 +172,17 @@
       .join('\n\n');
   }
 
+  function eventProjectionSignature(event) {
+    if (!event) return '';
+    return [
+      eventId(event),
+      String(eventStart(event)),
+      String(eventEnd(event)),
+      eventTitle(event),
+      eventSubtitle(event)
+    ].join('\n');
+  }
+
   function rebuildEventIndex() {
     const index = new Map();
     state.events.forEach(event => {
@@ -331,11 +342,12 @@
     const control = createButton('', 'media-home-live-neighbor media-home-live-neighbor-' + direction);
     control.setAttribute('aria-label', (direction === 'previous' ? 'Vorheriger Sender: ' : 'Nächster Sender: ') + channelName(channel));
     control.dataset.channelId = channelId(channel);
+    const event = currentEventForChannel(channel, state.events);
+    control.dataset.programmeSignature = eventProjectionSignature(event);
     appendChannelLogo(control, channel, 'media-home-live-neighbor-logo');
     const copy = doc.createElement('span');
     copy.className = 'media-home-live-neighbor-copy';
     copy.appendChild(addTextNode(doc.createElement('strong'), channelName(channel)));
-    const event = currentEventForChannel(channel, state.events);
     copy.appendChild(addTextNode(doc.createElement('span'), event ? eventTitle(event) : 'Keine Programminformation'));
     control.appendChild(copy);
     control.addEventListener('click', () => {
@@ -348,6 +360,8 @@
   function createProgramCard(label, event, current) {
     const card = doc.createElement('div');
     card.className = 'media-home-live-program' + (current ? ' current' : '');
+    card.dataset.eventId = event ? eventId(event) : '';
+    card.dataset.projectionSignature = eventProjectionSignature(event);
     card.appendChild(addTextNode(doc.createElement('span'), label)).className = 'media-home-live-program-label';
     card.appendChild(addTextNode(doc.createElement('strong'), event ? eventTitle(event) : 'Keine Programminformation')).className = 'media-home-live-program-title';
     const subtitle = event ? eventSubtitle(event) : '';
@@ -554,6 +568,8 @@
     card.className = 'media-home-live-guide-card' + (current ? ' current' : '');
     card.dataset.channelId = channelId(entry.channel);
     card.dataset.eventId = eventId(entry.event);
+    card.dataset.projectionSignature =
+      eventProjectionSignature(entry.event);
     card.dataset.artworkPriority =
       prioritizeArtwork ? 'high' : 'low';
     card.tabIndex = 0;
@@ -680,6 +696,276 @@
   function renderProgrammeRails() {
     renderProgrammeRail('now', 'Was läuft jetzt', true);
     renderProgrammeRail('next', 'Was läuft danach', false);
+  }
+
+  function classNameContains(element, name) {
+    return String(element && element.className || '')
+      .split(/\s+/)
+      .includes(name);
+  }
+
+  function heroHasProgrammeProjection() {
+    const root = heroRoot();
+    return Boolean(
+      root &&
+      typeof root.querySelector === 'function' &&
+      root.querySelector('.media-home-live-focus')
+    );
+  }
+
+  function refreshHeroNotice() {
+    const root = heroRoot();
+    if (!root || typeof root.querySelector !== 'function') return false;
+    const notice = root.querySelector('.media-home-live-notice');
+    if (!notice) return false;
+    const noticeText =
+      state.actionError ||
+      state.programError ||
+      (state.loadingPrograms
+        ? 'Aktuelle Programminformationen werden geladen …'
+        : 'Mit ←/→ oder Wischen Sender wechseln.');
+    notice.textContent = noticeText;
+    notice.className =
+      'media-home-live-notice' +
+      (state.actionError ? ' error' : '');
+    return true;
+  }
+
+  function updateProgramProgress(card, event, guide) {
+    if (!card || !event || typeof card.querySelector !== 'function') return false;
+    const progress = card.querySelector(
+      guide
+        ? '.media-home-live-guide-progress'
+        : '.media-home-live-progress'
+    );
+    if (!progress) return false;
+    const percent = progressPercent(event);
+    progress.value = Number(percent.toFixed(1));
+    progress.setAttribute(
+      'aria-label',
+      guide
+        ? 'Fortschritt von ' + eventTitle(event) + ': ' +
+          String(Math.round(percent)) + ' Prozent'
+        : 'Fortschritt der laufenden Sendung: ' +
+          String(Math.round(percent)) + ' Prozent'
+    );
+    return true;
+  }
+
+  function refreshHeroProgrammeProjection(channelIds) {
+    const channel = currentChannel();
+    const selectedId = channelId(channel);
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+    if (!channel || !ids.has(selectedId)) return false;
+
+    const root = heroRoot();
+    if (!root || typeof root.querySelector !== 'function') return false;
+    const focus = root.querySelector('.media-home-live-focus');
+    if (!focus ||
+        text(focus.dataset && focus.dataset.channelId) !== selectedId ||
+        typeof focus.querySelector !== 'function') {
+      return false;
+    }
+    const programmes =
+      focus.querySelector('.media-home-live-programmes');
+    if (!programmes ||
+        typeof programmes.replaceChildren !== 'function') {
+      return false;
+    }
+
+    const current = currentEventForChannel(channel, state.events);
+    const next = nextEventForChannel(channel, state.events);
+    const children = Array.from(programmes.children || []);
+    const currentCard = children[0] || null;
+    const nextCard = children[1] || null;
+    const currentSignature = eventProjectionSignature(current);
+    const nextSignature = eventProjectionSignature(next);
+    const stable =
+      currentCard &&
+      nextCard &&
+      String(currentCard.dataset && currentCard.dataset.projectionSignature || '') === currentSignature &&
+      String(nextCard.dataset && nextCard.dataset.projectionSignature || '') === nextSignature;
+
+    if (stable) {
+      updateProgramProgress(currentCard, current, false);
+      return false;
+    }
+
+    programmes.replaceChildren(
+      createProgramCard('Jetzt', current, true),
+      createProgramCard('Als nächstes', next, false)
+    );
+    return true;
+  }
+
+  function refreshHeroNeighborProjection(channelIds) {
+    const root = heroRoot();
+    if (!root || typeof root.querySelectorAll !== 'function') return false;
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+    if (ids.size === 0) return false;
+
+    let updated = false;
+    Array.from(root.querySelectorAll('.media-home-live-neighbor') || [])
+      .forEach(control => {
+        const id = text(control && control.dataset && control.dataset.channelId);
+        if (!ids.has(id)) return;
+        const channel = channelForId(id);
+        if (!channel) return;
+        const event = currentEventForChannel(channel, state.events);
+        if (String(control.dataset && control.dataset.programmeSignature || '') ===
+            eventProjectionSignature(event)) {
+          return;
+        }
+        const direction =
+          classNameContains(control, 'media-home-live-neighbor-previous')
+            ? 'previous'
+            : (classNameContains(control, 'media-home-live-neighbor-next')
+              ? 'next'
+              : '');
+        if (!direction || typeof control.replaceWith !== 'function') return;
+        control.replaceWith(createNeighbor(channel, direction));
+        updated = true;
+      });
+    return updated;
+  }
+
+  function findProgrammeGuideCard(rail, channelValue) {
+    const id = text(channelValue);
+    const children = Array.from(rail && rail.children || []);
+    for (let index = 0; index < children.length; index += 1) {
+      if (text(children[index].dataset && children[index].dataset.channelId) === id) {
+        return children[index];
+      }
+    }
+    return null;
+  }
+
+  function insertProgrammeGuideCard(rail, card, channel) {
+    if (!rail || !card || !channel) return false;
+    const id = channelId(channel);
+    const targetIndex =
+      state.channels.findIndex(entry => channelId(entry) === id);
+    const children = Array.from(rail.children || []);
+    for (let index = 0; index < children.length; index += 1) {
+      const childId =
+        text(children[index].dataset && children[index].dataset.channelId);
+      const childIndex =
+        state.channels.findIndex(entry => channelId(entry) === childId);
+      if (childIndex > targetIndex &&
+          typeof rail.insertBefore === 'function') {
+        rail.insertBefore(card, children[index]);
+        return true;
+      }
+    }
+    if (typeof rail.appendChild !== 'function') return false;
+    rail.appendChild(card);
+    return true;
+  }
+
+  function refreshProgrammeRailProjection(
+    kind,
+    title,
+    current,
+    channelIds
+  ) {
+    const host = programmeHost();
+    if (!host || typeof host.querySelector !== 'function') return false;
+    const section =
+      host.querySelector('[data-home-live-guide="' + kind + '"]');
+    const rail =
+      section && typeof section.querySelector === 'function'
+        ? section.querySelector('.media-home-live-guide-rail')
+        : null;
+    if (!section || !rail) {
+      return renderProgrammeRail(kind, title, current);
+    }
+
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+    const now = Math.floor(Date.now() / 1000);
+    let updated = false;
+
+    ids.forEach(id => {
+      const channel = channelForId(id);
+      if (!channel) return;
+      const event = current
+        ? currentEventForChannel(channel, state.events, now)
+        : nextEventForChannel(channel, state.events, now);
+      const existing = findProgrammeGuideCard(rail, id);
+
+      if (!event) {
+        if (existing && typeof existing.remove === 'function') {
+          existing.remove();
+          updated = true;
+        }
+        return;
+      }
+
+      const signature = eventProjectionSignature(event);
+      if (existing &&
+          String(existing.dataset && existing.dataset.projectionSignature || '') ===
+            signature) {
+        if (current) updateProgramProgress(existing, event, true);
+        return;
+      }
+
+      const entry = {channel, event};
+      const channelPosition =
+        state.channels.findIndex(candidate =>
+          channelId(candidate) === id);
+      const prioritize =
+        current &&
+        channelPosition >= 0 &&
+        channelPosition < PROGRAMME_EAGER_ARTWORK_LIMIT;
+      const replacement =
+        createProgrammeGuideCard(entry, current, prioritize);
+
+      if (existing && typeof existing.replaceWith === 'function') {
+        existing.replaceWith(replacement);
+        updated = true;
+        return;
+      }
+
+      if (insertProgrammeGuideCard(rail, replacement, channel)) {
+        updated = true;
+      }
+    });
+
+    return updated;
+  }
+
+  function refreshProgrammeProjectionForChannels(channelIds) {
+    const nowUpdated =
+      refreshProgrammeRailProjection(
+        'now',
+        'Was läuft jetzt',
+        true,
+        channelIds
+      );
+    const nextUpdated =
+      refreshProgrammeRailProjection(
+        'next',
+        'Was läuft danach',
+        false,
+        channelIds
+      );
+    const heroUpdated =
+      refreshHeroProgrammeProjection(channelIds);
+    const neighborUpdated =
+      refreshHeroNeighborProjection(channelIds);
+    refreshHeroNotice();
+    return nowUpdated || nextUpdated || heroUpdated || neighborUpdated;
   }
 
   function channelForId(value) {
@@ -847,7 +1133,7 @@
   function watchChannel(channel) {
     if (!channel || !channelIsEnabled(channel)) {
       state.actionError = 'Dieser Sender kann derzeit nicht gestartet werden.';
-      render({programmeRails: false});
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
     const liveOwner = global.VdrSuiteLiveTvView;
@@ -855,18 +1141,21 @@
       ? (doc.querySelector('[data-brand-module="livetv"]') || doc.querySelector('[data-brand-module="channels2"]')) : null;
     if (!liveOwner || typeof liveOwner.startChannel !== 'function' || !liveEntry || typeof liveEntry.click !== 'function') {
       state.actionError = 'Live-TV Navigation ist derzeit nicht verfügbar.';
-      render({programmeRails: false});
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
     state.actionError = '';
+    refreshHeroNotice();
     liveEntry.click();
     try {
       return Promise.resolve(liveOwner.startChannel(channel)).catch(error => {
         state.actionError = error && error.message ? error.message : 'Live-TV konnte nicht gestartet werden.';
+        refreshHeroNotice();
         return null;
       });
     } catch (error) {
       state.actionError = error && error.message ? error.message : 'Live-TV konnte nicht gestartet werden.';
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
   }
@@ -879,10 +1168,11 @@
     const entry = doc && typeof doc.querySelector === 'function' ? doc.querySelector('[data-brand-module="epg"]') : null;
     if (!entry || typeof entry.click !== 'function') {
       state.actionError = 'EPG Navigation ist derzeit nicht verfügbar.';
-      render({programmeRails: false});
+      refreshHeroNotice();
       return false;
     }
     state.actionError = '';
+    refreshHeroNotice();
     entry.click();
     return true;
   }
@@ -894,10 +1184,11 @@
         !teletext ||
         typeof teletext.open !== 'function') {
       state.actionError = 'Videotext ist derzeit nicht verfügbar.';
-      render({programmeRails: false});
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
     state.actionError = '';
+    refreshHeroNotice();
     try {
       return Promise.resolve(
         teletext.open(channel, selectedBackendId())
@@ -905,14 +1196,14 @@
         state.actionError = error && error.message
           ? error.message
           : 'Videotext konnte nicht geöffnet werden.';
-        render({programmeRails: false});
+        refreshHeroNotice();
         return null;
       });
     } catch (error) {
       state.actionError = error && error.message
         ? error.message
         : 'Videotext konnte nicht geöffnet werden.';
-      render({programmeRails: false});
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
   }
@@ -1038,6 +1329,22 @@
     return programmeSignature(state.events) !== previousSignature;
   }
 
+  function applyProgramsForChannels(data, channelIds) {
+    const previousSignature = programmeSignature(state.events);
+    const ids = new Set(
+      (Array.isArray(channelIds) ? channelIds : [])
+        .map(text)
+        .filter(Boolean)
+    );
+    const incoming = list(data, 'events').slice();
+    const retained = state.events.filter(event =>
+      !ids.has(eventChannelId(event))
+    );
+    state.events = retained.concat(incoming);
+    rebuildEventIndex();
+    return programmeSignature(state.events) !== previousSignature;
+  }
+
   function loadProgrammeArtworkPage(sequence, owner, ids) {
     if (!owner ||
         typeof owner.loadArtworkPage !== 'function' ||
@@ -1084,7 +1391,8 @@
       state.programError = state.channels.length === 0
         ? ''
         : 'Aktuelle Programminformationen sind vorübergehend nicht verfügbar.';
-      render();
+      if (heroHasProgrammeProjection()) refreshHeroNotice();
+      else render();
       return Promise.resolve(null);
     }
 
@@ -1103,7 +1411,8 @@
     if (ids.length === 0) {
       if (reset) state.loadingPrograms = false;
       state.programmeLoadingMore = false;
-      render();
+      if (heroHasProgrammeProjection()) refreshHeroNotice();
+      else render();
       return Promise.resolve(null);
     }
 
@@ -1134,7 +1443,9 @@
       }
 
       const programmesChanged =
-        applyPrograms(data, !reset);
+        reset && config.retainVisible === true
+          ? applyProgramsForChannels(data, ids)
+          : applyPrograms(data, !reset);
 
       state.programmeLoadedChannelCount =
         Math.max(
@@ -1148,11 +1459,22 @@
       state.programmeLoadedAt = Date.now();
 
       /*
-       * H2 stays the first-render owner. A retained Home revalidation can skip
-       * a full DOM rebuild when the programme projection is unchanged.
-       * Artwork enrichment remains independent and starts after this point.
+       * H2 stays the first-render owner. Once the Live Hero structure exists,
+       * EPG revalidation patches keyed programme projections in place. This
+       * deliberately preserves the focused Hero node and any mounted preview
+       * playback host; data change is not a playback lifecycle boundary.
        */
-      if (programmesChanged || config.renderUnchanged !== false) render();
+      const incrementalProjection =
+        heroHasProgrammeProjection() &&
+        (config.retainVisible === true || !reset);
+      if (incrementalProjection) {
+        refreshProgrammeProjectionForChannels(ids);
+      } else if (
+        programmesChanged ||
+        config.renderUnchanged !== false
+      ) {
+        render();
+      }
 
       void loadProgrammeArtworkPage(
         sequence,
@@ -1178,7 +1500,11 @@
       }
 
       state.programmeLoadingMore = false;
-      if (!reset || config.retainVisible !== true) render();
+      const preserveProjection =
+        heroHasProgrammeProjection() &&
+        (config.retainVisible === true || !reset);
+      if (preserveProjection) refreshHeroNotice();
+      else if (!reset || config.retainVisible !== true) render();
 
       return null;
     });
@@ -1326,6 +1652,10 @@
       return load(Boolean(force || backendChanged), config);
     }
     if (state.loadingPrograms && state.events.length > 0) {
+      return Promise.resolve(null);
+    }
+    if (heroHasProgrammeProjection()) {
+      refreshHeroNotice();
       return Promise.resolve(null);
     }
     render();
@@ -1507,6 +1837,9 @@
       eventArtwork,
       createProgrammeArtwork,
       refreshArtworkForChannels,
+      refreshProgrammeProjectionForChannels,
+      refreshHeroProgrammeProjection,
+      heroHasProgrammeProjection,
       applyChannels,
       applyPrograms,
       loadProgrammeArtworkPage,
