@@ -1,6 +1,13 @@
 #include "DaemonRuntime.h"
 
+#include "NativeTimerCreateProductiveRuntime.h"
+#include "RestfulApiNativeTimerInventoryReader.h"
+#include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
+
 #include <chrono>
+#include <map>
+#include <optional>
+#include <string>
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
