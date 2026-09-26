@@ -13,6 +13,14 @@ daemon_context=read("core/daemon/include/BackendRuntimeContext.h")
 daemon_backend=read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 epg_worker=read("core/daemon/src/DaemonRuntimeEpgCache.cpp")
 server_h=read("vdr-plugin-suite-bridge/suitebridge_control_plane.h")
+recording_context=read("core/daemon/include/BackendRuntimeContext.h")
+timer_create=read("core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp")
+timer_delete=read("core/agent/src/SuiteBridgeSvdrpNativeTimerDeleteTransport.cpp")
+timer_modify=read("core/agent/src/SuiteBridgeSvdrpNativeTimerModifyTransport.cpp")
+marks_read=read("core/agent/src/SuiteBridgeSvdrpRecordingMarksTransport.cpp")
+marks_modify=read("core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.cpp")
+cut_read=read("core/agent/src/SuiteBridgeSvdrpRecordingCutStateTransport.cpp")
+cut_mutation=read("core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp")
 tmpfiles=read("packaging/systemd/vdr-suite-live.conf")
 for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","EpgTypeSnapshot = 20","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
     if marker not in protocol: raise SystemExit(f"control-plane protocol missing {marker}")
@@ -64,6 +72,59 @@ if "epgTypeSnapshotTransport->requestEpgTypeSnapshot" not in epg_worker:
     raise SystemExit("productive ETYPES worker must use prioritized local control transport")
 if "suiteBridgeTransport->requestEpgTypeSnapshot" in epg_worker:
     raise SystemExit("productive ETYPES worker must not call SVDRP transport directly")
+
+# ADR-0064 closeout: native mutations and the coupled Recording editing
+# read/mutation family intentionally remain on the common typed SVDRP path.
+# Do not split these onto a local worker without a new operation-specific
+# concurrency/replay proof and a deliberate guard update.
+for retained in (
+    "NativeTimerCreate",
+    "NativeTimerDelete",
+    "NativeTimerModify",
+    "RecordingMarksRead",
+    "RecordingMarksModify",
+    "RecordingCutState",
+    "RecordingCut",
+):
+    if retained in protocol:
+        raise SystemExit(
+            f"retained SVDRP family leaked into local operation registry: {retained}"
+        )
+for retained_wire in ("NTCREATE", "NTDEL", "NTMOD", "NMARKS", "NCUT", "RMARKS", "RCUT"):
+    if retained_wire in client_cpp or retained_wire in plugin:
+        raise SystemExit(
+            f"retained SVDRP family leaked into local transport dispatch: {retained_wire}"
+        )
+for content, wire in (
+    (timer_create, "PLUG suitebridge NTCREATE "),
+    (timer_delete, "PLUG suitebridge NTDEL "),
+    (timer_modify, "PLUG suitebridge NTMOD "),
+    (marks_read, "PLUG suitebridge RMARKS "),
+    (marks_modify, "PLUG suitebridge NMARKS "),
+    (cut_read, "PLUG suitebridge RCUT "),
+    (cut_mutation, "PLUG suitebridge NCUT "),
+):
+    if wire not in content:
+        raise SystemExit(f"retained typed SVDRP transport missing: {wire}")
+for method in ("ensureRecordingMarksResolver()", "ensureRecordingCutStateResolver()"):
+    start=recording_context.find(method)
+    if start < 0:
+        raise SystemExit(f"Recording editing resolver boundary missing: {method}")
+    end=recording_context.find("\n    }", start)
+    if end < 0 or "*suiteBridgeTransport" not in recording_context[start:end]:
+        raise SystemExit(
+            f"Recording editing read must remain on shared SVDRP transport: {method}"
+        )
+for marker in (
+    "SuiteBridgeNativeTimerCreateTransport",
+    "SuiteBridgeNativeTimerDeleteTransport",
+    "SuiteBridgeNativeTimerModifyTransport",
+    "SuiteBridgeRecordingMarksModifyTransport",
+    "SuiteBridgeRecordingCutTransport",
+):
+    if marker not in agent_main:
+        raise SystemExit(f"retained Agent SVDRP mutation adapter missing {marker}")
+
 if "MaximumResponsePayloadBytes = 131072" not in protocol:
     raise SystemExit("control-plane response bound must cover bounded OSD snapshot")
 if "d /run/vdr/vdr-suite-control 0700 vdr vdr -" not in tmpfiles: raise SystemExit("private runtime directory not packaged")

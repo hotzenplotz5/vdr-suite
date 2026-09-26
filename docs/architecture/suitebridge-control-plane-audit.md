@@ -416,7 +416,7 @@ AF_UNIX endpoint
    |     HbbTV (serial provider Service calls)
    |     Teletext (same serial provider lane after audit)
    |
-   +-- native-mutation lane
+   +-- native-mutation lane [future only if separately justified]
    |     Timer / marks / cut, serialized unless proven otherwise
    |
    +-- background metadata/provider lane
@@ -470,24 +470,34 @@ while Live status continues to complete through the new lane.
 
 Migrate OSD, Teletext and HbbTV after provider/thread boundaries are proven.
 
-### Stage 4 — mutations
+### Stage 4 — mutation migration review
 
-Migrate Timer and Recording mutations without altering their durable
-Control-Plane/Agent operation semantics.
+The post-ETYPES review does **not** migrate Timer or Recording mutations.
 
-A mutation transport switch is selected before execution. Unknown outcome never
-triggers cross-transport replay.
+- Timer CREATE/DELETE/MODIFY remain on typed SVDRP: they are short/infrequent,
+  retain the bounded Timer write-lock, and no measured head-of-line incident
+  justifies adding a second transport.
+- RMARKS/RCUT and NMARKS/NCUT remain together on typed SVDRP. Their current
+  shared handler serializes marks-file/cut-state reads against mutations.
+  Splitting only the read side onto another worker would introduce concurrency
+  that the native contracts do not currently prove safe.
+
+A future mutation transport switch must be a separate architecture slice.
+Unknown outcome never triggers cross-transport replay, and Recording editing
+may not be split across transports until common serialization is proven.
 
 ### Stage 5 — metadata/background
 
 Migrate TVScraper metadata/artwork/type work last and use it as the primary
 backpressure/overload stress workload.
 
-### Stage 6 — SVDRP production retirement review
+### Stage 6 — selective SVDRP retirement review
 
-After all production callers have migrated and rollback evidence exists, decide
-whether each legacy SVDRP command remains operator diagnostics or can be removed.
-That is a separate compatibility decision.
+ADR-0064 does not require all productive callers to migrate. After the
+latency-sensitive families have moved and rollback evidence exists, decide
+operation by operation whether a legacy SVDRP command is diagnostics-only,
+remains the selected production path for safety, or can be retired. Timer and
+Recording editing are intentionally in the second category at this closeout.
 
 ## Phase-69 relation
 

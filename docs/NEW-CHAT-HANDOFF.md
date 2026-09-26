@@ -25,8 +25,9 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 7. [Golden User Journeys](planning/golden-user-journeys.md) — desktop/mobile Home and later product acceptance.
 8. ADR-0046/0053/0055/0056/0057 when work touches accepted Phase-65 playback semantics.
 9. [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) for the completed Phase-67 Teletext/HbbTV architecture.
-10. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-11. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+10. [ADR-0064 SuiteBridge Local Prioritized Control Plane](adr/ADR-0064-suitebridge-local-prioritized-control-plane.md), its [implementation record](architecture/suitebridge-local-control-plane-implementation.md) and [closeout](architecture/suitebridge-control-plane-closeout.md) when work touches SuiteBridge transport/execution lanes.
+11. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+12. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
@@ -44,6 +45,10 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 - ADR-0054 remains authoritative for the completed Phase 67; durable evidence is in the Phase-67 closeout.
 - Bounded post-phase hardening does not reopen a completed numbered phase and does not silently authorize the next phase.
 - Broad polished Timer UI remains a cross-cutting milestone gated on required access administration.
+- ADR-0064 local-control latency isolation is closed after ETYPES. Timer
+  CREATE/DELETE/MODIFY intentionally remain on typed SVDRP, and
+  RMARKS/RCUT remain serialized with NMARKS/NCUT on SVDRP until a separate
+  measured need plus concurrency/unknown-outcome proof justifies migration.
 
 Do not copy current branch SHA or active PR tip here; use `CURRENT.md` and GitHub.
 

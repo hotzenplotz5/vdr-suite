@@ -17,10 +17,12 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV/Teletext External Plugin Interactive + Background Provider (RMETA/META/ARTW/ETYPES) slices implemented; native mutation families remain staged.**
+Implementation status: **Foundation + Critical Control + Legacy OSD Interactive + HbbTV/Teletext External Plugin Interactive + Background Provider (RMETA/META/ARTW/ETYPES) are implemented. The latency-isolation objective is closed. Timer mutations and the tightly coupled Recording editing read/mutation family intentionally remain on typed SVDRP until a separate measured need and operation-specific concurrency proof justify moving them.**
 
 Implementation record:
 [SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
+Closeout record:
+[SuiteBridge control-plane closeout](../architecture/suitebridge-control-plane-closeout.md).
 
 This decision is a prerequisite architecture gate before the next productive
 Phase-69 mutation slice. It does not reopen accepted Phase-69 work and does not
@@ -231,12 +233,25 @@ asserting provider re-entrancy or parallel Service-call safety.
 
 #### Native mutation
 
-Typed Timer, Recording-mark and Recording-cut mutations remain a distinct
-execution class even if their user-visible priority is interactive.
+Typed Timer, Recording-mark and Recording-cut mutations keep their existing
+typed SVDRP execution path at this closeout. They are not migrated merely for
+transport symmetry.
 
-They preserve all existing operation identity, generation, revision,
-idempotency, replay and unknown-outcome rules. Queueing never authorizes a
-mutation.
+Timer CREATE/DELETE/MODIFY are short, infrequent control operations with their
+existing bounded VDR Timer write-lock and durable operation/readback fencing.
+There is no demonstrated latency incident that requires a second transport.
+
+Recording marks/cut are more tightly coupled: RMARKS/RCUT and NMARKS/NCUT touch
+the same Recording identity, marks files and cut state. Today the common SVDRP
+handler also serializes those reads against the mutations. Moving only the
+read side to another worker would introduce cross-transport concurrency that
+has not been proven safe.
+
+If a future measured need justifies mutation migration, the whole affected
+native family must receive an operation-specific serialization, replay and
+unknown-outcome proof first. Existing operation identity, generation, revision,
+idempotency, replay and readback rules remain authoritative. Queueing never
+authorizes a mutation.
 
 #### Background/provider
 
@@ -265,17 +280,22 @@ accepted; reserved critical capacity plus bounded fair service is preferred.
 
 The implementation separates **admission/scheduling** from **execution lanes**.
 
-At minimum the design must isolate:
+For the implemented local endpoint the design isolates:
 
-1. short native control work;
-2. side-effecting native mutation work;
-3. potentially blocking external-plugin/provider work.
+1. short critical native control work;
+2. interactive Legacy OSD work;
+3. serialized external-plugin work;
+4. potentially blocking background/provider work.
 
 A slow TVScraper call must not occupy the execution resource reserved for Live
 liveness/control.
 
-Mutation execution is serialized unless a later operation-specific proof
-demonstrates safe parallelism. Existing VDR locks remain authoritative.
+Native mutations are not required to migrate merely to complete this
+decomposition. If a future slice moves a mutation family off SVDRP, execution
+must remain serialized unless an operation-specific proof demonstrates safe
+parallelism, and any read path that currently relies on SVDRP serialization
+with that mutation must move or remain coordinated as one proven unit.
+Existing VDR locks remain authoritative.
 
 External VDR-plugin service calls are not assumed thread-safe merely because
 the new transport can accept requests concurrently. Each provider family must
@@ -348,7 +368,10 @@ where appropriate. The plugin does not become a workflow engine.
 
 ### 9. Migrate incrementally with one selected transport per operation
 
-Migration is capability-driven.
+Migration is capability-driven **and need-driven**. Completion does not require
+every typed SVDRP operation to move to the Unix endpoint. A family may remain
+on SVDRP when the shared serial handler is itself part of the proven safety
+boundary and no latency/retirement requirement justifies changing it.
 
 For each migrated operation family:
 
@@ -376,9 +399,10 @@ It does not:
 - change Timer/Recording/MediaSession ownership;
 - alter public error or idempotency contracts.
 
-The next productive Phase-69 mutation slice may resume only after the
-dedicated-control foundation required by the operation has either been
-implemented and accepted or explicitly shown unnecessary for that operation.
+The post-ETYPES closeout explicitly shows the dedicated local transport is not
+currently required for the native mutation families. Phase-69 mutation work
+therefore does not wait on Timer/marks/cut transport migration; it must preserve
+their existing SVDRP mutation, fencing and reconciliation contracts.
 
 ## Operation migration order
 
@@ -407,14 +431,18 @@ PR #350.
 - HbbTV control/status/presentation metadata;
 - Teletext reads.
 
-### Native mutation families
+### Native mutation families — retained on SVDRP at closeout
 
-- Timer create/delete/modify;
-- marks modify;
-- cut admission.
+- Timer create/delete/modify remain on typed SVDRP because their bounded native
+  write-lock and durable reconciliation contracts already satisfy the current
+  execution need and no latency incident justifies a transport switch.
+- Recording marks/cut reads and mutations remain together on typed SVDRP because
+  the current serial handler prevents unproven concurrent access to marks files
+  and cut state.
 
-These migrate only with existing mutation safety and unknown-outcome semantics
-unchanged.
+A future migration is a new bounded architecture slice, not unfinished
+ADR-0064 work. It requires fresh evidence for serialization, fallback,
+unknown-outcome and native lifetime safety before any caller is switched.
 
 ### Background/provider last
 
@@ -514,9 +542,9 @@ A runtime implementation is not accepted until it proves:
 5. a deliberately blocked background/provider request does not prevent a
    critical Live status request from completing inside its tested budget;
 6. deadline-expired queued reads never execute;
-7. mutations preserve existing replay/fence/unknown-outcome contracts;
-8. native Timer write-lock timeout remains bounded;
-9. Recording pointer/lock lifetime contracts remain valid;
+7. any migrated mutation preserves existing replay/fence/unknown-outcome contracts;
+8. retained SVDRP Timer mutations keep the bounded native Timer write-lock contract;
+9. retained Recording editing reads/mutations do not gain unproven cross-transport concurrency;
 10. provider service concurrency matches explicit provider-specific proof;
 11. clean plugin stop closes the endpoint and drains/cancels work
     deterministically;

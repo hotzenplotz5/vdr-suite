@@ -5,10 +5,13 @@
 ADR-0064 Foundation, both initial **Critical Control** slices, Legacy OSD
 **Interactive Control**, HbbTV + Teletext **External Plugin Interactive**, and
 the **Background Provider** slices (RMETA/META/ARTW/ETYPES) are implemented on
-the internal VDR-Suite/SuiteBridge boundary.
+the internal VDR-Suite/SuiteBridge boundary. This closes the ADR-0064
+latency-isolation target.
 
-This does not change Phase 69, the public API, actor authorization or mutation
-semantics.
+Timer mutations and the coupled Recording editing read/mutation family are
+intentionally retained on typed SVDRP. This does not change Phase 69, the public
+API, actor authorization or mutation semantics. See
+[SuiteBridge control-plane closeout](suitebridge-control-plane-closeout.md).
 
 ## Private transport and peer boundary
 
@@ -223,13 +226,30 @@ to continue within the bounded test budget. The transport regression separately
 proves local-first ETYPES selection, pre-dispatch Unavailable fallback and no
 SVDRP replay after a local timeout. `MCOMPARE` remains diagnostic-only SVDRP.
 
-## Still staged on existing paths
+## Intentionally retained on typed SVDRP
 
-Not migrated by this slice:
+ADR-0064 is no longer waiting on a native-mutation migration.
 
-- Timer CREATE/DELETE/MODIFY;
-- Recording marks/cut;
-- diagnostic-only commands such as MCOMPARE remain on SVDRP until a productive
-  owner and operation-specific migration need exist.
+- Timer CREATE/DELETE/MODIFY remain on their existing typed SVDRP adapters.
+  They retain operation identity, generation/provider fencing, bounded Timer
+  write-lock acquisition and authoritative readback/reconciliation. A timeout
+  after possible dispatch remains `outcome_unknown`; no alternate transport is
+  attempted.
+- RMARKS/RCUT and NMARKS/NCUT remain on the same SVDRP execution path. The
+  current serialization is a safety property: RMARKS/RCUT inspect the same
+  marks files/cut state that NMARKS/NCUT may load/save/delete or enqueue from.
+  Moving only the reads to another worker would create unproven concurrent
+  native/filesystem access.
+- MCOMPARE remains diagnostic-only SVDRP because no normal productive owner
+  exists.
 
-Native probe now keeps its existing durable starting/receipt/result/readback fencing while moving only its local transport boundary. ETYPES has completed its read-only provider-lane migration without changing its VDR lock or real-event lifetime contract. The remaining productive operation families are native mutations and still need their operation-specific execution-lane, replay and unknown-outcome proofs. No provider re-entrancy assumption is introduced here.
+The architecture guard protects this closeout boundary: none of these retained
+families may silently appear in the local operation registry or productive
+local-control caller path. A future migration requires a new bounded proof and
+must update the guard deliberately.
+
+Native probe keeps its existing durable starting/receipt/result/readback
+fencing while moving only its local transport boundary. ETYPES completed its
+read-only provider-lane migration without changing its VDR lock or real-event
+lifetime contract. No provider or native-mutation re-entrancy assumption is
+introduced here.
