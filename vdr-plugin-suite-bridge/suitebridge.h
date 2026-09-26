@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_H
 
 #include "suitebridge_lifecycle.h"
+#include "suitebridge_control_plane.h"
 #include "suitebridge_live_capability.h"
 #include "suitebridge_live_source.h"
 #include "suitebridge_hbbtv_adapter.h"
@@ -48,6 +49,7 @@ public:
 
 private:
   SuiteBridgeLifecycle lifecycle_;
+  SuiteBridgeControlPlane controlPlane_;
   SuiteBridgeStatusMonitor statusMonitor_;
   SuiteBridgeNativeProbeService nativeProbe_;
   SuiteBridgeOsdInputService osdInput_;
