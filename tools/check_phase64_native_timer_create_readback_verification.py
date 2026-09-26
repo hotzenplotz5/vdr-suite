@@ -141,6 +141,28 @@ for token in [
             "marker: " + token
         )
 
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+if not productive_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C productive Timer CREATE guard is required before the "
+        "readback verification owner may be productively consumed"
+    )
+productive_successor_guard_text = productive_successor_guard.read_text(
+    encoding="utf-8"
+)
+for token in [
+    "advanceNativeTimerCreateRuntimeOnce(",
+    "reconciliationsCompleted == 1",
+    "no blind retry",
+]:
+    if token not in productive_successor_guard_text:
+        raise SystemExit(
+            "Phase-69.C productive Timer CREATE guard missing readback "
+            "verification marker: " + token
+        )
+
 reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
@@ -148,6 +170,9 @@ reviewed_runtime_files = {
     Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
     Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
     Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
+    Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
 }
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
