@@ -17,7 +17,7 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV External Plugin Interactive slices implemented; later operation families remain staged.**
+Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive + HbbTV/Teletext External Plugin Interactive slices implemented; later operation families remain staged.**
 
 Implementation record:
 [SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
@@ -218,7 +218,10 @@ Provider-backed interactive operations that are user-visible but may perform
 material provider work use a distinct serial lane when provider-specific audit
 shows that sharing the Legacy-OSD worker would create avoidable coupling.
 
-The first member is HbbTV. Its SuiteBridge adapter synchronously calls
+The first member is HbbTV. Teletext joins the same serial lane after a
+provider-specific audit proved that its service reads copy bounded snapshot
+state under the provider mutex and perform the 25x40 render/normalization after
+releasing that mutex, with no network/filesystem I/O or borrowed VDR pointer. Its SuiteBridge adapter synchronously calls
 `vdr-plugin-web` services. Provider discovery/media reads are bounded
 mutex-protected snapshots, runtime control retains the provider's existing
 VDR-main-context scheduling, and presentation may perform QOI encoding while
