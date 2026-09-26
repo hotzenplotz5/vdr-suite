@@ -74,7 +74,7 @@ required = {
         "reconciliationsCompleted == 1",
         "MutationOperationState::succeeded",
         "TimerAssignmentState::bound",
-        "NativeTimerBindingState::verified",
+        "NativeTimerBindingOwnership::managed",
         "terminalReplay.discovered == 0",
     ],
     "daemon_sources": [
