@@ -90,12 +90,33 @@ function createNode(tagName) {
       return child;
     },
     replaceChildren(...children) {
+      this.children.forEach(child => { child.parentNode = null; });
       this.children = [];
       children.forEach(child => this.appendChild(child));
     },
+    insertBefore(child, before) {
+      const index = this.children.indexOf(before);
+      if (index < 0) return this.appendChild(child);
+      child.parentNode = this;
+      this.children.splice(index, 0, child);
+      return child;
+    },
+    replaceWith(replacement) {
+      if (!this.parentNode) return;
+      const index = this.parentNode.children.indexOf(this);
+      if (index < 0) return;
+      this.parentNode.children[index] = replacement;
+      replacement.parentNode = this.parentNode;
+      this.parentNode = null;
+    },
     querySelector(selector) {
-      const dataMatch = String(selector || '').match(/^\[data-home-live-guide="([^"]+)"\]$/);
+      const value = String(selector || '');
+      const dataMatch = value.match(/^\[data-home-live-guide="([^"]+)"\]$/);
       if (dataMatch && this.dataset.homeLiveGuide === dataMatch[1]) return this;
+      if (value.charAt(0) === '.' &&
+          String(this.className || '').split(/\s+/).includes(value.slice(1))) {
+        return this;
+      }
       for (const child of this.children || []) {
         if (child && typeof child.querySelector === 'function') {
           const found = child.querySelector(selector);
@@ -103,6 +124,20 @@ function createNode(tagName) {
         }
       }
       return null;
+    },
+    querySelectorAll(selector) {
+      const matches = [];
+      const value = String(selector || '');
+      const visit = node => {
+        if (!node) return;
+        if (value.charAt(0) === '.' &&
+            String(node.className || '').split(/\s+/).includes(value.slice(1))) {
+          matches.push(node);
+        }
+        (node.children || []).forEach(visit);
+      };
+      visit(this);
+      return matches;
     },
     setAttribute(name, value) {
       attributes[name] = String(value);
@@ -259,7 +294,11 @@ const clientApi = {
     );
     const requested = String(options.query.channelIds || '').split(',').filter(Boolean);
     epgChannelRequests.push(requested);
-    return Promise.resolve({events: events.filter(event => requested.includes(event.channelId))});
+    return Promise.resolve({
+      events: events
+        .filter(event => requested.includes(event.channelId))
+        .map(event => Object.assign({}, event))
+    });
   },
   requestJson(requestPath) {
     if (String(requestPath).includes('/api/media/sessions')) sessionRequestCount += 1;
@@ -352,6 +391,88 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 24);
   assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 24);
   assert(findByClass(nowSection, 'media-home-live-guide-artwork'));
+
+  // A retained EPG revalidation is a data-projection change, not a Hero or
+  // playback lifecycle boundary. The focused Hero and an already-mounted
+  // preview host must keep object identity while only changed programme cards
+  // are replaced.
+  const focusBeforeProgrammeRefresh =
+    findByClass(heroRoot, 'media-home-live-focus');
+  const previewHost = createNode('aside');
+  previewHost.className = 'media-home-live-preview';
+  focusBeforeProgrammeRefresh.appendChild(previewHost);
+  const c1NowBefore = findByClass(nowSection, 'media-home-live-guide-rail')
+    .children.find(card => card.dataset.channelId === 'C1');
+  const c2NowBefore = findByClass(nowSection, 'media-home-live-guide-rail')
+    .children.find(card => card.dataset.channelId === 'C2');
+
+  events.find(event =>
+    event.channelId === 'C2' &&
+    event.title === 'Heute Zwei'
+  ).title = 'Heute Zwei aktualisiert';
+  await hero.refreshPrograms();
+
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-focus'),
+    focusBeforeProgrammeRefresh,
+    'non-selected programme changes must preserve the focused Hero DOM'
+  );
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-preview'),
+    previewHost,
+    'non-selected programme changes must preserve the mounted preview host'
+  );
+  assert.strictEqual(
+    findByClass(nowSection, 'media-home-live-guide-rail')
+      .children.find(card => card.dataset.channelId === 'C1'),
+    c1NowBefore,
+    'unchanged programme cards must preserve DOM identity'
+  );
+  assert.notStrictEqual(
+    findByClass(nowSection, 'media-home-live-guide-rail')
+      .children.find(card => card.dataset.channelId === 'C2'),
+    c2NowBefore,
+    'only the changed non-selected programme card should be replaced'
+  );
+
+  const selectedProgramsBefore =
+    findByClass(heroRoot, 'media-home-live-programmes');
+  const selectedNowBefore = selectedProgramsBefore.children[0];
+  events.find(event =>
+    event.channelId === 'C1' &&
+    event.title === 'Heute Eins'
+  ).title = 'Heute Eins aktualisiert';
+  await hero.refreshPrograms();
+
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-focus'),
+    focusBeforeProgrammeRefresh,
+    'selected-channel programme rollover must preserve the focused Hero DOM'
+  );
+  assert.strictEqual(
+    findByClass(heroRoot, 'media-home-live-preview'),
+    previewHost,
+    'selected-channel programme rollover must not remount preview playback'
+  );
+  assert.notStrictEqual(
+    findByClass(heroRoot, 'media-home-live-programmes').children[0],
+    selectedNowBefore,
+    'selected programme presentation may update without replacing its Hero owner'
+  );
+  assert.strictEqual(
+    hero.snapshot().currentEventTitle,
+    'Heute Eins aktualisiert'
+  );
+
+  const focusBeforeRealChannelSwitch =
+    findByClass(heroRoot, 'media-home-live-focus');
+  hero.selectOffset(1);
+  assert.notStrictEqual(
+    findByClass(heroRoot, 'media-home-live-focus'),
+    focusBeforeRealChannelSwitch,
+    'an explicit channel selection remains a real Hero lifecycle boundary'
+  );
+  hero.selectOffset(-1);
 
   assert.strictEqual(await hero.__test.loadNextProgrammePage(), true);
   assert.strictEqual(epgFetchCount, 2);
