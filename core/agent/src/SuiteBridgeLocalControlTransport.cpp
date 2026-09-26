@@ -1,6 +1,5 @@
 #include "SuiteBridgeLocalControlTransport.h"
 #include "SuiteBridgeHandshakeService.h"
-#include "VdrRecordingNativeIdentity.h"
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -188,7 +187,7 @@ SuiteBridgeMetadataCommandReply SuiteBridgeLocalControlTransport::requestMetadat
      executeOperation(control::Operation::EpgMetadata,channelId+" "+eventId));
 }
 SuiteBridgeRecordingMetadataCommandReply SuiteBridgeLocalControlTransport::requestRecordingMetadata(const std::string& recordingKey){
- if(!VdrRecordingNativeIdentity::isValidKey(recordingKey))return {};
+ if(recordingKey.size()!=64||!std::all_of(recordingKey.begin(),recordingKey.end(),[](unsigned char ch){return std::isxdigit(ch)!=0;}))return {};
  return readReply<SuiteBridgeRecordingMetadataCommandReply>(
      executeOperation(control::Operation::RecordingMetadata,recordingKey));
 }
