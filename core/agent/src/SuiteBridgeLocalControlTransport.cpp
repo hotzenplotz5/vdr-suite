@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 namespace vdrsuite::agent {
 namespace {
@@ -29,7 +30,11 @@ SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::execute(control::Opera
  auto operationDeadline=Clock::now()+config_.operationTimeout; ScopedFd fd(socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0)); if(!fd.valid())return fail(SuiteBridgeTransportStatus::Unavailable,"local control socket unavailable");
  int flags=fcntl(fd.get(),F_GETFL,0);if(flags<0||fcntl(fd.get(),F_SETFL,flags|O_NONBLOCK)!=0)return fail(SuiteBridgeTransportStatus::Failed,"local control socket configuration failed");
  sockaddr_un a{};a.sun_family=AF_UNIX;std::copy(config_.socketPath.begin(),config_.socketPath.end(),a.sun_path);a.sun_path[config_.socketPath.size()]='\0';
- if(connect(fd.get(),reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0){if(errno!=EINPROGRESS&&errno!=EAGAIN)return fail(SuiteBridgeTransportStatus::Unavailable,"local control endpoint unavailable");auto d=std::min(operationDeadline,Clock::now()+config_.connectTimeout);if(!waitFor(fd.get(),POLLOUT,d))return fail(SuiteBridgeTransportStatus::Unavailable,"local control endpoint unavailable");int e=0;socklen_t z=sizeof(e);if(getsockopt(fd.get(),SOL_SOCKET,SO_ERROR,&e,&z)!=0||e!=0)return fail(SuiteBridgeTransportStatus::Unavailable,"local control endpoint unavailable");}
+ if(connect(fd.get(),reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0){if(errno!=EINPROGRESS&&errno!=EAGAIN){
+     const bool unavailable=errno==ENOENT||errno==ECONNREFUSED;
+     return fail(unavailable?SuiteBridgeTransportStatus::Unavailable:SuiteBridgeTransportStatus::Failed,
+         unavailable?"local control endpoint unavailable":"local control endpoint connect failed");
+   }auto d=std::min(operationDeadline,Clock::now()+config_.connectTimeout);if(!waitFor(fd.get(),POLLOUT,d))return fail(SuiteBridgeTransportStatus::Unavailable,"local control endpoint unavailable");int e=0;socklen_t z=sizeof(e);if(getsockopt(fd.get(),SOL_SOCKET,SO_ERROR,&e,&z)!=0||e!=0)return fail(SuiteBridgeTransportStatus::Unavailable,"local control endpoint unavailable");}
  control::Request q;q.operation=op;q.requestId=nextRequestId_.fetch_add(1);if(q.requestId==0)q.requestId=nextRequestId_.fetch_add(1);q.deadlineNanoseconds=control::monotonicNowNanoseconds()+static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(config_.operationTimeout).count());q.payload=payload;
  std::vector<std::uint8_t> frame;if(!control::encodeRequest(q,frame))return fail(SuiteBridgeTransportStatus::Failed,"local control request encoding failed");
  if(!waitFor(fd.get(),POLLOUT,std::min(operationDeadline,Clock::now()+config_.ioTimeout)))return fail(SuiteBridgeTransportStatus::Failed,"local control request send timed out");
