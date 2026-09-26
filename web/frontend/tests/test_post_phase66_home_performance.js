@@ -43,14 +43,14 @@ const applyProgramsSource = between(
 );
 assert.strictEqual(
   (applyProgramsSource.match(/rebuildEventIndex\(\)/g) || []).length,
-  2,
-  'both reset and append EPG updates must rebuild the channel index'
+  3,
+  'reset, append and retained-page EPG updates must rebuild the channel index'
 );
 assert(applyProgramsSource.includes('const previousSignature = programmeSignature(state.events);'));
 assert.strictEqual(
   (applyProgramsSource.match(/programmeSignature\(state\.events\) !== previousSignature/g) || []).length,
-  2,
-  'programme application must report whether the visible projection actually changed'
+  3,
+  'all programme application modes must report whether the visible projection actually changed'
 );
 
 const programmeRailSource = between(
@@ -93,7 +93,14 @@ const programmeLoadSource = between(
 assert(programmeLoadSource.includes('state.programmeLoadedAt = Date.now();'));
 assert(programmeLoadSource.includes('const programmesChanged ='));
 assert(programmeLoadSource.includes('config.renderUnchanged !== false'));
-assert(programmeLoadSource.includes("if (!reset || config.retainVisible !== true) render();"));
+assert(programmeLoadSource.includes('const preserveProjection ='));
+assert(programmeLoadSource.includes('heroHasProgrammeProjection()'));
+assert(programmeLoadSource.includes('(config.retainVisible === true || !reset)'));
+assert(programmeLoadSource.includes('if (preserveProjection) refreshHeroNotice();'));
+assert(
+  !programmeLoadSource.includes("if (!reset || config.retainVisible !== true) render();"),
+  'retained/incremental programme failures must not force a full Hero render'
+);
 const loadSource = between(
   'function load(force, options)',
   'function sync(force, options)'
