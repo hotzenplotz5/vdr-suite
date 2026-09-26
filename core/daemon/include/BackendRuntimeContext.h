@@ -79,6 +79,14 @@ struct BackendRuntimeContext
         hbbtvTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedTeletextTransport>
         teletextTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeLocalControlTransport>
+        providerLocalControlTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedArtworkTransport>
+        epgArtworkTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedMetadataTransport>
+        epgMetadataTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedRecordingMetadataTransport>
+        recordingMetadataTransport;
     std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
     std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
     std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>
