@@ -541,8 +541,7 @@ SuiteBridgeArtworkCommandReply SuiteBridgeSvdrpTransport::requestArtwork(
             break;
     }
     artworkReply.transportSucceeded =
-        artworkReply.transportStatus == SuiteBridgeReadTransportStatus::Success &&
-        reply.replyCode == 250;
+        artworkReply.transportStatus == SuiteBridgeReadTransportStatus::Success;
     artworkReply.replyCode = reply.replyCode;
     artworkReply.payload = reply.payload;
     return artworkReply;
