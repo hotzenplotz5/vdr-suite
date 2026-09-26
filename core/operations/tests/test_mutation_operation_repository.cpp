@@ -5,6 +5,7 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace vdrsuite::operations;
 
@@ -328,6 +329,64 @@ int main()
     auto invalid = makeOperation("op-invalid", "idem-invalid", "sha256:req-i");
     invalid.backendGeneration = 0;
     assert(repository.reserve(invalid).status == MutationOperationRepositoryStatus::invalid);
+
+    auto listAccepted = makeOperation(
+        "op-list-accepted", "idem-list-accepted", "sha256:req-list-accepted");
+    listAccepted.resourceType = "TimerAssignment";
+    listAccepted.resourceId = "assignment-list-accepted";
+    listAccepted.actionFamily = "timer.create";
+    assert(repository.reserve(listAccepted).status ==
+        MutationOperationRepositoryStatus::ok);
+
+    auto listUnknown = makeOperation(
+        "op-list-unknown", "idem-list-unknown", "sha256:req-list-unknown");
+    listUnknown.resourceType = "TimerAssignment";
+    listUnknown.resourceId = "assignment-list-unknown";
+    listUnknown.actionFamily = "timer.create";
+    assert(repository.reserve(listUnknown).status ==
+        MutationOperationRepositoryStatus::ok);
+    assert(repository.transition(
+        listUnknown.operationId,
+        "1",
+        MutationOperationState::accepted,
+        MutationOperationState::dispatching,
+        "reservation-list-unknown",
+        1010).status == MutationOperationRepositoryStatus::ok);
+    assert(repository.transition(
+        listUnknown.operationId,
+        "2",
+        MutationOperationState::dispatching,
+        MutationOperationState::outcomeUnknown,
+        "evidence-list-unknown",
+        1020).status == MutationOperationRepositoryStatus::ok);
+
+    const auto runtimeCandidates = repository.listByActionFamilyAndStates(
+        "timer.create",
+        {
+            MutationOperationState::accepted,
+            MutationOperationState::dispatching,
+            MutationOperationState::executedUnverified,
+            MutationOperationState::outcomeUnknown,
+        },
+        16);
+    assert(runtimeCandidates.ok());
+    bool acceptedFound = false;
+    bool unknownFound = false;
+    for (const auto& candidate : runtimeCandidates.operations)
+    {
+        acceptedFound =
+            acceptedFound || candidate.operationId == listAccepted.operationId;
+        unknownFound =
+            unknownFound || candidate.operationId == listUnknown.operationId;
+        assert(candidate.actionFamily == "timer.create");
+        assert(candidate.state != MutationOperationState::succeeded);
+    }
+    assert(acceptedFound);
+    assert(unknownFound);
+    assert(repository.listByActionFamilyAndStates(
+        "timer.create",
+        {MutationOperationState::accepted},
+        0).status == MutationOperationRepositoryStatus::invalid);
 
     std::cout << "Phase 64 mutation operation repository regression passed\n";
     return 0;
