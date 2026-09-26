@@ -26,9 +26,17 @@ struct BackendAgentLiveProviderOpenResult
     std::string unixSocketPath;
 };
 
+enum class BackendAgentLiveProviderLiveness
+{
+    Current,
+    Terminal,
+    Indeterminate
+};
+
 struct BackendAgentLiveProviderStatus
 {
-    bool current = false;
+    BackendAgentLiveProviderLiveness liveness =
+        BackendAgentLiveProviderLiveness::Terminal;
     bool receiverAttached = false;
     std::string state;
     std::string reasonCode;
@@ -66,6 +74,11 @@ public:
 private:
     bool discoverFacts(
         BackendAgentLocalProviderFacts& facts,
+        std::string& reasonCode,
+        BackendAgentLiveProviderLiveness* liveness = nullptr) const;
+
+    BackendAgentLiveProviderLiveness currentLiveness(
+        const BackendAgentLiveProviderPreparation& preparation,
         std::string& reasonCode) const;
 
     BackendAgentRepository& agentRepository_;

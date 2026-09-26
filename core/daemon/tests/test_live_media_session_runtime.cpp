@@ -34,9 +34,19 @@ public:
     int staleCloseCount = 0;
     int forcedOpenReplyCode = 250;
     std::string forcedOpenPayload;
+    int discoverTimeoutsRemaining = 0;
+    int statusTimeoutsRemaining = 0;
 
     vdrsuite::agent::SuiteBridgeCommandReply discoverLiveSource() override
     {
+        if (discoverTimeoutsRemaining > 0) {
+            --discoverTimeoutsRemaining;
+            vdrsuite::agent::SuiteBridgeCommandReply reply;
+            reply.transportStatus =
+                vdrsuite::agent::SuiteBridgeTransportStatus::Timeout;
+            reply.diagnostic = "forced transient live capability timeout";
+            return reply;
+        }
         return success(
             250,
             std::string("{\"providerId\":\"suitebridge:local\",") +
@@ -77,6 +87,14 @@ public:
     vdrsuite::agent::SuiteBridgeCommandReply statusLiveSource(
         const vdrsuite::agent::SuiteBridgeLiveSourceLeaseRequest& request) override
     {
+        if (statusTimeoutsRemaining > 0) {
+            --statusTimeoutsRemaining;
+            vdrsuite::agent::SuiteBridgeCommandReply reply;
+            reply.transportStatus =
+                vdrsuite::agent::SuiteBridgeTransportStatus::Timeout;
+            reply.diagnostic = "forced transient live status timeout";
+            return reply;
+        }
         if (request.pluginInstanceEpoch != epoch)
             return success(555, "live_source_plugin_instance_epoch_stale");
         return success(
@@ -327,6 +345,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(firstProvision.ready);
+    assert(sessions.activateBundle(first.session.sessionId));
     assert(probeCalls == 0);
     assert(firstProvision.presentation.profileId == "live-progressive-fmp4");
     assert(firstProvision.presentation.videoAction == MediaTrackAction::Transcode);
@@ -344,6 +363,31 @@ int main()
     assert(pair(lastWorkerArgv, "-rw_timeout", "5000000"));
     assert(runtime.activeCount() == 1);
     assert(transport.openCount == 1);
+
+    // A transient control-plane timeout while reaping an already-open Live
+    // session is not authoritative evidence that the pinned provider, lease or
+    // receiver became terminal. The active worker/session must survive so the
+    // next regular reap cycle can observe current state again.
+    transport.discoverTimeoutsRemaining = 1;
+    // Production Live reaping deliberately disables idle-grant expiry; keep
+    // this regression focused on provider liveness rather than elapsed test time.
+    assert(runtime.reapInactive(0) == 0);
+    assert(runtime.activeCount() == 1);
+    assert(transport.closeCount == 0);
+    assert(::kill(firstProvision.workerPid, 0) == 0);
+    const auto firstAfterTransient =
+        sessions.findSession(first.session.sessionId);
+    assert(firstAfterTransient.has_value());
+    assert(firstAfterTransient->state != "ended");
+
+    // The same non-terminal rule applies when NLCAP succeeds but the concrete
+    // NLIVE STATUS read itself times out.
+    transport.statusTimeoutsRemaining = 1;
+    assert(runtime.reapInactive(0) == 0);
+    assert(runtime.activeCount() == 1);
+    assert(transport.closeCount == 0);
+    assert(::kill(firstProvision.workerPid, 0) == 0);
+
     transport.epoch = "pie_2";
     assert(runtime.reapInactive(60) == 1);
     assert(runtime.activeCount() == 0);
@@ -369,6 +413,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(secondProvision.ready);
+    assert(sessions.activateBundle(second.session.sessionId));
     assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
@@ -395,6 +440,7 @@ int main()
         preparation,
         browserCapabilities());
     assert(thirdProvision.ready);
+    assert(sessions.activateBundle(third.session.sessionId));
     assert(probeCalls == 0);
     assert(runtime.activeCount() == 1);
     assert(database.execute(
