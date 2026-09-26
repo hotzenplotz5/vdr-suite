@@ -1,3 +1,6 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include "suitebridge_control_plane.h"
 #include <algorithm>
 #include <cerrno>
@@ -8,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 namespace { using namespace vdrsuite::agent::control;
 bool configure(int fd){int df=fcntl(fd,F_GETFD,0),sf=fcntl(fd,F_GETFL,0);return df>=0&&sf>=0&&fcntl(fd,F_SETFD,df|FD_CLOEXEC)==0&&fcntl(fd,F_SETFL,sf|O_NONBLOCK)==0;}
