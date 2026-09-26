@@ -203,6 +203,13 @@ int main(int argc, char** argv)
     }
 
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> osdTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeLocalControlTransport>
+        osdLocalControlTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedLocalTransport>
+        osdReadTransport;
+    std::unique_ptr<
+        vdrsuite::agent::SuiteBridgePrioritizedLegacyOsdInputTransport>
+        osdInputTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeOsdFrameSource> osdSource;
     std::uint64_t osdGeneration = 0;
     if (std::find(config.observationDomains.begin(), config.observationDomains.end(),
@@ -211,8 +218,24 @@ int main(int argc, char** argv)
         vdrsuite::agent::SuiteBridgeSvdrpTransportConfig osdConfig;
         osdConfig.host = config.suiteBridgeHost;
         osdConfig.port = config.suiteBridgePort;
-        osdTransport = std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(osdConfig);
-        config.legacyOsdInputTransport = osdTransport.get();
+        osdTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
+                osdConfig);
+        osdLocalControlTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgeLocalControlTransport>();
+        osdReadTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedLocalTransport>(
+                    *osdLocalControlTransport,
+                    *osdTransport);
+        osdInputTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedLegacyOsdInputTransport>(
+                    *osdReadTransport,
+                    *osdLocalControlTransport,
+                    *osdTransport);
+        config.legacyOsdInputTransport = osdInputTransport.get();
         if (std::find(
                 config.commandTypes.begin(),
                 config.commandTypes.end(),
@@ -229,9 +252,9 @@ int main(int argc, char** argv)
             {
                 osdGeneration = generation;
                 osdSource = std::make_unique<vdrsuite::agent::SuiteBridgeOsdFrameSource>(
-                    *osdTransport, backendId, generation);
+                    *osdReadTransport, backendId, generation);
             }
-            vdrsuite::agent::SuiteBridgeHandshakeService handshake(*osdTransport);
+            vdrsuite::agent::SuiteBridgeHandshakeService handshake(*osdReadTransport);
             const auto discovery = handshake.discover();
             return osdSource->read(discovery.compatible()
                 ? discovery.discovery : vdrsuite::agent::SuiteBridgeDiscovery{});
