@@ -51,13 +51,13 @@ Latest completed numbered runtime phase:
 Phase 68 - Legacy OSD Compatibility Bridge
 
 Current active numbered runtime phase:
-None - Phase 68 is completed; Phase 69 has not started
+Phase 69 - Public API and Client Compatibility Hardening
 
 Next strict numbered runtime phase:
 Phase 69 - Public API and Client Compatibility Hardening
 ```
 
-Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is next but has not started.
+Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is active at 69.D; 69.A, 69.B and 69.C are accepted.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
