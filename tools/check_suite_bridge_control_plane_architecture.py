@@ -4,6 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def read(p): return (ROOT/p).read_text(encoding="utf-8")
 protocol=read("core/agent/include/SuiteBridgeControlPlaneProtocol.h")
 client_h=read("core/agent/include/SuiteBridgeLocalControlTransport.h")
+client_cpp=read("core/agent/src/SuiteBridgeLocalControlTransport.cpp")
 server=read("vdr-plugin-suite-bridge/suitebridge_control_plane.cpp")
 plugin=read("vdr-plugin-suite-bridge/suitebridge.cpp")
 runtime=read("core/daemon/src/RecordingMediaHttpRuntime.cpp")
@@ -11,7 +12,7 @@ agent_main=read("apps/agent/main.cpp")
 daemon_context=read("core/daemon/include/BackendRuntimeContext.h")
 daemon_backend=read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 tmpfiles=read("packaging/systemd/vdr-suite-live.conf")
-for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","DeadlineExpired","Overloaded"):
+for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
     if marker not in protocol: raise SystemExit(f"control-plane protocol missing {marker}")
 for marker in ("AF_UNIX","SOCK_SEQPACKET","SO_PEERCRED","queues_[lane].size() < queueCapacity_[lane]","ServiceClass::CriticalControl","ServiceClass::InteractiveControlRead","ServiceClass::ExternalPluginInteractive","ServiceClass::BackgroundProvider","deadline_expired_at_admission","deadline_expired_before_execution","queue_full"):
     if marker not in server: raise SystemExit(f"control-plane server missing {marker}")
@@ -47,8 +48,10 @@ for marker in ("SuiteBridgePrioritizedTeletextTransport","teletextTransport"):
     if marker not in daemon_backend: raise SystemExit(f"Teletext daemon local-control construction missing {marker}")
 for marker in ("Operation::EpgMetadata","Operation::EpgArtwork","Operation::RecordingMetadata","SuiteBridgeEpgCommandHandler::HandleMetadata","SuiteBridgeEpgCommandHandler::HandleArtwork","SuiteBridgeRecordingMetadataCommand::Handle"):
     if marker not in plugin: raise SystemExit(f"background provider plugin wiring missing {marker}")
-for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport","SuiteBridgeReadTransportStatus::Unavailable"):
+for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport"):
     if marker not in client_h: raise SystemExit(f"background provider local transport missing {marker}")
+if "SuiteBridgeReadTransportStatus::Unavailable" not in client_cpp:
+    raise SystemExit("background provider fallback must be pre-dispatch Unavailable-only")
 for marker in ("providerLocalControlTransport","epgArtworkTransport","epgMetadataTransport","recordingMetadataTransport"):
     if marker not in daemon_context: raise SystemExit(f"background provider daemon context wiring missing {marker}")
 for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport","providerLocalControlTransport"):
