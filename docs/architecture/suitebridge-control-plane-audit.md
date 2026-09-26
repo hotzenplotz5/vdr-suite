@@ -155,6 +155,14 @@ These are interactive provider calls and therefore should not share an
 execution resource with slow background metadata once the dedicated plane is
 implemented.
 
+The later Teletext implementation audit of the pinned
+`vdr-plugin-osdteletext` provider contract proved that page reads copy one
+bounded snapshot under the provider mutex, release that mutex, then render and
+normalize a fixed 25x40 cell matrix locally. No network/filesystem I/O or
+borrowed VDR-native pointer crosses the service call. Teletext therefore shares
+the serial External Plugin Interactive lane with HbbTV rather than adding a
+separate worker.
+
 ### HbbTV
 
 | Wire operation | Purpose | Provider boundary |
@@ -392,7 +400,7 @@ AF_UNIX endpoint
    |
    +-- external-plugin interactive lane
    |     HbbTV (serial provider Service calls)
-   |     Teletext only after its own provider audit
+   |     Teletext (same serial provider lane after audit)
    |
    +-- native-mutation lane
    |     Timer / marks / cut, serialized unless proven otherwise
