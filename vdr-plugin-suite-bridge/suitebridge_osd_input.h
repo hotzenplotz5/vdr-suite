@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <string>
+#include <mutex>
 
 class SuiteBridgeOsdInputService final {
 public:
@@ -28,6 +29,7 @@ private:
       const std::string &commandId,
       const std::string &requestFingerprint);
 
+  mutable std::mutex mutex_;
   std::array<RecentCommand, RecentCommandCapacity> recentCommands_{};
   std::size_t recentCommandIndex_ = 0;
 };
