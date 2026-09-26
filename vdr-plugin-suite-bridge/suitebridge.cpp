@@ -183,6 +183,27 @@ bool cPluginSuiteBridge::Start(void)
                   true, 900, std::string(response.Data())};
             }
 
+            if (operation == Operation::HbbtvDiscovery) {
+              return hbbtvCommand_.Handle(
+                  "HBBAPPS",
+                  payload.c_str());
+            }
+            if (operation == Operation::HbbtvRuntime) {
+              return hbbtvCommand_.Handle(
+                  "HBBRUN",
+                  payload.c_str());
+            }
+            if (operation == Operation::HbbtvPresentation) {
+              return hbbtvCommand_.Handle(
+                  "HBBPRES",
+                  payload.c_str());
+            }
+            if (operation == Operation::HbbtvMedia) {
+              return hbbtvCommand_.Handle(
+                  "HBBMEDIA",
+                  payload.c_str());
+            }
+
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
               if (fields.size() != 10) {
@@ -296,7 +317,7 @@ void cPluginSuiteBridge::Stop(void)
     controlPlane_.Stop();
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
-        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu",
+        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu external-plugin-high-water=%llu",
         static_cast<unsigned long long>(
             controlMetrics.admittedByOperation[0] +
             controlMetrics.admittedByOperation[1] +
@@ -307,7 +328,11 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[6] +
             controlMetrics.admittedByOperation[7] +
             controlMetrics.admittedByOperation[8] +
-            controlMetrics.admittedByOperation[9]),
+            controlMetrics.admittedByOperation[9] +
+            controlMetrics.admittedByOperation[10] +
+            controlMetrics.admittedByOperation[11] +
+            controlMetrics.admittedByOperation[12] +
+            controlMetrics.admittedByOperation[13]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
@@ -318,7 +343,11 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.executedByOperation[6] +
             controlMetrics.executedByOperation[7] +
             controlMetrics.executedByOperation[8] +
-            controlMetrics.executedByOperation[9]),
+            controlMetrics.executedByOperation[9] +
+            controlMetrics.executedByOperation[10] +
+            controlMetrics.executedByOperation[11] +
+            controlMetrics.executedByOperation[12] +
+            controlMetrics.executedByOperation[13]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(
@@ -326,7 +355,9 @@ void cPluginSuiteBridge::Stop(void)
         static_cast<unsigned long long>(
             controlMetrics.queueHighWaterByClass[0]),
         static_cast<unsigned long long>(
-            controlMetrics.queueHighWaterByClass[1]));
+            controlMetrics.queueHighWaterByClass[1]),
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[2]));
     liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
