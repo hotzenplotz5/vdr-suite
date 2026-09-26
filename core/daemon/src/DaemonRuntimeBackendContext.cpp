@@ -250,6 +250,12 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                     *context->hbbtvLocalControlTransport,
                     *context->suiteBridgeTransport);
 
+        context->teletextTransport =
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedTeletextTransport>(
+                    *context->hbbtvLocalControlTransport,
+                    *context->suiteBridgeTransport);
+
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
