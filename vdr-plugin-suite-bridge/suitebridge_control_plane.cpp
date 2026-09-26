@@ -41,12 +41,14 @@ SuiteBridgeControlPlane::SuiteBridgeControlPlane(
     std::string socketPath,
     std::size_t criticalQueueCapacity,
     std::size_t interactiveQueueCapacity,
-    std::size_t externalPluginQueueCapacity)
+    std::size_t externalPluginQueueCapacity,
+    std::size_t backgroundProviderQueueCapacity)
     : socketPath_(std::move(socketPath)),
       queueCapacity_{
           std::max<std::size_t>(1, criticalQueueCapacity),
           std::max<std::size_t>(1, interactiveQueueCapacity),
-          std::max<std::size_t>(1, externalPluginQueueCapacity)}
+          std::max<std::size_t>(1, externalPluginQueueCapacity),
+          std::max<std::size_t>(1, backgroundProviderQueueCapacity)}
 {
 }
 
@@ -72,6 +74,8 @@ std::size_t SuiteBridgeControlPlane::classIndex(ServiceClass serviceClass)
       return 1;
     case ServiceClass::ExternalPluginInteractive:
       return 2;
+    case ServiceClass::BackgroundProvider:
+      return 3;
   }
   return 0;
 }
@@ -123,6 +127,10 @@ bool SuiteBridgeControlPlane::Start(Handler handler, Logger logger)
       &SuiteBridgeControlPlane::workerLoop,
       this,
       ServiceClass::ExternalPluginInteractive);
+  workerThreads_[3] = std::thread(
+      &SuiteBridgeControlPlane::workerLoop,
+      this,
+      ServiceClass::BackgroundProvider);
   acceptThread_ = std::thread(
       &SuiteBridgeControlPlane::acceptLoop,
       this);
