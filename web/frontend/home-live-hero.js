@@ -787,8 +787,8 @@
     const stable =
       currentCard &&
       nextCard &&
-      text(currentCard.dataset && currentCard.dataset.projectionSignature) === currentSignature &&
-      text(nextCard.dataset && nextCard.dataset.projectionSignature) === nextSignature;
+      String(currentCard.dataset && currentCard.dataset.projectionSignature || '') === currentSignature &&
+      String(nextCard.dataset && nextCard.dataset.projectionSignature || '') === nextSignature;
 
     if (stable) {
       updateProgramProgress(currentCard, current, false);
@@ -820,7 +820,7 @@
         const channel = channelForId(id);
         if (!channel) return;
         const event = currentEventForChannel(channel, state.events);
-        if (text(control.dataset && control.dataset.programmeSignature) ===
+        if (String(control.dataset && control.dataset.programmeSignature || '') ===
             eventProjectionSignature(event)) {
           return;
         }
@@ -914,7 +914,7 @@
 
       const signature = eventProjectionSignature(event);
       if (existing &&
-          text(existing.dataset && existing.dataset.projectionSignature) ===
+          String(existing.dataset && existing.dataset.projectionSignature || '') ===
             signature) {
         if (current) updateProgramProgress(existing, event, true);
         return;
