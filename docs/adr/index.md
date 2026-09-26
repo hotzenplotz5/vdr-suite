@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0063
+ADR-0064
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -50,11 +50,12 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0061: Actor Permissions, Federation and Client Access](ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062: First-Party Living-Room Output Client](ADR-0062-first-party-living-room-output-client.md)
 - [ADR-0063: Mutation Complexity Proportionality and Reuse](ADR-0063-mutation-complexity-proportionality-reuse.md)
+- [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0064
+ADR-0065
 ```
 
 Rules:
@@ -144,6 +145,7 @@ Rules:
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
 - [ADR-0063: Mutation Complexity Proportionality and Reuse](ADR-0063-mutation-complexity-proportionality-reuse.md)
+- [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
 
 ---
 
