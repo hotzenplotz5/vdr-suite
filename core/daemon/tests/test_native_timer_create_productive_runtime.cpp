@@ -437,7 +437,7 @@ int main()
 
     const auto binding = bindings.findById(payload.nativeTimerBindingId);
     assert(binding.ok());
-    assert(binding.binding.state == NativeTimerBindingState::verified);
+    assert(binding.binding.ownership == NativeTimerBindingOwnership::managed);
     assert(binding.binding.lastVerifiedOperationId == operation.operationId);
     assert(binding.binding.backendNativeTimerId ==
         "native:phase69:productive:42");
