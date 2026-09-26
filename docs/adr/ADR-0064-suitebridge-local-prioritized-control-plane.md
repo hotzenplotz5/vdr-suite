@@ -17,7 +17,10 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **not implemented by this ADR**.
+Implementation status: **Foundation + initial Critical Control Live slice implemented; later operation families remain staged.**
+
+Implementation record:
+[SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
 
 This decision is a prerequisite architecture gate before the next productive
 Phase-69 mutation slice. It does not reopen accepted Phase-69 work and does not
