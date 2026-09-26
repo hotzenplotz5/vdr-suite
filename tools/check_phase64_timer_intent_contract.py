@@ -285,6 +285,15 @@ if not readback_successor_guard.is_file():
         "dormant TimerAssignment consumer"
     )
 readback_successor = readback_successor_guard.read_text(encoding="utf-8")
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+if not productive_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C productive Timer CREATE successor guard is required for "
+        "the reviewed native-effect runtime"
+    )
+productive_successor = productive_successor_guard.read_text(encoding="utf-8")
 for marker in [
     "reconcileNativeTimerCreateReadback(",
     "must remain productively",
@@ -310,7 +319,21 @@ reviewed_runtime_files = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
+    Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
 }
+for marker in [
+    "advanceNativeTimerCreateRuntimeOnce(",
+    "outcome_unknown",
+    "no blind retry",
+]:
+    if marker not in productive_successor:
+        raise SystemExit(
+            "Phase-69.C productive Timer CREATE guard missing reviewed "
+            "TimerAssignment consumer marker: " + marker
+        )
+
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():
         raise SystemExit(f"missing reviewed Phase-64 runtime file: {reviewed}")
