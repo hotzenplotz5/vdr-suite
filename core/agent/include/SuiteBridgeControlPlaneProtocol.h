@@ -33,12 +33,17 @@ enum class Operation : std::uint16_t
     CapabilityDiscovery = 8,
     OsdSnapshot = 9,
     OsdInput = 10,
+    HbbtvDiscovery = 11,
+    HbbtvRuntime = 12,
+    HbbtvPresentation = 13,
+    HbbtvMedia = 14,
 };
 
 enum class ServiceClass : std::uint16_t
 {
     CriticalControl = 1,
     InteractiveControlRead = 2,
+    ExternalPluginInteractive = 3,
 };
 
 enum class Result : std::uint16_t
@@ -88,6 +93,10 @@ inline const char* operationName(Operation operation)
         case Operation::CapabilityDiscovery: return "capability-discovery";
         case Operation::OsdSnapshot: return "osd-snapshot";
         case Operation::OsdInput: return "osd-input";
+        case Operation::HbbtvDiscovery: return "hbbtv-discovery";
+        case Operation::HbbtvRuntime: return "hbbtv-runtime";
+        case Operation::HbbtvPresentation: return "hbbtv-presentation";
+        case Operation::HbbtvMedia: return "hbbtv-media";
     }
     return "unknown";
 }
@@ -95,7 +104,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 10;
+    return value >= 1 && value <= 14;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -106,6 +115,11 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::OsdSnapshot:
         case Operation::OsdInput:
             return ServiceClass::InteractiveControlRead;
+        case Operation::HbbtvDiscovery:
+        case Operation::HbbtvRuntime:
+        case Operation::HbbtvPresentation:
+        case Operation::HbbtvMedia:
+            return ServiceClass::ExternalPluginInteractive;
         default:
             return ServiceClass::CriticalControl;
     }
