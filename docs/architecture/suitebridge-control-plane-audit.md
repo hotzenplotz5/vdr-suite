@@ -262,6 +262,17 @@ implemented by simply copying existing handlers into arbitrary parallel worker
 threads. The native pointer lifetime contract must stay correct even when
 `RMETA` is placed in a low-priority/provider execution lane.
 
+The first Background Provider implementation migrates `RMETA`, `META` and
+`ARTW` together onto one serial provider worker. This directly removes the
+observed RMETA-to-Live/OSD head-of-line coupling while preserving TVScraper
+serialization. Home/browser code may issue multiple metadata reads concurrently,
+but that client concurrency is not treated as proof that TVScraper Service()
+calls are re-entrant.
+
+`ETYPES` remains staged separately because it combines paginated transport
+parsing with real schedule-owned events under Channels/Schedules locking.
+`MCOMPARE` remains diagnostic-only SVDRP.
+
 ## Dispatcher inventory
 
 At the baseline, `cPluginSuiteBridge::SVDRPCommand()` attempts handlers in this

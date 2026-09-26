@@ -95,7 +95,8 @@ REQUIRED_METADATA_SOURCE_FRAGMENTS = [
     '"PLUG suitebridge META " + channelId + " " + eventId + "\\r\\n"',
     "safeMetadataToken(channelId)",
     "safeMetadataToken(eventId)",
-    "reply.transportSucceeded() && reply.replyCode == 250",
+    "metadataReply.transportStatus = SuiteBridgeReadTransportStatus::Success",
+    "metadataReply.transportStatus == SuiteBridgeReadTransportStatus::Success",
     "metadataReply.replyCode = reply.replyCode",
     "metadataReply.payload = reply.payload",
 ]

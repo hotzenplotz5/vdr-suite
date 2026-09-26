@@ -4,6 +4,9 @@
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "ISuiteBridgeHbbtvTransport.h"
 #include "ISuiteBridgeTeletextTransport.h"
+#include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeMetadataTransport.h"
+#include "ISuiteBridgeRecordingMetadataTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "SuiteBridgeControlPlaneProtocol.h"
 #include "SuiteBridgeLiveSourceTransport.h"
@@ -30,7 +33,10 @@ class SuiteBridgeLocalControlTransport final :
     public ISuiteBridgeLocalTransport,
     public ISuiteBridgeLegacyOsdInputTransport,
     public ::ISuiteBridgeHbbtvTransport,
-    public ::ISuiteBridgeTeletextTransport
+    public ::ISuiteBridgeTeletextTransport,
+    public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeMetadataTransport,
+    public ::ISuiteBridgeRecordingMetadataTransport
 {
 public:
     explicit SuiteBridgeLocalControlTransport(
@@ -62,6 +68,15 @@ public:
     SuiteBridgeTeletextCommandReply discoverTeletext() override;
     SuiteBridgeTeletextCommandReply requestTeletextPage(
         const SuiteBridgeTeletextPageRequest& request) override;
+
+    SuiteBridgeArtworkCommandReply requestArtwork(
+        const std::string& channelId,
+        const std::string& eventId) override;
+    SuiteBridgeMetadataCommandReply requestMetadata(
+        const std::string& channelId,
+        const std::string& eventId) override;
+    SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
+        const std::string& recordingKey) override;
 
     SuiteBridgeCommandReply discoverLiveSource() override;
     SuiteBridgeCommandReply openLiveSource(
@@ -193,6 +208,60 @@ private:
 
     ::ISuiteBridgeTeletextTransport& dedicated_;
     ::ISuiteBridgeTeletextTransport& compatibility_;
+};
+
+
+class SuiteBridgePrioritizedArtworkTransport final :
+    public ::ISuiteBridgeArtworkTransport
+{
+public:
+    SuiteBridgePrioritizedArtworkTransport(
+        ::ISuiteBridgeArtworkTransport& dedicated,
+        ::ISuiteBridgeArtworkTransport& compatibility)
+        : dedicated_(dedicated), compatibility_(compatibility) {}
+
+    SuiteBridgeArtworkCommandReply requestArtwork(
+        const std::string& channelId,
+        const std::string& eventId) override;
+
+private:
+    ::ISuiteBridgeArtworkTransport& dedicated_;
+    ::ISuiteBridgeArtworkTransport& compatibility_;
+};
+
+class SuiteBridgePrioritizedMetadataTransport final :
+    public ::ISuiteBridgeMetadataTransport
+{
+public:
+    SuiteBridgePrioritizedMetadataTransport(
+        ::ISuiteBridgeMetadataTransport& dedicated,
+        ::ISuiteBridgeMetadataTransport& compatibility)
+        : dedicated_(dedicated), compatibility_(compatibility) {}
+
+    SuiteBridgeMetadataCommandReply requestMetadata(
+        const std::string& channelId,
+        const std::string& eventId) override;
+
+private:
+    ::ISuiteBridgeMetadataTransport& dedicated_;
+    ::ISuiteBridgeMetadataTransport& compatibility_;
+};
+
+class SuiteBridgePrioritizedRecordingMetadataTransport final :
+    public ::ISuiteBridgeRecordingMetadataTransport
+{
+public:
+    SuiteBridgePrioritizedRecordingMetadataTransport(
+        ::ISuiteBridgeRecordingMetadataTransport& dedicated,
+        ::ISuiteBridgeRecordingMetadataTransport& compatibility)
+        : dedicated_(dedicated), compatibility_(compatibility) {}
+
+    SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
+        const std::string& recordingKey) override;
+
+private:
+    ::ISuiteBridgeRecordingMetadataTransport& dedicated_;
+    ::ISuiteBridgeRecordingMetadataTransport& compatibility_;
 };
 
 class SuiteBridgePrioritizedNativeProbeTransport final :

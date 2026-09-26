@@ -525,7 +525,23 @@ SuiteBridgeArtworkCommandReply SuiteBridgeSvdrpTransport::requestArtwork(
 
     const SuiteBridgeCommandReply reply = executeRequest(
         "PLUG suitebridge ARTW " + channelId + " " + eventId + "\r\n");
-    artworkReply.transportSucceeded = reply.transportSucceeded();
+    switch (reply.transportStatus)
+    {
+        case SuiteBridgeTransportStatus::Success:
+            artworkReply.transportStatus = SuiteBridgeReadTransportStatus::Success;
+            break;
+        case SuiteBridgeTransportStatus::Unavailable:
+            artworkReply.transportStatus = SuiteBridgeReadTransportStatus::Unavailable;
+            break;
+        case SuiteBridgeTransportStatus::Timeout:
+            artworkReply.transportStatus = SuiteBridgeReadTransportStatus::Timeout;
+            break;
+        case SuiteBridgeTransportStatus::Failed:
+            artworkReply.transportStatus = SuiteBridgeReadTransportStatus::Failed;
+            break;
+    }
+    artworkReply.transportSucceeded =
+        artworkReply.transportStatus == SuiteBridgeReadTransportStatus::Success;
     artworkReply.replyCode = reply.replyCode;
     artworkReply.payload = reply.payload;
     return artworkReply;

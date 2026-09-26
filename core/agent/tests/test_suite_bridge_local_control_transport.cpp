@@ -256,6 +256,39 @@ public:
     }
 };
 
+
+class RecordingMetadataCompatibility final :
+    public ISuiteBridgeRecordingMetadataTransport
+{
+public:
+    std::atomic<int> calls{0};
+
+    SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
+        const std::string&) override
+    {
+        ++calls;
+        SuiteBridgeRecordingMetadataCommandReply reply;
+        reply.transportSucceeded = true;
+        reply.replyCode = 250;
+        reply.payload = "{}";
+        reply.transportStatus = SuiteBridgeReadTransportStatus::Success;
+        return reply;
+    }
+};
+
+class RecordingMetadataTimeoutTransport final :
+    public ISuiteBridgeRecordingMetadataTransport
+{
+public:
+    SuiteBridgeRecordingMetadataCommandReply requestRecordingMetadata(
+        const std::string&) override
+    {
+        SuiteBridgeRecordingMetadataCommandReply reply;
+        reply.transportStatus = SuiteBridgeReadTransportStatus::Timeout;
+        return reply;
+    }
+};
+
 void serveOperation(
     const std::string& path,
     Operation expectedOperation,
@@ -667,7 +700,66 @@ int main()
         SuiteBridgeTeletextTransportStatus::Timeout);
     assert(teletextCompatibility.pageCalls.load() == 1);
 
+
+    const std::string recordingMetadataPath =
+        "/tmp/vdr-suite-recording-metadata-control-" +
+        std::to_string(getpid()) + ".sock";
+
+    std::thread recordingMetadataServer([&] {
+        serveOperation(
+            recordingMetadataPath,
+            Operation::RecordingMetadata,
+            250,
+            "{\"found\":true}");
+    });
+    waitForSocket(recordingMetadataPath);
+
+    SuiteBridgeLocalControlTransportConfig recordingMetadataConfig;
+    recordingMetadataConfig.socketPath = recordingMetadataPath;
+    SuiteBridgeLocalControlTransport recordingMetadataDedicated(
+        recordingMetadataConfig);
+    RecordingMetadataCompatibility recordingMetadataCompatibility;
+    SuiteBridgePrioritizedRecordingMetadataTransport
+        recordingMetadataRouted(
+            recordingMetadataDedicated,
+            recordingMetadataCompatibility);
+
+    const std::string recordingKey =
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const auto recordingMetadataReply =
+        recordingMetadataRouted.requestRecordingMetadata(recordingKey);
+    assert(recordingMetadataReply.transportSucceeded);
+    assert(recordingMetadataReply.transportStatus ==
+        SuiteBridgeReadTransportStatus::Success);
+    assert(recordingMetadataCompatibility.calls.load() == 0);
+    recordingMetadataServer.join();
+
+    SuiteBridgeLocalControlTransportConfig recordingMetadataMissingConfig;
+    recordingMetadataMissingConfig.socketPath =
+        recordingMetadataPath + ".missing";
+    SuiteBridgeLocalControlTransport recordingMetadataMissing(
+        recordingMetadataMissingConfig);
+    SuiteBridgePrioritizedRecordingMetadataTransport
+        recordingMetadataFallback(
+            recordingMetadataMissing,
+            recordingMetadataCompatibility);
+    assert(recordingMetadataFallback.requestRecordingMetadata(
+        recordingKey).transportSucceeded);
+    assert(recordingMetadataCompatibility.calls.load() == 1);
+
+    RecordingMetadataTimeoutTransport recordingMetadataTimeout;
+    SuiteBridgePrioritizedRecordingMetadataTransport
+        recordingMetadataNoReplay(
+            recordingMetadataTimeout,
+            recordingMetadataCompatibility);
+    const auto recordingMetadataTimeoutReply =
+        recordingMetadataNoReplay.requestRecordingMetadata(recordingKey);
+    assert(!recordingMetadataTimeoutReply.transportSucceeded);
+    assert(recordingMetadataTimeoutReply.transportStatus ==
+        SuiteBridgeReadTransportStatus::Timeout);
+    assert(recordingMetadataCompatibility.calls.load() == 1);
+
     std::puts(
-        "SuiteBridge local control transport Live/native/OSD/HbbTV/Teletext tests passed");
+        "SuiteBridge local control transport Live/native/OSD/HbbTV/Teletext/provider tests passed");
     return 0;
 }

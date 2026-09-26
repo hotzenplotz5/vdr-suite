@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SuiteBridgeReadTransportStatus.h"
+
 #include <string>
 
 struct SuiteBridgeRecordingMetadataCommandReply
@@ -7,6 +9,8 @@ struct SuiteBridgeRecordingMetadataCommandReply
     bool transportSucceeded = false;
     int replyCode = 0;
     std::string payload;
+    SuiteBridgeReadTransportStatus transportStatus =
+        SuiteBridgeReadTransportStatus::Failed;
 };
 
 class ISuiteBridgeRecordingMetadataTransport

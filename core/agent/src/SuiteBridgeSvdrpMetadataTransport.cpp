@@ -35,8 +35,24 @@ SuiteBridgeMetadataCommandReply SuiteBridgeSvdrpTransport::requestMetadata(
         "PLUG suitebridge META " + channelId + " " + eventId + "\r\n");
     metadataReply.replyCode = reply.replyCode;
     metadataReply.payload = reply.payload;
+    switch (reply.transportStatus)
+    {
+        case SuiteBridgeTransportStatus::Success:
+            metadataReply.transportStatus = SuiteBridgeReadTransportStatus::Success;
+            break;
+        case SuiteBridgeTransportStatus::Unavailable:
+            metadataReply.transportStatus = SuiteBridgeReadTransportStatus::Unavailable;
+            break;
+        case SuiteBridgeTransportStatus::Timeout:
+            metadataReply.transportStatus = SuiteBridgeReadTransportStatus::Timeout;
+            break;
+        case SuiteBridgeTransportStatus::Failed:
+            metadataReply.transportStatus = SuiteBridgeReadTransportStatus::Failed;
+            break;
+    }
     metadataReply.transportSucceeded =
-        reply.transportSucceeded() && reply.replyCode == 250;
+        metadataReply.transportStatus == SuiteBridgeReadTransportStatus::Success &&
+        reply.replyCode == 250;
     return metadataReply;
 }
 

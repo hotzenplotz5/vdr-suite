@@ -83,7 +83,10 @@ int main()
   bool externalPluginStarted = false;
   bool releaseExternalPlugin = false;
 
-  SuiteBridgeControlPlane server(path, 1, 1, 1);
+  bool backgroundProviderStarted = false;
+  bool releaseBackgroundProvider = false;
+
+  SuiteBridgeControlPlane server(path, 1, 1, 1, 1);
   assert(server.Start(
       [&](Operation operation, const std::string&) {
         SuiteBridgeCommandResult result{true, 250, "{}"};
@@ -111,6 +114,13 @@ int main()
           externalPluginStarted = true;
           changed.notify_all();
           changed.wait(lock, [&] { return releaseExternalPlugin; });
+        }
+
+        if (operation == Operation::RecordingMetadata) {
+          std::unique_lock<std::mutex> lock(mutex);
+          backgroundProviderStarted = true;
+          changed.notify_all();
+          changed.wait(lock, [&] { return releaseBackgroundProvider; });
         }
 
         return result;
@@ -263,21 +273,71 @@ int main()
   changed.notify_all();
   assert(blockedExternalPlugin.get().result == Result::Success);
 
+  auto blockedBackgroundProvider = std::async(std::launch::async, [&] {
+    return transact(
+        path,
+        Operation::RecordingMetadata,
+        10,
+        longDeadline,
+        "recording-key");
+  });
+
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    assert(changed.wait_for(
+        lock,
+        std::chrono::seconds(1),
+        [&] { return backgroundProviderStarted; }));
+  }
+
+  const auto liveProviderStarted = std::chrono::steady_clock::now();
+  const auto liveWhileProviderBlocked = transact(
+      path,
+      Operation::LiveCapability,
+      11,
+      longDeadline);
+  const auto liveProviderElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - liveProviderStarted);
+  assert(liveWhileProviderBlocked.result == Result::Success);
+  assert(liveProviderElapsed < std::chrono::milliseconds(150));
+
+  const auto osdProviderStarted = std::chrono::steady_clock::now();
+  const auto osdWhileProviderBlocked = transact(
+      path,
+      Operation::OsdSnapshot,
+      12,
+      longDeadline);
+  const auto osdProviderElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - osdProviderStarted);
+  assert(osdWhileProviderBlocked.result == Result::Success);
+  assert(osdProviderElapsed < std::chrono::milliseconds(150));
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    releaseBackgroundProvider = true;
+  }
+  changed.notify_all();
+  assert(blockedBackgroundProvider.get().result == Result::Success);
+
   const auto metrics = server.SnapshotMetrics();
   assert(metrics.overloaded >= 1);
   assert(metrics.deadlineExpiredBeforeExecution >= 2);
   assert(metrics.queueHighWaterByClass[0] == 1);
   assert(metrics.queueHighWaterByClass[1] == 1);
   assert(metrics.queueHighWaterByClass[2] == 1);
+  assert(metrics.queueHighWaterByClass[3] == 1);
   assert(metrics.executedByOperation[2] == 1);
-  assert(metrics.executedByOperation[8] == 2);
+  assert(metrics.executedByOperation[8] == 3);
   assert(metrics.executedByOperation[12] == 1);
+  assert(metrics.executedByOperation[18] == 1);
 
   server.Stop();
   assert(!server.Running());
   assert(access(path.c_str(), F_OK) != 0);
 
   std::puts(
-      "SuiteBridge critical/interactive/external-plugin control-plane lane tests passed");
+      "SuiteBridge critical/interactive/external-plugin/background-provider lane tests passed");
   return 0;
 }
