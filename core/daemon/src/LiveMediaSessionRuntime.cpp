@@ -397,9 +397,11 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
 
         if (reasonCode.empty()) {
             const auto providerStatus = providerRuntime_.status(preparation, leaseId);
-            if (!providerStatus.current)
+            if (providerStatus.liveness ==
+                vdrsuite::agent::BackendAgentLiveProviderLiveness::Terminal) {
                 reasonCode = providerStatus.reasonCode.empty()
                     ? "live_provider_terminal" : providerStatus.reasonCode;
+            }
         }
 
         if (reasonCode.empty()) {
