@@ -19,7 +19,8 @@ constexpr const char *ResultProtocol = "vdr-suite-ntcreate-result/1";
 constexpr std::uint64_t NativeOperationSchema = 1;
 constexpr std::uint64_t ProviderGeneration = 1;
 constexpr std::uint64_t CapabilityRevision = 1;
-constexpr std::size_t NativeFingerprintTokenLength = 71;
+constexpr std::size_t MaximumDecodedFieldBytes = 1024;
+constexpr std::size_t MaximumDecodedSpecificationFingerprintBytes = 4096;
 constexpr int SuccessReplyCode = 900;
 constexpr int MalformedReplyCode = 501;
 constexpr int StaleReplyCode = 555;
@@ -35,21 +36,6 @@ bool safeToken(const std::string &value, std::size_t maximum = 512)
       std::all_of(value.begin(), value.end(), [](unsigned char character) {
         return std::isalnum(character) != 0 || character == '-' ||
             character == '_' || character == '.' || character == ':';
-      });
-}
-
-bool safeFingerprintToken(const std::string &value)
-{
-  if (value.size() != NativeFingerprintTokenLength ||
-      value.compare(0, 7, "sha256:") != 0) {
-    return false;
-  }
-  return std::all_of(
-      value.begin() + 7,
-      value.end(),
-      [](unsigned char character) {
-        return (character >= '0' && character <= '9') ||
-            (character >= 'a' && character <= 'f');
       });
 }
 
@@ -101,11 +87,15 @@ bool booleanValue(const std::string &value, bool &parsed)
   return false;
 }
 
-bool hexValue(const std::string &value, std::string &decoded)
+bool hexValue(
+    const std::string &value,
+    std::string &decoded,
+    std::size_t maximumDecodedBytes = MaximumDecodedFieldBytes)
 {
   decoded.clear();
   if (value == "-") return true;
-  if (value.empty() || value.size() > 2048 || value.size() % 2 != 0) return false;
+  if (value.empty() || value.size() > maximumDecodedBytes * 2U ||
+      value.size() % 2 != 0) return false;
   decoded.reserve(value.size() / 2);
   for (std::size_t index = 0; index < value.size(); index += 2) {
     const auto nibble = [](unsigned char character, unsigned &result) {
@@ -131,6 +121,38 @@ bool hexValue(const std::string &value, std::string &decoded)
     decoded.push_back(static_cast<char>(decodedCharacter));
   }
   return true;
+}
+
+void appendSpecificationFingerprintField(
+    std::string &output,
+    const std::string &value)
+{
+  output += std::to_string(value.size());
+  output += ':';
+  output += value;
+  output += '|';
+}
+
+std::string specificationFingerprint(
+    const SuiteBridgeNativeTimerCreateRequest &request)
+{
+  std::string fingerprint = "native-timer-specification/1|";
+  appendSpecificationFingerprintField(fingerprint, request.channelId);
+  appendSpecificationFingerprintField(fingerprint, request.title);
+  appendSpecificationFingerprintField(fingerprint, request.directory);
+  appendSpecificationFingerprintField(fingerprint, request.day);
+  appendSpecificationFingerprintField(fingerprint, request.weekdays);
+  appendSpecificationFingerprintField(fingerprint, request.startTime);
+  appendSpecificationFingerprintField(fingerprint, request.endTime);
+  appendSpecificationFingerprintField(
+      fingerprint, std::to_string(request.priority));
+  appendSpecificationFingerprintField(
+      fingerprint, std::to_string(request.lifetime));
+  appendSpecificationFingerprintField(
+      fingerprint, request.enabled ? "1" : "0");
+  appendSpecificationFingerprintField(
+      fingerprint, request.vps ? "1" : "0");
+  return fingerprint;
 }
 
 bool parseExecute(
@@ -164,7 +186,10 @@ bool parseExecute(
   request.requiredCapability = values[29];
 
   return unsignedValue(values[11], request.assignmentEpoch) &&
-      hexValue(values[13], request.expectedSpecificationFingerprint) &&
+      hexValue(
+          values[13],
+          request.expectedSpecificationFingerprint,
+          MaximumDecodedSpecificationFingerprintBytes) &&
       unsignedValue(values[16], request.claimEpoch) &&
       unsignedValue(values[20], request.backendGeneration) &&
       unsignedValue(values[21], request.controlPlaneClaimedAt) &&
@@ -191,7 +216,7 @@ bool parseExecute(
       safeToken(request.expectedAssignmentRevision, 192) &&
       safeToken(request.expectedIntentRevision, 192) &&
       safeToken(request.nativeTimerBindingId, 192) &&
-      safeFingerprintToken(request.expectedSpecificationFingerprint) &&
+      request.expectedSpecificationFingerprint == specificationFingerprint(request) &&
       !request.channelId.empty() &&
       request.title.size() <= 1024 && request.directory.size() <= 1024 &&
       request.day.size() <= 64 && request.weekdays.size() <= 64 &&

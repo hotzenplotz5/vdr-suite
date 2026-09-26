@@ -183,6 +183,22 @@ Existing ownership-generation and provider-selection fences remain authoritative
 and later Timer mutation slices must explicitly extend the allowed capability
 set rather than acquiring authority from observed provider facts.
 
+## Canonical Timer specification fingerprint on the private wire
+
+The first real dispatch after explicit provider ownership also exposed a
+pre-existing cross-contract mismatch in the private NTCREATE parser. The
+Control Plane and Agent have always defined
+`expectedSpecificationFingerprint` as the canonical
+`native-timer-specification/1|...` value reconstructed from the exact Timer
+specification. The SuiteBridge parser incorrectly required a
+`sha256:<64hex>` token, so a valid Agent command was rejected as malformed
+before the VDR Timer mutation callback could run.
+
+SuiteBridge now decodes the bounded canonical fingerprint, reconstructs the
+same canonical value from the decoded Timer fields and requires exact equality.
+It does not introduce a hash alias or a second fingerprint authority. The
+private transport remains hex-encoded only for whitespace-safe framing.
+
 ## Focused repository acceptance
 
 The productive runtime regression proves:
