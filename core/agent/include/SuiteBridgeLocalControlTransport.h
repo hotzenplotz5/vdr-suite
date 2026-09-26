@@ -3,6 +3,7 @@
 #include "BackendAgentNativeProbe.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "ISuiteBridgeHbbtvTransport.h"
+#include "ISuiteBridgeTeletextTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "SuiteBridgeControlPlaneProtocol.h"
 #include "SuiteBridgeLiveSourceTransport.h"
@@ -28,7 +29,8 @@ class SuiteBridgeLocalControlTransport final :
     public IBackendAgentNativeProbeTransport,
     public ISuiteBridgeLocalTransport,
     public ISuiteBridgeLegacyOsdInputTransport,
-    public ::ISuiteBridgeHbbtvTransport
+    public ::ISuiteBridgeHbbtvTransport,
+    public ::ISuiteBridgeTeletextTransport
 {
 public:
     explicit SuiteBridgeLocalControlTransport(
@@ -56,6 +58,10 @@ public:
         const SuiteBridgeHbbtvPresentationRequest& request) override;
     SuiteBridgeHbbtvCommandReply readHbbtvMedia(
         const SuiteBridgeHbbtvMediaRequest& request) override;
+
+    SuiteBridgeTeletextCommandReply discoverTeletext() override;
+    SuiteBridgeTeletextCommandReply requestTeletextPage(
+        const SuiteBridgeTeletextPageRequest& request) override;
 
     SuiteBridgeCommandReply discoverLiveSource() override;
     SuiteBridgeCommandReply openLiveSource(
@@ -155,6 +161,38 @@ private:
 
     ::ISuiteBridgeHbbtvTransport& dedicated_;
     ::ISuiteBridgeHbbtvTransport& compatibility_;
+};
+
+
+class SuiteBridgePrioritizedTeletextTransport final :
+    public ::ISuiteBridgeTeletextTransport
+{
+public:
+    SuiteBridgePrioritizedTeletextTransport(
+        ::ISuiteBridgeTeletextTransport& dedicated,
+        ::ISuiteBridgeTeletextTransport& compatibility)
+        : dedicated_(dedicated),
+          compatibility_(compatibility)
+    {
+    }
+
+    SuiteBridgeTeletextCommandReply discoverTeletext() override;
+    SuiteBridgeTeletextCommandReply requestTeletextPage(
+        const SuiteBridgeTeletextPageRequest& request) override;
+
+private:
+    template<class Call>
+    SuiteBridgeTeletextCommandReply select(Call&& call)
+    {
+        auto reply = call(dedicated_);
+        if (reply.transportStatus !=
+            SuiteBridgeTeletextTransportStatus::Unavailable)
+            return reply;
+        return call(compatibility_);
+    }
+
+    ::ISuiteBridgeTeletextTransport& dedicated_;
+    ::ISuiteBridgeTeletextTransport& compatibility_;
 };
 
 class SuiteBridgePrioritizedNativeProbeTransport final :
