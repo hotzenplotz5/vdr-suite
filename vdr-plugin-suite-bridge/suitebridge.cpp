@@ -162,6 +162,8 @@ bool cPluginSuiteBridge::Start(void)
             isyslog("%s", message.c_str());
           })) {
     statusMonitor_.Deactivate();
+    (void)lifecycle_.BeginStop();
+    (void)lifecycle_.CompleteStop();
     esyslog(
         "suitebridge: control-plane event=start result=rejected path=%s",
         controlPlane_.SocketPath().c_str());
