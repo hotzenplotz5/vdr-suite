@@ -281,3 +281,23 @@ test-phase69-native-timer-create-productive-runtime: test-phase69-native-timer-c
 		-o $(BUILD_DIR)/test_native_timer_create_productive_runtime
 	$(BUILD_DIR)/test_native_timer_create_productive_runtime
 	python3 tools/check_phase69_native_timer_create_productive_runtime.py
+
+.PHONY: test-phase69-native-timer-create-real-acceptance-fixture
+
+test-phase69-native-timer-create-real-acceptance-fixture:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		tools/phase69-runtime-acceptance/prepare_native_timer_create_fixture.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture
+	$(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture --self-test
+	python3 tools/check_phase69_native_timer_create_real_acceptance_fixture.py
+
