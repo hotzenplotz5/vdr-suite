@@ -2,8 +2,10 @@
 
 #include "MutationOperation.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 class Database;
 
@@ -45,6 +47,18 @@ struct MutationOperationPayload
     std::uint32_t payloadVersion = 0;
     std::string payload;
     std::string payloadFingerprint;
+};
+
+struct MutationOperationIdListResult
+{
+    MutationOperationRepositoryStatus status =
+        MutationOperationRepositoryStatus::storageError;
+    std::vector<std::string> operationIds;
+
+    bool ok() const
+    {
+        return status == MutationOperationRepositoryStatus::ok;
+    }
 };
 
 struct MutationOperationPayloadRepositoryResult
@@ -91,6 +105,13 @@ public:
 
     MutationOperationPayloadRepositoryResult findPayloadByOperationId(
         const std::string& operationId);
+
+    // Bounded recovery/readback discovery only. The operation repository stays
+    // the sole lifecycle authority; callers still reload and revision-fence
+    // each operation before attempting a transition.
+    MutationOperationIdListResult listNonTerminalIdsByPayloadType(
+        const std::string& payloadType,
+        std::size_t limit);
 
     MutationOperationRepositoryResult findByIdempotencyScope(
         const std::string& actorId,
