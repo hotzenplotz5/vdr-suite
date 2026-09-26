@@ -93,7 +93,7 @@ bool optionsValid(const FixtureOptions& options)
     specification.endTime = options.endTime;
     specification.priority = 50;
     specification.lifetime = 1;
-    specification.enabled = true;
+    specification.enabled = false;
 
     return !options.databasePath.empty()
         && safeFixtureToken(options.fixtureId)
@@ -250,7 +250,7 @@ int prepareFixture(const FixtureOptions& options)
         options.endTime;
     candidate.desiredNativeTimerSpecification.priority = 50;
     candidate.desiredNativeTimerSpecification.lifetime = 1;
-    candidate.desiredNativeTimerSpecification.enabled = true;
+    candidate.desiredNativeTimerSpecification.enabled = false;
     candidate.desiredNativeTimerSpecification.vps = false;
 
     candidate.conflict =
