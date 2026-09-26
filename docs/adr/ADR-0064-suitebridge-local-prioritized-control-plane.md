@@ -17,7 +17,7 @@ Accepted architecture decision.
 
 Date: 2026-09-26
 
-Implementation status: **Foundation + initial Critical Control Live slice implemented; later operation families remain staged.**
+Implementation status: **Foundation + initial Critical Control slices + Legacy OSD Interactive slice implemented; later operation families remain staged.**
 
 Implementation record:
 [SuiteBridge local control-plane implementation](../architecture/suitebridge-local-control-plane-implementation.md).
