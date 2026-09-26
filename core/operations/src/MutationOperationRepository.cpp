@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace vdrsuite::operations
 {
@@ -554,6 +555,95 @@ MutationOperationRepositoryResult MutationOperationRepository::findById(
     return found
         ? operationResult(MutationOperationRepositoryStatus::ok, operation)
         : statusResult(MutationOperationRepositoryStatus::notFound);
+}
+
+MutationOperationRepositoryListResult
+MutationOperationRepository::listByActionFamilyAndStates(
+    const std::string& actionFamily,
+    const std::vector<MutationOperationState>& states,
+    std::size_t limit) const
+{
+    MutationOperationRepositoryListResult result;
+    if (!safeIdentity(actionFamily) || states.empty() || states.size() > 8 ||
+        limit == 0 || limit > 256)
+    {
+        result.status = MutationOperationRepositoryStatus::invalid;
+        return result;
+    }
+
+    std::string sql = std::string("SELECT ") + kColumns +
+        " FROM mutation_operations WHERE action_family=? AND state IN (";
+    for (std::size_t index = 0; index < states.size(); ++index)
+    {
+        if (index != 0) sql += ",";
+        sql += "?";
+    }
+    sql += ") ORDER BY updated_at ASC,operation_id ASC LIMIT ?;";
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, actionFamily))
+    {
+        if (statement != nullptr) sqlite3_finalize(statement);
+        result.status = MutationOperationRepositoryStatus::storageError;
+        return result;
+    }
+
+    bool bound = true;
+    for (std::size_t index = 0; index < states.size(); ++index)
+    {
+        const char* stateName = mutationOperationStateName(states[index]);
+        if (stateName == nullptr ||
+            sqlite3_bind_text(
+                statement,
+                static_cast<int>(index + 2),
+                stateName,
+                -1,
+                SQLITE_TRANSIENT) != SQLITE_OK)
+        {
+            bound = false;
+            break;
+        }
+    }
+    if (bound)
+    {
+        bound = sqlite3_bind_int64(
+            statement,
+            static_cast<int>(states.size() + 2),
+            static_cast<sqlite3_int64>(limit)) == SQLITE_OK;
+    }
+    if (!bound)
+    {
+        sqlite3_finalize(statement);
+        result.status = MutationOperationRepositoryStatus::storageError;
+        return result;
+    }
+
+    while (true)
+    {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE) break;
+        if (step != SQLITE_ROW)
+        {
+            sqlite3_finalize(statement);
+            result.operations.clear();
+            result.status = MutationOperationRepositoryStatus::storageError;
+            return result;
+        }
+        MutationOperation operation;
+        if (!readOperation(statement, operation))
+        {
+            sqlite3_finalize(statement);
+            result.operations.clear();
+            result.status = MutationOperationRepositoryStatus::storageError;
+            return result;
+        }
+        result.operations.push_back(std::move(operation));
+    }
+    sqlite3_finalize(statement);
+    result.status = MutationOperationRepositoryStatus::ok;
+    return result;
 }
 
 MutationOperationPayloadRepositoryResult
