@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgScraperMetadata.h"
+#include "SuiteBridgeReadTransportStatus.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +20,8 @@ struct SuiteBridgeEpgTypeSnapshotTransportItem
 struct SuiteBridgeEpgTypeSnapshotTransportPage
 {
     bool transportSucceeded = false;
+    SuiteBridgeReadTransportStatus transportStatus =
+        SuiteBridgeReadTransportStatus::Failed;
     bool payloadValid = false;
     int replyCode = 0;
     std::uint64_t nextOffset = 0;

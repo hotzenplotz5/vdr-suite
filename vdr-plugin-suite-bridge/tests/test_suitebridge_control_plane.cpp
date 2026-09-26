@@ -290,6 +290,20 @@ int main()
         [&] { return backgroundProviderStarted; }));
   }
 
+  assert(serviceClass(Operation::EpgTypeSnapshot) ==
+      ServiceClass::BackgroundProvider);
+  auto queuedEpgTypeSnapshot = std::async(std::launch::async, [&] {
+    return transact(
+        path,
+        Operation::EpgTypeSnapshot,
+        13,
+        longDeadline,
+        "100 200 0 64");
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  assert(queuedEpgTypeSnapshot.wait_for(std::chrono::milliseconds(20)) ==
+      std::future_status::timeout);
+
   const auto liveProviderStarted = std::chrono::steady_clock::now();
   const auto liveWhileProviderBlocked = transact(
       path,
@@ -320,6 +334,7 @@ int main()
   }
   changed.notify_all();
   assert(blockedBackgroundProvider.get().result == Result::Success);
+  assert(queuedEpgTypeSnapshot.get().result == Result::Success);
 
   const auto metrics = server.SnapshotMetrics();
   assert(metrics.overloaded >= 1);
@@ -332,6 +347,7 @@ int main()
   assert(metrics.executedByOperation[8] == 3);
   assert(metrics.executedByOperation[12] == 1);
   assert(metrics.executedByOperation[18] == 1);
+  assert(metrics.executedByOperation[19] == 1);
 
   server.Stop();
   assert(!server.Running());

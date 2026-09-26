@@ -124,6 +124,7 @@ int main()
 
         server.wait();
         assert(page.transportSucceeded);
+        assert(page.transportStatus == SuiteBridgeReadTransportStatus::Success);
         assert(page.payloadValid);
         assert(page.replyCode == 250);
         assert(page.nextOffset == 64);
@@ -145,6 +146,7 @@ int main()
             transport.requestEpgTypeSnapshot(100, 300, 12, 64);
         server.wait();
         assert(page.transportSucceeded);
+        assert(page.transportStatus == SuiteBridgeReadTransportStatus::Success);
         assert(page.payloadValid);
         assert(page.done);
         assert(page.scanned == 0);
@@ -158,6 +160,7 @@ int main()
             transport.requestEpgTypeSnapshot(100, 300, 0, 64);
         server.wait();
         assert(page.transportSucceeded);
+        assert(page.transportStatus == SuiteBridgeReadTransportStatus::Success);
         assert(!page.payloadValid);
     }
 
@@ -168,6 +171,7 @@ int main()
             transport.requestEpgTypeSnapshot(100, 300, 0, 64);
         server.wait();
         assert(page.transportSucceeded);
+        assert(page.transportStatus == SuiteBridgeReadTransportStatus::Success);
         assert(!page.payloadValid);
         assert(page.items.empty());
     }
@@ -179,6 +183,7 @@ int main()
             transport.requestEpgTypeSnapshot(100, 300, 0, 64);
         server.wait();
         assert(!page.transportSucceeded);
+        assert(page.transportStatus == SuiteBridgeReadTransportStatus::Success);
         assert(!page.payloadValid);
         assert(page.replyCode == 500);
         assert(page.items.empty());

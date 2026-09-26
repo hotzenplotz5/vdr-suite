@@ -27,6 +27,15 @@ transport_header = read("core/agent/include/SuiteBridgeSvdrpTransport.h")
 transport = read(
     "core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp"
 )
+transport_parser = read(
+    "core/agent/include/SuiteBridgeEpgTypeSnapshotPayloadParser.h"
+)
+local_transport_header = read(
+    "core/agent/include/SuiteBridgeLocalControlTransport.h"
+)
+local_transport = read(
+    "core/agent/src/SuiteBridgeLocalControlTransport.cpp"
+)
 runtime_header = read("api/rest/include/GenreBrowserApiRuntime.h")
 runtime = read("api/rest/src/GenreBrowserApiRuntime.cpp")
 runtime_type_snapshot = read(
@@ -92,11 +101,25 @@ require(
 )
 require(
     '"PLUG suitebridge ETYPES "' in transport
-    and "nextOffset != requestedOffset + scanned" in transport
-    and "endTime <= requestedFrom" in transport
-    and "startTime >= requestedUntil" in transport
-    and "page.payloadValid = parsePayload" in transport,
+    and "nextOffset != requestedOffset + scanned" in transport_parser
+    and "endTime <= requestedFrom" in transport_parser
+    and "startTime >= requestedUntil" in transport_parser
+    and "parseEpgTypeSnapshotPayload" in transport,
     "agent transport must validate cursor and requested-window isolation",
+)
+require(
+    "public ::ISuiteBridgeEpgTypeSnapshotTransport" in local_transport_header
+    and "SuiteBridgePrioritizedEpgTypeSnapshotTransport" in local_transport_header
+    and "Operation::EpgTypeSnapshot" in local_transport
+    and "parseEpgTypeSnapshotPayload" in local_transport
+    and "SuiteBridgeReadTransportStatus::Unavailable" in local_transport,
+    "ETYPES local-control transport must be typed, share payload validation, "
+    "and fall back only on pre-dispatch Unavailable",
+)
+require(
+    "epgTypeSnapshotTransport->requestEpgTypeSnapshot" in worker
+    and "suiteBridgeTransport->requestEpgTypeSnapshot" not in worker,
+    "productive ETYPES materialization must prefer local control over SVDRP",
 )
 require(
     "applyEpgTypeSnapshot(" in runtime_header

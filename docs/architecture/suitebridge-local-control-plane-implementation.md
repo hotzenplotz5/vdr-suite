@@ -4,7 +4,7 @@
 
 ADR-0064 Foundation, both initial **Critical Control** slices, Legacy OSD
 **Interactive Control**, HbbTV + Teletext **External Plugin Interactive**, and
-the first **Background Provider** slice (RMETA/META/ARTW) are implemented on
+the **Background Provider** slices (RMETA/META/ARTW/ETYPES) are implemented on
 the internal VDR-Suite/SuiteBridge boundary.
 
 This does not change Phase 69, the public API, actor authorization or mutation
@@ -58,6 +58,7 @@ The initial registry is deliberately small:
 | META | Background Provider | migrated |
 | ARTW | Background Provider | migrated |
 | RMETA | Background Provider | migrated |
+| ETYPES | Background Provider | migrated |
 
 ## Admission, deadline and lane
 
@@ -69,7 +70,7 @@ The endpoint now owns four independent finite execution lanes:
 - one **External Plugin Interactive** queue/worker for serialized HbbTV and
   Teletext provider-service work;
 - one **Background Provider** queue/worker for serialized TVScraper-backed
-  RMETA/META/ARTW work.
+  RMETA/META/ARTW/ETYPES work.
 
 A blocked HbbTV or TVScraper provider request therefore cannot consume either
 the Critical or Legacy-OSD worker. Within each class execution remains serialized. This adds
@@ -113,6 +114,12 @@ The daemon HbbTV resolvers use the same selection rule through
 SVDRP is used only for a pre-dispatch \`Unavailable\` result. Timeout or other
 uncertainty after local selection is never replayed, including HbbTV LAUNCH,
 INPUT or CLOSE.
+
+ETYPES follows the same compatibility rule through
+`SuiteBridgePrioritizedEpgTypeSnapshotTransport`. The Unix endpoint is tried
+first; SVDRP is used only after a pre-dispatch `Unavailable` result. The local
+and SVDRP compatibility paths share one bounded page parser, and a local
+timeout, overload or protocol failure is never replayed through SVDRP.
 
 ## Head-of-line regression coverage
 
@@ -197,19 +204,24 @@ The production Home/metadata call graph was checked before migration.
 - `RMETA` is different: it must retain `LOCK_RECORDINGS_READ` while passing
   the real `cRecording*` synchronously to TVScraper.
 
-Therefore RMETA/META/ARTW share one serial Background Provider worker. This
-removes their head-of-line coupling with Critical, Legacy OSD and external
+Therefore RMETA/META/ARTW/ETYPES share one serial Background Provider worker.
+This removes their head-of-line coupling with Critical, Legacy OSD and external
 interactive provider work without introducing concurrent TVScraper Service()
-calls. It intentionally does not claim that four browser metadata requests now
-execute four TVScraper calls in parallel.
+calls. It intentionally does not claim that multiple browser or EPG-cache
+requests execute multiple TVScraper calls in parallel.
 
-The regression deliberately blocks RMETA and requires Live capability and OSD
-snapshot to continue within the bounded test budget. This directly covers the
-production failure mode that motivated ADR-0064.
+ETYPES keeps its operation-specific native boundary: stable bounded window
+snapshots are paginated as before, each classified item is re-resolved to the
+real schedule-owned cEvent under Channels/Schedules read locks, and TVScraper
+receives that real event while the existing lock contract remains authoritative.
+The payload validation is shared by local control and SVDRP compatibility so
+both enforce identical cursor/window/item bounds.
 
-`ETYPES` is left for a separate slice because its paginated transport parser
-and real-event/channel/schedule lock contract are materially different from the
-Home-facing RMETA/META/ARTW path. `MCOMPARE` remains diagnostic-only SVDRP.
+The lane regression deliberately blocks RMETA, queues ETYPES behind it on the
+same Background Provider worker, and requires Live capability and OSD snapshot
+to continue within the bounded test budget. The transport regression separately
+proves local-first ETYPES selection, pre-dispatch Unavailable fallback and no
+SVDRP replay after a local timeout. `MCOMPARE` remains diagnostic-only SVDRP.
 
 ## Still staged on existing paths
 
@@ -217,6 +229,7 @@ Not migrated by this slice:
 
 - Timer CREATE/DELETE/MODIFY;
 - Recording marks/cut;
-- ETYPES and diagnostics.
+- diagnostic-only commands such as MCOMPARE remain on SVDRP until a productive
+  owner and operation-specific migration need exist.
 
-Native probe now keeps its existing durable starting/receipt/result/readback fencing while moving only its local transport boundary. The remaining operation families still need their operation-specific execution-lane proofs. No provider re-entrancy assumption is introduced here.
+Native probe now keeps its existing durable starting/receipt/result/readback fencing while moving only its local transport boundary. ETYPES has completed its read-only provider-lane migration without changing its VDR lock or real-event lifetime contract. The remaining productive operation families are native mutations and still need their operation-specific execution-lane, replay and unknown-outcome proofs. No provider re-entrancy assumption is introduced here.

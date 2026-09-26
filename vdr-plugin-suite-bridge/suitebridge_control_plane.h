@@ -24,7 +24,7 @@ public:
       Operation, const std::string &)>;
   using Logger = std::function<void(const std::string &)>;
 
-  static constexpr std::size_t OperationCount = 19;
+  static constexpr std::size_t OperationCount = 20;
   static constexpr std::size_t ServiceClassCount = 4;
 
   struct Metrics final {

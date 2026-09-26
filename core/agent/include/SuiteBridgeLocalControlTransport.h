@@ -5,6 +5,7 @@
 #include "ISuiteBridgeHbbtvTransport.h"
 #include "ISuiteBridgeTeletextTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
@@ -35,6 +36,7 @@ class SuiteBridgeLocalControlTransport final :
     public ::ISuiteBridgeHbbtvTransport,
     public ::ISuiteBridgeTeletextTransport,
     public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingMetadataTransport
 {
@@ -72,6 +74,11 @@ public:
     SuiteBridgeArtworkCommandReply requestArtwork(
         const std::string& channelId,
         const std::string& eventId) override;
+    SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        std::uint64_t offset,
+        std::size_t limit) override;
     SuiteBridgeMetadataCommandReply requestMetadata(
         const std::string& channelId,
         const std::string& eventId) override;
@@ -227,6 +234,26 @@ public:
 private:
     ::ISuiteBridgeArtworkTransport& dedicated_;
     ::ISuiteBridgeArtworkTransport& compatibility_;
+};
+
+class SuiteBridgePrioritizedEpgTypeSnapshotTransport final :
+    public ::ISuiteBridgeEpgTypeSnapshotTransport
+{
+public:
+    SuiteBridgePrioritizedEpgTypeSnapshotTransport(
+        ::ISuiteBridgeEpgTypeSnapshotTransport& dedicated,
+        ::ISuiteBridgeEpgTypeSnapshotTransport& compatibility)
+        : dedicated_(dedicated), compatibility_(compatibility) {}
+
+    SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        std::uint64_t offset,
+        std::size_t limit) override;
+
+private:
+    ::ISuiteBridgeEpgTypeSnapshotTransport& dedicated_;
+    ::ISuiteBridgeEpgTypeSnapshotTransport& compatibility_;
 };
 
 class SuiteBridgePrioritizedMetadataTransport final :

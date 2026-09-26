@@ -232,6 +232,11 @@ bool cPluginSuiteBridge::Start(void)
                   "RMETA",
                   payload.c_str());
             }
+            if (operation == Operation::EpgTypeSnapshot) {
+              return SuiteBridgeEpgCommandHandler::HandleTypeSnapshot(
+                  "ETYPES",
+                  payload.c_str());
+            }
 
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
@@ -366,7 +371,8 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[15] +
             controlMetrics.admittedByOperation[16] +
             controlMetrics.admittedByOperation[17] +
-            controlMetrics.admittedByOperation[18]),
+            controlMetrics.admittedByOperation[18] +
+            controlMetrics.admittedByOperation[19]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
@@ -386,7 +392,8 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.executedByOperation[15] +
             controlMetrics.executedByOperation[16] +
             controlMetrics.executedByOperation[17] +
-            controlMetrics.executedByOperation[18]),
+            controlMetrics.executedByOperation[18] +
+            controlMetrics.executedByOperation[19]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(

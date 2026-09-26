@@ -32,7 +32,7 @@ bool processEpgTypeSnapshotPages(
     BackendRuntimeContext& context,
     int maximumPages)
 {
-    if (!context.suiteBridgeTransport ||
+    if (!context.epgTypeSnapshotTransport ||
         !context.epgTypeSnapshotSupported ||
         context.epgTypeSnapshotComplete ||
         context.epgTypeSnapshotUntil <= context.epgTypeSnapshotFrom ||
@@ -44,7 +44,7 @@ bool processEpgTypeSnapshotPages(
     for (int pageIndex = 0; pageIndex < maximumPages; ++pageIndex)
     {
         const SuiteBridgeEpgTypeSnapshotTransportPage page =
-            context.suiteBridgeTransport->requestEpgTypeSnapshot(
+            context.epgTypeSnapshotTransport->requestEpgTypeSnapshot(
                 context.epgTypeSnapshotFrom,
                 context.epgTypeSnapshotUntil,
                 context.epgTypeSnapshotOffset,
@@ -317,7 +317,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                         continue;
                     }
 
-                    if (backendRuntimeContext->suiteBridgeTransport &&
+                    if (backendRuntimeContext->epgTypeSnapshotTransport &&
                         backendRuntimeContext->epgTypeSnapshotSupported)
                     {
                         const bool snapshotStateInvalid =
@@ -551,7 +551,7 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
                 fromTime + GenreWindowSeconds,
                 1024);
 
-            if (backendRuntimeContext->suiteBridgeTransport &&
+            if (backendRuntimeContext->epgTypeSnapshotTransport &&
                 backendRuntimeContext->epgTypeSnapshotSupported)
             {
                 const bool initializeSnapshot =

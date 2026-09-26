@@ -257,6 +257,48 @@ public:
 };
 
 
+class EpgTypeSnapshotCompatibility final :
+    public ISuiteBridgeEpgTypeSnapshotTransport
+{
+public:
+    std::atomic<int> calls{0};
+
+    SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t,
+        std::int64_t,
+        std::uint64_t,
+        std::size_t) override
+    {
+        ++calls;
+        SuiteBridgeEpgTypeSnapshotTransportPage page;
+        page.transportSucceeded = true;
+        page.transportStatus = SuiteBridgeReadTransportStatus::Success;
+        page.payloadValid = true;
+        page.replyCode = 250;
+        page.nextOffset = 1;
+        page.scanned = 1;
+        page.done = true;
+        return page;
+    }
+};
+
+class EpgTypeSnapshotTimeoutTransport final :
+    public ISuiteBridgeEpgTypeSnapshotTransport
+{
+public:
+    SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t,
+        std::int64_t,
+        std::uint64_t,
+        std::size_t) override
+    {
+        SuiteBridgeEpgTypeSnapshotTransportPage page;
+        page.transportStatus = SuiteBridgeReadTransportStatus::Timeout;
+        return page;
+    }
+};
+
+
 class RecordingMetadataCompatibility final :
     public ISuiteBridgeRecordingMetadataTransport
 {
@@ -701,6 +743,69 @@ int main()
     assert(teletextCompatibility.pageCalls.load() == 1);
 
 
+    const std::string epgTypeSnapshotPath =
+        "/tmp/vdr-suite-epg-type-control-" +
+        std::to_string(getpid()) + ".sock";
+
+    std::thread epgTypeSnapshotServer([&] {
+        serveOperation(
+            epgTypeSnapshotPath,
+            Operation::EpgTypeSnapshot,
+            250,
+            "1|1|1|1|C-1-1051-10301,42,100,200,S");
+    });
+    waitForSocket(epgTypeSnapshotPath);
+
+    SuiteBridgeLocalControlTransportConfig epgTypeSnapshotConfig;
+    epgTypeSnapshotConfig.socketPath = epgTypeSnapshotPath;
+    SuiteBridgeLocalControlTransport epgTypeSnapshotDedicated(
+        epgTypeSnapshotConfig);
+    EpgTypeSnapshotCompatibility epgTypeSnapshotCompatibility;
+    SuiteBridgePrioritizedEpgTypeSnapshotTransport epgTypeSnapshotRouted(
+        epgTypeSnapshotDedicated,
+        epgTypeSnapshotCompatibility);
+
+    const auto epgTypeSnapshotReply =
+        epgTypeSnapshotRouted.requestEpgTypeSnapshot(50, 250, 0, 64);
+    assert(epgTypeSnapshotReply.transportSucceeded);
+    assert(epgTypeSnapshotReply.transportStatus ==
+        SuiteBridgeReadTransportStatus::Success);
+    assert(epgTypeSnapshotReply.payloadValid);
+    assert(epgTypeSnapshotReply.replyCode == 250);
+    assert(epgTypeSnapshotReply.nextOffset == 1);
+    assert(epgTypeSnapshotReply.scanned == 1);
+    assert(epgTypeSnapshotReply.done);
+    assert(epgTypeSnapshotReply.items.size() == 1);
+    assert(epgTypeSnapshotReply.items[0].mediaType ==
+        EpgScraperMediaType::Series);
+    assert(epgTypeSnapshotCompatibility.calls.load() == 0);
+    epgTypeSnapshotServer.join();
+
+    SuiteBridgeLocalControlTransportConfig epgTypeSnapshotMissingConfig;
+    epgTypeSnapshotMissingConfig.socketPath =
+        epgTypeSnapshotPath + ".missing";
+    SuiteBridgeLocalControlTransport epgTypeSnapshotMissing(
+        epgTypeSnapshotMissingConfig);
+    SuiteBridgePrioritizedEpgTypeSnapshotTransport epgTypeSnapshotFallback(
+        epgTypeSnapshotMissing,
+        epgTypeSnapshotCompatibility);
+    const auto epgTypeSnapshotFallbackReply =
+        epgTypeSnapshotFallback.requestEpgTypeSnapshot(50, 250, 0, 64);
+    assert(epgTypeSnapshotFallbackReply.transportSucceeded);
+    assert(epgTypeSnapshotCompatibility.calls.load() == 1);
+
+    EpgTypeSnapshotTimeoutTransport epgTypeSnapshotTimeout;
+    SuiteBridgePrioritizedEpgTypeSnapshotTransport epgTypeSnapshotNoReplay(
+        epgTypeSnapshotTimeout,
+        epgTypeSnapshotCompatibility);
+    const auto epgTypeSnapshotTimeoutReply =
+        epgTypeSnapshotNoReplay.requestEpgTypeSnapshot(50, 250, 0, 64);
+    assert(!epgTypeSnapshotTimeoutReply.transportSucceeded);
+    assert(epgTypeSnapshotTimeoutReply.transportStatus ==
+        SuiteBridgeReadTransportStatus::Timeout);
+    assert(epgTypeSnapshotCompatibility.calls.load() == 1);
+
+
     const std::string recordingMetadataPath =
         "/tmp/vdr-suite-recording-metadata-control-" +
         std::to_string(getpid()) + ".sock";
@@ -760,6 +865,6 @@ int main()
     assert(recordingMetadataCompatibility.calls.load() == 1);
 
     std::puts(
-        "SuiteBridge local control transport Live/native/OSD/HbbTV/Teletext/provider tests passed");
+        "SuiteBridge local control transport Live/native/OSD/HbbTV/Teletext/provider/ETYPES tests passed");
     return 0;
 }

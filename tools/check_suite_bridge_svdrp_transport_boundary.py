@@ -10,6 +10,9 @@ SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpTransport.cpp"
 TYPE_SNAPSHOT_SOURCE = (
     ROOT / "core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp"
 )
+TYPE_SNAPSHOT_PARSER = (
+    ROOT / "core/agent/include/SuiteBridgeEpgTypeSnapshotPayloadParser.h"
+)
 METADATA_SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp"
 TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_transport.cpp"
 TYPE_SNAPSHOT_TEST = (
@@ -22,6 +25,7 @@ REQUIRED = [
     HEADER,
     SOURCE,
     TYPE_SNAPSHOT_SOURCE,
+    TYPE_SNAPSHOT_PARSER,
     METADATA_SOURCE,
     TEST,
     TYPE_SNAPSHOT_TEST,
@@ -86,9 +90,14 @@ REQUIRED_SOURCE_FRAGMENTS = [
 REQUIRED_TYPE_SNAPSHOT_SOURCE_FRAGMENTS = [
     '"PLUG suitebridge ETYPES " + std::to_string(fromTime)',
     "limit == 0 || limit > 64",
+    "page.payloadValid = detail::parseEpgTypeSnapshotPayload",
+]
+
+REQUIRED_TYPE_SNAPSHOT_PARSER_FRAGMENTS = [
     "nextOffset != requestedOffset + scanned",
     'fields[4] != "S" && fields[4] != "M"',
-    "page.payloadValid = parsePayload",
+    "endTime <= requestedFrom",
+    "startTime >= requestedUntil",
 ]
 
 REQUIRED_METADATA_SOURCE_FRAGMENTS = [
@@ -147,6 +156,11 @@ type_snapshot_source_text = (
     if TYPE_SNAPSHOT_SOURCE.is_file()
     else ""
 )
+type_snapshot_parser_text = (
+    TYPE_SNAPSHOT_PARSER.read_text(encoding="utf-8")
+    if TYPE_SNAPSHOT_PARSER.is_file()
+    else ""
+)
 metadata_source_text = (
     METADATA_SOURCE.read_text(encoding="utf-8")
     if METADATA_SOURCE.is_file()
@@ -169,6 +183,7 @@ for token in FORBIDDEN_SOURCE_TOKENS:
         token in header_text
         or token in source_text
         or token in type_snapshot_source_text
+        or token in type_snapshot_parser_text
         or token in metadata_source_text
     ):
         errors.append(
@@ -191,6 +206,12 @@ for fragment in REQUIRED_TYPE_SNAPSHOT_SOURCE_FRAGMENTS:
     if fragment not in type_snapshot_source_text:
         errors.append(
             f"missing bounded EPG type snapshot transport contract: {fragment}"
+        )
+
+for fragment in REQUIRED_TYPE_SNAPSHOT_PARSER_FRAGMENTS:
+    if fragment not in type_snapshot_parser_text:
+        errors.append(
+            f"missing shared EPG type snapshot parser contract: {fragment}"
         )
 
 for fragment in REQUIRED_METADATA_SOURCE_FRAGMENTS:

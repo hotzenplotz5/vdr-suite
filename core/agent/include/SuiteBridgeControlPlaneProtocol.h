@@ -42,6 +42,7 @@ enum class Operation : std::uint16_t
     EpgMetadata = 17,
     EpgArtwork = 18,
     RecordingMetadata = 19,
+    EpgTypeSnapshot = 20,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -108,6 +109,7 @@ inline const char* operationName(Operation operation)
         case Operation::EpgMetadata: return "epg-metadata";
         case Operation::EpgArtwork: return "epg-artwork";
         case Operation::RecordingMetadata: return "recording-metadata";
+        case Operation::EpgTypeSnapshot: return "epg-type-snapshot";
     }
     return "unknown";
 }
@@ -115,7 +117,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 19;
+    return value >= 1 && value <= 20;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -136,6 +138,7 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::EpgMetadata:
         case Operation::EpgArtwork:
         case Operation::RecordingMetadata:
+        case Operation::EpgTypeSnapshot:
             return ServiceClass::BackgroundProvider;
         default:
             return ServiceClass::CriticalControl;
