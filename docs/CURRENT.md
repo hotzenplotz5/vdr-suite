@@ -90,6 +90,16 @@ reference case, not a mandatory template for simpler mutations such as native
 Recording marks. Reuse common mutation guarantees; add Timer-like lifecycle
 layers only when their distinct failure/authority responsibility is proven.
 
+ADR-0064 internal control-plane status:
+Critical Live/native-probe, Legacy OSD, HbbTV/Teletext and
+RMETA/META/ARTW/ETYPES have completed the local prioritized transport migration.
+The latency-isolation objective is closed. Timer CREATE/DELETE/MODIFY remain on
+typed SVDRP by design; RMARKS/RCUT remain serialized with NMARKS/NCUT on SVDRP
+because splitting Recording editing across transports would introduce
+unproven marks-file/cut-state concurrency. MCOMPARE remains diagnostic-only.
+A future mutation migration requires a new operation-specific architecture
+slice; it is not unfinished Phase 69 or unfinished ADR-0064 foundation.
+
 Accepted Phase-69.C checkpoints:
 PR #321 -> beb98f6edab39d962bd6415db7be21cf145e05cb
 PR #321 hosted CI run 35873370127 / #9091: SUCCESS (6/6)
