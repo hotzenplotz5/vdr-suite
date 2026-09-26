@@ -112,6 +112,29 @@ if "include mk/phase64-restfulapi-native-timer-inventory-reader-tests.mk" not in
 if "RestfulApiNativeTimerInventoryReader.cpp" in vdr_sources:
     raise SystemExit("Slice-16 reader is prematurely linked into the daemon VDR source list")
 
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+if not productive_successor_guard.is_file():
+    raise SystemExit(
+        "Phase-69.C productive Timer CREATE guard is required before the "
+        "complete inventory reader may be wired into daemon polling"
+    )
+productive_successor = productive_successor_guard.read_text(encoding="utf-8")
+for token in [
+    "RestfulApiNativeTimerInventoryReader",
+    "VdrManagedTimerCreateReadbackEvidenceBuilder::build(",
+    "agent->backendGeneration != expectation.backendGeneration",
+]:
+    if token not in productive_successor:
+        raise SystemExit(
+            "productive Timer CREATE guard missing inventory-reader marker: "
+            + token
+        )
+reviewed_productive_paths = {
+    Path("core/daemon/src/DaemonRuntimePolling.cpp"),
+}
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "runtime",
@@ -128,9 +151,12 @@ for scan_root in [
         if "RestfulApiNativeTimerInventoryReader" in path.read_text(
             encoding="utf-8", errors="ignore"
         ):
+            relative = path.relative_to(ROOT)
+            if relative in reviewed_productive_paths:
+                continue
             raise SystemExit(
                 "premature Slice-16 runtime wiring: "
-                + str(path.relative_to(ROOT))
+                + str(relative)
             )
 
 print("Phase-64 RESTfulAPI native Timer inventory reader check passed")
