@@ -194,6 +194,23 @@ if readback_successor_guard.is_file():
         "must remain productively",
     ])
 
+productive_successor_guard = (
+    ROOT / "tools/check_phase69_native_timer_create_productive_runtime.py"
+)
+productive_successor_valid = False
+if productive_successor_guard.is_file():
+    productive_successor = productive_successor_guard.read_text(encoding="utf-8")
+    productive_successor_valid = all(marker in productive_successor for marker in [
+        "core/daemon/tests/test_native_timer_create_productive_runtime.cpp",
+        "NativeTimerBindingOwnership::managed",
+        "reconciliationsCompleted == 1",
+    ])
+productive_paths = {
+    Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
+    Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
+}
+
 for scan_root in forbidden_roots:
     if not scan_root.exists():
         continue
@@ -215,6 +232,12 @@ for scan_root in forbidden_roots:
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding readback wiring requires "
                     "the exact dormant readback-reconciliation successor guard")
+            continue
+        if relative in productive_paths:
+            if not productive_successor_valid:
+                raise SystemExit(
+                    "Phase-69.C NativeTimerBinding productive wiring requires "
+                    "the exact native-effect successor guard")
             continue
         raise SystemExit(
             "premature NativeTimerBinding runtime wiring: "

@@ -235,3 +235,69 @@ test-phase69-native-timer-create-readback-reconciliation: test-phase69-native-ti
 	$(BUILD_DIR)/test_native_timer_create_readback_reconciliation
 	python3 tools/check_phase69_native_timer_create_readback_reconciliation.py
 
+
+
+.PHONY: test-phase69-native-timer-create-productive-runtime
+
+test-phase69-native-timer-create-productive-runtime: test-phase69-native-timer-create-readback-reconciliation
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/sqlite/include -Icore/operations/include -Icore/timers/include -Icore/agent/include -Icore/security/include -Icore/vdr/include \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/agent/src/BackendAgentNativeTimerDelete.cpp \
+		core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+		core/agent/src/BackendAgentCommandReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
+		core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/timers/src/NativeTimerSpecification.cpp \
+		core/timers/src/NativeTimerObservation.cpp \
+		core/timers/src/NativeTimerCreateOperationPayload.cpp \
+		core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
+		core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
+		core/timers/src/NativeTimerCreateReadbackVerificationService.cpp \
+		core/timers/src/NativeTimerCreateDispatchService.cpp \
+		core/timers/src/TimerAssignmentFulfillmentService.cpp \
+		core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
+		core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+		core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
+		core/daemon/src/NativeTimerCreateProductiveRuntime.cpp \
+		core/daemon/tests/test_native_timer_create_productive_runtime.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_native_timer_create_productive_runtime
+	$(BUILD_DIR)/test_native_timer_create_productive_runtime
+	python3 tools/check_phase69_native_timer_create_productive_runtime.py
+
+.PHONY: test-phase69-native-timer-create-real-acceptance-fixture
+
+test-phase69-native-timer-create-real-acceptance-fixture:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		tools/phase69-runtime-acceptance/prepare_native_timer_create_fixture.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture
+	$(BUILD_DIR)/phase69-native-timer-create-acceptance-fixture --self-test
+	python3 tools/check_phase69_native_timer_create_real_acceptance_fixture.py
+

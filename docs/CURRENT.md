@@ -17,6 +17,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
 - [Native Timer CREATE Outcome Application](development/phase-69c-native-timer-create-outcome-application.md)
 - [Native Timer CREATE Readback Reconciliation](development/phase-69c-native-timer-create-readback-reconciliation.md)
+- [Native Timer CREATE Productive Runtime](development/phase-69c-native-timer-create-productive-runtime.md)
 - [Phase Map](planning/phase-map.md)
 - [Golden User Journeys](planning/golden-user-journeys.md)
 - [Current Project Status](development/current-status.md)
@@ -74,14 +75,18 @@ Current active runtime slice:
 69.C - Revision/precondition/idempotency exposure
 
 Current bounded 69.C step:
-Native Timer CREATE readback reconciliation: consume an existing
-NativeTimerCreateReadbackExpectation plus authoritative complete Timer readback
-evidence, reload the immutable native.timer.create operation payload and delegate
-only to the existing NativeTimerCreateReadbackVerificationService,
-TimerAssignmentFulfillmentService and NativeTimerCreateOperationCompletionService
-owners. The adapter is stateless and productively uninvoked; Agent reservation,
-dispatch claim, activation, polling, SuiteBridge/VDR CREATE and authoritative
-native Timer inventory acquisition remain closed.
+Native Timer CREATE productive runtime: reuse the existing daemon VDR-poll
+cadence to advance only durable non-terminal timer.create operations through
+exact Agent reservation, dispatch claim and activation, then consume only the
+durable typed Agent result and authoritative complete Timer readback for outcome
+application, verified NativeTimerBinding, bound TimerAssignment and succeeded
+MutationOperation. Runtime discovery is a bounded read of the existing
+MutationOperationRepository, not a second queue or lifecycle. outcome_unknown
+is reconciliation-only and never authorizes redispatch. Timer mutation transport
+remains typed SVDRP under the closed ADR-0064 decision.
+
+This is the first 69.C candidate with NATIVE_EFFECT_REACHABLE=YES and therefore
+requires exact-head real yaVDR acceptance after hosted CI and before merge.
 
 Architecture guard:
 ADR-0063 now makes mutation complexity proportional to the concrete authority
