@@ -83,7 +83,11 @@ application, verified NativeTimerBinding, bound TimerAssignment and succeeded
 MutationOperation. Runtime discovery is a bounded read of the existing
 MutationOperationRepository, not a second queue or lifecycle. outcome_unknown
 is reconciliation-only and never authorizes redispatch. Timer mutation transport
-remains typed SVDRP under the closed ADR-0064 decision.
+remains typed SVDRP under the closed ADR-0064 decision. Phase-64 provider
+selection remains fail-closed: observed SuiteBridge capability does not create
+`vdr.timer` authority. The existing command-admin authority now exposes explicit
+Timer-CREATE ownership status/set/clear for `suitebridge:local` and only
+`vdr.timer.create` in this slice.
 
 This is the first 69.C candidate with NATIVE_EFFECT_REACHABLE=YES and therefore
 requires exact-head real yaVDR acceptance after hosted CI and before merge.
