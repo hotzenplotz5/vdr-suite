@@ -260,8 +260,11 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             providerLocalConfig;
         providerLocalConfig.connectTimeout =
             std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        // Background TVScraper work may legitimately consume the complete
+        // bounded operation budget. Do not apply the shorter interactive I/O
+        // phase budget after the request has already been dispatched.
         providerLocalConfig.ioTimeout =
-            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
         providerLocalConfig.operationTimeout =
             std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
         context->providerLocalControlTransport =
