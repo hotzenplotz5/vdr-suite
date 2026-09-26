@@ -77,6 +77,8 @@ struct BackendRuntimeContext
         hbbtvLocalControlTransport;
     std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedHbbtvTransport>
         hbbtvTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedTeletextTransport>
+        teletextTransport;
     std::unique_ptr<SuiteBridgeHbbtvResolver> hbbtvResolver;
     std::unique_ptr<SuiteBridgeHbbtvRuntimeResolver> hbbtvRuntimeResolver;
     std::unique_ptr<SuiteBridgeHbbtvPresentationResolver>
@@ -169,13 +171,17 @@ struct BackendRuntimeContext
 
     SuiteBridgeTeletextResolver* ensureTeletextResolver()
     {
-        if (!suiteBridgeTransport) {
+        ISuiteBridgeTeletextTransport* const transport =
+            teletextTransport
+                ? static_cast<ISuiteBridgeTeletextTransport*>(
+                    teletextTransport.get())
+                : static_cast<ISuiteBridgeTeletextTransport*>(
+                    suiteBridgeTransport.get());
+        if (transport == nullptr)
             return nullptr;
-        }
         if (!teletextResolver) {
             teletextResolver =
-                std::make_unique<SuiteBridgeTeletextResolver>(
-                    *suiteBridgeTransport);
+                std::make_unique<SuiteBridgeTeletextResolver>(*transport);
         }
         return teletextResolver.get();
     }

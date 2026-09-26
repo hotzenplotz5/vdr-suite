@@ -37,6 +37,8 @@ enum class Operation : std::uint16_t
     HbbtvRuntime = 12,
     HbbtvPresentation = 13,
     HbbtvMedia = 14,
+    TeletextCapability = 15,
+    TeletextPage = 16,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -97,6 +99,8 @@ inline const char* operationName(Operation operation)
         case Operation::HbbtvRuntime: return "hbbtv-runtime";
         case Operation::HbbtvPresentation: return "hbbtv-presentation";
         case Operation::HbbtvMedia: return "hbbtv-media";
+        case Operation::TeletextCapability: return "teletext-capability";
+        case Operation::TeletextPage: return "teletext-page";
     }
     return "unknown";
 }
@@ -104,7 +108,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 14;
+    return value >= 1 && value <= 16;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -119,6 +123,8 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::HbbtvRuntime:
         case Operation::HbbtvPresentation:
         case Operation::HbbtvMedia:
+        case Operation::TeletextCapability:
+        case Operation::TeletextPage:
             return ServiceClass::ExternalPluginInteractive;
         default:
             return ServiceClass::CriticalControl;

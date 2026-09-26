@@ -3,8 +3,8 @@
 ## Status
 
 ADR-0064 Foundation, both initial **Critical Control** slices, Legacy OSD
-**Interactive Control**, and the HbbTV **External Plugin Interactive** slice are
-implemented on the internal VDR-Suite/SuiteBridge boundary.
+**Interactive Control**, and the HbbTV + Teletext **External Plugin Interactive**
+slices are implemented on the internal VDR-Suite/SuiteBridge boundary.
 
 This does not change Phase 69, the public API, actor authorization or mutation
 semantics.
@@ -52,6 +52,8 @@ The initial registry is deliberately small:
 | HBBRUN LAUNCH/STATUS/INPUT/CLOSE | External Plugin Interactive | migrated |
 | HBBPRES META/CHUNK | External Plugin Interactive | migrated |
 | HBBMEDIA | External Plugin Interactive | migrated |
+| TTXC | External Plugin Interactive | migrated |
+| TTXP | External Plugin Interactive | migrated |
 
 ## Admission, deadline and lane
 
@@ -60,8 +62,8 @@ The endpoint now owns three independent finite execution lanes:
 - one **Critical Control** queue/worker for Live and native-probe fencing;
 - one **Interactive Control/Read** queue/worker for Legacy OSD capability,
   semantic snapshots and fenced native input;
-- one **External Plugin Interactive** queue/worker for HbbTV discovery,
-  runtime control, presentation and media reads.
+- one **External Plugin Interactive** queue/worker for serialized HbbTV and
+  Teletext provider-service work.
 
 A blocked HbbTV provider request therefore cannot consume either the Critical
 or Legacy-OSD worker. Within each class execution remains serialized. This adds
@@ -152,11 +154,33 @@ Live capability and OSD snapshot to complete inside the bounded test budget.
 The transport regression separately proves that a local HbbTV timeout is not
 replayed through SVDRP.
 
+## Teletext provider/thread audit
+
+Teletext remains behind the existing typed `SuiteBridgeTeletextCommandService`
+and `SuiteBridgeTeletextAdapter`. The provider ABI is pinned to
+`vdr-plugin-osdteletext` commit
+`70496310d1fa5200ff808d1552f0f5d252893870`.
+
+The provider's `SnapshotStore::Read()` copies the selected page snapshot and
+service-state metadata while holding its own mutex. The mutex is released before
+`cRenderPage::RenderTeletextCode()` and normalization of the bounded 25x40
+cell matrix. The service path performs no network or filesystem I/O and exports
+no VDR-native pointer lifetime across the call.
+
+Teletext therefore shares the serial External Plugin Interactive worker with
+HbbTV. This keeps all migrated external-plugin Service calls conservative and
+non-reentrant while still isolating them from Critical Live/native-probe work
+and Legacy OSD. No separate Teletext worker is justified by the audited
+provider contract.
+
+The daemon uses `SuiteBridgePrioritizedTeletextTransport`; SVDRP is used only
+for a pre-dispatch `Unavailable` result. A local timeout is returned to the
+caller and is not replayed through the compatibility path.
+
 ## Still staged on existing paths
 
 Not migrated by this slice:
 
-- Teletext;
 - Timer CREATE/DELETE/MODIFY;
 - Recording marks/cut;
 - RMETA/META/ARTW/ETYPES and diagnostics.

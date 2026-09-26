@@ -24,8 +24,29 @@ SuiteBridgeTeletextCommandReply toTeletextReply(
     SuiteBridgeTeletextCommandReply result;
     result.replyCode = reply.replyCode;
     result.payload = reply.payload;
+    switch (reply.transportStatus)
+    {
+        case SuiteBridgeTransportStatus::Success:
+            result.transportStatus =
+                SuiteBridgeTeletextTransportStatus::Success;
+            break;
+        case SuiteBridgeTransportStatus::Unavailable:
+            result.transportStatus =
+                SuiteBridgeTeletextTransportStatus::Unavailable;
+            break;
+        case SuiteBridgeTransportStatus::Timeout:
+            result.transportStatus =
+                SuiteBridgeTeletextTransportStatus::Timeout;
+            break;
+        case SuiteBridgeTransportStatus::Failed:
+            result.transportStatus =
+                SuiteBridgeTeletextTransportStatus::Failed;
+            break;
+    }
     result.transportSucceeded =
-        reply.transportSucceeded() && reply.replyCode == 250;
+        result.transportStatus ==
+            SuiteBridgeTeletextTransportStatus::Success &&
+        reply.replyCode == 250;
     return result;
 }
 

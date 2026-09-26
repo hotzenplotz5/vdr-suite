@@ -3,9 +3,19 @@
 #include <cstdint>
 #include <string>
 
+enum class SuiteBridgeTeletextTransportStatus
+{
+    Success,
+    Unavailable,
+    Failed,
+    Timeout
+};
+
 struct SuiteBridgeTeletextCommandReply
 {
     bool transportSucceeded = false;
+    SuiteBridgeTeletextTransportStatus transportStatus =
+        SuiteBridgeTeletextTransportStatus::Failed;
     int replyCode = 0;
     std::string payload;
 };

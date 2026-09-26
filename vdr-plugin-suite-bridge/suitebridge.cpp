@@ -204,6 +204,17 @@ bool cPluginSuiteBridge::Start(void)
                   payload.c_str());
             }
 
+            if (operation == Operation::TeletextCapability) {
+              return teletextCommand_.Handle(
+                  "TTXC",
+                  payload.c_str());
+            }
+            if (operation == Operation::TeletextPage) {
+              return teletextCommand_.Handle(
+                  "TTXP",
+                  payload.c_str());
+            }
+
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
               if (fields.size() != 10) {
@@ -332,7 +343,9 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[10] +
             controlMetrics.admittedByOperation[11] +
             controlMetrics.admittedByOperation[12] +
-            controlMetrics.admittedByOperation[13]),
+            controlMetrics.admittedByOperation[13] +
+            controlMetrics.admittedByOperation[14] +
+            controlMetrics.admittedByOperation[15]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
@@ -347,7 +360,9 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.executedByOperation[10] +
             controlMetrics.executedByOperation[11] +
             controlMetrics.executedByOperation[12] +
-            controlMetrics.executedByOperation[13]),
+            controlMetrics.executedByOperation[13] +
+            controlMetrics.executedByOperation[14] +
+            controlMetrics.executedByOperation[15]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(
