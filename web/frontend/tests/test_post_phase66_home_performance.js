@@ -98,8 +98,16 @@ assert(programmeLoadSource.includes('heroHasProgrammeProjection()'));
 assert(programmeLoadSource.includes('(config.retainVisible === true || !reset)'));
 assert(programmeLoadSource.includes('if (preserveProjection) refreshHeroNotice();'));
 assert(
-  !programmeLoadSource.includes("if (!reset || config.retainVisible !== true) render();"),
-  'retained/incremental programme failures must not force a full Hero render'
+  programmeLoadSource.includes("else if (!reset || config.retainVisible !== true) render();"),
+  'non-retained or initial programme failures keep the structural render fallback'
+);
+const preserveIndex =
+  programmeLoadSource.indexOf('if (preserveProjection) refreshHeroNotice();');
+const fallbackIndex =
+  programmeLoadSource.indexOf("else if (!reset || config.retainVisible !== true) render();");
+assert(
+  preserveIndex >= 0 && fallbackIndex > preserveIndex,
+  'retained/incremental programme failures must be intercepted before the structural Hero render fallback'
 );
 const loadSource = between(
   'function load(force, options)',
