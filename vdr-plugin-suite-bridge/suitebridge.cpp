@@ -296,7 +296,7 @@ void cPluginSuiteBridge::Stop(void)
     controlPlane_.Stop();
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
-        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu queue-high-water=%llu",
+        "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu",
         static_cast<unsigned long long>(
             controlMetrics.admittedByOperation[0] +
             controlMetrics.admittedByOperation[1] +
@@ -323,7 +323,10 @@ void cPluginSuiteBridge::Stop(void)
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(
             controlMetrics.deadlineExpiredBeforeExecution),
-        static_cast<unsigned long long>(controlMetrics.queueHighWaterMark));
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[0]),
+        static_cast<unsigned long long>(
+            controlMetrics.queueHighWaterByClass[1]));
     liveSource_.StopAll();
     statusMonitor_.Deactivate();
 
