@@ -169,6 +169,15 @@ The adapter invokes the provider synchronously through VDR's plugin Service
 mechanism. The new transport must not assume that arbitrary concurrent Service
 calls are safe without provider-specific proof.
 
+The later HbbTV implementation audit proved a narrower execution contract:
+the provider's discovery and media reads are mutex-protected bounded state
+reads; runtime state is serialized and UI effects retain the provider's
+existing VDR remote/main-context scheduling; presentation can perform
+BGRA-to-RGBA conversion and QOI encoding while holding its presentation mutex.
+Consequently HbbTV is assigned one dedicated serial External Plugin Interactive
+worker. This isolates HbbTV provider latency from Critical and Legacy OSD
+without enabling concurrent calls into `vdr-plugin-web`.
+
 ### Native Timer mutation families
 
 | Wire operation | Purpose | Native synchronization |
@@ -378,8 +387,12 @@ AF_UNIX endpoint
    +-- critical native-control lane
    |     Live / native probe / current OSD dispatch
    |
-   +-- interactive/provider lanes
-   |     OSD snapshot / Teletext / HbbTV
+   +-- interactive control lane
+   |     OSD snapshot/input
+   |
+   +-- external-plugin interactive lane
+   |     HbbTV (serial provider Service calls)
+   |     Teletext only after its own provider audit
    |
    +-- native-mutation lane
    |     Timer / marks / cut, serialized unless proven otherwise
