@@ -20,4 +20,5 @@ test-suitebridge-control-plane-plugin:
 test-suitebridge-control-plane: test-suitebridge-control-plane-architecture test-suitebridge-control-plane-agent test-suitebridge-control-plane-plugin
 
 test-fast: test-suitebridge-control-plane
+test-ci-fast: test-suitebridge-control-plane
 test-architecture: test-suitebridge-control-plane-architecture
