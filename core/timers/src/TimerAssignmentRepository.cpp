@@ -1148,6 +1148,97 @@ TimerAssignmentRepository::listForIntent(
     return result;
 }
 
+TimerAssignmentRepositoryListResult
+TimerAssignmentRepository::listForBackendAfter(
+    const std::string& backendId,
+    const std::string& afterTimerAssignmentId,
+    std::size_t limit)
+{
+    TimerAssignmentRepositoryListResult result;
+    constexpr std::size_t kMaximumBoundedPageFetch = 101U;
+
+    if (!safeIdentity(backendId) ||
+        (!afterTimerAssignmentId.empty() &&
+         !safeIdentity(afterTimerAssignmentId)) ||
+        limit == 0U ||
+        limit > kMaximumBoundedPageFetch)
+    {
+        result.status = TimerAssignmentRepositoryStatus::invalid;
+        return result;
+    }
+
+    auto lease = database_.acquireTransactionLease();
+    if (!ensureSchema())
+    {
+        result.status =
+            TimerAssignmentRepositoryStatus::storageError;
+        return result;
+    }
+
+    const bool afterPresent = !afterTimerAssignmentId.empty();
+    const std::string sql =
+        std::string("SELECT ") + kSelectColumns +
+        " FROM timer_assignments "
+        "WHERE backend_id=? " +
+        (afterPresent
+            ? std::string("AND timer_assignment_id>? ")
+            : std::string()) +
+        "ORDER BY timer_assignment_id ASC LIMIT ?;";
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        result.status =
+            TimerAssignmentRepositoryStatus::storageError;
+        return result;
+    }
+
+    int index = 1;
+    if (!bindText(statement, index++, backendId) ||
+        (afterPresent &&
+         !bindText(statement, index++, afterTimerAssignmentId)) ||
+        sqlite3_bind_int64(
+            statement,
+            index,
+            static_cast<sqlite3_int64>(limit)) != SQLITE_OK)
+    {
+        sqlite3_finalize(statement);
+        result.status =
+            TimerAssignmentRepositoryStatus::storageError;
+        return result;
+    }
+
+    int step = SQLITE_ROW;
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW)
+    {
+        TimerAssignment assignment;
+        if (!readAssignment(statement, assignment))
+        {
+            sqlite3_finalize(statement);
+            result.assignments.clear();
+            result.status =
+                TimerAssignmentRepositoryStatus::storageError;
+            return result;
+        }
+        result.assignments.push_back(assignment);
+    }
+
+    sqlite3_finalize(statement);
+    result.status = step == SQLITE_DONE
+        ? TimerAssignmentRepositoryStatus::ok
+        : TimerAssignmentRepositoryStatus::storageError;
+    if (!result.ok())
+    {
+        result.assignments.clear();
+    }
+    return result;
+}
+
 TimerAssignmentRepositoryResult
 TimerAssignmentRepository::findActivePrimaryForIntent(
     const std::string& timerIntentId)

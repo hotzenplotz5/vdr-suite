@@ -141,17 +141,6 @@ int main()
         "backend-two"));
     assert(hiddenWrongBackend.statusCode == 404);
 
-    ApiResponse collectionStillClosed;
-    assert(runtime.tryHandleGet(
-        "/api/v1/timer-assignments",
-        "actor:test",
-        "phase69c-timer-read-collection",
-        "",
-        collectionStillClosed,
-        "",
-        "backend-one"));
-    assert(collectionStillClosed.statusCode == 404);
-
     ApiResponse capabilities;
     assert(runtime.tryHandleGet(
         "/api/v1/capabilities",

@@ -247,6 +247,22 @@ Cross-actor lookup preserves the same `404 not_found` result as a missing
 operation. Internal idempotency keys, request/resource fingerprints, mutation
 payloads and result references remain private.
 
+## 69.D first stable collection candidate
+
+The live post-69.C inventory selected one backend-scoped public
+TimerAssignment collection as the first bounded 69.D slice. It is derived from
+the already accepted public TimerAssignment identity and the existing
+TimerAssignmentRepository/TimerAssignmentReadService owner, not from a pre-v1
+collection serializer.
+
+The contract fixes `timerAssignmentId ASC` keyset ordering, default/max limits
+50/100, actor+backend-bound opaque cursors, the ADR-0048 collection envelope and
+`meta.partial=false` for the one Suite-owned repository source. Cross-backend
+aggregation remains closed until a later slice defines source status, duplicate
+and ordering semantics.
+
+See [Phase 69.D first public collection](phase-69d-timer-assignment-collection.md).
+
 ## 69.C completion
 
 PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D is now active and must derive the first stable collection from the live inventory rather than freezing a pre-v1 collection by analogy.

@@ -2,6 +2,7 @@
 
 #include "TimerAssignment.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -138,6 +139,15 @@ public:
 
     TimerAssignmentRepositoryListResult listForIntent(
         const std::string& timerIntentId);
+
+    // Bounded keyset read for one backend. The immutable TimerAssignment
+    // identity is the stable ordering key; callers provide the last identity
+    // from the previous page and may request at most 101 rows so a read facade
+    // can detect one bounded look-ahead row without materializing the set.
+    TimerAssignmentRepositoryListResult listForBackendAfter(
+        const std::string& backendId,
+        const std::string& afterTimerAssignmentId,
+        std::size_t limit);
 
     // Returns an opaque per-intent set revision. Callers that plan from a
     // subsequently loaded assignment list can safely persist only against this
