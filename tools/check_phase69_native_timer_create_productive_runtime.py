@@ -14,6 +14,7 @@ paths = {
     "daemon_sources": ROOT / "mk/daemon-sources.mk",
     "phase69_make": ROOT / "mk/phase69-public-api-tests.mk",
     "ci_groups": ROOT / "mk/test-groups.mk",
+    "command_admin": ROOT / "apps/tools/backend_agent_command_admin.cpp",
     "doc": ROOT / "docs/development/phase-69c-native-timer-create-productive-runtime.md",
 }
 
@@ -91,11 +92,28 @@ required = {
     "ci_groups": [
         "test-phase69-native-timer-create-productive-runtime",
     ],
+    "command_admin": [
+        '"BackendAgentNativeTimerCreate.h"',
+        '"--timer-provider-ownership-status"',
+        '"--set-timer-create-owner"',
+        '"--clear-timer-owner"',
+        "Action::TimerProviderOwnershipStatus",
+        "Action::SetTimerCreateOwner",
+        "Action::ClearTimerOwner",
+        "kBackendAgentNativeTimerCreateAuthorityDomain",
+        "kBackendAgentNativeTimerCreateProviderId",
+        "kBackendAgentNativeTimerCreateProviderKind",
+        "kBackendAgentNativeTimerCreateCapability",
+        "setLocalProviderOwnership(",
+        "clearLocalProviderOwnership(",
+    ],
     "doc": [
         "NATIVE_EFFECT_REACHABLE=YES",
         "YAVDR_ACCEPTANCE_REQUIRED=YES",
         "outcome_unknown",
         "no blind retry",
+        "separately configured",
+        "--set-timer-create-owner",
     ],
 }
 

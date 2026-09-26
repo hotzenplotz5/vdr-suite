@@ -1,6 +1,7 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeTimerCreate.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingMarksModify.h"
 #include "Database.h"
@@ -76,10 +77,12 @@ void usage()
         << "usage: vdr-suite-backend-agent-command-admin "
            "[--database PATH] [--backend ID] "
            "(--status | --provider-ownership-status | --live-provider-ownership-status | "
+           "--timer-provider-ownership-status | "
            "--recording-marks-provider-ownership-status | "
            "--recording-cut-provider-ownership-status | "
            "--set-native-probe-owner | --clear-native-probe-owner | "
            "--set-live-owner | --clear-live-owner | "
+           "--set-timer-create-owner | --clear-timer-owner | "
            "--set-recording-marks-owner | --clear-recording-marks-owner | "
            "--set-recording-cut-owner | --clear-recording-cut-owner | "
            "--enqueue-probe | --enqueue-native-probe [--deadline-seconds N] | "
@@ -101,12 +104,15 @@ int main(int argc, char** argv)
         Status,
         ProviderOwnershipStatus,
         LiveProviderOwnershipStatus,
+        TimerProviderOwnershipStatus,
         RecordingMarksProviderOwnershipStatus,
         RecordingCutProviderOwnershipStatus,
         SetNativeProbeOwner,
         ClearNativeProbeOwner,
         SetLiveOwner,
         ClearLiveOwner,
+        SetTimerCreateOwner,
+        ClearTimerOwner,
         SetRecordingMarksOwner,
         ClearRecordingMarksOwner,
         SetRecordingCutOwner,
@@ -130,6 +136,8 @@ int main(int argc, char** argv)
             action = action == Action::None ? Action::ProviderOwnershipStatus : Action::None;
         else if (argument == "--live-provider-ownership-status")
             action = action == Action::None ? Action::LiveProviderOwnershipStatus : Action::None;
+        else if (argument == "--timer-provider-ownership-status")
+            action = action == Action::None ? Action::TimerProviderOwnershipStatus : Action::None;
         else if (argument == "--recording-marks-provider-ownership-status")
             action = action == Action::None ? Action::RecordingMarksProviderOwnershipStatus : Action::None;
         else if (argument == "--recording-cut-provider-ownership-status")
@@ -142,6 +150,10 @@ int main(int argc, char** argv)
             action = action == Action::None ? Action::SetLiveOwner : Action::None;
         else if (argument == "--clear-live-owner")
             action = action == Action::None ? Action::ClearLiveOwner : Action::None;
+        else if (argument == "--set-timer-create-owner")
+            action = action == Action::None ? Action::SetTimerCreateOwner : Action::None;
+        else if (argument == "--clear-timer-owner")
+            action = action == Action::None ? Action::ClearTimerOwner : Action::None;
         else if (argument == "--set-recording-marks-owner")
             action = action == Action::None ? Action::SetRecordingMarksOwner : Action::None;
         else if (argument == "--clear-recording-marks-owner")
@@ -191,6 +203,7 @@ int main(int argc, char** argv)
         action == Action::Status ||
         action == Action::ProviderOwnershipStatus ||
         action == Action::LiveProviderOwnershipStatus ||
+        action == Action::TimerProviderOwnershipStatus ||
         action == Action::RecordingMarksProviderOwnershipStatus ||
         action == Action::RecordingCutProviderOwnershipStatus;
     if (!statusOnly &&
@@ -238,6 +251,14 @@ int main(int argc, char** argv)
         printOwnershipStatus(commands, backendId, "vdr.live");
         return 0;
     }
+    if (action == Action::TimerProviderOwnershipStatus)
+    {
+        printOwnershipStatus(
+            commands,
+            backendId,
+            vdrsuite::agent::kBackendAgentNativeTimerCreateAuthorityDomain);
+        return 0;
+    }
     if (action == Action::RecordingMarksProviderOwnershipStatus)
     {
         printOwnershipStatus(
@@ -257,32 +278,42 @@ int main(int argc, char** argv)
 
     if (action == Action::SetNativeProbeOwner ||
         action == Action::SetLiveOwner ||
+        action == Action::SetTimerCreateOwner ||
         action == Action::SetRecordingMarksOwner ||
         action == Action::SetRecordingCutOwner)
     {
         const bool live = action == Action::SetLiveOwner;
+        const bool timerCreate = action == Action::SetTimerCreateOwner;
         const bool recordingMarks = action == Action::SetRecordingMarksOwner;
         const bool recordingCut = action == Action::SetRecordingCutOwner;
         const std::string authorityDomain = recordingCut
             ? vdrsuite::agent::kBackendAgentRecordingCutAuthorityDomain
             : (recordingMarks
                 ? vdrsuite::agent::kBackendAgentRecordingMarksModifyAuthorityDomain
-                : (live ? "vdr.live" : "vdr.native"));
+                : (timerCreate
+                    ? vdrsuite::agent::kBackendAgentNativeTimerCreateAuthorityDomain
+                    : (live ? "vdr.live" : "vdr.native")));
         const std::string providerId = recordingCut
             ? vdrsuite::agent::kBackendAgentRecordingCutProviderId
             : (recordingMarks
                 ? vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderId
-                : "suitebridge:local");
+                : (timerCreate
+                    ? vdrsuite::agent::kBackendAgentNativeTimerCreateProviderId
+                    : "suitebridge:local"));
         const std::string providerKind = recordingCut
             ? vdrsuite::agent::kBackendAgentRecordingCutProviderKind
             : (recordingMarks
                 ? vdrsuite::agent::kBackendAgentRecordingMarksModifyProviderKind
-                : "suitebridge");
+                : (timerCreate
+                    ? vdrsuite::agent::kBackendAgentNativeTimerCreateProviderKind
+                    : "suitebridge"));
         const std::string capability = recordingCut
             ? vdrsuite::agent::kBackendAgentRecordingCutCapability
             : (recordingMarks
                 ? vdrsuite::agent::kBackendAgentRecordingMarksModifyCapability
-                : (live ? "vdr.live.stream" : "vdr.native.probe"));
+                : (timerCreate
+                    ? vdrsuite::agent::kBackendAgentNativeTimerCreateCapability
+                    : (live ? "vdr.live.stream" : "vdr.native.probe")));
 
         vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
         std::string reason;
@@ -310,17 +341,21 @@ int main(int argc, char** argv)
 
     if (action == Action::ClearNativeProbeOwner ||
         action == Action::ClearLiveOwner ||
+        action == Action::ClearTimerOwner ||
         action == Action::ClearRecordingMarksOwner ||
         action == Action::ClearRecordingCutOwner)
     {
         const bool live = action == Action::ClearLiveOwner;
+        const bool timer = action == Action::ClearTimerOwner;
         const bool recordingMarks = action == Action::ClearRecordingMarksOwner;
         const bool recordingCut = action == Action::ClearRecordingCutOwner;
         const std::string authorityDomain = recordingCut
             ? vdrsuite::agent::kBackendAgentRecordingCutAuthorityDomain
             : (recordingMarks
                 ? vdrsuite::agent::kBackendAgentRecordingMarksModifyAuthorityDomain
-                : (live ? "vdr.live" : "vdr.native"));
+                : (timer
+                    ? vdrsuite::agent::kBackendAgentNativeTimerCreateAuthorityDomain
+                    : (live ? "vdr.live" : "vdr.native")));
         std::string reason;
         if (!commands.clearLocalProviderOwnership(
                 backendId, authorityDomain, now, reason))

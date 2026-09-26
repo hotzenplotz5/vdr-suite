@@ -146,6 +146,43 @@ and bounded VDR Timer write lock remain the native-effect path.
 
 Recording editing transport and Home/Live frontend code are untouched.
 
+## Explicit Timer provider ownership
+
+The real yaVDR gate exposed one additional productive prerequisite that the
+repository already required internally but did not expose operationally:
+Backend Agent provider facts are availability evidence only. They do **not**
+establish provider ownership.
+
+Phase-64 delivery contracts require a separately configured, active
+`vdr.timer` ownership before `BackendAgentNativeTimerCreateReservationService`
+may persist a command reservation. The productive runtime therefore continues
+to fail closed when that authority is absent; it does not derive authority from
+Agent capability publication or SuiteBridge discovery.
+
+The existing `vdr-suite-backend-agent-command-admin` authority now exposes the
+missing Timer-CREATE controls:
+
+```text
+--timer-provider-ownership-status
+--set-timer-create-owner
+--clear-timer-owner
+```
+
+`--set-timer-create-owner` persists exactly the existing Phase-64 authority
+tuple for the current slice:
+
+```text
+authorityDomain=vdr.timer
+providerId=suitebridge:local
+providerKind=suitebridge
+allowedCapabilities=vdr.timer.create
+```
+
+This is explicit Control-Plane configuration, not daemon startup bootstrap.
+Existing ownership-generation and provider-selection fences remain authoritative,
+and later Timer mutation slices must explicitly extend the allowed capability
+set rather than acquiring authority from observed provider facts.
+
 ## Focused repository acceptance
 
 The productive runtime regression proves:
