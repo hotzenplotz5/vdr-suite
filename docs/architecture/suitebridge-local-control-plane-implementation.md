@@ -3,8 +3,9 @@
 ## Status
 
 ADR-0064 Foundation, both initial **Critical Control** slices, Legacy OSD
-**Interactive Control**, and the HbbTV + Teletext **External Plugin Interactive**
-slices are implemented on the internal VDR-Suite/SuiteBridge boundary.
+**Interactive Control**, HbbTV + Teletext **External Plugin Interactive**, and
+the first **Background Provider** slice (RMETA/META/ARTW) are implemented on
+the internal VDR-Suite/SuiteBridge boundary.
 
 This does not change Phase 69, the public API, actor authorization or mutation
 semantics.
@@ -54,19 +55,24 @@ The initial registry is deliberately small:
 | HBBMEDIA | External Plugin Interactive | migrated |
 | TTXC | External Plugin Interactive | migrated |
 | TTXP | External Plugin Interactive | migrated |
+| META | Background Provider | migrated |
+| ARTW | Background Provider | migrated |
+| RMETA | Background Provider | migrated |
 
 ## Admission, deadline and lane
 
-The endpoint now owns three independent finite execution lanes:
+The endpoint now owns four independent finite execution lanes:
 
 - one **Critical Control** queue/worker for Live and native-probe fencing;
 - one **Interactive Control/Read** queue/worker for Legacy OSD capability,
   semantic snapshots and fenced native input;
 - one **External Plugin Interactive** queue/worker for serialized HbbTV and
-  Teletext provider-service work.
+  Teletext provider-service work;
+- one **Background Provider** queue/worker for serialized TVScraper-backed
+  RMETA/META/ARTW work.
 
-A blocked HbbTV provider request therefore cannot consume either the Critical
-or Legacy-OSD worker. Within each class execution remains serialized. This adds
+A blocked HbbTV or TVScraper provider request therefore cannot consume either
+the Critical or Legacy-OSD worker. Within each class execution remains serialized. This adds
 transport/lane isolation without claiming generic VDR or provider parallel
 safety.
 
@@ -177,12 +183,40 @@ The daemon uses `SuiteBridgePrioritizedTeletextTransport`; SVDRP is used only
 for a pre-dispatch `Unavailable` result. A local timeout is returned to the
 caller and is not replayed through the compatibility path.
 
+## TVScraper background/provider audit
+
+The production Home/metadata call graph was checked before migration.
+
+- Home rails already start their major loads concurrently.
+- Series/native Recording metadata reads are bounded in the browser to four
+  concurrent requests.
+- That browser concurrency does **not** prove that TVScraper's VDR plugin
+  services are re-entrant.
+- `META` and `ARTW` detach the selected EPG event while holding the schedule
+  lock and release that VDR lock before provider/serialization work.
+- `RMETA` is different: it must retain `LOCK_RECORDINGS_READ` while passing
+  the real `cRecording*` synchronously to TVScraper.
+
+Therefore RMETA/META/ARTW share one serial Background Provider worker. This
+removes their head-of-line coupling with Critical, Legacy OSD and external
+interactive provider work without introducing concurrent TVScraper Service()
+calls. It intentionally does not claim that four browser metadata requests now
+execute four TVScraper calls in parallel.
+
+The regression deliberately blocks RMETA and requires Live capability and OSD
+snapshot to continue within the bounded test budget. This directly covers the
+production failure mode that motivated ADR-0064.
+
+`ETYPES` is left for a separate slice because its paginated transport parser
+and real-event/channel/schedule lock contract are materially different from the
+Home-facing RMETA/META/ARTW path. `MCOMPARE` remains diagnostic-only SVDRP.
+
 ## Still staged on existing paths
 
 Not migrated by this slice:
 
 - Timer CREATE/DELETE/MODIFY;
 - Recording marks/cut;
-- RMETA/META/ARTW/ETYPES and diagnostics.
+- ETYPES and diagnostics.
 
 Native probe now keeps its existing durable starting/receipt/result/readback fencing while moving only its local transport boundary. The remaining operation families still need their operation-specific execution-lane proofs. No provider re-entrancy assumption is introduced here.
