@@ -163,6 +163,41 @@ The productive runtime regression proves:
 Architecture guards additionally reject a new Timer-specific thread/retry loop,
 public/security authority leakage and unbounded operation discovery.
 
+## Acceptance prerequisite gap
+
+The first real yaVDR attempt on this candidate proved one additional acceptance
+precondition that was not reachable from the installed product state: the
+stable public CREATE route starts from an already durable `selected`
+TimerAssignment, while the current production DaemonRuntime does not expose a
+TimerIntent/TimerAssignment scheduling entry point and the legacy
+`/api/vdr/timers/actions/create` path does not create Phase-64 TimerIntent or
+TimerAssignment state.
+
+The candidate therefore carries one **domain-backed acceptance fixture** used
+only by the real-system harness. It is not linked into the daemon, not installed
+as a product binary and not exposed as an HTTP API.
+
+The fixture creates the missing prerequisite through the existing Phase-64
+authorities only:
+
+```text
+TimerIntentRepository::create()
+-> TimerIntentRepository::update(draft -> active)
+-> TimerAssignmentSchedulingService::schedulePrimary()
+-> durable selected TimerAssignment
+```
+
+It consumes the real backend generation and an existing VDR channel selected by
+the acceptance runner. It does not dispatch a native effect. The subsequent
+public-v1 POST remains the first operation that transitions the selected
+assignment into the productive CREATE lifecycle.
+
+There are **no raw SQL fixture writes**. The helper may read runtime evidence
+outside the process, but durable TimerIntent/TimerAssignment creation is owned
+only by the accepted repositories and `TimerAssignmentSchedulingService`.
+Architecture guards also keep the helper out of production daemon sources and
+installation targets.
+
 ## Real-system gate
 
 This is the first Phase-69.C candidate that can make `vdr.timer.create`
@@ -173,11 +208,14 @@ NATIVE_EFFECT_REACHABLE=YES
 YAVDR_ACCEPTANCE_REQUIRED=YES
 ```
 
-Hosted CI is necessary but not sufficient. The exact PR head must pass real
-yaVDR acceptance before merge, including one-native-Timer creation, durable
-result/outcome, verified binding/bound assignment/succeeded operation,
-idempotency replay, generation/revision/fingerprint fencing, `outcome_unknown`
-no blind retry and restart persistence where exercised.
+Hosted CI is necessary but not sufficient. The exact PR head must first build
+and self-test the domain-backed acceptance fixture and then pass real yaVDR
+acceptance before merge. The real run must prepare one `selected` assignment
+through the accepted Timer domain authorities and then prove one-native-Timer
+creation through the public-v1 admission, durable result/outcome, verified
+binding/bound assignment/succeeded operation, idempotency replay,
+generation/revision/fingerprint fencing, `outcome_unknown` no blind retry and
+restart persistence where exercised.
 
 ## Boundary after this slice
 
