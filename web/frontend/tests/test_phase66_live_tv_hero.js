@@ -505,13 +505,34 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   hero.selectOffset(-1);
 
   assert.strictEqual(await hero.__test.loadNextProgrammePage(), true);
-  assert.strictEqual(epgFetchCount, 2);
-  assert.strictEqual(epgChannelRequests[1].length, 7);
+  assert.strictEqual(epgFetchCount, 5);
+  assert.strictEqual(epgChannelRequests[4].length, 7);
   assert.strictEqual(hero.snapshot().programmeLoadedChannelCount, 31);
   assert.strictEqual(hero.snapshot().programmeHasMore, false);
   assert.strictEqual(findByClass(nowSection, 'media-home-live-guide-rail').children.length, 31);
   assert.strictEqual(findByClass(nextSection, 'media-home-live-guide-rail').children.length, 31);
   assert.strictEqual(new Set(findByClass(nowSection, 'media-home-live-guide-rail').children.map(card => card.dataset.channelId)).size, 31);
+
+  const c31NowBeforeRevalidation =
+    findByClass(nowSection, 'media-home-live-guide-rail')
+      .children.find(card => card.dataset.channelId === 'C31');
+  await hero.refreshPrograms();
+  assert.strictEqual(
+    hero.snapshot().programmeLoadedChannelCount,
+    31,
+    'retained first-page revalidation must preserve the already loaded page extent'
+  );
+  assert.strictEqual(
+    findByClass(nowSection, 'media-home-live-guide-rail').children.length,
+    31,
+    'retained first-page revalidation must not drop later-page programme cards'
+  );
+  assert.strictEqual(
+    findByClass(nowSection, 'media-home-live-guide-rail')
+      .children.find(card => card.dataset.channelId === 'C31'),
+    c31NowBeforeRevalidation,
+    'retained first-page revalidation must preserve unaffected later-page card identity'
+  );
 
   const dataRequestBaseline = channelFetchCount + epgFetchCount;
 
@@ -525,7 +546,7 @@ assert.ok(window.VdrSuiteHomeLiveHero);
   heroRoot.focused = false;
   heroRoot.dispatch('keydown', {key: 'ArrowRight'});
   assert.strictEqual(hero.snapshot().selectedChannelId, 'C2');
-  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Zwei');
+  assert.strictEqual(hero.snapshot().currentEventTitle, 'Heute Zwei aktualisiert');
   assert.strictEqual(heroRoot.focused, true);
   assert.strictEqual(liveStartCount, 0);
   assert.strictEqual(sessionRequestCount, 0);
