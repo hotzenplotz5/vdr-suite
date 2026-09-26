@@ -2,7 +2,7 @@
 
 ## Status
 
-ADR-0064 Foundation and the first productive **Critical Control** migration slice
+ADR-0064 Foundation and the first two productive **Critical Control** migration slices
 are implemented on the internal VDR-Suite/SuiteBridge boundary.
 
 This does not change Phase 69, the public API, actor authorization or mutation
@@ -41,12 +41,17 @@ The initial registry is deliberately small:
 | NLIVE OPEN | Critical Control | migrated |
 | NLIVE STATUS | Critical Control | migrated |
 | NLIVE CLOSE | Critical Control | migrated |
+| NCAP / native-probe capability | Critical Control | migrated |
+| NPROBE EXEC | Critical Control | migrated |
+| NPROBE READ | Critical Control | migrated |
 
 ## Admission, deadline and lane
 
-The initial endpoint owns one finite Critical-Control queue and exactly one
-Critical-Control worker. Transport isolation therefore does **not** introduce
-new parallel native Live execution.
+The endpoint owns one finite Critical-Control queue and exactly one
+Critical-Control worker. Live control and native-probe capability/execute/readback
+therefore share the explicitly ordered fast lane, while remaining isolated from
+legacy SVDRP head-of-line blocking. This does **not** introduce new parallel
+native execution.
 
 Admission never waits for queue capacity. Saturation returns typed
 \`Overloaded/queue_full\`. Deadlines are checked at admission and again
@@ -67,8 +72,9 @@ is removed, and only then are Live sources and status observation torn down.
 
 ## SVDRP compatibility without mutation-style replay
 
-The daemon Live runtime owns both the dedicated local transport and the existing
-\`SuiteBridgeSvdrpTransport\`.
+The daemon Live runtime and the explicitly activated Backend-Agent native-probe
+runtime both own a dedicated local transport plus their existing
+\`SuiteBridgeSvdrpTransport\` compatibility transport.
 
 \`SuiteBridgePrioritizedLiveTransport\` selects the local endpoint first. SVDRP
 is used only when the local transport returns \`Unavailable\` before request
@@ -97,18 +103,16 @@ make test-suitebridge-control-plane
 \`\`\`
 
 The architecture guard is also attached to \`test-architecture\`, and the full
-control-plane target is attached to \`test-fast\`.
+control-plane target is attached to both \`test-fast\` and hosted \`test-ci-fast\`.
 
 ## Still staged on existing paths
 
 Not migrated by this slice:
 
-- native probe/readback (next Critical-Control candidate);
 - Legacy OSD;
 - Teletext and HbbTV;
 - Timer CREATE/DELETE/MODIFY;
 - Recording marks/cut;
 - RMETA/META/ARTW/ETYPES and diagnostics.
 
-Those operation families still need their operation-specific execution-lane
-proofs. No provider re-entrancy assumption is introduced here.
+Native probe now keeps its existing durable starting/receipt/result/readback fencing while moving only its local transport boundary. The remaining operation families still need their operation-specific execution-lane proofs. No provider re-entrancy assumption is introduced here.

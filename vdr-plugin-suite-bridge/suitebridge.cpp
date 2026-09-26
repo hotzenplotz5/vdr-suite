@@ -134,8 +134,53 @@ bool cPluginSuiteBridge::Start(void)
               }
               return liveCapability_.Handle("NLCAP", "1");
             }
+            if (operation == Operation::NativeProbeCapability) {
+              if (!payload.empty()) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "native_probe_capability_payload_invalid"};
+              }
+              return nativeProbe_.Handle(
+                  "NCAP",
+                  "1",
+                  [this]() {
+                    return statusMonitor_.CaptureSnapshot().MonitorActive();
+                  });
+            }
 
             const auto fields = split(payload);
+            if (operation == Operation::NativeProbeExecute) {
+              if (fields.size() != 12) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "native_probe_execute_payload_invalid"};
+              }
+              std::ostringstream option;
+              option << "EXEC vdr-suite-native/1 vdr.native.probe 1 "
+                     << fields[0] << ' ' << fields[1] << ' ' << fields[2] << ' '
+                     << fields[3] << ' ' << fields[4] << ' ' << fields[5] << ' '
+                     << fields[6] << ' ' << fields[7] << ' ' << fields[8] << ' '
+                     << fields[9] << ' ' << fields[10] << " 1 " << fields[11];
+              return nativeProbe_.Handle(
+                  "NPROBE",
+                  option.str().c_str(),
+                  [this]() {
+                    return statusMonitor_.CaptureSnapshot().MonitorActive();
+                  });
+            }
+            if (operation == Operation::NativeProbeReadback) {
+              if (fields.size() != 4) {
+                return SuiteBridgeCommandResult{
+                    true, 501, "native_probe_readback_payload_invalid"};
+              }
+              std::ostringstream option;
+              option << "READ 1 " << fields[0] << ' ' << fields[1] << ' '
+                     << fields[2] << ' ' << fields[3];
+              return nativeProbe_.Handle(
+                  "NPROBE",
+                  option.str().c_str(),
+                  [this]() {
+                    return statusMonitor_.CaptureSnapshot().MonitorActive();
+                  });
+            }
             std::ostringstream option;
             if (operation == Operation::LiveOpen) {
               if (fields.size() != 3) {
@@ -205,12 +250,18 @@ void cPluginSuiteBridge::Stop(void)
             controlMetrics.admittedByOperation[0] +
             controlMetrics.admittedByOperation[1] +
             controlMetrics.admittedByOperation[2] +
-            controlMetrics.admittedByOperation[3]),
+            controlMetrics.admittedByOperation[3] +
+            controlMetrics.admittedByOperation[4] +
+            controlMetrics.admittedByOperation[5] +
+            controlMetrics.admittedByOperation[6]),
         static_cast<unsigned long long>(
             controlMetrics.executedByOperation[0] +
             controlMetrics.executedByOperation[1] +
             controlMetrics.executedByOperation[2] +
-            controlMetrics.executedByOperation[3]),
+            controlMetrics.executedByOperation[3] +
+            controlMetrics.executedByOperation[4] +
+            controlMetrics.executedByOperation[5] +
+            controlMetrics.executedByOperation[6]),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(

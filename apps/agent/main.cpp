@@ -7,6 +7,7 @@
 #include "SuiteBridgeNativeTimerModifyTransport.h"
 #include "SuiteBridgeRecordingMarksModifyTransport.h"
 #include "SuiteBridgeRecordingCutTransport.h"
+#include "SuiteBridgeLocalControlTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 #include "SuiteBridgeHandshakeService.h"
 #include "SuiteBridgeOsdFrameSource.h"
@@ -237,7 +238,12 @@ int main(int argc, char** argv)
         };
     }
 
-    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> nativeTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport>
+        nativeCompatibilityTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeLocalControlTransport>
+        nativeLocalControlTransport;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgePrioritizedNativeProbeTransport>
+        nativeTransport;
     if (nativeProbe)
     {
         if (!config.commandTypes.empty())
@@ -249,8 +255,16 @@ int main(int argc, char** argv)
         vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
         transportConfig.host = suiteBridgeHost;
         transportConfig.port = suiteBridgePort;
+        nativeCompatibilityTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
+                transportConfig);
+        nativeLocalControlTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeLocalControlTransport>();
         nativeTransport =
-            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(transportConfig);
+            std::make_unique<
+                vdrsuite::agent::SuiteBridgePrioritizedNativeProbeTransport>(
+                    *nativeLocalControlTransport,
+                    *nativeCompatibilityTransport);
         setBackendAgentNativeProbeTransport(nativeTransport.get());
     }
 

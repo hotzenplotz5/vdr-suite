@@ -21,6 +21,15 @@ std::string diagnostic(control::Result r){switch(r){case control::Result::Overlo
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverNativeProbe(){return execute(control::Operation::NativeProbeCapability,{});}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::executeNativeProbe(const SuiteBridgeNativeProbeRequest&r){
+ if(!safeToken(r.commandId)||!safeToken(r.requestFingerprint)||!safeToken(r.operationId)||!safeToken(r.jobId)||!safeToken(r.attemptId)||r.claimEpoch==0||!safeToken(r.backendId)||!safeToken(r.agentId)||!safeToken(r.agentInstanceId)||r.backendGeneration==0||!safeToken(r.pluginInstanceEpoch)||!safeToken(r.probeNonce))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed native probe request");
+ return execute(control::Operation::NativeProbeExecute,r.commandId+"\n"+r.requestFingerprint+"\n"+r.operationId+"\n"+r.jobId+"\n"+r.attemptId+"\n"+std::to_string(r.claimEpoch)+"\n"+r.backendId+"\n"+r.agentId+"\n"+r.agentInstanceId+"\n"+std::to_string(r.backendGeneration)+"\n"+r.pluginInstanceEpoch+"\n"+r.probeNonce);
+}
+SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::readNativeProbe(const SuiteBridgeNativeProbeReadbackRequest&r){
+ if(!safeToken(r.commandId)||!safeToken(r.requestFingerprint)||!safeToken(r.pluginInstanceEpoch)||r.nativeExecutionSequence==0)return fail(SuiteBridgeTransportStatus::Failed,"invalid typed native probe readback request");
+ return execute(control::Operation::NativeProbeReadback,r.commandId+"\n"+r.requestFingerprint+"\n"+r.pluginInstanceEpoch+"\n"+std::to_string(r.nativeExecutionSequence));
+}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverLiveSource(){return execute(control::Operation::LiveCapability,{});}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.channelId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source open request");return execute(control::Operation::LiveOpen,r.leaseId+"\n"+r.channelId+"\n"+r.pluginInstanceEpoch);}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source close request");return execute(control::Operation::LiveClose,r.leaseId+"\n"+r.pluginInstanceEpoch);}
@@ -48,4 +57,7 @@ SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::discoverLiveSource(
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){return select([&](auto&t){return t.openLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.closeLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::statusLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.statusLiveSource(r);});}
+SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::discoverNativeProbe(){return select([](auto&t){return t.discoverNativeProbe();});}
+SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::executeNativeProbe(const SuiteBridgeNativeProbeRequest&r){return select([&](auto&t){return t.executeNativeProbe(r);});}
+SuiteBridgeCommandReply SuiteBridgePrioritizedNativeProbeTransport::readNativeProbe(const SuiteBridgeNativeProbeReadbackRequest&r){return select([&](auto&t){return t.readNativeProbe(r);});}
 } // namespace vdrsuite::agent
