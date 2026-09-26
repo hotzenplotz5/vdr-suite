@@ -1,5 +1,6 @@
 #include "SuiteBridgeLocalControlTransport.h"
 #include "SuiteBridgeHandshakeService.h"
+#include "VdrRecordingNativeIdentity.h"
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -103,6 +104,28 @@ SuiteBridgeTeletextCommandReply teletextReply(const SuiteBridgeCommandReply& rep
      result.replyCode==250;
  return result;
 }
+
+template<class Reply>
+Reply readReply(const SuiteBridgeCommandReply& reply)
+{
+ Reply result;
+ result.replyCode=reply.replyCode;
+ result.payload=reply.payload;
+ switch(reply.transportStatus){
+  case SuiteBridgeTransportStatus::Success:
+   result.transportStatus=SuiteBridgeReadTransportStatus::Success;break;
+  case SuiteBridgeTransportStatus::Unavailable:
+   result.transportStatus=SuiteBridgeReadTransportStatus::Unavailable;break;
+  case SuiteBridgeTransportStatus::Timeout:
+   result.transportStatus=SuiteBridgeReadTransportStatus::Timeout;break;
+  case SuiteBridgeTransportStatus::Failed:
+   result.transportStatus=SuiteBridgeReadTransportStatus::Failed;break;
+ }
+ result.transportSucceeded=
+     result.transportStatus==SuiteBridgeReadTransportStatus::Success &&
+     result.replyCode==250;
+ return result;
+}
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
@@ -153,6 +176,21 @@ SuiteBridgeTeletextCommandReply SuiteBridgeLocalControlTransport::requestTeletex
  std::string payload="1 "+r.channelId+" "+std::to_string(r.pageNumber)+" ";
  payload+=r.automaticSubpage?"auto":std::to_string(r.subpageCode);
  return teletextReply(executeOperation(control::Operation::TeletextPage,payload));
+}
+SuiteBridgeArtworkCommandReply SuiteBridgeLocalControlTransport::requestArtwork(const std::string& channelId,const std::string& eventId){
+ if(!safeToken(channelId)||!safeToken(eventId))return {};
+ return readReply<SuiteBridgeArtworkCommandReply>(
+     executeOperation(control::Operation::EpgArtwork,channelId+" "+eventId));
+}
+SuiteBridgeMetadataCommandReply SuiteBridgeLocalControlTransport::requestMetadata(const std::string& channelId,const std::string& eventId){
+ if(!safeToken(channelId)||!safeToken(eventId))return {};
+ return readReply<SuiteBridgeMetadataCommandReply>(
+     executeOperation(control::Operation::EpgMetadata,channelId+" "+eventId));
+}
+SuiteBridgeRecordingMetadataCommandReply SuiteBridgeLocalControlTransport::requestRecordingMetadata(const std::string& recordingKey){
+ if(!VdrRecordingNativeIdentity::isValidKey(recordingKey))return {};
+ return readReply<SuiteBridgeRecordingMetadataCommandReply>(
+     executeOperation(control::Operation::RecordingMetadata,recordingKey));
 }
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverLiveSource(){return executeOperation(control::Operation::LiveCapability,{});}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){if(!safeToken(r.leaseId)||!safeToken(r.channelId)||!safeToken(r.pluginInstanceEpoch))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed live source open request");return executeOperation(control::Operation::LiveOpen,r.leaseId+"\n"+r.channelId+"\n"+r.pluginInstanceEpoch);}
@@ -253,6 +291,21 @@ SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvPres
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){return select([&](auto&t){return t.readHbbtvMedia(r);});}
 SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::discoverTeletext(){return select([](auto&t){return t.discoverTeletext();});}
 SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::requestTeletextPage(const SuiteBridgeTeletextPageRequest&r){return select([&](auto&t){return t.requestTeletextPage(r);});}
+SuiteBridgeArtworkCommandReply SuiteBridgePrioritizedArtworkTransport::requestArtwork(const std::string& channelId,const std::string& eventId){
+ auto reply=dedicated_.requestArtwork(channelId,eventId);
+ if(reply.transportStatus!=SuiteBridgeReadTransportStatus::Unavailable)return reply;
+ return compatibility_.requestArtwork(channelId,eventId);
+}
+SuiteBridgeMetadataCommandReply SuiteBridgePrioritizedMetadataTransport::requestMetadata(const std::string& channelId,const std::string& eventId){
+ auto reply=dedicated_.requestMetadata(channelId,eventId);
+ if(reply.transportStatus!=SuiteBridgeReadTransportStatus::Unavailable)return reply;
+ return compatibility_.requestMetadata(channelId,eventId);
+}
+SuiteBridgeRecordingMetadataCommandReply SuiteBridgePrioritizedRecordingMetadataTransport::requestRecordingMetadata(const std::string& recordingKey){
+ auto reply=dedicated_.requestRecordingMetadata(recordingKey);
+ if(reply.transportStatus!=SuiteBridgeReadTransportStatus::Unavailable)return reply;
+ return compatibility_.requestRecordingMetadata(recordingKey);
+}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::discoverLiveSource(){return select([](auto&t){return t.discoverLiveSource();});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::openLiveSource(const SuiteBridgeLiveSourceOpenRequest&r){return select([&](auto&t){return t.openLiveSource(r);});}
 SuiteBridgeCommandReply SuiteBridgePrioritizedLiveTransport::closeLiveSource(const SuiteBridgeLiveSourceLeaseRequest&r){return select([&](auto&t){return t.closeLiveSource(r);});}
