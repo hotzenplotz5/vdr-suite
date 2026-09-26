@@ -2,6 +2,7 @@
 
 #include "BackendAgentNativeProbe.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
+#include "ISuiteBridgeHbbtvTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "SuiteBridgeControlPlaneProtocol.h"
 #include "SuiteBridgeLiveSourceTransport.h"
@@ -26,7 +27,8 @@ class SuiteBridgeLocalControlTransport final :
     public ISuiteBridgeLiveSourceTransport,
     public IBackendAgentNativeProbeTransport,
     public ISuiteBridgeLocalTransport,
-    public ISuiteBridgeLegacyOsdInputTransport
+    public ISuiteBridgeLegacyOsdInputTransport,
+    public ::ISuiteBridgeHbbtvTransport
 {
 public:
     explicit SuiteBridgeLocalControlTransport(
@@ -45,6 +47,15 @@ public:
         const SuiteBridgeNativeProbeRequest&) override;
     SuiteBridgeCommandReply readNativeProbe(
         const SuiteBridgeNativeProbeReadbackRequest&) override;
+
+    SuiteBridgeHbbtvCommandReply discoverHbbtv(
+        const std::string& channelId) override;
+    SuiteBridgeHbbtvCommandReply controlHbbtv(
+        const SuiteBridgeHbbtvRuntimeRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
+        const SuiteBridgeHbbtvPresentationRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvMedia(
+        const SuiteBridgeHbbtvMediaRequest& request) override;
 
     SuiteBridgeCommandReply discoverLiveSource() override;
     SuiteBridgeCommandReply openLiveSource(
@@ -107,6 +118,43 @@ private:
     ISuiteBridgeLocalTransport& capabilityTransport_;
     ISuiteBridgeLegacyOsdInputTransport& dedicated_;
     ISuiteBridgeLegacyOsdInputTransport& compatibility_;
+};
+
+
+class SuiteBridgePrioritizedHbbtvTransport final :
+    public ::ISuiteBridgeHbbtvTransport
+{
+public:
+    SuiteBridgePrioritizedHbbtvTransport(
+        ::ISuiteBridgeHbbtvTransport& dedicated,
+        ::ISuiteBridgeHbbtvTransport& compatibility)
+        : dedicated_(dedicated),
+          compatibility_(compatibility)
+    {
+    }
+
+    SuiteBridgeHbbtvCommandReply discoverHbbtv(
+        const std::string& channelId) override;
+    SuiteBridgeHbbtvCommandReply controlHbbtv(
+        const SuiteBridgeHbbtvRuntimeRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
+        const SuiteBridgeHbbtvPresentationRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvMedia(
+        const SuiteBridgeHbbtvMediaRequest& request) override;
+
+private:
+    template<class Call>
+    SuiteBridgeHbbtvCommandReply select(Call&& call)
+    {
+        auto reply = call(dedicated_);
+        if (reply.transportStatus !=
+            SuiteBridgeTransportStatus::Unavailable)
+            return reply;
+        return call(compatibility_);
+    }
+
+    ::ISuiteBridgeHbbtvTransport& dedicated_;
+    ::ISuiteBridgeHbbtvTransport& compatibility_;
 };
 
 class SuiteBridgePrioritizedNativeProbeTransport final :
