@@ -34,6 +34,7 @@ for marker in [
     "TimerAssignmentSchedulingService scheduler(",
     "scheduler.schedulePrimary(scheduling)",
     "TimerAssignmentState::selected",
+    "candidate.desiredNativeTimerSpecification.enabled = false;",
     "FIXTURE_PREPARATION=PASS",
     "--self-test",
 ]:
