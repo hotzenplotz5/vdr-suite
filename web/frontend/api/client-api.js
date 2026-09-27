@@ -464,7 +464,7 @@
   }
 
   function fetchClientVdrOverview(options) {
-    return requestJsonWithFallback('/api/vdr/overview', '/api/vdr', options);
+    return requestJson('/api/vdr/overview', options);
   }
 
   function fetchClientVdrStatus(options) {
@@ -575,17 +575,12 @@
   }
 
   function fetchClientPersons(options) {
-    return requestJsonWithFallback(
-      '/api/vdr/persons',
-      '/api/persons',
-      options
-    );
+    return requestJson('/api/vdr/persons', options);
   }
 
   function fetchClientRecordingPersons(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/recordings/persons/search',
-      '/api/recordings/persons/search',
       backendQueryOptions(options)
     );
   }
