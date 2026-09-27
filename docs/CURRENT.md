@@ -14,6 +14,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
+- [Phase 69.E Closeout](development/phase-69e-closeout.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -77,7 +78,7 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.E - Compatibility and deprecation policy
+69.F - First-party and third-party client hardening
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -89,14 +90,20 @@ fail. The accepted contracts remain documented in
 [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 and [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
 
-The first 69.E compatibility-policy foundation is merged through PR #366.
-Current bounded 69.E candidate: classify every retained unversioned route
-without inventing a successor or deprecation. The live baseline contains 118
-retained unversioned route literals: 27 proven same-handler alias groups (54
-route literals) plus 64 standalone transition literals, with 0 deprecated
-aliases. The same guard records the bundled client's catch-all route-fallback
-debt while leaving broad client migration to 69.F. See
-[Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md).
+69.E is completed. [Phase 69.E Closeout](development/phase-69e-closeout.md)
+records the accepted compatibility/deprecation boundary: PR #366 publishes the
+machine-readable compatibility policy and deprecation-metadata capability; PR
+#367 classifies all 118 retained unversioned route literals into 27 proven
+same-handler alias groups / 54 alias members and 64 standalone transition
+literals, with 0 deprecated aliases because no classified alias has a stabilized
+public-v1 successor.
+
+69.F is active. It owns first-/third-party client hardening: common client error
+representation, removal of fallback probing after arbitrary errors, wrapper
+migration to genuine stabilized v1 contracts and a documented stable boundary
+for browser, TV, mobile, desktop and Kodi integrations. Existing catch-all
+fallback debt remains inventoried; Home/LiveTV runtime is not reopened by this
+status transition.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus
