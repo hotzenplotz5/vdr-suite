@@ -1054,7 +1054,6 @@ bool DaemonRuntime::initialize()
                 PublicBackendCollectionItem item;
                 item.backendId = backend.backendId;
                 item.name = backend.backendName;
-                item.type = backend.backendType;
                 item.enabled = backend.enabled;
                 item.online = backend.online;
                 eligible.push_back(std::move(item));
