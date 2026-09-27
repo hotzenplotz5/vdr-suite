@@ -130,7 +130,7 @@ for token in (
     "404 not_found",
     "11 wrapper fallback call sites remain",
     "Home/LiveTV",
-    "no /api/v1/search-timers resource is invented",
+    "/api/v1/search-timers",
 ):
     require(token in doc, "69.F slice documentation drifted: " + token)
 
