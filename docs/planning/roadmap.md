@@ -57,7 +57,7 @@ Next strict numbered runtime phase:
 Phase 69 - Public API and Client Compatibility Hardening
 ```
 
-Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is active at 69.D; 69.A, 69.B and 69.C are accepted.
+Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is active at 69.E; 69.A, 69.B, 69.C and 69.D are accepted.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -759,9 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.D Collections, pagination and partial results.**
+Status: **Active — 69.E Compatibility and deprecation policy.**
 
-Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B and 69.C are accepted; the active bounded slice is 69.D collections, pagination and partial results. No existing pre-v1 route is thereby declared stable.
+Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B, 69.C and 69.D are accepted; the active bounded slice is 69.E compatibility and deprecation policy. No existing pre-v1 route is thereby declared stable or deprecated.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -814,7 +814,7 @@ Status: **Completed.** Durable evidence: [Phase 69.C Closeout](../development/ph
 
 #### 69.D — Collections, pagination and partial results
 
-Status: **Active.** First bounded candidate: [backend-scoped Public TimerAssignment Collection](../development/phase-69d-timer-assignment-collection.md).
+Status: **Completed.** Durable evidence: [Phase 69.D Closeout](../development/phase-69d-closeout.md).
 
 - stable ordering;
 - pagination/cursors;
@@ -823,6 +823,8 @@ Status: **Active.** First bounded candidate: [backend-scoped Public TimerAssignm
 - source failure is explicit rather than silently omitted.
 
 #### 69.E — Compatibility and deprecation policy
+
+Status: **Active.**
 
 - additive versus breaking schema rules;
 - versioned capability negotiation;

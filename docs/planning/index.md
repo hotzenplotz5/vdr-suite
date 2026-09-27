@@ -43,13 +43,14 @@ Current completed/active/next state belongs only in [Current State](../CURRENT.m
 
 Phase 66 is completed, including its Golden Home journeys. Later non-numbered Home rebuild/hardening is also complete for the merged accepted scope and is recorded in [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.D Collections, pagination and partial results, with 69.A, 69.B and 69.C accepted:
+The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.E Compatibility and deprecation policy, with 69.A, 69.B, 69.C and 69.D accepted:
 
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md) — completed Legacy OSD compatibility architecture;
 - [Phase 68 Closeout](../development/phase-68-closeout.md) — accepted 68.A-G runtime evidence;
 - [Golden User Journeys](golden-user-journeys.md) — Journey 10 accepted;
 - [Phase 69 Kickoff](../development/phase-69-public-api-kickoff.md) — Phase-69 runtime progress and inventory guard;
-- [Phase 69.C Closeout](../development/phase-69c-closeout.md) — accepted revision/precondition/idempotency and productive Timer CREATE evidence.
+- [Phase 69.C Closeout](../development/phase-69c-closeout.md) — accepted revision/precondition/idempotency and productive Timer CREATE evidence;
+- [Phase 69.D Closeout](../development/phase-69d-closeout.md) — accepted collection envelope, keyset pagination and federated partial-result evidence.
 
 For Phase-69 work, re-read live `main`, CURRENT, the Strict Roadmap, the Phase-69 kickoff and ADR-0048 before repository changes.
 

@@ -38,11 +38,11 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 
 ```text
 Phase 69 - Public API and Client Compatibility Hardening
-Current slice: 69.D - Collections, pagination and partial results
-Accepted slices: 69.A, 69.B, 69.C
+Current slice: 69.E - Compatibility and deprecation policy
+Accepted slices: 69.A, 69.B, 69.C, 69.D
 ```
 
-Phase 69 has explicitly started; 69.A, 69.B and 69.C are accepted and bounded Slice 69.D is active. Phase-68 completion does
+Phase 69 has explicitly started; 69.A, 69.B, 69.C and 69.D are accepted and bounded Slice 69.E is active. Phase-68 completion does
 not authorize work outside the accepted Phase-69 public/client compatibility
 scope.
 

@@ -2,7 +2,16 @@
 
 ## Status
 
-**IMPLEMENTED CANDIDATE — second bounded 69.D collection slice.**
+**ACCEPTED — second bounded 69.D collection slice, merged by PR #364.**
+
+Accepted evidence:
+
+```text
+PR #364
+accepted head = f2c7ada38b80ba55e8d216401ed744b6fc3b02ba
+merge/main    = d39b1f6f52d2bc83458cabb7fb71bf4f8dac4890
+CI #9295      = 36310001132 / SUCCESS (6/6)
+```
 
 Baseline:
 
@@ -106,10 +115,14 @@ Agent transport, snapshot polling cadence or legacy `/api/vdr/channels`.
 
 No real-yaVDR native-effect acceptance is required for this read-only contract.
 
-## 69.D remainder
+## 69.D closeout
 
-After this slice the two ADR-0048 runtime obligations are represented: the
-TimerAssignment collection proves single-source keyset semantics, and Channels
-prove federated partial-result semantics. Current repository evidence therefore
-leaves one bounded 69.D closeout audit/guard slice. Additional domain promotion
-is not required merely to repeat the same collection mechanics.
+Together with the accepted TimerAssignment collection from PR #363, this
+accepted Channel federation slice covers the bounded 69.D runtime obligations:
+standard collection envelope, deterministic bounded keyset traversal and
+explicit safe partial multi-backend results. The post-merge audit found no third
+runtime collection necessary merely to repeat those mechanics.
+
+Durable completion evidence and the transition to 69.E are recorded in
+[Phase 69.D Closeout](phase-69d-closeout.md). Additional domain promotion must be
+a separately justified public-v1 stabilization slice, not unfinished 69.D work.

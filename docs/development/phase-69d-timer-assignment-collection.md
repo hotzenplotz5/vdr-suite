@@ -2,7 +2,18 @@
 
 ## Status
 
-**CANDIDATE — first bounded 69.D collection slice.**
+**ACCEPTED — first bounded 69.D collection slice, merged by PR #363.**
+
+Accepted evidence:
+
+```text
+PR #363
+accepted head = 7c8e97b4b6e494a123a368395695459946630faa
+merge/main    = 45ef8e3665082c2b1bb4e3e7f54c67e1e18833d6
+CI #9291      = 36301143784 / SUCCESS (6/6)
+```
+
+Durable phase decision: [Phase 69.D Closeout](phase-69d-closeout.md).
 
 Binding architecture:
 

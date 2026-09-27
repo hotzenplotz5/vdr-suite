@@ -355,3 +355,9 @@ test-phase69d-public-channel-collection:
 		-o $(BUILD_DIR)/test_public_channel_collection_security
 	$(BUILD_DIR)/test_public_channel_collection_security
 	python3 tools/check_phase69d_public_channel_collection.py
+
+
+.PHONY: test-phase69d-closeout
+
+test-phase69d-closeout:
+	python3 tools/check_phase69d_closeout.py

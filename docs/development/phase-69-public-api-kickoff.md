@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — 69.A, 69.B and 69.C are accepted on `main`; current slice: 69.D Collections, pagination and partial results.**
+**ACTIVE — 69.A, 69.B, 69.C and 69.D are accepted on `main`; current slice: 69.E Compatibility and deprecation policy.**
 
 Start baseline:
 
@@ -215,7 +215,7 @@ PR #319 -> 0248db3d63626a87d391f7649a984adc97b45232
 CI -> 35863518112 / run #9087 -> SUCCESS (6/6)
 ```
 
-69.C is completed; durable evidence is in [Phase 69.C Closeout](phase-69c-closeout.md). The active bounded slice is now 69.D. Retry intervals are not invented without an owning collection/source semantic; deprecation/sunset policy remains 69.E.
+69.C is completed; durable evidence is in [Phase 69.C Closeout](phase-69c-closeout.md). 69.D is also completed by [Phase 69.D Closeout](phase-69d-closeout.md). The active bounded slice is now 69.E. Retry intervals remain resource/source-owned; deprecation/sunset policy is now the explicit active compatibility work rather than an inferred behavior.
 
 ## 69.C accepted foundation and completion
 
@@ -247,29 +247,31 @@ Cross-actor lookup preserves the same `404 not_found` result as a missing
 operation. Internal idempotency keys, request/resource fingerprints, mutation
 payloads and result references remain private.
 
-## 69.D first stable collection candidate
+## 69.D accepted collection contracts
 
-The live post-69.C inventory selected one backend-scoped public
-TimerAssignment collection as the first bounded 69.D slice. It is derived from
-the already accepted public TimerAssignment identity and the existing
-TimerAssignmentRepository/TimerAssignmentReadService owner, not from a pre-v1
-collection serializer.
+69.D is completed by two deliberately different read contracts. PR #363 merged
+the backend-scoped TimerAssignment collection, derived from the accepted public
+TimerAssignment identity and the existing TimerAssignmentRepository /
+TimerAssignmentReadService authority. It fixes `timerAssignmentId ASC` keyset
+ordering, default/max limits 50/100, a backend-bound opaque cursor, the standard
+ADR-0048 collection envelope and explicit failure for its one Suite-owned
+repository source.
 
-The contract fixes `timerAssignmentId ASC` keyset ordering, default/max limits
-50/100, backend-bound opaque cursors, the ADR-0048 collection envelope and
-`meta.partial=false` for the one Suite-owned repository source.
+PR #364 merged the federated Channel collection over explicit repeated
+`backendId` scopes. It independently authorizes `channels.view@backend`,
+uses stable `(backendId, channelId)` identity and canonical
+`backendId ASC, channelId ASC` ordering, binds its opaque cursor to the
+requested source scope, emits explicit `meta.sources` state and returns
+`503 backend_unavailable` when every requested source is unavailable.
 
-The next bounded 69.D candidate opens cross-backend aggregation deliberately
-for Channels only: explicit repeated `backendId` scopes, independent
-`channels.view` authorization, stable `(backendId, channelId)` identity,
-canonical cross-backend ordering and explicit partial-source metadata. See
-[Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
-
-See [Phase 69.D first public collection](phase-69d-timer-assignment-collection.md).
+Durable completion evidence is in [Phase 69.D Closeout](phase-69d-closeout.md).
+The individual contracts remain in
+[Phase 69.D first public collection](phase-69d-timer-assignment-collection.md)
+and [Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
 
 ## 69.C completion
 
-PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D is now active and must derive the first stable collection from the live inventory rather than freezing a pre-v1 collection by analogy.
+PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.E is now active.
 
 ## 69.A acceptance
 
