@@ -379,3 +379,12 @@ test-phase69e-legacy-route-classification:
 
 test-phase69e-closeout: test-phase69e-compatibility-policy test-phase69e-legacy-route-classification
 	python3 tools/check_phase69e_closeout.py
+
+
+.PHONY: test-phase69f-client-error-mutation-fallback
+
+test-phase69f-client-error-mutation-fallback:
+	node web/frontend/tests/test_phase69f_client_error_mutation_fallback.js
+	python3 tools/check_phase69f_client_error_mutation_fallback.py
+
+test-frontend-contracts: test-phase69f-client-error-mutation-fallback
