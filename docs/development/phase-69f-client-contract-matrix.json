@@ -33,7 +33,7 @@
       "id": "backend-collection",
       "method": "GET",
       "template": "/api/v1/backends",
-      "semantics": "actor-filtered Backend discovery collection with backendId keyset pagination"
+      "semantics": "actor-filtered Backend discovery collection with backendId keyset pagination and provider-neutral representation"
     },
     {
       "id": "operation-read",
@@ -130,7 +130,7 @@
         "fetchClientDefaultBackend",
         "fetchClientBackendSnapshot"
       ],
-      "note": "Public /api/v1/backends provides minimal actor-filtered discovery (backendId/name/type/enabled/online). The bundled browser still consumes richer pre-v1 selection/snapshot semantics, so its wrappers are not migrated by route substitution."
+      "note": "Public /api/v1/backends provides minimal actor-filtered discovery (backendId/name/enabled/online). The bundled browser still consumes richer pre-v1 selection/snapshot semantics, so its wrappers are not migrated by route substitution."
     },
     {
       "domain": "epg-read",
