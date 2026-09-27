@@ -78,6 +78,30 @@ int main()
             return result;
         });
 
+    ApiResponse root;
+    assert(runtime.tryHandleGet(
+        "/api/v1",
+        "actor:test",
+        "phase69f-backends-root",
+        "",
+        root));
+    assert(root.statusCode == 200);
+    assert(root.body.find(
+        "\"backends\":\"/api/v1/backends\"") != std::string::npos);
+
+    ApiResponse capabilities;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities",
+        "actor:test",
+        "phase69f-backends-capabilities",
+        "",
+        capabilities));
+    assert(capabilities.statusCode == 200);
+    assert(capabilities.body.find(
+        "\"id\":\"public-api.backends-read\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"availability\":\"available\"") != std::string::npos);
+
     ApiResponse first;
     assert(runtime.tryHandleGet(
         "/api/v1/backends?limit=1&sort=backendId&order=asc",
