@@ -52,6 +52,8 @@ int main()
         "\"self\":\"/api/v1\"") != std::string::npos);
     assert(authenticatedRoot.body.find(
         "\"capabilities\":\"/api/v1/capabilities\"") != std::string::npos);
+    assert(authenticatedRoot.body.find(
+        "\"backends\":\"/api/v1/backends\"") != std::string::npos);
 
     ApiResponse anonymousRoot;
     assert(runtime.tryHandleGet(
@@ -86,6 +88,31 @@ int main()
         "\"id\":\"public-api.compatibility-policy\"") != std::string::npos);
     assert(capabilities.body.find(
         "\"id\":\"public-api.deprecation-metadata\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"id\":\"public-api.backends-read\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
+        std::string::npos);
+
+    runtime.registerBackendCollectionLookup(
+        [](const PublicBackendCollectionRequest&)
+        {
+            PublicBackendCollectionResult result;
+            result.status = PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
+    ApiResponse availableBackendCapabilities;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities",
+        "actor-test",
+        "phase69f-backend-capability",
+        "",
+        availableBackendCapabilities));
+    assert(availableBackendCapabilities.body.find(
+        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    runtime.resetBackendCollectionLookup();
     assert(capabilities.body.find(
         "\"compatibility\":{\"policyVersion\":1") != std::string::npos);
     assert(capabilities.body.find(

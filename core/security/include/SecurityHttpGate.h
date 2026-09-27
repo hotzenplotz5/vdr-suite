@@ -350,6 +350,11 @@ public:
         const bool isPublicOperationRead =
             request.method == "GET" &&
             isPublicOperationResource;
+        const bool isPublicBackendCollection =
+            path == "/api/v1/backends";
+        const bool isPublicBackendRead =
+            request.method == "GET" &&
+            isPublicBackendCollection;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -442,6 +447,7 @@ public:
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
+             isPublicBackendCollection ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
@@ -602,6 +608,53 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicBackendRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            if (gate.context.permissionGrantResolution ==
+                PermissionGrantResolutionState::Unavailable)
+            {
+                AuthorizationDecision decision;
+                decision.reasonCode = "permission_grants_unavailable";
+                decision.permission = "security.permissions.resolve";
+                decision.backendId = "*";
+                decision.action = "backends.discover";
+                return rejectWithAudit(
+                    gate,
+                    decision,
+                    503,
+                    "Backend discovery permission scopes are unavailable",
+                    "");
+            }
+
+            std::vector<std::string> discoveryScopes;
+            for (const PermissionGrant& grant : gate.context.grants)
+            {
+                if (grant.permission == "role.read-only" ||
+                    grant.backendId.empty())
+                {
+                    continue;
+                }
+                discoveryScopes.push_back(grant.backendId);
+            }
+
+            std::sort(
+                discoveryScopes.begin(),
+                discoveryScopes.end());
+            discoveryScopes.erase(
+                std::unique(
+                    discoveryScopes.begin(),
+                    discoveryScopes.end()),
+                discoveryScopes.end());
+
+            gate.authorizedBackendIds =
+                std::move(discoveryScopes);
             gate.allowed = true;
             return gate;
         }

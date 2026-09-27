@@ -415,3 +415,21 @@ test-phase69f-client-contract-matrix:
 	python3 tools/check_phase69f_client_contract_matrix.py
 
 test-frontend-contracts: test-phase69f-client-contract-matrix
+
+
+.PHONY: test-phase69f-public-backend-collection
+
+test-phase69f-public-backend-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_backend_collection.cpp \
+		-o $(BUILD_DIR)/test_public_backend_collection
+	$(BUILD_DIR)/test_public_backend_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_backend_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_backend_collection_security
+	$(BUILD_DIR)/test_public_backend_collection_security
+	python3 tools/check_phase69f_public_backend_collection.py

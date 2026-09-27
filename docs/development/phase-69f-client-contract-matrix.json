@@ -30,6 +30,12 @@
       "semantics": "public API capability and compatibility policy discovery"
     },
     {
+      "id": "backend-collection",
+      "method": "GET",
+      "template": "/api/v1/backends",
+      "semantics": "actor-filtered Backend discovery collection with backendId keyset pagination and provider-neutral representation"
+    },
+    {
       "id": "operation-read",
       "method": "GET",
       "template": "/api/v1/operations/{operationId}",
@@ -118,13 +124,13 @@
     {
       "domain": "backends",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientBackends",
         "fetchClientDefaultBackend",
         "fetchClientBackendSnapshot"
       ],
-      "note": "External clients need a stable backend-discovery contract before they can discover backend IDs required by existing public Channel and TimerAssignment resources."
+      "note": "Public /api/v1/backends provides minimal actor-filtered discovery (backendId/name/enabled/online). The bundled browser still consumes richer pre-v1 selection/snapshot semantics, so its wrappers are not migrated by route substitution."
     },
     {
       "domain": "epg-read",
@@ -271,8 +277,8 @@
     }
   ],
   "derivedNextRuntimeCandidate": {
-    "domain": "backends",
-    "proposedTemplate": "/api/v1/backends",
-    "reason": "Existing stable Channel and TimerAssignment resources require explicit backend identifiers, but public v1 has no backend discovery resource. The current /api/backends surface remains pre-v1."
+    "domain": "pending-live-audit",
+    "proposedTemplate": null,
+    "reason": "Backend discovery is stabilized by the successor 69.F slice. The next public runtime domain must be selected from a fresh live client-gap and dependency audit rather than inherited from this matrix."
   }
 }

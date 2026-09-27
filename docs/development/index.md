@@ -11,6 +11,7 @@
 - [Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md)
 - [Phase 69.F Same-Handler Read Alias Fallback Removal](phase-69f-read-alias-fallback-removal.md)
 - [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
+- [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
 
 ---
 

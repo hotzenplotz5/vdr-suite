@@ -5,6 +5,7 @@
 - [Development Index](index.md)
 - [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
 - [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
+- [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -185,9 +186,13 @@ clients must use only deliberately stabilized public resources for supported
 domains and must not infer compatibility from browser cache/session/helper
 routes.
 
-The current browser wrapper has no direct `/api/v1` consumer yet because the
-existing stable Channel, TimerAssignment and public-Capability contracts are not
-drop-in semantic replacements for the corresponding browser transition routes.
+The current browser wrapper has no direct `/api/v1` consumer yet. The stable
+Channel, TimerAssignment and public-Capability contracts are not drop-in
+semantic replacements for the corresponding browser transition routes, and the
+new [public Backend collection](phase-69f-public-backend-collection.md) is
+deliberately narrower than the browser's richer `/api/backends` selection/
+snapshot contract. Independent clients may use `GET /api/v1/backends` for
+stable Backend identity discovery without forcing a browser route substitution.
 
 
 ## Current Direct Fetch Inventory

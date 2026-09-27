@@ -126,6 +126,35 @@ struct PublicChannelCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicBackendCollectionStatus
+{
+    ok,
+    unavailable,
+};
+
+struct PublicBackendCollectionItem
+{
+    std::string backendId;
+    std::string name;
+    bool enabled = false;
+    bool online = false;
+};
+
+struct PublicBackendCollectionRequest
+{
+    std::vector<std::string> authorizedBackendIds;
+    std::string afterBackendId;
+    std::size_t limit = 50U;
+};
+
+struct PublicBackendCollectionResult
+{
+    PublicBackendCollectionStatus status =
+        PublicBackendCollectionStatus::unavailable;
+    std::vector<PublicBackendCollectionItem> backends;
+    bool hasMore = false;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -179,6 +208,10 @@ public:
         std::function<PublicChannelCollectionResult(
             const PublicChannelCollectionRequest& request)>;
 
+    using BackendCollectionLookup =
+        std::function<PublicBackendCollectionResult(
+            const PublicBackendCollectionRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -209,6 +242,13 @@ public:
     bool channelCollectionLookupConfigured() const;
     PublicChannelCollectionResult lookupChannelCollection(
         const PublicChannelCollectionRequest& request) const;
+
+    void registerBackendCollectionLookup(
+        BackendCollectionLookup lookup);
+    void resetBackendCollectionLookup();
+    bool backendCollectionLookupConfigured() const;
+    PublicBackendCollectionResult lookupBackendCollection(
+        const PublicBackendCollectionRequest& request) const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -261,6 +301,9 @@ private:
 
     mutable std::mutex channelCollectionLookupMutex_;
     ChannelCollectionLookup channelCollectionLookup_;
+
+    mutable std::mutex backendCollectionLookupMutex_;
+    BackendCollectionLookup backendCollectionLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

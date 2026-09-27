@@ -31,8 +31,8 @@ def function_body(source, function_name, next_function_name):
     require(end > start, f"cannot bound client fallback owner: {function_name}")
     return source[start:end]
 
-require(len(EXPECTED_ROUTE_LITERALS) == 124, "expected route inventory count drifted")
-require(len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) == 6, "public-v1 route count drifted")
+require(len(EXPECTED_ROUTE_LITERALS) == 125, "expected route inventory count drifted")
+require(len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) == 7, "public-v1 route count drifted")
 require(len(LEGACY_ALIAS_GROUPS) == 27, "same-handler alias group count drifted")
 require(len({r for g in LEGACY_ALIAS_GROUPS for r in g["routes"]}) == 54, "legacy alias member count drifted")
 require(len(LEGACY_TRANSITION_ROUTE_LITERALS) == 64, "standalone transition route count drifted")
@@ -152,7 +152,7 @@ for token in (
     require(token in doc, "69.E classification doc misses: " + token)
 
 print("Phase 69.E legacy-route classification guard passed.")
-print("Routes: 124 total / 6 public-v1 / 118 retained unversioned.")
+print("Routes: 125 total / 7 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
 print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
 print("Current downstream state: 1 Timer live/snapshot wrapper fallback plus one manual EPG GET fallback; same-handler read aliases and SearchTimer fallback probing are retired by 69.F.")

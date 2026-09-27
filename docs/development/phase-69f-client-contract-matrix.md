@@ -2,7 +2,19 @@
 
 ## Status
 
-**CANDIDATE — fourth bounded 69.F slice.**
+**ACCEPTED — fourth bounded 69.F slice via PR #372.**
+
+Accepted evidence:
+
+```text
+PR #372
+accepted head=97739a82b59913edf268bc33beece1b074f58aec
+merge/main=ca7ddce8c1f4dcd94960c87d49c87533c5b0630b
+CI #9324 / run 36335165236 = SUCCESS (6/6)
+```
+
+The successor [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
+now stabilizes the Backend-discovery gap derived by this matrix.
 
 Baseline:
 
@@ -44,6 +56,7 @@ stabilized:
 | --- | --- | --- |
 | GET | `/api/v1` | Public API discovery and compatibility metadata. |
 | GET | `/api/v1/capabilities` | Public API capability/compatibility policy discovery. |
+| GET | `/api/v1/backends` | Actor-filtered minimal Backend discovery with stable `backendId ASC` keyset pagination. |
 | GET | `/api/v1/operations/{operationId}` | Durable public mutation-operation read. |
 | GET | `/api/v1/timer-assignments?backend={backendId}` | Backend-scoped keyset TimerAssignment collection. |
 | GET | `/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}` | Backend-scoped TimerAssignment item read. |
@@ -76,6 +89,18 @@ same resource model.
 `GET /api/v1/capabilities` describes the public API contract and compatibility
 policy. Replacing one with the other would destroy semantics rather than migrate
 a route.
+
+### Backends
+
+The successor slice now stabilizes `GET /api/v1/backends` as minimal,
+actor-filtered discovery. It intentionally exposes only `backendId`, `name`,
+`enabled` and `online`; provider/backend implementation type stays private.
+
+The bundled browser still consumes the richer pre-v1 `/api/backends` shape,
+including selector/write/capability presentation data and separate default/
+snapshot helpers. Therefore `fetchClientBackends()`,
+`fetchClientDefaultBackend()` and `fetchClientBackendSnapshot()` are **not**
+drop-in migrated merely because public Backend discovery now exists.
 
 Therefore the current browser can legitimately keep transition routes while
 new independent clients consume only the explicitly supported public contract
@@ -135,25 +160,24 @@ The Timer paths have distinct live/snapshot semantics. The EPG path is
 Home/LiveTV-sensitive. Neither is an alias-cleanup candidate and neither is
 changed here.
 
-## Derived next public-runtime gap
+## Derived Backend gap — successor status
 
-The matrix exposes one enabling gap before external clients can cleanly use the
-already-stable backend-scoped resources:
+The matrix originally proved that stable Channel and TimerAssignment resources
+required explicit backend identifiers while public Backend discovery was
+missing. That gap is now **stabilized by the successor Backend collection slice**:
 
 ```text
-GET /api/v1/channels?...        requires explicit backendId
-GET /api/v1/timer-assignments  requires explicit backend
-but:
-GET /api/v1/backends           does not exist
+GET /api/v1/backends
 ```
 
-The repository does have `GET /api/backends`, but 69.E classifies unversioned
-routes as pre-v1 unless explicitly stabilized.
+The successor is intentionally not a declaration that legacy `/api/backends`
+has become deprecated or that the bundled browser can switch paths unchanged.
+Its representation and authorization semantics are narrower and public-client
+oriented.
 
-Therefore the first justified runtime candidate **after this matrix slice** is a
-bounded read-only public Backend collection, subject to its own live audit of
-identity, authorization, representation, ordering, pagination and failure
-semantics. This document does not authorize or implement that resource.
+After Backend discovery, this matrix deliberately does **not** preselect another
+public route. The next 69.F runtime candidate requires a **fresh live audit** of
+remaining client gaps, dependency order and already-stable domain contracts.
 
 ## Guard contract
 
@@ -165,8 +189,10 @@ The dedicated architecture guard must fail when:
 - the browser Client API starts consuming `/api/v1` without the matrix being
   intentionally advanced;
 - the declared stable public resources disappear from the accepted runtime/docs;
-- a currently absent `/api/v1/backends`, `/api/v1/recordings`,
-  `/api/v1/program-events` or `/api/v1/search-timers` is silently invented;
+- a currently absent `/api/v1/recordings`, `/api/v1/program-events` or
+  `/api/v1/search-timers` is silently invented;
+- the stabilized `/api/v1/backends` contract disappears or is treated as a
+  drop-in legacy-browser replacement;
 - the two explicit deferred fallbacks disappear from their owning code without
   a dedicated successor slice;
 - Browser-session routes are presented as a generic app authentication
