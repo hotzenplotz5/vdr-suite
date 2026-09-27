@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
+- [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
 - [Native Timer CREATE Outcome Evidence](development/phase-69c-native-timer-create-outcome-evidence.md)
@@ -75,12 +76,14 @@ Accepted Phase-68 verticals:
 Current active runtime slice:
 69.D - Collections, pagination and partial results
 
-Current bounded 69.D step:
-derive the first stable public collection boundary from the live Phase-69
-inventory before implementation. No existing pre-v1 collection is promoted by
-analogy. The selected collection must define stable ordering, bounded limits,
-cursor/pagination semantics and explicit multi-backend partial-result/source
-failure behavior under ADR-0048.
+Current bounded 69.D candidate:
+open exactly one backend-scoped public TimerAssignment read collection from the
+existing TimerAssignmentRepository/TimerAssignmentReadService authority. The
+candidate fixes timerAssignmentId ASC keyset ordering, default/max limits 50/100,
+actor+backend-bound opaque cursors and meta.partial=false for its single
+Suite-owned repository source. It adds no cross-backend aggregation, no legacy
+fallback, no Timer mutation path and no Home/LiveTV migration. The complete
+candidate contract is in [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md).
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

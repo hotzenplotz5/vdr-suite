@@ -67,7 +67,6 @@ required = {
         '"resourceRevision"',
         '"nativeTimerBindingId"',
         "public-api.timer-assignments-read",
-        "collectionStillClosed",
     ],
     "security_test": [
         'constexpr const char* Permission = "timers.view"',
@@ -101,4 +100,4 @@ for forbidden in [
             f"public TimerAssignment resource leaked domain/native CREATE authority: {forbidden}")
 
 print("Phase-69.C public TimerAssignment resource check passed")
-print("Boundary: authenticated timers.view item read + opaque ETag retained; later CREATE admission is separately guarded")
+print("Boundary: authenticated timers.view item read + opaque ETag retained; collection evolution is guarded by Phase 69.D")

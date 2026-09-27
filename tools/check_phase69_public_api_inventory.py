@@ -44,6 +44,7 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/v1",
     "/api/v1/capabilities",
     "/api/v1/operations/",
+    "/api/v1/timer-assignments",
     "/api/v1/timer-assignments/",
     "/api/backends",
     "/api/backends/",
@@ -169,6 +170,7 @@ EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1",
     "/api/v1/capabilities",
     "/api/v1/operations/",
+    "/api/v1/timer-assignments",
     "/api/v1/timer-assignments/",
 }
 

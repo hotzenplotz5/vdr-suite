@@ -2,9 +2,11 @@
 
 #include "DashboardController.h"
 
+#include <cstddef>
 #include <functional>
 #include <mutex>
 #include <string>
+#include <vector>
 
 enum class PublicOperationLookupStatus
 {
@@ -49,6 +51,34 @@ struct PublicTimerAssignmentLookupResult
     PublicTimerAssignmentLookupStatus status =
         PublicTimerAssignmentLookupStatus::unavailable;
     PublicTimerAssignmentRevisionResource assignment;
+};
+
+enum class PublicTimerAssignmentCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable,
+};
+
+struct PublicTimerAssignmentCollectionItem
+{
+    std::string timerAssignmentId;
+    std::string backendId;
+};
+
+struct PublicTimerAssignmentCollectionRequest
+{
+    std::string backendId;
+    std::string afterTimerAssignmentId;
+    std::size_t limit = 50U;
+};
+
+struct PublicTimerAssignmentCollectionResult
+{
+    PublicTimerAssignmentCollectionStatus status =
+        PublicTimerAssignmentCollectionStatus::unavailable;
+    std::vector<PublicTimerAssignmentCollectionItem> assignments;
+    bool hasMore = false;
 };
 
 enum class PublicTimerCreateAdmissionStatus
@@ -96,6 +126,10 @@ public:
             const std::string& timerAssignmentId,
             const std::string& backendId)>;
 
+    using TimerAssignmentCollectionLookup =
+        std::function<PublicTimerAssignmentCollectionResult(
+            const PublicTimerAssignmentCollectionRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -112,6 +146,13 @@ public:
     PublicTimerAssignmentLookupResult lookupTimerAssignment(
         const std::string& timerAssignmentId,
         const std::string& backendId) const;
+
+    void registerTimerAssignmentCollectionLookup(
+        TimerAssignmentCollectionLookup lookup);
+    void resetTimerAssignmentCollectionLookup();
+    bool timerAssignmentCollectionLookupConfigured() const;
+    PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
+        const PublicTimerAssignmentCollectionRequest& request) const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -157,6 +198,9 @@ private:
 
     mutable std::mutex timerAssignmentLookupMutex_;
     TimerAssignmentLookup timerAssignmentLookup_;
+
+    mutable std::mutex timerAssignmentCollectionLookupMutex_;
+    TimerAssignmentCollectionLookup timerAssignmentCollectionLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

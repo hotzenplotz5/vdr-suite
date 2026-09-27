@@ -307,3 +307,34 @@ test-phase69-native-timer-create-real-acceptance-fixture:
 
 test-phase69c-closeout:
 	python3 tools/check_phase69c_closeout.py
+
+.PHONY: test-phase69d-timer-assignment-collection-read
+
+test-phase69d-timer-assignment-collection-read:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		$(SQLITE_SRC) \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentReadService.cpp \
+		core/timers/tests/test_timer_assignment_collection_read_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_timer_assignment_collection_read_service
+	$(BUILD_DIR)/test_timer_assignment_collection_read_service
+
+.PHONY: test-phase69d-public-timer-assignment-collection
+
+test-phase69d-public-timer-assignment-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_timer_assignment_collection.cpp \
+		-o $(BUILD_DIR)/test_public_timer_assignment_collection
+	$(BUILD_DIR)/test_public_timer_assignment_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_timer_assignment_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_timer_assignment_collection_security
+	$(BUILD_DIR)/test_public_timer_assignment_collection_security
+	python3 tools/check_phase69d_timer_assignment_collection.py

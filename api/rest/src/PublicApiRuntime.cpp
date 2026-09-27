@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -20,10 +21,28 @@ std::string requestPath(const std::string& requestTarget)
         : requestTarget.substr(0, separator);
 }
 
+std::string requestQueryString(const std::string& requestTarget)
+{
+    const std::size_t separator = requestTarget.find('?');
+    return separator == std::string::npos
+        ? std::string()
+        : requestTarget.substr(separator + 1U);
+}
+
 constexpr const char* PublicApiV1Root = "/api/v1";
 constexpr const char* PublicOperationPrefix = "/api/v1/operations/";
+constexpr const char* PublicTimerAssignmentCollectionPath =
+    "/api/v1/timer-assignments";
 constexpr const char* PublicTimerAssignmentPrefix =
     "/api/v1/timer-assignments/";
+constexpr std::size_t PublicTimerAssignmentDefaultLimit = 50U;
+constexpr std::size_t PublicTimerAssignmentMaximumLimit = 100U;
+constexpr const char* PublicTimerAssignmentCollectionSort =
+    "timerAssignmentId";
+constexpr const char* PublicTimerAssignmentCollectionOrder = "asc";
+constexpr const char* PublicTimerAssignmentCursorPrefix = "ta1_";
+constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
+    "timer-assignments/1|";
 
 bool isPublicV1Path(const std::string& path)
 {
@@ -64,6 +83,254 @@ bool publicTimerAssignmentPath(
     timerAssignmentId = path.substr(prefix.size());
     return !timerAssignmentId.empty() &&
         timerAssignmentId.find('/') == std::string::npos;
+}
+
+struct PublicTimerAssignmentCollectionQuery
+{
+    std::size_t limit = PublicTimerAssignmentDefaultLimit;
+    std::string cursor;
+};
+
+bool decimalSize(const std::string& value, std::size_t& parsed)
+{
+    if (value.empty()) return false;
+    std::size_t result = 0U;
+    for (const unsigned char character : value)
+    {
+        if (character < '0' || character > '9') return false;
+        const std::size_t digit =
+            static_cast<std::size_t>(character - '0');
+        if (result > 1000000U) return false;
+        result = result * 10U + digit;
+    }
+    parsed = result;
+    return true;
+}
+
+bool parsePublicTimerAssignmentCollectionQuery(
+    const std::string& requestTarget,
+    PublicTimerAssignmentCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return false;
+
+    bool backendSeen = false;
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    bool sortSeen = false;
+    bool orderSeen = false;
+    std::size_t position = 0U;
+
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string item = encoded.substr(
+            position,
+            separator == std::string::npos
+                ? std::string::npos
+                : separator - position);
+        if (item.empty()) return false;
+
+        const std::size_t equals = item.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = item.substr(0U, equals);
+        const std::string value = item.substr(equals + 1U);
+
+        if (key == "backend")
+        {
+            if (backendSeen || value.empty()) return false;
+            backendSeen = true;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) ||
+                parsed == 0U ||
+                parsed > PublicTimerAssignmentMaximumLimit)
+                return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 2048U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else if (key == "sort")
+        {
+            if (sortSeen ||
+                value != PublicTimerAssignmentCollectionSort)
+                return false;
+            sortSeen = true;
+        }
+        else if (key == "order")
+        {
+            if (orderSeen ||
+                value != PublicTimerAssignmentCollectionOrder)
+                return false;
+            orderSeen = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+    return backendSeen;
+}
+
+char hexDigit(unsigned int value)
+{
+    return static_cast<char>(
+        value < 10U ? ('0' + value) : ('a' + (value - 10U)));
+}
+
+std::string hexEncode(const std::string& value)
+{
+    std::string encoded;
+    encoded.reserve(value.size() * 2U);
+    for (const unsigned char character : value)
+    {
+        encoded.push_back(hexDigit(character >> 4U));
+        encoded.push_back(hexDigit(character & 0x0fU));
+    }
+    return encoded;
+}
+
+int hexValue(char value)
+{
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+}
+
+bool hexDecode(const std::string& encoded, std::string& decoded)
+{
+    if (encoded.empty() ||
+        encoded.size() % 2U != 0U ||
+        encoded.size() > 4096U)
+        return false;
+
+    decoded.clear();
+    decoded.reserve(encoded.size() / 2U);
+    for (std::size_t index = 0U;
+         index < encoded.size();
+         index += 2U)
+    {
+        const int high = hexValue(encoded[index]);
+        const int low = hexValue(encoded[index + 1U]);
+        if (high < 0 || low < 0) return false;
+        decoded.push_back(static_cast<char>((high << 4) | low));
+    }
+    return true;
+}
+
+void appendCursorField(std::string& payload, const std::string& value)
+{
+    payload += std::to_string(value.size());
+    payload.push_back(':');
+    payload += value;
+}
+
+bool readCursorField(
+    const std::string& payload,
+    std::size_t& position,
+    std::string& value)
+{
+    if (position >= payload.size()) return false;
+    std::size_t length = 0U;
+    bool digitSeen = false;
+    while (position < payload.size() && payload[position] != ':')
+    {
+        const unsigned char character = payload[position++];
+        if (character < '0' || character > '9') return false;
+        digitSeen = true;
+        if (length > 4096U) return false;
+        length = length * 10U +
+            static_cast<std::size_t>(character - '0');
+    }
+    if (!digitSeen ||
+        position >= payload.size() ||
+        payload[position] != ':')
+        return false;
+    ++position;
+    if (length > payload.size() - position) return false;
+    value = payload.substr(position, length);
+    position += length;
+    return true;
+}
+
+std::string publicTimerAssignmentCursor(
+    const std::string& backendId,
+    const std::string& lastTimerAssignmentId)
+{
+    if (backendId.empty() ||
+        lastTimerAssignmentId.empty())
+        return "";
+
+    std::string payload(PublicTimerAssignmentCursorPayloadVersion);
+    appendCursorField(payload, backendId);
+    appendCursorField(payload, lastTimerAssignmentId);
+    return std::string(PublicTimerAssignmentCursorPrefix) +
+        hexEncode(payload);
+}
+
+bool decodePublicTimerAssignmentCursor(
+    const std::string& cursor,
+    const std::string& backendId,
+    std::string& lastTimerAssignmentId)
+{
+    const std::string prefix(PublicTimerAssignmentCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return false;
+
+    const std::string version(
+        PublicTimerAssignmentCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return false;
+
+    std::size_t position = version.size();
+    std::string cursorBackend;
+    std::string cursorLast;
+    if (!readCursorField(payload, position, cursorBackend) ||
+        !readCursorField(payload, position, cursorLast) ||
+        position != payload.size())
+        return false;
+
+    if (cursorBackend != backendId ||
+        cursorLast.empty() ||
+        cursorLast.size() > 160U)
+        return false;
+
+    lastTimerAssignmentId = cursorLast;
+    return true;
+}
+
+std::string publicTimerAssignmentCollectionTarget(
+    const std::string& backendId,
+    std::size_t limit,
+    const std::string& cursor)
+{
+    std::string target =
+        std::string(PublicTimerAssignmentCollectionPath) +
+        "?backend=" + backendId +
+        "&limit=" + std::to_string(limit) +
+        "&sort=" + PublicTimerAssignmentCollectionSort +
+        "&order=" + PublicTimerAssignmentCollectionOrder;
+    if (!cursor.empty())
+        target += "&cursor=" + cursor;
+    return target;
 }
 
 std::string jsonEscape(const std::string& value)
@@ -744,6 +1011,85 @@ ApiResponse publicTimerAssignmentResponse(
     return response;
 }
 
+ApiResponse publicTimerAssignmentCollectionResponse(
+    const PublicTimerAssignmentCollectionResult& page,
+    const PublicTimerAssignmentCollectionQuery& query,
+    const std::string& actorRef,
+    const std::string& backendId,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.assignments.empty()
+            ? publicTimerAssignmentCursor(
+                backendId,
+                page.assignments.back().timerAssignmentId)
+            : std::string();
+
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(
+            PublicTimerAssignmentCollectionPath,
+            requestId,
+            correlationId);
+
+    const std::string self =
+        publicTimerAssignmentCollectionTarget(
+            backendId,
+            query.limit,
+            query.cursor);
+    const std::string next =
+        nextCursor.empty()
+            ? std::string()
+            : publicTimerAssignmentCollectionTarget(
+                backendId,
+                query.limit,
+                nextCursor);
+
+    std::string body = "{\"items\":[";
+    for (std::size_t index = 0U;
+         index < page.assignments.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicTimerAssignmentCollectionItem& assignment =
+            page.assignments[index];
+        const std::string itemSelf =
+            std::string(PublicTimerAssignmentCollectionPath) +
+            "/" + assignment.timerAssignmentId +
+            "?backend=" + assignment.backendId;
+        body +=
+            "{\"timerAssignmentId\":\"" +
+            jsonEscape(assignment.timerAssignmentId) +
+            "\",\"backendId\":\"" +
+            jsonEscape(assignment.backendId) +
+            "\",\"links\":{\"self\":\"" +
+            jsonEscape(itemSelf) + "\"}}";
+    }
+
+    body +=
+        "],\"page\":{\"limit\":" +
+        std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty()
+        ? "null"
+        : "\"" + jsonEscape(nextCursor) + "\"";
+    body +=
+        ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},"
+        "\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty()
+        ? "null"
+        : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+
+    return jsonResponse(
+        body,
+        requestId,
+        correlationId);
+}
+
 }
 
 PublicApiRuntime& PublicApiRuntime::instance()
@@ -816,6 +1162,42 @@ bool PublicApiRuntime::timerCreateAdmissionConfigured() const
     std::lock_guard<std::mutex> lock(
         timerCreateAdmissionMutex_);
     return static_cast<bool>(timerCreateAdmission_);
+}
+
+void PublicApiRuntime::registerTimerAssignmentCollectionLookup(
+    TimerAssignmentCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    timerAssignmentCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetTimerAssignmentCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    timerAssignmentCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::timerAssignmentCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    return static_cast<bool>(timerAssignmentCollectionLookup_);
+}
+
+PublicTimerAssignmentCollectionResult
+PublicApiRuntime::lookupTimerAssignmentCollection(
+    const PublicTimerAssignmentCollectionRequest& request) const
+{
+    TimerAssignmentCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            timerAssignmentCollectionLookupMutex_);
+        lookup = timerAssignmentCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
 }
 
 PublicTimerAssignmentLookupResult
@@ -949,6 +1331,115 @@ bool PublicApiRuntime::tryHandleGet(
                     path,
                     requestId,
                     correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicTimerAssignmentCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionQuery query;
+        if (!parsePublicTimerAssignmentCollectionQuery(
+                requestTarget, query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The TimerAssignment collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string afterTimerAssignmentId;
+        if (!query.cursor.empty() &&
+            !decodePublicTimerAssignmentCursor(
+                query.cursor,
+                authorizedBackendId,
+                afterTimerAssignmentId))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The collection cursor is invalid for this backend or ordering.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterTimerAssignmentId = afterTimerAssignmentId;
+        request.limit = query.limit;
+
+        const PublicTimerAssignmentCollectionResult page =
+            lookupTimerAssignmentCollection(request);
+
+        switch (page.status)
+        {
+            case PublicTimerAssignmentCollectionStatus::ok:
+            {
+                if (page.assignments.size() > query.limit ||
+                    (page.hasMore &&
+                     page.assignments.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterTimerAssignmentId;
+                for (const PublicTimerAssignmentCollectionItem&
+                     assignment : page.assignments)
+                {
+                    if (assignment.timerAssignmentId.empty() ||
+                        assignment.backendId != authorizedBackendId ||
+                        (!previous.empty() &&
+                         assignment.timerAssignmentId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = assignment.timerAssignmentId;
+                }
+
+                response =
+                    publicTimerAssignmentCollectionResponse(
+                        page,
+                        query,
+                        actorRef,
+                        authorizedBackendId,
+                        requestId,
+                        correlationId);
+                return true;
+            }
+
+            case PublicTimerAssignmentCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment collection request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
                 return true;
         }
     }
@@ -1336,6 +1827,7 @@ bool PublicApiRuntime::tryHandlePost(
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
+        path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
@@ -1379,6 +1871,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
+        path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(

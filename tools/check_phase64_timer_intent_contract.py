@@ -294,6 +294,24 @@ if not productive_successor_guard.is_file():
         "the reviewed native-effect runtime"
     )
 productive_successor = productive_successor_guard.read_text(encoding="utf-8")
+phase69d_collection_guard = (
+    ROOT / "tools/check_phase69d_timer_assignment_collection.py"
+)
+if not phase69d_collection_guard.is_file():
+    raise SystemExit(
+        "Phase-69.D collection guard is required for the reviewed public "
+        "TimerAssignment collection consumer"
+    )
+phase69d_collection = phase69d_collection_guard.read_text(encoding="utf-8")
+for marker in [
+    "Phase 69.D TimerAssignment collection guard passed.",
+    "no federation, legacy fallback, Timer mutation, Home or LiveTV change",
+]:
+    if marker not in phase69d_collection:
+        raise SystemExit(
+            "Phase-69.D collection guard missing reviewed TimerAssignment "
+            "consumer marker: " + marker
+        )
 for marker in [
     "reconcileNativeTimerCreateReadback(",
     "must remain productively",
@@ -316,6 +334,7 @@ reviewed_runtime_files = {
     Path("api/rest/src/PublicApiRuntime.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
+    Path("api/rest/tests/test_public_timer_assignment_collection.cpp"),
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),

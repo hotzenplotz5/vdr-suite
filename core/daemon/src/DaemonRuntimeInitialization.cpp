@@ -963,6 +963,47 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerTimerAssignmentCollectionLookup(
+        [this](
+            const PublicTimerAssignmentCollectionRequest& request)
+        {
+            PublicTimerAssignmentCollectionResult result;
+            const auto page =
+                timerAssignmentReadService_->listForBackend(
+                    request.backendId,
+                    request.afterTimerAssignmentId,
+                    request.limit);
+
+            switch (page.status)
+            {
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::ok:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::ok;
+                    result.hasMore = page.hasMore;
+                    for (const auto& assignment : page.assignments)
+                    {
+                        PublicTimerAssignmentCollectionItem item;
+                        item.timerAssignmentId =
+                            assignment.timerAssignmentId;
+                        item.backendId = assignment.backendId;
+                        result.assignments.push_back(
+                            std::move(item));
+                    }
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::invalid:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::invalid;
+                    return result;
+
+                case vdrsuite::timers::TimerAssignmentCollectionReadStatus::storageError:
+                    result.status =
+                        PublicTimerAssignmentCollectionStatus::unavailable;
+                    return result;
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerTimerCreateAdmission(
         [this](
             const PublicTimerCreateAdmissionRequest& request)

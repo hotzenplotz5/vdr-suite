@@ -348,8 +348,12 @@ public:
         const bool isPublicOperationRead =
             request.method == "GET" &&
             isPublicOperationResource;
+        const std::string publicTimerAssignmentCollection =
+            "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
             "/api/v1/timer-assignments/";
+        const bool isPublicTimerAssignmentCollection =
+            path == publicTimerAssignmentCollection;
         const bool isPublicTimerAssignmentResource =
             path.compare(
                 0,
@@ -361,7 +365,8 @@ public:
                 publicTimerAssignmentPrefix.size()) ==
                 std::string::npos;
         std::string publicTimerAssignmentBackendId;
-        if (isPublicTimerAssignmentResource)
+        if (isPublicTimerAssignmentResource ||
+            isPublicTimerAssignmentCollection)
         {
             const std::string candidate =
                 queryStringValue(request.path, "backend");
@@ -382,7 +387,8 @@ public:
         }
         const bool isPublicTimerAssignmentRead =
             request.method == "GET" &&
-            isPublicTimerAssignmentResource;
+            (isPublicTimerAssignmentResource ||
+             isPublicTimerAssignmentCollection);
         const bool isPublicTimerAssignmentCreate =
             isPost &&
             isPublicTimerAssignmentResource;
@@ -390,6 +396,7 @@ public:
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
+             isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
