@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "phase": "69.F",
+  "baselineMain": "83bd7c3522d4cdaef6d24b529fc46c44994275b9",
+  "purpose": "Machine-checked client/public-contract classification. It does not promote transition routes into public compatibility promises.",
+  "clientFamilies": [
+    "browser",
+    "tv",
+    "mobile",
+    "desktop",
+    "kodi",
+    "automation"
+  ],
+  "classifications": {
+    "pre-v1-transition": "Suite-owned unversioned route usable by current first-party code but not a stable public-v1 promise.",
+    "first-party-private": "First-party support/cache/session/helper surface that external clients must not treat as a public contract.",
+    "bounded-domain-plane": "Accepted Suite-owned domain plane whose current browser surface is not automatically part of public /api/v1."
+  },
+  "publicV1Resources": [
+    {
+      "id": "api-root",
+      "method": "GET",
+      "template": "/api/v1",
+      "semantics": "public API discovery and compatibility metadata"
+    },
+    {
+      "id": "api-capabilities",
+      "method": "GET",
+      "template": "/api/v1/capabilities",
+      "semantics": "public API capability and compatibility policy discovery"
+    },
+    {
+      "id": "operation-read",
+      "method": "GET",
+      "template": "/api/v1/operations/{operationId}",
+      "semantics": "durable public mutation-operation read"
+    },
+    {
+      "id": "timer-assignment-collection",
+      "method": "GET",
+      "template": "/api/v1/timer-assignments?backend={backendId}",
+      "semantics": "backend-scoped keyset TimerAssignment collection"
+    },
+    {
+      "id": "timer-assignment-read",
+      "method": "GET",
+      "template": "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}",
+      "semantics": "backend-scoped TimerAssignment item read"
+    },
+    {
+      "id": "timer-assignment-native-create",
+      "method": "POST",
+      "template": "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}",
+      "semantics": "idempotent preconditioned native Timer CREATE admission for an existing assignment"
+    },
+    {
+      "id": "channel-collection",
+      "method": "GET",
+      "template": "/api/v1/channels?backendId={backendId}",
+      "semantics": "explicit-source federated Channel collection with keyset pagination and partial-source metadata"
+    }
+  ],
+  "browserClientGroups": [
+    {
+      "domain": "timers",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "partial-non-equivalent",
+      "exports": [
+        "fetchClientTimers",
+        "fetchClientTimerConflicts",
+        "fetchClientTimerCreateAction",
+        "fetchClientTimerUpdateAction",
+        "fetchClientTimerDeleteAction"
+      ],
+      "note": "Legacy/native Timer browser semantics are not equivalent to public TimerAssignment resources."
+    },
+    {
+      "domain": "channels",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "partial-non-equivalent",
+      "exports": [
+        "fetchClientChannels",
+        "fetchClientChannelMoveAction"
+      ],
+      "note": "The public Channel collection is explicit-source/federated and is not a drop-in replacement for the browser channel route; move mutation has no public-v1 equivalent."
+    },
+    {
+      "domain": "broadcast-companion",
+      "classification": "bounded-domain-plane",
+      "publicV1Relation": "separate-plane",
+      "exports": [
+        "fetchClientTeletextService",
+        "fetchClientTeletextPage",
+        "fetchClientHbbtvApplications",
+        "fetchClientHbbtvSessionLaunch",
+        "fetchClientHbbtvSessionStatus",
+        "fetchClientHbbtvSessionInput",
+        "fetchClientHbbtvSessionClose",
+        "fetchClientHbbtvMedia",
+        "fetchClientHbbtvPresentation"
+      ],
+      "note": "Normalized Teletext/HbbTV browser contracts remain a bounded Broadcast Companion plane, not an implicit public-v1 contract."
+    },
+    {
+      "domain": "vdr-capabilities-runtime",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "non-equivalent",
+      "exports": [
+        "fetchClientCapabilities",
+        "fetchClientVdrOverview",
+        "fetchClientVdrStatus",
+        "fetchClientVdrHealth",
+        "fetchClientVdrSnapshotSummary",
+        "fetchClientVdrSnapshots"
+      ],
+      "note": "Public /api/v1/capabilities describes the public API contract; it is not the VDR/backend capability report."
+    },
+    {
+      "domain": "backends",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientBackends",
+        "fetchClientDefaultBackend",
+        "fetchClientBackendSnapshot"
+      ],
+      "note": "External clients need a stable backend-discovery contract before they can discover backend IDs required by existing public Channel and TimerAssignment resources."
+    },
+    {
+      "domain": "epg-read",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientEpgWindow",
+        "fetchClientEpgSearch",
+        "fetchClientEpgNowNext",
+        "fetchClientEpgTimeWindow",
+        "fetchClientEpgChannelWindow"
+      ],
+      "note": "ProgramEvent/EPG public resource semantics are not yet stabilized."
+    },
+    {
+      "domain": "global-search",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientGlobalSearch"
+      ],
+      "note": "Current global search is a first-party transition route, not a public-v1 search contract."
+    },
+    {
+      "domain": "epg-cache",
+      "classification": "first-party-private",
+      "publicV1Relation": "private-support",
+      "exports": [
+        "fetchClientEpgCacheStatus",
+        "fetchClientEpgCacheNowNext",
+        "fetchClientEpgCacheNowNextArtwork",
+        "fetchClientEpgCacheWindow",
+        "fetchClientEpgCacheRefresh"
+      ],
+      "note": "Cache/refresh helpers are first-party implementation support and must not be frozen as public API."
+    },
+    {
+      "domain": "metadata-persons",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientMetadata",
+        "fetchClientPersons",
+        "fetchClientRecordingPersons"
+      ],
+      "note": "Metadata and people reads remain pre-v1 until stable resource identity and representation are defined."
+    },
+    {
+      "domain": "recordings",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientRecordings",
+        "fetchClientRecordingActionValidation",
+        "fetchClientRecordingActionExecution"
+      ],
+      "note": "Recording collection/action contracts are not yet public-v1."
+    },
+    {
+      "domain": "recording-support",
+      "classification": "first-party-private",
+      "publicV1Relation": "private-support",
+      "exports": [
+        "fetchClientRecordingCacheStatus",
+        "fetchClientRecordingFolder",
+        "fetchClientRecordingTrailer"
+      ],
+      "note": "Cache/folder/trailer helpers are first-party support surfaces and are not public compatibility promises."
+    },
+    {
+      "domain": "search-timers",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientSearchTimers",
+        "fetchClientSearchTimerDiscovery",
+        "fetchClientSearchTimerPreview",
+        "fetchClientSearchTimerPlan",
+        "fetchClientSearchTimerValidate",
+        "fetchClientSearchTimerExecute",
+        "fetchClientSearchTimerRealTest",
+        "fetchClientSearchTimerCreateAction",
+        "fetchClientSearchTimerUpdateAction",
+        "fetchClientSearchTimerDeleteAction"
+      ],
+      "note": "There is no /api/v1/search-timers resource; retained aliases remain pre-v1."
+    },
+    {
+      "domain": "search-timer-cache",
+      "classification": "first-party-private",
+      "publicV1Relation": "private-support",
+      "exports": [
+        "fetchClientSearchTimerPreviewCacheRefresh"
+      ],
+      "note": "Preview-cache refresh is first-party cache maintenance, not a public client contract."
+    },
+    {
+      "domain": "genre-extension",
+      "classification": "pre-v1-transition",
+      "publicV1Relation": "missing-public-v1",
+      "exports": [
+        "fetchClientGenres",
+        "fetchClientGenreRecordings",
+        "fetchClientGenreEpg"
+      ],
+      "note": "Genre extension routes remain pre-v1 metadata/browse helpers."
+    },
+    {
+      "domain": "live-remote-extension",
+      "classification": "first-party-private",
+      "publicV1Relation": "private-support",
+      "exports": [
+        "fetchClientRemoteAction",
+        "fetchClientLiveOverlay",
+        "createClientLiveUpdateSource"
+      ],
+      "note": "Remote action, Live overlay and browser SSE are first-party control/presentation surfaces, not public-v1 promises."
+    }
+  ],
+  "browserOnlySurfaces": [
+    {
+      "id": "browser-session",
+      "routes": [
+        "/api/security/browser-sessions",
+        "/api/security/browser-sessions/current",
+        "/api/security/browser-sessions/logout"
+      ],
+      "classification": "first-party-private",
+      "note": "Browser-session login/CSRF lifecycle is a web-client security surface, not the generic app authentication contract."
+    }
+  ],
+  "explicitDeferredFallbacks": [
+    {
+      "id": "timer-live-snapshot",
+      "primary": "/api/vdr/timers/live",
+      "fallback": "/api/vdr/timers",
+      "reason": "Distinct live and snapshot semantics; requires a dedicated semantic decision rather than alias cleanup."
+    },
+    {
+      "id": "home-epg",
+      "primary": "/api/epg/now-next?from=-1",
+      "fallback": "/api/vdr/events",
+      "reason": "Home/LiveTV-sensitive lifecycle path; requires a dedicated lifecycle proof."
+    }
+  ],
+  "derivedNextRuntimeCandidate": {
+    "domain": "backends",
+    "proposedTemplate": "/api/v1/backends",
+    "reason": "Existing stable Channel and TimerAssignment resources require explicit backend identifiers, but public v1 has no backend discovery resource. The current /api/backends surface remains pre-v1."
+  }
+}
