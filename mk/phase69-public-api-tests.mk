@@ -407,3 +407,11 @@ test-phase69f-read-alias-fallback-removal:
 	python3 tools/check_phase69f_read_alias_fallback_removal.py
 
 test-frontend-contracts: test-phase69f-read-alias-fallback-removal
+
+
+.PHONY: test-phase69f-client-contract-matrix
+
+test-phase69f-client-contract-matrix:
+	python3 tools/check_phase69f_client_contract_matrix.py
+
+test-frontend-contracts: test-phase69f-client-contract-matrix
