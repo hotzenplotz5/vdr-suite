@@ -85,7 +85,6 @@ for token in (
     require(channel_guard, token, "retained Channel federation guard")
 
 current = read("current")
-require(current, "69.E - Compatibility and deprecation policy", "CURRENT active 69.E")
 require(current, "[Phase 69.D Closeout]", "CURRENT 69.D closeout link")
 forbid(
     current,
@@ -94,88 +93,26 @@ forbid(
 )
 
 status = read("status")
-require(
-    status,
-    "Current active runtime slice: **69.E - Compatibility and deprecation policy**",
-    "current-status 69.E",
-)
-require(status, "[Phase 69.D Closeout]", "current-status closeout link")
+require(status, "[Phase 69.D Closeout]", "current-status 69.D closeout link")
 
 roadmap = read("roadmap")
-require(
-    roadmap,
-    "Status: **Active — 69.E Compatibility and deprecation policy.**",
-    "roadmap Phase 69 status",
-)
 require(
     roadmap,
     "#### 69.D — Collections, pagination and partial results\n\nStatus: **Completed.** Durable evidence: [Phase 69.D Closeout]",
     "roadmap 69.D completion",
 )
-require(
-    roadmap,
-    "#### 69.E — Compatibility and deprecation policy\n\nStatus: **Active.**",
-    "roadmap 69.E activation",
-)
-
-phase_map = read("phase_map")
-require(phase_map, "| 6 | Phase 69 | Active — 69.E |", "phase-map 69.E row")
 
 planning_index = read("planning_index")
-require(
-    planning_index,
-    "active at 69.E Compatibility and deprecation policy",
-    "planning index 69.E",
-)
 require(planning_index, "[Phase 69.D Closeout]", "planning index closeout")
-
-dashboard = read("dashboard")
-require(
-    dashboard,
-    "| Stable public API/SDK | Active — 69.E compatibility/deprecation |",
-    "dashboard 69.E",
-)
-
-completed = read("completed")
-require(
-    completed,
-    "Current slice: 69.E - Compatibility and deprecation policy",
-    "completed-phases current slice",
-)
-require(
-    completed,
-    "Accepted slices: 69.A, 69.B, 69.C, 69.D",
-    "completed-phases accepted slices",
-)
 
 handoff = read("handoff")
 require(
     handoff,
-    "Current active runtime slice: **69.E - Compatibility and deprecation policy**",
-    "handoff 69.E",
-)
-require(
-    handoff,
-    "continue from slice 69.E Compatibility and deprecation policy",
-    "handoff action",
-)
-require(
-    handoff,
     "docs/development/phase-69d-closeout.md",
-    "handoff closeout prerequisite",
+    "handoff 69.D closeout prerequisite",
 )
 
 kickoff = read("kickoff")
-require(
-    kickoff,
-    "69.A, 69.B, 69.C and 69.D are accepted on `main`",
-    "kickoff accepted 69.D",
-)
-require(
-    kickoff,
-    "current slice: 69.E Compatibility and deprecation policy",
-    "kickoff active 69.E",
-)
 require(kickoff, "[Phase 69.D Closeout]", "kickoff closeout link")
 
 phase_make = read("phase_make")
@@ -192,5 +129,5 @@ require(groups, "test-phase69d-closeout", "closeout CI wiring")
 print("Phase 69.D closeout guard passed.")
 print(
     "Boundary: PR #363 proves standard single-source collection/keyset semantics; "
-    "PR #364 proves federated partial-source semantics; 69.E is active."
+    "PR #364 proves federated partial-source semantics; later Phase-69 slices may advance independently."
 )
