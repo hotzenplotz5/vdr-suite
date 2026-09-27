@@ -62,6 +62,7 @@ for token in (
     'queryStringValues(request.path, "backendId")',
     'channelReadRequest.permission = "channels.view"',
     "gate.authorizedBackendIds",
+    "gate.publicApiV1",
 ):
     require(security, token, "per-backend Channel authorization")
 

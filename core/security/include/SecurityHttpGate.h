@@ -659,7 +659,8 @@ public:
                         decision.reasonCode,
                         messageForReason(decision.reasonCode),
                         gate.context,
-                        authenticationFailure(decision));
+                        authenticationFailure(decision),
+                        gate.publicApiV1);
                     return gate;
                 }
 
