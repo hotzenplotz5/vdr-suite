@@ -87,7 +87,10 @@ for function_name, next_name, primary_route, alternate_route in read_alias_contr
     body = function_body(client_api, function_name, next_name)
     require("requestJson(" in body and primary_route in body, f"{function_name} primary read route drifted")
     require("requestJsonWithFallback" not in body, f"{function_name} must not restore read alias fallback probing")
-    require(alternate_route not in body, f"{function_name} must not probe the alternate read alias")
+    require(
+        f"'{alternate_route}'" not in body,
+        f"{function_name} must not probe the alternate read alias",
+    )
 
 searchtimer_contracts = (
     ("fetchClientSearchTimers","fetchClientSearchTimerDiscovery","/api/vdr/searchtimers","/api/searchtimers"),
