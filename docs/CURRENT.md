@@ -17,6 +17,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.E Closeout](development/phase-69e-closeout.md)
 - [Phase 69.F Client Error and Mutation-Fallback Safety](development/phase-69f-client-error-mutation-fallback.md)
 - [Phase 69.F SearchTimer Client Fallback Removal](development/phase-69f-searchtimer-fallback-removal.md)
+- [Phase 69.F Same-Handler Read Alias Fallback Removal](development/phase-69f-read-alias-fallback-removal.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -112,9 +113,13 @@ proven state-changing SearchTimer mutations. The
 candidate is the second bounded 69.F slice: the bundled browser now uses one
 existing SearchTimer route per operation, removes the speculative
 `/api/vdr/searchtimers/live` probe and no longer retries through
-`/api/searchtimers...` aliases. Four non-SearchTimer wrapper fallback call sites
-plus the separate manual EPG fallback remain explicit debt. Home/LiveTV runtime
-is not reopened by this slice.
+`/api/searchtimers...` aliases. The
+[Phase 69.F Same-Handler Read Alias Fallback Removal](development/phase-69f-read-alias-fallback-removal.md)
+candidate is the third bounded 69.F slice: Overview, Persons and
+RecordingPersons now use one existing primary route because their alternate
+spellings are proven same-handler aliases. One semantically distinct Timer
+live/snapshot wrapper fallback plus the separate manual EPG fallback remain
+explicit debt. Home/LiveTV runtime is not reopened by this slice.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus
