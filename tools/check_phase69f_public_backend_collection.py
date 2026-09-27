@@ -178,7 +178,7 @@ for token in (
     "409 cursor_expired",
     "frontendSelector",
     "deprecatedAliases",
-    "No real-yaVDR",
+    "Real-yaVDR",
 ):
     require(token in doc, "public Backend documentation drifted: " + token)
 
