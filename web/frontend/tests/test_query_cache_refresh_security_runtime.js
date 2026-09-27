@@ -133,23 +133,27 @@ async function run() {
   );
 
   previewPrimaryFails = true;
-  const beforeFallback = requests.length;
-  await api.fetchClientSearchTimerPreviewCacheRefresh({
-    backendId: 'living-room',
-    headers: {
-      'X-CSRF-Token': 'caller-must-not-override',
-      'X-Caller': 'preserved'
-    }
-  });
-  const fallbackRequests = requests.slice(beforeFallback);
-  assert.strictEqual(fallbackRequests.length, 2);
+  const beforeFailure = requests.length;
+  let previewFailure = null;
+  try {
+    await api.fetchClientSearchTimerPreviewCacheRefresh({
+      backendId: 'living-room',
+      headers: {
+        'X-CSRF-Token': 'caller-must-not-override',
+        'X-Caller': 'preserved'
+      }
+    });
+  } catch (error) {
+    previewFailure = error;
+  }
+  const failedRequests = requests.slice(beforeFailure);
+  assert.ok(previewFailure);
+  assert.strictEqual(api.isClientError(previewFailure), true);
+  assert.strictEqual(previewFailure.status, 404);
+  assert.strictEqual(failedRequests.length, 1);
   assertScopedMutation(
-    fallbackRequests[0],
+    failedRequests[0],
     '/api/vdr/searchtimers/preview/cache/refresh'
-  );
-  assertScopedMutation(
-    fallbackRequests[1],
-    '/api/searchtimers/preview/cache/refresh'
   );
 
   const epgActionsSource = fs.readFileSync(epgActionsPath, 'utf8');
