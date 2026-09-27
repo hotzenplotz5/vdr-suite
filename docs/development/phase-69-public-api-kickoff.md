@@ -355,6 +355,19 @@ derives the next runtime candidate: stable read-only backend discovery, because
 existing public Channel and TimerAssignment resources require explicit backend
 identifiers while `/api/v1/backends` does not yet exist.
 
+## 69.F public Backend collection
+
+The fifth bounded 69.F candidate is
+[Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md).
+It implements the first runtime gap derived by the accepted client-contract
+matrix: authenticated, actor-filtered `GET /api/v1/backends`. Discovery reuses
+already-resolved positive backend grant scopes instead of inventing
+`backends.view`; `role.read-only` remains a restriction rather than a
+positive visibility grant. The public representation is intentionally minimal
+and does not freeze the richer first-party `/api/backends` selector/capability
+shape. The legacy route remains retained pre-v1 compatibility and the bundled
+browser is not migrated by route substitution.
+
 ## 69.C completion
 
 PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F is now active.
