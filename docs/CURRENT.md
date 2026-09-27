@@ -18,6 +18,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Client Error and Mutation-Fallback Safety](development/phase-69f-client-error-mutation-fallback.md)
 - [Phase 69.F SearchTimer Client Fallback Removal](development/phase-69f-searchtimer-fallback-removal.md)
 - [Phase 69.F Same-Handler Read Alias Fallback Removal](development/phase-69f-read-alias-fallback-removal.md)
+- [Phase 69.F Client Contract Matrix](development/phase-69f-client-contract-matrix.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -117,9 +118,16 @@ existing SearchTimer route per operation, removes the speculative
 [Phase 69.F Same-Handler Read Alias Fallback Removal](development/phase-69f-read-alias-fallback-removal.md)
 candidate is the third bounded 69.F slice: Overview, Persons and
 RecordingPersons now use one existing primary route because their alternate
-spellings are proven same-handler aliases. One semantically distinct Timer
-live/snapshot wrapper fallback plus the separate manual EPG fallback remain
-explicit debt. Home/LiveTV runtime is not reopened by this slice.
+spellings are proven same-handler aliases. The
+[Phase 69.F Client Contract Matrix](development/phase-69f-client-contract-matrix.md)
+candidate is the fourth bounded 69.F slice: all current browser Client API
+operations are classified against the deliberately smaller stable public-v1
+surface, browser-private helpers are excluded from external compatibility, and
+the first derived public-runtime gap is stable backend discovery because the
+existing Channel and TimerAssignment resources require explicit backend IDs.
+One semantically distinct Timer live/snapshot wrapper fallback plus the separate
+manual EPG fallback remain explicit debt. Home/LiveTV runtime is not reopened
+by this slice.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

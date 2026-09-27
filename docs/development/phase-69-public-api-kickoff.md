@@ -341,6 +341,20 @@ the manual Home-sensitive EPG fallback remains deferred. Server aliases remain
 retained pre-v1 compatibility; no public-v1 successor or deprecation is
 invented.
 
+## 69.F client contract matrix
+
+The fourth bounded 69.F candidate is
+[Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md).
+It separates the deliberately stabilized public-v1 resources from the much
+larger first-party browser route surface, classifies every current base/Genre/
+Live-Remote Client API operation exactly once, and prevents browser-private
+cache/session/helper routes from becoming accidental app/SDK promises. The
+matrix proves that current browser wrappers cannot be blindly migrated to v1:
+Channels, Timers and Capabilities have non-equivalent public semantics. It also
+derives the next runtime candidate: stable read-only backend discovery, because
+existing public Channel and TimerAssignment resources require explicit backend
+identifiers while `/api/v1/backends` does not yet exist.
+
 ## 69.C completion
 
 PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F is now active.
