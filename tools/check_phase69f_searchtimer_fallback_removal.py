@@ -38,22 +38,21 @@ require(
     "speculative SearchTimer live route must stay out of the bundled client",
 )
 require(
-    client_api.count("return requestJsonWithFallback(") == 4,
-    "expected exactly four remaining wrapper fallback call sites",
+    client_api.count("return requestJsonWithFallback(") == 1,
+    "expected only the Timer live/snapshot wrapper fallback to remain",
 )
 
-remaining_fallbacks = (
-    ("fetchClientTimers", "fetchClientTimerConflicts"),
-    ("fetchClientVdrOverview", "fetchClientVdrStatus"),
-    ("fetchClientPersons", "fetchClientRecordingPersons"),
-    ("fetchClientRecordingPersons", "fetchClientRecordingTrailer"),
+timer_body = function_body(
+    client_api,
+    "fetchClientTimers",
+    "fetchClientTimerConflicts",
 )
-for function_name, next_name in remaining_fallbacks:
-    body = function_body(client_api, function_name, next_name)
-    require(
-        "requestJsonWithFallback(" in body,
-        f"{function_name} is no longer one of the four explicit remaining fallbacks",
-    )
+require(
+    "requestJsonWithFallback(" in timer_body
+    and "/api/vdr/timers/live" in timer_body
+    and "/api/vdr/timers" in timer_body,
+    "Timer live/snapshot fallback boundary drifted",
+)
 
 searchtimer_contracts = (
     ("fetchClientSearchTimers", "fetchClientSearchTimerDiscovery", "/api/vdr/searchtimers", "/api/searchtimers"),
@@ -200,4 +199,4 @@ require(
 
 print("Phase 69.F SearchTimer fallback-removal guard passed.")
 print("SearchTimer client: one route per operation; no alias retry and no speculative live probe.")
-print("Remaining wrapper fallback call sites: 4, plus the separate manual EPG fallback.")
+print("Remaining wrapper fallback call sites: 1 Timer live/snapshot fallback, plus the separate manual EPG fallback.")
