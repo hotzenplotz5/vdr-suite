@@ -266,6 +266,19 @@
   "derivedNextRuntimeCandidate": {
     "domain": "pending-live-audit",
     "proposedTemplate": null,
-    "reason": "Backend discovery is stabilized and both Home EPG and Timer live/snapshot arbitrary-error client fallbacks are retired by dedicated 69.F successor slices. The next public runtime domain must still be selected from a fresh live client-gap, identity and dependency audit rather than inherited from this matrix."
-  }
+    "reason": "The first public-v1 discovery reference client now consumes root, capabilities and backend discovery without browser-private semantics. Any next client/resource slice must still be selected from a fresh live gap and identity/dependency audit."
+  },
+  "publicClientReferences": [
+    {
+      "id": "reference-js-discovery",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1",
+        "GET /api/v1/capabilities",
+        "GET /api/v1/backends"
+      ],
+      "note": "Transport-injected reference client for already-stable discovery contracts; no browser-private routes and no package/publication claim."
+    }
+  ]
 }

@@ -110,6 +110,20 @@ api_router = read("api/rest/src/ApiRouter.cpp")
 require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery route disappeared")
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
+references = matrix.get("publicClientReferences", [])
+require(len(references) == 1, "expected exactly one bounded public client reference")
+reference = references[0]
+require(reference.get("id") == "reference-js-discovery", "public client reference id drifted")
+require(reference.get("path") == "clients/reference-js/public-v1-client.js", "public client reference path drifted")
+require(
+    set(reference.get("resources", [])) == {
+        "GET /api/v1",
+        "GET /api/v1/capabilities",
+        "GET /api/v1/backends",
+    },
+    "public discovery reference resource set drifted",
+)
+
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(candidate.get("domain") == "pending-live-audit", "next runtime candidate must require a fresh live audit")
 require(candidate.get("proposedTemplate") is None, "no next public route may be preselected after Backend stabilization")

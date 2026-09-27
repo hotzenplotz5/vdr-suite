@@ -142,6 +142,31 @@ The same public contract is intended for browser, TV, mobile, desktop, Kodi and
 automation clients. Client-specific presentation and player engines remain
 outside the platform resource contract.
 
+## Public-v1 discovery reference client
+
+After the dedicated fallback-hardening successors, the fresh live audit found a
+different gap: the repository had stable public-v1 resources but no client/SDK
+seam that consumed them. Blindly migrating the bundled browser remains invalid
+because its Backend, Channel and Timer semantics are intentionally richer or
+non-equivalent.
+
+The bounded successor therefore adds
+`clients/reference-js/public-v1-client.js` as a browser-independent reference
+implementation for only these already-stable discovery contracts:
+
+```text
+GET /api/v1
+GET /api/v1/capabilities
+GET /api/v1/backends
+```
+
+The reference client accepts an injected fetch transport and caller-owned
+headers/credentials. It does not invent login/session semantics, does not know
+browser-session/cache/provider routes, performs no fallback/retry, and does not
+publish a package. Its purpose is to prove that the stable public boundary can
+be consumed independently before language/platform-specific TV, mobile,
+desktop or Kodi clients are implemented.
+
 ## Explicit fallback debt and successor status
 
 No catch-all browser route fallback remains in the current Client API.
