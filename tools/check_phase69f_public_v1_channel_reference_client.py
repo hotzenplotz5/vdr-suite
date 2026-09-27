@@ -37,8 +37,8 @@ for forbidden in (
 server_test = read("api/rest/tests/test_public_channel_collection.cpp")
 for token in (
     "/api/v1/channels?backendId=backend-c&backendId=backend-a&backendId=backend-b&limit=2",
-    '\"partial\":true',
-    '\"code\":\"cursor_expired\"',
+    r'\"partial\":true',
+    r'\"code\":\"cursor_expired\"',
     '"sort=channelId"',
     '"order=desc"',
 ):
