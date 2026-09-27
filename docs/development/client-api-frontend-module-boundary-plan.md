@@ -1601,7 +1601,7 @@ Phase 59.08i moves VDR runtime state HTTP access behind the Web Client API wrapp
 
 Implemented behavior:
 
-- `fetchClientVdrOverview()` owns `/api/vdr/overview` with `/api/vdr` fallback
+- `fetchClientVdrOverview()` dispatches once to `/api/vdr/overview`; Phase 69.F removed client-side fallback through the retained same-handler `/api/vdr` alias
 - `fetchClientVdrStatus()` owns `/api/vdr/status`
 - `fetchClientVdrHealth()` owns `/api/vdr/health`
 - `fetchClientVdrSnapshotSummary()` owns `/api/vdr/snapshot`
@@ -1624,8 +1624,8 @@ Phase 59.08h moves metadata, person and auxiliary EPG read HTTP access behind th
 Implemented behavior:
 
 - `fetchClientMetadata()` owns `/api/metadata`
-- `fetchClientPersons()` owns `/api/vdr/persons` with `/api/persons` fallback
-- `fetchClientRecordingPersons()` owns `/api/vdr/recordings/persons/search` with `/api/recordings/persons/search` fallback
+- `fetchClientPersons()` dispatches once to `/api/vdr/persons`; Phase 69.F removed client-side fallback through the retained same-handler `/api/persons` alias
+- `fetchClientRecordingPersons()` dispatches once to `/api/vdr/recordings/persons/search`; Phase 69.F removed client-side fallback through the retained same-handler `/api/recordings/persons/search` alias
 - `fetchClientEpgNowNext()` owns `/api/epg/now-next`
 - `fetchClientEpgTimeWindow()` owns `/api/epg/time-window`
 - `fetchClientEpgChannelWindow()` owns `/api/epg/channel-window`
