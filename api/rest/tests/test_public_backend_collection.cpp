@@ -242,5 +242,23 @@ int main()
     assert(post.statusCode == 405);
     assert(post.headers.at("Allow") == "GET");
 
+    for (const std::string& method :
+         {std::string("PUT"),
+          std::string("PATCH"),
+          std::string("DELETE"),
+          std::string("HEAD"),
+          std::string("OPTIONS")})
+    {
+        ApiResponse mismatch;
+        assert(runtime.tryHandleUnsupportedMethod(
+            method,
+            "/api/v1/backends",
+            "phase69f-backends-method",
+            "",
+            mismatch));
+        assert(mismatch.statusCode == 405);
+        assert(mismatch.headers.at("Allow") == "GET");
+    }
+
     return 0;
 }
