@@ -62,54 +62,51 @@ require(
     "function requestJsonWithFallback(path, fallbackPath, options)" in client_api and
     "return requestJson(path, options).catch(function (error)" in client_api and
     "return requestJson(fallbackPath, options);" in client_api,
-    "single fallback helper is no longer the inventoried catch-all behavior",
+    "single fallback helper is no longer the remaining inventoried catch-all behavior",
 )
 require(
-    "function requestJsonWithFallbacks(paths, options)" in client_api and
-    "return requestJson(candidates[index], options).catch(function (error)" in client_api and
-    "return tryNext(index + 1);" in client_api,
-    "multi fallback helper is no longer the inventoried catch-all behavior",
+    "function requestJsonWithFallbacks(paths, options)" not in client_api,
+    "retired multi-path fallback helper unexpectedly returned",
 )
 
 fallback_contracts = (
-    ("fetchClientTimers","fetchClientTimerConflicts","requestJsonWithFallback",("/api/vdr/timers/live","/api/vdr/timers")),
-    ("fetchClientVdrOverview","fetchClientVdrStatus","requestJsonWithFallback",("/api/vdr/overview","/api/vdr")),
-    ("fetchClientPersons","fetchClientRecordingPersons","requestJsonWithFallback",("/api/vdr/persons","/api/persons")),
-    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","requestJsonWithFallback",("/api/vdr/recordings/persons/search","/api/recordings/persons/search")),
-    ("fetchClientSearchTimers","fetchClientSearchTimerDiscovery","requestJsonWithFallbacks",("/api/vdr/searchtimers/live","/api/vdr/searchtimers","/api/searchtimers")),
-    ("fetchClientSearchTimerDiscovery","fetchClientSearchTimerPreview","requestJsonWithFallback",("/api/vdr/searchtimers/discovery","/api/searchtimers/discovery")),
-    ("fetchClientSearchTimerPreview","fetchClientSearchTimerPreviewCacheRefresh","requestJsonWithFallback",("/api/vdr/searchtimers/preview","/api/searchtimers/preview")),
-    ("fetchClientSearchTimerPreviewCacheRefresh","fetchClientSearchTimerPlan","requestJsonWithFallback",("/api/vdr/searchtimers/preview/cache/refresh","/api/searchtimers/preview/cache/refresh")),
-    ("fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","requestJsonWithFallback",("/api/vdr/searchtimers/plan","/api/searchtimers/plan")),
-    ("fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","requestJsonWithFallback",("/api/vdr/searchtimers/validate","/api/searchtimers/validate")),
-    ("fetchClientSearchTimerRealTest","fetchClientSearchTimerCreateAction","requestJsonWithFallback",("/api/vdr/searchtimers/real-test","/api/searchtimers/real-test")),
+    ("fetchClientTimers","fetchClientTimerConflicts",("/api/vdr/timers/live","/api/vdr/timers")),
+    ("fetchClientVdrOverview","fetchClientVdrStatus",("/api/vdr/overview","/api/vdr")),
+    ("fetchClientPersons","fetchClientRecordingPersons",("/api/vdr/persons","/api/persons")),
+    ("fetchClientRecordingPersons","fetchClientRecordingTrailer",("/api/vdr/recordings/persons/search","/api/recordings/persons/search")),
 )
-for function_name, next_name, helper, routes in fallback_contracts:
+for function_name, next_name, routes in fallback_contracts:
     body = function_body(client_api, function_name, next_name)
-    require(helper in body, f"{function_name} fallback helper classification drifted")
+    require("requestJsonWithFallback" in body, f"{function_name} fallback helper classification drifted")
     for route in routes:
         require(route in body, f"{function_name} fallback route disappeared: {route}")
 
-mutation_contracts = (
+searchtimer_contracts = (
+    ("fetchClientSearchTimers","fetchClientSearchTimerDiscovery","/api/vdr/searchtimers","/api/searchtimers"),
+    ("fetchClientSearchTimerDiscovery","fetchClientSearchTimerPreview","/api/vdr/searchtimers/discovery","/api/searchtimers/discovery"),
+    ("fetchClientSearchTimerPreview","fetchClientSearchTimerPreviewCacheRefresh","/api/vdr/searchtimers/preview","/api/searchtimers/preview"),
+    ("fetchClientSearchTimerPreviewCacheRefresh","fetchClientSearchTimerPlan","/api/vdr/searchtimers/preview/cache/refresh","/api/searchtimers/preview/cache/refresh"),
+    ("fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","/api/vdr/searchtimers/plan","/api/searchtimers/plan"),
+    ("fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","/api/vdr/searchtimers/validate","/api/searchtimers/validate"),
     ("fetchClientSearchTimerExecute","fetchClientSearchTimerRealTest","/api/vdr/searchtimers/execute","/api/searchtimers/execute"),
+    ("fetchClientSearchTimerRealTest","fetchClientSearchTimerCreateAction","/api/vdr/searchtimers/real-test","/api/searchtimers/real-test"),
     ("fetchClientSearchTimerCreateAction","fetchClientSearchTimerUpdateAction","/api/vdr/searchtimers","/api/searchtimers"),
     ("fetchClientSearchTimerUpdateAction","fetchClientSearchTimerDeleteAction","/api/vdr/searchtimers/update","/api/searchtimers/update"),
 )
-for function_name, next_name, primary_route, alternate_route in mutation_contracts:
+for function_name, next_name, primary_route, alternate_route in searchtimer_contracts:
     body = function_body(client_api, function_name, next_name)
-    require("jsonPostOptions(options)" in body, f"{function_name} JSON mutation options drifted")
-    require("requestJson(" in body and primary_route in body, f"{function_name} primary mutation route drifted")
-    require("requestJsonWithFallback" not in body, f"{function_name} must not restore speculative mutation fallback")
-    require(alternate_route not in body, f"{function_name} must not dispatch the alternate mutation alias")
+    require("requestJson(" in body and primary_route in body, f"{function_name} primary SearchTimer route drifted")
+    require("requestJsonWithFallback" not in body, f"{function_name} must not restore SearchTimer fallback probing")
+    require(alternate_route not in body, f"{function_name} must not probe the alternate SearchTimer alias")
 
 delete_start = client_api.find("function fetchClientSearchTimerDeleteAction(options)")
 delete_end = client_api.find("window.VdrSuiteClientApi", delete_start)
 delete_body = client_api[delete_start:delete_end]
-require(delete_start >= 0 and delete_end > delete_start, "cannot bound SearchTimer delete mutation")
-require("jsonPostOptions(options)" in delete_body, "SearchTimer delete JSON mutation options drifted")
+require(delete_start >= 0 and delete_end > delete_start, "cannot bound SearchTimer delete request")
 require("requestJson(" in delete_body and "/api/vdr/searchtimers/delete" in delete_body, "SearchTimer delete primary route drifted")
-require("requestJsonWithFallback" not in delete_body, "SearchTimer delete must not restore speculative mutation fallback")
-require("/api/searchtimers/delete" not in delete_body, "SearchTimer delete must not dispatch the alternate mutation alias")
+require("requestJsonWithFallback" not in delete_body, "SearchTimer delete must not restore fallback probing")
+require("/api/searchtimers/delete" not in delete_body, "SearchTimer delete must not probe the alternate alias")
+require("/api/vdr/searchtimers/live" not in client_api, "speculative SearchTimer live client probe returned")
 require("/api/vdr/searchtimers/live" not in EXPECTED_ROUTE_LITERALS, "speculative SearchTimer live probe unexpectedly became a server route")
 
 epg_cache = read("web/frontend/epg-cache.js")
@@ -147,4 +144,4 @@ print("Phase 69.E legacy-route classification guard passed.")
 print("Routes: 124 total / 6 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
 print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
-print("Current downstream state: 11 wrapper fallback call sites plus one manual EPG GET fallback; the four classified state-changing fallbacks are retired by 69.F.")
+print("Current downstream state: 4 wrapper fallback call sites plus one manual EPG GET fallback; SearchTimer fallback probing is retired by 69.F.")

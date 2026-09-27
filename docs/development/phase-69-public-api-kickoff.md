@@ -317,6 +317,18 @@ fallbacks stay explicit debt because a generic `404 not_found` is not sufficient
 proof that a route, rather than a resource, is unsupported. Home/LiveTV runtime
 is not modified by this slice.
 
+## 69.F SearchTimer fallback removal
+
+The second bounded 69.F candidate is
+[Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md).
+After the accepted structured-error/mutation slice, the bundled browser still
+probed seven SearchTimer fallback paths. The live route inventory proves the
+alternate SearchTimer spellings are same-handler server aliases, while
+`/api/vdr/searchtimers/live` is not a server route. The client now uses one
+existing `/api/vdr/searchtimers...` path per SearchTimer operation without
+error-driven alias probing. Server aliases remain retained pre-v1 compatibility;
+no public-v1 successor or deprecation is invented.
+
 ## 69.C completion
 
 PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F is now active.

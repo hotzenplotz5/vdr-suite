@@ -388,3 +388,13 @@ test-phase69f-client-error-mutation-fallback:
 	python3 tools/check_phase69f_client_error_mutation_fallback.py
 
 test-frontend-contracts: test-phase69f-client-error-mutation-fallback
+
+
+.PHONY: test-phase69f-searchtimer-fallback-removal
+
+test-phase69f-searchtimer-fallback-removal:
+	node web/frontend/tests/test_phase69f_searchtimer_fallback_removal.js
+	node web/frontend/tests/test_query_cache_refresh_security_runtime.js
+	python3 tools/check_phase69f_searchtimer_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-searchtimer-fallback-removal
