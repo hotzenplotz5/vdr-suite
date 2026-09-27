@@ -1531,7 +1531,6 @@ ApiResponse publicBackendCollectionResponse(
         body +=
             "{\"backendId\":\"" + jsonEscape(backend.backendId) +
             "\",\"name\":\"" + jsonEscape(backend.name) +
-            "\",\"type\":\"" + jsonEscape(backend.type) +
             "\",\"enabled\":" + std::string(backend.enabled ? "true" : "false") +
             ",\"online\":" + std::string(backend.online ? "true" : "false") +
             "}";
@@ -2080,7 +2079,6 @@ bool PublicApiRuntime::tryHandleGet(
                             backend.backendId);
                     if (backend.backendId.empty() ||
                         backend.name.empty() ||
-                        backend.type.empty() ||
                         !authorized ||
                         (!previousBackend.empty() &&
                          backend.backendId <= previousBackend))
