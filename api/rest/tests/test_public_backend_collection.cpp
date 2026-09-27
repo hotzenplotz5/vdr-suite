@@ -22,14 +22,12 @@ std::string nextCursor(const std::string& body)
 PublicBackendCollectionItem backend(
     const std::string& id,
     const std::string& name,
-    const std::string& type,
     bool enabled,
     bool online)
 {
     PublicBackendCollectionItem item;
     item.backendId = id;
     item.name = name;
-    item.type = type;
     item.enabled = enabled;
     item.online = online;
     return item;
@@ -50,9 +48,9 @@ int main()
     runtime.resetBackendCollectionLookup();
 
     const std::vector<PublicBackendCollectionItem> configured = {
-        backend("backend-a", "Living Room", "restfulapi", true, true),
-        backend("backend-b", "Bedroom", "agent", true, false),
-        backend("backend-c", "Remote House", "agent", false, false)};
+        backend("backend-a", "Living Room", true, true),
+        backend("backend-b", "Bedroom", true, false),
+        backend("backend-c", "Remote House", false, false)};
 
     runtime.registerBackendCollectionLookup(
         [configured](const PublicBackendCollectionRequest& request)
@@ -116,10 +114,11 @@ int main()
     assert(first.body.find("\"backendId\":\"backend-a\"") != std::string::npos);
     assert(first.body.find("\"backendId\":\"backend-b\"") == std::string::npos);
     assert(first.body.find("\"name\":\"Living Room\"") != std::string::npos);
-    assert(first.body.find("\"type\":\"restfulapi\"") != std::string::npos);
     assert(first.body.find("\"enabled\":true") != std::string::npos);
     assert(first.body.find("\"online\":true") != std::string::npos);
     assert(first.body.find("frontendSelector") == std::string::npos);
+    assert(first.body.find("backendType") == std::string::npos);
+    assert(first.body.find("restfulapi") == std::string::npos);
     assert(first.body.find("accessMode") == std::string::npos);
     assert(first.body.find("capabilities") == std::string::npos);
     assert(first.body.find("canWrite") == std::string::npos);
