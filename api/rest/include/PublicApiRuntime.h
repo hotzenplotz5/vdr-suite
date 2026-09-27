@@ -136,7 +136,6 @@ struct PublicBackendCollectionItem
 {
     std::string backendId;
     std::string name;
-    std::string type;
     bool enabled = false;
     bool online = false;
 };
