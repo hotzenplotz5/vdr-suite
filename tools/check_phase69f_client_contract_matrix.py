@@ -79,6 +79,7 @@ resource_pairs = {(item.get("method"), item.get("template")) for item in resourc
 expected_resource_pairs = {
     ("GET", "/api/v1"),
     ("GET", "/api/v1/capabilities"),
+    ("GET", "/api/v1/backends"),
     ("GET", "/api/v1/operations/{operationId}"),
     ("GET", "/api/v1/timer-assignments?backend={backendId}"),
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
@@ -92,13 +93,13 @@ for token in (
     'constexpr const char* PublicApiV1Root = "/api/v1";',
     'constexpr const char* PublicOperationPrefix = "/api/v1/operations/";',
     '"/api/v1/timer-assignments"',
+    '"/api/v1/backends"',
     '"/api/v1/channels"',
     'if (path == "/api/v1/capabilities")',
 ):
     require(token in public_runtime, "accepted public-v1 runtime token drifted: " + token)
 
 for absent in (
-    "/api/v1/backends",
     "/api/v1/recordings",
     "/api/v1/program-events",
     "/api/v1/search-timers",
@@ -110,8 +111,14 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
-require(candidate.get("domain") == "backends", "next runtime candidate must remain backend discovery")
-require(candidate.get("proposedTemplate") == "/api/v1/backends", "next runtime candidate template drifted")
+require(candidate.get("domain") == "pending-live-audit", "next runtime candidate must require a fresh live audit")
+require(candidate.get("proposedTemplate") is None, "no next public route may be preselected after Backend stabilization")
+
+backend_group = next((g for g in groups if g.get("domain") == "backends"), None)
+require(
+    backend_group and backend_group.get("publicV1Relation") == "partial-non-equivalent",
+    "Backend browser/public non-equivalence classification drifted",
+)
 
 timer_group = next((g for g in groups if g.get("domain") == "timers"), None)
 channel_group = next((g for g in groups if g.get("domain") == "channels"), None)
@@ -155,8 +162,8 @@ for token in (
     "fetchClient*",
     "Browser, TV, mobile, desktop and Kodi",
     "GET /api/v1/backends",
-    "does not exist",
-    "first justified runtime candidate",
+    "stabilized by the successor Backend collection slice",
+    "fresh live audit",
     "Home/LiveTV-sensitive",
 ):
     require(token in doc, "client-contract matrix documentation drifted: " + token)
@@ -208,5 +215,5 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
-print("Stable public-v1 method/resource contracts: 7.")
-print("Derived next runtime candidate: read-only /api/v1/backends audit.")
+print("Stable public-v1 method/resource contracts: 8.")
+print("Backend discovery is stabilized; next runtime candidate requires a fresh live audit.")
