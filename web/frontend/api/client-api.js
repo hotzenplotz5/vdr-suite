@@ -355,26 +355,6 @@
     });
   }
 
-  function requestJsonWithFallbacks(paths, options) {
-    const candidates = Array.isArray(paths) ? paths.slice() : [];
-
-    function tryNext(index) {
-      if (index >= candidates.length) {
-        return Promise.reject(new Error('No fallback path available'));
-      }
-
-      return requestJson(candidates[index], options).catch(function (error) {
-        if (index >= candidates.length - 1) {
-          throw error;
-        }
-
-        return tryNext(index + 1);
-      });
-    }
-
-    return tryNext(0);
-  }
-
   function fetchClientTimers(options) {
     return requestJsonWithFallback(
       '/api/vdr/timers/live',
@@ -646,52 +626,40 @@
   }
 
   function fetchClientSearchTimers(options) {
-    return requestJsonWithFallbacks(
-      [
-        '/api/vdr/searchtimers/live',
-        '/api/vdr/searchtimers',
-        '/api/searchtimers'
-      ],
-      options
-    );
+    return requestJson('/api/vdr/searchtimers', options);
   }
 
   function fetchClientSearchTimerDiscovery(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/discovery',
-      '/api/searchtimers/discovery',
       backendQueryOptions(options)
     );
   }
 
   function fetchClientSearchTimerPreview(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/preview',
-      '/api/searchtimers/preview',
       backendQueryOptions(options)
     );
   }
 
   function fetchClientSearchTimerPreviewCacheRefresh(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/preview/cache/refresh',
-      '/api/searchtimers/preview/cache/refresh',
       backendQueryOptions(queryMutationOptions(options))
     );
   }
 
   function fetchClientSearchTimerPlan(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/plan',
-      '/api/searchtimers/plan',
       jsonPostOptions(options)
     );
   }
 
   function fetchClientSearchTimerValidate(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/validate',
-      '/api/searchtimers/validate',
       jsonPostOptions(options)
     );
   }
@@ -704,9 +672,8 @@
   }
 
   function fetchClientSearchTimerRealTest(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/real-test',
-      '/api/searchtimers/real-test',
       jsonPostOptions(options)
     );
   }
