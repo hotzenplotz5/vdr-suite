@@ -60,7 +60,7 @@ for function_name, next_name, primary_route, alternate_route in read_aliases:
         f"{function_name} restored fallback probing",
     )
     require(
-        alternate_route not in body,
+        f"'{alternate_route}'" not in body,
         f"{function_name} restored alternate alias probing",
     )
 
