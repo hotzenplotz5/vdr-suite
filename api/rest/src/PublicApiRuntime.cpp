@@ -44,6 +44,15 @@ constexpr const char* PublicTimerAssignmentCollectionOrder = "asc";
 constexpr const char* PublicTimerAssignmentCursorPrefix = "ta1_";
 constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
     "timer-assignments/1|";
+constexpr const char* PublicBackendCollectionPath =
+    "/api/v1/backends";
+constexpr std::size_t PublicBackendDefaultLimit = 50U;
+constexpr std::size_t PublicBackendMaximumLimit = 100U;
+constexpr const char* PublicBackendCollectionSort = "backendId";
+constexpr const char* PublicBackendCollectionOrder = "asc";
+constexpr const char* PublicBackendCursorPrefix = "be1_";
+constexpr const char* PublicBackendCursorPayloadVersion =
+    "backends/1|";
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -194,6 +203,82 @@ bool parsePublicTimerAssignmentCollectionQuery(
         position = separator + 1U;
     }
     return backendSeen;
+}
+
+struct PublicBackendCollectionQuery
+{
+    std::size_t limit = PublicBackendDefaultLimit;
+    std::string cursor;
+};
+
+bool parsePublicBackendCollectionQuery(
+    const std::string& requestTarget,
+    PublicBackendCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return true;
+
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    bool sortSeen = false;
+    bool orderSeen = false;
+    std::size_t position = 0U;
+
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string item = encoded.substr(
+            position,
+            separator == std::string::npos
+                ? std::string::npos
+                : separator - position);
+        if (item.empty()) return false;
+
+        const std::size_t equals = item.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = item.substr(0U, equals);
+        const std::string value = item.substr(equals + 1U);
+
+        if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) ||
+                parsed == 0U ||
+                parsed > PublicBackendMaximumLimit)
+                return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 4096U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else if (key == "sort")
+        {
+            if (sortSeen || value != PublicBackendCollectionSort)
+                return false;
+            sortSeen = true;
+        }
+        else if (key == "order")
+        {
+            if (orderSeen || value != PublicBackendCollectionOrder)
+                return false;
+            orderSeen = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+
+    return true;
 }
 
 struct PublicChannelCollectionQuery
@@ -412,6 +497,69 @@ bool decodePublicTimerAssignmentCursor(
     return true;
 }
 
+std::string normalizedPublicBackendAuthorizationScope(
+    std::vector<std::string> backendIds)
+{
+    std::sort(backendIds.begin(), backendIds.end());
+    std::string scope = std::to_string(backendIds.size()) + "|";
+    for (const std::string& backendId : backendIds)
+        appendCursorField(scope, backendId);
+    return scope;
+}
+
+enum class PublicBackendCursorDecodeStatus
+{
+    ok,
+    invalid,
+    scopeMismatch,
+};
+
+std::string publicBackendCursor(
+    const std::string& authorizationScope,
+    const std::string& lastBackendId)
+{
+    if (authorizationScope.empty() || lastBackendId.empty())
+        return "";
+
+    std::string payload(PublicBackendCursorPayloadVersion);
+    appendCursorField(payload, authorizationScope);
+    appendCursorField(payload, lastBackendId);
+    return std::string(PublicBackendCursorPrefix) + hexEncode(payload);
+}
+
+PublicBackendCursorDecodeStatus decodePublicBackendCursor(
+    const std::string& cursor,
+    const std::string& authorizationScope,
+    std::string& lastBackendId)
+{
+    const std::string prefix(PublicBackendCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return PublicBackendCursorDecodeStatus::invalid;
+
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return PublicBackendCursorDecodeStatus::invalid;
+
+    const std::string version(PublicBackendCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return PublicBackendCursorDecodeStatus::invalid;
+
+    std::size_t position = version.size();
+    std::string cursorScope;
+    if (!readCursorField(payload, position, cursorScope) ||
+        !readCursorField(payload, position, lastBackendId) ||
+        position != payload.size() ||
+        lastBackendId.empty() ||
+        lastBackendId.size() > 128U)
+        return PublicBackendCursorDecodeStatus::invalid;
+
+    if (cursorScope != authorizationScope)
+        return PublicBackendCursorDecodeStatus::scopeMismatch;
+
+    return PublicBackendCursorDecodeStatus::ok;
+}
+
 std::string normalizedPublicChannelBackendScope(
     std::vector<std::string> backendIds)
 {
@@ -484,6 +632,20 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
     return PublicChannelCursorDecodeStatus::ok;
+}
+
+std::string publicBackendCollectionTarget(
+    std::size_t limit,
+    const std::string& cursor)
+{
+    std::string target =
+        std::string(PublicBackendCollectionPath) +
+        "?limit=" + std::to_string(limit) +
+        "&sort=" + PublicBackendCollectionSort +
+        "&order=" + PublicBackendCollectionOrder;
+    if (!cursor.empty())
+        target += "&cursor=" + cursor;
+    return target;
 }
 
 std::string publicChannelCollectionTarget(
@@ -1085,7 +1247,7 @@ ApiResponse contractRoot(
           "\"legacyUnversioned\":\"transition\"},"
           "\"authentication\":{\"authenticated\":"
         + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\"}}",
+        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\"}}",
         requestId,
         correlationId);
 }
@@ -1094,6 +1256,7 @@ ApiResponse platformCapabilities(
     const bool operationReadAvailable,
     const bool timerAssignmentReadAvailable,
     const bool timerCreateAdmissionAvailable,
+    const bool backendCollectionAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1108,6 +1271,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
         std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
+        std::string(backendCollectionAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -1300,6 +1466,75 @@ ApiResponse publicTimerAssignmentCollectionResponse(
             jsonEscape(assignment.backendId) +
             "\",\"links\":{\"self\":\"" +
             jsonEscape(itemSelf) + "\"}}";
+    }
+
+    body +=
+        "],\"page\":{\"limit\":" +
+        std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty()
+        ? "null"
+        : "\"" + jsonEscape(nextCursor) + "\"";
+    body +=
+        ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},"
+        "\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty()
+        ? "null"
+        : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+
+    return jsonResponse(
+        body,
+        requestId,
+        correlationId);
+}
+
+ApiResponse publicBackendCollectionResponse(
+    const PublicBackendCollectionResult& page,
+    const PublicBackendCollectionQuery& query,
+    const std::string& authorizationScope,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.backends.empty()
+            ? publicBackendCursor(
+                authorizationScope,
+                page.backends.back().backendId)
+            : std::string();
+
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(
+            PublicBackendCollectionPath,
+            requestId,
+            correlationId);
+
+    const std::string self =
+        publicBackendCollectionTarget(
+            query.limit,
+            query.cursor);
+    const std::string next =
+        nextCursor.empty()
+            ? std::string()
+            : publicBackendCollectionTarget(
+                query.limit,
+                nextCursor);
+
+    std::string body = "{\"items\":[";
+    for (std::size_t index = 0U; index < page.backends.size(); ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicBackendCollectionItem& backend = page.backends[index];
+        body +=
+            "{\"backendId\":\"" + jsonEscape(backend.backendId) +
+            "\",\"name\":\"" + jsonEscape(backend.name) +
+            "\",\"type\":\"" + jsonEscape(backend.type) +
+            "\",\"enabled\":" + std::string(backend.enabled ? "true" : "false") +
+            ",\"online\":" + std::string(backend.online ? "true" : "false") +
+            "}";
     }
 
     body +=
@@ -1530,6 +1765,42 @@ PublicApiRuntime::lookupTimerAssignmentCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerBackendCollectionLookup(
+    BackendCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        backendCollectionLookupMutex_);
+    backendCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetBackendCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        backendCollectionLookupMutex_);
+    backendCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::backendCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        backendCollectionLookupMutex_);
+    return static_cast<bool>(backendCollectionLookup_);
+}
+
+PublicBackendCollectionResult
+PublicApiRuntime::lookupBackendCollection(
+    const PublicBackendCollectionRequest& request) const
+{
+    BackendCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            backendCollectionLookupMutex_);
+        lookup = backendCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -1634,6 +1905,7 @@ bool PublicApiRuntime::tryHandleGet(
             operationLookupConfigured(),
             timerAssignmentLookupConfigured(),
             timerCreateAdmissionConfigured(),
+            backendCollectionLookupConfigured(),
             requestId,
             correlationId);
         return true;
@@ -1698,6 +1970,140 @@ bool PublicApiRuntime::tryHandleGet(
                     path,
                     requestId,
                     correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicBackendCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::vector<std::string> normalizedScopes =
+            authorizedBackendIds;
+        std::sort(normalizedScopes.begin(), normalizedScopes.end());
+        if (std::adjacent_find(
+                normalizedScopes.begin(),
+                normalizedScopes.end()) != normalizedScopes.end())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Duplicate authorized backend scopes are not allowed.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicBackendCollectionQuery query;
+        if (!parsePublicBackendCollectionQuery(
+                requestTarget,
+                query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Backend collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string authorizationScope =
+            normalizedPublicBackendAuthorizationScope(
+                normalizedScopes);
+
+        std::string afterBackendId;
+        if (!query.cursor.empty())
+        {
+            const PublicBackendCursorDecodeStatus cursorStatus =
+                decodePublicBackendCursor(
+                    query.cursor,
+                    authorizationScope,
+                    afterBackendId);
+            if (cursorStatus ==
+                PublicBackendCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus !=
+                PublicBackendCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The collection cursor is invalid for this authorization scope.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+
+        PublicBackendCollectionRequest request;
+        request.authorizedBackendIds = normalizedScopes;
+        request.afterBackendId = afterBackendId;
+        request.limit = query.limit;
+
+        const PublicBackendCollectionResult page =
+            lookupBackendCollection(request);
+
+        switch (page.status)
+        {
+            case PublicBackendCollectionStatus::ok:
+            {
+                if (page.backends.size() > query.limit ||
+                    (page.hasMore &&
+                     page.backends.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                const bool wildcard =
+                    std::binary_search(
+                        normalizedScopes.begin(),
+                        normalizedScopes.end(),
+                        std::string("*"));
+                std::string previousBackend = afterBackendId;
+                for (const PublicBackendCollectionItem& backend :
+                     page.backends)
+                {
+                    const bool authorized =
+                        wildcard ||
+                        std::binary_search(
+                            normalizedScopes.begin(),
+                            normalizedScopes.end(),
+                            backend.backendId);
+                    if (backend.backendId.empty() ||
+                        backend.name.empty() ||
+                        backend.type.empty() ||
+                        !authorized ||
+                        (!previousBackend.empty() &&
+                         backend.backendId <= previousBackend))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousBackend = backend.backendId;
+                }
+
+                response = publicBackendCollectionResponse(
+                    page,
+                    query,
+                    authorizationScope,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicBackendCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
                 return true;
         }
     }
@@ -2378,6 +2784,7 @@ bool PublicApiRuntime::tryHandlePost(
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
+        path == PublicBackendCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -2423,6 +2830,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
 
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
+        path == PublicBackendCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
