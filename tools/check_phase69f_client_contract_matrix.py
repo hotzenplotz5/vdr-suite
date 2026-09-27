@@ -144,9 +144,24 @@ epg_end = epg_cache.find("function loadCachedNowNextEvents", epg_start)
 require(epg_start >= 0 and epg_end > epg_start, "cannot bound Home EPG fallback")
 epg_body = epg_cache[epg_start:epg_end]
 require(
-    "fetch('/api/epg/now-next?from=-1')" in epg_body
-    and "return fetch('/api/vdr/events')" in epg_body,
-    "Home-sensitive EPG deferred fallback drifted",
+    "fetchJsonOrThrow('/api/epg/now-next?from=-1')" in epg_body,
+    "Home EPG canonical route drifted",
+)
+require(
+    "/api/vdr/events" not in epg_body,
+    "retired Home EPG fallback returned",
+)
+require(
+    ".catch(() => ({ events: [] }))" in epg_body,
+    "Home EPG fail-soft behavior drifted",
+)
+deferred_fallback_ids = {
+    item.get("id")
+    for item in matrix.get("explicitDeferredFallbacks", [])
+}
+require(
+    deferred_fallback_ids == {"timer-live-snapshot"},
+    "only the Timer live/snapshot fallback may remain deferred",
 )
 
 for route in (

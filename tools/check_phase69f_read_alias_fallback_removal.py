@@ -103,9 +103,16 @@ end = epg_cache.find("function loadCachedNowNextEvents", start)
 require(start >= 0 and end > start, "cannot bound manual EPG fallback")
 epg_body = epg_cache[start:end]
 require(
-    "fetch('/api/epg/now-next?from=-1')" in epg_body
-    and "return fetch('/api/vdr/events')" in epg_body,
-    "manual Home-sensitive EPG fallback must remain untouched",
+    "fetchJsonOrThrow('/api/epg/now-next?from=-1')" in epg_body,
+    "Home EPG successor must preserve the canonical route",
+)
+require(
+    "/api/vdr/events" not in epg_body,
+    "dedicated Home EPG successor must retire alternate-source fallback",
+)
+require(
+    ".catch(() => ({ events: [] }))" in epg_body,
+    "Home EPG successor must preserve fail-soft empty-event behavior",
 )
 
 runtime_test = read("web/frontend/tests/test_phase69f_read_alias_fallback_removal.js")
@@ -175,4 +182,4 @@ require(
 
 print("Phase 69.F same-handler read-alias fallback-removal guard passed.")
 print("Remaining wrapper fallback: Timer live -> snapshot only.")
-print("Manual Home-sensitive EPG fallback remains deferred.")
+print("Manual Home-sensitive EPG fallback is retired by its dedicated 69.F successor.")

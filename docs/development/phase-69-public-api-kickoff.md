@@ -366,7 +366,25 @@ already-resolved positive backend grant scopes instead of inventing
 positive visibility grant. The public representation is intentionally minimal
 and does not freeze the richer first-party `/api/backends` selector/capability
 shape. The legacy route remains retained pre-v1 compatibility and the bundled
-browser is not migrated by route substitution.
+browser is not migrated by route substitution. PR #373 merged this fifth slice
+as `64798ee1bd51694d70a01432d6260b4f84dfa26b` after exact-head CI #9335 /
+run `36338659080` succeeded 6/6.
+
+## 69.F Home EPG single-route hardening
+
+The sixth bounded 69.F candidate is
+[Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md).
+The required fresh audit after Backend discovery does not promote another public
+resource: current Recording identity is not durable across mutation, while the
+ADR-0045 `programEventId` is not yet the productive EPG read identity. The
+remaining Home EPG client debt is narrower and already actionable: the
+canonical `/api/epg/now-next?from=-1` route and `/api/vdr/events` have
+different server owners, so arbitrary-error fallback can hide real EPG/auth/
+backend failures and substitute different semantics. This slice removes only
+that second request and preserves the existing empty-event fail-soft result.
+No public-v1 ProgramEvent route, deprecation or Home/LiveTV lifecycle rewrite is
+introduced. Timer live -> snapshot remains deferred because those semantics are
+also distinct and require their own decision.
 
 ## 69.C completion
 

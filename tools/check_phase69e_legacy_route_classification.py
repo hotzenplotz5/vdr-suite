@@ -125,10 +125,16 @@ start = epg_cache.find("function loadLiveNowNextEvents()")
 end = epg_cache.find("function loadCachedNowNextEvents", start)
 body = epg_cache[start:end]
 require(
-    "fetch('/api/epg/now-next?from=-1')" in body and
-    "return fetch('/api/vdr/events')" in body and
-    "if (response.ok)" in body,
-    "manual EPG route fallback classification drifted",
+    "fetchJsonOrThrow('/api/epg/now-next?from=-1')" in body,
+    "Home EPG canonical route drifted after the 69.F successor",
+)
+require(
+    "/api/vdr/events" not in body,
+    "retired Home EPG arbitrary-error fallback returned",
+)
+require(
+    ".catch(() => ({ events: [] }))" in body,
+    "Home EPG fail-soft behavior drifted after fallback retirement",
 )
 
 adr = read("docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md")
@@ -155,4 +161,4 @@ print("Phase 69.E legacy-route classification guard passed.")
 print("Routes: 125 total / 7 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
 print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
-print("Current downstream state: 1 Timer live/snapshot wrapper fallback plus one manual EPG GET fallback; same-handler read aliases and SearchTimer fallback probing are retired by 69.F.")
+print("Current downstream state: 1 Timer live/snapshot wrapper fallback remains; Home EPG, same-handler read aliases and SearchTimer fallback probing are retired by 69.F.")

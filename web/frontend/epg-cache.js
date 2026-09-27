@@ -348,21 +348,7 @@ function fetchJsonOrThrow(url, options) {
 }
 
 function loadLiveNowNextEvents() {
-  return fetch('/api/epg/now-next?from=-1')
-    .then(response => {
-      if (response.ok) {
-        return response.json();
-      }
-
-      return fetch('/api/vdr/events')
-        .then(fallbackResponse => {
-          if (!fallbackResponse.ok) {
-            return { events: [] };
-          }
-
-          return fallbackResponse.json();
-        });
-    })
+  return fetchJsonOrThrow('/api/epg/now-next?from=-1')
     .catch(() => ({ events: [] }));
 }
 
