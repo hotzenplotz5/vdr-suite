@@ -14,6 +14,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
+- [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
@@ -87,11 +88,13 @@ fail. The accepted contracts remain documented in
 [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 and [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
 
-Current bounded 69.E direction:
-define additive versus breaking schema rules, versioned capability negotiation,
-alias retirement, deprecation/sunset metadata and a compatibility matrix with
-contract tests. No pre-v1 route becomes stable or deprecated merely because
-69.E is active.
+Current bounded 69.E candidate:
+publish the ADR-0048 compatibility policy through the existing `GET /api/v1`
+contract root and `GET /api/v1/capabilities`: versioned policy discovery,
+additive-v1 / breaking-new-major rules, closed request-object semantics,
+supported-major negotiation, deprecation lifecycle/header capability and an
+explicit empty deprecated-alias set. This first slice does not retire or
+deprecate any pre-v1 route. See [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md).
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

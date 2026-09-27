@@ -31,7 +31,23 @@ int main()
     assert(authenticatedRoot.body.find(
         "\"supportedApiMajors\":[\"v1\"]") != std::string::npos);
     assert(authenticatedRoot.body.find(
+        "\"compatibilityPolicy\":{\"version\":1") != std::string::npos);
+    assert(authenticatedRoot.body.find(
+        "\"responseEvolution\":\"additive\"") != std::string::npos);
+    assert(authenticatedRoot.body.find(
+        "\"breakingChanges\":\"new-major\"") != std::string::npos);
+    assert(authenticatedRoot.body.find(
+        "\"unknownRequestFields\":\"reject\"") != std::string::npos);
+    assert(authenticatedRoot.body.find(
+        "\"legacyUnversioned\":\"transition\"") != std::string::npos);
+    assert(authenticatedRoot.body.find(
         "\"authentication\":{\"authenticated\":true}") != std::string::npos);
+    assert(authenticatedRoot.headers.find("Deprecation") ==
+        authenticatedRoot.headers.end());
+    assert(authenticatedRoot.headers.find("Sunset") ==
+        authenticatedRoot.headers.end());
+    assert(authenticatedRoot.headers.find("Link") ==
+        authenticatedRoot.headers.end());
     assert(authenticatedRoot.body.find(
         "\"self\":\"/api/v1\"") != std::string::npos);
     assert(authenticatedRoot.body.find(
@@ -66,6 +82,26 @@ int main()
         "\"version\":1") != std::string::npos);
     assert(capabilities.body.find(
         "\"availability\":\"available\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"id\":\"public-api.compatibility-policy\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"id\":\"public-api.deprecation-metadata\"") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"compatibility\":{\"policyVersion\":1") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"supportedApiMajors\":[\"v1\"]") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"lifecycle\":[\"supported\",\"deprecated\",\"sunset-announced\",\"removed\"]") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"deprecationHeaders\":[\"Deprecation\",\"Sunset\",\"Link\"]") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"deprecatedAliases\":[]") != std::string::npos);
+    assert(capabilities.headers.find("Deprecation") ==
+        capabilities.headers.end());
+    assert(capabilities.headers.find("Sunset") ==
+        capabilities.headers.end());
+    assert(capabilities.headers.find("Link") ==
+        capabilities.headers.end());
     assert(capabilities.body.find(
         "\"root\":\"/api/v1\"") != std::string::npos);
 

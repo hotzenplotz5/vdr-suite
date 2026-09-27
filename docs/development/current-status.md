@@ -34,10 +34,14 @@ accepted the federated Channel collection with explicit per-source status and
 safe partial multi-backend semantics. Both preserve existing authorities and do
 not promote legacy collection shapes by analogy.
 
-Current bounded 69.E direction: define the compatibility policy itself —
-additive versus breaking JSON changes, versioned capability negotiation, alias
-retirement, deprecation/sunset metadata and compatibility contract tests.
-No pre-v1 route is automatically stable, deprecated or scheduled for removal.
+Current bounded 69.E candidate: publish the accepted ADR-0048 compatibility
+policy through the existing public contract root and platform capability
+resource. The candidate exposes policy version 1, additive response evolution,
+new-major breaking-change rules, closed request semantics, supported-major
+negotiation, the deprecation lifecycle/header capability and an explicit empty
+deprecated-alias set. It does not deprecate or remove a pre-v1 route. Durable
+candidate details are in
+[Phase 69.E Compatibility Policy Foundation](phase-69e-compatibility-policy-foundation.md).
 
 Phase 69.C remains completed; durable evidence is in
 [Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.D collection
