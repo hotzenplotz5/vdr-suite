@@ -90,14 +90,13 @@ for function_name, next_name, primary_route, alternate_route in mutation_contrac
     require("requestJsonWithFallback" not in body, f"{function_name} restored mutation fallback")
     require(alternate_route not in body, f"{function_name} restored alternate mutation dispatch")
 
-# The remaining read/query compatibility helpers are deliberately still present.
-# 69.F must not pretend that a bare 404 proves an unsupported route.
-for token in (
-    "function requestJsonWithFallback(path, fallbackPath, options)",
-    "function requestJsonWithFallbacks(paths, options)",
-    "/api/vdr/searchtimers/live",
-):
-    require(token in client_api, "remaining transition fallback inventory drifted: " + token)
+# The first 69.F slice does not own later removal of read/query fallback debt.
+# Keep only the invariant that a single-path compatibility helper may remain;
+# successor 69.F slices are allowed to retire the multi-path SearchTimer probe.
+require(
+    "function requestJsonWithFallback(path, fallbackPath, options)" in client_api,
+    "remaining non-SearchTimer transition helper unexpectedly disappeared",
+)
 
 router = read("api/rest/src/ApiRouter.cpp")
 for first, second in (
