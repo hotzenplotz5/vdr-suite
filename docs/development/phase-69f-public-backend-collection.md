@@ -115,7 +115,6 @@ Each item intentionally contains only:
 {
   "backendId": "backend-a",
   "name": "Living Room",
-  "type": "restfulapi",
   "enabled": true,
   "online": true
 }
@@ -126,6 +125,7 @@ The public contract does **not** expose:
 - backend connection host/port or transport configuration;
 - `frontendSelector`;
 - `accessMode` or the legacy `canWrite*` presentation flags;
+- provider/backend implementation type (for example `restfulapi` or Agent transport identity);
 - provider/VDR capability implementation details;
 - Agent credentials, ownership internals or SuiteBridge state.
 
