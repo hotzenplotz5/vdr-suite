@@ -4,6 +4,7 @@
 
 - [Development Index](index.md)
 - [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
+- [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -170,6 +171,24 @@ Global Search contract:
 - persisted EPG people are searched through this provider-free read path rather than a second browser/provider route.
 
 ---
+
+
+## Phase 69.F Public-Contract Classification
+
+The Web Client API snapshot is a first-party browser ownership contract, not a
+statement that every exported wrapper is suitable for independent clients.
+
+[Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
+classifies every current base, Genre and Live Remote Client API operation against
+the stable public-v1 surface. External TV, mobile, desktop, Kodi and automation
+clients must use only deliberately stabilized public resources for supported
+domains and must not infer compatibility from browser cache/session/helper
+routes.
+
+The current browser wrapper has no direct `/api/v1` consumer yet because the
+existing stable Channel, TimerAssignment and public-Capability contracts are not
+drop-in semantic replacements for the corresponding browser transition routes.
+
 
 ## Current Direct Fetch Inventory
 
