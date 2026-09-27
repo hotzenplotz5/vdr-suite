@@ -91,6 +91,29 @@ int main()
     assert(capabilities.body.find(
         "\"id\":\"public-api.backends-read\"") != std::string::npos);
     assert(capabilities.body.find(
+        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
+        std::string::npos);
+
+    runtime.registerBackendCollectionLookup(
+        [](const PublicBackendCollectionRequest&)
+        {
+            PublicBackendCollectionResult result;
+            result.status = PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
+    ApiResponse availableBackendCapabilities;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities",
+        "actor-test",
+        "phase69f-backend-capability",
+        "",
+        availableBackendCapabilities));
+    assert(availableBackendCapabilities.body.find(
+        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    runtime.resetBackendCollectionLookup();
+    assert(capabilities.body.find(
         "\"compatibility\":{\"policyVersion\":1") != std::string::npos);
     assert(capabilities.body.find(
         "\"supportedApiMajors\":[\"v1\"]") != std::string::npos);
