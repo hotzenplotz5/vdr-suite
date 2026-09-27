@@ -65,7 +65,6 @@ response_body = runtime[response_start:response_end]
 for required in (
     "backendId",
     "name",
-    "type",
     "enabled",
     "online",
     "partial",
@@ -73,6 +72,8 @@ for required in (
     require(required in response_body, "public Backend representation misses: " + required)
 for forbidden in (
     "frontendSelector",
+    "backendType",
+    "restfulapi",
     "accessMode",
     "canWrite",
     "capabilities",
@@ -104,7 +105,6 @@ for token in (
     'std::string("*")',
     "item.backendId = backend.backendId",
     "item.name = backend.backendName",
-    "item.type = backend.backendType",
     "item.enabled = backend.enabled",
     "item.online = backend.online",
 ):
@@ -190,6 +190,8 @@ for token in (
     "be1_",
     "cursor_expired",
     "frontendSelector",
+    "backendType",
+    "restfulapi",
     "accessMode",
     "capabilities",
     "ETag",
@@ -254,5 +256,5 @@ require(
 
 print("Phase 69.F public Backend collection guard passed.")
 print("Authorization: existing positive backend grant scopes; no backends.view.")
-print("Representation: backendId/name/type/enabled/online only.")
+print("Representation: backendId/name/enabled/online only; provider type remains private.")
 print("Legacy /api/backends remains retained pre-v1 and non-equivalent.")
