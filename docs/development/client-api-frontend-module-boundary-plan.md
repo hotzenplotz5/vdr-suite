@@ -830,7 +830,7 @@ Implemented behavior:
 
 - `fetchClientSearchTimerDiscovery()` is exposed by `web/frontend/api/client-api.js`
 - the wrapper uses `/api/vdr/searchtimers/discovery`
-- the wrapper keeps `/api/searchtimers/discovery` as a compatibility fallback
+- Phase 69.F removed client-side fallback probing through `/api/searchtimers/discovery`; the server alias remains retained pre-v1 compatibility
 - the wrapper remains DOM-free
 - no SearchTimer discovery UI is added yet
 
@@ -1644,26 +1644,29 @@ Next open Web Client API areas:
 
 ## Phase 59.08g Implementation Status
 
-Phase 59.08g moved SearchTimer workflow and mutation HTTP access behind the Web Client API wrapper. Phase 69.F subsequently tightened the mutation boundary without changing the server-side alias inventory.
+Phase 59.08g moved SearchTimer workflow and mutation HTTP access behind the Web Client API wrapper. Phase 69.F now makes that entire first-party SearchTimer boundary one-shot while retaining the server aliases.
 
 Current behavior:
 
-- `fetchClientSearchTimerPlan()` owns `/api/vdr/searchtimers/plan` with the retained transition fallback `/api/searchtimers/plan`
-- `fetchClientSearchTimerValidate()` owns `/api/vdr/searchtimers/validate` with the retained transition fallback `/api/searchtimers/validate`
-- `fetchClientSearchTimerRealTest()` owns `/api/vdr/searchtimers/real-test` with the retained transition fallback `/api/searchtimers/real-test`
-- `fetchClientSearchTimerExecute()` dispatches once to `/api/vdr/searchtimers/execute`; it does not retry the state-changing request through `/api/searchtimers/execute`
-- `fetchClientSearchTimerCreateAction()` dispatches once to `/api/vdr/searchtimers`; it does not retry the state-changing request through `/api/searchtimers`
-- `fetchClientSearchTimerUpdateAction()` dispatches once to `/api/vdr/searchtimers/update`; it does not retry the state-changing request through `/api/searchtimers/update`
-- `fetchClientSearchTimerDeleteAction()` dispatches once to `/api/vdr/searchtimers/delete`; it does not retry the state-changing request through `/api/searchtimers/delete`
+- `fetchClientSearchTimerPlan()` dispatches once to `/api/vdr/searchtimers/plan`
+- `fetchClientSearchTimerValidate()` dispatches once to `/api/vdr/searchtimers/validate`
+- `fetchClientSearchTimerExecute()` dispatches once to `/api/vdr/searchtimers/execute`
+- `fetchClientSearchTimerRealTest()` dispatches once to `/api/vdr/searchtimers/real-test`
+- `fetchClientSearchTimerCreateAction()` dispatches once to `/api/vdr/searchtimers`
+- `fetchClientSearchTimerUpdateAction()` dispatches once to `/api/vdr/searchtimers/update`
+- `fetchClientSearchTimerDeleteAction()` dispatches once to `/api/vdr/searchtimers/delete`
+- no SearchTimer wrapper retries through an alternate `/api/searchtimers...` spelling after an HTTP, authorization, parser, backend or server failure
+- `fetchClientSearchTimerPreviewCacheRefresh()` is likewise one-shot on `/api/vdr/searchtimers/preview/cache/refresh`
 - the corresponding server aliases remain classified retained pre-v1 aliases; none is declared deprecated or promoted to public v1 by this client change
-- JSON request bodies are normalized through `jsonPostOptions()`
+- JSON request bodies remain normalized through `jsonPostOptions()`
 - the wrapper remains DOM-free
 
-Phase 69.F deliberately does not infer that an arbitrary `404 not_found` proves an unsupported route. The remaining read/query compatibility fallbacks require their own route-specific proof before they can be narrowed or removed.
+Phase 69.F does not infer that an arbitrary `404 not_found` proves an unsupported route. SearchTimer avoids that ambiguity by using one route that the bundled server already owns instead of error-driven alias probing.
 
 Next open Web Client API areas:
 
-- harden the remaining classified transition fallbacks without masking authorization, backend, parser or server failures
+- evaluate the four remaining non-SearchTimer wrapper fallbacks independently
+- keep the Home-sensitive manual EPG fallback out of generic cleanup until its lifecycle semantics are proven
 - migrate wrappers only when a genuine stabilized public-v1 successor exists
 - permission report route once backend exposes one
 
@@ -1719,9 +1722,9 @@ Phase 59.08d routes SearchTimer list loading through the Web Client API wrapper.
 
 Implemented behavior:
 
-- `fetchClientSearchTimers()` now tries `/api/vdr/searchtimers/live`
-- `fetchClientSearchTimers()` falls back to `/api/vdr/searchtimers`
-- `fetchClientSearchTimers()` falls back to `/api/searchtimers`
+- `fetchClientSearchTimers()` now uses the existing `/api/vdr/searchtimers` route directly
+- Phase 69.F removed the speculative non-server `/api/vdr/searchtimers/live` probe
+- Phase 69.F removed client-side alias fallback through `/api/searchtimers`; that server alias remains retained pre-v1 compatibility
 - `loadSearchTimers()` uses `window.VdrSuiteClientApi.fetchClientSearchTimers()`
 - `loadSearchTimers()` no longer calls `fetch()` directly
 - the wrapper remains DOM-free
@@ -1769,7 +1772,7 @@ Implemented behavior:
 - `fetchClientEpgSearch()` owns `/api/epg/search`
 - `fetchClientSearchTimerPreview()` is exposed by `web/frontend/api/client-api.js`
 - `fetchClientSearchTimerPreview()` uses `/api/vdr/searchtimers/preview`
-- `fetchClientSearchTimerPreview()` keeps `/api/searchtimers/preview` as a compatibility fallback
+- Phase 69.F removed client-side fallback probing through `/api/searchtimers/preview`; the server alias remains retained pre-v1 compatibility
 - backend-aware callers may pass `backendId`; the wrapper maps it to the existing backend query parameter for these backend routes
 - the wrapper remains DOM-free
 - no EPGSearch or SearchTimer preview UI is added yet
