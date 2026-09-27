@@ -94,7 +94,7 @@ a route.
 
 The successor slice now stabilizes `GET /api/v1/backends` as minimal,
 actor-filtered discovery. It intentionally exposes only `backendId`, `name`,
-`type`, `enabled` and `online`.
+`enabled` and `online`; provider/backend implementation type stays private.
 
 The bundled browser still consumes the richer pre-v1 `/api/backends` shape,
 including selector/write/capability presentation data and separate default/
