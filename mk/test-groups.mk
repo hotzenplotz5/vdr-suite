@@ -1,6 +1,8 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-phase69e-closeout \
+	test-phase69e-legacy-route-classification \
 	test-phase69e-compatibility-policy \
 	test-phase69d-closeout \
 	test-phase69d-public-channel-collection \
