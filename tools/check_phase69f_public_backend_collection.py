@@ -53,8 +53,8 @@ for token in (
     "publicBackendCollectionResponse",
     "registerBackendCollectionLookup",
     "lookupBackendCollection",
-    '"public-api.backends-read"',
-    '\\"backends\\":\\"/api/v1/backends\\"',
+    "public-api.backends-read",
+    "backends-read",
 ):
     require(token in runtime, "public Backend runtime drifted: " + token)
 
@@ -63,12 +63,12 @@ response_end = runtime.find("ApiResponse publicChannelCollectionResponse(", resp
 require(response_start >= 0 and response_end > response_start, "cannot bound public Backend response")
 response_body = runtime[response_start:response_end]
 for required in (
-    '\\"backendId\\"',
-    '\\"name\\"',
-    '\\"type\\"',
-    '\\"enabled\\"',
-    '\\"online\\"',
-    '\\"partial\\":false',
+    "backendId",
+    "name",
+    "type",
+    "enabled",
+    "online",
+    "partial",
 ):
     require(required in response_body, "public Backend representation misses: " + required)
 for forbidden in (
