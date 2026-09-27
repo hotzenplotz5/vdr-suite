@@ -23,6 +23,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.F Public-v1 Discovery Reference Client](development/phase-69f-public-v1-discovery-reference-client.md)
+- [Phase 69.F Public-v1 Channel Reference Client](development/phase-69f-public-v1-channel-reference-client.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -146,13 +147,18 @@ catch-all browser route fallback while preserving the server-owned explicit
 live-service-unavailable Timer snapshot decision.
 
 The [Phase 69.F Public-v1 Discovery Reference Client](development/phase-69f-public-v1-discovery-reference-client.md)
-candidate is the eighth bounded 69.F slice. A fresh post-#375 audit proves that
-the repository has stable public-v1 discovery contracts but no client/SDK seam
-that consumes them. The candidate adds a browser-independent JavaScript
-reference client for only `GET /api/v1`, `GET /api/v1/capabilities` and
-`GET /api/v1/backends`. It does not migrate the richer bundled browser,
-publish a package, invent authentication, or promote EPG/Recording/SearchTimer
-routes into public-v1.
+is the accepted eighth bounded 69.F slice via PR #376. It establishes the
+browser-independent JavaScript reference seam for `GET /api/v1`,
+`GET /api/v1/capabilities` and `GET /api/v1/backends` without migrating the
+richer bundled browser.
+
+The [Phase 69.F Public-v1 Channel Reference Client](development/phase-69f-public-v1-channel-reference-client.md)
+candidate is the ninth bounded 69.F slice. A fresh post-#376 audit selects the
+already-stable federated Channel collection as the next external read because
+it follows Backend discovery, is provider-neutral and read-only, and introduces
+no ETag/mutation/operation dependency. The reference client gains only
+`GET /api/v1/channels` with explicit source selection and existing
+pagination/partial-result semantics.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

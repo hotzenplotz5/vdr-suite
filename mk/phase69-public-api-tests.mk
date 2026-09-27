@@ -461,3 +461,10 @@ test-frontend-contracts: test-phase69f-timer-live-fallback-removal
 test-phase69f-public-v1-discovery-reference-client:
 	node clients/reference-js/tests/test_public_v1_discovery_client.js
 	python3 tools/check_phase69f_public_v1_discovery_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-channel-reference-client
+
+test-phase69f-public-v1-channel-reference-client:
+	node clients/reference-js/tests/test_public_v1_channel_client.js
+	python3 tools/check_phase69f_public_v1_channel_reference_client.py

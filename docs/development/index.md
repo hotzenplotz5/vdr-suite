@@ -15,6 +15,7 @@
 - [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
+- [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
 
 ---
 

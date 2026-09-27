@@ -111,17 +111,25 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 1, "expected exactly one bounded public client reference")
-reference = references[0]
-require(reference.get("id") == "reference-js-discovery", "public client reference id drifted")
-require(reference.get("path") == "clients/reference-js/public-v1-client.js", "public client reference path drifted")
+require(len(references) == 2, "expected exactly two bounded public client reference slices")
+discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
+require(discovery_reference is not None, "public discovery reference disappeared")
+require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
+require(discovery_reference.get("status") == "accepted", "public discovery reference must remain accepted")
 require(
-    set(reference.get("resources", [])) == {
+    set(discovery_reference.get("resources", [])) == {
         "GET /api/v1",
         "GET /api/v1/capabilities",
         "GET /api/v1/backends",
     },
     "public discovery reference resource set drifted",
+)
+channel_reference = next((r for r in references if r.get("id") == "reference-js-channel-collection"), None)
+require(channel_reference is not None, "public Channel reference slice disappeared")
+require(channel_reference.get("path") == "clients/reference-js/public-v1-client.js", "public Channel reference path drifted")
+require(
+    channel_reference.get("resources") == ["GET /api/v1/channels?backendId={backendId}"],
+    "public Channel reference resource drifted",
 )
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})

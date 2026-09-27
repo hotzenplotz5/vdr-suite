@@ -4,11 +4,16 @@ This directory contains a small reference implementation for the deliberately
 stable public-v1 client boundary.
 
 It is **not** a published npm package and it is not the browser Web Client API.
-The first bounded implementation covers only:
+The accepted initial discovery slice covers:
 
 - `GET /api/v1`;
 - `GET /api/v1/capabilities`;
 - `GET /api/v1/backends`.
+
+The next bounded read extension adds:
+
+- `GET /api/v1/channels?backendId=...` with explicit 1–16 source selection,
+  keyset pagination and unchanged partial-source metadata.
 
 The caller supplies the Suite origin, transport and any authentication headers
 or credentials. The reference client does not invent login/session behavior,

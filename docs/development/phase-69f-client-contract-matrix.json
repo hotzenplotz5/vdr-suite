@@ -266,19 +266,28 @@
   "derivedNextRuntimeCandidate": {
     "domain": "pending-live-audit",
     "proposedTemplate": null,
-    "reason": "The first public-v1 discovery reference client now consumes root, capabilities and backend discovery without browser-private semantics. Any next client/resource slice must still be selected from a fresh live gap and identity/dependency audit."
+    "reason": "The reference client now covers public discovery plus the stable federated Channel collection. TimerAssignment, Operation and any new public domain remain separate candidates selected only by a fresh live dependency audit."
   },
   "publicClientReferences": [
     {
       "id": "reference-js-discovery",
       "path": "clients/reference-js/public-v1-client.js",
-      "status": "candidate",
+      "status": "accepted",
       "resources": [
         "GET /api/v1",
         "GET /api/v1/capabilities",
         "GET /api/v1/backends"
       ],
       "note": "Transport-injected reference client for already-stable discovery contracts; no browser-private routes and no package/publication claim."
+    },
+    {
+      "id": "reference-js-channel-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/channels?backendId={backendId}"
+      ],
+      "note": "Read-only federated Channel collection extension with explicit 1–16 backend sources, keyset pagination and unchanged partial-source metadata."
     }
   ]
 }
