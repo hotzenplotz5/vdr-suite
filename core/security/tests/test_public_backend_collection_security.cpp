@@ -92,7 +92,7 @@ int main()
         assert(decision.rejection.statusCode == 401);
         assert(decision.rejection.body.find(
             "\"code\":\"unauthorized\"") != std::string::npos);
-        assert(decision.rejection.contentType ==
+        assert(decision.rejection.headers.at("Content-Type") ==
             "application/problem+json");
     }
 
