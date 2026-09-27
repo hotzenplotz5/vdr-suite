@@ -91,7 +91,7 @@ for token in (
     "public-api.deprecation-metadata",
     "deprecatedAliases",
     "Compatibility matrix",
-    "does not remove, redirect or deprecate an existing route",
+    "remove, redirect or deprecate an",\n    "existing route.",
     "Home",
     "LiveTV",
 ):
