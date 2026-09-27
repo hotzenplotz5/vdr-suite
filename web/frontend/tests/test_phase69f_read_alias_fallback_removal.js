@@ -82,7 +82,7 @@ async function verifyOneShot(functionName, expectedPath, options) {
 async function run() {
   assert.strictEqual(
     (source.match(/return requestJsonWithFallback\(/g) || []).length,
-    1
+    0
   );
 
   await verifyOneShot(

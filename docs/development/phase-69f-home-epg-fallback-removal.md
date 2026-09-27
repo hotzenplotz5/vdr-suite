@@ -2,7 +2,16 @@
 
 ## Status
 
-**CANDIDATE — sixth bounded 69.F slice.**
+**ACCEPTED — sixth bounded 69.F slice via PR #374.**
+
+Accepted evidence:
+
+```text
+PR #374
+accepted head=03b4783a0cd9e53e65f9dad3e1c0bf611a35cb84
+merge/main=fbaab982964c838e589dfce8adb62e14013e0e07
+CI #9337 / run 36341522122 = SUCCESS (6/6)
+```
 
 Baseline:
 

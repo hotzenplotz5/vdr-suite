@@ -637,7 +637,7 @@ Implemented behavior:
 - loadTimers() still lives in web/frontend/app.js
 - Timer rendering still lives in web/frontend/app.js
 - fetchClientTimers() owns the Timer list HTTP access
-- fetchClientTimers() keeps the live route and fallback route
+- fetchClientTimers() uses the live route as its single browser owner; Phase 69.F retired the arbitrary-error snapshot fallback
 - loadTimers() no longer fetches /api/vdr/timers directly
 
 No Timer UI module has been extracted yet.

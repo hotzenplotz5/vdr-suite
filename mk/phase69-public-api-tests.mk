@@ -445,3 +445,12 @@ test-phase69f-home-epg-fallback-removal:
 	python3 tools/check_phase69f_home_epg_fallback_removal.py
 
 test-frontend-contracts: test-phase69f-home-epg-fallback-removal
+
+
+.PHONY: test-phase69f-timer-live-fallback-removal
+
+test-phase69f-timer-live-fallback-removal:
+	node web/frontend/tests/test_phase69f_timer_live_fallback_removal.js
+	python3 tools/check_phase69f_timer_live_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-timer-live-fallback-removal

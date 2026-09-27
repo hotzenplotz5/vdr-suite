@@ -372,19 +372,25 @@ run `36338659080` succeeded 6/6.
 
 ## 69.F Home EPG single-route hardening
 
-The sixth bounded 69.F candidate is
+The sixth bounded 69.F slice is accepted via PR #374:
 [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md).
-The required fresh audit after Backend discovery does not promote another public
-resource: current Recording identity is not durable across mutation, while the
-ADR-0045 `programEventId` is not yet the productive EPG read identity. The
-remaining Home EPG client debt is narrower and already actionable: the
-canonical `/api/epg/now-next?from=-1` route and `/api/vdr/events` have
-different server owners, so arbitrary-error fallback can hide real EPG/auth/
-backend failures and substitute different semantics. This slice removes only
-that second request and preserves the existing empty-event fail-soft result.
-No public-v1 ProgramEvent route, deprecation or Home/LiveTV lifecycle rewrite is
-introduced. Timer live -> snapshot remains deferred because those semantics are
-also distinct and require their own decision.
+It removes the arbitrary-error `/api/epg/now-next?from=-1` ->
+`/api/vdr/events` semantic substitution while preserving fail-soft Home EPG
+behavior. PR #374 merged as `fbaab982964c838e589dfce8adb62e14013e0e07`
+after exact-head CI #9337 / run `36341522122` succeeded.
+
+## 69.F Timer live single-route hardening
+
+The seventh bounded 69.F candidate is
+[Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md).
+The fresh post-#374 audit proves the last Client API fallback is not an alias:
+`/api/vdr/timers/live` reads current VDR timers while `/api/vdr/timers` reads
+the snapshot service. The browser uses the live owner for Timer presentation and
+EPG Timer synchronization, and the live controller already owns its explicit
+service-unavailable snapshot decision. The client therefore issues one live
+request and preserves structured failure instead of retrying different snapshot
+semantics after arbitrary errors. No public-v1 resource, server-route removal,
+deprecation or native Timer mutation change is introduced.
 
 ## 69.C completion
 

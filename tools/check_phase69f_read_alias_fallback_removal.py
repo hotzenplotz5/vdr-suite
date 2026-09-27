@@ -26,16 +26,19 @@ def function_body(source: str, function_name: str, next_name: str) -> str:
 
 client_api = read("web/frontend/api/client-api.js")
 require(
-    client_api.count("return requestJsonWithFallback(") == 1,
-    "expected exactly one remaining wrapper fallback call",
+    client_api.count("return requestJsonWithFallback(") == 0,
+    "all wrapper fallback calls must remain retired by 69.F successors",
 )
 
 timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerConflicts")
 require(
-    "requestJsonWithFallback(" in timer_body
-    and "/api/vdr/timers/live" in timer_body
-    and "/api/vdr/timers" in timer_body,
-    "remaining fallback must be Timer live -> snapshot",
+    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "Timer successor must preserve the live route",
+)
+require(
+    "requestJsonWithFallback" not in timer_body
+    and "'/api/vdr/timers'" not in timer_body,
+    "Timer successor must keep snapshot fallback retired",
 )
 
 read_aliases = (
@@ -181,5 +184,5 @@ require(
 )
 
 print("Phase 69.F same-handler read-alias fallback-removal guard passed.")
-print("Remaining wrapper fallback: Timer live -> snapshot only.")
+print("Timer live/snapshot fallback is retired by its dedicated 69.F successor.")
 print("Manual Home-sensitive EPG fallback is retired by its dedicated 69.F successor.")

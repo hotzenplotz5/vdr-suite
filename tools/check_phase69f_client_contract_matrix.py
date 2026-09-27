@@ -127,15 +127,18 @@ require(timer_group and timer_group.get("publicV1Relation") == "partial-non-equi
 require(channel_group and channel_group.get("publicV1Relation") == "partial-non-equivalent", "Channel non-equivalence classification drifted")
 require(cap_group and cap_group.get("publicV1Relation") == "non-equivalent", "capability non-equivalence classification drifted")
 
-require(base_client.count("return requestJsonWithFallback(") == 1, "matrix expects exactly one remaining base wrapper fallback")
+require(base_client.count("return requestJsonWithFallback(") == 0, "matrix expects all browser wrapper fallbacks to be retired")
 timer_start = base_client.find("function fetchClientTimers(options)")
 timer_end = base_client.find("function fetchClientTimerConflicts(options)", timer_start)
 timer_body = base_client[timer_start:timer_end]
 require(
-    "/api/vdr/timers/live" in timer_body
-    and "/api/vdr/timers" in timer_body
-    and "requestJsonWithFallback(" in timer_body,
-    "Timer live/snapshot deferred fallback drifted",
+    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "Timer live route drifted after dedicated successor",
+)
+require(
+    "requestJsonWithFallback" not in timer_body
+    and "'/api/vdr/timers'" not in timer_body,
+    "retired Timer snapshot fallback returned",
 )
 
 epg_cache = read("web/frontend/epg-cache.js")
@@ -160,8 +163,8 @@ deferred_fallback_ids = {
     for item in matrix.get("explicitDeferredFallbacks", [])
 }
 require(
-    deferred_fallback_ids == {"timer-live-snapshot"},
-    "only the Timer live/snapshot fallback may remain deferred",
+    deferred_fallback_ids == set(),
+    "all explicitly deferred browser fallbacks must be retired after the Timer successor",
 )
 
 for route in (

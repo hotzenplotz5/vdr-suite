@@ -21,6 +21,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Client Contract Matrix](development/phase-69f-client-contract-matrix.md)
 - [Phase 69.F Public Backend Collection](development/phase-69f-public-backend-collection.md)
 - [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
+- [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -133,14 +134,20 @@ permission model. The richer first-party `/api/backends` route remains pre-v1
 and is not deprecated or silently substituted in the browser.
 
 The [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
-candidate is the sixth bounded 69.F slice. A fresh post-#373 audit rejects
-premature public Recording and ProgramEvent resources because their durable
-public identities are not yet proven by the current productive read models.
-Instead, the slice retires only the manual Home EPG arbitrary-error fallback
-from `/api/epg/now-next?from=-1` to the semantically distinct
-`/api/vdr/events` route. Canonical EPG ownership and fail-soft empty-event
-behavior remain unchanged; Home/LiveTV lifecycle is not rebuilt. The distinct
-Timer live/snapshot wrapper fallback remains explicit debt.
+is the accepted sixth bounded 69.F slice via PR #374. It retires the manual
+Home EPG arbitrary-error fallback from `/api/epg/now-next?from=-1` to the
+semantically distinct `/api/vdr/events` route while preserving fail-soft
+empty-event behavior and without rebuilding Home/LiveTV lifecycle.
+
+The [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
+candidate is the seventh bounded 69.F slice. The fresh post-#374 audit proves
+that `fetchClientTimers()` is a live/current-state owner used both by the Timer
+module and EPG Timer detail synchronization, while `/api/vdr/timers` is a
+separate snapshot read. The server-side `getLiveTimers()` already owns the
+explicit live-service-unavailable fallback to snapshot data. The browser
+therefore stops retrying the snapshot route after arbitrary request failure,
+removing the final catch-all Client API route fallback without changing either
+server route or creating a new public-v1 Timer-list contract.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

@@ -54,8 +54,8 @@ require(
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
 deferred = {item.get("id") for item in matrix.get("explicitDeferredFallbacks", [])}
 require(
-    deferred == {"timer-live-snapshot"},
-    "Timer live/snapshot must be the only deferred fallback after this slice",
+    deferred == set(),
+    "dedicated Timer successor must retire the final deferred browser fallback",
 )
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(
@@ -153,4 +153,4 @@ require(
 
 print("Phase 69.F Home EPG single-route guard passed.")
 print("Home EPG uses one canonical now-next request and preserves fail-soft behavior.")
-print("Timer live/snapshot remains the only explicitly deferred browser fallback.")
+print("The dedicated Timer successor retires the final explicitly deferred browser fallback.")

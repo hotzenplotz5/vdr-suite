@@ -142,18 +142,23 @@ The same public contract is intended for browser, TV, mobile, desktop, Kodi and
 automation clients. Client-specific presentation and player engines remain
 outside the platform resource contract.
 
-## Explicit debt and successor status
+## Explicit fallback debt and successor status
 
-One browser wrapper fallback remains separately classified:
+No catch-all browser route fallback remains in the current Client API.
+
+The former Timer fallback:
 
 ```text
-Timer:
-  /api/vdr/timers/live
-  -> /api/vdr/timers
+/api/vdr/timers/live
+-> /api/vdr/timers
 ```
 
-The Timer paths have distinct live/snapshot semantics and still require a
-dedicated semantic decision.
+is retired by the dedicated Timer successor slice. The routes remain distinct
+pre-v1 reads: the live route is the browser owner, while
+`VdrController::getLiveTimers()` keeps the explicit server-side decision to
+return snapshot timers only when the live VDR service itself is unavailable.
+An arbitrary HTTP/auth/backend failure no longer causes a second browser request
+with different semantics.
 
 The former Home EPG fallback:
 
@@ -201,8 +206,8 @@ The dedicated architecture guard must fail when:
   `/api/v1/search-timers` is silently invented;
 - the stabilized `/api/v1/backends` contract disappears or is treated as a
   drop-in legacy-browser replacement;
-- the Timer live/snapshot fallback disappears without a dedicated semantic
-  successor slice;
+- the retired Timer live/snapshot fallback or generic
+  `requestJsonWithFallback()` helper is reintroduced;
 - the retired Home EPG alternate-source fallback is reintroduced;
 - Browser-session routes are presented as a generic app authentication
   contract.

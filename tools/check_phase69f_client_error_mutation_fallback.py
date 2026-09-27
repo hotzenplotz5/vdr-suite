@@ -50,7 +50,7 @@ require(
 )
 
 binary_start = client_api.find("function requestBinary(path, options)")
-binary_end = client_api.find("function requestJsonWithFallback(", binary_start)
+binary_end = client_api.find("function fetchClientTimers(options)", binary_start)
 binary_body = client_api[binary_start:binary_end]
 require(
     "throw createClientError(path, response.status, payload);" in binary_body,
@@ -91,11 +91,11 @@ for function_name, next_name, primary_route, alternate_route in mutation_contrac
     require(alternate_route not in body, f"{function_name} restored alternate mutation dispatch")
 
 # The first 69.F slice does not own later removal of read/query fallback debt.
-# Keep only the invariant that a single-path compatibility helper may remain;
-# successor 69.F slices are allowed to retire the multi-path SearchTimer probe.
+# Successor 69.F slices may retire compatibility helpers once their semantics are
+# proven; the retired multi-path helper must never return.
 require(
-    "function requestJsonWithFallback(path, fallbackPath, options)" in client_api,
-    "remaining non-SearchTimer transition helper unexpectedly disappeared",
+    "function requestJsonWithFallbacks(paths, options)" not in client_api,
+    "retired multi-path fallback helper unexpectedly returned",
 )
 
 router = read("api/rest/src/ApiRouter.cpp")
