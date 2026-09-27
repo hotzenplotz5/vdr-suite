@@ -146,4 +146,5 @@ for token in (
 print("Phase 69.E legacy-route classification guard passed.")
 print("Routes: 124 total / 6 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
-print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")\nprint("Current downstream state: 11 wrapper fallback call sites plus one manual EPG GET fallback; the four classified state-changing fallbacks are retired by 69.F.")
+print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
+print("Current downstream state: 11 wrapper fallback call sites plus one manual EPG GET fallback; the four classified state-changing fallbacks are retired by 69.F.")
