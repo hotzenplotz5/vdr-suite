@@ -1644,23 +1644,27 @@ Next open Web Client API areas:
 
 ## Phase 59.08g Implementation Status
 
-Phase 59.08g moves SearchTimer workflow and mutation HTTP access behind the Web Client API wrapper.
+Phase 59.08g moved SearchTimer workflow and mutation HTTP access behind the Web Client API wrapper. Phase 69.F subsequently tightened the mutation boundary without changing the server-side alias inventory.
 
-Implemented behavior:
+Current behavior:
 
-- `fetchClientSearchTimerPlan()` owns `/api/vdr/searchtimers/plan` with `/api/searchtimers/plan` fallback
-- `fetchClientSearchTimerValidate()` owns `/api/vdr/searchtimers/validate` with `/api/searchtimers/validate` fallback
-- `fetchClientSearchTimerExecute()` owns `/api/vdr/searchtimers/execute` with `/api/searchtimers/execute` fallback
-- `fetchClientSearchTimerRealTest()` owns `/api/vdr/searchtimers/real-test` with `/api/searchtimers/real-test` fallback
-- `fetchClientSearchTimerCreateAction()` owns `/api/vdr/searchtimers` with `/api/searchtimers` fallback
-- `fetchClientSearchTimerUpdateAction()` owns `/api/vdr/searchtimers/update` with `/api/searchtimers/update` fallback
-- `fetchClientSearchTimerDeleteAction()` owns `/api/vdr/searchtimers/delete` with `/api/searchtimers/delete` fallback
+- `fetchClientSearchTimerPlan()` owns `/api/vdr/searchtimers/plan` with the retained transition fallback `/api/searchtimers/plan`
+- `fetchClientSearchTimerValidate()` owns `/api/vdr/searchtimers/validate` with the retained transition fallback `/api/searchtimers/validate`
+- `fetchClientSearchTimerRealTest()` owns `/api/vdr/searchtimers/real-test` with the retained transition fallback `/api/searchtimers/real-test`
+- `fetchClientSearchTimerExecute()` dispatches once to `/api/vdr/searchtimers/execute`; it does not retry the state-changing request through `/api/searchtimers/execute`
+- `fetchClientSearchTimerCreateAction()` dispatches once to `/api/vdr/searchtimers`; it does not retry the state-changing request through `/api/searchtimers`
+- `fetchClientSearchTimerUpdateAction()` dispatches once to `/api/vdr/searchtimers/update`; it does not retry the state-changing request through `/api/searchtimers/update`
+- `fetchClientSearchTimerDeleteAction()` dispatches once to `/api/vdr/searchtimers/delete`; it does not retry the state-changing request through `/api/searchtimers/delete`
+- the corresponding server aliases remain classified retained pre-v1 aliases; none is declared deprecated or promoted to public v1 by this client change
 - JSON request bodies are normalized through `jsonPostOptions()`
 - the wrapper remains DOM-free
-- no SearchTimer mutation UI is added yet
+
+Phase 69.F deliberately does not infer that an arbitrary `404 not_found` proves an unsupported route. The remaining read/query compatibility fallbacks require their own route-specific proof before they can be narrowed or removed.
 
 Next open Web Client API areas:
 
+- harden the remaining classified transition fallbacks without masking authorization, backend, parser or server failures
+- migrate wrappers only when a genuine stabilized public-v1 successor exists
 - permission report route once backend exposes one
 
 ---
