@@ -191,9 +191,61 @@
       if (payload.message) {
         return String(payload.message);
       }
+
+      if (payload.detail) {
+        return String(payload.detail);
+      }
+
+      if (payload.title) {
+        return String(payload.title);
+      }
+
+      if (payload.code) {
+        return String(payload.code);
+      }
     }
 
     return 'Request failed for ' + path + ' with status ' + status;
+  }
+
+  function errorField(payload, name) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    if (payload[name] !== undefined && payload[name] !== null &&
+        payload[name] !== '') {
+      return String(payload[name]);
+    }
+
+    if (payload.error && typeof payload.error === 'object' &&
+        payload.error[name] !== undefined &&
+        payload.error[name] !== null &&
+        payload.error[name] !== '') {
+      return String(payload.error[name]);
+    }
+
+    return null;
+  }
+
+  function createClientError(path, status, payload) {
+    const failure = new Error(errorMessage(path, status, payload));
+    failure.name = 'VdrSuiteClientError';
+    failure.path = path;
+    failure.status = Number(status) || 0;
+    failure.code = errorField(payload, 'code');
+    failure.requestId = errorField(payload, 'requestId');
+    failure.correlationId = errorField(payload, 'correlationId');
+    failure.payload = payload && typeof payload === 'object' ? payload : null;
+    return failure;
+  }
+
+  function isClientError(error) {
+    return Boolean(
+      error &&
+      error.name === 'VdrSuiteClientError' &&
+      typeof error.status === 'number'
+    );
   }
 
   function parseJsonResponse(path, response) {
@@ -218,7 +270,7 @@
     return fetch(url, requestOptions(normalized)).then(function (response) {
       return parseJsonResponse(path, response).then(function (payload) {
         if (!response.ok) {
-          throw new Error(errorMessage(path, response.status, payload));
+          throw createClientError(path, response.status, payload);
         }
 
         return payload;
@@ -264,11 +316,7 @@
           if (body) {
             try { payload = JSON.parse(body); } catch (error) { payload = null; }
           }
-          const failure = new Error(
-            errorMessage(path, response.status, payload)
-          );
-          failure.status = response.status;
-          throw failure;
+          throw createClientError(path, response.status, payload);
         });
       }
 
@@ -649,9 +697,8 @@
   }
 
   function fetchClientSearchTimerExecute(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/execute',
-      '/api/searchtimers/execute',
       jsonPostOptions(options)
     );
   }
@@ -665,25 +712,22 @@
   }
 
   function fetchClientSearchTimerCreateAction(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers',
-      '/api/searchtimers',
       jsonPostOptions(options)
     );
   }
 
   function fetchClientSearchTimerUpdateAction(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/update',
-      '/api/searchtimers/update',
       jsonPostOptions(options)
     );
   }
 
   function fetchClientSearchTimerDeleteAction(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/searchtimers/delete',
-      '/api/searchtimers/delete',
       jsonPostOptions(options)
     );
   }
@@ -691,6 +735,7 @@
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
     requestBinary: requestBinary,
+    isClientError: isClientError,
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
