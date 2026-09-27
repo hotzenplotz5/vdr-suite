@@ -71,15 +71,23 @@ require(
 
 fallback_contracts = (
     ("fetchClientTimers","fetchClientTimerConflicts",("/api/vdr/timers/live","/api/vdr/timers")),
-    ("fetchClientVdrOverview","fetchClientVdrStatus",("/api/vdr/overview","/api/vdr")),
-    ("fetchClientPersons","fetchClientRecordingPersons",("/api/vdr/persons","/api/persons")),
-    ("fetchClientRecordingPersons","fetchClientRecordingTrailer",("/api/vdr/recordings/persons/search","/api/recordings/persons/search")),
 )
 for function_name, next_name, routes in fallback_contracts:
     body = function_body(client_api, function_name, next_name)
     require("requestJsonWithFallback" in body, f"{function_name} fallback helper classification drifted")
     for route in routes:
         require(route in body, f"{function_name} fallback route disappeared: {route}")
+
+read_alias_contracts = (
+    ("fetchClientVdrOverview","fetchClientVdrStatus","/api/vdr/overview","/api/vdr"),
+    ("fetchClientPersons","fetchClientRecordingPersons","/api/vdr/persons","/api/persons"),
+    ("fetchClientRecordingPersons","fetchClientRecordingTrailer","/api/vdr/recordings/persons/search","/api/recordings/persons/search"),
+)
+for function_name, next_name, primary_route, alternate_route in read_alias_contracts:
+    body = function_body(client_api, function_name, next_name)
+    require("requestJson(" in body and primary_route in body, f"{function_name} primary read route drifted")
+    require("requestJsonWithFallback" not in body, f"{function_name} must not restore read alias fallback probing")
+    require(alternate_route not in body, f"{function_name} must not probe the alternate read alias")
 
 searchtimer_contracts = (
     ("fetchClientSearchTimers","fetchClientSearchTimerDiscovery","/api/vdr/searchtimers","/api/searchtimers"),
@@ -144,4 +152,4 @@ print("Phase 69.E legacy-route classification guard passed.")
 print("Routes: 124 total / 6 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
 print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
-print("Current downstream state: 4 wrapper fallback call sites plus one manual EPG GET fallback; SearchTimer fallback probing is retired by 69.F.")
+print("Current downstream state: 1 Timer live/snapshot wrapper fallback plus one manual EPG GET fallback; same-handler read aliases and SearchTimer fallback probing are retired by 69.F.")
