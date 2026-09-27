@@ -27,12 +27,24 @@ Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibi
 
 Current active runtime slice: **69.D - Collections, pagination and partial results**.
 
-Current bounded 69.D candidate: the first stable collection is the backend-scoped
-TimerAssignment read collection documented in
-[Phase 69.D first public collection](phase-69d-timer-assignment-collection.md).
-It reuses the accepted public TimerAssignment identity, existing read repository
-and `timers.view@backend` authorization; it does not open a multi-backend
-aggregator or a new Timer mutation path. Phase 69.C is completed; durable evidence is in [Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.C boundary now includes actor-owned public operation reads, backend-scoped public TimerAssignment reads, opaque resource ETags/conditional GET, strong `If-Match`, durable `Idempotency-Key`, atomic Timer CREATE admission, exactly-once native CREATE dispatch, durable Agent outcome evidence, authoritative Timer readback, verified managed binding and restart-safe no-redispatch behavior. PR #361 closed the productive native-effect gate with exact-head hosted CI 6/6 and real yaVDR acceptance. The live 69.D inventory selected the first bounded candidate: backend-scoped `GET /api/v1/timer-assignments?backend={backendId}`. It reuses the accepted public item identity and durable repository, fixes `timerAssignmentId ASC` keyset pagination with default 50 / maximum 100, exposes no collection ETag without an owning set revision, reports successful pages as non-partial, and treats repository/source failure as explicit 503. Cross-backend aggregation remains outside this first slice; no pre-v1 collection shape is promoted. See [Phase 69.D TimerAssignment Collection](phase-69d-timer-assignment-collection.md). Phase 69.A route/resource inventory and Phase 69.B request/error foundations remain accepted; see [Phase 69.B Closeout](phase-69b-closeout.md) and [Phase 69 Public API Kickoff and Runtime Progress](phase-69-public-api-kickoff.md).
+Current bounded 69.D candidate: the first true federated public
+Channel collection documented in
+[Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
+The accepted TimerAssignment collection already proves the standard v1 envelope
+and single-source keyset pagination. The remaining ADR-0048 runtime gap is
+explicit multi-backend partial-source behavior. Channels are the narrowest
+current domain with stable `(backendId, channelId)` identity, existing
+BackendRegistry/VdrSnapshot read authorities and `channels.view@backend`,
+without coupling 69.D to Home, Recording metadata fanout or LiveTV. The
+candidate uses explicit repeated `backendId` scopes, independent authorization,
+`backendId ASC, channelId ASC` ordering, scope-bound opaque cursors, explicit
+partial source states and `503 backend_unavailable` when all sources fail. No
+pre-v1 Channel route is promoted or aliased.
+
+Phase 69.C remains completed; durable evidence is in
+[Phase 69.C Closeout](phase-69c-closeout.md). The accepted first 69.D collection
+remains documented in
+[Phase 69.D TimerAssignment Collection](phase-69d-timer-assignment-collection.md).
 
 Accepted Phase-68 slices include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport, 68.D authorized bounded view sessions, 68.E bounded viewer bindings/multi-viewer delivery, 68.F exclusive controller leasing and 68.G allowlisted native OSD input**.
 

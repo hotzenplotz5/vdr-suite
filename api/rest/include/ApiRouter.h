@@ -203,7 +203,8 @@ public:
         const std::string& requestRef = "",
         const std::string& correlationRef = "",
         const std::string& ifNoneMatch = "",
-        const std::string& authorizedBackendRef = "")
+        const std::string& authorizedBackendRef = "",
+        const std::vector<std::string>& authorizedBackendRefs = {})
     {
         ApiResponse response;
 
@@ -214,7 +215,8 @@ public:
                 correlationRef,
                 response,
                 ifNoneMatch,
-                authorizedBackendRef))
+                authorizedBackendRef,
+                authorizedBackendRefs))
         {
             return response;
         }

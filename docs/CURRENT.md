@@ -77,13 +77,20 @@ Current active runtime slice:
 69.D - Collections, pagination and partial results
 
 Current bounded 69.D candidate:
-open exactly one backend-scoped public TimerAssignment read collection from the
-existing TimerAssignmentRepository/TimerAssignmentReadService authority. The
-candidate fixes timerAssignmentId ASC keyset ordering, default/max limits 50/100,
-actor+backend-bound opaque cursors and meta.partial=false for its single
-Suite-owned repository source. It adds no cross-backend aggregation, no legacy
-fallback, no Timer mutation path and no Home/LiveTV migration. The complete
-candidate contract is in [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md).
+add the first true federated public read collection at
+`GET /api/v1/channels` over explicit, individually authorized `backendId`
+sources. It reuses BackendRegistryService + VdrSnapshotReadService, preserves
+the accepted `(backendId, channelId)` identity, uses backendId/channelId
+keyset ordering, emits explicit per-source partial metadata and returns 503 when
+all requested sources fail. It adds no new snapshot/repository authority and
+does not touch Home, Recording fanout, LiveTV or Timer mutation. The complete
+contract is in [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
+
+The accepted first 69.D collection remains
+[Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md):
+backend-scoped TimerAssignments established the standard envelope and
+single-source keyset rules but intentionally did not claim federated partial
+semantics.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

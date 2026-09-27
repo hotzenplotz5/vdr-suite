@@ -81,6 +81,51 @@ struct PublicTimerAssignmentCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicChannelCollectionStatus
+{
+    ok,
+    invalid,
+    allSourcesUnavailable,
+    unavailable,
+};
+
+struct PublicChannelCollectionItem
+{
+    std::string backendId;
+    std::string channelId;
+    int channelNumber = 0;
+    std::string name;
+    std::string provider;
+    std::string groupName;
+    bool radio = false;
+    bool encrypted = false;
+    bool enabled = false;
+};
+
+struct PublicChannelCollectionSource
+{
+    std::string backendId;
+    std::string state;
+    std::string code;
+};
+
+struct PublicChannelCollectionRequest
+{
+    std::vector<std::string> backendIds;
+    std::string afterBackendId;
+    std::string afterChannelId;
+    std::size_t limit = 50U;
+};
+
+struct PublicChannelCollectionResult
+{
+    PublicChannelCollectionStatus status =
+        PublicChannelCollectionStatus::unavailable;
+    std::vector<PublicChannelCollectionItem> channels;
+    std::vector<PublicChannelCollectionSource> sources;
+    bool hasMore = false;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -130,6 +175,10 @@ public:
         std::function<PublicTimerAssignmentCollectionResult(
             const PublicTimerAssignmentCollectionRequest& request)>;
 
+    using ChannelCollectionLookup =
+        std::function<PublicChannelCollectionResult(
+            const PublicChannelCollectionRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -154,6 +203,13 @@ public:
     PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
         const PublicTimerAssignmentCollectionRequest& request) const;
 
+    void registerChannelCollectionLookup(
+        ChannelCollectionLookup lookup);
+    void resetChannelCollectionLookup();
+    bool channelCollectionLookupConfigured() const;
+    PublicChannelCollectionResult lookupChannelCollection(
+        const PublicChannelCollectionRequest& request) const;
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -165,7 +221,8 @@ public:
         const std::string& correlationId,
         ApiResponse& response,
         const std::string& ifNoneMatch = "",
-        const std::string& authorizedBackendId = "") const;
+        const std::string& authorizedBackendId = "",
+        const std::vector<std::string>& authorizedBackendIds = {}) const;
 
     bool tryHandlePost(
         const std::string& requestTarget,
@@ -201,6 +258,9 @@ private:
 
     mutable std::mutex timerAssignmentCollectionLookupMutex_;
     TimerAssignmentCollectionLookup timerAssignmentCollectionLookup_;
+
+    mutable std::mutex channelCollectionLookupMutex_;
+    ChannelCollectionLookup channelCollectionLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
