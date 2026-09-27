@@ -2,7 +2,7 @@
 
 ## Status
 
-**ACTIVE — 69.A, 69.B, 69.C and 69.D are accepted on `main`; current slice: 69.E Compatibility and deprecation policy.**
+**ACTIVE — 69.A, 69.B, 69.C, 69.D and 69.E are accepted on `main`; current slice: 69.F First-party and third-party client hardening.**
 
 Start baseline:
 
@@ -297,9 +297,18 @@ including state-changing SearchTimer fallbacks, without pulling broad 69.F
 client migration into this slice. See
 [Phase 69.E Retained Legacy Route Classification](phase-69e-legacy-route-classification.md).
 
+## 69.E completion
+
+PR #366 established the machine-readable compatibility/deprecation policy and
+PR #367 classified every retained unversioned route without inventing a stable
+successor or deprecation. [Phase 69.E Closeout](phase-69e-closeout.md) records
+the accepted evidence and activates 69.F first-party/third-party client
+hardening. The known catch-all route-fallback debt is carried forward to 69.F;
+69.E does not change Home, LiveTV or native VDR behavior.
+
 ## 69.C completion
 
-PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.E is now active.
+PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F is now active.
 
 ## 69.A acceptance
 
