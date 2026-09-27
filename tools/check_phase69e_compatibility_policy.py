@@ -84,7 +84,7 @@ for token in (
 
 doc = read("doc")
 for token in (
-    "**IMPLEMENTED CANDIDATE — first bounded 69.E slice.**",
+    "**ACCEPTED — first bounded 69.E slice.**",
     "responseEvolution",
     "breakingChanges",
     "public-api.compatibility-policy",
@@ -101,37 +101,22 @@ for token in (
 current = read("current")
 require(
     current,
-    "Current active runtime slice:\n69.E - Compatibility and deprecation policy",
-    "CURRENT active 69.E",
-)
-require(
-    current,
     "[Phase 69.E Compatibility Policy Foundation]",
-    "CURRENT candidate link",
+    "CURRENT retained foundation link",
 )
 
 status = read("status")
 require(
     status,
-    "Current active runtime slice: **69.E - Compatibility and deprecation policy**",
-    "current-status active 69.E",
-)
-require(
-    status,
     "[Phase 69.E Compatibility Policy Foundation]",
-    "current-status candidate link",
+    "current-status retained foundation link",
 )
 
 roadmap = read("roadmap")
 require(
     roadmap,
-    "Status: **Active.** First bounded candidate:",
-    "roadmap 69.E candidate",
-)
-require(
-    roadmap,
     "[Phase 69.E Compatibility Policy Foundation]",
-    "roadmap candidate link",
+    "roadmap retained foundation link",
 )
 
 kickoff = read("kickoff")
