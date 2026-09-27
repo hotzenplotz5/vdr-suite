@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED CANDIDATE — first bounded 69.E slice.**
+**ACCEPTED — first bounded 69.E slice.**
 
 Baseline:
 
@@ -120,3 +120,8 @@ existing route.
 
 No real-yaVDR native-effect acceptance is required for this public discovery
 contract.
+
+## Closeout
+
+Accepted as the first bounded 69.E slice. Durable phase-level evidence is in
+[Phase 69.E Closeout](phase-69e-closeout.md).
