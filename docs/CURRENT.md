@@ -15,6 +15,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
 - [Phase 69.E Closeout](development/phase-69e-closeout.md)
+- [Phase 69.F Client Error and Mutation-Fallback Safety](development/phase-69f-client-error-mutation-fallback.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -101,9 +102,13 @@ public-v1 successor.
 69.F is active. It owns first-/third-party client hardening: common client error
 representation, removal of fallback probing after arbitrary errors, wrapper
 migration to genuine stabilized v1 contracts and a documented stable boundary
-for browser, TV, mobile, desktop and Kodi integrations. Existing catch-all
-fallback debt remains inventoried; Home/LiveTV runtime is not reopened by this
-status transition.
+for browser, TV, mobile, desktop and Kodi integrations. The
+[Phase 69.F Client Error and Mutation-Fallback Safety](development/phase-69f-client-error-mutation-fallback.md)
+candidate is the first bounded 69.F slice: it preserves structured HTTP error
+evidence in the browser client and removes alternate-path retries from the four
+proven state-changing SearchTimer mutations. The remaining read/query fallback
+debt stays explicit until route-specific unsupported-route evidence exists;
+Home/LiveTV runtime is not reopened by this slice.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

@@ -61,9 +61,10 @@ test-architecture:
 	python3 tools/check_phase69e_compatibility_policy.py
 	python3 tools/check_phase69e_legacy_route_classification.py
 	python3 tools/check_phase69e_closeout.py
+	python3 tools/check_phase69f_client_error_mutation_fallback.py
 
 .PHONY: test-phase
-test-phase: test-phase69-public-api-contract-root test-phase69-public-resource-preconditions test-phase69-operation-read-facade test-phase69-public-operation-resource test-phase69-timer-assignment-read-facade test-phase69-timer-assignment-runtime-composition test-phase69-public-timer-assignment-resource test-phase69-native-timer-create-preparation-runtime test-phase69-native-timer-create-dispatch-runtime test-phase69-timer-assignment-native-specification test-phase69-native-timer-create-fulfillment-runtime test-phase69-timer-create-identity-authority test-phase69-atomic-timer-create-admission test-phase69-public-timer-create-admission test-phase69-native-timer-create-reconciliation-runtime test-phase69c-closeout test-phase69d-timer-assignment-collection-read test-phase69d-public-timer-assignment-collection test-phase69d-public-channel-collection test-phase69d-closeout test-phase69e-compatibility-policy test-phase69e-legacy-route-classification test-phase69e-closeout
+test-phase: test-phase69-public-api-contract-root test-phase69-public-resource-preconditions test-phase69-operation-read-facade test-phase69-public-operation-resource test-phase69-timer-assignment-read-facade test-phase69-timer-assignment-runtime-composition test-phase69-public-timer-assignment-resource test-phase69-native-timer-create-preparation-runtime test-phase69-native-timer-create-dispatch-runtime test-phase69-timer-assignment-native-specification test-phase69-native-timer-create-fulfillment-runtime test-phase69-timer-create-identity-authority test-phase69-atomic-timer-create-admission test-phase69-public-timer-create-admission test-phase69-native-timer-create-reconciliation-runtime test-phase69c-closeout test-phase69d-timer-assignment-collection-read test-phase69d-public-timer-assignment-collection test-phase69d-public-channel-collection test-phase69d-closeout test-phase69e-compatibility-policy test-phase69e-legacy-route-classification test-phase69e-closeout test-phase69f-client-error-mutation-fallback
 	python3 tools/check_phase_consistency.py
 	python3 tools/check_phase69_public_api_inventory.py
 

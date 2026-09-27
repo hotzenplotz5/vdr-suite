@@ -7,6 +7,7 @@
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 69.F Client Error and Mutation-Fallback Safety](phase-69f-client-error-mutation-fallback.md)
 
 ---
 

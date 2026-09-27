@@ -86,6 +86,24 @@ def client_api_export_names(client_api: str) -> set[str]:
     )
 
 
+def client_api_function_body(
+    client_api: str,
+    function_name: str,
+    next_function_name: str | None = None,
+) -> str:
+    start_marker = f"function {function_name}(options)"
+    start = client_api.find(start_marker)
+    require(start >= 0, f"client-api.js must define {function_name}(options)")
+
+    if next_function_name is None:
+        end = client_api.find("window.VdrSuiteClientApi", start)
+    else:
+        end = client_api.find(f"function {next_function_name}(options)", start)
+
+    require(end > start, f"cannot bound client-api.js function {function_name}")
+    return client_api[start:end]
+
+
 def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "platform": '<script src="/frontend/platform/bootstrap.js"></script>',
@@ -2301,47 +2319,82 @@ def check_client_api_contract():
         "fetchClientSearchTimerPreview() must own SearchTimer preview route access"
     )
 
-    searchtimer_workflow_routes = {
+    searchtimer_fallback_routes = {
         "fetchClientSearchTimerPlan": (
+            "fetchClientSearchTimerValidate",
             "/api/vdr/searchtimers/plan",
             "/api/searchtimers/plan",
         ),
         "fetchClientSearchTimerValidate": (
+            "fetchClientSearchTimerExecute",
             "/api/vdr/searchtimers/validate",
             "/api/searchtimers/validate",
         ),
-        "fetchClientSearchTimerExecute": (
-            "/api/vdr/searchtimers/execute",
-            "/api/searchtimers/execute",
-        ),
         "fetchClientSearchTimerRealTest": (
+            "fetchClientSearchTimerCreateAction",
             "/api/vdr/searchtimers/real-test",
             "/api/searchtimers/real-test",
         ),
+    }
+
+    for function_name, routes in searchtimer_fallback_routes.items():
+        next_function_name, primary_route, alternate_route = routes
+        body = client_api_function_body(
+            client_api,
+            function_name,
+            next_function_name,
+        )
+        require(
+            "requestJsonWithFallback(" in body,
+            function_name + "() must retain its classified transition fallback",
+        )
+        require(
+            primary_route in body and alternate_route in body,
+            function_name + "() transition fallback route ownership drifted",
+        )
+
+    searchtimer_mutation_routes = {
+        "fetchClientSearchTimerExecute": (
+            "fetchClientSearchTimerRealTest",
+            "/api/vdr/searchtimers/execute",
+            "/api/searchtimers/execute",
+        ),
         "fetchClientSearchTimerCreateAction": (
+            "fetchClientSearchTimerUpdateAction",
             "/api/vdr/searchtimers",
             "/api/searchtimers",
         ),
         "fetchClientSearchTimerUpdateAction": (
+            "fetchClientSearchTimerDeleteAction",
             "/api/vdr/searchtimers/update",
             "/api/searchtimers/update",
         ),
         "fetchClientSearchTimerDeleteAction": (
+            None,
             "/api/vdr/searchtimers/delete",
             "/api/searchtimers/delete",
         ),
     }
 
-    for function_name, routes in searchtimer_workflow_routes.items():
-        require(
-            "function " + function_name + "(options)" in client_api,
-            "client-api.js must define " + function_name + "(options)"
+    for function_name, routes in searchtimer_mutation_routes.items():
+        next_function_name, primary_route, alternate_route = routes
+        body = client_api_function_body(
+            client_api,
+            function_name,
+            next_function_name,
         )
-        for route in routes:
-            require(
-                route in client_api,
-                function_name + "() must own SearchTimer route access for " + route
-            )
+        require(
+            "jsonPostOptions(options)" in body and "requestJson(" in body,
+            function_name + "() must preserve one-shot JSON mutation dispatch",
+        )
+        require(
+            primary_route in body,
+            function_name + "() must own its primary SearchTimer mutation route",
+        )
+        require(
+            "requestJsonWithFallback" not in body and alternate_route not in body,
+            function_name + "() must not retry a state-changing mutation through an alias",
+        )
 
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
