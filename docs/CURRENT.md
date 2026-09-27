@@ -15,6 +15,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
+- [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
@@ -88,13 +89,14 @@ fail. The accepted contracts remain documented in
 [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 and [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
 
-Current bounded 69.E candidate:
-publish the ADR-0048 compatibility policy through the existing `GET /api/v1`
-contract root and `GET /api/v1/capabilities`: versioned policy discovery,
-additive-v1 / breaking-new-major rules, closed request-object semantics,
-supported-major negotiation, deprecation lifecycle/header capability and an
-explicit empty deprecated-alias set. This first slice does not retire or
-deprecate any pre-v1 route. See [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md).
+The first 69.E compatibility-policy foundation is merged through PR #366.
+Current bounded 69.E candidate: classify every retained unversioned route
+without inventing a successor or deprecation. The live baseline contains 118
+retained unversioned route literals: 27 proven same-handler alias groups (54
+route literals) plus 64 standalone transition literals, with 0 deprecated
+aliases. The same guard records the bundled client's catch-all route-fallback
+debt while leaving broad client migration to 69.F. See
+[Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md).
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

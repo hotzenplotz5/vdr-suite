@@ -34,14 +34,17 @@ accepted the federated Channel collection with explicit per-source status and
 safe partial multi-backend semantics. Both preserve existing authorities and do
 not promote legacy collection shapes by analogy.
 
-Current bounded 69.E candidate: publish the accepted ADR-0048 compatibility
-policy through the existing public contract root and platform capability
-resource. The candidate exposes policy version 1, additive response evolution,
-new-major breaking-change rules, closed request semantics, supported-major
-negotiation, the deprecation lifecycle/header capability and an explicit empty
-deprecated-alias set. It does not deprecate or remove a pre-v1 route. Durable
-candidate details are in
+The first 69.E compatibility-policy foundation is merged through PR #366; its
+accepted contract remains in
 [Phase 69.E Compatibility Policy Foundation](phase-69e-compatibility-policy-foundation.md).
+Current bounded 69.E candidate: classify the complete retained unversioned
+surface before any alias retirement. The live baseline is 118 retained
+unversioned route literals: 27 same-handler alias groups / 54 alias members and
+64 standalone transition literals, with 0 deprecated aliases and no proven v1
+successor for any alias group. Catch-all first-party route fallbacks are
+inventoried as migration debt rather than changed here. Durable candidate
+details are in
+[Phase 69.E Retained Legacy Route Classification](phase-69e-legacy-route-classification.md).
 
 Phase 69.C remains completed; durable evidence is in
 [Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.D collection

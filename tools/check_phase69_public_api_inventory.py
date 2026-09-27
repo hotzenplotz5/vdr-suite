@@ -176,6 +176,325 @@ EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/timer-assignments/",
 }
 
+# Phase 69.E retained pre-v1 compatibility classification.
+# This extends the existing route-inventory authority; it does not stabilize
+# these paths as public v1. "same-handler-alias" means both pre-v1 spellings
+# enter the same current server-side handler/service branch.
+LEGACY_ALIAS_GROUPS = (
+    {
+        "id": "recording-action-validate",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/actions/validate", "/api/vdr/recordings/actions/validate"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-action-execute",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/actions/execute", "/api/vdr/recordings/actions/execute"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-action-preview",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/actions/preview", "/api/vdr/recordings/actions/preview"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "channel-move",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/vdr/channels/move", "/api/vdr/channels/actions/move"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-preview-cache-refresh",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/preview/cache/refresh", "/api/vdr/searchtimers/preview/cache/refresh"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-real-test",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/real-test", "/api/vdr/searchtimers/real-test"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-execute",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/execute", "/api/vdr/searchtimers/execute"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-plan",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/plan", "/api/vdr/searchtimers/plan"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-validate",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/validate", "/api/vdr/searchtimers/validate"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-update",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/update", "/api/vdr/searchtimers/update"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-delete",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/delete", "/api/vdr/searchtimers/delete"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-root",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers", "/api/vdr/searchtimers"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "native-fuzzy-refresh",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/epgsearch/native-fuzzy/refresh", "/api/vdr/epgsearch/native-fuzzy/refresh"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "native-fuzzy-stale-probe-delete",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/epgsearch/native-fuzzy/stale-probes/delete", "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"),
+        "containsMutation": True,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "vdr-overview",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/vdr", "/api/vdr/overview"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-folder",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/vdr/recordings/folder", "/api/vdr/recordings/folders"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-metadata-image",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/metadata/image", "/api/vdr/recordings/metadata/image"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-metadata",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/metadata", "/api/vdr/recordings/metadata"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "persons",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/persons", "/api/vdr/persons"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "recording-person-search",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/recordings/persons/search", "/api/vdr/recordings/persons/search"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "timer-conflicts-live",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/vdr/timer-conflicts/live", "/api/vdr/timers/conflicts/live"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-discovery",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/discovery", "/api/vdr/searchtimers/discovery"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-automation-preview",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/automation/preview", "/api/vdr/searchtimers/automation/preview"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "searchtimer-preview",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/searchtimers/preview", "/api/vdr/searchtimers/preview"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "runtime-summary",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/runtime/summary", "/api/runtime/diagnostics/summary"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "runtime-diagnostics",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/ApiRouter.cpp",
+        "routes": ("/api/runtime", "/api/runtime/diagnostics"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+    {
+        "id": "global-search",
+        "classification": "same-handler-alias",
+        "lifecycle": "transition",
+        "source": "api/rest/src/GlobalSearchApiRuntime.cpp",
+        "routes": ("/api/search", "/api/vdr/search"),
+        "containsMutation": False,
+        "publicV1Successor": None,
+    },
+)
+
+LEGACY_TRANSITION_ROUTE_LITERALS = {
+    "/api/backends",
+    "/api/backends/",
+    "/api/backends/default",
+    "/api/dashboard",
+    "/api/epg/cache/artwork",
+    "/api/epg/cache/metadata",
+    "/api/epg/cache/metadata/image",
+    "/api/epg/cache/now-next",
+    "/api/epg/cache/now-next-artwork",
+    "/api/epg/cache/refresh",
+    "/api/epg/cache/status",
+    "/api/epg/cache/window",
+    "/api/epg/channel-window",
+    "/api/epg/now-next",
+    "/api/epg/search",
+    "/api/epg/time-window",
+    "/api/jobs",
+    "/api/media/continue-watching",
+    "/api/media/recently-watched",
+    "/api/media/sessions",
+    "/api/metadata",
+    "/api/metadata/genres",
+    "/api/metadata/genres/epg",
+    "/api/metadata/genres/recordings",
+    "/api/recordings",
+    "/api/vdr/broadcast/hbbtv/applications",
+    "/api/vdr/broadcast/hbbtv/sessions",
+    "/api/vdr/broadcast/hbbtv/sessions/close",
+    "/api/vdr/broadcast/hbbtv/sessions/input",
+    "/api/vdr/broadcast/hbbtv/sessions/media",
+    "/api/vdr/broadcast/hbbtv/sessions/presentation",
+    "/api/vdr/broadcast/hbbtv/sessions/status",
+    "/api/vdr/broadcast/teletext/page",
+    "/api/vdr/broadcast/teletext/service",
+    "/api/vdr/capabilities",
+    "/api/vdr/changes",
+    "/api/vdr/channels",
+    "/api/vdr/events",
+    "/api/vdr/health",
+    "/api/vdr/legacy-osd/controller-leases",
+    "/api/vdr/legacy-osd/controller-leases/release",
+    "/api/vdr/legacy-osd/controller-leases/renew",
+    "/api/vdr/legacy-osd/controller-leases/status",
+    "/api/vdr/legacy-osd/input",
+    "/api/vdr/legacy-osd/sessions",
+    "/api/vdr/legacy-osd/sessions/status",
+    "/api/vdr/legacy-osd/viewers",
+    "/api/vdr/legacy-osd/viewers/detach",
+    "/api/vdr/live",
+    "/api/vdr/live/overlay",
+    "/api/vdr/recordings",
+    "/api/vdr/recordings/cache/status",
+    "/api/vdr/recordings/cut",
+    "/api/vdr/recordings/marks",
+    "/api/vdr/recordings/query",
+    "/api/vdr/remote/actions",
+    "/api/vdr/snapshot",
+    "/api/vdr/snapshots",
+    "/api/vdr/status",
+    "/api/vdr/timers",
+    "/api/vdr/timers/actions/create",
+    "/api/vdr/timers/actions/delete",
+    "/api/vdr/timers/actions/update",
+    "/api/vdr/timers/live",
+}
+
+EXPECTED_DEPRECATED_LEGACY_ALIASES = frozenset()
+
 DYNAMIC_ROUTE_MARKERS = {
     "api/rest/src/ManualRecordingMetadataApiRuntime.cpp": (
         '"/recordings/metadata/"',
@@ -256,6 +575,59 @@ def main():
     if added_v1:
         errors.append("unclassified public v1 routes appeared: " + ", ".join(added_v1))
 
+    legacy = observed - v1
+    alias_members = set()
+    deprecated_aliases = set()
+    seen_group_ids = set()
+    for group in LEGACY_ALIAS_GROUPS:
+        group_id = group["id"]
+        routes = set(group["routes"])
+        if group_id in seen_group_ids:
+            errors.append("duplicate legacy alias group id: " + group_id)
+        seen_group_ids.add(group_id)
+        if len(routes) != 2:
+            errors.append(f"legacy alias group {group_id} must contain exactly two routes")
+        overlap = alias_members & routes
+        if overlap:
+            errors.append(
+                f"legacy alias route appears in multiple groups ({group_id}): " +
+                ", ".join(sorted(overlap)))
+        alias_members.update(routes)
+        if group["classification"] != "same-handler-alias":
+            errors.append(f"legacy alias group {group_id} has invalid classification")
+        if group["lifecycle"] not in {"transition", "deprecated"}:
+            errors.append(f"legacy alias group {group_id} has invalid lifecycle")
+        successor = group["publicV1Successor"]
+        if successor is not None and successor not in EXPECTED_PUBLIC_V1_ROUTE_LITERALS:
+            errors.append(
+                f"legacy alias group {group_id} names a non-inventoried public-v1 successor: {successor}")
+        if group["lifecycle"] == "deprecated":
+            deprecated_aliases.update(routes)
+            if successor is None:
+                errors.append(f"deprecated legacy alias group {group_id} has no public-v1 successor")
+
+    transition_overlap = alias_members & LEGACY_TRANSITION_ROUTE_LITERALS
+    if transition_overlap:
+        errors.append(
+            "legacy routes classified both alias and standalone transition: " +
+            ", ".join(sorted(transition_overlap)))
+
+    classified_legacy = alias_members | LEGACY_TRANSITION_ROUTE_LITERALS
+    missing_legacy_classification = sorted(legacy - classified_legacy)
+    extra_legacy_classification = sorted(classified_legacy - legacy)
+    if missing_legacy_classification:
+        errors.append(
+            "retained unversioned routes lack 69.E classification: " +
+            ", ".join(missing_legacy_classification))
+    if extra_legacy_classification:
+        errors.append(
+            "69.E classification names non-inventoried legacy routes: " +
+            ", ".join(extra_legacy_classification))
+    if deprecated_aliases != set(EXPECTED_DEPRECATED_LEGACY_ALIASES):
+        errors.append(
+            "deprecated legacy alias classification drifted: " +
+            ", ".join(sorted(deprecated_aliases)))
+
     if errors:
         print("Phase 69 public API inventory check failed:")
         for error in errors:
@@ -266,6 +638,11 @@ def main():
     print(f"Inventoried route literals: {len(observed)}")
     print(f"Delegated API runtime owners: {len(owners)}")
     print(f"Public /api/v1 route literals: {len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS)}")
+    print(f"Retained unversioned route literals: {len(legacy)}")
+    print(f"Same-handler legacy alias groups: {len(LEGACY_ALIAS_GROUPS)}")
+    print(f"Legacy alias route literals: {len(alias_members)}")
+    print(f"Standalone transition route literals: {len(LEGACY_TRANSITION_ROUTE_LITERALS)}")
+    print(f"Deprecated legacy alias route literals: {len(deprecated_aliases)}")
     return 0
 
 
