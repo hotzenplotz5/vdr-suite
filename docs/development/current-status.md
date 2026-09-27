@@ -25,7 +25,7 @@ Current active numbered runtime phase: **Phase 69 - Public API and Client Compat
 
 Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
-Current active runtime slice: **69.E - Compatibility and deprecation policy**.
+Current active runtime slice: **69.F - First-party and third-party client hardening**.
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -34,17 +34,16 @@ accepted the federated Channel collection with explicit per-source status and
 safe partial multi-backend semantics. Both preserve existing authorities and do
 not promote legacy collection shapes by analogy.
 
-The first 69.E compatibility-policy foundation is merged through PR #366; its
-accepted contract remains in
-[Phase 69.E Compatibility Policy Foundation](phase-69e-compatibility-policy-foundation.md).
-Current bounded 69.E candidate: classify the complete retained unversioned
-surface before any alias retirement. The live baseline is 118 retained
-unversioned route literals: 27 same-handler alias groups / 54 alias members and
-64 standalone transition literals, with 0 deprecated aliases and no proven v1
-successor for any alias group. Catch-all first-party route fallbacks are
-inventoried as migration debt rather than changed here. Durable candidate
-details are in
-[Phase 69.E Retained Legacy Route Classification](phase-69e-legacy-route-classification.md).
+69.E is completed; durable evidence is in
+[Phase 69.E Closeout](phase-69e-closeout.md). PR #366 established the
+machine-readable compatibility/deprecation policy and PR #367 classified the
+complete retained unversioned route surface without inventing a successor or
+deprecation.
+
+69.F is active. It owns first-/third-party client hardening, including common
+client error representation, elimination of fallback probing after arbitrary
+errors and migration of wrappers only where genuine stable v1 contracts exist.
+The 69.E inventory remains the evidence baseline for that work.
 
 Phase 69.C remains completed; durable evidence is in
 [Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.D collection
