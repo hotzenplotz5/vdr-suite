@@ -1077,7 +1077,13 @@ ApiResponse contractRoot(
     return jsonResponse(
         std::string("{\"apiVersion\":\"v1\",\"serverVersion\":\"")
         + VdrSuiteServerBuildIdentity::ServerVersion
-        + "\",\"supportedApiMajors\":[\"v1\"],\"authentication\":{\"authenticated\":"
+        + "\",\"supportedApiMajors\":[\"v1\"],"
+          "\"compatibilityPolicy\":{\"version\":1,"
+          "\"responseEvolution\":\"additive\","
+          "\"breakingChanges\":\"new-major\","
+          "\"unknownRequestFields\":\"reject\","
+          "\"legacyUnversioned\":\"transition\"},"
+          "\"authentication\":{\"authenticated\":"
         + (authenticated ? "true" : "false")
         + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\"}}",
         requestId,
@@ -1102,8 +1108,19 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
         std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
-        "\"}"
-        "],\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
+        "\"},"
+        "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
+        "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
+        "],\"compatibility\":{\"policyVersion\":1,"
+        "\"supportedApiMajors\":[\"v1\"],"
+        "\"responseEvolution\":\"additive\","
+        "\"breakingChanges\":\"new-major\","
+        "\"unknownRequestFields\":\"reject\","
+        "\"legacyUnversioned\":\"transition\","
+        "\"lifecycle\":[\"supported\",\"deprecated\",\"sunset-announced\",\"removed\"],"
+        "\"deprecationHeaders\":[\"Deprecation\",\"Sunset\",\"Link\"],"
+        "\"deprecatedAliases\":[]},"
+        "\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
         requestId,
         correlationId);
 }

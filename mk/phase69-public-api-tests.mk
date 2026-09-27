@@ -361,3 +361,9 @@ test-phase69d-public-channel-collection:
 
 test-phase69d-closeout:
 	python3 tools/check_phase69d_closeout.py
+
+
+.PHONY: test-phase69e-compatibility-policy
+
+test-phase69e-compatibility-policy: test-phase69-public-api-contract-root
+	python3 tools/check_phase69e_compatibility_policy.py

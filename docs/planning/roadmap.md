@@ -824,7 +824,8 @@ Status: **Completed.** Durable evidence: [Phase 69.D Closeout](../development/ph
 
 #### 69.E — Compatibility and deprecation policy
 
-Status: **Active.**
+Status: **Active.** First bounded candidate:
+[Phase 69.E Compatibility Policy Foundation](../development/phase-69e-compatibility-policy-foundation.md).
 
 - additive versus breaking schema rules;
 - versioned capability negotiation;
