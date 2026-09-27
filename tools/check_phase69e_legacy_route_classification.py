@@ -31,8 +31,8 @@ def function_body(source, function_name, next_function_name):
     require(end > start, f"cannot bound client fallback owner: {function_name}")
     return source[start:end]
 
-require(len(EXPECTED_ROUTE_LITERALS) == 124, "expected route inventory count drifted")
-require(len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) == 6, "public-v1 route count drifted")
+require(len(EXPECTED_ROUTE_LITERALS) == 125, "expected route inventory count drifted")
+require(len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) == 7, "public-v1 route count drifted")
 require(len(LEGACY_ALIAS_GROUPS) == 27, "same-handler alias group count drifted")
 require(len({r for g in LEGACY_ALIAS_GROUPS for r in g["routes"]}) == 54, "legacy alias member count drifted")
 require(len(LEGACY_TRANSITION_ROUTE_LITERALS) == 64, "standalone transition route count drifted")
