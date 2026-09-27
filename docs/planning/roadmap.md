@@ -824,7 +824,11 @@ Status: **Completed.** Durable evidence: [Phase 69.D Closeout](../development/ph
 
 #### 69.E — Compatibility and deprecation policy
 
-Status: **Active.** First bounded candidate:
+Status: **Active.** The first bounded compatibility-policy foundation is merged.
+The current bounded candidate is
+[Phase 69.E Retained Legacy Route Classification](../development/phase-69e-legacy-route-classification.md):
+classify all retained pre-v1 routes and fallback debt before any truthful alias
+retirement. The accepted foundation remains in
 [Phase 69.E Compatibility Policy Foundation](../development/phase-69e-compatibility-policy-foundation.md).
 
 - additive versus breaking schema rules;
