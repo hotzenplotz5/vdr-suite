@@ -374,3 +374,8 @@ test-phase69e-compatibility-policy: test-phase69-public-api-contract-root
 test-phase69e-legacy-route-classification:
 	python3 tools/check_phase69_public_api_inventory.py
 	python3 tools/check_phase69e_legacy_route_classification.py
+
+.PHONY: test-phase69e-closeout
+
+test-phase69e-closeout: test-phase69e-compatibility-policy test-phase69e-legacy-route-classification
+	python3 tools/check_phase69e_closeout.py

@@ -36,7 +36,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 - Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
 - Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 - Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
-- Current active runtime slice: **69.E - Compatibility and deprecation policy**; 69.A, 69.B, 69.C and 69.D are accepted.
+- Current active runtime slice: **69.F - First-party and third-party client hardening**; 69.A, 69.B, 69.C, 69.D and 69.E are accepted.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -191,8 +191,8 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
 3. Treat Phases 64, 65, 66, 67 and 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
 4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains and completed Phase-68 Legacy OSD ownership rather than inventing parallel owners during Phase-69 work.
-5. Treat Phase 69 - Public API and Client Compatibility Hardening as the active numbered runtime phase and continue from slice 69.E Compatibility and deprecation policy; 69.A, 69.B, 69.C and 69.D are accepted.
-6. Read ADR-0048, `docs/development/phase-69-public-api-kickoff.md` and `docs/development/phase-69d-closeout.md` before continuing 69.E; do not infer alias retirement, sunset dates or breaking-change permissions from existing pre-v1 routes.
+5. Treat Phase 69 - Public API and Client Compatibility Hardening as the active numbered runtime phase and continue from slice 69.F First-party and third-party client hardening; 69.A, 69.B, 69.C, 69.D and 69.E are accepted.
+6. Read ADR-0048, `docs/development/phase-69-public-api-kickoff.md`, `docs/development/phase-69d-closeout.md` and `docs/development/phase-69e-closeout.md` before continuing 69.F; preserve the 69.E successor/deprecation boundary and do not use arbitrary-error fallback probing as an accepted client contract.
 7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
 8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
 9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.

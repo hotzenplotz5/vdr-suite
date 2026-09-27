@@ -29,7 +29,7 @@ This page is a capability dashboard, not a second operational-status authority. 
 | Native Recording marks/cutting | Completed non-numbered capability | VDR remains canonical marks/cutter authority. |
 | Teletext / HbbTV | Completed numbered domain | Phase 67 / ADR-0054 / Phase-67 closeout. |
 | Legacy OSD compatibility | Completed numbered domain | Phase 68 / ADR-0047 / Phase-68 closeout. |
-| Stable public API/SDK | Active — 69.E compatibility/deprecation | 69.A-D accepted; Phase 69 / ADR-0048 / Phase-69.D closeout. |
+| Stable public API/SDK | Active — 69.F client hardening | 69.A-E accepted; Phase 69 / ADR-0048 / Phase-69.E closeout. |
 | Recommendation/content graph | Later vision | Phase 70. |
 
 ## Current Home capability
@@ -43,7 +43,7 @@ The current merged Home surface includes responsive shell/navigation, Now/Next, 
 - Timer creation preserves intent/assignment/native-binding safety and authoritative readback.
 - Home browse remains useful independently of preview startup and retains canonical metadata/artwork/playback owners.
 - Failure remains classified without blind duplicate mutation or silent provider switching.
-- Phase-67 Teletext/HbbTV and Phase-68 Legacy OSD acceptance are completed on the supported real yaVDR/browser deployment; Phase 69 is active at 69.E Compatibility and deprecation policy, with 69.A, 69.B, 69.C and 69.D accepted.
+- Phase-67 Teletext/HbbTV and Phase-68 Legacy OSD acceptance are completed on the supported real yaVDR/browser deployment; Phase 69 is active at 69.F First-party and third-party client hardening, with 69.A, 69.B, 69.C, 69.D and 69.E accepted.
 
 See [Golden User Journeys](planning/golden-user-journeys.md).
 

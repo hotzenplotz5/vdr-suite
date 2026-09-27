@@ -759,7 +759,7 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.E Compatibility and deprecation policy.**
+Status: **Active — 69.F First-party and third-party client hardening.**
 
 Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B, 69.C and 69.D are accepted; the active bounded slice is 69.E compatibility and deprecation policy. No existing pre-v1 route is thereby declared stable or deprecated.
 
@@ -824,14 +824,12 @@ Status: **Completed.** Durable evidence: [Phase 69.D Closeout](../development/ph
 
 #### 69.E — Compatibility and deprecation policy
 
-Status: **Active.** First bounded candidate:
-[Phase 69.E Compatibility Policy Foundation](../development/phase-69e-compatibility-policy-foundation.md).
+Status: **Completed.** Durable evidence: [Phase 69.E Closeout](../development/phase-69e-closeout.md).
 
-The first bounded compatibility-policy foundation is merged. The current
-second bounded candidate is
-[Phase 69.E Retained Legacy Route Classification](../development/phase-69e-legacy-route-classification.md):
-classify all retained pre-v1 routes and fallback debt before any truthful alias
-retirement.
+Accepted slices:
+[Phase 69.E Compatibility Policy Foundation](../development/phase-69e-compatibility-policy-foundation.md)
+and
+[Phase 69.E Retained Legacy Route Classification](../development/phase-69e-legacy-route-classification.md).
 
 - additive versus breaking schema rules;
 - versioned capability negotiation;
@@ -840,6 +838,8 @@ retirement.
 - compatibility matrix and contract tests.
 
 #### 69.F — First-party and third-party client hardening
+
+Status: **Active.**
 
 - common client error representation;
 - no fallback probing after arbitrary errors;
