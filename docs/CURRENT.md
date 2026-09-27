@@ -13,6 +13,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
+- [Phase 69.D Closeout](development/phase-69d-closeout.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
 - [Public Timer CREATE Admission](development/phase-69c-public-timer-create-admission.md)
 - [Native Timer CREATE Reconciliation Runtime Composition](development/phase-69c-native-timer-create-reconciliation-runtime.md)
@@ -74,23 +75,23 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.D - Collections, pagination and partial results
+69.E - Compatibility and deprecation policy
 
-Current bounded 69.D candidate:
-add the first true federated public read collection at
-`GET /api/v1/channels` over explicit, individually authorized `backendId`
-sources. It reuses BackendRegistryService + VdrSnapshotReadService, preserves
-the accepted `(backendId, channelId)` identity, uses backendId/channelId
-keyset ordering, emits explicit per-source partial metadata and returns 503 when
-all requested sources fail. It adds no new snapshot/repository authority and
-does not touch Home, Recording fanout, LiveTV or Timer mutation. The complete
-contract is in [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
+69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
+records the accepted collection boundary:
+PR #363 established the standard single-source collection envelope, stable
+ordering, bounded keyset pagination and explicit source failure; PR #364 added
+the genuine federated Channel read with independently authorized backend
+sources, explicit partial-source metadata and 503 when all requested sources
+fail. The accepted contracts remain documented in
+[Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
+and [Phase 69.D federated Channel collection](development/phase-69d-public-channel-federation.md).
 
-The accepted first 69.D collection remains
-[Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md):
-backend-scoped TimerAssignments established the standard envelope and
-single-source keyset rules but intentionally did not claim federated partial
-semantics.
+Current bounded 69.E direction:
+define additive versus breaking schema rules, versioned capability negotiation,
+alias retirement, deprecation/sunset metadata and a compatibility matrix with
+contract tests. No pre-v1 route becomes stable or deprecated merely because
+69.E is active.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus
@@ -333,7 +334,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.D Collections, pagination and partial results; 69.A, 69.B and 69.C are accepted. Phase 70 recommendation work remains later.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.E Compatibility and deprecation policy; 69.A, 69.B, 69.C and 69.D are accepted. Phase 70 recommendation work remains later.
 
 ## Historical evidence rule
 

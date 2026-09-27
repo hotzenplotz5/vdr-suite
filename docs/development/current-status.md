@@ -25,26 +25,25 @@ Current active numbered runtime phase: **Phase 69 - Public API and Client Compat
 
 Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
-Current active runtime slice: **69.D - Collections, pagination and partial results**.
+Current active runtime slice: **69.E - Compatibility and deprecation policy**.
 
-Current bounded 69.D candidate: the first true federated public
-Channel collection documented in
-[Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
-The accepted TimerAssignment collection already proves the standard v1 envelope
-and single-source keyset pagination. The remaining ADR-0048 runtime gap is
-explicit multi-backend partial-source behavior. Channels are the narrowest
-current domain with stable `(backendId, channelId)` identity, existing
-BackendRegistry/VdrSnapshot read authorities and `channels.view@backend`,
-without coupling 69.D to Home, Recording metadata fanout or LiveTV. The
-candidate uses explicit repeated `backendId` scopes, independent authorization,
-`backendId ASC, channelId ASC` ordering, scope-bound opaque cursors, explicit
-partial source states and `503 backend_unavailable` when all sources fail. No
-pre-v1 Channel route is promoted or aliased.
+69.D is completed; durable evidence is in
+[Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
+TimerAssignment collection and its standard envelope/keyset contract. PR #364
+accepted the federated Channel collection with explicit per-source status and
+safe partial multi-backend semantics. Both preserve existing authorities and do
+not promote legacy collection shapes by analogy.
+
+Current bounded 69.E direction: define the compatibility policy itself —
+additive versus breaking JSON changes, versioned capability negotiation, alias
+retirement, deprecation/sunset metadata and compatibility contract tests.
+No pre-v1 route is automatically stable, deprecated or scheduled for removal.
 
 Phase 69.C remains completed; durable evidence is in
-[Phase 69.C Closeout](phase-69c-closeout.md). The accepted first 69.D collection
-remains documented in
-[Phase 69.D TimerAssignment Collection](phase-69d-timer-assignment-collection.md).
+[Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.D collection
+contracts remain documented in
+[Phase 69.D TimerAssignment Collection](phase-69d-timer-assignment-collection.md)
+and [Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
 
 Accepted Phase-68 slices include **68.A semantic observation, 68.B Agent-local continuity/resynchronization, 68.C authenticated Agent transport, 68.D authorized bounded view sessions, 68.E bounded viewer bindings/multi-viewer delivery, 68.F exclusive controller leasing and 68.G allowlisted native OSD input**.
 
