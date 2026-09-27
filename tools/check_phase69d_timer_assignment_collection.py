@@ -55,7 +55,7 @@ for token in (
     "decodePublicTimerAssignmentCursor",
     r'\"meta\":{\"partial\":false}',
     "lookupTimerAssignmentCollection(request)",
-    "The collection cursor is invalid for this actor, backend, or ordering.",
+    "The collection cursor is invalid for this backend or ordering.",
 ):
     require(runtime_cpp, token, "public collection contract")
 forbid(runtime_cpp, "PublicTimerAssignmentCollectionOffset", "offset pagination authority")
@@ -111,7 +111,6 @@ runtime_test = read("runtime_test")
 for token in (
     r'\"hasMore\":true',
     r'\"partial\":false',
-    "wrongActor",
     "wrongBackend",
     "malformedCursor",
     '"offset=1"',

@@ -267,17 +267,14 @@ bool readCursorField(
 }
 
 std::string publicTimerAssignmentCursor(
-    const std::string& actorRef,
     const std::string& backendId,
     const std::string& lastTimerAssignmentId)
 {
-    if (actorRef.empty() ||
-        backendId.empty() ||
+    if (backendId.empty() ||
         lastTimerAssignmentId.empty())
         return "";
 
     std::string payload(PublicTimerAssignmentCursorPayloadVersion);
-    appendCursorField(payload, actorRef);
     appendCursorField(payload, backendId);
     appendCursorField(payload, lastTimerAssignmentId);
     return std::string(PublicTimerAssignmentCursorPrefix) +
@@ -286,7 +283,6 @@ std::string publicTimerAssignmentCursor(
 
 bool decodePublicTimerAssignmentCursor(
     const std::string& cursor,
-    const std::string& actorRef,
     const std::string& backendId,
     std::string& lastTimerAssignmentId)
 {
@@ -305,17 +301,14 @@ bool decodePublicTimerAssignmentCursor(
         return false;
 
     std::size_t position = version.size();
-    std::string cursorActor;
     std::string cursorBackend;
     std::string cursorLast;
-    if (!readCursorField(payload, position, cursorActor) ||
-        !readCursorField(payload, position, cursorBackend) ||
+    if (!readCursorField(payload, position, cursorBackend) ||
         !readCursorField(payload, position, cursorLast) ||
         position != payload.size())
         return false;
 
-    if (cursorActor != actorRef ||
-        cursorBackend != backendId ||
+    if (cursorBackend != backendId ||
         cursorLast.empty() ||
         cursorLast.size() > 160U)
         return false;
@@ -1029,7 +1022,6 @@ ApiResponse publicTimerAssignmentCollectionResponse(
     const std::string nextCursor =
         page.hasMore && !page.assignments.empty()
             ? publicTimerAssignmentCursor(
-                actorRef,
                 backendId,
                 page.assignments.back().timerAssignmentId)
             : std::string();
@@ -1378,13 +1370,12 @@ bool PublicApiRuntime::tryHandleGet(
         if (!query.cursor.empty() &&
             !decodePublicTimerAssignmentCursor(
                 query.cursor,
-                actorRef,
                 authorizedBackendId,
                 afterTimerAssignmentId))
         {
             response = invalidRequestProblem(
                 path,
-                "The collection cursor is invalid for this actor, backend, or ordering.",
+                "The collection cursor is invalid for this backend or ordering.",
                 requestId,
                 correlationId);
             return true;

@@ -814,7 +814,7 @@ Status: **Completed.** Durable evidence: [Phase 69.C Closeout](../development/ph
 
 #### 69.D — Collections, pagination and partial results
 
-Status: **Active.**
+Status: **Active.** First bounded candidate: [backend-scoped Public TimerAssignment Collection](../development/phase-69d-timer-assignment-collection.md).
 
 - stable ordering;
 - pagination/cursors;

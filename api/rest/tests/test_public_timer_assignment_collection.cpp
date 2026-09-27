@@ -124,21 +124,6 @@ int main()
     assert(second.body.find("\"hasMore\":false") !=
         std::string::npos);
 
-    ApiResponse wrongActor;
-    assert(runtime.tryHandleGet(
-        std::string(
-            "/api/v1/timer-assignments?backend=backend-one&cursor=") +
-            cursor,
-        "actor:other",
-        "phase69d-collection-wrong-actor",
-        "",
-        wrongActor,
-        "",
-        "backend-one"));
-    assert(wrongActor.statusCode == 400);
-    assert(wrongActor.body.find("\"code\":\"invalid_request\"") !=
-        std::string::npos);
-
     ApiResponse wrongBackend;
     assert(runtime.tryHandleGet(
         std::string(

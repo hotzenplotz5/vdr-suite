@@ -100,18 +100,17 @@ Offset pagination is not accepted by this v1 collection.
 Pagination is keyset-based. The cursor is **opaque** to clients and must be
 round-tripped unchanged.
 
-The internal cursor scope is bound to:
+The internal cursor scope is deliberately independent of actor identity because authorization is re-evaluated on every request. It is bound to:
 
 - this TimerAssignment v1 collection and cursor-codec version;
-- the authenticated actor;
 - the exact authorized backend;
 - the fixed `timerAssignmentId ASC` ordering;
 - the last returned immutable TimerAssignment identity.
 
 There are no additional collection filters in this first slice.
 
-A cursor from another actor or backend, a malformed cursor, an unsupported
-cursor version or otherwise invalid cursor returns:
+A cursor from another backend, a malformed cursor, an unsupported cursor
+version or otherwise invalid cursor returns:
 
 ```text
 400 invalid_request
