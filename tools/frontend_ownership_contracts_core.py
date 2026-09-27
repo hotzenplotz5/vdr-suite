@@ -2220,7 +2220,7 @@ def check_client_api_contract():
     )
 
     vdr_runtime_state_routes = {
-        "fetchClientVdrOverview": ("/api/vdr/overview", "/api/vdr"),
+        "fetchClientVdrOverview": ("/api/vdr/overview",),
         "fetchClientVdrStatus": ("/api/vdr/status",),
         "fetchClientVdrHealth": ("/api/vdr/health",),
         "fetchClientVdrSnapshotSummary": ("/api/vdr/snapshot",),
@@ -2414,10 +2414,9 @@ def check_client_api_contract():
         "fetchClientEpgTimeWindow": ("/api/epg/time-window",),
         "fetchClientEpgChannelWindow": ("/api/epg/channel-window",),
         "fetchClientMetadata": ("/api/metadata",),
-        "fetchClientPersons": ("/api/vdr/persons", "/api/persons"),
+        "fetchClientPersons": ("/api/vdr/persons",),
         "fetchClientRecordingPersons": (
             "/api/vdr/recordings/persons/search",
-            "/api/recordings/persons/search",
         ),
     }
 
