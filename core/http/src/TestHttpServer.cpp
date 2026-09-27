@@ -403,7 +403,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "If-None-Match"),
-                gate.authorizationDecision.backendId);
+                gate.authorizationDecision.backendId,
+                gate.authorizedBackendIds);
     }
     else if (request.method == "POST")
     {

@@ -338,3 +338,20 @@ test-phase69d-public-timer-assignment-collection:
 		-o $(BUILD_DIR)/test_public_timer_assignment_collection_security
 	$(BUILD_DIR)/test_public_timer_assignment_collection_security
 	python3 tools/check_phase69d_timer_assignment_collection.py
+
+.PHONY: test-phase69d-public-channel-collection
+
+test-phase69d-public-channel-collection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_channel_collection.cpp \
+		-o $(BUILD_DIR)/test_public_channel_collection
+	$(BUILD_DIR)/test_public_channel_collection
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_channel_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_channel_collection_security
+	$(BUILD_DIR)/test_public_channel_collection_security
+	python3 tools/check_phase69d_public_channel_collection.py

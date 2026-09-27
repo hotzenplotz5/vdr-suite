@@ -12,9 +12,11 @@
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingNativePersonSearchService.h"
 
+#include <algorithm>
 #include <chrono>
 #include <csignal>
 #include <iostream>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -1001,6 +1003,151 @@ bool DaemonRuntime::initialize()
                         PublicTimerAssignmentCollectionStatus::unavailable;
                     return result;
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerChannelCollectionLookup(
+        [this](const PublicChannelCollectionRequest& request)
+        {
+            PublicChannelCollectionResult result;
+            if (!backendRegistryService_ ||
+                !vdrSnapshotReadService_ ||
+                request.backendIds.empty() ||
+                request.backendIds.size() > 16U ||
+                request.limit == 0U ||
+                request.limit > 100U ||
+                (request.afterBackendId.empty() !=
+                 request.afterChannelId.empty()))
+            {
+                result.status =
+                    PublicChannelCollectionStatus::invalid;
+                return result;
+            }
+
+            std::size_t successfulSources = 0U;
+            for (const std::string& backendId : request.backendIds)
+            {
+                PublicChannelCollectionSource source;
+                source.backendId = backendId;
+
+                const auto backend =
+                    backendRegistryService_->getBackend(backendId);
+                const bool readable =
+                    backend.has_value() &&
+                    backend->enabled &&
+                    backend->online &&
+                    vdrSnapshotReadService_
+                        ->hasSnapshotForBackend(backendId);
+
+                if (!readable)
+                {
+                    source.state = "unavailable";
+                    source.code = "backend_unavailable";
+                    result.sources.push_back(std::move(source));
+                    continue;
+                }
+
+                std::vector<PublicChannelCollectionItem> sourceChannels;
+                bool sourceValid = true;
+                for (const VdrChannel& channel :
+                     vdrSnapshotReadService_
+                         ->getChannelsForBackend(backendId))
+                {
+                    if (channel.id.empty() ||
+                        channel.id.size() > 256U)
+                    {
+                        sourceValid = false;
+                        break;
+                    }
+
+                    PublicChannelCollectionItem item;
+                    item.backendId = backendId;
+                    item.channelId = channel.id;
+                    item.channelNumber = channel.number;
+                    item.name = channel.name;
+                    item.provider = channel.provider;
+                    item.groupName = channel.group;
+                    item.radio = channel.radio;
+                    item.encrypted = channel.encrypted;
+                    item.enabled = channel.enabled;
+                    sourceChannels.push_back(std::move(item));
+                }
+
+                std::sort(
+                    sourceChannels.begin(),
+                    sourceChannels.end(),
+                    [](const PublicChannelCollectionItem& lhs,
+                       const PublicChannelCollectionItem& rhs)
+                    {
+                        return lhs.channelId < rhs.channelId;
+                    });
+
+                for (std::size_t index = 1U;
+                     sourceValid && index < sourceChannels.size();
+                     ++index)
+                {
+                    if (sourceChannels[index - 1U].channelId ==
+                        sourceChannels[index].channelId)
+                    {
+                        sourceValid = false;
+                    }
+                }
+
+                if (!sourceValid)
+                {
+                    source.state = "unavailable";
+                    source.code = "backend_unavailable";
+                    result.sources.push_back(std::move(source));
+                    continue;
+                }
+
+                ++successfulSources;
+                source.state = "ok";
+                result.sources.push_back(std::move(source));
+                result.channels.insert(
+                    result.channels.end(),
+                    std::make_move_iterator(sourceChannels.begin()),
+                    std::make_move_iterator(sourceChannels.end()));
+            }
+
+            if (successfulSources == 0U)
+            {
+                result.status =
+                    PublicChannelCollectionStatus::
+                        allSourcesUnavailable;
+                result.channels.clear();
+                return result;
+            }
+
+            std::sort(
+                result.channels.begin(),
+                result.channels.end(),
+                [](const PublicChannelCollectionItem& lhs,
+                   const PublicChannelCollectionItem& rhs)
+                {
+                    if (lhs.backendId != rhs.backendId)
+                        return lhs.backendId < rhs.backendId;
+                    return lhs.channelId < rhs.channelId;
+                });
+
+            std::vector<PublicChannelCollectionItem> eligible;
+            eligible.reserve(result.channels.size());
+            for (PublicChannelCollectionItem& channel : result.channels)
+            {
+                const bool afterCursor =
+                    request.afterBackendId.empty() ||
+                    channel.backendId > request.afterBackendId ||
+                    (channel.backendId == request.afterBackendId &&
+                     channel.channelId > request.afterChannelId);
+                if (afterCursor)
+                    eligible.push_back(std::move(channel));
+            }
+
+            result.hasMore = eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.channels = std::move(eligible);
+            result.status = PublicChannelCollectionStatus::ok;
             return result;
         });
 

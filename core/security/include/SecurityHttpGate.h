@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 struct SecurityGateDecision
 {
@@ -29,6 +30,7 @@ struct SecurityGateDecision
     bool browserAuthenticated = false;
     bool publicApiV1 = false;
     AuthorizationDecision authorizationDecision;
+    std::vector<std::string> authorizedBackendIds;
     std::string operationId;
     RequestSecurityContext context;
     HttpServerResponse rejection;
@@ -348,6 +350,50 @@ public:
         const bool isPublicOperationRead =
             request.method == "GET" &&
             isPublicOperationResource;
+        const bool isPublicChannelCollection =
+            path == "/api/v1/channels";
+        std::vector<std::string> publicChannelBackendIds;
+        bool publicChannelBackendScopeValid = true;
+        if (isPublicChannelCollection)
+        {
+            publicChannelBackendIds =
+                queryStringValues(request.path, "backendId");
+            if (publicChannelBackendIds.empty() ||
+                publicChannelBackendIds.size() > 16U)
+            {
+                publicChannelBackendScopeValid = false;
+            }
+            for (const std::string& candidate : publicChannelBackendIds)
+            {
+                const bool validBackend =
+                    !candidate.empty() &&
+                    candidate.size() <= 128U &&
+                    std::all_of(
+                        candidate.begin(),
+                        candidate.end(),
+                        [](unsigned char character) {
+                            return std::isalnum(character) ||
+                                character == '.' ||
+                                character == '_' ||
+                                character == '-';
+                        });
+                if (!validBackend)
+                    publicChannelBackendScopeValid = false;
+            }
+            std::sort(
+                publicChannelBackendIds.begin(),
+                publicChannelBackendIds.end());
+            if (std::adjacent_find(
+                    publicChannelBackendIds.begin(),
+                    publicChannelBackendIds.end()) !=
+                publicChannelBackendIds.end())
+            {
+                publicChannelBackendScopeValid = false;
+            }
+        }
+        const bool isPublicChannelRead =
+            request.method == "GET" &&
+            isPublicChannelCollection;
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -396,6 +442,7 @@ public:
             isPost &&
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
+             isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
         const bool isSafePost = isPost &&
@@ -555,6 +602,73 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicChannelRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            if (!publicChannelBackendScopeValid)
+            {
+                AuthorizationDecision decision;
+                decision.reasonCode = "invalid_backend_scope";
+                decision.permission = "channels.view";
+                decision.backendId = "*";
+                decision.action = "channels.view";
+                return rejectWithAudit(
+                    gate,
+                    decision,
+                    400,
+                    "The public Channel collection requires one or more valid backendId scopes",
+                    "");
+            }
+
+            AuthorizationDecision lastDecision;
+            for (const std::string& backendId : publicChannelBackendIds)
+            {
+                AuthorizationRequest channelReadRequest;
+                channelReadRequest.permission = "channels.view";
+                channelReadRequest.backendId = backendId;
+                channelReadRequest.action = "channels.view";
+                const AuthorizationDecision decision =
+                    authorizationService_.authorize(
+                        gate.context,
+                        channelReadRequest);
+
+                if (!appendDecisionEvent(gate.context, decision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503,
+                        "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+
+                if (!decision.allowed)
+                {
+                    const int statusCode =
+                        decision.reasonCode == "invalid_backend_scope"
+                            ? 400
+                            : (authenticationFailure(decision) ? 401 : 403);
+                    gate.rejection = errorResponse(
+                        statusCode,
+                        decision.reasonCode,
+                        messageForReason(decision.reasonCode),
+                        gate.context,
+                        authenticationFailure(decision));
+                    return gate;
+                }
+
+                lastDecision = decision;
+            }
+
+            gate.authorizationDecision = lastDecision;
+            gate.authorizedBackendIds =
+                std::move(publicChannelBackendIds);
             gate.allowed = true;
             return gate;
         }
@@ -1163,6 +1277,43 @@ private:
             position = separator + 1;
         }
         return result;
+    }
+
+    static std::vector<std::string> queryStringValues(
+        const std::string& target,
+        const std::string& key)
+    {
+        std::vector<std::string> values;
+        const std::size_t queryStart = target.find('?');
+        if (queryStart == std::string::npos ||
+            queryStart + 1 >= target.size())
+            return values;
+
+        std::size_t position = queryStart + 1;
+        while (position <= target.size())
+        {
+            const std::size_t separator = target.find('&', position);
+            const std::string item = target.substr(
+                position,
+                separator == std::string::npos
+                    ? std::string::npos
+                    : separator - position);
+            const std::size_t equals = item.find('=');
+            const std::string itemKey = urlDecode(
+                equals == std::string::npos
+                    ? item
+                    : item.substr(0, equals));
+            if (itemKey == key)
+            {
+                values.push_back(
+                    equals == std::string::npos
+                        ? ""
+                        : urlDecode(item.substr(equals + 1)));
+            }
+            if (separator == std::string::npos) break;
+            position = separator + 1;
+        }
+        return values;
     }
 
     static std::string headerValue(

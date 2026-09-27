@@ -256,10 +256,14 @@ TimerAssignmentRepository/TimerAssignmentReadService owner, not from a pre-v1
 collection serializer.
 
 The contract fixes `timerAssignmentId ASC` keyset ordering, default/max limits
-50/100, actor+backend-bound opaque cursors, the ADR-0048 collection envelope and
-`meta.partial=false` for the one Suite-owned repository source. Cross-backend
-aggregation remains closed until a later slice defines source status, duplicate
-and ordering semantics.
+50/100, backend-bound opaque cursors, the ADR-0048 collection envelope and
+`meta.partial=false` for the one Suite-owned repository source.
+
+The next bounded 69.D candidate opens cross-backend aggregation deliberately
+for Channels only: explicit repeated `backendId` scopes, independent
+`channels.view` authorization, stable `(backendId, channelId)` identity,
+canonical cross-backend ordering and explicit partial-source metadata. See
+[Phase 69.D Federated Public Channel Collection](phase-69d-public-channel-federation.md).
 
 See [Phase 69.D first public collection](phase-69d-timer-assignment-collection.md).
 
