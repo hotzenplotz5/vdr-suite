@@ -108,8 +108,8 @@ require(
 status = read("status")
 require(
     status,
-    "[Phase 69.E Compatibility Policy Foundation]",
-    "current-status retained foundation link",
+    "[Phase 69.E Closeout]",
+    "current-status retained 69.E closeout link",
 )
 
 roadmap = read("roadmap")
