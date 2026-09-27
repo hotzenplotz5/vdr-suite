@@ -1006,6 +1006,70 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerBackendCollectionLookup(
+        [this](const PublicBackendCollectionRequest& request)
+        {
+            PublicBackendCollectionResult result;
+            if (!backendRegistryService_ ||
+                request.limit == 0U ||
+                request.limit > 100U)
+            {
+                result.status =
+                    PublicBackendCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<BackendNode> registered =
+                backendRegistryService_->listBackends();
+            std::sort(
+                registered.begin(),
+                registered.end(),
+                [](const BackendNode& lhs, const BackendNode& rhs)
+                {
+                    return lhs.backendId < rhs.backendId;
+                });
+
+            const bool wildcard =
+                std::find(
+                    request.authorizedBackendIds.begin(),
+                    request.authorizedBackendIds.end(),
+                    std::string("*")) !=
+                request.authorizedBackendIds.end();
+
+            std::vector<PublicBackendCollectionItem> eligible;
+            for (const BackendNode& backend : registered)
+            {
+                const bool authorized =
+                    wildcard ||
+                    std::binary_search(
+                        request.authorizedBackendIds.begin(),
+                        request.authorizedBackendIds.end(),
+                        backend.backendId);
+                const bool afterCursor =
+                    request.afterBackendId.empty() ||
+                    backend.backendId > request.afterBackendId;
+                if (!authorized || !afterCursor)
+                    continue;
+
+                PublicBackendCollectionItem item;
+                item.backendId = backend.backendId;
+                item.name = backend.backendName;
+                item.type = backend.backendType;
+                item.enabled = backend.enabled;
+                item.online = backend.online;
+                eligible.push_back(std::move(item));
+            }
+
+            result.hasMore =
+                eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.backends = std::move(eligible);
+            result.status =
+                PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerChannelCollectionLookup(
         [this](const PublicChannelCollectionRequest& request)
         {
