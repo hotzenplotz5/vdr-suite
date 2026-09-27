@@ -398,3 +398,12 @@ test-phase69f-searchtimer-fallback-removal:
 	python3 tools/check_phase69f_searchtimer_fallback_removal.py
 
 test-frontend-contracts: test-phase69f-searchtimer-fallback-removal
+
+
+.PHONY: test-phase69f-read-alias-fallback-removal
+
+test-phase69f-read-alias-fallback-removal:
+	node web/frontend/tests/test_phase69f_read_alias_fallback_removal.js
+	python3 tools/check_phase69f_read_alias_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-read-alias-fallback-removal
