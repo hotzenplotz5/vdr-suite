@@ -81,9 +81,11 @@ int main()
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
         assert(decision.rejection.body.find(
-            "backend_scope_denied") != std::string::npos ||
-            decision.rejection.body.find(
-                "permission_denied") != std::string::npos);
+            "\"code\":\"forbidden\"") != std::string::npos);
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "backend_scope_denied",
+            "backend-b"));
         assert(decision.authorizedBackendIds.empty());
     }
 
@@ -118,7 +120,11 @@ int main()
             assert(!decision.allowed);
             assert(decision.rejection.statusCode == 400);
             assert(decision.rejection.body.find(
-                "invalid_backend_scope") != std::string::npos);
+                "\"code\":\"invalid_request\"") != std::string::npos);
+            assert(hasDecisionEvent(
+                fixture.accountabilityRepository,
+                "invalid_backend_scope",
+                "*"));
         }
     }
 
