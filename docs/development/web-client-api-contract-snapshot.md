@@ -6,6 +6,7 @@
 - [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
 - [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
 - [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
+- [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -193,6 +194,12 @@ new [public Backend collection](phase-69f-public-backend-collection.md) is
 deliberately narrower than the browser's richer `/api/backends` selection/
 snapshot contract. Independent clients may use `GET /api/v1/backends` for
 stable Backend identity discovery without forcing a browser route substitution.
+
+The dedicated [Home EPG single-route hardening](phase-69f-home-epg-fallback-removal.md)
+retains the first-party canonical `/api/epg/now-next?from=-1` owner but no
+longer substitutes `/api/vdr/events` after arbitrary failure. This is client
+routing hardening only; it does not declare either pre-v1 route to be a stable
+public ProgramEvent contract.
 
 
 ## Current Direct Fetch Inventory

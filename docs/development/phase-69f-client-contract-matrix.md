@@ -142,23 +142,31 @@ The same public contract is intended for browser, TV, mobile, desktop, Kodi and
 automation clients. Client-specific presentation and player engines remain
 outside the platform resource contract.
 
-## Explicit debt that this slice does not hide
+## Explicit debt and successor status
 
-Two browser fallbacks remain separately classified:
+One browser wrapper fallback remains separately classified:
 
 ```text
 Timer:
   /api/vdr/timers/live
   -> /api/vdr/timers
-
-Home EPG:
-  /api/epg/now-next?from=-1
-  -> /api/vdr/events
 ```
 
-The Timer paths have distinct live/snapshot semantics. The EPG path is
-Home/LiveTV-sensitive. Neither is an alias-cleanup candidate and neither is
-changed here.
+The Timer paths have distinct live/snapshot semantics and still require a
+dedicated semantic decision.
+
+The former Home EPG fallback:
+
+```text
+/api/epg/now-next?from=-1
+-> /api/vdr/events
+```
+
+was Home/LiveTV-sensitive and therefore was not removed as generic alias
+cleanup. Its dedicated successor slice proved that the two paths have different
+server owners and retired only the arbitrary-error alternate-source retry while
+preserving the canonical EPG route and fail-soft empty-event behavior. No
+public-v1 ProgramEvent contract is implied by that client hardening.
 
 ## Derived Backend gap — successor status
 
@@ -193,8 +201,9 @@ The dedicated architecture guard must fail when:
   `/api/v1/search-timers` is silently invented;
 - the stabilized `/api/v1/backends` contract disappears or is treated as a
   drop-in legacy-browser replacement;
-- the two explicit deferred fallbacks disappear from their owning code without
-  a dedicated successor slice;
+- the Timer live/snapshot fallback disappears without a dedicated semantic
+  successor slice;
+- the retired Home EPG alternate-source fallback is reintroduced;
 - Browser-session routes are presented as a generic app authentication
   contract.
 

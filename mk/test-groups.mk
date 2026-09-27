@@ -1,6 +1,7 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-phase69f-home-epg-fallback-removal \
 	test-phase69f-public-backend-collection \
 	test-phase69f-client-contract-matrix \
 	test-phase69f-read-alias-fallback-removal \

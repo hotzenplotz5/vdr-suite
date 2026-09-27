@@ -20,6 +20,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Same-Handler Read Alias Fallback Removal](development/phase-69f-read-alias-fallback-removal.md)
 - [Phase 69.F Client Contract Matrix](development/phase-69f-client-contract-matrix.md)
 - [Phase 69.F Public Backend Collection](development/phase-69f-public-backend-collection.md)
+- [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -125,13 +126,21 @@ candidate is the fourth bounded 69.F slice: all current browser Client API
 operations are classified against the deliberately smaller stable public-v1
 surface and browser-private helpers are excluded from external compatibility.
 The [Phase 69.F Public Backend Collection](development/phase-69f-public-backend-collection.md)
-candidate is the fifth bounded 69.F slice: it stabilizes actor-filtered
-`GET /api/v1/backends` with a minimal public representation, authorization-
-scope-bound keyset pagination and no new Backend-specific permission model.
-The richer first-party `/api/backends` route remains pre-v1 and is not
-deprecated or silently substituted in the browser. One semantically distinct
-Timer live/snapshot wrapper fallback plus the separate manual EPG fallback
-remain explicit debt. Home/LiveTV runtime is not reopened by this slice.
+is the accepted fifth bounded 69.F slice via PR #373: it stabilizes actor-
+filtered `GET /api/v1/backends` with a minimal public representation,
+authorization-scope-bound keyset pagination and no new Backend-specific
+permission model. The richer first-party `/api/backends` route remains pre-v1
+and is not deprecated or silently substituted in the browser.
+
+The [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
+candidate is the sixth bounded 69.F slice. A fresh post-#373 audit rejects
+premature public Recording and ProgramEvent resources because their durable
+public identities are not yet proven by the current productive read models.
+Instead, the slice retires only the manual Home EPG arbitrary-error fallback
+from `/api/epg/now-next?from=-1` to the semantically distinct
+`/api/vdr/events` route. Canonical EPG ownership and fail-soft empty-event
+behavior remain unchanged; Home/LiveTV lifecycle is not rebuilt. The distinct
+Timer live/snapshot wrapper fallback remains explicit debt.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

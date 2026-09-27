@@ -268,17 +268,11 @@
       "primary": "/api/vdr/timers/live",
       "fallback": "/api/vdr/timers",
       "reason": "Distinct live and snapshot semantics; requires a dedicated semantic decision rather than alias cleanup."
-    },
-    {
-      "id": "home-epg",
-      "primary": "/api/epg/now-next?from=-1",
-      "fallback": "/api/vdr/events",
-      "reason": "Home/LiveTV-sensitive lifecycle path; requires a dedicated lifecycle proof."
     }
   ],
   "derivedNextRuntimeCandidate": {
     "domain": "pending-live-audit",
     "proposedTemplate": null,
-    "reason": "Backend discovery is stabilized by the successor 69.F slice. The next public runtime domain must be selected from a fresh live client-gap and dependency audit rather than inherited from this matrix."
+    "reason": "Backend discovery is stabilized and the Home EPG arbitrary-error fallback is retired by its dedicated 69.F successor slice. The next public runtime domain must still be selected from a fresh live client-gap, identity and dependency audit rather than inherited from this matrix."
   }
 }

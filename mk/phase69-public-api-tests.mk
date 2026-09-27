@@ -433,3 +433,15 @@ test-phase69f-public-backend-collection:
 		-o $(BUILD_DIR)/test_public_backend_collection_security
 	$(BUILD_DIR)/test_public_backend_collection_security
 	python3 tools/check_phase69f_public_backend_collection.py
+
+
+.PHONY: test-phase69f-home-epg-fallback-removal
+
+test-phase69f-home-epg-fallback-removal:
+	node web/frontend/tests/test_phase69f_home_epg_fallback_removal.js
+	node web/frontend/tests/test_home_now_next_artwork_hero.js
+	node web/frontend/tests/test_phase66_live_tv_hero.js
+	node web/frontend/tests/test_post_phase66_home_performance.js
+	python3 tools/check_phase69f_home_epg_fallback_removal.py
+
+test-frontend-contracts: test-phase69f-home-epg-fallback-removal
