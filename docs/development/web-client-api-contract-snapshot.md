@@ -7,6 +7,7 @@
 - [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
 - [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
 - [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
+- [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -200,6 +201,12 @@ retains the first-party canonical `/api/epg/now-next?from=-1` owner but no
 longer substitutes `/api/vdr/events` after arbitrary failure. This is client
 routing hardening only; it does not declare either pre-v1 route to be a stable
 public ProgramEvent contract.
+
+The dedicated [Timer live single-route hardening](phase-69f-timer-live-fallback-removal.md)
+keeps `fetchClientTimers()` on `/api/vdr/timers/live` only. The separate
+snapshot route remains pre-v1 and available to its own consumers; it is no
+longer a browser retry target after arbitrary live-request failure. The server
+retains ownership of its explicit live-service-unavailable snapshot decision.
 
 
 ## Current Direct Fetch Inventory

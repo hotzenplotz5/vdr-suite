@@ -59,24 +59,24 @@ require(r'\"deprecatedAliases\":[]' in public_runtime, "public capabilities must
 
 client_api = read("web/frontend/api/client-api.js")
 require(
-    "function requestJsonWithFallback(path, fallbackPath, options)" in client_api and
-    "return requestJson(path, options).catch(function (error)" in client_api and
-    "return requestJson(fallbackPath, options);" in client_api,
-    "single fallback helper is no longer the remaining inventoried catch-all behavior",
+    "function requestJsonWithFallback(path, fallbackPath, options)" not in client_api,
+    "retired single-path fallback helper unexpectedly returned",
 )
 require(
     "function requestJsonWithFallbacks(paths, options)" not in client_api,
     "retired multi-path fallback helper unexpectedly returned",
 )
 
-fallback_contracts = (
-    ("fetchClientTimers","fetchClientTimerConflicts",("/api/vdr/timers/live","/api/vdr/timers")),
+timer_body = function_body(client_api, "fetchClientTimers", "fetchClientTimerConflicts")
+require(
+    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "Timer browser read must keep the live route",
 )
-for function_name, next_name, routes in fallback_contracts:
-    body = function_body(client_api, function_name, next_name)
-    require("requestJsonWithFallback" in body, f"{function_name} fallback helper classification drifted")
-    for route in routes:
-        require(route in body, f"{function_name} fallback route disappeared: {route}")
+require(
+    "requestJsonWithFallback" not in timer_body
+    and "'/api/vdr/timers'" not in timer_body,
+    "Timer browser read must not restore live/snapshot fallback probing",
+)
 
 read_alias_contracts = (
     ("fetchClientVdrOverview","fetchClientVdrStatus","/api/vdr/overview","/api/vdr"),
@@ -161,4 +161,4 @@ print("Phase 69.E legacy-route classification guard passed.")
 print("Routes: 125 total / 7 public-v1 / 118 retained unversioned.")
 print("Legacy: 27 same-handler groups / 54 alias members / 64 standalone transition / 0 deprecated.")
 print("69.E baseline: 15 wrapper call sites plus one manual EPG GET fallback, including four definite state-changing SearchTimer mutation fallbacks.")
-print("Current downstream state: 1 Timer live/snapshot wrapper fallback remains; Home EPG, same-handler read aliases and SearchTimer fallback probing are retired by 69.F.")
+print("Current downstream state: all browser route fallback probing is retired by dedicated 69.F successors; retained server routes remain classified pre-v1.")

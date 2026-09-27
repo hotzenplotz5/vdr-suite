@@ -38,8 +38,12 @@ require(
     "speculative SearchTimer live route must stay out of the bundled client",
 )
 require(
-    client_api.count("return requestJsonWithFallback(") == 1,
-    "expected only the Timer live/snapshot wrapper fallback to remain",
+    client_api.count("return requestJsonWithFallback(") == 0,
+    "all wrapper fallback calls must remain retired by 69.F successors",
+)
+require(
+    "function requestJsonWithFallback(path, fallbackPath, options)" not in client_api,
+    "retired single-path fallback helper unexpectedly returned",
 )
 
 timer_body = function_body(
@@ -48,10 +52,13 @@ timer_body = function_body(
     "fetchClientTimerConflicts",
 )
 require(
-    "requestJsonWithFallback(" in timer_body
-    and "/api/vdr/timers/live" in timer_body
-    and "/api/vdr/timers" in timer_body,
-    "Timer live/snapshot fallback boundary drifted",
+    "requestJson('/api/vdr/timers/live', options)" in timer_body,
+    "Timer successor must keep the live route",
+)
+require(
+    "requestJsonWithFallback" not in timer_body
+    and "'/api/vdr/timers'" not in timer_body,
+    "Timer successor must not restore snapshot fallback probing",
 )
 
 searchtimer_contracts = (
@@ -199,4 +206,4 @@ require(
 
 print("Phase 69.F SearchTimer fallback-removal guard passed.")
 print("SearchTimer client: one route per operation; no alias retry and no speculative live probe.")
-print("Remaining wrapper fallback call sites: 1 Timer live/snapshot fallback, plus the separate manual EPG fallback.")
+print("Remaining wrapper fallback call sites: 0; Home EPG and Timer semantic fallbacks are retired by dedicated successors.")
