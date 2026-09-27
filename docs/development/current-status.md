@@ -34,7 +34,9 @@ accepted the federated Channel collection with explicit per-source status and
 safe partial multi-backend semantics. Both preserve existing authorities and do
 not promote legacy collection shapes by analogy.
 
-The first 69.E compatibility-policy foundation is merged through PR #366.
+The first 69.E compatibility-policy foundation is merged through PR #366; its
+accepted contract remains in
+[Phase 69.E Compatibility Policy Foundation](phase-69e-compatibility-policy-foundation.md).
 Current bounded 69.E candidate: classify the complete retained unversioned
 surface before any alias retirement. The live baseline is 118 retained
 unversioned route literals: 27 same-handler alias groups / 54 alias members and
