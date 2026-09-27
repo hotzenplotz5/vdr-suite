@@ -153,7 +153,7 @@ doc = read("docs/development/phase-69f-client-contract-matrix.md")
 for token in (
     "56 base ",
     "fetchClient*",
-    "browser, TV, mobile, desktop and Kodi",
+    "Browser, TV, mobile, desktop and Kodi",
     "GET /api/v1/backends",
     "does not exist",
     "first justified runtime candidate",
